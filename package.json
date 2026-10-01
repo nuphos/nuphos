@@ -1,0 +1,33 @@
+{
+  "name": "nuphos",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Nuphos monorepo — `bun run dev` boots backend + desktop with a live dashboard.",
+  "scripts": {
+    "dev": "bun scripts/dev.ts",
+    "dev:stop": "bun scripts/dev-stack-cli.ts stop",
+    "dev:reset": "bun scripts/dev-stack-cli.ts reset",
+    "dev:logs": "bun scripts/dev-stack-cli.ts logs",
+    "dev:ps": "bun scripts/dev-stack-cli.ts ps",
+    "dev:login": "bun scripts/dev-stack-cli.ts login",
+    "dev:runtime-password": "bun scripts/dev-stack-cli.ts runtime-password",
+    "test": "node --test --experimental-strip-types scripts/*.test.mjs scripts/*.test.ts eslint-rules/*.test.mjs",
+    "lint": "eslint scripts eslint-rules",
+    "check:cycles": "node scripts/check-import-cycles.mjs",
+    "format": "prettier --experimental-cli --write .",
+    "format:check": "prettier --experimental-cli --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10",
+    "eslint-plugin-import-x": "4.17.1",
+    "eslint-plugin-sonarjs": "4.2.0",
+    "eslint-plugin-unicorn": "72.0.0",
+    "globals": "^17.8.0",
+    "madge": "8.0.0",
+    "prettier": "3.9.6",
+    "typescript-eslint": "^8.65.0"
+  }
+}

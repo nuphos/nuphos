@@ -1,0 +1,110 @@
+name: Build kube-relay-agent image
+
+# Builds + pushes the on-prem relay agent image (apps/kube-relay-agent) multi-arch
+# to Amazon ECR PUBLIC. Same reasoning as apps/node-shell: this image runs on
+# CUSTOMERS' clusters, which hold no Zeabur registry credentials, so it must be
+# publicly pullable — hence ECR Public, not private ECR.
+#
+# The backend hands customers the resulting @sha256 digest via
+# NUPHOS_RELAY_AGENT_IMAGE (config.relay.agentImage).
+#
+on:
+  push:
+    tags:
+      - 'kube-relay-agent-v*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'kube-relay-agent-v<version> tag to publish'
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # ECR Public's push API lives ONLY in us-east-1, regardless of console region.
+  AWS_REGION: us-east-1
+  ECR_PUBLIC_ALIAS: c7s2j3w4
+  REPOSITORY: kube-relay-agent
+  AWS_DEPLOY_ROLE_ARN: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/gha-atlas-kube-relay-agent-deployer
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Resolve release tag
+        id: release
+        env:
+          INPUT_REF: ${{ github.event.inputs.ref || github.ref_name }}
+        run: |
+          RELEASE_TAG="${INPUT_REF#refs/tags/}"
+          if [[ ! "${RELEASE_TAG}" =~ ^kube-relay-agent-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Agent image publishes require a kube-relay-agent-v<semver> tag, got '${INPUT_REF}'"
+            exit 1
+          fi
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${RELEASE_TAG#kube-relay-agent-}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ steps.release.outputs.release_tag }}
+          persist-credentials: false
+
+      - name: Require AWS_ACCOUNT_ID
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: |
+          if [[ -z "$AWS_ACCOUNT_ID" ]]; then
+            echo "::error::Configure AWS_ACCOUNT_ID as an Actions variable. Without it the deploy-role ARN collapses to arn:aws:iam:::role/... and assume-role fails with an opaque AWS error."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-kube-relay-agent-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR Public
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          registry-type: public
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Compute image ref
+        id: ref
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
+        run: |
+          echo "ref=public.ecr.aws/${ECR_PUBLIC_ALIAS}/${REPOSITORY}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "repo=public.ecr.aws/${ECR_PUBLIC_ALIAS}/${REPOSITORY}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push (multi-arch)
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: apps/kube-relay-agent
+          file: apps/kube-relay-agent/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          tags: ${{ steps.ref.outputs.ref }}
+
+      - name: Report digest
+        env:
+          IMAGE_REF: ${{ steps.ref.outputs.ref }}
+          IMAGE_REPO: ${{ steps.ref.outputs.repo }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "Published ${IMAGE_REF}"
+          echo "Immutable digest: ${IMAGE_DIGEST}"
+          echo "Pin this into NUPHOS_RELAY_AGENT_IMAGE:"
+          echo "  ${IMAGE_REPO}@${IMAGE_DIGEST}"

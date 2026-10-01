@@ -1,0 +1,12 @@
+# actionlint only knows GitHub-hosted runner labels, so every job in this repo —
+# which runs on Blacksmith — otherwise lints as "unknown label". Declaring them
+# here is what makes `actionlint .github/workflows/*.yml` usable at all, whether
+# run locally or by a review bot. Derived from the labels actually in use:
+#   rg -o 'runs-on: [a-z0-9-]+' .github/workflows/*.yml | sort -u
+self-hosted-runner:
+  labels:
+    - blacksmith-2vcpu-ubuntu-2404-arm
+    - blacksmith-4vcpu-ubuntu-2204
+    - blacksmith-4vcpu-ubuntu-2404
+    - blacksmith-4vcpu-windows-2025
+    - blacksmith-6vcpu-macos-26

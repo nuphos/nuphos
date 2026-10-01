@@ -1,0 +1,44 @@
+#!/bin/sh
+# Format-only pre-commit gate: runs `prettier --check` against staged files.
+#
+# Opt in with:
+#   git config core.hooksPath .githooks
+#
+# Deliberately NOT running ESLint: the backend config is type-aware, so a lint
+# pass builds a full TypeScript program and takes far too long for a commit
+# hook. Lint runs in CI instead.
+#
+# Bypass a single commit with `git commit --no-verify`.
+
+set -e
+
+# Staged, still-present files that Prettier can parse. -z/xargs -0 keeps paths
+# with spaces intact.
+staged=$(git diff --cached --name-only --diff-filter=ACMR -z |
+  tr '\0' '\n' |
+  grep -Ei '\.(js|jsx|mjs|cjs|ts|tsx|json|css|scss|html|md|ya?ml)$' || true)
+
+[ -z "$staged" ] && exit 0
+
+# Prettier lives in the root devDependencies; `bun install` at the repo root
+# provides it. Skip rather than fail if it is not installed yet.
+prettier="$(git rev-parse --show-toplevel)/node_modules/.bin/prettier"
+if [ ! -x "$prettier" ]; then
+  echo "pre-commit: prettier not installed (run \`bun install\` at the repo root); skipping."
+  exit 0
+fi
+
+# --ignore-unknown so files covered by .prettierignore or unsupported parsers
+# do not error the whole run. `--` stops a staged path that starts with a dash
+# from being read as a Prettier option.
+if ! printf '%s\n' "$staged" | xargs "$prettier" --ignore-unknown --check --; then
+  cat <<'MSG'
+
+pre-commit: staged files are not Prettier-formatted.
+
+  Fix them:   bun run format
+  Then:       git add -u && git commit
+  Bypass:     git commit --no-verify
+MSG
+  exit 1
+fi

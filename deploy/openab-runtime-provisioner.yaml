@@ -1,0 +1,102 @@
+# RBAC for the backend's Claude Code runtime provisioner: it reconciles
+# per-team OpenAB sandboxes (Deployment + Service + Secret) inside this
+# dedicated namespace and nothing else. Enable with
+# CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED=true on the backend. Team
+# administrators select each managed runtime's image in Settings; the provider
+# image environment variables are optional defaults for legacy runtimes; a
+# selected image must name an immutable @sha256 digest.
+#
+# The RoleBinding subject must match the backend's ServiceAccount — adjust
+# name/namespace before applying:
+#   kubectl get deploy nuphos-backend -n production \
+#     -o jsonpath='{.spec.template.spec.serviceAccountName}'
+#
+# Runtimes need no instructions ConfigMap: the backend delivers the agent's
+# system prompt over the ACP prompt channel. An `openab-runtime-workspace`
+# ConfigMap left over in the namespace is unused and can be deleted.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openab-runtimes
+  labels:
+    # The runtime pod spec satisfies `restricted` only once the provisioner that
+    # sets seccompProfile: RuntimeDefault has rolled every runtime. Apply these
+    # labels after that deploy, or enforcement rejects the older pods.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# Requests only. A quota on `limits.cpu` would reject any pod without a CPU
+# limit, which is what CLAUDE_CODE_RUNTIME_CPU_LIMIT=none produces.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: openab-runtime-capacity
+  namespace: openab-runtimes
+spec:
+  hard:
+    count/pods: '60'
+    requests.cpu: '15'
+    requests.memory: 60Gi
+    # Deliberately no `persistentvolumeclaims` dimension: admission charges a
+    # claim before the etcd write and never refunds the 409 that a losing
+    # replica gets back, so the counter only falls on the quota controller's
+    # periodic resync and a burst of creates can pin the namespace at its cap.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openab-runtime-provisioner
+  namespace: openab-runtimes
+rules:
+  - apiGroups: ['apps']
+    resources: ['deployments']
+    verbs: ['get', 'list', 'create', 'patch', 'delete']
+  - apiGroups: ['']
+    resources: ['pods']
+    verbs: ['get', 'list']
+  - apiGroups: ['']
+    resources: ['pods/exec']
+    verbs: ['get', 'create']
+  - apiGroups: ['']
+    resources: ['services', 'secrets', 'configmaps', 'persistentvolumeclaims']
+    verbs: ['get', 'list', 'create', 'patch', 'delete']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openab-runtime-provisioner
+  namespace: openab-runtimes
+subjects:
+  - kind: ServiceAccount
+    name: default # <- replace with the backend's ServiceAccount
+    namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: openab-runtime-provisioner
+---
+# Read only: verify the claim UID and Delete reclaim policy, then observe the
+# CSI controller removing the PV. The backend cannot delete arbitrary PVs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openab-runtime-volume-observer
+rules:
+  - apiGroups: ['']
+    resources: ['persistentvolumes']
+    verbs: ['get']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openab-runtime-volume-observer
+subjects:
+  - kind: ServiceAccount
+    name: default # <- replace with the backend's ServiceAccount
+    namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openab-runtime-volume-observer

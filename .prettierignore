@@ -1,0 +1,44 @@
+# Dependencies and build output
+**/node_modules
+**/dist
+**/dist-electron
+**/release
+**/.next
+**/out
+**/build
+
+# Generated code — regenerate, don't reformat
+apps/backend/src/generated/**
+
+# Vendored / verbatim content shipped to the agent runtime. Reformatting these
+# changes the bytes the agent reads, so they stay byte-for-byte as authored.
+apps/backend/src/lib/agent/builtin-skills/**
+# system-prompt.ts readFileSync()s these on every turn and hands the text to the
+# model as the system message.
+apps/backend/src/lib/agent/prompts/**
+# Read verbatim and fed to a model as instructions, same as the two above.
+.claude/skills/**
+
+# Reference copy that relay-install-manifest.test.ts asserts is byte-identical
+# to the template literal in relay-install-manifest.ts. Prettier does not
+# reformat template-literal interiors, so only this side could move.
+apps/kube-relay-agent/deploy/**
+
+# Patch files must match upstream byte-for-byte
+apps/backend/patches/**
+
+# Test fixtures are intentionally malformed / third-party snapshots
+apps/backend/fixtures/**
+
+# Lockfiles
+**/*.lock
+pnpm-lock.yaml
+**/pnpm-lock.yaml
+
+# Go module (apps/tailscale-dialer) — gofmt owns this
+apps/tailscale-dialer/**
+
+# Xcode project: pbxproj, plists and asset-catalog JSON are written by Xcode.
+apps/ios/**
+# Android Studio project: Gradle, Kotlin and resource XML are not Prettier's.
+apps/android/**

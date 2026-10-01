@@ -1,0 +1,167 @@
+name: nuphos-local
+
+x-s3: &s3
+  S3_ENDPOINT: http://rustfs:9000
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?run ./init-env.sh first}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?run ./init-env.sh first}
+
+services:
+  mongo:
+    image: mongo:8.0.32
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    # Mongo shares a network only with the backend and RustFS; the runtime executes agent code.
+    networks: [data]
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    # Transactions need a replica set; the check initiates it on first run and
+    # stays unhealthy until this node is PRIMARY.
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - >-
+          try { quit(rs.status().members.some((m) => m.stateStr === 'PRIMARY') ? 0 : 1) }
+          catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }); quit(1) }
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    environment:
+      <<: *s3
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?run ./init-env.sh first}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?run ./init-env.sh first}
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      S3_ENDPOINT: http://127.0.0.1:9000
+      BUCKETS: nuphos-file-transfers nuphos-skills nuphos-journal
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - |
+        rm -f /tmp/buckets-ready
+        /entrypoint.sh rustfs &
+        pid=$$!
+        trap 'kill -TERM $$pid' TERM INT
+        until curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1; do
+          kill -0 $$pid 2>/dev/null || { echo "rustfs exited before becoming healthy" >&2; exit 1; }
+          sleep 1
+        done
+        # /health answers before the S3 API does, so 5xx and refused connections are retried.
+        for bucket in $$BUCKETS; do
+          waited=0
+          while :; do
+            status=$$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+              --aws-sigv4 'aws:amz:us-east-1:s3' --user "$$S3_ACCESS_KEY:$$S3_SECRET_KEY" \
+              "$$S3_ENDPOINT/$$bucket" || true)
+            case "$$status" in
+              200|409) echo "bucket $$bucket ready"; break ;;
+              000|5??)
+                kill -0 $$pid 2>/dev/null || { echo "rustfs exited while creating buckets" >&2; exit 1; }
+                if [ "$$waited" -ge 60 ]; then
+                  echo "bucket $$bucket: HTTP $$status after $${waited}s" >&2; kill -TERM $$pid; exit 1
+                fi
+                delay=$$((waited < 8 ? 1 : 4))
+                sleep "$$delay"
+                waited=$$((waited + delay)) ;;
+              *) echo "bucket $$bucket: HTTP $$status" >&2; kill -TERM $$pid; exit 1 ;;
+            esac
+          done
+        done
+        touch /tmp/buckets-ready
+        wait $$pid
+    networks: [data, default]
+    # Presigned transfer URLs name http://rustfs:9000; keep RUSTFS_PORT at 9000 for Desktop file transfers.
+    ports:
+      - 127.0.0.1:${RUSTFS_PORT:-9000}:9000
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'test -f /tmp/buckets-ready && curl -fsS http://127.0.0.1:9000/health']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
+    image: nuphos-backend:local
+    networks: [data, default]
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: '3000'
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
+      MONGODB_DB: nuphos
+      NUPHOS_JWT_SECRET: ${NUPHOS_JWT_SECRET:?run ./init-env.sh first}
+      NUPHOS_AUTH_BASE_URL: http://localhost:${BACKEND_PORT:-3000}
+      NUPHOS_DEV_EMAIL_OTP_LOG: 'true'
+      NUPHOS_LOCAL_STACK: 'true'
+      ATLAS_REDIS_ENABLED: 'false'
+      BRAINTRUST_TRACING_ENABLED: 'false'
+      NUPHOS_BACKEND_URL: http://backend:3000
+      NUPHOS_FILE_TRANSFER_S3_BUCKET: nuphos-file-transfers
+      NUPHOS_FILE_TRANSFER_S3_ENDPOINT: http://rustfs:9000
+      NUPHOS_FILE_TRANSFER_S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      NUPHOS_FILE_TRANSFER_S3_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      ATLAS_SKILLS_BUCKET: nuphos-skills
+      ATLAS_SKILLS_S3_ENDPOINT: http://rustfs:9000
+      ATLAS_SKILLS_S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      ATLAS_SKILLS_S3_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      JOURNAL_S3_BUCKET: nuphos-journal
+      JOURNAL_S3_ENDPOINT: http://rustfs:9000
+      JOURNAL_AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      JOURNAL_AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+    ports:
+      - 127.0.0.1:${BACKEND_PORT:-3000}:3000
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health/ready']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+    restart: unless-stopped
+
+  runtime:
+    image: ghcr.io/zeabur/nuphos-runtime:${RUNTIME_TAG:-0.1.2-claude-code}
+    # Published for amd64 only; Apple Silicon runs it under emulation.
+    platform: linux/amd64
+    environment:
+      OPENAB_STREAM_EDIT_INTERVAL_MS: '300'
+      # A fresh volume otherwise waits for someone to open the setup screen;
+      # locally, a generated password in the logs is quicker.
+      NUPHOS_RUNTIME_AUTOGEN_PASSWORD: 'true'
+    # The runtime generates its password on first boot and keeps it in
+    # /home/node/.nuphos-runtime/auth-key, so this volume must persist.
+    volumes:
+      - runtime-home:/home/node
+      - runtime-workspace:/workspace
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://127.0.0.1:8080/']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+networks:
+  data:
+    internal: true
+
+volumes:
+  mongo-data:
+  mongo-config:
+  rustfs-data:
+  runtime-home:
+  runtime-workspace:

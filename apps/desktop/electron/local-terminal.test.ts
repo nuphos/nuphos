@@ -1,0 +1,151 @@
+import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
+import { test } from 'node:test'
+
+import { LocalTerminalSessions, terminalSize } from './local-terminal.ts'
+
+import type { LocalTerminalEvent } from '../src/api/local-terminal-types.ts'
+import type { WebContents } from 'electron'
+
+function renderer() {
+  const events: LocalTerminalEvent[] = []
+  const owner = Object.assign(new EventEmitter(), {
+    isDestroyed: () => false,
+    send: (_channel: string, event: LocalTerminalEvent) => {
+      events.push(event)
+      owner.emit('terminal-event', event)
+    },
+  })
+
+  return { owner: owner as unknown as WebContents, emitter: owner, events }
+}
+
+function waitForOutput(emitter: EventEmitter, expected: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let output = ''
+    const timer = setTimeout(() => {
+      emitter.off('terminal-event', onEvent)
+      reject(new Error(`Terminal output did not contain expected marker: ${expected}`))
+    }, 10_000)
+    const onEvent = (event: LocalTerminalEvent) => {
+      if (event.type !== 'data') return
+      output += event.data
+      if (!output.includes(expected)) return
+      clearTimeout(timer)
+      emitter.off('terminal-event', onEvent)
+      resolve()
+    }
+
+    emitter.on('terminal-event', onEvent)
+  })
+}
+
+test('terminal dimensions remain valid for hidden panes and malformed input', () => {
+  assert.equal(terminalSize(0, 80), 2)
+  assert.equal(terminalSize(Number.NaN, 80), 80)
+  assert.equal(terminalSize(9000, 80), 500)
+  assert.equal(terminalSize(90.9, 80), 90)
+})
+
+test(
+  'local shell has a real TTY, resizes, handles Ctrl+C and closes on renderer teardown',
+  { timeout: 20_000, skip: process.platform === 'win32' },
+  async () => {
+    const sessions = new LocalTerminalSessions()
+    const { owner, emitter, events } = renderer()
+
+    try {
+      const id = 'tab-1'
+
+      sessions.start(owner, id, 80, 24)
+      sessions.replay(owner, id)
+      const ttyReady = waitForOutput(emitter, 'NUPHOS_PTY_OK')
+
+      sessions.input(owner, id, "test -t 0 && printf '%s%s\\n' NUPHOS_ PTY_OK\r")
+      await ttyReady
+      sessions.resize(owner, id, 101, 37)
+      const resized = waitForOutput(emitter, '37 101')
+
+      sessions.input(owner, id, 'stty size\r')
+      await resized
+      sessions.input(owner, id, 'sleep 30\r')
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      sessions.input(owner, id, '\x03')
+      const interrupted = waitForOutput(emitter, 'NUPHOS_INTERRUPT_OK')
+
+      sessions.input(owner, id, "printf '%s%s\\n' NUPHOS_ INTERRUPT_OK\r")
+      await interrupted
+      assert.ok(events.some((event) => event.type === 'data'))
+      emitter.emit('destroyed')
+      assert.throws(() => sessions.input(owner, id, 'echo should-not-run\r'), /not available/)
+    } finally {
+      sessions.closeAll()
+    }
+  },
+)
+
+test(
+  'a remounted view reattaches to the tab’s shell and replays what it missed',
+  { timeout: 20_000, skip: process.platform === 'win32' },
+  async () => {
+    const sessions = new LocalTerminalSessions()
+    const { owner, emitter, events } = renderer()
+    const id = 'tab-1'
+
+    try {
+      const first = sessions.start(owner, id, 80, 24)
+      const moved = waitForOutput(emitter, 'NUPHOS_MOVED_OK')
+
+      // Leave a mark the shell itself carries. Deliberately `cd` rather than a
+      // variable: the assignment syntax differs between shells and this spawns
+      // whatever login shell the developer actually uses, so a fish user would
+      // watch this fail for reasons that have nothing to do with the terminal.
+      sessions.input(owner, id, "cd /usr/lib; printf '%s%s\\n' NUPHOS_ MOVED_OK\r")
+      await moved
+
+      // Switching chat session unmounts the view and mounts it again. Same tab
+      // id, so the shell must be the one already running — not a new one.
+      const sent = events.length
+      const again = sessions.start(owner, id, 80, 24)
+
+      assert.equal(again.shell, first.shell)
+      sessions.replay(owner, id)
+      const replayed = events
+        .slice(sent)
+        .map((event) => (event.type === 'data' ? event.data : ''))
+        .join('')
+
+      assert.match(replayed, /NUPHOS_MOVED_OK/)
+      const stillThere = waitForOutput(emitter, '/usr/lib')
+
+      // A shell that had been restarted would answer with the home directory
+      // the pty is spawned in, so only the original process says /usr/lib.
+      sessions.input(owner, id, 'pwd\r')
+      await stillThere
+    } finally {
+      sessions.closeAll()
+    }
+  },
+)
+
+test('sessions reject another window and cleanup on reload', () => {
+  const sessions = new LocalTerminalSessions()
+  const first = renderer()
+  const other = renderer()
+
+  try {
+    const id = 'tab-1'
+
+    sessions.start(first.owner, id, 80, 24)
+
+    assert.throws(() => sessions.replay(other.owner, id), /not available/)
+    assert.throws(() => sessions.start(other.owner, id, 80, 24), /not available/)
+    assert.throws(() => sessions.input(other.owner, id, 'test'), /not available/)
+    assert.throws(() => sessions.close(other.owner, id), /not available/)
+    first.emitter.emit('did-start-navigation', {}, 'http://localhost:5173/', false, true)
+    assert.throws(() => sessions.replay(first.owner, id), /not available/)
+    sessions.close(first.owner, id)
+  } finally {
+    sessions.closeAll()
+  }
+})

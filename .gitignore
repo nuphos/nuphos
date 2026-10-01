@@ -1,0 +1,45 @@
+# Environment
+.env
+.env.*
+# Editor/Finder duplicates ('.env 2', '.env copy') match neither rule above —
+# a real one was committed this way once. Anything starting '.env ' is one.
+.env *
+!.env.example
+
+# Dependencies
+node_modules
+
+# Build output
+dist
+build
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+
+# Claude
+.claude/*
+# ...but track project-scoped skills shared with the team
+!.claude/skills/
+# ...and the shared harness settings and the hooks they point at
+!.claude/settings.json
+!.claude/hooks/
+
+# Python bytecode from the skills' helper scripts
+__pycache__/
+*.pyc

@@ -1,0 +1,8 @@
+{
+  "name": "@nuphos/eslint-rules",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Local ESLint rules for comment discipline. Imported by relative path from each app's eslint.config; not published and not a workspace dependency.",
+  "main": "index.js"
+}

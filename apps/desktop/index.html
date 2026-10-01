@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nuphos</title>
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('atlas.theme')
+          var pref =
+            stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+          var isLight =
+            pref === 'light' ||
+            (pref === 'system' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: light)').matches)
+          if (isLight) document.documentElement.classList.add('light')
+        } catch (_) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

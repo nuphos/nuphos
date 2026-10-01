@@ -1,0 +1,98 @@
+name: Build node-shell image
+
+# Builds + pushes the privileged node-shell image (apps/node-shell) multi-arch
+# to Amazon ECR PUBLIC. This image runs on USERS' arbitrary clusters, so it
+# must be publicly pullable without credentials.
+#
+# The desktop app pins the resulting @sha256 digest via NUPHOS_NODE_SHELL_IMAGE.
+#
+# workflow_dispatch-only until the infra prerequisites exist (see
+# apps/node-shell/README.md):
+#   - ECR Public repo `node-shell`
+#   - the registry alias (set ECR_PUBLIC_ALIAS below)
+#   - an OIDC deploy role with ecr-public push + sts:GetServiceBearerToken
+# TODO(ZEA-9869): enable a `node-shell-v*` tag trigger once the infra is in place.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to publish (e.g. v1)'
+        required: true
+        default: 'v1'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # ECR Public's push API lives ONLY in us-east-1, regardless of console region.
+  AWS_REGION: us-east-1
+  # TODO(ZEA-9869): your ECR Public registry alias (公有注册表 → 设置).
+  ECR_PUBLIC_ALIAS: c7s2j3w4
+  REPOSITORY: node-shell
+  # TODO: a deploy role with ecr-public push perms + sts:GetServiceBearerToken.
+  AWS_DEPLOY_ROLE_ARN: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/gha-atlas-node-shell-deployer
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require AWS_ACCOUNT_ID
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: |
+          if [[ -z "$AWS_ACCOUNT_ID" ]]; then
+            echo "::error::Configure AWS_ACCOUNT_ID as an Actions variable. Without it the deploy-role ARN collapses to arn:aws:iam:::role/... and assume-role fails with an opaque AWS error."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-node-shell-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR Public
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          registry-type: public
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Compute image ref
+        id: ref
+        env:
+          # Bind user input to an env var so it can't be interpolated into the
+          # shell command (template-injection safe).
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          echo "ref=public.ecr.aws/${ECR_PUBLIC_ALIAS}/${REPOSITORY}:${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+          echo "repo=public.ecr.aws/${ECR_PUBLIC_ALIAS}/${REPOSITORY}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push (multi-arch)
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: apps/node-shell
+          file: apps/node-shell/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          tags: ${{ steps.ref.outputs.ref }}
+
+      - name: Report digest
+        run: |
+          echo "Published ${{ steps.ref.outputs.ref }}"
+          echo "Immutable digest: ${{ steps.build.outputs.digest }}"
+          echo "Pin this into NODE_SHELL_IMAGE:"
+          echo "  ${{ steps.ref.outputs.repo }}@${{ steps.build.outputs.digest }}"

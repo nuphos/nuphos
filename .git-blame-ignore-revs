@@ -1,0 +1,19 @@
+# Commits that only reformat. `git blame` skips these so it reports the commit
+# that last changed the code, not the one that rewrapped it.
+#
+# Enable once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub's blame view applies this file automatically.
+
+# chore(format): format the repo with Prettier and make the gate blocking (#682)
+dbdd1aa99c48b00328c131552afa2ce259d6c3f1
+
+# chore(lint): promote three autofixable rules to error and apply their fixes (#705)
+07b64983c05aa55d3238ced86e7f90563938abf6
+
+# chore(lint): enforce blank-line discipline and consistent type definitions (#707)
+4acf953028e0edbe64b724fbf67474b12f67cad8
+
+# chore(lint): clean up 2480 lint warnings across all workspaces (#714)
+7a131742470421ed6fc20ea2416274c31549681e

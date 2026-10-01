@@ -1,0 +1,68 @@
+diff --git a/build/esm/transport/http-transport-utils.js b/build/esm/transport/http-transport-utils.js
+index 2a3c867d36e8a1b792ea2f513499382e72101261..cbf4e456ebf0b2291d3a71cb9165888028d1aa43 100644
+--- a/build/esm/transport/http-transport-utils.js
++++ b/build/esm/transport/http-transport-utils.js
+@@ -90,9 +90,16 @@ export function sendWithHttp(params, agent, data, onDone, timeoutMillis) {
+     });
+     var reportTimeoutErrorEvent = nodeVersion >= 14 ? 'close' : 'abort';
+     req.on(reportTimeoutErrorEvent, function () {
+-        onDone({
+-            status: 'failure',
+-            error: new Error('Request timed out'),
++        // Bun emits the request 'close' event BEFORE the response 'end' event
++        // (Node emits it after), so reporting failure synchronously here marks
++        // every successful export as "Request timed out". Defer one macrotask
++        // so a completed response reports success first; requests that died
++        // without a response still report failure.
++        setImmediate(function () {
++            onDone({
++                status: 'failure',
++                error: new Error('Request timed out'),
++            });
+         });
+     });
+     compressAndSend(req, params.compression, data, function (error) {
+diff --git a/build/esnext/transport/http-transport-utils.js b/build/esnext/transport/http-transport-utils.js
+index 63a720e4a505cf5250c66e665f6e0ee5421a96be..9f18b9d8b700265ab8ed5c637211bf976275b3e5 100644
+--- a/build/esnext/transport/http-transport-utils.js
++++ b/build/esnext/transport/http-transport-utils.js
+@@ -79,10 +79,15 @@ export function sendWithHttp(params, agent, data, onDone, timeoutMillis) {
+     });
+     const reportTimeoutErrorEvent = nodeVersion >= 14 ? 'close' : 'abort';
+     req.on(reportTimeoutErrorEvent, () => {
+-        onDone({
++        // Bun emits the request 'close' event BEFORE the response 'end' event
++        // (Node emits it after), so reporting failure synchronously here marks
++        // every successful export as "Request timed out". Defer one macrotask
++        // so a completed response reports success first; requests that died
++        // without a response still report failure.
++        setImmediate(() => onDone({
+             status: 'failure',
+             error: new Error('Request timed out'),
+-        });
++        }));
+     });
+     compressAndSend(req, params.compression, data, (error) => {
+         onDone({
+diff --git a/build/src/transport/http-transport-utils.js b/build/src/transport/http-transport-utils.js
+index a80a830901ccdd11b7587b8fee8c591fdc6b4dce..e44486f965182cf994d113de7020e8f7a883abad 100644
+--- a/build/src/transport/http-transport-utils.js
++++ b/build/src/transport/http-transport-utils.js
+@@ -82,10 +82,15 @@ function sendWithHttp(params, agent, data, onDone, timeoutMillis) {
+     });
+     const reportTimeoutErrorEvent = nodeVersion >= 14 ? 'close' : 'abort';
+     req.on(reportTimeoutErrorEvent, () => {
+-        onDone({
++        // Bun emits the request 'close' event BEFORE the response 'end' event
++        // (Node emits it after), so reporting failure synchronously here marks
++        // every successful export as "Request timed out". Defer one macrotask
++        // so a completed response reports success first; requests that died
++        // without a response still report failure.
++        setImmediate(() => onDone({
+             status: 'failure',
+             error: new Error('Request timed out'),
+-        });
++        }));
+     });
+     compressAndSend(req, params.compression, data, (error) => {
+         onDone({

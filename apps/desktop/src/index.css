@@ -1,0 +1,1963 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-zGray-50: 245, 244, 245;
+    --color-zGray-100: 234, 233, 236;
+    --color-zGray-150: 221, 220, 224;
+    --color-zGray-200: 208, 206, 212;
+    --color-zGray-250: 196, 193, 199;
+    --color-zGray-300: 183, 180, 187;
+    --color-zGray-400: 152, 149, 157;
+    --color-zGray-500: 126, 122, 133;
+    --color-zGray-600: 101, 97, 107;
+    --color-zGray-700: 76, 72, 81;
+    --color-zGray-750: 63, 60, 68;
+    --color-zGray-800: 50, 47, 55;
+    --color-zGray-850: 33, 32, 35;
+    --color-zGray-900: 25, 24, 27;
+    --color-zGray-950: 15, 14, 17;
+
+    --color-zViolet-50: 243, 244, 255;
+    --color-zViolet-100: 203, 203, 255;
+    --color-zViolet-200: 203, 203, 255;
+    --color-zViolet-300: 159, 155, 246;
+    --color-zViolet-400: 116, 93, 243;
+    --color-zViolet-500: 99, 0, 255;
+    --color-zViolet-600: 80, 30, 203;
+    --color-zViolet-700: 62, 20, 162;
+    --color-zViolet-800: 49, 17, 131;
+    --color-zViolet-900: 41, 18, 113;
+    --color-zViolet-950: 17, 2, 58;
+    /* Interactive violet stays above 4.5:1 on the dark canvas, including when
+       it sits on its own translucent selection/status tint. */
+    --color-zViolet-accent: 176, 125, 255;
+
+    --color-zOrangered-400: 244, 119, 89;
+    --color-zOrangered-500: 238, 67, 14;
+    --color-zOrangered-600: 201, 50, 0;
+    --color-zOrangered-700: 175, 47, 9;
+
+    /*
+     * zBlue — primary button color sampled from the Figma "Agent" design.
+     * 500 is the resting fill (#3b73ff); 400 lightens for hover, 600 darkens
+     * for the pressed state, and accent drives the focus ring. The same scale
+     * is used in both themes since the saturated blue reads on light and dark.
+     */
+    --color-zBlue-400: 99, 144, 255;
+    --color-zBlue-500: 59, 115, 255;
+    --color-zBlue-600: 42, 95, 224;
+    --color-zBlue-700: 32, 78, 190;
+    --color-zBlue-accent: 124, 160, 255;
+
+    /* Status colors — the defaults are tuned for dark backgrounds. Error is
+       deliberately brighter than the old coral so small labels remain AA on
+       both the canvas and a 10% error tint. */
+    --color-success: 34, 209, 128;
+    --color-error: 239, 98, 82;
+    --color-warning: 245, 166, 35;
+
+    /* transitions-dev: Text states swap */
+    --text-swap-dur: 150ms;
+    --text-swap-translate-y: 4px;
+    --text-swap-blur: 2px;
+    --text-swap-ease: ease-in-out;
+
+    /* transitions-dev: Number pop-in */
+    --digit-dur: 500ms;
+    --digit-distance: 8px;
+    --digit-stagger: 70ms;
+    --digit-blur: 2px;
+    --digit-ease: cubic-bezier(0.34, 1.45, 0.64, 1);
+    --digit-dir-x: 0;
+    --digit-dir-y: 1;
+
+    /* transitions-dev: Menu dropdowns */
+    --dropdown-open-dur: 180ms;
+    --dropdown-close-dur: 140ms;
+    --dropdown-pre-scale: 0.98;
+    --dropdown-closing-scale: 0.985;
+    --dropdown-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* transitions-dev: Tabs sliding */
+    --tabs-dur: 120ms;
+    --tabs-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --tabs-text-muted: rgb(var(--color-text-tertiary));
+    --tabs-text-active: rgb(var(--color-text-base));
+    --tabs-bar-bg: transparent;
+    --tabs-pill-bg: rgba(var(--color-zGray-800), 0.48);
+  }
+
+  html {
+    color-scheme: dark;
+    --color-text-base: 255, 255, 255;
+    --color-text-secondary: var(--color-zGray-300);
+    /* zGray-500 was only 4.02:1 here, which made the many 10–11px metadata
+       labels introduced by compact layouts too faint. */
+    --color-text-tertiary: var(--color-zGray-400);
+    --color-border: var(--color-zGray-800);
+    /* Content surface (bg-main) — night mode #1C1D1F, just above the sidebar
+       canvas (--color-appBg #191A1C); input fields (bg-field) sit raised above. */
+    --color-background-base: 28, 29, 31;
+    /* Input/search field fill (bg-field) — night mode #36373C, a shade above
+       the content surface (#2E2F33) so fields read as raised. */
+    --color-input-surface: 54, 55, 60;
+    --color-background-surface: var(--color-zGray-900);
+    --color-background-elevated: var(--color-zGray-850);
+    /* App canvas background / sidebar — night mode #0E0F11, deeper than the
+       content surface (#1C1D1F). */
+    --color-appBg: 14, 15, 17;
+    /*
+     * The agent page shares the workspace content canvas in both themes. Keep
+     * the semantic token so agent-specific overlays can track that surface
+     * without introducing a second page background.
+     */
+    --color-agent-canvas: var(--color-background-base);
+    --color-composer-surface: 38, 39, 43;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
+    /*
+     * Primary-button interaction shades. On dark surfaces hover lightens the
+     * fill and press darkens it. These flip in light mode (see html.light).
+     */
+    --color-zBlue-hover: var(--color-zBlue-400);
+    --color-zBlue-active: var(--color-zBlue-600);
+    /*
+     * Sidebar item interaction overlays — deliberately neutral (white alpha)
+     * so hover/active/focus don't inherit the cool-violet tint baked into the
+     * zGray neutral scale (zGray-800 = rgb 50,47,55, hue ≈262°).
+     */
+    --sidebar-overlay-hover: rgba(255, 255, 255, 0.05);
+    --sidebar-overlay-active: rgba(255, 255, 255, 0.08);
+    --sidebar-overlay-focus: rgba(255, 255, 255, 0.07);
+    /*
+     * Raised-surface edge. Alpha rather than a zGray rung so the same value
+     * works over any backdrop, and so depth comes from the shadow instead of
+     * from a high-contrast line.
+     */
+    --surface-hairline: rgba(255, 255, 255, 0.09);
+    --surface-hairline-strong: rgba(255, 255, 255, 0.16);
+    --surface-inner-highlight: rgba(255, 255, 255, 0.045);
+    --surface-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 10px 28px -14px rgba(0, 0, 0, 0.65);
+    --surface-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.32), 0 16px 40px -16px rgba(0, 0, 0, 0.75);
+    /* Cast leftwards onto whatever is sliding under a pinned column — the only
+       cue that columns are hiding under there. A gradient rather than a drop
+       shadow: a shadow blurs away at each cell's top and bottom, and a pinned
+       column is one cell per row, so it would scallop down the table instead
+       of reading as one edge. */
+    --table-sticky-shade: linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0.012) 40%,
+      rgba(0, 0, 0, 0.045) 66%,
+      rgba(0, 0, 0, 0.105) 86%,
+      rgba(0, 0, 0, 0.2) 100%
+    );
+    --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 14px 36px -20px rgba(0, 0, 0, 0.5);
+    --composer-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.22), 0 18px 44px -22px rgba(0, 0, 0, 0.6);
+  }
+
+  /*
+   * Accessible fallback for interactive elements that have not opted into a
+   * component-specific focus treatment. Without this, Chromium falls back to
+   * the host OS accent color, so otherwise-identical controls can show a
+   * different ring depending on both the element type and the user's macOS
+   * settings. Tailwind utilities are emitted after the base layer and can
+   * still intentionally replace this with a component-specific ring.
+   */
+  :where(
+    button,
+    a[href],
+    input:is([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']),
+    select,
+    summary,
+    [role='button'],
+    [tabindex]:not([tabindex='-1'], input, textarea)
+  ):focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgb(var(--color-zViolet-accent));
+  }
+
+  /* Text-entry controls show focus themselves (a bordered field's focus: border,
+     or an InputGroup wrapper's focus-within ring); an inset ring here would
+     draw a hard rectangle inside every rounded wrapper. */
+  :where(input, textarea):focus-visible {
+    outline: none;
+  }
+
+  /* Give otherwise-unstyled semantic controls a consistent shape as well as
+     a consistent color. Component utilities emitted later still win (for
+     example rounded-full icon buttons and bespoke segmented controls). */
+  :where(button, a[href], summary, [role='button'], [role='link']):focus-visible {
+    border-radius: 0.375rem;
+  }
+
+  /*
+   * Light theme inverts the zGray scale so components that hardcode
+   * `bg-zGray-900` (intended as "deep background" in dark) automatically
+   * become a light background. Mid-grey (500) is the pivot and stays.
+   * Brand colors (zViolet, zOrangered) are unchanged.
+   */
+  html.light {
+    color-scheme: light;
+    /*
+     * The "background-tier" rungs (900-950) collapse to near-white. zGray-950 is
+     * the deepest tier — the Agent conversation page and other "page canvas"
+     * surfaces use it, so it's held at #FCFCFD as the general app background.
+     * zGray-900 stays pure white so cards/menus/dialogs sitting on top read a
+     * touch brighter than the page. zGray-850 is held just barely off-white
+     * because many tables and panels use it for row dividers and hover
+     * backgrounds — pure white would erase them. zGray-800 and below keep more
+     * grey for stronger borders and hover states.
+     */
+    --color-zGray-50: 15, 14, 17;
+    --color-zGray-100: 25, 24, 27;
+    --color-zGray-150: 33, 32, 35;
+    --color-zGray-200: 50, 47, 55;
+    --color-zGray-250: 63, 60, 68;
+    --color-zGray-300: 76, 72, 81;
+    --color-zGray-400: 101, 97, 107;
+    --color-zGray-500: 126, 122, 133;
+    --color-zGray-600: 158, 155, 163;
+    --color-zGray-700: 188, 185, 192;
+    --color-zGray-750: 213, 211, 217;
+    --color-zGray-800: 224, 222, 228;
+    --color-zGray-850: 240, 239, 243;
+    --color-zGray-900: 255, 255, 255;
+    /* #FCFCFD — general app / Agent conversation page background. */
+    --color-zGray-950: 252, 252, 253;
+
+    --color-text-base: 36, 35, 38;
+    --color-text-secondary: var(--color-zGray-300);
+    --color-text-tertiary: var(--color-zGray-400);
+    --color-border: var(--color-zGray-800);
+    /* Content area background — #FCFCFD, matching the general app / Agent
+     * conversation page so surfaces read as one continuous canvas. */
+    --color-background-base: 252, 252, 253;
+    --color-background-surface: 255, 255, 255;
+    --color-background-elevated: 255, 255, 255;
+    /* Input/search field fill (bg-field) — light mode #F0F0F2, a subtle recess
+       below the near-white content surface. */
+    --color-input-surface: 240, 240, 242;
+    /* App canvas background — light mode #F3F3F4. */
+    --color-appBg: 243, 243, 244;
+    /* Agent canvas inherits --color-background-base from the shared theme token. */
+    --color-composer-surface: 255, 255, 255;
+    --scrollbar-thumb: rgba(36, 35, 38, 0.16);
+    --scrollbar-thumb-hover: rgba(36, 35, 38, 0.26);
+    /*
+     * On a light canvas a lighter hover would wash the button out, so both
+     * hover and press darken the fill (press goes one rung deeper).
+     */
+    --color-zBlue-hover: var(--color-zBlue-600);
+    --color-zBlue-active: var(--color-zBlue-700);
+
+    /*
+     * The default zViolet-accent (164,105,255) is too light for white
+     * backgrounds — pull it toward the brand zViolet-500 so accented text
+     * and focus rings stay readable.
+     */
+    --color-zViolet-accent: 99, 0, 255;
+
+    /*
+     * Status colors at their dark-mode brightness sit around 2–3:1 against
+     * white. Pull them toward AA-compliant shades, with enough margin to stay
+     * above 4.5:1 on their own 10% badge and diff tints.
+     */
+    --color-success: 18, 112, 53;
+    --color-error: 185, 28, 28;
+    --color-warning: 160, 70, 6;
+
+    /*
+     * A handful of zViolet/zOrangered shades are used as text (log levels,
+     * inline links). Their default light values fail AA on white, so the
+     * light theme borrows the darker rungs from the same palette.
+     */
+    --color-zViolet-300: 80, 30, 203;
+    --color-zOrangered-400: 175, 47, 9;
+
+    /* Neutral sidebar item overlays — black alpha on the light canvas. */
+    --sidebar-overlay-hover: rgba(0, 0, 0, 0.04);
+    --sidebar-overlay-active: rgba(0, 0, 0, 0.06);
+    --sidebar-overlay-focus: rgba(0, 0, 0, 0.05);
+
+    /* Black alpha on the light canvas; shadows tinted cool rather than neutral. */
+    --surface-hairline: rgba(0, 0, 0, 0.07);
+    --surface-hairline-strong: rgba(0, 0, 0, 0.14);
+    --surface-inner-highlight: rgba(255, 255, 255, 0.9);
+    --surface-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 28px -12px rgba(16, 24, 40, 0.14);
+    --table-sticky-shade: linear-gradient(
+      to right,
+      rgba(16, 24, 40, 0) 0%,
+      rgba(16, 24, 40, 0.004) 40%,
+      rgba(16, 24, 40, 0.015) 66%,
+      rgba(16, 24, 40, 0.035) 86%,
+      rgba(16, 24, 40, 0.065) 100%
+    );
+    --surface-shadow-raised:
+      0 1px 2px rgba(16, 24, 40, 0.06), 0 16px 40px -14px rgba(16, 24, 40, 0.2);
+    --composer-shadow: 0 1px 2px rgba(16, 24, 40, 0.035), 0 14px 36px -20px rgba(16, 24, 40, 0.1);
+    --composer-shadow-raised:
+      0 1px 2px rgba(16, 24, 40, 0.045), 0 18px 44px -22px rgba(16, 24, 40, 0.14);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: rgb(var(--color-background-base));
+    color: rgb(var(--color-text-base));
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    letter-spacing: -0.005em;
+    /* Keep the lighter greyscale rendering across themes. Combined with the
+       light theme's near-black token, this avoids the dense pure-black texture
+       that made Nuphos typography look heavier than Codex at the same weight. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+  }
+
+  .cloud-logo-aws,
+  .cloud-logo-github,
+  .cloud-logo-tailscale,
+  .cloud-logo-zeabur {
+    display: inline-flex;
+  }
+
+  .cloud-logo-zeabur {
+    box-sizing: border-box;
+    padding: 2px;
+  }
+
+  .cloud-logo-aws-light,
+  .cloud-logo-github-light,
+  .cloud-logo-tailscale-light,
+  .cloud-logo-zeabur-light {
+    display: none;
+  }
+
+  html.light .cloud-logo-aws-dark,
+  html.light .cloud-logo-github-dark,
+  html.light .cloud-logo-tailscale-dark,
+  html.light .cloud-logo-zeabur-dark {
+    display: none;
+  }
+
+  html.light .cloud-logo-aws-light,
+  html.light .cloud-logo-github-light,
+  html.light .cloud-logo-tailscale-light,
+  html.light .cloud-logo-zeabur-light {
+    display: block;
+  }
+
+  /*
+   * On macOS we set `vibrancy: 'sidebar'` on the BrowserWindow so the sidebar
+   * can show the native blur. The vibrancy only shows through where the page
+   * is transparent, so kill the body fill and let individual surfaces
+   * (sidebar, toolbar, main content) opt into their own backgrounds.
+   */
+  html.platform-darwin,
+  html.platform-darwin body,
+  html.platform-windows,
+  html.platform-windows body {
+    background-color: transparent;
+  }
+
+  input,
+  textarea,
+  [contenteditable],
+  pre,
+  code,
+  .selectable,
+  .selectable * {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  input,
+  textarea,
+  [contenteditable],
+  pre,
+  code {
+    cursor: text;
+  }
+
+  .selectable {
+    cursor: default;
+  }
+
+  button:not(:disabled),
+  a,
+  [role='button']:not([aria-disabled='true']),
+  button:not(:disabled) *,
+  a *,
+  [role='button']:not([aria-disabled='true']) * {
+    user-select: none;
+    -webkit-user-select: none;
+    /* Base UI applies its own pointer selector to navigation buttons. Keep the
+       desktop-arrow convention authoritative on both the control and nested
+       icons/text; disabled, resize, and drag controls retain their own cursor. */
+    cursor: default !important;
+  }
+
+  /*
+   * This is a desktop app: clickable controls keep the native arrow and use
+   * hover/focus styling to communicate interactivity. Keep a global override
+   * for Tailwind's `cursor-pointer` so a future use cannot reintroduce the
+   * split cursor where the button is a hand but its nested logo (covered by
+   * `button *` above) is an arrow.
+   */
+  .cursor-pointer {
+    cursor: default !important;
+  }
+}
+
+@layer components {
+  /*
+   * Raised surface (composer, attachment chips). The edge is a hairline plus a
+   * two-layer shadow — contact and depth — so the box reads as lifted instead
+   * of outlined, and an inner top highlight gives it a light direction.
+   */
+  .surface-raised {
+    border: 1px solid var(--surface-hairline);
+    /* Continuous curvature; the corner flows out of the edge with no joint. */
+    corner-shape: squircle;
+    box-shadow:
+      inset 0 1px 0 var(--surface-inner-highlight),
+      var(--surface-shadow);
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .composer-surface {
+    box-shadow:
+      inset 0 1px 0 var(--surface-inner-highlight),
+      var(--composer-shadow);
+  }
+
+  /* On 2x displays 1px is two device pixels; .5px is a true hairline. */
+  @media (min-resolution: 2dppx) {
+    .surface-raised {
+      border-width: 0.5px;
+    }
+  }
+
+  /* Hovering the composer promises the same thing focusing it delivers, so it
+     lights the same edge. Scoped to `.composer-surface` — a raised surface is
+     not a control in general, and menus and cards have no business reacting to
+     a pointer passing over them. */
+  .composer-surface:hover {
+    border-color: var(--surface-hairline-strong);
+  }
+
+  .surface-raised:focus-within {
+    border-color: var(--surface-hairline-strong);
+    box-shadow:
+      inset 0 1px 0 var(--surface-inner-highlight),
+      var(--surface-shadow-raised);
+  }
+  .composer-surface:focus-within {
+    box-shadow:
+      inset 0 1px 0 var(--surface-inner-highlight),
+      var(--composer-shadow-raised);
+  }
+
+  .user-message-bubble {
+    --color-text-base: 255, 255, 255;
+    /* Both bubble fills are dark, even when the surrounding app is light. */
+    --color-zViolet-accent: 196, 181, 253;
+    color: #ffffff;
+    background-color: #2e2e2e;
+  }
+
+  html.light .user-message-bubble {
+    background-color: #000000;
+  }
+
+  .resource-meter {
+    --resource-meter-fill: rgb(var(--color-zViolet-accent));
+    --resource-meter-warning: rgb(var(--color-warning));
+  }
+
+  .resource-meter-track {
+    background: rgba(var(--color-text-base), 0.06);
+  }
+
+  .resource-meter-reserved {
+    background: rgba(var(--color-zViolet-accent), 0.13);
+  }
+
+  .resource-meter-request {
+    background: rgb(var(--color-text-secondary));
+    box-shadow: 0 0 0 1px rgb(var(--color-background-base));
+  }
+
+  /* Composer (contenteditable) placeholder. */
+  .atlas-composer:empty::before {
+    content: attr(data-placeholder);
+    color: rgba(var(--color-text-tertiary), 1);
+    pointer-events: none;
+  }
+  .atlas-composer {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Inline mention chip rendered inside the composer for Nuphos row links. */
+  .atlas-mention {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.05rem 0.55rem 0.05rem 0.4rem;
+    margin: 0 1px;
+    border-radius: 0.375rem;
+    background-color: rgba(var(--color-zViolet-500), 0.18);
+    color: rgba(var(--color-zViolet-accent), 1);
+    font-size: 12.5px;
+    line-height: 1.35;
+    vertical-align: baseline;
+    user-select: none;
+    cursor: default;
+    white-space: nowrap;
+  }
+  .atlas-mention-icon {
+    flex-shrink: 0;
+    opacity: 0.95;
+  }
+  .atlas-mention-label {
+    display: inline-block;
+    max-width: 24ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+  .atlas-mention:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgb(var(--color-zViolet-accent));
+  }
+
+  .user-message-bubble .atlas-mention {
+    gap: 0.35rem;
+    padding: 0.1rem 0.5rem;
+    margin: 0 0.15rem;
+    border-radius: 0.5rem;
+    background-color: rgba(var(--color-zViolet-accent), 0.1);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-zViolet-accent), 0.18);
+    font-size: 0.9em;
+    line-height: 1.4;
+    vertical-align: -0.075em;
+    transition:
+      background-color 150ms,
+      box-shadow 150ms;
+  }
+
+  .user-message-bubble .atlas-mention-icon {
+    width: 0.95em;
+    height: 0.95em;
+    opacity: 0.8;
+  }
+
+  .user-message-bubble .atlas-mention[role='link']:hover {
+    background-color: rgba(var(--color-zViolet-accent), 0.18);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-zViolet-accent), 0.3);
+  }
+
+  .user-message-bubble .atlas-mention:focus-visible {
+    outline: 2px solid rgb(var(--color-zViolet-accent));
+    outline-offset: 2px;
+  }
+
+  @keyframes cell-flash {
+    0% {
+      background-color: rgba(var(--color-zViolet-400), 0.22);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  .cell-flash {
+    animation: cell-flash 700ms ease-out;
+  }
+
+  /*
+   * Row background for `components/Table`. The tint lives in a custom property
+   * rather than a `bg-*` class so the pinned actions cell can re-apply the
+   * exact same value (see `.table-sticky-end`) — a sticky cell paints its own
+   * backdrop and cannot show the row's through. Checked/selected rows set the
+   * property inline, which outranks the hover rule below exactly the way the
+   * old class ternary did.
+   */
+  tr.table-row-tint {
+    background-color: var(--row-tint, transparent);
+  }
+  tr.table-row-tint:hover {
+    --row-tint: rgb(var(--color-zGray-850));
+  }
+
+  /*
+   * A column pinned to an edge of the scroll pane, so it stays put while the
+   * rest of the table scrolls sideways underneath it. Which edge and how far
+   * from it are inline (columns stack), everything else is here.
+   * Element-qualified so it outranks the `relative` utility the header cell
+   * carries — utilities are emitted after this layer.
+   *
+   * A pinned cell brings its own backdrop: it has to hide the cells sliding
+   * under it, and `background` on the <tr> stops at the row's own layer, so the
+   * row's tint is repainted on top of that backdrop.
+   */
+  td.table-sticky-end,
+  th.table-sticky-end {
+    position: sticky;
+    /*
+     * Every header cell is `relative` (its resize handle needs a containing
+     * block), so they all paint as positioned siblings in DOM order — and a
+     * pinned column, being early in that order, would be painted over by the
+     * very columns scrolling under it. Body cells are static and never had the
+     * problem; the trailing run only escaped it by being last.
+     */
+    z-index: 1;
+    background-color: rgb(var(--color-background-base));
+  }
+  /*
+   * The row's tint, repainted over that backdrop. It rides a pseudo rather
+   * than a second background layer so it animates: the row fades its own
+   * `background-color` in and out (`transition-colors`), and a background
+   * image cannot transition — the pinned cell would snap while the rest of
+   * the row faded, and each would look like the other was lagging.
+   *
+   * `z-index: -1` puts it above the cell's backdrop and below its content;
+   * `position: sticky` is what keeps that -1 contained. `inset: 0` covers the
+   * padding box exactly — the row rule is the cell's own bottom border, which
+   * sits outside that box, so nothing has to be left clear for it. Insetting
+   * anyway left the tint 1px short, and a hovered row showed a pale seam along
+   * the bottom of this cell alone.
+   */
+  td.table-sticky-end::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-color: var(--row-tint, transparent);
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /*
+   * The shade hangs off the innermost cell of a pinned run, over the columns
+   * sliding past it — the ones stacked outside it would only shade their own
+   * neighbours. Each edge shows its own only while something is actually
+   * hidden under that side: a permanent edge on a table that draws no vertical
+   * rules reads as a stray divider, and scrolled hard right the right-hand run
+   * covers nothing at all.
+   *
+   * Square-ended and exactly cell-height (plus the row rule it has to cross),
+   * so each row's picks up where the last left off and the run reads as one
+   * unbroken edge. Its host cell therefore cannot clip — see the `pin` note
+   * on `Column`.
+   */
+  [data-scrolled-x-end] .table-sticky-end[data-sticky-edge='right']::before,
+  [data-scrolled-x-start] .table-sticky-end[data-sticky-edge='left']::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: -1px;
+    width: 28px;
+    pointer-events: none;
+    background-image: var(--table-sticky-shade);
+  }
+  [data-scrolled-x-end] .table-sticky-end[data-sticky-edge='right']::before {
+    right: 100%;
+  }
+  /* The same gradient, mirrored, on the other side: it falls away from the
+     pinned run in both cases, so the left-hand one runs dark-to-light. */
+  [data-scrolled-x-start] .table-sticky-end[data-sticky-edge='left']::before {
+    left: 100%;
+    transform: scaleX(-1);
+  }
+  /* A left-pinned header cell's own column divider lands exactly where its
+     shade begins — two lines drawn for one edge. While the shade is up the
+     divider stands down, and comes back on hover, where it stops being
+     decoration and becomes the resize affordance. */
+  [data-scrolled-x-start]
+    th.table-sticky-end[data-sticky-edge='left']
+    .group:not(:hover)
+    > .table-col-divider {
+    background-color: transparent;
+  }
+
+  /*
+   * Table row/header checkboxes — custom-drawn instead of native so the
+   * border and fill track the theme palette: the native rendering is too
+   * dark in light mode and too bright in dark mode. zGray flips with the
+   * theme, so one rule reads right in both.
+   */
+  .table-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    /* appearance: none leaves the UA's I-beam cursor on inputs. */
+    cursor: default;
+    /* zGray-700 reads as a dim gray on dark and a light gray on light;
+       hovering steps one notch toward the text color in both themes. */
+    border: 1px solid rgb(var(--color-zGray-700));
+    border-radius: 3px;
+    background-color: transparent;
+  }
+  /* The whole cell is the hit target, so hovering anywhere in it (margin
+     included) shows the checkbox's hover state. */
+  .table-checkbox:hover,
+  .table-checkbox-cell:hover .table-checkbox {
+    border-color: rgb(var(--color-zGray-600));
+  }
+  /* appearance: none also drops the native focus ring — restore one for
+     keyboard users (and force visibility past the hover-only opacity). */
+  .table-checkbox:focus-visible {
+    outline: 2px solid rgb(var(--color-zViolet-accent));
+    outline-offset: 2px;
+    opacity: 1;
+  }
+  .table-checkbox:checked,
+  .table-checkbox:indeterminate {
+    border-color: rgb(var(--color-zViolet-500));
+    background-color: rgb(var(--color-zViolet-500));
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  .table-checkbox:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2.5 6.5l2.5 2.5 4.5-5'/%3E%3C/svg%3E");
+  }
+  .table-checkbox:indeterminate {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='white' stroke-width='2' stroke-linecap='round' d='M3 6h6'/%3E%3C/svg%3E");
+  }
+
+  @keyframes codex-shimmer {
+    0% {
+      background-position: 160% 0;
+    }
+    100% {
+      background-position: -160% 0;
+    }
+  }
+
+  .codex-shimmer-text {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+    color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--color-zGray-500)) 0%,
+      rgb(var(--color-zGray-500)) 35%,
+      rgb(var(--color-zGray-100)) 50%,
+      rgb(var(--color-zGray-500)) 65%,
+      rgb(var(--color-zGray-500)) 100%
+    );
+    background-size: 220% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    animation: codex-shimmer 1.45s linear infinite;
+  }
+
+  .t-text-swap {
+    display: inline-block;
+    transform: translateY(0);
+    filter: blur(0);
+    opacity: 1;
+    transition:
+      transform var(--text-swap-dur) var(--text-swap-ease),
+      filter var(--text-swap-dur) var(--text-swap-ease),
+      opacity var(--text-swap-dur) var(--text-swap-ease);
+    will-change: transform, filter, opacity;
+  }
+  .t-text-swap.is-exit {
+    transform: translateY(calc(var(--text-swap-translate-y) * -1));
+    filter: blur(var(--text-swap-blur));
+    opacity: 0;
+  }
+  .t-text-swap.is-enter-start {
+    transform: translateY(var(--text-swap-translate-y));
+    filter: blur(var(--text-swap-blur));
+    opacity: 0;
+    transition: none;
+  }
+
+  @keyframes t-digit-pop-in {
+    0% {
+      transform: translate(
+        calc(var(--digit-distance) * var(--digit-dir-x)),
+        calc(var(--digit-distance) * var(--digit-dir-y))
+      );
+      opacity: 0;
+      filter: blur(var(--digit-blur));
+    }
+    100% {
+      transform: translate(0, 0);
+      opacity: 1;
+      filter: blur(0);
+    }
+  }
+
+  .t-digit-group {
+    display: inline-flex;
+    align-items: baseline;
+  }
+  .t-digit {
+    display: inline-block;
+    will-change: transform, opacity, filter;
+  }
+  .t-digit-group.is-animating .t-digit {
+    animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+  }
+  .t-digit-group.is-animating .t-digit[data-stagger='1'] {
+    animation-delay: var(--digit-stagger);
+  }
+  .t-digit-group.is-animating .t-digit[data-stagger='2'] {
+    animation-delay: calc(var(--digit-stagger) * 2);
+  }
+
+  @keyframes sd-atlas-stream-in {
+    from {
+      opacity: 0.08;
+      filter: blur(2px);
+      transform: translateY(2px);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes atlas-stream-caret {
+    0%,
+    45% {
+      opacity: 0.85;
+    }
+    46%,
+    100% {
+      opacity: 0.25;
+    }
+  }
+
+  .agent-streaming-response::after {
+    content: '';
+    display: inline-block;
+    width: 0.42em;
+    height: 1.05em;
+    margin-left: 0.12em;
+    border-radius: 999px;
+    background: rgb(var(--color-zGray-300));
+    vertical-align: -0.16em;
+    animation: atlas-stream-caret 1s steps(2, end) infinite;
+  }
+
+  .agent-streaming-response:has(pre:last-child)::after,
+  .agent-streaming-response:has(table:last-child)::after {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .codex-shimmer-text {
+      color: rgb(var(--color-zGray-300));
+      background-image: none;
+      animation: none;
+    }
+
+    .t-text-swap {
+      transition: none !important;
+    }
+
+    .t-digit-group .t-digit {
+      animation: none !important;
+    }
+
+    .agent-streaming-response::after {
+      animation: none;
+    }
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    /* Floating pill: a full-radius thumb inset from the track by a transparent
+       border (clipped to the padding box) so it reads like macOS. */
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    min-height: 40px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  /* Overlay scrollbar (used by the sidebar nav): thumb hidden by default,
+     revealed on hover or while actively scrolling (JS sets `data-scrolling`).
+     Placed after `.scrollbar-thin` so the equal-specificity thumb rules below
+     win by source order. */
+  .scrollbar-overlay {
+    /* Always reserve the scrollbar gutter so element widths never shift when the
+       scrollbar appears/disappears. On macOS (native overlay scrollbars) this is
+       a no-op, so nothing regresses there. */
+    scrollbar-gutter: stable;
+    /* `.scrollbar-thin` sets a non-auto `scrollbar-color`; when that standard
+       property is present Chromium may render the standard scrollbar and ignore
+       the `::-webkit-scrollbar` thumb, keeping it visible. Hide it here too and
+       restore the color on hover / while scrolling so both rendering paths agree. */
+    scrollbar-color: transparent transparent;
+  }
+  .scrollbar-overlay:hover,
+  .scrollbar-overlay[data-scrolling='true'] {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  .scrollbar-overlay::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    transition: background-color 0.2s ease;
+  }
+  .scrollbar-overlay:hover::-webkit-scrollbar-thumb,
+  .scrollbar-overlay[data-scrolling='true']::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+  }
+  .scrollbar-overlay:hover::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  /* Scrollable but with no visible scrollbar (used by the tab strip). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Default scrollbars everywhere: the sidebar's look — a thin floating pill
+     over a transparent track, hidden until the pointer is over the scroll
+     container. Both rendering paths are styled the same way: Chromium prefers
+     the standard `scrollbar-*` properties once they are set, and the -webkit
+     rules keep the identical look wherever the engine takes that path instead
+     (the same dual-path note as `.scrollbar-overlay` above). `:where()` keeps
+     everything at zero specificity, so the `.scrollbar-thin` /
+     `.scrollbar-overlay` / `.scrollbar-none` utilities still win on the
+     elements that opt into them. Note this styles macOS too — styled
+     scrollbars render as classic (space-taking) there, which is exactly the
+     stable-gutter behavior the sidebar opted into. */
+  :where(*) {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  :where(:hover) {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  :where(*)::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  :where(*)::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  :where(*)::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    /* Floating pill: full-radius thumb inset from the track by a transparent
+       border (clipped to the padding box), like `.scrollbar-thin`. */
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    min-height: 40px;
+    transition: background-color 0.2s ease;
+  }
+  :where(:hover)::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+  }
+  :where(:hover)::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+  :where(*)::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .titlebar-drag {
+    -webkit-app-region: drag;
+  }
+  .titlebar-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Electron derives draggable regions geometrically from the layout, so an
+     overlay's `no-drag` never cancels a `drag` region sitting underneath it —
+     the same reason the settings overlay has to hide the whole app shell (see
+     App.tsx). A titlebar strip that stays draggable while a popup is open
+     therefore swallows the mouse press as a window drag, and the popup never
+     sees the outside-press that should dismiss it (e.g. right-click a tab,
+     then click the breadcrumb bar). Popups suspend every drag region for as
+     long as they are mounted. */
+  html.titlebar-drag-suspended .titlebar-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Reserve room for the macOS traffic lights on the leading edge of the custom
+     titlebar. Off macOS there are no traffic lights, so leading icons sit flush
+     left (fixes them being pushed right on Windows). The insets are divided by
+     --zoom-factor so they stay a fixed physical size under cmd +/- page zoom —
+     the buttons are a constant OS size, so a scaling inset would drift away from
+     them. (Their vertical position is tracked in electron/main.ts.) */
+  .titlebar-lead-pad {
+    padding-left: 0;
+  }
+  /* Room for the macOS traffic lights, in two parts because they behave
+     differently under zoom: the buttons' leading offset scales with the layout
+     (14 CSS px, see trafficLightPositionFor in electron/main.ts), while the
+     fixed-device portion includes the buttons plus breathing room beside them.
+     Counter-scaling only that second part keeps the gap even without pushing
+     the sidebar toggle too far away when zoomed in. Both resolve to their
+     intended flat values at 100%. */
+  html.platform-darwin:not(.window-fullscreen) .titlebar-lead-pad {
+    padding-left: calc(14px + 54px / var(--zoom-factor, 1));
+  }
+  /* The same clearance as `.titlebar-lead-pad`, for the toggle that reappears
+     in the tab strip once the sidebar is collapsed. It has to resolve to the
+     sidebar header's own leading edge — that header's `px-3.5` plus its
+     lead-pad — or the button jumps sideways on collapse and lands hard against
+     the last traffic light. Split the same way, so both track zoom alike. */
+  .titlebar-lead-ml {
+    margin-left: 0;
+  }
+  html.platform-darwin:not(.window-fullscreen) .titlebar-lead-ml {
+    margin-left: calc(28px + 54px / var(--zoom-factor, 1));
+  }
+
+  /* Reserve room on the trailing edge of the tab strip for the Windows and
+     Linux caption buttons (minimize/maximize/close) that the native title-bar
+     overlay draws over the top-right of the window. macOS keeps the normal
+     inset because its traffic lights sit on the leading edge. */
+  .titlebar-caption-pad {
+    padding-right: 0.75rem;
+  }
+  html.platform-windows .titlebar-caption-pad,
+  html.platform-linux .titlebar-caption-pad {
+    padding-right: calc(138px / var(--zoom-factor, 1));
+  }
+
+  /* The workspace-dock toggle is viewport-anchored so opening the dock never
+     pushes it left. Keep both the tab strip and native caption controls clear
+     of the same fixed trailing slot. */
+  .workspace-dock-toggle {
+    position: fixed;
+    z-index: 40;
+    top: 8px;
+    right: 0.75rem;
+  }
+  .workspace-dock-expand {
+    position: fixed;
+    z-index: 40;
+    top: 8px;
+    right: 3rem;
+  }
+  .workspace-dock-toggle-pad {
+    padding-right: 5.25rem;
+  }
+  html.platform-windows .workspace-dock-toggle,
+  html.platform-linux .workspace-dock-toggle {
+    right: calc(138px / var(--zoom-factor, 1) + 0.75rem);
+  }
+  html.platform-windows .workspace-dock-expand,
+  html.platform-linux .workspace-dock-expand {
+    right: calc(138px / var(--zoom-factor, 1) + 3rem);
+  }
+  html.platform-windows .workspace-dock-toggle-pad,
+  html.platform-linux .workspace-dock-toggle-pad {
+    padding-right: calc(138px / var(--zoom-factor, 1) + 5.25rem);
+  }
+
+  [data-base-ui-inert] {
+    z-index: 999;
+    -webkit-app-region: no-drag;
+  }
+
+  .t-dropdown {
+    transform-origin: top left;
+    transform: scale(var(--dropdown-pre-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--dropdown-open-dur) var(--dropdown-ease),
+      opacity var(--dropdown-open-dur) var(--dropdown-ease);
+    will-change: transform, opacity;
+  }
+  /* Dropdowns carry a strong dark shadow (tuned for dark mode). In light mode
+     that reads far too heavy, so soften it to a light, diffuse drop shadow.
+     More specific than the Tailwind `shadow-[...]` utility, so it wins. */
+  html.light .t-dropdown {
+    box-shadow:
+      0 8px 24px -12px rgba(0, 0, 0, 0.16),
+      0 2px 6px -3px rgba(0, 0, 0, 0.08);
+  }
+  .t-dropdown[data-origin='top-right'] {
+    transform-origin: top right;
+  }
+  .t-dropdown[data-origin='top-center'] {
+    transform-origin: top center;
+  }
+  .t-dropdown[data-origin='bottom-left'] {
+    transform-origin: bottom left;
+  }
+  .t-dropdown[data-origin='bottom-center'] {
+    transform-origin: bottom center;
+  }
+  .t-dropdown[data-origin='bottom-right'] {
+    transform-origin: bottom right;
+  }
+  .t-dropdown.is-open,
+  .t-dropdown[data-state='open'],
+  .t-dropdown[data-open] {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  @starting-style {
+    .t-dropdown.is-open,
+    .t-dropdown[data-state='open'] {
+      transform: scale(var(--dropdown-pre-scale));
+      opacity: 0;
+    }
+  }
+  /*
+   * Base UI popups (Menu/Select/Combobox) tag the entering frame with
+   * `data-starting-style` and the leaving frame with `data-ending-style`.
+   * These rules sit after `.is-open` so they win on those frames, giving the
+   * popup a collapsed "from"/"to" state to transition against.
+   */
+  .t-dropdown[data-starting-style] {
+    transform: scale(var(--dropdown-pre-scale));
+    opacity: 0;
+  }
+  .t-dropdown[data-ending-style] {
+    transform: scale(var(--dropdown-closing-scale));
+    opacity: 0;
+    transition:
+      transform var(--dropdown-close-dur) var(--dropdown-ease),
+      opacity var(--dropdown-close-dur) var(--dropdown-ease);
+  }
+  .t-dropdown.is-closing,
+  .t-dropdown[data-state='closed'] {
+    transform: scale(var(--dropdown-closing-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--dropdown-close-dur) var(--dropdown-ease),
+      opacity var(--dropdown-close-dur) var(--dropdown-ease);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .t-dropdown {
+      transition: none !important;
+    }
+  }
+
+  /*
+   * App "canvas" surfaces — the login page, the sidebar, and the area behind
+   * the floating content card all share one solid background (`appBg`) so they
+   * read as the same surface. No macOS vibrancy bleed-through; the content card
+   * (`bg-main`) is the only distinct surface floating on top.
+   */
+  .login-surface,
+  .content-canvas {
+    background-color: rgb(var(--color-appBg));
+  }
+
+  .sidebar-surface {
+    background-color: rgba(var(--color-appBg), 0.9);
+  }
+  html.light .sidebar-surface {
+    background-color: rgba(var(--color-appBg), 0.7);
+  }
+  /* Docked, the partial alpha lets the window's vibrancy through. Floating over
+     the content while collapsed there is no vibrancy behind it — only the page,
+     which then ghosts through the panel. Keep that state opaque. */
+  .sidebar-surface.is-floating,
+  html.light .sidebar-surface.is-floating {
+    background-color: rgb(var(--color-appBg));
+  }
+
+  /*
+   * "Sketch" style dotted lines — a soft, evenly-spaced dot pattern used for
+   * the composer's extending guide lines and as separators in the agent home
+   * page list. Built as a radial-gradient background so we control dot size
+   * and spacing explicitly (CSS `border-style: dotted` on a 1px border renders
+   * too dense to read as dotted on most displays).
+   */
+  .sketch-line-h {
+    background-image: radial-gradient(
+      circle,
+      rgba(var(--color-zGray-600), 0.35) 0.85px,
+      transparent 1.3px
+    );
+    background-size: 7px 1px;
+    background-repeat: repeat-x;
+    background-position: top left;
+  }
+  .sketch-line-v {
+    background-image: radial-gradient(
+      circle,
+      rgba(var(--color-zGray-600), 0.35) 0.85px,
+      transparent 1.3px
+    );
+    background-size: 1px 7px;
+    background-repeat: repeat-y;
+    background-position: top left;
+  }
+  .sketch-divider-bottom {
+    background-image: radial-gradient(
+      circle,
+      rgba(var(--color-zGray-600), 0.35) 0.85px,
+      transparent 1.3px
+    );
+    background-size: 7px 1px;
+    background-repeat: repeat-x;
+    background-position: bottom left;
+  }
+}
+
+/* transitions-dev — semantic tokens + the t-* transitions used by the app.
+   (card resize / skeleton reveal / icon swap / panel reveal / page side-by-side). */
+:root {
+  --resize-dur: 300ms;
+  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+  --icon-swap-dur: 200ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
+  --panel-open-dur: 400ms;
+  --panel-close-dur: 350ms;
+  --panel-translate-y: 100px;
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-slide-dur: 200ms;
+  --page-fade-dur: 200ms;
+  --page-slide-distance: 8px;
+  --page-blur: 3px;
+  --page-stagger: 0ms;
+  --page-exit-enabled: 1;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --stagger-dur: 600ms;
+  --stagger-distance: 12px;
+  --stagger-stagger: 40ms;
+  --stagger-blur: 3px;
+  --stagger-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Modal open / close — scale-up from center, softer scale-down on close. */
+.t-modal {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+.t-modal.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-modal.is-closing {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity var(--modal-close-dur) var(--modal-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-modal {
+    transition: none !important;
+  }
+}
+
+/* Skeleton loader and reveal — pulse placeholder, then cross-fade + cross-blur to content. */
+.t-skel {
+  position: relative;
+}
+.t-skel-skeleton,
+.t-skel-content {
+  position: absolute;
+  inset: 0;
+}
+.t-skel-skeleton {
+  z-index: 1;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel-content {
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel.is-revealed .t-skel-skeleton {
+  opacity: 0;
+}
+.t-skel.is-revealed .t-skel-content {
+  opacity: 1;
+}
+.t-skel.is-resetting .t-skel-skeleton,
+.t-skel.is-resetting .t-skel-content {
+  transition: none !important;
+}
+.t-skel-skeleton.is-pulsing > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+@keyframes t-skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: var(--pulse-min);
+  }
+}
+.t-memory-detail-reveal {
+  --pulse-dur: 900ms;
+  --reveal-dur: 260ms;
+  min-height: 440px;
+}
+.t-memory-detail-reveal.is-revealed {
+  min-height: 0;
+}
+.t-memory-detail-reveal.is-revealed .t-skel-content {
+  position: static;
+}
+.t-sidebar-section-reveal {
+  --pulse-dur: 900ms;
+  --reveal-dur: 240ms;
+  --reveal-blur: 2px;
+  min-height: 104px;
+}
+.t-sidebar-section-reveal.is-revealed {
+  min-height: 0;
+}
+.t-sidebar-section-reveal.is-revealed .t-skel-content {
+  position: static;
+}
+.t-sidebar-section-reveal:not(.is-revealed) .t-skel-content {
+  pointer-events: none;
+}
+.t-sidebar-segment-reveal {
+  --pulse-dur: 850ms;
+  --reveal-dur: 180ms;
+  --reveal-blur: 2px;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.t-sidebar-segment-reveal.is-revealed .t-skel-content {
+  position: static;
+}
+.t-sidebar-segment-reveal:not(.is-revealed) .t-skel-content {
+  pointer-events: none;
+}
+.t-access-avatar-reveal {
+  --pulse-dur: 800ms;
+  --reveal-dur: 180ms;
+  --reveal-blur: 1px;
+  min-height: 24px;
+}
+.t-access-avatar-reveal.is-revealed .t-skel-content {
+  position: static;
+}
+.t-access-avatar-reveal:not(.is-revealed) .t-skel-content {
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-skel-skeleton,
+  .t-skel-content {
+    transition: none !important;
+  }
+  .t-skel-skeleton.is-pulsing > * {
+    animation: none !important;
+  }
+}
+
+/* Texts reveal — staged content rises into place with a small blur. */
+.t-stagger-line {
+  display: block;
+  opacity: 0;
+  transform: translateY(var(--stagger-distance));
+  transition:
+    opacity var(--stagger-dur) var(--stagger-ease),
+    transform var(--stagger-dur) var(--stagger-ease);
+  will-change: transform, opacity;
+}
+.t-stagger-line--2 {
+  transition-delay: var(--stagger-stagger);
+}
+
+.t-stagger.is-shown .t-stagger-line {
+  opacity: 1;
+  transform: translateY(0);
+}
+.t-stagger.is-hiding .t-stagger-line {
+  opacity: 0;
+  transform: translateY(0);
+  transition:
+    opacity 200ms ease,
+    transform 0s linear;
+  transition-delay: 0s;
+}
+.t-plan-reveal {
+  --stagger-dur: 360ms;
+  --stagger-distance: 6px;
+  --stagger-stagger: 24ms;
+  --stagger-blur: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-stagger-line {
+    transition: none !important;
+  }
+}
+
+/* Card resize — collapse to/from auto height via the grid-rows 1fr↔0fr trick
+   (the snippet's width/height tween can't animate an auto height). */
+.t-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--resize-dur) var(--resize-ease);
+}
+.t-collapse[data-open='false'] {
+  grid-template-rows: 0fr;
+}
+.t-collapse > .t-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-collapse {
+    transition: none !important;
+  }
+}
+
+/* Scroll-edge fade — soften the hard clip at the top/bottom of a scroll
+   container with a mask that reacts to scroll position: no fade at the edge
+   you are already at, no fade at all when the content fits. Pure CSS via
+   scroll-driven animations (self timeline); when the element does not
+   scroll, the timeline is inactive and both fades stay at their 0px
+   initial values. */
+@property --t-scroll-fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --t-scroll-fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+.t-scroll-fade {
+  --t-scroll-fade-size: 1.5rem;
+
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--t-scroll-fade-top),
+    #000 calc(100% - var(--t-scroll-fade-bottom)),
+    transparent 100%
+  );
+  animation:
+    t-scroll-fade-in-top linear both,
+    t-scroll-fade-out-bottom linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range:
+    0 var(--t-scroll-fade-size),
+    calc(100% - var(--t-scroll-fade-size)) 100%;
+}
+@keyframes t-scroll-fade-in-top {
+  from {
+    --t-scroll-fade-top: 0px;
+  }
+  to {
+    --t-scroll-fade-top: var(--t-scroll-fade-size, 1.5rem);
+  }
+}
+@keyframes t-scroll-fade-out-bottom {
+  from {
+    --t-scroll-fade-bottom: var(--t-scroll-fade-size, 1.5rem);
+  }
+  to {
+    --t-scroll-fade-bottom: 0px;
+  }
+}
+
+/* Card resize — tween an element's width/height when its layout state changes
+   (used to collapse/expand the sidebar to/from zero width). */
+.t-resize {
+  transition:
+    width var(--resize-dur) var(--resize-ease),
+    height var(--resize-dur) var(--resize-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-resize {
+    transition: none !important;
+  }
+}
+
+/* Icon swap — both icons stacked in one grid cell; data-state picks the winner. */
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+}
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
+    filter var(--icon-swap-dur) var(--icon-swap-ease),
+    transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur));
+  transform: scale(var(--icon-swap-start-scale));
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-icon-swap .t-icon {
+    transition: none !important;
+  }
+}
+
+/* Panel reveal — slide + fade + cross-blur into a region. */
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity;
+}
+.t-panel-slide[data-open='true'] {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity var(--panel-open-dur) var(--panel-ease);
+}
+/* A sent message and its sender enter together. Reuse the panel reveal with
+   a smaller travel; the class is removed when the one-shot entrance finishes. */
+.t-message-send {
+  --panel-translate-y: 6px;
+  --panel-open-dur: 250ms;
+}
+/* Establish the entrance pose immediately before animating to data-open=true.
+   Transitioning into this pose would reverse at zero progress in the same frame. */
+.t-message-send[data-open='false'] {
+  transition: none;
+}
+.t-agent-history-reveal {
+  --panel-translate-y: 10px;
+  --panel-open-dur: 260ms;
+  --panel-close-dur: 150ms;
+}
+.t-agent-memory-event {
+  --panel-translate-y: 6px;
+  --panel-open-dur: 220ms;
+  --panel-close-dur: 150ms;
+}
+.t-agent-composer-reveal {
+  --panel-translate-y: 14px;
+  --panel-open-dur: 360ms;
+  --panel-close-dur: 160ms;
+  --panel-blur: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-panel-slide {
+    transition: none !important;
+  }
+}
+
+/* Turn fold (Worked for Xs) — grid-rows collapse with the panel-reveal fade +
+   cross-blur. Content stays mounted; the inner row clips via overflow. */
+.t-turn-fold {
+  --panel-open-dur: 320ms;
+  --panel-close-dur: 200ms;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  transition:
+    grid-template-rows var(--panel-close-dur) var(--panel-ease),
+    opacity var(--panel-close-dur) var(--panel-ease),
+    filter var(--panel-close-dur) var(--panel-ease);
+}
+.t-turn-fold.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  filter: blur(0);
+  transition-duration: var(--panel-open-dur);
+}
+.t-turn-fold > div {
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-turn-fold {
+    transition: none !important;
+  }
+}
+
+/* Tool run — a new call replaces the previous one in the same slot: the
+   incoming line rises in from just below as the old one is dropped. The
+   earlier calls unfold above it with the same grid-rows fold as a turn. */
+@keyframes t-tool-run-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(var(--panel-blur));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.t-tool-run-latest {
+  animation: t-tool-run-in 220ms var(--panel-ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-tool-run-latest {
+    animation: none !important;
+  }
+}
+
+/* Update notification — slides up into the sidebar's bottom-left corner. */
+@keyframes update-notif-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.update-notif-enter {
+  animation: update-notif-in 280ms var(--panel-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-notif-enter {
+    animation: none;
+  }
+}
+
+/* Page side-by-side — list/detail transitions for agent history. */
+.t-page-slide {
+  position: relative;
+}
+.t-page-slide .t-page[data-page-id='1'] {
+  --t-page-from-x: calc(var(--page-slide-distance) * -1);
+}
+.t-page-slide .t-page[data-page-id='2'] {
+  --t-page-from-x: var(--page-slide-distance);
+}
+/* History (page 3) sits spatially between home (1) and conversation (2): it
+   enters from the right of home, but exits left when a conversation opens on
+   top of it. */
+.t-page-slide .t-page[data-page-id='3'] {
+  --t-page-from-x: var(--page-slide-distance);
+}
+.t-page-slide[data-page='2'] .t-page[data-page-id='3'] {
+  --t-page-from-x: calc(var(--page-slide-distance) * -1);
+}
+.t-page-slide .t-page {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
+  transition:
+    opacity var(--page-fade-dur) var(--page-fade-ease),
+    transform var(--page-slide-dur) var(--page-slide-ease);
+  will-change: opacity, transform;
+}
+.t-page-slide[data-page='1'] .t-page[data-page-id='1'],
+.t-page-slide[data-page='2'] .t-page[data-page-id='2'],
+.t-page-slide[data-page='3'] .t-page[data-page-id='3'] {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: translateX(0);
+  transition-delay: var(--page-stagger);
+}
+
+/* Multi-step bind wizard (AWS: 5 steps, Volcengine: 3) — variant of the page
+   slide. Pages stack in one grid cell (instead of absolute + inset) so the
+   dialog keeps the height of the tallest step. Direction is relative to the
+   active step: earlier steps exit left, later steps wait on the right — the
+   per-page --t-page-from-x is set inline from React, replacing the fixed
+   page-1/page-2 rules above. */
+.t-wizard-slide {
+  display: grid;
+}
+.t-wizard-slide .t-page {
+  position: static;
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.t-wizard-slide[data-page='3'] .t-page[data-page-id='3'],
+.t-wizard-slide[data-page='4'] .t-page[data-page-id='4'],
+.t-wizard-slide[data-page='5'] .t-page[data-page-id='5'] {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: translateX(0);
+  transition-delay: var(--page-stagger);
+}
+.t-detail-sidebar-frame {
+  overflow: hidden;
+  transition:
+    width 200ms ease-out,
+    min-width 200ms ease-out,
+    border-color 200ms ease-out;
+}
+.t-detail-sidebar-frame[data-open='false'] {
+  border-left-color: transparent;
+}
+.t-detail-sidebar-content {
+  --panel-translate-y: 10px;
+  --panel-open-dur: 220ms;
+  --panel-close-dur: 150ms;
+  --panel-blur: 2px;
+}
+.t-detail-loaded-content {
+  --panel-translate-y: 14px;
+  --panel-open-dur: 280ms;
+  --panel-close-dur: 160ms;
+  --panel-blur: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-page-slide .t-page {
+    transition: none !important;
+  }
+}
+
+/* Sidebar navigation hierarchy slide — directional, key-based.
+   Drilling deeper (--nav-dir: 1) slides the new section list in from the
+   right while the old one exits left; going back (--nav-dir: -1) reverses.
+   Same-level switches (--nav-dir: 0) cross-fade with a soft blur. Both layers
+   use keyframe animations (not transitions) so the entering list — which
+   re-mounts on every navigation — always replays from its start offset. */
+.t-nav-stack {
+  position: relative;
+}
+.t-nav-stack__layer[data-role='out'] {
+  position: absolute;
+  inset: 0 0 auto 0;
+  pointer-events: none;
+}
+.t-nav-stack__layer[data-anim='enter'] {
+  /* No persistent will-change: the entering layer outlives its animation for
+     the whole view, so a standing compositing-layer hint would leak GPU memory.
+     Browsers already promote a running keyframe animation on their own. */
+  animation: t-nav-enter var(--page-slide-dur) var(--page-slide-ease) both;
+}
+.t-nav-stack__layer[data-anim='exit'] {
+  animation: t-nav-exit var(--page-slide-dur) var(--page-slide-ease) both;
+  /* Safe here — the outgoing layer unmounts when the transition ends. */
+  will-change: transform, opacity;
+}
+@keyframes t-nav-enter {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--page-slide-distance) * var(--nav-dir, 0)));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes t-nav-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--page-slide-distance) * var(--nav-dir, 0) * -1));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-nav-stack__layer {
+    animation: none !important;
+  }
+  .t-nav-stack__layer[data-role='out'] {
+    display: none !important;
+  }
+}
+
+/* Workspace tabs — quiet inactive labels around one compact active pill. */
+.t-tab {
+  display: flex;
+  flex: 0 1 200px;
+  min-width: 76px;
+  max-width: 200px;
+  overflow: hidden;
+  position: relative;
+  transform-origin: left center;
+  transition:
+    opacity var(--tabs-dur) var(--tabs-ease),
+    transform var(--tabs-dur) var(--tabs-ease);
+  will-change: opacity, transform;
+}
+.t-tab[data-active='true'] {
+  min-width: 128px;
+}
+.t-tab:not([data-active]) + .t-tab:not([data-active])::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: rgba(var(--color-zGray-800), 0.85);
+}
+.t-tab[data-dragging='true'] {
+  opacity: 0.95;
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+}
+.t-tab[data-dragging='true'] .t-tab-content {
+  pointer-events: none;
+  transform: translateX(var(--tab-drag-x, 0px));
+  transition: none !important;
+}
+.t-tab[data-preview-shift] {
+  transform: translateX(var(--tab-preview-x, 0px));
+}
+.t-tab-strip[data-drop-settling='true'] .t-tab,
+.t-tab-strip[data-drop-settling='true'] .t-tab-content {
+  transition: none !important;
+}
+.t-tab-content {
+  width: 100%;
+  min-width: 0;
+  transition:
+    opacity var(--tabs-dur) var(--tabs-ease),
+    transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+/* Hover-revealed trailing controls inside a tab (favorite star, close). */
+.t-workspace-tab-action {
+  transition:
+    color var(--tabs-dur) var(--tabs-ease),
+    opacity var(--tabs-dur) var(--tabs-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-tab,
+  .t-workspace-tab-action,
+  .t-tab-content {
+    transition: none !important;
+  }
+}
+
+/* Journal timeline code blocks (ZEA-10058): shiki emits inline token colors;
+   strip its own chrome so the block inherits the journal card. */
+.journal-shiki pre {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.journal-shiki code {
+  white-space: inherit;
+  word-break: inherit;
+}
+
+/* Mongo document results use Shiki token colours while the surrounding card
+   owns spacing, borders, and background. Keep JSON lines intact horizontally. */
+.mongo-json-shiki pre {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  font-size: 10.5px;
+  line-height: 17px;
+}
+.mongo-json-shiki code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  white-space: pre;
+}
+
+/* Split PoC: anchor dock controls to each pane, not the app viewport. */
+[data-workspace-split-pane] .workspace-dock-toggle {
+  position: absolute;
+  right: 0.75rem;
+}
+[data-workspace-split-pane] .workspace-dock-expand {
+  position: absolute;
+  right: 3rem;
+}
+
+/* Inactive headers receive clicks to select their pane. The active pane keeps
+   native window dragging; tab buttons retain their existing no-drag regions. */
+[data-split-multiple='true'][data-pane-active='false'] .titlebar-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* With the sidebar hidden, only the top-left session sits under macOS's
+   native traffic lights. Keep their clearance stable at every app zoom. */
+html.platform-darwin:not(.window-fullscreen)
+  [data-traffic-light-inset='true']
+  .workspace-agent-titlebar {
+  padding-left: calc(28px + 54px / var(--zoom-factor, 1));
+}

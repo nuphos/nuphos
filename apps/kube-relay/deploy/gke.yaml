@@ -1,0 +1,141 @@
+# Canonical production relay. Keep this at one replica: parked agent sockets are
+# process-local, so independent replicas would split the connection pool.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nuphos-kube-relay-tls
+  namespace: production
+spec:
+  dnsNames:
+    - relay.nuphos.ai
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-dns01
+  secretName: nuphos-kube-relay-tls
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nuphos-kube-relay
+  namespace: production
+  labels:
+    app.kubernetes.io/name: nuphos-kube-relay
+spec:
+  replicas: 1
+  strategy:
+    # Two live relay processes would split their in-memory parked-connection
+    # pools and make CONNECT intermittently miss an otherwise healthy agent.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nuphos-kube-relay
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nuphos-kube-relay
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: relay
+          # The release workflow replaces :latest with the validated tag before apply.
+          image: us-west1-docker.pkg.dev/nuphos/nuphos/kube-relay:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']
+          env:
+            - name: NUPHOS_RELAY_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: nuphos-kube-relay-env
+                  key: NUPHOS_RELAY_TOKEN_SECRET
+            - name: NUPHOS_RELAY_TLS_CERT
+              value: /tls/tls.crt
+            - name: NUPHOS_RELAY_TLS_KEY
+              value: /tls/tls.key
+          ports:
+            - name: proxy
+              containerPort: 8443
+              protocol: TCP
+            - name: agent
+              containerPort: 8444
+              protocol: TCP
+            - name: health
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 1
+              memory: 256Mi
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: nuphos-kube-relay-tls
+---
+# GKE provisions an external L4 passthrough load balancer. TLS still terminates
+# in kube-relay, so CONNECT reaches the relay unchanged.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nuphos-kube-relay-public
+  namespace: production
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: nuphos-kube-relay
+  ports:
+    - name: proxy
+      port: 8443
+      targetPort: proxy
+      protocol: TCP
+    - name: agent
+      port: 8444
+      targetPort: agent
+      protocol: TCP
+---
+# Plain HTTP health/status stays cluster-internal. Cross-cluster backends use
+# the authenticated HTTPS /status route on the public proxy listener instead.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nuphos-kube-relay-health
+  namespace: production
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nuphos-kube-relay
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP
