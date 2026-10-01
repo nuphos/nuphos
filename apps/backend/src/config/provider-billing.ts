@@ -22,6 +22,7 @@ export function providerBillingConfig() {
       // or two after the usage hour, so a window shorter than this would
       // freeze yesterday's total at whatever had arrived by then.
       lookbackDays: boundedInt('PROVIDER_BILLING_LOOKBACK_DAYS', 5, { min: 1, max: 90 }),
+      // Touched to exercise CI on this repo's GitHub-hosted runners.
       syncIntervalMinutes: boundedInt('PROVIDER_BILLING_SYNC_INTERVAL_MINUTES', 60, {
         min: 5,
         max: 1440,
