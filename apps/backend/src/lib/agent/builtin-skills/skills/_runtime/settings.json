@@ -1,0 +1,22 @@
+{
+  "outputStyle": "Concise",
+  "fastMode": true,
+  "disableArtifact": true,
+  "permissions": {
+    "allow": ["mcp__nuphos-tools__memory_get"]
+  },
+  "hooks": {
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/_runtime/scripts/oom-hint.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

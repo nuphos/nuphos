@@ -1,0 +1,6 @@
+export { AwsIamPermissionsView } from './iam/AwsIamPermissionsView'
+export { AwsRolesView } from './iam/AwsRolesView'
+export { AzureAppsView } from './iam/AzureAppsView'
+export { CloudflareIamPermissionsView } from './iam/CloudflareIamPermissionsView'
+export { GcpIamPermissionsView } from './iam/GcpIamPermissionsView'
+export { GcpServiceAccountsView } from './iam/GcpServiceAccountsView'

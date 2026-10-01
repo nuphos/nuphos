@@ -1,0 +1,142 @@
+export class OpenAbRpcError extends Error {
+  constructor(
+    message: string,
+    readonly code?: number,
+  ) {
+    super(message)
+    this.name = 'OpenAbRpcError'
+  }
+}
+
+type SocketFailureEvent = { code?: number; message?: string; reason?: string }
+type PendingSessionCall = {
+  reject: (error: Error) => void
+  sessionId?: string
+  timer: ReturnType<typeof setTimeout>
+}
+type SessionSocket = { send: (data: string) => void }
+
+export const SESSION_OUTPUT_SINK_UNAVAILABLE = 'ACP session output sink is unavailable'
+export const SESSION_OUTPUT_SINK_RETRY_DELAYS_MS = [250, 500, 1_000, 2_000, 4_000, 8_000]
+
+export function isSessionOutputSinkUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.message.includes(SESSION_OUTPUT_SINK_UNAVAILABLE)
+}
+
+function retryAbortError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Error('ACP prompt retry cancelled')
+}
+
+function retryDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms))
+  if (signal.aborted) return Promise.reject(retryAbortError(signal))
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(retryAbortError(signal))
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true })
+    if (signal.aborted) onAbort()
+  })
+}
+
+/** The gateway rejects this error before dispatching the prompt, so retrying
+ * after the previous sink drains cannot duplicate model work. */
+export async function retrySessionPromptWhenBusy<T>(
+  prompt: () => Promise<T>,
+  options: {
+    delaysMs?: number[]
+    signal?: AbortSignal
+    onRetry?: (attempt: number, delayMs: number) => void
+  } = {},
+): Promise<T> {
+  const delays = options.delaysMs ?? SESSION_OUTPUT_SINK_RETRY_DELAYS_MS
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await prompt()
+    } catch (error) {
+      const delayMs = delays[attempt]
+
+      if (!isSessionOutputSinkUnavailable(error) || delayMs === undefined) throw error
+      options.onRetry?.(attempt + 1, delayMs)
+      await retryDelay(delayMs, options.signal)
+    }
+  }
+}
+
+export function cancelSession(socket: SessionSocket, sessionId: string): boolean {
+  try {
+    socket.send(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'session/cancel',
+        params: { sessionId },
+      }),
+    )
+
+    return true
+  } catch {
+    // The prompt remains pending until the socket disconnect or its deadline;
+    // neither path may be replaced with a synthetic successful cancellation.
+    return false
+  }
+}
+
+export function connectionFailureMessage(event: SocketFailureEvent): string {
+  const detail =
+    (typeof event.reason === 'string' && event.reason) ||
+    (typeof event.message === 'string' && event.message) ||
+    ''
+  const safeDetail = detail.replaceAll(/\s+/gu, ' ').trim().slice(0, 200)
+  const closeCode = typeof event.code === 'number' ? `close code ${String(event.code)}` : ''
+  const context = [closeCode, safeDetail].filter(Boolean).join(': ')
+  const suffix = context ? ` (${context})` : ''
+
+  return `Failed to connect to OpenAB ACP endpoint${suffix}`
+}
+
+/** Resolve or reject a pending JSON-RPC call from its response frame. */
+export function settlePendingCall(
+  pending: PendingSessionCall & {
+    resolve: (value: Record<string, unknown>) => void
+    onTextDelta?: (text: string) => void
+  },
+  message: Record<string, unknown>,
+  cancelledSessions?: Set<string>,
+): void {
+  clearTimeout(pending.timer)
+  const error = message.error
+
+  if (error && typeof error === 'object') {
+    const detail = error as Record<string, unknown>
+
+    // Fence late cancellation output before the caller's catch can run.
+    // A busy rejection must leave the other live prompt's observer intact.
+    if (
+      pending.sessionId &&
+      pending.onTextDelta &&
+      detail.message !== SESSION_OUTPUT_SINK_UNAVAILABLE &&
+      detail.code !== -32001
+    ) {
+      cancelledSessions?.add(pending.sessionId)
+    }
+    pending.reject(
+      new OpenAbRpcError(
+        typeof detail.message === 'string' ? detail.message : 'OpenAB ACP error',
+        typeof detail.code === 'number' ? detail.code : undefined,
+      ),
+    )
+
+    return
+  }
+  const result = message.result
+
+  pending.resolve(result && typeof result === 'object' ? (result as Record<string, unknown>) : {})
+}

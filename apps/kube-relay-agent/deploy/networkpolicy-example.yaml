@@ -1,0 +1,67 @@
+# Optional, and the only thing that bounds what Nuphos can reach.
+#
+# Kept in a separate file on purpose: it is a template with placeholder CIDRs,
+# and applying it unedited would deny the agent's egress and take the tunnel
+# down. Edit it, then apply.
+#
+# It assumes your CNI enforces NetworkPolicy (Calico, Cilium, Antrea…). On a CNI
+# that ignores it, this file is decoration — check before relying on it.
+#
+# Replace:
+#   RELAY_IP_CIDR      egress to the Nuphos relay, e.g. 203.0.113.10/32
+#   RELAY_PORT         the relay port, e.g. 8444
+#   APISERVER_IP_CIDR  your API server, e.g. 10.0.0.1/32
+#   APISERVER_PORT     usually 6443
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nuphos-relay-agent-egress
+  namespace: nuphos-relay
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nuphos-relay-agent
+  policyTypes: ['Egress']
+  egress:
+    # Cluster DNS, so the agent can resolve in-cluster Service names.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Outbound to the Nuphos relay. Without this the agent cannot connect at
+    # all, so it is the single line to delete for a hard cut-off.
+    - to:
+        - ipBlock:
+            cidr: RELAY_IP_CIDR
+      ports:
+        - protocol: TCP
+          port: RELAY_PORT
+    # The Kubernetes API server. This is the only destination the agent needs
+    # for `kubectl` to work; anything else below is what you additionally choose
+    # to expose.
+    - to:
+        - ipBlock:
+            cidr: APISERVER_IP_CIDR
+      ports:
+        - protocol: TCP
+          port: APISERVER_PORT
+    # Example of opening one in-cluster service (Postgres in `data`) and nothing
+    # else in that namespace. Delete or extend as needed.
+    # - to:
+    #     - namespaceSelector:
+    #         matchLabels:
+    #           kubernetes.io/metadata.name: data
+    #       podSelector:
+    #         matchLabels:
+    #           app: postgres
+    #   ports:
+    #     - protocol: TCP
+    #       port: 5432

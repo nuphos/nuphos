@@ -1,0 +1,95 @@
+# Nuphos supplemental alert rules for kube-prometheus-stack.
+#
+# The chart's default rules already cover the heavy hitters
+# (KubeDeploymentReplicasMismatch, KubePodCrashLooping, KubeNodeNotReady,
+# KubeDaemonSetRolloutStuck, KubePersistentVolumeFillingUp, …). This pack
+# adds only the gaps in the Nuphos resource-health matrix:
+#
+#   - CronJob staleness (no successful run in 24h)
+#   - PVC stuck Pending
+#   - Service with zero ready endpoints
+#   - cert-manager certificate expiry / not-Ready  (requires cert-manager's
+#     own metrics to be scraped — see note on the group below)
+#
+# The `release: kube-prometheus` label must match the helm release name of
+# the kube-prometheus-stack install, or the Prometheus operator will not
+# load this rule file. Adjust before applying when the release differs.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nuphos-supplemental-rules
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+    app.kubernetes.io/part-of: nuphos
+spec:
+  groups:
+    - name: nuphos.cronjobs
+      rules:
+        - alert: NuphosCronJobStale
+          # No successful completion in 24h for an unsuspended CronJob.
+          # 24h is deliberately coarse: it cleanly catches hourly/daily jobs
+          # without schedule-parsing; sub-daily SLAs need a per-job rule.
+          expr: |
+            (time() - kube_cronjob_status_last_successful_time > 86400)
+            and on (namespace, cronjob)
+            (kube_cronjob_spec_suspend == 0)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} has not succeeded in 24h'
+            description: 'Last successful run was over 24 hours ago and the CronJob is not suspended.'
+
+    - name: nuphos.storage
+      rules:
+        - alert: NuphosPVCStuckPending
+          expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} stuck Pending'
+            description: 'The claim has not bound for 15 minutes — check the StorageClass and provisioner.'
+
+    - name: nuphos.services
+      rules:
+        - alert: NuphosServiceNoReadyEndpoints
+          # A Service that selects pods but currently has zero ready
+          # addresses. Excludes headless/external services implicitly:
+          # those never appear in kube_endpoint_address_available.
+          expr: |
+            kube_endpoint_address_available == 0
+            and on (namespace, endpoint)
+            (kube_endpoint_address_not_ready >= 0)
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Service {{ $labels.namespace }}/{{ $labels.endpoint }} has no ready endpoints'
+            description: 'All backing pods are unready or the selector matches nothing.'
+
+    # cert-manager exposes its own metrics endpoint; kube-prometheus-stack
+    # does NOT scrape it by default. Before relying on this group, ensure a
+    # ServiceMonitor for cert-manager exists (cert-manager's helm chart:
+    # `--set prometheus.servicemonitor.enabled=true`). Without the scrape
+    # these rules simply never fire — they don't false-alarm.
+    - name: nuphos.certificates
+      rules:
+        - alert: NuphosCertificateExpiringSoon
+          expr: |
+            (certmanager_certificate_expiration_timestamp_seconds - time()) < 14 * 24 * 3600
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in under 14 days'
+            description: 'cert-manager has not renewed it yet — check the issuer and challenges.'
+        - alert: NuphosCertificateNotReady
+          expr: certmanager_certificate_ready_status{condition="False"} == 1
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Certificate {{ $labels.namespace }}/{{ $labels.name }} is not Ready'
+            description: 'Issuance or renewal is failing — inspect the Certificate and Order resources.'

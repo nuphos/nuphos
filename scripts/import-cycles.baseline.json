@@ -1,0 +1,11 @@
+{
+  "backend": [
+    "lib/agent/trigger-scheduler.ts -> lib/agent/trigger-service/read.ts",
+    "lib/agent/turn-runner.ts -> routes/agent.ts -> routes/agent/routes-chat-post.ts -> routes/agent/chat-post-run.ts -> routes/agent/chat-slack-bound.ts",
+    "routes/agent.ts -> routes/agent/routes-chat-post.ts -> routes/agent/chat-post-run.ts -> routes/agent/chat-slack-bound.ts -> routes/slack.ts -> routes/slack/interactions.ts -> routes/slack/plan-approve.ts",
+    "routes/agent.ts -> routes/agent/routes-chat-post.ts -> routes/agent/chat-post-run.ts -> routes/agent/chat-slack-bound.ts -> routes/slack.ts -> routes/slack/mappings.ts",
+    "routes/agent.ts -> routes/agent/routes-chat-post.ts -> routes/agent/chat-post-run.ts -> routes/agent/chat-slack-bound.ts -> routes/slack.ts -> routes/slack/user-mappings.ts"
+  ],
+  "desktop": [],
+  "admin": []
+}

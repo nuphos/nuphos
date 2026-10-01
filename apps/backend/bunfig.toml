@@ -1,0 +1,4 @@
+[test]
+# Runs before any test file / module loads — see src/test-preload.ts for why
+# env must be in place before env-derived singletons (@/config) are imported.
+preload = ["./src/test-preload.ts"]
