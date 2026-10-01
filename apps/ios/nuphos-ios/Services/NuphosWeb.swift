@@ -12,6 +12,7 @@ import Foundation
 ///     nuphos://google-callback?error=<human message>
 ///
 /// which is what `ASWebAuthenticationSession` hands back to us.
+// Touched to fire the iOS paths filter.
 enum NuphosWeb {
     static let siteURL = URL(string: "https://nuphos.ai")!
     static let callbackScheme = "nuphos"
