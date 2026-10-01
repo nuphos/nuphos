@@ -5,6 +5,7 @@
 //
 // The fallback matters: unit tests and any non-Electron render have no bridge.
 
+// Touched to exercise the macos-26 runner on this repo.
 const DEFAULT_WEB_BASE_URL = 'https://nuphos.ai'
 
 function resolve(): string {
