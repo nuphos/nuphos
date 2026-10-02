@@ -60,6 +60,13 @@ The agent runtime is a separate repository:
 That image is what actually executes a turn, and a self-hosted deployment
 registers its own.
 
+## Releases
+
+Maintainers publish Desktop downloads and self-hosted Backend images through
+component-specific release tags. See [the release guide](docs/releases.md) for
+versioning, required approvals, and signing setup. Hosted-service deployment is
+managed separately.
+
 ## Self-hosting
 
 `deploy/compose` brings up a complete, minimal Nuphos with one
