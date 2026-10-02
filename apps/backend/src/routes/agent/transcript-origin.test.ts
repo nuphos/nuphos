@@ -158,3 +158,34 @@ test('verified attribution survives persistence but client sync cannot inject it
   expect(uiMessagesToTranscript([message])[0]?.metadata).toEqual(metadata)
   expect(normalizeTranscriptMessages([message])[0]?.metadata).toBeUndefined()
 })
+
+test('stream completion preserves the screenshot and its identity instead of replacing it with text', () => {
+  const messages = [
+    {
+      id: 'image-turn',
+      role: 'user' as const,
+      parts: [
+        { type: 'text' as const, text: 'What is in this screenshot?' },
+        {
+          type: 'file' as const,
+          mediaType: 'image/png',
+          url: 'data:image/png;base64,aGVsbG8=',
+          filename: 'screenshot.png',
+          attachmentId: 'att_test',
+        },
+      ],
+    },
+  ]
+  const persisted = uiMessagesToTranscript(messages)
+  expect(persisted[0]?.parts).toEqual([
+    messages[0]!.parts[0],
+    {
+      type: 'image',
+      mediaType: 'image/png',
+      url: 'data:image/png;base64,aGVsbG8=',
+      fileName: 'screenshot.png',
+      attachmentId: 'att_test',
+    },
+  ])
+  expect(JSON.stringify(persisted)).not.toContain('attachment shown')
+})

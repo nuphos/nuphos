@@ -1585,3 +1585,42 @@ test('steering uses the control method without attaching or prompting a session'
   expect(h.socket().sent).toHaveLength(1)
   client.close()
 })
+
+test('sends native local file references alongside text to a fresh runtime session', async () => {
+  const h = harness()
+  const client = await OpenAbAcpClient.connect({
+    url: 'ws://openab/acp',
+    authKey: 'key',
+    socketFactory: h.connect,
+  })
+  const images = [
+    {
+      type: 'resource_link' as const,
+      mimeType: 'image/png',
+      uri: 'file:///tmp/screen.png',
+      name: 'screen.png',
+    },
+  ]
+  const prompting = client.prompt(
+    'fresh',
+    'Read this screenshot',
+    () => {},
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    images,
+  )
+  const request = await nextSent(h.socket(), 0)
+
+  expect(request).toMatchObject({
+    method: 'session/prompt',
+    params: {
+      sessionId: 'fresh',
+      prompt: [{ type: 'text', text: 'Read this screenshot' }, ...images],
+    },
+  })
+  h.socket().receive({ jsonrpc: '2.0', id: request.id, result: { stopReason: 'end_turn' } })
+  await prompting
+  client.close()
+})
