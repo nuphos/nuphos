@@ -1,3 +1,5 @@
+import { extname } from 'node:path'
+
 import { createTransfer, finalizeTransfer } from '@/lib/file-transfer/service'
 
 import type { PromptImage } from '../agent/image-parts'
@@ -10,7 +12,7 @@ export async function uploadPromptImages(
 ): Promise<string | null> {
   if (!images.length) return null
   const files = images.map((image, index) => ({
-    fileName: image.name ?? `image-${String(index + 1)}.${image.mimeType.split('/')[1] ?? 'png'}`,
+    fileName: imageFileName(image, index),
     // Distinct store paths even when several pasted screenshots have the same name.
     relPath: `${String(index)}/image`,
     size: Buffer.byteLength(image.data, 'base64'),
@@ -34,4 +36,19 @@ export async function uploadPromptImages(
   if (finalized.status !== 'ready') throw new Error('An attached image did not finish uploading')
 
   return group.groupId
+}
+
+function imageFileName(image: PromptImage, index: number): string {
+  const extension =
+    image.mimeType === 'image/jpeg' ? 'jpg' : (image.mimeType.split('/')[1] ?? 'png')
+  const name = image.name || `image-${String(index + 1)}`
+  const current = extname(name)
+
+  if (
+    current.toLowerCase() === `.${extension}` ||
+    (extension === 'jpg' && current.toLowerCase() === '.jpeg')
+  )
+    return name
+
+  return `${current ? name.slice(0, -current.length) : name}.${extension}`
 }

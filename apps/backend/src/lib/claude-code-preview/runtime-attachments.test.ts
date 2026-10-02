@@ -3,6 +3,7 @@ import { expect, spyOn, test } from 'bun:test'
 import * as transfers from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
+import { attachmentPrompt } from './openab-acp-lifecycle'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 
 const scope = { teamId: '69e989027ab63e8d6a0ffcb6', userId: 'sender', sessionId: 'chat' }
@@ -71,6 +72,57 @@ test('materialization is a no-op for text turns and exposes only paths to the mo
       ]),
     ).rejects.toThrow('Update this agent')
   } finally {
+    acquire.mockRestore()
+    jobs.mockRestore()
+  }
+})
+
+test('folder archives retain extraction instructions through the ACP text boundary', async () => {
+  const resolve = spyOn(transfers, 'resolveDownloads').mockResolvedValue({
+    files: [
+      {
+        fileName: 'folder.zip',
+        downloadUrl: 'https://store.example/signed',
+        size: 6,
+        status: 'ready',
+      },
+    ],
+  } as never)
+  const acquire = spyOn(controlRegistry, 'acquire').mockResolvedValue({
+    runJob: async () => ({
+      exitCode: 0,
+      stdout: JSON.stringify({ paths: ['/runtime/attachments/0/folder.zip'] }),
+    }),
+  } as never)
+  const jobs = spyOn(controlRegistry, 'runtimeJobs').mockReturnValue(['panel'])
+
+  try {
+    const files = await runtimeAttachments(
+      [
+        {
+          type: 'data-attachment',
+          data: { type: 'transfer-upload', groupId: 'folder', archive: true },
+        },
+      ],
+      scope,
+      [],
+    )
+
+    expect(files[0]!.archive).toBe(true)
+    const links = await materializeRuntimeAttachments('team', endpoint, files)
+    const prompt = attachmentPrompt('chat', 'Inspect this folder', links, {})
+
+    expect(prompt.prompt).toContainEqual({
+      type: 'resource_link',
+      name: 'folder.zip',
+      uri: 'file:///runtime/attachments/0/folder.zip',
+    })
+    expect(JSON.stringify(prompt.prompt)).toContain(
+      'Extract this local archive into a new directory',
+    )
+    expect(JSON.stringify(prompt.prompt)).not.toContain('https://store.example/signed')
+  } finally {
+    resolve.mockRestore()
     acquire.mockRestore()
     jobs.mockRestore()
   }

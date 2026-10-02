@@ -15,8 +15,6 @@ export function toUiMessages(messages: Message[]): unknown[] {
         // Thinking from previous turns isn't resent — the API only needs
         // thinking blocks within the live tool loop, which stays server-side.
         if (p.type === 'reasoning') return []
-        // Keep attachment identity structured. The backend renders model-only
-        // instructions at the runtime boundary, never into the transcript.
         if (p.type === 'image') {
           return [
             {

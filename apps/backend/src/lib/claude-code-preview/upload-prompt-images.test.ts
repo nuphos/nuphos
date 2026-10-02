@@ -62,3 +62,37 @@ test('large images upload unchanged to storage rather than entering ACP frames',
     await server.stop()
   }
 })
+
+test('image filenames match the encoded media type after Desktop conversion', async () => {
+  const create = spyOn(transfers, 'createTransfer').mockResolvedValue({
+    groupId: 'images',
+    files: [],
+  } as never)
+  const finalize = spyOn(transfers, 'finalizeTransfer').mockResolvedValue({
+    status: 'ready',
+  } as never)
+
+  try {
+    await uploadPromptImages(
+      scope,
+      ['screen.png', 'photo.bmp', 'photo.jpeg', 'PHOTO.JPG', 'paste', undefined].map((name) => ({
+        type: 'image',
+        name,
+        mimeType: 'image/jpeg',
+        data: 'AA==',
+      })),
+    )
+    expect(create.mock.calls[0]![2].map((file) => file.fileName)).toEqual([
+      'screen.jpg',
+      'photo.jpg',
+      'photo.jpeg',
+      'PHOTO.JPG',
+      'paste.jpg',
+      'image-6.jpg',
+    ])
+    expect(create.mock.calls[0]![2].every((file) => file.contentType === 'image/jpeg')).toBe(true)
+  } finally {
+    create.mockRestore()
+    finalize.mockRestore()
+  }
+})

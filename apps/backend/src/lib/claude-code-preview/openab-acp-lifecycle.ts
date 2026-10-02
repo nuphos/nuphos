@@ -171,5 +171,14 @@ export function attachmentPrompt(
   attachments: PromptAttachment[],
   meta: Record<string, unknown>,
 ) {
-  return { sessionId, prompt: [{ type: 'text', text }, ...attachments], ...meta }
+  return {
+    sessionId,
+    prompt: [
+      { type: 'text', text },
+      ...attachments.flatMap(({ description, ...link }) =>
+        description ? [link, { type: 'text', text: `${link.uri}: ${description}` }] : [link],
+      ),
+    ],
+    ...meta,
+  }
 }

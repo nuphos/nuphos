@@ -191,7 +191,6 @@ function normalizeUiMessagePartForTranscript(part: unknown): unknown {
 function normalizeUiMessagePartsForTranscript(parts: unknown): unknown[] {
   if (!Array.isArray(parts)) return []
 
-  // Images must survive transcript reloads as images, not model-only text.
   return stripInlineFileData(parts.map(normalizeUiMessagePartForTranscript).map(persistedImagePart))
 }
 

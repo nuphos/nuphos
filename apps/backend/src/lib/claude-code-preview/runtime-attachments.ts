@@ -12,12 +12,19 @@ import { uploadPromptImages } from './upload-prompt-images'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { PromptImage } from '../agent/image-parts'
 
-export type RuntimeAttachment = { name: string; url: string; size: number; mimeType?: string }
+export type RuntimeAttachment = {
+  name: string
+  url: string
+  size: number
+  mimeType?: string
+  archive?: boolean
+}
 export type PromptAttachment = {
   type: 'resource_link'
   uri: string
   name: string
   mimeType?: string
+  description?: string
 }
 
 /** Resolve only current-turn transfers, under the authenticated sender's scope. */
@@ -36,7 +43,13 @@ export async function runtimeAttachments(
 
   for (const raw of transfers) {
     if (!raw || typeof raw !== 'object') continue
-    const part = raw as { type?: string; groupId?: string; status?: string; data?: unknown }
+    const part = raw as {
+      type?: string
+      groupId?: string
+      status?: string
+      archive?: boolean
+      data?: unknown
+    }
     const transfer = part.type === 'data-attachment' ? (part.data as typeof part) : part
 
     if (
@@ -58,6 +71,7 @@ export async function runtimeAttachments(
         throw new Error('An attached file is not ready to download')
       files.push({
         name: file.fileName,
+        ...(transfer.archive ? { archive: true } : {}),
         url: file.downloadUrl,
         size: file.size,
         ...(file.contentType ? { mimeType: file.contentType } : {}),
@@ -106,6 +120,12 @@ export async function materializeRuntimeAttachments(
     type: 'resource_link',
     uri: pathToFileURL(String(path)).href,
     name: files[index]!.name,
+    ...(files[index]!.archive
+      ? {
+          description:
+            'Uploaded folder or file collection. Extract this local archive into a new directory in the conversation workspace before inspecting its contents.',
+        }
+      : {}),
     ...(files[index]!.mimeType ? { mimeType: files[index]!.mimeType } : {}),
   }))
 }
