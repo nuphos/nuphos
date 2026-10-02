@@ -2,7 +2,12 @@ import { provisionerKubeClient } from './provisioner-kube'
 import { managedRuntimeImage } from './runtime-image'
 import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimes } from './runtime-registry'
-import { latestRuntimeRelease, newerRuntimeVersion, RUNTIME_RELEASES_URL } from './runtime-release'
+import {
+  latestRuntimeRelease,
+  newerRuntimeVersion,
+  runtimeReleaseUrl,
+  RUNTIME_RELEASES_URL,
+} from './runtime-release'
 import { runtimeServiceName } from './runtime-service-name'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -62,7 +67,7 @@ export async function runtimeUpdateStatus(
     targetVersion: target,
     releaseUrl:
       target && ['waiting', 'updating', 'failed'].includes(state)
-        ? `${RUNTIME_RELEASES_URL}/tag/v${target}`
+        ? await runtimeReleaseUrl(target, release)
         : (release?.url ?? RUNTIME_RELEASES_URL),
     ...(state === 'failed' ? { error } : {}),
   }

@@ -184,7 +184,7 @@ export function RuntimeInstanceCard({
                   targetVersion: result.version,
                   releaseUrl:
                     previous.runtimeUpdate?.releaseUrl ??
-                    'https://github.com/zeabur/nuphos-runtime/releases',
+                    'https://github.com/nuphos/nuphos/releases?q=runtime-v',
                 },
               },
           )

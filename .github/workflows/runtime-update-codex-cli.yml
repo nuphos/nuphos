@@ -1,0 +1,108 @@
+name: Update Codex CLI and release
+
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+# Serialize the commit/tag with manual releases. Never interrupt a release.
+concurrency:
+  group: runtime-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/runtime
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main' && vars.RUNTIME_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.update.outputs.changed }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Update the pinned CLI and lockfile
+        id: update
+        run: node scripts/update-codex-cli.mjs
+      - name: Test helpers and the patched Codex adapter
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          npm test
+          npm ci --ignore-scripts --prefix image/codex-acp
+          node test/codex-acp-smoke.mjs image/codex-acp/node_modules/@agentclientprotocol/codex-acp/dist/index.js
+          node --test test/codex-steering.test.mjs test/codex-steering-smoke.mjs
+          node test/codex-shell-env-smoke.mjs image/codex-acp/node_modules/.bin/codex
+      - name: Set up Buildx
+        if: steps.update.outputs.changed == 'true'
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Build candidate image
+        if: steps.update.outputs.changed == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: apps/runtime/image
+          file: apps/runtime/image/Dockerfile
+          load: true
+          tags: nuphos-runtime:sdk-candidate
+          build-args: |
+            BASE_IMAGE=ghcr.io/zeabur/nuphos-runtime:0.0.12-base-codex
+            RUNTIME_PROVIDER=codex
+          cache-from: type=gha,scope=runtime-codex
+          cache-to: type=gha,mode=max,scope=runtime-codex
+      - name: Smoke-test image and native model discovery without prompts
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          docker run --rm -v "$PWD/test:/smoke:ro" --entrypoint bash nuphos-runtime:sdk-candidate /smoke/image-smoke.sh
+          docker run --rm -v "$PWD/test:/smoke:ro" --entrypoint node nuphos-runtime:sdk-candidate /smoke/model-discovery.mjs codex --allow-unauthenticated > /tmp/models.json
+          jq -e '(.models | length > 0) or (.authenticationRequired == true)' /tmp/models.json
+          cat /tmp/models.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit tested CLI and tag a runtime patch
+        id: release
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLI: ${{ steps.update.outputs.cli }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("package.json"));if(!/^\d+\.\d+\.\d+$/.test(p.version))throw Error("Invalid runtime version");const v=p.version.split(".").map(Number);v[2]++;p.version=v.join(".");fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\n");console.log(p.version)')
+          if git rev-parse --verify --quiet "refs/tags/runtime-v${VERSION}"; then
+            echo '::error::Runtime tag already exists'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add image/codex-acp/package.json image/codex-acp/package-lock.json README.md package.json
+          git commit -m "fix(runtime): update Codex CLI to ${CLI} (runtime-v${VERSION})"
+          git tag "runtime-v${VERSION}"
+          gh auth setup-git
+          # Reject a concurrent main change; never rebase untested code or bypass branch rules.
+          git push --atomic origin HEAD:main "refs/tags/runtime-v${VERSION}"
+          echo "tag=runtime-v${VERSION}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    uses: ./.github/workflows/runtime-build.yml
+    secrets:
+      RUNTIME_GHCR_TOKEN: ${{ secrets.RUNTIME_GHCR_TOKEN }}
+    permissions:
+      contents: write
+      packages: write
+    with:
+      release_tag: ${{ needs.update.outputs.tag }}
+      provider: both
+      reuse_base: false

@@ -1,0 +1,3 @@
+[submodule "apps/runtime/third_party/openab"]
+	path = apps/runtime/third_party/openab
+	url = https://github.com/zeabur/openab.git

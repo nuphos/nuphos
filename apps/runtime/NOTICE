@@ -1,0 +1,88 @@
+Nuphos Runtime
+Copyright 2026 Zeabur
+
+This product includes software developed at Zeabur, licensed under the
+Apache License, Version 2.0. See the LICENSE file.
+
+The source in this repository — the Dockerfile, the helper scripts under
+image/, the adapter patches and the tests — is Apache-2.0. The container
+images built from it also contain third-party software, which remains under
+its own licence. Building or distributing those images means accepting those
+licences too.
+
+
+THIRD-PARTY SOFTWARE IN THE PUBLISHED IMAGES
+============================================
+
+Base layer (third_party/openab)
+-------------------------------
+
+  openab gateway               MIT           https://github.com/openabdev/openab
+    Built from zeabur/openab, a fork of openabdev/openab.
+    Copyright (c) 2026 openabdev.
+
+  Debian and node:22-trixie-slim base packages
+    Various (mostly GPL, LGPL, MIT, BSD). See the copyright files under
+    /usr/share/doc in the image.
+
+
+Agent CLIs and ACP adapters
+---------------------------
+
+  @anthropic-ai/claude-agent-sdk, including the Claude Code CLI it ships
+                               Proprietary   "SEE LICENSE IN LICENSE.md";
+                                             Anthropic Commercial Terms of
+                                             Service. Not open source.
+                                             https://www.anthropic.com/legal/commercial-terms
+  @anthropic-ai/sdk            MIT
+  @agentclientprotocol/claude-agent-acp
+                               Apache-2.0    https://github.com/agentclientprotocol/claude-agent-acp
+  @agentclientprotocol/codex-acp
+                               Apache-2.0    https://github.com/agentclientprotocol/codex-acp
+  @agentclientprotocol/sdk     Apache-2.0
+  @openai/codex                Apache-2.0    https://github.com/openai/codex
+
+  Claude Code and the Claude Agent SDK are distributed under Anthropic's own
+  terms, not under this repository's licence. Use of them requires an
+  Anthropic account and compliance with Anthropic's terms. Nuphos and Zeabur
+  are not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI.
+
+
+Command-line tools
+------------------
+
+Listed in image/tools/manifest.json. kubectl and the Zeabur CLI are downloaded
+at build time and included in the images. The others are not in the images:
+the runtime downloads each from its vendor's public distribution point the
+first time it is used. Each is governed by its vendor's licence. Refer to each
+project for the authoritative terms.
+
+  kubectl                      Apache-2.0    https://github.com/kubernetes/kubernetes
+  Zeabur CLI                   See https://zeabur.com for terms.
+  Helm                         Apache-2.0    https://github.com/helm/helm
+  AWS CLI v2                   Apache-2.0    https://github.com/aws/aws-cli
+  Google Cloud CLI             Apache-2.0 and other terms; portions are
+                                             proprietary to Google.
+                                             https://cloud.google.com/sdk/docs/install
+  mongosh                      Apache-2.0    https://github.com/mongodb-js/mongosh
+  Tailscale                    BSD-3-Clause  https://github.com/tailscale/tailscale
+  hcloud CLI                   MIT           https://github.com/hetznercloud/cli
+  Aliyun CLI                   Apache-2.0    https://github.com/aliyun/aliyun-cli
+  Volcengine CLI               Apache-2.0    https://github.com/volcengine/volcengine-cli
+  linode-cli                   BSD-3-Clause  https://github.com/linode/linode-cli
+  PostgreSQL client, MariaDB client, GCC and binutils
+                               Debian packages, each under its own licence.
+
+  Debian packages installed with apt (git, python3, gh and their
+  dependencies) remain under their own licences; see /usr/share/doc in the
+  image.
+
+
+TRADEMARKS
+==========
+
+Claude and Anthropic are trademarks of Anthropic, PBC. Codex and OpenAI are
+trademarks of OpenAI. Kubernetes is a registered trademark of The Linux
+Foundation. All other trademarks are the property of their respective owners.
+Their use here is nominative, to identify the software these images package,
+and does not imply any affiliation or endorsement.
