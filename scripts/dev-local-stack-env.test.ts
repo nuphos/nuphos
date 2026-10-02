@@ -12,6 +12,7 @@ const composeEnv = parseEnvFile(`
 # comment
 S3_ACCESS_KEY=nuphos-local
 S3_SECRET_KEY='secret'
+NUPHOS_JWT_SECRET='local-test-signing-key'
 RUNTIME_PORT=19000
 `)
 
@@ -22,6 +23,7 @@ test('reads the compose .env, defaulting the ports it leaves out', () => {
     runtimePort: 19000,
     s3AccessKey: 'nuphos-local',
     s3SecretKey: 'secret',
+    jwtSecret: 'local-test-signing-key',
   })
 })
 
@@ -59,4 +61,14 @@ test('the local launcher overrides inherited TLS and the secondary HTTP listener
   assert.equal(env.ATLAS_DEV_TLS_CERT, '')
   assert.equal(env.ATLAS_DEV_TLS_KEY, '')
   assert.equal(env.NUPHOS_DEV_HTTP_PORT, '0')
+})
+
+test('the local signing key is required and overrides any inherited backend key', () => {
+  assert.equal(localStackFromEnv({ ...composeEnv, NUPHOS_JWT_SECRET: '' }), null)
+  const env = {
+    NUPHOS_JWT_SECRET: 'inherited-key',
+    ...localBackendEnv(localStackFromEnv(composeEnv)!),
+  }
+
+  assert.equal(env.NUPHOS_JWT_SECRET, 'local-test-signing-key')
 })

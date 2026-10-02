@@ -90,7 +90,14 @@ test('OrbStack problems name the command that fixes them', () => {
 })
 
 test('managed mode turns the provisioner on against the confined kubeconfig and local namespace', () => {
-  const stack = { mongoPort: 1, rustfsPort: 2, runtimePort: 3, s3AccessKey: 'a', s3SecretKey: 'b' }
+  const stack = {
+    mongoPort: 1,
+    rustfsPort: 2,
+    runtimePort: 3,
+    s3AccessKey: 'a',
+    s3SecretKey: 'b',
+    jwtSecret: 'local-test-key',
+  }
   const env = { ...localBackendEnv(stack), ...managedBackendEnv('orbstack') }
 
   assert.equal(env.CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED, 'true')
