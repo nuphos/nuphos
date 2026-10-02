@@ -75,7 +75,6 @@ describe('materializeMergedSkillsDir', () => {
     expect(merged.layers.globalSkills).toBe(0)
     expect(merged.layers.teamSkills).toBe(0)
 
-    // Existing caches used identical source revisions but different merge semantics.
     const fingerprint = path.join(merged.directory, '.merge-fingerprint')
     const old = JSON.parse(await fs.readFile(fingerprint, 'utf8'))
 

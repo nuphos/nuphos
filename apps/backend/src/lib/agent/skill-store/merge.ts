@@ -136,8 +136,6 @@ async function overlayScopeSkills(
   builtinNames: Set<string>,
 ): Promise<string[]> {
   const scopeDir = getScopeCacheDir(scope)
-  // Old store entries predate the reserved-name check on writes. They must not
-  // shadow credential fixes shipped with the backend.
   const names = (await listCachedSkillNames(scopeDir)).filter((name) => !builtinNames.has(name))
 
   for (const name of names) {
