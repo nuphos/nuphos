@@ -177,6 +177,7 @@ test('stream completion preserves the screenshot and its identity instead of rep
     },
   ]
   const persisted = uiMessagesToTranscript(messages)
+
   expect(persisted[0]?.parts).toEqual([
     messages[0]!.parts[0],
     {
