@@ -45,6 +45,7 @@ import {
 } from './main/deep-links'
 import { startDevBackendHealthProbe } from './main/dev-backend-health'
 import { APP_NAME, devSuffix, isDev } from './main/env'
+import { prepareFirstLaunch } from './main/first-launch'
 import { initLocalRuntime, stopLocalRuntime } from './main/local-runtime'
 import { installApplicationMenu } from './main/menu'
 import { readPersistedThemeSource } from './main/theme'
@@ -131,11 +132,22 @@ if (!isDev) {
 // Single-instance lock: required so deep-link relaunches on Windows / Linux are
 // delivered to the running window via `second-instance` instead of starting a
 // duplicate process.
+const claimIntro = prepareFirstLaunch(app.getPath('userData'))
 const gotInstanceLock = app.requestSingleInstanceLock()
 
 if (!gotInstanceLock) {
   app.quit()
 }
+
+let firstLaunchPending = gotInstanceLock && (isDev || claimIntro())
+
+ipcMain.handle('app:claimFirstLaunchIntro', () => {
+  const showIntro = firstLaunchPending
+
+  firstLaunchPending = false
+
+  return showIntro
+})
 
 app.on('second-instance', (_event, argv) => {
   showMainWindow()

@@ -42,3 +42,7 @@ apps/tailscale-dialer/**
 apps/ios/**
 # Android Studio project: Gradle, Kotlin and resource XML are not Prettier's.
 apps/android/**
+
+# Preserve upstream logo animation assets verbatim.
+apps/desktop/public/logo-intro/logo-intro.js
+apps/desktop/public/logo-intro/nuphos.json
