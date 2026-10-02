@@ -183,7 +183,7 @@ export function createWindow(): BrowserWindow {
   win.once('ready-to-show', () => {
     win.show()
     // Precise readiness marker for scripts/dev-desktop.ts. The previous
-    // parser matched the pnpm script name `electron:dev` and reported a window
+    // parser matched the pnpm script name `dev` and reported a window
     // even when Vite immediately failed before Electron launched.
     if (isDev) console.log('[nuphos-dev] electron window opened')
   })

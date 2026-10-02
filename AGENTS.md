@@ -14,7 +14,7 @@
 
 ### `apps/desktop`
 
-- When the user says "local dev", they mean Electron local dev. Use `pnpm electron:dev` rather than the web-only Vite dev server unless they explicitly ask for web dev.
+- For local development, always run `bun run dev` from the repository root. It starts the local stack, backend, runtime, and Electron Desktop with isolated configuration. Do not start Desktop separately or use the web-only Vite server as the default development entrypoint.
 
 #### Page headers & the shared Toolbar
 

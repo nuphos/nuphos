@@ -9,30 +9,16 @@ Release notes and version history are published on
 
 ## Develop
 
-```bash
-pnpm install
-pnpm electron:dev          # Vite dev server
-pnpm electron:start        # Electron with VITE_DEV_SERVER_URL set
-```
-
-### Running multiple dev instances side-by-side
-
-By default the dev electron uses a single `userData` directory
-(`~/Library/Application Support/Nuphos Dev` on macOS). That directory
-is also the key for Electron's single-instance lock, so launching a second
-`pnpm dev` from another worktree silently `app.quit()`s — and
-`vite-plugin-electron` then tears down vite when electron exits.
-
-Set `ATLAS_DEV_SUFFIX` to give a worktree its own app name, `userData`, and
-single-instance lock. The suffix also shows up as a Dock badge so you can
-tell instances apart visually:
+Run the complete local development environment from the repository root:
 
 ```bash
-ATLAS_DEV_SUFFIX=wt-6732 pnpm dev
+bun run dev
 ```
 
-Each worktree should use a different suffix. Note that this creates a fresh
-profile (no shared login state) — that's the trade-off for isolation.
+The launcher starts the local stack, backend, runtime, and Electron Desktop.
+It configures the backend URL and gives each worktree an isolated Desktop
+profile and single-instance lock, so multiple worktrees can run side by side.
+Each profile has its own login state. Do not launch Desktop separately.
 
 ## Local production build (unsigned)
 

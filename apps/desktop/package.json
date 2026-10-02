@@ -11,7 +11,6 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --experimental-test-module-mocks --test \"electron/**/*.test.ts\" \"src/**/*.test.ts\" \"local-runtime/*.test.mjs\"",
-    "electron:dev": "vite",
     "electron:build": "vite build && electron-builder",
     "electron:start": "electron .",
     "release": "vite build && electron-builder --publish always",
