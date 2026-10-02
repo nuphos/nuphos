@@ -71,6 +71,10 @@ export function localBackendEnv(stack: LocalStack): Record<string, string> {
 
   return {
     NODE_ENV: 'development',
+    // The local stack has one HTTP port, even when a shared .env enables TLS.
+    ATLAS_DEV_TLS_CERT: '',
+    ATLAS_DEV_TLS_KEY: '',
+    NUPHOS_DEV_HTTP_PORT: '0',
     MONGODB_URI: `mongodb://127.0.0.1:${String(stack.mongoPort)}/?directConnection=true`,
     MONGODB_DB: 'nuphos',
     ATLAS_REDIS_ENABLED: 'false',

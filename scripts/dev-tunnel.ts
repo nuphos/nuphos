@@ -8,7 +8,7 @@ import { join } from 'node:path'
 
 import { pushEvent } from './dev-event-log.ts'
 import { signalGroup } from './dev-shutdown.ts'
-import { LOG_DIR, MKCERT_CA } from './dev-workspace.ts'
+import { LOG_DIR } from './dev-workspace.ts'
 
 import type { ChildProcess } from 'node:child_process'
 
@@ -124,7 +124,7 @@ export function namedTunnelUrlFromConfig(source: string, port: number): string |
       continue
     }
     if (line.startsWith('- ') && !line.startsWith('- hostname:')) hostname = null
-    if (hostname && /^service:\s*https?:\/\//.test(line) && line.includes(`:${String(port)}`)) {
+    if (hostname && /^service:\s*http:\/\//.test(line) && line.includes(`:${String(port)}`)) {
       return `https://${hostname}`
     }
   }
@@ -161,19 +161,7 @@ async function startQuickTunnel(port: number): Promise<string | null> {
   pushEvent(tunnel, 'starting quick tunnel (trycloudflare)…')
   const child = spawn(
     'cloudflared',
-    [
-      'tunnel',
-      '--url',
-      `https://local.zeabur.com:${port}`,
-      '--http-host-header',
-      `local.zeabur.com:${port}`,
-      '--origin-server-name',
-      'local.zeabur.com',
-      '--origin-ca-pool',
-      MKCERT_CA,
-      '--no-autoupdate',
-      '--no-prechecks',
-    ],
+    ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate', '--no-prechecks'],
     { detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
   )
 

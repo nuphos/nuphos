@@ -145,6 +145,11 @@ From the repository root:
 bun run dev
 ```
 
+The local backend uses one HTTP port shared by Desktop and runtime callbacks;
+no mkcert certificate or local TLS configuration is required. Tunnel public URLs
+remain HTTPS. Legacy named tunnels with HTTPS origins are skipped in favor of
+a quick tunnel.
+
 ## Working Guidelines
 
 - Backend-only changes should be developed and checked from `apps/backend`.

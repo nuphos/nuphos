@@ -47,3 +47,16 @@ test('the backend env points every datastore at the local stack and turns cluste
     assert.equal(env[key], 'http://127.0.0.1:9000')
   }
 })
+
+test('the local launcher overrides inherited TLS and the secondary HTTP listener', () => {
+  const env = {
+    ATLAS_DEV_TLS_CERT: '/legacy/cert.pem',
+    ATLAS_DEV_TLS_KEY: '/legacy/key.pem',
+    NUPHOS_DEV_HTTP_PORT: '3818',
+    ...localBackendEnv(localStackFromEnv(composeEnv)!),
+  }
+
+  assert.equal(env.ATLAS_DEV_TLS_CERT, '')
+  assert.equal(env.ATLAS_DEV_TLS_KEY, '')
+  assert.equal(env.NUPHOS_DEV_HTTP_PORT, '0')
+})

@@ -6,13 +6,7 @@ import { pipeLines, selectCrashDiagnostic, stripAnsi } from './dev-child-output.
 import { markDirty, pushEvent } from './dev-event-log.ts'
 import { backend, desktop, ensureDeps, openLog, startTiming, writeRaw } from './dev-services.ts'
 import { isQuitting, stopTree } from './dev-shutdown.ts'
-import {
-  BASE_BACKEND_PORT,
-  DESKTOP_DIR,
-  DEV_CLI_CONFIG,
-  MKCERT_CA,
-  WT_ID,
-} from './dev-workspace.ts'
+import { BASE_BACKEND_PORT, DESKTOP_DIR, DEV_CLI_CONFIG, WT_ID } from './dev-workspace.ts'
 
 const SELF_HEAL_FAILURE_THRESHOLD = 3
 let selfHealInFlight = false
@@ -168,8 +162,7 @@ export async function startDesktop() {
     cwd: DESKTOP_DIR,
     env: {
       ...process.env,
-      NODE_EXTRA_CA_CERTS: MKCERT_CA,
-      NUPHOS_API_URL: backend.url ?? `https://local.zeabur.com:${BASE_BACKEND_PORT}`,
+      NUPHOS_API_URL: backend.url ?? `http://localhost:${BASE_BACKEND_PORT}`,
       NUPHOS_LAUNCHER_HEALTH: '1',
       NUPHOS_CLI_CONFIG: DEV_CLI_CONFIG,
       ATLAS_WT_BADGE: WT_ID,
