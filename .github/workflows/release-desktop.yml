@@ -108,6 +108,20 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Gate macOS update compatibility
+        if: matrix.platform == 'mac'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          set -euo pipefail
+          aws s3 cp s3://nuphos-releases/desktop/latest-mac.yml latest-mac.yml
+          # electron-updater compares os.release(): macOS 12 is Darwin 21.
+          if ! grep -q '^minimumSystemVersion:' latest-mac.yml; then
+            echo 'minimumSystemVersion: 21.0.0' >> latest-mac.yml
+          fi
+          aws s3 cp latest-mac.yml s3://nuphos-releases/desktop/latest-mac.yml --content-type text/yaml
       - name: Remove notarization key
         if: always() && matrix.platform == 'mac'
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
@@ -128,23 +142,9 @@ jobs:
   announce:
     needs: [validate, build]
     runs-on: ubuntu-latest
-    environment: desktop-release
     permissions:
       contents: write
     steps:
-      - name: Gate macOS update compatibility
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: |
-          set -euo pipefail
-          aws s3 cp s3://nuphos-releases/desktop/latest-mac.yml latest-mac.yml
-          # electron-updater compares os.release(): macOS 12 is Darwin 21.
-          if ! grep -q '^minimumSystemVersion:' latest-mac.yml; then
-            echo 'minimumSystemVersion: 21.0.0' >> latest-mac.yml
-          fi
-          aws s3 cp latest-mac.yml s3://nuphos-releases/desktop/latest-mac.yml --content-type text/yaml
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
