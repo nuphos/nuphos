@@ -47,13 +47,8 @@ export function claudeCodePreviewConfig(): ClaudeCodePreviewConfig {
   }
 }
 
-/** The nuphos-runtime release managed agents run. Self-hosted compose pins the same one. */
-export const DEFAULT_NUPHOS_RUNTIME_VERSION = '0.1.2'
-
 export type ClaudeCodeRuntimeProvisionerConfig = {
   enabled: boolean
-  /** Managed agents run `ghcr.io/zeabur/nuphos-runtime:<runtimeVersion>-<provider>`. */
-  runtimeVersion: string
   namespace: string
   /** Dev-only: reconcile through the operator's kubectl login instead of the
    *  in-cluster ServiceAccount. Ignored in production. */
@@ -113,14 +108,8 @@ function runtimeSchedulingConfig(): RuntimeScheduling {
 }
 
 export function claudeCodeRuntimeProvisionerConfig(): ClaudeCodeRuntimeProvisionerConfig {
-  const runtimeVersion = optional('NUPHOS_RUNTIME_VERSION') ?? DEFAULT_NUPHOS_RUNTIME_VERSION
-
-  if (!/^\d+\.\d+\.\d+$/.test(runtimeVersion))
-    throw new Error('NUPHOS_RUNTIME_VERSION must be a stable X.Y.Z version')
-
   return {
     enabled: bool('CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED', false),
-    runtimeVersion,
     namespace: optional('CLAUDE_CODE_RUNTIME_NAMESPACE') ?? 'openab-runtimes',
     kubectl: process.env.NODE_ENV !== 'production' && bool('CLAUDE_CODE_RUNTIME_KUBECTL', false),
     kubeContext: optional('CLAUDE_CODE_RUNTIME_KUBE_CONTEXT'),

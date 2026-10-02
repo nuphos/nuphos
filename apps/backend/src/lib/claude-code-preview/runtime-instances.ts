@@ -76,7 +76,7 @@ export async function createManagedRuntimeInstance(args: {
     id: runtime.id,
     provider: args.provider,
     label: args.label,
-    image: managedRuntimeImage(args.provider),
+    image: await managedRuntimeImage(args.provider),
     status: runtime.status,
     kind: 'managed',
     createdAt: runtime.createdAt,
