@@ -131,23 +131,37 @@ gh_api -X POST /repos/myorg/myrepo/issues/42/comments \
 
 ## Pushing code / opening PRs
 
-If the user asks you to make a code change and open a PR, work in the sandbox's filesystem (`/workspace` or wherever you cloned the repo) and use `gh`:
+Use GitHub's `createCommitOnBranch` GraphQL mutation with the selected App installation token for new commits. GitHub supplies the App author/committer and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot.
 
-```bash
-# Clone via gh — uses the credential helper configured by setup-credentials.sh,
-# so the token never lands in process args, shell history, or .git/config.
-gh repo clone myorg/myrepo repo
-cd repo
+1. Run the selected installation's setup command with `--for-commit` appended. It prints the current authenticated Nuphos participant's `Co-authored-by` trailer. Refresh this on every committing turn; never infer the participant from the runtime/provider account, installation owner, or durable conversation owner. If the participant identity is unavailable, stop before committing.
+2. Work from the target branch's current SHA. For a new PR, create a new branch at the base branch SHA using `gh api repos/OWNER/REPO/git/refs -f ref=refs/heads/BRANCH -f sha=BASE_SHA`.
+3. Prepare a JSON payload file for the mutation below. Include the complete new contents of each changed file as base64 in `fileChanges.additions`; include removed paths in `fileChanges.deletions`. Omit unchanged files. Add the participant and runtime trailers to `message.body`, after a blank line.
+4. Submit with `gh api graphql --input /path/to/commit.json`. Use `expectedHeadOid` to prevent overwriting concurrent changes; on a mismatch, fetch and reconcile before retrying.
+5. Verify the returned commit through `gh api repos/OWNER/REPO/commits/SHA`: require `.commit.verification.verified == true`, check the resolved bot author, and inspect co-authors. If verification fails, stop and report it; never bypass branch protection.
+6. Fetch the branch to align the local checkout before further edits, then open the PR ready for review.
 
-git checkout -b agent/<short-description>
-# ... edit files ...
-git add -A
-git -c user.email="nuphos-agent@nuphos.ai" -c user.name="Nuphos Agent" \
-  commit -m "<concise message>"
-git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
+Example payload structure (replace placeholders and omit empty additions/deletions):
 
-gh pr create --base main --title "..." --body "..."
+```json
+{
+  "query": "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url } } }",
+  "variables": {
+    "input": {
+      "branch": { "repositoryNameWithOwner": "OWNER/REPO", "branchName": "BRANCH" },
+      "expectedHeadOid": "CURRENT_BRANCH_SHA",
+      "message": {
+        "headline": "fix: describe the change",
+        "body": "Context.\n\nCo-authored-by: PARTICIPANT_NAME <PARTICIPANT_EMAIL>\nCo-authored-by: codex <codex@openai.com>"
+      },
+      "fileChanges": {
+        "additions": [{ "path": "path/to/file", "contents": "BASE64_COMPLETE_FILE" }]
+      }
+    }
+  }
+}
 ```
+
+This API does not expose file modes, symlinks, or submodules. If the change needs those, stop and choose a signing-capable workflow rather than silently converting them to regular files. For unsigned commits already published on a PR branch, appending a signed commit does not sign its ancestors; prepare a replacement branch from the base, or obtain explicit authorization for a signed history rewrite.
 
 A few rules:
 
@@ -157,7 +171,11 @@ A few rules:
   - The branch does not yet do what was asked: something is stubbed or `TODO`, a check you ran is failing and you haven't fixed it, or you're stopping partway and intend to push more commits to that same branch before a human should read it.
 - Uncertainty is **not** a reason to draft. "I'm not sure this is the right approach", "the repo has no tests so I couldn't verify", "the user may want it done differently" — open the PR ready for review and write the doubt into the PR body, where a reviewer can act on it. A draft with a finished branch inside just delays the review the user asked for.
 - If you did open a draft and then finished the work in the same session, flip it with `gh pr ready <number> --repo myorg/myrepo` and say so.
-- Set the commit author to `Nuphos Agent <nuphos-agent@nuphos.ai>` so it's clear in the history that the change came from the agent.
+- Let GitHub set the App author and committer. Do not hardcode a bot slug/email, supply custom author/committer fields, or substitute local unsigned commits. This works with self-hosted installations' own Apps without identity configuration.
+- Add the participant trailer printed by setup and exactly one runtime trailer, separated from the body by a blank line. Select by the runtime executing this turn, not the model name or installed CLI binaries:
+  - Claude Code: `Co-authored-by: claude <noreply@anthropic.com>`
+  - Codex: `Co-authored-by: codex <codex@openai.com>`
+- Avoid duplicate trailers and preserve legitimate existing co-authors when carrying work forward. A participant email links to a GitHub profile only if registered there; report an unlinked co-author without substituting a different email.
 - If the repo has CODEOWNERS or required reviews, mention that the PR will need a human reviewer — `gh` will not bypass branch protection.
 
 ## Safety

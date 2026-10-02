@@ -46,11 +46,11 @@ their lid.
 
 ## Apps
 
-| Path                    | What it is                                                              |
-| ----------------------- | ----------------------------------------------------------------------- |
-| `apps/backend`          | Bun/Hono API: accounts, teams, sessions, runtime registry, integrations |
-| `apps/desktop`          | Electron/Vite/React client — the workspace itself                       |
-| `apps/ios`              | SwiftUI client: pick a session back up away from your desk              |
+| Path           | What it is                                                              |
+| -------------- | ----------------------------------------------------------------------- |
+| `apps/backend` | Bun/Hono API: accounts, teams, sessions, runtime registry, integrations |
+| `apps/desktop` | Electron/Vite/React client — the workspace itself                       |
+| `apps/ios`     | SwiftUI client: pick a session back up away from your desk              |
 
 There is an Android client too; it is not open source yet. The iOS app is the
 one in here.
