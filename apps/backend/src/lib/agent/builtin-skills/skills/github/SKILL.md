@@ -131,7 +131,7 @@ gh_api -X POST /repos/myorg/myrepo/issues/42/comments \
 
 ## Pushing code / opening PRs
 
-Use GitHub's `createCommitOnBranch` GraphQL mutation with the selected App installation token for new commits. GitHub supplies the App author/committer and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot.
+Use GitHub's `createCommitOnBranch` GraphQL mutation with the selected App installation token for new commits. GitHub supplies the App author, uses its signing committer (`web-flow`), and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot.
 
 1. Run the selected installation's setup command with `--for-commit` appended. It prints the current authenticated Nuphos participant's `Co-authored-by` trailer. Refresh this on every committing turn; never infer the participant from the runtime/provider account, installation owner, or durable conversation owner. If the participant identity is unavailable, stop before committing.
 2. Work from the target branch's current SHA. For a new PR, create a new branch at the base branch SHA using `gh api repos/OWNER/REPO/git/refs -f ref=refs/heads/BRANCH -f sha=BASE_SHA`.
@@ -171,7 +171,7 @@ A few rules:
   - The branch does not yet do what was asked: something is stubbed or `TODO`, a check you ran is failing and you haven't fixed it, or you're stopping partway and intend to push more commits to that same branch before a human should read it.
 - Uncertainty is **not** a reason to draft. "I'm not sure this is the right approach", "the repo has no tests so I couldn't verify", "the user may want it done differently" — open the PR ready for review and write the doubt into the PR body, where a reviewer can act on it. A draft with a finished branch inside just delays the review the user asked for.
 - If you did open a draft and then finished the work in the same session, flip it with `gh pr ready <number> --repo myorg/myrepo` and say so.
-- Let GitHub set the App author and committer. Do not hardcode a bot slug/email, supply custom author/committer fields, or substitute local unsigned commits. This works with self-hosted installations' own Apps without identity configuration.
+- Let GitHub set the App author and its signing committer. Do not hardcode a bot slug/email, supply custom author/committer fields, or substitute local unsigned commits. This works with self-hosted installations' own Apps without identity configuration.
 - Add the participant trailer printed by setup and exactly one runtime trailer, separated from the body by a blank line. Select by the runtime executing this turn, not the model name or installed CLI binaries:
   - Claude Code: `Co-authored-by: claude <noreply@anthropic.com>`
   - Codex: `Co-authored-by: codex <codex@openai.com>`
