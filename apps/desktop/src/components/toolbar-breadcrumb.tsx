@@ -18,7 +18,13 @@ function crumbTarget(seg: BreadcrumbSegment): (() => void) | undefined {
   return seg.onClick ?? seg.options?.find((option) => option.selected)?.onPick
 }
 
-export function Breadcrumb({ segments }: { segments: BreadcrumbSegment[] }) {
+export function Breadcrumb({
+  segments,
+  expand = false,
+}: {
+  segments: BreadcrumbSegment[]
+  expand?: boolean
+}) {
   return (
     <div className="titlebar-no-drag flex max-w-full min-w-0 items-center overflow-hidden">
       {segments.map((seg, i) => {
@@ -32,8 +38,11 @@ export function Breadcrumb({ segments }: { segments: BreadcrumbSegment[] }) {
         // room the toolbar has left and truncates only once it genuinely runs
         // out. The ones before it stay capped — a long middle crumb must not
         // push the trail off the end.
-        const widthClass =
-          i === segments.length - 1 ? 'min-w-0 max-w-[240px]' : 'min-w-0 max-w-[180px]'
+        const widthClass = expand
+          ? 'min-w-0'
+          : i === segments.length - 1
+            ? 'min-w-0 max-w-[240px]'
+            : 'min-w-0 max-w-[180px]'
 
         return (
           <div key={i} className="flex items-center min-w-0">

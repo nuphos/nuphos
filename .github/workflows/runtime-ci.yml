@@ -1,0 +1,84 @@
+name: Runtime CI
+
+on:
+  pull_request:
+    paths:
+      - apps/runtime/**
+      - .github/workflows/runtime-*.yml
+      - .gitmodules
+  push:
+    branches: [main]
+    paths:
+      - apps/runtime/**
+      - .github/workflows/runtime-*.yml
+      - .gitmodules
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/runtime
+
+jobs:
+  adapter:
+    name: Runtime adapters
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Test the image's helpers, defaults and release gate
+        run: npm test
+      - name: Install the pinned Codex ACP adapter
+        run: npm ci --ignore-scripts --prefix image/codex-acp
+      - name: Exercise the patched adapter against a Codex App Server fixture
+        run: node test/codex-acp-smoke.mjs image/codex-acp/node_modules/@agentclientprotocol/codex-acp/dist/index.js
+      - name: Steer an active turn through the patched adapter
+        run: node --test test/codex-steering.test.mjs test/codex-steering-smoke.mjs
+      - name: Verify environment isolation in a real Codex shell
+        run: node test/codex-shell-env-smoke.mjs image/codex-acp/node_modules/.bin/codex
+      - name: Verify the pinned Claude adapter patch
+        run: |
+          npm ci --ignore-scripts --prefix image/claude-agent-acp
+          node image/claude-agent-acp/patch-adapter.mjs image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js
+          node --check image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js
+          node --test test/claude-turn-completion-smoke.mjs test/claude-session-state-smoke.mjs test/claude-session-home-smoke.mjs
+
+  image:
+    name: Runtime image (${{ matrix.provider }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [claude-code, codex]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      # The gateway base is a Rust build that takes far longer than everything
+      # else here, and the runtime image only copies its `openab` binary, so PR
+      # CI borrows a published base and build.yml builds the real one.
+      - name: Build the runtime image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: apps/runtime/image
+          file: apps/runtime/image/Dockerfile
+          load: true
+          tags: nuphos-runtime:ci
+          build-args: |
+            BASE_IMAGE=ghcr.io/zeabur/nuphos-runtime:0.0.12-base-codex
+            RUNTIME_PROVIDER=${{ matrix.provider }}
+          cache-from: type=gha,scope=runtime-${{ matrix.provider }}
+          cache-to: type=gha,mode=max,scope=runtime-${{ matrix.provider }}
+      - name: Smoke-test the image, and first-use installs once
+        env:
+          TOOLS: ${{ matrix.provider == 'claude-code' && '--tools' || '' }}
+        run: |
+          docker run --rm -v "$PWD/test:/smoke:ro" --entrypoint bash nuphos-runtime:ci \
+            /smoke/image-smoke.sh $TOOLS

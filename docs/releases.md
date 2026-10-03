@@ -38,10 +38,13 @@ Before the first release, a repository administrator must configure the
 - Store `MAC_CERTS` (base64 Developer ID certificate), `MAC_CERTS_PASSWORD`,
   `APPLE_API_KEY_BASE64` (base64 App Store Connect `.p8` key), `APPLE_API_KEY_ID`,
   `APPLE_API_ISSUER`, and `APPLE_TEAM_ID` as Environment secrets.
-- Store `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as Environment secrets.
-  Scope this identity to uploading release objects and reading the macOS update
-  manifest in the configured distribution prefix. Do not use production
-  deployment credentials.
+- Store `AWS_RELEASE_ROLE_ARN` as an Environment secret. Configure the role to
+  trust GitHub Actions OIDC only for this repository and `desktop-release`, with
+  audience `sts.amazonaws.com`. Match the repository's actual subject format,
+  including immutable owner and repository IDs when enabled. Scope permissions
+  to uploading release objects and reading the macOS update manifest in the
+  configured distribution prefix. The workflow obtains short-lived credentials;
+  do not configure long-lived AWS keys or production deployment credentials.
 
 Do not store secret values in the workflow, documentation, repository variables,
 or repository-level secrets. The notarization key is written to a private

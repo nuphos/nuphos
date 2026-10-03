@@ -11,6 +11,28 @@ export type RuntimeJobRequest = {
 }
 
 export abstract class OpenAbAcpLifecycle {
+  onTerminalFrame?: (frame: unknown) => void
+  terminalRequest(
+    operation: 'start' | 'input' | 'resize' | 'close' | 'ack',
+    params: Record<string, unknown>,
+  ) {
+    return this.call(`_openab/runtime/terminal/${operation}`, params)
+  }
+  protected routeRuntimeFrame(method: unknown, params: unknown): boolean {
+    if (method === '_openab/runtime/terminal/frame') {
+      this.onTerminalFrame?.((params as { frame?: unknown })?.frame)
+
+      return true
+    }
+    if (method === '_openab/runtime/login/frame') {
+      this.routeRuntimeLoginFrame(params)
+
+      return true
+    }
+
+    return false
+  }
+
   protected abstract call(
     method: string,
     params: Record<string, unknown>,

@@ -1,4 +1,5 @@
 import {
+  FolderOpen,
   Archive,
   SquarePen,
   Brain,
@@ -52,6 +53,7 @@ const MAIN_PANE_NAV_ITEMS = [...TEAM_MANAGEMENT_NAV_ITEMS, ARCHIVED_CHATS_NAV_IT
 /** Pages read beside a conversation, launched from the dock's New Tab page. */
 export const TEAM_WORKSPACE_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.browser', label: 'Browser', icon: Globe },
+  { key: 'team.files', label: 'Files', icon: FolderOpen },
   { key: 'team.terminal', label: 'Terminal', icon: Terminal },
   { key: 'team.plans', label: 'Plans', icon: ClipboardList },
   { key: 'team.architecture', label: 'Architecture', icon: Network },

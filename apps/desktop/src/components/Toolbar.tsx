@@ -197,7 +197,7 @@ export function Toolbar({
               <SearchBox filter={filter} onFilterChange={onFilterChange} count={count} />
             )}
             {filterControls && (
-              <div className="titlebar-no-drag flex items-center gap-1 flex-shrink-0">
+              <div className="titlebar-no-drag flex min-w-0 items-center gap-1">
                 {filterControls}
               </div>
             )}

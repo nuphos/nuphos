@@ -149,6 +149,9 @@ export function teamPageLocation(
   if (active === 'team.audit') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/audit`)
   }
+  if (active === 'team.files') {
+    return pageLocation(`/teams/${pathSegment(scope.teamId)}/files`)
+  }
   if (active === 'team.terminal') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/terminal`)
   }

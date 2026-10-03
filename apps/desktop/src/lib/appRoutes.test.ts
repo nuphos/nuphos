@@ -65,6 +65,7 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
       browserUrl: 'https://example.com/path?q=a&next=%2Ftest#section',
     }),
   },
+  { name: 'files', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.files') },
   { name: 'terminal', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.terminal') },
   { name: 'browser', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.browser') },
   { name: 'monitoring', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.monitoring') },

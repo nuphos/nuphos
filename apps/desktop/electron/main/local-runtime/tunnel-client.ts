@@ -10,6 +10,8 @@ export type LocalRuntimeTunnelStatus = {
       LocalAgentProvider,
       {
         cli: { installed: boolean; loggedIn: boolean | null }
+        usage?: unknown
+        usageAt?: string
         version?: string
         models?: LocalModelCatalog
       }
@@ -19,7 +21,12 @@ export type LocalRuntimeTunnelStatus = {
 }
 
 type BackendFrame =
-  | { t: 'open'; s: string; purpose: TunnelPurpose | 'exec'; provider?: LocalAgentProvider }
+  | {
+      t: 'open'
+      s: string
+      purpose: TunnelPurpose | 'exec' | 'file'
+      provider?: LocalAgentProvider
+    }
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string; reason?: string }
   | { t: 'ping' }
@@ -39,6 +46,7 @@ export type TunnelClientDeps = {
   connectBackend: () => SocketLike
   /** Opens one ACP WebSocket to that agent's loopback openab with the key for `purpose`. */
   connectRuntime: (purpose: TunnelPurpose, provider: LocalAgentProvider) => SocketLike | null
+  connectFile?: () => SocketLike | null
   connectExec?: () => SocketLike
   status: () => LocalRuntimeTunnelStatus
   /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
@@ -217,10 +225,18 @@ export class RuntimeTunnelClient {
     }
   }
 
-  private open(s: string, purpose: TunnelPurpose | 'exec', provider: LocalAgentProvider): void {
+  private open(
+    s: string,
+    purpose: TunnelPurpose | 'exec' | 'file',
+    provider: LocalAgentProvider,
+  ): void {
     if (this.streams.has(s)) return
     const runtime =
-      purpose === 'exec' ? this.deps.connectExec?.() : this.deps.connectRuntime(purpose, provider)
+      purpose === 'file'
+        ? this.deps.connectFile?.()
+        : purpose === 'exec'
+          ? this.deps.connectExec?.()
+          : this.deps.connectRuntime(purpose, provider)
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

@@ -201,11 +201,7 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
 
     const message = frame as Record<string, unknown>
 
-    if (message.method === '_openab/runtime/login/frame') {
-      this.routeRuntimeLoginFrame(message.params)
-
-      return
-    }
+    if (this.routeRuntimeFrame(message.method, message.params)) return
     if (message.method === '_openab/session/prompt_accepted') {
       acceptRuntimePrompt(this.pending, message.params)
 

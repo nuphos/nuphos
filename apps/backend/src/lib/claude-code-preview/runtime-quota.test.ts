@@ -18,6 +18,8 @@ import type { RuntimeQuotaDeps } from './runtime-quota'
 import type { RuntimeQuotaReading } from './runtime-quota-probe'
 
 const fetchedAt = '2026-09-15T12:00:00.000Z'
+/** One instant, so a cached answer would be reused if there were one. */
+const frozen = () => 1_000
 const claude: RuntimeInstance = {
   id: 'claude-1',
   provider: 'claude-code',
@@ -106,6 +108,16 @@ test('the probe prints on the sentinel the backend reads', () => {
   expect(RUNTIME_QUOTA_PROBE).toContain(`SENTINEL = '${RUNTIME_QUOTA_SENTINEL}'`)
 })
 
+test('the probe claims the provider answered only once it has a response', () => {
+  const fetchAt = RUNTIME_QUOTA_PROBE.indexOf('await fetch(')
+  const askedAt = RUNTIME_QUOTA_PROBE.indexOf('asked = true;')
+
+  expect(fetchAt).toBeGreaterThan(0)
+  // A fetch that throws is a network failure, not a refusal. Setting the flag
+  // before the response exists would earn that failure the ten-minute hold.
+  expect(askedAt).toBeGreaterThan(fetchAt)
+})
+
 test('reads the sentinel line the agent printed, ignoring anything around it', () => {
   const stdout = `warming up\n${RUNTIME_QUOTA_SENTINEL}${JSON.stringify({
     usage: { five_hour: { utilization: 5 } },
@@ -141,16 +153,86 @@ test("the agent's own reason is what the user sees", async () => {
   })
 })
 
-test('local agents and disabled agents are never probed', async () => {
+const onOwnComputer = (
+  usage?: unknown,
+  signedIn: boolean | null = true,
+  usageAt?: string,
+): RuntimeInstance => ({
+  ...claude,
+  id: 'local-1',
+  kind: 'local',
+  local: {
+    ownerUserId: 'u1',
+    deviceId: 'd1',
+    deviceLabel: 'My Mac',
+    signedIn,
+    ...(usage !== undefined ? { usage } : {}),
+    ...(usageAt ? { usageAt } : {}),
+  },
+})
+
+test('an agent on your own computer reports what it already read, unprobed', async () => {
+  const { deps, calls } = probing({ usage: {} })
+  const quota = await fetchRuntimeQuota(
+    't',
+    onOwnComputer({ seven_day: { utilization: 42, resets_at: '2026-09-18T09:00:00Z' } }),
+    Date.now,
+    deps,
+  )
+
+  expect(quota.windows).toEqual([
+    { id: 'seven_day', label: 'Weekly', usedPercent: 42, resetsAt: '2026-09-18T09:00:00Z' },
+  ])
+  expect(calls()).toBe(0)
+})
+
+test('a Codex window is anchored to when that computer asked, not to this request', async () => {
+  const { deps } = probing({ usage: {} })
+  const readAt = '2026-09-15T12:00:00.000Z'
+  const quota = await fetchRuntimeQuota(
+    't',
+    {
+      ...onOwnComputer(
+        { rate_limit: { primary_window: { used_percent: 20, reset_after_seconds: 600 } } },
+        true,
+        readAt,
+      ),
+      provider: 'codex',
+    },
+    Date.now,
+    { probe: deps.probe },
+  )
+
+  // Ten minutes after the computer asked — not ten minutes from now, which is
+  // what a snapshot re-stamped on every poll would keep promising.
+  expect(quota.windows[0]?.resetsAt).toBe('2026-09-15T12:10:00.000Z')
+  expect(quota.fetchedAt).toBe(readAt)
+})
+
+test('a computer that reported no usage says why, and disabled agents are never probed', async () => {
   const { deps, calls } = probing({ usage: {} })
 
   expect(
-    (await fetchRuntimeQuota('t', { ...claude, kind: 'local' }, Date.now, deps)).reason,
-  ).toMatch(/team agents only/u)
+    (await fetchRuntimeQuota('t', onOwnComputer(undefined, false), Date.now, deps)).reason,
+  ).toBe('Sign in to Claude Code on that computer')
+  expect((await fetchRuntimeQuota('t', onOwnComputer(), Date.now, deps)).reason).toBe(
+    'That computer has not reported usage yet',
+  )
   expect(
     (await fetchRuntimeQuota('t', { ...codex, status: 'disabled' }, Date.now, deps)).reason,
   ).toBe('Agent is disabled')
   expect(calls()).toBe(0)
+})
+
+test('an agent re-enabled inside a hold is not still reported as disabled', async () => {
+  const { deps, calls } = probing({ usage: { five_hour: { utilization: 5, resets_at: null } } })
+
+  expect(
+    (await fetchRuntimeQuota('t', { ...claude, status: 'disabled' }, frozen, deps)).reason,
+  ).toBe('Agent is disabled')
+  // Same instant, so a cached answer would still say disabled.
+  expect((await fetchRuntimeQuota('t', claude, frozen, deps)).available).toBe(true)
+  expect(calls()).toBe(1)
 })
 
 test('the plan the agent read locally survives normalization', async () => {
@@ -164,25 +246,42 @@ test('the plan the agent read locally survives normalization', async () => {
   expect(quota.plan).toBe('max')
 })
 
-test('a usable reading is cached, and an unavailable one only briefly', async () => {
+test('what the provider answered is held for ten minutes', async () => {
   let clock = 1_000
   const now = () => clock
   const usable = probing({ usage: { five_hour: { utilization: 5, resets_at: null } } })
   const first = await fetchRuntimeQuota('t', claude, now, usable.deps)
 
   expect(await fetchRuntimeQuota('t', claude, now, usable.deps)).toBe(first)
-  clock += 30_000
+  clock += 599_000
   await fetchRuntimeQuota('t', claude, now, usable.deps)
   expect(usable.calls()).toBe(1)
 
-  const failing = probing({ error: 'Agent is offline' })
+  // A refusal is the provider's own answer, and asking again sooner is exactly
+  // what kept the account rate-limited.
+  const limited = probing({ error: 'HTTP 429', asked: true })
 
-  expect((await fetchRuntimeQuota('t', codex, now, failing.deps)).reason).toBe('Agent is offline')
-  await fetchRuntimeQuota('t', codex, now, failing.deps)
-  expect(failing.calls()).toBe(1)
-  clock += 16_000
-  await fetchRuntimeQuota('t', codex, now, failing.deps)
-  expect(failing.calls()).toBe(2)
+  expect((await fetchRuntimeQuota('t', codex, now, limited.deps)).reason).toBe('HTTP 429')
+  clock += 599_000
+  await fetchRuntimeQuota('t', codex, now, limited.deps)
+  expect(limited.calls()).toBe(1)
+  clock += 2_000
+  await fetchRuntimeQuota('t', codex, now, limited.deps)
+  expect(limited.calls()).toBe(2)
+})
+
+test('a failure the provider never saw is retried in seconds', async () => {
+  let clock = 1_000
+  const now = () => clock
+  const offline = probing({ error: 'Agent is offline' })
+
+  expect((await fetchRuntimeQuota('t', claude, now, offline.deps)).reason).toBe('Agent is offline')
+  clock += 29_000
+  await fetchRuntimeQuota('t', claude, now, offline.deps)
+  expect(offline.calls()).toBe(1)
+  clock += 2_000
+  await fetchRuntimeQuota('t', claude, now, offline.deps)
+  expect(offline.calls()).toBe(2)
 })
 
 test('an agent that needs updating says so, other exceptions do not', async () => {

@@ -36,7 +36,9 @@ enum AgentChatAPI {
         request.setValue(Locale.current.identifier.replacingOccurrences(of: "_", with: "-"), forHTTPHeaderField: "x-atlas-locale")
         request.setValue("/teams/\(body.teamId)/agent/\(body.id)", forHTTPHeaderField: "x-atlas-url")
         request.timeoutInterval = 60 * 60
-        request.httpBody = try encoder.encode(body)
+        let data = try encoder.encode(body)
+        try ChatPayload.check(data)
+        request.httpBody = data
         return request
     }
 
@@ -315,6 +317,7 @@ enum AgentChatAPI {
 
     /// Parses an Atlas error body into a typed conflict.
     static func conflict(status: Int, body: String?) -> Conflict {
+        if status == 413 { return .other(code: "payload_too_large", message: ChatPayload.tooLargeMessage, status: status) }
         var code: String?
         var message = body ?? "Nuphos returned status \(status)."
         var stored: Int?
@@ -371,7 +374,9 @@ enum AgentChatAPI {
         request.timeoutInterval = timeout
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "content-type")
-            request.httpBody = try encoder.encode(body)
+            let data = try encoder.encode(body)
+            if path.hasSuffix("/transcript") { try ChatPayload.check(data) }
+            request.httpBody = data
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw NuphosAPI.Failure.invalidResponse }

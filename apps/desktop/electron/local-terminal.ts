@@ -27,6 +27,10 @@ export class LocalTerminalSessions {
   private sessions = new Map<string, TerminalSession>()
   private owners = new WeakSet<WebContents>()
 
+  has(owner: WebContents, id: string): boolean {
+    return this.sessions.get(id)?.owner === owner
+  }
+
   /**
    * Opens the shell for `id` — the dock tab that owns it — or returns the one
    * already running under that id. Idempotent on purpose: the view is unmounted

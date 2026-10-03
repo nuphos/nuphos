@@ -14,6 +14,7 @@ struct ChatComposerBar<Controls: View>: View {
     /// The turn accepts steering, so what is typed mid-reply goes into it.
     var canSteer = false
     var allowsAttachments = true
+    var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (IAM picker, permission mode).
@@ -24,6 +25,8 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var collapsedByUser = false
     @State private var showPhotos = false
     @State private var showFiles = false
+    @State private var attachmentError: String?
+    @State private var preparingSubmission = false
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var handleDrag: CGFloat = 0
 
@@ -37,6 +40,16 @@ struct ChatComposerBar<Controls: View>: View {
         // it between branches re-creates it, which drops and re-acquires
         // focus in a loop.
         VStack(alignment: .leading, spacing: 8) {
+            if let submission = failedSubmission.wrappedValue {
+                Button("Edit unsent message") {
+                    text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
+                    attachments.insert(contentsOf: submission.attachments, at: 0)
+                    failedSubmission.wrappedValue = nil
+                    focused = true
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
             if expanded {
                 dragHandle
                     .transition(.opacity)
@@ -80,6 +93,7 @@ struct ChatComposerBar<Controls: View>: View {
                 .transition(.opacity)
             }
         }
+        .disabled(preparingSubmission)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
         .animation(.snappy(duration: 0.25), value: attachments)
@@ -89,13 +103,13 @@ struct ChatComposerBar<Controls: View>: View {
         .padding(.bottom, 8)
         .offset(y: handleDrag)
         .onChange(of: focused) { _, isFocused in if isFocused { collapsedByUser = false } }
-        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }
             photoItems = []
             Task {
                 for item in items {
                     if let attachment = await ComposerAttachment.load(item) { attachments.append(attachment) }
+                    else { attachmentError = "Couldn’t prepare this photo. Try a different photo or choose it from Files." }
                 }
             }
         }
@@ -104,13 +118,19 @@ struct ChatComposerBar<Controls: View>: View {
                 attachments.append(contentsOf: urls.compactMap(ComposerAttachment.load(fileURL:)))
             }
         }
+        .alert("Couldn't send attachment", isPresented: Binding(get: { attachmentError != nil }, set: { if !$0 { attachmentError = nil } })) {
+            Button("OK", role: .cancel) { attachmentError = nil }
+        } message: {
+            Text(attachmentError ?? "")
+        }
+        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
         #if DEBUG
         .onAppear {
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-focus-composer") { focused = true }
             if args.contains("-preview-attachments"), attachments.isEmpty { attachments = Self.previewAttachments() }
-            if args.contains("-open-photos") { present { showPhotos = true } }
-            if args.contains("-open-files") { present { showFiles = true } }
+            if args.contains("-open-photos") { showPhotos = true }
+            if args.contains("-open-files") { showFiles = true }
         }
         #endif
     }
@@ -160,13 +180,6 @@ struct ChatComposerBar<Controls: View>: View {
             .accessibilityAddTraits(.isButton)
     }
 
-    private func present(_ change: @escaping () -> Void) {
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(120))
-            change()
-        }
-    }
-
     private func collapse() {
         focused = false
         collapsedByUser = true
@@ -197,10 +210,10 @@ struct ChatComposerBar<Controls: View>: View {
 
     private var attachMenu: some View {
         Menu {
-            // Presenting while the menu is still dismissing gets dropped;
-            // let it finish first.
-            Button { present { showPhotos = true } } label: { Label("Photos", systemImage: "photo.on.rectangle") }
-            Button { present { showFiles = true } } label: { Label("Files", systemImage: "folder") }
+            Button { focused = false; showPhotos = true } label: {
+                Label("Photos", systemImage: "photo.on.rectangle")
+            }
+            Button { focused = false; showFiles = true } label: { Label("Files", systemImage: "folder") }
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 18, weight: .medium))
@@ -247,12 +260,41 @@ struct ChatComposerBar<Controls: View>: View {
     private var filled: Bool { action == .stop || hasPayload }
 
     private func send() {
-        guard canSend, hasPayload, allowsAttachments || attachments.isEmpty else { return }
-        let submission = ComposerSubmission(text: text.trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
-        text = ""
-        attachments = []
-        focused = false
-        onSend(submission)
+        guard !preparingSubmission, canSend, hasPayload, allowsAttachments || attachments.isEmpty else { return }
+        let draft = ComposerSubmission(text: text.trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
+        preparingSubmission = true
+        Task {
+            defer { preparingSubmission = false }
+            do {
+                let submission = try await Task.detached(priority: .userInitiated) {
+                    var submission = draft
+                    let imageIndices = draft.attachments.indices.filter { draft.attachments[$0].isImage }
+                    let images = imageIndices.compactMap { index -> Data? in
+                        if case .image(let data) = draft.attachments[index].kind { return data }
+                        return nil
+                    }
+                    let fitted = try ChatPayload.fitImages(images) { candidate in
+                        var parts: [ChatPart] = [.text(.init(text: draft.text, state: .done))]
+                        parts += zip(imageIndices, candidate).map { index, data in
+                            .file(.init(mediaType: "image/jpeg", filename: draft.attachments[index].name,
+                                        url: "data:image/jpeg;base64," + data.base64EncodedString()))
+                        }
+                        return try AgentChatAPI.encoder.encode(ChatMessage(role: .user, parts: parts).forWire)
+                    }
+                    for (index, data) in zip(imageIndices, fitted) {
+                        submission.attachments[index].kind = .image(data)
+                    }
+                    return submission
+                }.value
+                guard canSend, allowsAttachments || submission.attachments.isEmpty else { return }
+                text = ""
+                attachments.removeAll { attachment in draft.attachments.contains { $0.id == attachment.id } }
+                focused = false
+                onSend(submission)
+            } catch {
+                attachmentError = error.localizedDescription
+            }
+        }
     }
 }
 

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { bundleStamp, bundleState, digestOf } from './bundle-stamp.mjs'
+import { bundleStamp, bundleState, digestOf, STAMP_SOURCES } from './bundle-stamp.mjs'
 
 const ENTRY = 'node_modules/adapter/index.js'
 
@@ -43,13 +43,7 @@ test('no manifest, no openab or a missing adapter entry is missing', () => {
 test('the stamp follows the pins and patches in the staging sources', () => {
   const dir = mkdtempSync(join(tmpdir(), 'stamp-'))
 
-  for (const file of [
-    'prepare.mjs',
-    'adapter-patches.mjs',
-    'skills-sync.mjs',
-    'claude-session-env.mjs',
-  ])
-    writeFileSync(join(dir, file), `// ${file}`)
+  for (const file of STAMP_SOURCES) writeFileSync(join(dir, file), `// ${file}`)
   const before = bundleStamp(dir)
 
   assert.equal(bundleStamp(dir), before)

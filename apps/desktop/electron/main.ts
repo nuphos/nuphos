@@ -16,6 +16,7 @@ import * as gitlabInstall from './gitlab-install'
 import * as jiraInstall from './jira-install'
 import * as k8s from './k8s'
 import * as linearInstall from './linear-install'
+import { runtimeTerminals } from './runtime-terminal'
 import { localTerminals } from './local-terminal'
 import { registerAppProtocolHandler, registerAppScheme } from './main/app-protocol'
 import { startChangelogPolling } from './main/changelog'
@@ -185,6 +186,7 @@ app.on('before-quit', (e) => {
     k8s.stopAllPortForwards()
     terminal.closeAllSshSessions()
     localTerminals.closeAll()
+    runtimeTerminals.closeAll()
     // Closes exec sessions and triggers deletion of any node-shell pods.
     podExec.closeAllPodExecSessions()
     stopUpdatePolling()

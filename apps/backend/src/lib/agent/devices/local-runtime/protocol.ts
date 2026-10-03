@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export type TunnelPurpose = 'transport' | 'control' | 'exec'
+export type TunnelPurpose = 'transport' | 'control' | 'exec' | 'file'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
 
@@ -29,11 +29,49 @@ export const localModelCatalogSchema = z.object({
   controls: z.record(z.string().max(500), modelControlsSchema),
 })
 
+/** One usage window as Anthropic or ChatGPT reports it. A window that does not
+ *  fit becomes null rather than failing: the good windows beside it still count. */
+const usageWindowSchema = z
+  .object({
+    utilization: z.number().optional(),
+    resets_at: z.string().max(60).nullable().optional(),
+    used_percent: z.number().optional(),
+    limit_window_seconds: z.number().optional(),
+    reset_after_seconds: z.number().optional(),
+  })
+  .nullable()
+  .catch(null)
+
+const localUsageSchema = z.object({
+  five_hour: usageWindowSchema.optional(),
+  seven_day: usageWindowSchema.optional(),
+  seven_day_opus: usageWindowSchema.optional(),
+  seven_day_sonnet: usageWindowSchema.optional(),
+  plan_type: z.string().max(60).optional(),
+  rate_limit: z
+    .object({
+      primary_window: usageWindowSchema.optional(),
+      secondary_window: usageWindowSchema.optional(),
+    })
+    .nullable()
+    .optional(),
+})
+
 /** One agent the computer is running right now; absent from `agents` when it is not. */
 const localAgentStatusSchema = z.object({
   cli: z.object({ installed: z.boolean(), loggedIn: z.boolean().nullable() }),
   version: z.string().max(200).optional(),
   models: localModelCatalogSchema.optional(),
+  /** The provider's own usage body, as the computer read it with its own
+   *  credential, narrowed to the fields runtime-quota normalizes. Unknown keys
+   *  are stripped rather than rejected: a provider may add a window, and this
+   *  must not be a way to relay anything else to the rest of the team. */
+  // Never fatal: usage is decoration, and a reading that does not fit must not
+  // cost the computer its whole heartbeat.
+  usage: localUsageSchema.optional().catch(undefined),
+  /** When that computer read it. Codex reports its windows as offsets from the
+   *  moment it was asked, so normalizing against anything else drifts. */
+  usageAt: z.string().max(40).optional().catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>

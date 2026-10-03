@@ -15,6 +15,21 @@ pnpm electron:dev          # Vite dev server
 pnpm electron:start        # Electron with VITE_DEV_SERVER_URL set
 ```
 
+### Computer Use with local Codex
+
+Local Codex automatically exposes `cua_repl` when the OpenAI App has installed
+an enabled `unified-computer-use` MCP manifest in the owner's Codex plugin cache.
+It uses the App's existing runtime, so that App and its Computer Use permissions
+must remain available; Nuphos does not download or install Computer Use itself.
+New or resumed conversations discover the installed runtime automatically.
+
+The agent keeps its isolated Codex home. Only the CUA server is imported, not
+the owner's other MCP servers, config or plugins. Codex supplies native turn
+metadata and routes App access prompts through the existing permission flow.
+On macOS the native service socket uses the OS user's home rather than the
+conversation's shell home. Users without a usable CUA installation can continue
+using local Codex normally.
+
 ### Running multiple dev instances side-by-side
 
 By default the dev electron uses a single `userData` directory

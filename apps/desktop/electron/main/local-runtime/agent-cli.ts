@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { accessSync, constants } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -23,6 +24,8 @@ export type AgentCliStatus =
     }
 
 const PROBE_TIMEOUT_MS = 15_000
+const USAGE_TIMEOUT_MS = 10_000
+const MAX_USAGE_CHARS = 200_000
 const COMMAND: Record<LocalAgentProvider, string> = { 'claude-code': 'claude', codex: 'codex' }
 
 function fallbackDirs(home: string): string[] {
@@ -123,6 +126,94 @@ function versionOf(output: string): string | undefined {
   return output.split(/\s+/u).find((token) => /^\d+\.\d+\.\d+/u.test(token))
 }
 
+type UsageRequest = { url: string; headers: Record<string, string> }
+
+async function readJson(file: string): Promise<Record<string, unknown> | null> {
+  try {
+    return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+async function codexUsageRequest(
+  home: string,
+  env: NodeJS.ProcessEnv,
+): Promise<UsageRequest | null> {
+  const auth = await readJson(path.join(env.CODEX_HOME ?? path.join(home, '.codex'), 'auth.json'))
+  const tokens = auth?.tokens as { access_token?: unknown; account_id?: unknown } | undefined
+
+  if (typeof tokens?.access_token !== 'string' || !tokens.access_token) return null
+  const account = typeof tokens.account_id === 'string' ? tokens.account_id : ''
+
+  return {
+    url: 'https://chatgpt.com/backend-api/wham/usage',
+    headers: {
+      authorization: `Bearer ${tokens.access_token}`,
+      ...(account ? { 'chatgpt-account-id': account } : {}),
+    },
+  }
+}
+
+async function claudeUsageRequest(
+  home: string,
+  env: NodeJS.ProcessEnv,
+): Promise<UsageRequest | null> {
+  const dir = env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude')
+  const oauth = (await readJson(path.join(dir, '.credentials.json')))?.claudeAiOauth as
+    { accessToken?: unknown } | undefined
+
+  if (typeof oauth?.accessToken !== 'string' || !oauth.accessToken) return null
+
+  return {
+    url: 'https://api.anthropic.com/api/oauth/usage',
+    headers: {
+      authorization: `Bearer ${oauth.accessToken}`,
+      'anthropic-beta': 'oauth-2025-04-20',
+    },
+  }
+}
+
+/** Where this computer keeps the credential, and what the provider wants to see
+ *  with it. Null when nothing is signed in. */
+function usageRequest(
+  provider: LocalAgentProvider,
+  env: NodeJS.ProcessEnv,
+): Promise<UsageRequest | null> {
+  const home = env.HOME ?? env.USERPROFILE ?? os.homedir()
+
+  return provider === 'codex' ? codexUsageRequest(home, env) : claudeUsageRequest(home, env)
+}
+
+/** Asks the provider what is left of this computer's own account. It runs here,
+ *  not in Nuphos, because the credential is here — and because the rate limit it
+ *  spends is this person's, not a shared one. Every failure reports nothing:
+ *  usage is decoration, never a reason to call the agent broken, and the token
+ *  must never reach a log. */
+export async function readAgentUsage(
+  provider: LocalAgentProvider,
+  env: NodeJS.ProcessEnv,
+): Promise<unknown> {
+  const request = await usageRequest(provider, env)
+
+  if (!request) return
+  try {
+    const response = await fetch(request.url, {
+      headers: request.headers,
+      signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
+    })
+
+    if (!response.ok) return
+    const body = await response.text()
+
+    if (body.length > MAX_USAGE_CHARS) return
+
+    return JSON.parse(body) as unknown
+  } catch {
+    return
+  }
+}
+
 export async function probeAgentCli(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
@@ -145,5 +236,7 @@ export async function probeAgentCli(
       : Promise.resolve({ loggedIn: null }),
   ])
 
+  // Usage is sampled on its own timer, never here: this probe gates the agent's
+  // startup, and a provider that hangs must not hold an agent back.
   return { installed: true, path: file, ...(version ? { version } : {}), ...auth }
 }
