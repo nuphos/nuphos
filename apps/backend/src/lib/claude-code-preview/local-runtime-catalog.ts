@@ -24,6 +24,10 @@ export type LocalRuntimeSummary = {
   deviceLabel: string
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
   signedIn: boolean | null
+  /** Provider usage the computer reported, raw; normalized in runtime-quota. */
+  usage?: unknown
+  /** When that computer read the usage above. */
+  usageAt?: string
 }
 
 export type LocalRuntimeInstance = {
@@ -72,6 +76,7 @@ export async function listOwnLocalRuntimes(
       return Promise.all(
         running.map(async (provider): Promise<LocalRuntimeInstance> => {
           const id = localRuntimeId({ userId, deviceId: device.deviceId, provider })
+          const reported = presence?.status?.agents[provider]
 
           return {
             id,
@@ -84,7 +89,13 @@ export async function listOwnLocalRuntimes(
               ownerUserId: userId,
               deviceId: device.deviceId,
               deviceLabel: device.label,
-              signedIn: presence?.status?.agents[provider]?.cli.loggedIn ?? null,
+              signedIn: reported?.cli.loggedIn ?? null,
+              ...(reported?.usage !== undefined
+                ? {
+                    usage: reported.usage,
+                    ...(reported.usageAt ? { usageAt: reported.usageAt } : {}),
+                  }
+                : {}),
             },
             defaults: await deps.getDefaults(id),
           }

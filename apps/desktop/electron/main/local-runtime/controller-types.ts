@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
@@ -52,6 +54,9 @@ export type LocalRuntimeControllerDeps = {
   backendUrl: string
   userEnv: () => Promise<NodeJS.ProcessEnv>
   probeCli: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<AgentCliStatus>
+  /** Asks the provider what is left of this computer's account; undefined when
+   *  it cannot say, which leaves the last reading in place. */
+  readUsage: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<unknown>
   /** The last probe per provider, so a restart shows the agents before the CLIs answer again. */
   readCliCache: (userId: string) => Partial<Record<LocalAgentProvider, AgentCliStatus>>
   writeCliCache: (userId: string, cli: Partial<Record<LocalAgentProvider, AgentCliStatus>>) => void
@@ -80,6 +85,10 @@ export type Agent = {
   process?: RuntimeProcess
   runtime: RunningRuntime | null
   cli: AgentCliStatus | null
+  /** The provider's own usage body, kept across a refusal until a newer one
+   *  arrives, with the instant this computer read it. */
+  usage?: unknown
+  usageAt?: string
   models?: LocalModelCatalog
   error?: string
   restartAttempt: number
@@ -87,7 +96,26 @@ export type Agent = {
   generation: number
 }
 
+/** Everything a user's local agents keep lives under their own directory. */
+export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
+  return path.join(dataDir, 'users', userId, ...parts)
+}
+
+/** The CLI facts worth keeping for the next launch, under the owner's id. */
+export function saveCli(
+  deps: Pick<LocalRuntimeControllerDeps, 'writeCliCache'>,
+  userId: string | null,
+  agents: Record<LocalAgentProvider, Agent>,
+): void {
+  if (userId) deps.writeCliCache(userId, knownCli(agents))
+}
+
 export const RESTART_BACKOFF_MS = [1_000, 2_000, 5_000, 15_000, 30_000]
+/** Matches the hold Nuphos keeps on a provider's answer: sampling faster would
+ *  spend this person's rate limit on numbers that have not moved. */
+export const USAGE_SAMPLE_MS = 600_000
+/** A sign-in is worth reading again for; mashing Check is not. */
+export const USAGE_SIGN_IN_FLOOR_MS = 30_000
 export const HEALTHY_AFTER_MS = 60_000
 /** An agent never serves Nuphos from the owner's own home, where their personal config lives. */
 export const AGENT_HOME_UNAVAILABLE: Record<LocalAgentProvider, string> = {
@@ -117,6 +145,9 @@ export function tunnelStatusOf(
     if (!agent.runtime || !agent.cli?.installed) continue
     agents[provider] = {
       cli: { installed: true, loggedIn: agent.cli.loggedIn },
+      ...(agent.usage !== undefined && agent.usageAt
+        ? { usage: agent.usage, usageAt: agent.usageAt }
+        : {}),
       ...(agent.cli.version ? { version: `${provider} ${agent.cli.version}` } : {}),
       ...(agent.models ? { models: agent.models } : {}),
     }

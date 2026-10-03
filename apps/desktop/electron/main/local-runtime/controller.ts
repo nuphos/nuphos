@@ -1,16 +1,16 @@
-import path from 'node:path'
-
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import {
   freshAgent,
-  knownCli,
   HEALTHY_AFTER_MS,
   AGENT_HOME_UNAVAILABLE,
   INSTALL_HINT,
   RESTART_BACKOFF_MS,
   agentStatesOf,
+  saveCli,
   tunnelStatusOf,
+  userDir,
 } from './controller-types.ts'
+import { createUsageSampler } from './usage-sampler.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type {
@@ -31,12 +31,14 @@ export class LocalRuntimeController {
     codex: freshAgent(),
   }
   private tunnel: RuntimeTunnel | undefined
+  private readonly usage: ReturnType<typeof createUsageSampler>
   private online = false
   private superseded = false
   private readonly deps: LocalRuntimeControllerDeps
 
   constructor(deps: LocalRuntimeControllerDeps) {
     this.deps = deps
+    this.usage = createUsageSampler(this.agents, deps, () => this.tunnel?.sendStatus())
   }
 
   state(): LocalRuntimeState {
@@ -49,7 +51,7 @@ export class LocalRuntimeController {
         online: this.online,
         superseded: this.superseded,
       }),
-      workspace: userId ? this.userDir(userId, 'workspace') : null,
+      workspace: userId ? userDir(this.deps.dataDir(), userId, 'workspace') : null,
       userId,
     }
   }
@@ -81,7 +83,7 @@ export class LocalRuntimeController {
         this.agents[provider].cli = await this.deps.probeCli(provider, env)
       }),
     )
-    this.saveCli()
+    saveCli(this.deps, this.userId, this.agents)
     this.tunnel?.sendStatus()
     this.changed()
     await Promise.all(
@@ -89,6 +91,10 @@ export class LocalRuntimeController {
         (provider) => this.launch(provider),
       ),
     )
+    // After the launches, never before: `launch` stops the agent first, and a
+    // read in flight across that bump is thrown away as stale. An agent that
+    // was just started has already sampled, and the floor skips these.
+    await Promise.all(LOCAL_AGENT_PROVIDERS.map((provider) => this.usage.sample(provider, true)))
 
     return this.state()
   }
@@ -99,6 +105,7 @@ export class LocalRuntimeController {
   }
 
   async shutdown(): Promise<void> {
+    this.usage.stop()
     this.tunnel?.stop()
     this.tunnel = undefined
     this.online = false
@@ -108,14 +115,6 @@ export class LocalRuntimeController {
 
   private changed(): void {
     this.deps.onChange?.()
-  }
-
-  private saveCli(): void {
-    if (this.userId) this.deps.writeCliCache(this.userId, knownCli(this.agents))
-  }
-
-  private userDir(userId: string, ...parts: string[]): string {
-    return path.join(this.deps.dataDir(), 'users', userId, ...parts)
   }
 
   private async stopAgent(provider: LocalAgentProvider): Promise<void> {
@@ -169,7 +168,7 @@ export class LocalRuntimeController {
     agent.cli = await this.deps.probeCli(provider, env)
     if (!current()) return
     this.deps.log?.('local agent: CLI checked', { provider, ms: Date.now() - probedAt })
-    this.saveCli()
+    saveCli(this.deps, this.userId, this.agents)
     this.changed()
     if (!agent.cli.installed) {
       agent.error = INSTALL_HINT[provider]
@@ -179,8 +178,8 @@ export class LocalRuntimeController {
     }
     const agentHome = this.deps.prepareAgentHome(
       provider,
-      this.userDir(userId),
-      this.userDir(userId, 'workspace'),
+      userDir(this.deps.dataDir(), userId),
+      userDir(this.deps.dataDir(), userId, 'workspace'),
     )
 
     if (!agentHome) {
@@ -213,7 +212,7 @@ export class LocalRuntimeController {
 
     if (!bundle || !adapter) return
     const process = this.deps.createProcess()
-    const workspace = this.userDir(run.userId, 'workspace')
+    const workspace = userDir(this.deps.dataDir(), run.userId, 'workspace')
 
     agent.process = process
     let startedAt = 0
@@ -228,8 +227,8 @@ export class LocalRuntimeController {
         cliPath: run.cliPath,
         agentHome: run.agentHome,
         workspace,
-        openabHome: this.userDir(run.userId, `openab-home-${run.provider}`),
-        logDir: this.userDir(run.userId, run.provider),
+        openabHome: userDir(this.deps.dataDir(), run.userId, `openab-home-${run.provider}`),
+        logDir: userDir(this.deps.dataDir(), run.userId, run.provider),
         env: run.env,
       })
       startedAt = Date.now()
@@ -256,6 +255,7 @@ export class LocalRuntimeController {
     agent.error = undefined
     this.tunnel?.sendStatus()
     this.changed()
+    void this.usage.sample(run.provider)
     void this.deps
       .probeModels({
         provider: run.provider,

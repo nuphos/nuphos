@@ -12,7 +12,7 @@ import { resolveShellEnv } from '../../shell-env.ts'
 import { syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { agentEnv, bundleFromManifest } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
@@ -108,6 +108,7 @@ const controller = new LocalRuntimeController({
   backendUrl: ATLAS_URL,
   userEnv,
   probeCli: probeAgentCli,
+  readUsage: readAgentUsage,
   readCliCache,
   writeCliCache,
   onChange: broadcastState,

@@ -65,7 +65,8 @@ export const probeSchema = z
 function registerRuntimeQuotaRoute(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   teamScoped.get('/agent-runtimes/quota', async (c) => {
     const teamId = c.get('teamId')
-    const instances = await listRuntimeInstances(teamId)
+    // With the user, so their own computers' agents are in the list at all.
+    const instances = await listRuntimeInstances(teamId, c.get('userId'))
 
     return c.json({
       quotas: await Promise.all(instances.map((instance) => fetchRuntimeQuota(teamId, instance))),

@@ -10,6 +10,8 @@ export type LocalRuntimeTunnelStatus = {
       LocalAgentProvider,
       {
         cli: { installed: boolean; loggedIn: boolean | null }
+        usage?: unknown
+        usageAt?: string
         version?: string
         models?: LocalModelCatalog
       }
