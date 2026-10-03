@@ -21,7 +21,10 @@ try {
   const workspace = input.workspace;
   if (typeof workspace !== 'string' || !path.isAbsolute(workspace)) throw Error('invalid_path');
   if ((await fs.lstat(workspace)).isSymbolicLink()) throw Error('forbidden_path');
-  const conversationRoot = path.join(await fs.realpath(workspace), 'conv-' + input.sessionId);
+  const workspaceRoot = await fs.realpath(workspace);
+  // Desktop supplies its account-owned workspace; managed runtimes share a volume.
+  const conversationRoot = input.workspaceScope === 'local-user'
+    ? workspaceRoot : path.join(workspaceRoot, 'conv-' + input.sessionId);
   if ((await fs.lstat(conversationRoot)).isSymbolicLink()) throw Error('forbidden_path');
   const root = await fs.realpath(conversationRoot);
   if (root !== conversationRoot) throw Error('forbidden_path');

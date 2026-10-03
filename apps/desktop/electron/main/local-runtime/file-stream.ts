@@ -70,6 +70,7 @@ export class LocalFileStream implements SocketLike {
         path: request.path,
         action: request.action,
         workspace: this.workspace,
+        workspaceScope: 'local-user',
       }),
     )
   }
