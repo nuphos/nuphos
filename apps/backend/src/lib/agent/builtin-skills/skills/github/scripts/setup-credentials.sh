@@ -7,11 +7,13 @@ fi
 
 usage() {
   cat >&2 <<EOF
-Usage: setup-credentials.sh <teamId> <installationId>
+Usage: setup-credentials.sh <teamId> <installationId> [--for-commit]
 
   teamId          Nuphos team id (24-char hex)
   installationId  Numeric GitHub App installation id (from
                   GET /teams/<teamId>/github-installations)
+
+  --for-commit    Require and print the current Nuphos participant co-author trailer.
 
 Environment:
   GH_CONFIG_DIR     Optional. Defaults to \$XDG_CONFIG_HOME/gh or \$HOME/.config/gh.
@@ -28,7 +30,8 @@ EOF
   exit 1
 }
 
-if [ "$#" -lt 2 ]; then usage; fi
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then usage; fi
+if [ "$#" -eq 3 ] && [ "$3" != "--for-commit" ]; then usage; fi
 
 team_id="$1"
 installation_id="$2"
@@ -109,3 +112,17 @@ echo "Expires at: $expires_at"
 echo
 echo "Use \`gh ...\` or \`gh api /repos/...\` directly. \`gh repo clone owner/repo\` and \`git push\` also work."
 echo "Re-run this script if you get 401."
+
+# Refresh this identity before each commit; shared conversations can change actors.
+if [ "${3:-}" = "--for-commit" ]; then
+  printf '%s' "$token_response" | python3 -c '
+import json, re, sys
+author = json.load(sys.stdin).get("commitCoAuthor") or {}
+name, email = author.get("name"), author.get("email")
+if not isinstance(name, str) or not name.strip() or re.search(r"[\x00-\x1f\x7f<>]", name):
+    sys.exit("Missing or invalid Nuphos participant name; stop before committing")
+if not isinstance(email, str) or not re.fullmatch(r"[^\s<>@\x00-\x1f\x7f]+@[^\s<>@\x00-\x1f\x7f]+", email):
+    sys.exit("Missing or invalid Nuphos participant email; stop before committing")
+print(f"Co-authored-by: {name.strip()} <{email}>")
+'
+fi

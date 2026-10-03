@@ -100,7 +100,6 @@ test('managed mode turns the provisioner on against the confined kubeconfig and 
   assert.equal(env.KUBECONFIG, MANAGED_KUBECONFIG)
   assert.equal(env.CLAUDE_CODE_RUNTIME_NODE_SELECTOR, '')
   assert.equal(env.CLAUDE_CODE_RUNTIME_NODE_TOLERATIONS, '')
-  assert.equal(env.NUPHOS_RUNTIME_VERSION, undefined)
   assert.equal(env.NUPHOS_LOCAL_STACK, 'true')
 })
 

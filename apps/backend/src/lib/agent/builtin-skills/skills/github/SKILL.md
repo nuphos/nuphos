@@ -1,21 +1,53 @@
 ---
 name: github
-description: Operate on GitHub repos, issues, PRs, and Actions through a GitHub App installation the user's team has bound to Nuphos. Nuphos backend mints short-lived installation tokens; the agent talks to api.github.com directly with `gh` or `curl`. Use whenever the user names a repo, asks to read code/PRs/issues, comment, open a PR, dispatch a workflow, etc.
+description: Operate on GitHub repos, issues, PRs, and Actions using an authorized existing local gh login or a GitHub App installation the user's team has bound to Nuphos. Nuphos backend mints short-lived installation tokens; the agent talks to api.github.com directly with `gh` or `curl`. Use whenever the user names a repo, asks to read code/PRs/issues, comment, open a PR, dispatch a workflow, etc.
 ---
 
 # github
+
+## Choose the GitHub identity first
+
+For a confirmed local runtime on the current participant's own device, prefer their
+existing `gh` login when the session's credential policy permits it. Check
+`gh auth status --hostname github.com` before running Nuphos credential setup.
+If the user explicitly requests the Nuphos App identity, skip this local-login
+path and use the selected installation's setup command instead.
+
+- Run the check in the participant's actual host environment. An isolated session
+  `HOME` / `GH_CONFIG_DIR` may hide the host login; an empty session config does not
+  mean the device is logged out. Use `local_exec` on the explicitly selected,
+  confirmed participant-owned device when available. Do not infer ownership from
+  the runtime account, OS username, or a matching display name alone.
+- When the host has a valid active login, report its GitHub login and keep subsequent
+  `gh`/Git operations on that same device and credential context. Do not mint an
+  App token, copy the host token into the session, unset isolation variables, or
+  run `gh auth login`, `switch`, `logout`, or global credential-helper setup.
+- Honor the current session's allowed identities and repository scope. This skill
+  does not authorize an unselected identity. A repository permission error is not
+  permission to try another account. Do not automatically switch identities.
+- If no usable local login exists, or local identity use is not permitted, explain
+  that result and use an already selected Nuphos App installation when allowed.
+  Managed/shared runtimes always use the selected App identity; never reuse their
+  runtime owner's `gh` login.
+
+The App setup and App-signed commit instructions below apply only to the App path.
+For the existing local-login path, use that account for GitHub operations and the
+participant's existing Git author/signing configuration. Check that signing is
+available before committing; do not change global Git configuration or fall back
+to an unsigned commit when the repository requires signatures. PR review and
+merge requirements apply to both paths.
 
 ## Session isolation
 
 Keep CLI credentials and settings inside the current session's `HOME` (`NUPHOS_SESSION_HOME`) and respect the supplied CLI config environment variables. Do not copy another session's or the runtime owner's credentials. Without `NUPHOS_SESSION_HOME`, CLI defaults may use shared runtime configuration; be aware of the affected scope.
 
-Changing runtime-global settings is possible, but strongly discouraged unless the user understands the impact on other sessions and explicitly requests it. Explain the shared scope first; do not unset session isolation variables, write to the runtime owner's home, use a shared OS credential store, or modify shared shell startup files as routine setup. This is configuration isolation, not an OS security boundary.
+Changing runtime-global settings is possible, but strongly discouraged unless the user understands the impact on other sessions and explicitly requests it. Explain the shared scope first; do not unset session isolation variables, write to the runtime owner's home, write to a shared OS credential store, or modify shared shell startup files as routine setup. This is configuration isolation, not an OS security boundary.
 
 For Nuphos installation tokens, always use the setup script below. Do not run `gh auth login`, `gh auth switch`, or `gh auth logout`: those flows can change a shared system keychain even with `--insecure-storage`. The setup script writes the configured gh authentication file (session-scoped when supplied by the runtime) and preserves other hosts.
 
-Use this skill when the user wants you to interact with GitHub on their behalf — read source, list/inspect/comment on PRs or issues, dispatch workflows, push branches, etc. — using the **GitHub App installation** their team has already bound to Nuphos. The agent never sees the user's personal token; Nuphos backend mints a short-lived installation access token (≤1 h) on demand.
+For the App path, Nuphos backend mints a short-lived installation access token (≤1 h) on demand. The local-login path leaves authentication with the device's existing gh configuration.
 
-## Setup
+## Setup (Nuphos App identity)
 
 The bound GitHub App installations are already listed for you under **GitHub App
 installations:** in the credential section of the system prompt. Each line carries the
@@ -129,25 +161,39 @@ gh_api -X POST /repos/myorg/myrepo/issues/42/comments \
   -d '{"body":"deployed to staging"}' | python3 -m json.tool
 ```
 
-## Pushing code / opening PRs
+## Pushing code / opening PRs with the Nuphos App
 
-If the user asks you to make a code change and open a PR, work in the sandbox's filesystem (`/workspace` or wherever you cloned the repo) and use `gh`:
+Use GitHub's `createCommitOnBranch` GraphQL mutation with the selected App installation token for new commits. GitHub supplies the App author, uses its signing committer (`web-flow`), and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot.
 
-```bash
-# Clone via gh — uses the credential helper configured by setup-credentials.sh,
-# so the token never lands in process args, shell history, or .git/config.
-gh repo clone myorg/myrepo repo
-cd repo
+1. Run the selected installation's setup command with `--for-commit` appended. It prints the current authenticated Nuphos participant's `Co-authored-by` trailer. Refresh this on every committing turn; never infer the participant from the runtime/provider account, installation owner, or durable conversation owner. If the participant identity is unavailable, stop before committing.
+2. Work from the target branch's current SHA. For a new PR, create a new branch at the base branch SHA using `gh api repos/OWNER/REPO/git/refs -f ref=refs/heads/BRANCH -f sha=BASE_SHA`.
+3. Prepare a JSON payload file for the mutation below. Include the complete new contents of each changed file as base64 in `fileChanges.additions`; include removed paths in `fileChanges.deletions`. Omit unchanged files. Add the participant and runtime trailers to `message.body`, after a blank line.
+4. Submit with `gh api graphql --input /path/to/commit.json`. Use `expectedHeadOid` to prevent overwriting concurrent changes; on a mismatch, fetch and reconcile before retrying.
+5. Verify the returned commit through `gh api repos/OWNER/REPO/commits/SHA`: require `.commit.verification.verified == true`, check the resolved bot author, and inspect co-authors. If verification fails, stop and report it; never bypass branch protection.
+6. Fetch the branch to align the local checkout before further edits, then open the PR ready for review.
 
-git checkout -b agent/<short-description>
-# ... edit files ...
-git add -A
-git -c user.email="nuphos-agent@nuphos.ai" -c user.name="Nuphos Agent" \
-  commit -m "<concise message>"
-git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
+Example payload structure (replace placeholders and omit empty additions/deletions):
 
-gh pr create --base main --title "..." --body "..."
+```json
+{
+  "query": "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url } } }",
+  "variables": {
+    "input": {
+      "branch": { "repositoryNameWithOwner": "OWNER/REPO", "branchName": "BRANCH" },
+      "expectedHeadOid": "CURRENT_BRANCH_SHA",
+      "message": {
+        "headline": "fix: describe the change",
+        "body": "Context.\n\nCo-authored-by: PARTICIPANT_NAME <PARTICIPANT_EMAIL>\nCo-authored-by: codex <codex@openai.com>"
+      },
+      "fileChanges": {
+        "additions": [{ "path": "path/to/file", "contents": "BASE64_COMPLETE_FILE" }]
+      }
+    }
+  }
+}
 ```
+
+This API does not expose file modes, symlinks, or submodules. If the change needs those, stop and choose a signing-capable workflow rather than silently converting them to regular files. For unsigned commits already published on a PR branch, appending a signed commit does not sign its ancestors; prepare a replacement branch from the base, or obtain explicit authorization for a signed history rewrite.
 
 A few rules:
 
@@ -157,7 +203,11 @@ A few rules:
   - The branch does not yet do what was asked: something is stubbed or `TODO`, a check you ran is failing and you haven't fixed it, or you're stopping partway and intend to push more commits to that same branch before a human should read it.
 - Uncertainty is **not** a reason to draft. "I'm not sure this is the right approach", "the repo has no tests so I couldn't verify", "the user may want it done differently" — open the PR ready for review and write the doubt into the PR body, where a reviewer can act on it. A draft with a finished branch inside just delays the review the user asked for.
 - If you did open a draft and then finished the work in the same session, flip it with `gh pr ready <number> --repo myorg/myrepo` and say so.
-- Set the commit author to `Nuphos Agent <nuphos-agent@nuphos.ai>` so it's clear in the history that the change came from the agent.
+- Let GitHub set the App author and its signing committer. Do not hardcode a bot slug/email, supply custom author/committer fields, or substitute local unsigned commits. This works with self-hosted installations' own Apps without identity configuration.
+- Add the participant trailer printed by setup and exactly one runtime trailer, separated from the body by a blank line. Select by the runtime executing this turn, not the model name or installed CLI binaries:
+  - Claude Code: `Co-authored-by: claude <noreply@anthropic.com>`
+  - Codex: `Co-authored-by: codex <codex@openai.com>`
+- Avoid duplicate trailers and preserve legitimate existing co-authors when carrying work forward. A participant email links to a GitHub profile only if registered there; report an unlinked co-author without substituting a different email.
 - If the repo has CODEOWNERS or required reviews, mention that the PR will need a human reviewer — `gh` will not bypass branch protection.
 
 ## Safety

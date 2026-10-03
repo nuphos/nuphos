@@ -4,6 +4,11 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 
 import { hostedRuntimeDeploymentObject } from './runtime-deployment'
 import {
+  publishedRuntimeImage,
+  publishRuntimeRelease,
+  restoreRuntimeReleases,
+} from './runtime-release-testing'
+import {
   hostedRuntimeName,
   hostedRuntimeUrl,
   runtimeAuthSecretName,
@@ -28,7 +33,10 @@ config.claudeCodePreview.tokenEncryptionKey = randomBytes(32).toString('base64')
 afterAll(() => {
   config.claudeCodePreview.tokenEncryptionKey = previousKey
   Object.assign(provisioner, original)
+  restoreRuntimeReleases()
 })
+
+const FLEET_VERSION = '0.3.1'
 
 let store = portabilityDb()
 
@@ -113,9 +121,10 @@ const addAgent = (provider: OpenAbProvider = 'claude-code', teamId = 'team-a') =
 const ofKind = <T extends KubeObject>(kube: FakeKube, kind: string) =>
   kube.applied.filter((resource) => resource.kind === kind) as T[]
 
-beforeEach(() => {
+beforeEach(async () => {
   store = portabilityDb()
   Object.assign(provisioner, original)
+  await publishRuntimeRelease({ version: FLEET_VERSION })
 })
 
 describe('runtime object builders', () => {
@@ -245,9 +254,7 @@ describe('reconcileHostedRuntimes', () => {
 
       expect(deployment?.metadata.name).toBe(name)
       expect(deployment?.spec.replicas).toBe(1)
-      expect(container.image).toBe(
-        `ghcr.io/zeabur/nuphos-runtime:${provisioner.runtimeVersion}-${provider}`,
-      )
+      expect(container.image).toBe(publishedRuntimeImage(FLEET_VERSION, provider))
       expect(pod.initContainers).toBeUndefined()
       expect(container.envFrom).toBeUndefined()
       expect(container.env).toContainEqual({
@@ -317,7 +324,7 @@ describe('reconcileHostedRuntimes', () => {
     const kube = fakeKube()
 
     await reconcile(kube)
-    provisioner.runtimeVersion = '9.9.9'
+    await publishRuntimeRelease({ version: '9.9.9' })
     kube.applied.length = 0
     await reconcile(kube, 'claude-code', { hasActiveRuntimeTurn: () => Promise.resolve(true) })
 
@@ -325,7 +332,7 @@ describe('reconcileHostedRuntimes', () => {
     await reconcile(kube)
 
     expect(ofKind<Deployment>(kube, 'Deployment')[0]?.spec.template.spec.containers[0]?.image).toBe(
-      'ghcr.io/zeabur/nuphos-runtime:9.9.9-claude-code',
+      publishedRuntimeImage('9.9.9', 'claude-code'),
     )
   })
 
@@ -352,7 +359,7 @@ describe('reconcileHostedRuntimes', () => {
     const kube = fakeKube()
 
     await reconcile(kube)
-    provisioner.runtimeVersion = '9.9.9'
+    await publishRuntimeRelease({ version: '9.9.9' })
     const rolled = new Set<string>()
     const tick = async () => {
       kube.applied.length = 0
@@ -399,6 +406,9 @@ describe('reconcileHostedRuntimes', () => {
 })
 
 test('an individual requested release waits for idle and persists on later reconcile ticks', async () => {
+  // The registry serves the pinned release too; an unpublished one is covered in
+  // runtime-image.test.ts.
+  await publishRuntimeRelease({ version: FLEET_VERSION, published: [FLEET_VERSION, '9.9.9'] })
   const agent = await addAgent()
   const kube = fakeKube()
 
@@ -412,10 +422,10 @@ test('an individual requested release waits for idle and persists on later recon
   await reconcile(kube)
   expect(
     ofKind<Deployment>(kube, 'Deployment').at(-1)?.spec.template.spec.containers[0]?.image,
-  ).toBe('ghcr.io/zeabur/nuphos-runtime:9.9.9-claude-code')
+  ).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
   kube.applied.length = 0
   await reconcile(kube)
   expect(
     ofKind<Deployment>(kube, 'Deployment').at(-1)?.spec.template.spec.containers[0]?.image,
-  ).toBe('ghcr.io/zeabur/nuphos-runtime:9.9.9-claude-code')
+  ).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
 })

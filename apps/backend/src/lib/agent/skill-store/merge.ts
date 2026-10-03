@@ -29,6 +29,7 @@ export type MergedSkillsResult = {
 }
 
 type MergeFingerprint = {
+  version: 2
   builtin: string
   global: string | null
   team: string | null
@@ -69,6 +70,7 @@ async function builtinRevision(): Promise<string> {
 
 async function buildFingerprint(teamId: string | null | undefined): Promise<MergeFingerprint> {
   return {
+    version: 2,
     builtin: await builtinRevision(),
     global: await getScopeSyncRevision('global'),
     team: teamId ? await getScopeSyncRevision(`teams/${teamId}`) : null,
@@ -128,9 +130,13 @@ async function listBuiltinSkillNames(): Promise<string[]> {
     .sort(byCodeUnit)
 }
 
-async function overlayScopeSkills(destRoot: string, scope: string): Promise<string[]> {
+async function overlayScopeSkills(
+  destRoot: string,
+  scope: string,
+  builtinNames: Set<string>,
+): Promise<string[]> {
   const scopeDir = getScopeCacheDir(scope)
-  const names = await listCachedSkillNames(scopeDir)
+  const names = (await listCachedSkillNames(scopeDir)).filter((name) => !builtinNames.has(name))
 
   for (const name of names) {
     const src = safeJoinUnder(scopeDir, path.posix.join('skills', name))
@@ -157,8 +163,9 @@ async function materializeMergeTree(
     await copySkillTree(src, outDir, name)
   }
 
-  const globalNames = await overlayScopeSkills(outDir, 'global')
-  const teamNames = teamId ? await overlayScopeSkills(outDir, `teams/${teamId}`) : []
+  const reservedNames = new Set(builtinNames)
+  const globalNames = await overlayScopeSkills(outDir, 'global', reservedNames)
+  const teamNames = teamId ? await overlayScopeSkills(outDir, `teams/${teamId}`, reservedNames) : []
 
   const skillNames = (await fs.readdir(outDir, { withFileTypes: true }))
     .filter((e) => e.isDirectory())
@@ -179,7 +186,8 @@ async function materializeMergeTree(
 
 /**
  * Merge builtin + global + team cached skills into one directory suitable for
- * createSkillTool and sandbox injection. Precedence: team > global > builtin.
+ * createSkillTool and sandbox injection. Builtin names are reserved; custom
+ * skills retain team > global precedence.
  */
 export async function materializeMergedSkillsDir(
   teamId?: string | null,

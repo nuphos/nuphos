@@ -49,16 +49,58 @@ async function rmMergeArtifacts(): Promise<void> {
 describe('materializeMergedSkillsDir', () => {
   afterEach(rmMergeArtifacts)
 
-  test('team overlay replaces a builtin skill directory', async () => {
-    await writeScopeManifest(`teams/${TEAM_ID}`, '2026-07-06T10:00:00.000Z')
-    await writeCachedSkill(`teams/${TEAM_ID}`, 'aws', 'team-aws-skill')
+  test('legacy global and team GitHub skills cannot replace builtin credential isolation', async () => {
+    for (const scope of ['global', `teams/${TEAM_ID}`]) {
+      await writeScopeManifest(scope, '2026-07-06T10:00:00.000Z')
+      await writeCachedSkill(scope, 'github', 'legacy login instructions')
+      const scripts = path.join(getScopeCacheDir(scope), 'skills/github/scripts')
 
+      await fs.mkdir(scripts, { recursive: true })
+      await fs.writeFile(path.join(scripts, 'setup-credentials.sh'), 'gh auth login --with-token')
+      await fs.writeFile(path.join(scripts, 'obsolete.sh'), 'legacy helper')
+    }
     const merged = await materializeMergedSkillsDir(TEAM_ID)
-    const body = await fs.readFile(path.join(merged.directory, 'aws', 'SKILL.md'), 'utf8')
+    const script = 'github/scripts/setup-credentials.sh'
 
-    expect(body).toBe('team-aws-skill')
-    expect(merged.skillNames).toContain('aws')
-    expect(merged.rebuilt).toBe(true)
+    expect(await fs.readFile(path.join(merged.directory, script), 'utf8')).toBe(
+      await fs.readFile(path.join(getBuiltinSkillsDirectory(), script), 'utf8'),
+    )
+    expect(await fs.stat(path.join(merged.directory, 'github/scripts/write-auth.py'))).toBeDefined()
+    expect(
+      await fs.access(path.join(merged.directory, 'github/scripts/obsolete.sh')).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false)
+    expect(merged.layers.globalSkills).toBe(0)
+    expect(merged.layers.teamSkills).toBe(0)
+
+    const fingerprint = path.join(merged.directory, '.merge-fingerprint')
+    const old = JSON.parse(await fs.readFile(fingerprint, 'utf8'))
+
+    delete old.version
+    await fs.writeFile(fingerprint, JSON.stringify(old))
+    await fs.writeFile(path.join(merged.directory, script), 'gh auth login --with-token')
+    const rebuilt = await materializeMergedSkillsDir(TEAM_ID)
+
+    expect(rebuilt.rebuilt).toBe(true)
+    expect(await fs.readFile(path.join(rebuilt.directory, script), 'utf8')).toBe(
+      await fs.readFile(path.join(getBuiltinSkillsDirectory(), script), 'utf8'),
+    )
+  })
+
+  test('team custom skills still override global custom skills', async () => {
+    await writeScopeManifest('global', '2026-07-06T10:00:00.000Z')
+    await writeScopeManifest(`teams/${TEAM_ID}`, '2026-07-06T10:00:00.000Z')
+    await writeCachedSkill('global', 'custom-runbook', 'global runbook')
+    await writeCachedSkill(`teams/${TEAM_ID}`, 'custom-runbook', 'team runbook')
+    const merged = await materializeMergedSkillsDir(TEAM_ID)
+
+    expect(await fs.readFile(path.join(merged.directory, 'custom-runbook/SKILL.md'), 'utf8')).toBe(
+      'team runbook',
+    )
+    expect(merged.layers.globalSkills).toBe(1)
+    expect(merged.layers.teamSkills).toBe(1)
   })
 
   test('empty team skill dir does not shadow a global overlay', async () => {

@@ -1,17 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
-import {
-  claudeCodePreviewConfig,
-  claudeCodeRuntimeProvisionerConfig,
-  DEFAULT_NUPHOS_RUNTIME_VERSION,
-} from './claude-code-preview'
+import { claudeCodePreviewConfig, claudeCodeRuntimeProvisionerConfig } from './claude-code-preview'
 
 const keys = [
   'CODEX_RUNTIME_DEV_URL',
   'CODEX_RUNTIME_DEV_AUTH_KEY',
   'OPENAB_RUNTIME_TOKEN_ENCRYPTION_KEY',
   'CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED',
-  'NUPHOS_RUNTIME_VERSION',
   'CLAUDE_CODE_RUNTIME_NAMESPACE',
   'CLAUDE_CODE_RUNTIME_KUBECTL',
   'CLAUDE_CODE_RUNTIME_NODE_SELECTOR',
@@ -104,23 +99,20 @@ describe('claudeCodeRuntimeProvisionerConfig', () => {
 
     expect(claudeCodeRuntimeProvisionerConfig()).toEqual({
       enabled: false,
-      runtimeVersion: DEFAULT_NUPHOS_RUNTIME_VERSION,
       namespace: 'openab-runtimes',
       kubectl: false,
       scheduling: { nodeSelector: {}, tolerations: [], cpuLimit: '4' },
     })
   })
 
-  test('parses the enable flag, runtime version, namespace, and dev kubectl mode', () => {
+  test('parses the enable flag, namespace, and dev kubectl mode', () => {
     process.env.NODE_ENV = 'development'
     process.env.CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED = 'true'
-    process.env.NUPHOS_RUNTIME_VERSION = '0.2.0'
     process.env.CLAUDE_CODE_RUNTIME_NAMESPACE = 'openab-dev'
     process.env.CLAUDE_CODE_RUNTIME_KUBECTL = 'true'
 
     expect(claudeCodeRuntimeProvisionerConfig()).toEqual({
       enabled: true,
-      runtimeVersion: '0.2.0',
       namespace: 'openab-dev',
       kubectl: true,
       scheduling: { nodeSelector: {}, tolerations: [], cpuLimit: '4' },
@@ -184,11 +176,4 @@ test('Codex has an independent loopback override, ignored in production', () => 
   )
   process.env.NODE_ENV = 'production'
   expect(claudeCodePreviewConfig().codexDevelopmentRuntimeEndpoint).toBeUndefined()
-})
-
-test('runtime fleet versions reject mutable tags and prereleases at startup', () => {
-  for (const version of ['latest', 'v0.1.3', '0.1.3-beta.1', '0.1']) {
-    process.env.NUPHOS_RUNTIME_VERSION = version
-    expect(() => claudeCodeRuntimeProvisionerConfig()).toThrow('NUPHOS_RUNTIME_VERSION')
-  }
 })
