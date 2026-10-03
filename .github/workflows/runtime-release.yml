@@ -68,6 +68,7 @@ jobs:
           else
             VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
           fi
+          node scripts/check-legacy-version.mjs "$VERSION"
           if git rev-parse --verify --quiet "refs/tags/runtime-v${VERSION}" >/dev/null; then
             echo "::error::tag runtime-v${VERSION} already exists"
             exit 1

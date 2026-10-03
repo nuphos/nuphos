@@ -12,6 +12,7 @@ import { ToastProvider } from './components/ui/ToastProvider'
 import { installDevShim } from './devShim'
 import { ThemeProvider } from './hooks/ThemeProvider'
 import { initAnalytics, track } from './lib/analytics'
+import { showFirstLaunchIntro } from './lib/firstLaunchIntro'
 import { isMac } from './lib/platform'
 
 // We import Font Awesome's CSS explicitly above, so stop the SVG core from
@@ -49,6 +50,9 @@ if (import.meta.hot) import.meta.hot.dispose(() => offFullScreen?.())
 
 onZoomOrResize()
 window.addEventListener('resize', onZoomOrResize)
+
+// Claim once in the main process so reloads and extra windows cannot replay.
+if (await window.api.claimFirstLaunchIntro?.().catch(() => false)) showFirstLaunchIntro()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

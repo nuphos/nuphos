@@ -398,16 +398,17 @@ workflow definition against a commit reachable from `main`.
 
 Each release publishes four tags per provider:
 
-| Layer               | Semantic tag             | Revision tag                      |
-| ------------------- | ------------------------ | --------------------------------- |
-| Runtime             | `X.Y.Z-claude-code`      | `<openab-sha12>-claude-code`      |
-| Runtime             | `X.Y.Z-codex`            | `<openab-sha12>-codex`            |
-| Base (gateway only) | `X.Y.Z-base-claude-code` | `<openab-sha12>-base-claude-code` |
-| Base (gateway only) | `X.Y.Z-base-codex`       | `<openab-sha12>-base-codex`       |
+| Layer               | Semantic tag             | Revision tag                       |
+| ------------------- | ------------------------ | ---------------------------------- |
+| Runtime             | `X.Y.Z-claude-code`      | `commit-<runtime-sha>-claude-code` |
+| Runtime             | `X.Y.Z-codex`            | `commit-<runtime-sha>-codex`       |
+| Base (gateway only) | `X.Y.Z-base-claude-code` | `<openab-sha12>-base-claude-code`  |
+| Base (gateway only) | `X.Y.Z-base-codex`       | `<openab-sha12>-base-codex`        |
 
-The revision tag names the `openab` commit the image was built from, so a
-running container maps back to a gateway revision. Both tags point at the same
-manifest.
+Runtime revision tags name the full monorepo commit, so SDK and toolset changes
+get distinct tags even when OpenAB is unchanged. Base revision tags name the
+pinned OpenAB commit. A blank `release_tag` publishes only revision tags; only
+a matching `runtime-vX.Y.Z` publishes semantic version tags.
 
 Nuphos pins runtimes by immutable digest, never by tag:
 
@@ -544,7 +545,11 @@ is `true`. Before enabling it:
    vetted image-build job, not PR builds.
 3. Freeze the old repository's manual and scheduled releases, wait for active
    publishes to finish, and reconcile `package.json` with its final version.
-   Never run both repositories' publishers concurrently.
+   Never run both repositories' publishers concurrently. Before tagging or publishing
+   a semantic version, every workflow checks the public legacy tags and refuses
+   a version that is not strictly newer than all legacy stable versions. Lookup
+   failures stop the release. For example, legacy `v0.1.10` reserves `0.1.10`;
+   reconcile the baseline to at least `0.1.10` before a patch release of `0.1.11`.
 4. Enable publishing and dispatch **Release runtime** with a patch bump and
    both providers. Verify both images and the `runtime-vX.Y.Z` GitHub release.
    Deploying those images to existing runtimes is a separate operation.

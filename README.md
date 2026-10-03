@@ -61,6 +61,13 @@ Its image executes a turn, and a self-hosted deployment registers its own.
 See [`apps/runtime/README.md`](apps/runtime/README.md) for building, running
 and independently releasing the runtime.
 
+## Releases
+
+Maintainers publish Desktop downloads and self-hosted Backend images through
+component-specific release tags. See [the release guide](docs/releases.md) for
+versioning, required approvals, and signing setup. Hosted-service deployment is
+managed separately.
+
 ## Self-hosting
 
 `deploy/compose` brings up a complete, minimal Nuphos with one

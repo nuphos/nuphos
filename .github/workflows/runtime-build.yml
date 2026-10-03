@@ -27,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: runtime-vX.Y.Z tag to publish (blank builds main's current version)
+        description: runtime-vX.Y.Z tag to publish (blank publishes only revision tags)
         type: string
         required: false
         default: ''
@@ -108,7 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           # The checkout above fetches every branch and tag; it also drops the
-          # credentials afterwards, so nothing here may reach the network.
+          # credentials afterwards; the legacy version guard uses public refs.
           if [[ -n "$RELEASE_TAG" ]]; then
             if [[ ! "$RELEASE_TAG" =~ ^runtime-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "::error::release_tag must look like runtime-vX.Y.Z, got '$RELEASE_TAG'"
@@ -136,6 +136,10 @@ jobs:
           if [[ -n "$RELEASE_TAG" && "$RELEASE_TAG" != "runtime-v${VERSION}" ]]; then
             echo "::error::$RELEASE_TAG does not match the packaged runtime version $VERSION"
             exit 1
+          fi
+
+          if [[ -n "$RELEASE_TAG" ]]; then
+            node scripts/check-legacy-version.mjs "$VERSION"
           fi
 
           # The gitlink, so no submodule checkout is needed to name the revision.
@@ -183,6 +187,8 @@ jobs:
           PROVIDER: ${{ matrix.provider }}
           VERSION: ${{ needs.plan.outputs.version }}
           SHA12: ${{ needs.plan.outputs.sha12 }}
+          BUILD_SHA: ${{ needs.plan.outputs.build_sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           # The published variant name matches the backend's provider identifier.
@@ -206,10 +212,15 @@ jobs:
             # The toolset build resolves its base through this tag, so the base
             # must be pushed before it runs.
             echo "base=${RUNTIME_IMAGE}:${SHA12}-base-${VARIANT}"
-            # A semantic tag for humans, plus a revision tag on the same
-            # manifest so any running image maps back to an openab commit.
-            printf 'base_tags=%s\n' "${RUNTIME_IMAGE}:${VERSION}-base-${VARIANT},${RUNTIME_IMAGE}:${SHA12}-base-${VARIANT}"
-            printf 'runtime_tags=%s\n' "${RUNTIME_IMAGE}:${VERSION}-${VARIANT},${RUNTIME_IMAGE}:${SHA12}-${VARIANT}"
+            # Only a vetted release tag may publish a semantic version.
+            BASE_TAGS="${RUNTIME_IMAGE}:${SHA12}-base-${VARIANT}"
+            RUNTIME_TAGS="${RUNTIME_IMAGE}:commit-${BUILD_SHA}-${VARIANT}"
+            if [[ -n "$RELEASE_TAG" ]]; then
+              BASE_TAGS="${RUNTIME_IMAGE}:${VERSION}-base-${VARIANT},${BASE_TAGS}"
+              RUNTIME_TAGS="${RUNTIME_IMAGE}:${VERSION}-${VARIANT},${RUNTIME_TAGS}"
+            fi
+            printf 'base_tags=%s\n' "$BASE_TAGS"
+            printf 'runtime_tags=%s\n' "$RUNTIME_TAGS"
           } >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR

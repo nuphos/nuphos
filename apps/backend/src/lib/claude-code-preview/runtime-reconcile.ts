@@ -59,6 +59,10 @@ async function applyHostedRuntime(runtime: ClaudeCodeRuntimeDoc, deps: Provision
   const authKey = storedAuthKey(runtime.authKeyEnvelope)
 
   if (!name || !authKey) throw new Error('Hosted runtime has no placement or key')
+  const image = await managedRuntimeImage(deps.provider, runtime.requestedRuntimeVersion)
+
+  // The next tick retries. Leaving the live Deployment alone beats rolling it to a guess.
+  if (!image) throw new Error('No published nuphos-runtime release to deploy')
   const { teamId, _id: runtimeId } = runtime
 
   await deps.kube.apply(
@@ -73,7 +77,7 @@ async function applyHostedRuntime(runtime: ClaudeCodeRuntimeDoc, deps: Provision
       teamId,
       runtimeId,
       namespace: deps.namespace,
-      image: managedRuntimeImage(deps.provider, runtime.requestedRuntimeVersion),
+      image,
       provider: deps.provider,
       running: runtime.status === 'active',
       ...(deps.scheduling ? { scheduling: deps.scheduling } : {}),

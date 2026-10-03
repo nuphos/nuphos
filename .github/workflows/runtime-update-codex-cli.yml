@@ -79,6 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("package.json"));if(!/^\d+\.\d+\.\d+$/.test(p.version))throw Error("Invalid runtime version");const v=p.version.split(".").map(Number);v[2]++;p.version=v.join(".");fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\n");console.log(p.version)')
+          node scripts/check-legacy-version.mjs "$VERSION"
           if git rev-parse --verify --quiet "refs/tags/runtime-v${VERSION}"; then
             echo '::error::Runtime tag already exists'
             exit 1

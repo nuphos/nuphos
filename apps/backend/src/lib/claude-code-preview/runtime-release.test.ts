@@ -13,7 +13,8 @@ test('release comparisons use numeric semver and never offer downgrades or prere
 })
 
 test('runtime discovery skips other components, follows pages and preserves the pre-cutover fallback', async () => {
-  const { latestRuntimeRelease } = await import('./runtime-release')
+  const { latestRuntimeRelease, resetRuntimeReleaseCache } = await import('./runtime-release')
+  resetRuntimeReleaseCache()
   const originalFetch = globalThis.fetch
   const image = (version: string, provider = 'codex') =>
     `ghcr.io/zeabur/nuphos-runtime:${version}-${provider}`
@@ -57,6 +58,7 @@ test('runtime discovery skips other components, follows pages and preserves the 
     expect(await latestRuntimeRelease('claude-code')).toBeNull()
     expect(requests).toHaveLength(2)
 
+    resetRuntimeReleaseCache()
     responses = [Response.json([]), Response.json({ tag_name: 'v0.1.9', body: image('0.1.9') })]
     expect((await latestRuntimeRelease('codex', true))?.url).toBe(
       'https://github.com/zeabur/nuphos-runtime/releases/tag/v0.1.9',
@@ -65,14 +67,17 @@ test('runtime discovery skips other components, follows pages and preserves the 
       'https://api.github.com/repos/zeabur/nuphos-runtime/releases/latest',
     )
 
+    resetRuntimeReleaseCache()
     responses = [new Response('', { status: 403 })]
     expect(await latestRuntimeRelease('codex', true)).toBeNull()
     responses = [Response.json({ unexpected: true })]
     expect(await latestRuntimeRelease('codex', true)).toBeNull()
+    resetRuntimeReleaseCache()
     responses = [Response.json([]), Response.json({ tag_name: 'v0.1.11', prerelease: true })]
     expect(await latestRuntimeRelease('codex', true)).toBeNull()
   } finally {
     globalThis.fetch = originalFetch
+    resetRuntimeReleaseCache()
   }
 })
 

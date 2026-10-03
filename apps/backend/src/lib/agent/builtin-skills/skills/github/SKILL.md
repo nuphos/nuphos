@@ -1,21 +1,53 @@
 ---
 name: github
-description: Operate on GitHub repos, issues, PRs, and Actions through a GitHub App installation the user's team has bound to Nuphos. Nuphos backend mints short-lived installation tokens; the agent talks to api.github.com directly with `gh` or `curl`. Use whenever the user names a repo, asks to read code/PRs/issues, comment, open a PR, dispatch a workflow, etc.
+description: Operate on GitHub repos, issues, PRs, and Actions using an authorized existing local gh login or a GitHub App installation the user's team has bound to Nuphos. Nuphos backend mints short-lived installation tokens; the agent talks to api.github.com directly with `gh` or `curl`. Use whenever the user names a repo, asks to read code/PRs/issues, comment, open a PR, dispatch a workflow, etc.
 ---
 
 # github
+
+## Choose the GitHub identity first
+
+For a confirmed local runtime on the current participant's own device, prefer their
+existing `gh` login when the session's credential policy permits it. Check
+`gh auth status --hostname github.com` before running Nuphos credential setup.
+If the user explicitly requests the Nuphos App identity, skip this local-login
+path and use the selected installation's setup command instead.
+
+- Run the check in the participant's actual host environment. An isolated session
+  `HOME` / `GH_CONFIG_DIR` may hide the host login; an empty session config does not
+  mean the device is logged out. Use `local_exec` on the explicitly selected,
+  confirmed participant-owned device when available. Do not infer ownership from
+  the runtime account, OS username, or a matching display name alone.
+- When the host has a valid active login, report its GitHub login and keep subsequent
+  `gh`/Git operations on that same device and credential context. Do not mint an
+  App token, copy the host token into the session, unset isolation variables, or
+  run `gh auth login`, `switch`, `logout`, or global credential-helper setup.
+- Honor the current session's allowed identities and repository scope. This skill
+  does not authorize an unselected identity. A repository permission error is not
+  permission to try another account. Do not automatically switch identities.
+- If no usable local login exists, or local identity use is not permitted, explain
+  that result and use an already selected Nuphos App installation when allowed.
+  Managed/shared runtimes always use the selected App identity; never reuse their
+  runtime owner's `gh` login.
+
+The App setup and App-signed commit instructions below apply only to the App path.
+For the existing local-login path, use that account for GitHub operations and the
+participant's existing Git author/signing configuration. Check that signing is
+available before committing; do not change global Git configuration or fall back
+to an unsigned commit when the repository requires signatures. PR review and
+merge requirements apply to both paths.
 
 ## Session isolation
 
 Keep CLI credentials and settings inside the current session's `HOME` (`NUPHOS_SESSION_HOME`) and respect the supplied CLI config environment variables. Do not copy another session's or the runtime owner's credentials. Without `NUPHOS_SESSION_HOME`, CLI defaults may use shared runtime configuration; be aware of the affected scope.
 
-Changing runtime-global settings is possible, but strongly discouraged unless the user understands the impact on other sessions and explicitly requests it. Explain the shared scope first; do not unset session isolation variables, write to the runtime owner's home, use a shared OS credential store, or modify shared shell startup files as routine setup. This is configuration isolation, not an OS security boundary.
+Changing runtime-global settings is possible, but strongly discouraged unless the user understands the impact on other sessions and explicitly requests it. Explain the shared scope first; do not unset session isolation variables, write to the runtime owner's home, write to a shared OS credential store, or modify shared shell startup files as routine setup. This is configuration isolation, not an OS security boundary.
 
 For Nuphos installation tokens, always use the setup script below. Do not run `gh auth login`, `gh auth switch`, or `gh auth logout`: those flows can change a shared system keychain even with `--insecure-storage`. The setup script writes the configured gh authentication file (session-scoped when supplied by the runtime) and preserves other hosts.
 
-Use this skill when the user wants you to interact with GitHub on their behalf — read source, list/inspect/comment on PRs or issues, dispatch workflows, push branches, etc. — using the **GitHub App installation** their team has already bound to Nuphos. The agent never sees the user's personal token; Nuphos backend mints a short-lived installation access token (≤1 h) on demand.
+For the App path, Nuphos backend mints a short-lived installation access token (≤1 h) on demand. The local-login path leaves authentication with the device's existing gh configuration.
 
-## Setup
+## Setup (Nuphos App identity)
 
 The bound GitHub App installations are already listed for you under **GitHub App
 installations:** in the credential section of the system prompt. Each line carries the
@@ -129,7 +161,7 @@ gh_api -X POST /repos/myorg/myrepo/issues/42/comments \
   -d '{"body":"deployed to staging"}' | python3 -m json.tool
 ```
 
-## Pushing code / opening PRs
+## Pushing code / opening PRs with the Nuphos App
 
 Use GitHub's `createCommitOnBranch` GraphQL mutation with the selected App installation token for new commits. GitHub supplies the App author, uses its signing committer (`web-flow`), and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot.
 

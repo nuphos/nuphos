@@ -48,9 +48,14 @@ export async function runtimeUpdateStatus(
       (container) => container.name === 'openab',
     )?.image
 
-    if (!error && image === managedRuntimeImage(instance.provider, target)) state = 'updating'
+    const targetImage = await managedRuntimeImage(instance.provider, target)
+    // Both sides can be absent — an unreadable Deployment, an unresolved digest — and two
+    // absences are not a match: that would report an update as live without evidence.
+    const running = Boolean(image) && image === targetImage
+
+    if (!error && running) state = 'updating'
     if (
-      image === managedRuntimeImage(instance.provider, target) &&
+      running &&
       deployment?.status?.conditions?.some(
         (condition) => condition.reason === 'ProgressDeadlineExceeded',
       )
