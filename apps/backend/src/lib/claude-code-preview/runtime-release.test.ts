@@ -18,7 +18,7 @@ test('runtime discovery skips other components, follows pages and preserves the 
   resetRuntimeReleaseCache()
   const originalFetch = globalThis.fetch
   const image = (version: string, provider = 'codex') =>
-    `ghcr.io/zeabur/nuphos-runtime:${version}-${provider}`
+    `ghcr.io/nuphos/runtime:${version}-${provider}`
   const requests: string[] = []
   let responses: Response[] = []
 
@@ -60,7 +60,13 @@ test('runtime discovery skips other components, follows pages and preserves the 
     expect(requests).toHaveLength(2)
 
     resetRuntimeReleaseCache()
-    responses = [Response.json([]), Response.json({ tag_name: 'v0.1.9', body: image('0.1.9') })]
+    responses = [
+      Response.json([]),
+      Response.json({
+        tag_name: 'v0.1.9',
+        body: image('0.1.9').replace('nuphos/runtime', 'zeabur/nuphos-runtime'),
+      }),
+    ]
     expect((await latestRuntimeRelease('codex', true))?.url).toBe(
       'https://github.com/zeabur/nuphos-runtime/releases/tag/v0.1.9',
     )

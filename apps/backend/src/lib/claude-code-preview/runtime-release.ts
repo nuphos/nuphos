@@ -5,7 +5,15 @@ import { logEvent } from '@/lib/observability'
 export const RUNTIME_RELEASES_URL = 'https://github.com/nuphos/nuphos/releases'
 const legacyReleasesUrl = 'https://github.com/zeabur/nuphos-runtime/releases'
 
-export const NUPHOS_RUNTIME_REPOSITORY = 'ghcr.io/zeabur/nuphos-runtime'
+export const NUPHOS_RUNTIME_REPOSITORY = 'ghcr.io/nuphos/runtime'
+export const LEGACY_RUNTIME_REPOSITORY = 'ghcr.io/zeabur/nuphos-runtime'
+
+/** Registry selection follows the trusted release feed, never an arbitrary body URL. */
+export function runtimeReleaseRepository(release: RuntimeRelease): string {
+  return release.url.startsWith(`${legacyReleasesUrl}/tag/`)
+    ? LEGACY_RUNTIME_REPOSITORY
+    : NUPHOS_RUNTIME_REPOSITORY
+}
 
 export function stableRuntimeVersion(value: unknown): value is string {
   return typeof value === 'string' && /^\d+\.\d+\.\d+$/.test(value)
@@ -39,7 +47,9 @@ export function resetRuntimeReleaseCache(): void {
 
 /** A provider-only release must not advertise an image it did not publish. */
 function advertises(release: RuntimeRelease, provider: OpenAbProvider): boolean {
-  return release.body.includes(`${NUPHOS_RUNTIME_REPOSITORY}:${release.version}-${provider}`)
+  return release.body.includes(
+    `${runtimeReleaseRepository(release)}:${release.version}-${provider}`,
+  )
 }
 
 type GitHubRelease = { tag_name?: string; draft?: boolean; prerelease?: boolean; body?: string }
@@ -104,7 +114,9 @@ export async function latestRuntimeRelease(
           // Emit once per metadata refresh, not once per agent poll.
           for (const provider of ['claude-code', 'codex']) {
             if (
-              !release.body.includes(`${NUPHOS_RUNTIME_REPOSITORY}:${release.version}-${provider}`)
+              !release.body.includes(
+                `${runtimeReleaseRepository(release)}:${release.version}-${provider}`,
+              )
             )
               logEvent('warn', 'runtime.release_provider_image_missing', {
                 version: release.version,

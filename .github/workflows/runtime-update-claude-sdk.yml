@@ -98,8 +98,6 @@ jobs:
     needs: update
     if: needs.update.outputs.changed == 'true'
     uses: ./.github/workflows/runtime-build.yml
-    secrets:
-      RUNTIME_GHCR_TOKEN: ${{ secrets.RUNTIME_GHCR_TOKEN }}
     permissions:
       contents: write
       packages: write

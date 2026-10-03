@@ -25,7 +25,7 @@ test('managed agents run the latest published release, by digest', async () => {
   expect(await managedRuntimeImage('codex')).toBe(publishedRuntimeImage('0.2.3', 'codex'))
   // The readable tag is kept alongside the digest; the digest is what gets pulled.
   expect(await managedRuntimeImage('codex')).toMatch(
-    /^ghcr\.io\/zeabur\/nuphos-runtime:0\.2\.3-codex@sha256:[0-9a-f]{64}$/,
+    /^ghcr\.io\/nuphos\/runtime:0\.2\.3-codex@sha256:[0-9a-f]{64}$/,
   )
 })
 
@@ -107,4 +107,38 @@ test('self-hosted compose pins one published release across its own files', () =
   // literally. Its two files must at least agree on which.
   expect(tag).toMatch(/^\d+\.\d+\.\d+-claude-code$/)
   expect(readFileSync(join(COMPOSE_DIR, '.env.example'), 'utf8')).toContain(`RUNTIME_TAG=${tag}\n`)
+})
+
+test('pre-cutover release discovery still resolves legacy images', async () => {
+  await publishRuntimeRelease({
+    version: '0.1.11',
+    legacy: true,
+    published: [],
+    legacyPublished: ['0.1.11'],
+  })
+
+  expect(await managedRuntimeImage('codex')).toBe(publishedRuntimeImage('0.1.11', 'codex', true))
+  await refreshRuntimeRelease({ version: '0.1.12' })
+
+  expect(await managedRuntimeImage('codex')).toBe(publishedRuntimeImage('0.1.12', 'codex'))
+})
+
+test('historical version pins survive the registry cutover and use separate digest caches', async () => {
+  await publishRuntimeRelease({ version: '0.1.12', legacyPublished: ['0.1.11'] })
+
+  expect(await managedRuntimeImage('codex', '0.1.11')).toBe(
+    publishedRuntimeImage('0.1.11', 'codex', true),
+  )
+  const served = runtimeFeedRequests()
+
+  expect(await managedRuntimeImage('codex', '0.1.11')).toBe(
+    publishedRuntimeImage('0.1.11', 'codex', true),
+  )
+  expect(runtimeFeedRequests()).toBe(served)
+})
+
+test('a missing monorepo release image never silently resolves to the legacy registry', async () => {
+  await publishRuntimeRelease({ version: '0.1.12', published: [], legacyPublished: ['0.1.12'] })
+
+  expect(await managedRuntimeImage('codex')).toBeUndefined()
 })

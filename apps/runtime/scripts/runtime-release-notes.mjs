@@ -54,7 +54,7 @@ lines.push('', '## Container images', '')
 for (const name of provider === 'both'
   ? ['claude-code', 'codex']
   : [provider === 'claude' ? 'claude-code' : 'codex'])
-  lines.push(`- \`ghcr.io/zeabur/nuphos-runtime:${runtime.version}-${name}\``)
+  lines.push(`- \`ghcr.io/nuphos/runtime:${runtime.version}-${name}\``)
 lines.push(
   '',
   'Publishing these images does not deploy them to existing runtimes or update the Desktop bundle.',

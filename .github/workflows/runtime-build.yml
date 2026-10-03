@@ -45,9 +45,6 @@ on:
   # would not start a run, so the release path calls the same definition
   # instead of triggering it.
   workflow_call:
-    secrets:
-      RUNTIME_GHCR_TOKEN:
-        required: true
     inputs:
       release_tag:
         type: string
@@ -70,7 +67,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RUNTIME_IMAGE: ghcr.io/zeabur/nuphos-runtime
+  RUNTIME_IMAGE: ghcr.io/nuphos/runtime
 
 defaults:
   run:
@@ -227,8 +224,8 @@ jobs:
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
-          username: ${{ vars.RUNTIME_GHCR_USERNAME }}
-          password: ${{ secrets.RUNTIME_GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -244,6 +241,7 @@ jobs:
           push: true
           tags: ${{ steps.tags.outputs.base_tags }}
           labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.plan.outputs.sha }}
             org.opencontainers.image.version=${{ needs.plan.outputs.version }}
           provenance: false
@@ -266,6 +264,7 @@ jobs:
             RUNTIME_VERSION=${{ needs.plan.outputs.version }}
           tags: ${{ steps.tags.outputs.runtime_tags }}
           labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.plan.outputs.sha }}
             org.opencontainers.image.version=${{ needs.plan.outputs.version }}
           provenance: false

@@ -1,5 +1,7 @@
 import {
   latestRuntimeRelease,
+  LEGACY_RUNTIME_REPOSITORY,
+  runtimeReleaseRepository,
   NUPHOS_RUNTIME_REPOSITORY,
   stableRuntimeVersion,
 } from './runtime-release'
@@ -8,8 +10,6 @@ import type { OpenAbProvider } from './runtime-provider'
 
 import { logEvent } from '@/lib/observability'
 
-const [REGISTRY, ...REPOSITORY] = NUPHOS_RUNTIME_REPOSITORY.split('/')
-const REPOSITORY_PATH = REPOSITORY.join('/')
 const MANIFEST_TYPES = [
   'application/vnd.oci.image.index.v1+json',
   'application/vnd.oci.image.manifest.v1+json',
@@ -18,7 +18,7 @@ const MANIFEST_TYPES = [
 ].join(', ')
 
 /**
- * Resolved digests, keyed by tag. A published tag's digest does not change, so a hit is
+ * Resolved digests, keyed by repository and tag. A published tag's digest does not change, so a hit is
  * kept for this process's life — which also means a registry outage cannot un-resolve an
  * image the fleet is already running. A miss expires instead, so a tag published later is
  * still picked up.
@@ -32,10 +32,13 @@ export function resetRuntimeImageDigests(): void {
 }
 
 /** The digest the registry serves for `tag`, or `undefined` when it serves none. */
-async function lookUpDigest(tag: string): Promise<string | undefined> {
+async function lookUpDigest(repository: string, tag: string): Promise<string | undefined> {
+  const [registry, ...path] = repository.split('/')
+  const repositoryPath = path.join('/')
+
   // The package is public, so the pull token is handed to anyone who asks.
   const auth = await fetch(
-    `https://${REGISTRY}/token?scope=repository:${REPOSITORY_PATH}:pull&service=${REGISTRY}`,
+    `https://${registry}/token?scope=repository:${repositoryPath}:pull&service=${registry}`,
     { signal: AbortSignal.timeout(5_000) },
   )
 
@@ -43,7 +46,7 @@ async function lookUpDigest(tag: string): Promise<string | undefined> {
   const { token } = (await auth.json()) as { token?: string }
 
   if (!token) return undefined
-  const manifest = await fetch(`https://${REGISTRY}/v2/${REPOSITORY_PATH}/manifests/${tag}`, {
+  const manifest = await fetch(`https://${registry}/v2/${repositoryPath}/manifests/${tag}`, {
     method: 'HEAD',
     headers: { Accept: MANIFEST_TYPES, Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(5_000),
@@ -61,17 +64,18 @@ async function lookUpDigest(tag: string): Promise<string | undefined> {
   return digest
 }
 
-function publishedDigest(tag: string): Promise<string | undefined> {
-  const cached = digests.get(tag)
+function publishedDigest(repository: string, tag: string): Promise<string | undefined> {
+  const key = `${repository}:${tag}`
+  const cached = digests.get(key)
 
   if (cached && cached.expires > Date.now()) return cached.result
   // A reconcile tick walks the fleet one runtime at a time, so the entry has to outlive
   // this promise: expiring a miss only once it has settled would make every later runtime
   // in the same tick repeat the lookup, and a registry timing out turns that into one
   // five-second wait per agent.
-  const entry = { expires: Infinity, result: lookUpDigest(tag).catch(() => undefined) }
+  const entry = { expires: Infinity, result: lookUpDigest(repository, tag).catch(() => undefined) }
 
-  digests.set(tag, entry)
+  digests.set(key, entry)
   void entry.result.then((digest) => {
     if (!digest) entry.expires = Date.now() + MISS_TTL_MS
   })
@@ -91,13 +95,23 @@ export async function managedRuntimeImage(
   provider: OpenAbProvider,
   requestedVersion?: string,
 ): Promise<string | undefined> {
-  const version = stableRuntimeVersion(requestedVersion)
-    ? requestedVersion
-    : (await latestRuntimeRelease(provider))?.version
+  const pinned = stableRuntimeVersion(requestedVersion)
+  const release = pinned ? null : await latestRuntimeRelease(provider)
+  const version = pinned ? requestedVersion : release?.version
 
   if (!version) return undefined
   const tag = `${version}-${provider}`
-  const digest = await publishedDigest(tag)
+  // Pins contain only a version, including historical versions never copied to the
+  // new package. Feed-driven updates must resolve in the feed's own registry.
+  const repositories = release
+    ? [runtimeReleaseRepository(release)]
+    : [NUPHOS_RUNTIME_REPOSITORY, LEGACY_RUNTIME_REPOSITORY]
 
-  return digest ? `${NUPHOS_RUNTIME_REPOSITORY}:${tag}@${digest}` : undefined
+  for (const repository of repositories) {
+    const digest = await publishedDigest(repository, tag)
+
+    if (digest) return `${repository}:${tag}@${digest}`
+  }
+
+  return undefined
 }

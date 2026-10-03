@@ -9,7 +9,8 @@ backend does not run the agent itself; it opens an ACP session against a
 runtime and streams the conversation through it. This repository builds the
 image those runtimes run.
 
-Images are published to `ghcr.io/zeabur/nuphos-runtime`.
+New images are published to `ghcr.io/nuphos/runtime`. Historical versions remain
+available from `ghcr.io/zeabur/nuphos-runtime`.
 
 ## What is in the image
 
@@ -133,7 +134,9 @@ reaches users through a rebuild of both.
 
 ## Running one
 
-A runtime needs nothing set. Give it a persistent home and start it:
+The following example uses an existing historical release. For a newly published
+monorepo version, use `ghcr.io/nuphos/runtime:<version>-codex` instead.
+Give it a persistent home and start it:
 
 ```sh
 docker run -d --name nuphos-runtime -p 8080:8080 \
@@ -413,7 +416,7 @@ a matching `runtime-vX.Y.Z` publishes semantic version tags.
 Nuphos pins runtimes by immutable digest, never by tag:
 
 ```text
-ghcr.io/zeabur/nuphos-runtime@sha256:...
+ghcr.io/nuphos/runtime@sha256:...
 ```
 
 Publishing an image rolls nothing out. Each runtime is moved to a new digest
@@ -538,11 +541,11 @@ Publishing is disabled until the repository variable `RUNTIME_PUBLISH_ENABLED`
 is `true`. Before enabling it:
 
 1. Finish the runtime CI (both provider images and adapter smoke tests).
-2. Configure `RUNTIME_GHCR_USERNAME` and the Actions secret `RUNTIME_GHCR_TOKEN`
-   for an identity allowed to push the existing `ghcr.io/zeabur/nuphos-runtime`
-   package. The new repository's `GITHUB_TOKEN` is not assumed to have access
-   to the other organization's package. The secret is passed only to the
-   vetted image-build job, not PR builds.
+2. The image-build job uses its `GITHUB_TOKEN` with `packages: write` to publish
+   `ghcr.io/nuphos/runtime`; no separate GHCR username or token is required.
+   If the package already exists, grant `nuphos/nuphos` Actions access to it.
+   Make the package public before enabling managed-agent updates or documenting
+   pulls: runtime hosts resolve manifests and pull images anonymously.
 3. Freeze the old repository's manual and scheduled releases, wait for active
    publishes to finish, and reconcile `package.json` with its final version.
    Never run both repositories' publishers concurrently. Before tagging or publishing
@@ -557,7 +560,10 @@ is `true`. Before enabling it:
 Backend update discovery filters stable `runtime-vX.Y.Z` releases and follows
 pagination past other components' releases. Until the first such release exists,
 it uses the old repository's latest release. Existing image references and
-self-hosted Compose installs keep working without a registry rename.
+self-hosted Compose installs keep their existing pinned legacy images. New
+monorepo releases resolve only from `ghcr.io/nuphos/runtime`; explicit historical
+version pins can still resolve from the legacy package. CI and candidate builds
+retain their existing published gateway base until a new base is available.
 Desktop's local adapter bundle retains its existing pinned source commit during
 this migration; changing that bundle is a separate runtime upgrade.
 

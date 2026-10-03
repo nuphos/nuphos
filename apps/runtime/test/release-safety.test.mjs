@@ -41,7 +41,7 @@ test('untagged builds cannot overwrite semantic image tags', () => {
             SHA12: 'gateway12345',
             BUILD_SHA: 'runtimeabcdef',
             RELEASE_TAG: releaseTag,
-            RUNTIME_IMAGE: 'ghcr.io/zeabur/nuphos-runtime',
+            RUNTIME_IMAGE: 'ghcr.io/nuphos/runtime',
             GITHUB_OUTPUT: output,
           },
         })

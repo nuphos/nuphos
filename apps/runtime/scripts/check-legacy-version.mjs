@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
-// The two repositories publish into the same image namespace. Reserve every
+// Keep runtime versions increasing across the registry cutover. Reserve every
 // legacy version, including tags whose image build has not finished yet.
 export function checkLegacyVersion(version, refs) {
   const stable = /^\d+\.\d+\.\d+$/

@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto'
 import { resetRuntimeImageDigests } from './runtime-image'
 import {
   latestRuntimeRelease,
+  LEGACY_RUNTIME_REPOSITORY,
   NUPHOS_RUNTIME_REPOSITORY,
   resetRuntimeReleaseCache,
 } from './runtime-release'
@@ -20,10 +21,14 @@ function digestOf(tag: string): string {
 }
 
 /** What `managedRuntimeImage()` resolves to for a version the registry serves. */
-export function publishedRuntimeImage(version: string, provider: OpenAbProvider): string {
+export function publishedRuntimeImage(
+  version: string,
+  provider: OpenAbProvider,
+  legacy = false,
+): string {
   const tag = `${version}-${provider}`
 
-  return `${NUPHOS_RUNTIME_REPOSITORY}:${tag}@${digestOf(tag)}`
+  return `${legacy ? LEGACY_RUNTIME_REPOSITORY : NUPHOS_RUNTIME_REPOSITORY}:${tag}@${digestOf(tag)}`
 }
 
 /**
@@ -35,6 +40,8 @@ export function publishedRuntimeImage(version: string, provider: OpenAbProvider)
 export type RuntimeFeed = {
   version?: string
   published?: string[]
+  legacyPublished?: string[]
+  legacy?: boolean
   advertises?: OpenAbProvider[]
 }
 
@@ -45,15 +52,25 @@ export function runtimeFeedRequests(): number {
   return requests
 }
 
-function feed({ version, published, advertises }: RuntimeFeed) {
+function feed({
+  version,
+  published,
+  legacyPublished = [],
+  legacy = false,
+  advertises,
+}: RuntimeFeed) {
   const tags = new Set(
     (published ?? (version ? [version] : [])).flatMap((value) => [
       `${value}-claude-code`,
       `${value}-codex`,
     ]),
   )
+  const legacyTags = new Set(
+    legacyPublished.flatMap((value) => [`${value}-claude-code`, `${value}-codex`]),
+  )
+  const repository = legacy ? LEGACY_RUNTIME_REPOSITORY : NUPHOS_RUNTIME_REPOSITORY
   const body = (advertises ?? ['claude-code', 'codex'])
-    .map((provider) => `${NUPHOS_RUNTIME_REPOSITORY}:${version}-${provider}`)
+    .map((provider) => `${repository}:${version}-${provider}`)
     .join('\n')
 
   return (input: string | URL | Request) => {
@@ -66,10 +83,16 @@ function feed({ version, published, advertises }: RuntimeFeed) {
       const tag = manifest[1]!
 
       return Promise.resolve(
-        tags.has(tag)
+        (url.includes('/v2/zeabur/nuphos-runtime/') ? legacyTags : tags).has(tag)
           ? new Response(null, { headers: { 'docker-content-digest': digestOf(tag) } })
           : new Response(null, { status: 404 }),
       )
+    }
+
+    if (legacy && url.includes('/repos/nuphos/nuphos/releases?'))
+      return Promise.resolve(Response.json([]))
+    if (legacy && version && url.includes('/releases/latest')) {
+      return Promise.resolve(Response.json({ tag_name: `v${version}`, body }))
     }
 
     return Promise.resolve(
