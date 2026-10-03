@@ -52,6 +52,7 @@ const CONNECTOR_DEEP_READ_PATHS = [
 // normal team router so validation, role checks, serialization, and auditing
 // stay identical for Desktop and conversation callers.
 const CANONICAL_ROUTES: { method: string; path: RegExp }[] = [
+  { method: 'GET', path: /^\/members(?:\/[^/]+)?$/u },
   { method: '*', path: /^\/(?:cost-)?dashboards(?:\/|$)/u },
   { method: '*', path: /^\/architecture-diagrams(?:\/|$)/u },
   { method: '*', path: /^\/agent-triggers(?:\/|$)/u },
