@@ -144,7 +144,7 @@ async function buildAdapter(provider) {
   const target = join(adapterDir, adapter.patchTarget)
 
   run(process.execPath, ['patch-adapter.mjs', target], adapterDir)
-  writeFileSync(target, patchDesktopAdapter(readFileSync(target, 'utf8')))
+  writeFileSync(target, patchDesktopAdapter(readFileSync(target, 'utf8'), provider))
   rmSync(out, { recursive: true, force: true })
   mkdirSync(out, { recursive: true })
   rmSync(join(adapterDir, 'node_modules', '.bin'), { recursive: true, force: true })

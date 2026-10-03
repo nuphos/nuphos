@@ -51,7 +51,11 @@ export type LocalRuntimeControllerDeps = {
   /** Where this app reaches Nuphos; the agents on this computer use the same address. */
   backendUrl: string
   userEnv: () => Promise<NodeJS.ProcessEnv>
-  probeCli: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<AgentCliStatus>
+  probeCli: (
+    provider: LocalAgentProvider,
+    env: NodeJS.ProcessEnv,
+    agentHome: string | undefined,
+  ) => Promise<AgentCliStatus>
   /** The last probe per provider, so a restart shows the agents before the CLIs answer again. */
   readCliCache: (userId: string) => Partial<Record<LocalAgentProvider, AgentCliStatus>>
   writeCliCache: (userId: string, cli: Partial<Record<LocalAgentProvider, AgentCliStatus>>) => void
@@ -163,4 +167,9 @@ export function knownCli(
       return cli ? [[provider, cli]] : []
     }),
   )
+}
+
+export type LocalAgentRun = Omit<ProbeModelsRun, 'workspace'> & {
+  userId: string
+  current: () => boolean
 }

@@ -13,7 +13,10 @@ const listeners = new Set<() => void>()
 function onlineKey(state: LocalRuntimeState | null): string {
   return state
     ? Object.entries(state.agents)
-        .map(([provider, agent]) => `${provider}:${String(agent.online)}`)
+        .map(
+          ([provider, agent]) =>
+            `${provider}:${String(agent.online)}:${agent.cli?.installed ? String(agent.cli.loggedIn) : 'missing'}`,
+        )
         .join(',')
     : ''
 }
@@ -32,7 +35,7 @@ function update(next: LocalRuntimeState): void {
 function subscribe(listener: () => void): () => void {
   if (!started) {
     started = true
-    void api.localRuntimeGetState().then(update, () => undefined)
+    void api.localRuntimeGetState().then(update, () => {})
     api.onLocalRuntimeState(update)
   }
   listeners.add(listener)

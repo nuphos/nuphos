@@ -43,12 +43,21 @@ test('no manifest, no openab or a missing adapter entry is missing', () => {
 test('the stamp follows the pins and patches in the staging sources', () => {
   const dir = mkdtempSync(join(tmpdir(), 'stamp-'))
 
-  for (const file of ['prepare.mjs', 'adapter-patches.mjs', 'skills-sync.mjs'])
+  for (const file of [
+    'prepare.mjs',
+    'adapter-patches.mjs',
+    'skills-sync.mjs',
+    'claude-session-env.mjs',
+  ])
     writeFileSync(join(dir, file), `// ${file}`)
   const before = bundleStamp(dir)
 
   assert.equal(bundleStamp(dir), before)
   writeFileSync(join(dir, 'prepare.mjs'), "export const OPENAB_COMMIT = 'next'")
   assert.notEqual(bundleStamp(dir), before)
+  const previous = bundleStamp(dir)
+
+  writeFileSync(join(dir, 'claude-session-env.mjs'), '// next shell environment')
+  assert.notEqual(bundleStamp(dir), previous)
   assert.notEqual(digestOf(['adapter-patches.mjs'], dir), digestOf(['skills-sync.mjs'], dir))
 })

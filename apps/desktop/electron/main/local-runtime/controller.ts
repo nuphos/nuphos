@@ -15,6 +15,7 @@ import {
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type {
   Agent,
+  LocalAgentRun,
   LocalRuntimeControllerDeps,
   LocalRuntimeState,
   RuntimeTunnel,
@@ -34,7 +35,6 @@ export class LocalRuntimeController {
   private online = false
   private superseded = false
   private readonly deps: LocalRuntimeControllerDeps
-
   constructor(deps: LocalRuntimeControllerDeps) {
     this.deps = deps
   }
@@ -73,21 +73,31 @@ export class LocalRuntimeController {
   }
 
   /** Re-reads each CLI, e.g. after a terminal sign-in; `restart` relaunches running agents too. */
-  async refresh(restart = false): Promise<LocalRuntimeState> {
+  async refresh(
+    restart = false,
+    providers: readonly LocalAgentProvider[] = LOCAL_AGENT_PROVIDERS,
+  ): Promise<LocalRuntimeState> {
+    const userId = this.userId
+
+    if (!userId) return this.state()
     const env = await this.deps.userEnv()
 
     await Promise.all(
-      LOCAL_AGENT_PROVIDERS.map(async (provider) => {
-        this.agents[provider].cli = await this.deps.probeCli(provider, env)
+      providers.map(async (provider) => {
+        const agentHome = this.prepareHome(provider, userId)
+        const cli = await this.deps.probeCli(provider, env, agentHome)
+
+        if (userId === this.userId) this.agents[provider].cli = cli
       }),
     )
+    if (userId !== this.userId) return this.state()
     this.saveCli()
     this.tunnel?.sendStatus()
     this.changed()
     await Promise.all(
-      LOCAL_AGENT_PROVIDERS.filter((provider) => restart || !this.agents[provider].process).map(
-        (provider) => this.launch(provider),
-      ),
+      providers
+        .filter((provider) => restart || !this.agents[provider].process)
+        .map((provider) => this.launch(provider)),
     )
 
     return this.state()
@@ -116,6 +126,12 @@ export class LocalRuntimeController {
 
   private userDir(userId: string, ...parts: string[]): string {
     return path.join(this.deps.dataDir(), 'users', userId, ...parts)
+  }
+
+  private prepareHome(provider: LocalAgentProvider, userId: string): string | undefined {
+    const dir = this.userDir(userId)
+
+    return this.deps.prepareAgentHome(provider, dir, path.join(dir, 'workspace'))
   }
 
   private async stopAgent(provider: LocalAgentProvider): Promise<void> {
@@ -163,11 +179,15 @@ export class LocalRuntimeController {
       return
     }
     const env = await this.deps.userEnv()
-
     const probedAt = Date.now()
 
-    agent.cli = await this.deps.probeCli(provider, env)
     if (!current()) return
+    const agentHome = this.prepareHome(provider, userId)
+
+    const cli = await this.deps.probeCli(provider, env, agentHome)
+
+    if (!current()) return
+    agent.cli = cli
     this.deps.log?.('local agent: CLI checked', { provider, ms: Date.now() - probedAt })
     this.saveCli()
     this.changed()
@@ -177,36 +197,16 @@ export class LocalRuntimeController {
 
       return
     }
-    const agentHome = this.deps.prepareAgentHome(
-      provider,
-      this.userDir(userId),
-      this.userDir(userId, 'workspace'),
-    )
-
     if (!agentHome) {
       agent.error = AGENT_HOME_UNAVAILABLE[provider]
 
       return
     }
 
-    await this.startProcess({
-      provider,
-      userId,
-      cliPath: agent.cli.path,
-      env,
-      current,
-      agentHome,
-    })
+    await this.startProcess({ provider, userId, cliPath: agent.cli.path, env, current, agentHome })
   }
 
-  private async startProcess(run: {
-    provider: LocalAgentProvider
-    userId: string
-    cliPath: string
-    agentHome: string
-    env: NodeJS.ProcessEnv
-    current: () => boolean
-  }): Promise<void> {
+  private async startProcess(run: LocalAgentRun): Promise<void> {
     const agent = this.agents[run.provider]
     const bundle = this.deps.bundle()
     const adapter = bundle?.adapters[run.provider]

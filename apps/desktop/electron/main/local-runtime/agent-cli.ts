@@ -3,6 +3,8 @@ import { accessSync, constants } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
+import { agentCliEnv } from './config.ts'
+
 export type LocalAgentProvider = 'claude-code' | 'codex'
 
 export const LOCAL_AGENT_PROVIDERS: readonly LocalAgentProvider[] = ['claude-code', 'codex']
@@ -124,19 +126,23 @@ function versionOf(output: string): string | undefined {
 export async function probeAgentCli(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
+  agentHome: string | undefined,
 ): Promise<AgentCliStatus> {
   const file = findAgentCli(provider, env)
 
   if (!file) return { installed: false }
+  // Finding the executable uses the shell; checking its login uses the runtime's home.
+  // Never report the shell's login if the isolated home could not be prepared.
+  const runtimeEnv = agentHome
+    ? agentCliEnv({ provider, env, agentHome, cliPath: file })
+    : undefined
+  const authArgs = provider === 'codex' ? ['login', 'status'] : ['auth', 'status', '--json']
+  const parseAuth = provider === 'codex' ? parseCodexLoginStatus : parseClaudeAuthStatus
   const [version, auth] = await Promise.all([
     run(file, ['--version'], env).then(versionOf, () => undefined),
-    provider === 'codex'
-      ? run(file, ['login', 'status'], env).then(parseCodexLoginStatus, () => ({
-          loggedIn: null,
-        }))
-      : run(file, ['auth', 'status', '--json'], env).then(parseClaudeAuthStatus, () => ({
-          loggedIn: null,
-        })),
+    runtimeEnv
+      ? run(file, authArgs, runtimeEnv).then(parseAuth, () => ({ loggedIn: null }))
+      : Promise.resolve({ loggedIn: null }),
   ])
 
   return { installed: true, path: file, ...(version ? { version } : {}), ...auth }
