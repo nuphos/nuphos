@@ -1,4 +1,5 @@
 import type { OpenAbPermissionHandler, PendingCallContext } from './openab-acp-session'
+import type { PromptAttachment } from './runtime-attachments'
 
 export type RuntimeJobRequest = {
   jobId: string
@@ -161,5 +162,23 @@ export abstract class OpenAbAcpLifecycle {
     this.runtimeLoginHandlers.clear()
     for (const handler of this.closedHandlers) handler()
     this.closedHandlers.clear()
+  }
+}
+
+export function attachmentPrompt(
+  sessionId: string,
+  text: string,
+  attachments: PromptAttachment[],
+  meta: Record<string, unknown>,
+) {
+  return {
+    sessionId,
+    prompt: [
+      { type: 'text', text },
+      ...attachments.flatMap(({ description, ...link }) =>
+        description ? [link, { type: 'text', text: `${link.uri}: ${description}` }] : [link],
+      ),
+    ],
+    ...meta,
   }
 }

@@ -1,11 +1,11 @@
 import { connectOpenAbAcpSocket } from './openab-acp-connect.ts'
 import { cancelSession, settlePendingCall } from './openab-acp-errors.ts'
-import { OpenAbAcpLifecycle } from './openab-acp-lifecycle.ts'
+import { OpenAbAcpLifecycle, attachmentPrompt } from './openab-acp-lifecycle.ts'
 import { answerPermissionRequest } from './openab-acp-permission.ts'
 import {
   ACP_INITIALIZE_PARAMS,
   acceptRuntimePrompt,
-  imagePromptParams,
+  promptMeta,
   resumeSessionAlive,
   sessionMeta,
 } from './openab-acp-session.ts'
@@ -15,7 +15,6 @@ import { observeOpenAbSessionUpdates, routeOpenAbSessionUpdate } from './openab-
 import type { OpenAbAcpConnection } from './openab-acp-connect.ts'
 import type {
   AcpHttpMcpServer,
-  AcpImageContent,
   AcpSocket,
   OpenAbAcpClientOptions,
   OpenAbPermissionHandler,
@@ -26,13 +25,14 @@ import type {
 } from './openab-acp-session.ts'
 import type { OpenAbSessionUpdate } from './openab-acp-updates.ts'
 import type { PreviewAgentUpdate } from './preview-agent-update.ts'
+import type { PromptAttachment } from './runtime-attachments'
 
 export type { AcpHttpMcpServer, OpenAbAcpClientOptions } from './openab-acp-session.ts'
 export type { OpenAbSessionUpdate } from './openab-acp-updates.ts'
 export type { PreviewAgentUpdate } from './preview-agent-update.ts'
+
 type SocketEvent = { code?: number; data?: unknown; message?: string; reason?: string }
 type JsonRpcResult = Record<string, unknown>
-
 export class OpenAbAcpClient extends OpenAbAcpLifecycle {
   private nextId = 1
   private readonly pending = new Map<number, PendingCall>()
@@ -126,13 +126,13 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     onPermissionRequest?: OpenAbPermissionHandler,
     onAccepted?: () => void,
     context?: PromptSessionContext,
-    images: AcpImageContent[] = [],
+    attachments: PromptAttachment[] = [],
   ): Promise<JsonRpcResult> {
     this.cancelledSessions.delete(sessionId)
 
     return this.call(
       'session/prompt',
-      imagePromptParams(sessionId, text, images, Boolean(onAccepted), context),
+      attachmentPrompt(sessionId, text, attachments, promptMeta(Boolean(onAccepted), context)),
       {
         sessionId,
         onTextDelta,
@@ -146,7 +146,6 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
       this.promptProgressTimeoutMs,
     )
   }
-
   cancel(sessionId: string, requireDelivery = false): void {
     if (this.sessionUpdateHandlers.has(sessionId)) this.cancelledSessions.add(sessionId)
     const delivered = cancelSession(this.socket, sessionId)
@@ -177,6 +176,7 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
         reject(timer.timeoutError(method))
         if (context.sessionId && owned) {
           this.cancel(context.sessionId)
+          // A stall still had live frames; only silence implicates the shared socket.
           if (!timer.stalled()) this.retireTransport()
         } else if (closeOnTimeout) this.closeSocket()
       }

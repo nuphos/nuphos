@@ -31,6 +31,7 @@ import type {
 } from '../types/team.ts'
 
 export type WindowAppApi = {
+  claimFirstLaunchIntro?(): Promise<boolean>
   authUpdateProfile(input: { name: string; username: string; avatarURL: string }): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
   authLogin(): Promise<UserInfo>

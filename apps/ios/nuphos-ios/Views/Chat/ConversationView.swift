@@ -377,6 +377,7 @@ struct DataURLImage: View {
         if let comma = url.firstIndex(of: ","), let data = Data(base64Encoded: String(url[url.index(after: comma)...])),
            let image = UIImage(data: data) {
             Image(uiImage: image).resizable().scaledToFill()
+                .accessibilityLabel("Attached image")
         } else {
             Theme.bubble
         }

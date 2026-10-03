@@ -418,37 +418,6 @@ describe('OpenAbAcpClient', () => {
     await expect(initialize).resolves.toEqual({ protocolVersion: 1 })
   })
 
-  test('forwards inline image content alongside text to ACP without exposing it as text', async () => {
-    const h = harness()
-    const client = await OpenAbAcpClient.connect({
-      url: 'ws://openab/acp',
-      authKey: 'key',
-      socketFactory: h.connect,
-    })
-    const images = [{ type: 'image' as const, mimeType: 'image/jpeg', data: '/9j/AA==' }]
-    const prompting = client.prompt(
-      'image-session',
-      'Read the attached image',
-      () => {},
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      images,
-    )
-
-    expect(await nextSent(h.socket(), 0)).toMatchObject({
-      method: 'session/prompt',
-      params: {
-        sessionId: 'image-session',
-        prompt: [{ type: 'text', text: 'Read the attached image' }, ...images],
-      },
-    })
-    h.socket().receive({ jsonrpc: '2.0', id: 1, result: { stopReason: 'end_turn' } })
-    await prompting
-    client.close()
-  })
-
   test('creates a session and streams OpenAB text chunks for a prompt', async () => {
     const h = harness()
     const client = await OpenAbAcpClient.connect({
@@ -1614,5 +1583,44 @@ test('steering uses the control method without attaching or prompting a session'
   h.socket().receive({ jsonrpc: '2.0', id: frame.id, result: { outcome: 'injected' } })
   expect(await pending).toEqual({ outcome: 'injected' })
   expect(h.socket().sent).toHaveLength(1)
+  client.close()
+})
+
+test('sends native local file references alongside text to a fresh runtime session', async () => {
+  const h = harness()
+  const client = await OpenAbAcpClient.connect({
+    url: 'ws://openab/acp',
+    authKey: 'key',
+    socketFactory: h.connect,
+  })
+  const images = [
+    {
+      type: 'resource_link' as const,
+      mimeType: 'image/png',
+      uri: 'file:///tmp/screen.png',
+      name: 'screen.png',
+    },
+  ]
+  const prompting = client.prompt(
+    'fresh',
+    'Read this screenshot',
+    () => {},
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    images,
+  )
+  const request = await nextSent(h.socket(), 0)
+
+  expect(request).toMatchObject({
+    method: 'session/prompt',
+    params: {
+      sessionId: 'fresh',
+      prompt: [{ type: 'text', text: 'Read this screenshot' }, ...images],
+    },
+  })
+  h.socket().receive({ jsonrpc: '2.0', id: request.id, result: { stopReason: 'end_turn' } })
+  await prompting
   client.close()
 })

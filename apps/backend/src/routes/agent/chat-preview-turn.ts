@@ -2,6 +2,20 @@
 import { randomUUID } from 'node:crypto'
 
 import './chat-preview-autonomous-runs'
+import { config } from '@/config'
+import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
+import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
+import { runClaudeCodePreviewPrompt } from '@/lib/claude-code-preview/agent-chat-runtime'
+import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/codex-turn-failure'
+import { previewSessionAccess } from '@/lib/claude-code-preview/credentials-mcp'
+import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
+import {
+  createPreviewAssistantPartAccumulator,
+  interruptToolSteps,
+} from '@/lib/claude-code-preview/preview-transcript'
+import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
+
+import { createSteeringAttribution } from '@/lib/claude-code-preview/steering-receipt'
 import { finishPreviewTurn, persistInterruptedPreviewTurn } from './chat-preview-finish'
 import {
   HANDED_OFF,
@@ -21,19 +35,6 @@ import type { OpenAbPermissionHandler } from '@/lib/claude-code-preview/openab-a
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 import type { UIMessage } from 'ai'
 
-import { config } from '@/config'
-import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
-import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
-import { runClaudeCodePreviewPrompt } from '@/lib/claude-code-preview/agent-chat-runtime'
-import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/codex-turn-failure'
-import { previewSessionAccess } from '@/lib/claude-code-preview/credentials-mcp'
-import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
-import {
-  createPreviewAssistantPartAccumulator,
-  interruptToolSteps,
-} from '@/lib/claude-code-preview/preview-transcript'
-import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
-import { createSteeringAttribution } from '@/lib/claude-code-preview/steering-receipt'
 import { RunHandoff } from '@/lib/lifecycle'
 
 export type PreviewChatTurnArgs = {
@@ -138,7 +139,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       conversationOwnerUserId: userId,
       locale: args.locale,
       message,
-      images: prepared.images,
+      attachments: prepared.attachments,
       ...(freshSessionMessage ? { freshSessionMessage } : {}),
       endpoint: args.endpoint,
       mcpServers: access.mcpServers,

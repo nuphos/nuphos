@@ -259,19 +259,3 @@ export type PendingCallContext = Pick<
   PendingCall,
   'sessionId' | 'onTextDelta' | 'onAgentUpdate' | 'onPermissionRequest' | 'onAccepted' | 'accepted'
 >
-
-export type AcpImageContent = { type: 'image'; mimeType: string; data: string }
-
-export function imagePromptParams(
-  sessionId: string,
-  text: string,
-  images: AcpImageContent[],
-  acknowledge: boolean,
-  context?: PromptSessionContext,
-) {
-  return {
-    sessionId,
-    prompt: [{ type: 'text' as const, text }, ...images],
-    ...promptMeta(acknowledge, context),
-  }
-}

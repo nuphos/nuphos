@@ -26,6 +26,7 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var showPhotos = false
     @State private var showFiles = false
     @State private var attachmentError: String?
+    @State private var preparingSubmission = false
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var handleDrag: CGFloat = 0
 
@@ -92,6 +93,7 @@ struct ChatComposerBar<Controls: View>: View {
                 .transition(.opacity)
             }
         }
+        .disabled(preparingSubmission)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
         .animation(.snappy(duration: 0.25), value: attachments)
@@ -127,8 +129,8 @@ struct ChatComposerBar<Controls: View>: View {
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-focus-composer") { focused = true }
             if args.contains("-preview-attachments"), attachments.isEmpty { attachments = Self.previewAttachments() }
-            if args.contains("-open-photos") { present { showPhotos = true } }
-            if args.contains("-open-files") { present { showFiles = true } }
+            if args.contains("-open-photos") { showPhotos = true }
+            if args.contains("-open-files") { showFiles = true }
         }
         #endif
     }
@@ -178,13 +180,6 @@ struct ChatComposerBar<Controls: View>: View {
             .accessibilityAddTraits(.isButton)
     }
 
-    private func present(_ change: @escaping () -> Void) {
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(120))
-            change()
-        }
-    }
-
     private func collapse() {
         focused = false
         collapsedByUser = true
@@ -218,7 +213,7 @@ struct ChatComposerBar<Controls: View>: View {
             Button { focused = false; showPhotos = true } label: {
                 Label("Photos", systemImage: "photo.on.rectangle")
             }
-            Button { present { showFiles = true } } label: { Label("Files", systemImage: "folder") }
+            Button { focused = false; showFiles = true } label: { Label("Files", systemImage: "folder") }
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 18, weight: .medium))
@@ -265,33 +260,41 @@ struct ChatComposerBar<Controls: View>: View {
     private var filled: Bool { action == .stop || hasPayload }
 
     private func send() {
-        guard canSend, hasPayload, allowsAttachments || attachments.isEmpty else { return }
-        var submission = ComposerSubmission(text: text.trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
-        let imageIndices = attachments.indices.filter { attachments[$0].isImage }
-        let images = imageIndices.compactMap { index -> Data? in
-            if case .image(let data) = attachments[index].kind { return data }
-            return nil
-        }
-        do {
-            let fitted = try ChatPayload.fitImages(images) { candidate in
-                var parts: [ChatPart] = [.text(.init(text: submission.text, state: .done))]
-                parts += zip(imageIndices, candidate).map { index, data in
-                    .file(.init(mediaType: "image/jpeg", filename: attachments[index].name,
-                                url: "data:image/jpeg;base64," + data.base64EncodedString()))
-                }
-                return try AgentChatAPI.encoder.encode(ChatMessage(role: .user, parts: parts).forWire)
+        guard !preparingSubmission, canSend, hasPayload, allowsAttachments || attachments.isEmpty else { return }
+        let draft = ComposerSubmission(text: text.trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
+        preparingSubmission = true
+        Task {
+            defer { preparingSubmission = false }
+            do {
+                let submission = try await Task.detached(priority: .userInitiated) {
+                    var submission = draft
+                    let imageIndices = draft.attachments.indices.filter { draft.attachments[$0].isImage }
+                    let images = imageIndices.compactMap { index -> Data? in
+                        if case .image(let data) = draft.attachments[index].kind { return data }
+                        return nil
+                    }
+                    let fitted = try ChatPayload.fitImages(images) { candidate in
+                        var parts: [ChatPart] = [.text(.init(text: draft.text, state: .done))]
+                        parts += zip(imageIndices, candidate).map { index, data in
+                            .file(.init(mediaType: "image/jpeg", filename: draft.attachments[index].name,
+                                        url: "data:image/jpeg;base64," + data.base64EncodedString()))
+                        }
+                        return try AgentChatAPI.encoder.encode(ChatMessage(role: .user, parts: parts).forWire)
+                    }
+                    for (index, data) in zip(imageIndices, fitted) {
+                        submission.attachments[index].kind = .image(data)
+                    }
+                    return submission
+                }.value
+                guard canSend else { return }
+                text = ""
+                attachments = []
+                focused = false
+                onSend(submission)
+            } catch {
+                attachmentError = error.localizedDescription
             }
-            for (index, data) in zip(imageIndices, fitted) {
-                submission.attachments[index].kind = .image(data)
-            }
-        } catch {
-            attachmentError = error.localizedDescription
-            return
         }
-        text = ""
-        attachments = []
-        focused = false
-        onSend(submission)
     }
 }
 

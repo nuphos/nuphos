@@ -225,7 +225,7 @@ const typeAwareRules = {
 }
 
 export default defineConfig([
-  globalIgnores(['dist', 'dist-electron', 'release']),
+  globalIgnores(['dist', 'dist-electron', 'release', 'public/logo-intro/logo-intro.js']),
 
   {
     files: ['**/*.{ts,tsx}'],

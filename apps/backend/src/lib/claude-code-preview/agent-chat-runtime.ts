@@ -1,9 +1,7 @@
-import { registry, sessionsByConversation, sessionCreations } from './agent-chat-registry'
+import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { RunHandoff } from '@/lib/lifecycle'
 
-// Routes an ordinary /agent/chat turn through the Team's OpenAB Claude Code
-// runtime when the team selected it, so the desktop app needs no dedicated
-// preview surface. State is process-local: one shared ACP connection per
-// (team, runtime), one OpenAB session per conversation.
+import { registry, sessionsByConversation, sessionCreations } from './agent-chat-registry'
 import {
   setClaudeCodeAutonomousPermissionHandler,
   setClaudeCodeAutonomousUpdateHandler,
@@ -11,6 +9,7 @@ import {
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
 import { attachOpenAbSession } from './openab-session-attach'
+import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
   assertConversationRuntimeAvailable,
   assertRuntimeNotDeleting,
@@ -26,12 +25,9 @@ import {
 } from './team-openab-runtime'
 
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
-import type { AcpImageContent } from './openab-acp-session'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
+import type { RuntimeAttachment } from './runtime-attachments'
 import type { TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
-
-import { getConversationPreviewAttachment } from '@/lib/agent/db'
-import { RunHandoff } from '@/lib/lifecycle'
 
 export {
   previewRuntimeObservability,
@@ -143,18 +139,14 @@ export async function runClaudeCodePreviewPrompt(args: {
   conversationOwnerUserId?: string
   locale: string
   message: string
-  images?: AcpImageContent[]
+  attachments?: RuntimeAttachment[]
   endpoint: TeamRuntimeEndpoint
   mcpServers?: AcpHttpMcpServer[]
   /** Nuphos context appended to Claude Code's system prompt (session-scoped). */
   systemPrompt?: string
   /** Session-scoped environment and native skills materialized before discovery. */
   runtime?: OpenAbSessionRuntime
-  /**
-   * Text to send instead of `message` when this turn had to create a brand-new
-   * inner session for an existing conversation (history preamble). Resolved
-   * lazily so the caller only renders it when it is actually needed.
-   */
+  /** History preamble, resolved lazily when creating a fresh inner session. */
   freshSessionMessage?: (uncertain?: boolean) => string
   signal: AbortSignal
   onTextDelta: (text: string) => void
@@ -185,10 +177,7 @@ export async function runClaudeCodePreviewPrompt(args: {
     },
   )
 
-  // Local stream bookkeeping is not session admission. OpenAB atomically
-  // accepts/rejects the prompt across replicas and exposes that same decision.
-  // A replacement prompt socket has not loaded this session yet. Query the
-  // operator channel, which can observe it without attaching or taking output.
+  // Query runtime admission without attaching a replacement prompt socket.
   const observed = await conversationExecutionState({
     teamId: session.teamId,
     sessionId: session.conversationId,
@@ -269,7 +258,18 @@ export async function runClaudeCodePreviewPrompt(args: {
         observeSession(session)
       }
     }
-    const message = await backgroundWorkPrompt(session, fresh, args)
+    const attachments = await materializeRuntimeAttachments(
+      args.teamId,
+      args.endpoint,
+      args.attachments ?? [],
+    )
+
+    if (activeTurn.cancelled) return { stopReason: 'cancelled' }
+    const message =
+      (await backgroundWorkPrompt(session, fresh, args)) +
+      (attachments.length
+        ? '\n\nAttached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
+        : '')
     const text = lastTextChunkTracker(args.onTextDelta)
     // A refusal or transport failure does not grant authority to cancel or
     // replace the runtime session. Its snapshot remains the lifecycle source.
@@ -287,7 +287,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         if (activeTurn.cancelled) client.cancel(session.openabSessionId)
       },
       nextContext,
-      args.images,
+      attachments,
     )
 
     return { stopReason: await settledCodexStopReason(session, result, text.last()) }

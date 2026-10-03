@@ -181,9 +181,8 @@ export const INBOUND_FILE_FAILURE_NOTE =
   '[The user attached files to this message, but they could not be read. Ask them to share the file another way rather than guessing at its contents.]'
 
 /**
- * A vision part for an image small enough to inline, or null. The data URL is
- * stripped before the transcript is persisted (see stripInlineFileData in
- * routes/agent.ts) so it costs nothing durable.
+ * A vision part for an image small enough to inline, or null. Transcript
+ * normalization may preserve it as an image part for previews.
  */
 export function renderInboundImagePart(
   file: InboundFile,
@@ -199,14 +198,9 @@ export function renderInboundImagePart(
 }
 
 /**
- * Replaces inline `data:` payloads on file parts with a short placeholder
- * before a turn is persisted.
- *
- * A vision part carries the whole image as base64. The transcript is re-read
- * to rebuild history on EVERY later turn of the conversation and lives in one
- * Mongo document (16 MB ceiling), so storing those bytes would grow unbounded
- * for no benefit — the image is already in the transfer store, and the model
- * only needs to see it in the turn it arrived. Non-data URLs are left alone.
+ * Replaces inline `data:` payloads on `file` parts with a short placeholder.
+ * Persisted `image` parts retain their data URLs for transcript previews;
+ * non-data URLs and other part types are left unchanged.
  */
 export function stripInlineFileData(parts: unknown[]): unknown[] {
   return parts.map((part) => {

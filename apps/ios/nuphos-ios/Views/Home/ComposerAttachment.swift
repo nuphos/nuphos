@@ -4,8 +4,8 @@ import UniformTypeIdentifiers
 
 /// Something the user attached in the composer: a photo (kept as JPEG
 /// data, sent as a data URL) or a file picked from Files.
-struct ComposerAttachment: Identifiable, Equatable {
-    enum Kind: Equatable {
+struct ComposerAttachment: Identifiable, Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
         case image(Data)
         case file(URL)
     }
@@ -66,7 +66,7 @@ struct ComposerAttachment: Identifiable, Equatable {
 }
 
 /// What the composer hands back on send.
-struct ComposerSubmission {
+struct ComposerSubmission: Sendable {
     var text: String
     var attachments: [ComposerAttachment]
 }
