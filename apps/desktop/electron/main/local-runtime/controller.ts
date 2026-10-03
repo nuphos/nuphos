@@ -21,10 +21,7 @@ import type {
   RuntimeTunnel,
 } from './controller-types.ts'
 
-/**
- * Owns this computer's agents for the signed-in user: an open tunnel, one openab per installed
- * CLI, all state keyed to that user and torn down on any change of account.
- */
+/** Owns local agents and their tunnel; tears down all state on an account change. */
 export class LocalRuntimeController {
   private userId: string | null = null
   private readonly agents: Record<LocalAgentProvider, Agent> = {
@@ -128,11 +125,10 @@ export class LocalRuntimeController {
   }
 
   private prepareHome(provider: LocalAgentProvider, userId: string): string | undefined {
-    return this.deps.prepareAgentHome(
-      provider,
-      userDir(this.deps.dataDir(), userId),
-      userDir(this.deps.dataDir(), userId, 'workspace'),
-    )
+    const dir = userDir(this.deps.dataDir(), userId)
+    const workspace = userDir(this.deps.dataDir(), userId, 'workspace')
+
+    return this.deps.prepareAgentHome(provider, dir, workspace)
   }
 
   private async stopAgent(provider: LocalAgentProvider): Promise<void> {
