@@ -4,6 +4,7 @@ import { logEvent } from '@/lib/observability'
 
 export const RUNTIME_RELEASES_URL = 'https://github.com/nuphos/nuphos/releases'
 const legacyReleasesUrl = 'https://github.com/zeabur/nuphos-runtime/releases'
+
 export const NUPHOS_RUNTIME_REPOSITORY = 'ghcr.io/zeabur/nuphos-runtime'
 
 export function stableRuntimeVersion(value: unknown): value is string {

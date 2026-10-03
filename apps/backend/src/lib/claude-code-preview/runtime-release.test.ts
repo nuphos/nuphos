@@ -14,6 +14,7 @@ test('release comparisons use numeric semver and never offer downgrades or prere
 
 test('runtime discovery skips other components, follows pages and preserves the pre-cutover fallback', async () => {
   const { latestRuntimeRelease, resetRuntimeReleaseCache } = await import('./runtime-release')
+
   resetRuntimeReleaseCache()
   const originalFetch = globalThis.fetch
   const image = (version: string, provider = 'codex') =>
