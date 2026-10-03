@@ -21,8 +21,6 @@ import type { LocalStack } from './dev-local-stack-env.ts'
 // probe and bind, the backend exits EADDRINUSE — we pick a fresh port and retry.
 let backendPortConflict = false
 let backendRetries = 0
-// With dev TLS on, local containers call back over this plain-HTTP port instead.
-let devHttpPort: number | null = null
 const MAX_BACKEND_RETRIES = 8
 
 export function resetBackendRetries() {
@@ -35,7 +33,7 @@ export function resetBackendRetries() {
 const FATAL_LINE =
   /(Cannot find module|SyntaxError|ReferenceError|is not configured|EADDRINUSE|error: )/
 
-function parseBackend(line: string) {
+export function parseBackend(line: string) {
   if (line.includes('EADDRINUSE')) backendPortConflict = true
   // A module-level throw produces no exit event under --hot, so surface the
   // `error: ` line as a milestone rather than leaving it buried in the raw log.
@@ -75,7 +73,7 @@ function handleServerListening(j: Record<string, unknown>) {
   backend.status = 'ready'
   if (typeof j.port === 'number') {
     backend.port = j.port
-    backend.url = `https://local.zeabur.com:${j.port}`
+    backend.url = `http://localhost:${j.port}`
   }
   backend.readyMs = backend.startedAt ? Date.now() - backend.startedAt : null
   const readyIn =
@@ -166,15 +164,8 @@ export function ensureBackendEnv(): void {
 
 function assignBackendPort(port: number) {
   backend.port = port
-  backend.url = `https://local.zeabur.com:${port}`
+  backend.url = `http://localhost:${port}`
   pushEvent(backend, `starting on :${port} …`)
-}
-
-async function claimDevHttpPort(tls: boolean): Promise<number | null> {
-  if (devHttpPort) releasePort(devHttpPort)
-  devHttpPort = tls ? await findFreePort((backend.port ?? BASE_BACKEND_PORT) + 100) : null
-
-  return devHttpPort
 }
 
 /** `managedContext` is the verified local kube context the provisioner deploys into, or null to keep it off. */
@@ -197,7 +188,6 @@ export async function startBackend(local: LocalStack, managedContext: string | n
   if (backend.port) releasePort(backend.port) // give up the port that was taken
   assignBackendPort(await findFreePort(probeFrom))
   const baseEnv = backendEnv()
-  const httpPort = await claimDevHttpPort(Boolean(baseEnv.ATLAS_DEV_TLS_CERT))
   // Self-hosted runtimes and remote sandboxes need a public URL for *this*
   // backend, never PROD. Named tunnels resolve instantly; a quick tunnel adds a
   // few seconds while its URL is minted.
@@ -211,9 +201,8 @@ export async function startBackend(local: LocalStack, managedContext: string | n
       PORT: String(backend.port),
       NUPHOS_DEV_LAUNCHER_PID: String(process.pid),
       FORCE_COLOR: '1',
-      NUPHOS_BACKEND_URL: `http://host.docker.internal:${String(httpPort ?? backend.port)}`,
+      NUPHOS_BACKEND_URL: `http://host.docker.internal:${String(backend.port)}`,
       NUPHOS_PUBLIC_BACKEND_URL: tunnelUrl ?? '',
-      ...(httpPort ? { NUPHOS_DEV_HTTP_PORT: String(httpPort) } : {}),
     },
     detached: true, // new process group so quit() can kill the whole tree
     stdio: ['ignore', 'pipe', 'pipe'],
