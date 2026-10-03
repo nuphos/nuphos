@@ -286,9 +286,9 @@ struct ChatComposerBar<Controls: View>: View {
                     }
                     return submission
                 }.value
-                guard canSend else { return }
+                guard canSend, allowsAttachments || submission.attachments.isEmpty else { return }
                 text = ""
-                attachments = []
+                attachments.removeAll { attachment in draft.attachments.contains { $0.id == attachment.id } }
                 focused = false
                 onSend(submission)
             } catch {
