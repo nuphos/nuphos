@@ -128,6 +128,7 @@ export type RuntimeModelCatalog = {
     effort: { value: string; name: string }[]
     fast: boolean
     defaultFast?: 'on' | 'off'
+    defaultEffort?: string
   }
   message?: string
 }

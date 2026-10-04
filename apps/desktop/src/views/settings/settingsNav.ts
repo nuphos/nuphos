@@ -1,6 +1,5 @@
 import {
   Archive,
-  Bot,
   CircleUserRound,
   FileText,
   Monitor,
@@ -38,7 +37,6 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
     items: [
       { key: 'workspace.general', label: 'General', icon: Settings },
       { key: 'workspace.members', label: 'Members', icon: Users },
-      { key: 'workspace.agent', label: 'Agent', icon: Bot },
       { key: 'workspace.instructions', label: 'Instructions', icon: FileText },
       { key: 'workspace.archived', label: 'Archived chats', icon: Archive },
       { key: 'workspace.audit', label: 'Audit log', icon: ScrollText },

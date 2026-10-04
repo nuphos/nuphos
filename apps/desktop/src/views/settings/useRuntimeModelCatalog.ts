@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { concreteModelChoices } from '../../lib/modelChoices'
 
 import type { RuntimeModelCatalog } from '../../types/runtime'
 
@@ -18,7 +19,12 @@ export function useRuntimeModelCatalog(
     error: string | null
   } | null>(null)
   const current = result?.key === requestKey ? result : null
-  const catalog = current?.catalog ?? null
+  const sameModel =
+    result &&
+    JSON.parse(result.key)
+      .slice(0, 3)
+      .every((part: unknown, index: number) => part === [teamId, runtimeId, value ?? null][index])
+  const catalog = current?.catalog ?? (sameModel ? result.catalog : null)
   const loading = canLoad && !current
   const error = current?.error
 
@@ -30,6 +36,19 @@ export function useRuntimeModelCatalog(
       .then(() => api.atlasGetRuntimeModels(teamId, runtimeId, value))
       .then(
         (nextCatalog) => {
+          const { choices, current } = concreteModelChoices(
+            nextCatalog.models,
+            nextCatalog.controls?.modelId,
+          )
+
+          nextCatalog = {
+            ...nextCatalog,
+            models: choices,
+            ...(nextCatalog.controls
+              ? { controls: { ...nextCatalog.controls, modelId: current ?? '' } }
+              : {}),
+          }
+
           if (!cancelled)
             setResult({
               key: requestKey,
@@ -52,6 +71,14 @@ export function useRuntimeModelCatalog(
       cancelled = true
     }
   }, [teamId, runtimeId, canLoad, requestKey, value])
+
+  useEffect(() => {
+    if (!canLoad || !catalog || catalog.models.length) return
+    // A newly connected computer can report its models after its presence.
+    const timer = setTimeout(() => setRevision((previous) => previous + 1), 5_000)
+
+    return () => clearTimeout(timer)
+  }, [canLoad, catalog])
 
   return {
     catalog,

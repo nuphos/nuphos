@@ -1,3 +1,4 @@
+import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { formatResetsAt, quotaNote } from '../../lib/runtimeQuota'
 
 import { PanelHeading, PanelStat } from './RuntimePanel'
@@ -22,9 +23,22 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
           const reset = formatResetsAt(window.resetsAt, new Date())
 
           return (
-            <PanelStat key={window.id} label={window.label}>
+            <PanelStat key={window.id} label={window.label} className="col-span-2">
               {String(Math.round(window.usedPercent))}% used
               {reset && <span className="text-tertiary"> · {reset}</span>}
+              <div
+                role="progressbar"
+                aria-label={`${window.label} usage`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.max(0, Math.min(100, window.usedPercent))}
+                className="mt-2 h-2 overflow-hidden rounded-full bg-zGray-800"
+              >
+                <div
+                  className="h-full rounded-full bg-zViolet-500"
+                  style={{ width: `${Math.max(0, Math.min(100, window.usedPercent))}%` }}
+                />
+              </div>
             </PanelStat>
           )
         })}
@@ -35,12 +49,10 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
 export function RuntimeOverview({
   instance,
   runtime,
-  quota,
   statusError,
 }: {
   instance: RuntimeInstance
   runtime: PolledRuntimeStatus | null
-  quota?: RuntimeQuota
   statusError: boolean
 }) {
   let body: React.ReactNode
@@ -87,7 +99,6 @@ export function RuntimeOverview({
             </span>
           )}
         </PanelStat>
-        <QuotaStats quota={quota} />
         {instance.image !== undefined && (
           <PanelStat label="Configured image" className="col-span-2 sm:col-span-4">
             <span className="font-mono text-[12px]" title={instance.image}>
@@ -101,8 +112,19 @@ export function RuntimeOverview({
 
   return (
     <div>
-      <PanelHeading title="Status" />
-      {body}
+      <PanelHeading title="Runtime details" />
+      <SkeletonReveal
+        ready={Boolean(runtime) || statusError || instance.status !== 'active'}
+        skeleton={
+          <div aria-busy="true" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((key) => (
+              <div key={key} className="h-12 rounded-md bg-zGray-800/40" />
+            ))}
+          </div>
+        }
+      >
+        {body}
+      </SkeletonReveal>
     </div>
   )
 }
@@ -120,5 +142,16 @@ function Note({
     >
       {children}
     </p>
+  )
+}
+
+export function RuntimeUsageSection({ quota }: { quota?: RuntimeQuota }) {
+  return (
+    <section>
+      <PanelHeading title="Usage" />
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+        <QuotaStats quota={quota} />
+      </dl>
+    </section>
   )
 }

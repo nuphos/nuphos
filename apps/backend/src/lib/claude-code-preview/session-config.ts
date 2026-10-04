@@ -1,4 +1,4 @@
-import { liveAttachment } from '@/lib/agent/db/shared'
+import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
 import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
@@ -18,7 +18,7 @@ export type SessionConfigOption = {
   options: { value: string; name: string; description?: string }[]
 }
 export type SessionConfigState = {
-  status: 'ready' | 'busy' | 'dormant' | 'unsupported'
+  status: 'ready' | 'busy' | 'dormant' | 'unsupported' | 'offline'
   options: SessionConfigOption[]
 }
 export type SessionConfigSelection = { configId: string; value: string }
@@ -183,6 +183,29 @@ export async function conversationSessionConfig(
 
     return { status: 'dormant', options: [] }
   }
+  if (selection) return await liveSessionConfig(conversation, attachment, selection, viewerUserId)
+  // Reads never fail for a reachable conversation: while the session cannot
+  // answer, show the settings it last confirmed.
+  const remembered = attachment.sessionConfig ?? []
+  let state: SessionConfigState
+
+  try {
+    state = await liveSessionConfig(conversation, attachment)
+  } catch {
+    return { status: 'offline', options: remembered }
+  }
+  if (state.status !== 'ready') return { ...state, options: remembered }
+  await rememberSessionConfig(conversation, attachment, state.options)
+
+  return state
+}
+
+async function liveSessionConfig(
+  conversation: AgentConversation,
+  attachment: NonNullable<ReturnType<typeof liveAttachment>>,
+  selection?: SessionConfigSelection,
+  viewerUserId?: string,
+): Promise<SessionConfigState> {
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation)
 
   if (!endpoint || endpoint.url !== attachment.runtimeUrl)
@@ -205,9 +228,31 @@ export async function conversationSessionConfig(
       viewerUserId,
       () => sessionConfigRestoreContext(conversation, endpoint),
     )
+    const state = await controlSessionConfig(client, attachment.openabSessionId, selection)
 
-    return await controlSessionConfig(client, attachment.openabSessionId, selection)
+    await rememberSessionConfig(conversation, attachment, state.options)
+
+    return state
   } finally {
     client.close()
   }
+}
+
+/** Scoped to the session id so a newer session's settings are never overwritten. */
+async function rememberSessionConfig(
+  conversation: AgentConversation,
+  attachment: NonNullable<ReturnType<typeof liveAttachment>>,
+  options: SessionConfigOption[],
+) {
+  // Clients poll; skip the write when nothing changed.
+  if (!options.length || JSON.stringify(options) === JSON.stringify(attachment.sessionConfig))
+    return
+  await agentConversations().updateOne(
+    {
+      sessionId: conversation.sessionId,
+      teamId: conversation.teamId,
+      'claudeCodePreview.openabSessionId': attachment.openabSessionId,
+    },
+    { $set: { 'claudeCodePreview.sessionConfig': options } },
+  )
 }

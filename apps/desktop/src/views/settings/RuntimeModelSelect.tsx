@@ -1,3 +1,4 @@
+import { isDefaultModel } from '../../lib/modelChoices'
 import { AppSelect } from '../../components/ui/select'
 
 import type { RuntimeModelCatalog } from '../../types/runtime'
@@ -21,13 +22,12 @@ export function RuntimeModelSelect({
   error?: string | null
   retry: () => void
 }) {
-  const missing = value && !models.some((model) => model.id === value)
+  const selectedModel = value && !isDefaultModel(value) ? value : catalog?.controls?.modelId
+  const missing = value && !isDefaultModel(value) && !models.some((model) => model.id === value)
   const options = [
-    { value: 'default', label: 'Agent default' },
     ...models.map((model) => ({
       value: `model:${model.id}`,
       label: model.name,
-      description: model.description,
     })),
     ...(missing
       ? [
@@ -41,16 +41,14 @@ export function RuntimeModelSelect({
   ]
 
   return (
-    <div className="col-span-2 min-w-0 space-y-2 sm:col-span-1">
-      <span className="block text-xs text-secondary">Default model</span>
+    <div className="min-w-0 space-y-2">
+      <span className="block text-xs text-secondary">Model</span>
       <AppSelect
-        ariaLabel="Default model"
-        value={value ? `model:${value}` : 'default'}
+        ariaLabel="Model"
+        value={selectedModel ? `model:${selectedModel}` : ''}
         options={options}
-        onValueChange={(selection) =>
-          onChange(selection === 'default' ? undefined : selection.slice(6))
-        }
-        disabled={disabled}
+        onValueChange={(selection) => onChange(selection.slice(6))}
+        disabled={disabled || !options.length}
         triggerClassName="text-xs"
       />
       {loading && (
@@ -73,7 +71,7 @@ export function RuntimeModelSelect({
       )}
       {!loading && !error && missing && catalog && (
         <p role="status" className="text-[11px] leading-4 text-tertiary">
-          Saved model is no longer listed. Choose another model or use the agent default.
+          Saved model is no longer listed. Choose another model.
         </p>
       )}
     </div>

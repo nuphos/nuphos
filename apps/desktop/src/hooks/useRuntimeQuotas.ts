@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 
-import { api } from '../api'
+import { api } from '../api.ts'
 
-import { RUNTIME_INSTANCES_CHANGED } from './useRuntimeInstances'
+import { RUNTIME_INSTANCES_CHANGED } from './useRuntimeInstances.ts'
 
-import type { RuntimeQuota } from '../types/runtime'
+import type { RuntimeInstance, RuntimeQuota } from '../types/runtime'
 
 /** Matches the backend's shorter hold, not its longer one: an offline agent, a
  *  timeout or a sign-in prompt is held thirty seconds there, so an agent that
@@ -14,7 +14,12 @@ import type { RuntimeQuota } from '../types/runtime'
 const QUOTA_POLL_MS = 30_000
 const EMPTY: ReadonlyMap<string, RuntimeQuota> = new Map()
 
-export function useRuntimeQuotas(teamId?: string): ReadonlyMap<string, RuntimeQuota> {
+export function useRuntimeQuotas(
+  teamId?: string,
+  instances: readonly RuntimeInstance[] = [],
+): ReadonlyMap<string, RuntimeQuota> {
+  // Presence and the first usage reading can arrive after the initial quota request.
+  const presenceKey = JSON.stringify(instances.map(({ id, local }) => [id, local?.usageAt]))
   const [state, setState] = useState<{
     teamId?: string
     quotas: ReadonlyMap<string, RuntimeQuota>
@@ -54,7 +59,7 @@ export function useRuntimeQuotas(teamId?: string): ReadonlyMap<string, RuntimeQu
       clearInterval(timer)
       window.removeEventListener(RUNTIME_INSTANCES_CHANGED, refresh)
     }
-  }, [teamId])
+  }, [teamId, presenceKey])
 
   return state.teamId === teamId ? state.quotas : EMPTY
 }

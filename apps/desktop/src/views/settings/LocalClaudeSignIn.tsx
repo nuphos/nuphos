@@ -8,9 +8,17 @@ import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 import { useStableCallback } from '../../hooks/useStableCallback'
 
 /** One sign-in flow for onboarding, settings and conversation recovery. */
-export function LocalClaudeSignIn({ label = 'Sign in with Claude' }: { label?: string }) {
+export function LocalClaudeSignIn({
+  label = 'Sign in with Claude',
+  initiallyOpen = false,
+  onClosed,
+}: {
+  label?: string
+  initiallyOpen?: boolean
+  onClosed?: (connected: boolean) => void
+}) {
   const state = useLocalRuntimeState()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(initiallyOpen)
   const [failed, setFailed] = useState(false)
   const [starting, setStarting] = useState(false)
   const login = state?.claudeLogin
@@ -66,6 +74,7 @@ export function LocalClaudeSignIn({ label = 'Sign in with Claude' }: { label?: s
     try {
       if (busy) await api.localRuntimeCancelClaudeLogin()
       setOpen(false)
+      onClosed?.(connected)
     } catch (err) {
       toast.apiError('Could not cancel Claude sign-in', err)
     }
@@ -73,16 +82,18 @@ export function LocalClaudeSignIn({ label = 'Sign in with Claude' }: { label?: s
 
   return (
     <>
-      <Button
-        size="sm"
-        onClick={() => {
-          setAttempted(login?.state === 'waiting' || login?.state === 'checking')
-          setFailed(false)
-          setOpen(true)
-        }}
-      >
-        {label}
-      </Button>
+      {!initiallyOpen && (
+        <Button
+          size="sm"
+          onClick={() => {
+            setAttempted(login?.state === 'waiting' || login?.state === 'checking')
+            setFailed(false)
+            setOpen(true)
+          }}
+        >
+          {label}
+        </Button>
+      )}
       {open && (
         <Modal
           open

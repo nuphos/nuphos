@@ -1,5 +1,7 @@
 import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
 import {} from '../../components/agent/AgentPanel'
+import { emptyNavigation } from '../../lib/appRoutes'
+import { selectScope } from './store/workspaceState'
 import { track } from '../../lib/analytics'
 
 import {} from '../../views/SettingsPage'
@@ -58,7 +60,7 @@ export function useWorkspaceShellState() {
     Record<string, GcpComputeInstance[] | undefined>
   >({})
   const workspace = useWorkspaceStore()
-  const { workspaceActions } = workspace
+  const { workspaceActions, workspaceStore } = workspace
   const [grafanaInstancesByTeam, setGrafanaInstancesByTeam] = useState<
     Record<string, GrafanaInstance[] | undefined>
   >({})
@@ -91,10 +93,26 @@ export function useWorkspaceShellState() {
   // Section SettingsPage should land on when opened via a deep entry point
   // (e.g. picking Slack in the connector marketplace); null = default.
   const [settingsInitialSection, setSettingsInitialSection] = useState<string | null>(null)
-  const openSettingsSection = useCallback((section: string) => {
-    setSettingsInitialSection(section)
-    setSettingsOpen(true)
-  }, [])
+  const openSettingsSection = useCallback(
+    (section: string) => {
+      if (section === 'workspace.agent') {
+        const teamId = selectScope(workspaceStore.getState())?.teamId
+
+        if (!teamId) return
+        setSettingsOpen(false)
+        workspaceActions.openMainPage(teamId)
+        workspaceActions.updateActiveTab((tab) => ({
+          ...tab,
+          ...emptyNavigation({ kind: 'team', teamId }, 'team.agents'),
+        }))
+
+        return
+      }
+      setSettingsInitialSection(section)
+      setSettingsOpen(true)
+    },
+    [workspaceActions, workspaceStore],
+  )
   // One-shot request from the sidebar Slack promo: navigate the active tab to
   // the connectors page and have it open the Slack bind dialog on arrival.
   const [slackBindRequested, setSlackBindRequested] = useState(false)

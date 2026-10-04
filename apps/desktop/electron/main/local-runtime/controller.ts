@@ -21,7 +21,6 @@ import type {
   RuntimeTunnel,
 } from './controller-types.ts'
 
-/** Owns local agents and their tunnel; tears down all state on an account change. */
 export class LocalRuntimeController {
   private userId: string | null = null
   private readonly agents: Record<LocalAgentProvider, Agent> = {
@@ -35,9 +34,16 @@ export class LocalRuntimeController {
   private readonly deps: LocalRuntimeControllerDeps
   constructor(deps: LocalRuntimeControllerDeps) {
     this.deps = deps
-    this.usage = createUsageSampler(this.agents, deps, () => this.tunnel?.sendStatus())
+    this.usage = createUsageSampler(
+      this.agents,
+      {
+        ...deps,
+        agentHome: (provider) =>
+          this.userId ? this.prepareHome(provider, this.userId) : undefined,
+      },
+      () => this.tunnel?.sendStatus(),
+    )
   }
-
   state(): LocalRuntimeState {
     const bundle = this.deps.bundle()
     const userId = this.userId
@@ -52,8 +58,6 @@ export class LocalRuntimeController {
       userId,
     }
   }
-
-  /** Called on every auth change; null means signed out. */
   async setUser(userId: string | null): Promise<void> {
     if (userId === this.userId) return
     await this.shutdown()
@@ -70,8 +74,6 @@ export class LocalRuntimeController {
     if (userId === this.userId) this.openTunnel()
     await launches
   }
-
-  /** Re-reads each CLI, e.g. after a terminal sign-in; `restart` relaunches running agents too. */
   async refresh(
     restart = false,
     providers: readonly LocalAgentProvider[] = LOCAL_AGENT_PROVIDERS,
@@ -105,12 +107,10 @@ export class LocalRuntimeController {
 
     return this.state()
   }
-
   /** The network may have changed under a sleeping computer: dial now rather than after backoff. */
   reconnect(): void {
     this.tunnel?.reconnectNow()
   }
-
   async shutdown(): Promise<void> {
     this.usage.stop()
     this.tunnel?.stop()
@@ -119,7 +119,6 @@ export class LocalRuntimeController {
     this.superseded = false
     await Promise.all(LOCAL_AGENT_PROVIDERS.map((provider) => this.stopAgent(provider)))
   }
-
   private changed(): void {
     this.deps.onChange?.()
   }

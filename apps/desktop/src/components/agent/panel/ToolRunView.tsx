@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronRight, Terminal, X } from 'lucide-react'
+import { ChevronRight, Terminal } from 'lucide-react'
 import { useState } from 'react'
 
 import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
@@ -45,8 +45,6 @@ export function ToolRunView({
   const open = userOpen ?? needsAttention
   const count = parts.length
   const done = latest.state === 'output-available' || latest.state === 'output-error'
-  const errored = latest.state === 'output-error'
-  const failed = parts.filter((part) => part.state === 'output-error').length
   const label = getToolLabel(latest)
   const commandTool = isCommandTool(latest)
   const toggle = () => setUserOpen(!open)
@@ -82,11 +80,7 @@ export function ToolRunView({
             </>
           ) : (
             <>
-              {errored ? (
-                <X className="h-3.5 w-3.5 flex-shrink-0 text-error" strokeWidth={2.2} />
-              ) : (
-                commandTool && <Terminal className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
-              )}
+              {commandTool && <Terminal className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />}
               <span className="min-w-0 truncate text-left">{label}</span>
             </>
           )}
@@ -94,9 +88,6 @@ export function ToolRunView({
         </span>
         {count > 1 && (
           <span className="flex-shrink-0 text-tertiary/70">· {String(count)} calls</span>
-        )}
-        {failed > 0 && !errored && (
-          <span className="flex-shrink-0 text-error/80">· {String(failed)} failed</span>
         )}
         <ChevronRight
           className={clsx(

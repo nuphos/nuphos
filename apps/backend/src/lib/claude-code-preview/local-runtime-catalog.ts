@@ -177,7 +177,7 @@ export async function localRuntimeModels(
       models: [],
       message: 'The computer running this agent has not reported its models yet. Retry shortly.',
     }
-  const modelId = model ?? catalog.defaultModel
+  const modelId = model && model !== 'default' ? model : catalog.defaultModel
   const controls = catalog.controls[modelId]
 
   return {

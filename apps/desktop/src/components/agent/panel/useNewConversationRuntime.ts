@@ -11,7 +11,7 @@ export function useNewConversationRuntime(teamId?: string) {
   const key = `nuphos.agent.runtimeInstance.${teamId ?? 'personal'}`
   const [choices, setChoices] = useState<Record<string, string>>({})
   const catalog = useRuntimeInstances(teamId)
-  const runtimeQuotas = useRuntimeQuotas(teamId)
+  const runtimeQuotas = useRuntimeQuotas(teamId, catalog.instances)
   const owner = useThisComputer()
   const localState = useLocalRuntimeState()
   const instances = teamId

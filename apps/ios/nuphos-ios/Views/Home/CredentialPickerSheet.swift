@@ -125,7 +125,7 @@ struct ComposerControls: View {
         .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-modes") { showModes = true } }
         #endif
 
-        if let session, !session.isNew, session.isNativeRuntime {
+        if let session, !session.isNew, session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
             Button { showModel = true } label: {
                 ComposerChip(systemImage: session.sessionConfig?.isFast == true ? "bolt.fill" : "cpu", title: modelTitle(session), isActive: false)
             }
@@ -161,9 +161,7 @@ struct ComposerControls: View {
     }
 
     private func modelTitle(_ session: ChatSession) -> String {
-        if let model = session.sessionConfig?.model { return model.currentLabel }
-        if session.sessionConfigError != nil { return "Model" }
-        return session.sessionConfig == nil ? "Model…" : "Model"
+        session.sessionConfig?.modelTitle ?? "Model"
     }
 
     private var iamTitle: String {

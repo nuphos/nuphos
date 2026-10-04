@@ -5,6 +5,7 @@ import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/runtime-defaults'
+import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type BackgroundWorkLoss = 'session_lost' | 'unreachable'
@@ -14,6 +15,9 @@ export type ConversationPreviewAttachment = {
    *  getConversationPreviewAttachment reads it, and it answers "no session". */
   forceNew?: boolean
   runtimeDefaults?: RuntimeDefaults
+  /** Last model settings the runtime confirmed for this session; shown while
+   *  the live session cannot answer (busy, dormant, offline). */
+  sessionConfig?: SessionConfigOption[]
   openabSessionId: string
   runtimeUrl: string
 }

@@ -12,6 +12,7 @@ const modelControlsSchema = z.object({
     .max(100),
   fast: z.boolean(),
   defaultFast: z.enum(['on', 'off']).optional(),
+  defaultEffort: z.string().max(100).optional(),
 })
 
 /** What the computer's agent advertises before any conversation. */

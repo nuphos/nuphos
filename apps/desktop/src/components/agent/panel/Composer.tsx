@@ -266,11 +266,7 @@ export function Composer({
               {!modelSession && newConversationModelControl}
             </div>
             {modelSession && (
-              <ModelSelector
-                control={modelControl}
-                disabled={readOnly || streaming}
-                streaming={streaming}
-              />
+              <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />
             )}
             <ComposerSendControls
               runtimeCanCancel={runtimeCanCancel}

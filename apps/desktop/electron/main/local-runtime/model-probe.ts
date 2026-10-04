@@ -4,6 +4,7 @@ export type ModelControls = {
   effort: { value: string; name: string }[]
   fast: boolean
   defaultFast?: 'on' | 'off'
+  defaultEffort?: string
 }
 
 /** What the adapter offers before any conversation, reported so teams can pick up front. */
@@ -49,13 +50,36 @@ function choices(option: ConfigOption | undefined) {
   )
 }
 
+export function modelChoices(model: ConfigOption | undefined) {
+  const advertised = choices(model)
+  const inherited = advertised.find((option) => option.value === 'default')
+  const resolved = advertised.find(
+    (option) =>
+      option.value !== 'default' &&
+      (option.name === inherited?.description || option.value === inherited?.description),
+  )
+  const defaultModel =
+    model?.currentValue === 'default' && resolved ? resolved.value : model?.currentValue
+  const models = advertised
+    .filter((option) => option.value !== 'default' || !resolved)
+    .map(({ value, name, description }) => ({
+      id: value,
+      name: value === 'default' && inherited?.description ? inherited.description : name,
+      ...(description ? { description } : {}),
+    }))
+
+  return { models, defaultModel }
+}
+
 export function controlsOf(options: ConfigOption[]): ModelControls {
+  const effort = findOption(options, 'effort')
   const fast = findOption(options, 'fast')
-  const fastValues = choices(fast).map((choice) => choice.value)
+  const fastValues = new Set(choices(fast).map((choice) => choice.value))
 
   return {
-    effort: choices(findOption(options, 'effort')).map(({ value, name }) => ({ value, name })),
-    fast: fastValues.includes('on') && fastValues.includes('off'),
+    ...(typeof effort?.currentValue === 'string' ? { defaultEffort: effort.currentValue } : {}),
+    effort: choices(effort).map(({ value, name }) => ({ value, name })),
+    fast: fastValues.has('on') && fastValues.has('off'),
     ...(fast?.currentValue === 'on' || fast?.currentValue === 'off'
       ? { defaultFast: fast.currentValue }
       : {}),
@@ -84,7 +108,10 @@ export function probeLocalModels(options: {
     }, PROBE_TIMEOUT_MS)
     let buffer = ''
     let nextId = 1
-    const waiting = new Map<number, (result: Record<string, unknown>) => void>()
+    const waiting = new Map<
+      number,
+      { resolve: (result: Record<string, unknown>) => void; reject: (error: Error) => void }
+    >()
     const finish = (error: Error | null, catalog?: LocalModelCatalog) => {
       clearTimeout(timer)
       child.kill()
@@ -92,10 +119,10 @@ export function probeLocalModels(options: {
       else if (catalog) resolve(catalog)
     }
     const call = (method: string, params: unknown) =>
-      new Promise<Record<string, unknown>>((done) => {
+      new Promise<Record<string, unknown>>((resolve, reject) => {
         const id = nextId++
 
-        waiting.set(id, done)
+        waiting.set(id, { resolve, reject })
         child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
       })
 
@@ -129,14 +156,13 @@ export function probeLocalModels(options: {
             `${JSON.stringify({ jsonrpc: '2.0', id: frame.id, error: { code: -32601, message: 'Unavailable' } })}\n`,
           )
         } else if (frame.id !== undefined && waiting.has(frame.id)) {
-          if (frame.error) {
-            finish(
+          const request = waiting.get(frame.id)
+
+          if (frame.error)
+            request?.reject(
               new Error(`Model discovery failed: ${JSON.stringify(frame.error).slice(0, 300)}`),
             )
-
-            return
-          }
-          waiting.get(frame.id)?.(frame.result ?? {})
+          else request?.resolve(frame.result ?? {})
           waiting.delete(frame.id)
         }
       }
@@ -152,11 +178,7 @@ export function probeLocalModels(options: {
       const sessionId = String(session.sessionId)
       let configOptions = (session.configOptions ?? []) as ConfigOption[]
       const model = findOption(configOptions, 'model')
-      const models = choices(model).map(({ value, name, description }) => ({
-        id: value,
-        name,
-        ...(description ? { description } : {}),
-      }))
+      const { models, defaultModel } = modelChoices(model)
 
       if (!model || typeof model.currentValue !== 'string' || models.length === 0) {
         finish(new Error('The agent did not advertise any models'))
@@ -164,21 +186,29 @@ export function probeLocalModels(options: {
         return
       }
       const controls: Record<string, ModelControls> = {
-        [model.currentValue]: controlsOf(configOptions),
+        [defaultModel as string]: controlsOf(configOptions),
       }
 
       for (const { id } of models) {
         if (controls[id]) continue
-        const updated = await call('session/set_config_option', {
-          sessionId,
-          configId: model.id,
-          value: id,
-        })
+        try {
+          const updated = await call('session/set_config_option', {
+            sessionId,
+            configId: model.id,
+            value: id,
+          })
 
-        configOptions = (updated.configOptions ?? configOptions) as ConfigOption[]
-        controls[id] = controlsOf(configOptions)
+          configOptions = (updated.configOptions ?? configOptions) as ConfigOption[]
+          controls[id] = controlsOf(configOptions)
+        } catch {
+          // One advertised model can fail validation without invalidating the catalog.
+        }
       }
-      finish(null, { models, defaultModel: model.currentValue, controls })
+      finish(null, {
+        models: models.filter(({ id }) => controls[id]),
+        defaultModel: defaultModel as string,
+        controls,
+      })
     })().catch((error: unknown) => {
       finish(error instanceof Error ? error : new Error(String(error)))
     })

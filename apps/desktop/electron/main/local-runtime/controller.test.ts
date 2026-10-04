@@ -29,6 +29,7 @@ function harness(
   let tunnelStatus: (() => LocalRuntimeTunnelStatus) | undefined
   let usage: unknown
   let usageReads = 0
+  const usageEnvs: { provider: LocalAgentProvider; env: NodeJS.ProcessEnv }[] = []
   const deps: LocalRuntimeControllerDeps = {
     bundle: () =>
       bundled.current
@@ -49,7 +50,8 @@ function harness(
         cli[provider] ?? { installed: true, path: `/bin/${provider}`, loggedIn: true },
       )
     },
-    readUsage: () => {
+    readUsage: (provider, env) => {
+      usageEnvs.push({ provider, env })
       usageReads += 1
 
       return Promise.resolve(usage)
@@ -117,6 +119,7 @@ function harness(
       usage = value
     },
     usageReads: () => usageReads,
+    usageEnvs,
     changes: () => changes,
     seenCli,
     cliCache,
@@ -388,4 +391,22 @@ test('reconnecting Claude after login leaves the Codex process running', async (
   events.length = 0
   await controller.refresh(true, ['claude-code'])
   assert.deepEqual(events, ['stop', started('claude-code')])
+})
+
+test('usage reads the same isolated provider credentials as the running agents', async () => {
+  const { controller, usageEnvs } = harness()
+
+  await controller.setUser('alice')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(
+    usageEnvs.find((entry) => entry.provider === 'claude-code')?.env.CLAUDE_CONFIG_DIR,
+    home('claude-code'),
+  )
+  assert.equal(
+    usageEnvs.find((entry) => entry.provider === 'claude-code')?.env
+      .CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    home('claude-code'),
+  )
+  assert.equal(usageEnvs.find((entry) => entry.provider === 'codex')?.env.CODEX_HOME, home('codex'))
+  await controller.setUser(null)
 })

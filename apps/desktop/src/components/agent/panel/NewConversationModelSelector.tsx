@@ -1,14 +1,22 @@
-import { ChevronDown, Loader2, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
+import { ChevronDown, ChevronLeft, Loader2, RefreshCw } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
 import { normalizeRuntimeDefaults } from '../../../views/settings/runtimeDefaults'
 import { useRuntimeModelCatalog } from '../../../views/settings/useRuntimeModelCatalog'
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
+import {
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuSeparator,
+  MenuSubmenu,
+  MenuSubmenuTrigger,
+  MenuTrigger,
+} from '../../ui/menu'
 import { toast } from '../../ui/toast'
 
-import type { RuntimeInstance } from '../../../types/runtime'
+import type { RuntimeDefaults, RuntimeInstance } from '../../../types/runtime'
 
 /**
  * Model picker for a conversation that has no session yet: it edits the default
@@ -28,51 +36,88 @@ export function NewConversationModelSelector({
   const local = runtime?.kind === 'local'
   const canEdit = local || isTeamAdmin
   const canLoad = Boolean(teamId && canEdit && runtime?.status === 'active' && !runtime.starting)
-  const discovery = useRuntimeModelCatalog(
-    teamId ?? '',
-    runtime?.id ?? '',
-    canLoad,
-    runtime?.defaults?.model,
+  const currentModel = runtime?.defaults?.model === 'default' ? undefined : runtime?.defaults?.model
+  const discovery = useRuntimeModelCatalog(teamId ?? '', runtime?.id ?? '', canLoad, currentModel)
+
+  const displayedModel = currentModel ?? discovery.catalog?.controls?.modelId
+  const label = displayedModel
+    ? (discovery.models.find((model) => model.id === displayedModel)?.name ?? displayedModel)
+    : 'Model'
+
+  const modelLoading = !displayedModel
+  const controls = discovery.catalog?.controls
+  const efforts = controls?.effort.filter((option) => option.value !== 'default') ?? []
+  const inheritedEffort = runtime?.defaults?.effort ?? controls?.defaultEffort
+  const effort =
+    efforts.find((option) => option.value === inheritedEffort)?.value ??
+    efforts.find((option) => option.value === 'medium')?.value ??
+    efforts[0]?.value
+  const initialization = useRef('')
+  const initialKey = JSON.stringify([teamId, runtime?.id, displayedModel, inheritedEffort, effort])
+
+  const effortLabel = efforts.find((option) => option.value === effort)?.name ?? effort
+
+  const select = useCallback(
+    async (value: RuntimeDefaults) => {
+      if (!teamId || !runtime || saving) return
+      setSaving(true)
+      try {
+        const defaults = normalizeRuntimeDefaults(value)
+
+        if (local) await api.localAgentSetDefaults(runtime.id, defaults)
+        else await api.atlasUpdateRuntimeInstance(teamId, runtime.id, { defaults })
+        window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+      } catch (error) {
+        toast.apiError('Could not change model settings', error)
+      } finally {
+        setSaving(false)
+      }
+    },
+    [teamId, runtime, saving, local],
   )
 
+  useEffect(() => {
+    if (
+      !canLoad ||
+      saving ||
+      !effort ||
+      effort === inheritedEffort ||
+      initialization.current === initialKey
+    )
+      return
+    initialization.current = initialKey
+    void select({ ...runtime?.defaults, model: displayedModel, effort })
+  }, [
+    canLoad,
+    saving,
+    effort,
+    inheritedEffort,
+    initialKey,
+    displayedModel,
+    runtime?.defaults,
+    select,
+  ])
   if (!teamId || !canEdit || !runtime) return null
-  const currentModel = runtime.defaults?.model
-  const label = currentModel
-    ? (discovery.models.find((model) => model.id === currentModel)?.name ?? currentModel)
-    : 'Agent default'
-
-  async function select(model: string | undefined) {
-    if (!teamId || !runtime || saving) return
-    setSaving(true)
-    try {
-      // A model change resets effort/Fast — they only make sense against the
-      // model they were validated for, and the settings screen can re-set them.
-      const defaults = normalizeRuntimeDefaults({ model })
-
-      if (local) await api.localAgentSetDefaults(runtime.id, defaults)
-      else await api.atlasUpdateRuntimeInstance(teamId, runtime.id, { defaults })
-      window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
-    } catch (error) {
-      toast.apiError('Could not change the model', error)
-    } finally {
-      setSaving(false)
-    }
-  }
 
   return (
     <Menu>
       <MenuTrigger
-        aria-label={`Model for this agent: ${label}`}
+        aria-label={modelLoading ? 'Loading model' : `Model for this agent: ${label}`}
+        aria-busy={modelLoading}
         className="flex h-7 min-w-0 max-w-48 items-center gap-1 rounded-full px-2 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main"
       >
         {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-        <span className="truncate">{label}</span>
+        {modelLoading ? (
+          <span
+            aria-hidden="true"
+            className="h-3 w-24 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
+          />
+        ) : (
+          <span className="truncate">{label}</span>
+        )}
         <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
       </MenuTrigger>
       <MenuContent side="top" align="end" className="w-72">
-        <div className="px-2.5 py-1.5 text-[11px] text-tertiary">
-          {local ? 'Your model for this computer’s agent' : 'Default model for this agent'}
-        </div>
         {discovery.loading && (
           <p role="status" className="flex items-center gap-2 px-2.5 py-2 text-xs text-tertiary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -84,31 +129,52 @@ export function NewConversationModelSelector({
             {discovery.error}
           </p>
         )}
-        <MenuItem
-          selected={!currentModel}
-          disabled={saving}
-          closeOnClick={false}
-          onClick={() => void select(undefined)}
-        >
-          Agent default
-        </MenuItem>
         {discovery.models.map((model) => (
           <MenuItem
             key={model.id}
-            selected={model.id === currentModel}
+            selected={model.id === displayedModel}
             disabled={saving}
-            title={model.description}
             closeOnClick={false}
-            onClick={() => void select(model.id)}
+            onClick={() => void select({ model: model.id })}
           >
-            <span className="flex flex-col gap-0.5">
-              <span>{model.name}</span>
-              {model.description && (
-                <span className="text-[11px] text-tertiary">{model.description}</span>
-              )}
-            </span>
+            {model.name}
           </MenuItem>
         ))}
+        {Boolean(efforts.length) && (
+          <>
+            <MenuSeparator />
+            <MenuSubmenu>
+              <MenuSubmenuTrigger
+                disabled={saving || discovery.loading}
+                chevron={<ChevronLeft className="h-3 w-3 opacity-60" />}
+              >
+                <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                  <span>Effort</span>
+                  <span className="text-xs text-tertiary">{effortLabel}</span>
+                </span>
+              </MenuSubmenuTrigger>
+              <MenuContent side="left" align="end" className="w-48">
+                {efforts.map((option) => (
+                  <MenuItem
+                    key={option.value}
+                    selected={option.value === effort}
+                    disabled={saving || discovery.loading}
+                    closeOnClick={false}
+                    onClick={() =>
+                      void select({
+                        ...runtime.defaults,
+                        model: displayedModel,
+                        effort: option.value,
+                      })
+                    }
+                  >
+                    {option.name}
+                  </MenuItem>
+                ))}
+              </MenuContent>
+            </MenuSubmenu>
+          </>
+        )}
         {discovery.error && (
           <>
             <MenuSeparator />
@@ -128,12 +194,6 @@ export function NewConversationModelSelector({
             </MenuItem>
           </>
         )}
-        <MenuSeparator />
-        <p className="px-2.5 py-2 text-[11px] text-tertiary">
-          {local
-            ? 'Applies to your new conversations on this agent. Nobody else uses it.'
-            : 'This changes the agent’s default for every new conversation, not just this one.'}
-        </p>
       </MenuContent>
     </Menu>
   )

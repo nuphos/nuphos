@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronRight, ShieldCheck, Terminal, X } from 'lucide-react'
+import { ChevronRight, ShieldCheck, Terminal } from 'lucide-react'
 import { useState } from 'react'
 
 import { useReportVisibleError } from '../../VisibleErrorReporter'
@@ -78,16 +78,6 @@ export function ToolPartView({
             <LoadingText className="min-w-0 truncate text-left">{label}</LoadingText>
             <ToolElapsedBadge part={part} now={now} />
           </>
-        ) : errored ? (
-          <>
-            {commandTool ? (
-              <Terminal className="w-3.5 h-3.5 text-error flex-shrink-0" strokeWidth={2} />
-            ) : (
-              <X className="w-3.5 h-3.5 text-error flex-shrink-0" strokeWidth={2.2} />
-            )}
-            <span className="min-w-0 truncate text-left">{label}</span>
-            <ToolElapsedBadge part={part} now={now} />
-          </>
         ) : (
           <>
             {commandTool && <Terminal className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />}
@@ -98,11 +88,7 @@ export function ToolPartView({
         <ChevronRight
           className={clsx(
             'w-3.5 h-3.5 flex-shrink-0 transition-all',
-            open
-              ? 'rotate-90 opacity-60'
-              : errored
-                ? 'opacity-60'
-                : 'opacity-0 group-hover:opacity-60',
+            open ? 'rotate-90 opacity-60' : 'opacity-0 group-hover:opacity-60',
           )}
           strokeWidth={1.8}
         />

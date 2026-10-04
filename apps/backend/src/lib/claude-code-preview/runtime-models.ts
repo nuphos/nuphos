@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto'
+
 import { z } from 'zod'
 
 import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
 
+import { controlRegistry } from './agent-chat-registry'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
@@ -36,6 +39,7 @@ const runtimeModelCatalogSchema = z.object({
         .max(100),
       fast: z.boolean(),
       defaultFast: z.enum(['on', 'off']).optional(),
+      defaultEffort: z.string().max(100).optional(),
     })
     .optional(),
   message: z.string().optional(),
@@ -74,6 +78,45 @@ async function probeManagedModels(
   )
 
   return runtimeModelCatalogSchema.parse(JSON.parse(output))
+}
+
+async function probeConnectedModels(
+  teamId: string,
+  instance: RuntimeInstance,
+  model?: string,
+): Promise<RuntimeModelCatalog> {
+  const endpoint =
+    instance.kind === 'development'
+      ? developmentRuntimeEndpoint(instance.provider, 'control')
+      : (await resolveTeamRuntimeEndpoints(teamId, undefined, instance.provider, 'control')).find(
+          (candidate) => candidate.runtimeId === instance.id,
+        )
+
+  if (!endpoint) throw new Error('Runtime offline')
+  const client = await controlRegistry.acquire(teamId, endpoint)
+
+  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel'))
+    throw new Error('Runtime model discovery requires a newer image')
+  const result = await client.runJob(
+    {
+      jobId: randomUUID(),
+      job: 'panel',
+      stdin: JSON.stringify({
+        runner: RUNTIME_MODEL_PROBE,
+        script: '',
+        params: { provider: instance.provider, model },
+      }),
+      env: {},
+      timeoutMs: 30_000,
+      maxStdoutBytes: 1024 * 1024,
+    },
+    35_000,
+  )
+
+  if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
+    throw new Error('Model discovery failed')
+
+  return runtimeModelCatalogSchema.parse(JSON.parse(result.stdout))
 }
 
 /** Read advertised choices without resuming, modifying, or claiming a live conversation. */
@@ -127,10 +170,12 @@ async function observedModels(
               name: option.name,
               description: option.description,
             })),
-            ...(selectedModel && model.currentValue === selectedModel
+            ...(!selectedModel || model.currentValue === selectedModel
               ? {
                   controls: {
-                    modelId: selectedModel,
+                    modelId: model.currentValue,
+                    defaultEffort: options.find((o) => o.kind === 'effort')?.currentValue,
+                    defaultFast: options.find((o) => o.kind === 'fast')?.currentValue,
                     effort:
                       options
                         .find((o) => o.kind === 'effort')
@@ -163,6 +208,13 @@ async function discoverModels(
   model?: string,
 ): Promise<RuntimeModelCatalog> {
   if (instance.kind === 'local') return localRuntimeModels(instance.id, model)
+  try {
+    const catalog = await probeConnectedModels(teamId, instance, model)
+
+    if (catalog.models.length) return catalog
+  } catch {
+    // Older hosted images can still be probed through the provisioner's exec path.
+  }
   if (instance.kind === 'managed') {
     try {
       const catalog = await probeManagedModels(teamId, instance, model)
@@ -180,7 +232,7 @@ async function discoverModels(
         ...(!catalog.controls
           ? {
               message:
-                'Select a model already used by an active conversation, then retry to load its effort and Fast options.',
+                'This runtime could not report settings for the selected model. Check its sign-in and runtime version, then retry.',
             }
           : {}),
       }
@@ -189,7 +241,7 @@ async function discoverModels(
         message:
           instance.kind === 'managed'
             ? 'Models are unavailable. Check that the runtime is online, then retry.'
-            : 'Open a conversation with this runtime, send a message, then retry to load its models.',
+            : 'Could not discover models. Check the agent’s sign-in and update its runtime, then retry.',
       }
 }
 

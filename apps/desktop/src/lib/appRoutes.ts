@@ -106,6 +106,8 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
   if (rest.length === 0) return emptyNavigation(teamScope, 'team.agent')
 
   switch (rest[0]) {
+    case 'agents':
+      return emptyNavigation(teamScope, 'team.agents')
     case 'new':
       return emptyNavigation(teamScope, 'team.new-tab')
     case 'agent': {

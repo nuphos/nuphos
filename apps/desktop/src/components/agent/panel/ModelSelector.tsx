@@ -1,3 +1,5 @@
+import { concreteModelChoices, isDefaultModel } from '../../../lib/modelChoices'
+
 import { ChevronDown, ChevronLeft, Loader2, RefreshCw, Zap } from 'lucide-react'
 
 import {
@@ -14,31 +16,46 @@ import type { useSessionConfig } from './useSessionConfig'
 import type { SessionConfigOption, SessionConfigState } from '../../../api/session-config-types'
 
 function currentLabel(option: SessionConfigOption) {
+  if (option.kind === 'model') {
+    const { current, label } = concreteModelChoices(
+      option.options.map((choice) => ({ ...choice, id: choice.value })),
+      option.currentValue,
+    )
+
+    return label ?? current ?? ''
+  }
+  if (option.kind === 'effort' && option.currentValue === 'default') return ''
+
   return (
     option.options.find((choice) => choice.value === option.currentValue)?.name ??
     option.currentValue
   )
 }
 
-/** Trigger copy while there is no model to show yet. */
-function awaitingModelLabel(busy: boolean, stalled: boolean) {
-  if (!busy) return 'Loading model…'
+/** Show the model whenever one is known; "unavailable" means the agent is offline. */
+function modelLabel(
+  model: SessionConfigOption | undefined,
+  status: SessionConfigState['status'] | undefined,
+) {
+  if (model) return currentLabel(model)
+  if (status === 'offline') return 'Model unavailable'
 
-  return stalled ? 'Agent not responding' : 'Waiting for reply…'
+  return ''
 }
 
 function modelHint(
+  status: SessionConfigState['status'] | undefined,
+  hasModel: boolean,
   busy: boolean,
   stalled: boolean,
-  streamingWithoutModel: boolean,
-  status: SessionConfigState['status'] | undefined,
 ) {
+  if (status === 'offline')
+    return 'This agent is offline. Model settings return when it reconnects.'
   if (busy && stalled)
     return "This agent hasn't responded in a while — it may be stuck. Try reconnecting below."
-  if (busy || streamingWithoutModel) return 'Model settings are available after this reply.'
-  if (status === 'dormant')
+  if (busy) return 'Changes apply after this reply.'
+  if (status === 'dormant' && !hasModel)
     return 'Send a message to start this session before changing model settings.'
-  if (status === 'unsupported') return 'Model settings are not available for this agent.'
 }
 
 export function ModelSelector({
@@ -51,16 +68,25 @@ export function ModelSelector({
   streaming: boolean
 }) {
   const { data, loading, slow, saving, error, stalled } = control
-  const model = data?.options.find((option) => option.kind === 'model')
-  const busy = data?.status === 'busy'
-  const awaitingModel = !model && !error && (loading || streaming || busy)
-  const label = model
-    ? currentLabel(model)
-    : awaitingModel
-      ? awaitingModelLabel(busy, stalled)
-      : 'Model unavailable'
-  const blocked = disabled || saving || Boolean(error) || slow || data?.status !== 'ready'
-  const hint = modelHint(busy, stalled, streaming && !model, data?.status)
+  const options = data?.options.map((option) => {
+    const queued = control.queued?.find((selection) => selection.configId === option.id)
+
+    return queued ? { ...option, currentValue: queued.value } : option
+  })
+  const model = options?.find((option) => option.kind === 'model')
+  const status = data?.status
+  const busy = status === 'busy' || streaming
+
+  // A runtime that exposes no model controls gets no picker at all.
+  if (status === 'unsupported') return null
+  const label = modelLabel(model, status) || control.initialModelName || ''
+  const blocked =
+    disabled ||
+    saving ||
+    Boolean(error) ||
+    slow ||
+    (status !== 'ready' && status !== 'dormant' && status !== 'busy')
+  const hint = modelHint(status, Boolean(model), busy, stalled)
 
   return (
     <Menu open={control.open} onOpenChange={control.setOpen}>
@@ -68,15 +94,21 @@ export function ModelSelector({
         aria-label={`Model settings: ${label}`}
         className="flex h-7 min-w-0 max-w-48 items-center gap-1 rounded-full px-2 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main"
       >
-        {(saving || awaitingModel) && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-        <span className="truncate">{label}</span>
+        {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+        {label ? (
+          <span className="truncate">{label}</span>
+        ) : (
+          <span
+            aria-label="Loading model"
+            className="h-3 w-24 animate-pulse rounded bg-zGray-700/60 motion-reduce:animate-none"
+          />
+        )}
         {data?.options.some((option) => option.kind === 'fast' && option.currentValue === 'on') && (
           <Zap className="h-3 w-3 shrink-0" />
         )}
         <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
       </MenuTrigger>
       <MenuContent side="top" align="end" className="w-72">
-        <div className="px-2.5 py-1.5 text-[11px] text-tertiary">Model settings</div>
         {(loading || slow) && !error && (
           <p role="status" className="flex items-center gap-2 px-2.5 py-2 text-xs text-tertiary">
             {!slow && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -93,13 +125,16 @@ export function ModelSelector({
         {error && model && (
           <p className="px-2.5 pb-2 text-[11px] text-tertiary">Showing last synced settings.</p>
         )}
-        {hint && <p className="px-2.5 py-2 text-xs text-tertiary">{hint}</p>}
-        {disabled && data?.status === 'ready' && (
+        {control.queued && (
+          <p className="px-2.5 py-2 text-xs text-tertiary">Selected for the next reply.</p>
+        )}
+        {!control.queued && hint && <p className="px-2.5 py-2 text-xs text-tertiary">{hint}</p>}
+        {disabled && !busy && status === 'ready' && (
           <p className="px-2.5 py-2 text-xs text-tertiary">
             Available when this conversation is ready for your next message.
           </p>
         )}
-        {data?.options.map((option) => (
+        {options?.map((option) => (
           <MenuSubmenu key={option.id}>
             <MenuSubmenuTrigger
               disabled={blocked}
@@ -113,26 +148,21 @@ export function ModelSelector({
               </span>
             </MenuSubmenuTrigger>
             <MenuContent side="left" align="end" className="max-h-80 w-72">
-              {option.description && (
-                <p className="px-2.5 py-2 text-[11px] text-tertiary">{option.description}</p>
-              )}
-              {option.options.map((choice) => (
-                <MenuItem
-                  key={choice.value}
-                  selected={choice.value === option.currentValue}
-                  disabled={blocked}
-                  title={choice.description}
-                  closeOnClick={false}
-                  onClick={() => control.select({ configId: option.id, value: choice.value })}
-                >
-                  <span className="flex flex-col gap-0.5">
-                    <span>{choice.name}</span>
-                    {choice.description && (
-                      <span className="text-[11px] text-tertiary">{choice.description}</span>
-                    )}
-                  </span>
-                </MenuItem>
-              ))}
+              {option.options
+                .filter(
+                  (choice) => option.kind === 'fast' || !isDefaultModel(choice.value, choice.name),
+                )
+                .map((choice) => (
+                  <MenuItem
+                    key={choice.value}
+                    selected={choice.value === option.currentValue}
+                    disabled={blocked}
+                    closeOnClick={false}
+                    onClick={() => control.select({ configId: option.id, value: choice.value })}
+                  >
+                    {choice.name}
+                  </MenuItem>
+                ))}
             </MenuContent>
           </MenuSubmenu>
         ))}

@@ -1,4 +1,5 @@
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { agentCliEnv } from './config.ts'
 import { USAGE_SAMPLE_MS, USAGE_SIGN_IN_FLOOR_MS } from './controller-types.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
@@ -20,6 +21,7 @@ export function createUsageSampler(
   agents: Record<LocalAgentProvider, Agent>,
   deps: {
     userEnv: () => Promise<NodeJS.ProcessEnv>
+    agentHome?: (provider: LocalAgentProvider) => string | undefined
     readUsage: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<unknown>
   },
   onReading: () => void,
@@ -55,10 +57,26 @@ export function createUsageSampler(
     // a ten-minute cadence into twenty.
     const startedAt = now()
 
+    const agentHome = deps.agentHome?.(provider)
+
+    if (deps.agentHome && !agentHome) return
     attempts.set(provider, { at: startedAt, inFlight: true })
     const usage = await deps
-      .readUsage(provider, await deps.userEnv())
-      .catch(() => undefined)
+      .userEnv()
+      .then((env) =>
+        deps.readUsage(
+          provider,
+          agentHome
+            ? agentCliEnv({
+                provider,
+                env,
+                agentHome,
+                cliPath: agent.cli && agent.cli.installed ? agent.cli.path : '',
+              })
+            : env,
+        ),
+      )
+      .catch(() => {})
       .finally(() => attempts.set(provider, { at: startedAt, inFlight: false }))
 
     if (usage === undefined || agent.generation !== generation) return

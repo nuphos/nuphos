@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { accessSync, constants } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import os from 'node:os'
@@ -160,8 +161,29 @@ async function claudeUsageRequest(
   env: NodeJS.ProcessEnv,
 ): Promise<UsageRequest | null> {
   const dir = env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude')
-  const oauth = (await readJson(path.join(dir, '.credentials.json')))?.claudeAiOauth as
-    { accessToken?: unknown } | undefined
+  let credential = await readJson(path.join(dir, '.credentials.json'))
+
+  // Claude's macOS login uses a Keychain entry scoped to its isolated config directory.
+  if (process.platform === 'darwin' && env.CLAUDE_CONFIG_DIR) {
+    const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? env.CLAUDE_CONFIG_DIR
+    const suffix = createHash('sha256')
+      .update(storageDir.normalize('NFC'))
+      .digest('hex')
+      .slice(0, 8)
+
+    try {
+      credential = JSON.parse(
+        await run(
+          '/usr/bin/security',
+          ['find-generic-password', '-s', `Claude Code-credentials-${suffix}`, '-w'],
+          env,
+        ),
+      ) as Record<string, unknown>
+    } catch {
+      // Linux and file-backed sign-ins still use .credentials.json.
+    }
+  }
+  const oauth = credential?.claudeAiOauth as { accessToken?: unknown } | undefined
 
   if (typeof oauth?.accessToken !== 'string' || !oauth.accessToken) return null
 
@@ -230,7 +252,7 @@ export async function probeAgentCli(
   const authArgs = provider === 'codex' ? ['login', 'status'] : ['auth', 'status', '--json']
   const parseAuth = provider === 'codex' ? parseCodexLoginStatus : parseClaudeAuthStatus
   const [version, auth] = await Promise.all([
-    run(file, ['--version'], env).then(versionOf, () => undefined),
+    run(file, ['--version'], env).then(versionOf, () => {}),
     runtimeEnv
       ? run(file, authArgs, runtimeEnv).then(parseAuth, () => ({ loggedIn: null }))
       : Promise.resolve({ loggedIn: null }),

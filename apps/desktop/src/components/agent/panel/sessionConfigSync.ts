@@ -5,6 +5,7 @@ type Transport = {
   write: (selection: SessionConfigSelection) => Promise<SessionConfigState>
 }
 export type ConfigSnapshot = {
+  queued?: SessionConfigSelection[]
   data?: SessionConfigState
   loading: boolean
   slow: boolean
@@ -24,6 +25,7 @@ const STALL_AFTER_MS = 45_000
 export class SessionConfigSync {
   private snapshot: ConfigSnapshot = INITIAL
   private listeners = new Set<() => void>()
+  private streaming = false
   private active = false
   private version = 0
   private pending = false
@@ -84,17 +86,18 @@ export class SessionConfigSync {
       if (this.active && version === this.version) this.publish({ slow: true })
     }, 2_000)
     try {
-      const data = await bounded(this.transport.read(), 15_000)
+      const incoming = await bounded(this.transport.read(), 15_000)
+      const data =
+        incoming.options.length || incoming.status === 'ready' || incoming.status === 'unsupported'
+          ? incoming
+          : { ...incoming, options: this.snapshot.data?.options ?? [] }
 
       if (!this.active || version !== this.version) return
       this.failures = 0
       if (data.status === 'busy') this.busySince ??= Date.now()
       else this.busySince = undefined
       this.publish({
-        data:
-          data.status === 'busy' && this.snapshot.data
-            ? { ...data, options: this.snapshot.data.options }
-            : data,
+        data,
         loading: false,
         slow: false,
         error: undefined,
@@ -115,16 +118,53 @@ export class SessionConfigSync {
         this.pending = false
         clearTimeout(this.slowTimer)
         this.schedule()
+        this.applyQueued()
       }
     }
   }
 
+  setStreaming(streaming: boolean) {
+    this.streaming = streaming
+    if (!streaming) void this.refresh()
+  }
+
+  private applyQueued() {
+    const queued = this.snapshot.queued
+
+    if (
+      !queued ||
+      this.streaming ||
+      this.snapshot.saving ||
+      this.snapshot.error ||
+      !['ready', 'dormant'].includes(this.snapshot.data?.status ?? '')
+    )
+      return
+    const modelId = this.snapshot.data?.options.find((option) => option.kind === 'model')?.id
+    const next = queued.find((selection) => selection.configId === modelId) ?? queued[0]
+    const remaining = queued.filter((selection) => selection !== next)
+
+    this.publish({ queued: remaining.length ? remaining : undefined })
+    void this.select(next)
+  }
+
   async select(selection: SessionConfigSelection) {
+    if (this.active && (this.streaming || this.snapshot.data?.status === 'busy')) {
+      this.publish({
+        queued: [
+          ...(this.snapshot.queued ?? []).filter(
+            (pending) => pending.configId !== selection.configId,
+          ),
+          selection,
+        ],
+      })
+
+      return
+    }
     if (
       !this.active ||
       this.snapshot.saving ||
       this.snapshot.error ||
-      this.snapshot.data?.status !== 'ready'
+      (this.snapshot.data?.status !== 'ready' && this.snapshot.data?.status !== 'dormant')
     )
       return
     const version = ++this.version
@@ -139,7 +179,10 @@ export class SessionConfigSync {
       if (this.active && version === this.version) this.publish({ data, loading: false })
     } catch {
       if (this.active && version === this.version)
-        this.publish({ error: 'The change was not confirmed. Checking the current settings.' })
+        this.publish({
+          queued: undefined,
+          error: 'The change was not confirmed. Checking the current settings.',
+        })
     } finally {
       if (this.active && version === this.version) {
         this.publish({ saving: false })

@@ -4,7 +4,11 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 
-import { normalizeRuntimeDefaults, runtimeDefaultsError } from './runtimeDefaults'
+import {
+  normalizeRuntimeDefaults,
+  resolvedRuntimeDefaults,
+  runtimeDefaultsError,
+} from './runtimeDefaults'
 import { RuntimeDefaultsFields } from './RuntimeDefaultsFields'
 import { PanelHeading } from './RuntimePanel'
 import { useRuntimeModelCatalog } from './useRuntimeModelCatalog'
@@ -24,19 +28,20 @@ export function RuntimeDefaultsSection({
   const [draft, setDraft] = useState<RuntimeDefaults | null>(null)
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState<RuntimeDefaults | null>(null)
-  const value = draft ?? instance.defaults ?? {}
+  const requested = draft ?? submitted ?? instance.defaults ?? {}
   const discovery = useRuntimeModelCatalog(
     teamId,
     instance.id,
     isAdmin && instance.status === 'active',
-    value.model,
+    requested.model,
   )
+  const value = resolvedRuntimeDefaults(requested, discovery.catalog?.controls)
   const validationError = runtimeDefaultsError(value, discovery.catalog?.controls)
-  const validating = discovery.loading && Boolean(value.effort || value.fast)
+  const validating = discovery.loading || !discovery.catalog?.controls
   const savedKey = JSON.stringify(normalizeRuntimeDefaults(instance.defaults ?? {}))
   const valueKey = JSON.stringify(normalizeRuntimeDefaults(value))
   const submittedKey = submitted ? JSON.stringify(submitted) : null
-  const dirty = valueKey !== (submittedKey ?? savedKey)
+  const dirty = draft !== null && valueKey !== (submittedKey ?? savedKey)
 
   // Release the local saved value once the catalog acknowledges it, so later remote edits show up.
   if (submittedKey !== null && submittedKey === savedKey) {

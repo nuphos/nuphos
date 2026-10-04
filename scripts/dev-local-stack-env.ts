@@ -8,6 +8,7 @@ export type LocalStack = {
   runtimePort: number
   s3AccessKey: string
   s3SecretKey: string
+  jwtSecret: string
 }
 
 const S3_BUCKETS = {
@@ -41,9 +42,9 @@ function port(value: string | undefined, fallback: number): number {
 
 /** Null when a secret init-env.sh generates is missing. */
 export function localStackFromEnv(env: Record<string, string>): LocalStack | null {
-  const { S3_ACCESS_KEY, S3_SECRET_KEY } = env
+  const { S3_ACCESS_KEY, S3_SECRET_KEY, NUPHOS_JWT_SECRET } = env
 
-  if (!S3_ACCESS_KEY || !S3_SECRET_KEY) return null
+  if (!S3_ACCESS_KEY || !S3_SECRET_KEY || !NUPHOS_JWT_SECRET) return null
 
   return {
     mongoPort: port(env.MONGO_PORT, 27117),
@@ -51,6 +52,7 @@ export function localStackFromEnv(env: Record<string, string>): LocalStack | nul
     runtimePort: port(env.RUNTIME_PORT, 18180),
     s3AccessKey: S3_ACCESS_KEY,
     s3SecretKey: S3_SECRET_KEY,
+    jwtSecret: NUPHOS_JWT_SECRET,
   }
 }
 
@@ -71,6 +73,11 @@ export function localBackendEnv(stack: LocalStack): Record<string, string> {
 
   return {
     NODE_ENV: 'development',
+    NUPHOS_JWT_SECRET: stack.jwtSecret,
+    // The local stack has one HTTP port, even when a shared .env enables TLS.
+    ATLAS_DEV_TLS_CERT: '',
+    ATLAS_DEV_TLS_KEY: '',
+    NUPHOS_DEV_HTTP_PORT: '0',
     MONGODB_URI: `mongodb://127.0.0.1:${String(stack.mongoPort)}/?directConnection=true`,
     MONGODB_DB: 'nuphos',
     ATLAS_REDIS_ENABLED: 'false',

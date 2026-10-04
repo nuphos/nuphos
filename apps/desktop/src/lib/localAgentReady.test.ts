@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { localAgentReady } from './localAgentReady.ts'
+import { localAgentReady, pendingLocalAgents } from './localAgentReady.ts'
 
 import type { AgentCliStatus, LocalRuntimeState } from '../api/device-types.ts'
 
@@ -29,4 +29,14 @@ test('unknown while the CLIs are still being checked or nobody is signed in', ()
   assert.equal(localAgentReady(state(null, missing)), null)
   assert.equal(localAgentReady(null), null)
   assert.equal(localAgentReady({ ...state(missing, missing), userId: null }), null)
+})
+
+test('signed-out local Claude remains selectable for sign-in without duplicating catalog entries', () => {
+  const local = { ...state(signedOut, signedOut), deviceId: 'device' }
+  const pending = pendingLocalAgents(local, [])
+
+  assert.equal(pending.length, 1)
+  assert.equal(pending[0].provider, 'claude-code')
+  assert.equal(pending[0].local?.signedIn, false)
+  assert.deepEqual(pendingLocalAgents(local, pending), [])
 })
