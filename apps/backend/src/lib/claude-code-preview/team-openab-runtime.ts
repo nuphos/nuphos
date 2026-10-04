@@ -97,7 +97,6 @@ export function previewRuntimeCwd(conversationId: string): string {
 }
 
 export const MAX_PREVIEW_CONVERSATION_ID_LENGTH = 200
-export const MAX_TEAM_PREVIEW_CONVERSATIONS = 100
 
 /** The runtime answered but lacks a capability this backend requires. */
 export class RuntimeCapabilityError extends Error {

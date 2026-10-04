@@ -19,7 +19,6 @@ import { conversationExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
   MAX_PREVIEW_CONVERSATION_ID_LENGTH,
-  MAX_TEAM_PREVIEW_CONVERSATIONS,
   cancelActiveTeamTurn,
   previewRuntimeCwd,
 } from './team-openab-runtime'
@@ -77,16 +76,9 @@ export async function openConversationSession(
     existing.stopObserving?.()
     sessionsByConversation.delete(key)
   }
-  let creation = sessionCreations.get(key)?.promise
+  let creation = sessionCreations.get(key)
 
   if (!creation) {
-    const teamCount =
-      [...sessionsByConversation.values()].filter((session) => session.teamId === teamId).length +
-      [...sessionCreations.values()].filter((pending) => pending.teamId === teamId).length
-
-    if (teamCount >= MAX_TEAM_PREVIEW_CONVERSATIONS) {
-      throw new Error('The Team preview session limit was reached.')
-    }
     creation = (async () => {
       const client = await registry.acquire(teamId, endpoint)
       const { openabSessionId, fresh, defaults } = await attachOpenAbSession(
@@ -120,7 +112,7 @@ export async function openConversationSession(
 
       return session
     })().finally(() => sessionCreations.delete(key))
-    sessionCreations.set(key, { teamId, promise: creation })
+    sessionCreations.set(key, creation)
   }
 
   return creation

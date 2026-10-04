@@ -5,7 +5,7 @@ import { createTeamRuntimeRegistry } from './team-openab-runtime'
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
 export const sessionsByConversation = new Map<string, TeamSession>()
-export const sessionCreations = new Map<string, { teamId: string; promise: Promise<TeamSession> }>()
+export const sessionCreations = new Map<string, Promise<TeamSession>>()
 /** Separate sockets keep operator capabilities out of prompt transports. */
 export const controlRegistry = createTeamRuntimeRegistry(async (endpoint) =>
   OpenAbAcpClient.connect(await reachableRuntimeEndpoint(endpoint)),
