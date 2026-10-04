@@ -12,12 +12,14 @@ import { resolveShellEnv } from '../../shell-env.ts'
 import { syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
-import { agentEnv, bundleFromManifest } from './config.ts'
+import { ClaudeLogin } from './claude-login.ts'
+import { agentCliEnv, agentEnv, bundleFromManifest } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { LocalExecStream } from './exec-stream.ts'
+import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
@@ -101,13 +103,14 @@ function broadcastState(): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('localRuntime:state', state)
 }
 
-const controller = new LocalRuntimeController({
+const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle: findBundle,
   dataDir,
   nodeExecPath: process.execPath,
   backendUrl: ATLAS_URL,
   userEnv,
   probeCli: probeAgentCli,
+  readUsage: readAgentUsage,
   readCliCache,
   writeCliCache,
   onChange: broadcastState,
@@ -153,6 +156,11 @@ const controller = new LocalRuntimeController({
           },
         })
       },
+      connectFile: () => {
+        const workspace = controller.state().workspace
+
+        return workspace ? new LocalFileStream(workspace) : null
+      },
       connectExec: () => new LocalExecStream(),
       connectRuntime: (purpose, provider) => {
         const running = runtime(provider)
@@ -171,10 +179,52 @@ const controller = new LocalRuntimeController({
   log: logLocalTool,
 })
 
+const claudeLogin = new ClaudeLogin({
+  changed: broadcastState,
+  connected: async () => {
+    const state = await controller.refresh(true, ['claude-code'])
+    const cli = state.agents['claude-code'].cli
+
+    return cli?.installed === true && cli.loggedIn === true
+  },
+})
+
+let loginRequest = 0
+
+export async function startLocalClaudeLogin() {
+  const userId = controller.state().userId
+
+  if (!userId) throw new Error('Sign in to Nuphos first.')
+  const request = ++loginRequest
+  const env = await userEnv()
+
+  if (request !== loginRequest) return claudeLogin.state()
+  if (controller.state().userId !== userId) throw new Error('Nuphos account changed. Try again.')
+  const cliPath = findAgentCli('claude-code', env)
+  const userDir = path.join(dataDir(), 'users', userId)
+  const agentHome = prepareAgentHome('claude-code', userDir, path.join(userDir, 'workspace'))
+
+  if (!cliPath || !agentHome) throw new Error('Install Claude Code on this computer first.')
+
+  return claudeLogin.start(
+    cliPath,
+    agentCliEnv({ provider: 'claude-code', env, cliPath, agentHome }),
+  )
+}
+
+export function cancelLocalClaudeLogin(): void {
+  loginRequest += 1
+  claudeLogin.cancel()
+}
+
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {
-  const follow = (token: string | null) =>
-    void controller.setUser(token ? (unverifiedTokenSubject(token) ?? null) : null)
+  const follow = (token: string | null) => {
+    const userId = token ? (unverifiedTokenSubject(token) ?? null) : null
+
+    if (userId !== controller.state().userId) cancelLocalClaudeLogin()
+    void controller.setUser(userId)
+  }
 
   authSession.subscribe((next) => {
     follow(next)
@@ -195,12 +245,15 @@ export function initLocalRuntime(): void {
 
 /** Resolves once openab has exited, so quitting never leaves it behind. */
 export function stopLocalRuntime(): Promise<void> {
+  cancelLocalClaudeLogin()
+
   return controller.shutdown()
 }
 
 export function getLocalRuntimeState(): LocalRuntimeState & {
   deviceId: string
   devBundle?: DevBundleHint
+  claudeLogin: ReturnType<ClaudeLogin['state']>
 } {
   const bundle = findBundle()
   const incomplete = LOCAL_AGENT_PROVIDERS.some((provider) => !bundle?.adapters[provider])
@@ -208,6 +261,7 @@ export function getLocalRuntimeState(): LocalRuntimeState & {
 
   return {
     ...controller.state(),
+    claudeLogin: claudeLogin.state(),
     deviceId: readDeviceIdentity().deviceId,
     ...(devBundle ? { devBundle } : {}),
   }

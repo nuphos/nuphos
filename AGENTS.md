@@ -7,7 +7,7 @@
 
 ## Releases
 
-- Before planning, preparing, or executing a release of any component — Backend, Desktop or iOS — read and follow `.claude/skills/release-nuphos/SKILL.md`. The runtime image is released from [`zeabur/nuphos-runtime`](https://github.com/zeabur/nuphos-runtime), not from here.
+- Before planning, preparing, or executing a release of any component — Backend, Desktop or iOS — read and follow `.claude/skills/release-nuphos/SKILL.md`. The runtime image lives in `apps/runtime` and has independent `runtime-vX.Y.Z` tags; see `apps/runtime/README.md` for its gated release workflow.
 - Never automatically create a Major version. Automated releases may only produce Patch or Minor versions; Major releases require an explicit manual `X.0.0` baseline.
 
 ## Apps

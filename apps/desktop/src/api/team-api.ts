@@ -9,6 +9,10 @@ import type {
 import type { SidebarFavoriteCloudEntry, TeamRole } from '../types/team.ts'
 
 export const teamApi = {
+  atlasReadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    window.api.atlasReadRuntimeFile(teamId, runtimeId, sessionId, path),
+  atlasListRuntimeFiles: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    window.api.atlasListRuntimeFiles(teamId, runtimeId, sessionId, path),
   atlasStartRuntimeLogin: (teamId: string, runtimeId: string) =>
     window.api.atlasStartRuntimeLogin(teamId, runtimeId),
   atlasGetRuntimeLogin: (teamId: string, runtimeId: string) =>

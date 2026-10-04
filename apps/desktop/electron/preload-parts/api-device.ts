@@ -11,6 +11,8 @@ export const deviceApi = {
   deviceGetIdentity: () => ipcRenderer.invoke('device:getIdentity'),
   deviceSetLabel: (label: string) => ipcRenderer.invoke('device:setLabel', label),
   deviceListAudit: (before?: string) => ipcRenderer.invoke('device:listAudit', before),
+  localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
+  localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
   localRuntimeGetState: () => ipcRenderer.invoke('localRuntime:getState'),
   localAgentSetDefaults: (runtimeId: string, defaults: unknown) =>
     ipcRenderer.invoke('localAgent:setDefaults', runtimeId, defaults),

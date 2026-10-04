@@ -4,15 +4,15 @@ import UniformTypeIdentifiers
 
 /// Something the user attached in the composer: a photo (kept as JPEG
 /// data, sent as a data URL) or a file picked from Files.
-struct ComposerAttachment: Identifiable, Equatable {
-    enum Kind: Equatable {
+struct ComposerAttachment: Identifiable, Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
         case image(Data)
         case file(URL)
     }
 
     let id = UUID()
     let name: String
-    let kind: Kind
+    var kind: Kind
 
     #if canImport(UIKit)
     var thumbnail: UIImage? {
@@ -36,22 +36,12 @@ struct ComposerAttachment: Identifiable, Equatable {
 
     // MARK: Loading
 
-    /// Loads a picked photo, downscaled so the payload stays small enough for
-    /// a chat request (max 1568px on the long edge, JPEG 0.8).
+    /// Loads a full-resolution, high-quality JPEG. Compression is decided
+    /// later from the whole message budget, not an arbitrary per-photo cap.
     static func load(_ item: PhotosPickerItem) async -> ComposerAttachment? {
         guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
-        #if canImport(UIKit)
-        guard let image = UIImage(data: data) else { return nil }
-        let maxEdge: CGFloat = 1568
-        let scale = min(1, maxEdge / max(image.size.width, image.size.height))
-        let target = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: target)
-        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: target)) }
-        guard let jpeg = resized.jpegData(compressionQuality: 0.8) else { return nil }
+        guard let jpeg = ImageAttachment.jpeg(from: data) else { return nil }
         return ComposerAttachment(name: "Photo", kind: .image(jpeg))
-        #else
-        return ComposerAttachment(name: "Photo", kind: .image(data))
-        #endif
     }
 
     /// Copies a Files-picked URL into our temp dir (the picker's URL is only
@@ -66,19 +56,17 @@ struct ComposerAttachment: Identifiable, Equatable {
             return nil
         }
         if let type = UTType(filenameExtension: fileURL.pathExtension), type.conforms(to: .image),
-           let data = try? Data(contentsOf: dest), data.count < 12_000_000 {
-            #if canImport(UIKit)
-            if let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.8) {
+           let data = try? Data(contentsOf: dest) {
+            if let jpeg = ImageAttachment.jpeg(from: data) {
                 return ComposerAttachment(name: fileURL.lastPathComponent, kind: .image(jpeg))
             }
-            #endif
         }
         return ComposerAttachment(name: fileURL.lastPathComponent, kind: .file(dest))
     }
 }
 
 /// What the composer hands back on send.
-struct ComposerSubmission {
+struct ComposerSubmission: Sendable {
     var text: String
     var attachments: [ComposerAttachment]
 }

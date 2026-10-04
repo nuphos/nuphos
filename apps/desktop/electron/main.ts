@@ -16,6 +16,7 @@ import * as gitlabInstall from './gitlab-install'
 import * as jiraInstall from './jira-install'
 import * as k8s from './k8s'
 import * as linearInstall from './linear-install'
+import { runtimeTerminals } from './runtime-terminal'
 import { localTerminals } from './local-terminal'
 import { registerAppProtocolHandler, registerAppScheme } from './main/app-protocol'
 import { startChangelogPolling } from './main/changelog'
@@ -45,6 +46,7 @@ import {
 } from './main/deep-links'
 import { startDevBackendHealthProbe } from './main/dev-backend-health'
 import { APP_NAME, devSuffix, isDev } from './main/env'
+import { prepareFirstLaunch } from './main/first-launch'
 import { initLocalRuntime, stopLocalRuntime } from './main/local-runtime'
 import { installApplicationMenu } from './main/menu'
 import { readPersistedThemeSource } from './main/theme'
@@ -131,11 +133,22 @@ if (!isDev) {
 // Single-instance lock: required so deep-link relaunches on Windows / Linux are
 // delivered to the running window via `second-instance` instead of starting a
 // duplicate process.
+const claimIntro = prepareFirstLaunch(app.getPath('userData'))
 const gotInstanceLock = app.requestSingleInstanceLock()
 
 if (!gotInstanceLock) {
   app.quit()
 }
+
+let firstLaunchPending = gotInstanceLock && (isDev || claimIntro())
+
+ipcMain.handle('app:claimFirstLaunchIntro', () => {
+  const showIntro = firstLaunchPending
+
+  firstLaunchPending = false
+
+  return showIntro
+})
 
 app.on('second-instance', (_event, argv) => {
   showMainWindow()
@@ -173,6 +186,7 @@ app.on('before-quit', (e) => {
     k8s.stopAllPortForwards()
     terminal.closeAllSshSessions()
     localTerminals.closeAll()
+    runtimeTerminals.closeAll()
     // Closes exec sessions and triggers deletion of any node-shell pods.
     podExec.closeAllPodExecSessions()
     stopUpdatePolling()

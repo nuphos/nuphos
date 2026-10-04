@@ -39,6 +39,7 @@ test('workspace pages are the ones launched beside a conversation', () => {
     TEAM_WORKSPACE_NAV_ITEMS.map((item) => item.key),
     [
       'team.browser',
+      'team.files',
       'team.terminal',
       'team.plans',
       'team.architecture',

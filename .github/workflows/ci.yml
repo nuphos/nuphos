@@ -114,7 +114,7 @@ jobs:
           set -euo pipefail
           xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO build | tail -40
+            CODE_SIGNING_ALLOWED=NO build -quiet
 
   backend:
     name: Backend (typecheck + test + docker build)

@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { logError } from '@/lib/observability'
 
+import { runtimeLabel } from './runtime-provider'
 import { probeRuntimeQuota } from './runtime-quota-probe'
 import { RuntimeCapabilityError } from './team-openab-runtime'
 
@@ -26,8 +27,16 @@ export type RuntimeQuota = {
   windows: RuntimeQuotaWindow[]
 }
 
-const CACHE_TTL_MS = 60_000
-const UNAVAILABLE_CACHE_TTL_MS = 15_000
+// Usage windows are five hours and a week wide, and the providers rate-limit
+// the endpoints that report them: Anthropic's answers 429 to a minute-paced
+// caller and keeps answering 429 while it is asked again. So anything the
+// provider itself answered — a usable reading or its own refusal — is held for
+// ten minutes, which is as fresh as these numbers ever need to be.
+const PROVIDER_HOLD_MS = 600_000
+// Everything else never reached the provider: an offline agent, an image
+// without the job, a lost connection. Asking again costs one local job, so an
+// agent that comes back shows its usage in seconds rather than minutes.
+const RETRY_HOLD_MS = 30_000
 
 const claudeWindow = z
   .object({
@@ -172,16 +181,18 @@ export function normalizeCodexUsage(
 export type RuntimeQuotaDeps = { probe: typeof probeRuntimeQuota }
 const defaultDeps: RuntimeQuotaDeps = { probe: probeRuntimeQuota }
 
+type Held = { quota: RuntimeQuota; holdMs: number }
+
 async function fetchUncached(
   teamId: string,
   instance: RuntimeInstance,
   deps: RuntimeQuotaDeps,
-): Promise<RuntimeQuota> {
+): Promise<Held> {
   const fetchedAt = new Date().toISOString()
-
-  if (instance.kind === 'local')
-    return unavailable(instance, fetchedAt, 'Usage is reported for team agents only')
-  if (instance.status === 'disabled') return unavailable(instance, fetchedAt, 'Agent is disabled')
+  const retry = (reason: string): Held => ({
+    quota: unavailable(instance, fetchedAt, reason),
+    holdMs: RETRY_HOLD_MS,
+  })
   let reading: RuntimeQuotaReading
 
   try {
@@ -190,22 +201,52 @@ async function fetchUncached(
     // A capability error is our own sentence about an agent that needs
     // updating, so it is worth showing. Other transport exceptions carry
     // internal hosts and ports and are only safe to log.
-    if (error instanceof RuntimeCapabilityError)
-      return unavailable(instance, fetchedAt, error.message)
+    if (error instanceof RuntimeCapabilityError) return retry(error.message)
     logError('agent.runtime_quota.probe_failed', error, {
       team_id: teamId,
       runtime_id: instance.id,
     })
 
-    return unavailable(instance, fetchedAt, 'Usage lookup failed')
+    return retry('Usage lookup failed')
   }
-  if ('error' in reading) return unavailable(instance, fetchedAt, reading.error)
+  if ('error' in reading)
+    return reading.asked === true
+      ? { quota: unavailable(instance, fetchedAt, reading.error), holdMs: PROVIDER_HOLD_MS }
+      : retry(reading.error)
   const quota =
     instance.provider === 'codex'
       ? normalizeCodexUsage(instance, reading.usage, fetchedAt)
       : normalizeClaudeUsage(instance, reading.usage, fetchedAt)
 
-  return reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota
+  return {
+    quota: reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota,
+    holdMs: PROVIDER_HOLD_MS,
+  }
+}
+
+/** An agent on the owner's own computer reads its own account and reports the
+ *  answer with its presence, so there is nothing for Nuphos to ask: normalize
+ *  what arrived, the same way a probe's reading is normalized. */
+function localQuota(instance: RuntimeInstance): RuntimeQuota {
+  const usage = instance.local?.usage
+
+  if (usage === undefined)
+    return unavailable(
+      instance,
+      new Date().toISOString(),
+      instance.local?.signedIn === false
+        ? `Sign in to ${runtimeLabel(instance.provider)} on that computer`
+        : 'That computer has not reported usage yet',
+    )
+
+  // The instant that computer asked the provider, not the instant this route
+  // ran: Codex reports its windows as offsets from the question, so every later
+  // poll over the same body would push "resets in …" further out.
+  const readAt = instance.local?.usageAt ?? new Date().toISOString()
+
+  return instance.provider === 'codex'
+    ? normalizeCodexUsage(instance, usage, readAt)
+    : normalizeClaudeUsage(instance, usage, readAt)
 }
 
 const cache = new Map<string, { expires: number; result: Promise<RuntimeQuota> }>()
@@ -216,21 +257,26 @@ export function fetchRuntimeQuota(
   now: () => number = Date.now,
   deps: RuntimeQuotaDeps = defaultDeps,
 ): Promise<RuntimeQuota> {
+  // Answered from the instance alone, so there is nothing to ask and nothing to
+  // hold: an agent re-enabled a moment ago must not read as disabled for the
+  // length of a cache entry.
+  if (instance.kind === 'local') return Promise.resolve(localQuota(instance))
+  if (instance.status === 'disabled')
+    return Promise.resolve(unavailable(instance, new Date().toISOString(), 'Agent is disabled'))
   const key = `${teamId}:${instance.id}`
   const previous = cache.get(key)
 
   if (previous && previous.expires > now()) return previous.result
   for (const [id, entry] of cache) if (entry.expires <= now()) cache.delete(id)
-  const entry = { expires: now() + CACHE_TTL_MS, result: fetchUncached(teamId, instance, deps) }
+  const held = fetchUncached(teamId, instance, deps)
+  // The hold the reading earns is known only once it arrives, so the entry
+  // starts with the shorter one and the reading extends it.
+  const entry = { expires: now() + RETRY_HOLD_MS, result: held.then((h) => h.quota) }
 
-  entry.result = entry.result.then((quota) => {
-    if (!quota.available && cache.get(key) === entry) {
-      entry.expires = Math.min(entry.expires, now() + UNAVAILABLE_CACHE_TTL_MS)
-    }
-
-    return quota
-  })
   cache.set(key, entry)
+  void held.then((h) => {
+    if (cache.get(key) === entry) entry.expires = now() + h.holdMs
+  })
 
   return entry.result
 }

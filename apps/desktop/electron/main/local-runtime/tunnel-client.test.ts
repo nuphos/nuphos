@@ -224,3 +224,29 @@ test('a socket that never finishes closing still redials after idle', (t) => {
   assert.equal(sockets.length, 2)
   client.stop()
 })
+
+test('file reads use their own bounded stream and are closed on logout', () => {
+  const backend = new FakeSocket()
+  const file = new FakeSocket()
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => backend,
+    connectRuntime: () => {
+      throw new Error('file read must not become an agent prompt')
+    },
+    connectFile: () => file,
+    status: () => ({ agents: {} }),
+  })
+
+  client.start()
+  backend.emit('open')
+  backend.emit('message', { data: JSON.stringify({ t: 'open', s: 'file-1', purpose: 'file' }) })
+  file.emit('open')
+  backend.emit('message', {
+    data: JSON.stringify({ t: 'data', s: 'file-1', d: '{"path":"report.md"}' }),
+  })
+  assert.deepEqual(file.sent, ['{"path":"report.md"}'])
+  file.emit('message', { data: '{"data":"aGk="}' })
+  assert.ok(backend.sent.some((raw) => JSON.parse(raw).d === '{"data":"aGk="}'))
+  client.stop()
+  assert.equal(file.closed, true)
+})

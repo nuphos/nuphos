@@ -3,6 +3,7 @@ import Foundation
 enum ChatRowTests {
     static func run() {
         rendersUploadedFilesWithoutTransportInstructions()
+        preservesHistoricalImages()
         preservesVerifiedSender()
         decodesSharedConversationPermissions()
         groupsThinkingButNotNarration()
@@ -23,6 +24,35 @@ enum ChatRowTests {
         precondition(message.displayText == "Summarize this.\n\nAttached: report.pdf")
         precondition(message.forWire.text.contains("transfer-pull.sh"))
         precondition(ChatMessage.user("Ordinary user text").displayText == "Ordinary user text")
+    }
+
+    private static func preservesHistoricalImages() {
+        let url = "data:image/jpeg;base64,/9j/2Q=="
+        for type in ["file", "image"] {
+            for nameKey in ["filename", "fileName"] {
+                let raw: [String: Any] = ["id": "photo", "role": "user", "parts": [
+                    ["type": type, "mediaType": "image/jpeg", nameKey: "photo.jpg", "url": url]
+                ]]
+                let data = try! JSONSerialization.data(withJSONObject: raw)
+                let stored = try! JSONDecoder().decode(ChatMessage.self, from: data)
+                let expected = ChatPart.file(.init(mediaType: "image/jpeg", filename: "photo.jpg", url: url))
+                precondition(stored.parts == [expected], "Both persisted image formats must render as images")
+                var stream = UIStreamReducer(message: ChatMessage(role: .assistant, parts: []))
+                let event = try! JSONDecoder().decode(JSONValue.self, from: JSONSerialization.data(withJSONObject: (raw["parts"] as! [[String: Any]])[0]))
+                _ = stream.apply(event)
+                precondition(stream.message.parts == [expected], "Streaming images use the same format compatibility")
+                let optimistic = ChatMessage(id: "photo", role: .user, parts: [expected])
+                let finished = RuntimeTranscript.reconcile(server: stored, local: optimistic)
+                precondition(finished.parts == [expected], "Finishing a stream must not lose or duplicate images")
+                var reopened: [ChatMessage] = []
+                var base = 0
+                RuntimeTranscript.adopt(snapshot: [stored], firstIndex: 0, messages: &reopened, baseIndex: &base)
+                precondition(reopened.first?.parts == [expected], "Reopened history must retain images without local state")
+                let wire = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(stored.forWire)) as! [String: Any]
+                let part = (wire["parts"] as! [[String: Any]])[0]
+                precondition(part["type"] as? String == "file" && part["filename"] as? String == "photo.jpg")
+            }
+        }
     }
 
     private static func preservesVerifiedSender() {

@@ -7,17 +7,20 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { PageMeta } from '../app/pageMeta'
 import { xtermThemeFor } from '../components/terminalTheme'
+import { toast } from '../components/ui/toast'
 import { useTheme } from '../hooks/useTheme'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 
-export function LocalTerminalView() {
+import type { TerminalTarget } from '../api/local-terminal-types'
+
+export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<XtermTerminal | null>(null)
   const { resolved } = useTheme()
   const themeRef = useRef(resolved)
   const { tabId, isActive } = useWorkspaceTab()
   const [generation, setGeneration] = useState(0)
-  const [status, setStatus] = useState('Starting local shell…')
+  const [status, setStatus] = useState(target ? 'Connecting to runtime…' : 'Starting local shell…')
   const [closed, setClosed] = useState(false)
   // End the dead shell before asking for a new one — `start` is keyed by tab id
   // and would otherwise hand back the same one. A rejection means it is already
@@ -73,7 +76,15 @@ export function LocalTerminalView() {
         void api.localTerminalResize(tabId, terminal.cols, terminal.rows).catch(reportError)
     }
     const input = terminal.onData((data) => {
-      if (started && !ended) void api.localTerminalInput(tabId, data).catch(reportError)
+      if (!started || ended) return
+      if (target && new TextEncoder().encode(data).length > 16384) {
+        toast.error('Terminal input is too large', 'Paste at most 16 KiB at a time.')
+
+        return
+      }
+      void api.localTerminalInput(tabId, data).catch((error: unknown) => {
+        if (!disposed) toast.apiError('Could not send terminal input', error)
+      })
     })
     const observer = new ResizeObserver(resize)
     let offEvent: (() => void) | undefined
@@ -81,9 +92,9 @@ export function LocalTerminalView() {
     observer.observe(host)
     resize()
     setClosed(false)
-    setStatus('Starting local shell…')
+    setStatus(target ? 'Connecting to runtime…' : 'Starting local shell…')
     api
-      .localTerminalStart(tabId, terminal.cols, terminal.rows)
+      .localTerminalStart(tabId, terminal.cols, terminal.rows, target)
       .then(async ({ shell }) => {
         if (disposed) return
         started = true
@@ -110,7 +121,7 @@ export function LocalTerminalView() {
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [tabId, generation])
+  }, [tabId, generation, target])
 
   useEffect(() => {
     if (!isActive) return
@@ -120,13 +131,17 @@ export function LocalTerminalView() {
   }, [isActive])
 
   return (
-    <PageMeta pageKey="team.terminal" title="Terminal" icon={<Terminal className="h-3.5 w-3.5" />}>
+    <PageMeta
+      pageKey="team.terminal"
+      title={target ? 'Runtime terminal' : 'Local terminal'}
+      icon={<Terminal className="h-3.5 w-3.5" />}
+    >
       <div
         className={`flex h-full min-h-0 flex-col ${resolved === 'light' ? 'bg-white' : 'bg-[#0f0e11]'}`}
       >
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3 text-xs text-tertiary">
           <Terminal className="h-3.5 w-3.5" />
-          <span>Local terminal</span>
+          <span>{target ? 'Runtime terminal' : 'Local terminal'}</span>
           <span className="ml-auto" role="status">
             {status}
           </span>
@@ -144,7 +159,7 @@ export function LocalTerminalView() {
         <div
           ref={hostRef}
           className="min-h-0 flex-1 overflow-hidden p-3"
-          aria-label="Local terminal"
+          aria-label={target ? 'Runtime terminal' : 'Local terminal'}
         />
       </div>
     </PageMeta>

@@ -28,6 +28,7 @@ import type { WorkspaceTabPaneProps } from './paneTypes'
 export const WorkspaceTabPane = memo(
   ({
     tab,
+    conversationId,
     active,
     mounted,
     accounts,
@@ -161,7 +162,7 @@ export const WorkspaceTabPane = memo(
 
     return (
       <WorkspaceRowLinkProvider value={rowLinkValue}>
-        <WorkspaceTabContext.Provider value={workspaceTabContextValue}>
+        <WorkspaceTabContext.Provider value={{ ...workspaceTabContextValue, conversationId }}>
           <div className={clsx(active ? 'h-full min-w-0 flex flex-col relative' : 'hidden')}>
             {mounted && (
               <div className="flex-1 min-h-0 flex">

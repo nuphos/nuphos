@@ -147,7 +147,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                 headerRightActions={
                   <div
                     ref={setToolbarHeaderRightEl}
-                    className="titlebar-no-drag flex items-center gap-1 empty:hidden"
+                    className="titlebar-no-drag flex min-w-0 items-center gap-1 empty:hidden"
                   />
                 }
                 hasHeaderRightActions={toolbarHeaderRightOccupied}
@@ -157,7 +157,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                   // adds a stray flex gap next to the search box.
                   <div
                     ref={setToolbarLeftEl}
-                    className="titlebar-no-drag flex items-center gap-1 empty:hidden"
+                    className="titlebar-no-drag flex min-w-0 items-center gap-1 empty:hidden"
                   />
                 }
                 extraActions={
@@ -225,6 +225,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                       }
                     >
                       <WorkspaceTabPane
+                        conversationId={mainPageOpen ? null : ws.selectedSessionId}
                         key={tab.id}
                         tab={tab}
                         isTeamAdmin={

@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import os from 'node:os'
 import path from 'node:path'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
@@ -71,22 +72,29 @@ function tomlString(value: string): string {
   return JSON.stringify(value)
 }
 
+type AgentCliLaunch = Pick<LocalRuntimeLaunch, 'provider' | 'cliPath' | 'agentHome' | 'env'>
+
 /** Nuphos sessions run as the team's agent, never with the owner's personal config or connectors. */
-function providerEnv(launch: LocalRuntimeLaunch): Record<string, string> {
+function providerEnv(launch: AgentCliLaunch): Record<string, string> {
   if (launch.provider === 'codex')
-    return { CODEX_PATH: launch.cliPath, CODEX_HOME: launch.agentHome }
+    return {
+      CODEX_PATH: launch.cliPath,
+      CODEX_HOME: launch.agentHome,
+      NUPHOS_CODEX_USER_HOME:
+        launch.env.CODEX_HOME ?? path.join(launch.env.HOME ?? os.homedir(), '.codex'),
+    }
 
   return {
     CLAUDE_CODE_EXECUTABLE: launch.cliPath,
     CLAUDE_CONFIG_DIR: launch.agentHome,
-    // Claude Code keys its credential store by config dir; empty means the default ~/.claude one.
-    CLAUDE_SECURESTORAGE_CONFIG_DIR:
-      launch.env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? launch.env.CLAUDE_CONFIG_DIR ?? '',
+    // Pin login independently of the HOME assigned to each conversation's tools.
+    CLAUDE_SECURESTORAGE_CONFIG_DIR: launch.agentHome,
     ENABLE_CLAUDEAI_MCP_SERVERS: 'false',
   }
 }
 
-export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
+/** The same filtered login environment for status probes and the running adapter. */
+export function agentCliEnv(launch: AgentCliLaunch): Record<string, string> {
   const passthrough = Object.fromEntries(
     AGENT_ENV_PASSTHROUGH.flatMap((key) => {
       const value = launch.env[key]
@@ -99,6 +107,12 @@ export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     ...passthrough,
     ...providerEnv(launch),
     ELECTRON_RUN_AS_NODE: '1',
+  }
+}
+
+export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
+  return {
+    ...agentCliEnv(launch),
     MCP_TOOL_TIMEOUT: '1800000',
     MCP_TIMEOUT: '30000',
     NUPHOS_MCP_BRIDGE: launch.adapter.bridge,
@@ -133,6 +147,8 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     GATEWAY_LISTEN: `127.0.0.1:${String(launch.port)}`,
     GATEWAY_ALLOWED_USERS: 'acp_client',
     OPENAB_ACP_ENABLED: 'true',
+    OPENAB_RUNTIME_TERMINAL_CWD: launch.workspace,
+    OPENAB_RUNTIME_TERMINAL_HOME: launch.agentHome,
     OPENAB_ACP_MCP_SERVERS: 'true',
     OPENAB_ACP_STREAMING: 'true',
     OPENAB_ACP_AUTH_KEY: launch.authKey,

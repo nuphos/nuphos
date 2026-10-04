@@ -35,6 +35,34 @@ beforeEach(async () => {
 })
 
 describe('interceptPreviewSteering', () => {
+  test('keeps the uploaded file pull instruction alongside the typed text', async () => {
+    const instruction =
+      '[The user uploaded 1 file(s) to the Nuphos file-transfer store (transfer group abc123): report.pdf. Pull with: bash skills/file-transfer/scripts/transfer-pull.sh "$TEAM" abc123 ./uploads]'
+    const message = userMessage('Read the attached report')
+
+    message.parts.push({ type: 'text', text: instruction })
+    const outcome = await interceptPreviewSteering({ ...ARGS, messages: [message] })
+
+    expect(outcome).toEqual({ mode: 'attach', streamId: 'stream-live' })
+    const queued = await drainPendingUserMessages(ARGS.runOwnerUserId, ARGS.sessionId)
+
+    expect(queued.map((entry) => entry.renderedText)).toEqual([
+      `Read the attached report\n\n${instruction}`,
+    ])
+  })
+
+  test('keeps an archive pull instruction in an attachment-only turn', async () => {
+    const instruction =
+      'bash skills/file-transfer/scripts/transfer-pull.sh "$TEAM" abc123 ./uploads --extract'
+    const message = userMessage('')
+
+    message.parts.push({ type: 'text', text: instruction })
+    await interceptPreviewSteering({ ...ARGS, messages: [userMessage('old request'), message] })
+    const queued = await drainPendingUserMessages(ARGS.runOwnerUserId, ARGS.sessionId)
+
+    expect(queued.map((entry) => entry.renderedText)).toEqual([instruction])
+  })
+
   test('parks the message and attaches to the live stream', async () => {
     const outcome = await interceptPreviewSteering({
       ...ARGS,

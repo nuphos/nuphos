@@ -56,6 +56,9 @@ enum WorkspaceAPI {
             request.setValue(file.3, forHTTPHeaderField: "Content-Type")
             // Presigned storage requests never receive the Nuphos bearer token.
             let (_, response) = try await URLSession.shared.upload(for: request, fromFile: file.1)
+            if let http = response as? HTTPURLResponse, http.statusCode == 413 {
+                throw ChatPayload.TooLarge()
+            }
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 throw NuphosAPI.Failure.http(502, message: "Couldn't upload \(file.0). Your message has not been sent; try again.")
             }

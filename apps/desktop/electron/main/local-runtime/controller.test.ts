@@ -21,11 +21,14 @@ function harness(
   bundled = { current: true },
 ) {
   const events: string[] = []
+  const probeHomes: (string | undefined)[] = []
   let changes = 0
   const seenCli: (AgentCliStatus | null)[] = []
   const exits: ((code: number | null) => void)[] = []
   let tunnelChange: ((connected: boolean, superseded: boolean) => void) | undefined
   let tunnelStatus: (() => LocalRuntimeTunnelStatus) | undefined
+  let usage: unknown
+  let usageReads = 0
   const deps: LocalRuntimeControllerDeps = {
     bundle: () =>
       bundled.current
@@ -39,10 +42,18 @@ function harness(
     nodeExecPath: '/electron',
     backendUrl: 'https://api.example.com',
     userEnv: () => Promise.resolve({ PATH: '/bin' }),
-    probeCli: (provider) =>
-      Promise.resolve(
+    probeCli: (provider, _env, agentHome) => {
+      probeHomes.push(agentHome)
+
+      return Promise.resolve(
         cli[provider] ?? { installed: true, path: `/bin/${provider}`, loggedIn: true },
-      ),
+      )
+    },
+    readUsage: () => {
+      usageReads += 1
+
+      return Promise.resolve(usage)
+    },
     readCliCache: (userId) => cliCache[userId] ?? {},
     writeCliCache: (userId, value) => {
       cliCache[userId] = value
@@ -73,7 +84,7 @@ function harness(
       onExit: (listener) => {
         exits.push(listener)
 
-        return () => undefined
+        return () => {}
       },
     }),
     createTunnel: (_runtime, status, onChange) => {
@@ -86,7 +97,7 @@ function harness(
           events.push('tunnel:stop')
           onChange(false, false)
         },
-        sendStatus: () => undefined,
+        sendStatus: () => {},
         reconnectNow: () => events.push('tunnel:reconnect'),
       }
     },
@@ -102,9 +113,14 @@ function harness(
       tunnelChange?.(connected, superseded)
     },
     status: () => tunnelStatus?.(),
+    reportUsage: (value: unknown) => {
+      usage = value
+    },
+    usageReads: () => usageReads,
     changes: () => changes,
     seenCli,
     cliCache,
+    probeHomes,
   }
 }
 
@@ -274,4 +290,102 @@ test('an agent does not start at all when its isolated home cannot be prepared',
   assert.deepEqual(events, ['register', 'tunnel:start'])
   assert.match(controller.state().agents.codex.error ?? '', /codex login/u)
   assert.match(controller.state().agents['claude-code'].error ?? '', /separate Claude Code home/u)
+})
+
+test('an agent starts without waiting for usage, then reports what it reads', async () => {
+  const { controller, status, reportUsage } = harness()
+
+  reportUsage({ seven_day: { utilization: 7, resets_at: null } })
+  await controller.setUser('alice')
+
+  // The sampler runs after startProcess, so give its microtasks a turn.
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const claude = status()?.agents['claude-code']
+
+  assert.deepEqual(claude?.usage, { seven_day: { utilization: 7, resets_at: null } })
+  assert.equal(typeof claude?.usageAt, 'string')
+  await controller.shutdown()
+})
+
+test('a provider that will not answer leaves the last reading in place', async () => {
+  const { controller, status, reportUsage } = harness()
+
+  reportUsage({ seven_day: { utilization: 7, resets_at: null } })
+  await controller.setUser('alice')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const first = status()?.agents['claude-code']?.usageAt
+
+  reportUsage(undefined)
+  await controller.refresh()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  assert.deepEqual(status()?.agents['claude-code']?.usage, {
+    seven_day: { utilization: 7, resets_at: null },
+  })
+  assert.equal(status()?.agents['claude-code']?.usageAt, first)
+  await controller.shutdown()
+})
+
+test('a restart loop cannot ask the provider on every backoff tick', async () => {
+  const { controller, usageReads } = harness()
+
+  await controller.setUser('alice')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const afterLaunch = usageReads()
+
+  // A crash loop goes straight back through startProcess, which samples again.
+  await controller.refresh(true)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  // Two agents, one read each: the floor holds for everything but a sign-in,
+  // and `refresh` re-probed the CLI without the login changing.
+  assert.equal(afterLaunch, 2)
+  assert.equal(usageReads(), 2)
+  await controller.shutdown()
+})
+
+test('a login observed by Check is recorded even though launching stops the agent first', async () => {
+  // No process until the CLI is signed in: the Codex case from review.
+  const installed: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    codex: { installed: false },
+  }
+  const { controller, status, reportUsage, usageReads } = harness(installed)
+
+  await controller.setUser('alice')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(status()?.agents.codex, undefined)
+
+  reportUsage({ plan_type: 'plus' })
+  // The terminal login lands, so Check now sees a signed-in CLI and launches it.
+  installed.codex = { installed: true, path: '/bin/codex', loggedIn: true }
+  await controller.refresh()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  assert.deepEqual(status()?.agents.codex?.usage, { plan_type: 'plus' })
+  assert.equal(typeof status()?.agents.codex?.usageAt, 'string')
+  assert.ok(usageReads() >= 1)
+  await controller.shutdown()
+})
+
+test('startup and refresh probe the same isolated homes used by the adapters', async () => {
+  const { controller, probeHomes } = harness()
+
+  await controller.setUser('alice')
+  assert.deepEqual(probeHomes, [home('claude-code'), home('codex')])
+  probeHomes.length = 0
+  await controller.refresh()
+  assert.deepEqual(probeHomes, [home('claude-code'), home('codex')])
+  await controller.setUser(null)
+  probeHomes.length = 0
+  await controller.refresh()
+  assert.deepEqual(probeHomes, [])
+})
+
+test('reconnecting Claude after login leaves the Codex process running', async () => {
+  const { controller, events } = harness()
+
+  await controller.setUser('alice')
+  events.length = 0
+  await controller.refresh(true, ['claude-code'])
+  assert.deepEqual(events, ['stop', started('claude-code')])
 })

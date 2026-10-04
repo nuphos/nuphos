@@ -23,6 +23,7 @@ const { join } = await import('node:path');
 const SENTINEL = '__NUPHOS_QUOTA__';
 const MAX_BODY_CHARS = 200000;
 let token = '';
+let asked = false;
 const safe = text => (token ? String(text).split(token).join('[REDACTED]') : String(text));
 const read = path => readFile(path, 'utf8').then(JSON.parse, () => null);
 
@@ -53,9 +54,12 @@ async function lookup() {
     headers = { authorization: 'Bearer ' + token, 'anthropic-beta': 'oauth-2025-04-20' };
   }
   const response = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-  if (!response.ok) return { error: 'HTTP ' + response.status };
+  // Only now: a fetch that never came back is a network failure, not the
+  // provider answering, and it costs nothing to ask again soon.
+  asked = true;
+  if (!response.ok) return { error: 'HTTP ' + response.status, asked: true };
   const body = await response.text();
-  if (body.length > MAX_BODY_CHARS) return { error: 'Usage response was too large' };
+  if (body.length > MAX_BODY_CHARS) return { error: 'Usage response was too large', asked: true };
   return { usage: JSON.parse(body), ...(plan ? { plan } : {}) };
 }
 
@@ -63,7 +67,7 @@ let result;
 try {
   result = await lookup();
 } catch (error) {
-  result = { error: safe(error && error.message ? error.message : error).slice(0, 200) };
+  result = { error: safe(error && error.message ? error.message : error).slice(0, 200), asked };
 }
 // stdout is a pipe, so the write must land before the process exits.
 process.stdout.write(SENTINEL + JSON.stringify(result) + '\n', () => process.exit(0));
@@ -82,8 +86,11 @@ export const RUNTIME_QUOTA_SENTINEL = '__NUPHOS_QUOTA__'
 const UNREADABLE = 'The agent reported unreadable usage'
 const MAX_REASON_CHARS = 500
 
-/** What the probe reports back: the provider's own usage body, or why it could not ask. */
-export type RuntimeQuotaReading = { usage?: unknown; plan?: string } | { error: string }
+/** What the probe reports back: the provider's own usage body, or why it could
+ *  not ask. `asked` marks a failure the provider itself answered, which is the
+ *  only kind worth holding on to — the rest cost nothing to ask again. */
+export type RuntimeQuotaReading =
+  { usage?: unknown; plan?: string } | { error: string; asked?: boolean }
 
 export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
   const index = stdout.lastIndexOf(RUNTIME_QUOTA_SENTINEL)
@@ -98,13 +105,16 @@ export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
     return { error: UNREADABLE }
   }
   if (!json || typeof json !== 'object') return { error: UNREADABLE }
-  const value = json as { error?: unknown; usage?: unknown; plan?: unknown }
+  const value = json as { error?: unknown; asked?: unknown; usage?: unknown; plan?: unknown }
 
   // The agent's own reason comes first: a reading that carries one is never a
   // usage body, and both keys are optional, so no schema can tell them apart by
   // shape alone.
   if (typeof value.error === 'string' && value.error)
-    return { error: value.error.slice(0, MAX_REASON_CHARS) }
+    return {
+      error: value.error.slice(0, MAX_REASON_CHARS),
+      ...(value.asked === true ? { asked: true } : {}),
+    }
   if (!('usage' in value)) return { error: UNREADABLE }
 
   return {

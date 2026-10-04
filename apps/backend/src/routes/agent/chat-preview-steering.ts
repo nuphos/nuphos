@@ -82,11 +82,16 @@ function lastUserText(messages: UIMessage[]): string {
     const message = messages.at(index)
 
     if (message?.role !== 'user') continue
-    for (const part of message.parts) {
-      if (part.type === 'text' && part.text) return part.text
-    }
 
-    return ''
+    // Desktop appends the file-transfer group and pull command as another text
+    // part. Keep them when a new upload arrives during an active turn too.
+    return message.parts
+      .filter(
+        (part): part is { type: 'text'; text: string } =>
+          part.type === 'text' && Boolean(part.text),
+      )
+      .map((part) => part.text)
+      .join('\n\n')
   }
 
   return ''

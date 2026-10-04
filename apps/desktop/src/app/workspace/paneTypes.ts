@@ -22,6 +22,7 @@ export type UpdateWorkspaceTab = (
 ) => void
 
 export type WorkspaceTabPaneProps = {
+  conversationId?: string | null
   renderAgentPage?: boolean
   dockVisible?: boolean
   isTeamAdmin: boolean
