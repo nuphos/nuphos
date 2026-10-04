@@ -66,7 +66,10 @@ and independently releasing the runtime.
 Maintainers publish Desktop downloads and self-hosted Backend images through
 component-specific release tags. See [the release guide](docs/releases.md) for
 versioning, required approvals, and signing setup. Hosted-service deployment is
-managed separately.
+managed separately. Read it before planning or cutting any release; the runtime
+has its own `runtime-vX.Y.Z` tags, covered in
+[`apps/runtime/README.md`](apps/runtime/README.md). Automated releases may only
+produce Patch or Minor versions — a Major needs an explicit manual `X.0.0`.
 
 ## Self-hosting
 
@@ -74,7 +77,7 @@ managed separately.
 `docker compose up` — MongoDB, S3-compatible storage, the backend, and one agent
 runtime. Start at [`deploy/compose/README.md`](deploy/compose/README.md).
 
-Two things to know before you plan around it:
+What to know before you plan around it:
 
 - **One team per deployment.** Teams are the scope for everything — sessions,
   skills, memory, integrations — but the hosted product is where multiple teams
@@ -141,10 +144,6 @@ ESLint: the backend config is type-aware, so a lint pass builds a full
 TypeScript program and is far too slow for a commit hook. Use
 `git commit --no-verify` to bypass it.
 
-> The repo-wide format sweep has not landed yet, so the hook (and the CI
-> `format` job) will flag pre-existing files. Both are non-blocking until it
-> does.
-
 ## Local Development
 
 From the repository root:
@@ -153,11 +152,39 @@ From the repository root:
 bun run dev
 ```
 
+It starts the local stack, backend, runtime and Electron Desktop with isolated
+configuration. Do not start Desktop on its own or use the web-only Vite server
+as the default dev loop.
+
 ## Working Guidelines
 
-- Backend-only changes should be developed and checked from `apps/backend`.
-- Desktop-only changes should be developed and checked from `apps/desktop`.
-- Contract changes that affect both apps should be committed in one monorepo PR so the API and desktop client stay compatible.
+`AGENTS.md` and `CLAUDE.md` point coding agents here, so this section is the
+single source of repository rules for people and agents alike.
+
+### Pull requests
+
+- Open PRs ready for review. Use a draft only when the change is genuinely
+  unfinished or a draft was asked for.
+- Titles follow Semantic Commit Messages, e.g.
+  `fix(agent): improve Braintrust chat traces`, with no tool prefix such as
+  `[codex]`.
+- Develop and check backend-only changes from `apps/backend` and desktop-only
+  changes from `apps/desktop`. A contract change that affects both lands in one
+  PR so the API and the desktop client stay compatible.
+
+### Backend environment variables
+
+`apps/backend/src/config.ts` and the section files under
+`apps/backend/src/config/` are the only place backend env vars are read and
+documented. `src/config.env-sync.test.ts` enforces the rules below in CI.
+
+- Read env only through the helpers in `src/config/env.ts` (`required()`,
+  `optional()`, `bool()`, …), in the section that owns the feature. No other
+  file under `src/` or `scripts/` may touch `process.env` or `Bun.env`; tests
+  and the test's `BYPASS_ALLOWLIST` are the exceptions.
+- Adding, removing or renaming a var updates `apps/backend/.env.example` in the
+  same PR, with a comment and a sensible placeholder. Platform-injected vars
+  (`HOSTNAME`, `GIT_SHA`, …) go in the test's `INFRA_ALLOWLIST` instead.
 
 ## License
 
