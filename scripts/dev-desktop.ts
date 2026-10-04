@@ -163,6 +163,9 @@ export async function startDesktop() {
     env: {
       ...process.env,
       NUPHOS_API_URL: backend.url ?? `http://localhost:${BASE_BACKEND_PORT}`,
+      // A loopback API host would otherwise retarget login to localhost:3100,
+      // which this launcher does not serve.
+      NUPHOS_LOGIN_URL: 'https://nuphos.ai/login',
       NUPHOS_LAUNCHER_HEALTH: '1',
       NUPHOS_CLI_CONFIG: DEV_CLI_CONFIG,
       ATLAS_WT_BADGE: WT_ID,

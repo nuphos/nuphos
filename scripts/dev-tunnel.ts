@@ -2,7 +2,7 @@
 // backend needs a public URL or sandbox-side setup silently hits PROD. Prefers
 // this machine's stable named tunnel; falls back to a per-run quick tunnel.
 import { spawn } from 'node:child_process'
-import { closeSync, mkdirSync, openSync, readFileSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -37,9 +37,30 @@ function machineHasNamedTunnel(): boolean {
     return false
   }
 }
-function namedTunnelRunning(): boolean {
+function namedTunnelPids(): string[] {
   try {
-    return Bun.spawnSync(['pgrep', '-f', 'cloudflared tunnel --config']).success
+    return Bun.spawnSync(['pgrep', '-f', 'cloudflared tunnel --config'])
+      .stdout.toString()
+      .split('\n')
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+// cloudflared reads ingress only at start, so a process older than config.yml
+// still routes to the previous origin.
+function namedTunnelStale(): boolean {
+  try {
+    const configMs = statSync(NAMED_TUNNEL_CONFIG).mtimeMs
+
+    return namedTunnelPids().some((pid) => {
+      const started = Date.parse(
+        Bun.spawnSync(['ps', '-o', 'lstart=', '-p', pid]).stdout.toString().trim(),
+      )
+
+      return !Number.isNaN(started) && configMs > started
+    })
   } catch {
     return false
   }
@@ -140,16 +161,21 @@ function configuredNamedTunnelUrl(port: number): string | null {
   }
 }
 
-async function ensureNamedTunnel(): Promise<boolean> {
-  if (!namedTunnelRunning()) spawnNamedTunnel()
-  if (await tunnelEdgeAlive(tunnel.url!)) return true
-  pushEvent(tunnel, 'edge returns 530 (pid alive ≠ tunnel alive) — restarting cloudflared…')
+function restartNamedTunnel(reason: string) {
+  pushEvent(tunnel, `${reason} — restarting cloudflared…`)
   try {
     Bun.spawnSync(['pkill', '-f', 'cloudflared tunnel --config'])
   } catch {
     /* nothing to kill */
   }
   spawnNamedTunnel()
+}
+
+async function ensureNamedTunnel(): Promise<boolean> {
+  if (namedTunnelPids().length === 0) spawnNamedTunnel()
+  else if (namedTunnelStale()) restartNamedTunnel('config.yml changed since cloudflared started')
+  if (await tunnelEdgeAlive(tunnel.url!)) return true
+  restartNamedTunnel('edge returns 530 (pid alive ≠ tunnel alive)')
 
   return tunnelEdgeAlive(tunnel.url!)
 }
