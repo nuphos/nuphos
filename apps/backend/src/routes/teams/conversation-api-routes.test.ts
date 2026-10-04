@@ -1,6 +1,25 @@
 import { describe, expect, test } from 'bun:test'
 
-import { dashboardPanelTeamApiRoute } from './conversation-api-routes'
+import { conversationTeamApiRoute, dashboardPanelTeamApiRoute } from './conversation-api-routes'
+
+describe('conversation member reads', () => {
+  test('routes member list and ID reads to canonical handlers', () => {
+    expect(conversationTeamApiRoute('GET', '/members')).toBe('canonical')
+    expect(conversationTeamApiRoute('GET', '/members/member-1')).toBe('canonical')
+  })
+
+  test('denies member writes and unrelated paths', () => {
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']) {
+      for (const path of ['/members', '/members/member-1']) {
+        expect(conversationTeamApiRoute(method, path)).toBeNull()
+      }
+    }
+    for (const path of ['/members/', '/members/member-1/role', '/memberships', '/']) {
+      expect(conversationTeamApiRoute('GET', path)).toBeNull()
+    }
+    expect(dashboardPanelTeamApiRoute('GET', '/members/member-1')).toBeNull()
+  })
+})
 
 describe('dashboardPanelTeamApiRoute', () => {
   test('vends selected credentials through the session handlers', () => {

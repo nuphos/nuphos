@@ -110,7 +110,7 @@ struct ModelSettingsSheet: View {
             Group {
                 if let config = session.sessionConfig, !config.options.isEmpty {
                     List {
-                        if let hint = config.hint ?? (session.isStreaming ? "Model settings are available after this reply." : nil) {
+                        if let hint = config.hint ?? (session.isStreaming ? "You can change model settings after this reply." : nil) {
                             Text(hint).font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
                         }
                         if let error = session.sessionConfigError {
@@ -118,7 +118,7 @@ struct ModelSettingsSheet: View {
                         }
                         ForEach(config.options) { option in
                             Section(option.name) {
-                                ForEach(option.options) { choice in
+                                ForEach(option.options.filter { option.kind == .fast || ($0.value.lowercased() != "default" && !["default", "default model", "agent default", "runtime default"].contains($0.name.lowercased())) }) { choice in
                                     Button {
                                         Task { await session.setSessionConfig(configId: option.id, value: choice.value) }
                                     } label: {
@@ -142,7 +142,7 @@ struct ModelSettingsSheet: View {
                         }
                     }
                     .scrollContentBackground(.hidden)
-                    .disabled(config.status != .ready || session.isStreaming || session.sessionConfigSaving)
+                    .disabled(!config.isEditable || session.isStreaming || session.sessionConfigSaving)
                 } else if let error = session.sessionConfigError {
                     ContentUnavailableView {
                         Label("Couldn't load model settings", systemImage: "wifi.exclamationmark")
@@ -152,7 +152,7 @@ struct ModelSettingsSheet: View {
                         Button("Try again") { Task { await session.refreshSessionConfig() } }.buttonStyle(.bordered)
                     }
                 } else if let config = session.sessionConfig {
-                    ContentUnavailableView("Model settings unavailable", systemImage: "slider.horizontal.3", description: Text(config.hint ?? "This runtime exposes no model controls."))
+                    ContentUnavailableView(config.modelTitle, systemImage: "slider.horizontal.3", description: Text(config.hint ?? (session.isStreaming ? "You can change model settings after this reply." : "")))
                 } else {
                     ProgressView("Getting model settings…").tint(Theme.muted)
                 }

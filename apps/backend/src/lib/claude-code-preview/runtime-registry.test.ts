@@ -474,7 +474,7 @@ test('chat and control endpoints use separate credentials from the same Secret',
 })
 
 test('the derived operator key matches the runtime image, vector for vector', () => {
-  // Pinned in zeabur/nuphos-runtime's test/runtime-start.test.mjs too. If these drift,
+  // Pinned in apps/runtime/test/runtime-start.test.mjs too. If these drift,
   // every self-hosted runtime loses status and Codex sign-in at once.
   expect(deriveRuntimeControlKey('correct-horse-battery-staple-0123456789')).toBe(
     '78e1724e5d59fee7238251e59f3571e4cb5587f14f649e324efae6f25b85ad8e',

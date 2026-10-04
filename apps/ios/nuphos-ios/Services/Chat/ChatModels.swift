@@ -406,10 +406,10 @@ extension ChatPart: Codable {
             if let part = TurnInterruptedPart(json: json) { self = .turnInterrupted(part) } else { self = .other(json) }
         case "step-start":
             self = .stepStart
-        case "file":
+        case "file", "image":
             self = .file(.init(
                 mediaType: json["mediaType"]?.stringValue ?? "",
-                filename: json["filename"]?.stringValue,
+                filename: json["filename"]?.stringValue ?? json["fileName"]?.stringValue,
                 url: json["url"]?.stringValue ?? ""
             ))
         case "source-url":

@@ -9,6 +9,7 @@ import { AgentStage } from './flow/AgentStage'
 import { deriveDefaultWorkspaceName } from './flow/shared'
 import { useFlowAdvance, useOnboardingTimers } from './flow/use-flow-advance'
 import { useJoinOptionsSync, useWorkspaceActions } from './flow/use-join-options'
+import { useLocalAgentSetup } from './flow/use-local-agent-setup'
 import { ONBOARDING_EXTRA_STEPS_ENABLED, openingAct } from './onboardingSteps'
 
 import type { Act, ChatStep, OnboardingFlowProps, OnboardingProvider } from './flow/shared'
@@ -35,6 +36,7 @@ export function OnboardingFlow({
   onFinish,
 }: OnboardingFlowProps) {
   const initialStepN = initialStep ?? 1
+  const localSetup = useLocalAgentSetup(onFinish)
   const [act, setAct] = useState<Act>(openingAct(initialStepN))
   const [chatStep, setChatStep] = useState<ChatStep>(
     initialStepN >= 5
@@ -154,7 +156,7 @@ export function OnboardingFlow({
       setJoiningTeamId,
       joinedTeams,
       setJoinedExisting,
-      onFinish,
+      onFinish: localSetup.finish,
     })
 
   const {
@@ -170,7 +172,7 @@ export function OnboardingFlow({
     handleEnterApp,
   } = useFlowAdvance({
     joinedExisting,
-    onFinish,
+    onFinish: localSetup.finish,
     teamId,
     currentTeamId,
     setTeamId,
@@ -206,7 +208,7 @@ export function OnboardingFlow({
     <div
       className={clsx(
         'fixed inset-0 z-40 flex flex-col text-main',
-        !slackDialogOpen && 'titlebar-drag',
+        !slackDialogOpen && !localSetup.dialog && 'titlebar-drag',
       )}
     >
       <div className="relative flex-1 min-h-0">
@@ -271,6 +273,7 @@ export function OnboardingFlow({
         )}
       </div>
 
+      {localSetup.dialog}
       {slackDialogOpen && teamId && (
         <BindSlackDialog
           open

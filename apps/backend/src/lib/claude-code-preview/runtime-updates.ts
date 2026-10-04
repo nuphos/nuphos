@@ -2,7 +2,12 @@ import { provisionerKubeClient } from './provisioner-kube'
 import { managedRuntimeImage } from './runtime-image'
 import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimes } from './runtime-registry'
-import { latestRuntimeRelease, newerRuntimeVersion, RUNTIME_RELEASES_URL } from './runtime-release'
+import {
+  latestRuntimeRelease,
+  newerRuntimeVersion,
+  runtimeReleaseUrl,
+  RUNTIME_RELEASES_URL,
+} from './runtime-release'
 import { runtimeServiceName } from './runtime-service-name'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -43,9 +48,14 @@ export async function runtimeUpdateStatus(
       (container) => container.name === 'openab',
     )?.image
 
-    if (!error && image === managedRuntimeImage(instance.provider, target)) state = 'updating'
+    const targetImage = await managedRuntimeImage(instance.provider, target)
+    // Both sides can be absent — an unreadable Deployment, an unresolved digest — and two
+    // absences are not a match: that would report an update as live without evidence.
+    const running = Boolean(image) && image === targetImage
+
+    if (!error && running) state = 'updating'
     if (
-      image === managedRuntimeImage(instance.provider, target) &&
+      running &&
       deployment?.status?.conditions?.some(
         (condition) => condition.reason === 'ProgressDeadlineExceeded',
       )
@@ -62,7 +72,7 @@ export async function runtimeUpdateStatus(
     targetVersion: target,
     releaseUrl:
       target && ['waiting', 'updating', 'failed'].includes(state)
-        ? `${RUNTIME_RELEASES_URL}/tag/v${target}`
+        ? await runtimeReleaseUrl(target, release)
         : (release?.url ?? RUNTIME_RELEASES_URL),
     ...(state === 'failed' ? { error } : {}),
   }

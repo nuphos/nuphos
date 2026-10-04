@@ -2,6 +2,20 @@
 // composed system prompt, the history preamble for a fresh inner session, and
 // any messages queued while no turn was running (they ride the first prompt).
 
+import {
+  clearConversationPreviewLocalTools,
+  clearConversationPreviewTurn,
+  setConversationPreviewContext,
+} from '@/lib/agent/db'
+import { promptImages } from '@/lib/agent/image-parts'
+import { renderAttributedMessage } from '@/lib/agent/message-metadata'
+import { drainPendingUserMessages, renderInjectedUserMessages } from '@/lib/agent/pending-messages'
+import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
+import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
+import { prefixUserMessage, recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
+import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
+import { runtimeAttachments } from '@/lib/claude-code-preview/runtime-attachments'
+
 import { emitRecallStartFrame } from './chat-prep'
 import { traceAgentChatError } from './trace'
 import { getUserMessageTexts } from './transcript'
@@ -11,19 +25,8 @@ import type { PreviewChatTurnArgs } from './chat-preview-turn'
 import type { AgentChatBody } from './types'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 import type { PreviewTurnMemory } from '@/lib/claude-code-preview/preview-recall'
+import type { RuntimeAttachment } from '@/lib/claude-code-preview/runtime-attachments'
 import type { UIMessage } from 'ai'
-
-import {
-  clearConversationPreviewLocalTools,
-  clearConversationPreviewTurn,
-  setConversationPreviewContext,
-} from '@/lib/agent/db'
-import { renderAttributedMessage } from '@/lib/agent/message-metadata'
-import { drainPendingUserMessages, renderInjectedUserMessages } from '@/lib/agent/pending-messages'
-import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
-import { prefixUserMessage, recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
-import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
-import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 
 type ResumeReason = NonNullable<AgentChatBody['resumeReason']>
 
@@ -103,6 +106,7 @@ export type PreparedPreviewTurn = {
   memory: PreviewTurnMemory | null
   systemPrompt: string | undefined
   message: string
+  attachments: RuntimeAttachment[]
   freshSessionMessage: (uncertain?: boolean) => string
   /** Queued-while-idle messages folded into the first prompt; persisted too. */
   carried: PendingUserMessage[]
@@ -151,6 +155,14 @@ export async function preparePreviewTurn(
     drainPendingUserMessages(userId, sessionId, actorUserId),
   ])
   const inputs = turnInputMessages(args.messages)
+  const images = args.resume ? [] : inputs.flatMap((m) => promptImages(m.parts))
+  const attachments = args.resume
+    ? []
+    : await runtimeAttachments(
+        inputs.flatMap((m) => m.parts),
+        { teamId, userId: actorUserId, sessionId },
+        images,
+      )
   const lastUserText =
     resumeMessage(args.resume) ??
     (inputs.map((m) => lastUserMessageText([m])).join('\n\n') || args.firstMessage)
@@ -161,6 +173,7 @@ export async function preparePreviewTurn(
 
   return {
     memory,
+    attachments,
     systemPrompt,
     message: prefixUserMessage(`${lastUserText}${carriedBlock}`, recallBlock),
     freshSessionMessage: (uncertain?: boolean) => {

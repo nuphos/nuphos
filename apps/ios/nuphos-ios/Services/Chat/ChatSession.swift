@@ -83,7 +83,7 @@ final class ChatSession {
     var canSteer: Bool { canRespondToRun && !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
     var canReply: Bool { !readOnly && (!isNativeRuntime || (canRespondToRun && allows("reply"))) }
     var canCancel: Bool { (isOwner || canCancelRun) && !readOnly && !isStopping && (isNativeRuntime ? allows("cancel") : transportStreaming) }
-    var canSubmit: Bool { loaded && loadError == nil && !readOnly && !submitting && !awaitingAdmission && !steeringPending && (!isNativeRuntime || isNew || allows("send") || canReply || canSteer) }
+    var canSubmit: Bool { loaded && loadError == nil && !readOnly && failedSubmission == nil && !submitting && !awaitingAdmission && !steeringPending && (!isNativeRuntime || isNew || allows("send") || canReply || canSteer) }
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action, at: observations.now) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
@@ -302,7 +302,8 @@ final class ChatSession {
                     let instruction = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: files)
                     parts.append(.text(.init(text: instruction, state: .done)))
                 }
-                await dispatch(ChatMessage(role: .user, parts: parts), title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed)
+                let message = ChatMessage(role: .user, parts: parts)
+                await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed, submission: submission)
             } catch {
                 self.error = error.localizedDescription
                 failedSubmission = submission
@@ -310,8 +311,14 @@ final class ChatSession {
         }
     }
 
-    private(set) var failedSubmission: ComposerSubmission?
-    func retryUpload() { if let submission = failedSubmission { send(submission) } }
+    var failedSubmission: ComposerSubmission?
+
+    /// Only restore a request rejected before admission, never a resumed turn.
+    private func rejectOversizedSubmission(_ pending: (id: String, submission: ComposerSubmission)?) {
+        guard let pending else { return }
+        failedSubmission = pending.submission
+        messages.removeAll { $0.id == pending.id }
+    }
 
     func removeQueued(at index: Int) {
         guard !steeringPending, queued.indices.contains(index) else { return }
@@ -385,7 +392,7 @@ final class ChatSession {
         await dispatch(.user(text), title: text)
     }
 
-    private func dispatch(_ message: ChatMessage, title text: String) async {
+    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil) async {
         let wasEmpty = messages.isEmpty
         if !isNativeRuntime, let i = messages.lastIndex(where: { $0.role == .assistant }) {
             messages[i].supersedePendingApprovals()
@@ -399,11 +406,11 @@ final class ChatSession {
         error = nil
         stoppedByUser = false
 
-        // The desktop PUTs before the first POST so the conversation exists
-        // with the user's words even if the turn is rejected.
-        await syncTranscriptNow()
+        // The chat endpoint persists the user message after admission. Avoid
+        // writing an optimistic row that a size check or proxy can reject.
         startTurn(TurnOptions(
             streamId: newId(),
+            submission: submission.map { (message.id, $0) },
             permissionMode: wasEmpty ? permissionMode.rawValue : nil,
             agentRuntime: wasEmpty ? runtime?.provider.rawValue : nil,
             runtimeId: wasEmpty ? runtime?.id : nil
@@ -546,6 +553,7 @@ final class ChatSession {
 
     struct TurnOptions {
         var streamId: String
+        var submission: (id: String, submission: ComposerSubmission)?
         var explicitResume = false
         var resumeFrom = 0
         var continueAfterInterruption = false
@@ -829,7 +837,14 @@ final class ChatSession {
                 return .aborted
             } catch let urlError as URLError where urlError.code == .cancelled {
                 return .aborted
+            } catch is ChatPayload.TooLarge {
+                if !accepted && !shouldResume && reconnects == 0 { rejectOversizedSubmission(options.submission) }
+                return .failed(ChatPayload.tooLargeMessage)
             } catch SSEClient.Failure.badStatus(let status, let bodyText) {
+                if status == 413 {
+                    if !accepted && !shouldResume && reconnects == 0 { rejectOversizedSubmission(options.submission) }
+                    return .failed(ChatPayload.tooLargeMessage)
+                }
                 let conflict = AgentChatAPI.conflict(status: status, body: bodyText)
                 debugLog("HTTP \(status): \(bodyText ?? "")")
                 switch conflict {

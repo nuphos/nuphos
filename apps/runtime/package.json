@@ -1,0 +1,10 @@
+{
+  "name": "nuphos-runtime",
+  "private": true,
+  "version": "0.1.9",
+  "description": "Container image for the Nuphos agent runtime.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

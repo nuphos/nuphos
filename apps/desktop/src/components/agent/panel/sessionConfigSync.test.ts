@@ -180,3 +180,97 @@ test('lost write acknowledgement is never an optimistic model and triggers readb
   await flush()
   assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'actual')
 })
+
+test('busy or dormant reads without options retain the confirmed model', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let response = ready('actual-model')
+  const sync = new SessionConfigSync({ read: async () => response, write: async () => response })
+  const stop = sync.start()
+
+  t.after(stop)
+  await flush()
+  for (const status of ['busy', 'dormant'] as const) {
+    response = { status, options: [] }
+    await sync.refresh()
+    assert.equal(sync.getSnapshot().data?.options[0]?.currentValue, 'actual-model')
+    assert.equal(sync.getSnapshot().data?.status, status)
+  }
+})
+
+test('streaming model selection applies the latest choice once the reply is idle', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const writes: string[] = []
+  const sync = new SessionConfigSync({
+    read: async () => ready('old'),
+    write: async (selection) => {
+      writes.push(selection.value)
+
+      return ready(selection.value)
+    },
+  })
+  const stop = sync.start()
+
+  t.after(stop)
+  sync.setStreaming(true)
+  await flush()
+  await sync.select({ configId: 'model', value: 'first' })
+  await sync.select({ configId: 'model', value: 'latest' })
+  assert.deepEqual(writes, [])
+  assert.equal(sync.getSnapshot().queued?.[0]?.value, 'latest')
+  sync.setStreaming(false)
+  await flush()
+  assert.deepEqual(writes, ['latest'])
+  assert.equal(sync.getSnapshot().queued, undefined)
+})
+
+test('streaming retains effort and model independently and applies model first', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const writes: string[] = []
+  const sync = new SessionConfigSync({
+    read: async () => ready('old'),
+    write: async ({ configId, value }) => {
+      writes.push(`${configId}:${value}`)
+
+      return ready('new')
+    },
+  })
+  const stop = sync.start()
+
+  t.after(stop)
+  sync.setStreaming(true)
+  await flush()
+  await sync.select({ configId: 'effort', value: 'low' })
+  await sync.select({ configId: 'model', value: 'new' })
+  await sync.select({ configId: 'effort', value: 'high' })
+  assert.equal(sync.getSnapshot().queued?.length, 2)
+  assert.deepEqual(writes, [])
+  sync.setStreaming(false)
+  await flush()
+  await flush()
+  assert.deepEqual(writes, ['model:new', 'effort:high'])
+  assert.equal(sync.getSnapshot().queued, undefined)
+})
+
+test('a failed queued model write does not apply effort to the previous model', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const writes: string[] = []
+  const sync = new SessionConfigSync({
+    read: async () => ready('old'),
+    write: async ({ configId }) => {
+      writes.push(configId)
+      throw new Error('Model rejected')
+    },
+  })
+  const stop = sync.start()
+
+  t.after(stop)
+  sync.setStreaming(true)
+  await flush()
+  await sync.select({ configId: 'model', value: 'new' })
+  await sync.select({ configId: 'effort', value: 'high' })
+  sync.setStreaming(false)
+  await flush()
+  await flush()
+  assert.deepEqual(writes, ['model'])
+  assert.equal(sync.getSnapshot().queued, undefined)
+})

@@ -1,10 +1,9 @@
 import clsx from 'clsx'
-import { ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { ClaudeCodeIcon, CodexIcon } from '../../components/agent/panel/icons'
-import { QuotaBadge } from '../../components/agent/panel/RuntimeSelector'
+import { RuntimeUsageBar } from './RuntimeUsageBar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
@@ -14,9 +13,10 @@ import { RuntimeDefaultsSection } from './RuntimeDefaultsSection'
 import { RuntimeInstanceForm } from './RuntimeInstanceForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
-import { RuntimeOverview } from './RuntimeOverview'
+import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
 import { STATUS_DOT, runtimeStatusView } from './runtimePresentation'
 import { RuntimeSignIn } from './RuntimeSignIn'
+import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 
 import type { PolledRuntimeStatus } from './RuntimeOverview'
@@ -25,22 +25,17 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 const STATUS_POLL_MS = 10_000
 const STARTING_POLL_MS = 2_000
 
-/** One runtime: a compact row that stays informative while collapsed (status,
- *  image) and expands into status, resource usage and defaults. */
+/** Details for the agent selected in the left-hand list. */
 export function RuntimeInstanceCard({
   teamId,
   instance,
   quota,
   isAdmin,
-  expanded,
-  onToggle,
 }: {
   teamId: string
   instance: RuntimeInstance
   quota?: RuntimeQuota
   isAdmin: boolean
-  expanded: boolean
-  onToggle: () => void
 }) {
   const [signingIn, setSigningIn] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -98,34 +93,36 @@ export function RuntimeInstanceCard({
   const hosted = instance.kind === 'managed' || instance.kind === 'external'
 
   return (
-    <section
-      aria-label={instance.label}
-      className={clsx(
-        'overflow-hidden rounded-xl border transition-colors',
-        expanded ? 'border-zGray-700/80' : 'border-zGray-800/70',
-      )}
-    >
-      <div className="flex items-center gap-2 py-3 pl-2 pr-3">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1.5 py-1 text-left hover:bg-zGray-800/30"
-        >
-          <ChevronRight
-            className={clsx(
-              'h-4 w-4 shrink-0 text-tertiary transition-transform',
-              expanded && 'rotate-90',
-            )}
-          />
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zGray-800/60 bg-surface">
-            <Icon className="h-[18px] w-[18px] text-secondary" />
+    <section aria-label={instance.label} className="mx-auto w-full max-w-5xl">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-5">
+        <div className="flex min-w-0 flex-1 basis-52 items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zGray-800/70 bg-main shadow-sm">
+            <Icon className="h-5 w-5 text-secondary" />
           </div>
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <h3 className="truncate text-sm font-medium text-main" title={instance.label}>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h3
+                className="truncate text-[16px] font-semibold tracking-tight text-main"
+                title={instance.label}
+              >
                 {instance.label}
               </h3>
+              {!statusError &&
+                runtime?.runtimeUpdate &&
+                ['available', 'waiting', 'updating', 'failed'].includes(
+                  runtime.runtimeUpdate.state,
+                ) && (
+                  <span className="shrink-0 rounded border border-zViolet-500/30 bg-zViolet-500/10 px-1.5 py-0.5 text-[10px] text-zViolet-400">
+                    {
+                      runtimeUpdatePresentation(
+                        runtime.runtimeUpdate,
+                        instance.kind === 'managed',
+                        canEdit,
+                        enabled,
+                      ).title
+                    }
+                  </span>
+                )}
               {kindTag && (
                 <span className="shrink-0 rounded border border-zGray-800 px-1.5 text-[10px] uppercase tracking-wide text-tertiary">
                   {kindTag}
@@ -137,7 +134,7 @@ export function RuntimeInstanceCard({
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
           </div>
-        </button>
+        </div>
         <span
           role="status"
           className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-secondary"
@@ -147,7 +144,14 @@ export function RuntimeInstanceCard({
           {runtime?.online && runtime.latencyMs !== undefined && (
             <span className="text-tertiary">· {String(runtime.latencyMs)}ms</span>
           )}
-          <QuotaBadge quota={quota} prefix="· " />
+          {quota?.available && quota.windows.length > 0 && (
+            <RuntimeUsageBar
+              window={quota.windows.reduce(
+                (highest, window) => (window.usedPercent > highest.usedPercent ? window : highest),
+                quota.windows[0],
+              )}
+            />
+          )}
         </span>
         <RuntimeActionsMenu
           instance={instance}
@@ -184,69 +188,63 @@ export function RuntimeInstanceCard({
                   targetVersion: result.version,
                   releaseUrl:
                     previous.runtimeUpdate?.releaseUrl ??
-                    'https://github.com/zeabur/nuphos-runtime/releases',
+                    'https://github.com/nuphos/nuphos/releases?q=runtime-v',
                 },
               },
           )
           setUpdateRevision((value) => value + 1)
         }}
       />
-      {expanded && (
-        <div className="divide-y divide-zGray-800/60 border-t border-zGray-800/60">
-          {instance.deletion ? (
-            <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
-              {instance.deletion.error ??
-                'Saving conversation workspaces, then deleting the agent and its disk. Conversations stay in Nuphos and can be moved to another agent.'}
-            </p>
-          ) : editing ? (
-            <div className="p-4">
-              <RuntimeInstanceForm
-                instance={instance}
-                onCancel={() => setEditing(false)}
-                onSave={async (input) => {
-                  await api.atlasUpdateRuntimeInstance(teamId, instance.id, { label: input.label })
-                  setEditing(false)
-                  changed()
-                }}
-              />
-            </div>
-          ) : (
-            <>
-              <div className="px-4 py-4">
-                <RuntimeOverview
+      <div className="divide-y divide-zGray-800/60 border-t border-zGray-800/60">
+        {instance.deletion ? (
+          <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
+            {instance.deletion.error ??
+              'Saving conversation workspaces, then deleting the agent and its disk. Conversations stay in Nuphos and can be moved to another agent.'}
+          </p>
+        ) : editing ? (
+          <div className="p-4">
+            <RuntimeInstanceForm
+              instance={instance}
+              onCancel={() => setEditing(false)}
+              onSave={async (input) => {
+                await api.atlasUpdateRuntimeInstance(teamId, instance.id, { label: input.label })
+                setEditing(false)
+                changed()
+              }}
+            />
+          </div>
+        ) : (
+          <>
+            {runtime?.credentialRevoked ? (
+              <p className="px-4 py-4 text-xs leading-relaxed text-secondary">
+                The agent’s owner revoked this team’s connection from its console. Generate a new
+                pairing code there, connect again and choose Update existing connection.
+              </p>
+            ) : (
+              hosted &&
+              enabled &&
+              runtime &&
+              !statusError && (
+                <RuntimeSignIn
                   instance={instance}
-                  runtime={runtime}
-                  quota={quota}
-                  statusError={statusError}
+                  authenticated={runtime.authenticated}
+                  {...(canEdit && !busy ? { onSignIn: () => setSigningIn(true) } : {})}
                 />
-              </div>
-              {hosted && enabled && (
-                <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />
-              )}
-              {runtime?.credentialRevoked ? (
-                <p className="px-4 py-4 text-xs leading-relaxed text-secondary">
-                  The agent’s owner revoked this team’s connection from its console. Generate a new
-                  pairing code there, connect again and choose Update existing connection.
-                </p>
-              ) : (
-                hosted &&
-                enabled &&
-                runtime &&
-                !statusError && (
-                  <RuntimeSignIn
-                    instance={instance}
-                    authenticated={runtime.authenticated}
-                    {...(canEdit && !busy ? { onSignIn: () => setSigningIn(true) } : {})}
-                  />
-                )
-              )}
-              <div className="px-4 py-4">
-                <RuntimeDefaultsSection teamId={teamId} instance={instance} isAdmin={isAdmin} />
-              </div>
-            </>
-          )}
-        </div>
-      )}
+              )
+            )}
+            <div className="px-5 py-6">
+              <RuntimeDefaultsSection teamId={teamId} instance={instance} isAdmin={isAdmin} />
+            </div>
+            <div className="px-5 py-6">
+              <RuntimeUsageSection quota={quota} />
+            </div>
+            <div className="px-5 py-6">
+              <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />
+            </div>
+            {hosted && enabled && <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />}
+          </>
+        )}
+      </div>
       {signingIn && (
         <RuntimeLoginDialog
           teamId={teamId}

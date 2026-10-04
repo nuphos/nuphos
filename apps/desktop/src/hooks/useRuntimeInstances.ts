@@ -6,7 +6,7 @@ import type { RuntimeInstance } from '../types/runtime'
 
 export const RUNTIME_INSTANCES_CHANGED = 'nuphos:runtime-instances-changed'
 
-export function useRuntimeInstances(teamId?: string) {
+export function useRuntimeInstances(teamId?: string, refreshKey = 0) {
   const [state, setState] = useState<{
     teamId?: string
     instances: RuntimeInstance[]
@@ -48,7 +48,7 @@ export function useRuntimeInstances(teamId?: string) {
       clearInterval(timer)
       window.removeEventListener(RUNTIME_INSTANCES_CHANGED, refresh)
     }
-  }, [teamId, revision])
+  }, [teamId, revision, refreshKey])
 
   return {
     instances: state.teamId === teamId ? state.instances : [],

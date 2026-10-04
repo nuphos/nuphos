@@ -1,8 +1,10 @@
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { useThisComputer } from '../../../hooks/useThisComputer'
-import { agentName, groupAgentsByTier } from '../../../lib/agentName'
+import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
+import { LocalClaudeSignIn } from '../../../views/settings/LocalClaudeSignIn'
 import {
   Menu,
   MenuContent,
@@ -103,6 +105,7 @@ export function RuntimeSelector({
   onSettings,
   onAddAgent,
 }: RuntimeControl) {
+  const [signingIn, setSigningIn] = useState<string | null>(null)
   const Icon = value?.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
   const providerName = value?.provider === 'codex' ? 'Codex' : 'Claude Code'
   const owner = useThisComputer()
@@ -112,12 +115,44 @@ export function RuntimeSelector({
     : loading
       ? 'Loading agents…'
       : 'Choose agent'
+  const selectedQuota = quota ?? (value?.id ? quotas?.get(value.id) : undefined)
+  const [usageWaitExpired, setUsageWaitExpired] = useState<string | undefined>()
+
+  useEffect(() => {
+    if (!value?.id) return
+    const timer = setTimeout(() => setUsageWaitExpired(value.id), 15_000)
+
+    return () => clearTimeout(timer)
+  }, [value?.id])
+  const usageLoading = Boolean(
+    value?.id &&
+    usageWaitExpired !== value.id &&
+    selected?.status === 'active' &&
+    selected.local?.signedIn !== false &&
+    (!selectedQuota || selectedQuota.reason === 'That computer has not reported usage yet'),
+  )
   const content = (
     <>
       <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span className="max-w-40 truncate">{label}</span>
+      {loading && !value ? (
+        <span
+          aria-label="Loading agent"
+          role="status"
+          className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
+        />
+      ) : (
+        <span className="max-w-40 truncate">{label}</span>
+      )}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
-      <QuotaBadge quota={quota ?? (value?.id ? quotas?.get(value.id) : undefined)} prefix="· " />
+      {usageLoading ? (
+        <span
+          aria-label="Loading usage"
+          role="status"
+          className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
+        />
+      ) : (
+        <QuotaBadge quota={selectedQuota} prefix="· " />
+      )}
     </>
   )
   const classes =
@@ -131,71 +166,89 @@ export function RuntimeSelector({
     )
 
   return (
-    <Menu>
-      <MenuTrigger
-        aria-label={`Conversation agent: ${label}`}
-        className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
-      >
-        {content}
-        <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
-      </MenuTrigger>
-      <MenuContent side="top" align="end" className="w-72">
-        {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
-        {!loading && !error && options.length === 0 && (
-          <p className="px-2 py-2 text-xs text-tertiary">
-            Connect an agent in Settings → Agent to get started.
-          </p>
-        )}
-        <div className="max-h-64 overflow-auto">
-          {groupAgentsByTier(options, owner).map((group, index) => (
-            <MenuGroup key={group.tier}>
-              {index > 0 && <MenuSeparator />}
-              <MenuGroupLabel>{group.title}</MenuGroupLabel>
-              {group.agents.map((instance) => {
-                const InstanceIcon = instance.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
+    <>
+      {signingIn && (
+        <LocalClaudeSignIn
+          initiallyOpen
+          onClosed={(connected) => {
+            if (connected) onSelect(signingIn)
+            setSigningIn(null)
+          }}
+        />
+      )}
+      <Menu>
+        <MenuTrigger
+          aria-label={`Conversation agent: ${label}`}
+          className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
+        >
+          {content}
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+        </MenuTrigger>
+        <MenuContent side="top" align="end" className="w-72">
+          {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
+          {!loading && !error && options.length === 0 && (
+            <p className="px-2 py-2 text-xs text-tertiary">
+              Connect an agent in Settings → Agent to get started.
+            </p>
+          )}
+          <div className="max-h-64 overflow-auto">
+            {groupAgentsByTier(options, owner).map((group, index) => (
+              <MenuGroup key={group.tier}>
+                {index > 0 && <MenuSeparator />}
+                <MenuGroupLabel>{group.title}</MenuGroupLabel>
+                {group.agents.map((instance) => {
+                  const needsLocalLogin =
+                    instance.provider === 'claude-code' &&
+                    agentTier(instance, owner) === 'local' &&
+                    instance.local?.signedIn !== true
+                  const InstanceIcon = instance.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
 
-                return (
-                  <MenuItem
-                    key={instance.id}
-                    selected={instance.id === value?.id}
-                    disabled={
-                      selectDisabled ||
-                      instance.status === 'disabled' ||
-                      Boolean(instance.deletion) ||
-                      instance.local?.signedIn === false
-                    }
-                    icon={<InstanceIcon className="h-3.5 w-3.5" />}
-                    onClick={() => onSelect(instance.id)}
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate">{agentName(instance, owner)}</span>
-                      <span className="text-[11px] text-tertiary">
-                        {PROVIDER_NAME[instance.provider]}
-                        {runtimeOptionNote(instance)}
-                        <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
+                  return (
+                    <MenuItem
+                      key={instance.id}
+                      selected={instance.id === value?.id}
+                      disabled={
+                        selectDisabled ||
+                        instance.status === 'disabled' ||
+                        Boolean(instance.deletion) ||
+                        (instance.local?.signedIn === false && !needsLocalLogin)
+                      }
+                      icon={<InstanceIcon className="h-3.5 w-3.5" />}
+                      onClick={() => {
+                        if (needsLocalLogin) setSigningIn(instance.id)
+                        else onSelect(instance.id)
+                      }}
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate">{agentName(instance, owner)}</span>
+                        <span className="text-[11px] text-tertiary">
+                          {PROVIDER_NAME[instance.provider]}
+                          {runtimeOptionNote(instance)}
+                          <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
+                        </span>
                       </span>
-                    </span>
-                  </MenuItem>
-                )
-              })}
-            </MenuGroup>
-          ))}
-        </div>
-        {(onAddAgent ?? onSettings) && (
-          <>
-            {options.length > 0 && <MenuSeparator />}
-            {onAddAgent ? (
-              <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
-                Add new agent
-              </MenuItem>
-            ) : (
-              <MenuItem icon={<Settings2 className="h-3.5 w-3.5" />} onClick={onSettings}>
-                Manage agents
-              </MenuItem>
-            )}
-          </>
-        )}
-      </MenuContent>
-    </Menu>
+                    </MenuItem>
+                  )
+                })}
+              </MenuGroup>
+            ))}
+          </div>
+          {(onAddAgent ?? onSettings) && (
+            <>
+              {options.length > 0 && <MenuSeparator />}
+              {onAddAgent ? (
+                <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
+                  Add new agent
+                </MenuItem>
+              ) : (
+                <MenuItem icon={<Settings2 className="h-3.5 w-3.5" />} onClick={onSettings}>
+                  Manage agents
+                </MenuItem>
+              )}
+            </>
+          )}
+        </MenuContent>
+      </Menu>
+    </>
   )
 }

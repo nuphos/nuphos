@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { useTextSwap } from '../../hooks/useTextSwap'
 
 import { unbundledStatus } from './localAgentBundle'
+import { LocalClaudeSignIn } from './LocalClaudeSignIn'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { RuntimeStatusTone } from './runtimePresentation'
@@ -34,6 +35,8 @@ const AGENT: Record<
 }
 
 function statusLine(agent: LocalAgentState): { label: string; tone: RuntimeStatusTone } {
+  if (agent.cli?.installed && agent.cli.loggedIn !== true)
+    return { label: 'Sign in to connect this agent', tone: 'off' }
   if (agent.online) return { label: 'Ready for your conversations', tone: 'online' }
   if (agent.cli?.installed === false) return { label: 'Not installed', tone: 'off' }
   if (agent.error) return { label: agent.error, tone: 'error' }
@@ -66,6 +69,19 @@ function CliStatus({
         <p>
           Install it from a terminal with <Code>{agent.install}</Code>, then check again.
         </p>
+      </div>
+    )
+  if (provider === 'claude-code')
+    return (
+      <div className="space-y-2 text-[12px] text-tertiary">
+        <p>
+          {cli.loggedIn === true
+            ? 'Signed in to Claude for Nuphos on this computer.'
+            : 'Connect Claude to use this computer as your agent.'}
+        </p>
+        <LocalClaudeSignIn
+          label={cli.loggedIn === true ? 'Sign in again' : 'Sign in with Claude'}
+        />
       </div>
     )
   if (cli.loggedIn === false)

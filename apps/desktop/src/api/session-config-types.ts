@@ -8,7 +8,7 @@ export type SessionConfigOption = {
 }
 
 export type SessionConfigState = {
-  status: 'ready' | 'busy' | 'dormant' | 'unsupported'
+  status: 'ready' | 'busy' | 'dormant' | 'unsupported' | 'offline'
   options: SessionConfigOption[]
 }
 

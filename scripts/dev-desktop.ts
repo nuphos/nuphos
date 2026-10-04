@@ -1,4 +1,4 @@
-// The desktop supervisor: vite + electron under one `pnpm electron:dev`, with
+// The desktop supervisor: vite + electron under the root `bun run dev` launcher, with
 // its readiness read back out of their (colourised) output.
 import { spawn } from 'node:child_process'
 
@@ -158,7 +158,7 @@ export async function startDesktop() {
   startTiming(desktop)
   pushEvent(desktop, 'starting vite + electron …')
   const backendPort = backend.port ?? BASE_BACKEND_PORT
-  const child = spawn('pnpm', ['electron:dev'], {
+  const child = spawn('pnpm', ['exec', 'vite'], {
     cwd: DESKTOP_DIR,
     env: {
       ...process.env,

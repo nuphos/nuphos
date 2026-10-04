@@ -16,9 +16,9 @@ function groupHasMembers(pgid: number): boolean {
   }
 }
 
-// `pnpm electron:dev` is the group leader and exits ahead of vite/Electron. A
-// teardown that only waits for the leader leaves Electron running with a
-// closed stdout — the "write EPIPE" crash dialog.
+// A group leader can exit ahead of its descendants. A teardown that only waits
+// for the leader leaves Electron running with a closed stdout — the
+// "write EPIPE" crash dialog.
 test('stopTree reaps descendants that outlive the group leader', async () => {
   const child = spawn('sh', ['-c', 'sleep 60 & exit 0'], {
     detached: true,

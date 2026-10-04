@@ -1,3 +1,13 @@
+import { config } from '@/config'
+import { syncConversationTranscript } from '@/lib/agent/db'
+import { persistedImagePart } from '@/lib/agent/image-parts'
+import { stripInlineFileData } from '@/lib/agent/inbound-files'
+import { parseMessageMetadata } from '@/lib/agent/message-metadata'
+import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
+import { withCostUsd } from '@/lib/agent/model-pricing'
+import { withCachePoint } from '@/lib/agent/model-provider'
+import { AppError } from '@/lib/errors'
+
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import type { AgentClientMeta, AgentConversation, AgentCredentialAccess } from '@/lib/agent/db'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
@@ -5,15 +15,6 @@ import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { ProviderOptions } from '@/lib/agent/model-provider'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
 import type { UIMessage } from 'ai'
-
-import { config } from '@/config'
-import { syncConversationTranscript } from '@/lib/agent/db'
-import { stripInlineFileData } from '@/lib/agent/inbound-files'
-import { parseMessageMetadata } from '@/lib/agent/message-metadata'
-import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
-import { withCostUsd } from '@/lib/agent/model-pricing'
-import { withCachePoint } from '@/lib/agent/model-provider'
-import { AppError } from '@/lib/errors'
 
 export { getFirstUserMessage, getUserMessageTexts } from './transcript-text'
 
@@ -150,6 +151,13 @@ function normalizeUiMessagePartForTranscript(part: unknown): unknown {
   if (!part || typeof part !== 'object') return part
   const value = part as Record<string, unknown>
 
+  if (
+    value.type === 'data-attachment' &&
+    value.data &&
+    typeof value.data === 'object' &&
+    (value.data as { type?: unknown }).type === 'transfer-upload'
+  )
+    return value.data
   if (typeof value.type !== 'string') return part
   const toolName = value.type.startsWith('tool-')
     ? value.type.slice('tool-'.length)
@@ -183,9 +191,7 @@ function normalizeUiMessagePartForTranscript(part: unknown): unknown {
 function normalizeUiMessagePartsForTranscript(parts: unknown): unknown[] {
   if (!Array.isArray(parts)) return []
 
-  // stripInlineFileData last: an inlined image (vision) must never reach the
-  // stored transcript, which is re-read to rebuild history on every later turn.
-  return stripInlineFileData(parts.map(normalizeUiMessagePartForTranscript))
+  return stripInlineFileData(parts.map(normalizeUiMessagePartForTranscript).map(persistedImagePart))
 }
 
 export function uiMessagesToTranscript(messages: UIMessage[]): TranscriptMessage[] {

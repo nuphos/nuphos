@@ -1,4 +1,3 @@
-import { AgentSection } from './AgentSection'
 import { AutoModeSection } from './AutoModeSection'
 import { GeneralSection } from './GeneralSection'
 import { InstructionsSection } from './InstructionsSection'
@@ -29,7 +28,6 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
       onTeamRemoved={onTeamRemoved}
     />
   ),
-  'workspace.agent': ({ team }) => <AgentSection team={team} />,
   'workspace.instructions': ({ team }) => <InstructionsSection team={team} scope="team" />,
   'preferences.instructions': ({ team }) => <InstructionsSection team={team} scope="personal" />,
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (

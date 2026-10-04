@@ -3,6 +3,12 @@ import { randomBytes } from 'node:crypto'
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
+import {
+  publishedRuntimeImage,
+  publishRuntimeRelease,
+  restoreRuntimeReleases,
+} from './runtime-release-testing'
+
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
@@ -11,10 +17,12 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 import type { TeamAuthVariables } from '@/middleware/auth'
 
 const previousKey = config.claudeCodePreview.tokenEncryptionKey
+const FLEET_VERSION = '0.3.1'
 
 config.claudeCodePreview.tokenEncryptionKey = randomBytes(32).toString('base64')
 afterAll(() => {
   config.claudeCodePreview.tokenEncryptionKey = previousKey
+  restoreRuntimeReleases()
 })
 
 let store = portabilityDb()
@@ -59,8 +67,9 @@ async function add(
 }
 const runtimeRows = () => store.rows('claude_code_runtimes')
 
-beforeEach(() => {
+beforeEach(async () => {
   store = portabilityDb()
+  await publishRuntimeRelease({ version: FLEET_VERSION })
 })
 
 test('adding a managed agent registers a hosted runtime with its own generated password', async () => {
@@ -70,7 +79,7 @@ test('adding a managed agent registers a hosted runtime with its own generated p
 
     expect(created).toMatchObject({
       kind: 'managed',
-      image: `ghcr.io/zeabur/nuphos-runtime:${config.claudeCodeRuntimeProvisioner.runtimeVersion}-${provider}`,
+      image: publishedRuntimeImage(FLEET_VERSION, provider),
     })
     expect(row).toMatchObject({ hostedBy: 'nuphos', provider, status: 'active' })
     expect(row.url).toMatch(

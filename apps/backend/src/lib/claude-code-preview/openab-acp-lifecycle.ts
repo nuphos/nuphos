@@ -1,4 +1,5 @@
 import type { OpenAbPermissionHandler, PendingCallContext } from './openab-acp-session'
+import type { PromptAttachment } from './runtime-attachments'
 
 export type RuntimeJobRequest = {
   jobId: string
@@ -10,6 +11,28 @@ export type RuntimeJobRequest = {
 }
 
 export abstract class OpenAbAcpLifecycle {
+  onTerminalFrame?: (frame: unknown) => void
+  terminalRequest(
+    operation: 'start' | 'input' | 'resize' | 'close' | 'ack',
+    params: Record<string, unknown>,
+  ) {
+    return this.call(`_openab/runtime/terminal/${operation}`, params)
+  }
+  protected routeRuntimeFrame(method: unknown, params: unknown): boolean {
+    if (method === '_openab/runtime/terminal/frame') {
+      this.onTerminalFrame?.((params as { frame?: unknown })?.frame)
+
+      return true
+    }
+    if (method === '_openab/runtime/login/frame') {
+      this.routeRuntimeLoginFrame(params)
+
+      return true
+    }
+
+    return false
+  }
+
   protected abstract call(
     method: string,
     params: Record<string, unknown>,
@@ -161,5 +184,23 @@ export abstract class OpenAbAcpLifecycle {
     this.runtimeLoginHandlers.clear()
     for (const handler of this.closedHandlers) handler()
     this.closedHandlers.clear()
+  }
+}
+
+export function attachmentPrompt(
+  sessionId: string,
+  text: string,
+  attachments: PromptAttachment[],
+  meta: Record<string, unknown>,
+) {
+  return {
+    sessionId,
+    prompt: [
+      { type: 'text', text },
+      ...attachments.flatMap(({ description, ...link }) =>
+        description ? [link, { type: 'text', text: `${link.uri}: ${description}` }] : [link],
+      ),
+    ],
+    ...meta,
   }
 }

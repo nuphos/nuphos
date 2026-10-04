@@ -5,7 +5,11 @@ import { localAgentReady } from '../../../lib/localAgentReady'
 
 /** A quiet pointer to set up the local agent, shown only while this computer has none ready. */
 export function LocalAgentHint() {
-  if (localAgentReady(useLocalRuntimeState()) !== false) return null
+  const state = useLocalRuntimeState()
+  const claude = state?.agents['claude-code']
+
+  if (claude?.available && claude.cli?.installed) return null
+  if (localAgentReady(state) !== false) return null
 
   return (
     <p className="mt-3 flex items-center justify-center gap-1.5 text-[12px] text-tertiary">

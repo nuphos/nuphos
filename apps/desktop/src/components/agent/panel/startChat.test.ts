@@ -171,3 +171,13 @@ test('first prompt has sender attribution before the agent acknowledges it', () 
   assert.equal(message.metadata?.sender.avatarURL, state.ctx.currentUser.avatarURL)
   assert.equal(message.metadata?.sentAt, new Date(message.createdAt).toISOString())
 })
+
+test('the first streaming tab retains its submitted model before session config is available', () => {
+  const state = context('codex')
+
+  state.ctx.newConversationRuntime!.defaults = { model: 'gpt-6.1', effort: 'high' }
+  runStartChatWith(state.ctx, 'hello')
+  assert.deepEqual(state.tabs()[0]?.initialModel, { runtimeId: 'instance-codex', name: 'gpt-6.1' })
+  assert.equal(state.tabs()[0]?.streaming, true)
+  assert.deepEqual(state.synced[0]?.initialModel, state.tabs()[0]?.initialModel)
+})

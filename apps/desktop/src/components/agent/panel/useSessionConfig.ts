@@ -6,7 +6,7 @@ import { SessionConfigSync } from './sessionConfigSync'
 
 import type { SessionConfigSelection } from '../../../api/session-config-types'
 
-export type ModelSession = { sessionId: string; teamId: string }
+export type ModelSession = { sessionId: string; teamId: string; initialModelName?: string }
 
 export function useSessionConfig(session: ModelSession | undefined, streaming: boolean) {
   const [open, setOpen] = useState(false)
@@ -37,15 +37,17 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     }
   }, [sync])
   useEffect(() => {
-    if (open || !streaming) void sync.refresh()
+    sync.setStreaming(streaming)
+    if (open) void sync.refresh()
   }, [sync, open, streaming])
 
   return {
     ...state,
+    initialModelName: session?.initialModelName,
     open,
     setOpen,
     select: (selection: SessionConfigSelection) => {
-      if (!streaming) void sync.select(selection)
+      void sync.select(selection)
     },
     refresh: () => void sync.refresh(),
   }

@@ -57,7 +57,14 @@ export type LocalAgentState = {
 export type DevBundleHint =
   { state: 'preparing' } | { state: 'failed'; reason: string } | { state: 'missing' }
 
+export type ClaudeLoginState = {
+  state: 'idle' | 'waiting' | 'checking' | 'connected' | 'failed' | 'cancelled'
+  url?: string
+  error?: string
+}
+
 export type LocalRuntimeState = {
+  claudeLogin?: ClaudeLoginState
   agents: Record<LocalAgentProvider, LocalAgentState>
   workspace: string | null
   userId: string | null

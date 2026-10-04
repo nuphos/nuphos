@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 export type WorkspaceTabContextValue = {
   /** Stable for the tab's whole life — the key for anything whose lifetime is
    *  the tab's rather than the mounted view's (e.g. a local terminal's PTY). */
+  conversationId?: string | null
   tabId: string
   refreshKey: number
   pollTick: number

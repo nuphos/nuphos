@@ -8,7 +8,7 @@ export function localAgentReady(state: LocalRuntimeState | null): boolean | null
 
   if (agents.some((agent) => agent.cli === null)) return null
 
-  return agents.some((agent) => agent.cli?.installed && agent.cli.loggedIn !== false)
+  return agents.some((agent) => agent.cli?.installed && agent.cli.loggedIn === true)
 }
 
 const PROVIDER_LABEL: Record<LocalAgentProvider, string> = {
@@ -45,7 +45,13 @@ export function pendingLocalAgents(
     const { available, cli } = state.agents[provider]
     const id = localAgentId(userId, deviceId, provider)
 
-    if (!available || !cli?.installed || cli.loggedIn === false || known.has(id)) return []
+    if (
+      !available ||
+      !cli?.installed ||
+      (provider !== 'claude-code' && cli.loggedIn !== true) ||
+      known.has(id)
+    )
+      return []
 
     return [
       {
@@ -56,7 +62,12 @@ export function pendingLocalAgents(
         kind: 'local' as const,
         createdAt: '',
         starting: true,
-        local: { ownerUserId: userId, deviceId, deviceLabel: 'This computer', signedIn: true },
+        local: {
+          ownerUserId: userId,
+          deviceId,
+          deviceLabel: 'This computer',
+          signedIn: cli.loggedIn,
+        },
       },
     ]
   })

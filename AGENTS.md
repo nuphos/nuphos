@@ -7,14 +7,14 @@
 
 ## Releases
 
-- Before planning, preparing, or executing a release of any component — Backend, Desktop or iOS — read and follow `.claude/skills/release-nuphos/SKILL.md`. The runtime image is released from [`zeabur/nuphos-runtime`](https://github.com/zeabur/nuphos-runtime), not from here.
+- Before planning, preparing, or executing a release of any component — Backend, Desktop or iOS — read and follow `.claude/skills/release-nuphos/SKILL.md`. The runtime image lives in `apps/runtime` and has independent `runtime-vX.Y.Z` tags; see `apps/runtime/README.md` for its gated release workflow.
 - Never automatically create a Major version. Automated releases may only produce Patch or Minor versions; Major releases require an explicit manual `X.0.0` baseline.
 
 ## Apps
 
 ### `apps/desktop`
 
-- When the user says "local dev", they mean Electron local dev. Use `pnpm electron:dev` rather than the web-only Vite dev server unless they explicitly ask for web dev.
+- For local development, always run `bun run dev` from the repository root. It starts the local stack, backend, runtime, and Electron Desktop with isolated configuration. Do not start Desktop separately or use the web-only Vite server as the default development entrypoint.
 
 #### Page headers & the shared Toolbar
 

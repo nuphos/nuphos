@@ -3,8 +3,11 @@
 // prints only model metadata. Credentials and adapter diagnostics stay private.
 export const RUNTIME_MODEL_PROBE = String.raw`
 const { spawn } = await import('node:child_process');
-const provider = process.argv[1];
-const requestedModel = process.argv[2];
+const params = ['codex', 'claude-code'].includes(process.argv[1])
+  ? { provider: process.argv[1], model: process.argv[2] }
+  : JSON.parse(await (await import('node:fs/promises')).readFile((await import('node:path')).join(process.argv[2], 'params.json'), 'utf8'));
+const provider = params.provider;
+const requestedModel = params.model;
 let sessionId;
 let models;
 if (!['codex', 'claude-code'].includes(provider)) process.exit(1);
@@ -58,6 +61,7 @@ child.stdout.on('data', chunk => {
       const fast = result.configOptions.find(o => ['fast-mode', 'fast_mode', 'fast'].includes(o.id));
       const controls = typeof option.currentValue === 'string' ? {
         modelId: option.currentValue,
+        ...(typeof effort?.currentValue === 'string' ? { defaultEffort: effort.currentValue } : {}),
         effort: Array.isArray(effort?.options) ? effort.options.filter(o => typeof o?.value === 'string' && o.value.length > 0 && o.value.length <= 100 && typeof o.name === 'string' && o.name.length <= 200).map(o => ({ value: o.value, name: o.name })) : [],
         fast: ['on', 'off'].every(value => fast?.options?.some(o => o.value === value)),
         ...(fast?.currentValue === 'on' || fast?.currentValue === 'off' ? { defaultFast: fast.currentValue } : {}),

@@ -5,7 +5,7 @@ import { selectCrashDiagnostic } from './dev-child-output.ts'
 
 test('selectCrashDiagnostic prefers a concrete failure over package-manager noise', () => {
   const diagnostic = selectCrashDiagnostic([
-    '> k8s-gui@0.25.0 electron:dev /tmp/worktree/apps/desktop',
+    '> k8s-gui@0.25.0 dev /tmp/worktree/apps/desktop',
     '> vite',
     'sh: vite: command not found',
     '\x1b[41m\x1b[30m ELIFECYCLE \x1b[0m Command failed.',

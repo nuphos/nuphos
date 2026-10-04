@@ -8,8 +8,11 @@ import { lastUserMessageText, resumeMessage } from './chat-preview-prepare'
 
 import type { UIMessage } from 'ai'
 
-const msg = (role: 'user' | 'assistant', parts: UIMessage['parts']): UIMessage =>
-  ({ id: '1', role, parts }) as UIMessage
+const msg = (role: 'user' | 'assistant', parts: UIMessage['parts']): UIMessage => ({
+  id: '1',
+  role,
+  parts,
+})
 
 test('returns the single text part', () => {
   expect(lastUserMessageText([msg('user', [{ type: 'text', text: 'hello' }])])).toBe('hello')
@@ -64,4 +67,19 @@ test('a resume asks the runtime to carry on rather than replaying the task', () 
   expect(resumeMessage({})).toContain('Carry on')
   for (const reason of ['permission-decision', 'approval-decision', 'client-tool'] as const)
     expect(resumeMessage({ reason })).not.toContain('undefined')
+})
+
+const screenshot = {
+  type: 'file',
+  mediaType: 'image/png',
+  url: 'data:image/png;base64,aGVsbG8=',
+  filename: 'screenshot.png',
+  attachmentId: 'att_test',
+}
+
+test('structured attachments never become transfer instructions in message text', () => {
+  const text = lastUserMessageText([msg('user', [screenshot] as UIMessage['parts'])])
+
+  expect(text).toBe('')
+  expect(text).not.toContain('base64')
 })

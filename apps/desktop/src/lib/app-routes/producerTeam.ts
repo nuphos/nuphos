@@ -20,6 +20,9 @@ export function teamPageLocation(
     repoProvider,
   } = navigation
 
+  if (active === 'team.agents') {
+    return pageLocation(`/teams/${pathSegment(scope.teamId)}/agents`)
+  }
   if (active === 'team.new-tab') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/new`)
   }
@@ -148,6 +151,9 @@ export function teamPageLocation(
   }
   if (active === 'team.audit') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/audit`)
+  }
+  if (active === 'team.files') {
+    return pageLocation(`/teams/${pathSegment(scope.teamId)}/files`)
   }
   if (active === 'team.terminal') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/terminal`)

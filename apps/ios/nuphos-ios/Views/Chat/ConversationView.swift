@@ -45,9 +45,6 @@ struct ConversationView: View {
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
-                if session.failedSubmission != nil {
-                    Button("Retry attachment upload") { session.retryUpload() }.disabled(session.submitting).padding(8)
-                }
                 if !session.queued.isEmpty {
                     QueuedStrip(
                         items: session.queued,
@@ -64,6 +61,7 @@ struct ConversationView: View {
                     sendsDuringTurn: session.isNativeRuntime,
                     canSteer: session.canSteer,
                     allowsAttachments: !session.canSteer,
+                    failedSubmission: $session.failedSubmission,
                     onSend: { session.send($0) },
                     onStop: { session.stop() }
                 ) {
@@ -379,6 +377,7 @@ struct DataURLImage: View {
         if let comma = url.firstIndex(of: ","), let data = Data(base64Encoded: String(url[url.index(after: comma)...])),
            let image = UIImage(data: data) {
             Image(uiImage: image).resizable().scaledToFill()
+                .accessibilityLabel("Attached image")
         } else {
             Theme.bubble
         }

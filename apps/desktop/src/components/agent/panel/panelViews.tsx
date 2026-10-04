@@ -55,7 +55,14 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl } = useConversationRuntimeControl(c)
   const modelSession =
     activeTab?.sessionId && !activeTab.foreign && teamId
-      ? { sessionId: activeTab.sessionId, teamId }
+      ? {
+          sessionId: activeTab.sessionId,
+          teamId,
+          initialModelName:
+            activeTab.initialModel?.runtimeId === activeTab.runtimeId
+              ? activeTab.initialModel?.name
+              : undefined,
+        }
       : undefined
   const bypassControl =
     autoModeAvailable && activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign && !gated

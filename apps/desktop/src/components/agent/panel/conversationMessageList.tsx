@@ -10,8 +10,8 @@ import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
 import { ShellsPanel } from './ShellsPanel'
 import { DEFERRED_MESSAGE_STYLE } from './status'
-import { useTransferDownloads } from './useTransferDownloads'
 import { UserMessage } from './UserMessage'
+import { useTransferDownloads } from './useTransferDownloads'
 
 import type { ConversationProps } from './conversationProps'
 import type { Message, Tab } from './model'
@@ -191,6 +191,7 @@ export function ConversationMessageList({
       )}
       {tab.agentSetupRequired && (
         <AgentSetupRequiredCard
+          runtimeId={tab.runtimeId}
           message={tab.agentSetupRequired.message}
           reason={tab.agentSetupRequired.reason}
           isTeamAdmin={isTeamAdmin}

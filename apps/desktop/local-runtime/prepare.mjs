@@ -29,7 +29,7 @@ import { findBrokenLinks } from './bundle-check.mjs'
 import { bundleStamp, digestOf, PATCH_SOURCES } from './bundle-stamp.mjs'
 
 export const NUPHOS_RUNTIME_COMMIT = 'c32595ab3b69db57843a07b7b0aaf2b5c74d1a98'
-export const OPENAB_COMMIT = 'ad094f72a77f9123ed85ac4ff2285e8a7f220e4b'
+export const OPENAB_COMMIT = '735c6d0b5391581ea377ded8ba6999f69712535d'
 
 /** One nuphos-runtime adapter per agent the desktop can run, patched as its image patches it. */
 export const ADAPTERS = {
@@ -144,7 +144,7 @@ async function buildAdapter(provider) {
   const target = join(adapterDir, adapter.patchTarget)
 
   run(process.execPath, ['patch-adapter.mjs', target], adapterDir)
-  writeFileSync(target, patchDesktopAdapter(readFileSync(target, 'utf8')))
+  writeFileSync(target, patchDesktopAdapter(readFileSync(target, 'utf8'), provider))
   rmSync(out, { recursive: true, force: true })
   mkdirSync(out, { recursive: true })
   rmSync(join(adapterDir, 'node_modules', '.bin'), { recursive: true, force: true })

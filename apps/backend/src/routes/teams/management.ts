@@ -146,6 +146,17 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     return c.json({ members })
   })
 
+  teamScoped.get('/members/:memberId', async (c) => {
+    const includeRemoved = c.req.query('includeRemoved') === 'true'
+    const members = await getTeamMembers(c.get('teamId'), { includeRemoved })
+    const matches = members.filter((candidate) => candidate.id === c.req.param('memberId'))
+    const member = matches.find((candidate) => !candidate.removedAt) ?? matches.at(-1)
+
+    if (!member) throw new AppError(404, 'member_not_found', 'Team member not found')
+
+    return c.json({ member })
+  })
+
   teamScoped.patch(
     '/members/:memberId',
     requireTeamRole('ADMINISTRATOR'),

@@ -5,7 +5,12 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-export const PATCH_SOURCES = ['adapter-patches.mjs', 'skills-sync.mjs']
+export const PATCH_SOURCES = [
+  'adapter-patches.mjs',
+  'skills-sync.mjs',
+  'codex-cua.mjs',
+  'claude-session-env.mjs',
+]
 export const STAMP_SOURCES = ['prepare.mjs', ...PATCH_SOURCES]
 
 /** A digest of the given files, so a changed pin or patch yields a different value. */

@@ -10,6 +10,10 @@ export type LocalRuntimeSummary = {
   deviceLabel: string
   /** The owner's own `claude` sign-in; null when their computer cannot tell. */
   signedIn: boolean | null
+  /** Provider usage that computer reported; the backend normalizes it. */
+  usage?: unknown
+  /** When that computer read the usage above. */
+  usageAt?: string
 }
 
 export type RuntimeInstance = {
@@ -124,6 +128,7 @@ export type RuntimeModelCatalog = {
     effort: { value: string; name: string }[]
     fast: boolean
     defaultFast?: 'on' | 'off'
+    defaultEffort?: string
   }
   message?: string
 }

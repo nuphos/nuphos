@@ -1,7 +1,9 @@
 import { BrowserWindow } from 'electron'
 
 import { localTerminals } from '../local-terminal'
+import { runtimeTerminals } from '../runtime-terminal'
 
+import type { TerminalTarget } from '../../src/api/local-terminal-types'
 import type { IpcMainInvokeEvent } from 'electron'
 
 function owner(event: IpcMainInvokeEvent) {
@@ -25,15 +27,29 @@ function owner(event: IpcMainInvokeEvent) {
   return contents
 }
 
+const terminals = (event: IpcMainInvokeEvent, id: string) =>
+  runtimeTerminals.describe(owner(event), id) ? runtimeTerminals : localTerminals
+
 export const localTerminalChannels = {
-  'local-terminal:start': (event: IpcMainInvokeEvent, id: string, cols: number, rows: number) =>
-    localTerminals.start(owner(event), id, cols, rows),
+  'local-terminal:describe': (event: IpcMainInvokeEvent, id: string) =>
+    runtimeTerminals.describe(owner(event), id) ??
+    (localTerminals.has(owner(event), id) ? 'local' : null),
+  'local-terminal:start': (
+    event: IpcMainInvokeEvent,
+    id: string,
+    cols: number,
+    rows: number,
+    target?: TerminalTarget,
+  ) =>
+    target
+      ? runtimeTerminals.start(owner(event), id, target, cols, rows)
+      : localTerminals.start(owner(event), id, cols, rows),
   'local-terminal:replay': (event: IpcMainInvokeEvent, id: string) =>
-    localTerminals.replay(owner(event), id),
+    terminals(event, id).replay(owner(event), id),
   'local-terminal:input': (event: IpcMainInvokeEvent, id: string, data: string) =>
-    localTerminals.input(owner(event), id, data),
+    terminals(event, id).input(owner(event), id, data),
   'local-terminal:resize': (event: IpcMainInvokeEvent, id: string, cols: number, rows: number) =>
-    localTerminals.resize(owner(event), id, cols, rows),
+    terminals(event, id).resize(owner(event), id, cols, rows),
   'local-terminal:close': (event: IpcMainInvokeEvent, id: string) =>
-    localTerminals.close(owner(event), id),
+    terminals(event, id).close(owner(event), id),
 }

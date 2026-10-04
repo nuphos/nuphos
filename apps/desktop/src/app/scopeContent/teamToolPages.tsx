@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bot,
   Brain,
   ChartLine,
   ClipboardList,
@@ -13,14 +14,16 @@ import {
 
 import { NuphosDashboardsView } from '../../dashboards/NuphosDashboardsView'
 import { dashboardsPageTitle } from '../../dashboards/view/pageTitle'
+import { AgentSection } from '../../views/settings/AgentSection'
 import { AgentMemoriesView } from '../../views/AgentMemoriesView'
 import { ArchitectureView } from '../../views/ArchitectureView'
 import { ArchivedChatsView } from '../../views/ArchivedChatsView'
 import { AuditLogView } from '../../views/AuditLogView'
 import { BrowserView } from '../../views/BrowserView'
-import { LocalTerminalView } from '../../views/LocalTerminalView'
+import { TerminalView } from '../../views/TerminalView'
 import { MonitoringView } from '../../views/MonitoringView'
 import { PlansView } from '../../views/PlansView'
+import { RuntimeFilesView } from '../../views/RuntimeFilesView'
 import { TeamMembersView } from '../../views/TeamMembersView'
 import { TeamSkillsView } from '../../views/TeamSkillsView'
 import { TriggersView } from '../../views/TriggersView'
@@ -61,7 +64,26 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
 
   if (scope.kind !== 'team') return undefined
 
-  if (active === 'team.terminal') return <LocalTerminalView />
+  if (active === 'team.agents') {
+    return renderPage(
+      'team.agents',
+      'Agents',
+      <Bot className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
+      <AgentSection
+        key={scope.teamId}
+        teamId={scope.teamId}
+        isAdmin={isTeamAdmin}
+        filter={filter}
+        refreshKey={refreshKey}
+        onCount={onCount}
+        onLoading={onLoading}
+      />,
+    )
+  }
+
+  if (active === 'team.files') return <RuntimeFilesView teamId={scope.teamId} />
+
+  if (active === 'team.terminal') return <TerminalView teamId={scope.teamId} />
 
   if (active === 'team.browser') {
     return (

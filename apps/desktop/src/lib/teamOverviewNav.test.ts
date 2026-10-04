@@ -22,6 +22,7 @@ test('the sidebar lists New chat then the management pages', () => {
     TEAM_SIDEBAR_NAV_ITEMS.map((item) => item.key),
     [
       'team.agent',
+      'team.agents',
       'team.agent-skills',
       'team.agent-memories',
       'team.triggers',
@@ -39,6 +40,7 @@ test('workspace pages are the ones launched beside a conversation', () => {
     TEAM_WORKSPACE_NAV_ITEMS.map((item) => item.key),
     [
       'team.browser',
+      'team.files',
       'team.terminal',
       'team.plans',
       'team.architecture',

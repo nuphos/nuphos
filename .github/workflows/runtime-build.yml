@@ -1,0 +1,320 @@
+name: Build runtime image
+
+# Builds and pushes the Claude Code and Codex runtime images in two steps:
+#
+#   1. third_party/openab/Dockerfile.unified --target agentcore
+#      The gateway base. The runtime image takes only its `openab` binary, so
+#      an ACP or pool fix ships once this is rebuilt — bumping the submodule
+#      alone does nothing.
+#   2. image/Dockerfile (the Nuphos runtime image)
+#
+# ⚠️ Publishing does NOT roll anything out. A Nuphos workspace administrator
+# must point each runtime at the new digest in Settings → Agent.
+#
+# The base layer is always pushed: the toolset build is a separate Buildx
+# invocation that resolves BASE_IMAGE through its registry tag, so a base merely
+# loaded into the local daemon would not be visible to it.
+#
+# The build runs repository-controlled Dockerfiles with a token that can write
+# packages, so this workflow is dispatch-only and restricted to `main`. A
+# release is published by passing its tag as `release_tag`, never by a tag push:
+# a tag push would load this file from the tagged commit, leaving the trust
+# boundary under the control of the commit it is meant to check. Dispatched from
+# `main`, the gate below always runs main's reviewed definition, and the commit
+# it checks out must be reachable from `main`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: runtime-vX.Y.Z tag to publish (blank publishes only revision tags)
+        type: string
+        required: false
+        default: ''
+      provider:
+        description: Runtime provider to build
+        type: choice
+        options: [claude, codex, both]
+        default: both
+        required: true
+      reuse_base:
+        description: Reuse the published provider base at the pinned OpenAB revision
+        type: boolean
+        default: false
+  # release.yml calls this after tagging. A dispatch made with GITHUB_TOKEN
+  # would not start a run, so the release path calls the same definition
+  # instead of triggering it.
+  workflow_call:
+    inputs:
+      release_tag:
+        type: string
+        required: true
+      provider:
+        type: string
+        required: true
+      reuse_base:
+        type: boolean
+        required: false
+        default: false
+
+run-name: Build runtime ${{ inputs.release_tag || 'main' }} (${{ inputs.provider }})
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-runtime-${{ inputs.release_tag || github.ref }}
+  cancel-in-progress: false
+
+env:
+  RUNTIME_IMAGE: ghcr.io/nuphos/runtime
+
+defaults:
+  run:
+    working-directory: apps/runtime
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main' && vars.RUNTIME_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    outputs:
+      build_sha: ${{ steps.plan.outputs.build_sha }}
+      providers: ${{ steps.plan.outputs.providers }}
+      version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.plan.outputs.sha }}
+      sha12: ${{ steps.plan.outputs.sha12 }}
+    steps:
+      # main by name, not the SHA that triggered this run: a release tags a
+      # commit this workflow's own run predates, and the check below must see
+      # the branch as it is now.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      # This job runs main's copy of this file, holds no push credentials, and
+      # the build job needs it, so the commit that build checks out is settled
+      # by reviewed code before any token that can write packages is reachable.
+      - name: Resolve and vet the commit to publish
+        id: plan
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PROVIDER: ${{ inputs.provider }}
+        run: |
+          set -euo pipefail
+          # The checkout above fetches every branch and tag; it also drops the
+          # credentials afterwards; the legacy version guard uses public refs.
+          if [[ -n "$RELEASE_TAG" ]]; then
+            if [[ ! "$RELEASE_TAG" =~ ^runtime-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::release_tag must look like runtime-vX.Y.Z, got '$RELEASE_TAG'"
+              exit 1
+            fi
+            # ^{commit} peels an annotated tag; a lightweight one resolves to itself.
+            if ! BUILD_SHA="$(git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}^{commit}")"; then
+              echo "::error::tag $RELEASE_TAG does not exist in this repository"
+              exit 1
+            fi
+          else
+            BUILD_SHA="$(git rev-parse origin/main)"
+          fi
+          if ! git merge-base --is-ancestor "$BUILD_SHA" origin/main; then
+            echo "::error::$BUILD_SHA is not reachable from main; publish only from reviewed commits."
+            exit 1
+          fi
+
+          VERSION="$(git show "${BUILD_SHA}:apps/runtime/package.json" | jq -r .version)"
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+$'
+          if [[ -z "$VERSION" || "$VERSION" == "null" || ! "$VERSION" =~ $SEMVER_RE ]]; then
+            echo "::error::package.json version must be a stable semver value, got '$VERSION'"
+            exit 1
+          fi
+          if [[ -n "$RELEASE_TAG" && "$RELEASE_TAG" != "runtime-v${VERSION}" ]]; then
+            echo "::error::$RELEASE_TAG does not match the packaged runtime version $VERSION"
+            exit 1
+          fi
+
+          if [[ -n "$RELEASE_TAG" ]]; then
+            node scripts/check-legacy-version.mjs "$VERSION"
+          fi
+
+          # The gitlink, so no submodule checkout is needed to name the revision.
+          SHA="$(git rev-parse "${BUILD_SHA}:apps/runtime/third_party/openab")"
+          if [[ "$PROVIDER" == "both" ]]; then
+            PROVIDERS='["claude","codex"]'
+          else
+            PROVIDERS="[\"${PROVIDER}\"]"
+          fi
+
+          {
+            echo "build_sha=${BUILD_SHA}"
+            echo "version=${VERSION}"
+            echo "providers=${PROVIDERS}"
+            echo "sha=${SHA}"
+            echo "sha12=${SHA:0:12}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "- commit: \`${BUILD_SHA}\`"
+            echo "- runtime version: \`${VERSION}\` ${PROVIDERS}"
+            echo "- openab revision: \`${SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: plan
+    runs-on: ubuntu-24.04
+    # Only this job may push; the job that vets the commit cannot.
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: ${{ fromJSON(needs.plan.outputs.providers) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.build_sha }}
+          persist-credentials: false
+          submodules: true
+
+      - name: Resolve image tags
+        id: tags
+        env:
+          PROVIDER: ${{ matrix.provider }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA12: ${{ needs.plan.outputs.sha12 }}
+          BUILD_SHA: ${{ needs.plan.outputs.build_sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          # The published variant name matches the backend's provider identifier.
+          if [[ "$PROVIDER" == "codex" ]]; then VARIANT=codex; else VARIANT=claude-code; fi
+          # Each provider signs itself in and keeps the credential in its own home.
+          if [[ "$VARIANT" == "codex" ]]; then
+            LOGIN_COMMAND='node /opt/nuphos-runtime/codex-login.mjs --install'
+            AUTH_FILE='/home/node/.codex/auth.json'
+            LABEL='Codex'
+          else
+            LOGIN_COMMAND='node /opt/nuphos-runtime/claude-login.mjs'
+            AUTH_FILE='/home/node/.claude/.credentials.json'
+            LABEL='Claude Code'
+          fi
+
+          {
+            echo "variant=${VARIANT}"
+            echo "login_command=${LOGIN_COMMAND}"
+            echo "auth_file=${AUTH_FILE}"
+            echo "label=${LABEL}"
+            # The toolset build resolves its base through this tag, so the base
+            # must be pushed before it runs.
+            echo "base=${RUNTIME_IMAGE}:${SHA12}-base-${VARIANT}"
+            # Only a vetted release tag may publish a semantic version.
+            BASE_TAGS="${RUNTIME_IMAGE}:${SHA12}-base-${VARIANT}"
+            RUNTIME_TAGS="${RUNTIME_IMAGE}:commit-${BUILD_SHA}-${VARIANT}"
+            if [[ -n "$RELEASE_TAG" ]]; then
+              BASE_TAGS="${RUNTIME_IMAGE}:${VERSION}-base-${VARIANT},${BASE_TAGS}"
+              RUNTIME_TAGS="${RUNTIME_IMAGE}:${VERSION}-${VARIANT},${RUNTIME_TAGS}"
+            fi
+            printf 'base_tags=%s\n' "$BASE_TAGS"
+            printf 'runtime_tags=%s\n' "$RUNTIME_TAGS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build and push the provider base layer
+        if: ${{ !inputs.reuse_base }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: apps/runtime/third_party/openab
+          file: apps/runtime/third_party/openab/Dockerfile.unified
+          target: agentcore
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.tags.outputs.base_tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.plan.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.plan.outputs.version }}
+          provenance: false
+
+      - name: Build and push the Nuphos runtime image
+        id: runtime
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: apps/runtime/image
+          file: apps/runtime/image/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            BASE_IMAGE=${{ steps.tags.outputs.base }}
+            OPENAB_BUILD_SHA=${{ needs.plan.outputs.sha12 }}
+            RUNTIME_PROVIDER=${{ steps.tags.outputs.variant }}
+            RUNTIME_LOGIN_COMMAND=${{ steps.tags.outputs.login_command }}
+            RUNTIME_AUTH_FILE=${{ steps.tags.outputs.auth_file }}
+            RUNTIME_LABEL=${{ steps.tags.outputs.label }}
+            RUNTIME_VERSION=${{ needs.plan.outputs.version }}
+          tags: ${{ steps.tags.outputs.runtime_tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.plan.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.plan.outputs.version }}
+          provenance: false
+
+      - name: Summarize
+        env:
+          VARIANT: ${{ steps.tags.outputs.variant }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          DIGEST: ${{ steps.runtime.outputs.digest }}
+          RUNTIME_TAGS: ${{ steps.tags.outputs.runtime_tags }}
+        run: |
+          {
+            echo "### runtime image (${VARIANT})"
+            echo "- version: \`${VERSION}\`"
+            echo "- tags: \`${RUNTIME_TAGS}\`"
+            echo "- immutable: \`${RUNTIME_IMAGE}@${DIGEST}\`"
+            echo ""
+            echo "Assign the immutable reference above to the intended runtime(s) in Settings → Agent."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release-notes:
+    name: Publish GitHub Release
+    needs: [plan, build]
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      # Read the note generator from reviewed main, and version data from the
+      # vetted release tag. This also supports republishing older tags.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Publish changelog after every requested image succeeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PROVIDER: ${{ inputs.provider }}
+        run: |
+          set -euo pipefail
+          # Preserve existing release notes, including human edits, on reruns.
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; keeping its notes."
+            exit 0
+          fi
+          node scripts/runtime-release-notes.mjs "$RELEASE_TAG" "$PROVIDER" > /tmp/release-notes.md
+          gh release create "$RELEASE_TAG" --verify-tag --latest=false --title "Runtime $RELEASE_TAG" --notes-file /tmp/release-notes.md

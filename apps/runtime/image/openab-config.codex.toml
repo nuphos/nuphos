@@ -1,0 +1,23 @@
+# Baked default, installed at /etc/openab/config.toml.
+#
+# openab exits if the file named by `-c` does not exist, so the image ships one
+# and a bare `docker run` needs no volume. openab reads exactly one file: a
+# mount at this path replaces this content outright, nothing is merged.
+#
+# Only image-level facts belong here. Anything sized to a deployment — pool
+# capacity, per-tool memory ceilings — stays with whoever knows the container's
+# limits. `command` is deliberately absent so OPENAB_AGENT_COMMAND keeps
+# resolving it; a value here would shadow that env var.
+
+[agent]
+# openab ignores the cwd a client sends and spawns the agent here, defaulting to
+# $HOME. Skills and the agent's files live under /workspace, as on a provisioned pod.
+working_dir = "/workspace"
+
+[agent.env]
+BASH_ENV = "/opt/nuphos-runtime/runtime-guard.sh"
+# The container is the security boundary, so Codex need not ask per tool; an
+# ACP client that answers no permission prompt would otherwise stall the turn.
+# Set here, not as a [pool] config option: openab sends those only after
+# session/new, so a session restored with session/load would fall back to `agent`.
+INITIAL_AGENT_MODE = "agent-full-access"

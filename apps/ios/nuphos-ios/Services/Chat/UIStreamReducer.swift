@@ -191,8 +191,8 @@ struct UIStreamReducer {
             return .none
 
         // MARK: Files / sources
-        case "file":
-            message.parts.append(.file(.init(mediaType: event["mediaType"]?.stringValue ?? "", filename: event["filename"]?.stringValue, url: event["url"]?.stringValue ?? "")))
+        case "file", "image":
+            message.parts.append(ChatPart(json: event))
             return .none
         case "source-url":
             message.parts.append(.sourceURL(.init(sourceId: event["sourceId"]?.stringValue ?? "", url: event["url"]?.stringValue ?? "", title: event["title"]?.stringValue)))

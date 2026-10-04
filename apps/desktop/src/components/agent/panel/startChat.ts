@@ -106,6 +106,15 @@ export function runStartChatWith(
     agentRuntime: newConversationRuntime.provider,
     runtimeId: newConversationRuntime.id,
     runtimeLabel: newConversationRuntime.label,
+    ...(newConversationRuntime.defaults?.model &&
+    newConversationRuntime.defaults.model !== 'default'
+      ? {
+          initialModel: {
+            runtimeId: newConversationRuntime.id,
+            name: newConversationRuntime.defaults.model,
+          },
+        }
+      : {}),
     title,
     messages: [userMsg],
     // While the attachment uploads the turn isn't streaming yet — the loading

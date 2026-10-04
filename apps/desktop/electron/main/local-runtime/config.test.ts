@@ -25,26 +25,26 @@ const launch: LocalRuntimeLaunch = {
   env: { HOME: '/Users/me', PATH: '/usr/bin', AWS_SECRET_ACCESS_KEY: 'secret' },
 }
 
-test('Claude Code runs from a config dir of Nuphos’s own, on the owner’s login', () => {
+test('Claude Code runs from a config dir of Nuphos’s own, with its own login', () => {
   const env = agentEnv(launch)
 
   assert.equal(env.CLAUDE_CONFIG_DIR, '/data/users/u1/claude-home')
-  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, '')
+  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, launch.agentHome)
   assert.equal(env.ENABLE_CLAUDEAI_MCP_SERVERS, 'false')
   assert.match(openabConfigToml(launch), /^CLAUDE_CONFIG_DIR = "\/data\/users\/u1\/claude-home"$/mu)
 })
 
-test('an owner with their own Claude config dir keeps the login stored for it', () => {
+test('the owner’s Claude config never selects the Nuphos credential store', () => {
   const env = agentEnv({
     ...launch,
     env: { ...launch.env, CLAUDE_CONFIG_DIR: '/Users/me/.claude-work' },
   })
 
   assert.equal(env.CLAUDE_CONFIG_DIR, '/data/users/u1/claude-home')
-  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, '/Users/me/.claude-work')
+  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, launch.agentHome)
 })
 
-test('the agent gets its tools and the real home, not the owner’s whole environment', () => {
+test('Claude keeps the host home for Keychain access and filters the owner’s environment', () => {
   const env = agentEnv(launch)
 
   assert.equal(env.HOME, '/Users/me')
@@ -76,7 +76,7 @@ test('the config quotes paths as TOML strings', () => {
   assert.match(toml, /^\[agent\.env\]$/mu)
 })
 
-test('Codex runs the user’s own codex from a home holding only their login', () => {
+test('Codex keeps an isolated home and discovers CUA from the owner’s home', () => {
   const env = agentEnv({
     ...launch,
     provider: 'codex',
@@ -86,6 +86,19 @@ test('Codex runs the user’s own codex from a home holding only their login', (
 
   assert.equal(env.CODEX_PATH, '/Users/me/.local/bin/codex')
   assert.equal(env.CODEX_HOME, '/data/users/u1/codex-home')
+  assert.equal(env.NUPHOS_CODEX_USER_HOME, '/Users/me/.codex')
   assert.equal(env.CLAUDE_CODE_EXECUTABLE, undefined)
   assert.equal(env.CLAUDE_CONFIG_DIR, undefined)
+})
+
+test('CUA discovery respects a custom owner CODEX_HOME without using it as the agent home', () => {
+  const env = agentEnv({
+    ...launch,
+    provider: 'codex',
+    env: { ...launch.env, CODEX_HOME: '/Users/me/codex-work' },
+  })
+
+  assert.equal(env.NUPHOS_CODEX_USER_HOME, '/Users/me/codex-work')
+  assert.equal(env.CODEX_HOME, launch.agentHome)
+  assert.equal(agentEnv(launch).NUPHOS_CODEX_USER_HOME, undefined)
 })

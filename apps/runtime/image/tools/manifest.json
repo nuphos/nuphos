@@ -1,0 +1,250 @@
+{
+  "tools": {
+    "kubectl": {
+      "version": "v1.36.0",
+      "kind": "binary",
+      "baked": true,
+      "downloads": {
+        "amd64": {
+          "url": "https://dl.k8s.io/release/v1.36.0/bin/linux/amd64/kubectl",
+          "sha256": "123d8c8844f46b1244c547fffb3c17180c0c26dac9890589fe7e67763298748e"
+        },
+        "arm64": {
+          "url": "https://dl.k8s.io/release/v1.36.0/bin/linux/arm64/kubectl",
+          "sha256": "9f9d9c44a7b5264515ac9da5991584e2395bd50662e651132337e7b4d0c56f8f"
+        }
+      },
+      "commands": { "kubectl": "kubectl" }
+    },
+    "zeabur": {
+      "version": "v0.16.0",
+      "kind": "binary",
+      "baked": true,
+      "downloads": {
+        "amd64": {
+          "url": "https://github.com/zeabur/cli/releases/download/v0.16.0/zeabur_0.16.0_linux_amd64",
+          "sha256": "bce6364237d058dd943e07cb9ceaa4a2f5b4c2194b235c9efac70aaf2b817071"
+        },
+        "arm64": {
+          "url": "https://github.com/zeabur/cli/releases/download/v0.16.0/zeabur_0.16.0_linux_arm64",
+          "sha256": "30c67201d65983719baa72b5bf1656f8002fad443c0a5425f2e29b0669d081e0"
+        }
+      },
+      "commands": { "zeabur": "zeabur" }
+    },
+    "aws": {
+      "version": "2.34.45",
+      "kind": "aws",
+      "downloads": {
+        "amd64": {
+          "url": "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.34.45.zip",
+          "sha256": "2b382fd5c1e8d73f6aaca18e5850758fb9f70a20af9c17deb3078df0dd4af095"
+        },
+        "arm64": {
+          "url": "https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.34.45.zip",
+          "sha256": "bf29e06a06fb9bac2a3803931e6618a9f7c9f4c6632ec3b587184850b8f03433"
+        }
+      },
+      "commands": { "aws": "bin/aws", "aws_completer": "bin/aws_completer" }
+    },
+    "gcloud": {
+      "version": "567.0.0",
+      "kind": "archive",
+      "strip": 1,
+      "downloads": {
+        "amd64": {
+          "url": "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-567.0.0-linux-x86_64.tar.gz",
+          "sha256": "bd5afc0d249609cb40d45f665209190fdd38b9937954291b8f9ae54206c75d83"
+        },
+        "arm64": {
+          "url": "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-567.0.0-linux-arm.tar.gz",
+          "sha256": "43ca9e1d07652c5c689debb8012bbc1c30fb73fa3d41287d1cc7f17cbea7e87f"
+        }
+      },
+      "env": { "CLOUDSDK_COMPONENT_MANAGER_DISABLE_UPDATE_CHECK": "true" },
+      "commands": { "gcloud": "bin/gcloud", "gsutil": "bin/gsutil", "bq": "bin/bq" }
+    },
+    "gke-gcloud-auth-plugin": {
+      "version": "0.5.14",
+      "kind": "archive",
+      "downloads": {
+        "amd64": {
+          "url": "https://dl.google.com/dl/cloudsdk/channels/rapid/components/google-cloud-sdk-gke-gcloud-auth-plugin-linux-x86_64-20260424041539.tar.gz",
+          "sha256": "25f88f7acfb9a7266e46e57d20a40110b847e59c7b224bf69bfd8e4cbffda03b"
+        },
+        "arm64": {
+          "url": "https://dl.google.com/dl/cloudsdk/channels/rapid/components/google-cloud-sdk-gke-gcloud-auth-plugin-linux-arm-20260424041539.tar.gz",
+          "sha256": "a86d8e832d52a56094d4f79d8124cf99ab7f9ad539931067e4dab5fc7194d25f"
+        }
+      },
+      "commands": { "gke-gcloud-auth-plugin": "bin/gke-gcloud-auth-plugin" }
+    },
+    "mongosh": {
+      "version": "2.8.3",
+      "kind": "archive",
+      "strip": 1,
+      "downloads": {
+        "amd64": {
+          "url": "https://downloads.mongodb.com/compass/mongosh-2.8.3-linux-x64.tgz",
+          "sha256": "f3d994c05c889f3c9f72f43cf6b574bc178a2a35f0be9322ab7f7b1aa66efd55"
+        },
+        "arm64": {
+          "url": "https://downloads.mongodb.com/compass/mongosh-2.8.3-linux-arm64.tgz",
+          "sha256": "68b4894acac60bf49902d6342d5ef91782473490e55100b4dc5db2ce1ff01fb2"
+        }
+      },
+      "commands": { "mongosh": "bin/mongosh" }
+    },
+    "hcloud": {
+      "version": "v1.66.0",
+      "kind": "archive",
+      "downloads": {
+        "amd64": {
+          "url": "https://github.com/hetznercloud/cli/releases/download/v1.66.0/hcloud-linux-amd64.tar.gz",
+          "sha256": "8b1a8598858232c491f58cbf65ce1bd0ec6f725114bb62ec967a20ab03e29a86"
+        },
+        "arm64": {
+          "url": "https://github.com/hetznercloud/cli/releases/download/v1.66.0/hcloud-linux-arm64.tar.gz",
+          "sha256": "f9d67b4a1e2a7d88e6360b3e9a5efe9ab6c4e1cf6d0fa45d2740adfa8528d55b"
+        }
+      },
+      "commands": { "hcloud": "hcloud" }
+    },
+    "volcengine": {
+      "version": "1.0.52",
+      "kind": "archive",
+      "downloads": {
+        "amd64": {
+          "url": "https://github.com/volcengine/volcengine-cli/releases/download/v1.0.52/volcengine-cli_1.0.52_linux_amd64.tar.gz",
+          "sha256": "3ba1efb71feae2f21a7215feb3e82649f67865ba0041ce5071dcc01f3a35e8b2"
+        },
+        "arm64": {
+          "url": "https://github.com/volcengine/volcengine-cli/releases/download/v1.0.52/volcengine-cli_1.0.52_linux_arm64.tar.gz",
+          "sha256": "44a284297ef08fa1878ba0ede776fb34ac277f2538afcb3f27426df3c44d570f"
+        }
+      },
+      "commands": { "ve": "ve" }
+    },
+    "aliyun": {
+      "version": "3.4.11",
+      "kind": "archive",
+      "downloads": {
+        "amd64": {
+          "url": "https://github.com/aliyun/aliyun-cli/releases/download/v3.4.11/aliyun-cli-linux-3.4.11-amd64.tgz",
+          "sha256": "a7e3df497db14c10d4d7587795e9fa7849b0c51dfce02908b9de5a41fe717d5c"
+        },
+        "arm64": {
+          "url": "https://github.com/aliyun/aliyun-cli/releases/download/v3.4.11/aliyun-cli-linux-3.4.11-arm64.tgz",
+          "sha256": "b0b6f6f7545f9472b697fc27915c8956e5a3320a6160729dcc5b4eff21435ae8"
+        }
+      },
+      "commands": { "aliyun": "aliyun" }
+    },
+    "helm": {
+      "version": "v3.18.4",
+      "kind": "archive",
+      "strip": 1,
+      "downloads": {
+        "amd64": {
+          "url": "https://get.helm.sh/helm-v3.18.4-linux-amd64.tar.gz",
+          "sha256": "f8180838c23d7c7d797b208861fecb591d9ce1690d8704ed1e4cb8e2add966c1"
+        },
+        "arm64": {
+          "url": "https://get.helm.sh/helm-v3.18.4-linux-arm64.tar.gz",
+          "sha256": "c0a45e67eef0c7416a8a8c9e9d5d2d30d70e4f4d3f7bea5de28241fffa8f3b89"
+        }
+      },
+      "commands": { "helm": "helm" }
+    },
+    "tailscale": {
+      "version": "1.98.10",
+      "kind": "archive",
+      "strip": 1,
+      "downloads": {
+        "amd64": {
+          "url": "https://pkgs.tailscale.com/stable/tailscale_1.98.10_amd64.tgz",
+          "sha256": "52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de"
+        },
+        "arm64": {
+          "url": "https://pkgs.tailscale.com/stable/tailscale_1.98.10_arm64.tgz",
+          "sha256": "d74a84e07cb1948d9f09a23ae161417c6127e562949773705c95d0762be2809d"
+        }
+      },
+      "commands": { "tailscale": "tailscale", "tailscaled": "tailscaled" }
+    },
+    "linode-cli": {
+      "version": "5.67.0",
+      "kind": "pip",
+      "pip": "linode-cli.requirements.txt",
+      "commands": { "linode-cli": "venv/bin/linode-cli" }
+    },
+    "postgresql-client": {
+      "version": "17",
+      "kind": "apt",
+      "apt": ["postgresql-client-17"],
+      "env": { "LD_LIBRARY_PATH": "{root}/usr/lib/{triplet}" },
+      "commands": {
+        "psql": "root/usr/lib/postgresql/17/bin/psql",
+        "pg_dump": "root/usr/lib/postgresql/17/bin/pg_dump",
+        "pg_dumpall": "root/usr/lib/postgresql/17/bin/pg_dumpall",
+        "pg_restore": "root/usr/lib/postgresql/17/bin/pg_restore",
+        "pg_isready": "root/usr/lib/postgresql/17/bin/pg_isready"
+      }
+    },
+    "mariadb-client": {
+      "version": "11.8",
+      "kind": "apt",
+      "apt": ["mariadb-client"],
+      "env": { "LD_LIBRARY_PATH": "{root}/usr/lib/{triplet}" },
+      "commands": {
+        "mariadb": "root/usr/bin/mariadb",
+        "mysql": "root/usr/bin/mariadb",
+        "mariadb-dump": "root/usr/bin/mariadb-dump",
+        "mysqldump": "root/usr/bin/mariadb-dump",
+        "mariadb-admin": "root/usr/bin/mariadb-admin",
+        "mysqladmin": "root/usr/bin/mariadb-admin"
+      }
+    },
+    "build-essential": {
+      "version": "14",
+      "kind": "apt",
+      "apt": ["gcc", "g++", "make", "libc6-dev"],
+      "env": {
+        "LD_LIBRARY_PATH": "{root}/usr/lib/{triplet}",
+        "LIBRARY_PATH": "{root}/usr/lib/{triplet}"
+      },
+      "commands": {
+        "gcc": {
+          "path": "root/usr/bin/gcc",
+          "args": ["-idirafter", "{root}/usr/include/{triplet}", "-idirafter", "{root}/usr/include"]
+        },
+        "cc": {
+          "path": "root/usr/bin/gcc",
+          "args": ["-idirafter", "{root}/usr/include/{triplet}", "-idirafter", "{root}/usr/include"]
+        },
+        "g++": {
+          "path": "root/usr/bin/g++",
+          "args": ["-idirafter", "{root}/usr/include/{triplet}", "-idirafter", "{root}/usr/include"]
+        },
+        "c++": {
+          "path": "root/usr/bin/g++",
+          "args": ["-idirafter", "{root}/usr/include/{triplet}", "-idirafter", "{root}/usr/include"]
+        },
+        "cpp": {
+          "path": "root/usr/bin/cpp",
+          "args": ["-idirafter", "{root}/usr/include/{triplet}", "-idirafter", "{root}/usr/include"]
+        },
+        "make": "root/usr/bin/make",
+        "as": "root/usr/bin/as",
+        "ld": "root/usr/bin/ld",
+        "ar": "root/usr/bin/ar",
+        "nm": "root/usr/bin/nm",
+        "ranlib": "root/usr/bin/ranlib",
+        "strip": "root/usr/bin/strip",
+        "objdump": "root/usr/bin/objdump",
+        "objcopy": "root/usr/bin/objcopy",
+        "readelf": "root/usr/bin/readelf"
+      }
+    }
+  }
+}

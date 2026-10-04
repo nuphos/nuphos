@@ -8,6 +8,10 @@ import type {
 } from '../../src/types/runtime'
 
 export const runtimeApi = {
+  atlasReadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    ipcRenderer.invoke('atlas:readRuntimeFile', teamId, runtimeId, sessionId, path),
+  atlasListRuntimeFiles: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    ipcRenderer.invoke('atlas:listRuntimeFiles', teamId, runtimeId, sessionId, path),
   atlasStartRuntimeLogin: (teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('atlas:startRuntimeLogin', teamId, runtimeId),
   atlasGetRuntimeLogin: (teamId: string, runtimeId: string) =>

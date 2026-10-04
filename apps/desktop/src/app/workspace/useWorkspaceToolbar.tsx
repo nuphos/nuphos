@@ -54,6 +54,7 @@ const UNFILTERABLE_PAGE_KEYS = new Set([
   'team.new-tab',
   'team.browser',
   'team.terminal',
+  'team.files',
   'team.agent',
   // Cloudflare IAM is a status panel: summary card, warnings and granted-scope
   // chips, with no list to filter.
@@ -111,7 +112,7 @@ export function useWorkspaceToolbar(a: Args) {
   )
   // The team picker belongs to the persistent left rail. The workspace header
   // starts directly at the current page; it no longer needs a redundant Home.
-  const toolbarSegments = breadcrumb.slice(1)
+  const toolbarSegments = active === 'team.files' ? [] : breadcrumb.slice(1)
   // The alarm drill-down has no filterable list (lambda/log-group details do —
   // their Logs tabs consume the filter), so hide the stale list controls there.
   const inAlarmDetail = active === 'aws.cloudwatch-alarms' && awsDetail?.kind === 'alarm'
