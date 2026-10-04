@@ -62,7 +62,9 @@ ghcr.io/nuphos/backend:vX.Y.Z
 ```
 
 The workflow uses the repository's built-in `GITHUB_TOKEN` with `packages: write`;
-no cloud credentials are needed. The Dockerfile copies only application source,
+no cloud credentials are needed. After the image is published successfully, a
+GitHub Release records the image reference and digest with automatically generated
+release notes. Backend releases do not replace the Desktop latest release. The Dockerfile copies only application source,
 locked production dependencies and scripts, not deployment configuration.
 
 Configure the `backend-release` Environment with maintainer approval, no

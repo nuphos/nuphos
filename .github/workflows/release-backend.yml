@@ -17,6 +17,9 @@ jobs:
     if: github.repository == 'nuphos/nuphos' && startsWith(github.ref, 'refs/tags/backend-v')
     runs-on: ubuntu-latest
     environment: backend-release
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      digest: ${{ steps.image.outputs.digest }}
     permissions:
       contents: read
       packages: write
@@ -50,6 +53,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Build and publish self-hosted image
+        id: image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -61,3 +65,23 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=Apache-2.0
+
+  announce:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.publish.outputs.version }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+          TAG="backend-v$VERSION"
+          IMAGE="ghcr.io/nuphos/backend:v$VERSION"
+          printf 'Self-hosted Backend image: `%s` (linux/amd64 and linux/arm64).\n\nImage digest: `%s`.\n' "$IMAGE" "$DIGEST" > release-notes.md
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Backend v$VERSION" --latest=false --generate-notes --notes-file release-notes.md
+          fi
