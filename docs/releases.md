@@ -58,7 +58,7 @@ minimum system version, matching macOS 12 in the package configuration.
 `linux/amd64` and `linux/arm64` as:
 
 ```text
-ghcr.io/nuphos/nuphos-backend:vX.Y.Z
+ghcr.io/nuphos/backend:vX.Y.Z
 ```
 
 The workflow uses the repository's built-in `GITHUB_TOKEN` with `packages: write`;

@@ -56,7 +56,7 @@ jobs:
           file: apps/backend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/nuphos/nuphos-backend:v${{ steps.version.outputs.version }}
+          tags: ghcr.io/nuphos/backend:v${{ steps.version.outputs.version }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
