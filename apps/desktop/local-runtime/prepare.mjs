@@ -29,7 +29,7 @@ import { findBrokenLinks } from './bundle-check.mjs'
 import { bundleStamp, digestOf, PATCH_SOURCES } from './bundle-stamp.mjs'
 
 export const NUPHOS_RUNTIME_COMMIT = 'c32595ab3b69db57843a07b7b0aaf2b5c74d1a98'
-export const OPENAB_COMMIT = '15b2820dc67e6672b8c177c22ec3f0ff7a7950ce'
+export const OPENAB_COMMIT = '735c6d0b5391581ea377ded8ba6999f69712535d'
 
 /** One nuphos-runtime adapter per agent the desktop can run, patched as its image patches it. */
 export const ADAPTERS = {
