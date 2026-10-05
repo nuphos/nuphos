@@ -1,6 +1,8 @@
-import type { OpenAbProvider } from './runtime-provider'
-
 import { logEvent } from '@/lib/observability'
+
+import { OPENAB_PROVIDERS } from './runtime-provider'
+
+import type { OpenAbProvider } from './runtime-provider'
 
 export const RUNTIME_RELEASES_URL = 'https://github.com/nuphos/nuphos/releases'
 const legacyReleasesUrl = 'https://github.com/zeabur/nuphos-runtime/releases'
@@ -112,7 +114,7 @@ export async function latestRuntimeRelease(
         .then((release) => {
           if (!release) return null
           // Emit once per metadata refresh, not once per agent poll.
-          for (const provider of ['claude-code', 'codex']) {
+          for (const provider of OPENAB_PROVIDERS) {
             if (
               !release.body.includes(
                 `${runtimeReleaseRepository(release)}:${release.version}-${provider}`,

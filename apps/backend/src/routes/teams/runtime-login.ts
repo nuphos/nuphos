@@ -58,7 +58,10 @@ export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAut
       z
         .object({
           attemptId: z.string().uuid(),
-          code: z.string().trim().regex(AUTHORIZATION_CODE, 'Paste the whole code Claude shows'),
+          code: z
+            .string()
+            .trim()
+            .regex(AUTHORIZATION_CODE, 'Paste the whole code or address the sign-in page shows'),
         })
         .strict(),
     ),

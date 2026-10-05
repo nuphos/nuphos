@@ -259,7 +259,7 @@ export async function resolveTeamRuntimeEndpoints(
         url: doc.url,
         authKey,
         runtimeId: doc._id,
-        ...(provider === 'codex' ? { provider } : {}),
+        ...(provider === 'claude-code' ? {} : { provider }),
         // Reachability decides the backend address a runtime is handed, not who runs it.
         ...(isInternalRuntimeUrl(doc.url) ? {} : { external: true }),
       })

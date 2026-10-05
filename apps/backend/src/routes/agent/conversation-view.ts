@@ -1,16 +1,17 @@
-import { serializeConversationDoc } from './transcript'
-
-import type { NuphosUser } from '@/lib/identity'
-import type { SlackAgentThread } from '@/lib/slack/agent-bot'
-
 import { config } from '@/config'
 import { normalizeConversationActivitySource } from '@/lib/agent/conversation-activity-source'
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import { conversationReadState } from '@/lib/agent/db/read-state'
 import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { fetchCachedUsers } from '@/lib/agent/directory'
+import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
+
+import { serializeConversationDoc } from './transcript'
+
+import type { NuphosUser } from '@/lib/identity'
+import type { SlackAgentThread } from '@/lib/slack/agent-bot'
 
 type ConversationOwner = Pick<NuphosUser, 'id' | 'name' | 'email' | 'avatarURL'> & {
   // Former member (removed from the team, or account deleted). Clients render
@@ -185,7 +186,7 @@ export function serializeConversationForViewer(
   return {
     ...serializeConversationDoc(conversation),
     claudeCodeRuntimeAttached: true,
-    agentRuntime: conversation.agentRuntime === 'codex' ? 'codex' : 'claude-code',
+    agentRuntime: runtimeProvider(conversation.agentRuntime),
     runtimeId: conversation.runtimeId,
     runtimeLabel: conversation.runtimeLabel,
     activitySource: normalizeConversationActivitySource(

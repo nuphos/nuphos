@@ -1,12 +1,31 @@
-/** Legacy records without a provider belong to Claude Code. */
-export type OpenAbProvider = 'claude-code' | 'codex'
+/** Every agent a runtime image can carry; the identifier is also the image variant. */
+export const OPENAB_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity'] as const
 
-export function runtimeProvider(value?: string): OpenAbProvider {
-  return value === 'codex' ? 'codex' : 'claude-code'
+export type OpenAbProvider = (typeof OPENAB_PROVIDERS)[number]
+
+const PROVIDERS: Record<OpenAbProvider, { label: string; errorPrefix: string; short: string }> = {
+  'claude-code': { label: 'Claude Code', errorPrefix: 'claude_code', short: 'claude' },
+  codex: { label: 'Codex', errorPrefix: 'codex', short: 'codex' },
+  grok: { label: 'Grok Build', errorPrefix: 'grok', short: 'grok' },
+  antigravity: { label: 'Antigravity', errorPrefix: 'antigravity', short: 'antigravity' },
+}
+
+export function isOpenAbProvider(value: unknown): value is OpenAbProvider {
+  return typeof value === 'string' && Object.hasOwn(PROVIDERS, value)
+}
+
+/** Legacy records without a provider belong to Claude Code. */
+export function runtimeProvider(value?: unknown): OpenAbProvider {
+  return isOpenAbProvider(value) ? value : 'claude-code'
 }
 
 export function runtimeLabel(provider: OpenAbProvider): string {
-  return provider === 'codex' ? 'Codex' : 'Claude Code'
+  return PROVIDERS[provider].label
+}
+
+/** The short name Kubernetes objects and ConfigMaps carry: `openab-<short>-…`. */
+export function runtimeShortName(provider: OpenAbProvider): string {
+  return PROVIDERS[provider].short
 }
 
 /** "Claude Code", then "Claude Code 2", … so a new agent never reuses a name in its team. */
@@ -21,5 +40,5 @@ export function defaultRuntimeLabel(provider: OpenAbProvider, taken: readonly st
 }
 
 export function runtimeErrorPrefix(provider: OpenAbProvider): string {
-  return provider === 'codex' ? 'codex' : 'claude_code'
+  return PROVIDERS[provider].errorPrefix
 }

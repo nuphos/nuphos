@@ -10,6 +10,7 @@ import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { placementNamespace } from './runtime-controllers'
 import { assertRuntimeNotDeleting, runtimeDeletions } from './runtime-portability-store'
+import { runtimeProvider } from './runtime-provider'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
 import {
   findWorkspaceArchive,
@@ -29,7 +30,7 @@ export async function moveConversationRuntime(
 
   if (!teamId || conversation.userId !== userId)
     throw new AppError(403, 'conversation_read_only', 'Only the conversation owner can move it.')
-  const provider = conversation.agentRuntime === 'codex' ? 'codex' : 'claude-code'
+  const provider = runtimeProvider(conversation.agentRuntime)
   const sourceUrl = conversation.claudeCodePreview?.runtimeUrl
   const sourceHosted = sourceUrl ? await findHostedRuntime(teamId, sourceUrl) : null
 

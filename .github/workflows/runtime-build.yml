@@ -34,8 +34,8 @@ on:
       provider:
         description: Runtime provider to build
         type: choice
-        options: [claude, codex, both]
-        default: both
+        options: [claude, codex, grok, antigravity, all]
+        default: all
         required: true
       reuse_base:
         description: Reuse the published provider base at the pinned OpenAB revision
@@ -141,8 +141,8 @@ jobs:
 
           # The gitlink, so no submodule checkout is needed to name the revision.
           SHA="$(git rev-parse "${BUILD_SHA}:apps/runtime/third_party/openab")"
-          if [[ "$PROVIDER" == "both" ]]; then
-            PROVIDERS='["claude","codex"]'
+          if [[ "$PROVIDER" == "all" ]]; then
+            PROVIDERS='["claude","codex","grok","antigravity"]'
           else
             PROVIDERS="[\"${PROVIDER}\"]"
           fi
@@ -189,12 +189,20 @@ jobs:
         run: |
           set -euo pipefail
           # The published variant name matches the backend's provider identifier.
-          if [[ "$PROVIDER" == "codex" ]]; then VARIANT=codex; else VARIANT=claude-code; fi
+          if [[ "$PROVIDER" == "claude" ]]; then VARIANT=claude-code; else VARIANT="$PROVIDER"; fi
           # Each provider signs itself in and keeps the credential in its own home.
           if [[ "$VARIANT" == "codex" ]]; then
             LOGIN_COMMAND='node /opt/nuphos-runtime/codex-login.mjs --install'
             AUTH_FILE='/home/node/.codex/auth.json'
             LABEL='Codex'
+          elif [[ "$VARIANT" == "grok" ]]; then
+            LOGIN_COMMAND='node /opt/nuphos-runtime/grok-login.mjs'
+            AUTH_FILE='/home/node/.grok/auth.json'
+            LABEL='Grok Build'
+          elif [[ "$VARIANT" == "antigravity" ]]; then
+            LOGIN_COMMAND='node /opt/nuphos-runtime/antigravity-login.mjs'
+            AUTH_FILE='/home/node/.gemini/antigravity-acp/acp_token.json'
+            LABEL='Antigravity'
           else
             LOGIN_COMMAND='node /opt/nuphos-runtime/claude-login.mjs'
             AUTH_FILE='/home/node/.claude/.credentials.json'

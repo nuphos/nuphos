@@ -257,3 +257,22 @@ describe('a conversation left stamped with the retired runtime', () => {
     expect(resolveConversationRuntimeId(LEGACY_NUPHOS_CONVERSATION, 'runtime-b')).toBeUndefined()
   })
 })
+
+test('Grok Build and Antigravity get one shim-facing shape with the instructions and env', async () => {
+  const { sessionMeta } = await import('./openab-acp-session')
+
+  for (const provider of ['grok', 'antigravity'] as const)
+    expect(
+      sessionMeta('Nuphos context', { provider, env: { NUPHOS_TOKEN: 'actor-token' } }),
+    ).toEqual({
+      _meta: {
+        'ai.nuphos/runtimeAuthority': 2,
+        'dev.openab/permissionPolicy': 'relay',
+        'dev.openab/credentials': { NUPHOS_TOKEN: 'actor-token' },
+        'ai.nuphos/session': {
+          systemPrompt: 'Nuphos context',
+          env: { NUPHOS_TOKEN: 'actor-token' },
+        },
+      },
+    })
+})

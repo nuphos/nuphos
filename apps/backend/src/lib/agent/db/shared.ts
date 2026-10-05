@@ -5,6 +5,7 @@ import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/runtime-defaults'
+import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config'
 import type { Collection, ObjectId } from 'mongodb'
 
@@ -95,7 +96,7 @@ export type AgentConversation = {
   // Execution runtime is chosen once when the conversation is created and is
   // changed only by an explicit move. Team settings are defaults for NEW conversations;
   // they must never migrate an existing conversation between agent engines.
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: OpenAbProvider
   runtimeId?: string
   runtimeLabel?: string
   /** Retains workspace ownership after a move, so deleting the old runtime can still save its files. */

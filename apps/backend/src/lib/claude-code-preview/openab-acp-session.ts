@@ -2,6 +2,7 @@
 // options it forwards to the runtime's inner claude-agent-acp session.
 import type { PreviewAgentUpdate } from './preview-agent-update'
 import type { RuntimeDefaults } from './runtime-defaults'
+import type { OpenAbProvider } from './runtime-provider'
 
 export const ACP_INITIALIZE_PARAMS = {
   protocolVersion: 1,
@@ -65,7 +66,7 @@ export type OpenAbAcpClientOptions = {
 
 export type OpenAbSessionRuntime = {
   defaults?: RuntimeDefaults
-  provider?: 'claude-code' | 'codex'
+  provider?: OpenAbProvider
   env?: Record<string, string>
 }
 
@@ -148,6 +149,22 @@ export function sessionMeta(
         ...(runtime.defaults ? { 'ai.nuphos/runtimeDefaults': runtime.defaults } : {}),
         'ai.nuphos/codex': {
           ...(systemPrompt ? { developerInstructions: systemPrompt } : {}),
+          ...(runtime.env ? { env: runtime.env } : {}),
+        },
+      },
+    }
+  }
+  // Grok Build and Antigravity run behind the runtime's ACP shim, which turns this
+  // one shape into whatever each agent accepts (apps/runtime/image/acp-shim.mjs).
+  if (runtime?.provider === 'grok' || runtime?.provider === 'antigravity') {
+    return {
+      _meta: {
+        'dev.openab/permissionPolicy': 'relay',
+        'ai.nuphos/runtimeAuthority': 2,
+        ...runtimeCredentials(runtime.env),
+        ...(runtime.defaults ? { 'ai.nuphos/runtimeDefaults': runtime.defaults } : {}),
+        'ai.nuphos/session': {
+          ...(systemPrompt ? { systemPrompt } : {}),
           ...(runtime.env ? { env: runtime.env } : {}),
         },
       },

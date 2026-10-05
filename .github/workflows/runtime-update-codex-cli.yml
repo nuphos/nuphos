@@ -103,5 +103,5 @@ jobs:
       packages: write
     with:
       release_tag: ${{ needs.update.outputs.tag }}
-      provider: both
+      provider: all
       reuse_base: false

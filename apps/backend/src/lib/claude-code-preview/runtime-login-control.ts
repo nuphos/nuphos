@@ -4,16 +4,25 @@ import { controlRegistry } from './agent-chat-registry'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { loginFrameReader } from './runtime-login-exec'
+import { runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeLoginFrame } from './runtime-login-exec'
 import type { RuntimeLoginDoc } from './runtime-login-store'
+import type { OpenAbProvider } from './runtime-provider'
 import type { TeamPreviewClient } from './team-openab-runtime'
 
 const CODEX_LOGIN_FAILED =
   'Sign-in did not complete. Retry and check device-code login in ChatGPT security settings.'
 const CLAUDE_LOGIN_FAILED =
   'Sign-in did not complete. Start again and paste the whole code Claude shows you.'
+const LOGIN_FAILED: Record<OpenAbProvider, string> = {
+  'claude-code': CLAUDE_LOGIN_FAILED,
+  codex: CODEX_LOGIN_FAILED,
+  grok: 'Sign-in did not complete. Start again and confirm the code on the xAI page.',
+  antigravity:
+    'Sign-in did not complete. Start again and paste the whole address your browser ended on after Google sign-in.',
+}
 
 async function controlEndpoint(teamId: string, runtimeId: string) {
   const { provider } = await requireRuntimeInstance(teamId, runtimeId)
@@ -76,7 +85,7 @@ export async function driveControlRuntimeLogin(
   const read = loginFrameReader(onFrame)
   const exited = Promise.withResolvers<number>()
 
-  exited.promise.catch(() => undefined)
+  exited.promise.catch(() => {})
 
   const stopReading = client.onRuntimeLoginFrame(doc.attemptId, (frame) => {
     // This channel is shared, so a frame from an abandoned attempt has to be dropped
@@ -135,7 +144,7 @@ async function execControlRuntimeLogin(
     onFrame,
     signal,
     doc,
-    endpoint.provider === 'codex' ? CODEX_LOGIN_FAILED : CLAUDE_LOGIN_FAILED,
+    LOGIN_FAILED[runtimeProvider(endpoint.provider)],
   )
 }
 

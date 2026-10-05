@@ -18,7 +18,7 @@ import { createManagedRuntimeInstance } from '@/lib/claude-code-preview/runtime-
 import { listRuntimeMetricSamples } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
-import { defaultRuntimeLabel } from '@/lib/claude-code-preview/runtime-provider'
+import { defaultRuntimeLabel, OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
 import { fetchRuntimeQuota } from '@/lib/claude-code-preview/runtime-quota'
 import {
@@ -48,7 +48,7 @@ const label = z.string().trim().min(1).max(120)
 const createSchema = z
   .object({
     label: label.optional(),
-    provider: z.enum(['claude-code', 'codex']),
+    provider: z.enum(OPENAB_PROVIDERS),
     defaults: runtimeDefaultsSchema.optional(),
   })
   .strict()
