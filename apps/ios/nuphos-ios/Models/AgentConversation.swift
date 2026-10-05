@@ -94,7 +94,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         activitySeq = try? c.decodeIfPresent(Int.self, forKey: .activitySeq)
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
-        timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
     }
 
     init(
@@ -191,5 +190,6 @@ struct AgentConversationDetail: Decodable, Sendable {
         archivedAt = try? c.decodeIfPresent(Date.self, forKey: .archivedAt)
         activitySeq = try? c.decodeIfPresent(Int.self, forKey: .activitySeq)
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
+        timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
     }
 }
