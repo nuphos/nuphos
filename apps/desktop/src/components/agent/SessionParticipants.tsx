@@ -15,7 +15,7 @@ import {
 } from '../ui/menu'
 import { toast } from '../ui/toast'
 
-import { TIMELINE_CHANGED_EVENT } from './panel/timelineEvents'
+import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
 
 import type { AgentConversationParticipant } from '../../api/agent-types'
 import type { TeamMember } from '../../types'
@@ -25,10 +25,6 @@ const AVATAR_SIZE = 22
 // overlapping avatars read as separate discs.
 const AVATAR_CHROME = 'shrink-0 !rounded-full border-2 border-agentCanvas !shadow-none'
 const VISIBLE_AVATARS = 3
-
-function announceTimelineChange(sessionId: string) {
-  window.dispatchEvent(new CustomEvent(TIMELINE_CHANGED_EVENT, { detail: sessionId }))
-}
 
 function AvatarStack({ participants }: { participants: AgentConversationParticipant[] }) {
   if (participants.length === 0) return null
@@ -134,19 +130,27 @@ export function SessionParticipants({
   const [pending, setPending] = useState<string | null>(null)
 
   // The pane keys this component by sessionId, so a session switch remounts it
-  // and there is no stale list to clear here.
+  // and there is no stale list to clear here. An invite from elsewhere (the
+  // composer's @mention prompt) announces itself, so the header reloads then.
   useEffect(() => {
     let cancelled = false
+    const load = () =>
+      api
+        .agentGetConversationParticipants(sessionId, teamId)
+        .then((result) => {
+          if (!cancelled) setParticipants(result.participants)
+        })
+        .catch((err: unknown) => toast.apiError('Failed to load session participants', err))
+    const reloadIfThisSession = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === sessionId) void load()
+    }
 
-    api
-      .agentGetConversationParticipants(sessionId, teamId)
-      .then((result) => {
-        if (!cancelled) setParticipants(result.participants)
-      })
-      .catch((err: unknown) => toast.apiError('Failed to load session participants', err))
+    void load()
+    window.addEventListener(TIMELINE_CHANGED_EVENT, reloadIfThisSession)
 
     return () => {
       cancelled = true
+      window.removeEventListener(TIMELINE_CHANGED_EVENT, reloadIfThisSession)
     }
   }, [sessionId, teamId])
 

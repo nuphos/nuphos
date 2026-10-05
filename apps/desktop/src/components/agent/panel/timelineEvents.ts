@@ -4,6 +4,10 @@ import type { AgentTimelineEvent } from '../../../api/agent-types'
  *  instead of on its next catch-up poll (see useConversationCatchUp). */
 export const TIMELINE_CHANGED_EVENT = 'nuphos:conversation-timeline-changed'
 
+export function announceTimelineChange(sessionId: string) {
+  window.dispatchEvent(new CustomEvent(TIMELINE_CHANGED_EVENT, { detail: sessionId }))
+}
+
 /**
  * Where the session's timeline events sit among its loaded messages: each goes
  * right before the first message newer than it, or after the last one. A
