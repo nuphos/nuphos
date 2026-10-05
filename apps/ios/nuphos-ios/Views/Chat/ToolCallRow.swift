@@ -420,6 +420,7 @@ struct ActivityRow: View {
             .contentTransition(.numericText())
             .shimmer(active: true)
             .animation(.snappy, value: text)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
