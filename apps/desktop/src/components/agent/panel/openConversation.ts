@@ -162,6 +162,7 @@ export async function runOpenConversation(
       runtimeId: detail.runtimeId,
       runtimeLabel: detail.runtimeLabel,
       timelineEvents: detail.timelineEvents,
+      openedAt: Date.now(),
     }
 
     lastSyncedRef.current.set(tab.sessionId, transcriptSignature(tab))

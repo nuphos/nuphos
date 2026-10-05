@@ -88,6 +88,8 @@ export type AgentSetupRequiredInfo = {
 export type Tab = {
   /** Invites, removals and runtime moves, refreshed with every detail read. */
   timelineEvents?: import('../../../api/agent-types').AgentTimelineEvent[]
+  /** When this tab loaded the session; timeline events after it animate in. */
+  openedAt?: number
   /** Label of the agent this session is being moved to, until the move lands. */
   movingTo?: string
   runtimeState?: import('../../../lib/runtimeExecution').RuntimeExecution

@@ -67,6 +67,9 @@ export function ConversationMessageList({
   useReportVisibleError(tab.error, 'agent_conversation_error')
   const downloadsByMessage = useTransferDownloads(tab, teamId)
   const timeline = placeTimelineEvents(tab.messages, tab.timelineEvents, hasEarlier)
+  // Events newer than the moment this session was opened animate in; the ones
+  // it opened with do not.
+  const openedAt = tab.openedAt ?? 0
 
   return (
     // Match the composer's column and inner padding so messages stay inside its edges.
@@ -177,7 +180,11 @@ export function ConversationMessageList({
           return (
             <Fragment key={m.id}>
               {timeline.before.get(m.id)?.map((event) => (
-                <TimelineEventLine key={`${event.at}-${event.text}`} event={event} />
+                <TimelineEventLine
+                  key={`${event.at}-${event.text}`}
+                  event={event}
+                  reveal={Date.parse(event.at) > openedAt}
+                />
               ))}
               {message}
             </Fragment>
@@ -185,7 +192,11 @@ export function ConversationMessageList({
         })
       )}
       {timeline.trailing.map((event) => (
-        <TimelineEventLine key={`${event.at}-${event.text}`} event={event} />
+        <TimelineEventLine
+          key={`${event.at}-${event.text}`}
+          event={event}
+          reveal={Date.parse(event.at) > openedAt}
+        />
       ))}
       {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
       <ShellsPanel snapshot={tab.runtimeState} />

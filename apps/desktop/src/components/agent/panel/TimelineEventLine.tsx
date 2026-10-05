@@ -1,8 +1,8 @@
-import { Loader2 } from 'lucide-react'
-
 import { Avatar } from '../../Avatar'
+import { PlanRevealSection } from '../plan-tool/reveal'
 
 import { ClaudeCodeIcon, CodexIcon } from './icons'
+import { LoadingText } from './partChrome'
 
 import type {
   AgentTimelineEvent,
@@ -46,8 +46,22 @@ function Rule({ children, title }: { children: ReactNode; title?: string }) {
   )
 }
 
-/** One membership or runtime change, between the messages it happened among. */
-export function TimelineEventLine({ event }: { event: AgentTimelineEvent }) {
+/** One membership or runtime change, between the messages it happened among.
+ *  `reveal` rises it in (texts reveal) — only for a change that happened while
+ *  the session was open, so opening a session does not replay its history. */
+export function TimelineEventLine({
+  event,
+  reveal = false,
+}: {
+  event: AgentTimelineEvent
+  reveal?: boolean
+}) {
+  const line = <EventLine event={event} />
+
+  return reveal ? <PlanRevealSection revealKey={event.at}>{line}</PlanRevealSection> : line
+}
+
+function EventLine({ event }: { event: AgentTimelineEvent }) {
   const title = new Date(event.at).toLocaleString()
   const { actor, target, from, to } = event
 
@@ -86,13 +100,16 @@ export function TimelineEventLine({ event }: { event: AgentTimelineEvent }) {
   )
 }
 
+/** The move in flight: rises in, then shimmers (thinking state) until the move's
+ *  own event takes its place. */
 export function MovingSessionLine({ label }: { label: string }) {
   return (
-    <div role="status">
-      <Rule>
-        <Loader2 className="h-3 w-3 animate-spin" />
-        Moving this session to {label}…
-      </Rule>
-    </div>
+    <PlanRevealSection revealKey={label}>
+      <div role="status">
+        <Rule>
+          <LoadingText>{`Moving this session to ${label}…`}</LoadingText>
+        </Rule>
+      </div>
+    </PlanRevealSection>
   )
 }
