@@ -3,6 +3,7 @@ import SwiftUI
 /// Picks the screen for the current auth state.
 struct RootView: View {
     @Environment(AuthSession.self) private var session
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -22,6 +23,9 @@ struct RootView: View {
         .background(Theme.canvas.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.25), value: isSignedIn)
         .task { await session.restore() }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            Analytics.shared.setActive(phase == .active)
+        }
         .task(id: isSignedIn) {
             if isSignedIn, let token = session.token { await PushNotifications.shared.activate(authToken: token) }
         }

@@ -157,6 +157,7 @@ final class PlansStore {
     func approve(_ plan: Plan) async throws -> Plan {
         guard let teamId = plan.teamId ?? teamId else { throw NuphosAPI.Failure.invalidResponse }
         let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: plan.id, status: "approved")
+        Analytics.shared.track("agent_plan_approved", teamID: teamId, properties: ["plan_id": plan.id])
         apply(updated)
         return updated
     }

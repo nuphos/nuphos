@@ -76,6 +76,7 @@ struct ConversationView: View {
         }
         .onAppear {
             UIEventLog.pageTransition(from: sourcePage, to: "chat")
+            Analytics.shared.screen("chat", teamID: session.teamId)
             onScreen = true
             updateReading()
             if draft.isEmpty { draft = ComposerDrafts.text(team: session.teamId, session: session.sessionId) }

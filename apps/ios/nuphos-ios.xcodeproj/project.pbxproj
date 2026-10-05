@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		000000000000000000000222 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000221 /* PostHog */; };
 		000000000000000000000212 /* ChatLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000211 /* ChatLayout */; };
 		000000000000000000000202 /* MarkdownView in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000201 /* MarkdownView */; };
 /* End PBXBuildFile section */
@@ -41,6 +42,7 @@
 		000000000000000130000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				000000000000000000000222 /* PostHog in Frameworks */,
 				000000000000000000000212 /* ChatLayout in Frameworks */,
 				000000000000000000000202 /* MarkdownView in Frameworks */,
 			);
@@ -82,6 +84,7 @@
 			);
 			name = "nuphos-ios";
 			packageProductDependencies = (
+				000000000000000000000221 /* PostHog */,
 				000000000000000000000211 /* ChatLayout */,
 				000000000000000000000201 /* MarkdownView */,
 			);
@@ -115,6 +118,7 @@
 			mainGroup = 000000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				000000000000000000000220 /* XCRemoteSwiftPackageReference "PostHog" */,
 				000000000000000000000210 /* XCRemoteSwiftPackageReference "ChatLayout" */,
 				000000000000000000000200 /* XCRemoteSwiftPackageReference "MarkdownView" */,
 			);
@@ -387,6 +391,11 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		000000000000000000000220 /* XCRemoteSwiftPackageReference "PostHog" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios";
+			requirement = { kind = exactVersion; version = 3.89.1; };
+		};
 		000000000000000000000210 /* XCRemoteSwiftPackageReference "ChatLayout" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ekazaev/ChatLayout";
@@ -403,6 +412,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		000000000000000000000221 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000220 /* XCRemoteSwiftPackageReference "PostHog" */;
+			productName = PostHog;
+		};
 		000000000000000000000211 /* ChatLayout */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 000000000000000000000210 /* XCRemoteSwiftPackageReference "ChatLayout" */;

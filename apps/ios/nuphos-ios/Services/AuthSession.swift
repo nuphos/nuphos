@@ -17,7 +17,15 @@ final class AuthSession {
         case signedIn(NuphosUser)
     }
 
-    private(set) var state: State = .restoring
+    private(set) var state: State = .restoring {
+        didSet {
+            switch state {
+            case .signedIn(let user): Analytics.shared.identify(user)
+            case .signedOut: Analytics.shared.reset()
+            case .restoring, .signingIn: break
+            }
+        }
+    }
     private(set) var token: String?
     private(set) var aiConsentAccepted = false
     private(set) var aiConsentVersion: String?
@@ -120,6 +128,7 @@ final class AuthSession {
             self.token = token
             await loadAIConsent()
             state = .signedIn(user)
+            Analytics.shared.track("login")
         } catch {
             state = .signedOut(error: error.localizedDescription)
         }
@@ -210,6 +219,7 @@ final class AuthSession {
     }
 
     func signOut(error: String? = nil) {
+        Analytics.shared.track("logout")
         Task { await PushNotifications.shared.deactivate() }
         webSession?.cancel()
         webSession = nil
