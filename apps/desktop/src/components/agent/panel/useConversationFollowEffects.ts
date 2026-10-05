@@ -70,6 +70,12 @@ export function useConversationFollowEffects({
     tab.messages.length,
   ])
 
+  // Timeline lines (invites, removals, a move in flight) are new content too.
+  useEffect(
+    () => followLatestOrMarkUnseen(),
+    [followLatestOrMarkUnseen, tab.timelineEvents?.length, tab.movingTo],
+  )
+
   // Runtime can show Working before any transcript part exists. Treat the
   // status row's layout change as new content, respecting a user's history lock.
   useEffect(() => followLatestOrMarkUnseen(), [followLatestOrMarkUnseen, statusLabel])

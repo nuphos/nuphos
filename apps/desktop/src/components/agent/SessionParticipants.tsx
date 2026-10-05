@@ -15,6 +15,8 @@ import {
 } from '../ui/menu'
 import { toast } from '../ui/toast'
 
+import { TIMELINE_CHANGED_EVENT } from './panel/timelineEvents'
+
 import type { AgentConversationParticipant } from '../../api/agent-types'
 import type { TeamMember } from '../../types'
 
@@ -23,6 +25,10 @@ const AVATAR_SIZE = 22
 // overlapping avatars read as separate discs.
 const AVATAR_CHROME = 'shrink-0 !rounded-full border-2 border-agentCanvas !shadow-none'
 const VISIBLE_AVATARS = 3
+
+function announceTimelineChange(sessionId: string) {
+  window.dispatchEvent(new CustomEvent(TIMELINE_CHANGED_EVENT, { detail: sessionId }))
+}
 
 function AvatarStack({ participants }: { participants: AgentConversationParticipant[] }) {
   if (participants.length === 0) return null
@@ -157,7 +163,10 @@ export function SessionParticipants({
       setPending(member.id)
       api
         .agentInviteConversationParticipants(sessionId, teamId, [member.id])
-        .then((result) => setParticipants(result.participants))
+        .then((result) => {
+          setParticipants(result.participants)
+          announceTimelineChange(sessionId)
+        })
         .catch((err: unknown) => toast.apiError(`Failed to add ${member.name}`, err))
         .finally(() => setPending(null))
     },
@@ -169,7 +178,10 @@ export function SessionParticipants({
       setPending(participant.id)
       api
         .agentRemoveConversationParticipant(sessionId, teamId, participant.id)
-        .then((result) => setParticipants(result.participants))
+        .then((result) => {
+          setParticipants(result.participants)
+          announceTimelineChange(sessionId)
+        })
         .catch((err: unknown) => toast.apiError(`Failed to remove ${participant.name}`, err))
         .finally(() => setPending(null))
     },

@@ -1,5 +1,9 @@
 import type { AgentTimelineEvent } from '../../../api/agent-types'
 
+/** Tells the open transcript its timeline just changed, so it reads it back now
+ *  instead of on its next catch-up poll (see useConversationCatchUp). */
+export const TIMELINE_CHANGED_EVENT = 'nuphos:conversation-timeline-changed'
+
 /**
  * Where the session's timeline events sit among its loaded messages: each goes
  * right before the first message newer than it, or after the last one. A

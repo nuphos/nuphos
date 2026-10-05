@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 
+import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
@@ -54,11 +55,7 @@ export type ConversationPreviewContext = {
   localTools?: boolean
 }
 
-// Not in agent_messages: transcript sync replaces those and feeds them to the model.
-export type ConversationTimelineEvent = { at: Date; actorId: string } & (
-  | { kind: 'participant_invited' | 'participant_removed'; targetId: string }
-  | { kind: 'runtime_moved'; fromLabel?: string; toLabel: string }
-)
+export type { ConversationTimelineEvent }
 
 export type AgentConversation = {
   _id?: ObjectId

@@ -86,6 +86,7 @@ function runtimeOptionNote(instance: RuntimeInstance): string {
   if (instance.status === 'disabled') return ' · Disabled'
   if (instance.deletion) return ' · Being removed'
   if (instance.starting) return ' · Starting…'
+  if (instance.notReady) return ' · Not ready yet'
   if (instance.local?.signedIn === false)
     return ` · Sign in to ${PROVIDER_NAME[instance.provider]} on that computer`
 
@@ -211,6 +212,7 @@ export function RuntimeSelector({
                         selectDisabled ||
                         instance.status === 'disabled' ||
                         Boolean(instance.deletion) ||
+                        (instance.notReady === true && instance.id !== value?.id) ||
                         (instance.local?.signedIn === false && !needsLocalLogin)
                       }
                       icon={<InstanceIcon className="h-3.5 w-3.5" />}

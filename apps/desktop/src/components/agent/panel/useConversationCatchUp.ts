@@ -10,6 +10,7 @@ import { fetchWakeupTranscriptTail, shouldDeferTranscriptCatchUp } from './conve
 import { CONVERSATION_TAIL_LIMIT } from './model'
 import { fromPersistedMessages, transcriptSignature } from './persistence'
 import { getAgentLocale } from './textUtils'
+import { TIMELINE_CHANGED_EVENT } from './timelineEvents'
 import { toUiMessages } from './toUiMessages'
 
 import type { PanelCtx } from './ctx'
@@ -240,10 +241,16 @@ export function useConversationCatchUp(acc: Acc): void {
 
     void poll()
     const timer = window.setInterval(() => void poll(), WAKEUP_POLL_MS)
+    const pollIfThisSession = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === sessionId) void poll()
+    }
+
+    window.addEventListener(TIMELINE_CHANGED_EVENT, pollIfThisSession)
 
     return () => {
       state.stopped = true
       window.clearInterval(timer)
+      window.removeEventListener(TIMELINE_CHANGED_EVENT, pollIfThisSession)
     }
   }, [
     activeTab?.sessionId,

@@ -1,6 +1,9 @@
 import type { ConversationOwner } from './conversation-view'
 import type { ConversationTimelineEvent } from '@/lib/agent/db/shared'
 
+type Person = { id: string; name: string; avatarURL: string }
+type Runtime = { label: string; provider?: 'claude-code' | 'codex' }
+
 export function timelineEventUserIds(events: readonly ConversationTimelineEvent[] = []): string[] {
   return events.flatMap((event) =>
     'targetId' in event ? [event.actorId, event.targetId] : [event.actorId],
@@ -8,29 +11,43 @@ export function timelineEventUserIds(events: readonly ConversationTimelineEvent[
 }
 
 /**
- * The line both clients print, written here once so desktop and iOS cannot
- * phrase the same event differently. Names resolve at read time, so a renamed
- * teammate shows under their current name.
+ * Each event with the people and agents it names, plus the whole line as
+ * `text` for clients that print it plainly. Names resolve at read time, so a
+ * renamed teammate shows under their current name.
  */
 export function serializeTimelineEvents(
   events: readonly ConversationTimelineEvent[] = [],
   ownerById: Map<string, ConversationOwner>,
-): { kind: ConversationTimelineEvent['kind']; at: string; text: string }[] {
-  const name = (id: string) => ownerById.get(id)?.name ?? 'Someone'
+) {
+  const person = (id: string): Person => {
+    const owner = ownerById.get(id)
+
+    return { id, name: owner?.name ?? 'Someone', avatarURL: owner?.avatarURL ?? '' }
+  }
 
   return events.map((event) => {
-    const actor = name(event.actorId)
+    const actor = person(event.actorId)
+    const at = event.at.toISOString()
+
+    if (event.kind === 'runtime_moved') {
+      const from: Runtime | undefined = event.fromLabel
+        ? { label: event.fromLabel, provider: event.fromProvider }
+        : undefined
+      const to: Runtime = { label: event.toLabel, provider: event.toProvider }
+      const text = from
+        ? `${actor.name} moved this session from ${from.label} to ${to.label}`
+        : `${actor.name} moved this session to ${to.label}`
+
+      return { kind: event.kind, at, text, actor, from, to }
+    }
+    const target = person(event.targetId)
     let text: string
 
-    if (event.kind === 'runtime_moved')
-      text = event.fromLabel
-        ? `${actor} moved this session from ${event.fromLabel} to ${event.toLabel}`
-        : `${actor} moved this session to ${event.toLabel}`
-    else if (event.kind === 'participant_invited')
-      text = `${actor} invited ${name(event.targetId)} into this session`
-    else if (event.targetId === event.actorId) text = `${actor} left this session`
-    else text = `${actor} removed ${name(event.targetId)} from this session`
+    if (event.kind === 'participant_invited')
+      text = `${actor.name} invited ${target.name} into this session`
+    else if (event.targetId === event.actorId) text = `${actor.name} left this session`
+    else text = `${actor.name} removed ${target.name} from this session`
 
-    return { kind: event.kind, at: event.at.toISOString(), text }
+    return { kind: event.kind, at, text, actor, target }
   })
 }

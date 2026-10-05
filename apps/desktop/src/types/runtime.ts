@@ -17,6 +17,8 @@ export type LocalRuntimeSummary = {
 }
 
 export type RuntimeInstance = {
+  /** Registered but not reachable yet, so nothing can move onto it. */
+  notReady?: boolean
   id: string
   provider: 'claude-code' | 'codex'
   label: string

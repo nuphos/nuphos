@@ -168,7 +168,9 @@ export async function moveConversationRuntime(
           at: new Date(),
           actorId: userId,
           fromLabel: conversation.runtimeLabel,
+          fromProvider: provider,
           toLabel: target.label,
+          toProvider: target.provider,
         }),
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
         // A move leaves the conversation exactly where a brand-new one starts:

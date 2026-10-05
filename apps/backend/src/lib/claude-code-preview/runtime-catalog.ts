@@ -6,7 +6,7 @@ import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runti
 import { listRuntimeDefaults } from './runtime-defaults'
 import { runtimeDeletions } from './runtime-portability-store'
 import { runtimeLabel } from './runtime-provider'
-import { listTeamRuntimes } from './runtime-registry'
+import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
@@ -107,6 +107,32 @@ export async function listRuntimeInstances(
       : {}),
     defaults: instance.kind === 'local' ? instance.defaults : (defaults.get(instance.id) ?? {}),
   }))
+}
+
+/**
+ * Flags registered agents a conversation cannot reach right now, by the same
+ * lookup a move makes, so a picker can disable them up front instead of failing
+ * on click. Kept out of listRuntimeInstances, which the chat path also calls:
+ * resolving endpoints may read runtime keys, and only the picker needs this.
+ */
+export async function withRuntimeReadiness(
+  teamId: string,
+  instances: RuntimeInstance[],
+): Promise<RuntimeInstance[]> {
+  const endpoints = await Promise.all(
+    (['claude-code', 'codex'] as const).map((provider) =>
+      resolveTeamRuntimeEndpoints(teamId, undefined, provider),
+    ),
+  )
+  const reachable = new Set(endpoints.flat().map((endpoint) => endpoint.runtimeId))
+
+  return instances.map((instance) =>
+    (instance.kind === 'managed' || instance.kind === 'external') &&
+    instance.status === 'active' &&
+    !reachable.has(instance.id)
+      ? { ...instance, notReady: true as const }
+      : instance,
+  )
 }
 
 export async function requireRuntimeInstance(

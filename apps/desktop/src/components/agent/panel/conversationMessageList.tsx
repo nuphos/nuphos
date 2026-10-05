@@ -10,26 +10,14 @@ import { SlackThreadBanner } from './conversationBanners'
 import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
 import { ShellsPanel } from './ShellsPanel'
-import { placeTimelineEvents } from './timelineEvents'
 import { DEFERRED_MESSAGE_STYLE } from './status'
+import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
+import { placeTimelineEvents } from './timelineEvents'
 import { UserMessage } from './UserMessage'
 import { useTransferDownloads } from './useTransferDownloads'
 
-import type { AgentTimelineEvent } from '../../../api/agent-types'
 import type { ConversationProps } from './conversationProps'
 import type { Message, Tab } from './model'
-
-function TimelineEventLine({ event }: { event: AgentTimelineEvent }) {
-  return (
-    <div className="flex items-center gap-2 text-[11.5px] text-tertiary">
-      <div className="h-px flex-1 bg-border/60" />
-      <span className="truncate" title={new Date(event.at).toLocaleString()}>
-        {event.text}
-      </span>
-      <div className="h-px flex-1 bg-border/60" />
-    </div>
-  )
-}
 
 export function ConversationMessageList({
   tab,
@@ -199,6 +187,7 @@ export function ConversationMessageList({
       {timeline.trailing.map((event) => (
         <TimelineEventLine key={`${event.at}-${event.text}`} event={event} />
       ))}
+      {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
       <ShellsPanel snapshot={tab.runtimeState} />
       {statusLabel && (
         <div className="text-[13.5px] flex items-center gap-2">

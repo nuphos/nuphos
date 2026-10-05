@@ -31,6 +31,12 @@ describe('session timeline events', () => {
     expect(serializeTimelineEvents(events, people)[0]).toMatchObject({
       kind: 'participant_invited',
       at: '2026-10-05T00:00:00.000Z',
+      actor: { id: 'alice', name: 'Alice' },
+      target: { id: 'bob', name: 'Bob' },
+    })
+    expect(serializeTimelineEvents(events, people)[3]).toMatchObject({
+      from: { label: 'Claude Code' },
+      to: { label: 'Codex' },
     })
   })
 
