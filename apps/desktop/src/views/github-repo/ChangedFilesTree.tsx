@@ -14,7 +14,7 @@ function TreeRows({ nodes, depth }: { nodes: FileTreeNode<GithubPRFile>[]; depth
 
     if (!file) {
       return (
-        <div key={node.path}>
+        <div key={`dir:${node.path}`}>
           <div
             className="flex h-7 items-center gap-1.5 pr-2 text-[12px] text-secondary"
             style={indent}

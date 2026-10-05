@@ -29,3 +29,11 @@ test('folds single-child directory chains into one row', () => {
   assert.deepEqual(shape(tree), [{ 'apps/desktop/src': ['x.ts', 'y.ts'] }])
   assert.equal(tree[0].path, 'apps/desktop/src')
 })
+
+test('keeps a file and a directory with the same path apart, in either order', () => {
+  const file = { filename: 'config' }
+  const child = { filename: 'config/app.json' }
+
+  assert.deepEqual(shape(buildFileTree([file, child])), ['config', { config: ['app.json'] }])
+  assert.deepEqual(shape(buildFileTree([child, file])), [{ config: ['app.json'] }, 'config'])
+})

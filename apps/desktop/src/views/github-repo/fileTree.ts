@@ -6,7 +6,9 @@ export type FileTreeNode<F> = {
 }
 
 // Groups files by directory in their original order, folding single-child
-// directory chains into one row the way GitHub's file tree does.
+// directory chains into one row the way GitHub's file tree does. A node is
+// either a file or a directory, so a removed file `x` and an added `x/y`
+// stay two separate rows.
 export function buildFileTree<F extends { filename: string }>(files: F[]): FileTreeNode<F>[] {
   const root: FileTreeNode<F> = { name: '', path: '', children: [] }
 
@@ -14,17 +16,17 @@ export function buildFileTree<F extends { filename: string }>(files: F[]): FileT
     const parts = file.filename.split('/')
     let node = root
 
-    parts.forEach((name, index) => {
+    parts.slice(0, -1).forEach((name, index) => {
       const path = parts.slice(0, index + 1).join('/')
-      let child = node.children.find((c) => c.path === path)
+      let dir = node.children.find((c) => !c.file && c.path === path)
 
-      if (!child) {
-        child = { name, path, children: [] }
-        node.children.push(child)
+      if (!dir) {
+        dir = { name, path, children: [] }
+        node.children.push(dir)
       }
-      if (index === parts.length - 1) child.file = file
-      node = child
+      node = dir
     })
+    node.children.push({ name: parts[parts.length - 1], path: file.filename, file, children: [] })
   }
 
   return root.children.map(collapse)
