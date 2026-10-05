@@ -141,6 +141,20 @@ final class ChatSession {
                 handle(frame: frame.value, type: frame.type)
             }
         }
+        // A lone frame is the stream's head; the replay lands as a batch.
+        if frames.count > 1 { revealAfterReplay() }
+    }
+
+    /// Set while opening a conversation re-attaches to its running turn. The
+    /// stored transcript stops at the last user message — the turn lives only
+    /// in the replay — so it stays hidden until the replay lands, instead of
+    /// showing the turn missing and then filling it in.
+    private var awaitingReplay = false
+
+    private func revealAfterReplay() {
+        guard awaitingReplay else { return }
+        awaitingReplay = false
+        loaded = true
     }
 
     /// Held frames must never wait on a frame that may never come: a burst
@@ -237,8 +251,13 @@ final class ChatSession {
                     msgs = Array(msgs[...lastUser])
                 }
                 messages = msgs
-                loaded = true
+                awaitingReplay = true
                 startTurn(TurnOptions(streamId: run.streamId, explicitResume: true, resumeFrom: 0))
+                // A replay that never arrives must not hide the chat for good.
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(1.5))
+                    self?.revealAfterReplay()
+                }
             } else {
                 messages = msgs
                 loaded = true

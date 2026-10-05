@@ -40,6 +40,10 @@ struct StreamBacklog {
     /// The longest history is held while it keeps arriving — a bound for a
     /// device clock far enough off that live frames look old.
     static let historyHoldLimit: TimeInterval = 1
+    /// How long history must stop arriving before it lands. Wider than the
+    /// hold window: a replay pauses ~100ms on a large tool output, and a
+    /// split replay shows the turn filling in.
+    static let historyQuiet: TimeInterval = 0.25
 
     private var held: [Frame] = []
     private var heldSince: Date?
@@ -63,7 +67,7 @@ struct StreamBacklog {
         if Self.isHistory(value, at: now), !Self.rendersImmediately.contains(type) {
             if held.isEmpty { heldSince = now }
             held.append(frame)
-            deadline = min(now.addingTimeInterval(Self.holdWindow), (heldSince ?? now).addingTimeInterval(Self.historyHoldLimit))
+            deadline = min(now.addingTimeInterval(Self.historyQuiet), (heldSince ?? now).addingTimeInterval(Self.historyHoldLimit))
             return now >= (deadline ?? now) ? flush() : []
         }
         if burst >= Self.burstLength, !Self.rendersImmediately.contains(type) {
