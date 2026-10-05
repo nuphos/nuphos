@@ -26,5 +26,8 @@ release
 *.sln
 *.sw?
 
+# Packaging resources (icons, entitlements) are tracked despite the root
+# `build` rule; only the local runtime staging under it is generated.
+!build/
 # Local runtime staging (local-runtime/prepare.mjs)
 build/local-runtime
