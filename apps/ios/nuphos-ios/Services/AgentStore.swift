@@ -315,13 +315,14 @@ final class AgentStore {
     }
 
     /// Keeps the first page fresh while the list is on screen, so replies
-    /// running elsewhere (desktop, Slack, wake-ups) show up and clear.
+    /// running elsewhere (desktop, Slack, wake-ups) show up and clear. It
+    /// refreshes on arrival: coming back from a chat, the rows still show
+    /// the state from before it.
     func pollWhileVisible() async {
         while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(3))
             RuntimeObservations.shared.tick()
-            guard !Task.isCancelled, phase == .loaded, !isLoadingMore else { continue }
-            await refreshFirstPage()
+            if phase == .loaded, !isLoadingMore { await refreshFirstPage() }
+            try? await Task.sleep(for: .seconds(3))
         }
     }
 
