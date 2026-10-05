@@ -38,10 +38,14 @@ extension ChatRow {
             rows.append(.activity(text: "Sending…"))
         } else if session.isNativeRuntime {
             if let status = session.runtimeStatus {
-                rows.append(.hint(id: "runtime-status", text: status, isError: false))
+                if session.isStreaming {
+                    rows.append(.activity(text: status))
+                } else {
+                    rows.append(.hint(id: "runtime-status", text: status, isError: false))
+                }
             }
         } else if session.isStreaming {
-            rows.append(.activity(text: session.phaseLabel))
+            rows.append(.activity(text: session.phaseLabel ?? "Thinking…"))
         }
         if let error = session.error, !session.stoppedByUser {
             rows.append(.hint(id: "error", text: error, isError: true))

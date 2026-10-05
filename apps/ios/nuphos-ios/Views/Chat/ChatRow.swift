@@ -36,7 +36,7 @@ enum ChatRow: Identifiable, Equatable {
         let label: String
         let scope: String
     }
-    case activity(text: String?)
+    case activity(text: String)
     case hint(id: String, text: String, isError: Bool)
 
     var id: String {

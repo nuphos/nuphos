@@ -408,22 +408,18 @@ struct WorkGroup: View {
     }
 }
 
-/// "Thinking…" / phase text with bouncing dots while nothing renderable
-/// has arrived yet.
+/// "Thinking…" / phase text, shimmering while the turn runs — the
+/// desktop's `LoadingText`.
 struct ActivityRow: View {
-    let text: String?
+    let text: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            if let text, !text.isEmpty {
-                Text(text)
-                    .font(Theme.Text.label)
-                    .foregroundStyle(Theme.body)
-                    .contentTransition(.numericText())
-            }
-            ThreeDots(size: 4)
-        }
-        .animation(.snappy, value: text)
+        Text(text)
+            .font(Theme.Text.label)
+            .foregroundStyle(Theme.body)
+            .contentTransition(.numericText())
+            .shimmer(active: true)
+            .animation(.snappy, value: text)
     }
 }
 
