@@ -3,7 +3,7 @@
 import { plural, summarizeChecks } from './pullRequestChecks.ts'
 
 import type { StatusSummary, StatusTone } from './pullRequestChecks.ts'
-import type { GithubPRComment, GithubPRDetail, GithubPRReview } from '../../types'
+import type { GithubPRComment, GithubPRCommit, GithubPRDetail, GithubPRReview } from '../../types'
 
 export type ReviewerState = 'approved' | 'changes_requested' | 'commented' | 'dismissed' | 'pending'
 export type Reviewer = { login: string; avatarUrl: string; state: ReviewerState }
@@ -215,14 +215,22 @@ export function summarizeMerge(
 export type TimelineItem =
   | { kind: 'comment'; at: string; comment: GithubPRComment }
   | { kind: 'review'; at: string; review: GithubPRReview }
+  | { kind: 'commits'; at: string; commits: GithubPRCommit[] }
 
-/** Comments and submitted reviews interleaved in time order, as on GitHub. */
+/**
+ * Comments, submitted reviews and commits interleaved in time order, as on
+ * GitHub. Commits with nothing between them share one entry.
+ */
 export function timelineItems(pull: GithubPRDetail): TimelineItem[] {
   const items: TimelineItem[] = pull.conversation.map((comment) => ({
     kind: 'comment',
     at: comment.createdAt,
     comment,
   }))
+
+  for (const commit of pull.commitHistory) {
+    items.push({ kind: 'commits', at: commit.committedAt, commits: [commit] })
+  }
 
   for (const review of pull.reviews) {
     const state = review.state.toUpperCase()
@@ -234,7 +242,16 @@ export function timelineItems(pull: GithubPRDetail): TimelineItem[] {
     items.push({ kind: 'review', at: review.submittedAt, review })
   }
 
-  return items.sort((a, b) => a.at.localeCompare(b.at))
+  const timeline: TimelineItem[] = []
+
+  for (const item of items.toSorted((a, b) => a.at.localeCompare(b.at))) {
+    const last = timeline.at(-1)
+
+    if (item.kind === 'commits' && last?.kind === 'commits') last.commits.push(...item.commits)
+    else timeline.push(item)
+  }
+
+  return timeline
 }
 
 export function reviewVerb(state: string): { label: string; tone: StatusTone } {
