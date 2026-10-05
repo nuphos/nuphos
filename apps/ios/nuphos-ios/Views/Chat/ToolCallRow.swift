@@ -210,15 +210,11 @@ struct ToolRunView: View {
                     HStack(spacing: 6) {
                         Text(ToolLineRow.label(for: latest))
                             .lineLimit(1)
-                            .foregroundStyle(latest.state == .outputError ? Color.red : Theme.body)
+                            .foregroundStyle(Theme.body)
                             .shimmer(active: !latest.isFinished && latest.state != .approvalRequested)
                         ElapsedBadge(part: latest)
                         if tools.count > 1 {
                             Text("· \(tools.count) calls").foregroundStyle(Theme.muted)
-                        }
-                        let failed = tools.filter { $0.state == .outputError }.count
-                        if failed > 0, latest.state != .outputError {
-                            Text("· \(failed) failed").foregroundStyle(Color.red.opacity(0.8))
                         }
                         Image(systemName: "chevron.right")
                             .font(Theme.Text.micro.weight(.bold))
@@ -276,7 +272,7 @@ struct ToolLineRow: View {
                 HStack(spacing: 6) {
                     Text(Self.label(for: part))
                         .lineLimit(1)
-                        .foregroundStyle(part.state == .outputError ? Color.red : Theme.body)
+                        .foregroundStyle(Theme.body)
                         .shimmer(active: !part.isFinished && part.state != .approvalRequested)
                     ElapsedBadge(part: part)
                     Spacer(minLength: 0)
