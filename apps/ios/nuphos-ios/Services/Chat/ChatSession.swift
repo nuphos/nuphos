@@ -411,7 +411,13 @@ final class ChatSession {
         await dispatch(.user(text), title: text)
     }
 
+    /// Who is signed in, shown on what they send until the server's own
+    /// sender metadata for the message arrives.
+    var me: ChatMessage.Sender?
+    private(set) var sentHere: Set<String> = []
+
     private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil) async {
+        sentHere.insert(message.id)
         let wasEmpty = messages.isEmpty
         if !isNativeRuntime, let i = messages.lastIndex(where: { $0.role == .assistant }) {
             messages[i].supersedePendingApprovals()

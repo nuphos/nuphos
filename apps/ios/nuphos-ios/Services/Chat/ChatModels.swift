@@ -26,19 +26,22 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     struct Sender: Equatable, Sendable {
         let name: String
         let avatar: URL?
+
+        /// Only avatar hosts the transcript trusts are loaded.
+        init(name: String, avatarURL raw: String) {
+            self.name = name
+            avatar = URL(string: raw).flatMap { value -> URL? in
+                guard raw.count <= 2048, value.scheme == "https", value.user == nil, value.password == nil, value.port == nil,
+                      ["lh3.googleusercontent.com", "lh4.googleusercontent.com", "lh5.googleusercontent.com", "lh6.googleusercontent.com"].contains(value.host ?? "") else { return nil }
+                return value
+            }
+        }
     }
 
     var sender: Sender? {
         guard metadata?["version"]?.numberValue == 1,
               let name = metadata?["sender"]?["displayName"]?.stringValue, !name.isEmpty else { return nil }
-        let raw = metadata?["sender"]?["avatarURL"]?.stringValue ?? ""
-        let url = URL(string: raw)
-        let trusted = url.flatMap { value -> URL? in
-            guard raw.count <= 2048, value.scheme == "https", value.user == nil, value.password == nil, value.port == nil,
-                  ["lh3.googleusercontent.com", "lh4.googleusercontent.com", "lh5.googleusercontent.com", "lh6.googleusercontent.com"].contains(value.host ?? "") else { return nil }
-            return value
-        }
-        return Sender(name: name, avatar: trusted)
+        return Sender(name: name, avatarURL: metadata?["sender"]?["avatarURL"]?.stringValue ?? "")
     }
 
     var text: String {

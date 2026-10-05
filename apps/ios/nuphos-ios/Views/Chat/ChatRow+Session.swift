@@ -20,7 +20,7 @@ extension ChatRow {
                     return nil
                 }
                 if !text.isEmpty || !images.isEmpty {
-                    rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender))
+                    rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender ?? (session.sentHere.contains(message.id) ? session.me : nil)))
                 }
             case .assistant:
                 let isLive = session.isStreaming && index == messages.count - 1

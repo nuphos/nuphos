@@ -111,6 +111,7 @@ struct HomeView: View {
             #endif
             if store == nil, let token {
                 store = AgentStore(token: token)
+                store?.me = ChatMessage.Sender(name: user.name, avatarURL: user.avatarURL)
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
             }
