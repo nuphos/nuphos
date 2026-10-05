@@ -7,6 +7,7 @@ enum LocalAgentTests {
         groupsOwnComputersApartFromCloud()
         namesAComputersAgentOnce()
         defaultsToAUsableCloudAgent()
+        namesCloudOnlyProviders()
         print("Local agents passed")
     }
 
@@ -76,5 +77,12 @@ enum LocalAgentTests {
         precondition(RuntimeInstance.defaultPick([macbook, cloud])?.id == cloud.id)
         precondition(RuntimeInstance.defaultPick([signedOut, macbook])?.id == macbook.id)
         precondition(RuntimeInstance.defaultPick([signedOut]) == nil)
+    }
+
+    private static func namesCloudOnlyProviders() {
+        let grok = agent(#"{"id":"rt_2","provider":"grok","label":"Team Grok","status":"active","kind":"managed"}"#)
+        let antigravity = agent(#"{"id":"rt_3","provider":"antigravity","label":"Team Antigravity","status":"active","kind":"managed"}"#)
+        precondition(grok.providerName == "Grok Build" && RuntimeInstance.Provider.logo("grok") == "logo-grok")
+        precondition(antigravity.providerName == "Antigravity" && RuntimeInstance.Provider.logo("antigravity") == "logo-antigravity")
     }
 }

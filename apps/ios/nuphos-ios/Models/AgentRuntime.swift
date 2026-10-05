@@ -4,7 +4,7 @@ import Foundation
 /// (`GET /teams/:id/agent-runtimes`): a Cloud runtime, or one of the
 /// signed-in user's own computers (`kind == "local"`).
 struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
-    enum Provider: String, Codable, Sendable { case claudeCode = "claude-code", codex }
+    enum Provider: String, Codable, Sendable { case claudeCode = "claude-code", codex, grok, antigravity }
     enum Status: String, Codable, Sendable { case active, disabled }
 
     struct Defaults: Codable, Equatable, Hashable, Sendable {
@@ -81,13 +81,20 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
 extension RuntimeInstance.Provider {
     /// Asset catalog mark: Claude's for Claude Code, OpenAI's for Codex.
     static func logo(_ raw: String?) -> String {
-        raw == "codex" ? "logo-openai" : "logo-claude"
+        switch raw {
+        case "codex": "logo-openai"
+        case "grok": "logo-grok"
+        case "antigravity": "logo-antigravity"
+        default: "logo-claude"
+        }
     }
 
     static func name(_ raw: String?) -> String {
         switch raw {
         case "codex": "Codex"
         case "claude-code": "Claude Code"
+        case "grok": "Grok Build"
+        case "antigravity": "Antigravity"
         case "nuphos": "Nuphos"
         default: raw?.capitalized ?? "Runtime"
         }

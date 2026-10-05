@@ -110,9 +110,14 @@ enum NuphosAPI {
 
     /// `GET /teams/:id/agent-runtimes` — the runtimes a new chat can start on.
     static func runtimeInstances(token: String, teamId: String) async throws -> [RuntimeInstance] {
-        struct Envelope: Decodable { let runtimes: [RuntimeInstance] }
+        /// A runtime this build can't decode (e.g. a newer provider) is skipped, not fatal to the list.
+        struct Entry: Decodable {
+            let runtime: RuntimeInstance?
+            init(from decoder: Decoder) throws { runtime = try? RuntimeInstance(from: decoder) }
+        }
+        struct Envelope: Decodable { let runtimes: [Entry] }
         let envelope: Envelope = try await get("teams/\(teamId)/agent-runtimes", token: token, timeout: 20)
-        return envelope.runtimes
+        return envelope.runtimes.compactMap(\.runtime)
     }
 
     /// `GET /teams/:id/favorites` — pinned chats live here.

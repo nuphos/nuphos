@@ -30,13 +30,13 @@ struct AgentSetupSheet: View {
                                 Label("Connected", systemImage: "checkmark.circle.fill")
                                 Button("Use this agent") { finish(runtime) }
                             } else if login.pending {
-                                Text("Finish signing in with your AI provider, then return here.")
+                                Text(runtime.provider == .grok ? "Finish signing in with your xAI account, then return here." : "Finish signing in with your AI provider, then return here.")
                                 if let userCode = login.userCode {
                                     LabeledContent("Verification code", value: userCode).textSelection(.enabled)
                                 }
                                 if let url = login.url { Button("Open sign-in page") { openURL(url) } }
                                 if login.authorizationUrl != nil, login.codeSubmitted != true {
-                                    TextField("Paste the full authorization code", text: $code).textInputAutocapitalization(.never).autocorrectionDisabled()
+                                    TextField(runtime.provider == .antigravity ? "Paste the full address starting with http://127.0.0.1" : "Paste the full authorization code", text: $code).textInputAutocapitalization(.never).autocorrectionDisabled()
                                     Button("Submit code") { submitCode() }.disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                                 }
                                 ProgressView(login.state == "starting" ? "Preparing sign-in…" : "Waiting for authorization…")
@@ -55,6 +55,8 @@ struct AgentSetupSheet: View {
                         Picker("Provider", selection: $provider) {
                             Text("OpenAI / ChatGPT").tag("codex")
                             Text("Anthropic / Claude").tag("claude-code")
+                            Text("xAI / Grok").tag("grok")
+                            Text("Google / Antigravity").tag("antigravity")
                         }
                         Text("You will sign in to your provider on its own website. Your provider's usage limits apply.")
                         Button("Create agent") { create() }
