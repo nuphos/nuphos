@@ -6,6 +6,7 @@ import { errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type * as dbActual from '@/lib/db'
@@ -21,19 +22,9 @@ const MEMBERS = [OWNER, TEAMMATE, INVITEE]
 
 let viewer = OWNER
 let conversation: AgentConversation | null
-let updates: { filter: Record<string, unknown>; update: Record<string, unknown> }[] = []
+let memory = portabilityDb()
 
-const collection = {
-  findOneAndUpdate: async (filter: Record<string, unknown>, update: Record<string, unknown>) => {
-    updates.push({ filter, update })
-    const added = (update.$addToSet as { participantIds: { $each: string[] } }).participantIds.$each
-
-    // Stand in for the atomic post-write read the route renders.
-    return { ...conversation, participantIds: [...(conversation?.participantIds ?? []), ...added] }
-  },
-}
-
-useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbActual.db })
+useDb({ db: (() => memory) as unknown as typeof dbActual.db })
 useAgentDb({
   // The route reads the doc through the viewer-scoped helper, so a viewer who
   // may not see the conversation gets null here rather than a filtered doc.
@@ -71,6 +62,14 @@ async function listParticipants(team: string = TEAM) {
   return { status: response.status, body: (await response.json()) as ParticipantsBody }
 }
 
+const participantIds = () => conversation?.participantIds ?? []
+
+async function remove(userId: string, team: string = TEAM) {
+  return app.request(`/conversations/shared/participants/${userId}?teamId=${team}`, {
+    method: 'DELETE',
+  })
+}
+
 async function invite(userIds: unknown, team: string = TEAM) {
   return app.request(`/conversations/shared/participants?teamId=${team}`, {
     method: 'POST',
@@ -81,13 +80,14 @@ async function invite(userIds: unknown, team: string = TEAM) {
 
 beforeEach(() => {
   viewer = OWNER
-  updates = []
+  memory = portabilityDb()
   conversation = {
     sessionId: 'shared',
     userId: OWNER,
     teamId: TEAM,
     participantIds: [TEAMMATE],
   } as AgentConversation
+  memory.rows('agent_conversations').push(conversation)
 })
 
 describe('conversation participants API', () => {
@@ -117,7 +117,8 @@ describe('conversation participants API', () => {
     viewer = TEAMMATE
     expect((await listParticipants('not-a-team-id')).status).toBe(403)
     expect((await invite([INVITEE], 'not-a-team-id')).status).toBe(403)
-    expect(updates).toHaveLength(0)
+    expect((await remove(TEAMMATE, 'not-a-team-id')).status).toBe(403)
+    expect(participantIds()).toEqual([TEAMMATE])
   })
 
   test('inviting a teammate adds them without rewriting the existing list', async () => {
@@ -130,12 +131,16 @@ describe('conversation participants API', () => {
       TEAMMATE,
       INVITEE,
     ])
-    expect(updates).toEqual([
-      {
-        filter: { sessionId: 'shared' },
-        update: { $addToSet: { participantIds: { $each: [INVITEE] } } },
-      },
+    expect(conversation?.timelineEvents).toMatchObject([
+      { kind: 'participant_invited', actorId: OWNER, targetId: INVITEE },
     ])
+  })
+
+  // Only someone who was actually absent produces an "invited" line.
+  test('re-inviting a participant or the owner records nothing', async () => {
+    expect((await invite([TEAMMATE, OWNER])).status).toBe(200)
+    expect(participantIds()).toEqual([TEAMMATE])
+    expect(conversation?.timelineEvents).toBeUndefined()
   })
 
   test('any participant can invite, but only current team members can be invited', async () => {
@@ -147,12 +152,38 @@ describe('conversation participants API', () => {
     expect(rejected.status).toBe(403)
     expect(await rejected.json()).toMatchObject({ error: { code: 'not_team_member' } })
     // The whole request is refused: no partial invite lands.
-    expect(updates).toHaveLength(1)
+    expect(participantIds()).toEqual([TEAMMATE, INVITEE])
   })
 
   test('an empty or malformed invitee list is a request error', async () => {
     expect((await invite([])).status).toBe(400)
     expect((await invite('nobody')).status).toBe(400)
-    expect(updates).toHaveLength(0)
+    expect(participantIds()).toEqual([TEAMMATE])
+  })
+
+  test('a participant removes a teammate, and the timeline says who did it', async () => {
+    viewer = TEAMMATE
+    await invite([INVITEE])
+    const response = await remove(INVITEE)
+    const body = (await response.json()) as ParticipantsBody
+
+    expect(response.status).toBe(200)
+    expect(body.participants.map((participant) => participant.id)).toEqual([OWNER, TEAMMATE])
+    expect(conversation?.timelineEvents?.at(-1)).toMatchObject({
+      kind: 'participant_removed',
+      actorId: TEAMMATE,
+      targetId: INVITEE,
+    })
+    // Removing someone who is not here is a no-op, not a second event.
+    expect((await remove(INVITEE)).status).toBe(200)
+    expect(conversation?.timelineEvents).toHaveLength(2)
+  })
+
+  test('the owner cannot be removed and an outsider cannot remove anyone', async () => {
+    viewer = TEAMMATE
+    expect((await remove(OWNER)).status).toBe(400)
+    viewer = OUTSIDER
+    expect((await remove(TEAMMATE)).status).toBe(403)
+    expect(participantIds()).toEqual([TEAMMATE])
   })
 })

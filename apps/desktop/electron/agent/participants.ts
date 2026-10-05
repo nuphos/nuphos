@@ -22,3 +22,13 @@ export function inviteConversationParticipants(
 ): Promise<ParticipantsResponse> {
   return callJson('POST', participantsPath(sessionId, teamId), { userIds }, 12_000)
 }
+
+export function removeConversationParticipant(
+  sessionId: string,
+  teamId: string,
+  userId: string,
+): Promise<ParticipantsResponse> {
+  const path = `/agent/conversations/${encodeURIComponent(sessionId)}/participants/${encodeURIComponent(userId)}${teamQuery(teamId)}`
+
+  return callJson('DELETE', path, undefined, 12_000)
+}

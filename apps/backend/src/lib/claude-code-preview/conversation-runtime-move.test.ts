@@ -86,6 +86,7 @@ beforeEach(() => {
     lastActiveAt: new Date(),
     agentRuntime: 'claude-code',
     runtimeId: 'old',
+    runtimeLabel: 'Old runtime',
     claudeCodePreview: {
       runtimeUrl: 'wss://old/acp',
       openabSessionId: 'native-old',
@@ -116,6 +117,10 @@ test('an already removed runtime can continue using history without pretending f
   expect(conversation.runtimeMigration?.mode).toBe('history')
   expect(conversation.previousRuntimeUrls).toEqual(['wss://old/acp'])
   expect(conversation.runtimeId).toBe('new')
+  // What the session's timeline shows, with the labels as they were at the move.
+  expect(conversation.timelineEvents).toMatchObject([
+    { kind: 'runtime_moved', actorId: 'owner', fromLabel: 'Old runtime', toLabel: 'New runtime' },
+  ])
 })
 test('failed restore and active turns preserve the original placement and release the operation lock', async () => {
   restoreFails = true

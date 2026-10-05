@@ -2,8 +2,9 @@ import { Hono } from 'hono'
 
 import { getReadableConversation } from '@/lib/agent/db'
 import {
-  addConversationParticipants,
   conversationParticipantIds,
+  inviteConversationParticipants,
+  removeConversationParticipant,
 } from '@/lib/agent/db/participants'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
@@ -106,9 +107,33 @@ conversationParticipantsRoutes.post('/conversations/:sessionId/participants', as
   }
   // Render the post-write document rather than a locally merged copy, so a
   // simultaneous invite from someone else is already reflected in the answer.
-  const updated = await addConversationParticipants(sessionId, userIds)
+  const updated = await inviteConversationParticipants(sessionId, userId, userIds)
 
   if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
 
   return c.json({ participants: await serializeParticipants(updated, teamId) })
 })
+
+// The invite's mirror image, behind the same send gate: removing revokes no
+// access either, it only takes the person out of the header and the agent's
+// view of who is here. The owner is the conversation, so they cannot be removed.
+conversationParticipantsRoutes.delete(
+  '/conversations/:sessionId/participants/:userId',
+  async (c) => {
+    const sessionId = c.req.param('sessionId')
+    const targetId = c.req.param('userId')
+    const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+
+    if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
+    const conversation = await assertConversationSendable(sessionId, c.get('userId'), teamId)
+
+    if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
+    if (targetId === conversation.userId)
+      throw new AppError(400, 'invalid_request', 'The conversation owner cannot be removed')
+    const updated = await removeConversationParticipant(sessionId, c.get('userId'), targetId)
+
+    if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
+
+    return c.json({ participants: await serializeParticipants(updated, teamId) })
+  },
+)

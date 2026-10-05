@@ -54,6 +54,18 @@ export type ConversationPreviewContext = {
   localTools?: boolean
 }
 
+// Kept beside the conversation rather than in agent_messages: transcript sync
+// replaces that collection wholesale and feeds it to the model, and neither
+// should ever see these. Clients place them between messages by `at`.
+export type ConversationTimelineEvent =
+  | {
+      kind: 'participant_invited' | 'participant_removed'
+      at: Date
+      actorId: string
+      targetId: string
+    }
+  | { kind: 'runtime_moved'; at: Date; actorId: string; fromLabel?: string; toLabel: string }
+
 export type AgentConversation = {
   _id?: ObjectId
   sessionId: string // Frontend-generated UUID
@@ -81,6 +93,8 @@ export type AgentConversation = {
   // readableConversationScope / assertConversationSendable), so this list is
   // about who is involved, never about who is allowed.
   participantIds?: string[]
+  /** Who joined, left or moved this session, shown between its messages. */
+  timelineEvents?: ConversationTimelineEvent[]
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   /** The owner's read marker, in `activitySeq` units. Only ever moves forward. */

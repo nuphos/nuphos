@@ -50,6 +50,8 @@ final class ChatSession {
     /// Existing conversation: `nuphos` | `claude-code` | `codex`.
     private(set) var agentRuntime: String?
     private(set) var runtimeLabel: String?
+    /// Invites, removals and runtime moves, refreshed with every detail read.
+    private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
     private(set) var isArchived = false
     /// Model / effort / fast controls, for conversations on a native runtime.
     private(set) var sessionConfig: SessionConfigState?
@@ -728,6 +730,7 @@ final class ChatSession {
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
         if let l = detail.runtimeLabel { runtimeLabel = l }
+        timelineEvents = detail.timelineEvents
         isArchived = detail.archivedAt != nil
     }
 

@@ -161,6 +161,7 @@ export async function runOpenConversation(
       agentRuntime: detail.agentRuntime,
       runtimeId: detail.runtimeId,
       runtimeLabel: detail.runtimeLabel,
+      timelineEvents: detail.timelineEvents,
     }
 
     lastSyncedRef.current.set(tab.sessionId, transcriptSignature(tab))

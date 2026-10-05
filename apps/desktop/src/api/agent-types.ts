@@ -141,6 +141,13 @@ export type AgentPersistedMessage = {
   feedback?: 'up' | 'down'
 }
 
+/** Who joined, left or moved the session, rendered by the backend as one line. */
+export type AgentTimelineEvent = {
+  kind: string
+  at: string
+  text: string
+}
+
 export type AgentConversationDetail = AgentConversation & {
   messages: AgentPersistedMessage[]
   /** Absolute transcript index of messages[0]; > 0 when fetched with `tail`
@@ -151,6 +158,7 @@ export type AgentConversationDetail = AgentConversation & {
   transcriptUpdatedAt?: string | null
   activeRun?: AgentActiveRun | null
   slackThread?: AgentSlackThread | null
+  timelineEvents?: AgentTimelineEvent[]
 }
 
 export type AgentConversationMessagesPage = {

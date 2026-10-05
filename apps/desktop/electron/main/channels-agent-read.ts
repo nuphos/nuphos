@@ -12,4 +12,10 @@ export const agentReadChannels = {
     teamId: string,
     userIds: string[],
   ) => agent.inviteConversationParticipants(sessionId, teamId, userIds),
+  'agent:removeConversationParticipant': (
+    _e: unknown,
+    sessionId: string,
+    teamId: string,
+    userId: string,
+  ) => agent.removeConversationParticipant(sessionId, teamId, userId),
 }

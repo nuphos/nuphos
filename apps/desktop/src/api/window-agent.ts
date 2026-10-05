@@ -70,6 +70,11 @@ export type WindowAgentApi = {
     teamId: string,
     userIds: string[],
   ): Promise<{ participants: AgentConversationParticipant[] }>
+  agentRemoveConversationParticipant(
+    sessionId: string,
+    teamId: string,
+    userId: string,
+  ): Promise<{ participants: AgentConversationParticipant[] }>
   agentSetSessionConfig(
     sessionId: string,
     teamId: string,

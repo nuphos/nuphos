@@ -12,7 +12,7 @@ import { fetchCachedUsers } from '@/lib/agent/directory'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
 
-type ConversationOwner = Pick<NuphosUser, 'id' | 'name' | 'email' | 'avatarURL'> & {
+export type ConversationOwner = Pick<NuphosUser, 'id' | 'name' | 'email' | 'avatarURL'> & {
   // Former member (removed from the team, or account deleted). Clients render
   // these dimmed with a "Deactivated" tag.
   deactivated?: boolean

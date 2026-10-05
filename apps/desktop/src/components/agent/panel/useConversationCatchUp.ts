@@ -84,7 +84,11 @@ export function useConversationCatchUp(acc: Acc): void {
         setTabs((tabs) =>
           tabs.map((tab) =>
             tab.sessionId === sessionId
-              ? { ...tab, runtimeState: acceptRuntimeSnapshot(tab.runtimeState, runtimeState) }
+              ? {
+                  ...tab,
+                  runtimeState: acceptRuntimeSnapshot(tab.runtimeState, runtimeState),
+                  timelineEvents: probe.timelineEvents,
+                }
               : tab,
           ),
         )

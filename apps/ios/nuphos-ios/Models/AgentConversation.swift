@@ -94,6 +94,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         activitySeq = try? c.decodeIfPresent(Int.self, forKey: .activitySeq)
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
+        timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
     }
 
     init(
@@ -142,6 +143,12 @@ struct AgentConversationDetail: Decodable, Sendable {
         let startedAt: String?
     }
 
+    /// Who joined, left or moved the session, already phrased by the backend.
+    struct TimelineEvent: Decodable, Equatable, Sendable {
+        let at: Date
+        let text: String
+    }
+
     let messages: [ChatMessage]
     /// Absolute index of `messages[0]`; > 0 means older messages exist.
     let messagesFirstIndex: Int?
@@ -160,9 +167,10 @@ struct AgentConversationDetail: Decodable, Sendable {
     let archivedAt: Date?
     let activitySeq: Int?
     let readSeq: Int?
+    let timelineEvents: [TimelineEvent]
 
     private enum CodingKeys: String, CodingKey {
-        case isOwner, canCancelRun, canRespondToRun, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq
+        case isOwner, canCancelRun, canRespondToRun, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
     }
 
     init(from decoder: Decoder) throws {

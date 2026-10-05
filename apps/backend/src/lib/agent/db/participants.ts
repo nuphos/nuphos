@@ -1,6 +1,6 @@
 import { agentConversations } from './shared'
 
-import type { AgentConversation } from './shared'
+import type { AgentConversation, ConversationTimelineEvent } from './shared'
 
 /**
  * Append teammates to a conversation's participant list and answer with the
@@ -22,6 +22,67 @@ export async function addConversationParticipants(
     { $addToSet: { participantIds: { $each: ids } } },
     { returnDocument: 'after' },
   )
+}
+
+// Bounded so the conversation doc, which every detail read returns, cannot grow
+// without limit in a session people keep coming and going from.
+const MAX_TIMELINE_EVENTS = 200
+
+export function pushTimelineEvent(event: ConversationTimelineEvent) {
+  return { timelineEvents: { $each: [event], $slice: -MAX_TIMELINE_EVENTS } }
+}
+
+/**
+ * Bring teammates in on someone's behalf and record who did it. Each id is a
+ * separate conditional write, so only a person who was actually absent gets an
+ * "invited" event — re-inviting a participant, the owner, or racing another
+ * invite of the same person adds nothing twice.
+ */
+export async function inviteConversationParticipants(
+  sessionId: string,
+  actorId: string,
+  userIds: readonly string[],
+): Promise<AgentConversation | null> {
+  for (const id of new Set(userIds)) {
+    await agentConversations().updateOne(
+      { sessionId, userId: { $ne: id }, participantIds: { $ne: id } },
+      {
+        $push: {
+          participantIds: id,
+          ...pushTimelineEvent({
+            kind: 'participant_invited',
+            at: new Date(),
+            actorId,
+            targetId: id,
+          }),
+        },
+      },
+    )
+  }
+
+  return await agentConversations().findOne({ sessionId })
+}
+
+/** Take someone out of the conversation; a no-op when they were not in it. */
+export async function removeConversationParticipant(
+  sessionId: string,
+  actorId: string,
+  userId: string,
+): Promise<AgentConversation | null> {
+  await agentConversations().updateOne(
+    { sessionId, participantIds: userId },
+    {
+      $pull: { participantIds: userId },
+      $push: pushTimelineEvent({
+        kind: 'participant_removed',
+        at: new Date(),
+        actorId,
+        targetId: userId,
+      }),
+    },
+  )
+
+  return await agentConversations().findOne({ sessionId })
 }
 
 /**
