@@ -37,7 +37,8 @@ enum SSEClient {
         for request: URLRequest,
         firstByteTimeout: Duration = .seconds(5),
         idleTimeout: Duration = .seconds(45),
-        frameTimeout: Duration = .seconds(40 * 60)
+        frameTimeout: Duration = .seconds(40 * 60),
+        configuration: URLSessionConfiguration = .default
     ) -> AsyncThrowingStream<SSEEvent, Error> {
         AsyncThrowingStream { continuation in
             let activity = ActivityClock()
@@ -48,7 +49,10 @@ enum SSEClient {
 
             let reader = Task {
                 do {
-                    let body = ChunkedBody()
+                    let body = ChunkedBody(configuration: configuration)
+                    // Every exit closes the connection — a response rejected
+                    // below is never read, so nothing else would.
+                    defer { body.cancel() }
                     let response = try await body.start(request)
                     guard let http = response as? HTTPURLResponse else {
                         throw Failure.notEventStream(nil)
@@ -154,8 +158,10 @@ enum SSEClient {
         private let lock = NSLock()
         private var waiter: CheckedContinuation<URLResponse, Error>?
         private var task: URLSessionDataTask?
+        private let configuration: URLSessionConfiguration
 
-        override init() {
+        init(configuration: URLSessionConfiguration) {
+            self.configuration = configuration
             (chunks, sink) = AsyncThrowingStream<Data, Error>.makeStream()
             super.init()
             sink.onTermination = { [weak self] _ in self?.cancel() }
@@ -164,7 +170,7 @@ enum SSEClient {
         func start(_ request: URLRequest) async throws -> URLResponse {
             try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { continuation in
-                    let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+                    let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
                     let task = session.dataTask(with: request)
                     lock.withLock { waiter = continuation; self.task = task }
                     task.resume()

@@ -147,14 +147,14 @@ final class ChatSession {
 
     /// Set while opening a conversation re-attaches to its running turn. The
     /// stored transcript stops at the last user message — the turn lives only
-    /// in the replay — so it stays hidden until the replay lands, instead of
-    /// showing the turn missing and then filling it in.
-    private var awaitingReplay = false
+    /// in the replay — so the view keeps it hidden until the replay lands,
+    /// instead of showing the turn missing and then filling it in. Only the
+    /// transcript waits: the session is `loaded`, so everything gated on that
+    /// (permission mode, composer, idle poll) runs as usual.
+    private(set) var awaitingReplay = false
 
     private func revealAfterReplay() {
-        guard awaitingReplay else { return }
         awaitingReplay = false
-        loaded = true
     }
 
     /// Held frames must never wait on a frame that may never come: a burst
@@ -251,6 +251,7 @@ final class ChatSession {
                     msgs = Array(msgs[...lastUser])
                 }
                 messages = msgs
+                loaded = true
                 awaitingReplay = true
                 startTurn(TurnOptions(streamId: run.streamId, explicitResume: true, resumeFrom: 0))
                 // A replay that never arrives must not hide the chat for good.

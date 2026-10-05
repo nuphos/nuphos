@@ -33,7 +33,7 @@ struct ConversationView: View {
 
     var body: some View {
         Group {
-            if !session.loaded {
+            if !session.loaded || session.awaitingReplay {
                 ProgressView().tint(Theme.muted)
             } else if let loadError = session.loadError {
                 ContentUnavailableView("Couldn't load this chat", systemImage: "exclamationmark.bubble", description: Text(loadError))

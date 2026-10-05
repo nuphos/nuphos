@@ -157,6 +157,7 @@ struct RuntimeObservationTests {
         SessionLinkTests.run()
         ComposerDraftsTests.run()
         StreamBacklogTests.run()
+        SSEClientTests.run()
         StreamingMarkdownTests.run()
         LocalAgentTests.run()
         ImageAttachmentTests.run()
