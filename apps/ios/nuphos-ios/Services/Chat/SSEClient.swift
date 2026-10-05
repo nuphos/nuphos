@@ -8,7 +8,7 @@ struct SSEEvent: Sendable, Equatable {
     var id: String?
 }
 
-/// Minimal SSE reader over `URLSession.bytes`. Yields events as they arrive
+/// Minimal SSE reader over a URLSession data task. Yields events as they arrive
 /// and enforces two deadlines the desktop client also uses: a first-byte
 /// deadline and an idle timeout between bytes.
 enum SSEClient {
@@ -48,14 +48,16 @@ enum SSEClient {
 
             let reader = Task {
                 do {
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    let body = ChunkedBody()
+                    let response = try await body.start(request)
                     guard let http = response as? HTTPURLResponse else {
                         throw Failure.notEventStream(nil)
                     }
                     guard (200..<300).contains(http.statusCode) else {
-                        var body = ""
-                        for try await line in bytes.lines { body += line; if body.count > 4000 { break } }
-                        throw Failure.badStatus(http.statusCode, body: body.isEmpty ? nil : body)
+                        var text = Data()
+                        for try await chunk in body.chunks { text += chunk; if text.count > 4000 { break } }
+                        let message = String(decoding: text, as: UTF8.self)
+                        throw Failure.badStatus(http.statusCode, body: message.isEmpty ? nil : message)
                     }
                     let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? ""
                     guard contentType.contains("text/event-stream") else {
@@ -91,14 +93,16 @@ enum SSEClient {
                         }
                     }
 
-                    for try await byte in bytes {
-                        if byte == UInt8(ascii: "\n") {
-                            activity.touch()
+                    for try await chunk in body.chunks {
+                        activity.touch()
+                        var start = chunk.startIndex
+                        while let newline = chunk[start...].firstIndex(of: UInt8(ascii: "\n")) {
+                            buffer.append(contentsOf: chunk[start..<newline])
                             consume(buffer)
                             buffer.removeAll(keepingCapacity: true)
-                        } else {
-                            buffer.append(byte)
+                            start = newline + 1
                         }
+                        buffer.append(contentsOf: chunk[start...])
                     }
                     if !buffer.isEmpty { consume(buffer) }
                     if hasData { continuation.yield(pending) }
@@ -137,6 +141,62 @@ enum SSEClient {
                 reader.cancel()
                 watchdog.cancel()
             }
+        }
+    }
+
+    /// A response body in the chunks the network delivers. `URLSession.bytes`
+    /// hands it over one awaited byte at a time — about 120 KB/s even in an
+    /// optimized build — so a replayed turn carrying megabytes of tool output
+    /// took seconds to arrive and played back on screen.
+    private final class ChunkedBody: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+        let chunks: AsyncThrowingStream<Data, Error>
+        private let sink: AsyncThrowingStream<Data, Error>.Continuation
+        private let lock = NSLock()
+        private var waiter: CheckedContinuation<URLResponse, Error>?
+        private var task: URLSessionDataTask?
+
+        override init() {
+            (chunks, sink) = AsyncThrowingStream<Data, Error>.makeStream()
+            super.init()
+            sink.onTermination = { [weak self] _ in self?.cancel() }
+        }
+
+        func start(_ request: URLRequest) async throws -> URLResponse {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+                    let task = session.dataTask(with: request)
+                    lock.withLock { waiter = continuation; self.task = task }
+                    task.resume()
+                    session.finishTasksAndInvalidate()
+                    if Task.isCancelled { task.cancel() }
+                }
+            } onCancel: {
+                cancel()
+            }
+        }
+
+        func cancel() { lock.withLock { task }?.cancel() }
+
+        private func takeWaiter() -> CheckedContinuation<URLResponse, Error>? {
+            lock.withLock { defer { waiter = nil }; return waiter }
+        }
+
+        func urlSession(
+            _: URLSession, dataTask _: URLSessionDataTask, didReceive response: URLResponse,
+            completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+        ) {
+            takeWaiter()?.resume(returning: response)
+            completionHandler(.allow)
+        }
+
+        func urlSession(_: URLSession, dataTask _: URLSessionDataTask, didReceive data: Data) {
+            sink.yield(data)
+        }
+
+        func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
+            takeWaiter()?.resume(throwing: error ?? URLError(.badServerResponse))
+            if let error { sink.finish(throwing: error) } else { sink.finish() }
         }
     }
 
