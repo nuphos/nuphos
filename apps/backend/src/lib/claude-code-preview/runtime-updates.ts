@@ -1,3 +1,6 @@
+import { config } from '@/config'
+import { AppError } from '@/lib/errors'
+
 import { provisionerKubeClient } from './provisioner-kube'
 import { managedRuntimeImage } from './runtime-image'
 import { assertRuntimeNotDeleting } from './runtime-portability-store'
@@ -11,9 +14,6 @@ import {
 import { runtimeServiceName } from './runtime-service-name'
 
 import type { RuntimeInstance } from './runtime-instances'
-
-import { config } from '@/config'
-import { AppError } from '@/lib/errors'
 
 export async function runtimeUpdateStatus(
   teamId: string,
@@ -48,7 +48,7 @@ export async function runtimeUpdateStatus(
       (container) => container.name === 'openab',
     )?.image
 
-    const targetImage = await managedRuntimeImage(instance.provider, target)
+    const targetImage = doc.deploymentImage
     // Both sides can be absent — an unreadable Deployment, an unresolved digest — and two
     // absences are not a match: that would report an update as live without evidence.
     const running = Boolean(image) && image === targetImage
@@ -106,15 +106,28 @@ export async function requestRuntimeUpdate(teamId: string, instance: RuntimeInst
     newerRuntimeVersion(doc.requestedRuntimeVersion, release.version)
   )
     throw new AppError(409, 'runtime_update_stale', 'A newer update is already selected.')
+  const image = await managedRuntimeImage(instance.provider, release.version)
+
+  if (!image)
+    throw new AppError(
+      503,
+      'runtime_release_unavailable',
+      'The release image is unavailable. Try again shortly.',
+    )
   const updated = await runtimes().updateOne(
     {
       _id: instance.id,
       teamId,
       hostedBy: 'nuphos',
       requestedRuntimeVersion: doc.requestedRuntimeVersion ?? { $exists: false },
+      deploymentImage: doc.deploymentImage ?? { $exists: false },
     },
     {
-      $set: { requestedRuntimeVersion: release.version, updatedAt: new Date() },
+      $set: {
+        requestedRuntimeVersion: release.version,
+        deploymentImage: image,
+        updatedAt: new Date(),
+      },
       $unset: { runtimeUpdateError: '' },
     },
   )

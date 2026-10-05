@@ -4,7 +4,6 @@ import { AppError } from '@/lib/errors'
 
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { listRuntimeDefaults } from './runtime-defaults'
-import { managedRuntimeImage } from './runtime-image'
 import { runtimeDeletions } from './runtime-portability-store'
 import { runtimeLabel } from './runtime-provider'
 import { listTeamRuntimes } from './runtime-registry'
@@ -43,8 +42,8 @@ export async function listRuntimeInstances(
   const groups = await Promise.all(
     (['claude-code', 'codex'] as const).map(async (provider) => {
       // Every registered runtime owns its login and reports it through its status.
-      const registered: RuntimeInstance[] = await Promise.all(
-        (await listTeamRuntimes(teamId, provider)).map(async (runtime) => ({
+      const registered: RuntimeInstance[] = (await listTeamRuntimes(teamId, provider)).map(
+        (runtime) => ({
           id: runtime.id,
           provider,
           label: runtime.label ?? `${runtimeLabel(provider)} · ${runtime.id.slice(0, 6)}`,
@@ -52,14 +51,14 @@ export async function listRuntimeInstances(
           ...(runtime.hostedBy
             ? {
                 kind: 'managed' as const,
-                image: await managedRuntimeImage(provider, runtime.requestedRuntimeVersion),
+                image: runtime.deploymentImage,
               }
             : {
                 kind: 'external' as const,
                 ...(runtime.connection ? { connection: runtime.connection } : {}),
               }),
           createdAt: runtime.createdAt,
-        })),
+        }),
       )
       const development = developmentRuntimeEndpoint(provider)
 

@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
+import { config } from '@/config'
+import { db } from '@/lib/db'
+import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
+
 import { isValidOpenAbTransportKey } from './gate'
 import { isAllowedRemoteOpenAbUrl, isInternalRuntimeUrl } from './runtime-backend-url'
 import { placementNamespace } from './runtime-controllers'
@@ -21,11 +26,6 @@ import type { OpenAbProvider } from './runtime-provider'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { EncryptedEnvelope } from '@/models'
 
-import { config } from '@/config'
-import { db } from '@/lib/db'
-import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
-
 export type ClaudeCodeRuntimeStatus = 'active' | 'disabled'
 
 export type ClaudeCodeRuntimeDoc = {
@@ -35,7 +35,8 @@ export type ClaudeCodeRuntimeDoc = {
   provider?: OpenAbProvider
   label?: string
   status: ClaudeCodeRuntimeStatus
-  /** Nuphos deploys this runtime; everything else about it is a self-hosted runtime's. */
+  /** Selected at creation or by an explicit Update; never follows the release feed. */
+  deploymentImage?: string
   requestedRuntimeVersion?: string
   runtimeUpdateError?: string
   hostedBy?: 'nuphos'
@@ -55,6 +56,8 @@ export type ClaudeCodeRuntimeDoc = {
 
 /** Public view — the transport key never leaves the resolver. */
 export type ClaudeCodeRuntime = {
+  /** Selected at creation or by an explicit Update; never follows the release feed. */
+  deploymentImage?: string
   requestedRuntimeVersion?: string
   id: string
   url: string
@@ -76,6 +79,7 @@ const CURRENT = { managedBy: { $exists: false } } as const
 function toPublic(doc: ClaudeCodeRuntimeDoc): ClaudeCodeRuntime {
   return {
     id: doc._id,
+    ...(doc.deploymentImage ? { deploymentImage: doc.deploymentImage } : {}),
     ...(doc.requestedRuntimeVersion
       ? { requestedRuntimeVersion: doc.requestedRuntimeVersion }
       : {}),
@@ -113,6 +117,7 @@ export async function registerTeamRuntime(args: {
   controlKey?: string
   label?: string
   hostedBy?: 'nuphos'
+  deploymentImage?: string
   pairing?: RuntimePairing
   kube?: KubeClient
 }): Promise<ClaudeCodeRuntime> {
@@ -136,6 +141,7 @@ export async function registerTeamRuntime(args: {
     provider: args.provider ?? 'claude-code',
     ...(args.label?.trim() ? { label: args.label.trim() } : {}),
     ...(args.hostedBy ? { hostedBy: args.hostedBy } : {}),
+    ...(args.deploymentImage ? { deploymentImage: args.deploymentImage } : {}),
     ...(args.pairing ? { pairing: args.pairing } : {}),
     status: 'active',
     authKeyEnvelope: sealRuntimeAuthKey(authKey),

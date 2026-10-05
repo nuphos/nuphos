@@ -2,28 +2,29 @@ import { randomBytes } from 'node:crypto'
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 
+import { config } from '@/config'
+import { useDb } from '@/lib/test/doubles/db'
+import { portabilityDb } from '@/lib/test/runtime-portability-db'
+
 import { hostedRuntimeDeploymentObject } from './runtime-deployment'
-import {
-  publishedRuntimeImage,
-  publishRuntimeRelease,
-  restoreRuntimeReleases,
-} from './runtime-release-testing'
 import {
   hostedRuntimeName,
   hostedRuntimeUrl,
   runtimeAuthSecretName,
   runtimeConfigMapObject,
 } from './runtime-objects'
+import {
+  publishedRuntimeImage,
+  runtimeFeedRequests,
+  publishRuntimeRelease,
+  restoreRuntimeReleases,
+} from './runtime-release-testing'
 import { TEMPLATE_ROLLOUTS_PER_TICK } from './runtime-rollout'
 
 import type { KubeClient, KubeResourceState } from './kube-client'
 import type { RuntimeScheduling } from './runtime-deployment'
 import type { KubeObject } from './runtime-objects'
 import type { OpenAbProvider } from './runtime-provider'
-
-import { config } from '@/config'
-import { useDb } from '@/lib/test/doubles/db'
-import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 const provisioner = config.claudeCodeRuntimeProvisioner
 const original = { ...provisioner }
@@ -44,6 +45,7 @@ useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 
 const { reconcileHostedRuntimes } = await import('./runtime-provisioner')
 const { createManagedRuntimeInstance } = await import('./runtime-instances')
+const { requestRuntimeUpdate } = await import('./runtime-updates')
 const { registerTeamRuntime, resolveTeamRuntimeEndpoints, setTeamRuntimeStatus } =
   await import('./runtime-registry')
 
@@ -319,7 +321,7 @@ describe('reconcileHostedRuntimes', () => {
     expect(kube.applied.map((resource) => resource.kind)).toEqual(['ConfigMap'])
   })
 
-  test('a new runtime version rolls each agent once it is idle', async () => {
+  test('a new release never changes an existing runtime image', async () => {
     await addAgent()
     const kube = fakeKube()
 
@@ -328,12 +330,10 @@ describe('reconcileHostedRuntimes', () => {
     kube.applied.length = 0
     await reconcile(kube, 'claude-code', { hasActiveRuntimeTurn: () => Promise.resolve(true) })
 
-    expect(ofKind(kube, 'Deployment')).toEqual([])
-    await reconcile(kube)
-
     expect(ofKind<Deployment>(kube, 'Deployment')[0]?.spec.template.spec.containers[0]?.image).toBe(
-      publishedRuntimeImage('9.9.9', 'claude-code'),
+      publishedRuntimeImage(FLEET_VERSION, 'claude-code'),
     )
+    expect(runtimeFeedRequests()).toBe(1)
   })
 
   test('an unchanged template never asks the runtime whether it is busy', async () => {
@@ -359,11 +359,12 @@ describe('reconcileHostedRuntimes', () => {
     const kube = fakeKube()
 
     await reconcile(kube)
-    await publishRuntimeRelease({ version: '9.9.9' })
     const rolled = new Set<string>()
     const tick = async () => {
       kube.applied.length = 0
-      await reconcile(kube)
+      await reconcile(kube, 'claude-code', {
+        scheduling: { nodeSelector: { pool: 'runtime' }, tolerations: [] },
+      })
       for (const deployment of ofKind(kube, 'Deployment')) rolled.add(deployment.metadata.name)
     }
 
@@ -413,9 +414,10 @@ test('an individual requested release waits for idle and persists on later recon
   const kube = fakeKube()
 
   await reconcile(kube)
-  await store
-    .collection('claude_code_runtimes')
-    .updateOne({ _id: agent.id }, { $set: { requestedRuntimeVersion: '9.9.9' } })
+  await publishRuntimeRelease({ version: '9.9.9' })
+  provisioner.enabled = true
+  provisioner.kubectl = true
+  await requestRuntimeUpdate('team-a', agent)
   kube.applied.length = 0
   await reconcile(kube, 'claude-code', { hasActiveRuntimeTurn: () => Promise.resolve(true) })
   expect(ofKind(kube, 'Deployment')).toEqual([])
@@ -428,4 +430,107 @@ test('an individual requested release waits for idle and persists on later recon
   expect(
     ofKind<Deployment>(kube, 'Deployment').at(-1)?.spec.template.spec.containers[0]?.image,
   ).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
+})
+
+test('legacy tags are adopted verbatim and retained through feed outages and pod recreation', async () => {
+  const agent = await addAgent()
+  const kube = fakeKube()
+
+  await reconcile(kube)
+  const deployment = ofKind<Deployment>(kube, 'Deployment').at(-1)!
+  const legacyImage = 'ghcr.io/zeabur/nuphos-runtime:0.1.13-claude-code'
+
+  deployment.spec.template.spec.containers[0]!.image = legacyImage
+  await kube.apply(deployment, 'legacy-provisioner')
+  await store
+    .collection('claude_code_runtimes')
+    .updateOne(
+      { _id: agent.id },
+      { $unset: { deploymentImage: '' }, $set: { requestedRuntimeVersion: '0.1.13' } },
+    )
+  await publishRuntimeRelease({})
+  await reconcile(kube)
+  expect(
+    ofKind<Deployment>(kube, 'Deployment').at(-1)!.spec.template.spec.containers[0]!.image,
+  ).toBe(legacyImage)
+  const replacement = fakeKube()
+
+  await reconcile(replacement)
+  expect(
+    ofKind<Deployment>(replacement, 'Deployment').at(-1)!.spec.template.spec.containers[0]!.image,
+  ).toBe(legacyImage)
+  expect(runtimeFeedRequests()).toBe(1)
+})
+
+test('a legacy pending Update survives migration and waits for idle', async () => {
+  const agent = await addAgent()
+  const kube = fakeKube()
+
+  await reconcile(kube)
+  await publishRuntimeRelease({ version: '9.9.9' })
+  await store
+    .collection('claude_code_runtimes')
+    .updateOne(
+      { _id: agent.id },
+      { $unset: { deploymentImage: '' }, $set: { requestedRuntimeVersion: '9.9.9' } },
+    )
+  kube.applied.length = 0
+  await reconcile(kube, 'claude-code', { hasActiveRuntimeTurn: () => Promise.resolve(true) })
+  expect(ofKind(kube, 'Deployment')).toEqual([])
+  const selected = await store.collection('claude_code_runtimes').findOne({ _id: agent.id })
+
+  expect(selected?.deploymentImage).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
+  // Once selected, the pending Update no longer needs the release feed.
+  await publishRuntimeRelease({})
+  await reconcile(kube)
+  expect(
+    ofKind<Deployment>(kube, 'Deployment').at(-1)!.spec.template.spec.containers[0]!.image,
+  ).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
+  const requests = runtimeFeedRequests()
+
+  await reconcile(kube)
+  expect(runtimeFeedRequests()).toBe(requests)
+})
+
+test('an unavailable legacy pending Update is retried without adopting the old image', async () => {
+  const agent = await addAgent()
+  const kube = fakeKube()
+
+  await reconcile(kube)
+  await store
+    .collection('claude_code_runtimes')
+    .updateOne(
+      { _id: agent.id },
+      { $unset: { deploymentImage: '' }, $set: { requestedRuntimeVersion: '9.9.9' } },
+    )
+  await publishRuntimeRelease({ version: '9.9.9', published: [] })
+  kube.applied.length = 0
+  await reconcile(kube)
+  const selected = await store.collection('claude_code_runtimes').findOne({ _id: agent.id })
+
+  expect(selected?.deploymentImage).toBeUndefined()
+  expect(selected?.requestedRuntimeVersion).toBe('9.9.9')
+  expect(selected?.runtimeUpdateError).toBeDefined()
+  expect(ofKind(kube, 'Deployment')).toEqual([])
+  await publishRuntimeRelease({ version: '9.9.9' })
+  await reconcile(kube)
+  expect(
+    ofKind<Deployment>(kube, 'Deployment').at(-1)!.spec.template.spec.containers[0]!.image,
+  ).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
+})
+
+test('an unpublished explicit update leaves the selected image unchanged', async () => {
+  const agent = await addAgent()
+  const before = await store.collection('claude_code_runtimes').findOne({ _id: agent.id })
+
+  await publishRuntimeRelease({ version: '9.9.9', published: [] })
+  provisioner.enabled = true
+  provisioner.kubectl = true
+  await expect(requestRuntimeUpdate('team-a', agent)).rejects.toThrow(
+    'release image is unavailable',
+  )
+  const after = await store.collection('claude_code_runtimes').findOne({ _id: agent.id })
+
+  expect(after?.deploymentImage).toBe(before?.deploymentImage)
+  expect(after?.requestedRuntimeVersion).toBeUndefined()
 })

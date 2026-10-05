@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 
 import { config } from '@/config'
+import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { provisionerKubeClient } from './provisioner-kube'
@@ -43,6 +44,14 @@ export async function createManagedRuntimeInstance(args: {
   provider: OpenAbProvider
   label: string
 }): Promise<RuntimeInstance> {
+  const image = await managedRuntimeImage(args.provider)
+
+  if (!image)
+    throw new AppError(
+      503,
+      'runtime_release_unavailable',
+      'No published runtime image is available.',
+    )
   const id = randomUUID()
   const name = hostedRuntimeName(args.teamId, args.provider, id)
   const runtime = await registerTeamRuntime({
@@ -54,6 +63,7 @@ export async function createManagedRuntimeInstance(args: {
     authKey: randomBytes(32).toString('hex'),
     label: args.label,
     hostedBy: 'nuphos',
+    deploymentImage: image,
   })
   const { enabled, namespace, scheduling } = config.claudeCodeRuntimeProvisioner
   const kube = enabled ? provisionerKubeClient() : null
@@ -76,7 +86,7 @@ export async function createManagedRuntimeInstance(args: {
     id: runtime.id,
     provider: args.provider,
     label: args.label,
-    image: await managedRuntimeImage(args.provider),
+    image,
     status: runtime.status,
     kind: 'managed',
     createdAt: runtime.createdAt,
