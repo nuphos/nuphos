@@ -462,6 +462,63 @@ test('legacy tags are adopted verbatim and retained through feed outages and pod
   expect(runtimeFeedRequests()).toBe(1)
 })
 
+test('a legacy pending Update survives migration and waits for idle', async () => {
+  const agent = await addAgent()
+  const kube = fakeKube()
+
+  await reconcile(kube)
+  await publishRuntimeRelease({ version: '9.9.9' })
+  await store
+    .collection('claude_code_runtimes')
+    .updateOne(
+      { _id: agent.id },
+      { $unset: { deploymentImage: '' }, $set: { requestedRuntimeVersion: '9.9.9' } },
+    )
+  kube.applied.length = 0
+  await reconcile(kube, 'claude-code', { hasActiveRuntimeTurn: () => Promise.resolve(true) })
+  expect(ofKind(kube, 'Deployment')).toEqual([])
+  const selected = await store.collection('claude_code_runtimes').findOne({ _id: agent.id })
+
+  expect(selected?.deploymentImage).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
+  // Once selected, the pending Update no longer needs the release feed.
+  await publishRuntimeRelease({})
+  await reconcile(kube)
+  expect(
+    ofKind<Deployment>(kube, 'Deployment').at(-1)!.spec.template.spec.containers[0]!.image,
+  ).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
+  const requests = runtimeFeedRequests()
+
+  await reconcile(kube)
+  expect(runtimeFeedRequests()).toBe(requests)
+})
+
+test('an unavailable legacy pending Update is retried without adopting the old image', async () => {
+  const agent = await addAgent()
+  const kube = fakeKube()
+
+  await reconcile(kube)
+  await store
+    .collection('claude_code_runtimes')
+    .updateOne(
+      { _id: agent.id },
+      { $unset: { deploymentImage: '' }, $set: { requestedRuntimeVersion: '9.9.9' } },
+    )
+  await publishRuntimeRelease({ version: '9.9.9', published: [] })
+  kube.applied.length = 0
+  await reconcile(kube)
+  const selected = await store.collection('claude_code_runtimes').findOne({ _id: agent.id })
+
+  expect(selected?.deploymentImage).toBeUndefined()
+  expect(selected?.requestedRuntimeVersion).toBe('9.9.9')
+  expect(selected?.runtimeUpdateError).toBeDefined()
+  expect(ofKind(kube, 'Deployment')).toEqual([])
+  await publishRuntimeRelease({ version: '9.9.9' })
+  await reconcile(kube)
+  expect(
+    ofKind<Deployment>(kube, 'Deployment').at(-1)!.spec.template.spec.containers[0]!.image,
+  ).toBe(publishedRuntimeImage('9.9.9', 'claude-code'))
+})
+
 test('an unpublished explicit update leaves the selected image unchanged', async () => {
   const agent = await addAgent()
   const before = await store.collection('claude_code_runtimes').findOne({ _id: agent.id })

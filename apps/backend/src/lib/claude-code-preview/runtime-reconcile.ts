@@ -18,6 +18,7 @@ import { withRuntimePlacementLease } from './runtime-placement-lease'
 import { runtimeDeletions } from './runtime-portability-store'
 import { listHostedRuntimes, runtimes } from './runtime-registry'
 import { storedAuthKey } from './runtime-registry-credentials'
+import { newerRuntimeVersion } from './runtime-release'
 import { reconcileRuntimeDeployment, TEMPLATE_ROLLOUTS_PER_TICK } from './runtime-rollout'
 import { runtimeServiceName } from './runtime-service-name'
 
@@ -60,7 +61,7 @@ async function applyHostedRuntime(runtime: ClaudeCodeRuntimeDoc, deps: Provision
 
   if (!name || !authKey) throw new Error('Hosted runtime has no placement or key')
   // Adopt legacy deployments verbatim: adding a digest also changes the pod template.
-  // Resolve an initial image only when there is no deployment to preserve.
+  // Carry forward an explicit Update that the old reconciler had not applied yet.
   if (!runtime.deploymentImage) {
     if (!deps.kube.getResource) throw new Error('Cannot determine the existing runtime image')
     const current = await deps.kube.getResource({
@@ -68,14 +69,26 @@ async function applyHostedRuntime(runtime: ClaudeCodeRuntimeDoc, deps: Provision
       kind: 'Deployment',
       metadata: { name, namespace: deps.namespace },
     })
-    const image = current
-      ? current.spec?.template?.spec?.containers?.find((container) => container.name === 'openab')
-          ?.image
-      : await managedRuntimeImage(deps.provider, runtime.requestedRuntimeVersion)
+    const currentImage = current?.spec?.template?.spec?.containers?.find(
+      (container) => container.name === 'openab',
+    )?.image
+    const currentVersion = currentImage?.match(/:(\d+\.\d+\.\d+)-(?:claude-code|codex)(?:@|$)/)?.[1]
+    const pendingUpdate =
+      runtime.requestedRuntimeVersion &&
+      (!currentVersion || newerRuntimeVersion(runtime.requestedRuntimeVersion, currentVersion))
+    const image =
+      current && !pendingUpdate
+        ? currentImage
+        : await managedRuntimeImage(deps.provider, runtime.requestedRuntimeVersion)
 
     if (!image) throw new Error('No runtime image is available')
     await runtimes().updateOne(
-      { _id: runtime._id, teamId: runtime.teamId, deploymentImage: { $exists: false } },
+      {
+        _id: runtime._id,
+        teamId: runtime.teamId,
+        deploymentImage: { $exists: false },
+        requestedRuntimeVersion: runtime.requestedRuntimeVersion ?? { $exists: false },
+      },
       { $set: { deploymentImage: image } },
     )
   }
