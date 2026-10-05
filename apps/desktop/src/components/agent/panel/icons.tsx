@@ -1,6 +1,7 @@
 import { faOpenai } from '@fortawesome/free-brands-svg-icons'
 
-import type { SVGProps } from 'react'
+import type { AgentProvider } from '../../../types/runtime'
+import type { ReactElement, SVGProps } from 'react'
 
 export function ClaudeIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -24,4 +25,37 @@ export function CodexIcon(props: SVGProps<SVGSVGElement>) {
       <path d={Array.isArray(path) ? path.join(' ') : path} />
     </svg>
   )
+}
+
+export function GrokIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M0.58392448,14.9254204 L0.8326,14.66295 C2.004465,13.42985 3.1678,12.2082 2.45814,10.48105 C1.50813,8.1701 2.061355,5.4619 3.820575,3.70057 C5.6495,1.8709 8.3431,1.40957 10.59295,2.336505 C11.0907,2.52161 11.5245,2.785025 11.86295,3.02993 L9.98425,3.89849 C8.235,3.163775 6.23115,3.66355 5.0081,4.88809 C3.354105,6.5426 3.019895,9.4117 4.95835,11.2656 L-0.335,15.99995 C-0.066496,15.62975 0.2538896,15.275934 0.58392448,14.9254204 Z M14.0391,2.288155 L16.33165,2.57749377e-12 L16.20795,0.172288 C14.4658,2.574355 13.6153,3.749045 14.29795,6.6879 C14.76445,8.68415 14.261,10.90255 12.63545,12.53005 C10.5861,14.58325 7.3066,15.0403 4.6059,13.19215 L6.48885,12.3193 C8.2125,12.99705 10.0983,12.69945 11.4536,11.34255 C12.80895,9.9856 13.1133,8.00925 12.4321,6.3647 C12.30265,6.05285 11.9144,5.97455 11.64275,6.1753 L6.102,10.27035 L14.0391,2.288155 Z" />
+    </svg>
+  )
+}
+
+export function AntigravityIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M14.1452 14.6818C14.9937 15.3182 16.2664 14.894 15.0997 13.7273C11.5998 10.3333 12.3421 1 7.99366 1C3.64518 1 4.3876 10.3333 0.887603 13.7273C-0.385123 15 0.993664 15.3182 1.84215 14.6818C5.13002 12.4545 4.9179 8.5303 7.99366 8.5303C11.0694 8.5303 10.8573 12.4545 14.1452 14.6818Z" />
+    </svg>
+  )
+}
+
+const PROVIDER_ICON: Record<AgentProvider, (props: SVGProps<SVGSVGElement>) => ReactElement> = {
+  'claude-code': ClaudeIcon,
+  codex: CodexIcon,
+  grok: GrokIcon,
+  antigravity: AntigravityIcon,
+}
+
+/** The agent's mark; Claude Code's when the provider is unknown, as for legacy records. */
+export function AgentProviderIcon({
+  provider,
+  ...props
+}: SVGProps<SVGSVGElement> & { provider: AgentProvider | null | undefined }) {
+  const Icon = PROVIDER_ICON[provider ?? 'claude-code']
+
+  return <Icon {...props} />
 }

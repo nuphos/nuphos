@@ -2,11 +2,12 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { ClaudeCodeIcon, CodexIcon } from '../../components/agent/panel/icons'
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { RuntimeUsageBar } from './RuntimeUsageBar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeDefaultsSection } from './RuntimeDefaultsSection'
@@ -85,7 +86,6 @@ export function RuntimeInstanceCard({
       setBusy(false)
     }
   }
-  const Icon = instance.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
   const canEdit = isAdmin && instance.kind !== 'development' && !instance.deletion
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
@@ -97,7 +97,7 @@ export function RuntimeInstanceCard({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-5">
         <div className="flex min-w-0 flex-1 basis-52 items-center gap-3.5">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zGray-800/70 bg-main shadow-sm">
-            <Icon className="h-5 w-5 text-secondary" />
+            <AgentProviderIcon provider={instance.provider} className="h-5 w-5 text-secondary" />
           </div>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -130,7 +130,7 @@ export function RuntimeInstanceCard({
               )}
             </div>
             <p className="mt-0.5 truncate text-xs text-tertiary">
-              {instance.provider === 'codex' ? 'Codex' : 'Claude Code'}
+              {AGENT_PROVIDER[instance.provider].label}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
           </div>

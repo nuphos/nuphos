@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
 
 export const cloudOpsApi = {
@@ -220,7 +221,7 @@ export const cloudOpsApi = {
   atlasUnbindSentry: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindSentry', teamId, bindingId),
   agentStart: (args: {
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
     streamId: string
     sessionId: string

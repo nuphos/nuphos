@@ -2,10 +2,13 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { before, mock, test } from 'node:test'
 
+import { AGENT_PROVIDERS } from '../../../types/runtime.ts'
+
 import type { Message, Tab } from './model'
 import type { TransferUploadPart } from './parts'
 import type { StartChatCtx } from './startChat.ts'
 import type { WindowAgentApi } from '../../../api/window-agent'
+import type { AgentProvider } from '../../../types/runtime.ts'
 
 let runStartChatWith: typeof import('./startChat.ts').runStartChatWith
 const requests: Parameters<WindowAgentApi['agentStart']>[0][] = []
@@ -45,7 +48,7 @@ before(async () => {
   ;({ runStartChatWith } = await import('./startChat.ts'))
 })
 
-function context(runtime: 'claude-code' | 'codex') {
+function context(runtime: AgentProvider) {
   let tabs: Tab[] = []
   const synced: Tab[] = []
   const ctx: StartChatCtx = {
@@ -80,7 +83,7 @@ function context(runtime: 'claude-code' | 'codex') {
 
 test('each new conversation sends its chosen runtime and stamps the first transcript', () => {
   requests.length = 0
-  for (const runtime of ['codex', 'claude-code'] as const) {
+  for (const runtime of AGENT_PROVIDERS) {
     const state = context(runtime)
 
     runStartChatWith(state.ctx, 'hello')

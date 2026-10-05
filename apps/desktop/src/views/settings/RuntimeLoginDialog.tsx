@@ -6,14 +6,15 @@ import { Modal } from '../../components/Modal'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useStableCallback } from '../../hooks/useStableCallback'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { inputClasses } from './styles'
+import { BrowserCodeEntry } from './BrowserCodeEntry'
+import { authorizeUrl, devicePage } from './runtimeLogin'
+import { loginButtonClasses as buttonClass } from './styles'
 
 import type { RuntimeInstance, RuntimeLoginStatus } from '../../types/runtime'
 
 const activeStates = new Set(['starting', 'awaiting_authorization'])
-const buttonClass =
-  'inline-flex items-center justify-center gap-2 rounded-md bg-zViolet-600 px-3 py-2 text-[13px] font-medium text-white hover:bg-zViolet-500 disabled:opacity-50'
 
 export function RuntimeLoginDialog({
   teamId,
@@ -30,7 +31,7 @@ export function RuntimeLoginDialog({
   const [closing, setClosing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [reachable, setReachable] = useState(false)
-  const account = instance.provider === 'codex' ? 'ChatGPT' : 'Claude'
+  const account = AGENT_PROVIDER[instance.provider].account
   // Reuse the start request across StrictMode's effect replay: every start replaces the
   // agent's previous sign-in.
   const request = useRef<Promise<RuntimeLoginStatus> | null>(null)
@@ -119,7 +120,12 @@ export function RuntimeLoginDialog({
     setRetry((value) => value + 1)
   }
   const awaiting = login?.state === 'awaiting_authorization'
-  const authorizationUrl = awaiting ? claudeAuthorizeUrl(login.authorizationUrl) : undefined
+  const authorizationUrl = awaiting
+    ? authorizeUrl(instance.provider, login.authorizationUrl)
+    : undefined
+  const verificationUri = awaiting
+    ? devicePage(instance.provider, login.verificationUri)
+    : undefined
   const failed =
     login?.state === 'failed' || login?.state === 'cancelled' || (!login && Boolean(error))
 
@@ -133,7 +139,8 @@ export function RuntimeLoginDialog({
     >
       <div className="space-y-5 p-5" role="status" aria-live="polite">
         {authorizationUrl ? (
-          <ClaudeCodeEntry
+          <BrowserCodeEntry
+            provider={instance.provider}
             url={authorizationUrl}
             submitted={login?.codeSubmitted === true}
             onSubmit={async (code) => {
@@ -146,7 +153,7 @@ export function RuntimeLoginDialog({
         ) : awaiting ? (
           <>
             <p className="text-[13px] leading-5 text-secondary">
-              Copy this one-time code, then enter it on the ChatGPT sign-in page.
+              Copy this one-time code, then enter it on the {account} sign-in page.
             </p>
             <button
               type="button"
@@ -165,14 +172,14 @@ export function RuntimeLoginDialog({
                 {copied ? 'Copied' : 'Copy'}
               </span>
             </button>
-            {login.verificationUri === 'https://auth.openai.com/codex/device' && (
+            {verificationUri && (
               <a
-                href={login.verificationUri}
+                href={verificationUri}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`${buttonClass} w-full`}
               >
-                Open ChatGPT <ExternalLink className="h-3.5 w-3.5" />
+                Open {account} <ExternalLink className="h-3.5 w-3.5" />
               </a>
             )}
             <p className="text-xs leading-5 text-tertiary">
@@ -211,82 +218,4 @@ export function RuntimeLoginDialog({
       </div>
     </Modal>
   )
-}
-
-/** Claude's browser flow ends on a page that shows a code; the runtime needs it back. */
-function ClaudeCodeEntry({
-  url,
-  submitted,
-  onSubmit,
-}: {
-  url: string
-  submitted: boolean
-  onSubmit: (code: string) => Promise<void>
-}) {
-  const [code, setCode] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  async function submit(event: React.SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (submitting || !code.trim()) return
-    setSubmitting(true)
-    try {
-      await onSubmit(code.trim())
-    } catch (cause) {
-      toast.apiError('Could not send the code', cause)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (submitted)
-    return (
-      <div className="flex items-center gap-3 text-[13px] text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Checking the code with Claude…
-      </div>
-    )
-
-  return (
-    <>
-      <p className="text-[13px] leading-5 text-secondary">
-        Approve access on Claude’s page, then paste the code it shows you here. The agent keeps the
-        sign-in; Nuphos does not store it.
-      </p>
-      <a href={url} target="_blank" rel="noopener noreferrer" className={`${buttonClass} w-full`}>
-        Open Claude <ExternalLink className="h-3.5 w-3.5" />
-      </a>
-      <form onSubmit={(event) => void submit(event)} className="flex items-center gap-2">
-        <input
-          aria-label="Code from Claude"
-          className={inputClasses}
-          value={code}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="Paste code"
-          disabled={submitting}
-          onChange={(event) => setCode(event.target.value)}
-        />
-        <button
-          type="submit"
-          disabled={submitting || !code.trim()}
-          className={`${buttonClass} shrink-0`}
-        >
-          {submitting ? 'Sending…' : 'Continue'}
-        </button>
-      </form>
-    </>
-  )
-}
-
-function claudeAuthorizeUrl(value: string | undefined): string | undefined {
-  try {
-    const url = new URL(value ?? '')
-
-    return url.protocol === 'https:' && ['claude.com', 'claude.ai'].includes(url.hostname)
-      ? url.href
-      : undefined
-  } catch {
-    return undefined
-  }
 }

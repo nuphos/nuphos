@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../types/runtime.ts'
 import { publishRuntimeStates } from '../lib/agentRuntimeStates.ts'
 import { receiveConversationReadStates } from '../lib/agentUnreadSessions.ts'
 
@@ -27,7 +28,7 @@ export const agentApi = {
     id: string
     teamId: string
     runtimeId: string
-    agentRuntime: 'claude-code' | 'codex'
+    agentRuntime: AgentProvider
   }) => window.api.agentImportLocalSession(args),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
     window.api.agentGetSessionConfig(sessionId, teamId),
@@ -119,7 +120,7 @@ export const agentApi = {
     credentialAccess: AgentCredentialSelection
   }) => window.api.agentUpdateConversationCredentials(args),
   agentSyncConversationTranscript: (args: {
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
     sessionId: string
     teamId?: string

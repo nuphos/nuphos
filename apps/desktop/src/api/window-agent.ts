@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../types/runtime.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type {
   AgentAuditConversationsPage,
@@ -50,7 +51,7 @@ export type WindowAgentApi = {
   ): Promise<{
     runtimeId: string
     runtimeLabel: string
-    agentRuntime: 'claude-code' | 'codex'
+    agentRuntime: AgentProvider
     mode: 'history' | 'workspace'
   }>
   agentImportLocalSession(args: {
@@ -58,7 +59,7 @@ export type WindowAgentApi = {
     id: string
     teamId: string
     runtimeId: string
-    agentRuntime: 'claude-code' | 'codex'
+    agentRuntime: AgentProvider
   }): Promise<LocalSessionImportResult>
   agentGetSessionConfig(sessionId: string, teamId: string): Promise<SessionConfigState>
   agentGetConversationParticipants(
@@ -92,7 +93,7 @@ export type WindowAgentApi = {
     credentialAccess?: AgentCredentialSelection
     /** Authorization mode for a conversation being created by this call. */
     permissionMode?: 'auto' | 'bypass'
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
   }): Promise<void>
   agentNotifyStopped(args: {
@@ -178,7 +179,7 @@ export type WindowAgentApi = {
   }): Promise<AgentConversationCredentialsResponse>
   agentSyncConversationTranscript(args: {
     sessionId: string
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
     teamId?: string
     title: string

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
+import { AGENT_PROVIDER } from '../../../types/runtime'
 import { LocalClaudeSignIn } from '../../../views/settings/LocalClaudeSignIn'
 import {
   Menu,
@@ -16,7 +17,7 @@ import {
 } from '../../ui/menu'
 import { Tooltip } from '../../ui/tooltip'
 
-import { ClaudeCodeIcon, CodexIcon } from './icons'
+import { AgentProviderIcon } from './icons'
 
 import type { QuotaTone } from '../../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
@@ -77,17 +78,12 @@ export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefi
   )
 }
 
-const PROVIDER_NAME: Record<RuntimeInstance['provider'], string> = {
-  'claude-code': 'Claude Code',
-  codex: 'Codex',
-}
-
 function runtimeOptionNote(instance: RuntimeInstance): string {
   if (instance.status === 'disabled') return ' · Disabled'
   if (instance.deletion) return ' · Being removed'
   if (instance.starting) return ' · Starting…'
   if (instance.local?.signedIn === false)
-    return ` · Sign in to ${PROVIDER_NAME[instance.provider]} on that computer`
+    return ` · Sign in to ${AGENT_PROVIDER[instance.provider].label} on that computer`
 
   return ''
 }
@@ -106,8 +102,7 @@ export function RuntimeSelector({
   onAddAgent,
 }: RuntimeControl) {
   const [signingIn, setSigningIn] = useState<string | null>(null)
-  const Icon = value?.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
-  const providerName = value?.provider === 'codex' ? 'Codex' : 'Claude Code'
+  const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
   const label = value
@@ -133,7 +128,7 @@ export function RuntimeSelector({
   )
   const content = (
     <>
-      <Icon className="h-3.5 w-3.5 shrink-0" />
+      <AgentProviderIcon provider={value?.provider} className="h-3.5 w-3.5 shrink-0" />
       {loading && !value ? (
         <span
           aria-label="Loading agent"
@@ -201,7 +196,6 @@ export function RuntimeSelector({
                     instance.provider === 'claude-code' &&
                     agentTier(instance, owner) === 'local' &&
                     instance.local?.signedIn !== true
-                  const InstanceIcon = instance.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
 
                   return (
                     <MenuItem
@@ -213,7 +207,9 @@ export function RuntimeSelector({
                         Boolean(instance.deletion) ||
                         (instance.local?.signedIn === false && !needsLocalLogin)
                       }
-                      icon={<InstanceIcon className="h-3.5 w-3.5" />}
+                      icon={
+                        <AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />
+                      }
                       onClick={() => {
                         if (needsLocalLogin) setSigningIn(instance.id)
                         else onSelect(instance.id)
@@ -222,7 +218,7 @@ export function RuntimeSelector({
                       <span className="flex min-w-0 flex-col">
                         <span className="truncate">{agentName(instance, owner)}</span>
                         <span className="text-[11px] text-tertiary">
-                          {PROVIDER_NAME[instance.provider]}
+                          {AGENT_PROVIDER[instance.provider].label}
                           {runtimeOptionNote(instance)}
                           <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
                         </span>

@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../types/runtime.ts'
 import type { TeamSkillMutationSource } from './plan-types.ts'
 
 // Tamper-evident audit journal: mirrors backend /agent-journal.
@@ -57,7 +58,7 @@ export type RuntimeImageAuditEvent = {
   resource: {
     kind: 'runtime'
     runtimeId: string
-    provider: 'claude-code' | 'codex'
+    provider: AgentProvider
     label: string
   }
   change: { fromImage: string | null; toImage: string }

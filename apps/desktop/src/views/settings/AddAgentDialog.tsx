@@ -4,9 +4,10 @@ import { Cloud, Server, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
-import { ClaudeCodeIcon, CodexIcon } from '../../components/agent/panel/icons'
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { AGENT_PROVIDER, AGENT_PROVIDERS } from '../../types/runtime'
 
 import { nextAddAgentStep } from './addAgentFlow'
 import { ExternalRuntimeForm } from './ExternalRuntimeForm'
@@ -14,7 +15,7 @@ import { ExternalRuntimePasswordForm } from './ExternalRuntimePasswordForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 
 import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
-import type { RuntimeInstance } from '../../types/runtime'
+import type { AgentProvider, RuntimeInstance } from '../../types/runtime'
 import type { ReactNode } from 'react'
 
 const TITLE: Record<AddAgentStep, string> = {
@@ -22,6 +23,13 @@ const TITLE: Record<AddAgentStep, string> = {
   'self-hosted': 'Self-hosted Cloud Agent',
   'self-hosted-password': 'Self-hosted Cloud Agent',
   managed: 'Nuphos Managed Cloud Agent',
+}
+
+const MAKER: Record<AgentProvider, string> = {
+  'claude-code': 'Anthropic’s',
+  codex: 'OpenAI’s',
+  grok: 'xAI’s',
+  antigravity: 'Google’s',
 }
 
 function Choice({
@@ -85,20 +93,16 @@ function ManagedAgentForm({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Choice
-          icon={<ClaudeCodeIcon className="h-4 w-4" />}
-          title="Claude Code"
-          description="Anthropic’s coding agent. Sign in with Claude next."
-          selected={provider === 'claude-code'}
-          onClick={() => setProvider('claude-code')}
-        />
-        <Choice
-          icon={<CodexIcon className="h-4 w-4" />}
-          title="Codex"
-          description="OpenAI’s coding agent. Sign in with ChatGPT next."
-          selected={provider === 'codex'}
-          onClick={() => setProvider('codex')}
-        />
+        {AGENT_PROVIDERS.map((option) => (
+          <Choice
+            key={option}
+            icon={<AgentProviderIcon provider={option} className="h-4 w-4" />}
+            title={AGENT_PROVIDER[option].label}
+            description={`${MAKER[option]} coding agent. Sign in with ${AGENT_PROVIDER[option].account} next.`}
+            selected={provider === option}
+            onClick={() => setProvider(option)}
+          />
+        ))}
       </div>
       <p className="text-[12px] leading-5 text-tertiary">
         The agent keeps its own sign-in; Nuphos does not store it.
@@ -181,7 +185,7 @@ export function AddAgentDialog({
                 <Choice
                   icon={<Cloud className="h-4 w-4" />}
                   title="Nuphos Managed Cloud Agent"
-                  description="Nuphos runs and updates the agent for your team. Pick Claude Code or Codex."
+                  description="Nuphos runs and updates the agent for your team. Pick Claude Code, Codex, Grok Build or Antigravity."
                   onClick={() => go('managed')}
                 />
               </div>

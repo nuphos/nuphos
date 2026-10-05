@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime.ts'
 import { captureMain } from '../analytics.ts'
 import { apiUrl } from '../api-endpoint.ts'
 
@@ -82,7 +83,7 @@ export type StartChatArgs = {
   // it is harmless on later turns — but see the renderer: it stops sending it
   // once the session exists, rather than relying on that.
   permissionMode?: 'auto' | 'bypass'
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   runtimeId?: string
 }
 

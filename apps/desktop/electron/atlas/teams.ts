@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import { call } from './client'
 
 /** Compatibility with older servers; never used to restrict access. */
@@ -10,7 +11,7 @@ export type Team = {
   ownerID?: string
   contactEmails?: string[]
   allowedEmailDomains?: string[]
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   createdAt?: string
   isOwner?: boolean
   role?: TeamRole

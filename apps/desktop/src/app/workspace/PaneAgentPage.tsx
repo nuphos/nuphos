@@ -1,7 +1,7 @@
 import { MessageSquare } from 'lucide-react'
 
 import { AgentPanel } from '../../components/agent/AgentPanel'
-import { ClaudeIcon, CodexIcon } from '../../components/agent/panel/icons'
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { ConversationRail } from '../../views/ConversationRail'
 
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
@@ -116,11 +116,7 @@ export function PaneAgentPage({
               title: title || 'Agent',
               iconKey: claudeCodeRuntimeAttached ? (agentRuntime ?? 'claude-code') : 'agent',
               icon: claudeCodeRuntimeAttached ? (
-                agentRuntime === 'codex' ? (
-                  <CodexIcon className="h-3.5 w-3.5" />
-                ) : (
-                  <ClaudeIcon className="h-3.5 w-3.5" />
-                )
+                <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />
               ) : (
                 <MessageSquare className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
               ),

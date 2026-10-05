@@ -1,5 +1,6 @@
 import type { LarkBindInput } from '../types/messaging.ts'
 import type {
+  AgentProvider,
   CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
@@ -63,7 +64,7 @@ export const teamApi = {
     window.api.atlasUpdateTeam(teamId, input),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
     window.api.atlasSetTeamEmailDomainDiscovery(teamId, enabled),
-  atlasSetTeamAgentRuntime: (teamId: string, runtime: 'claude-code' | 'codex') =>
+  atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>
     window.api.atlasSetTeamAgentRuntime(teamId, runtime),
   atlasListDiscoverableTeams: () => window.api.atlasListDiscoverableTeams(),
   atlasJoinDiscoverableTeam: (teamId: string) => window.api.atlasJoinDiscoverableTeam(teamId),

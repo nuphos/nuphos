@@ -1,3 +1,16 @@
+/** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
+export const AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity'] as const
+
+export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
+
+/** Each agent's name, and the account its sign-in uses. */
+export const AGENT_PROVIDER: Record<AgentProvider, { label: string; account: string }> = {
+  'claude-code': { label: 'Claude Code', account: 'Claude' },
+  codex: { label: 'Codex', account: 'ChatGPT' },
+  grok: { label: 'Grok Build', account: 'xAI' },
+  antigravity: { label: 'Antigravity', account: 'Google' },
+}
+
 export type RuntimeDefaults = {
   model?: string
   fast?: 'on' | 'off'
@@ -18,7 +31,7 @@ export type LocalRuntimeSummary = {
 
 export type RuntimeInstance = {
   id: string
-  provider: 'claude-code' | 'codex'
+  provider: AgentProvider
   label: string
   /** The image a managed runtime runs. */
   image?: string

@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../types/runtime'
 import { clsx } from 'clsx'
 import { Check, Copy } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -5,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { connectedResourceLabels } from '../../app/accountScopes'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { EditableConversationTitle } from '../../components/agent/panel/ConversationTitleEditor'
-import { ClaudeIcon, CodexIcon } from '../../components/agent/panel/icons'
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
@@ -58,7 +59,7 @@ export function WorkspaceAgentPane({
     sessionId: string | null
     title: string
     canRename?: boolean
-    runtime: 'claude-code' | 'codex' | null
+    runtime: AgentProvider | null
   }>({ sessionId: null, title: 'Agent', runtime: null })
   const [conversationRailCollapsed, setConversationRailCollapsed] = useState(true)
   const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null)
@@ -109,7 +110,7 @@ export function WorkspaceAgentPane({
       nextTitle: string,
       sessionId: string | null,
       runtimeAttached: boolean,
-      agentRuntime?: 'claude-code' | 'codex',
+      agentRuntime?: AgentProvider,
       canRename?: boolean,
     ) => {
       setHeading({
@@ -166,11 +167,12 @@ export function WorkspaceAgentPane({
         {/* Keep the native drag rectangle beside the copy action so hit testing
             never relies on a no-drag hole inside its draggable ancestor. */}
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary">
-          {currentHeading.runtime === 'codex' ? (
-            <CodexIcon className="h-3.5 w-3.5 flex-shrink-0" />
-          ) : currentHeading.runtime === 'claude-code' ? (
-            <ClaudeIcon className="h-3.5 w-3.5 flex-shrink-0" />
-          ) : null}
+          {currentHeading.runtime && (
+            <AgentProviderIcon
+              provider={currentHeading.runtime}
+              className="h-3.5 w-3.5 flex-shrink-0"
+            />
+          )}
           <EditableConversationTitle
             key={selectedSessionId ?? 'home'}
             sessionId={selectedSessionId}

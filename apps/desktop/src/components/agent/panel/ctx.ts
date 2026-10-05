@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../../types/runtime'
 import type {
   AgentConversation,
   AgentCredentialOptions,
@@ -50,7 +51,7 @@ export type PanelCtx = {
     title: string,
     sessionId: string | null,
     claudeCodeRuntimeAttached: boolean,
-    agentRuntime?: 'claude-code' | 'codex',
+    agentRuntime?: AgentProvider,
     canRename?: boolean,
   ) => void
   onSessionChange?: (sessionId: string | null) => void

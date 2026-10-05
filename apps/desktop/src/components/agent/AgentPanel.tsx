@@ -32,6 +32,7 @@ import { useTextStreaming } from './panel/useTextStreaming'
 import { useTurnDispatch } from './panel/useTurnDispatch'
 
 import type { JournalChatTarget } from './JournalPanel'
+import type { AgentProvider } from '../../types/runtime'
 import type { PanelViewCtx } from './panel/ctx'
 import type { AgentPromptSeed, Tab } from './panel/model'
 import type { MutableRefObject } from 'react'
@@ -81,7 +82,7 @@ type Props = {
     title: string,
     sessionId: string | null,
     claudeCodeRuntimeAttached: boolean,
-    agentRuntime?: 'claude-code' | 'codex',
+    agentRuntime?: AgentProvider,
     canRename?: boolean,
   ) => void
   /** Externally-controlled session id (drives which chat is displayed). */

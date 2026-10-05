@@ -15,6 +15,7 @@ import type {
 } from '../types/messaging.ts'
 import type { AtlasClustersResponse, AwsAccount, GcpProject } from '../types/provider-accounts.ts'
 import type {
+  AgentProvider,
   RuntimeInstance,
   RuntimeModelCatalog,
   RuntimeLoginStatus,
@@ -104,7 +105,7 @@ export type WindowTeamApi = {
   atlasCreateTeam(name: string): Promise<AtlasTeam>
   atlasUpdateTeam(teamId: string, input: { name?: string; avatarUrl?: string }): Promise<AtlasTeam>
   atlasSetTeamEmailDomainDiscovery(teamId: string, enabled: boolean): Promise<AtlasTeam>
-  atlasSetTeamAgentRuntime(teamId: string, runtime: 'claude-code' | 'codex'): Promise<AtlasTeam>
+  atlasSetTeamAgentRuntime(teamId: string, runtime: AgentProvider): Promise<AtlasTeam>
   atlasListDiscoverableTeams(): Promise<DiscoverableTeam[]>
   atlasJoinDiscoverableTeam(teamId: string): Promise<AtlasTeam>
   atlasListTeamMembers(teamId: string, includeRemoved?: boolean): Promise<TeamMember[]>

@@ -7,6 +7,7 @@ import { listLocalSkills } from './local-skills'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type {
+  AgentProvider,
   CreateRuntimeInput,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
@@ -187,7 +188,7 @@ export const teamChannels = {
     atlas.updateTeam(teamId, input),
   'atlas:setTeamEmailDomainDiscovery': (_e: unknown, teamId: string, enabled: boolean) =>
     atlas.setTeamEmailDomainDiscovery(teamId, enabled),
-  'atlas:setTeamAgentRuntime': (_e: unknown, teamId: string, runtime: 'claude-code' | 'codex') =>
+  'atlas:setTeamAgentRuntime': (_e: unknown, teamId: string, runtime: AgentProvider) =>
     atlas.setTeamAgentRuntime(teamId, runtime),
   'atlas:listDiscoverableTeams': () => atlas.listDiscoverableTeams(),
   'atlas:joinDiscoverableTeam': (_e: unknown, teamId: string) => atlas.joinDiscoverableTeam(teamId),
