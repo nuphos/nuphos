@@ -208,7 +208,6 @@ struct ToolRunView: View {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { userOpen = !open }
                 } label: {
                     HStack(spacing: 6) {
-                        ToolLineRow.StatusIcon(part: latest)
                         Text(ToolLineRow.label(for: latest))
                             .lineLimit(1)
                             .foregroundStyle(latest.state == .outputError ? Color.red : Theme.body)
@@ -275,7 +274,6 @@ struct ToolLineRow: View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: onOpen) {
                 HStack(spacing: 6) {
-                    StatusIcon(part: part)
                     Text(Self.label(for: part))
                         .lineLimit(1)
                         .foregroundStyle(part.state == .outputError ? Color.red : Theme.body)
@@ -308,22 +306,6 @@ struct ToolLineRow: View {
         if part.state == .outputDenied || part.approval?.approved == false { return "You declined this command." }
         if part.approval?.approved == true { return "You approved this command." }
         return nil
-    }
-
-    /// Terminal glyph for command tools, a red cross on failure, nothing
-    /// otherwise — the desktop's chrome.
-    struct StatusIcon: View {
-        let part: ChatPart.ToolPart
-
-        var body: some View {
-            if part.state == .outputError {
-                Image(systemName: "xmark").font(Theme.Text.micro.weight(.bold)).foregroundStyle(Color.red)
-            } else if part.state == .approvalRequested {
-                Image(systemName: "hand.raised.fill").font(Theme.Text.micro.weight(.semibold)).foregroundStyle(Color.orange)
-            } else if part.isCommandTool {
-                Image(systemName: "terminal").font(Theme.Text.micro.weight(.semibold)).foregroundStyle(Theme.muted)
-            }
-        }
     }
 }
 
