@@ -48,9 +48,7 @@ struct ConversationView: View {
                 if !session.queued.isEmpty {
                     QueuedStrip(
                         items: session.queued,
-                        canSteer: session.canSteer,
-                        onRemove: { session.removeQueued(at: $0) },
-                        onSteer: { index in Task { _ = await session.steerQueued(at: index) } }
+                        onRemove: { session.removeQueued(at: $0) }
                     )
                 }
                 ChatComposerBar(
@@ -481,13 +479,10 @@ struct MemoryRecallPill: View {
     }
 }
 
-/// Queued messages waiting for the current reply to finish. On a native
-/// runtime each one can be handed to the running turn right away.
+/// Queued messages waiting for the current reply to finish.
 struct QueuedStrip: View {
     let items: [String]
-    var canSteer = false
     var onRemove: (Int) -> Void
-    var onSteer: ((Int) -> Void)? = nil
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -496,13 +491,6 @@ struct QueuedStrip: View {
                     HStack(spacing: 6) {
                         Image(systemName: "clock").font(Theme.Text.micro)
                         Text(item).lineLimit(1).font(Theme.Text.label)
-                        if canSteer, let onSteer {
-                            Button { onSteer(index) } label: {
-                                Image(systemName: "arrow.up.circle.fill").font(Theme.Text.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Send to the current reply")
-                        }
                         Button { onRemove(index) } label: {
                             Image(systemName: "xmark").font(Theme.Text.micro.weight(.bold))
                         }

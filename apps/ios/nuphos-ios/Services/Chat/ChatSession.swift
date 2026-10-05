@@ -271,13 +271,8 @@ final class ChatSession {
         guard canSubmit else { return }
         if canSteer {
             guard attachments.isEmpty else { error = "Send attachments after this turn; steering currently accepts text."; return }
-            let index = queued.count
-            queued.append(trimmed)
-            submitting = true
-            Task {
-                defer { submitting = false }
-                _ = await steerQueued(at: index)
-            }
+            steeringPending = true
+            Task { await steer(submission, text: trimmed) }
             return
         }
         if transportStreaming && !isNativeRuntime {
@@ -321,19 +316,19 @@ final class ChatSession {
     }
 
     func removeQueued(at index: Int) {
-        guard !steeringPending, queued.indices.contains(index) else { return }
+        guard queued.indices.contains(index) else { return }
         queued.remove(at: index)
     }
 
-    /// Hands a queued message to the running turn (`POST …/steer`). The
-    /// runtime picks it up at its next prompt boundary; the transcript
-    /// snapshot at the end of the turn shows it in place.
-    func steerQueued(at index: Int) async -> Bool {
-        guard canSteer, queued.indices.contains(index) else { return false }
-        let text = queued[index]
+    /// Hands a message to the running turn (`POST …/steer`). The runtime
+    /// picks it up at its next prompt boundary; the transcript snapshot at
+    /// the end of the turn shows it in place. The status that offered
+    /// steering can be seconds old, so a turn that ended meanwhile rejects
+    /// it — the message then goes back to the composer instead of waiting
+    /// for a turn that will never take it.
+    private func steer(_ submission: ComposerSubmission, text: String) async {
         let streamId = currentStreamId
         let assistantId = messages.last?.id
-        steeringPending = true
         defer { steeringPending = false }
         do {
             let id = try await AgentChatAPI.steer(token: token, teamId: teamId, sessionId: sessionId, text: text)
@@ -341,11 +336,9 @@ final class ChatSession {
                 appendSteering(id: id, text: text)
                 lastSubmittedRowID = "steering.\(id)"
             }
-            if queued.indices.contains(index), queued[index] == text { queued.remove(at: index) }
-            return true
         } catch {
             self.error = error.localizedDescription
-            return false
+            failedSubmission = submission
         }
     }
 
