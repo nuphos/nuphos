@@ -62,6 +62,7 @@ export function coreMethods(): Record<string, any> {
     authEmailVerifyCode: () =>
       empty({ name: 'Dev', username: 'dev', email: 'dev@local', avatarURL: '' }),
     appGetVersion: () => empty('dev'),
+    appSetApiEndpoint: () => empty(`${window.location.origin}/atlas-api`),
     appGetPlatform: () => empty('darwin'),
     appSetNativeTheme: noop,
     getZoomFactor: () => 1,

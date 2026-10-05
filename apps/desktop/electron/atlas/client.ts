@@ -2,18 +2,16 @@ import fs from 'node:fs/promises'
 
 import yaml from 'js-yaml'
 
+import { apiUrl } from '../api-endpoint.ts'
 import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 
 import { buildAtlasError } from './error.ts'
 
-export const ATLAS_URL =
-  process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || 'https://api.nuphos.ai'
-
 /** Expose the resolved backend base URL to the renderer. Used by features
  *  that need to construct public URLs (e.g. webhook URLs in TriggersView). */
 export function getApiUrl(): string {
-  return ATLAS_URL
+  return apiUrl()
 }
 
 export async function readToken(): Promise<string | null> {
@@ -83,11 +81,11 @@ export async function call<T>(
   try {
     res =
       opts?.retry === false
-        ? await fetch(`${ATLAS_URL}${route}`, {
+        ? await fetch(`${apiUrl()}${route}`, {
             ...init,
             signal: AbortSignal.timeout(timeoutMs),
           })
-        : await fetchWithRetry(`${ATLAS_URL}${route}`, init, timeoutMs)
+        : await fetchWithRetry(`${apiUrl()}${route}`, init, timeoutMs)
   } catch (e) {
     throw unwrapFetchError(e, route)
   }
@@ -127,7 +125,7 @@ export async function callText(method: string, route: string): Promise<string> {
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${ATLAS_URL}${route}`, {
+    res = await fetchWithRetry(`${apiUrl()}${route}`, {
       method,
       headers: {
         authorization: `Bearer ${token}`,
@@ -168,7 +166,7 @@ export async function callMultipart<T>(
 
   try {
     res = await fetchWithRetry(
-      `${ATLAS_URL}${route}`,
+      `${apiUrl()}${route}`,
       {
         method: 'POST',
         headers: {

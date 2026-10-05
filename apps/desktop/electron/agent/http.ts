@@ -2,11 +2,9 @@ import fs from 'node:fs/promises'
 
 import yaml from 'js-yaml'
 
+import { apiUrl } from '../api-endpoint.ts'
 import { buildAtlasError } from '../atlas/error.ts'
 import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
-
-export const ATLAS_URL =
-  process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || 'https://api.nuphos.ai'
 
 export function teamIdFromUrl(url?: string): string | undefined {
   if (!url) return undefined
@@ -90,7 +88,7 @@ export async function callJson<T>(
     headers['content-type'] = 'application/json'
     init.body = JSON.stringify(body)
   }
-  const res = await fetch(`${ATLAS_URL}${route}`, init)
+  const res = await fetch(`${apiUrl()}${route}`, init)
 
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`

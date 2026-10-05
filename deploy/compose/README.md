@@ -54,6 +54,8 @@ There is no mail service locally. The backend runs with `NUPHOS_DEV_EMAIL_OTP_LO
 
 Desktop accepts plain http on localhost, so no TLS or self-signed CA is needed.
 
+The simplest way is on the sign-in screen: click **Self-hosted? Set API endpoint**, enter `http://localhost:3000` and save; the app switches to the stack immediately and remembers it until you choose **Use Nuphos Cloud**. Alternatively, set the variable at launch:
+
 Installed app (macOS):
 
 ```sh

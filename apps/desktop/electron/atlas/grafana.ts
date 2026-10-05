@@ -1,7 +1,8 @@
+import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 import { classifyGrafanaFailure, summarizeGrafanaBody } from '../grafanaProxyError'
 
-import { ATLAS_URL, call, fetchWithRetry, readToken, unwrapFetchError } from './client'
+import { call, fetchWithRetry, readToken, unwrapFetchError } from './client'
 
 export type GrafanaInstance = {
   id: string
@@ -69,7 +70,7 @@ export async function grafanaProxy<T>(
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${ATLAS_URL}${route}`, init)
+    res = await fetchWithRetry(`${apiUrl()}${route}`, init)
   } catch (e) {
     throw unwrapFetchError(e, route)
   }

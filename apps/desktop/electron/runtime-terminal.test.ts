@@ -8,9 +8,8 @@ import type { WebContents } from 'electron'
 
 let token: Promise<string> = Promise.resolve('fixture')
 
-mock.module('./atlas/client.ts', {
-  namedExports: { ATLAS_URL: 'https://backend.test', readToken: () => token },
-})
+mock.module('./atlas/client.ts', { namedExports: { readToken: () => token } })
+mock.module('./api-endpoint.ts', { namedExports: { apiUrl: () => 'https://backend.test' } })
 const { RuntimeTerminalSessions, runtimeTerminals } = await import('./runtime-terminal.ts')
 const original = globalThis.WebSocket
 const sockets: FakeSocket[] = []

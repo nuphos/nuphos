@@ -1,3 +1,4 @@
+import { apiUrl } from '../api-endpoint.ts'
 import { isValidUserInfo } from '../auth-status.ts'
 
 import {
@@ -6,7 +7,7 @@ import {
   onCallback,
   SESSION_POLL_INTERVAL_MS,
 } from './callback-server.ts'
-import { apiErrorMessage, NUPHOS_URL, writeConfig } from './config.ts'
+import { apiErrorMessage, writeConfig } from './config.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
 
 import type { UserInfo } from '../auth-status.ts'
@@ -27,7 +28,7 @@ async function redeemNativeSession(
   let res: Response
 
   try {
-    res = await fetch(`${NUPHOS_URL}/auth/native/session/redeem`, {
+    res = await fetch(`${apiUrl()}/auth/native/session/redeem`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ handle, codeVerifier, code }),

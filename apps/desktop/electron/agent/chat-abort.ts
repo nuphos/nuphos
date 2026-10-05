@@ -1,4 +1,6 @@
-import { ATLAS_URL, readToken } from './http.ts'
+import { apiUrl } from '../api-endpoint.ts'
+
+import { readToken } from './http.ts'
 
 /** What the backend did with the abort, or why we could not find out. */
 export type AbortChatResult = {
@@ -24,7 +26,7 @@ export async function abortChat(streamId: string): Promise<AbortChatResult> {
 
   if (!token) return { status: 'unauthenticated' }
   try {
-    const res = await fetch(`${ATLAS_URL}/agent/chat/${encodeURIComponent(streamId)}/abort`, {
+    const res = await fetch(`${apiUrl()}/agent/chat/${encodeURIComponent(streamId)}/abort`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
     })

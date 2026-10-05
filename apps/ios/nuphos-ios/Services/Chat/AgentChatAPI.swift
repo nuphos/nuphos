@@ -3,7 +3,7 @@ import Foundation
 /// The chat-side endpoints of api.nuphos.ai — request builders and small
 /// JSON calls. Streaming itself lives in `ChatSession` on top of `SSEClient`.
 enum AgentChatAPI {
-    static let baseURL = NuphosAPI.baseURL
+    static var baseURL: URL { NuphosAPI.baseURL }
 
     struct ChatRequest: Encodable {
         var id: String

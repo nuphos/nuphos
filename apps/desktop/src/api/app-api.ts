@@ -25,6 +25,7 @@ export const appApi = {
     window.api.analyticsIdentify(userId, props),
   analyticsSetTeam: (teamId: string | null) => window.api.analyticsSetTeam(teamId),
   appGetVersion: () => window.api.appGetVersion(),
+  appSetApiEndpoint: (url: string | null) => window.api.appSetApiEndpoint(url),
   appGetPlatform: () => window.api.appGetPlatform(),
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') => window.api.appSetNativeTheme(source),
   onNativeThemeUpdated: (cb: (payload: { shouldUseDarkColors: boolean }) => void) =>

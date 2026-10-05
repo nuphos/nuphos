@@ -8,14 +8,11 @@ import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 
-export const NUPHOS_URL =
-  process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || 'https://api.nuphos.ai'
-
 export const NUPHOS_LOGIN_URL =
   process.env.NUPHOS_LOGIN_URL ||
   (process.env.NUPHOS_WEB_URL
     ? new URL('/login', process.env.NUPHOS_WEB_URL).toString()
-    : defaultLoginUrl())
+    : 'https://nuphos.ai/login')
 
 export type Config = {
   token?: string
@@ -51,18 +48,4 @@ export async function apiErrorMessage(res: Response): Promise<string> {
   return typeof body?.error?.message === 'string'
     ? body.error.message
     : `HTTP ${String(res.status)}`
-}
-
-function defaultLoginUrl(): string {
-  try {
-    const apiUrl = new URL(NUPHOS_URL)
-
-    if (apiUrl.hostname === 'localhost' || apiUrl.hostname === '127.0.0.1') {
-      return 'http://localhost:3100/login'
-    }
-  } catch {
-    // Fall through to production login.
-  }
-
-  return 'https://nuphos.ai/login'
 }

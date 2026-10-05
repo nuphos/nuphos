@@ -1,6 +1,7 @@
 import { captureMain } from '../analytics.ts'
+import { apiUrl } from '../api-endpoint.ts'
 
-import { ATLAS_URL, readToken } from './http.ts'
+import { readToken } from './http.ts'
 
 import type { AgentCredentialSelection } from './types.ts'
 
@@ -161,7 +162,7 @@ export function reportFailure(streamId: string, payload: Record<string, unknown>
 
     if (!token) return
     try {
-      await fetch(`${ATLAS_URL}/agent/chat/${encodeURIComponent(streamId)}/report-failure`, {
+      await fetch(`${apiUrl()}/agent/chat/${encodeURIComponent(streamId)}/report-failure`, {
         method: 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
         body: JSON.stringify(payload),

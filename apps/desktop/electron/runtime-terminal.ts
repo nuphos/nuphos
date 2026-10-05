@@ -1,6 +1,7 @@
 import { StringDecoder } from 'node:string_decoder'
 
-import { ATLAS_URL, readToken } from './atlas/client.ts'
+import { apiUrl } from './api-endpoint.ts'
+import { readToken } from './atlas/client.ts'
 import { authSession } from './auth-session.ts'
 
 import type { LocalTerminalEvent, TerminalTarget } from '../src/api/local-terminal-types.ts'
@@ -70,7 +71,7 @@ export class RuntimeTerminalSessions {
     if (!token || session.closed) throw new Error('Terminal closed or signed out')
     const url = new URL(
       `/teams/${encodeURIComponent(session.target.teamId)}/runtime-terminal/${encodeURIComponent(session.target.sessionId)}`,
-      ATLAS_URL,
+      apiUrl(),
     )
 
     url.searchParams.set('cols', String(cols))

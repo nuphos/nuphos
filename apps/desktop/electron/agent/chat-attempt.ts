@@ -1,3 +1,4 @@
+import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 
 import {
@@ -5,7 +6,6 @@ import {
   effectiveFirstByteTimeout,
   traceStream,
 } from './chat-shared'
-import { ATLAS_URL } from './http'
 import { formatAgentLocalError } from './stream-errors'
 import { windowTranscript } from './transcript-window'
 
@@ -80,7 +80,7 @@ export async function postChatAttempt(
     },
   )
   try {
-    res = await fetch(`${ATLAS_URL}/agent/chat`, {
+    res = await fetch(`${apiUrl()}/agent/chat`, {
       method: 'POST',
       headers,
       body: JSON.stringify({

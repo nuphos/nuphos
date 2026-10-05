@@ -1,7 +1,8 @@
+import { apiUrl } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
 import { decideAuthStatus, isTokenRejected, isValidUserInfo } from '../auth-status.ts'
 
-import { NUPHOS_URL, readConfig, writeConfig } from './config.ts'
+import { readConfig, writeConfig } from './config.ts'
 
 import type { AuthSession } from '../auth-session.ts'
 import type { AuthStatus, MeProbe, UserInfo } from '../auth-status.ts'
@@ -13,7 +14,7 @@ import type { Config } from './config.ts'
 const AUTH_ME_TIMEOUT_MS = 10_000
 
 export async function fetchUserInfo(token: string): Promise<UserInfo> {
-  const res = await fetch(`${NUPHOS_URL}/auth/me`, {
+  const res = await fetch(`${apiUrl()}/auth/me`, {
     headers: {
       authorization: `Bearer ${token}`,
     },
@@ -40,7 +41,7 @@ async function probeMe(token: string): Promise<MeProbe> {
   let res: Response
 
   try {
-    res = await fetch(`${NUPHOS_URL}/auth/me`, {
+    res = await fetch(`${apiUrl()}/auth/me`, {
       headers: { authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(AUTH_ME_TIMEOUT_MS),
     })

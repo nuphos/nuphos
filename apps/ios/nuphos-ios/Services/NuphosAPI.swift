@@ -1,9 +1,15 @@
 import Foundation
 
-/// Thin client for api.nuphos.ai. Every call takes the bearer token; the
-/// session owns it.
+/// Thin client for api.nuphos.ai, or the self-hosted backend chosen on the
+/// sign-in screen. Every call takes the bearer token; the session owns it.
 enum NuphosAPI {
-    static let baseURL = URL(string: "https://api.nuphos.ai")!
+    static let defaultBaseURL = URL(string: "https://api.nuphos.ai")!
+    /// UserDefaults key for a self-hosted backend origin; unset means Nuphos Cloud.
+    static let baseURLKey = "apiBaseURL"
+
+    static var baseURL: URL {
+        UserDefaults.standard.string(forKey: baseURLKey).flatMap(URL.init(string:)) ?? defaultBaseURL
+    }
 
     enum Failure: LocalizedError {
         case unauthorized

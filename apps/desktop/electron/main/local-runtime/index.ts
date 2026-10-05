@@ -3,8 +3,9 @@ import path from 'node:path'
 
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
-import { ATLAS_URL, callJson } from '../../agent/http.ts'
+import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
+import { apiUrl } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
 import { unverifiedTokenSubject } from '../../auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
@@ -73,7 +74,7 @@ async function userEnv(): Promise<NodeJS.ProcessEnv> {
 function tunnelUrl(): string {
   const { deviceId } = readDeviceIdentity()
 
-  return `${ATLAS_URL.replace(/^http/u, 'ws')}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel`
+  return `${apiUrl().replace(/^http/u, 'ws')}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel`
 }
 
 const cliCacheFile = (userId: string) => path.join(dataDir(), 'users', userId, 'cli.json')
@@ -107,7 +108,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle: findBundle,
   dataDir,
   nodeExecPath: process.execPath,
-  backendUrl: ATLAS_URL,
+  get backendUrl() {
+    return apiUrl()
+  },
   userEnv,
   probeCli: probeAgentCli,
   readUsage: readAgentUsage,

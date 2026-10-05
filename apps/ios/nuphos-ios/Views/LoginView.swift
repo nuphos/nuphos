@@ -58,6 +58,7 @@ struct LoginView: View {
                     Link("Privacy policy", destination: URL(string: "https://nuphos.ai/privacy")!)
                 }.font(.footnote)
                 Text("By continuing, you agree to the Terms of Service.").font(.footnote).foregroundStyle(Theme.muted)
+                ServerEndpointSetting().disabled(busy)
             }.padding(28).frame(maxWidth: 440).frame(maxWidth: .infinity)
         }.background(Theme.canvas)
     }
@@ -78,5 +79,51 @@ struct LoginView: View {
             let _: AccountAPI.OK = try await AccountAPI.request("email/request-code", method: "POST", body: ["email": email])
             codeSent = true; resendAt = .now.addingTimeInterval(60)
         } catch { self.error = error.localizedDescription }
+    }
+}
+
+/// The sign-in screen's quiet switch for pointing the app at a self-hosted backend.
+private struct ServerEndpointSetting: View {
+    @AppStorage(NuphosAPI.baseURLKey) private var savedURL = ""
+    @State private var editing = false
+    @State private var draft = ""
+    @State private var error: String?
+
+    var body: some View {
+        if editing {
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("https://nuphos.example.com", text: $draft)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textContentType(.URL).keyboardType(.URL).textInputAutocapitalization(.never)
+                    #endif
+                    .textFieldStyle(.roundedBorder)
+                if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+                HStack {
+                    Button("Save") { save() }.disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if !savedURL.isEmpty {
+                        Button("Use Nuphos Cloud") { savedURL = ""; editing = false }
+                    }
+                    Spacer()
+                    Button("Cancel") { editing = false }
+                }.font(.footnote)
+            }
+        } else {
+            Button(savedURL.isEmpty ? "Self-hosted? Set API endpoint" : "Server: \(URL(string: savedURL)?.host() ?? savedURL) · Change") {
+                draft = savedURL; error = nil; editing = true
+            }.font(.footnote).foregroundStyle(Theme.muted)
+        }
+    }
+
+    /// Keeps only the origin, so every `appending(path:)` resolves from the root.
+    private func save() {
+        guard let url = URL(string: draft.trimmingCharacters(in: .whitespaces)),
+              let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
+              let host = url.host(), !host.isEmpty
+        else { error = "Enter a full URL, e.g. https://nuphos.example.com"; return }
+        var origin = URLComponents()
+        origin.scheme = scheme; origin.host = host; origin.port = url.port
+        savedURL = origin.url?.absoluteString ?? ""
+        editing = false
     }
 }

@@ -9,6 +9,8 @@ import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 import { signInEmailError } from '../lib/emailDomain'
 
+import { LoginApiEndpoint } from './LoginApiEndpoint'
+
 import type { UserInfo } from '../types'
 
 type Props = {
@@ -141,6 +143,7 @@ export function LoginView({ onLogin }: Props) {
                   {busy ? 'Sending code…' : 'Continue with email'}
                 </Button>
               </form>
+              <LoginApiEndpoint inputClassName={inputClasses} />
             </>
           ) : (
             <form

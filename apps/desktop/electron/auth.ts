@@ -4,8 +4,9 @@ import { shell } from 'electron'
 
 // Extension-qualified so this module also resolves under plain node ESM, which
 // is how auth-login.test.ts drives login().
+import { apiUrl } from './api-endpoint.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
-import { apiErrorMessage, NUPHOS_URL, writeConfig } from './auth/config.ts'
+import { apiErrorMessage, writeConfig } from './auth/config.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
@@ -57,7 +58,7 @@ export async function login(): Promise<UserInfo> {
 // Email OTP sign-in talks to the backend directly and receives the token in
 // the JSON response — no browser round-trip or localhost callback needed.
 export async function requestEmailCode(email: string): Promise<void> {
-  const res = await fetch(`${NUPHOS_URL}/auth/email/request-code`, {
+  const res = await fetch(`${apiUrl()}/auth/email/request-code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -70,7 +71,7 @@ export async function requestEmailCode(email: string): Promise<void> {
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
-  const res = await fetch(`${NUPHOS_URL}/auth/email/verify-code`, {
+  const res = await fetch(`${apiUrl()}/auth/email/verify-code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, code }),

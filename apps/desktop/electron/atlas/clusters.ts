@@ -1,4 +1,6 @@
-import { ATLAS_URL, appendQuery, call, fetchWithRetry, readToken, unwrapFetchError } from './client'
+import { apiUrl } from '../api-endpoint.ts'
+
+import { appendQuery, call, fetchWithRetry, readToken, unwrapFetchError } from './client'
 
 export type Cluster = {
   provider: 'aws' | 'gcp'
@@ -96,7 +98,7 @@ export async function fetchKubeconfig(route: string): Promise<KubeconfigResponse
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${ATLAS_URL}${route}`, {
+    res = await fetchWithRetry(`${apiUrl()}${route}`, {
       headers: { authorization: `Bearer ${token}` },
     })
   } catch (e) {

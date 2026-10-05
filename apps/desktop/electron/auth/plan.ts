@@ -1,6 +1,8 @@
 import crypto from 'node:crypto'
 
-import { apiErrorMessage, NUPHOS_LOGIN_URL, NUPHOS_URL } from './config.ts'
+import { apiUrl } from '../api-endpoint.ts'
+
+import { apiErrorMessage, NUPHOS_LOGIN_URL } from './config.ts'
 
 export type LoginPlan =
   | {
@@ -126,7 +128,7 @@ async function registerNativeSession(input: {
   codeChallenge: string
   clientState: string
 }): Promise<string> {
-  const res = await fetch(`${NUPHOS_URL}/auth/native/session`, {
+  const res = await fetch(`${apiUrl()}/auth/native/session`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ...input, codeChallengeMethod: 'S256' }),

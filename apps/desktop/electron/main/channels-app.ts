@@ -5,6 +5,7 @@ import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron'
 
 import * as agentChatSkill from '../agent-chat-skill'
 import { resetAnalyticsUser, setAnalyticsTeam, setAnalyticsUser } from '../analytics'
+import { setApiUrl } from '../api-endpoint'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
 import { updateProfile } from '../auth/profile'
@@ -55,6 +56,7 @@ export const appChannels = {
     setAnalyticsTeam(teamId)
   },
   'app:getVersion': () => app.getVersion(),
+  'app:setApiEndpoint': (_e: unknown, url: string | null) => setApiUrl(url),
   'app:getPlatform': () => process.platform,
   'app:setNativeTheme': (_e: unknown, source: ThemeSource) => {
     if (source !== 'system' && source !== 'light' && source !== 'dark') {

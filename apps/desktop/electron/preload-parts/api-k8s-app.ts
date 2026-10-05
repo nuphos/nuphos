@@ -233,6 +233,7 @@ export const k8sAppApi = {
     ipcRenderer.invoke('analytics:identify', userId, props),
   analyticsSetTeam: (teamId: string | null) => ipcRenderer.invoke('analytics:setTeam', teamId),
   appGetVersion: () => ipcRenderer.invoke('app:getVersion'),
+  appSetApiEndpoint: (url: string | null) => ipcRenderer.invoke('app:setApiEndpoint', url),
   appGetPlatform: () => ipcRenderer.invoke('app:getPlatform'),
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') =>
     ipcRenderer.invoke('app:setNativeTheme', source),
