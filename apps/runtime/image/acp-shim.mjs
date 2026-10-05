@@ -39,7 +39,10 @@ export const PROVIDERS = {
     // --no-leader keeps tools in this process, so they run with this session's env
     // rather than in a leader shared by every conversation.
     command: ['grok', 'agent', '--no-leader', 'stdio'],
-    home: (runtimeHome) => ({ GROK_HOME: join(runtimeHome, '.grok'), GROK_DISABLE_AUTOUPDATER: '1' }),
+    home: (runtimeHome) => ({
+      GROK_HOME: join(runtimeHome, '.grok'),
+      GROK_DISABLE_AUTOUPDATER: '1',
+    }),
     // Appended to Grok's own system prompt.
     instruct: (meta, text) => ({ ...meta, rules: text }),
   },
@@ -122,7 +125,11 @@ export function runShim({
         const transform = transforms.get(message.id)
         transforms.delete(message.id)
         return void transform(message).then(write, (error) =>
-          write({ jsonrpc: '2.0', id: message.id, error: { code: -32603, message: error.message } }),
+          write({
+            jsonrpc: '2.0',
+            id: message.id,
+            error: { code: -32603, message: error.message },
+          }),
         )
       }
       write(message)
@@ -163,7 +170,10 @@ export function runShim({
         const agentApi = {
           setSessionConfigOption: (options) => request('session/set_config_option', options),
         }
-        return { ...reply, result: await nuphosApplyRuntimeDefaults(agentApi, params, reply.result) }
+        return {
+          ...reply,
+          result: await nuphosApplyRuntimeDefaults(agentApi, params, reply.result),
+        }
       })
     send({ ...message, params })
   }

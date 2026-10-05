@@ -102,7 +102,8 @@ export async function runAntigravityLogin({
   const timeout = setTimeout(stop, 15 * 60_000)
   signal?.addEventListener('abort', stop, { once: true })
   try {
-    const send = (message) => child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
+    const send = (message) =>
+      child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
     send({ id: 1, method: 'initialize', params: { protocolVersion: 1, clientCapabilities: {} } })
     send({ id: 2, method: 'authenticate', params: { methodId: 'oauth-personal' } })
     if (!(await authenticated) || failure) throw new Error('Antigravity login did not complete')

@@ -40,7 +40,10 @@ async function withShim(provider, run) {
     output,
     runtimeEnv: { HOME: home, PATH: process.env.PATH },
     spawnAgent: (command, env) => {
-      const child = spawn(process.execPath, ['-e', FAKE_AGENT], { env, stdio: ['pipe', 'pipe', 'inherit'] })
+      const child = spawn(process.execPath, ['-e', FAKE_AGENT], {
+        env,
+        stdio: ['pipe', 'pipe', 'inherit'],
+      })
       children.push({ command, child })
       return child
     },
@@ -88,7 +91,10 @@ test('grok opens the session under its own env and takes the instructions as rul
     assert.equal(seen.env.GROK_HOME, join(home, '.grok'))
     assert.equal(seen.params._meta.rules, 'Be Nuphos.')
 
-    const prompt = await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
+    const prompt = await call('session/prompt', {
+      sessionId: 's1',
+      prompt: [{ type: 'text', text: 'hi' }],
+    })
     assert.deepEqual(prompt.result.seen.params.prompt, [{ type: 'text', text: 'hi' }])
   })
 })
@@ -101,12 +107,18 @@ test('antigravity takes the instructions on the first prompt only', async () => 
     assert.equal(reply.result.seen.env.GEMINI_HOME, join(home, '.gemini'))
     assert.equal(reply.result.seen.params._meta.rules, undefined)
 
-    const first = await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
+    const first = await call('session/prompt', {
+      sessionId: 's1',
+      prompt: [{ type: 'text', text: 'hi' }],
+    })
     assert.deepEqual(first.result.seen.params.prompt, [
       { type: 'text', text: '<nuphos-instructions>\nBe Nuphos.\n</nuphos-instructions>' },
       { type: 'text', text: 'hi' },
     ])
-    const second = await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'again' }] })
+    const second = await call('session/prompt', {
+      sessionId: 's1',
+      prompt: [{ type: 'text', text: 'again' }],
+    })
     assert.deepEqual(second.result.seen.params.prompt, [{ type: 'text', text: 'again' }])
   })
 })
