@@ -47,6 +47,20 @@ export function lastUserMessageText(messages: UIMessage[]): string {
   return ''
 }
 
+/**
+ * The history a turn prompts from. A new turn answers the newest user message;
+ * a retry of a failed turn ends on that attempt's stored reply, which must not
+ * hide the message being retried.
+ */
+export function turnPromptMessages(
+  messages: UIMessage[],
+  resume: PreviewChatTurnArgs['resume'],
+): UIMessage[] {
+  if (resume) return messages
+
+  return messages.slice(0, messages.findLastIndex((m) => m.role === 'user') + 1)
+}
+
 const RESUME_MESSAGE: Record<ResumeReason, string> = {
   'permission-decision':
     'The permission proposal you were waiting on has been decided in Nuphos. Read the ' +
@@ -154,7 +168,8 @@ export async function preparePreviewTurn(
     previewCompactionSummary(sessionId, userId),
     drainPendingUserMessages(userId, sessionId, actorUserId),
   ])
-  const inputs = turnInputMessages(args.messages)
+  const messages = turnPromptMessages(args.messages, args.resume)
+  const inputs = turnInputMessages(messages)
   const images = args.resume ? [] : inputs.flatMap((m) => promptImages(m.parts))
   const attachments = args.resume
     ? []
@@ -164,8 +179,7 @@ export async function preparePreviewTurn(
         images,
       )
   const lastUserText =
-    resumeMessage(args.resume) ??
-    (inputs.map((m) => lastUserMessageText([m])).join('\n\n') || args.firstMessage)
+    resumeMessage(args.resume) ?? inputs.map((m) => lastUserMessageText([m])).join('\n\n')
 
   if (memory) emitRecallStartFrame(args.run, sessionId, requestId, memory.recall)
   const carriedBlock = carried.length > 0 ? `\n\n${renderInjectedUserMessages(carried)}` : ''
@@ -178,7 +192,7 @@ export async function preparePreviewTurn(
     message: prefixUserMessage(`${lastUserText}${carriedBlock}`, recallBlock),
     freshSessionMessage: (uncertain?: boolean) => {
       const preamble = previewHistoryPreamble(
-        args.messages,
+        messages,
         compactionSummary,
         uncertain,
         args.resume ? 0 : inputs.length,

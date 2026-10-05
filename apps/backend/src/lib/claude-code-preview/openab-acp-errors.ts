@@ -8,6 +8,20 @@ export class OpenAbRpcError extends Error {
   }
 }
 
+/** The runtime transport closed under in-flight calls, with the close reason when one was given. */
+export class OpenAbConnectionLostError extends Error {
+  constructor(readonly reason = '') {
+    super(reason ? `OpenAB ACP connection closed: ${reason}` : 'OpenAB ACP connection closed')
+    this.name = 'OpenAbConnectionLostError'
+  }
+
+  get userMessage(): string {
+    const detail = this.reason ? `: ${this.reason}` : ''
+
+    return `Lost the connection to the agent runtime${detail}.`
+  }
+}
+
 type SocketFailureEvent = { code?: number; message?: string; reason?: string }
 type PendingSessionCall = {
   reject: (error: Error) => void

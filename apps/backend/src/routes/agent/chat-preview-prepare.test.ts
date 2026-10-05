@@ -4,7 +4,7 @@ import '@/routes/agent'
 
 import { expect, test } from 'bun:test'
 
-import { lastUserMessageText, resumeMessage } from './chat-preview-prepare'
+import { lastUserMessageText, resumeMessage, turnPromptMessages } from './chat-preview-prepare'
 
 import type { UIMessage } from 'ai'
 
@@ -82,4 +82,27 @@ test('structured attachments never become transfer instructions in message text'
 
   expect(text).toBe('')
   expect(text).not.toContain('base64')
+})
+
+test('a retry after a failed turn prompts with the retried message, not an older one', () => {
+  // The failed attempt's reply is stored after the user message being retried.
+  const messages: UIMessage[] = [
+    { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'roll out v1' }] },
+    { id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'done' }] },
+    { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'reviewed' }] },
+    { id: 'a2', role: 'assistant', parts: [] },
+  ]
+  const prompted = turnPromptMessages(messages, undefined)
+
+  expect(prompted.map((m) => m.id)).toEqual(['u1', 'a1', 'u2'])
+  expect(lastUserMessageText(prompted)).toBe('reviewed')
+})
+
+test('a resume keeps the whole history', () => {
+  const messages: UIMessage[] = [
+    { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'go' }] },
+    { id: 'a1', role: 'assistant', parts: [] },
+  ]
+
+  expect(turnPromptMessages(messages, {})).toEqual(messages)
 })
