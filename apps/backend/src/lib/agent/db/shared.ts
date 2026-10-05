@@ -54,17 +54,11 @@ export type ConversationPreviewContext = {
   localTools?: boolean
 }
 
-// Kept beside the conversation rather than in agent_messages: transcript sync
-// replaces that collection wholesale and feeds it to the model, and neither
-// should ever see these. Clients place them between messages by `at`.
-export type ConversationTimelineEvent =
-  | {
-      kind: 'participant_invited' | 'participant_removed'
-      at: Date
-      actorId: string
-      targetId: string
-    }
-  | { kind: 'runtime_moved'; at: Date; actorId: string; fromLabel?: string; toLabel: string }
+// Not in agent_messages: transcript sync replaces those and feeds them to the model.
+export type ConversationTimelineEvent = { at: Date; actorId: string } & (
+  | { kind: 'participant_invited' | 'participant_removed'; targetId: string }
+  | { kind: 'runtime_moved'; fromLabel?: string; toLabel: string }
+)
 
 export type AgentConversation = {
   _id?: ObjectId
