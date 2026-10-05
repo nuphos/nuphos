@@ -178,6 +178,17 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             scheduled?.cancel()
             scheduled = nil
             pending = nil
+            // Re-applying to the same view is, in practice, an answer
+            // streaming in (or a text-size change). Cross-dissolving the redraw leaves unchanged text
+            // where it was and fades in what was just appended, the way
+            // Desktop's `atlas-stream-in` does.
+            if applied {
+                let fade = CATransition()
+                fade.type = .fade
+                fade.duration = 0.24
+                fade.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 1, 0.3, 1)
+                view.layer.add(fade, forKey: "streamFadeIn")
+            }
             view.setContentImmediately(MarkdownContent(markdown: text, theme: theme), theme: theme)
             view.invalidateIntrinsicContentSize()
             lastText = text
