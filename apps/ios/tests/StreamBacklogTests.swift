@@ -11,6 +11,7 @@ enum StreamBacklogTests {
         rendersAFastLiveStreamSteadily()
         landsReplayedHistoryInOnePiece()
         boundsHistoryHeldByASkewedClock()
+        keepsUnstampedFramesBehindHistory()
         print("Stream backlog passed")
     }
 
@@ -207,5 +208,28 @@ enum StreamBacklogTests {
             precondition(now.timeIntervalSince(start) < StreamBacklog.historyHoldLimit + 0.1 || applied > 0, "held past the limit")
         }
         precondition(applied > 0, "a stream that never pauses still renders")
+    }
+
+    /// Some replayed frames carry no stamp. One arriving mid-replay must not
+    /// release the history held so far, or the turn lands in two halves.
+    private static func keepsUnstampedFramesBehindHistory() {
+        var backlog = StreamBacklog()
+        var now = Date()
+        let written = now.addingTimeInterval(-60)
+        for i in 0..<10 {
+            now = now.addingTimeInterval(0.001)
+            _ = backlog.receive(stamped("old\(i)", emittedAt: written), type: "text-delta", at: now)
+        }
+        now = now.addingTimeInterval(0.001)
+        let unstamped = backlog.receive(delta("plain").0, type: "text-delta", at: now)
+        precondition(unstamped.isEmpty, "an unstamped frame queues behind held history, got \(unstamped.count)")
+        for i in 0..<10 {
+            now = now.addingTimeInterval(0.001)
+            _ = backlog.receive(stamped("more\(i)", emittedAt: written), type: "text-delta", at: now)
+        }
+        guard let deadline = backlog.deadline else { preconditionFailure("held frames must carry a deadline") }
+        let due = backlog.framesDue(at: deadline)
+        precondition(due.count == 21, "the whole replay lands at once, got \(due.count)")
+        precondition(due[10].value["delta"]?.stringValue == "plain", "and keeps its order")
     }
 }

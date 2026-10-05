@@ -64,7 +64,9 @@ struct StreamBacklog {
         let frame = Frame(value: value, type: type)
         // History lands in one piece once it stops arriving, however long the
         // replay: played back in windows, the transcript re-enacts the turn.
-        if Self.isHistory(value, at: now), !Self.rendersImmediately.contains(type) {
+        // An unstamped frame in the middle of it queues behind it rather than
+        // carrying half of it in.
+        if Self.isHistory(value, at: now) || heldSince != nil, !Self.rendersImmediately.contains(type) {
             if held.isEmpty { heldSince = now }
             held.append(frame)
             deadline = min(now.addingTimeInterval(Self.historyQuiet), (heldSince ?? now).addingTimeInterval(Self.historyHoldLimit))
