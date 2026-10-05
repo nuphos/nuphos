@@ -163,18 +163,20 @@ export function runShim({
       _meta: meta,
       mcpServers: nuphosBridgeMcpServers(message.params?.mcpServers ?? [], runtimeEnv),
     }
-    if (message.method === 'session/new')
-      transforms.set(message.id, async (reply) => {
-        if (reply.error) return reply
-        if (text && !spec.instruct) pendingInstructions.set(reply.result.sessionId, text)
-        const agentApi = {
-          setSessionConfigOption: (options) => request('session/set_config_option', options),
-        }
-        return {
-          ...reply,
-          result: await nuphosApplyRuntimeDefaults(agentApi, params, reply.result),
-        }
-      })
+    transforms.set(message.id, async (reply) => {
+      if (reply.error) return reply
+      // A loaded or resumed session gets the current instructions too.
+      const sessionId = reply.result?.sessionId ?? params.sessionId
+      if (text && !spec.instruct) pendingInstructions.set(sessionId, text)
+      if (message.method !== 'session/new') return reply
+      const agentApi = {
+        setSessionConfigOption: (options) => request('session/set_config_option', options),
+      }
+      return {
+        ...reply,
+        result: await nuphosApplyRuntimeDefaults(agentApi, params, reply.result),
+      }
+    })
     send({ ...message, params })
   }
 

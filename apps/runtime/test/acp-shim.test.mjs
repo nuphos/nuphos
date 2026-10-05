@@ -123,6 +123,33 @@ test('antigravity takes the instructions on the first prompt only', async () => 
   })
 })
 
+test('antigravity takes refreshed instructions after a load or resume', async () => {
+  const prompt = (call, text) =>
+    call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text }] })
+  const block = (text) => ({
+    type: 'text',
+    text: `<nuphos-instructions>\n${text}\n</nuphos-instructions>`,
+  })
+
+  // Same process: new with A, then load with B.
+  await withShim('antigravity', async ({ call }) => {
+    await call('initialize', { protocolVersion: 1 })
+    await call('session/new', session('A'))
+    await prompt(call, 'hi')
+    await call('session/load', { ...session('B'), sessionId: 's1' })
+    const next = await prompt(call, 'again')
+    assert.deepEqual(next.result.seen.params.prompt, [block('B'), { type: 'text', text: 'again' }])
+  })
+
+  // Fresh process restoring an existing session.
+  await withShim('antigravity', async ({ call }) => {
+    await call('initialize', { protocolVersion: 1 })
+    await call('session/resume', { ...session('C'), sessionId: 's1' })
+    const first = await prompt(call, 'back')
+    assert.deepEqual(first.result.seen.params.prompt, [block('C'), { type: 'text', text: 'back' }])
+  })
+})
+
 test('a session without Nuphos context keeps the first agent', async () => {
   await withShim('grok', async ({ call, children }) => {
     await call('initialize', { protocolVersion: 1 })
