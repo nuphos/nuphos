@@ -305,7 +305,7 @@ struct AgentPage: View {
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
         .refreshable { await store.reload() }
-        .task { await store.pollWhileVisible() }
+        .onAppear { store.startPolling() }
         .task {
             while !Task.isCancelled {
                 RuntimeObservations.shared.tick()

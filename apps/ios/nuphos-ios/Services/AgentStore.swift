@@ -183,6 +183,9 @@ final class AgentStore {
         }
     }
 
+    /// The signed-in user, for sessions to label what they send.
+    var me: ChatMessage.Sender?
+
     init(token: String) {
         self.token = token
         ConversationUnread.shared.markRead = { team, session, seq in
@@ -288,7 +291,7 @@ final class AgentStore {
 
     /// A live session for an existing conversation (loads on first use).
     func session(for conversation: AgentConversation) -> ChatSession {
-        ChatSession(
+        let session = ChatSession(
             token: token,
             teamId: conversation.teamId ?? selectedTeam?.id ?? "",
             sessionId: conversation.sessionId,
@@ -296,34 +299,51 @@ final class AgentStore {
             agentRuntime: conversation.agentRuntime,
             runtimeLabel: conversation.runtimeLabel
         )
+        session.me = me
+        return session
     }
 
     /// A live session for a conversation known only by id — a plan's source
     /// conversation, for instance. Foreign sessions come back read-only.
     func session(sessionId: String, title: String, teamId: String? = nil) -> ChatSession {
-        ChatSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", sessionId: sessionId, title: title)
+        let session = ChatSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", sessionId: sessionId, title: title)
+        session.me = me
+        return session
     }
 
     /// A brand-new conversation for the selected team.
     func newSession() -> ChatSession? {
         guard let team = selectedTeam else { return nil }
         let session = ChatSession.fresh(token: token, teamId: team.id)
+        session.me = me
         session.presetPermissionMode(permissionMode)
         session.credentialAccess = credentialSelection.isEmpty ? nil : credentialSelection
         session.runtime = newConversationRuntime
         return session
     }
 
-    /// Keeps the first page fresh while the list is on screen, so replies
-    /// running elsewhere (desktop, Slack, wake-ups) show up and clear. It
-    /// refreshes on arrival: coming back from a chat, the rows still show
-    /// the state from before it.
-    func pollWhileVisible() async {
-        while !Task.isCancelled {
-            RuntimeObservations.shared.tick()
-            if phase == .loaded, !isLoadingMore { await refreshFirstPage() }
-            try? await Task.sleep(for: .seconds(3))
+    private var poller: Task<Void, Never>?
+
+    /// Keeps the first page fresh for as long as the store lives — also while
+    /// a chat sits on top of the list — so replies running elsewhere (desktop,
+    /// Slack, wake-ups) show up and clear, and coming back from a chat never
+    /// shows a stale row. A view's `.task` would stop whenever a chat is
+    /// pushed. iOS suspends it with the app.
+    func startPolling() {
+        guard poller == nil else { return }
+        poller = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let store = self else { return }
+                await store.pollOnce()
+                try? await Task.sleep(for: .seconds(3))
+            }
         }
+    }
+
+    private func pollOnce() async {
+        RuntimeObservations.shared.tick()
+        guard phase == .loaded, !isLoadingMore else { return }
+        await refreshFirstPage()
     }
 
     /// At most two requests per tick: page one and one rotating loaded page.
