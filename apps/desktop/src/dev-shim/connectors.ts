@@ -107,6 +107,7 @@ export function connectorsMethods(): Record<string, any> {
       ).then((d: any) => d.repositories ?? []),
     atlasListGithubPulls: () => empty([]),
     atlasGetGithubPull: () => empty(null),
+    githubCliViewer: () => empty(null),
     atlasListGithubActionRuns: () => empty({ runs: [], totalCount: 0 }),
   }
 }

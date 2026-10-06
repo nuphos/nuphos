@@ -80,7 +80,7 @@ export function GithubPullRequestView({
   onLoaded,
 }: Props) {
   const [tab, setTab] = useState<'conversation' | 'files'>('conversation')
-  const { pull, error } = useGithubPull(
+  const { pull, error, reload } = useGithubPull(
     teamId,
     installation.installationId,
     repo,
@@ -165,7 +165,12 @@ export function GithubPullRequestView({
       </div>
 
       {tab === 'conversation' ? (
-        <PullRequestConversation pull={pull} status={status} />
+        <PullRequestConversation
+          pull={pull}
+          status={status}
+          pullRef={{ owner: repo.fullName.split('/')[0], repo: repo.name, number: pull.number }}
+          onChanged={reload}
+        />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
           <div className="mx-auto max-w-6xl space-y-3 px-3 py-3 @sm:px-4 @sm:py-4 @xl:space-y-4 @xl:px-5 @xl:py-5">

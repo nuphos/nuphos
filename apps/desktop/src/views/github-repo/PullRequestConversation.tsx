@@ -7,6 +7,7 @@ import { Avatar } from '../../components/Avatar'
 
 import { DiffLine } from './ChangedFile'
 import { openOnGithub } from './openOnGithub'
+import { PullRequestActions } from './PullRequestActions'
 import { humanize, plural } from './pullRequestChecks'
 import { PullRequestMergeBox } from './PullRequestMergeBox'
 import { PullRequestSidebar } from './PullRequestSidebar'
@@ -14,7 +15,13 @@ import { reviewVerb } from './pullRequestStatus'
 import { TONE_BADGE } from './toneClasses'
 
 import type { PullRequestStatus } from './pullRequestStatus'
-import type { GithubPRComment, GithubPRCommit, GithubPRDetail, GithubPRReview } from '../../types'
+import type {
+  GithubPRComment,
+  GithubPRCommit,
+  GithubPRDetail,
+  GithubPRReview,
+  GithubPullRef,
+} from '../../types'
 import type { ReactNode } from 'react'
 
 // The commented line is the last one of the hunk; a few lines above it are
@@ -215,9 +222,13 @@ function CommitsCard({ commits }: { commits: GithubPRCommit[] }) {
 export function PullRequestConversation({
   pull,
   status,
+  pullRef,
+  onChanged,
 }: {
   pull: GithubPRDetail
   status: PullRequestStatus
+  pullRef: GithubPullRef
+  onChanged: () => void
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
@@ -244,6 +255,7 @@ export function PullRequestConversation({
             )
           })}
           <PullRequestMergeBox pull={pull} status={status} />
+          <PullRequestActions pull={pull} pullRef={pullRef} onChanged={onChanged} />
         </main>
       </div>
     </div>

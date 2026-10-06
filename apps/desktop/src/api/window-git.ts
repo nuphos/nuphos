@@ -1,5 +1,12 @@
 import type { TeamConnectorsBundle } from '../types/app-misc.ts'
-import type { GithubPRDetail } from '../types/github-pr-detail.ts'
+import type {
+  GithubCliResult,
+  GithubCliViewer,
+  GithubMergeMethod,
+  GithubPRDetail,
+  GithubPullRef,
+  GithubReviewEvent,
+} from '../types/github-pr-detail.ts'
 import type {
   LinearIssueDetail,
   LinearTeamIssuesPage,
@@ -45,6 +52,18 @@ export type WindowGitApi = {
     repo: string,
     pullNumber: number,
   ): Promise<GithubPRDetail>
+  githubCliViewer(): Promise<GithubCliViewer | null>
+  githubCliComment(pull: GithubPullRef, body: string): Promise<GithubCliResult>
+  githubCliReview(
+    pull: GithubPullRef,
+    event: GithubReviewEvent,
+    body: string,
+  ): Promise<GithubCliResult>
+  githubCliMerge(
+    pull: GithubPullRef,
+    method: GithubMergeMethod,
+    headSha: string,
+  ): Promise<GithubCliResult>
   atlasListGithubActionRuns(
     teamId: string,
     installationId: number,

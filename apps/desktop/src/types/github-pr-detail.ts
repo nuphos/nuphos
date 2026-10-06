@@ -73,3 +73,10 @@ export type GithubPRDetail = GithubPR & {
   checks: GithubPRCheck[]
   files: GithubPRFile[]
 }
+
+// Pull request writes made through the user's local `gh` login (Electron only).
+export type GithubPullRef = { owner: string; repo: string; number: number }
+export type GithubCliViewer = { login: string; avatarUrl: string }
+export type GithubCliResult = { ok: true } | { ok: false; message: string }
+export type GithubReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'
+export type GithubMergeMethod = 'merge' | 'squash' | 'rebase'
