@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
+import { localAgentMoveWarning } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
@@ -122,6 +123,13 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
+  // A move onto a Local Agent opens this computer to the whole team, so it
+  // waits for the user's go-ahead.
+  const [pendingLocal, setPendingLocal] = useState<{
+    target: RuntimeInstance
+    warning: string
+  } | null>(null)
+
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
     if (!sessionId || !teamId || tab?.readOnly || tab?.foreign) return
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
@@ -134,7 +142,13 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         status: current?.status,
       },
       options: runtimeInstances,
-      onSelect: (runtimeId: string) => void move(runtimeId),
+      onSelect: (runtimeId: string) => {
+        const target = runtimeInstances.find((instance) => instance.id === runtimeId)
+        const warning = target && localAgentMoveWarning(target)
+
+        if (target && warning) setPendingLocal({ target, warning })
+        else void move(runtimeId)
+      },
       selectDisabled: tab?.streaming || moving,
       quota: tab?.runtimeId ? runtimeQuotas.get(tab.runtimeId) : undefined,
       unavailable:
@@ -142,8 +156,23 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       loading: runtimeInstancesLoading,
       error: runtimeInstancesError,
       onSettings: onOpenAgentSettings,
+      ...(pendingLocal
+        ? {
+            confirm: {
+              title: `Move to ${pendingLocal.target.label}?`,
+              description: pendingLocal.warning,
+              confirmLabel: 'Move',
+              onConfirm: () => {
+                setPendingLocal(null)
+                void move(pendingLocal.target.id)
+              },
+              onCancel: () => setPendingLocal(null),
+            },
+          }
+        : {}),
     }
   }, [
+    pendingLocal,
     move,
     moving,
     provider,

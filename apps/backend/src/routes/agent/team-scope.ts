@@ -4,7 +4,6 @@ import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
 import { getConversationBySessionId, getConversationWithMessages } from '@/lib/agent/db'
-import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { parseUrlContext } from '@/lib/agent/url-context'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
@@ -112,13 +111,6 @@ export async function assertConversationSendable(
     )
   if (conversation.userId !== userId && (!teamId || !(await getTeamMembership(userId, teamId))))
     throw new AppError(403, 'forbidden', 'You are not a member of this conversation’s team')
-
-  if (conversation.userId !== userId && isLocalRuntimeId(conversation.runtimeId))
-    throw new AppError(
-      403,
-      'local_agent_private',
-      'Local Agent conversations are private to their owner',
-    )
 
   return conversation
 }

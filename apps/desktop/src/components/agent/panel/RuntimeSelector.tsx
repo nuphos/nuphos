@@ -6,6 +6,7 @@ import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { LocalClaudeSignIn } from '../../../views/settings/LocalClaudeSignIn'
+import { ConfirmDialog } from '../../ConfirmDialog'
 import {
   Menu,
   MenuContent,
@@ -46,6 +47,14 @@ export type RuntimeControl = {
   onSettings?: () => void
   /** New conversation: add a team agent in place, without leaving the conversation. */
   onAddAgent?: () => void
+  /** A pick that needs the user's go-ahead before it takes effect. */
+  confirm?: {
+    title: string
+    description: string
+    confirmLabel: string
+    onConfirm: () => void
+    onCancel: () => void
+  }
 }
 
 const QUOTA_TONE_CLASS: Record<QuotaTone, string> = {
@@ -101,6 +110,7 @@ export function RuntimeSelector({
   error,
   onSettings,
   onAddAgent,
+  confirm,
 }: RuntimeControl) {
   const [signingIn, setSigningIn] = useState<string | null>(null)
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
@@ -163,6 +173,16 @@ export function RuntimeSelector({
 
   return (
     <>
+      {confirm && (
+        <ConfirmDialog
+          open
+          title={confirm.title}
+          description={confirm.description}
+          confirmLabel={confirm.confirmLabel}
+          onConfirm={confirm.onConfirm}
+          onClose={confirm.onCancel}
+        />
+      )}
       {signingIn && (
         <LocalClaudeSignIn
           initiallyOpen

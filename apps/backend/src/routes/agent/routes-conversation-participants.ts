@@ -42,8 +42,8 @@ async function serializeParticipants(
   })
 }
 
-// Readable, not sendable: a teammate who may only view the conversation (e.g.
-// it runs on the owner's Local Agent) still sees who is in it.
+// Gated on reading, not sending: anyone who may view the conversation sees who
+// is in it.
 //
 // The team scope has to be refused explicitly rather than left undefined:
 // `getReadableConversation` reads undefined as "my own conversations only", so

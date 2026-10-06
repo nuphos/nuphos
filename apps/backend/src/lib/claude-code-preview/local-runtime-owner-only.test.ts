@@ -98,7 +98,7 @@ describe('a local agent is listed only for its owner', () => {
   })
 })
 
-describe('only the owner can run a session on their local agent', () => {
+describe('only the owner can put a session on their local agent', () => {
   test('the owner’s own turn resolves to their computer', async () => {
     const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
       userId: 'owner',
@@ -121,9 +121,21 @@ describe('only the owner can run a session on their local agent', () => {
     ).rejects.toMatchObject(notFound)
   })
 
-  test('a teammate cannot continue the owner’s conversation from a trigger or channel', async () => {
+  test('a teammate continues the owner’s conversation on the owner’s computer', async () => {
+    const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
+      userId: 'teammate',
+    })
+
+    expect(parseLocalRuntimeUrl(endpoint.url)).toMatchObject({ userId: 'owner', teamId: TEAM })
+  })
+
+  test('a teammate cannot put the owner’s unpinned conversation on it', async () => {
     await expect(
-      resolveConversationChatRuntime(TEAM, conversation('owner'), { userId: 'teammate' }),
+      resolveConversationChatRuntime(
+        TEAM,
+        { ...conversation('owner'), agentRuntime: undefined, runtimeId: undefined },
+        { userId: 'teammate', runtimeId: localId },
+      ),
     ).rejects.toMatchObject(notFound)
   })
 

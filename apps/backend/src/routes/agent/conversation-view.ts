@@ -2,7 +2,6 @@ import { config } from '@/config'
 import { normalizeConversationActivitySource } from '@/lib/agent/conversation-activity-source'
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import { conversationReadState } from '@/lib/agent/db/read-state'
-import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { fetchCachedUsers } from '@/lib/agent/directory'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { getTeamMembers } from '@/lib/identity'
@@ -196,12 +195,7 @@ export function serializeConversationForViewer(
     ...(triggerRun ? { triggerRun } : {}),
     owner,
     isOwner,
-    readOnly:
-      !isOwner &&
-      (!conversation.teamId ||
-        isLocalRuntimeId(
-          typeof conversation.runtimeId === 'string' ? conversation.runtimeId : undefined,
-        )),
+    readOnly: !isOwner && !conversation.teamId,
     ...(isOwner
       ? conversationReadState(conversation)
       : { activitySeq: undefined, readSeq: undefined, unread: false }),

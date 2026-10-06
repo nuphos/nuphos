@@ -84,6 +84,7 @@ type Props = {
     claudeCodeRuntimeAttached: boolean,
     agentRuntime?: AgentProvider,
     canRename?: boolean,
+    runtimeId?: string,
   ) => void
   /** Externally-controlled session id (drives which chat is displayed). */
   sessionId?: string | null
