@@ -259,7 +259,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let stepMarker = TranscriptStepMarker()
         let render: (ChatRow) -> AnyView = { row in
             switch row {
-            case .user(_, _, let text, _, _):
+            case .user(_, _, let text, _, _, _):
                 AnyView(UserBubble(text: text).padding(16))
             case .assistantText(_, _, let text, let streaming):
                 AnyView(AssistantMarkdown(text: text, streaming: streaming).padding(16))

@@ -528,3 +528,57 @@ extension ChatPart: Codable {
         }
     }
 }
+
+/// Files the user uploaded to the transfer store before sending — the
+/// desktop's `transfer-upload` part. It goes out as `data-attachment`; the
+/// backend hands the files to the runtime and persists the bare part.
+struct TransferUpload: Equatable, Sendable {
+    struct File: Equatable, Sendable {
+        var fileName: String
+        var size: Int?
+    }
+
+    var groupId: String
+    var files: [File]
+
+    init(groupId: String, files: [File]) {
+        self.groupId = groupId
+        self.files = files
+    }
+
+    /// Reads both the sent (`data-attachment`) and persisted (bare) forms.
+    init?(_ part: ChatPart) {
+        let json: JSONValue
+        switch part {
+        case .data(let p) where p.name == "attachment": json = p.data
+        case .other(let v): json = v
+        default: return nil
+        }
+        guard json["type"]?.stringValue == "transfer-upload", let groupId = json["groupId"]?.stringValue,
+              (json["status"]?.stringValue ?? "ready") == "ready" else { return nil }
+        self.groupId = groupId
+        files = (json["files"]?.arrayValue ?? []).compactMap { file in
+            file["fileName"]?.stringValue.map { File(fileName: $0, size: file["size"]?.numberValue.map { Int($0) }) }
+        }
+    }
+
+    /// The built-in agent pulls files itself; `displayText` folds this back to filenames.
+    var instruction: String {
+        "[The user uploaded \(files.count) file(s) to the Nuphos file-transfer store (transfer group \(groupId)): \(files.map(\.fileName).joined(separator: ", ")). To work with them, load the file-transfer skill and pull them into the sandbox: bash skills/file-transfer/scripts/transfer-pull.sh \"$TEAM\" \(groupId) ./uploads]"
+    }
+
+    var part: ChatPart {
+        .data(.init(name: "attachment", data: .object([
+            "type": .string("transfer-upload"),
+            "groupId": .string(groupId),
+            "status": .string("ready"),
+            "files": .array(files.map { file in
+                .object([
+                    "fileName": .string(file.fileName),
+                    "size": file.size.map { .number(Double($0)) } ?? .null,
+                    "status": .string("ready"),
+                ])
+            }),
+        ])))
+    }
+}

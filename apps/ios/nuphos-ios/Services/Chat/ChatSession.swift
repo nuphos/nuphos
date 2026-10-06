@@ -290,8 +290,9 @@ final class ChatSession {
         send(ComposerSubmission(text: text, attachments: []))
     }
 
-    /// Sends text plus attachments. Photos ride along as `file` parts (data
-    /// URLs, for vision); other files must finish uploading before dispatch.
+    /// Sends text plus attachments. Runtime agents get every attachment from
+    /// the transfer store, so the chat request stays small. The built-in agent
+    /// still reads photos inline for vision; its files upload first.
     func send(_ submission: ComposerSubmission) {
         let trimmed = submission.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = submission.attachments
@@ -312,21 +313,23 @@ final class ChatSession {
         }
         var parts: [ChatPart] = []
         if !trimmed.isEmpty { parts.append(.text(.init(text: trimmed, state: .done))) }
-        for a in attachments {
-            if let url = a.dataURL {
-                parts.append(.file(.init(mediaType: "image/jpeg", filename: a.name, url: url)))
+        let uploads = isNativeRuntime ? attachments : attachments.filter { !$0.isImage }
+        if !isNativeRuntime {
+            for a in attachments {
+                if let url = a.dataURL {
+                    parts.append(.file(.init(mediaType: "image/jpeg", filename: a.name, url: url)))
+                }
             }
         }
-        let files = attachments.filter { !$0.isImage }
         submitting = true
         failedSubmission = nil
         error = nil
         Task {
             defer { submitting = false }
             do {
-                if !files.isEmpty {
-                    let instruction = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: files)
-                    parts.append(.text(.init(text: instruction, state: .done)))
+                if !uploads.isEmpty {
+                    let upload = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: uploads)
+                    parts.append(isNativeRuntime ? upload.part : .text(.init(text: upload.instruction, state: .done)))
                 }
                 let message = ChatMessage(role: .user, parts: parts)
                 await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed, submission: submission)
@@ -338,6 +341,12 @@ final class ChatSession {
     }
 
     var failedSubmission: ComposerSubmission?
+
+    /// Signed links for a message's uploaded attachments; nil once the
+    /// transfer has expired or belongs to someone else.
+    func transferFiles(_ groupId: String) async -> [WorkspaceAPI.DownloadedFile]? {
+        try? await WorkspaceAPI.downloads(token: token, team: teamId, groupId: groupId)
+    }
 
     /// Only restore a request rejected before admission, never a resumed turn.
     private func rejectOversizedSubmission(_ pending: (id: String, submission: ComposerSubmission)?) {
