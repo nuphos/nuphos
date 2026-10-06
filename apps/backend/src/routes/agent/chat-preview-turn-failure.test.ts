@@ -5,13 +5,14 @@ import { expect, test } from 'bun:test'
 import { runClaudeCodePreviewChatTurn } from './chat-preview-turn'
 import { createAgentRun } from './run-registry'
 
+import { OpenAbConnectionLostError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useChatPreviewPrepare } from '@/lib/test/doubles/chat-preview-prepare'
 import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
 import { useRedis } from '@/lib/test/doubles/redis'
 
 const persisted: { messages: { role: string; parts: unknown[] }[] }[] = []
-let cause = ''
+let cause: string | Error = ''
 let cleared = 0
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
@@ -54,7 +55,7 @@ useClaudeCodePreviewRuntime({
       status: 'in_progress',
       rawInput: { command: 'go test' },
     })
-    throw new Error(cause)
+    throw cause instanceof Error ? cause : new Error(cause)
   },
 })
 
@@ -98,4 +99,57 @@ test('runtime failures persist partial work and close dangling tools instead of 
     expect(run.frames.join('')).not.toContain('atlas-turn-complete')
   }
   expect(cleared).toBe(2)
+})
+
+const offline = 'The computer running this agent is offline'
+const turnArgs = (run: ReturnType<typeof createAgentRun>) => ({
+  run,
+  sessionId: run.sessionId,
+  userId: run.userId,
+  teamId: 'team-failure',
+  messages: [
+    {
+      id: 'user-message',
+      role: 'user' as const,
+      parts: [{ type: 'text' as const, text: 'fix it' }],
+    },
+  ],
+  origin: 'user' as const,
+  firstMessage: 'fix it',
+  locale: 'en-US',
+  endpoint: { url: 'ws://runtime.invalid/acp', authKey: 'test' },
+})
+
+test('a connection lost before the runtime admitted the prompt stays an actionable failure', async () => {
+  cause = new OpenAbConnectionLostError(offline)
+  const run = createAgentRun('user-failure', 'session-failure', 'run-lost-before-admission')
+
+  await expect(runClaudeCodePreviewChatTurn(turnArgs(run))).rejects.toThrow(offline)
+
+  expect(persisted.at(-1)!.messages.at(-1)!.parts).toContainEqual(
+    expect.objectContaining({ type: 'turn-interrupted' }),
+  )
+  expect(run.frames.join('')).toContain('turn-interrupted')
+  expect(run.frames.join('')).not.toContain('atlas-turn-complete')
+})
+
+test('a lost runtime connection hands the turn to the reattached session instead of failing it', async () => {
+  cause = new OpenAbConnectionLostError(offline, true)
+  const run = createAgentRun('user-failure', 'session-failure', 'run-connection-lost')
+
+  await runClaudeCodePreviewChatTurn(turnArgs(run))
+
+  const parts = persisted.at(-1)!.messages.at(-1)!.parts
+
+  expect(parts).toContainEqual(
+    expect.objectContaining({
+      toolCallId: 'pending',
+      state: 'output-error',
+      errorText: expect.stringContaining('its reply continues below'),
+    }),
+  )
+  expect(parts).not.toContainEqual(expect.objectContaining({ type: 'turn-interrupted' }))
+  expect(run.frames.join('')).not.toContain('turn-interrupted')
+  expect(run.frames.join('')).toContain('atlas-turn-complete')
+  expect(run.done).toBe(true)
 })

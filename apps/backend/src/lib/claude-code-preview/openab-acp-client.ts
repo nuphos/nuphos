@@ -277,11 +277,9 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     this.disconnected = true
     if (this.retireTimer) clearTimeout(this.retireTimer)
     this.retireTimer = undefined
-    const error = new OpenAbConnectionLostError(event?.reason)
-
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer)
-      pending.reject(error)
+      pending.reject(new OpenAbConnectionLostError(event?.reason, pending.accepted === true))
     }
     this.pending.clear()
     for (const handlers of this.sessionUpdateHandlers.values()) {

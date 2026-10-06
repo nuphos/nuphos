@@ -10,7 +10,11 @@ export class OpenAbRpcError extends Error {
 
 /** The runtime transport closed under in-flight calls, with the close reason when one was given. */
 export class OpenAbConnectionLostError extends Error {
-  constructor(readonly reason = '') {
+  /** `admitted`: the runtime had accepted this prompt, so the turn outlives the transport. */
+  constructor(
+    readonly reason = '',
+    readonly admitted = false,
+  ) {
     super(reason ? `OpenAB ACP connection closed: ${reason}` : 'OpenAB ACP connection closed')
     this.name = 'OpenAbConnectionLostError'
   }
