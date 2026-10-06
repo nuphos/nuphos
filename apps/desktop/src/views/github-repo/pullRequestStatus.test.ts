@@ -340,3 +340,11 @@ test('the timeline groups commits that have nothing between them', () => {
 
   assert.deepEqual(timelineItems(pull).map(timelineLabel), ['ab', 'r1', 'c'])
 })
+
+test('a backend that predates commitHistory still renders a timeline', () => {
+  const { commitHistory: _omitted, ...previousShape } = detail({
+    reviews: [review(1, 'carol', 'APPROVED', '2026-09-01T02:00:00Z')],
+  })
+
+  assert.deepEqual(timelineItems(previousShape).map(timelineLabel), ['r1'])
+})

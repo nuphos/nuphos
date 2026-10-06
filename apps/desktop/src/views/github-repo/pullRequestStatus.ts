@@ -228,7 +228,7 @@ export function timelineItems(pull: GithubPRDetail): TimelineItem[] {
     comment,
   }))
 
-  for (const commit of pull.commitHistory) {
+  for (const commit of pull.commitHistory ?? []) {
     items.push({ kind: 'commits', at: commit.committedAt, commits: [commit] })
   }
 

@@ -69,7 +69,8 @@ export type GithubPRDetail = GithubPR & {
   milestone: string | null
   reviews: GithubPRReview[]
   conversation: GithubPRComment[]
-  commitHistory: GithubPRCommit[]
+  // Absent from backends older than the Desktop client.
+  commitHistory?: GithubPRCommit[]
   checks: GithubPRCheck[]
   files: GithubPRFile[]
 }
