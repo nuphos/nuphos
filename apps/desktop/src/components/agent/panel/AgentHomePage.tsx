@@ -43,6 +43,7 @@ export function AgentHomePage({
   shown = true,
   userName,
   onImportSession,
+  onOpenConversation,
 }: {
   /** Only used to decide whether the starter suggestions are worth showing:
    *  they are for a team that has not started a conversation yet. */
@@ -81,6 +82,8 @@ export function AgentHomePage({
   userName?: string
   /** Continue a local Claude Code / Codex session on the selected agent. */
   onImportSession?: (session: LocalAgentSessionInfo) => void
+  /** Opens a team conversation picked from a home card. */
+  onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const entranceKey = useEntranceCount(shown)
   const firstRun = unbound && ONBOARDING_EXTRA_STEPS_ENABLED
@@ -180,7 +183,9 @@ export function AgentHomePage({
                   />
                 </RevealedHistoryBlock>
               )}
-            {teamId && !unbound && <HomeWidgets key={teamId} teamId={teamId} />}
+            {teamId && !unbound && (
+              <HomeWidgets key={teamId} teamId={teamId} onOpenConversation={onOpenConversation} />
+            )}
           </div>
         </div>
       </div>

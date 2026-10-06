@@ -7,12 +7,18 @@ export type HomeRepo = { installationId: number; fullName: string }
 export type HomePanel = { dashboardId: string; panelId: string }
 
 /**
- * What the home page shows: the repositories each GitHub card follows (a card
- * with none is hidden) and the dashboard panels pinned as cards of their own.
+ * What the home page shows: the team activity card, the repositories each
+ * GitHub card follows (a card with none is hidden) and the dashboard panels
+ * pinned as cards of their own.
  */
-export type HomeWidgetSettings = { pulls: HomeRepo[]; ci: HomeRepo[]; panels: HomePanel[] }
+export type HomeWidgetSettings = {
+  team: boolean
+  pulls: HomeRepo[]
+  ci: HomeRepo[]
+  panels: HomePanel[]
+}
 
-export const EMPTY_HOME_WIDGETS: HomeWidgetSettings = { pulls: [], ci: [], panels: [] }
+export const EMPTY_HOME_WIDGETS: HomeWidgetSettings = { team: false, pulls: [], ci: [], panels: [] }
 
 export const repoKey = (repo: HomeRepo) => repo.fullName
 export const panelKey = (panel: HomePanel) => `${panel.dashboardId}/${panel.panelId}`
@@ -27,7 +33,12 @@ export function loadHomeWidgets(teamId: string): HomeWidgetSettings {
     if (!raw) return EMPTY_HOME_WIDGETS
     const parsed = JSON.parse(raw) as Partial<HomeWidgetSettings>
 
-    return { pulls: parsed.pulls ?? [], ci: parsed.ci ?? [], panels: parsed.panels ?? [] }
+    return {
+      team: parsed.team ?? false,
+      pulls: parsed.pulls ?? [],
+      ci: parsed.ci ?? [],
+      panels: parsed.panels ?? [],
+    }
   } catch {
     return EMPTY_HOME_WIDGETS
   }

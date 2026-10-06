@@ -72,6 +72,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
       {addAgent.dialog}
       <AgentHomePage
         onImportSession={importSession}
+        onOpenConversation={(sessionId, title) => void c.openConversation(sessionId, title)}
         shown={c.homeShown}
         userName={c.userName}
         conversations={history}

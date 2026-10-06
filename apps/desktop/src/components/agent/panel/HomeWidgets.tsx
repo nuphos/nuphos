@@ -15,6 +15,7 @@ import {
 import { CiFailuresCard, PullRequestsCard } from './homeCards'
 import { DashboardPanelCard } from './homePanelCard'
 import { DashboardPanelsSubmenu } from './homePanelPicker'
+import { TeamActivityCard } from './homeTeamCard'
 import {
   loadHomeWidgets,
   panelKey,
@@ -91,10 +92,17 @@ function RepoSubmenu({
 
 /**
  * The configurable cards under the home composer, all picked in "Customize":
- * each GitHub card follows its own repositories and is hidden when it follows
- * none, and every pinned dashboard panel is a card of its own.
+ * team activity is on or off, each GitHub card follows its own repositories
+ * and is hidden when it follows none, and every pinned dashboard panel is a
+ * card of its own.
  */
-export function HomeWidgets({ teamId }: { teamId: string }) {
+export function HomeWidgets({
+  teamId,
+  onOpenConversation,
+}: {
+  teamId: string
+  onOpenConversation?: (sessionId: string, title: string) => void
+}) {
   const [settings, setSettings] = useState<HomeWidgetSettings>(() => loadHomeWidgets(teamId))
   const { repos, load } = useGithubRepos(teamId)
   const update = (next: HomeWidgetSettings) => {
@@ -105,7 +113,8 @@ export function HomeWidgets({ teamId }: { teamId: string }) {
     update({ ...settings, [card]: toggleItem(settings[card], repo, repoKey) })
   const togglePanel = (pin: HomePanel) =>
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
-  const anyCard = settings.pulls.length + settings.ci.length + settings.panels.length > 0
+  const anyCard =
+    settings.team || settings.pulls.length + settings.ci.length + settings.panels.length > 0
 
   return (
     <div className="mb-6">
@@ -116,6 +125,12 @@ export function HomeWidgets({ teamId }: { teamId: string }) {
             Customize
           </MenuTrigger>
           <MenuContent align="end" className="w-[200px]">
+            <MenuCheckboxItem
+              checked={settings.team}
+              onCheckedChange={(team) => update({ ...settings, team })}
+            >
+              Team activity
+            </MenuCheckboxItem>
             <RepoSubmenu
               label="Pull requests"
               available={repos}
@@ -138,6 +153,9 @@ export function HomeWidgets({ teamId }: { teamId: string }) {
       </div>
       {anyCard && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {settings.team && (
+            <TeamActivityCard teamId={teamId} onOpenConversation={onOpenConversation} />
+          )}
           {settings.pulls.length > 0 && <PullRequestsCard teamId={teamId} repos={settings.pulls} />}
           {settings.ci.length > 0 && <CiFailuresCard teamId={teamId} repos={settings.ci} />}
           {settings.panels.map((pin) => (
