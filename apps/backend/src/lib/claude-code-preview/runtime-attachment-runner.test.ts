@@ -12,7 +12,9 @@ async function run(files: unknown[]) {
   try {
     await writeFile(join(dir, 'runner.mjs'), ATTACHMENT_RUNNER)
     await writeFile(join(dir, 'params.json'), JSON.stringify({ files }))
+    // Like an OpenAB runtime job: TMPDIR is the job directory, removed on exit.
     const child = Bun.spawn(['node', join(dir, 'runner.mjs'), dir], {
+      env: { ...process.env, TMPDIR: dir },
       stdout: 'pipe',
       stderr: 'pipe',
     })
