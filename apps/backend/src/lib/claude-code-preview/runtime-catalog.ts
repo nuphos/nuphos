@@ -122,9 +122,7 @@ export async function withRuntimeReadiness(
   instances: RuntimeInstance[],
 ): Promise<RuntimeInstance[]> {
   const endpoints = await Promise.all(
-    (['claude-code', 'codex'] as const).map((provider) =>
-      resolveTeamRuntimeEndpoints(teamId, undefined, provider),
-    ),
+    OPENAB_PROVIDERS.map((provider) => resolveTeamRuntimeEndpoints(teamId, undefined, provider)),
   )
   const reachable = new Set(endpoints.flat().map((endpoint) => endpoint.runtimeId))
 
