@@ -61,8 +61,13 @@ export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'
 
 /** The sentence a client shows for a provider that refuses to bill, or undefined. */
 export function runtimeUsageExhaustedMessage(error: unknown): string | undefined {
-  if (!(error instanceof OpenAbRpcError)) return undefined
-  const match = PROVIDER_PAYMENT_REQUIRED.exec(error.message)
+  // A caller may wrap the gateway's refusal, so its causes are read too.
+  let match: RegExpExecArray | null = null
+  let cause = error
+  while (!match && cause instanceof Error) {
+    match = PROVIDER_PAYMENT_REQUIRED.exec(cause.message)
+    cause = cause.cause
+  }
   if (!match) return undefined
   const reason = match[1]?.trim()
 

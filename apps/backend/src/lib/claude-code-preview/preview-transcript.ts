@@ -9,6 +9,7 @@ import { generateConversationTitle } from '@/lib/agent/title-generator'
 import { logError } from '@/lib/observability'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
+import { runtimeUsageExhaustedMessage } from './openab-acp-errors'
 import { attributeReceipt } from './steering-receipt'
 
 import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
@@ -44,6 +45,8 @@ export function classifyPreviewInterruption(
 ): PreviewTurnInterruption {
   if (!aborted && error instanceof CodexTurnFailedError)
     return { reason: 'error', message: error.userMessage }
+  const usageExhausted = aborted ? undefined : runtimeUsageExhaustedMessage(error)
+  if (usageExhausted) return { reason: 'error', message: usageExhausted }
   const lower = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
   if (!aborted && (lower.includes('enospc') || lower.includes('no space left on device'))) {
