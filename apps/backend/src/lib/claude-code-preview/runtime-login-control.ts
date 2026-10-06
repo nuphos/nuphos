@@ -82,7 +82,7 @@ export async function driveControlRuntimeLogin(
   doc: RuntimeLoginDoc,
   failure = CODEX_LOGIN_FAILED,
 ): Promise<void> {
-  const read = loginFrameReader(onFrame)
+  const read = loginFrameReader(onFrame, failure)
   const exited = Promise.withResolvers<number>()
 
   exited.promise.catch(() => {})

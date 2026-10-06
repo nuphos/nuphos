@@ -88,6 +88,35 @@ test('runtime discovery skips other components, follows pages and preserves the 
   }
 })
 
+test('each provider follows the newest release that published it', async () => {
+  const { latestRuntimeRelease, resetRuntimeReleaseCache } = await import('./runtime-release')
+
+  resetRuntimeReleaseCache()
+  const originalFetch = globalThis.fetch
+  const image = (version: string, provider: string) =>
+    `ghcr.io/nuphos/runtime:${version}-${provider}`
+  const all = ['claude-code', 'codex', 'grok', 'antigravity']
+
+  globalThis.fetch = (async () =>
+    Response.json([
+      { tag_name: 'runtime-v0.2.1', body: image('0.2.1', 'claude-code') },
+      {
+        tag_name: 'runtime-v0.2.0',
+        body: all.map((provider) => image('0.2.0', provider)).join('\n'),
+      },
+    ])) as typeof fetch
+
+  try {
+    // A Claude-only release must not hide the others after a restart.
+    expect((await latestRuntimeRelease('claude-code', true))?.version).toBe('0.2.1')
+    expect((await latestRuntimeRelease('grok'))?.version).toBe('0.2.0')
+    expect((await latestRuntimeRelease('antigravity'))?.version).toBe('0.2.0')
+  } finally {
+    globalThis.fetch = originalFetch
+    resetRuntimeReleaseCache()
+  }
+})
+
 test('in-flight update links resolve the target release across the publishing cutover', async () => {
   const { runtimeReleaseUrl, RUNTIME_RELEASES_URL } = await import('./runtime-release')
   const originalFetch = globalThis.fetch

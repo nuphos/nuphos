@@ -67,7 +67,11 @@ const DEVICE_VERIFICATION_URIS = new Set([
  * The runtime keeps the credential it signs in with, so an `authenticated` frame that
  * offers one anyway is a runtime handing over what nobody asked it for.
  */
-export function loginFrameReader(onFrame: (frame: RuntimeLoginFrame) => void) {
+export function loginFrameReader(
+  onFrame: (frame: RuntimeLoginFrame) => void,
+  // The provider's own advice when its sign-in fails.
+  failed = LOGIN_ERRORS.get('failed'),
+) {
   let pending = ''
 
   return (chunk: string) => {
@@ -104,7 +108,7 @@ export function loginFrameReader(onFrame: (frame: RuntimeLoginFrame) => void) {
         onFrame({
           type: 'error',
           message:
-            LOGIN_ERRORS.get(frame.reason) ??
+            (frame.reason === 'failed' ? failed : LOGIN_ERRORS.get(frame.reason)) ??
             'Sign-in did not complete. Retry and check device-code login in ChatGPT security settings.',
         })
       } else throw new Error('Invalid login response')

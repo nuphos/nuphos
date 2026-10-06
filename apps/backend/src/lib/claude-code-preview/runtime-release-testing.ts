@@ -5,6 +5,7 @@
 import { createHash } from 'node:crypto'
 
 import { resetRuntimeImageDigests } from './runtime-image'
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import {
   latestRuntimeRelease,
   LEGACY_RUNTIME_REPOSITORY,
@@ -60,16 +61,15 @@ function feed({
   advertises,
 }: RuntimeFeed) {
   const tags = new Set(
-    (published ?? (version ? [version] : [])).flatMap((value) => [
-      `${value}-claude-code`,
-      `${value}-codex`,
-    ]),
+    (published ?? (version ? [version] : [])).flatMap((value) =>
+      OPENAB_PROVIDERS.map((provider) => `${value}-${provider}`),
+    ),
   )
   const legacyTags = new Set(
-    legacyPublished.flatMap((value) => [`${value}-claude-code`, `${value}-codex`]),
+    legacyPublished.flatMap((value) => OPENAB_PROVIDERS.map((provider) => `${value}-${provider}`)),
   )
   const repository = legacy ? LEGACY_RUNTIME_REPOSITORY : NUPHOS_RUNTIME_REPOSITORY
-  const body = (advertises ?? ['claude-code', 'codex'])
+  const body = (advertises ?? OPENAB_PROVIDERS)
     .map((provider) => `${repository}:${version}-${provider}`)
     .join('\n')
 

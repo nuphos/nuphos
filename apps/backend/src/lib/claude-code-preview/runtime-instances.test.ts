@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
@@ -73,7 +74,7 @@ beforeEach(async () => {
 })
 
 test('adding a managed agent registers a hosted runtime with its own generated password', async () => {
-  for (const provider of ['claude-code', 'codex'] as const) {
+  for (const provider of OPENAB_PROVIDERS) {
     const created = await add(app(), `${provider} work`, provider)
     const row = runtimeRows().find((doc) => doc._id === created.id)!
 

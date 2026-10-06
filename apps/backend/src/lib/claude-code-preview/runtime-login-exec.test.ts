@@ -143,6 +143,19 @@ test("only Claude's own authorize page reaches the UI, and a runtime's error is 
   expect(messages.join()).not.toContain('runtime words')
 })
 
+test("a failed sign-in gives the provider's own advice", () => {
+  const messages: string[] = []
+  const read = loginFrameReader(
+    (frame) => frame.type === 'error' && messages.push(frame.message),
+    'Start again and confirm the code on the xAI page.',
+  )
+
+  read(`${JSON.stringify({ type: 'error', reason: 'failed' })}\n`)
+  read(`${JSON.stringify({ type: 'error', reason: 'input_unavailable' })}\n`)
+  expect(messages[0]).toBe('Start again and confirm the code on the xAI page.')
+  expect(messages[1]).toContain('cannot receive the sign-in code')
+})
+
 test('Grok Build and Antigravity sign in through their own pages only', () => {
   const frames: RuntimeLoginFrame[] = []
   const read = loginFrameReader((frame) => frames.push(frame))

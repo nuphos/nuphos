@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
@@ -213,7 +214,7 @@ describe('runtime object builders', () => {
 })
 
 describe('reconcileHostedRuntimes', () => {
-  test.each(['claude-code', 'codex'] as const)(
+  test.each(OPENAB_PROVIDERS)(
     'deploys a %s agent as the self-hosted image started with its own password',
     async (provider) => {
       const agent = await addAgent(provider)
@@ -221,6 +222,13 @@ describe('reconcileHostedRuntimes', () => {
 
       await reconcile(kube, provider)
       const name = hostedRuntimeName('team-a', provider, agent.id)
+      // Agents without a patched adapter start behind the ACP shim.
+      if (provider === 'grok' || provider === 'antigravity')
+        expect(
+          ofKind<KubeObject & { data: Record<string, string> }>(kube, 'ConfigMap')[0]?.data[
+            'config.toml'
+          ],
+        ).toContain(`command = "node"\nargs = ["/opt/acp-shim.mjs", "${provider}"]`)
       const secretName = runtimeAuthSecretName('team-a', agent.id)
 
       expect(kube.applied.map((resource) => resource.kind)).toEqual([
