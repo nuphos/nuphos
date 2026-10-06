@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import {
   assertClaudeCodeSetupConfigured,
   isServerAuthoritativeTranscript,
@@ -231,6 +232,17 @@ describe('isServerAuthoritativeTranscript', () => {
         },
       }),
     ).toBe(true)
+  })
+
+  test('blocks first-message sync before a native conversation exists', () => {
+    for (const provider of OPENAB_PROVIDERS) {
+      expect(isServerAuthoritativeTranscript(null, provider)).toBe(true)
+    }
+  })
+
+  test('creation hints do not change authority for an existing legacy transcript', () => {
+    expect(isServerAuthoritativeTranscript(LEGACY_NUPHOS_CONVERSATION, 'codex')).toBe(false)
+    expect(isServerAuthoritativeTranscript({}, 'codex')).toBe(false)
   })
 
   test('protects both native providers without applying a creation-time runtime default', () => {

@@ -59,11 +59,15 @@ export function resolveConversationRuntimeId(
   )
 }
 
-/** Existing native transcripts belong to the server, including pre-runtime-stamp documents. */
+/** Native transcripts belong to the server, from the first message onward. */
 export function isServerAuthoritativeTranscript(
   conversation: Pick<AgentConversation, 'agentRuntime' | 'claudeCodePreview'> | null,
+  requestedRuntime?: OpenAbProvider,
 ): boolean {
-  return Boolean(isOpenAbProvider(conversation?.agentRuntime) || conversation?.claudeCodePreview)
+  return Boolean(
+    isOpenAbProvider(conversation ? conversation.agentRuntime : requestedRuntime) ||
+    conversation?.claudeCodePreview,
+  )
 }
 
 /** A creation preference never overrides an existing conversation's provider. */
