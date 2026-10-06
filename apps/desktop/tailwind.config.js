@@ -11,7 +11,7 @@ function withOpacity(variableName) {
 }
 
 export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}', './node_modules/@streamdown/code/dist/*.js'],
+  content: ['./index.html', './src/**/*.{ts,tsx}', './node_modules/streamdown/dist/*.js'],
   darkMode: 'selector',
   theme: {
     extend: {

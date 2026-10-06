@@ -864,6 +864,53 @@
     animation: atlas-stream-caret 1s steps(2, end) infinite;
   }
 
+  /* Streamdown's fenced code block (card > header, copy action, highlighted body),
+     restyled to match the message surface. */
+  .message-response [data-streamdown='code-block'] {
+    @apply my-2 gap-0 rounded-md border-0 bg-zGray-900/50 p-0 ring-1 ring-zGray-800/50;
+  }
+
+  .message-response [data-streamdown='code-block-header'] {
+    @apply h-7 border-b border-zGray-800/40 px-2.5 font-mono text-[11px] uppercase tracking-wider text-tertiary;
+  }
+
+  .message-response [data-streamdown='code-block-header'] > span {
+    @apply ml-0 uppercase;
+  }
+
+  .message-response [data-streamdown='code-block-actions'] {
+    @apply mr-1.5 border-0 bg-transparent p-0 text-tertiary backdrop-blur-none;
+  }
+
+  .message-response [data-streamdown='code-block-actions'] svg {
+    @apply h-3.5 w-3.5;
+  }
+
+  .message-response
+    [data-streamdown='code-block']
+    > div:has(> [data-streamdown='code-block-actions']) {
+    @apply -mt-7 h-7;
+  }
+
+  .message-response [data-streamdown='code-block-body'] {
+    @apply rounded-none border-0 bg-transparent px-3 py-2.5 font-mono text-[13.5px] leading-[1.55];
+  }
+
+  .message-response [data-streamdown='code-block-body'] pre {
+    @apply m-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere];
+  }
+
+  /* Without line numbers Streamdown leaves each line an inline span. */
+  .message-response [data-streamdown='code-block-body'] code > span {
+    @apply block;
+  }
+
+  /* Streamdown switches tokens to the dark theme with `dark:`, but the app themes
+     with `html.light`, so apply the dark colors here. */
+  html:not(.light) .message-response [data-streamdown='code-block-body'] code > span > span {
+    color: var(--shiki-dark, var(--sdm-c, inherit));
+  }
+
   .agent-streaming-response:has(pre:last-child)::after,
   .agent-streaming-response:has(table:last-child)::after {
     display: none;
