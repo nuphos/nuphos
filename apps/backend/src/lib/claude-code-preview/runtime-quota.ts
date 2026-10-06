@@ -3,29 +3,17 @@ import { z } from 'zod'
 import { logError } from '@/lib/observability'
 
 import { runtimeLabel } from './runtime-provider'
+import { normalizeGrokUsage } from './runtime-quota-grok'
 import { probeRuntimeQuota } from './runtime-quota-probe'
+import { clampPercent, unavailable } from './runtime-quota-shape'
 import { RuntimeCapabilityError } from './team-openab-runtime'
 
 import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
 import type { RuntimeQuotaReading } from './runtime-quota-probe'
+import type { RuntimeQuota, RuntimeQuotaWindow } from './runtime-quota-shape'
 
-export type RuntimeQuotaWindow = {
-  id: string
-  label: string
-  usedPercent: number
-  resetsAt: string | null
-}
-
-export type RuntimeQuota = {
-  runtimeId: string
-  provider: OpenAbProvider
-  fetchedAt: string
-  available: boolean
-  reason?: string
-  plan?: string
-  windows: RuntimeQuotaWindow[]
-}
+export type { RuntimeQuota, RuntimeQuotaWindow } from './runtime-quota-shape'
 
 // Usage windows are five hours and a week wide, and the providers rate-limit
 // the endpoints that report them: Anthropic's answers 429 to a minute-paced
@@ -81,21 +69,6 @@ const CLAUDE_WINDOWS: [ClaudeWindowKey, string][] = [
   ['seven_day_opus', 'Weekly · Opus'],
   ['seven_day_sonnet', 'Weekly · Sonnet'],
 ]
-
-function clampPercent(value: number): number {
-  return Math.min(100, Math.max(0, Math.round(value * 10) / 10))
-}
-
-function unavailable(instance: RuntimeInstance, fetchedAt: string, reason: string): RuntimeQuota {
-  return {
-    runtimeId: instance.id,
-    provider: instance.provider,
-    fetchedAt,
-    available: false,
-    reason,
-    windows: [],
-  }
-}
 
 export function normalizeClaudeUsage(
   instance: RuntimeInstance,
@@ -175,51 +148,6 @@ export function normalizeCodexUsage(
     ...(windows.length ? {} : { reason: 'No usage windows reported' }),
     ...(parsed.data.plan_type ? { plan: parsed.data.plan_type } : {}),
     windows,
-  }
-}
-
-// Grok answers its own ACP `_x.ai/billing` with the subscription's credit use
-// for the current period.
-const grokUsageSchema = z
-  .object({
-    config: z.object({
-      creditUsagePercent: z.number(),
-      currentPeriod: z
-        .object({ type: z.string().optional(), end: z.string().optional() })
-        .optional(),
-    }),
-  })
-  .passthrough()
-
-const GROK_PERIODS: Record<string, string> = {
-  USAGE_PERIOD_TYPE_DAILY: 'Daily',
-  USAGE_PERIOD_TYPE_WEEKLY: 'Weekly',
-  USAGE_PERIOD_TYPE_MONTHLY: 'Monthly',
-}
-
-export function normalizeGrokUsage(
-  instance: RuntimeInstance,
-  body: unknown,
-  fetchedAt: string,
-): RuntimeQuota {
-  const parsed = grokUsageSchema.safeParse(body)
-
-  if (!parsed.success) return unavailable(instance, fetchedAt, 'Unrecognized usage response')
-  const { creditUsagePercent, currentPeriod } = parsed.data.config
-
-  return {
-    runtimeId: instance.id,
-    provider: instance.provider,
-    fetchedAt,
-    available: true,
-    windows: [
-      {
-        id: 'period',
-        label: GROK_PERIODS[currentPeriod?.type ?? ''] ?? 'Current period',
-        usedPercent: clampPercent(creditUsagePercent),
-        resetsAt: currentPeriod?.end ?? null,
-      },
-    ],
   }
 }
 

@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test'
 
 import { newerRuntimeVersion, stableRuntimeVersion } from './runtime-release'
 
+type FetchInput = string | URL | Request
+
 test('release comparisons use numeric semver and never offer downgrades or prereleases', () => {
   expect(newerRuntimeVersion('0.1.10', '0.1.9')).toBe(true)
   expect(newerRuntimeVersion('0.2.0', '0.1.99')).toBe(true)
@@ -22,7 +24,7 @@ test('runtime discovery skips other components, follows pages and preserves the 
   const requests: string[] = []
   let responses: Response[] = []
 
-  globalThis.fetch = (async (url: string | URL | Request) => {
+  globalThis.fetch = (async (url: FetchInput) => {
     requests.push(url instanceof Request ? url.url : String(url))
     const response = responses.shift()
 
@@ -97,7 +99,7 @@ test('each provider follows the newest release that published it', async () => {
     `ghcr.io/nuphos/runtime:${version}-${provider}`
   const all = ['claude-code', 'codex', 'grok', 'antigravity']
 
-  globalThis.fetch = (async (_url: string | URL | Request) =>
+  globalThis.fetch = (async (_url: FetchInput) =>
     Response.json([
       { tag_name: 'runtime-v0.2.1', body: image('0.2.1', 'claude-code') },
       {
@@ -123,7 +125,7 @@ test('in-flight update links resolve the target release across the publishing cu
   const requests: string[] = []
   let response = new Response(null, { status: 200 })
 
-  globalThis.fetch = (async (url: string | URL | Request) => {
+  globalThis.fetch = (async (url: FetchInput) => {
     requests.push(url instanceof Request ? url.url : String(url))
 
     return response

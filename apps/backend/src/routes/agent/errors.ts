@@ -1,6 +1,3 @@
-import type { AgentRunTrace } from './types'
-import type { MessageMetadata } from '@/lib/agent/message-metadata'
-
 import {
   isRuntimeAuthRequired,
   RUNTIME_AUTH_REQUIRED_CODE,
@@ -10,6 +7,9 @@ import {
 } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AppError } from '@/lib/errors'
 import { errorTelemetryProperties } from '@/lib/observability'
+
+import type { AgentRunTrace } from './types'
+import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
 export function serializeMessageDoc(message: {
   messageId: string
@@ -62,6 +62,7 @@ export function formatAgentStreamError(error: unknown): string {
   // errorCode yet — gets the sentence instead of the gateway's -32000 wrapper.
   if (isRuntimeAuthRequired(error)) return RUNTIME_AUTH_REQUIRED_MESSAGE
   const usageExhausted = runtimeUsageExhaustedMessage(error)
+
   if (usageExhausted) return usageExhausted
   const message = getErrorMessage(error)
 

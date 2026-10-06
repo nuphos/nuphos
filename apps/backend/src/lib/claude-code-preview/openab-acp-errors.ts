@@ -55,7 +55,7 @@ export function isRuntimeAuthRequired(error: unknown): boolean {
  * (Grok Build reports `usage balance exhausted`). Only credits or a reset fix it,
  * so it is a product state, not a transport failure.
  */
-const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\):\s*(.*?)(?:\s+requestId=\S+)?$/mu
+const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
 export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'
 
@@ -64,14 +64,17 @@ export function runtimeUsageExhaustedMessage(error: unknown): string | undefined
   // A caller may wrap the gateway's refusal, so its causes are read too.
   let match: RegExpExecArray | null = null
   let cause = error
+
   while (!match && cause instanceof Error) {
     match = PROVIDER_PAYMENT_REQUIRED.exec(cause.message)
     cause = cause.cause
   }
   if (!match) return undefined
-  const reason = match[1]?.trim()
+  // The gateway appends its request id, which means nothing to the user.
+  const reason = match[1]?.split(' requestId=')[0]?.trim()
+  const detail = reason ? ` (${reason})` : ''
 
-  return `This agent’s provider account has no usage left${reason ? ` (${reason})` : ''}. Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.`
+  return `This agent’s provider account has no usage left${detail}. Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.`
 }
 
 export function isSessionOutputSinkUnavailable(error: unknown): boolean {

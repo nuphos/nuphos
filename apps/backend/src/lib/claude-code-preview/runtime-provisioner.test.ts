@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto'
 
-import { OPENAB_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
@@ -14,6 +13,7 @@ import {
   runtimeAuthSecretName,
   runtimeConfigMapObject,
 } from './runtime-objects'
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import {
   publishedRuntimeImage,
   runtimeFeedRequests,
@@ -222,6 +222,7 @@ describe('reconcileHostedRuntimes', () => {
 
       await reconcile(kube, provider)
       const name = hostedRuntimeName('team-a', provider, agent.id)
+
       // Agents without a patched adapter start behind the ACP shim.
       if (provider === 'grok' || provider === 'antigravity')
         expect(

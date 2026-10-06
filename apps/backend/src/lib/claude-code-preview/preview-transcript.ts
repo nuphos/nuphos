@@ -46,6 +46,7 @@ export function classifyPreviewInterruption(
   if (!aborted && error instanceof CodexTurnFailedError)
     return { reason: 'error', message: error.userMessage }
   const usageExhausted = aborted ? undefined : runtimeUsageExhaustedMessage(error)
+
   if (usageExhausted) return { reason: 'error', message: usageExhausted }
   const lower = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
