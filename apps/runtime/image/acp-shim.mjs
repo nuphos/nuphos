@@ -95,6 +95,17 @@ export function sessionState(sessionId, state) {
   }
 }
 
+function toolUpdate(sessionId, toolCallId, status, meta) {
+  return {
+    jsonrpc: '2.0',
+    method: 'session/update',
+    params: {
+      sessionId,
+      update: { sessionUpdate: 'tool_call_update', toolCallId, status, _meta: meta },
+    },
+  }
+}
+
 export function instructionsBlock(text) {
   return { type: 'text', text: `<nuphos-instructions>\n${text}\n</nuphos-instructions>` }
 }
@@ -107,6 +118,9 @@ export function runShim({
   spawnAgent = (command, env) =>
     spawn(command[0], command.slice(1), { env, stdio: ['pipe', 'pipe', 'inherit'] }),
   onExit = (code) => process.exit(code),
+  // How long a prompt's answer gets to close its turn upstream before the
+  // turn the agent started next is released.
+  settleMs = 1000,
 }) {
   const spec = PROVIDERS[provider]
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
@@ -120,6 +134,9 @@ export function runShim({
   // start in between; until the answer, the session's later updates wait here.
   const held = new Map()
   const queued = new Map()
+  // Grok's background commands, by task: shown as the running terminal of the
+  // tool that started them until the task itself reports how it ended.
+  const tasks = new Map()
   const internal = new Map()
   const transforms = new Map()
   let initialize
@@ -178,12 +195,48 @@ export function runShim({
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
       else queued.delete(promptSession)
-      const later = held.get(promptSession) ?? []
-      held.delete(promptSession)
       if (!prompting(promptSession)) write(sessionState(promptSession, 'idle'))
-      for (const update of later) fromAgent(update)
+      const later = held.get(promptSession)
+      if (later)
+        setTimeout(() => {
+          held.delete(promptSession)
+          for (const update of later) fromAgent(update)
+        }, settleMs)
       return
     }
+    if (kind === 'task_backgrounded') {
+      const update = message.params.update
+      tasks.set(update.task_id, update.tool_call_id)
+      return write(
+        toolUpdate(sessionId, update.tool_call_id, 'in_progress', {
+          terminal_info: { terminalId: update.task_id, command: update.command },
+        }),
+      )
+    }
+    if (kind === 'task_completed') {
+      const task = message.params.update.task_snapshot ?? {}
+      const toolCallId = tasks.get(task.task_id)
+      if (!toolCallId) return forward(message)
+      tasks.delete(task.task_id)
+      return write(
+        toolUpdate(sessionId, toolCallId, task.exit_code === 0 ? 'completed' : 'failed', {
+          terminal_info: { terminalId: task.task_id },
+          ...(typeof task.output === 'string' ? { terminal_output: task.output } : {}),
+          terminal_exit: { exitCode: task.exit_code ?? null, signal: task.signal ?? null },
+        }),
+      )
+    }
+    // The tool only started the command; it runs until the task completes.
+    const toolCallId = message.params?.update?.toolCallId
+    if (
+      kind === 'tool_call_update' &&
+      message.params.update.status === 'completed' &&
+      [...tasks.values()].includes(toolCallId)
+    )
+      message = {
+        ...message,
+        params: { ...message.params, update: { ...message.params.update, status: 'in_progress' } },
+      }
     if (kind === 'turn_completed' && autonomous.delete(sessionId)) {
       write(message)
       return write(sessionState(sessionId, 'idle'))

@@ -52,6 +52,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
       return child
     },
     onExit: () => {},
+    settleMs: 20,
   })
   let id = 0
   const call = (method, params) =>
@@ -251,5 +252,52 @@ test('antigravity takes one prompt at a time per session', async () => {
       )
     },
     SLOW_AGENT,
+  )
+})
+
+// Grok: a command sent to the background finishes its tool at once and reports
+// the command's end later with its own task updates.
+const GROK_BACKGROUND = `
+const send = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+const update = (method, sessionUpdate, extra = {}) =>
+  send({ jsonrpc: '2.0', method, params: { sessionId: 's1', update: { sessionUpdate, ...extra } } })
+require('node:readline').createInterface({ input: process.stdin }).on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'session/prompt') {
+    update('session/update', 'tool_call', { toolCallId: 'call-1', title: 'run_terminal_command' })
+    update('_x.ai/session/update', 'task_backgrounded', { tool_call_id: 'call-1', task_id: 't1', command: 'sleep 1' })
+    update('session/update', 'tool_call_update', { toolCallId: 'call-1', status: 'completed' })
+    send({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } })
+    setTimeout(() => update('_x.ai/session/update', 'task_completed', { task_snapshot: { task_id: 't1', exit_code: 0, output: 'done\\n' } }), 20)
+  } else if (m.id !== undefined) {
+    send({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 's1', configOptions: [] } : {} })
+  }
+})
+`
+
+test('a grok background command stays a running terminal until it ends', async () => {
+  await withShim(
+    'grok',
+    async ({ call, outputs }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'run it' }] })
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      const tool = outputs
+        .map((m) => m.params?.update)
+        .filter((u) => u?.sessionUpdate === 'tool_call_update' && u.toolCallId === 'call-1')
+      assert.deepEqual(
+        tool.map((u) => u.status),
+        ['in_progress', 'in_progress', 'completed'],
+      )
+      assert.deepEqual(tool[0]._meta.terminal_info, { terminalId: 't1', command: 'sleep 1' })
+      assert.deepEqual(tool[2]._meta, {
+        terminal_info: { terminalId: 't1' },
+        terminal_output: 'done\n',
+        terminal_exit: { exitCode: 0, signal: null },
+      })
+    },
+    GROK_BACKGROUND,
   )
 })
