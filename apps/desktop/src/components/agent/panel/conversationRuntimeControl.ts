@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
-import { LOCAL_AGENT_SHARING_WARNING } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
@@ -171,7 +170,8 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         ? {
             confirm: {
               title: `Move to ${pendingLocal.label}?`,
-              description: LOCAL_AGENT_SHARING_WARNING,
+              description:
+                'This agent runs on your computer. After the move, teammates in this session can run commands on your computer.',
               confirmLabel: 'Move',
               onConfirm: () => {
                 setPendingLocal(null)
