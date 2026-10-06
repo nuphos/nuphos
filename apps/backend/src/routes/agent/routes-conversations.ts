@@ -13,6 +13,7 @@ import {
   hasCredentialOptions,
   isEmptyCredentialAccess,
 } from './credential-access'
+import { serializeTimelineEvents, timelineEventUserIds } from './conversation-timeline'
 import { getAgentCredentialOptions } from './credential-options'
 import { serializeMessageDoc } from './errors'
 import { agent } from './router'
@@ -151,7 +152,10 @@ agent.get('/conversations/:sessionId', async (c) => {
   const activeRun = runtimeState.state === 'active' ? transportRun : null
   const startedAtMs = activeRun?.startedAt ? Number(activeRun.startedAt) : NaN
   const viewer = c.get('user')
-  const ownerById = await buildConversationOwnerMap(teamId, [result.conversation.userId])
+  const ownerById = await buildConversationOwnerMap(teamId, [
+    result.conversation.userId,
+    ...timelineEventUserIds(result.conversation.timelineEvents),
+  ])
   let slackThreadLookupFailed = false
   const slackThreadRecord = await getSlackAgentThreadBySessionId(sessionId).catch(
     (err: unknown) => {
@@ -212,6 +216,7 @@ agent.get('/conversations/:sessionId', async (c) => {
     slackThread,
     messages: result.messages.map(serializeMessageDoc),
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,
+    timelineEvents: serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
     runtimeState,
     // Absolute index of messages[0] in the stored transcript. 0 unless a
     // `tail` cut off earlier messages; then it doubles as the "there are

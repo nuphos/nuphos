@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { config } from '@/config'
+import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { isLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
@@ -163,6 +164,15 @@ export async function moveConversationRuntime(
             movedBy: userId,
           },
         },
+        $push: pushTimelineEvent({
+          kind: 'runtime_moved',
+          at: new Date(),
+          actorId: userId,
+          fromLabel: conversation.runtimeLabel,
+          fromProvider: provider,
+          toLabel: target.label,
+          toProvider: target.provider,
+        }),
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
         // A move leaves the conversation exactly where a brand-new one starts:
         // no session anywhere. It used to mint `openabSessionId: randomUUID()`

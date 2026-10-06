@@ -1,10 +1,73 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { claudeHomeSettings, prepareClaudeHome } from './agent-home.ts'
+import { claudeHomeSettings, prepareClaudeHome, prepareCodexHome } from './agent-home.ts'
+
+const CUA_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
+
+function codexFixture(t: { after: (fn: () => void) => void }) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'codex-home-'))
+
+  t.after(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+  const owner = path.join(dir, 'owner')
+
+  mkdirSync(owner)
+  writeFileSync(path.join(owner, 'auth.json'), '{}')
+
+  return { dir, owner, env: { CODEX_HOME: owner } }
+}
+
+test('Codex’s home loads the App’s Computer Use plugin, so its turn-end hook runs', (t) => {
+  const f = codexFixture(t)
+
+  mkdirSync(path.join(f.owner, CUA_CACHE, '26.930'), { recursive: true })
+  writeFileSync(path.join(f.owner, 'config.toml'), '[mcp_servers.private]\n')
+  const home = prepareCodexHome(f.dir, f.env)
+
+  assert.equal(home, path.join(f.dir, 'codex-home'))
+  assert.equal(readlinkSync(path.join(home, 'auth.json')), path.join(f.owner, 'auth.json'))
+  assert.ok(existsSync(path.join(home, CUA_CACHE, '26.930')))
+  const config = readFileSync(path.join(home, 'config.toml'), 'utf8')
+
+  assert.match(config, /^\[plugins\."unified-computer-use@openai-bundled"\]\nenabled = true$/mu)
+  assert.doesNotMatch(config, /private/u)
+  // Codex edits config.toml itself; a relaunch keeps those edits and adds nothing.
+  writeFileSync(
+    path.join(home, 'config.toml'),
+    `${config}[projects."/w"]\ntrust_level = "trusted"\n`,
+  )
+  prepareCodexHome(f.dir, f.env)
+  const relaunched = readFileSync(path.join(home, 'config.toml'), 'utf8')
+
+  assert.match(relaunched, /trust_level/u)
+  assert.equal(relaunched.split('unified-computer-use@openai-bundled').length, 2)
+})
+
+test('Codex’s home refuses to replace a non-link login and needs the owner’s login', (t) => {
+  const f = codexFixture(t)
+  const home = path.join(f.dir, 'codex-home')
+
+  mkdirSync(home)
+  writeFileSync(path.join(home, 'auth.json'), '{}')
+  assert.equal(prepareCodexHome(f.dir, f.env), undefined)
+  rmSync(path.join(f.owner, 'auth.json'))
+  rmSync(path.join(home, 'auth.json'))
+  assert.equal(prepareCodexHome(f.dir, f.env), undefined)
+})
 
 test('Claude Code’s home keeps the owner’s CLAUDE.md files above the workspace out', () => {
   const excludes = claudeHomeSettings('/Users/me/Library/Nuphos/users/u1/workspace')

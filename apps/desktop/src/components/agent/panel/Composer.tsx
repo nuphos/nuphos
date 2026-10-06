@@ -12,6 +12,7 @@ import { ReadOnlyConversationNotice } from './ReadOnlyNotice'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
+import { useComposerMentions } from './useComposerMentions'
 import { useComposerState } from './useComposerState'
 import { useSessionConfig } from './useSessionConfig'
 
@@ -47,6 +48,7 @@ export function Composer({
   dropRegisterRef,
   draftKey,
   onImportSession,
+  mentionScope,
 }: {
   variant?: 'compact' | 'hero'
   onSend: (text: string, filePaths: string[]) => void
@@ -90,6 +92,9 @@ export function Composer({
    *  the new-conversation composer has one; elsewhere the session list keeps
    *  attaching the log as a file. */
   onImportSession?: (session: LocalAgentSessionInfo) => void
+  /** Turns on @teammate mentions; with a session, mentioned outsiders get an
+   *  invite prompt after sending. */
+  mentionScope?: { teamId: string; sessionId?: string }
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -124,11 +129,12 @@ export function Composer({
   })
 
   useComposerDraft(state, readOnly ? undefined : draftKey)
+  const mentions = useComposerMentions(state.ref, state.syncEmpty, mentionScope)
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,
     streaming,
-    onSend,
+    onSend: mentions.wrapSend(onSend),
     pendingSeed,
     onSeedConsumed,
     dropRegisterRef,
@@ -212,6 +218,7 @@ export function Composer({
                 ),
           )}
         >
+          {mentions.ui}
           {filePaths.length > 0 && (
             <AttachmentChips
               filePaths={filePaths}
@@ -235,8 +242,13 @@ export function Composer({
               displayedPlaceholder={state.displayedPlaceholder}
               placeholderRef={state.placeholderRef}
               editorRef={state.ref}
-              onInput={state.syncEmpty}
-              onKeyDown={actions.onKeyDown}
+              onInput={() => {
+                state.syncEmpty()
+                mentions.onInput()
+              }}
+              onKeyDown={(e) => {
+                if (!mentions.onKeyDown(e)) actions.onKeyDown(e)
+              }}
               onPaste={actions.onPaste}
               onCompositionStart={state.onCompositionStart}
               onCompositionEnd={state.onCompositionEnd}

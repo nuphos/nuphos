@@ -16,6 +16,8 @@ import type { RuntimeDefaults } from './runtime-defaults'
 import type { OpenAbProvider } from './runtime-provider'
 
 export type RuntimeInstance = {
+  /** Registered but not reachable from here yet, so nothing can move onto it. */
+  notReady?: true
   id: string
   provider: OpenAbProvider
   label: string

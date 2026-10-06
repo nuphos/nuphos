@@ -15,7 +15,8 @@ function matches(doc: Doc, query: Doc): boolean {
       if ('$exists' in expected) return (actual !== undefined) === expected.$exists
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
-      if ('$ne' in expected) return actual !== expected.$ne
+      if ('$ne' in expected)
+        return Array.isArray(actual) ? !actual.includes(expected.$ne) : actual !== expected.$ne
       if ('$in' in expected) return expected.$in.includes(actual)
     }
 
@@ -43,10 +44,16 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     doc[key] ??= []
     if (!doc[key].includes(value)) doc[key].push(value)
   }
-  for (const [key, value] of Object.entries(mutation.$push ?? {})) {
+  for (const [key, value] of Object.entries<Doc>(mutation.$push ?? {})) {
     doc[key] ??= []
-    doc[key].push(value)
+    if (!value || typeof value !== 'object' || !('$each' in value)) doc[key].push(value)
+    else {
+      doc[key].push(...value.$each)
+      if (value.$slice !== undefined) doc[key] = doc[key].slice(value.$slice)
+    }
   }
+  for (const [key, value] of Object.entries(mutation.$pull ?? {}))
+    doc[key] = (doc[key] ?? []).filter((entry: unknown) => entry !== value)
 }
 export function portabilityDb() {
   const stores = new Map<string, Doc[]>()

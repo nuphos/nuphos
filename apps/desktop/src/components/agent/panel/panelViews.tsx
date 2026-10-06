@@ -158,6 +158,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     sidebar={isSidebarMode}
                     dropRegisterRef={conversationDropRef}
                     draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                    mentionScope={teamId ? { teamId, sessionId: activeTab.sessionId } : undefined}
                   />
                 </DelayedPanelReveal>
               ) : (
@@ -179,6 +180,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   sidebar={isSidebarMode}
                   dropRegisterRef={conversationDropRef}
                   draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                  mentionScope={teamId ? { teamId, sessionId: activeTab.sessionId } : undefined}
                 />
               )}
             </div>

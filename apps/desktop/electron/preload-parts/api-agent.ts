@@ -14,6 +14,8 @@ export const agentApi = {
     ipcRenderer.invoke('agent:getConversationParticipants', sessionId, teamId),
   agentInviteConversationParticipants: (sessionId: string, teamId: string, userIds: string[]) =>
     ipcRenderer.invoke('agent:inviteConversationParticipants', sessionId, teamId, userIds),
+  agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
+    ipcRenderer.invoke('agent:removeConversationParticipant', sessionId, teamId, userId),
   agentImportLocalSession: (args: {
     source: 'claude-code' | 'codex'
     id: string

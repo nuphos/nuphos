@@ -9,7 +9,7 @@ import { generateConversationTitle } from '@/lib/agent/title-generator'
 import { logError } from '@/lib/observability'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
-import { runtimeUsageExhaustedMessage } from './openab-acp-errors'
+import { OpenAbConnectionLostError, runtimeUsageExhaustedMessage } from './openab-acp-errors'
 import { attributeReceipt } from './steering-receipt'
 
 import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
@@ -43,7 +43,10 @@ export function classifyPreviewInterruption(
   error: unknown,
   aborted: boolean,
 ): PreviewTurnInterruption {
-  if (!aborted && error instanceof CodexTurnFailedError)
+  if (
+    !aborted &&
+    (error instanceof CodexTurnFailedError || error instanceof OpenAbConnectionLostError)
+  )
     return { reason: 'error', message: error.userMessage }
   const usageExhausted = aborted ? undefined : runtimeUsageExhaustedMessage(error)
 

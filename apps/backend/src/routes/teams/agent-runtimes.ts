@@ -7,6 +7,7 @@ import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-back
 import {
   listRuntimeInstances,
   requireRuntimeInstance,
+  withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
 import {
   runtimeDefaultsSchema,
@@ -99,9 +100,16 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     )
   })
 
-  teamScoped.get('/agent-runtimes', async (c) =>
-    c.json({ runtimes: await listRuntimeInstances(c.get('teamId'), c.get('userId')) }),
-  )
+  teamScoped.get('/agent-runtimes', async (c) => {
+    const teamId = c.get('teamId')
+
+    return c.json({
+      runtimes: await withRuntimeReadiness(
+        teamId,
+        await listRuntimeInstances(teamId, c.get('userId')),
+      ),
+    })
+  })
   teamScoped.get(
     '/agent-runtimes/:runtimeId/models',
     zv('query', z.object({ model: z.string().trim().min(1).max(500).optional() })),

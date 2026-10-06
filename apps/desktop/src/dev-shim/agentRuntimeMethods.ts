@@ -23,6 +23,14 @@ export const agentRuntimeMethods = {
       appendQuery(`/agent/conversations/${encodeURIComponent(sessionId)}/participants`, { teamId }),
       { userIds },
     ),
+  agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
+    call(
+      'DELETE',
+      appendQuery(
+        `/agent/conversations/${encodeURIComponent(sessionId)}/participants/${encodeURIComponent(userId)}`,
+        { teamId },
+      ),
+    ),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
     call(
       'GET',

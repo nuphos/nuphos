@@ -1,4 +1,5 @@
 import { AlarmClock, Loader2 } from 'lucide-react'
+import { Fragment } from 'react'
 
 import { runtimeAllows, runtimeIsExecuting } from '../../../lib/runtimeExecution'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
@@ -10,6 +11,8 @@ import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
 import { ShellsPanel } from './ShellsPanel'
 import { DEFERRED_MESSAGE_STYLE } from './status'
+import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
+import { placeTimelineEvents } from './timelineEvents'
 import { UserMessage } from './UserMessage'
 import { useTransferDownloads } from './useTransferDownloads'
 
@@ -63,6 +66,10 @@ export function ConversationMessageList({
 }) {
   useReportVisibleError(tab.error, 'agent_conversation_error')
   const downloadsByMessage = useTransferDownloads(tab, teamId)
+  const timeline = placeTimelineEvents(tab.messages, tab.timelineEvents, hasEarlier)
+  // Events newer than the moment this session was opened animate in; the ones
+  // it opened with do not.
+  const openedAt = tab.openedAt ?? 0
 
   return (
     // Match the composer's column and inner padding so messages stay inside its edges.
@@ -107,69 +114,91 @@ export function ConversationMessageList({
           // DEFERRED_MESSAGE_STYLE) so a growing/streaming tail stays live.
           const wrapperStyle = isLast ? undefined : DEFERRED_MESSAGE_STYLE
 
-          return m.role === 'user' ? (
-            <div
-              key={m.id}
-              data-message-id={m.id}
-              className="transition-shadow"
-              style={wrapperStyle}
-            >
-              <UserMessage
-                message={m}
-                onApprovePlan={onApprovePlan}
-                onRejectPlan={onRejectPlan}
-                canActOnPlans={
-                  (runtimeAllows(tab.runtimeState, 'send') ||
-                    runtimeAllows(tab.runtimeState, 'reply')) &&
-                  !tab.readOnly
-                }
-                onOpenNuphosLink={onOpenNuphosLink}
-              />
-            </div>
-          ) : (
-            <div
-              key={m.id}
-              data-message-id={m.id}
-              className="transition-shadow"
-              style={wrapperStyle}
-            >
-              {m.turnOrigin === 'autonomous' && (
-                <div className="mb-4 flex items-center gap-2 text-[11.5px] text-tertiary">
-                  <AlarmClock className="h-3.5 w-3.5" />
-                  <span className="whitespace-nowrap">Resumed automatically</span>
-                  <div className="h-px flex-1 bg-border/60" />
-                </div>
-              )}
-              <AssistantMessage
-                message={m}
-                teamId={teamId}
-                sessionId={tab.sessionId}
-                currentUrl={currentUrl}
-                streaming={isStreamingMessage}
-                now={isStreamingMessage ? now : 0}
-                downloadGroups={downloadsByMessage.get(m.id)}
-                prevCreatedAt={m.turnOrigin === 'autonomous' ? undefined : prevCreatedAt}
-                isLatestReply={isLast}
-                onStop={onStop}
-                onApprovePlan={onApprovePlan}
-                onRejectPlan={onRejectPlan}
-                activePlanCanAct={activePlanCanAct ?? null}
-                canActOnPlans={
-                  (runtimeAllows(tab.runtimeState, 'send') ||
-                    runtimeAllows(tab.runtimeState, 'reply')) &&
-                  !tab.readOnly
-                }
-                isTeamAdmin={isTeamAdmin}
-                onOpenNuphosLink={onOpenNuphosLink}
-                // Feedback is owner-only (backend 403s otherwise); read-only
-                // team views get copy + time but no vote buttons.
-                onMessageFeedback={tab.readOnly || tab.foreign ? undefined : onMessageFeedback}
-                onRequestFeedbackComment={onRequestFeedbackComment}
-              />
-            </div>
+          const message =
+            m.role === 'user' ? (
+              <div
+                key={m.id}
+                data-message-id={m.id}
+                className="transition-shadow"
+                style={wrapperStyle}
+              >
+                <UserMessage
+                  message={m}
+                  onApprovePlan={onApprovePlan}
+                  onRejectPlan={onRejectPlan}
+                  canActOnPlans={
+                    (runtimeAllows(tab.runtimeState, 'send') ||
+                      runtimeAllows(tab.runtimeState, 'reply')) &&
+                    !tab.readOnly
+                  }
+                  onOpenNuphosLink={onOpenNuphosLink}
+                />
+              </div>
+            ) : (
+              <div
+                key={m.id}
+                data-message-id={m.id}
+                className="transition-shadow"
+                style={wrapperStyle}
+              >
+                {m.turnOrigin === 'autonomous' && (
+                  <div className="mb-4 flex items-center gap-2 text-[11.5px] text-tertiary">
+                    <AlarmClock className="h-3.5 w-3.5" />
+                    <span className="whitespace-nowrap">Resumed automatically</span>
+                    <div className="h-px flex-1 bg-border/60" />
+                  </div>
+                )}
+                <AssistantMessage
+                  message={m}
+                  teamId={teamId}
+                  sessionId={tab.sessionId}
+                  currentUrl={currentUrl}
+                  streaming={isStreamingMessage}
+                  now={isStreamingMessage ? now : 0}
+                  downloadGroups={downloadsByMessage.get(m.id)}
+                  prevCreatedAt={m.turnOrigin === 'autonomous' ? undefined : prevCreatedAt}
+                  isLatestReply={isLast}
+                  onStop={onStop}
+                  onApprovePlan={onApprovePlan}
+                  onRejectPlan={onRejectPlan}
+                  activePlanCanAct={activePlanCanAct ?? null}
+                  canActOnPlans={
+                    (runtimeAllows(tab.runtimeState, 'send') ||
+                      runtimeAllows(tab.runtimeState, 'reply')) &&
+                    !tab.readOnly
+                  }
+                  isTeamAdmin={isTeamAdmin}
+                  onOpenNuphosLink={onOpenNuphosLink}
+                  // Feedback is owner-only (backend 403s otherwise); read-only
+                  // team views get copy + time but no vote buttons.
+                  onMessageFeedback={tab.readOnly || tab.foreign ? undefined : onMessageFeedback}
+                  onRequestFeedbackComment={onRequestFeedbackComment}
+                />
+              </div>
+            )
+
+          return (
+            <Fragment key={m.id}>
+              {timeline.before.get(m.id)?.map((event) => (
+                <TimelineEventLine
+                  key={`${event.at}-${event.text}`}
+                  event={event}
+                  reveal={Date.parse(event.at) > openedAt}
+                />
+              ))}
+              {message}
+            </Fragment>
           )
         })
       )}
+      {timeline.trailing.map((event) => (
+        <TimelineEventLine
+          key={`${event.at}-${event.text}`}
+          event={event}
+          reveal={Date.parse(event.at) > openedAt}
+        />
+      ))}
+      {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
       <ShellsPanel snapshot={tab.runtimeState} />
       {statusLabel && (
         <div className="text-[13.5px] flex items-center gap-2">

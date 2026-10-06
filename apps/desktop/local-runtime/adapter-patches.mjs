@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-
 import { nuphosDesktopClaudeEnv } from './claude-session-env.mjs'
 import { nuphosLocalSyncSkills } from './skills-sync.mjs'
 
@@ -33,22 +31,6 @@ export function patchDesktopAdapter(source, provider) {
     'await nuphosSyncRuntimeSkills(params);',
     'await nuphosLocalSyncSkills(params);',
   )
-  // Only Codex has this session-config handoff.
-  const cuaAnchor = 'Object.entries(config.mcp_servers ?? {}).map'
-
-  if (patched.includes('export function nuphosCodexSessionConfig(')) {
-    patched = replaceOnce(
-      patched,
-      cuaAnchor,
-      'Object.entries(nuphosLocalCodexMcpServers(config, processEnv)).map',
-    )
-    const cua = readFileSync(new URL('./codex-cua.mjs', import.meta.url), 'utf8').replace(
-      'export function',
-      'function',
-    )
-
-    patched += `\n${cua}`
-  }
   if (provider === 'claude-code') {
     patched = replaceOnce(
       patched,

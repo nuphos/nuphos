@@ -6,8 +6,10 @@ extension ChatRow {
         var rows: [ChatRow] = []
         let messages = session.messages
         let lastApprovalCallId = session.canReply ? lastPendingApproval(in: messages) : nil
+        let timeline = placeTimeline(session.timelineEvents, messageDates: messages.map(\.createdAt), hasEarlier: session.baseIndex > 0)
 
         for (index, message) in messages.enumerated() {
+            rows.append(contentsOf: (timeline.before[index] ?? []).map(timelineRow))
             let previous = index > 0 ? messages[index - 1].createdAt : nil
             switch message.role {
             case .user:
@@ -33,6 +35,7 @@ extension ChatRow {
                 continue
             }
         }
+        rows.append(contentsOf: timeline.trailing.map(timelineRow))
 
         if session.submitting {
             rows.append(.activity(text: "Sending…"))

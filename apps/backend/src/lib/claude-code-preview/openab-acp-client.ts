@@ -1,5 +1,5 @@
 import { connectOpenAbAcpSocket } from './openab-acp-connect.ts'
-import { cancelSession, settlePendingCall } from './openab-acp-errors.ts'
+import { OpenAbConnectionLostError, cancelSession, settlePendingCall } from './openab-acp-errors.ts'
 import { OpenAbAcpLifecycle, attachmentPrompt } from './openab-acp-lifecycle.ts'
 import { answerPermissionRequest } from './openab-acp-permission.ts'
 import {
@@ -272,12 +272,12 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     this.socket.close()
   }
 
-  private readonly onDisconnect = () => {
+  private readonly onDisconnect = (event?: { reason?: string }) => {
     if (this.disconnected) return
     this.disconnected = true
     if (this.retireTimer) clearTimeout(this.retireTimer)
     this.retireTimer = undefined
-    const error = new Error('OpenAB ACP connection closed')
+    const error = new OpenAbConnectionLostError(event?.reason)
 
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer)

@@ -270,6 +270,8 @@ export function serializeConversationDoc(conversation: Record<string, unknown>) 
     _id,
     runtimeOperation: _runtimeOperation,
     previousRuntimeUrls: _previousRuntimeUrls,
+    // Raw ids; the detail route sends them rendered (conversation-timeline.ts).
+    timelineEvents: _timelineEvents,
     ...rest
   } = conversation
 

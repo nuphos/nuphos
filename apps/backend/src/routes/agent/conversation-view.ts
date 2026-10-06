@@ -13,7 +13,7 @@ import { serializeConversationDoc } from './transcript'
 import type { NuphosUser } from '@/lib/identity'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
 
-type ConversationOwner = Pick<NuphosUser, 'id' | 'name' | 'email' | 'avatarURL'> & {
+export type ConversationOwner = Pick<NuphosUser, 'id' | 'name' | 'email' | 'avatarURL'> & {
   // Former member (removed from the team, or account deleted). Clients render
   // these dimmed with a "Deactivated" tag.
   deactivated?: boolean
