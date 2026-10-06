@@ -87,12 +87,11 @@ test('actions bound before a session switch act on the session current when they
   actions.setDockOpen(true)
   const sessionATabs = tabIds(selectCurrentBucket(store.getState()).tabs)
 
-  actions.selectSession('session-b')
   switchTeam(TEAM_B)
   openTab(createTab(TEAM_B))
 
   assert.deepEqual(tabIds(selectBucket(store.getState(), 'session-a').tabs), sessionATabs)
-  assert.equal(selectBucket(store.getState(), 'session-b').tabs.length, 2)
+  assert.equal(selectBucket(store.getState(), NO_SESSION_TAB_BUCKET_KEY).tabs.length, 2)
   assert.deepEqual(selectScope(store.getState()), { kind: 'team', teamId: TEAM_B })
 })
 
@@ -178,7 +177,7 @@ test('closing a tab falls back to its left neighbour and keeps the dock open', (
   assert.equal(bucket.dockOpen, true)
 })
 
-test('switchTeam replaces the current session’s strip only', () => {
+test('switchTeam leaves the open session’s dock alone and lands on a new chat', () => {
   const { store, actions } = setup()
 
   actions.retainTeams([TEAM_A, TEAM_B], TEAM_A)
@@ -186,11 +185,25 @@ test('switchTeam replaces the current session’s strip only', () => {
   actions.setDockOpen(true)
   const sessionATabs = tabIds(selectCurrentBucket(store.getState()).tabs)
 
-  actions.selectSession('session-b')
   actions.switchTeam(TEAM_B)
 
   assert.deepEqual(tabIds(selectBucket(store.getState(), 'session-a').tabs), sessionATabs)
+  assert.equal(store.getState().sessionId, null)
   assert.equal(selectActiveTab(store.getState())?.scope.teamId, TEAM_B)
+})
+
+test('a session opened after switching teams back keeps its own team', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A, TEAM_B], TEAM_B)
+  actions.selectSession('session-b')
+  actions.setDockOpen(true)
+  actions.switchTeam(TEAM_A)
+  actions.selectSession('session-a')
+  actions.switchTeam(TEAM_B)
+  actions.selectSession('session-b')
+
+  assert.deepEqual(selectScope(store.getState()), { kind: 'team', teamId: TEAM_B })
 })
 
 test('the keep-alive set tracks visited tabs and forgets closed ones', () => {
