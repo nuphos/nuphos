@@ -16,6 +16,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
+import type { OpenAbProvider } from './runtime-provider'
 
 const previousKey = config.claudeCodePreview.tokenEncryptionKey
 const FLEET_VERSION = '0.3.1'
@@ -58,7 +59,7 @@ function json(method: string, body: unknown) {
 async function add(
   server: ReturnType<typeof app>,
   label: string,
-  provider: 'claude-code' | 'codex' = 'codex',
+  provider: OpenAbProvider = 'codex',
 ) {
   const response = await server.request('/agent-runtimes', json('POST', { label, provider }))
 

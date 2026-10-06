@@ -97,7 +97,7 @@ test('each provider follows the newest release that published it', async () => {
     `ghcr.io/nuphos/runtime:${version}-${provider}`
   const all = ['claude-code', 'codex', 'grok', 'antigravity']
 
-  globalThis.fetch = (async () =>
+  globalThis.fetch = (async (_url: string | URL | Request) =>
     Response.json([
       { tag_name: 'runtime-v0.2.1', body: image('0.2.1', 'claude-code') },
       {

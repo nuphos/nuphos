@@ -214,7 +214,7 @@ describe('runtime object builders', () => {
 })
 
 describe('reconcileHostedRuntimes', () => {
-  test.each(OPENAB_PROVIDERS)(
+  test.each([...OPENAB_PROVIDERS])(
     'deploys a %s agent as the self-hosted image started with its own password',
     async (provider) => {
       const agent = await addAgent(provider)
