@@ -60,50 +60,39 @@ export function serviceAccountName(serviceAccountEmail: string): string {
 export function buildAwsCredentialSections(
   roles: AgentCredentialOptions['awsRoles'],
 ): CredentialSection[] {
-  const sections = new Map<string, CredentialSection>()
+  if (roles.length === 0) return []
 
-  for (const role of roles) {
-    const section = sections.get(role.accountId) ?? {
-      id: role.accountId,
-      provider: 'aws' as const,
-      title: role.accountAlias || role.accountId,
-      subtitle: role.accountAlias ? role.accountId : undefined,
-      items: [],
-    }
-
-    section.items.push({
-      id: role.roleId,
-      label: awsRoleName(role.roleArn),
-      sublabel: role.roleArn,
-    })
-    sections.set(role.accountId, section)
-  }
-
-  return Array.from(sections.values())
+  return [
+    {
+      id: 'aws',
+      provider: 'aws',
+      title: 'AWS',
+      items: roles.map((role) => ({
+        id: role.roleId,
+        label: `${role.accountAlias || role.accountId} · ${awsRoleName(role.roleArn)}`,
+        sublabel: role.roleArn,
+      })),
+    },
+  ]
 }
 
 export function buildGcpCredentialSections(
   serviceAccounts: AgentCredentialOptions['gcpServiceAccounts'],
 ): CredentialSection[] {
-  const sections = new Map<string, CredentialSection>()
+  if (serviceAccounts.length === 0) return []
 
-  for (const account of serviceAccounts) {
-    const section = sections.get(account.projectId) ?? {
-      id: account.projectId,
-      provider: 'gcp' as const,
-      title: account.projectId,
-      items: [],
-    }
-
-    section.items.push({
-      id: account.serviceAccountId,
-      label: serviceAccountName(account.serviceAccountEmail),
-      sublabel: account.serviceAccountEmail,
-    })
-    sections.set(account.projectId, section)
-  }
-
-  return Array.from(sections.values())
+  return [
+    {
+      id: 'gcp',
+      provider: 'gcp',
+      title: 'GCP',
+      items: serviceAccounts.map((account) => ({
+        id: account.serviceAccountId,
+        label: `${account.projectId} · ${serviceAccountName(account.serviceAccountEmail)}`,
+        sublabel: account.serviceAccountEmail,
+      })),
+    },
+  ]
 }
 
 export function buildOnpremCredentialSections(
