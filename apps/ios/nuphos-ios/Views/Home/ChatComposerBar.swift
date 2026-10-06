@@ -353,7 +353,7 @@ struct BrandLogo: View {
         Theme.canvas.ignoresSafeArea()
         ChatComposerBar(text: $text, onSend: { _ in }) {
             ComposerChip(systemImage: "key", title: "Credentials")
-            ComposerChip(systemImage: "checkmark.shield", title: "Auto Mode")
+            ComposerChip(title: "Auto Mode")
         }
     }
 }

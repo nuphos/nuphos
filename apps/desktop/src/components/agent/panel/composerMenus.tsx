@@ -1,15 +1,7 @@
 import { faFolder, faPaperclip } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import {
-  ChevronDown,
-  ChevronRight,
-  FileSearch,
-  Loader2,
-  Plus,
-  ShieldCheck,
-  ShieldOff,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, FileSearch, Loader2, Plus } from 'lucide-react'
 
 import {
   Menu,
@@ -224,11 +216,6 @@ export function BypassControlMenu({
         )}
         title="Choose how commands in this conversation are authorized"
       >
-        {bypassControl.active ? (
-          <ShieldOff className="w-3.5 h-3.5" strokeWidth={2} />
-        ) : (
-          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={2} />
-        )}
         <span className="text-[12.5px] font-medium">
           {bypassControl.active ? 'Full Access' : 'Auto Mode'}
         </span>
@@ -236,7 +223,6 @@ export function BypassControlMenu({
       </MenuTrigger>
       <MenuContent side="top" align="start" className="w-64">
         <MenuItem
-          icon={<ShieldCheck className="w-3.5 h-3.5" strokeWidth={2} />}
           selected={!bypassControl.active}
           onClick={() => bypassControl.onSelect(false)}
         >
@@ -246,7 +232,6 @@ export function BypassControlMenu({
           </div>
         </MenuItem>
         <MenuItem
-          icon={<ShieldOff className="w-3.5 h-3.5" strokeWidth={2} />}
           selected={bypassControl.active}
           onClick={() => bypassControl.onSelect(true)}
         >

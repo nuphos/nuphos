@@ -129,7 +129,7 @@ struct ComposerControls: View {
         .sheet(isPresented: $showDevices) { CredentialPickerSheet(selection: $selection, scope: .devices) }
 
         Button { showModes = true } label: {
-            ComposerChip(systemImage: mode.systemImage, title: mode.title, isActive: mode == .bypass)
+            ComposerChip(title: mode.title, isActive: mode == .bypass)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Permission mode")
@@ -201,10 +201,6 @@ struct PermissionModeSheet: View {
                         dismiss()
                     } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: option.systemImage)
-                                .font(.system(size: 18, weight: .medium))
-                                .frame(width: 28)
-                                .foregroundStyle(option == .bypass ? Color.orange : Theme.heading)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(option.title).font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.heading)
                                 Text(option.subtitle).font(.system(size: 13)).foregroundStyle(Theme.muted)
