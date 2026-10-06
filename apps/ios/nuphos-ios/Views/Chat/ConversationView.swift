@@ -286,8 +286,8 @@ struct ConversationView: View {
         switch row {
         case .timestamp(_, let date):
             TimestampLabel(date: date)
-        case .user(_, _, let text, let images, let sender):
-            UserBubble(text: text, images: images, sender: sender)
+        case .user(_, _, let text, let images, let sender, let transfers):
+            UserBubble(text: text, images: images, sender: sender, transfers: transfers, resolve: session.transferFiles)
         case .assistantText(_, _, let text, let streaming):
             AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:))
         case .reasoning(_, let part):
@@ -330,6 +330,8 @@ struct UserBubble: View {
     let text: String
     var images: [String] = []
     var sender: ChatMessage.Sender?
+    var transfers: [TransferUpload] = []
+    var resolve: (String) async -> [WorkspaceAPI.DownloadedFile]? = { _ in nil }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
@@ -351,6 +353,9 @@ struct UserBubble: View {
                     }
                 }
             }
+            ForEach(transfers, id: \.groupId) { transfer in
+                TransferAttachments(transfer: transfer, resolve: resolve)
+            }
             if !text.isEmpty {
                 Text(text)
                     .font(Theme.Text.body)
@@ -364,6 +369,42 @@ struct UserBubble: View {
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.leading, 56)
+    }
+}
+
+/// Attachments sent through the transfer store: images from fresh signed
+/// links while the transfer lives, filename cards once it has expired.
+struct TransferAttachments: View {
+    let transfer: TransferUpload
+    let resolve: (String) async -> [WorkspaceAPI.DownloadedFile]?
+    /// nil while loading; empty once the links can no longer be signed.
+    @State private var files: [WorkspaceAPI.DownloadedFile]?
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            let images = (files ?? []).filter(\.isImage).compactMap(\.url)
+            if !images.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(images.prefix(4), id: \.self) { url in
+                        AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Theme.bubble }
+                            .frame(width: 96, height: 96)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .accessibilityLabel("Attached image")
+                    }
+                }
+            }
+            ForEach(Array(transfer.files.enumerated()), id: \.offset) { index, file in
+                if let files, !(files.indices.contains(index) && files[index].isImage && files[index].url != nil) {
+                    Label(file.fileName, systemImage: "doc")
+                        .font(Theme.Text.label)
+                        .foregroundStyle(Theme.muted)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+        .task(id: transfer.groupId) { files = await resolve(transfer.groupId) ?? [] }
     }
 }
 

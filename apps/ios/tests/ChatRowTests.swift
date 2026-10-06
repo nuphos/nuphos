@@ -4,6 +4,7 @@ enum ChatRowTests {
     static func run() {
         rendersUploadedFilesWithoutTransportInstructions()
         preservesHistoricalImages()
+        readsSentAndPersistedTransferUploads()
         preservesVerifiedSender()
         decodesSharedConversationPermissions()
         groupsThinkingButNotNarration()
@@ -54,6 +55,19 @@ enum ChatRowTests {
                 precondition(part["type"] as? String == "file" && part["filename"] as? String == "photo.jpg")
             }
         }
+    }
+
+    private static func readsSentAndPersistedTransferUploads() {
+        let upload = TransferUpload(groupId: "g1", files: [.init(fileName: "Photo.jpg", size: 2_600_000)])
+        precondition(TransferUpload(upload.part) == upload, "The sent data-attachment part must read back")
+        let wire = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(upload.part)) as! [String: Any]
+        precondition(wire["type"] as? String == "data-attachment" && (wire["data"] as? [String: Any])?["type"] as? String == "transfer-upload")
+        // The backend persists the bare part; reopened history must still find it.
+        let persisted = try! JSONDecoder().decode(ChatPart.self, from: JSONSerialization.data(withJSONObject: wire["data"]!))
+        precondition(TransferUpload(persisted) == upload, "The persisted transfer-upload part must read back")
+        let failed = try! JSONDecoder().decode(ChatPart.self, from: JSONSerialization.data(withJSONObject: ["type": "transfer-upload", "groupId": "g2", "status": "error", "files": []]))
+        precondition(TransferUpload(failed) == nil, "Failed uploads are not attachments")
+        precondition(upload.instruction.contains("transfer group g1"))
     }
 
     private static func preservesVerifiedSender() {

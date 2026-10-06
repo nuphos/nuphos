@@ -5,7 +5,7 @@ import Foundation
 /// rows in place instead of replacing them; the content is what changes.
 enum ChatRow: Identifiable, Equatable {
     case timestamp(id: String, date: Date)
-    case user(id: String, messageId: String, text: String, images: [String], sender: ChatMessage.Sender? = nil)
+    case user(id: String, messageId: String, text: String, images: [String], sender: ChatMessage.Sender? = nil, transfers: [TransferUpload] = [])
     case assistantText(id: String, messageId: String, text: String, streaming: Bool)
     case reasoning(id: String, part: ChatPart.ReasoningPart)
     case tool(id: String, messageId: String, part: ChatPart.ToolPart, canDecide: Bool)
@@ -41,7 +41,7 @@ enum ChatRow: Identifiable, Equatable {
 
     var id: String {
         switch self {
-        case .timestamp(let id, _), .user(let id, _, _, _, _), .assistantText(let id, _, _, _),
+        case .timestamp(let id, _), .user(let id, _, _, _, _, _), .assistantText(let id, _, _, _),
              .reasoning(let id, _), .tool(let id, _, _, _), .toolRun(let id, _, _, _), .work(let id, _, _),
              .memory(let id, _, _), .memoryRecall(let id, _, _), .hint(let id, _, _):
             return id

@@ -29,6 +29,13 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
         return "data:image/jpeg;base64," + data.base64EncodedString()
     }
 
+    /// Photos are stored as JPEG whatever they were picked as.
+    var uploadName: String {
+        guard isImage else { return name }
+        let base = (name as NSString).deletingPathExtension
+        return (base.isEmpty ? "Photo" : base) + ".jpg"
+    }
+
     var fileExtension: String {
         if case .file(let url) = kind { return url.pathExtension.uppercased() }
         return "JPG"

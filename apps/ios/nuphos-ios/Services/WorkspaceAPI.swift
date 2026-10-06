@@ -25,46 +25,71 @@ enum WorkspaceAPI {
         }
     }
 
-    static func upload(token: String, team: String, attachments: [ComposerAttachment]) async throws -> String {
+    /// Uploads photos and files straight to the transfer store, so the chat
+    /// request only carries a reference however large the attachments are.
+    static func upload(token: String, team: String, attachments: [ComposerAttachment]) async throws -> TransferUpload {
         struct Intent: Decodable {
             struct File: Decodable { let relPath: String; let uploadUrl: String }
             let groupId: String
             let files: [File]
         }
         struct Ready: Decodable { let status: String }
-        let files = try attachments.enumerated().map { index, attachment -> (String, URL, Int, String) in
-            guard case .file(let url) = attachment.kind else { throw NuphosAPI.Failure.invalidResponse }
-            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        let files = try attachments.enumerated().map { index, attachment -> (relPath: String, name: String, size: Int, type: String) in
+            let size: Int
+            let type: String
+            switch attachment.kind {
+            case .image(let data):
+                size = data.count
+                type = "image/jpeg"
+            case .file(let url):
+                size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+            }
             guard size > 0, size <= 100 * 1024 * 1024 else {
                 throw NuphosAPI.Failure.http(400, message: "Choose files between 1 byte and 100 MB.")
             }
-            let name = "\(index + 1)-" + attachment.name.replacingOccurrences(of: "/", with: "_")
-            let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-            return (name, url, size, type)
+            return ("\(index + 1)-" + attachment.uploadName.replacingOccurrences(of: "/", with: "_"), attachment.uploadName, size, type)
         }
         let path = "teams/\(team)/file-transfers"
         let intent: Intent = try await request(path, token: token, method: "POST", body: .object([
             "direction": .string("upload"),
-            "files": .array(files.enumerated().map { index, file in .object(["fileName": .string(attachments[index].name), "relPath": .string(file.0), "size": .number(Double(file.2)), "contentType": .string(file.3)]) })
+            "files": .array(files.map { file in .object(["fileName": .string(file.name), "relPath": .string(file.relPath), "size": .number(Double(file.size)), "contentType": .string(file.type)]) })
         ]))
         guard intent.files.count == files.count else { throw NuphosAPI.Failure.invalidResponse }
         for item in intent.files {
-            guard let file = files.first(where: { $0.0 == item.relPath }), let url = URL(string: item.uploadUrl), url.scheme == "https" else { throw NuphosAPI.Failure.invalidResponse }
+            guard let index = files.firstIndex(where: { $0.relPath == item.relPath }), let url = URL(string: item.uploadUrl), url.scheme == "https" else { throw NuphosAPI.Failure.invalidResponse }
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.timeoutInterval = 180
-            request.setValue(file.3, forHTTPHeaderField: "Content-Type")
+            request.setValue(files[index].type, forHTTPHeaderField: "Content-Type")
             // Presigned storage requests never receive the Nuphos bearer token.
-            let (_, response) = try await URLSession.shared.upload(for: request, fromFile: file.1)
-            if let http = response as? HTTPURLResponse, http.statusCode == 413 {
-                throw ChatPayload.TooLarge()
+            let response: URLResponse
+            switch attachments[index].kind {
+            case .image(let data): (_, response) = try await URLSession.shared.upload(for: request, from: data)
+            case .file(let file): (_, response) = try await URLSession.shared.upload(for: request, fromFile: file)
             }
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-                throw NuphosAPI.Failure.http(502, message: "Couldn't upload \(file.0). Your message has not been sent; try again.")
+                throw NuphosAPI.Failure.http(502, message: "Couldn't upload \(files[index].name). Your message has not been sent; try again.")
             }
         }
         let ready: Ready = try await request(path + "/\(intent.groupId)/finalize", token: token, method: "POST")
         guard ready.status == "ready" else { throw NuphosAPI.Failure.http(409, message: "Files are not ready yet. Please retry.") }
-        return "[The user uploaded \(files.count) file(s) to the Nuphos file-transfer store (transfer group \(intent.groupId)): \(attachments.map { $0.name }.joined(separator: ", ")). To work with them, load the file-transfer skill and pull them into the sandbox: bash skills/file-transfer/scripts/transfer-pull.sh \"$TEAM\" \(intent.groupId) ./uploads]"
+        return TransferUpload(groupId: intent.groupId, files: files.map { .init(fileName: $0.name, size: $0.size) })
+    }
+
+    struct DownloadedFile: Decodable, Equatable {
+        let fileName: String
+        let contentType: String?
+        let downloadUrl: String?
+
+        var url: URL? { downloadUrl.flatMap(URL.init(string:)).flatMap { $0.scheme == "https" ? $0 : nil } }
+        var isImage: Bool { contentType?.hasPrefix("image/") == true }
+    }
+
+    /// Fresh signed links for an uploaded group; throws once it has expired.
+    static func downloads(token: String, team: String, groupId: String) async throws -> [DownloadedFile] {
+        struct Group: Decodable { let files: [DownloadedFile] }
+        let group: Group = try await request("teams/\(team)/file-transfers/\(groupId)/download", token: token)
+        return group.files
     }
 }

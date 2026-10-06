@@ -21,8 +21,9 @@ extension ChatRow {
                     if case .file(let f) = part, f.mediaType.hasPrefix("image/") { return f.url }
                     return nil
                 }
-                if !text.isEmpty || !images.isEmpty {
-                    rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender ?? (session.sentHere.contains(message.id) ? session.me : nil)))
+                let transfers = message.parts.compactMap(TransferUpload.init)
+                if !text.isEmpty || !images.isEmpty || !transfers.isEmpty {
+                    rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender ?? (session.sentHere.contains(message.id) ? session.me : nil), transfers: transfers))
                 }
             case .assistant:
                 let isLive = session.isStreaming && index == messages.count - 1
