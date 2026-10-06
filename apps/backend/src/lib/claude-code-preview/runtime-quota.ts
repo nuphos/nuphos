@@ -260,6 +260,16 @@ export function fetchRuntimeQuota(
   // Answered from the instance alone, so there is nothing to ask and nothing to
   // hold: an agent re-enabled a moment ago must not read as disabled for the
   // length of a cache entry.
+  // Only Claude and ChatGPT expose an account's usage windows; another agent's
+  // credential would be misread as a Claude sign-out.
+  if (instance.provider !== 'claude-code' && instance.provider !== 'codex')
+    return Promise.resolve(
+      unavailable(
+        instance,
+        new Date().toISOString(),
+        `Nuphos cannot read ${runtimeLabel(instance.provider)} usage yet`,
+      ),
+    )
   if (instance.kind === 'local') return Promise.resolve(localQuota(instance))
   if (instance.status === 'disabled')
     return Promise.resolve(unavailable(instance, new Date().toISOString(), 'Agent is disabled'))

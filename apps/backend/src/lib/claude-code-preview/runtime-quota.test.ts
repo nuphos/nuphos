@@ -153,6 +153,17 @@ test("the agent's own reason is what the user sees", async () => {
   })
 })
 
+test('an agent without a usage API is never probed as Claude', async () => {
+  const { deps, calls } = probing({ error: 'Sign in required' })
+  const grok: RuntimeInstance = { ...claude, id: 'grok-1', provider: 'grok', label: 'Grok' }
+
+  expect(await fetchRuntimeQuota('t', grok, Date.now, deps)).toMatchObject({
+    available: false,
+    reason: 'Nuphos cannot read Grok Build usage yet',
+  })
+  expect(calls()).toBe(0)
+})
+
 const onOwnComputer = (
   usage?: unknown,
   signedIn: boolean | null = true,
