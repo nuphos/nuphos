@@ -9,8 +9,9 @@ import { composerDraftKey } from './composerDrafts'
 import { ConnectorStrip } from './hero'
 import { RevealedHistoryBlock } from './historyRows'
 import { AgentHomeAnimation, DelayedPanelReveal } from './homeAnimation'
-import { StarterSuggestionsBlock } from './starterSuggestions'
+import { HomeWidgets } from './HomeWidgets'
 import { LocalAgentHint } from './LocalAgentHint'
+import { StarterSuggestionsBlock } from './starterSuggestions'
 import { homeGreeting } from './textUtils'
 import { useEntranceCount } from './useEntranceCount'
 
@@ -179,6 +180,7 @@ export function AgentHomePage({
                   />
                 </RevealedHistoryBlock>
               )}
+            {teamId && !unbound && <HomeWidgets key={teamId} teamId={teamId} />}
           </div>
         </div>
       </div>
