@@ -5,6 +5,8 @@ import {
   isRuntimeAuthRequired,
   RUNTIME_AUTH_REQUIRED_CODE,
   RUNTIME_AUTH_REQUIRED_MESSAGE,
+  RUNTIME_USAGE_EXHAUSTED_CODE,
+  runtimeUsageExhaustedMessage,
 } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AppError } from '@/lib/errors'
 import { errorTelemetryProperties } from '@/lib/observability'
@@ -59,6 +61,8 @@ export function formatAgentStreamError(error: unknown): string {
   // transport failure. Every client — including those that do not read
   // errorCode yet — gets the sentence instead of the gateway's -32000 wrapper.
   if (isRuntimeAuthRequired(error)) return RUNTIME_AUTH_REQUIRED_MESSAGE
+  const usageExhausted = runtimeUsageExhaustedMessage(error)
+  if (usageExhausted) return usageExhausted
   const message = getErrorMessage(error)
 
   // The Bedrock provider sometimes prefixes messages with a literal
@@ -89,6 +93,7 @@ function agentStreamErrorCode(
   // The ACP refusal carries its code as a JSON-RPC number, which telemetry
   // normalization drops (it only lifts string codes), so name it here.
   if (isRuntimeAuthRequired(error)) return RUNTIME_AUTH_REQUIRED_CODE
+  if (runtimeUsageExhaustedMessage(error)) return RUNTIME_USAGE_EXHAUSTED_CODE
   if (error instanceof AppError) return error.code
   const providerCode = diagnostics.provider_error_code
 

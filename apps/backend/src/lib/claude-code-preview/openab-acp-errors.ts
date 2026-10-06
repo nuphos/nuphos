@@ -50,6 +50,25 @@ export function isRuntimeAuthRequired(error: unknown): boolean {
   )
 }
 
+/**
+ * The provider answered the agent with HTTP 402: the account has no usage left
+ * (Grok Build reports `usage balance exhausted`). Only credits or a reset fix it,
+ * so it is a product state, not a transport failure.
+ */
+const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\):\s*(.*?)(?:\s+requestId=\S+)?$/mu
+
+export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'
+
+/** The sentence a client shows for a provider that refuses to bill, or undefined. */
+export function runtimeUsageExhaustedMessage(error: unknown): string | undefined {
+  if (!(error instanceof OpenAbRpcError)) return undefined
+  const match = PROVIDER_PAYMENT_REQUIRED.exec(error.message)
+  if (!match) return undefined
+  const reason = match[1]?.trim()
+
+  return `This agent’s provider account has no usage left${reason ? ` (${reason})` : ''}. Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.`
+}
+
 export function isSessionOutputSinkUnavailable(error: unknown): boolean {
   return error instanceof Error && error.message.includes(SESSION_OUTPUT_SINK_UNAVAILABLE)
 }
