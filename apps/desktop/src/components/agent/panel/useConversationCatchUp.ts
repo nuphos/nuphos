@@ -50,10 +50,12 @@ export function useConversationCatchUp(acc: Acc): void {
 
   useEffect(() => {
     if (!visible || !activeTab?.sessionId) return
+    // Until a runtime is attached, the backend has nothing to report: a turn this
+    // tab is starting creates the session itself, and its first runtime frame
+    // attaches the tab. Probing earlier reads "disconnected" ("Connection lost").
     if (
       !activeTab.claudeCodeRuntimeAttached &&
-      activeTab.messages.length === 0 &&
-      !activeTab.streaming
+      (activeTab.messages.length === 0 || activeTab.streaming)
     )
       return
     const sessionId = activeTab.sessionId

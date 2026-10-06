@@ -5,8 +5,6 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "dev:web": "NO_ELECTRON=1 vite --no-clearScreen",
     "build": "tsc -b --noEmit && vite build",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",

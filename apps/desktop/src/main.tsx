@@ -9,7 +9,6 @@ import './styles/transitions.css'
 import App from './App.tsx'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ToastProvider } from './components/ui/ToastProvider'
-import { installDevShim } from './devShim'
 import { ThemeProvider } from './hooks/ThemeProvider'
 import { initAnalytics, track } from './lib/analytics'
 import { showFirstLaunchIntro } from './lib/firstLaunchIntro'
@@ -19,7 +18,6 @@ import { isMac } from './lib/platform'
 // injecting it again at runtime (prevents the brief flash of oversized icons).
 config.autoAddCss = false
 
-installDevShim()
 initAnalytics()
 track('app_ready')
 

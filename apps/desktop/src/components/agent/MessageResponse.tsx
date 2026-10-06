@@ -1,8 +1,7 @@
 import { cjk as cjkPlugin } from '@streamdown/cjk'
 import { createCodePlugin } from '@streamdown/code'
 import clsx from 'clsx'
-import { Check, Copy } from 'lucide-react'
-import { isValidElement, memo, useMemo, useState } from 'react'
+import { isValidElement, memo, useMemo } from 'react'
 
 import type { ComponentProps, MouseEvent, ReactNode } from 'react'
 
@@ -33,55 +32,6 @@ function extractText(node: ReactNode): string {
   }
 
   return ''
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-
-  return (
-    <button
-      onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true)
-          window.setTimeout(() => setCopied(false), 1200)
-        })
-      }}
-      className="flex h-5 w-5 items-center justify-center rounded text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main"
-      title={copied ? 'Copied' : 'Copy'}
-    >
-      {copied ? (
-        <Check className="h-3 w-3" strokeWidth={2.4} />
-      ) : (
-        <Copy className="h-3 w-3" strokeWidth={1.8} />
-      )}
-    </button>
-  )
-}
-
-function CodeBlock({ children }: { children: ReactNode }) {
-  // Streamdown wraps fenced blocks as <pre><code className="language-xxx">...</code></pre>.
-  // The <code> child carries the language tag and (after the highlighter runs) the shiki tokens.
-  const codeNode = isValidElement(children) ? children : null
-  const codeProps = codeNode?.props as { className?: string; children?: ReactNode } | undefined
-  const lang = codeProps?.className?.match(/language-([\w+-]+)/)?.[1] ?? ''
-  const rawText = extractText(codeProps?.children)
-
-  return (
-    <div
-      data-codeblock
-      className="my-2 overflow-hidden rounded-md bg-zGray-900/50 ring-1 ring-zGray-800/50"
-    >
-      <div className="flex h-7 items-center justify-between border-b border-zGray-800/40 px-2.5">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-tertiary">
-          {lang || 'code'}
-        </span>
-        <CopyButton text={rawText} />
-      </div>
-      <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words px-3 py-2.5 font-mono text-[13.5px] leading-[1.55] text-main [overflow-wrap:anywhere]">
-        {children}
-      </pre>
-    </div>
-  )
 }
 
 function createComponents(
@@ -174,11 +124,10 @@ function createComponents(
         {children}
       </td>
     ),
-    pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   }
 }
 
-const codePlugin = createCodePlugin({ themes: ['night-owl', 'night-owl'] })
+const codePlugin = createCodePlugin({ themes: ['github-light', 'night-owl'] })
 
 type Props = {
   children: string
@@ -201,14 +150,8 @@ export const MessageResponse = memo(
     return (
       <div
         className={clsx(
-          'min-w-0 text-[14px] text-main [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
-          // Streamdown wraps fenced code in its own card (language label + sticky action bar +
-          // an inner <pre> with its own border/padding). We replace the <pre> via the `pre`
-          // component override above, then make the outer card disappear with `display:contents`
-          // and hide everything except our marked CodeBlock.
-          '[&_div.bg-sidebar]:contents',
-          '[&_div.bg-sidebar>*:not([data-codeblock])]:hidden',
-          // Inline code: subtle pill (the `:not(pre)>code` selector dodges code inside our CodeBlock).
+          'message-response min-w-0 text-[14px] text-main [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
+          // Inline code: subtle pill (the `:not(pre)>code` selector dodges fenced code).
           '[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-zGray-800/70 [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[13.5px] [&_:not(pre)>code]:text-main',
           streaming && 'agent-streaming-response',
           className,
@@ -218,7 +161,8 @@ export const MessageResponse = memo(
           mode={streaming ? 'streaming' : 'static'}
           isAnimating={streaming}
           animated={streaming ? STREAMING_TEXT_ANIMATION : false}
-          controls={false}
+          controls={{ code: { copy: true, download: false }, table: false, mermaid: false }}
+          lineNumbers={false}
           // cjk: ends an autolink at CJK punctuation. Without it `https://…/ec2，然後`
           // swallows the rest of the sentence into the href.
           plugins={{ code: codePlugin, cjk: cjkPlugin }}

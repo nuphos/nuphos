@@ -118,8 +118,8 @@ function withTeam(props?: Props): Props | undefined {
 }
 
 // Same shape as mirrorIdentityToMain below: `async` so a synchronous bridge
-// throw (dev:web has no IPC bridge) surfaces as a rejection the caller's single
-// `.catch` handles alongside IPC rejections.
+// throw surfaces as a rejection the caller's single `.catch` handles alongside
+// IPC rejections.
 async function mirrorTeamToMain(teamId: string | null): Promise<void> {
   await window.api?.analyticsSetTeam?.(teamId)
 }
@@ -168,8 +168,8 @@ export function initAnalytics(): void {
 
 // Mirror the identity to the Electron main process so its lifecycle/crash
 // events attribute to the same person. `async` so a synchronous bridge throw
-// (dev:web has no IPC bridge) surfaces as a rejection the caller's single
-// `.catch` handles alongside IPC rejections.
+// surfaces as a rejection the caller's single `.catch` handles alongside IPC
+// rejections.
 async function mirrorIdentityToMain(user: UserInfo): Promise<void> {
   await window.api?.analyticsIdentify?.(user.id, {
     email: user.email,
