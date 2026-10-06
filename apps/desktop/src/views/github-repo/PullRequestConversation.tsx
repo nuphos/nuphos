@@ -1,19 +1,20 @@
 import clsx from 'clsx'
-import { FileDiff } from 'lucide-react'
+import { FileDiff, GitCommitHorizontal } from 'lucide-react'
 
 import { MessageResponse } from '../../components/agent/MessageResponse'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Avatar } from '../../components/Avatar'
 
 import { DiffLine } from './ChangedFile'
-import { humanize } from './pullRequestChecks'
+import { openOnGithub } from './openOnGithub'
+import { humanize, plural } from './pullRequestChecks'
 import { PullRequestMergeBox } from './PullRequestMergeBox'
 import { PullRequestSidebar } from './PullRequestSidebar'
 import { reviewVerb } from './pullRequestStatus'
 import { TONE_BADGE } from './toneClasses'
 
 import type { PullRequestStatus } from './pullRequestStatus'
-import type { GithubPRComment, GithubPRDetail, GithubPRReview } from '../../types'
+import type { GithubPRComment, GithubPRCommit, GithubPRDetail, GithubPRReview } from '../../types'
 import type { ReactNode } from 'react'
 
 // The commented line is the last one of the hunk; a few lines above it are
@@ -170,6 +171,47 @@ function ReviewCard({ review, at }: { review: GithubPRReview; at: string }) {
   )
 }
 
+function CommitsCard({ commits }: { commits: GithubPRCommit[] }) {
+  const [first] = commits
+
+  return (
+    <Card
+      header={
+        <AuthorLine
+          name={first.author}
+          avatarUrl={first.authorAvatarUrl}
+          verb={`added ${plural(commits.length, 'commit')}`}
+          at={first.committedAt}
+        />
+      }
+    >
+      <ul className="py-1">
+        {commits.map((commit) => (
+          <li key={commit.sha} className="flex items-center gap-2 px-3 py-1 text-[12px]">
+            <GitCommitHorizontal className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={1.8} />
+            <Avatar
+              src={commit.authorAvatarUrl}
+              name={commit.author}
+              size={16}
+              className="shrink-0 rounded-full"
+            />
+            <span className="min-w-0 flex-1 truncate text-secondary" title={commit.headline}>
+              {commit.headline}
+            </span>
+            <button
+              type="button"
+              onClick={() => openOnGithub(commit.htmlUrl)}
+              className="shrink-0 font-mono text-[11px] text-tertiary hover:text-secondary hover:underline"
+            >
+              {commit.sha.slice(0, 7)}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 export function PullRequestConversation({
   pull,
   status,
@@ -183,17 +225,24 @@ export function PullRequestConversation({
         <PullRequestSidebar pull={pull} reviewers={status.review.reviewers} />
         <main className="min-w-0 space-y-4">
           <DescriptionCard pull={pull} />
-          {status.timeline.map((item) =>
-            item.kind === 'comment' ? (
-              <CommentCard key={`comment-${String(item.comment.id)}`} comment={item.comment} />
-            ) : (
+          {status.timeline.map((item) => {
+            if (item.kind === 'comment') {
+              return (
+                <CommentCard key={`comment-${String(item.comment.id)}`} comment={item.comment} />
+              )
+            }
+            if (item.kind === 'commits') {
+              return <CommitsCard key={`commits-${item.commits[0].sha}`} commits={item.commits} />
+            }
+
+            return (
               <ReviewCard
                 key={`review-${String(item.review.id)}`}
                 review={item.review}
                 at={item.at}
               />
-            ),
-          )}
+            )
+          })}
           <PullRequestMergeBox pull={pull} status={status} />
         </main>
       </div>

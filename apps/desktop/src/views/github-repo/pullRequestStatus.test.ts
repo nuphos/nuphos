@@ -10,6 +10,7 @@ import {
   timelineItems,
 } from './pullRequestStatus.ts'
 
+import type { TimelineItem } from './pullRequestStatus.ts'
 import type { GithubPRCheck, GithubPRDetail, GithubPRReview } from '../../types'
 
 const detail = (overrides: Partial<GithubPRDetail> = {}): GithubPRDetail => ({
@@ -42,6 +43,7 @@ const detail = (overrides: Partial<GithubPRDetail> = {}): GithubPRDetail => ({
   milestone: null,
   reviews: [],
   conversation: [],
+  commitHistory: [],
   checks: [],
   files: [],
   ...overrides,
@@ -268,6 +270,18 @@ test('a blocked merge names what it can prove and never contradicts the review r
   )
 })
 
+// c<id> for a comment, r<id> for a review, the joined SHAs for a commit group.
+function timelineLabel(item: TimelineItem): string {
+  switch (item.kind) {
+    case 'comment':
+      return `c${String(item.comment.id)}`
+    case 'review':
+      return `r${String(item.review.id)}`
+    case 'commits':
+      return item.commits.map((c) => c.sha).join('')
+  }
+}
+
 test('the timeline interleaves comments and submitted reviews by time', () => {
   const pull = detail({
     conversation: [
@@ -300,12 +314,37 @@ test('the timeline interleaves comments and submitted reviews by time', () => {
     ],
   })
 
-  assert.deepEqual(
-    timelineItems(pull).map((item) =>
-      item.kind === 'comment' ? `c${String(item.comment.id)}` : `r${String(item.review.id)}`,
-    ),
-    ['c10', 'r1', 'c11'],
-  )
+  assert.deepEqual(timelineItems(pull).map(timelineLabel), ['c10', 'r1', 'c11'])
   // The Conversation tab counts what the timeline renders, not raw reviews.
   assert.equal(pullRequestStatus(pull).timeline.length, 3)
+})
+
+const commit = (sha: string, committedAt: string) => ({
+  sha,
+  headline: `commit ${sha}`,
+  author: 'alice',
+  authorAvatarUrl: '',
+  committedAt,
+  htmlUrl: '',
+})
+
+test('the timeline groups commits that have nothing between them', () => {
+  const pull = detail({
+    commitHistory: [
+      commit('a', '2026-09-01T00:30:00Z'),
+      commit('b', '2026-09-01T00:40:00Z'),
+      commit('c', '2026-09-01T03:00:00Z'),
+    ],
+    reviews: [review(1, 'carol', 'CHANGES_REQUESTED', '2026-09-01T02:00:00Z')],
+  })
+
+  assert.deepEqual(timelineItems(pull).map(timelineLabel), ['ab', 'r1', 'c'])
+})
+
+test('a backend that predates commitHistory still renders a timeline', () => {
+  const { commitHistory: _omitted, ...previousShape } = detail({
+    reviews: [review(1, 'carol', 'APPROVED', '2026-09-01T02:00:00Z')],
+  })
+
+  assert.deepEqual(timelineItems(previousShape).map(timelineLabel), ['r1'])
 })

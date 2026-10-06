@@ -23,6 +23,15 @@ export type GithubPRComment = {
   diffHunk?: string
 }
 
+export type GithubPRCommit = {
+  sha: string
+  headline: string
+  author: string
+  authorAvatarUrl: string
+  committedAt: string
+  htmlUrl: string
+}
+
 export type GithubPRCheck = {
   id: number
   name: string
@@ -60,6 +69,8 @@ export type GithubPRDetail = GithubPR & {
   milestone: string | null
   reviews: GithubPRReview[]
   conversation: GithubPRComment[]
+  // Absent from backends older than the Desktop client.
+  commitHistory?: GithubPRCommit[]
   checks: GithubPRCheck[]
   files: GithubPRFile[]
 }
