@@ -13,9 +13,17 @@ import {
 } from '../../ui/menu'
 
 import { CiFailuresCard, PullRequestsCard } from './homeCards'
-import { loadHomeWidgets, saveHomeWidgets, toggleRepo } from './homeWidgetSettings'
+import { DashboardPanelCard } from './homePanelCard'
+import { DashboardPanelsSubmenu } from './homePanelPicker'
+import {
+  loadHomeWidgets,
+  panelKey,
+  repoKey,
+  saveHomeWidgets,
+  toggleItem,
+} from './homeWidgetSettings'
 
-import type { HomeRepo, HomeWidgetSettings } from './homeWidgetSettings'
+import type { HomePanel, HomeRepo, HomeWidgetSettings } from './homeWidgetSettings'
 
 async function listInstallationRepos(teamId: string, installationId: number): Promise<HomeRepo[]> {
   const repos = await api.atlasListGithubRepositories(teamId, installationId)
@@ -82,18 +90,22 @@ function RepoSubmenu({
 }
 
 /**
- * The configurable cards under the home composer. Each card follows the
- * repositories picked for it in "Customize" and is hidden when it follows none.
+ * The configurable cards under the home composer, all picked in "Customize":
+ * each GitHub card follows its own repositories and is hidden when it follows
+ * none, and every pinned dashboard panel is a card of its own.
  */
 export function HomeWidgets({ teamId }: { teamId: string }) {
   const [settings, setSettings] = useState<HomeWidgetSettings>(() => loadHomeWidgets(teamId))
   const { repos, load } = useGithubRepos(teamId)
-  const toggle = (card: keyof HomeWidgetSettings) => (repo: HomeRepo) => {
-    const next = { ...settings, [card]: toggleRepo(settings[card], repo) }
-
+  const update = (next: HomeWidgetSettings) => {
     setSettings(next)
     saveHomeWidgets(teamId, next)
   }
+  const toggle = (card: 'pulls' | 'ci') => (repo: HomeRepo) =>
+    update({ ...settings, [card]: toggleItem(settings[card], repo, repoKey) })
+  const togglePanel = (pin: HomePanel) =>
+    update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
+  const anyCard = settings.pulls.length + settings.ci.length + settings.panels.length > 0
 
   return (
     <div className="mb-6">
@@ -116,13 +128,26 @@ export function HomeWidgets({ teamId }: { teamId: string }) {
               selected={settings.ci}
               onToggle={toggle('ci')}
             />
+            <DashboardPanelsSubmenu
+              teamId={teamId}
+              selected={settings.panels}
+              onToggle={togglePanel}
+            />
           </MenuContent>
         </Menu>
       </div>
-      {(settings.pulls.length > 0 || settings.ci.length > 0) && (
+      {anyCard && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {settings.pulls.length > 0 && <PullRequestsCard teamId={teamId} repos={settings.pulls} />}
           {settings.ci.length > 0 && <CiFailuresCard teamId={teamId} repos={settings.ci} />}
+          {settings.panels.map((pin) => (
+            <DashboardPanelCard
+              key={panelKey(pin)}
+              teamId={teamId}
+              pin={pin}
+              onUnpin={() => togglePanel(pin)}
+            />
+          ))}
         </div>
       )}
     </div>

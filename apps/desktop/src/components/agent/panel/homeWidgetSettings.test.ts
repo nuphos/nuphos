@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { failingRuns, toggleRepo } from './homeWidgetSettings.ts'
+import { failingRuns, panelKey, repoKey, toggleItem } from './homeWidgetSettings.ts'
 
 import type { GithubWorkflowRun } from '../../../types'
 
@@ -40,10 +40,16 @@ test('failingRuns keeps only failures that are the latest run of their workflow 
   )
 })
 
-test('toggleRepo adds a missing repository and removes a present one', () => {
+test('toggleItem adds a missing entry and removes a present one by key', () => {
   const a = { installationId: 1, fullName: 'o/a' }
   const b = { installationId: 1, fullName: 'o/b' }
 
-  assert.deepEqual(toggleRepo([a], b), [a, b])
-  assert.deepEqual(toggleRepo([a, b], a), [b])
+  assert.deepEqual(toggleItem([a], b, repoKey), [a, b])
+  assert.deepEqual(toggleItem([a, b], { ...a }, repoKey), [b])
+
+  const p = { dashboardId: 'd1', panelId: 'p1' }
+  const q = { dashboardId: 'd2', panelId: 'p1' }
+
+  assert.deepEqual(toggleItem([p], q, panelKey), [p, q])
+  assert.deepEqual(toggleItem([p, q], { ...p }, panelKey), [q])
 })

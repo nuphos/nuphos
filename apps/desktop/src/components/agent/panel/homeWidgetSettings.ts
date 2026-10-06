@@ -3,10 +3,19 @@ import type { GithubWorkflowRun } from '../../../types'
 /** A repository picked for a home card, addressed the way the GitHub API routes need it. */
 export type HomeRepo = { installationId: number; fullName: string }
 
-/** Which repositories each home card follows. A card with no repositories is hidden. */
-export type HomeWidgetSettings = { pulls: HomeRepo[]; ci: HomeRepo[] }
+/** A Nuphos Dashboards panel pinned to the home page. */
+export type HomePanel = { dashboardId: string; panelId: string }
 
-export const EMPTY_HOME_WIDGETS: HomeWidgetSettings = { pulls: [], ci: [] }
+/**
+ * What the home page shows: the repositories each GitHub card follows (a card
+ * with none is hidden) and the dashboard panels pinned as cards of their own.
+ */
+export type HomeWidgetSettings = { pulls: HomeRepo[]; ci: HomeRepo[]; panels: HomePanel[] }
+
+export const EMPTY_HOME_WIDGETS: HomeWidgetSettings = { pulls: [], ci: [], panels: [] }
+
+export const repoKey = (repo: HomeRepo) => repo.fullName
+export const panelKey = (panel: HomePanel) => `${panel.dashboardId}/${panel.panelId}`
 
 // A personal layout choice, so it lives on this machine rather than the team.
 const storageKey = (teamId: string) => `nuphos.agent.homeWidgets.${teamId}`
@@ -18,7 +27,7 @@ export function loadHomeWidgets(teamId: string): HomeWidgetSettings {
     if (!raw) return EMPTY_HOME_WIDGETS
     const parsed = JSON.parse(raw) as Partial<HomeWidgetSettings>
 
-    return { pulls: parsed.pulls ?? [], ci: parsed.ci ?? [] }
+    return { pulls: parsed.pulls ?? [], ci: parsed.ci ?? [], panels: parsed.panels ?? [] }
   } catch {
     return EMPTY_HOME_WIDGETS
   }
@@ -32,10 +41,11 @@ export function saveHomeWidgets(teamId: string, settings: HomeWidgetSettings): v
   }
 }
 
-export function toggleRepo(repos: HomeRepo[], repo: HomeRepo): HomeRepo[] {
-  return repos.some((r) => r.fullName === repo.fullName)
-    ? repos.filter((r) => r.fullName !== repo.fullName)
-    : [...repos, repo]
+/** Adds `item` when no entry shares its key, otherwise removes that entry. */
+export function toggleItem<T>(list: T[], item: T, key: (t: T) => string): T[] {
+  const k = key(item)
+
+  return list.some((t) => key(t) === k) ? list.filter((t) => key(t) !== k) : [...list, item]
 }
 
 /**
