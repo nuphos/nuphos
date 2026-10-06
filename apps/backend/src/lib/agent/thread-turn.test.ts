@@ -34,6 +34,7 @@ const source = {
   agentRuntime: 'codex',
   runtimeId: 'runtime',
 } as AgentConversation
+const acceptedIds = new Set<string>()
 let alreadyAccepted = false
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
@@ -45,7 +46,10 @@ useIdentity({
 })
 useAgentDb({
   agentMessages: () =>
-    ({ findOne: async () => (alreadyAccepted ? { _id: 'accepted' } : null) }) as never,
+    ({
+      findOne: async ({ messageId }: { messageId: string }) =>
+        alreadyAccepted || acceptedIds.has(messageId) ? { _id: 'accepted' } : null,
+    }) as never,
   getConversationBySessionId: async (id) => ({ ...source, sessionId: id }),
   getConversationWithMessages: async () => ({
     conversation: { ...source, sessionId: 'target' },
@@ -61,6 +65,7 @@ useAgentDb({
 
 beforeEach(() => {
   alreadyAccepted = false
+  acceptedIds.clear()
   released = 0
   runs.length = 0
   claims.length = 0
@@ -176,4 +181,58 @@ test('runner failure releases the claim and fails the durable job', async () => 
 test('full pending queue is an error, not a delivery receipt', async () => {
   installTurnRunner({ claimAgentRunOrEnqueue: async () => ({ mode: 'dropped' }) })
   await expect(executeThreadTurn(data)).rejects.toThrow('could not be queued')
+})
+
+test('recovered batch preserves every delivery ID and metadata across redelivery', async () => {
+  const earlier = {
+    ...buildPendingUserMessage({
+      renderedText: 'Earlier delegated task',
+      source: 'agent.thread',
+      actorUserId: 'owner',
+      metadata: {
+        version: 1,
+        sender: { type: 'user', id: 'owner', displayName: 'Owner' },
+        source: 'nuphos',
+        sentAt: '2026-10-06T00:00:00Z',
+      },
+    }),
+    id: 'earlier-delivery',
+  }
+
+  installTurnRunner({
+    claimAgentRunOrEnqueue: async (args) => {
+      claims.push(args)
+
+      return {
+        mode: 'run',
+        carried: [earlier, args.message],
+        release: () => {
+          released++
+        },
+      }
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      // Model the runner's accepted-transcript persistence by stable message ID.
+      for (const message of args.messages) acceptedIds.add(message.id)
+
+      return { status: 'completed' }
+    },
+  })
+  await executeThreadTurn(data)
+  await executeThreadTurn({ ...data, messageId: earlier.id, prompt: earlier.renderedText })
+  await executeThreadTurn(data)
+  expect(runs).toHaveLength(1)
+  expect(claims).toHaveLength(1)
+  expect(released).toBe(1)
+  expect(runs[0]?.messages.map((message) => message.id)).toEqual([
+    'prior',
+    earlier.id,
+    data.messageId,
+  ])
+  expect(runs[0]?.messages[1]).toMatchObject({
+    role: 'user',
+    metadata: earlier.metadata,
+    parts: [{ type: 'text', text: earlier.renderedText }],
+  })
 })

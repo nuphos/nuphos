@@ -63,23 +63,21 @@ export async function executeThreadTurn(data: ThreadTurn): Promise<void> {
       .map(persistedMessageToUiMessage)
       .filter((message): message is UIMessage => message !== null)
     // A recovered queue already contains this delivery; never append it twice.
-    const pending = claim.carried.length ? claim.carried : [{ renderedText }]
+    const pending: UIMessage[] = claim.carried.length
+      ? claim.carried.map((message) => ({
+          id: message.id,
+          role: 'user',
+          metadata: message.metadata,
+          parts: [{ type: 'text', text: message.renderedText }],
+        }))
+      : [{ id: data.messageId, role: 'user', parts: [{ type: 'text', text: renderedText }] }]
 
     const outcome = await turnRunner.runAgentForTrigger({
       userId: data.userId,
       teamId: data.teamId,
       sessionId: data.targetSessionId,
       nuphosToken: signNuphosToken(data.userId, 8 * 60 * 60),
-      messages: [
-        ...prior,
-        {
-          id: data.messageId,
-          role: 'user',
-          parts: [
-            { type: 'text', text: pending.map((message) => message.renderedText).join('\n\n') },
-          ],
-        },
-      ],
+      messages: [...prior, ...pending],
       firstMessage: target.firstMessage,
       source: 'agent.thread',
       locale: data.locale,
