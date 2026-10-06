@@ -147,7 +147,7 @@ export function IntegrationCatalog({
         <header className="mb-9">
           <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">Connectors</h1>
           <p className="mb-5 mt-1.5 text-[13.5px] text-secondary">
-            Connect Nuphos to your infrastructure, data, and everyday tools.
+            Connect Nuphos to your code, data, cloud, and everyday tools.
           </p>
           <div className="[&>div]:h-8 [&>div]:rounded-lg [&>div]:border [&>div]:border-zGray-800/55 [&>div]:bg-transparent">
             <SearchBox

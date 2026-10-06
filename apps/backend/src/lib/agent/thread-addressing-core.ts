@@ -78,7 +78,7 @@ export function clipTranscriptText(text: string, options?: { fromBot?: boolean }
 // changes in substance.
 export const THREAD_ADDRESSING_PROMPT_VERSION = 3
 
-export const threadAddressingSystemPrompt = `You decide ONE thing: in a Slack thread that an AI DevOps agent is part of, is the NEWEST message talking to the agent, or are the humans talking to each other?
+export const threadAddressingSystemPrompt = `You decide ONE thing: in a Slack thread that an AI agent is part of, is the NEWEST message talking to the agent, or are the humans talking to each other?
 
 The agent already answered in this thread at least once, so it stays subscribed to every reply. That is exactly why this judgement is needed: most replies in a busy thread are people talking to each other, and the agent answering those is noise.
 
@@ -158,7 +158,7 @@ export function buildThreadAddressingPrompt(input: ThreadAddressingInput): strin
   ].join('\n')
 }
 
-export const collaborativeThreadAddressingSystemPrompt = `Decide whether an AI DevOps agent should participate in the newest message in a Discord thread it already joined.
+export const collaborativeThreadAddressingSystemPrompt = `Decide whether an AI agent should participate in the newest message in a Discord thread it already joined.
 Read the recent conversation as a teammate would. The agent does not need to be named or directly commanded on every turn.
 Return addressed=true for follow-up questions, answers to the agent, corrections, and relevant actionable context that lets the agent help with the ongoing task. If the agent asks what to inspect/change and the reply supplies a ticket, resource, or problem, that is a continuation even when it mentions a colleague or says "he needs help". Mentioning another human does not by itself exclude the agent.
 Example: agent offers to inspect Cloudflare/DNS and asks what to change; user says "@Alice 他在處理 OPS-123 好像需要操作 DNS" => true: inspect the ticket and clarify the DNS need. Participation is not authorization to perform a mutation.

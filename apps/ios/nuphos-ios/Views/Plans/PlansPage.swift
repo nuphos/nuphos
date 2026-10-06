@@ -140,7 +140,7 @@ struct PlansPage: View {
                 Button("Ask the agent to plan a change") {
                     if let session = store.newSession() {
                         newChat = AgentPage.NewChat(session: session, prompt: ComposerSubmission(
-                            text: "Help me plan an infrastructure change — ask me what I want to do, then draft a plan for the team to review.",
+                            text: "Help me plan a change — ask me what I want to do, then draft a plan for the team to review.",
                             attachments: []
                         ))
                     }
