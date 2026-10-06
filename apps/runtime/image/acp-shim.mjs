@@ -78,6 +78,23 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
   }
 }
 
+// The end-of-turn marker the backend reads for a turn the agent started on its
+// own (Claude reports one per wakeup). Grok ends such turns only with its own
+// `_x.ai/session/update`, which nothing upstream understands.
+export function autonomousTurnEnd(sessionId) {
+  return {
+    jsonrpc: '2.0',
+    method: 'session/update',
+    params: {
+      sessionId,
+      update: {
+        sessionUpdate: 'usage_update',
+        _meta: { '_claude/origin': { kind: 'task-notification' } },
+      },
+    },
+  }
+}
+
 export function instructionsBlock(text) {
   return { type: 'text', text: `<nuphos-instructions>\n${text}\n</nuphos-instructions>` }
 }
@@ -95,6 +112,10 @@ export function runShim({
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
   const write = (message) => output.write(`${JSON.stringify(message)}\n`)
   const pendingInstructions = new Map()
+  // session/prompt ids in flight, by session, and the sessions running a turn the
+  // agent started on its own: one opens with a user message no prompt carried.
+  const prompts = new Map()
+  const autonomous = new Set()
   const internal = new Map()
   const transforms = new Map()
   let initialize
@@ -119,6 +140,15 @@ export function runShim({
         return output.write(`${line}\n`)
       }
       const isResponse = message.id !== undefined && message.method === undefined
+      if (isResponse) prompts.delete(message.id)
+      const updateSession = message.params?.sessionId
+      const kind = message.params?.update?.sessionUpdate
+      if (kind === 'user_message_chunk' && ![...prompts.values()].includes(updateSession))
+        autonomous.add(updateSession)
+      if (kind === 'turn_completed' && autonomous.delete(updateSession)) {
+        write(message)
+        return write(autonomousTurnEnd(updateSession))
+      }
       if (isResponse && internal.has(message.id)) {
         const settle = internal.get(message.id)
         internal.delete(message.id)
@@ -188,6 +218,7 @@ export function runShim({
     if (['session/new', 'session/load', 'session/resume'].includes(message.method))
       return openSession(message)
     const sessionId = message.params?.sessionId
+    if (message.method === 'session/prompt') prompts.set(message.id, sessionId)
     if (message.method === 'session/prompt' && pendingInstructions.has(sessionId)) {
       const text = pendingInstructions.get(sessionId)
       pendingInstructions.delete(sessionId)

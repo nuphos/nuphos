@@ -24,14 +24,16 @@ rl.on('line', (line) => {
 })
 `
 
-async function withShim(provider, run) {
+async function withShim(provider, run, agentScript = FAKE_AGENT) {
   const home = await mkdtemp(join(tmpdir(), 'nuphos-shim-test-'))
   const input = new PassThrough()
   const output = new PassThrough()
   const children = []
   const replies = new Map()
+  const notifications = []
   createInterface({ input: output }).on('line', (line) => {
     const message = JSON.parse(line)
+    if (message.method) notifications.push(message)
     replies.get(message.id)?.(message)
   })
   runShim({
@@ -40,7 +42,7 @@ async function withShim(provider, run) {
     output,
     runtimeEnv: { HOME: home, PATH: process.env.PATH },
     spawnAgent: (command, env) => {
-      const child = spawn(process.execPath, ['-e', FAKE_AGENT], {
+      const child = spawn(process.execPath, ['-e', agentScript], {
         env,
         stdio: ['pipe', 'pipe', 'inherit'],
       })
@@ -56,7 +58,7 @@ async function withShim(provider, run) {
       input.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
     })
   try {
-    await run({ call, children, home })
+    await run({ call, children, home, notifications })
   } finally {
     for (const { child } of children) child.kill()
     await rm(home, { recursive: true, force: true })
@@ -157,4 +159,51 @@ test('a session without Nuphos context keeps the first agent', async () => {
     await call('session/new', { cwd: '/workspace', mcpServers: [] })
     assert.equal(children.length, 1)
   })
+})
+
+// Grok: every turn ends with its own `turn_completed`; a scheduled wakeup runs a
+// turn after the prompt has answered, opening with a user message of its own.
+const GROK_TURNS = `
+const send = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+const update = (sessionUpdate, extra = {}) =>
+  send({ jsonrpc: '2.0', method: sessionUpdate === 'turn_completed' ? '_x.ai/session/update' : 'session/update',
+    params: { sessionId: 's1', update: { sessionUpdate, ...extra } } })
+const text = { content: { type: 'text', text: 'x' } }
+require('node:readline').createInterface({ input: process.stdin }).on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'session/prompt') {
+    update('user_message_chunk', text)
+    update('turn_completed', { prompt_id: 'p1' })
+    send({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } })
+    setTimeout(() => {
+      update('user_message_chunk', text)
+      update('agent_message_chunk', text)
+      update('turn_completed', { prompt_id: 'subagent-completed-1' })
+    }, 20)
+  } else if (m.id !== undefined) {
+    send({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 's1', configOptions: [] } : {} })
+  }
+})
+`
+
+test('a turn grok starts on its own ends with the marker the backend reads', async () => {
+  await withShim(
+    'grok',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      const markers = notifications.filter(
+        (m) => m.params?.update?._meta?.['_claude/origin']?.kind === 'task-notification',
+      )
+      assert.equal(markers.length, 1)
+      // After the wakeup's own message, never inside the prompt's turn.
+      const kinds = notifications.map((m) => m.params?.update?.sessionUpdate)
+      assert.equal(kinds.lastIndexOf('usage_update'), kinds.length - 1)
+      assert.equal(kinds.indexOf('usage_update') > kinds.lastIndexOf('agent_message_chunk'), true)
+    },
+    GROK_TURNS,
+  )
 })
