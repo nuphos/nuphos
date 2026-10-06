@@ -1624,3 +1624,18 @@ test('sends native local file references alongside text to a fresh runtime sessi
   await prompting
   client.close()
 })
+
+test('a closed transport rejects in-flight calls with the close reason', async () => {
+  const h = harness()
+  const client = await OpenAbAcpClient.connect({
+    url: 'ws://openab/acp',
+    authKey: 'key',
+    socketFactory: h.connect,
+  })
+  const call = client.initialize()
+
+  h.socket().reject(1006, 'The computer running this agent is offline')
+  await expect(call).rejects.toThrow(
+    'OpenAB ACP connection closed: The computer running this agent is offline',
+  )
+})

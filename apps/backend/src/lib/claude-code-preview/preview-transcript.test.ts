@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { BACKGROUND_WORK_LOST_NOTICE, BACKGROUND_WORK_UNCERTAIN_NOTICE } from './background-work'
+import { OpenAbConnectionLostError } from './openab-acp-errors'
 import {
   INTERRUPTED_TOOL_ERROR,
   classifyPreviewInterruption,
@@ -296,6 +297,21 @@ describe('interrupted preview turns', () => {
 
     expect(failed.reason).toBe('error')
     expect(failed.message).not.toContain('ACP')
+  })
+  test('names a lost runtime connection and its reason instead of a generic failure', () => {
+    expect(
+      classifyPreviewInterruption(
+        new OpenAbConnectionLostError('The computer running this agent is offline'),
+        false,
+      ),
+    ).toEqual({
+      reason: 'error',
+      message:
+        'Lost the connection to the agent runtime: The computer running this agent is offline.',
+    })
+    expect(classifyPreviewInterruption(new OpenAbConnectionLostError(), false).message).toBe(
+      'Lost the connection to the agent runtime.',
+    )
   })
 
   test('marks steps that never produced output as interrupted', () => {
