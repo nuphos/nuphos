@@ -51,6 +51,9 @@ export const PROVIDERS = {
     home: (runtimeHome) => ({ GEMINI_HOME: join(runtimeHome, '.gemini') }),
     // No system prompt parameter: the instructions lead the session's first prompt.
     instruct: null,
+    // Its timers hold the prompt open until they fire, and a recurring one never
+    // lets the turn end. Nuphos schedules work itself.
+    sessionMeta: { agy: { disabledTools: ['schedule'] } },
   },
 }
 
@@ -155,7 +158,7 @@ export function runShim({
       if (initialize) await request('initialize', initialize.params)
     }
     await nuphosSyncRuntimeSkills(message.params)
-    let meta = message.params?._meta ?? {}
+    let meta = { ...message.params?._meta, ...spec.sessionMeta }
     const text = typeof context?.systemPrompt === 'string' ? context.systemPrompt : ''
     if (text && spec.instruct) meta = spec.instruct(meta, text)
     const params = {

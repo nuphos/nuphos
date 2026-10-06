@@ -106,6 +106,7 @@ test('antigravity takes the instructions on the first prompt only', async () => 
     assert.deepEqual(children[1].command, ['agy-acp-server'])
     assert.equal(reply.result.seen.env.GEMINI_HOME, join(home, '.gemini'))
     assert.equal(reply.result.seen.params._meta.rules, undefined)
+    assert.deepEqual(reply.result.seen.params._meta.agy, { disabledTools: ['schedule'] })
 
     const first = await call('session/prompt', {
       sessionId: 's1',
