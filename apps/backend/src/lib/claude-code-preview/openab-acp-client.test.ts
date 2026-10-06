@@ -1638,4 +1638,39 @@ test('a closed transport rejects in-flight calls with the close reason', async (
   await expect(call).rejects.toThrow(
     'OpenAB ACP connection closed: The computer running this agent is offline',
   )
+  await expect(call).rejects.toMatchObject({ admitted: false })
+})
+
+test('a closed transport marks only runtime-accepted prompts as admitted', async () => {
+  const h = harness()
+  const client = await OpenAbAcpClient.connect({
+    url: 'ws://openab/acp',
+    authKey: 'key',
+    socketFactory: h.connect,
+  })
+  const prompt = (sessionId: string) =>
+    client
+      .prompt(
+        sessionId,
+        'go',
+        () => {},
+        undefined,
+        undefined,
+        () => {},
+      )
+      .catch((error: unknown) => error)
+  const accepted = prompt('a')
+  const pending = prompt('b')
+  const acceptedRequest = await nextSent(h.socket(), 0)
+
+  await nextSent(h.socket(), 1)
+  h.socket().receive({
+    jsonrpc: '2.0',
+    method: '_openab/session/prompt_accepted',
+    params: { sessionId: 'a', requestId: acceptedRequest.id },
+  })
+  h.socket().reject(1006, 'offline')
+
+  expect(await accepted).toMatchObject({ admitted: true })
+  expect(await pending).toMatchObject({ admitted: false })
 })

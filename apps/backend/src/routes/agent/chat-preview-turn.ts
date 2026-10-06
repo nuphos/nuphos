@@ -16,12 +16,18 @@ import {
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 
 import { createSteeringAttribution } from '@/lib/claude-code-preview/steering-receipt'
-import { finishPreviewTurn, persistInterruptedPreviewTurn } from './chat-preview-finish'
 import {
+  finishPreviewTurn,
+  persistHandedOffPreviewTurn,
+  persistInterruptedPreviewTurn,
+} from './chat-preview-finish'
+import {
+  CONNECTION_LOST_TOOL_ERROR,
   HANDED_OFF,
   HANDED_OFF_TOOL_ERROR,
   handOffPreviewTurn,
   handedOff,
+  lostToReattach,
 } from './chat-preview-handoff'
 import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
@@ -223,6 +229,21 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     }
   } catch (err) {
     pauses.abort()
+    if (lostToReattach(err, state.signal)) {
+      await persistHandedOffPreviewTurn({
+        ...args,
+        run: state.current(),
+        provider: config.agent.modelProvider,
+        orderedParts: orderedParts.materialize(
+          interruptToolSteps(toolLog.list(), CONNECTION_LOST_TOOL_ERROR),
+        ),
+        steered,
+      })
+      await clearActiveTurn()
+      state.finish()
+
+      return
+    }
     await persistInterrupted(err)
 
     state.unbind()
