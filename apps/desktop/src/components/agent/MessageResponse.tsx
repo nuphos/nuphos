@@ -60,7 +60,8 @@ function CopyButton({ text }: { text: string }) {
 
 function CodeBlock({ children }: { children: ReactNode }) {
   // Streamdown wraps fenced blocks as <pre><code className="language-xxx">...</code></pre>.
-  // The <code> child carries the language tag and (after the highlighter runs) the shiki tokens.
+  // With `pre` overridden, Streamdown renders that <code> as inline code, whose
+  // padding indents the first line — so render its plain text instead.
   const codeNode = isValidElement(children) ? children : null
   const codeProps = codeNode?.props as { className?: string; children?: ReactNode } | undefined
   const lang = codeProps?.className?.match(/language-([\w+-]+)/)?.[1] ?? ''
@@ -78,7 +79,7 @@ function CodeBlock({ children }: { children: ReactNode }) {
         <CopyButton text={rawText} />
       </div>
       <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words px-3 py-2.5 font-mono text-[13.5px] leading-[1.55] text-main [overflow-wrap:anywhere]">
-        {children}
+        {rawText}
       </pre>
     </div>
   )
