@@ -1,8 +1,9 @@
 import type { ConversationOwner } from './conversation-view'
 import type { ConversationTimelineEvent } from '@/lib/agent/db/shared'
+import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
 type Person = { id: string; name: string; avatarURL: string }
-type Runtime = { label: string; provider?: 'claude-code' | 'codex' }
+type Runtime = { label: string; provider?: OpenAbProvider }
 
 export function timelineEventUserIds(events: readonly ConversationTimelineEvent[] = []): string[] {
   return events.flatMap((event) =>

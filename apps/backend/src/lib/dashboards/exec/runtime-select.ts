@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto'
 
 import { controlRegistry } from '@/lib/claude-code-preview/agent-chat-registry'
+import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { resolveTeamRuntimeEndpoints } from '@/lib/claude-code-preview/runtime-registry'
 import { RuntimeCapabilityError } from '@/lib/claude-code-preview/team-openab-runtime'
 import { logEvent } from '@/lib/observability'
@@ -50,14 +51,14 @@ export type PanelRuntimeDeps = {
 }
 
 const defaultDeps: PanelRuntimeDeps = {
-  listEndpoints: async (teamId) => {
-    const [claude, codex] = await Promise.all([
-      resolveTeamRuntimeEndpoints(teamId, undefined, 'claude-code', 'control'),
-      resolveTeamRuntimeEndpoints(teamId, undefined, 'codex', 'control'),
-    ])
-
-    return [...claude, ...codex]
-  },
+  listEndpoints: async (teamId) =>
+    (
+      await Promise.all(
+        OPENAB_PROVIDERS.map((provider) =>
+          resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control'),
+        ),
+      )
+    ).flat(),
   acquire: async (teamId, endpoint) => {
     const client = await controlRegistry.acquire(teamId, endpoint)
 

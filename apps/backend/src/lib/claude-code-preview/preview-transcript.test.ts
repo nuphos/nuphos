@@ -396,3 +396,15 @@ test('history carries author envelopes and excludes all pending turn inputs', ()
   expect(text).not.toContain('queued request')
   expect(text).not.toContain('new request')
 })
+
+test('a provider out of usage keeps its reason in the transcript', () => {
+  const refusal = new Error(
+    '**Internal Error** (code: -32603)\nInternal error\n> API error (status 402 Payment Required): Grok Build usage balance exhausted requestId=r1',
+  )
+
+  expect(classifyPreviewInterruption(new Error('Turn failed', { cause: refusal }), false)).toEqual({
+    reason: 'error',
+    message:
+      'This agent’s provider account has no usage left (Grok Build usage balance exhausted). Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.',
+  })
+})

@@ -18,8 +18,8 @@ on:
       provider:
         description: Runtime provider to publish
         type: choice
-        options: [claude, codex, both]
-        default: both
+        options: [claude, codex, grok, antigravity, all]
+        default: all
         required: true
       reuse_base:
         description: Reuse the published provider base at the pinned OpenAB revision

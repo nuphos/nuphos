@@ -23,6 +23,7 @@ export async function resolveStreamOutcome(
     idleTimedOut: boolean
     contentStalled: boolean
     needsFreshRetry: boolean
+    retryForbidden?: boolean
     freshRetryReason: string | null
     interruptionFrame?: Record<string, unknown>
   },
@@ -108,7 +109,7 @@ export async function resolveStreamOutcome(
     // flaps between a frame and an error frame still converges to a surfaced
     // error here instead of re-attaching silently forever.
     state.freshRetryAttempts += 1
-    if (state.freshRetryAttempts > CHAT_STREAM_FRESH_RETRY_MAX_ATTEMPTS) {
+    if (read.retryForbidden || state.freshRetryAttempts > CHAT_STREAM_FRESH_RETRY_MAX_ATTEMPTS) {
       if (read.interruptionFrame) emit({ type: 'sse', data: read.interruptionFrame })
       emit({
         type: 'error',

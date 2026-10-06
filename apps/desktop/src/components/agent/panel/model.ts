@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../../types/runtime'
 import { FIRST_RUN_CONVO_EVENT } from '../../../lib/firstRunConnect'
 
 import { AGENT_PHASE_LABELS } from './agentPhase'
@@ -144,7 +145,7 @@ export type Tab = {
   activitySource?: AgentConversation['activitySource']
   /** Poll for runtime-owned turns (for example ScheduleWakeup) while this tab is visible. */
   claudeCodeRuntimeAttached?: boolean
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   runtimeId?: string
   runtimeLabel?: string
   initialModel?: { runtimeId: string; name: string }

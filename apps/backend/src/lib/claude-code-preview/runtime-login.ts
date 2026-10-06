@@ -192,8 +192,12 @@ export async function cancelRuntimeLogin(
   if (result.matchedCount) running.get(attemptId)?.abort()
 }
 
-/** The `code#state` Claude's callback page shows, and nothing else. */
-export const AUTHORIZATION_CODE = /^[\w.~-]{1,2048}#[\w.~-]{1,512}$/u
+/**
+ * The `code#state` Claude's callback page shows, or the loopback address Google's
+ * sign-in leaves the browser on for Antigravity. The runtime checks the port itself.
+ */
+export const AUTHORIZATION_CODE =
+  /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
 
 export async function submitRuntimeLoginCode(
   teamId: string,

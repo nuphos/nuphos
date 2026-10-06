@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
 
 export const agentApi = {
@@ -20,7 +21,7 @@ export const agentApi = {
     id: string
     teamId: string
     runtimeId: string
-    agentRuntime: 'claude-code' | 'codex'
+    agentRuntime: AgentProvider
   }) => ipcRenderer.invoke('agent:importLocalSession', args),
   agentSetSessionConfig: (
     sessionId: string,
@@ -84,7 +85,7 @@ export const agentApi = {
     }
   }) => ipcRenderer.invoke('agent:updateConversationCredentials', args),
   agentSyncConversationTranscript: (args: {
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
     baseIndex?: number
     sessionId: string

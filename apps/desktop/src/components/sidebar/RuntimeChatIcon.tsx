@@ -5,7 +5,7 @@ import {
   runtimeStatusLabel,
   runtimeSnapshotFresh,
 } from '../../lib/runtimeExecution'
-import { ClaudeIcon, CodexIcon } from '../agent/panel/icons'
+import { AgentProviderIcon } from '../agent/panel/icons'
 
 import { useRuntimeObservation } from './useRuntimeObservation'
 
@@ -42,9 +42,5 @@ export function RuntimeChatIcon({
   }
   if (!conversation.claudeCodeRuntimeAttached) return <MessageSquare className="h-3.5 w-3.5" />
 
-  return conversation.agentRuntime === 'codex' ? (
-    <CodexIcon className="h-3.5 w-3.5" />
-  ) : (
-    <ClaudeIcon className="h-3.5 w-3.5" />
-  )
+  return <AgentProviderIcon provider={conversation.agentRuntime} className="h-3.5 w-3.5" />
 }

@@ -1,8 +1,10 @@
 import type { RuntimeInstance } from '../../types/runtime'
 
-const HOST_SIGN_IN: Record<RuntimeInstance['provider'], string> = {
+/** Antigravity signs in through a browser on the agent's own loopback address, so only the app can. */
+const HOST_SIGN_IN: Partial<Record<RuntimeInstance['provider'], string>> = {
   'claude-code': 'docker exec -it <container> claude auth login',
   codex: 'docker exec -it <container> codex login --device-auth',
+  grok: 'docker exec -it <container> grok login --device-auth',
 }
 
 /** The agent owns its login; this only shows what the agent reports. */
@@ -18,9 +20,9 @@ export function RuntimeSignIn({
   if (authenticated) {
     return <p className="px-4 py-4 text-xs text-tertiary">Signed in on the agent.</p>
   }
-  const selfHosted = instance.kind === 'external'
+  const hostSignIn = instance.kind === 'external' ? HOST_SIGN_IN[instance.provider] : undefined
   const signedOut = authenticated === false
-  const note = selfHosted
+  const note = hostSignIn
     ? signedOut
       ? 'Not signed in. Sign in here, or on the agent’s host:'
       : 'This agent does not report its sign-in. If conversations ask for a sign-in, update its image, or sign in on its host:'
@@ -32,10 +34,8 @@ export function RuntimeSignIn({
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
       <div className="min-w-0 space-y-1.5">
         <p className="text-xs leading-relaxed text-tertiary">{note}</p>
-        {selfHosted && (
-          <code className="block break-all font-mono text-[12px] text-secondary">
-            {HOST_SIGN_IN[instance.provider]}
-          </code>
+        {hostSignIn && (
+          <code className="block break-all font-mono text-[12px] text-secondary">{hostSignIn}</code>
         )}
       </div>
       {signedOut && onSignIn && (

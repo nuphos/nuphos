@@ -1,5 +1,6 @@
 import { previewSessionAccess } from './credentials-mcp'
 import { sessionMeta } from './openab-acp-session'
+import { runtimeProvider } from './runtime-provider'
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -20,7 +21,7 @@ export async function sessionConfigRestoreContext(
     conversation.userId,
     { external: endpoint?.external, backendUrl: endpoint?.backendUrl },
   )
-  const provider = conversation.agentRuntime === 'codex' ? 'codex' : 'claude-code'
+  const provider = runtimeProvider(conversation.agentRuntime)
   const systemPrompt = await buildPreviewSystemPrompt({
     provider,
     userId: conversation.userId,

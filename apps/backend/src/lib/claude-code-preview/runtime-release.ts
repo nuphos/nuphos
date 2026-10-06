@@ -1,6 +1,8 @@
-import type { OpenAbProvider } from './runtime-provider'
-
 import { logEvent } from '@/lib/observability'
+
+import { OPENAB_PROVIDERS } from './runtime-provider'
+
+import type { OpenAbProvider } from './runtime-provider'
 
 export const RUNTIME_RELEASES_URL = 'https://github.com/nuphos/nuphos/releases'
 const legacyReleasesUrl = 'https://github.com/zeabur/nuphos-runtime/releases'
@@ -30,7 +32,7 @@ export function newerRuntimeVersion(candidate: string, current: string): boolean
 }
 
 export type RuntimeRelease = { version: string; url: string; body: string }
-let cached: { expires: number; result: Promise<RuntimeRelease | null> } | undefined
+let cached: { expires: number; result: Promise<Map<OpenAbProvider, RuntimeRelease>> } | undefined
 /**
  * The release each provider's fleet follows. Managed agents resolve their image from it, so
  * it only ever moves to a release that advertises that provider's image, and never
@@ -63,41 +65,48 @@ function parseRelease(release: GitHubRelease, prefix: string, url: string): Runt
   return { version, url: `${url}/tag/${release.tag_name}`, body: release.body ?? '' }
 }
 
-async function fetchRelease(): Promise<RuntimeRelease | null> {
+/**
+ * The newest stable runtime release advertising each provider's image. A release
+ * may publish only some providers, so each provider walks back to its own.
+ */
+async function fetchReleases(): Promise<Map<OpenAbProvider, RuntimeRelease>> {
   // Other components share this repository. Never use its /releases/latest.
-  // Follow pages until a stable runtime release is found, with a total deadline.
+  // Follow pages until every provider is found, with a total deadline.
   const signal = AbortSignal.timeout(5_000)
   const headers = { Accept: 'application/vnd.github+json' }
+  const found = new Map<OpenAbProvider, RuntimeRelease>()
+  const take = (release: RuntimeRelease | null) => {
+    if (!release) return
+    for (const provider of OPENAB_PROVIDERS)
+      if (!found.has(provider) && advertises(release, provider)) found.set(provider, release)
+  }
 
   for (let page = 1; ; page++) {
+    if (found.size === OPENAB_PROVIDERS.length) break
     const response = await fetch(
       `https://api.github.com/repos/nuphos/nuphos/releases?per_page=100&page=${String(page)}`,
       { headers, signal },
     )
 
-    if (!response.ok) return null
-    const releases = (await response.json()) as GitHubRelease[]
-    const release = releases
-      .map((item) => parseRelease(item, 'runtime-v', RUNTIME_RELEASES_URL))
-      .find((item) => item !== null)
-
-    if (release) return release
+    // A feed that cannot be read is not a feed without releases: no legacy fallback.
+    if (!response.ok) return found
+    for (const item of (await response.json()) as GitHubRelease[])
+      take(parseRelease(item, 'runtime-v', RUNTIME_RELEASES_URL))
     if (!response.headers.get('link')?.includes('rel="next"')) break
   }
+  if (found.size) return found
 
   // The first monorepo image is published only after the migration is merged.
   // Keep existing installations updatable until that cutover succeeds.
   const response = await fetch(
     'https://api.github.com/repos/zeabur/nuphos-runtime/releases/latest',
-    {
-      headers,
-      signal,
-    },
+    { headers, signal },
   )
 
-  if (!response.ok) return null
+  if (response.ok)
+    take(parseRelease((await response.json()) as GitHubRelease, 'v', legacyReleasesUrl))
 
-  return parseRelease((await response.json()) as GitHubRelease, 'v', legacyReleasesUrl)
+  return found
 }
 
 /** Public release metadata, shared across cards. Never accept prereleases or arbitrary image URLs. */
@@ -108,35 +117,24 @@ export async function latestRuntimeRelease(
   if (refresh || !cached || cached.expires <= Date.now()) {
     cached = {
       expires: Date.now() + 10 * 60_000,
-      result: fetchRelease()
-        .then((release) => {
-          if (!release) return null
+      result: fetchReleases()
+        .then((releases) => {
           // Emit once per metadata refresh, not once per agent poll.
-          for (const provider of ['claude-code', 'codex']) {
-            if (
-              !release.body.includes(
-                `${runtimeReleaseRepository(release)}:${release.version}-${provider}`,
-              )
-            )
-              logEvent('warn', 'runtime.release_provider_image_missing', {
-                version: release.version,
-                provider,
-              })
-          }
+          if (releases.size)
+            for (const provider of OPENAB_PROVIDERS)
+              if (!releases.has(provider))
+                logEvent('warn', 'runtime.release_provider_image_missing', { provider })
 
-          return release
+          return releases
         })
-        .catch(() => null),
+        .catch(() => new Map<OpenAbProvider, RuntimeRelease>()),
     }
   }
-  const fresh = await cached.result
+  const fresh = (await cached.result).get(provider)
   const known = lastKnown.get(provider)
   // An equal version is accepted, so re-reading a release whose body was fixed in place
   // takes effect without waiting for a higher version or a restart.
-  const follow =
-    fresh &&
-    advertises(fresh, provider) &&
-    !(known && newerRuntimeVersion(known.version, fresh.version))
+  const follow = fresh && !(known && newerRuntimeVersion(known.version, fresh.version))
 
   if (follow) lastKnown.set(provider, fresh)
 

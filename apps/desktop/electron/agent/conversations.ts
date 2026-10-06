@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import { AtlasHttpError, callJson, callJsonForRenderer, teamQuery } from './http'
 import { storedMessageCountFromDetails, windowTranscript } from './transcript-window'
 
@@ -175,7 +176,7 @@ export async function updateConversationCredentials(args: {
 
 export async function syncConversationTranscript(args: {
   sessionId: string
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   runtimeId?: string
   teamId?: string
   title: string
@@ -276,7 +277,7 @@ export async function moveConversationRuntime(
 ): Promise<{
   runtimeId: string
   runtimeLabel: string
-  agentRuntime: 'claude-code' | 'codex'
+  agentRuntime: AgentProvider
   mode: 'history' | 'workspace'
 }> {
   return callJsonForRenderer(

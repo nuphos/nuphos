@@ -2,6 +2,7 @@ import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { createTeamRuntimeRegistry } from './team-openab-runtime'
 
+import type { OpenAbProvider } from './runtime-provider'
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
 export const sessionsByConversation = new Map<string, TeamSession>()
@@ -17,7 +18,7 @@ export const registry = createTeamRuntimeRegistry<TeamPreviewClient>(async (endp
 /** Process-local observability for the runtime-status probe (runtime-status.ts). */
 export function previewRuntimeObservability(
   teamId: string,
-  provider: 'claude-code' | 'codex' = 'claude-code',
+  provider: OpenAbProvider = 'claude-code',
   runtimeUrls?: string[],
 ): {
   connectedAtMs?: number

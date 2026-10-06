@@ -22,6 +22,13 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
   try {
     mkdirSync(join(cwd, 'image/claude-agent-acp'), { recursive: true })
     mkdirSync(join(cwd, 'image/codex-acp'), { recursive: true })
+    mkdirSync(join(cwd, 'image/tools'), { recursive: true })
+    writeFileSync(
+      join(cwd, 'image/tools/manifest.json'),
+      JSON.stringify({
+        tools: { grok: { version: '1.0.46' }, 'antigravity-acp': { version: '1.3.0' } },
+      }),
+    )
     git('init', '-b', 'main')
     version('0.1.0')
     writeFileSync(
@@ -47,7 +54,7 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
     git('tag', 'runtime-v0.1.1')
     // Working tree edits must not leak into release metadata.
     version('0.1.2')
-    const notes = execFileSync(process.execPath, [script, 'runtime-v0.1.1', 'both'], {
+    const notes = execFileSync(process.execPath, [script, 'runtime-v0.1.1', 'all'], {
       cwd,
       encoding: 'utf8',
     })
@@ -56,9 +63,12 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
     assert.doesNotMatch(notes, /unrelated desktop change|runtime baseline|0\.1\.2/)
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-claude-code/)
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-codex/)
+    assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-grok/)
+    assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-antigravity/)
+    assert.match(notes, /\| Grok Build CLI \| 1\.0\.46 \|/)
     assert.match(notes, /nuphos\/nuphos\/compare\/runtime-v0\.1\.0\.\.\.runtime-v0\.1\.1/)
     assert.throws(() =>
-      execFileSync(process.execPath, [script, 'v99.0.0', 'both'], { cwd, stdio: 'pipe' }),
+      execFileSync(process.execPath, [script, 'v99.0.0', 'all'], { cwd, stdio: 'pipe' }),
     )
   } finally {
     rmSync(root, { recursive: true, force: true })

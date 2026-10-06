@@ -10,6 +10,7 @@ import { listLocalAgentSessions, validateLocalSessionSource } from '../main/loca
 import { callJson, teamQuery } from './http.ts'
 
 import type { ImportedTranscript } from '../main/local-session-transcript.ts'
+import type { AgentProvider } from '../../src/types/runtime.ts'
 
 export type LocalSessionImportResult = {
   sessionId: string
@@ -25,7 +26,7 @@ export async function importLocalSession(args: {
   id: string
   teamId: string
   runtimeId: string
-  agentRuntime: 'claude-code' | 'codex'
+  agentRuntime: AgentProvider
 }): Promise<LocalSessionImportResult> {
   const source = validateLocalSessionSource(args.source)
   // Never open a path the renderer names: re-list the sessions and import one of

@@ -3,7 +3,7 @@
 The container image that runs a coding agent for [Nuphos](https://nuphos.ai).
 
 A Nuphos runtime is a long-lived container with one coding agent inside it —
-either **Claude Code** or **Codex** — reachable over the
+**Claude Code**, **Codex**, **Grok Build** or **Google Antigravity** — reachable over the
 [Agent Client Protocol](https://agentclientprotocol.com) (ACP). The Nuphos
 backend does not run the agent itself; it opens an ACP session against a
 runtime and streams the conversation through it. This repository builds the
@@ -25,6 +25,11 @@ Three things, in layers:
    inside the Claude Agent SDK; for `codex`, `@openai/codex` with
    `@agentclientprotocol/codex-acp`. The adapter translates ACP into whatever
    the CLI actually speaks. Each image carries exactly one copy of each.
+   Grok Build (`grok agent stdio`) and Antigravity (Google's `antigravity-acp`
+   server) speak ACP themselves, so they take no adapter; `acp-shim.mjs` sits in
+   front of them instead (see below). Both are proprietary and are not in the
+   image: the pinned build installs on first use, and the container starts that
+   install in the background as it boots.
 3. **The Nuphos toolset layer**, built from [`image/`](image) in this
    repository: a set of patches to the adapters, a handful of helper programs,
    and the command-line tools an agent is expected to be able to reach for.
@@ -35,20 +40,23 @@ The adapters are patched at build time rather than forked. Each patch pins the
 SHA-256 of the upstream bundle it edits, so an adapter upgrade fails the build
 until someone re-reviews the patch.
 
-| Path in the image                         | What it does                                                                                                                                                                                                                                 |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/nuphos-claude-agent-acp`            | Claude adapter (0.74.0, Agent SDK 0.3.289), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                  |
-| `/opt/nuphos-codex-acp`                   | Codex adapter (1.1.4, Codex CLI 0.160.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                    |
-| `/usr/local/bin/nuphos-runtime-start`     | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab |
-| `/etc/openab/config.toml`                 | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                              |
-| `/opt/runtime-defaults.mjs`               | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                     |
-| `/opt/nuphos-runtime/mcp-http-bridge.mjs` | Relays a stdio MCP server to a bearer-authenticated HTTP endpoint, re-reading the token per request                                                                                                                                          |
-| `/opt/nuphos-runtime/runtime-guard.sh`    | Sourced via `BASH_ENV`; refreshes per-turn credentials into the shell environment and sets a memory ceiling                                                                                                                                  |
-| `/opt/nuphos-runtime/panel-job.mjs`       | The `panel` job OpenAB runs for `_openab/runtime/job`: writes the panel runner, script and params into a fresh directory and runs `node runner.mjs <dir>`, passing stdout and the exit code through                                          |
-| `/opt/nuphos-runtime/codex-login.mjs`     | Drives Codex's device-code login in an isolated `CODEX_HOME`                                                                                                                                                                                 |
-| `/opt/nuphos-runtime/claude-login.mjs`    | Drives `claude auth login`: reports the authorize URL, passes back the code the user pastes, and leaves the credential in `~/.claude`                                                                                                        |
-| `/usr/local/bin/nuphos-sync-skills`       | Fetches the workspace's skill bundle and swaps it in atomically — pushed by the provisioner for a managed pod, run per session by `runtime-defaults.mjs` for a self-hosted one                                                               |
-| `/usr/local/bin/nuphos-seed-codex-auth`   | Seeds Codex credentials from a mounted secret, once per credential revision                                                                                                                                                                  |
+| Path in the image                           | What it does                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.289), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                    |
+| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.160.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                      |
+| `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                   |
+| `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                |
+| `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                       |
+| `/opt/nuphos-runtime/mcp-http-bridge.mjs`   | Relays a stdio MCP server to a bearer-authenticated HTTP endpoint, re-reading the token per request                                                                                                                                                                                            |
+| `/opt/nuphos-runtime/runtime-guard.sh`      | Sourced via `BASH_ENV`; refreshes per-turn credentials into the shell environment and sets a memory ceiling                                                                                                                                                                                    |
+| `/opt/nuphos-runtime/panel-job.mjs`         | The `panel` job OpenAB runs for `_openab/runtime/job`: writes the panel runner, script and params into a fresh directory and runs `node runner.mjs <dir>`, passing stdout and the exit code through                                                                                            |
+| `/opt/nuphos-runtime/codex-login.mjs`       | Drives Codex's device-code login in an isolated `CODEX_HOME`                                                                                                                                                                                                                                   |
+| `/opt/acp-shim.mjs`                         | The Nuphos layer for Grok Build and Antigravity: respawns the agent with the conversation's environment and CLI home, syncs skills, applies runtime defaults, bridges MCP credentials, and hands over Nuphos's instructions (Grok's `_meta.rules`; for Antigravity, ahead of the first prompt) |
+| `/opt/nuphos-runtime/grok-login.mjs`        | Drives `grok login --device-auth` and reports the xAI device code                                                                                                                                                                                                                              |
+| `/opt/nuphos-runtime/antigravity-login.mjs` | Drives Antigravity's Google sign-in: reports the authorize URL and delivers the loopback address the user pastes back to the listener in the container                                                                                                                                         |
+| `/opt/nuphos-runtime/claude-login.mjs`      | Drives `claude auth login`: reports the authorize URL, passes back the code the user pastes, and leaves the credential in `~/.claude`                                                                                                                                                          |
+| `/usr/local/bin/nuphos-sync-skills`         | Fetches the workspace's skill bundle and swaps it in atomically — pushed by the provisioner for a managed pod, run per session by `runtime-defaults.mjs` for a self-hosted one                                                                                                                 |
+| `/usr/local/bin/nuphos-seed-codex-auth`     | Seeds Codex credentials from a mounted secret, once per credential revision                                                                                                                                                                                                                    |
 
 `OPENAB_AGENT_COMMAND` names the patched adapter, and `claude` on `PATH` is the
 same native CLI the Claude adapter runs.
@@ -124,7 +132,7 @@ docker build -f image/Dockerfile \
   -t nuphos-runtime-codex:local image
 ```
 
-For the Claude Code runtime use `RUNTIME_PROVIDER=claude-code`. Any image built
+For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok` or `antigravity`. Any image built
 from `Dockerfile.unified` works as `BASE_IMAGE`, including a published
 `X.Y.Z-base-<provider>` tag.
 
@@ -241,10 +249,12 @@ container's limits. The agent command itself is not pinned there: it stays on
 Each runtime owns its own login. Nuphos never stores the account and never sends
 one to a runtime it did not provision; it only shows what the runtime reports.
 
-| Variant       | Sign in on the host                                                                   | Credential                             |
-| ------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
-| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`) | `/home/node/.claude/.credentials.json` |
-| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                            | `/home/node/.codex/auth.json`          |
+| Variant       | Sign in on the host                                                                   | Credential                                          |
+| ------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`) | `/home/node/.claude/.credentials.json`              |
+| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                            | `/home/node/.codex/auth.json`                       |
+| `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                             | `/home/node/.grok/auth.json`                        |
+| `antigravity` | Sign in from the app (below)                                                          | `/home/node/.gemini/antigravity-acp/acp_token.json` |
 
 You can also sign in from the app once the runtime is connected (see below). Either
 way the credential is written inside the container, so mount the `/home/node` volume
@@ -367,6 +377,10 @@ container, so you don't need a shell on the host. Only one sign-in runs at a tim
 starting one, in the console or from Nuphos, stops any sign-in already running.
 
 - **Codex:** the app shows a device code to enter on the ChatGPT page.
+- **Grok Build:** the app shows a device code to confirm on the xAI page.
+- **Antigravity:** the app opens Google's sign-in page. Google then sends the browser
+  to `http://127.0.0.1:<port>/…`, which does not load because that address is inside
+  the container; paste the whole address into the app and it is delivered there.
 - **Claude Code:** the app opens Claude's sign-in page. After you approve, that page
   shows a code; paste it into the app. The code reaches `claude auth login` in the
   container through the operator channel (`_openab/runtime/login/input`).
@@ -388,6 +402,12 @@ and the credential path. A hand-built image has to pass them itself:
 # Claude Code
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/claude-login.mjs' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.claude/.credentials.json
+# Grok Build
+--build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/grok-login.mjs' \
+--build-arg RUNTIME_AUTH_FILE=/home/node/.grok/auth.json
+# Antigravity
+--build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/antigravity-login.mjs' \
+--build-arg RUNTIME_AUTH_FILE=/home/node/.gemini/antigravity-acp/acp_token.json
 ```
 
 Self-hosting the rest of Nuphos is in progress and not documented here.
@@ -395,7 +415,7 @@ Self-hosting the rest of Nuphos is in progress and not documented here.
 ## Versions and tags
 
 The version in `package.json` is the image's version. A release bumps it, tags
-the commit `runtime-vX.Y.Z`, and publishes both providers from that tag; the `Release runtime`
+the commit `runtime-vX.Y.Z`, and publishes every provider from that tag; the `Release runtime`
 workflow does all three. Builds are dispatch-only and always run `main`'s
 workflow definition against a commit reachable from `main`.
 
@@ -405,6 +425,8 @@ Each release publishes four tags per provider:
 | ------------------- | ------------------------ | ---------------------------------- |
 | Runtime             | `X.Y.Z-claude-code`      | `commit-<runtime-sha>-claude-code` |
 | Runtime             | `X.Y.Z-codex`            | `commit-<runtime-sha>-codex`       |
+| Runtime             | `X.Y.Z-grok`             | `commit-<runtime-sha>-grok`        |
+| Runtime             | `X.Y.Z-antigravity`      | `commit-<runtime-sha>-antigravity` |
 | Base (gateway only) | `X.Y.Z-base-claude-code` | `<openab-sha12>-base-claude-code`  |
 | Base (gateway only) | `X.Y.Z-base-codex`       | `<openab-sha12>-base-codex`        |
 
@@ -479,8 +501,11 @@ Apache-2.0 — see [LICENSE](LICENSE).
 The images built from this repository bundle third-party software under its own
 licences, including software that is not open source: `@anthropic-ai/claude-code`
 and the Claude Agent SDK are distributed under Anthropic's commercial terms.
-[NOTICE](NOTICE) lists what is included and under what terms. Nuphos and Zeabur
-are not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI.
+[NOTICE](NOTICE) lists what is included and under what terms. The Grok Build CLI
+(xAI) and the Antigravity ACP server (Google) are not in the images; a runtime
+downloads them from their vendors on first use, under the vendors' terms. Nuphos
+and Zeabur are not affiliated with, endorsed by, or sponsored by Anthropic,
+OpenAI, xAI or Google.
 
 ### Automatic Claude SDK updates
 

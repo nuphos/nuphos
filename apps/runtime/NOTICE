@@ -47,6 +47,11 @@ Agent CLIs and ACP adapters
   Anthropic account and compliance with Anthropic's terms. Nuphos and Zeabur
   are not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI.
 
+  Not included: the Grok Build CLI (xAI) and the Antigravity ACP server
+  (Google) are proprietary. The grok and antigravity images download the
+  pinned build from the vendor on first use; their use is subject to the
+  vendors' terms.
+
 
 Command-line tools
 ------------------
@@ -82,7 +87,8 @@ TRADEMARKS
 ==========
 
 Claude and Anthropic are trademarks of Anthropic, PBC. Codex and OpenAI are
-trademarks of OpenAI. Kubernetes is a registered trademark of The Linux
+trademarks of OpenAI. Grok and xAI are trademarks of xAI. Gemini, Google and
+Google Antigravity are trademarks of Google LLC. Kubernetes is a registered trademark of The Linux
 Foundation. All other trademarks are the property of their respective owners.
 Their use here is nominative, to identify the software these images package,
 and does not imply any affiliation or endorsement.

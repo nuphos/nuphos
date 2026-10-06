@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../types/runtime.ts'
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
@@ -38,7 +39,7 @@ export type AgentConversation = {
   archivedAt?: string
   /** This conversation is backed by a long-lived Claude Code runtime session. */
   claudeCodeRuntimeAttached?: boolean
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   runtimeId?: string
   runtimeLabel?: string
   /** A reply running right now, on any client. */
@@ -142,7 +143,7 @@ export type AgentPersistedMessage = {
 }
 
 export type AgentTimelinePerson = { id: string; name: string; avatarURL: string }
-export type AgentTimelineRuntime = { label: string; provider?: 'claude-code' | 'codex' }
+export type AgentTimelineRuntime = { label: string; provider?: AgentProvider }
 
 /** Who joined, left or moved the session; `text` is the whole line, plain. */
 export type AgentTimelineEvent = {

@@ -212,6 +212,34 @@ test('an interruption is retained when an exhausted replay budget forbids retry'
   )
 })
 
+test('a provider out of usage stops at once instead of resending the turn', async () => {
+  const { ctx, emitted } = retryContext()
+  const read = await consumeChatStream(
+    ctx,
+    sse(
+      { ...interruption, message: 'This agent’s provider account has no usage left.' },
+      {
+        type: 'error',
+        errorCode: 'runtime_usage_exhausted',
+        errorText: 'This agent’s provider account has no usage left.',
+      },
+      { type: 'atlas-stream-done' },
+    ),
+    false,
+  )
+
+  if (read.kind !== 'read') throw new Error('expected read')
+  assert.equal(await resolveStreamOutcome(ctx, read, false, Date.now(), true), 'stop')
+  assert.equal(
+    emitted.some((e) => e.type === 'reset-partial'),
+    false,
+  )
+  assert.equal(
+    emitted.some((e) => e.data?.type === 'turn-interrupted'),
+    true,
+  )
+})
+
 test('an error frame after tool execution resumes the live run instead of failing the turn', async () => {
   for (const explicitResume of [false, true]) {
     const { ctx, emitted } = retryContext()

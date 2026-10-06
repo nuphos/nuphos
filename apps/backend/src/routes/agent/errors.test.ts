@@ -17,6 +17,21 @@ test('the ACP sign-out refusal reaches clients as a named product state', () => 
   expect(frame.errorText).toContain('Sign the agent in again')
 })
 
+test('a provider out of usage reaches clients as a named product state', () => {
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> API error (status 402 Payment Required): Grok Build usage balance exhausted requestId=2e987add-d6e3-4193-905b-34c86d87bb62',
+      -32603,
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_usage_exhausted')
+  expect(frame.errorText).toBe(
+    'This agent’s provider account has no usage left (Grok Build usage balance exhausted). Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.',
+  )
+})
+
 test('other ACP refusals keep their diagnostics and stay uncoded', () => {
   const frame = agentStreamErrorFrame(new OpenAbRpcError('Runtime is busy', -32005), undefined)
 

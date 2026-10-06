@@ -33,6 +33,7 @@ export type DeviceExecAuditPage = {
   nextCursor: string | null
 }
 
+/** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
 export type LocalAgentProvider = 'claude-code' | 'codex'
 
 export type AgentCliStatus =

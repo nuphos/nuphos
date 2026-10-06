@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
@@ -15,6 +16,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
+import type { OpenAbProvider } from './runtime-provider'
 
 const previousKey = config.claudeCodePreview.tokenEncryptionKey
 const FLEET_VERSION = '0.3.1'
@@ -57,7 +59,7 @@ function json(method: string, body: unknown) {
 async function add(
   server: ReturnType<typeof app>,
   label: string,
-  provider: 'claude-code' | 'codex' = 'codex',
+  provider: OpenAbProvider = 'codex',
 ) {
   const response = await server.request('/agent-runtimes', json('POST', { label, provider }))
 
@@ -73,7 +75,7 @@ beforeEach(async () => {
 })
 
 test('adding a managed agent registers a hosted runtime with its own generated password', async () => {
-  for (const provider of ['claude-code', 'codex'] as const) {
+  for (const provider of OPENAB_PROVIDERS) {
     const created = await add(app(), `${provider} work`, provider)
     const row = runtimeRows().find((doc) => doc._id === created.id)!
 

@@ -1,5 +1,6 @@
+import type { AgentProvider } from '../../src/types/runtime.ts'
 export type Conversation = {
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   runtimeId?: string
   runtimeLabel?: string
   sessionId: string

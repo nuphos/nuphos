@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 
@@ -122,7 +123,7 @@ export const appChannels = {
       id: string
       teamId: string
       runtimeId: string
-      agentRuntime: 'claude-code' | 'codex'
+      agentRuntime: AgentProvider
     },
   ) => importLocalSession(args),
   'dialog:listLocalAgentSessions': async (_e: IpcMainInvokeEvent, rawSource: string) => {

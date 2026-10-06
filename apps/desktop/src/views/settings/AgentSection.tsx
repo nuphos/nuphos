@@ -1,7 +1,7 @@
 import './agents.css'
 import { useEffect, useState } from 'react'
 import { Bot, ChevronRight } from 'lucide-react'
-import { ClaudeCodeIcon, CodexIcon } from '../../components/agent/panel/icons'
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
@@ -96,7 +96,6 @@ export function AgentSection({
                 </div>
                 <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2.5 pb-4">
                   {instances.map((instance) => {
-                    const Icon = instance.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
                     const selected = selectedId === instance.id
 
                     return (
@@ -110,7 +109,10 @@ export function AgentSection({
                         <span
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${selected ? 'border-zViolet-500/20 bg-main' : 'border-zGray-800/70 bg-main/60'}`}
                         >
-                          <Icon className="h-[18px] w-[18px]" />
+                          <AgentProviderIcon
+                            provider={instance.provider}
+                            className="h-[18px] w-[18px]"
+                          />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium">

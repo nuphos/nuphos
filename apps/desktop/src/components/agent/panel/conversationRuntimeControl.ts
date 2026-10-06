@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
+import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
 import type { PanelViewCtx } from './ctx'
@@ -34,7 +35,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   } = c
   const sessionId = tab?.sessionId
   const tabId = tab?.id
-  const provider = tab?.agentRuntime === 'codex' ? 'codex' : 'claude-code'
+  const provider = tab?.agentRuntime ?? 'claude-code'
   const moving = Boolean(tab?.movingTo)
   const { setTabs, refreshHistory } = c
   const setTab = useCallback(
@@ -129,8 +130,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       value: {
         id: tab?.runtimeId,
         provider,
-        label:
-          current?.label ?? tab?.runtimeLabel ?? (provider === 'codex' ? 'Codex' : 'Claude Code'),
+        label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
         status: current?.status,
       },
       options: runtimeInstances,

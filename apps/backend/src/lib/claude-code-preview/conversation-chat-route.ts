@@ -1,5 +1,10 @@
+import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
+import { AppError } from '@/lib/errors'
+import { getTeamAgentRuntime } from '@/lib/identity'
+
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
+import { runtimeLabel as providerLabel } from './runtime-provider'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 import {
   assertClaudeCodeSetupConfigured,
@@ -12,10 +17,6 @@ import type { OpenAbProvider } from './runtime-provider'
 import type { ConversationAgentRuntime } from './runtime-routing'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
-
-import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
-import { AppError } from '@/lib/errors'
-import { getTeamAgentRuntime } from '@/lib/identity'
 
 export type ConversationChatRuntime = {
   runtime: ConversationAgentRuntime
@@ -89,8 +90,7 @@ export async function resolveConversationChatRuntime(
         conversation.claudeCodePreview.runtimeUrl === developmentEndpoint.url)
   ) {
     const runtimeId = developmentEndpoint.runtimeId
-    const runtimeLabel =
-      instance?.label ?? `${runtime === 'codex' ? 'Codex' : 'Claude Code'} (local development)`
+    const runtimeLabel = instance?.label ?? `${providerLabel(runtime)} (local development)`
     const endpoint = selectClaudeCodeChatEndpoint(
       runtime,
       [developmentEndpoint],

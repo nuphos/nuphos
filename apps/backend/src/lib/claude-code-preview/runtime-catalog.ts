@@ -5,7 +5,7 @@ import { AppError } from '@/lib/errors'
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { listRuntimeDefaults } from './runtime-defaults'
 import { runtimeDeletions } from './runtime-portability-store'
-import { runtimeLabel } from './runtime-provider'
+import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -16,6 +16,8 @@ export function developmentRuntimeEndpoint(
   provider: OpenAbProvider,
   purpose: 'transport' | 'control' = 'transport',
 ): (TeamRuntimeEndpoint & { runtimeId: string }) | undefined {
+  // Local development runs one Claude Code and one Codex runtime.
+  if (provider !== 'claude-code' && provider !== 'codex') return undefined
   const endpoint =
     provider === 'codex'
       ? config.claudeCodePreview.codexDevelopmentRuntimeEndpoint
@@ -40,7 +42,7 @@ export async function listRuntimeInstances(
   userId?: string,
 ): Promise<RuntimeInstance[]> {
   const groups = await Promise.all(
-    (['claude-code', 'codex'] as const).map(async (provider) => {
+    OPENAB_PROVIDERS.map(async (provider) => {
       // Every registered runtime owns its login and reports it through its status.
       const registered: RuntimeInstance[] = (await listTeamRuntimes(teamId, provider)).map(
         (runtime) => ({
@@ -120,9 +122,7 @@ export async function withRuntimeReadiness(
   instances: RuntimeInstance[],
 ): Promise<RuntimeInstance[]> {
   const endpoints = await Promise.all(
-    (['claude-code', 'codex'] as const).map((provider) =>
-      resolveTeamRuntimeEndpoints(teamId, undefined, provider),
-    ),
+    OPENAB_PROVIDERS.map((provider) => resolveTeamRuntimeEndpoints(teamId, undefined, provider)),
   )
   const reachable = new Set(endpoints.flat().map((endpoint) => endpoint.runtimeId))
 

@@ -39,13 +39,39 @@ export function isClaudeAuthorizeUrl(value: unknown): value is string {
   }
 }
 
+/** Google's authorize page, as Antigravity's sign-in opens it. */
+export function isGoogleAuthorizeUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 4096) return false
+  try {
+    const url = new URL(value)
+
+    return (
+      url.protocol === 'https:' &&
+      url.hostname === 'accounts.google.com' &&
+      url.pathname === '/o/oauth2/v2/auth'
+    )
+  } catch {
+    return false
+  }
+}
+
+/** The device pages a runtime may send a user to: ChatGPT for Codex, xAI for Grok Build. */
+const DEVICE_VERIFICATION_URIS = new Set([
+  'https://auth.openai.com/codex/device',
+  'https://accounts.x.ai/oauth2/device',
+])
+
 /**
  * Bounded private stream parser; unknown or malformed frames never reach the UI.
  *
  * The runtime keeps the credential it signs in with, so an `authenticated` frame that
  * offers one anyway is a runtime handing over what nobody asked it for.
  */
-export function loginFrameReader(onFrame: (frame: RuntimeLoginFrame) => void) {
+export function loginFrameReader(
+  onFrame: (frame: RuntimeLoginFrame) => void,
+  // The provider's own advice when its sign-in fails.
+  failed = LOGIN_ERRORS.get('failed'),
+) {
   let pending = ''
 
   return (chunk: string) => {
@@ -62,16 +88,19 @@ export function loginFrameReader(onFrame: (frame: RuntimeLoginFrame) => void) {
 
       if (
         frame.type === 'device' &&
-        frame.verificationUri === 'https://auth.openai.com/codex/device' &&
+        DEVICE_VERIFICATION_URIS.has(frame.verificationUri as string) &&
         typeof frame.userCode === 'string' &&
         /^[A-Za-z0-9-]{4,32}$/u.test(frame.userCode)
       ) {
         onFrame({
           type: 'device',
-          verificationUri: frame.verificationUri,
+          verificationUri: frame.verificationUri as string,
           userCode: frame.userCode,
         })
-      } else if (frame.type === 'authorize' && isClaudeAuthorizeUrl(frame.url)) {
+      } else if (
+        frame.type === 'authorize' &&
+        (isClaudeAuthorizeUrl(frame.url) || isGoogleAuthorizeUrl(frame.url))
+      ) {
         onFrame({ type: 'authorize', url: frame.url })
       } else if (frame.type === 'authenticated' && frame.authJson === undefined) {
         onFrame({ type: 'authenticated' })
@@ -79,7 +108,7 @@ export function loginFrameReader(onFrame: (frame: RuntimeLoginFrame) => void) {
         onFrame({
           type: 'error',
           message:
-            LOGIN_ERRORS.get(frame.reason) ??
+            (frame.reason === 'failed' ? failed : LOGIN_ERRORS.get(frame.reason)) ??
             'Sign-in did not complete. Retry and check device-code login in ChatGPT security settings.',
         })
       } else throw new Error('Invalid login response')

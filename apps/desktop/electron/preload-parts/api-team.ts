@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
 
 import { runtimeApi } from './api-runtimes'
@@ -118,7 +119,7 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:updateTeam', teamId, input),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
     ipcRenderer.invoke('atlas:setTeamEmailDomainDiscovery', teamId, enabled),
-  atlasSetTeamAgentRuntime: (teamId: string, runtime: 'claude-code' | 'codex') =>
+  atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>
     ipcRenderer.invoke('atlas:setTeamAgentRuntime', teamId, runtime),
   atlasListDiscoverableTeams: () => ipcRenderer.invoke('atlas:listDiscoverableTeams'),
   atlasJoinDiscoverableTeam: (teamId: string) =>

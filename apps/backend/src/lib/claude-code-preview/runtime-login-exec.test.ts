@@ -142,3 +142,43 @@ test("only Claude's own authorize page reaches the UI, and a runtime's error is 
   expect(messages[2]).toBe(messages[3])
   expect(messages.join()).not.toContain('runtime words')
 })
+
+test("a failed sign-in gives the provider's own advice", () => {
+  const messages: string[] = []
+  const read = loginFrameReader(
+    (frame) => frame.type === 'error' && messages.push(frame.message),
+    'Start again and confirm the code on the xAI page.',
+  )
+
+  read(`${JSON.stringify({ type: 'error', reason: 'failed' })}\n`)
+  read(`${JSON.stringify({ type: 'error', reason: 'input_unavailable' })}\n`)
+  expect(messages[0]).toBe('Start again and confirm the code on the xAI page.')
+  expect(messages[1]).toContain('cannot receive the sign-in code')
+})
+
+test('Grok Build and Antigravity sign in through their own pages only', () => {
+  const frames: RuntimeLoginFrame[] = []
+  const read = loginFrameReader((frame) => frames.push(frame))
+  const google = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=c&redirect_uri=x'
+  const device = { verificationUri: 'https://accounts.x.ai/oauth2/device', userCode: '26CT-7C8A' }
+
+  read(`${JSON.stringify({ type: 'device', ...device })}\n`)
+  read(`${JSON.stringify({ type: 'authorize', url: google })}\n`)
+  for (const lookalike of [
+    'https://accounts.google.com.evil.example/o/oauth2/v2/auth',
+    'https://accounts.google.com/signin',
+  ])
+    expect(() => read(`${JSON.stringify({ type: 'authorize', url: lookalike })}\n`)).toThrow(
+      'Invalid login response',
+    )
+  expect(() =>
+    read(
+      `${JSON.stringify({ type: 'device', verificationUri: 'https://x.ai.evil.example/device', userCode: 'AAAA' })}\n`,
+    ),
+  ).toThrow('Invalid login response')
+
+  expect(frames).toEqual([
+    { type: 'device', ...device },
+    { type: 'authorize', url: google },
+  ])
+})

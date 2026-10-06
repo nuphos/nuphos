@@ -1,3 +1,4 @@
+import type { AgentProvider } from './runtime.ts'
 export type UserInfo = {
   id: string
   name: string
@@ -40,7 +41,7 @@ export type AtlasTeam = {
   ownerID?: string
   contactEmails?: string[]
   allowedEmailDomains?: string[]
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   createdAt?: string
   isOwner?: boolean
   role?: TeamRole

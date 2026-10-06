@@ -119,6 +119,24 @@ describe('probeExternalRuntimeProvider', () => {
     await expect(probing).resolves.toBe('codex')
   })
 
+  for (const [stamp, provider] of [
+    ['grok@1.0.46', 'grok'],
+    ['antigravity-acp@1.3.0', 'antigravity'],
+  ] as const)
+    test(`recognizes the ${provider} stamp the image sets`, async () => {
+      const h = harness()
+      const probing = probeExternalRuntimeProvider(
+        'wss://openab.example/acp',
+        'password',
+        h.connect,
+      )
+      const frame = await nextSent(h.socket(), 0)
+
+      h.socket().receive({ jsonrpc: '2.0', id: frame.id, result: initializeResultWith(stamp) })
+
+      await expect(probing).resolves.toBe(provider)
+    })
+
   test('falls back to undefined when the runtime reports no build stamp', async () => {
     const h = harness()
     const probing = probeExternalRuntimeProvider('wss://openab.example/acp', 'password', h.connect)

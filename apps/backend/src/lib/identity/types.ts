@@ -1,3 +1,5 @@
+import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
+
 export type NuphosUser = {
   id: string
   email: string
@@ -17,7 +19,7 @@ export type NuphosTeam = {
   ownerID: string | null
   contactEmails: string[]
   allowedEmailDomains: string[]
-  agentRuntime: 'claude-code' | 'codex'
+  agentRuntime: OpenAbProvider
   createdAt: string
   role?: NuphosTeamRole
   billing: TeamBillingSummary

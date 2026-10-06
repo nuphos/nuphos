@@ -3,29 +3,17 @@ import { z } from 'zod'
 import { logError } from '@/lib/observability'
 
 import { runtimeLabel } from './runtime-provider'
+import { normalizeGrokUsage } from './runtime-quota-grok'
 import { probeRuntimeQuota } from './runtime-quota-probe'
+import { clampPercent, unavailable } from './runtime-quota-shape'
 import { RuntimeCapabilityError } from './team-openab-runtime'
 
 import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
 import type { RuntimeQuotaReading } from './runtime-quota-probe'
+import type { RuntimeQuota, RuntimeQuotaWindow } from './runtime-quota-shape'
 
-export type RuntimeQuotaWindow = {
-  id: string
-  label: string
-  usedPercent: number
-  resetsAt: string | null
-}
-
-export type RuntimeQuota = {
-  runtimeId: string
-  provider: OpenAbProvider
-  fetchedAt: string
-  available: boolean
-  reason?: string
-  plan?: string
-  windows: RuntimeQuotaWindow[]
-}
+export type { RuntimeQuota, RuntimeQuotaWindow } from './runtime-quota-shape'
 
 // Usage windows are five hours and a week wide, and the providers rate-limit
 // the endpoints that report them: Anthropic's answers 429 to a minute-paced
@@ -81,21 +69,6 @@ const CLAUDE_WINDOWS: [ClaudeWindowKey, string][] = [
   ['seven_day_opus', 'Weekly · Opus'],
   ['seven_day_sonnet', 'Weekly · Sonnet'],
 ]
-
-function clampPercent(value: number): number {
-  return Math.min(100, Math.max(0, Math.round(value * 10) / 10))
-}
-
-function unavailable(instance: RuntimeInstance, fetchedAt: string, reason: string): RuntimeQuota {
-  return {
-    runtimeId: instance.id,
-    provider: instance.provider,
-    fetchedAt,
-    available: false,
-    reason,
-    windows: [],
-  }
-}
 
 export function normalizeClaudeUsage(
   instance: RuntimeInstance,
@@ -178,6 +151,12 @@ export function normalizeCodexUsage(
   }
 }
 
+const NORMALIZE = {
+  'claude-code': normalizeClaudeUsage,
+  codex: normalizeCodexUsage,
+  grok: normalizeGrokUsage,
+} as const
+
 export type RuntimeQuotaDeps = { probe: typeof probeRuntimeQuota }
 const defaultDeps: RuntimeQuotaDeps = { probe: probeRuntimeQuota }
 
@@ -213,10 +192,11 @@ async function fetchUncached(
     return reading.asked === true
       ? { quota: unavailable(instance, fetchedAt, reading.error), holdMs: PROVIDER_HOLD_MS }
       : retry(reading.error)
-  const quota =
-    instance.provider === 'codex'
-      ? normalizeCodexUsage(instance, reading.usage, fetchedAt)
-      : normalizeClaudeUsage(instance, reading.usage, fetchedAt)
+  const quota = NORMALIZE[instance.provider as keyof typeof NORMALIZE](
+    instance,
+    reading.usage,
+    fetchedAt,
+  )
 
   return {
     quota: reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota,
@@ -244,9 +224,7 @@ function localQuota(instance: RuntimeInstance): RuntimeQuota {
   // poll over the same body would push "resets in …" further out.
   const readAt = instance.local?.usageAt ?? new Date().toISOString()
 
-  return instance.provider === 'codex'
-    ? normalizeCodexUsage(instance, usage, readAt)
-    : normalizeClaudeUsage(instance, usage, readAt)
+  return NORMALIZE[instance.provider as keyof typeof NORMALIZE](instance, usage, readAt)
 }
 
 const cache = new Map<string, { expires: number; result: Promise<RuntimeQuota> }>()
@@ -260,6 +238,15 @@ export function fetchRuntimeQuota(
   // Answered from the instance alone, so there is nothing to ask and nothing to
   // hold: an agent re-enabled a moment ago must not read as disabled for the
   // length of a cache entry.
+  // Antigravity reports no usage to a client, only an exhausted quota.
+  if (!(instance.provider in NORMALIZE))
+    return Promise.resolve(
+      unavailable(
+        instance,
+        new Date().toISOString(),
+        `${runtimeLabel(instance.provider)} does not report usage`,
+      ),
+    )
   if (instance.kind === 'local') return Promise.resolve(localQuota(instance))
   if (instance.status === 'disabled')
     return Promise.resolve(unavailable(instance, new Date().toISOString(), 'Agent is disabled'))

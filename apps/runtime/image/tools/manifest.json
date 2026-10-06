@@ -245,6 +245,36 @@
         "objcopy": "root/usr/bin/objcopy",
         "readelf": "root/usr/bin/readelf"
       }
+    },
+    "grok": {
+      "version": "1.0.46",
+      "kind": "binary",
+      "downloads": {
+        "amd64": {
+          "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.46-linux-x86_64",
+          "sha256": "41626a53292324140b92556b9d42ff5542e3dcd04aff85eafb8689dd4adb44fc"
+        },
+        "arm64": {
+          "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.46-linux-aarch64",
+          "sha256": "45b0943e736f00a249b9cf02af2be9e0749d97c09a6f55cfcf3029a1a836f23e"
+        }
+      },
+      "commands": { "grok": "grok" }
+    },
+    "antigravity-acp": {
+      "version": "1.3.0",
+      "kind": "archive",
+      "downloads": {
+        "amd64": {
+          "url": "https://dl.google.com/agy-extensions/releases/linux/agy-acp-server-1.3.0-linux-x86_64.zip",
+          "sha256": "9fb60956af0a9d76220a4db91ca9ac88e2a2372ad68f985ab5fceace6b825b96"
+        },
+        "arm64": {
+          "url": "https://dl.google.com/agy-extensions/releases/linux/agy-acp-server-1.3.0-linux-arm64.zip",
+          "sha256": "500b0bc0fb858e88f4df404d4cedf80bf9298c178291e39e383d6c50b111cbdf"
+        }
+      },
+      "commands": { "agy-acp-server": { "path": "agy_acp_server.par", "args": ["--uid="] } }
     }
   }
 }
