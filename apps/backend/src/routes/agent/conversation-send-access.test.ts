@@ -44,28 +44,14 @@ test('revoked membership, another team and unscoped private sessions stay closed
   expect(await assertConversationSendable('shared', 'owner', undefined)).toBe(conversation)
 })
 
-test('shared agents are writable in the UI but another member’s local agent is private', () => {
+test('a teammate can view and reply to a session on another member’s local agent', async () => {
   const viewer = { id: 'teammate' } as NuphosUser
-  const shared = { userId: 'owner', teamId, runtimeId: 'managed-agent' }
+  const local = { userId: 'owner', teamId, runtimeId: 'local_owner_device' }
 
-  expect(serializeConversationForViewer(shared, viewer, new Map())).toMatchObject({
+  expect(serializeConversationForViewer(local, viewer, new Map())).toMatchObject({
     readOnly: false,
     isOwner: false,
   })
-  expect(
-    serializeConversationForViewer(
-      { ...shared, runtimeId: 'local_owner_device' },
-      viewer,
-      new Map(),
-    ),
-  ).toMatchObject({ readOnly: true })
-})
-
-test('sending to another member’s Local Agent is rejected before turn preparation', async () => {
   conversation!.runtimeId = 'local_owner_device'
-  await expect(assertConversationSendable('shared', 'teammate', teamId)).rejects.toMatchObject({
-    status: 403,
-    code: 'local_agent_private',
-  })
-  expect(await assertConversationSendable('shared', 'owner', teamId)).toBe(conversation)
+  expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
 })

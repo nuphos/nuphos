@@ -11,6 +11,7 @@ import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
+import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { ConversationRail } from '../../views/ConversationRail'
 
@@ -60,6 +61,7 @@ export function WorkspaceAgentPane({
     title: string
     canRename?: boolean
     runtime: AgentProvider | null
+    runtimeId?: string
   }>({ sessionId: null, title: 'Agent', runtime: null })
   const [conversationRailCollapsed, setConversationRailCollapsed] = useState(true)
   const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null)
@@ -112,10 +114,12 @@ export function WorkspaceAgentPane({
       runtimeAttached: boolean,
       agentRuntime?: AgentProvider,
       canRename?: boolean,
+      runtimeId?: string,
     ) => {
       setHeading({
         sessionId,
         canRename,
+        runtimeId,
         title: nextTitle || 'Agent',
         runtime: runtimeAttached ? (agentRuntime ?? 'claude-code') : null,
       })
@@ -188,6 +192,7 @@ export function WorkspaceAgentPane({
               sessionId={selectedSessionId}
               teamId={teamId}
               currentUserId={user.id}
+              localAgent={isLocalAgentRuntime(currentHeading.runtimeId)}
               onCopyLink={() => void copySessionUrl()}
               copied={copiedSessionUrl}
             />

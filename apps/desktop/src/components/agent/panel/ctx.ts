@@ -53,6 +53,7 @@ export type PanelCtx = {
     claudeCodeRuntimeAttached: boolean,
     agentRuntime?: AgentProvider,
     canRename?: boolean,
+    runtimeId?: string,
   ) => void
   onSessionChange?: (sessionId: string | null) => void
   onOpenNuphosLink?: (href: string) => boolean

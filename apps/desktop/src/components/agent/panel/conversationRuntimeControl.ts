@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
+import { LOCAL_AGENT_SHARING_WARNING } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
@@ -122,6 +123,30 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
+  // Moving a session that has teammates onto a Local Agent hands them this
+  // computer, so that move waits for the user's go-ahead.
+  const [pendingLocal, setPendingLocal] = useState<RuntimeInstance | null>(null)
+  const select = useCallback(
+    async (runtimeId: string) => {
+      const target = runtimeInstances.find((instance) => instance.id === runtimeId)
+
+      if (target?.kind === 'local' && sessionId && teamId) {
+        const shared = await api
+          .agentGetConversationParticipants(sessionId, teamId)
+          .then(({ participants }) => participants.some((participant) => !participant.isOwner))
+          .catch(() => true)
+
+        if (shared) {
+          setPendingLocal(target)
+
+          return
+        }
+      }
+      await move(runtimeId)
+    },
+    [move, runtimeInstances, sessionId, teamId],
+  )
+
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
     if (!sessionId || !teamId || tab?.readOnly || tab?.foreign) return
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
@@ -134,7 +159,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         status: current?.status,
       },
       options: runtimeInstances,
-      onSelect: (runtimeId: string) => void move(runtimeId),
+      onSelect: (runtimeId: string) => void select(runtimeId),
       selectDisabled: tab?.streaming || moving,
       quota: tab?.runtimeId ? runtimeQuotas.get(tab.runtimeId) : undefined,
       unavailable:
@@ -142,8 +167,24 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       loading: runtimeInstancesLoading,
       error: runtimeInstancesError,
       onSettings: onOpenAgentSettings,
+      ...(pendingLocal
+        ? {
+            confirm: {
+              title: `Move to ${pendingLocal.label}?`,
+              description: LOCAL_AGENT_SHARING_WARNING,
+              confirmLabel: 'Move',
+              onConfirm: () => {
+                setPendingLocal(null)
+                void move(pendingLocal.id)
+              },
+              onCancel: () => setPendingLocal(null),
+            },
+          }
+        : {}),
     }
   }, [
+    pendingLocal,
+    select,
     move,
     moving,
     provider,

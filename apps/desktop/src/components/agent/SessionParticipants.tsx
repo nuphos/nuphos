@@ -1,8 +1,9 @@
 import clsx from 'clsx'
-import { Check, Link2, Loader2, X } from 'lucide-react'
+import { Check, Link2, Loader2, TriangleAlert, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { LOCAL_AGENT_SHARING_WARNING } from '../../lib/localAgentSharing'
 import { Avatar } from '../Avatar'
 import {
   Menu,
@@ -116,12 +117,15 @@ export function SessionParticipants({
   sessionId,
   teamId,
   currentUserId,
+  localAgent,
   onCopyLink,
   copied,
 }: {
   sessionId: string
   teamId: string
   currentUserId: string
+  /** The session runs on a Local Agent, i.e. on its owner's own computer. */
+  localAgent: boolean
   onCopyLink: () => void
   copied: boolean
 }) {
@@ -194,6 +198,9 @@ export function SessionParticipants({
 
   const joined = new Set(participants.map((participant) => participant.id))
   const invitable = (members ?? []).filter((member) => !joined.has(member.id))
+  const warnOwner =
+    localAgent &&
+    participants.some((participant) => participant.isOwner && participant.id === currentUserId)
 
   return (
     <Menu onOpenChange={(open) => open && loadMembers()}>
@@ -209,6 +216,15 @@ export function SessionParticipants({
         Share
       </MenuTrigger>
       <MenuContent align="end" className="w-[260px]">
+        {warnOwner && (
+          <>
+            <div className="flex gap-2 px-2.5 py-1.5 text-[12px] leading-snug text-warning">
+              <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+              {LOCAL_AGENT_SHARING_WARNING}
+            </div>
+            <MenuSeparator />
+          </>
+        )}
         {/* Base UI reads a group label out of its group's context, so every
             label has to sit inside a MenuGroup — outside one it throws. */}
         <MenuGroup>
