@@ -7,7 +7,8 @@
 // `_openab/runtime/login/input`) and this script delivers it to the listener. The
 // credential stays under `$GEMINI_HOME`; no frame carries it.
 import { spawn } from 'node:child_process'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
@@ -49,11 +50,15 @@ export async function runAntigravityLogin({
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   signal,
 } = {}) {
+  // The server answers authenticate from a cached token without asking Google, so
+  // a sign-in with another account starts from an empty home. The current one
+  // stays in place until the new one succeeds.
+  const loginHome = await mkdtemp(join(tmpdir(), 'antigravity-login-'))
   const child = spawn(executable, [], {
     // Not the gateway's environment. BROWSER keeps it from trying to open one.
     env: {
       HOME: process.env.HOME ?? '/home/node',
-      GEMINI_HOME: home,
+      GEMINI_HOME: loginHome,
       PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
       BROWSER: 'true',
     },
@@ -107,11 +112,15 @@ export async function runAntigravityLogin({
     send({ id: 1, method: 'initialize', params: { protocolVersion: 1, clientCapabilities: {} } })
     send({ id: 2, method: 'authenticate', params: { methodId: 'oauth-personal' } })
     if (!(await authenticated) || failure) throw new Error('Antigravity login did not complete')
-    // Sessions do not call authenticate, so the server needs the method recorded.
     const settingsDir = join(home, 'antigravity-acp')
     const settingsPath = join(settingsDir, 'settings.json')
     const settings = JSON.parse(await readFile(settingsPath, 'utf8').catch(() => '{}'))
     await mkdir(settingsDir, { recursive: true, mode: 0o700 })
+    await copyFile(
+      join(loginHome, 'antigravity-acp', 'acp_token.json'),
+      join(settingsDir, 'acp_token.json'),
+    )
+    // Sessions do not call authenticate, so the server needs the method recorded.
     await writeFile(
       settingsPath,
       `${JSON.stringify({ ...settings, auth: { ...settings.auth, type: 'oauth-personal' } }, null, 2)}\n`,
@@ -123,6 +132,7 @@ export async function runAntigravityLogin({
     lines.removeAllListeners('close')
     lines.close()
     stop()
+    await rm(loginHome, { recursive: true, force: true })
   }
 }
 
