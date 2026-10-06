@@ -268,7 +268,12 @@ require('node:readline').createInterface({ input: process.stdin }).on('line', (l
     update('_x.ai/session/update', 'task_backgrounded', { tool_call_id: 'call-1', task_id: 't1', command: 'sleep 1' })
     update('session/update', 'tool_call_update', { toolCallId: 'call-1', status: 'completed' })
     send({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } })
-    setTimeout(() => update('_x.ai/session/update', 'task_completed', { task_snapshot: { task_id: 't1', exit_code: 0, output: 'done\\n' } }), 20)
+    setTimeout(() => {
+      update('_x.ai/session/update', 'task_completed', { task_snapshot: { task_id: 't1', exit_code: 0, output: 'done\\n' } })
+      // Its wakeup opens straight with text, no reminder first.
+      update('session/update', 'agent_message_chunk', { content: { type: 'text', text: 'done' } })
+      update('_x.ai/session_notification', 'turn_completed', { prompt_id: 'task-completed-t1' })
+    }, 20)
   } else if (m.id !== undefined) {
     send({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 's1', configOptions: [] } : {} })
   }
@@ -292,6 +297,16 @@ test('a grok background command stays a running terminal until it ends', async (
         ['in_progress', 'in_progress', 'completed'],
       )
       assert.deepEqual(tool[0]._meta.terminal_info, { terminalId: 't1', command: 'sleep 1' })
+      const states = (m) => m.params?.update?._meta?.['ai.nuphos/sessionState']?.state
+      // The command's end is a background update; the wakeup that reports it is a turn.
+      const order = outputs
+        .map(
+          (m) =>
+            states(m) ??
+            (m.params?.update?._meta?.terminal_exit ? 'exit' : m.params?.update?.content?.text),
+        )
+        .filter((step) => ['active', 'idle', 'exit', 'done'].includes(step))
+      assert.deepEqual(order, ['active', 'idle', 'exit', 'active', 'done', 'idle'])
       assert.deepEqual(tool[2]._meta, {
         terminal_info: { terminalId: 't1' },
         terminal_output: 'done\n',

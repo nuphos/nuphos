@@ -81,6 +81,13 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
 // The lifecycle the backend reads for every agent, as the Claude adapter is patched
 // to report it: active while a turn runs, idle once it ends. A turn the agent starts
 // on its own (a Grok scheduler wakeup) opens and closes with it too.
+const TURN_OPENERS = new Set([
+  'user_message_chunk',
+  'agent_thought_chunk',
+  'agent_message_chunk',
+  'tool_call',
+])
+
 export function sessionState(sessionId, state) {
   return {
     jsonrpc: '2.0',
@@ -242,8 +249,10 @@ export function runShim({
       return write(sessionState(sessionId, 'idle'))
     }
     if (kind === 'turn_completed' && prompting(sessionId)) held.set(sessionId, [])
-    // A turn the agent started on its own opens with a user message no prompt carried.
-    if (kind === 'user_message_chunk' && !prompting(sessionId) && !autonomous.has(sessionId)) {
+    // Output no prompt asked for opens a turn the agent started on its own: a
+    // wakeup's reminder, its first thought or text, or a new tool. A tool update
+    // alone is a background command reporting, not a turn.
+    if (TURN_OPENERS.has(kind) && !prompting(sessionId) && !autonomous.has(sessionId)) {
       autonomous.add(sessionId)
       write(sessionState(sessionId, 'active'))
     }
