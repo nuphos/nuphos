@@ -31,8 +31,10 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
   const children = []
   const replies = new Map()
   const notifications = []
+  const outputs = []
   createInterface({ input: output }).on('line', (line) => {
     const message = JSON.parse(line)
+    outputs.push(message)
     if (message.method) notifications.push(message)
     replies.get(message.id)?.(message)
   })
@@ -58,7 +60,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
       input.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
     })
   try {
-    await run({ call, children, home, notifications })
+    await run({ call, children, home, notifications, outputs })
   } finally {
     for (const { child } of children) child.kill()
     await rm(home, { recursive: true, force: true })
@@ -108,7 +110,6 @@ test('antigravity takes the instructions on the first prompt only', async () => 
     assert.deepEqual(children[1].command, ['agy-acp-server'])
     assert.equal(reply.result.seen.env.GEMINI_HOME, join(home, '.gemini'))
     assert.equal(reply.result.seen.params._meta.rules, undefined)
-    assert.deepEqual(reply.result.seen.params._meta.agy, { disabledTools: ['schedule'] })
 
     const first = await call('session/prompt', {
       sessionId: 's1',
@@ -173,13 +174,13 @@ require('node:readline').createInterface({ input: process.stdin }).on('line', (l
   const m = JSON.parse(line)
   if (m.method === 'session/prompt') {
     update('user_message_chunk', text)
+    update('agent_message_chunk', text)
     update('turn_completed', { prompt_id: 'p1' })
+    // As Grok does: the wakeup starts before the prompt's answer is written.
+    update('user_message_chunk', text)
+    update('agent_message_chunk', { content: { type: 'text', text: 'hi' } })
     send({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } })
-    setTimeout(() => {
-      update('user_message_chunk', text)
-      update('agent_message_chunk', text)
-      update('turn_completed', { prompt_id: 'subagent-completed-1' })
-    }, 20)
+    setTimeout(() => update('turn_completed', { prompt_id: 'subagent-completed-1' }), 20)
   } else if (m.id !== undefined) {
     send({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 's1', configOptions: [] } : {} })
   }
@@ -189,9 +190,10 @@ require('node:readline').createInterface({ input: process.stdin }).on('line', (l
 test('a turn grok starts on its own ends with the marker the backend reads', async () => {
   await withShim(
     'grok',
-    async ({ call, notifications }) => {
+    async ({ call, notifications, outputs }) => {
       await call('initialize', { protocolVersion: 1 })
       await call('session/new', session('Be Nuphos.'))
+      const answerId = 3
       await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
       await new Promise((resolve) => setTimeout(resolve, 200))
 
@@ -199,10 +201,14 @@ test('a turn grok starts on its own ends with the marker the backend reads', asy
         (m) => m.params?.update?._meta?.['_claude/origin']?.kind === 'task-notification',
       )
       assert.equal(markers.length, 1)
-      // After the wakeup's own message, never inside the prompt's turn.
-      const kinds = notifications.map((m) => m.params?.update?.sessionUpdate)
-      assert.equal(kinds.lastIndexOf('usage_update'), kinds.length - 1)
-      assert.equal(kinds.indexOf('usage_update') > kinds.lastIndexOf('agent_message_chunk'), true)
+      // The wakeup's message reaches the client after the prompt's answer, never inside it.
+      const order = outputs.map((m) =>
+        m.id === answerId
+          ? 'answer'
+          : (m.params?.update?.content?.text ?? m.params?.update?.sessionUpdate),
+      )
+      assert.ok(order.indexOf('answer') < order.indexOf('hi'))
+      assert.equal(order.at(-1), 'usage_update')
     },
     GROK_TURNS,
   )

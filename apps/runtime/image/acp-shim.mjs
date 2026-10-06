@@ -51,9 +51,6 @@ export const PROVIDERS = {
     home: (runtimeHome) => ({ GEMINI_HOME: join(runtimeHome, '.gemini') }),
     // No system prompt parameter: the instructions lead the session's first prompt.
     instruct: null,
-    // Its timers hold the prompt open until they fire, and a recurring one never
-    // lets the turn end. Nuphos schedules work itself.
-    sessionMeta: { agy: { disabledTools: ['schedule'] } },
   },
 }
 
@@ -113,9 +110,12 @@ export function runShim({
   const write = (message) => output.write(`${JSON.stringify(message)}\n`)
   const pendingInstructions = new Map()
   // session/prompt ids in flight, by session, and the sessions running a turn the
-  // agent started on its own: one opens with a user message no prompt carried.
+  // agent started on its own.
   const prompts = new Map()
   const autonomous = new Set()
+  // A prompt's turn can end before its answer reaches the client, and a wakeup can
+  // start in between; until the answer, the session's later updates wait here.
+  const held = new Map()
   const internal = new Map()
   const transforms = new Map()
   let initialize
@@ -139,34 +139,51 @@ export function runShim({
       } catch {
         return output.write(`${line}\n`)
       }
-      const isResponse = message.id !== undefined && message.method === undefined
-      if (isResponse) prompts.delete(message.id)
-      const updateSession = message.params?.sessionId
-      const kind = message.params?.update?.sessionUpdate
-      if (kind === 'user_message_chunk' && ![...prompts.values()].includes(updateSession))
-        autonomous.add(updateSession)
-      if (kind === 'turn_completed' && autonomous.delete(updateSession)) {
-        write(message)
-        return write(autonomousTurnEnd(updateSession))
-      }
-      if (isResponse && internal.has(message.id)) {
-        const settle = internal.get(message.id)
-        internal.delete(message.id)
-        return settle(message)
-      }
-      if (isResponse && transforms.has(message.id)) {
-        const transform = transforms.get(message.id)
-        transforms.delete(message.id)
-        return void transform(message).then(write, (error) =>
-          write({
-            jsonrpc: '2.0',
-            id: message.id,
-            error: { code: -32603, message: error.message },
-          }),
-        )
-      }
-      write(message)
+      fromAgent(message)
     })
+  }
+  const forward = (message) => {
+    const isResponse = message.id !== undefined && message.method === undefined
+    if (isResponse && internal.has(message.id)) {
+      const settle = internal.get(message.id)
+      internal.delete(message.id)
+      return settle(message)
+    }
+    if (isResponse && transforms.has(message.id)) {
+      const transform = transforms.get(message.id)
+      transforms.delete(message.id)
+      return void transform(message).then(write, (error) =>
+        write({
+          jsonrpc: '2.0',
+          id: message.id,
+          error: { code: -32603, message: error.message },
+        }),
+      )
+    }
+    write(message)
+  }
+  const prompting = (sessionId) => [...prompts.values()].includes(sessionId)
+  const fromAgent = (message) => {
+    const sessionId = message.params?.sessionId
+    const kind = message.params?.update?.sessionUpdate
+    if (message.method && held.has(sessionId)) return void held.get(sessionId).push(message)
+    if (message.method === undefined && prompts.has(message.id)) {
+      const promptSession = prompts.get(message.id)
+      prompts.delete(message.id)
+      forward(message)
+      const later = held.get(promptSession) ?? []
+      held.delete(promptSession)
+      for (const update of later) fromAgent(update)
+      return
+    }
+    if (kind === 'turn_completed' && autonomous.delete(sessionId)) {
+      write(message)
+      return write(autonomousTurnEnd(sessionId))
+    }
+    if (kind === 'turn_completed' && prompting(sessionId)) held.set(sessionId, [])
+    // A turn the agent started on its own opens with a user message no prompt carried.
+    if (kind === 'user_message_chunk' && !prompting(sessionId)) autonomous.add(sessionId)
+    forward(message)
   }
   const send = (message) => agent.stdin.write(`${JSON.stringify(message)}\n`)
   const request = (method, params) =>
@@ -188,7 +205,7 @@ export function runShim({
       if (initialize) await request('initialize', initialize.params)
     }
     await nuphosSyncRuntimeSkills(message.params)
-    let meta = { ...message.params?._meta, ...spec.sessionMeta }
+    let meta = message.params?._meta ?? {}
     const text = typeof context?.systemPrompt === 'string' ? context.systemPrompt : ''
     if (text && spec.instruct) meta = spec.instruct(meta, text)
     const params = {
