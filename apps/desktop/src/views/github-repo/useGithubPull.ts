@@ -44,5 +44,7 @@ export function useGithubPull(
     if (pull && !error) load(true)
   })
 
-  return { pull, error }
+  const reload = useCallback(() => load(true), [load])
+
+  return { pull, error, reload }
 }
