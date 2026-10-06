@@ -1,14 +1,39 @@
-import { existsSync, lstatSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  appendFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 
+const CUA_PLUGIN = 'unified-computer-use@openai-bundled'
+const CUA_PLUGIN_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
+
+/** False when something other than a link already sits at `file`. */
+function linkFrom(ownerHome: string, home: string, file: string): boolean {
+  const link = path.join(home, file)
+  const existing = lstatSync(link, { throwIfNoEntry: false })
+
+  if (existing) return existing.isSymbolicLink()
+  mkdirSync(path.dirname(link), { recursive: true })
+  symlinkSync(path.join(ownerHome, file), link, 'junction')
+
+  return true
+}
+
 /**
- * A CODEX_HOME that holds only a link to the user's own login, so Codex
- * serving Nuphos never loads their personal config.toml, MCP servers,
- * connectors or AGENTS.md. A link rather than a copy: Codex refreshes the
- * token in place, and a copy would fork it from the user's own `codex`.
+ * A CODEX_HOME that holds only links to the user's own login and the Codex
+ * App's Computer Use plugin, so Codex serving Nuphos never loads their
+ * personal config.toml, MCP servers, connectors or AGENTS.md. Links rather
+ * than copies: Codex refreshes the token in place, and the App updates the
+ * plugin in place. Loading the plugin itself, not just its MCP server, brings
+ * the App's turn-end hook that puts away the Computer Use cursor.
  * Undefined when there is no login to link or the link cannot be made; Codex
  * then does not run as a local agent at all.
  */
@@ -16,18 +41,21 @@ export function prepareCodexHome(
   userDir: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const source = path.join(env.CODEX_HOME ?? path.join(os.homedir(), '.codex'), 'auth.json')
+  const ownerHome = env.CODEX_HOME ?? path.join(os.homedir(), '.codex')
   const home = path.join(userDir, 'codex-home')
-  const link = path.join(home, 'auth.json')
+  const config = path.join(home, 'config.toml')
 
   try {
     mkdirSync(home, { recursive: true, mode: 0o700 })
-    const existing = lstatSync(link, { throwIfNoEntry: false })
+    if (!linkFrom(ownerHome, home, 'auth.json')) return undefined
+    // Codex skips an enabled plugin that is not installed, so users without the App are unaffected.
+    if (
+      linkFrom(ownerHome, home, CUA_PLUGIN_CACHE) &&
+      !(existsSync(config) && readFileSync(config, 'utf8').includes(CUA_PLUGIN))
+    )
+      appendFileSync(config, `\n[plugins."${CUA_PLUGIN}"]\nenabled = true\n`, { mode: 0o600 })
 
-    if (!existing) symlinkSync(source, link)
-    else if (!existing.isSymbolicLink()) return undefined
-
-    return existsSync(source) ? home : undefined
+    return existsSync(path.join(ownerHome, 'auth.json')) ? home : undefined
   } catch {
     return undefined
   }
