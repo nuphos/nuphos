@@ -98,8 +98,10 @@ export function createWorkspaceStore(
       }),
     openMainPage: (teamId) => dispatch({ type: 'openMainPage', teamId }),
     setSessionReadOnly: (readOnly) => dispatch({ type: 'setSessionReadOnly', readOnly }),
+    // The open session belongs to the team being left, so its dock is not
+    // rewritten with the new team's tab: switching lands on a new chat instead.
     switchTeam: (teamId) => {
-      showChat()
+      dispatch({ type: 'selectSession', sessionId: null, readOnly: false })
       inCurrentSession({ type: 'switchTeam', teamId })
     },
     setDockOpen: (open) => inCurrentSession({ type: 'setDockOpen', open }),
