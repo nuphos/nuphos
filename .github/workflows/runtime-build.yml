@@ -325,4 +325,4 @@ jobs:
             exit 0
           fi
           node scripts/runtime-release-notes.mjs "$RELEASE_TAG" "$PROVIDER" > /tmp/release-notes.md
-          gh release create "$RELEASE_TAG" --verify-tag --latest=false --title "Runtime $RELEASE_TAG" --notes-file /tmp/release-notes.md
+          gh release create "$RELEASE_TAG" --verify-tag --latest=false --title "Runtime ${RELEASE_TAG#runtime-}" --notes-file /tmp/release-notes.md
