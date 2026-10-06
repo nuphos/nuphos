@@ -43,6 +43,7 @@ function SelectionButton({
     (devices ? unseen.deviceIds.length > 0 : countSelectedCredentials(unseen) > 0)
   const title = devices ? 'Devices' : 'Agent credentials'
   const Icon = devices ? Laptop : Shield
+  const iconSize = devices ? 'h-[18px] w-[18px]' : 'h-3.5 w-3.5'
   const changeAll = (select: boolean) => {
     const next = select ? allCredentialAccess(options) : emptyCredentialAccess()
 
@@ -67,14 +68,7 @@ function SelectionButton({
         title={`${title} (${String(selectedCount)}/${String(totalCount)} selected)${hasNew ? ' · new options available' : ''}`}
         aria-label={title}
       >
-        <span className="t-icon-swap h-3.5 w-3.5" data-state={saving ? 'b' : 'a'}>
-          <span className="t-icon flex h-3.5 w-3.5 items-center justify-center" data-icon="a">
-            <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-          </span>
-          <span className="t-icon flex h-3.5 w-3.5 items-center justify-center" data-icon="b">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-          </span>
-        </span>
+        <Icon className={iconSize} strokeWidth={2} />
         <span
           key={selectedCount}
           className="absolute -right-1 -top-1 flex min-w-3.5 h-3.5 items-center justify-center rounded-full bg-zViolet-accent px-0.5 text-[9.5px] text-white font-medium leading-none transition-[transform,opacity,background-color] duration-150 ease-out"
@@ -95,13 +89,19 @@ function SelectionButton({
         positionerClassName={positionerClassName}
       >
         <div className="px-2 pt-1 pb-2 flex items-center gap-2 border-b border-zGray-800/60 mb-1.5">
-          <Icon className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
+          <Icon className={clsx(iconSize, 'text-tertiary')} strokeWidth={1.8} />
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-main">{title}</div>
             <div className="text-[11.5px] text-tertiary">
               {selectedCount}/{totalCount} selected
             </div>
           </div>
+          {saving && (
+            <Loader2
+              className="h-3.5 w-3.5 animate-spin text-tertiary"
+              aria-label="Updating selection"
+            />
+          )}
           <button
             type="button"
             onClick={() => setMenuOpen(false)}
