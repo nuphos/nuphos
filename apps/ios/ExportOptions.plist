@@ -13,7 +13,7 @@
 	<key>provisioningProfiles</key>
 	<dict>
 		<key>ai.nuphos.ios</key>
-		<string>Nuphos iOS App Store CI</string>
+		<string>Nuphos iOS App Store CI 2026-10</string>
 	</dict>
 	<key>teamID</key>
 	<string>6T873K59LQ</string>
