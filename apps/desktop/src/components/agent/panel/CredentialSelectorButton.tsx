@@ -9,6 +9,7 @@ import { buildDeviceCredentialSections } from './credentialSections'
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
 import { useCredentialSections } from './credentialSelectorButtonHooks'
 import { CredentialSelectorSectionList } from './credentialSelectorButtonSections'
+
 import type { CredentialSelectorControl } from './credentialSections'
 
 type SelectorProps = CredentialSelectorControl & { hero: boolean; positionerClassName?: string }
@@ -44,6 +45,7 @@ function SelectionButton({
   const Icon = devices ? Laptop : Shield
   const changeAll = (select: boolean) => {
     const next = select ? allCredentialAccess(options) : emptyCredentialAccess()
+
     onChange(
       devices ? { ...value, deviceIds: next.deviceIds } : { ...next, deviceIds: value.deviceIds },
     )
