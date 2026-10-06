@@ -1,0 +1,173 @@
+name: Release iOS
+
+on:
+  push:
+    tags: ['ios-v*']
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-ios
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.repository == 'nuphos/nuphos' && startsWith(github.ref, 'refs/tags/ios-v')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release tag
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION=$(jq -r .version apps/ios/package.json)
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo '::error::Expected a stable SemVer version'; exit 1; }
+          [[ "$RELEASE_TAG" == "ios-v$VERSION" ]] || { echo '::error::Tag must match the component package version'; exit 1; }
+          git merge-base --is-ancestor HEAD origin/main || { echo '::error::Release commit must be on main'; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  testflight:
+    needs: validate
+    environment: ios-release
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore App Store Connect API key
+        id: restore_key
+        env:
+          API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "$API_KEY_BASE64" | base64 -d > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "key_path=$KEY_PATH" >> "$GITHUB_OUTPUT"
+
+      # Manual signing from stored assets. A runner's keychain starts empty, so
+      # automatic signing would ask Apple for a new certificate on every run and
+      # exhaust the account's limit. The Apple Distribution identity and the
+      # App Store profile for ai.nuphos.ios are created once and reused.
+      - name: Install the signing identity
+        env:
+          P12_BASE64: ${{ secrets.APPLE_DIST_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.APPLE_APPSTORE_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          # Prepend rather than replace: the default keychain still holds the
+          # Apple intermediate certificates codesign needs to build the chain.
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          P12="$RUNNER_TEMP/dist.p12"
+          echo "$P12_BASE64" | base64 -d > "$P12"
+          security import "$P12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          # Without this, codesign waits on a keychain prompt nobody answers.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          rm -f "$P12"
+          PROFILES="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES"
+          echo "$PROFILE_BASE64" | base64 -d > "$PROFILES/nuphos-appstore.mobileprovision"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      # codesign refuses an entitlement the profile does not grant, so a
+      # profile issued before Push Notifications was enabled ships without push.
+      - name: Match push entitlement to the profile
+        working-directory: apps/ios
+        run: |
+          set -euo pipefail
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+          security cms -D -i "$HOME/Library/MobileDevice/Provisioning Profiles/nuphos-appstore.mobileprovision" > "$PROFILE_PLIST"
+          if ! /usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$PROFILE_PLIST" >/dev/null 2>&1; then
+            echo "::warning::The App Store profile lacks aps-environment; this build ships without push notifications."
+            /usr/libexec/PlistBuddy -c 'Delete :aps-environment' nuphos-ios/nuphos-ios.entitlements
+          fi
+
+      # The build number is the UTC minute of this run. Build numbers must keep
+      # increasing across every upload of the app, including those made before
+      # releases moved to this repository, so a per-repository run counter
+      # would restart below them.
+      - name: Choose the build number
+        id: build
+        run: echo "number=$(date -u +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+
+      # Signing settings live in the app target's Release configuration, not
+      # here: a setting passed on the command line reaches every target in the
+      # build, and the SPM package targets reject a provisioning profile.
+      - name: Archive
+        working-directory: apps/ios
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          BUILD_NUMBER: ${{ steps.build.outputs.number }}
+        run: |
+          set -euo pipefail
+          xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/nuphos.xcarchive" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            archive | tail -40
+
+      - name: Upload to TestFlight
+        working-directory: apps/ios
+        env:
+          KEY_PATH: ${{ steps.restore_key.outputs.key_path }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/nuphos.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" | tail -40
+
+      # External testers only see builds attached to their group, and a build
+      # attached to an external group stays invisible until it is submitted for
+      # Beta App Review, which is what `--submit` does.
+      - name: Add the build to the External Beta group
+        env:
+          KEY_PATH: ${{ steps.restore_key.outputs.key_path }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APP_ID: '6812533633'
+          GROUP: External Beta
+          BUILD_NUMBER: ${{ steps.build.outputs.number }}
+        run: |
+          set -euo pipefail
+          brew install asc >/dev/null 2>&1 || brew upgrade asc >/dev/null 2>&1 || true
+          asc auth login --bypass-keychain --skip-validation --name ci \
+            --key-id "$KEY_ID" --issuer-id "$ISSUER" --private-key "$KEY_PATH" >/dev/null
+          STATE=''
+          for _ in $(seq 1 60); do
+            STATE="$(asc builds list --app "$APP_ID" --platform IOS --build-number "$BUILD_NUMBER" --output json \
+              | jq -r '(.data // .)[0].attributes.processingState // ""')"
+            case "$STATE" in
+              VALID) break ;;
+              FAILED|INVALID) echo "::error::App Store Connect rejected build $BUILD_NUMBER ($STATE)"; exit 1 ;;
+              *) sleep 30 ;;
+            esac
+          done
+          if [[ "$STATE" != "VALID" ]]; then
+            echo "::warning::Build $BUILD_NUMBER is still processing after 30 minutes; attach it to $GROUP by hand."
+            exit 0
+          fi
+          asc builds add-groups --app "$APP_ID" --platform IOS --build-number "$BUILD_NUMBER" \
+            --group "$GROUP" --submit --confirm
+          echo "Build $BUILD_NUMBER added to $GROUP and submitted for Beta App Review." >> "$GITHUB_STEP_SUMMARY"
