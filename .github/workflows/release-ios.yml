@@ -39,6 +39,8 @@ jobs:
     needs: validate
     environment: ios-release
     runs-on: macos-26
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -142,6 +144,7 @@ jobs:
       # attached to an external group stays invisible until it is submitted for
       # Beta App Review, which is what `--submit` does.
       - name: Add the build to the External Beta group
+        id: beta
         env:
           KEY_PATH: ${{ steps.restore_key.outputs.key_path }}
           KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -156,8 +159,9 @@ jobs:
             --key-id "$KEY_ID" --issuer-id "$ISSUER" --private-key "$KEY_PATH" >/dev/null
           STATE=''
           for _ in $(seq 1 60); do
-            STATE="$(asc builds list --app "$APP_ID" --platform IOS --build-number "$BUILD_NUMBER" --output json \
-              | jq -r '(.data // .)[0].attributes.processingState // ""')"
+            BUILD="$(asc builds list --app "$APP_ID" --platform IOS --build-number "$BUILD_NUMBER" --output json \
+              | jq -c '(.data // .)[0] // {}')"
+            STATE="$(jq -r '.attributes.processingState // ""' <<<"$BUILD")"
             case "$STATE" in
               VALID) break ;;
               FAILED|INVALID) echo "::error::App Store Connect rejected build $BUILD_NUMBER ($STATE)"; exit 1 ;;
@@ -171,3 +175,40 @@ jobs:
           asc builds add-groups --app "$APP_ID" --platform IOS --build-number "$BUILD_NUMBER" \
             --group "$GROUP" --submit --confirm
           echo "Build $BUILD_NUMBER added to $GROUP and submitted for Beta App Review." >> "$GITHUB_STEP_SUMMARY"
+          echo "build_id=$(jq -r .id <<<"$BUILD")" >> "$GITHUB_OUTPUT"
+
+      # A new App Store version starts from the live version's metadata, so only
+      # What's New comes from the repository. AFTER_APPROVAL matches how earlier
+      # versions were released: the app goes live once review approves it.
+      - name: Submit the version for App Store review
+        if: steps.beta.outputs.build_id != ''
+        working-directory: apps/ios
+        env:
+          APP_ID: '6812533633'
+          VERSION: ${{ needs.validate.outputs.version }}
+          BUILD_ID: ${{ steps.beta.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          VERSION_ID="$(asc versions list --app "$APP_ID" --platform IOS --version "$VERSION" --output json \
+            | jq -r '(.data // .)[0].id // ""')"
+          if [[ -z "$VERSION_ID" ]]; then
+            LIVE="$(asc versions list --app "$APP_ID" --platform IOS --state READY_FOR_SALE --output json \
+              | jq -r '(.data // .)[0].attributes.versionString')"
+            VERSION_ID="$(asc versions create --app "$APP_ID" --platform IOS --version "$VERSION" \
+              --copy-metadata-from "$LIVE" --exclude-fields whatsNew --release-type AFTER_APPROVAL --output json \
+              | jq -r '(.data // .).id')"
+          fi
+          asc localizations update --version "$VERSION_ID" --locale en-US --whats-new "$(cat whats-new.txt)" >/dev/null
+          asc review submit --app "$APP_ID" --version-id "$VERSION_ID" --build-id "$BUILD_ID" --confirm
+          echo "Version $VERSION submitted for App Store review." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --verify-tag \
+              --title "iOS v$VERSION" --notes-file apps/ios/whats-new.txt

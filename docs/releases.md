@@ -86,7 +86,13 @@ uploads it to TestFlight, and adds it to the **External Beta** group, which
 submits it for Beta App Review. The build number is the run's UTC minute
 (`YYYYMMDDHHMM`), so it keeps increasing past builds uploaded before this
 workflow existed. A build that is still processing after 30 minutes is left for
-a maintainer to attach by hand. No GitHub Release is created.
+a maintainer to attach by hand.
+
+Once the build is processed, the workflow also submits the version for App
+Store review, released automatically after approval, and publishes an
+`iOS vX.Y.Z` GitHub Release. Both use `apps/ios/whats-new.txt` as the release
+notes, so update it in the version-only PR. The new App Store version copies the
+remaining metadata from the live version.
 
 Configure the `ios-release` Environment with maintainer approval, no self-review
 or administrator bypass, and only protected `ios-v*` tags. Store these as
@@ -98,5 +104,6 @@ Environment secrets:
   Distribution identity, created once and reused so builds never request new
   certificates.
 - `APPLE_APPSTORE_PROFILE_BASE64`, the App Store provisioning profile for
-  `ai.nuphos.ios`. If it lacks Push Notifications, the build ships without push
+  `ai.nuphos.ios`. Its name must match `PROVISIONING_PROFILE_SPECIFIER` in the
+  project and `ExportOptions.plist`. If it lacks Push Notifications, the build ships without push
   and the run warns.
