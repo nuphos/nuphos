@@ -11,7 +11,7 @@ export { toolModuleFromAiSdkTools } from './preview-tools/ai-sdk-adapter'
 export const NUPHOS_TOOLS_INSTRUCTIONS =
   "Nuphos's native tools for this conversation: memory (save_memory / " +
   'memory_get), charts, team-skill authoring, decisions, local Desktop actions, ' +
-  'connector setup (create_connector), and channel delivery. Domain resources use native skills backed by the ' +
+  'connector setup (create_connector), thread delegation (create_thread / send_message_to_thread), and channel delivery. Domain resources use native skills backed by the ' +
   'canonical Nuphos REST API. Every call renders its own card in the Nuphos chat UI — ' +
   'do not re-describe the output in prose beyond what the user needs. Every ' +
   "tool takes a `label`: a 5-12 word summary of this call in the user's " +

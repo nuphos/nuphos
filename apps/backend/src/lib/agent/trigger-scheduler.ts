@@ -5,9 +5,12 @@ import { CRON_TIME_ZONE } from '@/lib/cron'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
+import type { ThreadTurn } from './thread-bridge'
+
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger, RoutedSessionBusyError } from './trigger-executor'
-import { buildBullMQConnection } from './trigger-scheduler-setup'
+import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
+import { closeThreadQueue } from './thread-queue'
 // Straight to the two section modules, not the trigger-service barrel: the
 // barrel would also pull create/update/transfer into our graph and widen the
 // cycle below to files we never touch.
@@ -19,7 +22,6 @@ import { expireTriggers } from './trigger-service/read'
 
 export { buildBullMQConnection } from './trigger-scheduler-setup'
 
-const QUEUE_NAME = 'atlas-agent-triggers'
 const EXPIRY_SWEEP_JOB = 'expire-triggers'
 const PROVIDER_CLEANUP_JOB = 'cleanup-trigger-provider'
 
@@ -37,11 +39,18 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   const connection = buildBullMQConnection()
 
-  _queue = new Queue(QUEUE_NAME, { connection })
+  _queue = new Queue(AGENT_TRIGGER_QUEUE, { connection })
 
   _worker = new Worker(
-    QUEUE_NAME,
+    AGENT_TRIGGER_QUEUE,
     async (job, token) => {
+      if (job.name === 'agent-thread-turn') {
+        const { executeThreadTurn } = await import('./thread-turn')
+
+        await executeThreadTurn(job.data as ThreadTurn)
+
+        return
+      }
       if (job.name === 'webhook-session-turn') {
         const data = job.data as WebhookTurnJob
         const trigger = await agentTriggers().findOne({ _id: new ObjectId(data.triggerId) })
@@ -153,6 +162,7 @@ export async function stopTriggerWorkers(): Promise<void> {
 }
 
 export async function closeTriggerQueues(): Promise<void> {
+  await closeThreadQueue()
   await _queue?.close()
   _queue = undefined
 }
