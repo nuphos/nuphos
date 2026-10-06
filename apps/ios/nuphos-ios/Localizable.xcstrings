@@ -163,7 +163,7 @@
     "Changing the policy invalidates approvals on open plans — they must be reviewed again." : {
 
     },
-    "Choose IAM" : {
+    "Choose Credentials" : {
 
     },
     "Clear" : {
@@ -199,7 +199,7 @@
     "Couldn't load chats" : {
 
     },
-    "Couldn't load IAM" : {
+    "Couldn't load Credentials" : {
 
     },
     "Couldn't load plan" : {
@@ -241,7 +241,7 @@
     "For session" : {
 
     },
-    "IAM" : {
+    "Credentials" : {
 
     },
     "just now" : {
@@ -261,7 +261,7 @@
     "Loading chats…" : {
 
     },
-    "Loading IAM…" : {
+    "Loading Credentials…" : {
 
     },
     "Loading plan…" : {
@@ -303,7 +303,7 @@
     "No conversations match your search." : {
 
     },
-    "No IAM connected" : {
+    "No Credentials connected" : {
 
     },
     "No matches" : {

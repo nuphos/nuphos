@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// Picks the IAM a new conversation may use, grouped by provider.
+/// Picks the Credentials a new conversation may use, grouped by provider.
 struct CredentialPickerSheet: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: CredentialSelection
     var scope: CredentialScope = .credentials
 
-    private var title: String { scope == .devices ? "Devices" : "IAM" }
+    private var title: String { scope == .devices ? "Devices" : "Credentials" }
     private var symbol: String { scope == .devices ? "laptopcomputer" : "key" }
     private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope) }
 
@@ -112,10 +112,10 @@ struct ComposerControls: View {
         runtimeChip
 
         Button { showPicker = true } label: {
-            ComposerChip(systemImage: "key", title: iamTitle, isActive: selection.count(in: .credentials) > 0)
+            ComposerChip(systemImage: "key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Choose IAM")
+        .accessibilityLabel("Choose Credentials")
         .sheet(isPresented: $showPicker) { CredentialPickerSheet(selection: $selection) }
         #if DEBUG
         .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-iam") { showPicker = true } }
@@ -182,9 +182,9 @@ struct ComposerControls: View {
         return n == 0 ? "Devices" : "Devices · \(n)"
     }
 
-    private var iamTitle: String {
+    private var credentialsTitle: String {
         let n = selection.count(in: .credentials)
-        return n == 0 ? "IAM" : "IAM · \(n)"
+        return n == 0 ? "Credentials" : "Credentials · \(n)"
     }
 }
 
