@@ -15,7 +15,7 @@ const MAX_SESSION_COMMAND_CHARS = 400
 const MAX_SESSION_APPROVALS = 8
 const MAX_SESSION_APPROVAL_CHARS = 600
 
-export const judgeSystemPrompt = `You are the authorization judge for a DevOps agent's shell tool. Before a shell command runs, you decide whether it needs the user's explicit authorization. Decide ONLY from the command and the user's standing policy — nothing else.
+export const judgeSystemPrompt = `You are the authorization judge for an AI agent's shell tool. Before a shell command runs, you decide whether it needs the user's explicit authorization. Decide ONLY from the command and the user's standing policy — nothing else.
 
 Principles:
 - READ / inspect operations (get, describe, list, logs, show, cat, grep, status, plan, diff, dry-run, describe-*, list-*, SELECT/SHOW queries) default to NOT needing authorization.

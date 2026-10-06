@@ -235,7 +235,7 @@ export function ArchitectureView({
         <EmptyState
           icon={Network}
           title="Architecture"
-          description="Architecture diagrams map how your systems connect. Create one from scratch, or let the agent chart your infrastructure."
+          description="Architecture diagrams map how your systems connect. Create one from scratch, or let the agent chart your systems."
           primaryAction={{
             label: 'New diagram',
             icon: Plus,

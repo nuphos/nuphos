@@ -6,10 +6,10 @@ import type { SlackRuntime } from '@/routes/slack/types'
 
 // Suggested prompt chips offered when a user opens a new Chat-tab thread (max 4).
 const ASSISTANT_SUGGESTED_PROMPTS: SlackSuggestedPrompt[] = [
-  { title: 'Cluster health', message: 'Is the production cluster healthy right now?' },
+  { title: 'Review a PR', message: 'Review the latest open pull request and summarize the risks' },
   { title: 'Recent alerts', message: 'Which recent alerts need attention?' },
   { title: 'Debug service', message: 'Help me figure out why a service is not working' },
-  { title: 'Recent deploys', message: 'List recent deployments and changes' },
+  { title: 'Triage issues', message: 'Which open issues need attention first?' },
 ]
 
 export const ASSISTANT_PROMPTS_TITLE = 'Try these:'
@@ -30,7 +30,7 @@ export const ASSISTANT_LOADING_MESSAGES = [
 // user starts a fresh conversation, not on every tab visit, so this can greet
 // without spamming).
 export const ASSISTANT_GREETING =
-  "👋 I'm Nuphos, your AI DevOps engineer. Ask about clusters, alerts, deployments, or troubleshooting — or pick a prompt below."
+  "👋 I'm Nuphos, your team's agent. Ask me to review code, triage issues, debug a service, or dig into an alert — or pick a prompt below."
 
 // When we know which channel the user is looking at, lead with a prompt about
 // it (backed by the slack_search tool); otherwise show the static set.

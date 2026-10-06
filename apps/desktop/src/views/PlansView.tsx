@@ -219,7 +219,7 @@ function PlansListView({
             agentAction={{
               label: 'Ask the agent to plan a change',
               prompt:
-                'Help me plan an infrastructure change — ask me what I want to do, then draft a plan for the team to review.',
+                'Help me plan a change — ask me what I want to do, then draft a plan for the team to review.',
             }}
             onOpenAgentChat={onOpenAgentChat}
           />
