@@ -1,4 +1,4 @@
-import { ChevronRight, LayoutGrid } from 'lucide-react'
+import { ChevronRight, CircleX, GitPullRequest, LayoutGrid } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
@@ -25,6 +25,7 @@ import {
 } from './homeWidgetSettings'
 
 import type { HomePanel, HomeRepo, HomeWidgetSettings } from './homeWidgetSettings'
+import type { ReactNode } from 'react'
 
 async function listInstallationRepos(teamId: string, installationId: number): Promise<HomeRepo[]> {
   const repos = await api.atlasListGithubRepositories(teamId, installationId)
@@ -53,11 +54,13 @@ function useGithubRepos(teamId: string) {
 }
 
 function RepoSubmenu({
+  icon,
   label,
   available,
   selected,
   onToggle,
 }: {
+  icon: ReactNode
   label: string
   available: HomeRepo[] | null
   selected: HomeRepo[]
@@ -65,7 +68,10 @@ function RepoSubmenu({
 }) {
   return (
     <MenuSubmenu>
-      <MenuSubmenuTrigger chevron={<ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />}>
+      <MenuSubmenuTrigger
+        icon={icon}
+        chevron={<ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />}
+      >
         <span className="flex min-w-0 flex-1 items-center gap-2">
           <span className="flex-1">{label}</span>
           <span className="text-[10.5px] text-tertiary tabular-nums">
@@ -132,12 +138,14 @@ export function HomeWidgets({
               Team activity
             </MenuCheckboxItem>
             <RepoSubmenu
+              icon={<GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />}
               label="Pull requests"
               available={repos}
               selected={settings.pulls}
               onToggle={toggle('pulls')}
             />
             <RepoSubmenu
+              icon={<CircleX className="h-3.5 w-3.5" strokeWidth={1.8} />}
               label="CI failures"
               available={repos}
               selected={settings.ci}

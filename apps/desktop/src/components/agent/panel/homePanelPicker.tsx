@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, LayoutDashboard } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
@@ -84,7 +84,10 @@ export function DashboardPanelsSubmenu({
 
   return (
     <MenuSubmenu onOpenChange={(open) => open && load()}>
-      <MenuSubmenuTrigger chevron={chevron}>
+      <MenuSubmenuTrigger
+        icon={<LayoutDashboard className="h-3.5 w-3.5" strokeWidth={1.8} />}
+        chevron={chevron}
+      >
         <span className="flex min-w-0 flex-1 items-center gap-2">
           <span className="flex-1">Dashboard panels</span>
           <span className="text-[10.5px] text-tertiary tabular-nums">
