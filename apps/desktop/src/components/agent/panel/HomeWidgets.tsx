@@ -130,7 +130,7 @@ export function HomeWidgets({
             <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
             Customize
           </MenuTrigger>
-          <MenuContent align="end" className="w-[200px]">
+          <MenuContent align="end" className="w-[232px]">
             <MenuCheckboxItem
               checked={settings.team}
               onCheckedChange={(team) => update({ ...settings, team })}
