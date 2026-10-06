@@ -5,6 +5,7 @@ import { appConfigApi } from './preload-parts/api-app-config'
 import { awsApi } from './preload-parts/api-aws'
 import { cloudAccountsApi } from './preload-parts/api-cloud-accounts'
 import { cloudOpsApi } from './preload-parts/api-cloud-ops'
+import { githubCliApi } from './preload-parts/api-github-cli'
 import { cloudflareApi } from './preload-parts/api-cloudflare'
 import { connectApi } from './preload-parts/api-connect'
 import { databasesApi } from './preload-parts/api-databases'
@@ -27,6 +28,7 @@ const api = {
   ...deviceApi,
   ...awsApi,
   ...cloudOpsApi,
+  ...githubCliApi,
   ...agentApi,
   ...integrationsApi,
   ...posthogApi,

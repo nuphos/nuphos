@@ -1,3 +1,9 @@
+import type {
+  GithubMergeMethod,
+  GithubPullRef,
+  GithubReviewEvent,
+} from '../types/github-pr-detail.ts'
+
 export const gitApi = {
   atlasListGithubInstallations: (teamId: string) => window.api.atlasListGithubInstallations(teamId),
   atlasStartGithubInstall: (teamId: string) => window.api.atlasStartGithubInstall(teamId),
@@ -19,6 +25,12 @@ export const gitApi = {
     repo: string,
     pullNumber: number,
   ) => window.api.atlasGetGithubPull(teamId, installationId, owner, repo, pullNumber),
+  githubCliViewer: () => window.api.githubCliViewer(),
+  githubCliComment: (pull: GithubPullRef, body: string) => window.api.githubCliComment(pull, body),
+  githubCliReview: (pull: GithubPullRef, event: GithubReviewEvent, body: string) =>
+    window.api.githubCliReview(pull, event, body),
+  githubCliMerge: (pull: GithubPullRef, method: GithubMergeMethod) =>
+    window.api.githubCliMerge(pull, method),
   atlasListGithubActionRuns: (
     teamId: string,
     installationId: number,

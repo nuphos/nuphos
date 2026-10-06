@@ -13,11 +13,21 @@ export async function findCloudCli(
   platform: NodeJS.Platform = process.platform,
 ): Promise<CloudCliProbe> {
   if (!isCloudCliProvider(provider)) throw new Error('Unsupported cloud CLI provider')
+
+  return findExecutable(CLOUD_CLIS[provider].commands, env, platform)
+}
+
+/** The absolute path of the first of `commands` found on PATH. */
+export async function findExecutable(
+  commands: readonly string[],
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): Promise<CloudCliProbe> {
   const windows = platform === 'win32'
   const dirs = (env.PATH ?? env.Path ?? '').split(windows ? ';' : ':').filter(Boolean)
   const suffixes = windows ? (env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';') : ['']
 
-  for (const command of CLOUD_CLIS[provider].commands) {
+  for (const command of commands) {
     for (const dir of dirs) {
       for (const suffix of suffixes) {
         const candidate = (windows ? path.win32 : path.posix).join(
