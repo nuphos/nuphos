@@ -110,12 +110,15 @@ test('the probe prints on the sentinel the backend reads', () => {
 
 test('the probe claims the provider answered only once it has a response', () => {
   const fetchAt = RUNTIME_QUOTA_PROBE.indexOf('await fetch(')
-  const askedAt = RUNTIME_QUOTA_PROBE.indexOf('asked = true;')
+  const billingAt = RUNTIME_QUOTA_PROBE.indexOf("'_x.ai/billing'")
 
   expect(fetchAt).toBeGreaterThan(0)
+  expect(billingAt).toBeGreaterThan(0)
   // A fetch that throws is a network failure, not a refusal. Setting the flag
   // before the response exists would earn that failure the ten-minute hold.
-  expect(askedAt).toBeGreaterThan(fetchAt)
+  expect(RUNTIME_QUOTA_PROBE.indexOf('asked = true;', fetchAt)).toBeGreaterThan(fetchAt)
+  expect(RUNTIME_QUOTA_PROBE.indexOf('asked = true;', billingAt)).toBeGreaterThan(billingAt)
+  expect(RUNTIME_QUOTA_PROBE.indexOf('asked = true;')).toBeGreaterThan(billingAt)
 })
 
 test('reads the sentinel line the agent printed, ignoring anything around it', () => {
@@ -153,15 +156,42 @@ test("the agent's own reason is what the user sees", async () => {
   })
 })
 
-test('an agent without a usage API is never probed as Claude', async () => {
+test('an agent without a usage API is never probed', async () => {
   const { deps, calls } = probing({ error: 'Sign in required' })
-  const grok: RuntimeInstance = { ...claude, id: 'grok-1', provider: 'grok', label: 'Grok' }
+  const antigravity: RuntimeInstance = {
+    ...claude,
+    id: 'agy-1',
+    provider: 'antigravity',
+    label: 'Antigravity',
+  }
 
-  expect(await fetchRuntimeQuota('t', grok, Date.now, deps)).toMatchObject({
+  expect(await fetchRuntimeQuota('t', antigravity, Date.now, deps)).toMatchObject({
     available: false,
-    reason: 'Nuphos cannot read Grok Build usage yet',
+    reason: 'Antigravity does not report usage',
   })
   expect(calls()).toBe(0)
+})
+
+test("normalizes Grok's billing period", async () => {
+  const grok: RuntimeInstance = { ...claude, id: 'grok-1', provider: 'grok', label: 'Grok' }
+  const { deps } = probing({
+    usage: {
+      config: {
+        creditUsagePercent: 12.34,
+        currentPeriod: { type: 'USAGE_PERIOD_TYPE_WEEKLY', end: '2026-10-06T06:37:43Z' },
+      },
+      subscription_tier: 'SuperGrok',
+    },
+    plan: 'SuperGrok',
+  })
+
+  expect(await fetchRuntimeQuota('t', grok, frozen, deps)).toMatchObject({
+    available: true,
+    plan: 'SuperGrok',
+    windows: [
+      { id: 'period', label: 'Weekly', usedPercent: 12.3, resetsAt: '2026-10-06T06:37:43Z' },
+    ],
+  })
 })
 
 const onOwnComputer = (

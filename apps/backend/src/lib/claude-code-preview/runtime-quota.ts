@@ -178,6 +178,57 @@ export function normalizeCodexUsage(
   }
 }
 
+// Grok answers its own ACP `_x.ai/billing` with the subscription's credit use
+// for the current period.
+const grokUsageSchema = z
+  .object({
+    config: z.object({
+      creditUsagePercent: z.number(),
+      currentPeriod: z
+        .object({ type: z.string().optional(), end: z.string().optional() })
+        .optional(),
+    }),
+  })
+  .passthrough()
+
+const GROK_PERIODS: Record<string, string> = {
+  USAGE_PERIOD_TYPE_DAILY: 'Daily',
+  USAGE_PERIOD_TYPE_WEEKLY: 'Weekly',
+  USAGE_PERIOD_TYPE_MONTHLY: 'Monthly',
+}
+
+export function normalizeGrokUsage(
+  instance: RuntimeInstance,
+  body: unknown,
+  fetchedAt: string,
+): RuntimeQuota {
+  const parsed = grokUsageSchema.safeParse(body)
+
+  if (!parsed.success) return unavailable(instance, fetchedAt, 'Unrecognized usage response')
+  const { creditUsagePercent, currentPeriod } = parsed.data.config
+
+  return {
+    runtimeId: instance.id,
+    provider: instance.provider,
+    fetchedAt,
+    available: true,
+    windows: [
+      {
+        id: 'period',
+        label: GROK_PERIODS[currentPeriod?.type ?? ''] ?? 'Current period',
+        usedPercent: clampPercent(creditUsagePercent),
+        resetsAt: currentPeriod?.end ?? null,
+      },
+    ],
+  }
+}
+
+const NORMALIZE = {
+  'claude-code': normalizeClaudeUsage,
+  codex: normalizeCodexUsage,
+  grok: normalizeGrokUsage,
+} as const
+
 export type RuntimeQuotaDeps = { probe: typeof probeRuntimeQuota }
 const defaultDeps: RuntimeQuotaDeps = { probe: probeRuntimeQuota }
 
@@ -213,10 +264,11 @@ async function fetchUncached(
     return reading.asked === true
       ? { quota: unavailable(instance, fetchedAt, reading.error), holdMs: PROVIDER_HOLD_MS }
       : retry(reading.error)
-  const quota =
-    instance.provider === 'codex'
-      ? normalizeCodexUsage(instance, reading.usage, fetchedAt)
-      : normalizeClaudeUsage(instance, reading.usage, fetchedAt)
+  const quota = NORMALIZE[instance.provider as keyof typeof NORMALIZE](
+    instance,
+    reading.usage,
+    fetchedAt,
+  )
 
   return {
     quota: reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota,
@@ -244,9 +296,7 @@ function localQuota(instance: RuntimeInstance): RuntimeQuota {
   // poll over the same body would push "resets in …" further out.
   const readAt = instance.local?.usageAt ?? new Date().toISOString()
 
-  return instance.provider === 'codex'
-    ? normalizeCodexUsage(instance, usage, readAt)
-    : normalizeClaudeUsage(instance, usage, readAt)
+  return NORMALIZE[instance.provider as keyof typeof NORMALIZE](instance, usage, readAt)
 }
 
 const cache = new Map<string, { expires: number; result: Promise<RuntimeQuota> }>()
@@ -260,14 +310,13 @@ export function fetchRuntimeQuota(
   // Answered from the instance alone, so there is nothing to ask and nothing to
   // hold: an agent re-enabled a moment ago must not read as disabled for the
   // length of a cache entry.
-  // Only Claude and ChatGPT expose an account's usage windows; another agent's
-  // credential would be misread as a Claude sign-out.
-  if (instance.provider !== 'claude-code' && instance.provider !== 'codex')
+  // Antigravity reports no usage to a client, only an exhausted quota.
+  if (!(instance.provider in NORMALIZE))
     return Promise.resolve(
       unavailable(
         instance,
         new Date().toISOString(),
-        `Nuphos cannot read ${runtimeLabel(instance.provider)} usage yet`,
+        `${runtimeLabel(instance.provider)} does not report usage`,
       ),
     )
   if (instance.kind === 'local') return Promise.resolve(localQuota(instance))
