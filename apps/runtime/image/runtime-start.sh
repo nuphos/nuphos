@@ -127,7 +127,13 @@ fi
 # now, so the first conversation does not wait on a download; a session that comes
 # sooner waits on the same per-tool lock.
 if [ -n "${NUPHOS_RUNTIME_PREINSTALL:-}" ]; then
-  nuphos-tools install $NUPHOS_RUNTIME_PREINSTALL >/dev/null 2>&1 &
+  # Progress stays quiet; a failure is logged, or a blocked download would surface
+  # only later as a sign-in or chat that cannot start.
+  (
+    output=$(nuphos-tools install $NUPHOS_RUNTIME_PREINSTALL 2>&1) \
+      || printf 'runtime-start: preinstalling %s failed; it is retried on first use: %s\n' \
+        "$NUPHOS_RUNTIME_PREINSTALL" "$(printf '%s' "$output" | tail -n 3)" >&2
+  ) &
 fi
 
 if [ "$#" -eq 0 ]; then
