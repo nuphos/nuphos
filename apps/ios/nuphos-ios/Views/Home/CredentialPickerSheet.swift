@@ -1,17 +1,22 @@
 import SwiftUI
 
-/// Picks the IAM a new conversation may use, grouped by provider.
+/// Picks the Credentials a new conversation may use, grouped by provider.
 struct CredentialPickerSheet: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: CredentialSelection
+    var scope: CredentialScope = .credentials
+
+    private var title: String { scope == .devices ? "Devices" : "Credentials" }
+    private var symbol: String { scope == .devices ? "laptopcomputer" : "key" }
+    private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope) }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let catalog = store.credentialCatalog {
+                if let catalog {
                     if catalog.isEmpty {
-                        ContentUnavailableView("No IAM connected", systemImage: "key", description: Text("Connect cloud accounts and integrations in Nuphos to use them here."))
+                        ContentUnavailableView("No \(title) connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a device to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
                     } else {
                         List {
                             ForEach(catalog.sections, id: \.provider.id) { section in
@@ -52,7 +57,7 @@ struct CredentialPickerSheet: View {
                     }
                 } else if let error = store.credentialCatalogError {
                     ContentUnavailableView {
-                        Label("Couldn't load IAM", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load \(title)", systemImage: "wifi.exclamationmark")
                     } description: {
                         Text(error)
                     } actions: {
@@ -60,20 +65,20 @@ struct CredentialPickerSheet: View {
                             .buttonStyle(.bordered)
                     }
                 } else {
-                    ProgressView("Loading IAM…").tint(Theme.muted)
+                    ProgressView("Loading \(title)…").tint(Theme.muted)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.canvas)
-            .navigationTitle("IAM")
+            .navigationTitle(title)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    if let catalog = store.credentialCatalog, !catalog.isEmpty {
+                    if let catalog, !catalog.isEmpty {
                         if selection.containsAll(in: catalog) {
-                            Button("Clear all") { selection.clearAll() }
+                            Button("Clear all") { selection.clearAll(scope: scope) }
                         } else {
                             Button("Select all") { selection.selectAll(in: catalog) }
                         }
@@ -89,7 +94,7 @@ struct CredentialPickerSheet: View {
     }
 }
 
-/// The two chips above a composer: IAM and permission mode. Bound to the
+/// Composer controls for credentials, devices, and permission mode. Bound to the
 /// store on the home page (defaults for new chats) or to a session.
 struct ComposerControls: View {
     @Environment(AgentStore.self) private var store
@@ -97,6 +102,7 @@ struct ComposerControls: View {
     @Binding var mode: PermissionMode
     /// The open conversation; nil on the home composer (a new chat).
     var session: ChatSession?
+    @State private var showDevices = false
     @State private var showPicker = false
     @State private var showModes = false
     @State private var showRuntimes = false
@@ -106,17 +112,24 @@ struct ComposerControls: View {
         runtimeChip
 
         Button { showPicker = true } label: {
-            ComposerChip(systemImage: "key", title: iamTitle, isActive: !selection.isEmpty)
+            ComposerChip(systemImage: "key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Choose IAM")
+        .accessibilityLabel("Choose Credentials")
         .sheet(isPresented: $showPicker) { CredentialPickerSheet(selection: $selection) }
         #if DEBUG
         .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-iam") { showPicker = true } }
         #endif
 
+        Button { showDevices = true } label: {
+            ComposerChip(systemImage: "laptopcomputer", title: deviceTitle, isActive: selection.count(in: .devices) > 0)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Choose devices")
+        .sheet(isPresented: $showDevices) { CredentialPickerSheet(selection: $selection, scope: .devices) }
+
         Button { showModes = true } label: {
-            ComposerChip(systemImage: mode.systemImage, title: mode.title, isActive: mode == .bypass)
+            ComposerChip(title: mode.title, isActive: mode == .bypass)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Permission mode")
@@ -132,6 +145,25 @@ struct ComposerControls: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Model settings")
             .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session) }
+            .task(id: session.sessionId) {
+                while !Task.isCancelled {
+                    await session.refreshSessionConfig()
+                    do { try await Task.sleep(for: .seconds(10)) } catch { return }
+                }
+            }
+            .onChange(of: session.isStreaming) { _, streaming in
+                if !streaming { Task { await session.refreshSessionConfig() } }
+            }
+        } else if session == nil || session?.isNew == true, store.canConfigureNewModel {
+            Button { showModel = true } label: {
+                ComposerChip(title: store.newModelTitle, isActive: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Model settings")
+            .sheet(isPresented: $showModel) { ModelSettingsSheet() }
+            .task(id: "\(store.selectedTeam?.id ?? "")/\(store.newConversationRuntime?.id ?? "")") {
+                await store.loadNewModelConfig()
+            }
         }
     }
 
@@ -161,12 +193,17 @@ struct ComposerControls: View {
     }
 
     private func modelTitle(_ session: ChatSession) -> String {
-        session.sessionConfig?.modelTitle ?? "Model"
+        session.sessionConfig?.model.map { $0.currentLabel } ?? session.initialModelTitle ?? session.sessionConfig?.modelTitle ?? "Model"
     }
 
-    private var iamTitle: String {
-        let n = selection.count
-        return n == 0 ? "IAM" : "IAM · \(n)"
+    private var deviceTitle: String {
+        let n = selection.count(in: .devices)
+        return n == 0 ? "Devices" : "Devices · \(n)"
+    }
+
+    private var credentialsTitle: String {
+        let n = selection.count(in: .credentials)
+        return n == 0 ? "Credentials" : "Credentials · \(n)"
     }
 }
 
@@ -183,10 +220,6 @@ struct PermissionModeSheet: View {
                         dismiss()
                     } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: option.systemImage)
-                                .font(.system(size: 18, weight: .medium))
-                                .frame(width: 28)
-                                .foregroundStyle(option == .bypass ? Color.orange : Theme.heading)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(option.title).font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.heading)
                                 Text(option.subtitle).font(.system(size: 13)).foregroundStyle(Theme.muted)

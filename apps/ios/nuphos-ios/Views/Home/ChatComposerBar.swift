@@ -17,7 +17,7 @@ struct ChatComposerBar<Controls: View>: View {
     var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
-    /// Shown above the input while expanded (IAM picker, permission mode).
+    /// Shown above the input while expanded (Credentials picker, permission mode).
     @ViewBuilder var controls: () -> Controls
 
     @FocusState private var focused: Bool
@@ -352,8 +352,8 @@ struct BrandLogo: View {
     ZStack(alignment: .bottom) {
         Theme.canvas.ignoresSafeArea()
         ChatComposerBar(text: $text, onSend: { _ in }) {
-            ComposerChip(systemImage: "key", title: "IAM")
-            ComposerChip(systemImage: "checkmark.shield", title: "Auto Mode")
+            ComposerChip(systemImage: "key", title: "Credentials")
+            ComposerChip(title: "Auto Mode")
         }
     }
 }

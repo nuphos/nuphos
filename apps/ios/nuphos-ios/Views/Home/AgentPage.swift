@@ -58,7 +58,7 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable, onSend: { submission in
+                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, onSend: { submission in
                     if let session = store.newSession() { newChat = NewChat(session: session, prompt: submission) }
                 }) {
                     ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)

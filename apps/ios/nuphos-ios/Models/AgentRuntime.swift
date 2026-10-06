@@ -38,7 +38,7 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
     let status: Status
     let kind: String?
     let local: Local?
-    let defaults: Defaults?
+    var defaults: Defaults?
 
     /// iOS never runs an agent itself, so every local agent is on another computer.
     var tier: Tier { kind == "local" || local != nil ? .myComputers : .cloud }
@@ -137,21 +137,39 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     let status: Status
     let options: [Option]
 
+    func retainingOptions(from previous: SessionConfigState?) -> SessionConfigState {
+        options.isEmpty && ![.ready, .unsupported].contains(status)
+            ? .init(status: status, options: previous?.options ?? []) : self
+    }
+
+    /// Latest selection per control; apply model first, then only still-valid controls.
+    func nextSelection(in pending: inout [String: String], streaming: Bool) -> (id: String, value: String)? {
+        guard !streaming, [.ready, .dormant].contains(status) else { return nil }
+        let ids = [model?.id].compactMap { $0 } + pending.keys.sorted().filter { $0 != model?.id }
+        for id in ids {
+            guard let value = pending.removeValue(forKey: id) else { continue }
+            if options.contains(where: { $0.id == id && $0.options.contains(where: { $0.value == value }) }) {
+                return (id, value)
+            }
+        }
+        return nil
+    }
+
     var model: Option? { options.first { $0.kind == .model } }
     var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue == "on" } }
 
     /// Writes restore a dormant session, so its remembered settings stay editable.
-    var isEditable: Bool { status == .ready || (status == .dormant && !options.isEmpty) }
+    var isEditable: Bool { [.ready, .busy, .dormant].contains(status) && !options.isEmpty }
 
     /// Show the model whenever one is known; "unavailable" means the agent is offline.
     var modelTitle: String {
-        if let model { return model.currentLabel }
+        if let model, !model.currentValue.isEmpty { return model.currentLabel }
         return status == .offline ? "Model unavailable" : "Model"
     }
 
     var hint: String? {
         switch status {
-        case .busy: "You can change model settings after this reply."
+        case .busy: "Changes apply after this reply."
         case .dormant: options.isEmpty ? "Send a message to start this session before changing model settings." : nil
         case .offline: "This agent is offline. Model settings return when it reconnects."
         case .ready, .unsupported: nil
@@ -184,4 +202,61 @@ struct SidebarFavorites: Codable, Equatable, Sendable {
     var revision: Int
 
     var pinnedSessionIds: Set<String> { Set(entries.compactMap(\.sessionId)) }
+}
+
+
+/// Discovery before a conversation exists, shared with Desktop.
+struct RuntimeModelCatalog: Decodable {
+    struct Model: Decodable {
+        let id: String
+        let name: String
+        let description: String?
+    }
+    struct Controls: Decodable {
+        struct Effort: Decodable { let value: String; let name: String }
+        let modelId: String
+        let effort: [Effort]
+        let fast: Bool
+        let defaultFast: String?
+        let defaultEffort: String?
+    }
+    let models: [Model]
+    let controls: Controls?
+    let message: String?
+
+    func config(defaults: RuntimeInstance.Defaults?) -> SessionConfigState {
+        let concrete = models.filter {
+            $0.id.lowercased() != "default" &&
+            !["default", "default model", "agent default", "runtime default"].contains($0.name.lowercased())
+        }
+        let requested = defaults?.model ?? controls?.modelId
+        let alias = models.first { $0.id == requested }
+        let current: String
+        if let requested, requested.lowercased() != "default",
+           !["default", "default model", "agent default", "runtime default"].contains(alias?.name.lowercased() ?? "") {
+            current = requested
+        } else {
+            current = concrete.first {
+                alias?.description?.localizedCaseInsensitiveContains($0.name) == true ||
+                alias?.description?.lowercased() == $0.id.lowercased()
+            }?.id ?? ""
+        }
+        var options: [SessionConfigState.Option] = [
+            .init(id: "model", name: "Model", kind: .model, description: nil, currentValue: current,
+                  options: concrete.map { .init(value: $0.id, name: $0.name, description: nil) })
+        ]
+        let efforts = controls?.effort.filter { $0.value != "default" } ?? []
+        if !efforts.isEmpty {
+            let inherited = defaults?.effort ?? controls?.defaultEffort
+            let effort = efforts.first { $0.value == inherited }?.value ?? ""
+            options.append(.init(id: "effort", name: "Effort", kind: .effort, description: nil,
+                                 currentValue: effort, options: efforts.map { .init(value: $0.value, name: $0.name, description: nil) }))
+        }
+        if controls?.fast == true {
+            options.append(.init(id: "fast", name: "Fast mode", kind: .fast, description: nil,
+                                 currentValue: defaults?.fast ?? controls?.defaultFast ?? "",
+                                 options: [.init(value: "on", name: "On", description: nil), .init(value: "off", name: "Off", description: nil)]))
+        }
+        return .init(status: .ready, options: options)
+    }
 }

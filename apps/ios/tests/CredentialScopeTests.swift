@@ -1,0 +1,35 @@
+import Foundation
+
+enum CredentialScopeTests {
+    static func run() {
+        let catalog = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"mac","label":"Mac","platform":"darwin"}],"awsRoles":[{"roleId":"aws","accountId":"123"}]}"#)!)
+        let iam = catalog.scoped(to: .credentials)
+        let devices = catalog.scoped(to: .devices)
+        precondition(iam.allItems.map(\.id) == ["aws"])
+        precondition(devices.allItems.map(\.id) == ["mac"])
+        precondition(devices.allItems.first?.detail == "macOS")
+        var selection = CredentialSelection(json: JSONValue.parse(#"{"deviceIds":["mac","offline"],"futureIds":["future"]}"#)!)
+        precondition(selection.count(in: .credentials) == 0)
+        precondition(selection.count(in: .devices) == 2)
+        selection.selectAll(in: iam)
+        precondition(selection.containsAll(in: iam))
+        precondition(selection.count(in: .devices) == 2)
+        selection.clearAll(scope: .credentials)
+        precondition(selection.count(in: .credentials) == 0)
+        precondition(selection.count(in: .devices) == 2)
+        precondition(selection.json["futureIds"]?.arrayValue?.isEmpty == true)
+        selection.selectAll(in: iam)
+        selection.clearAll(scope: .devices)
+        precondition(selection.containsAll(in: iam))
+        precondition(selection.count(in: .devices) == 0)
+        selection.selectAll(in: devices)
+        let restored = CredentialSelection(json: selection.json)
+        precondition(restored.containsAll(in: iam) && restored.containsAll(in: devices))
+        selection.clearAll()
+        precondition(selection.isEmpty)
+        let devicesOnly = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"mac","label":"Mac"}]}"#)!)
+        precondition(devicesOnly.scoped(to: .credentials).isEmpty)
+        precondition(!devicesOnly.scoped(to: .devices).isEmpty)
+        print("Credential scope tests passed")
+    }
+}

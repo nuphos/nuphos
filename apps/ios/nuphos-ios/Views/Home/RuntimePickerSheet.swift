@@ -102,25 +102,41 @@ private struct RuntimeRow: View {
 
 /// Model, effort and fast-mode controls for one conversation.
 struct ModelSettingsSheet: View {
-    @Bindable var session: ChatSession
+    var session: ChatSession?
+    @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+
+    private var config: SessionConfigState? { if let session { session.sessionConfig } else { store.newModelConfig } }
+    private var error: String? { if let session { session.sessionConfigError } else { store.newModelError } }
+    private var saving: Bool { session?.sessionConfigSaving ?? store.newModelSaving }
+
+    private func refresh() async {
+        if let session { await session.refreshSessionConfig() }
+        else { await store.loadNewModelConfig() }
+    }
+
+    private func select(_ id: String, _ value: String) async {
+        if let session { await session.setSessionConfig(configId: id, value: value) }
+        else { await store.setNewModelConfig(configId: id, value: value) }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let config = session.sessionConfig, !config.options.isEmpty {
+                if let config, !config.options.isEmpty {
                     List {
-                        if let hint = config.hint ?? (session.isStreaming ? "You can change model settings after this reply." : nil) {
+                        if let hint = session?.pendingModelSettings.isEmpty == false ? "Changes apply after this reply." : config.hint {
                             Text(hint).font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
                         }
-                        if let error = session.sessionConfigError {
+                        if let error {
                             Text(error).font(.system(size: 13)).foregroundStyle(.red).listRowBackground(Color.clear)
+                            Button("Try again") { Task { await refresh() } }.disabled(saving)
                         }
                         ForEach(config.options) { option in
                             Section(option.name) {
                                 ForEach(option.options.filter { option.kind == .fast || ($0.value.lowercased() != "default" && !["default", "default model", "agent default", "runtime default"].contains($0.name.lowercased())) }) { choice in
                                     Button {
-                                        Task { await session.setSessionConfig(configId: option.id, value: choice.value) }
+                                        Task { await select(option.id, choice.value) }
                                     } label: {
                                         HStack {
                                             VStack(alignment: .leading, spacing: 2) {
@@ -130,29 +146,29 @@ struct ModelSettingsSheet: View {
                                                 }
                                             }
                                             Spacer()
-                                            if choice.value == option.currentValue {
+                                            if choice.value == (session?.pendingModelSettings[option.id] ?? option.currentValue) {
                                                 Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
                                             }
                                         }
                                     }
                                     .buttonStyle(.plain)
+                                    .disabled(!config.isEditable || saving || (session != nil && (session?.canManage != true || error != nil)))
                                 }
                             }
                             .listRowBackground(Theme.surface)
                         }
                     }
                     .scrollContentBackground(.hidden)
-                    .disabled(!config.isEditable || session.isStreaming || session.sessionConfigSaving)
-                } else if let error = session.sessionConfigError {
+                } else if let error {
                     ContentUnavailableView {
                         Label("Couldn't load model settings", systemImage: "wifi.exclamationmark")
                     } description: {
                         Text(error)
                     } actions: {
-                        Button("Try again") { Task { await session.refreshSessionConfig() } }.buttonStyle(.bordered)
+                        Button("Try again") { Task { await refresh() } }.buttonStyle(.bordered)
                     }
-                } else if let config = session.sessionConfig {
-                    ContentUnavailableView(config.modelTitle, systemImage: "slider.horizontal.3", description: Text(config.hint ?? (session.isStreaming ? "You can change model settings after this reply." : "")))
+                } else if let config {
+                    ContentUnavailableView(config.modelTitle, systemImage: "slider.horizontal.3", description: Text(config.hint ?? ""))
                 } else {
                     ProgressView("Getting model settings…").tint(Theme.muted)
                 }
@@ -166,8 +182,8 @@ struct ModelSettingsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .task { if session.sessionConfig == nil { await session.refreshSessionConfig() } }
-            .refreshable { await session.refreshSessionConfig() }
+            .task { await refresh() }
+            .refreshable { await refresh() }
         }
         .tint(Theme.heading)
         .presentationDetents([.medium, .large])

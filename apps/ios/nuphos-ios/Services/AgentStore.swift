@@ -119,7 +119,81 @@ final class AgentStore {
         }
     }
 
+    private(set) var newModelConfig: SessionConfigState?
+    private(set) var newModelError: String?
+    private(set) var newModelSaving = false
+    private var newModelRuntimeId: String?
+    private var newModelRequest = UUID()
+
+    var canConfigureNewModel: Bool {
+        guard let runtime = newConversationRuntime else { return false }
+        return runtime.tier == .myComputers || selectedTeam?.isAdministrator == true
+    }
+
+    var newModelTitle: String {
+        if newModelRuntimeId == newConversationRuntime?.id, let newModelConfig { return newModelConfig.modelTitle }
+        let model = newConversationRuntime?.defaults?.model
+        return model == "default" ? "Model" : model ?? "Model"
+    }
+
+    func loadNewModelConfig() async {
+        guard let team = selectedTeam, let runtime = newConversationRuntime, canConfigureNewModel else {
+            newModelConfig = nil
+            newModelError = nil
+            return
+        }
+        if newModelRuntimeId != runtime.id {
+            newModelConfig = nil
+            newModelError = nil
+            newModelRuntimeId = runtime.id
+        }
+        let request = UUID()
+        newModelRequest = request
+        do {
+            let model = runtime.defaults?.model
+            let data = try await AgentChatAPI.send("GET", "teams/\(team.id)/agent-runtimes/\(runtime.id)/models",
+                query: model.map { [URLQueryItem(name: "model", value: $0)] } ?? [],
+                token: token, body: Optional<Int>.none, timeout: 20)
+            let catalog = try JSONDecoder().decode(RuntimeModelCatalog.self, from: data)
+            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id else { return }
+            newModelConfig = catalog.config(defaults: runtime.defaults)
+            newModelError = catalog.message ?? (catalog.models.isEmpty ? "No models available. Try again." : nil)
+        } catch {
+            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id else { return }
+            newModelError = error.localizedDescription
+        }
+    }
+
+    func setNewModelConfig(configId: String, value: String) async {
+        guard !newModelSaving, canConfigureNewModel, let team = selectedTeam, let runtime = newConversationRuntime else { return }
+        newModelSaving = true
+        newModelRequest = UUID()
+        defer { newModelSaving = false }
+        let model = configId == "model" ? value : newModelConfig?.model?.currentValue
+        let defaults = RuntimeInstance.Defaults(
+            model: model.flatMap { $0.isEmpty ? nil : $0 },
+            fast: configId == "model" ? nil : configId == "fast" ? value : runtime.defaults?.fast,
+            effort: configId == "model" ? nil : configId == "effort" ? value : runtime.defaults?.effort)
+        do {
+            if runtime.tier == .myComputers {
+                _ = try await AgentChatAPI.send("PUT", "agent/local-agents/\(runtime.id)/defaults", token: token, body: defaults)
+            } else {
+                struct Body: Encodable { let defaults: RuntimeInstance.Defaults }
+                _ = try await AgentChatAPI.send("PATCH", "teams/\(team.id)/agent-runtimes/\(runtime.id)", token: token, body: Body(defaults: defaults))
+            }
+            guard selectedTeam?.id == team.id else { return }
+            if let index = runtimes.firstIndex(where: { $0.id == runtime.id }) { runtimes[index].defaults = defaults }
+            await loadNewModelConfig()
+        } catch {
+            if selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id { newModelError = error.localizedDescription }
+        }
+    }
+
     private func resetTeamScopedState() {
+        newModelRequest = UUID()
+        newModelRuntimeId = nil
+        newModelConfig = nil
+        newModelError = nil
         credentialCatalog = nil
         favorites = nil
         runtimes = []
@@ -320,6 +394,7 @@ final class AgentStore {
         session.presetPermissionMode(permissionMode)
         session.credentialAccess = credentialSelection.isEmpty ? nil : credentialSelection
         session.runtime = newConversationRuntime
+        session.presetSessionConfig(newModelRuntimeId == newConversationRuntime?.id ? newModelConfig : nil)
         return session
     }
 
