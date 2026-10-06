@@ -192,7 +192,9 @@ export function WorkspaceAgentPane({
               sessionId={selectedSessionId}
               teamId={teamId}
               currentUserId={user.id}
-              localAgent={isLocalAgentRuntime(currentHeading.runtimeId)}
+              warnLocalAgent={
+                currentHeading.canRename === true && isLocalAgentRuntime(currentHeading.runtimeId)
+              }
               onCopyLink={() => void copySessionUrl()}
               copied={copiedSessionUrl}
             />

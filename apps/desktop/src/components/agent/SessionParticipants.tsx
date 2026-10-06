@@ -117,15 +117,15 @@ export function SessionParticipants({
   sessionId,
   teamId,
   currentUserId,
-  localAgent,
+  warnLocalAgent,
   onCopyLink,
   copied,
 }: {
   sessionId: string
   teamId: string
   currentUserId: string
-  /** The session runs on a Local Agent, i.e. on its owner's own computer. */
-  localAgent: boolean
+  /** The viewer owns this session and it runs on their own computer's Local Agent. */
+  warnLocalAgent: boolean
   onCopyLink: () => void
   copied: boolean
 }) {
@@ -198,9 +198,6 @@ export function SessionParticipants({
 
   const joined = new Set(participants.map((participant) => participant.id))
   const invitable = (members ?? []).filter((member) => !joined.has(member.id))
-  const warnOwner =
-    localAgent &&
-    participants.some((participant) => participant.isOwner && participant.id === currentUserId)
 
   return (
     <Menu onOpenChange={(open) => open && loadMembers()}>
@@ -216,7 +213,7 @@ export function SessionParticipants({
         Share
       </MenuTrigger>
       <MenuContent align="end" className="w-[260px]">
-        {warnOwner && (
+        {warnLocalAgent && (
           <>
             <div className="flex gap-2 px-2.5 py-1.5 text-[12px] leading-snug text-warning">
               <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
