@@ -51,6 +51,9 @@ export const PROVIDERS = {
     home: (runtimeHome) => ({ GEMINI_HOME: join(runtimeHome, '.gemini') }),
     // No system prompt parameter: the instructions lead the session's first prompt.
     instruct: null,
+    // A second prompt while one runs is answered out of order with a "Concurrent
+    // receive" error, so a session's prompts wait their turn, as in the CLI.
+    serialPrompts: true,
   },
 }
 
@@ -116,6 +119,7 @@ export function runShim({
   // A prompt's turn can end before its answer reaches the client, and a wakeup can
   // start in between; until the answer, the session's later updates wait here.
   const held = new Map()
+  const queued = new Map()
   const internal = new Map()
   const transforms = new Map()
   let initialize
@@ -171,6 +175,9 @@ export function runShim({
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
       forward(message)
+      const next = queued.get(promptSession)?.shift()
+      if (next) sendPrompt(next)
+      else queued.delete(promptSession)
       const later = held.get(promptSession) ?? []
       held.delete(promptSession)
       if (!prompting(promptSession)) write(sessionState(promptSession, 'idle'))
@@ -235,23 +242,46 @@ export function runShim({
   }
 
   const handle = async (message) => {
-    if (message.method === 'initialize') initialize = message
+    if (message.method === 'initialize') {
+      // OpenAB offers to run terminals itself, in the gateway's environment rather
+      // than this session's. The agent runs its own commands, as Claude and Codex do.
+      const params = message.params ?? {}
+      message = {
+        ...message,
+        params: {
+          ...params,
+          clientCapabilities: { ...params.clientCapabilities, terminal: false },
+        },
+      }
+      initialize = message
+    }
     if (['session/new', 'session/load', 'session/resume'].includes(message.method))
       return openSession(message)
     const sessionId = message.params?.sessionId
-    if (message.method === 'session/prompt') {
-      prompts.set(message.id, sessionId)
-      write(sessionState(sessionId, 'active'))
+    if (message.method !== 'session/prompt') return send(message)
+    if (spec.serialPrompts && prompting(sessionId)) {
+      if (!queued.has(sessionId)) queued.set(sessionId, [])
+      return void queued.get(sessionId).push(message)
     }
-    if (message.method === 'session/prompt' && pendingInstructions.has(sessionId)) {
-      const text = pendingInstructions.get(sessionId)
-      pendingInstructions.delete(sessionId)
-      return send({
-        ...message,
-        params: { ...message.params, prompt: [instructionsBlock(text), ...message.params.prompt] },
-      })
-    }
-    send(message)
+    sendPrompt(message)
+  }
+  const sendPrompt = (message) => {
+    const sessionId = message.params.sessionId
+    prompts.set(message.id, sessionId)
+    write(sessionState(sessionId, 'active'))
+    const text = pendingInstructions.get(sessionId)
+    pendingInstructions.delete(sessionId)
+    send(
+      text
+        ? {
+            ...message,
+            params: {
+              ...message.params,
+              prompt: [instructionsBlock(text), ...message.params.prompt],
+            },
+          }
+        : message,
+    )
   }
 
   start(agentEnv(provider, undefined, runtimeEnv))

@@ -80,8 +80,16 @@ const session = (systemPrompt) => ({
 
 test('grok opens the session under its own env and takes the instructions as rules', async () => {
   await withShim('grok', async ({ call, children, home }) => {
-    const init = await call('initialize', { protocolVersion: 1 })
+    const init = await call('initialize', {
+      protocolVersion: 1,
+      clientCapabilities: { terminal: true, fs: { readTextFile: true } },
+    })
     assert.equal(init.result.seen.method, 'initialize')
+    // Commands run in the agent's own process, never in the gateway's.
+    assert.deepEqual(init.result.seen.params.clientCapabilities, {
+      terminal: false,
+      fs: { readTextFile: true },
+    })
     const reply = await call('session/new', session('Be Nuphos.'))
     const { seen } = reply.result
 
@@ -206,5 +214,42 @@ test('a turn grok starts on its own ends with the marker the backend reads', asy
       assert.deepEqual(order, ['active', 'answer', 'idle', 'active', 'hi', 'idle'])
     },
     GROK_TURNS,
+  )
+})
+
+// Like Google's ACP server, answers a prompt only after a delay, and reports
+// whether another prompt reached it in the meantime.
+const SLOW_AGENT = `
+let busy = false
+require('node:readline').createInterface({ input: process.stdin }).on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  const reply = (result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
+  if (m.method !== 'session/prompt')
+    return reply(m.method === 'session/new' ? { sessionId: 's1', configOptions: [] } : {})
+  const overlapped = busy
+  busy = true
+  setTimeout(() => { busy = false; reply({ stopReason: 'end_turn', overlapped, text: m.params.prompt.at(-1).text }) }, 50)
+})
+`
+
+test('antigravity takes one prompt at a time per session', async () => {
+  await withShim(
+    'antigravity',
+    async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session(''))
+      const prompt = (text) =>
+        call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text }] })
+      const [first, second] = await Promise.all([prompt('one'), prompt('two')])
+      assert.deepEqual(
+        [first.result, second.result].map(({ overlapped, text }) => ({ overlapped, text })),
+        [
+          { overlapped: false, text: 'one' },
+          { overlapped: false, text: 'two' },
+        ],
+      )
+    },
+    SLOW_AGENT,
   )
 })
