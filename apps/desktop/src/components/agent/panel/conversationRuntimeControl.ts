@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
-import { localAgentMoveWarning } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
@@ -123,12 +122,29 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
-  // A move onto a Local Agent opens this computer to the whole team, so it
-  // waits for the user's go-ahead.
-  const [pendingLocal, setPendingLocal] = useState<{
-    target: RuntimeInstance
-    warning: string
-  } | null>(null)
+  // Moving a session that has teammates onto a Local Agent hands them this
+  // computer, so that move waits for the user's go-ahead.
+  const [pendingLocal, setPendingLocal] = useState<RuntimeInstance | null>(null)
+  const select = useCallback(
+    async (runtimeId: string) => {
+      const target = runtimeInstances.find((instance) => instance.id === runtimeId)
+
+      if (target?.kind === 'local' && sessionId && teamId) {
+        const shared = await api
+          .agentGetConversationParticipants(sessionId, teamId)
+          .then(({ participants }) => participants.some((participant) => !participant.isOwner))
+          .catch(() => true)
+
+        if (shared) {
+          setPendingLocal(target)
+
+          return
+        }
+      }
+      await move(runtimeId)
+    },
+    [move, runtimeInstances, sessionId, teamId],
+  )
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
     if (!sessionId || !teamId || tab?.readOnly || tab?.foreign) return
@@ -142,13 +158,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         status: current?.status,
       },
       options: runtimeInstances,
-      onSelect: (runtimeId: string) => {
-        const target = runtimeInstances.find((instance) => instance.id === runtimeId)
-        const warning = target && localAgentMoveWarning(target)
-
-        if (target && warning) setPendingLocal({ target, warning })
-        else void move(runtimeId)
-      },
+      onSelect: (runtimeId: string) => void select(runtimeId),
       selectDisabled: tab?.streaming || moving,
       quota: tab?.runtimeId ? runtimeQuotas.get(tab.runtimeId) : undefined,
       unavailable:
@@ -159,12 +169,13 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       ...(pendingLocal
         ? {
             confirm: {
-              title: `Move to ${pendingLocal.target.label}?`,
-              description: pendingLocal.warning,
+              title: `Move to ${pendingLocal.label}?`,
+              description:
+                'This agent runs on your computer. After the move, teammates in this session can run commands on your computer.',
               confirmLabel: 'Move',
               onConfirm: () => {
                 setPendingLocal(null)
-                void move(pendingLocal.target.id)
+                void move(pendingLocal.id)
               },
               onCancel: () => setPendingLocal(null),
             },
@@ -173,6 +184,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     }
   }, [
     pendingLocal,
+    select,
     move,
     moving,
     provider,
