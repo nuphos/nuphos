@@ -3,12 +3,12 @@
 export const ATTACHMENT_RUNNER = String.raw`
 import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 const { files } = JSON.parse(await readFile(join(process.argv[2], 'params.json'), 'utf8'));
-const dir = await mkdtemp(join(tmpdir(), 'nuphos-attachments-'));
+// Not tmpdir(): a runtime job's TMPDIR is removed when the job exits, before the agent reads it.
+const dir = await mkdtemp('/tmp/nuphos-attachments-');
 const paths = [];
 try {
   for (const [index, file] of files.entries()) {
