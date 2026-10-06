@@ -35,6 +35,8 @@ export const agentApi = {
     window.api.agentGetConversationParticipants(sessionId, teamId),
   agentInviteConversationParticipants: (sessionId: string, teamId: string, userIds: string[]) =>
     window.api.agentInviteConversationParticipants(sessionId, teamId, userIds),
+  agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
+    window.api.agentRemoveConversationParticipant(sessionId, teamId, userId),
   agentSetSessionConfig: (
     sessionId: string,
     teamId: string,

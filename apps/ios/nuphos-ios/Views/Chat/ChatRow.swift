@@ -187,3 +187,31 @@ extension ChatRow {
         return (end - start) / 1000
     }
 }
+
+extension ChatRow {
+    typealias TimelineEvent = AgentConversationDetail.TimelineEvent
+
+    /// Where the session's timeline events sit among the loaded messages, as on
+    /// the desktop: before the first message newer than the event, or after the
+    /// last one. An event older than the first loaded message waits while
+    /// earlier history is unloaded — it may belong further back.
+    static func placeTimeline(
+        _ events: [TimelineEvent], messageDates: [Date?], hasEarlier: Bool
+    ) -> (before: [Int: [TimelineEvent]], trailing: [TimelineEvent]) {
+        var before: [Int: [TimelineEvent]] = [:]
+        var trailing: [TimelineEvent] = []
+        for event in events {
+            // A message without a time yet is still streaming: the newest.
+            guard let index = messageDates.firstIndex(where: { ($0 ?? .distantFuture) > event.at }) else {
+                trailing.append(event)
+                continue
+            }
+            if index > 0 || !hasEarlier { before[index, default: []].append(event) }
+        }
+        return (before, trailing)
+    }
+
+    static func timelineRow(_ event: TimelineEvent) -> ChatRow {
+        .hint(id: "event.\(event.at.timeIntervalSince1970).\(event.text)", text: event.text, isError: false)
+    }
+}

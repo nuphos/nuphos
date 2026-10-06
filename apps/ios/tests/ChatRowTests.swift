@@ -14,6 +14,7 @@ enum ChatRowTests {
         followsTheNewestRun()
         closesOutToolsThatNeverReportedBack()
         foldsTurnsThatWereCutShort()
+        placesTimelineEventsBetweenMessages()
         print("Chat row grouping, reasoning text, run following and tool timing passed")
     }
 
@@ -264,5 +265,18 @@ enum ChatRowTests {
         precondition(RuntimeTranscript.runToFollow(active: "same", attached: "same", stopped: nil) == nil)
         precondition(RuntimeTranscript.runToFollow(active: nil, attached: "quiet", stopped: nil) == nil)
         precondition(RuntimeTranscript.runToFollow(active: "stopped", attached: nil, stopped: "stopped") == nil)
+    }
+
+    private static func placesTimelineEventsBetweenMessages() {
+        let at = { (seconds: TimeInterval, text: String) in ChatRow.TimelineEvent(at: Date(timeIntervalSince1970: seconds), text: text) }
+        let dates: [Date?] = [Date(timeIntervalSince1970: 1), Date(timeIntervalSince1970: 3), nil]
+        let placed = ChatRow.placeTimeline([at(0.5, "early"), at(2, "mid"), at(9, "late")], messageDates: dates, hasEarlier: false)
+        precondition(placed.before[0]?.map(\.text) == ["early"])
+        precondition(placed.before[1]?.map(\.text) == ["mid"])
+        precondition(placed.before[2]?.map(\.text) == ["late"], "A streaming message counts as the newest")
+        precondition(placed.trailing.isEmpty)
+        precondition(ChatRow.placeTimeline([at(9, "late")], messageDates: Array(dates.prefix(2)), hasEarlier: false).trailing.count == 1)
+        precondition(ChatRow.placeTimeline([at(0.5, "early")], messageDates: dates, hasEarlier: true).before.isEmpty,
+                     "An event older than the loaded page waits for earlier history")
     }
 }

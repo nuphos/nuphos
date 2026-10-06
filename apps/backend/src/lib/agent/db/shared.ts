@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 
+import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
@@ -54,6 +55,8 @@ export type ConversationPreviewContext = {
   localTools?: boolean
 }
 
+export type { ConversationTimelineEvent }
+
 export type AgentConversation = {
   _id?: ObjectId
   sessionId: string // Frontend-generated UUID
@@ -81,6 +84,8 @@ export type AgentConversation = {
   // readableConversationScope / assertConversationSendable), so this list is
   // about who is involved, never about who is allowed.
   participantIds?: string[]
+  /** Who joined, left or moved this session, shown between its messages. */
+  timelineEvents?: ConversationTimelineEvent[]
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   /** The owner's read marker, in `activitySeq` units. Only ever moves forward. */

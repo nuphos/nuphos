@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, Link2, Loader2 } from 'lucide-react'
+import { Check, Link2, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -14,6 +14,8 @@ import {
   MenuTrigger,
 } from '../ui/menu'
 import { toast } from '../ui/toast'
+
+import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
 
 import type { AgentConversationParticipant } from '../../api/agent-types'
 import type { TeamMember } from '../../types'
@@ -54,11 +56,61 @@ function AvatarStack({ participants }: { participants: AgentConversationParticip
   )
 }
 
+function ParticipantRow({
+  participant,
+  isYou,
+  pending,
+  onRemove,
+}: {
+  participant: AgentConversationParticipant
+  isYou: boolean
+  pending: string | null
+  onRemove: (participant: AgentConversationParticipant) => void
+}) {
+  return (
+    <MenuItem
+      closeOnClick={false}
+      icon={
+        <Avatar
+          src={participant.avatarURL}
+          name={participant.name}
+          size={16}
+          className="rounded-full"
+        />
+      }
+      hint={participant.isOwner ? 'Owner' : undefined}
+    >
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="truncate">
+          {participant.name}
+          {isYou && <span className="text-tertiary"> (you)</span>}
+        </span>
+        {!participant.isOwner && (
+          <button
+            type="button"
+            className="ml-auto rounded p-0.5 text-tertiary hover:bg-zGray-700/60 hover:text-main disabled:opacity-50"
+            title={`Remove ${participant.name} from this session`}
+            aria-label={`Remove ${participant.name} from this session`}
+            disabled={pending !== null}
+            onClick={() => onRemove(participant)}
+          >
+            {pending === participant.id ? (
+              <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
+            ) : (
+              <X className="h-3 w-3" strokeWidth={2} />
+            )}
+          </button>
+        )}
+      </span>
+    </MenuItem>
+  )
+}
+
 /**
- * The session's people, and the Share menu that brings more of them in. Every
- * member of the team can already open and reply to a team session, so inviting
- * grants nothing — it records that someone belongs here, which is what puts
- * them in this header for everyone else.
+ * The session's people, and the Share menu that brings more of them in or takes
+ * them out. Every member of the team can already open and reply to a team
+ * session, so neither grants or revokes anything — it records who belongs here,
+ * which is what puts them in this header and the session's timeline.
  */
 export function SessionParticipants({
   sessionId,
@@ -75,22 +127,30 @@ export function SessionParticipants({
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
   const [members, setMembers] = useState<TeamMember[] | null>(null)
-  const [inviting, setInviting] = useState<string | null>(null)
+  const [pending, setPending] = useState<string | null>(null)
 
   // The pane keys this component by sessionId, so a session switch remounts it
-  // and there is no stale list to clear here.
+  // and there is no stale list to clear here. An invite from elsewhere (the
+  // composer's @mention prompt) announces itself, so the header reloads then.
   useEffect(() => {
     let cancelled = false
+    const load = () =>
+      api
+        .agentGetConversationParticipants(sessionId, teamId)
+        .then((result) => {
+          if (!cancelled) setParticipants(result.participants)
+        })
+        .catch((err: unknown) => toast.apiError('Failed to load session participants', err))
+    const reloadIfThisSession = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === sessionId) void load()
+    }
 
-    api
-      .agentGetConversationParticipants(sessionId, teamId)
-      .then((result) => {
-        if (!cancelled) setParticipants(result.participants)
-      })
-      .catch((err: unknown) => toast.apiError('Failed to load session participants', err))
+    void load()
+    window.addEventListener(TIMELINE_CHANGED_EVENT, reloadIfThisSession)
 
     return () => {
       cancelled = true
+      window.removeEventListener(TIMELINE_CHANGED_EVENT, reloadIfThisSession)
     }
   }, [sessionId, teamId])
 
@@ -104,12 +164,30 @@ export function SessionParticipants({
 
   const invite = useCallback(
     (member: TeamMember) => {
-      setInviting(member.id)
+      setPending(member.id)
       api
         .agentInviteConversationParticipants(sessionId, teamId, [member.id])
-        .then((result) => setParticipants(result.participants))
+        .then((result) => {
+          setParticipants(result.participants)
+          announceTimelineChange(sessionId)
+        })
         .catch((err: unknown) => toast.apiError(`Failed to add ${member.name}`, err))
-        .finally(() => setInviting(null))
+        .finally(() => setPending(null))
+    },
+    [sessionId, teamId],
+  )
+
+  const remove = useCallback(
+    (participant: AgentConversationParticipant) => {
+      setPending(participant.id)
+      api
+        .agentRemoveConversationParticipant(sessionId, teamId, participant.id)
+        .then((result) => {
+          setParticipants(result.participants)
+          announceTimelineChange(sessionId)
+        })
+        .catch((err: unknown) => toast.apiError(`Failed to remove ${participant.name}`, err))
+        .finally(() => setPending(null))
     },
     [sessionId, teamId],
   )
@@ -136,24 +214,13 @@ export function SessionParticipants({
         <MenuGroup>
           <MenuGroupLabel>In this session</MenuGroupLabel>
           {participants.map((participant) => (
-            <MenuItem
+            <ParticipantRow
               key={participant.id}
-              closeOnClick={false}
-              icon={
-                <Avatar
-                  src={participant.avatarURL}
-                  name={participant.name}
-                  size={16}
-                  className="rounded-full"
-                />
-              }
-              hint={participant.isOwner ? 'Owner' : undefined}
-            >
-              <span className="truncate">
-                {participant.name}
-                {participant.id === currentUserId && <span className="text-tertiary"> (you)</span>}
-              </span>
-            </MenuItem>
+              participant={participant}
+              isYou={participant.id === currentUserId}
+              pending={pending}
+              onRemove={remove}
+            />
           ))}
         </MenuGroup>
         <MenuSeparator />
@@ -174,10 +241,10 @@ export function SessionParticipants({
             <MenuItem
               key={member.id}
               closeOnClick={false}
-              disabled={inviting !== null}
+              disabled={pending !== null}
               onClick={() => invite(member)}
               icon={
-                inviting === member.id ? (
+                pending === member.id ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
                 ) : (
                   <Avatar

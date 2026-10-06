@@ -141,6 +141,20 @@ export type AgentPersistedMessage = {
   feedback?: 'up' | 'down'
 }
 
+export type AgentTimelinePerson = { id: string; name: string; avatarURL: string }
+export type AgentTimelineRuntime = { label: string; provider?: 'claude-code' | 'codex' }
+
+/** Who joined, left or moved the session; `text` is the whole line, plain. */
+export type AgentTimelineEvent = {
+  kind: string
+  at: string
+  text: string
+  actor?: AgentTimelinePerson
+  target?: AgentTimelinePerson
+  from?: AgentTimelineRuntime
+  to?: AgentTimelineRuntime
+}
+
 export type AgentConversationDetail = AgentConversation & {
   messages: AgentPersistedMessage[]
   /** Absolute transcript index of messages[0]; > 0 when fetched with `tail`
@@ -151,6 +165,7 @@ export type AgentConversationDetail = AgentConversation & {
   transcriptUpdatedAt?: string | null
   activeRun?: AgentActiveRun | null
   slackThread?: AgentSlackThread | null
+  timelineEvents?: AgentTimelineEvent[]
 }
 
 export type AgentConversationMessagesPage = {

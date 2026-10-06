@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
@@ -23,7 +23,6 @@ function canCarryWorkspace(
 export function useConversationRuntimeControl(c: PanelViewCtx): {
   runtimeControl: RuntimeControl | undefined
 } {
-  const [moving, setMoving] = useState(false)
   const {
     activeTab: tab,
     teamId,
@@ -36,6 +35,15 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   const sessionId = tab?.sessionId
   const tabId = tab?.id
   const provider = tab?.agentRuntime === 'codex' ? 'codex' : 'claude-code'
+  const moving = Boolean(tab?.movingTo)
+  const { setTabs, refreshHistory } = c
+  const setTab = useCallback(
+    (patch: Partial<NonNullable<typeof tab>>) =>
+      setTabs((previous) =>
+        previous.map((entry) => (entry.id === tabId ? { ...entry, ...patch } : entry)),
+      ),
+    [setTabs, tabId],
+  )
 
   const move = useCallback(
     async (runtimeId: string) => {
@@ -54,7 +62,9 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
 
         return
       }
-      setMoving(true)
+      // The timeline shows a pending line from here until the move's own event
+      // replaces it, so the result needs no toast of its own.
+      setTab({ movingTo: target.label })
       try {
         // Try to bring the working files when the destination can hold them, and
         // fall back to history rather than making the user choose up front.
@@ -81,22 +91,22 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
             return moved
           })
 
-        c.setTabs((previous) =>
-          previous.map((entry) =>
-            entry.id === tabId
-              ? {
-                  ...entry,
-                  runtimeId: result.runtimeId,
-                  runtimeLabel: result.runtimeLabel,
-                  agentRuntime: result.agentRuntime,
-                }
-              : entry,
-          ),
-        )
+        // Read the event back now rather than on the next catch-up poll.
+        const detail = await api
+          .agentGetConversation(sessionId, teamId, { tail: 1 })
+          .catch(() => null)
+
+        setTab({
+          runtimeId: result.runtimeId,
+          runtimeLabel: result.runtimeLabel,
+          agentRuntime: result.agentRuntime,
+          ...(detail ? { timelineEvents: detail.timelineEvents } : {}),
+          movingTo: undefined,
+        })
         window.dispatchEvent(new Event('nuphos:conversation-runtime-moved'))
-        void c.refreshHistory()
-        toast.success('Conversation moved', `Continue on ${result.runtimeLabel}.`)
+        void refreshHistory()
       } catch (cause) {
+        setTab({ movingTo: undefined })
         console.warn('[agent] conversation move failed', cause)
         if (decideErrorToast(cause).action === 'show') {
           toast.apiError('Could not move this conversation', cause)
@@ -106,11 +116,9 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
             'The agent did not accept the move. Check your connection and try again.',
           )
         }
-      } finally {
-        setMoving(false)
       }
     },
-    [c, moving, provider, runtimeInstances, sessionId, tabId, teamId],
+    [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {

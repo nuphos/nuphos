@@ -1,4 +1,3 @@
-import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type {
   AgentAuditConversationsPage,
   AgentAuditEventsPage,
@@ -35,6 +34,7 @@ import type {
   AgentSlackThread,
   AgentStarterSuggestion,
 } from './agent-types.ts'
+import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
@@ -69,6 +69,11 @@ export type WindowAgentApi = {
     sessionId: string,
     teamId: string,
     userIds: string[],
+  ): Promise<{ participants: AgentConversationParticipant[] }>
+  agentRemoveConversationParticipant(
+    sessionId: string,
+    teamId: string,
+    userId: string,
   ): Promise<{ participants: AgentConversationParticipant[] }>
   agentSetSessionConfig(
     sessionId: string,
