@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../components/ui/button'
 
 import { ChangedFile } from './github-repo/ChangedFile'
+import { ChangedFilesTree } from './github-repo/ChangedFilesTree'
 import { openOnGithub } from './github-repo/openOnGithub'
 import { PullRequestConversation } from './github-repo/PullRequestConversation'
 import { pullRequestStatus } from './github-repo/pullRequestStatus'
@@ -167,11 +168,16 @@ export function GithubPullRequestView({
       {tab === 'conversation' ? (
         <PullRequestConversation pull={pull} status={status} />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-          <div className="mx-auto max-w-6xl space-y-3 px-3 py-3 @sm:px-4 @sm:py-4 @xl:space-y-4 @xl:px-5 @xl:py-5">
-            {pull.files.map((file) => (
-              <ChangedFile key={file.filename} file={file} />
-            ))}
+        <div className="flex min-h-0 flex-1">
+          <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-zGray-800/70 px-1.5 scrollbar-thin @3xl:block">
+            <ChangedFilesTree files={pull.files} />
+          </aside>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin">
+            <div className="mx-auto max-w-6xl space-y-3 px-3 py-3 @sm:px-4 @sm:py-4 @xl:space-y-4 @xl:px-5 @xl:py-5">
+              {pull.files.map((file) => (
+                <ChangedFile key={file.filename} file={file} />
+              ))}
+            </div>
           </div>
         </div>
       )}
