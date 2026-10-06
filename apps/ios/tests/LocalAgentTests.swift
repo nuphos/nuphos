@@ -8,7 +8,37 @@ enum LocalAgentTests {
         namesAComputersAgentOnce()
         defaultsToAUsableCloudAgent()
         namesCloudOnlyProviders()
+        modelSettingsRemainAvailable()
         print("Local agents passed")
+    }
+
+    private static func modelSettingsRemainAvailable() {
+        let model = SessionConfigState.Option(id: "model", name: "Model", kind: .model, description: nil, currentValue: "a",
+            options: [.init(value: "a", name: "Alpha", description: nil), .init(value: "b", name: "Beta", description: nil)])
+        let effort = SessionConfigState.Option(id: "effort", name: "Effort", kind: .effort, description: nil, currentValue: "medium",
+            options: [.init(value: "medium", name: "Medium", description: nil)])
+        let ready = SessionConfigState(status: .ready, options: [model, effort])
+        for status in [SessionConfigState.Status.busy, .dormant, .offline] {
+            let retained = SessionConfigState(status: status, options: []).retainingOptions(from: ready)
+            precondition(retained.modelTitle == "Alpha")
+            precondition(retained.isEditable == (status != .offline))
+        }
+        precondition(SessionConfigState(status: .unsupported, options: []).retainingOptions(from: ready).options.isEmpty)
+        precondition(SessionConfigState(status: .ready, options: []).retainingOptions(from: ready).options.isEmpty)
+        var pending = ["model": "a", "effort": "high"]
+        pending["model"] = "b"
+        precondition(ready.nextSelection(in: &pending, streaming: true) == nil && pending.count == 2)
+        let busy = SessionConfigState(status: .busy, options: ready.options)
+        precondition(busy.nextSelection(in: &pending, streaming: false) == nil && pending.count == 2)
+        let next = ready.nextSelection(in: &pending, streaming: false)
+        precondition(next?.id == "model" && next?.value == "b")
+        precondition(ready.nextSelection(in: &pending, streaming: false) == nil && pending.isEmpty, "Drop effort choices unsupported by the new model")
+        let catalog = try! JSONDecoder().decode(RuntimeModelCatalog.self, from: Data(#"{"models":[{"id":"default","name":"Default","description":"Alpha"},{"id":"a","name":"Alpha"},{"id":"b","name":"Beta"}],"controls":{"modelId":"default","effort":[{"value":"default","name":"Default"},{"value":"medium","name":"Medium"},{"value":"high","name":"High"}],"fast":true,"defaultFast":"on","defaultEffort":"high"}}"#.utf8))
+        let config = catalog.config(defaults: nil)
+        precondition(config.modelTitle == "Alpha" && config.model?.options.count == 2)
+        precondition(config.isFast && config.options.first { $0.kind == .effort }?.currentValue == "high")
+        precondition(catalog.config(defaults: .init(model: "b", fast: "off", effort: "medium")).modelTitle == "Beta")
+        print("Model discovery, retained settings, and queued selection transitions passed")
     }
 
     private static func keepsKeysThisBuildDoesNotKnow() {

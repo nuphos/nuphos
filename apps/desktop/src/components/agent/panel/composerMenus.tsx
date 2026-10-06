@@ -222,19 +222,13 @@ export function BypassControlMenu({
         <ChevronDown className="w-3 h-3 opacity-60" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent side="top" align="start" className="w-64">
-        <MenuItem
-          selected={!bypassControl.active}
-          onClick={() => bypassControl.onSelect(false)}
-        >
+        <MenuItem selected={!bypassControl.active} onClick={() => bypassControl.onSelect(false)}>
           <div className="flex flex-col">
             <span>Auto Mode</span>
             <span className="text-[11px] text-tertiary">Risky commands ask for your approval</span>
           </div>
         </MenuItem>
-        <MenuItem
-          selected={bypassControl.active}
-          onClick={() => bypassControl.onSelect(true)}
-        >
+        <MenuItem selected={bypassControl.active} onClick={() => bypassControl.onSelect(true)}>
           <div className="flex flex-col">
             <span>Full Access</span>
             <span className="text-[11px] text-tertiary">Run every command without asking</span>

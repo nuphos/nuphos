@@ -145,6 +145,25 @@ struct ComposerControls: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Model settings")
             .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session) }
+            .task(id: session.sessionId) {
+                while !Task.isCancelled {
+                    await session.refreshSessionConfig()
+                    do { try await Task.sleep(for: .seconds(10)) } catch { return }
+                }
+            }
+            .onChange(of: session.isStreaming) { _, streaming in
+                if !streaming { Task { await session.refreshSessionConfig() } }
+            }
+        } else if session == nil || session?.isNew == true, store.canConfigureNewModel {
+            Button { showModel = true } label: {
+                ComposerChip(title: store.newModelTitle, isActive: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Model settings")
+            .sheet(isPresented: $showModel) { ModelSettingsSheet() }
+            .task(id: "\(store.selectedTeam?.id ?? "")/\(store.newConversationRuntime?.id ?? "")") {
+                await store.loadNewModelConfig()
+            }
         }
     }
 
@@ -174,7 +193,7 @@ struct ComposerControls: View {
     }
 
     private func modelTitle(_ session: ChatSession) -> String {
-        session.sessionConfig?.modelTitle ?? "Model"
+        session.sessionConfig?.model.map { $0.currentLabel } ?? session.initialModelTitle ?? session.sessionConfig?.modelTitle ?? "Model"
     }
 
     private var deviceTitle: String {

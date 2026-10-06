@@ -57,6 +57,12 @@ final class ChatSession {
     private(set) var sessionConfig: SessionConfigState?
     private(set) var sessionConfigError: String?
     private(set) var sessionConfigSaving = false
+    private(set) var pendingModelSettings: [String: String] = [:]
+    private var sessionConfigRequest = UUID()
+    private var sessionConfigReading = false
+
+    private(set) var initialModelTitle: String?
+    func presetSessionConfig(_ config: SessionConfigState?) { initialModelTitle = config?.modelTitle }
 
     /// Conversations on Claude Code / Codex, where the runtime holds the
     /// transcript and can take a message mid-turn.
@@ -371,25 +377,48 @@ final class ChatSession {
     // MARK: - Model settings
 
     func refreshSessionConfig() async {
-        guard isOwner, !readOnly, !isNew, isNativeRuntime else { return }
+        guard isOwner, !readOnly, !isNew, isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
+        let request = UUID()
+        sessionConfigRequest = request
+        sessionConfigReading = true
+        defer { sessionConfigReading = false }
         do {
-            sessionConfig = try await AgentChatAPI.sessionConfig(token: token, teamId: teamId, sessionId: sessionId)
+            let incoming = try await AgentChatAPI.sessionConfig(token: token, teamId: teamId, sessionId: sessionId)
+            guard sessionConfigRequest == request else { return }
+            sessionConfig = incoming.retainingOptions(from: sessionConfig)
             sessionConfigError = nil
         } catch {
+            guard sessionConfigRequest == request else { return }
             sessionConfigError = error.localizedDescription
         }
+        await applyPendingModelSettings()
+    }
+
+    private func applyPendingModelSettings() async {
+        guard canManage, !isStreaming, !sessionConfigSaving, sessionConfigError == nil,
+              let config = sessionConfig, [.ready, .dormant].contains(config.status),
+              !pendingModelSettings.isEmpty else { return }
+        guard let next = config.nextSelection(in: &pendingModelSettings, streaming: isStreaming) else { return }
+        await setSessionConfig(configId: next.id, value: next.value)
     }
 
     func setSessionConfig(configId: String, value: String) async {
-        guard canManage, !sessionConfigSaving else { return }
+        guard canManage, !sessionConfigSaving, sessionConfigError == nil, sessionConfig?.isEditable == true else { return }
+        if isStreaming || sessionConfig?.status == .busy {
+            pendingModelSettings[configId] = value
+            return
+        }
         sessionConfigSaving = true
-        defer { sessionConfigSaving = false }
+        sessionConfigRequest = UUID()
         do {
             sessionConfig = try await AgentChatAPI.setSessionConfig(token: token, teamId: teamId, sessionId: sessionId, configId: configId, value: value)
             sessionConfigError = nil
         } catch {
+            pendingModelSettings.removeAll()
             sessionConfigError = error.localizedDescription
         }
+        sessionConfigSaving = false
+        await applyPendingModelSettings()
     }
 
     // MARK: - Archive
@@ -748,6 +777,7 @@ final class ChatSession {
             guard !Task.isCancelled else { return }
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             adoptRuntime(from: detail)
+            if !pendingModelSettings.isEmpty { await refreshSessionConfig() }
             guard !submitting, attachedStreamId == attached else { continue }
             let follow = RuntimeTranscript.runToFollow(active: detail.activeRun?.streamId, attached: attached, stopped: lastStoppedStreamId)
             let mayMove = attached == nil ? signature() == previousSignature : isNativeRuntime && !awaitingAdmission
