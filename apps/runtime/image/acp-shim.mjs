@@ -320,6 +320,12 @@ export function runShim({
     if (['session/new', 'session/load', 'session/resume'].includes(message.method))
       return openSession(message)
     const sessionId = message.params?.sessionId
+    if (message.method === 'session/cancel') {
+      // A stop also ends the prompts waiting behind the one it cancels.
+      for (const waiting of queued.get(sessionId) ?? [])
+        write({ jsonrpc: '2.0', id: waiting.id, result: { stopReason: 'cancelled' } })
+      queued.delete(sessionId)
+    }
     if (message.method !== 'session/prompt') return send(message)
     if (spec.serialPrompts && prompting(sessionId)) {
       if (!queued.has(sessionId)) queued.set(sessionId, [])

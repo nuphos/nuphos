@@ -316,3 +316,28 @@ test('a grok background command stays a running terminal until it ends', async (
     GROK_BACKGROUND,
   )
 })
+
+test('a stop also ends the antigravity prompts waiting their turn', async () => {
+  await withShim(
+    'antigravity',
+    async ({ call, outputs }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session(''))
+      const prompt = (text) =>
+        call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text }] })
+      const first = prompt('one')
+      const second = prompt('two')
+      await call('session/cancel', { sessionId: 's1' })
+
+      assert.deepEqual((await second).result, { stopReason: 'cancelled' })
+      assert.equal((await first).result.text, 'one')
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      // The waiting prompt never reached the agent.
+      assert.equal(
+        outputs.some((m) => m.result?.text === 'two'),
+        false,
+      )
+    },
+    SLOW_AGENT,
+  )
+})
