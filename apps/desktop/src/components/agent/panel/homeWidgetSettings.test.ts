@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { failingRuns, toggleRepo } from './homeWidgets.ts'
+import { failingRuns, toggleRepo } from './homeWidgetSettings.ts'
 
 import type { GithubWorkflowRun } from '../../../types'
 

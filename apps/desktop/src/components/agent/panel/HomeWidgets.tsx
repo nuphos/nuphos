@@ -13,9 +13,9 @@ import {
 } from '../../ui/menu'
 
 import { CiFailuresCard, PullRequestsCard } from './homeCards'
-import { loadHomeWidgets, saveHomeWidgets, toggleRepo } from './homeWidgets'
+import { loadHomeWidgets, saveHomeWidgets, toggleRepo } from './homeWidgetSettings'
 
-import type { HomeRepo, HomeWidgetSettings } from './homeWidgets'
+import type { HomeRepo, HomeWidgetSettings } from './homeWidgetSettings'
 
 async function listInstallationRepos(teamId: string, installationId: number): Promise<HomeRepo[]> {
   const repos = await api.atlasListGithubRepositories(teamId, installationId)

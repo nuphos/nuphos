@@ -6,9 +6,9 @@ import { api } from '../../../api'
 import { formatAge } from '../../../utils'
 import { openOnGithub } from '../../../views/github-repo/openOnGithub'
 
-import { failingRuns } from './homeWidgets'
+import { failingRuns } from './homeWidgetSettings'
 
-import type { HomeRepo } from './homeWidgets'
+import type { HomeRepo } from './homeWidgetSettings'
 import type { ReactNode } from 'react'
 
 const REFRESH_MS = 60_000
