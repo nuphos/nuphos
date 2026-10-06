@@ -43,7 +43,7 @@ function SelectionButton({
     (devices ? unseen.deviceIds.length > 0 : countSelectedCredentials(unseen) > 0)
   const title = devices ? 'Devices' : 'Agent credentials'
   const Icon = devices ? Laptop : Shield
-  const iconSize = devices ? 'h-[18px] w-[18px]' : 'h-3.5 w-3.5'
+  const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
   const changeAll = (select: boolean) => {
     const next = select ? allCredentialAccess(options) : emptyCredentialAccess()
 
@@ -68,7 +68,7 @@ function SelectionButton({
         title={`${title} (${String(selectedCount)}/${String(totalCount)} selected)${hasNew ? ' · new options available' : ''}`}
         aria-label={title}
       >
-        <Icon className={iconSize} strokeWidth={2} />
+        <Icon className={iconSize} strokeWidth={devices ? 1.75 : 2} />
         <span
           key={selectedCount}
           className="absolute -right-1 -top-1 flex min-w-3.5 h-3.5 items-center justify-center rounded-full bg-zViolet-accent px-0.5 text-[9.5px] text-white font-medium leading-none transition-[transform,opacity,background-color] duration-150 ease-out"
@@ -89,7 +89,7 @@ function SelectionButton({
         positionerClassName={positionerClassName}
       >
         <div className="px-2 pt-1 pb-2 flex items-center gap-2 border-b border-zGray-800/60 mb-1.5">
-          <Icon className={clsx(iconSize, 'text-tertiary')} strokeWidth={1.8} />
+          <Icon className={clsx(iconSize, 'text-tertiary')} strokeWidth={devices ? 1.575 : 1.8} />
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-main">{title}</div>
             <div className="text-[11.5px] text-tertiary">
