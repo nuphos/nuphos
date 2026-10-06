@@ -197,18 +197,13 @@ test('a turn grok starts on its own ends with the marker the backend reads', asy
       await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
       await new Promise((resolve) => setTimeout(resolve, 200))
 
-      const markers = notifications.filter(
-        (m) => m.params?.update?._meta?.['_claude/origin']?.kind === 'task-notification',
-      )
-      assert.equal(markers.length, 1)
-      // The wakeup's message reaches the client after the prompt's answer, never inside it.
-      const order = outputs.map((m) =>
-        m.id === answerId
-          ? 'answer'
-          : (m.params?.update?.content?.text ?? m.params?.update?.sessionUpdate),
-      )
-      assert.ok(order.indexOf('answer') < order.indexOf('hi'))
-      assert.equal(order.at(-1), 'usage_update')
+      const states = (m) => m.params?.update?._meta?.['ai.nuphos/sessionState']?.state
+      // The prompt's turn, then the wakeup's: each opens active and closes idle,
+      // and the wakeup's message sits inside its own.
+      const order = outputs
+        .map((m) => (m.id === answerId ? 'answer' : (states(m) ?? m.params?.update?.content?.text)))
+        .filter((step) => ['answer', 'active', 'idle', 'hi'].includes(step))
+      assert.deepEqual(order, ['active', 'answer', 'idle', 'active', 'hi', 'idle'])
     },
     GROK_TURNS,
   )

@@ -75,18 +75,18 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
   }
 }
 
-// The end-of-turn marker the backend reads for a turn the agent started on its
-// own (Claude reports one per wakeup). Grok ends such turns only with its own
-// `_x.ai/session/update`, which nothing upstream understands.
-export function autonomousTurnEnd(sessionId) {
+// The lifecycle the backend reads for every agent, as the Claude adapter is patched
+// to report it: active while a turn runs, idle once it ends. A turn the agent starts
+// on its own (a Grok scheduler wakeup) opens and closes with it too.
+export function sessionState(sessionId, state) {
   return {
     jsonrpc: '2.0',
     method: 'session/update',
     params: {
       sessionId,
       update: {
-        sessionUpdate: 'usage_update',
-        _meta: { '_claude/origin': { kind: 'task-notification' } },
+        sessionUpdate: 'session_info_update',
+        _meta: { 'ai.nuphos/sessionState': { state } },
       },
     },
   }
@@ -173,16 +173,20 @@ export function runShim({
       forward(message)
       const later = held.get(promptSession) ?? []
       held.delete(promptSession)
+      if (!prompting(promptSession)) write(sessionState(promptSession, 'idle'))
       for (const update of later) fromAgent(update)
       return
     }
     if (kind === 'turn_completed' && autonomous.delete(sessionId)) {
       write(message)
-      return write(autonomousTurnEnd(sessionId))
+      return write(sessionState(sessionId, 'idle'))
     }
     if (kind === 'turn_completed' && prompting(sessionId)) held.set(sessionId, [])
     // A turn the agent started on its own opens with a user message no prompt carried.
-    if (kind === 'user_message_chunk' && !prompting(sessionId)) autonomous.add(sessionId)
+    if (kind === 'user_message_chunk' && !prompting(sessionId) && !autonomous.has(sessionId)) {
+      autonomous.add(sessionId)
+      write(sessionState(sessionId, 'active'))
+    }
     forward(message)
   }
   const send = (message) => agent.stdin.write(`${JSON.stringify(message)}\n`)
@@ -235,7 +239,10 @@ export function runShim({
     if (['session/new', 'session/load', 'session/resume'].includes(message.method))
       return openSession(message)
     const sessionId = message.params?.sessionId
-    if (message.method === 'session/prompt') prompts.set(message.id, sessionId)
+    if (message.method === 'session/prompt') {
+      prompts.set(message.id, sessionId)
+      write(sessionState(sessionId, 'active'))
+    }
     if (message.method === 'session/prompt' && pendingInstructions.has(sessionId)) {
       const text = pendingInstructions.get(sessionId)
       pendingInstructions.delete(sessionId)
