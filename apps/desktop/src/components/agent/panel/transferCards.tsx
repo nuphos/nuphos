@@ -44,7 +44,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
   )
   // Team-scoped resolve (no sessionId) — the group is team+user scoped.
   const base = { teamId, groupId: group.groupId }
-  const previews = expired ? [] : ready.filter((f) => previewKind(f) !== null)
+  const hasPreviews = !expired && ready.some((f) => previewKind(f) !== null)
 
   function savedToast(title: string, description: string, path: string) {
     // "Open in folder" lives only on the (transient) toast — right after the
@@ -109,9 +109,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
           </Button>
         )}
       </div>
-      {previews.length > 0 && (
-        <DownloadPreviews teamId={teamId} groupId={group.groupId} files={previews} />
-      )}
+      {hasPreviews && <TransferPreviews teamId={teamId} groupId={group.groupId} />}
       <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
         {group.files.map((f) => (
           <div key={f.id} className="flex items-center gap-2 text-[12.5px]">
@@ -148,35 +146,23 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
   )
 }
 
-// Inline previews for the images and videos in a download group, from
-// presigned URLs. Those last minutes, so a broken preview re-resolves them once.
-function DownloadPreviews({
-  teamId,
-  groupId,
-  files,
-}: {
-  teamId: string
-  groupId: string
-  files: FileTransferGroup['files']
-}) {
-  const [urls, setUrls] = useState<Record<string, string>>({})
+// Inline previews for the images and videos in a transfer group, whichever
+// side sent it. Presigned URLs last minutes, so a broken preview re-resolves
+// them once.
+function TransferPreviews({ teamId, groupId }: { teamId: string; groupId: string }) {
+  const [files, setFiles] = useState<FileTransferGroup['files']>([])
   const [retried, setRetried] = useState(false)
   const resolve = useCallback(() => {
     void api
       .fileTransferResolve({ teamId, groupId })
-      .then((resolved) =>
-        setUrls(
-          Object.fromEntries(
-            resolved.files.flatMap((f) => (f.downloadUrl ? [[f.id, f.downloadUrl]] : [])),
-          ),
-        ),
-      )
+      .then((resolved) => setFiles(resolved.files.filter((f) => f.downloadUrl && previewKind(f))))
       .catch(() => {
-        // The download rows still work; a missing preview is not fatal.
+        // The file rows still work; a missing preview is not fatal.
       })
   }, [teamId, groupId])
 
   useEffect(resolve, [resolve])
+  if (files.length === 0) return null
   const retry = retried
     ? undefined
     : () => {
@@ -188,22 +174,20 @@ function DownloadPreviews({
     <div className="mb-2 flex flex-wrap gap-2">
       {files.map((f) =>
         previewKind(f) === 'video' ? (
-          urls[f.id] && (
-            <video
-              key={f.id}
-              src={urls[f.id]}
-              controls
-              preload="metadata"
-              onError={retry}
-              title={f.fileName}
-              className="max-h-72 max-w-full rounded-lg border border-zGray-800 bg-black"
-            />
-          )
+          <video
+            key={f.id}
+            src={f.downloadUrl}
+            controls
+            preload="metadata"
+            onError={retry}
+            title={f.fileName}
+            className="max-h-72 max-w-full rounded-lg border border-zGray-800 bg-black"
+          />
         ) : (
           <ImageAttachmentThumb
             key={f.id}
             large
-            url={urls[f.id]}
+            url={f.downloadUrl}
             fileName={f.fileName}
             onError={retry}
           />
@@ -223,7 +207,7 @@ function formatTransferBytes(bytes: number | null): string {
 
 // User-uploaded files. Bytes already live in the transfer store;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
-export function UploadedFilesCard({ part }: { part: TransferUploadPart }) {
+export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
   const total = part.files.length
   const ready = part.files.filter((f) => f.status === 'ready').length
   const uploading = part.status === 'uploading'
@@ -253,6 +237,9 @@ export function UploadedFilesCard({ part }: { part: TransferUploadPart }) {
                 : `Uploaded ${String(total)} file${total === 1 ? '' : 's'}${readySuffix}`}
         </span>
       </div>
+      {teamId && !uploading && !errored && part.groupId && !part.archive && (
+        <TransferPreviews teamId={teamId} groupId={part.groupId} />
+      )}
       <div className="flex flex-col gap-1">
         {part.files.map((f, i) => (
           <div key={`${f.fileName}:${String(i)}`} className="flex items-center gap-2 text-[12.5px]">

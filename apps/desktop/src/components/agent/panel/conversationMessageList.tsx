@@ -124,6 +124,7 @@ export function ConversationMessageList({
               >
                 <UserMessage
                   message={m}
+                  teamId={teamId}
                   onApprovePlan={onApprovePlan}
                   onRejectPlan={onRejectPlan}
                   canActOnPlans={

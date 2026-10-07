@@ -52,8 +52,11 @@ export const UserMessage = memo(
     onRejectPlan,
     canActOnPlans = false,
     onOpenNuphosLink,
+    teamId,
   }: {
     message: Message
+    /** Lets uploaded images and videos preview inline. */
+    teamId?: string
     onApprovePlan?: (planId: string) => void
     onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
     /** Whether a referenced `proposed` plan can be acted on (not streaming/read-only).
@@ -123,7 +126,7 @@ export const UserMessage = memo(
               </div>
             )}
             {uploads.map((p) => (
-              <UploadedFilesCard key={p.groupId} part={p} />
+              <UploadedFilesCard key={p.groupId} part={p} teamId={teamId} />
             ))}
             {textParts.length > 0 && (
               <div className="user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words space-y-2">
