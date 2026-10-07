@@ -78,22 +78,6 @@ enum WorkspaceAPI {
         guard ready.status == "ready" else { throw NuphosAPI.Failure.http(409, message: "Files are not ready yet. Please retry.") }
         return TransferUpload(groupId: intent.groupId, files: files.map { .init(fileName: $0.name, size: $0.size) })
     }
-
-    struct DownloadedFile: Decodable, Equatable {
-        let fileName: String
-        let contentType: String?
-        let downloadUrl: String?
-
-        var url: URL? { downloadUrl.flatMap(URL.init(string:)).flatMap { $0.scheme == "https" ? $0 : nil } }
-        var isImage: Bool { contentType?.hasPrefix("image/") == true }
-    }
-
-    /// Fresh signed links for an uploaded group; throws once it has expired.
-    static func downloads(token: String, team: String, groupId: String) async throws -> [DownloadedFile] {
-        struct Group: Decodable { let files: [DownloadedFile] }
-        let group: Group = try await request("teams/\(team)/file-transfers/\(groupId)/download", token: token)
-        return group.files
-    }
 }
 
 /// Counts one upload's sent bytes into the message's overall progress.

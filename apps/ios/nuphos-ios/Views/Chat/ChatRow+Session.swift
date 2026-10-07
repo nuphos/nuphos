@@ -7,6 +7,7 @@ extension ChatRow {
         let messages = session.messages
         let lastApprovalCallId = session.canReply ? lastPendingApproval(in: messages) : nil
         let timeline = placeTimeline(session.timelineEvents, messageDates: messages.map(\.createdAt), hasEarlier: session.baseIndex > 0)
+        let downloads = TransferDownloadGroup.anchor(session.downloads, in: messages)
 
         for (index, message) in messages.enumerated() {
             rows.append(contentsOf: (timeline.before[index] ?? []).map(timelineRow))
@@ -28,6 +29,7 @@ extension ChatRow {
             case .assistant:
                 let isLive = session.isStreaming && index == messages.count - 1
                 rows.append(contentsOf: assistantRows(message, live: isLive, lastApprovalCallId: lastApprovalCallId))
+                rows.append(contentsOf: (downloads[message.id] ?? []).map { .downloads(id: "downloads.\($0.groupId)", groupId: $0.groupId) })
                 let interrupted = message.parts.contains { if case .turnInterrupted = $0 { return true }; return false }
                 if message.stoppedByUser == true, index == messages.count - 1, !session.isStreaming, !interrupted {
                     rows.append(.hint(id: "stopped.\(message.id)", text: "Stopped.", isError: false))

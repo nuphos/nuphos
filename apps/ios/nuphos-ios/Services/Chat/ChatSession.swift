@@ -52,6 +52,8 @@ final class ChatSession {
     private(set) var runtimeLabel: String?
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// Files the agent sent the user here, read from the transfer store.
+    private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
     /// Model / effort / fast controls, for conversations on a native runtime.
     private(set) var sessionConfig: SessionConfigState?
@@ -130,6 +132,22 @@ final class ChatSession {
     func presetPermissionMode(_ mode: PermissionMode) { permissionMode = mode }
 
     var isNew: Bool { messages.isEmpty && loaded }
+
+    /// Re-reads the files the agent sent. The list is owner-only, as on the desktop.
+    func refreshDownloads() async {
+        guard isOwner, messages.contains(where: { $0.role == .assistant }) else { return }
+        struct List: Decodable { let groups: [TransferDownloadGroup] }
+        guard let list: List = try? await WorkspaceAPI.request(transferPath + "/downloads", token: token) else { return }
+        downloads = list.groups.filter { $0.expiresAt > .now && !$0.readyFiles.isEmpty }
+    }
+
+    /// A transfer group's files with fresh presigned URLs. Team-scoped, so it
+    /// resolves both what the agent sent and what the user uploaded.
+    func transferGroup(_ groupId: String) async throws -> TransferDownloadGroup {
+        try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
+    }
+
+    private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }
 
     // MARK: - Private
 
@@ -352,12 +370,6 @@ final class ChatSession {
     }
 
     var failedSubmission: ComposerSubmission?
-
-    /// Signed links for a message's uploaded attachments; nil once the
-    /// transfer has expired or belongs to someone else.
-    func transferFiles(_ groupId: String) async -> [WorkspaceAPI.DownloadedFile]? {
-        try? await WorkspaceAPI.downloads(token: token, team: teamId, groupId: groupId)
-    }
 
     /// Only restore a request rejected before admission, never a resumed turn.
     private func rejectOversizedSubmission(_ pending: (id: String, submission: ComposerSubmission)?) {

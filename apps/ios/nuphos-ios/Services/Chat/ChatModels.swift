@@ -48,17 +48,12 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         parts.compactMap { if case .text(let p) = $0 { return p.text }; return nil }.joined()
     }
 
-    /// File-transfer instructions remain on the wire; the transcript shows filenames.
+    /// Upload instructions stay on the wire; the bubble shows the files themselves.
     var displayText: String {
         guard role == .user else { return text }
         return parts.compactMap { part -> String? in
-            guard case .text(let value) = part else { return nil }
-            let raw = value.text
-            guard raw.hasPrefix("[The user uploaded "), raw.hasSuffix("./uploads]"),
-                  let group = raw.range(of: "(transfer group "),
-                  let start = raw.range(of: "): ", range: group.upperBound..<raw.endIndex),
-                  let end = raw.range(of: ". To work with them, load the file-transfer skill", range: start.upperBound..<raw.endIndex) else { return raw }
-            return "Attached: " + raw[start.upperBound..<end.lowerBound]
+            guard case .text(let value) = part, TransferUpload(part) == nil else { return nil }
+            return value.text
         }.joined(separator: "\n\n")
     }
 
@@ -546,12 +541,17 @@ struct TransferUpload: Equatable, Sendable {
         self.files = files
     }
 
-    /// Reads both the sent (`data-attachment`) and persisted (bare) forms.
+    /// Reads the sent (`data-attachment`) and persisted (bare) forms, and the
+    /// built-in agent's pull instruction.
     init?(_ part: ChatPart) {
         let json: JSONValue
         switch part {
         case .data(let p) where p.name == "attachment": json = p.data
         case .other(let v): json = v
+        case .text(let p):
+            guard let parsed = Self(instruction: p.text) else { return nil }
+            self = parsed
+            return
         default: return nil
         }
         guard json["type"]?.stringValue == "transfer-upload", let groupId = json["groupId"]?.stringValue,
@@ -562,7 +562,16 @@ struct TransferUpload: Equatable, Sendable {
         }
     }
 
-    /// The built-in agent pulls files itself; `displayText` folds this back to filenames.
+    private init?(instruction raw: String) {
+        guard raw.hasPrefix("[The user uploaded "), raw.hasSuffix("./uploads]"),
+              let group = raw.range(of: "(transfer group "),
+              let start = raw.range(of: "): ", range: group.upperBound..<raw.endIndex),
+              let end = raw.range(of: ". To work with them, load the file-transfer skill", range: start.upperBound..<raw.endIndex) else { return nil }
+        groupId = String(raw[group.upperBound..<start.lowerBound])
+        files = raw[start.upperBound..<end.lowerBound].components(separatedBy: ", ").map { File(fileName: $0) }
+    }
+
+    /// The built-in agent pulls files itself; the bubble shows them instead.
     var instruction: String {
         "[The user uploaded \(files.count) file(s) to the Nuphos file-transfer store (transfer group \(groupId)): \(files.map(\.fileName).joined(separator: ", ")). To work with them, load the file-transfer skill and pull them into the sandbox: bash skills/file-transfer/scripts/transfer-pull.sh \"$TEAM\" \(groupId) ./uploads]"
     }

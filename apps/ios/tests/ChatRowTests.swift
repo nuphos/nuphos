@@ -16,6 +16,7 @@ enum ChatRowTests {
         closesOutToolsThatNeverReportedBack()
         foldsTurnsThatWereCutShort()
         placesTimelineEventsBetweenMessages()
+        anchorsAgentDownloadsToTheirTurn()
         print("Chat row grouping, reasoning text, run following and tool timing passed")
     }
 
@@ -23,7 +24,10 @@ enum ChatRowTests {
         let instruction = #"[The user uploaded 1 file(s) to the Nuphos file-transfer store (transfer group abc): report.pdf. To work with them, load the file-transfer skill and pull them into the sandbox: bash skills/file-transfer/scripts/transfer-pull.sh "$TEAM" abc ./uploads]"#
         var message = ChatMessage.user("Summarize this.")
         message.parts.append(.text(.init(text: instruction)))
-        precondition(message.displayText == "Summarize this.\n\nAttached: report.pdf")
+        // The bubble shows the files themselves, so the instruction drops out of the text.
+        precondition(message.displayText == "Summarize this.")
+        precondition(message.parts.compactMap(TransferUpload.init) == [TransferUpload(groupId: "abc", files: [.init(fileName: "report.pdf")])])
+        precondition(ChatMessage.user("Ordinary user text").parts.compactMap(TransferUpload.init).isEmpty)
         precondition(message.forWire.text.contains("transfer-pull.sh"))
         precondition(ChatMessage.user("Ordinary user text").displayText == "Ordinary user text")
     }
@@ -292,5 +296,22 @@ enum ChatRowTests {
         precondition(ChatRow.placeTimeline([at(9, "late")], messageDates: Array(dates.prefix(2)), hasEarlier: false).trailing.count == 1)
         precondition(ChatRow.placeTimeline([at(0.5, "early")], messageDates: dates, hasEarlier: true).before.isEmpty,
                      "An event older than the loaded page waits for earlier history")
+    }
+
+    private static func anchorsAgentDownloadsToTheirTurn() {
+        func group(_ id: String, _ at: String) -> TransferDownloadGroup {
+            let json = #"{"groupId":"\#(id)","createdAt":"\#(at)","expiresAt":"2030-01-01T00:00:00.000Z","files":[{"id":"f","fileName":"shot.png","contentType":null,"status":"ready"}]}"#
+            return try! JSONDecoder().decode(TransferDownloadGroup.self, from: Data(json.utf8))
+        }
+        let stamp = ISO8601DateFormatter()
+        let first = ChatMessage(id: "a1", role: .assistant, parts: [], createdAt: stamp.date(from: "2026-10-06T10:00:00Z"))
+        let second = ChatMessage(id: "a2", role: .assistant, parts: [], createdAt: nil)
+        let messages = [ChatMessage.user("hi"), first, ChatMessage.user("again"), second]
+        let anchored = TransferDownloadGroup.anchor(
+            [group("late", "2026-10-06T10:05:00.000Z"), group("early", "2026-10-06T09:59:00.000Z")], in: messages)
+        precondition(anchored["a1"]?.map(\.groupId) == ["early"])
+        precondition(anchored["a2"]?.map(\.groupId) == ["late"])
+        precondition(anchored["a1"]?.first?.readyFiles.first?.isImage == true)
+        precondition(TransferDownloadGroup.anchor([group("x", "2026-10-06T10:00:00.000Z")], in: [ChatMessage.user("only")]).isEmpty)
     }
 }
