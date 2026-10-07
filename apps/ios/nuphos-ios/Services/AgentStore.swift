@@ -39,8 +39,25 @@ final class AgentStore {
 
     private(set) var favorites: SidebarFavorites?
     var pinnedSessionIds: Set<String> { favorites?.pinnedSessionIds ?? [] }
-    /// Pinned entries, newest pin first.
-    var pinnedChats: [SidebarFavorites.Entry] { (favorites?.entries ?? []).filter { $0.sessionId != nil }.reversed() }
+    /// Pinned chats, newest pin first.
+    private var pinnedOrder: [String] { (favorites?.entries ?? []).compactMap(\.sessionId).reversed() }
+
+    /// Sessions the viewer joined but does not own — the desktop's Shared
+    /// group. Only the personal list adds them; team scope already has them.
+    private(set) var sharedConversations: [AgentConversation] = []
+
+    /// What the Agent page lists: pinned chats first, then the viewer's own
+    /// chats and the ones shared with them, newest first.
+    var listedConversations: [AgentConversation] {
+        var seen = Set<String>()
+        let date: (AgentConversation) -> Date = sort == .created ? { $0.createdAt } : { $0.lastActiveAt }
+        let rows = (conversations + (scope == .mine ? sharedConversations : []))
+            .filter { seen.insert($0.sessionId).inserted }
+            .sorted { date($0) > date($1) }
+        let rank = Dictionary(pinnedOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        return rows.compactMap { row in rank[row.sessionId].map { (row, $0) } }.sorted { $0.1 < $1.1 }.map(\.0)
+            + rows.filter { rank[$0.sessionId] == nil }
+    }
 
     func isPinned(_ sessionId: String) -> Bool { pinnedSessionIds.contains(sessionId) }
 
@@ -196,6 +213,7 @@ final class AgentStore {
         newModelError = nil
         credentialCatalog = nil
         favorites = nil
+        sharedConversations = []
         runtimes = []
         runtimesLoaded = false
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
@@ -312,6 +330,7 @@ final class AgentStore {
     func reload() async {
         guard let team = selectedTeam else {
             conversations = []
+            sharedConversations = []
             phase = teamsPhase == .loaded ? .loaded : phase
             return
         }
@@ -322,22 +341,38 @@ final class AgentStore {
         if conversations.isEmpty { phase = .loading }
         async let favoritesLoad: () = loadFavorites()
         async let runtimesLoad: () = loadRuntimes()
+        async let sharedLoad: () = loadShared(team: team, generation: generation)
 
         do {
             let page = try await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: Self.pageSize, scope: scope, search: search,
                 archived: showArchived ? .only : .exclude, sort: sort
             )
-            _ = await (favoritesLoad, runtimesLoad)
+            _ = await (favoritesLoad, runtimesLoad, sharedLoad)
             guard generation == loadGeneration else { return }
             conversations = page.conversations
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = .loaded
+            // A pinned chat stays on top however old it is, so page until each one is listed.
+            for _ in 0..<10 where hasMore && search.isEmpty && !showArchived
+                && !Set(pinnedOrder).isSubset(of: (conversations + sharedConversations).map(\.sessionId)) {
+                await loadMore()
+            }
         } catch {
             guard generation == loadGeneration else { return }
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// One page of shared sessions, under the same filters as the list.
+    private func loadShared(team: Team, generation: Int) async {
+        guard scope == .mine else { sharedConversations = []; return }
+        guard let page = try? await NuphosAPI.conversations(
+            token: token, teamId: team.id, limit: 100, scope: .shared, search: search,
+            archived: showArchived ? .only : .exclude, sort: sort
+        ), generation == loadGeneration else { return }
+        sharedConversations = page.conversations
     }
 
     /// Next page, appended. Rows can repeat across pages because the cursor
@@ -422,7 +457,8 @@ final class AgentStore {
         await refreshFirstPage()
     }
 
-    /// At most two requests per tick: page one and one rotating loaded page.
+    /// At most three requests per tick: page one, shared sessions and one
+    /// rotating loaded page.
     /// Scrolling increases the rotation interval, never the request burst size.
     private func refreshFirstPage() async {
         guard let team = selectedTeam else { return }
@@ -431,6 +467,7 @@ final class AgentStore {
             token: token, teamId: team.id, limit: Self.pageSize, scope: scope, search: search,
             archived: showArchived ? .only : .exclude, sort: sort
         ), generation == loadGeneration, !Task.isCancelled else { return }
+        await loadShared(team: team, generation: generation)
         let firstPageIds = Set(page.conversations.map(\.sessionId))
         conversations = page.conversations + conversations.filter { !firstPageIds.contains($0.sessionId) }
         if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= Self.pageSize {
