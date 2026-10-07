@@ -697,9 +697,12 @@ impl App {
                 return;
             }
             "atlas-transcript-snapshot" => {
-                // The server's ordering for the whole conversation; what is
-                // already on screen stays.
+                // The server's ordering for the whole conversation. Whatever
+                // streamed so far is written out first, then output resumes
+                // after the end of the snapshot.
                 if let Some(messages) = frame["messages"].as_array().filter(|m| !m.is_empty()) {
+                    let finished = self.take_finished(true);
+                    self.pending_output.extend(finished);
                     self.messages = messages.clone();
                     self.base_index = 0;
                     self.assistant = self.messages.iter().rposition(|m| role(m) == "assistant");
