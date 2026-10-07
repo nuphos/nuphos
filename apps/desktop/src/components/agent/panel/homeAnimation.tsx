@@ -86,10 +86,13 @@ export function AgentHomeAnimation({ title = 'What should we work on?' }: { titl
   )
 }
 
+/** When the composer slides in after the greeting; later blocks key off it. */
+export const COMPOSER_REVEAL_MS = 520
+
 export function DelayedPanelReveal({
   children,
   className,
-  delayMs = 520,
+  delayMs = COMPOSER_REVEAL_MS,
   replayKey = 0,
 }: {
   children: ReactNode

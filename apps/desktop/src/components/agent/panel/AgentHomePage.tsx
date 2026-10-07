@@ -8,7 +8,7 @@ import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
 import { ConnectorStrip } from './hero'
 import { RevealedHistoryBlock } from './historyRows'
-import { AgentHomeAnimation, DelayedPanelReveal } from './homeAnimation'
+import { AgentHomeAnimation, COMPOSER_REVEAL_MS, DelayedPanelReveal } from './homeAnimation'
 import { HomeWidgets } from './HomeWidgets'
 import { LocalAgentHint } from './LocalAgentHint'
 import { StarterSuggestionsBlock } from './starterSuggestions'
@@ -193,14 +193,19 @@ export function AgentHomePage({
           </div>
         </div>
         {teamId && !unbound && (
-          <div className="mx-auto mt-6 w-full max-w-[820px]">
+          // Same panel reveal as the composer, 0.3s after it.
+          <DelayedPanelReveal
+            replayKey={entranceKey}
+            delayMs={COMPOSER_REVEAL_MS + 300}
+            className="mx-auto mt-6 w-full max-w-[820px]"
+          >
             <HomeWidgets
               key={teamId}
               teamId={teamId}
               isTeamAdmin={isTeamAdmin}
               onOpenConversation={onOpenConversation}
             />
-          </div>
+          </DelayedPanelReveal>
         )}
       </div>
     </div>
