@@ -8,7 +8,7 @@ import {
   subscribeSidebarFavorites,
   syncSidebarFavorites,
 } from '../../lib/sidebarFavorites'
-import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
+import { AGENT_SESSION_KEY_PREFIX, favoriteSessionId } from '../../lib/sidebarPinnedChats'
 import {
   renamedTeamNavKey,
   renamedTeamPagePath,
@@ -144,7 +144,12 @@ export function useSidebarFavorites({
         active: sessionId
           ? sessionId === activeSessionId
           : currentHref != null && currentHref === href,
-        onActivate: onOpenPath ? (newTab) => onOpenPath(href, label, newTab) : undefined,
+        // A pinned chat opens like any chat row — in the main pane, not by
+        // retargeting the dock tab.
+        onActivate: sessionId
+          ? onOpenKey &&
+            ((newTab) => onOpenKey(`${AGENT_SESSION_KEY_PREFIX}${sessionId}`, label, newTab))
+          : onOpenPath && ((newTab) => onOpenPath(href, label, newTab)),
       }
     }
     const key = entry.key && renamedTeamNavKey(entry.key)
