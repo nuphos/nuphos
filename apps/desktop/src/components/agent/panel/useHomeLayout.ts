@@ -3,9 +3,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../../api'
 import { toast } from '../../ui/toast'
 
-import { EMPTY_HOME_LAYOUT } from './homeWidgetSettings'
+import { editableLayout } from './homeWidgetSettings'
 
 import type { HomeLayout, HomeLayouts } from '../../../types/team.ts'
+
+const RETRY_MS = 30_000
 
 /**
  * The home page layout, stored on the server so it follows the user across
@@ -17,12 +19,19 @@ export function useHomeLayout(teamId: string) {
   const [saved, setSaved] = useState<HomeLayouts | null>(null)
 
   const reload = useCallback(() => {
-    api
-      .atlasGetHomeLayout(teamId)
-      .then(setSaved, () => setSaved((prev) => prev ?? { personal: null, team: null }))
+    // A failed read leaves `saved` as it was; see editableLayout.
+    api.atlasGetHomeLayout(teamId).then(setSaved, () => {})
   }, [teamId])
 
   useEffect(reload, [reload])
+
+  // Until the first read succeeds, keep trying in the background.
+  useEffect(() => {
+    if (saved) return
+    const timer = setInterval(reload, RETRY_MS)
+
+    return () => clearInterval(timer)
+  }, [saved, reload])
 
   const save = (scope: 'personal' | 'team', layout: HomeLayout | null, next: HomeLayouts) => {
     setSaved(next)
@@ -32,10 +41,10 @@ export function useHomeLayout(teamId: string) {
     })
   }
 
-  const layout = saved ? (saved.personal ?? saved.team ?? EMPTY_HOME_LAYOUT) : null
+  const layout = editableLayout(saved)
 
   return {
-    /** Null while the first read is in flight. */
+    /** Null until a read succeeds; nothing is shown or editable before then. */
     layout,
     customized: Boolean(saved?.personal),
     update: (next: HomeLayout) => saved && save('personal', next, { ...saved, personal: next }),

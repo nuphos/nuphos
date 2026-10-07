@@ -9,7 +9,8 @@ import { heatmapRows } from './teamActivity'
 
 import type { TeamActivity, TeamActivityRange } from '../../../types/team.ts'
 
-const REFRESH_MS = 60_000
+// The server's answer only moves a slot at a time; asking sooner gains nothing.
+const SLOT_MINUTES: Record<TeamActivityRange, number> = { '1d': 15, '7d': 30, '30d': 60 }
 const RANGES: { value: TeamActivityRange; label: string }[] = [
   { value: '1d', label: '24h' },
   { value: '7d', label: '7d' },
@@ -49,7 +50,7 @@ export function TeamActivityCard({ teamId }: { teamId: string }) {
       )
 
     refresh()
-    const timer = setInterval(refresh, REFRESH_MS)
+    const timer = setInterval(refresh, SLOT_MINUTES[range] * 60_000)
 
     return () => {
       alive = false

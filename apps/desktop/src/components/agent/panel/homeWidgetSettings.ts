@@ -1,5 +1,11 @@
 import type { GithubWorkflowRun } from '../../../types'
-import type { HomeGridItem, HomeLayout, HomePanel, HomeRepo } from '../../../types/team.ts'
+import type {
+  HomeGridItem,
+  HomeLayout,
+  HomeLayouts,
+  HomePanel,
+  HomeRepo,
+} from '../../../types/team.ts'
 
 export type { HomeLayout, HomePanel, HomeRepo } from '../../../types/team.ts'
 
@@ -66,4 +72,40 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
 
     return placed
   })
+}
+
+/**
+ * The layout to show and edit, or null while it is unknown. Only a successful
+ * read makes it known: editing from a stand-in would overwrite the real one.
+ */
+export function editableLayout(saved: HomeLayouts | null): HomeLayout | null {
+  return saved ? (saved.personal ?? saved.team ?? EMPTY_HOME_LAYOUT) : null
+}
+
+export type RepoRead<T> = { repo: string; items: T[] | null }
+
+/**
+ * Folds one round of per-repository reads into what a card shows. A failed
+ * read (`items: null`) keeps that repository's last good rows and is reported
+ * in `failed`, so a card can say it could not check rather than look clean.
+ */
+export function mergeRepoReads<T>(
+  prev: Map<string, T[]>,
+  reads: RepoRead<T>[],
+): { byRepo: Map<string, T[]>; failed: string[] } {
+  const byRepo = new Map<string, T[]>()
+  const failed: string[] = []
+
+  for (const { repo, items } of reads) {
+    if (items) {
+      byRepo.set(repo, items)
+    } else {
+      failed.push(repo)
+      const last = prev.get(repo)
+
+      if (last) byRepo.set(repo, last)
+    }
+  }
+
+  return { byRepo, failed }
 }

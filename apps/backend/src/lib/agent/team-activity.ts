@@ -79,20 +79,52 @@ export function countSlots(
   return slots
 }
 
-export async function getTeamActivity(
+// The answer only moves a slot at a time, so one scan per team, range and
+// slot serves every viewer until the next slot starts.
+const cache = new Map<string, { end: number; result: Promise<TeamActivity> }>()
+
+// Bounds a single scan for a very busy team: the most recently active sessions.
+const MAX_SESSIONS = 2000
+
+export function getTeamActivity(
   teamId: string,
   range: ActivityRange,
   now = new Date(),
 ): Promise<TeamActivity> {
-  const { days, slotMinutes } = ACTIVITY_RANGES[range]
-  const slotMs = slotMinutes * 60_000
+  const slotMs = ACTIVITY_RANGES[range].slotMinutes * 60_000
   // Slots line up on whole slot boundaries, ending with the one in progress.
   const end = Math.ceil(now.getTime() / slotMs) * slotMs
+  const key = `${teamId}|${range}`
+  const hit = cache.get(key)
+
+  if (hit?.end === end) return hit.result
+  const result = scanTeamActivity(teamId, range, end, now)
+
+  cache.set(key, { end, result })
+  // A failed scan is not kept; the next request tries again.
+  result.catch(() => {
+    if (cache.get(key)?.result === result) cache.delete(key)
+  })
+
+  return result
+}
+
+async function scanTeamActivity(
+  teamId: string,
+  range: ActivityRange,
+  end: number,
+  now: Date,
+): Promise<TeamActivity> {
+  const { days, slotMinutes } = ACTIVITY_RANGES[range]
+  const slotMs = slotMinutes * 60_000
   const slotCount = (days * 24 * 60) / slotMinutes
   const start = end - slotCount * slotMs
 
   const sessionIds = await agentConversations()
-    .find({ teamId, lastActiveAt: { $gte: new Date(start) } }, { projection: { sessionId: 1 } })
+    .find(
+      { teamId, lastActiveAt: { $gte: new Date(start) } },
+      { projection: { sessionId: 1 }, sort: { lastActiveAt: -1 }, limit: MAX_SESSIONS },
+    )
     .map((c) => c.sessionId)
     .toArray()
   const messages = await agentMessages()

@@ -6,7 +6,7 @@ import { api } from '../../../api'
 import { formatAge } from '../../../utils'
 import { openOnGithub } from '../../../views/github-repo/openOnGithub'
 
-import { failingRuns } from './homeWidgetSettings'
+import { failingRuns, mergeRepoReads } from './homeWidgetSettings'
 
 import type { HomeRepo } from './homeWidgetSettings'
 import type { ReactNode } from 'react'
@@ -26,11 +26,17 @@ async function loadTagged<T>(repo: HomeRepo, load: RepoLoader<T>): Promise<WithR
 
 /**
  * Loads one list per followed repository and merges them, refreshing every
- * minute. A repository that fails to load is left out rather than failing
- * the card — the rest still tells the user something.
+ * minute. A repository whose read fails keeps its last rows and is listed in
+ * `failed`, so the card can say what it could not check.
  */
-function useRepoItems<T>(repos: HomeRepo[], load: RepoLoader<T>): WithRepo<T>[] | null {
-  const [items, setItems] = useState<WithRepo<T>[] | null>(null)
+function useRepoItems<T>(
+  repos: HomeRepo[],
+  load: RepoLoader<T>,
+): { items: WithRepo<T>[] | null; failed: string[] } {
+  const [state, setState] = useState<{
+    byRepo: Map<string, WithRepo<T>[]>
+    failed: string[]
+  } | null>(null)
   const key = repos.map((r) => `${String(r.installationId)}/${r.fullName}`).join(',')
 
   useEffect(() => {
@@ -38,7 +44,13 @@ function useRepoItems<T>(repos: HomeRepo[], load: RepoLoader<T>): WithRepo<T>[] 
     let alive = true
     const refresh = () =>
       void Promise.allSettled(repos.map((repo) => loadTagged(repo, load))).then((results) => {
-        if (alive) setItems(results.flatMap((r) => (r.status === 'fulfilled' ? r.value : [])))
+        if (!alive) return
+        const reads = results.map((r, i) => ({
+          repo: repos[i]?.fullName ?? '',
+          items: r.status === 'fulfilled' ? r.value : null,
+        }))
+
+        setState((prev) => mergeRepoReads(prev?.byRepo ?? new Map(), reads))
       })
 
     refresh()
@@ -53,7 +65,7 @@ function useRepoItems<T>(repos: HomeRepo[], load: RepoLoader<T>): WithRepo<T>[] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
-  return items
+  return { items: state ? [...state.byRepo.values()].flat() : null, failed: state?.failed ?? [] }
 }
 
 function HomeCard({
@@ -61,12 +73,18 @@ function HomeCard({
   title,
   count,
   empty,
+  failed,
+  total,
   children,
 }: {
   icon: ReactNode
   title: string
   count: number | null
   empty: string
+  /** Repositories whose latest read failed. */
+  failed: string[]
+  /** How many repositories the card follows. */
+  total: number
   children: ReactNode
 }) {
   let body = <div className="space-y-0.5">{children}</div>
@@ -79,6 +97,9 @@ function HomeCard({
         ))}
       </div>
     )
+  } else if (count === 0 && failed.length === total) {
+    // Nothing loaded at all: an empty list here would read as all clear.
+    body = <div className="px-1 py-1.5 text-[12px] text-amber-400">Couldn't load from GitHub</div>
   } else if (count === 0) {
     body = <div className="px-1 py-1.5 text-[12px] text-tertiary">{empty}</div>
   }
@@ -91,6 +112,11 @@ function HomeCard({
         {count !== null && <span className="text-tertiary tabular-nums">{count}</span>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{body}</div>
+      {failed.length > 0 && failed.length < total && (
+        <div className="truncate px-1 pt-1.5 text-[11px] text-amber-400" title={failed.join(', ')}>
+          Couldn't check {failed.join(', ')}
+        </div>
+      )}
     </section>
   )
 }
@@ -129,7 +155,7 @@ const loadRuns = (teamId: string) => async (repo: HomeRepo, owner: string, name:
   )
 
 export function PullRequestsCard({ teamId, repos }: { teamId: string; repos: HomeRepo[] }) {
-  const pulls = useRepoItems(repos, loadPulls(teamId))
+  const { items: pulls, failed } = useRepoItems(repos, loadPulls(teamId))
   const sorted = pulls?.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
   return (
@@ -138,6 +164,8 @@ export function PullRequestsCard({ teamId, repos }: { teamId: string; repos: Hom
       title="Pull requests"
       count={sorted?.length ?? null}
       empty="No open pull requests"
+      failed={failed}
+      total={repos.length}
     >
       {sorted?.slice(0, MAX_ROWS).map((pr) => (
         <HomeRow
@@ -159,7 +187,7 @@ export function PullRequestsCard({ teamId, repos }: { teamId: string; repos: Hom
 }
 
 export function CiFailuresCard({ teamId, repos }: { teamId: string; repos: HomeRepo[] }) {
-  const runs = useRepoItems(repos, loadRuns(teamId))
+  const { items: runs, failed } = useRepoItems(repos, loadRuns(teamId))
   const sorted = runs?.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
 
   return (
@@ -168,6 +196,8 @@ export function CiFailuresCard({ teamId, repos }: { teamId: string; repos: HomeR
       title="CI failures"
       count={sorted?.length ?? null}
       empty="Nothing failing"
+      failed={failed}
+      total={repos.length}
     >
       {sorted?.slice(0, MAX_ROWS).map((run) => (
         <HomeRow

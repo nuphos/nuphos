@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { failingRuns, gridFor, panelKey, repoKey, toggleItem } from './homeWidgetSettings.ts'
+import {
+  editableLayout,
+  failingRuns,
+  gridFor,
+  mergeRepoReads,
+  panelKey,
+  repoKey,
+  toggleItem,
+} from './homeWidgetSettings.ts'
 
 import type { GithubWorkflowRun } from '../../../types'
 
@@ -68,4 +76,35 @@ test('gridFor keeps saved places, appends new cards below, and drops removed one
     { i: 'pulls', x: 0, y: 8, w: 6, h: 7 },
     { i: 'panel:d/p', x: 0, y: 15, w: 6, h: 6 },
   ])
+})
+
+test('a layout that failed to load is not editable', () => {
+  assert.equal(editableLayout(null), null)
+  assert.deepEqual(editableLayout({ personal: null, team: null }), {
+    team: false,
+    pulls: [],
+    ci: [],
+    panels: [],
+  })
+})
+
+test('a failed repository read keeps its last rows and is reported', () => {
+  const first = mergeRepoReads(new Map(), [
+    { repo: 'o/a', items: [1] },
+    { repo: 'o/b', items: [2] },
+  ])
+  const second = mergeRepoReads(first.byRepo, [
+    { repo: 'o/a', items: null },
+    { repo: 'o/b', items: [3] },
+  ])
+
+  assert.deepEqual(
+    [...second.byRepo],
+    [
+      ['o/a', [1]],
+      ['o/b', [3]],
+    ],
+  )
+  assert.deepEqual(second.failed, ['o/a'])
+  assert.deepEqual(mergeRepoReads(new Map(), [{ repo: 'o/c', items: null }]).failed, ['o/c'])
 })

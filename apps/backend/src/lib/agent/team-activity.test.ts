@@ -1,6 +1,21 @@
 import { expect, test } from 'bun:test'
 
-import { countSlots, turnIntervals } from '@/lib/agent/team-activity'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+
+let scans = 0
+
+useAgentDb({
+  agentConversations: () => ({
+    find: () => {
+      scans++
+
+      return { map: () => ({ toArray: async () => ['s1'] }) }
+    },
+  }),
+  agentMessages: () => ({ find: () => ({ toArray: async () => [] }) }),
+})
+
+const { countSlots, getTeamActivity, turnIntervals } = await import('@/lib/agent/team-activity')
 
 const at = (min: number) => new Date(Date.UTC(2026, 9, 7, 0, min))
 const msg = (role: string, min: number) => ({ sessionId: 's', role, createdAt: at(min) })
@@ -39,4 +54,19 @@ test('a session counts once per slot however many turns it has there', () => {
   const b: [number, number][] = [[at(20).getTime(), at(25).getTime()]]
 
   expect(countSlots([a, b], start, slotMs, 3)).toEqual([2, 1, 0])
+})
+
+test('one scan serves a team and range until the next slot starts', async () => {
+  scans = 0
+  const t = (min: number) => new Date(Date.UTC(2026, 9, 7, 10, min))
+
+  await getTeamActivity('team-a', '7d', t(1))
+  await getTeamActivity('team-a', '7d', t(20))
+  expect(scans).toBe(1)
+
+  // A new 30-minute slot, another range, or another team each scan afresh.
+  await getTeamActivity('team-a', '7d', t(31))
+  await getTeamActivity('team-a', '1d', t(31))
+  await getTeamActivity('team-b', '7d', t(31))
+  expect(scans).toBe(4)
 })
