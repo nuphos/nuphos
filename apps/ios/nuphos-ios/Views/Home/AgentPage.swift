@@ -13,6 +13,10 @@ struct AgentPage: View {
     @State private var draft = ""
     @State private var showWorkspaceSetup = false
     @State private var showAgentSetup = false
+    #if DEBUG
+    /// `-preview-agent-login`: the authorization-code step with a canned attempt.
+    @State private var previewLogin = false
+    #endif
     /// A chat started from the composer here.
     @State private var newChat: NewChat?
     /// DEBUG `-open-first-chat`: pushes the first conversation once loaded.
@@ -47,6 +51,17 @@ struct AgentPage: View {
         content
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
+            #if DEBUG
+            .sheet(isPresented: $previewLogin) {
+                if let team = store.selectedTeam {
+                    AgentSetupSheet(
+                        team: team,
+                        runtime: RuntimeInstance(id: "preview", provider: .claudeCode, label: "Claude Code", status: .active, kind: "managed", local: nil, defaults: nil),
+                        login: WorkspaceAPI.Login(attemptId: "preview", state: "awaiting_authorization", authorizationUrl: "https://claude.ai/oauth/authorize", verificationUri: nil, userCode: nil, error: nil, codeSubmitted: false)
+                    )
+                }
+            }
+            #endif
             .safeAreaInset(edge: .top, spacing: 0) {
                 if isSearching {
                     SearchBar(text: $store.search) {
@@ -102,6 +117,8 @@ struct AgentPage: View {
                 if CommandLine.arguments.contains("-open-first-chat") {
                     autoOpened = store.conversations.first
                 }
+                if CommandLine.arguments.contains("-show-agent-setup") { showAgentSetup = true }
+                if CommandLine.arguments.contains("-preview-agent-login") { previewLogin = true }
                 // `-preview-approval`: a canned tool run + pending approval, for UI work.
                 if CommandLine.arguments.contains("-preview-approval") {
                     let session = store.newSession() ?? ChatSession.fresh(token: "", teamId: "preview")

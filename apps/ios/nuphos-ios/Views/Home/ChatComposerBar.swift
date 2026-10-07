@@ -55,13 +55,21 @@ struct ChatComposerBar<Controls: View>: View {
                     .transition(.opacity)
             }
 
-            if expanded, hasControls {
+            // The controls own the sheets they present (agent setup, pickers).
+            // A text field in one of those sheets takes focus from the
+            // composer, so the row stays mounted while collapsed; removing it
+            // would close the sheet the user is typing in.
+            if hasControls {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) { controls() }
                         .padding(.horizontal, 12)
                 }
-                .padding(.top, -4)
-                .transition(.opacity)
+                .frame(height: expanded ? nil : 0)
+                .padding(.top, expanded ? -4 : 0)
+                .padding(.bottom, expanded ? 0 : -8)
+                .opacity(expanded ? 1 : 0)
+                .allowsHitTesting(expanded)
+                .accessibilityHidden(!expanded)
             }
 
             HStack(spacing: 8) {

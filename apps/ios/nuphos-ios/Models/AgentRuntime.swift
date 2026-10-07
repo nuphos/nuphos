@@ -101,6 +101,26 @@ extension RuntimeInstance.Provider {
     }
 }
 
+/// Provider usage for one agent (`GET /teams/:id/agent-runtimes/quota`).
+struct RuntimeQuota: Decodable, Sendable {
+    struct Window: Decodable, Sendable {
+        let label: String
+        let usedPercent: Double
+        let resetsAt: Date?
+    }
+
+    let runtimeId: String
+    let available: Bool
+    /// Why there are no figures, in the agent's own words.
+    let reason: String?
+    let windows: [Window]
+
+    var needsSignIn: Bool { !available && reason == "Sign in required" }
+
+    /// The window closest to running out decides what the row says.
+    var tightest: Window? { available ? windows.max { $0.usedPercent < $1.usedPercent } : nil }
+}
+
 /// Model / effort / fast controls the runtime exposes for one conversation
 /// (`GET|PATCH /agent/conversations/:id/model-config`).
 struct SessionConfigState: Codable, Equatable, Sendable {

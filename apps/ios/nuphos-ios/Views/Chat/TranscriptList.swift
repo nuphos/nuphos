@@ -129,28 +129,23 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             }
         }, completion: { [weak self] in
             guard let self else { return }
-            self.collection.layoutIfNeeded()
-            if sent, let id = self.extendedID {
-                self.restore(id: id, edge: .top, offset: 0)
-                self.positioned = true
-            } else if !self.positioned || self.following {
-                self.positionAtEnd()
-            } else if let anchor {
-                self.restore(id: anchor.id, edge: .top, offset: anchor.offset)
-            }
             self.applying = false
             self.updateLatestButton()
-            self.animatePendingSend()
             self.flushPending()
         })
-        // Batch completion can run after a display frame even without animations.
-        // Commit the explicit send position in the same turn as the insertion.
+        // Batch completion can run after a display frame even without animations,
+        // which would show new rows at their estimated size for that frame.
+        // Commit the position in the same turn as the change.
+        collection.layoutIfNeeded()
         if sent, let id = extendedID {
-            collection.layoutIfNeeded()
             restore(id: id, edge: .top, offset: 0)
             positioned = true
-            animatePendingSend()
+        } else if !positioned || following {
+            positionAtEnd()
+        } else if let anchor {
+            restore(id: anchor.id, edge: .top, offset: anchor.offset)
         }
+        animatePendingSend()
     }
 
     override func viewDidLayoutSubviews() {
@@ -324,6 +319,10 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         await pause()
         check("send_stable", abs(questionY() - sentY) < 1 && abs(sentY) < 20,
               "questionY=\(sentY) after=\(questionY())")
+        var streamingError: CGFloat = 0
+        let streamingProbe = TranscriptFrameProbe {
+            streamingError = max(streamingError, abs(questionY() - sentY))
+        }
         fixture.append(.assistantText(id: "answer.sent", messageId: "reply", text: "Starting", streaming: true))
         for step in 1...15 {
             fixture[fixture.count - 1] = .assistantText(id: "answer.sent", messageId: "reply",
@@ -332,6 +331,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             try? await Task.sleep(for: .milliseconds(100))
         }
         await pause()
+        streamingProbe.stop()
+        check("stream_every_frame", streamingError < 1, "maxQuestionDrift=\(streamingError)")
         check("stream_preserves_question", abs(questionY() - sentY) < 1,
               "before=\(sentY) after=\(questionY())")
         let beforeRefresh = collection.contentOffset.y

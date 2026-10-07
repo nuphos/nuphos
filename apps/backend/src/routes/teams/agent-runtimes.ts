@@ -21,6 +21,7 @@ import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
 import { defaultRuntimeLabel, OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
+import { runtimeLogins } from '@/lib/claude-code-preview/runtime-login-store'
 import { fetchRuntimeQuota } from '@/lib/claude-code-preview/runtime-quota'
 import {
   removeTeamRuntime,
@@ -75,9 +76,17 @@ function registerRuntimeQuotaRoute(teamScoped: Hono<{ Variables: TeamAuthVariabl
     const teamId = c.get('teamId')
     // With the user, so their own computers' agents are in the list at all.
     const instances = await listRuntimeInstances(teamId, c.get('userId'))
+    const signIns = await runtimeLogins()
+      .find({ teamId, state: 'connected' }, { projection: { runtimeId: 1, attemptId: 1 } })
+      .toArray()
+    const signIn = new Map(signIns.map((login) => [login.runtimeId, login.attemptId]))
 
     return c.json({
-      quotas: await Promise.all(instances.map((instance) => fetchRuntimeQuota(teamId, instance))),
+      quotas: await Promise.all(
+        instances.map((instance) =>
+          fetchRuntimeQuota(teamId, instance, undefined, undefined, signIn.get(instance.id)),
+        ),
+      ),
     })
   })
 }
