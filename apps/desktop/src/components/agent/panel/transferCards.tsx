@@ -215,9 +215,15 @@ function UploadedFilesList({
                 : `Uploaded ${String(total)} file${total === 1 ? '' : 's'}${readySuffix}`}
         </span>
       </div>
-      {previews && teamId && !uploading && !errored && part.groupId && !part.archive && (
-        <TransferPreviews teamId={teamId} groupId={part.groupId} />
-      )}
+      {previews &&
+        teamId &&
+        !uploading &&
+        !errored &&
+        part.groupId &&
+        !part.archive &&
+        part.files.some((f) => mediaKind(f.fileName)) && (
+          <TransferPreviews teamId={teamId} groupId={part.groupId} />
+        )}
       <div className="flex flex-col gap-1">
         {part.files.map((f, i) => (
           <div key={`${f.fileName}:${String(i)}`} className="flex items-center gap-2 text-[12.5px]">

@@ -129,10 +129,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.queued && activeTab.queued.length > 0 && (
                 <QueuedStrip
                   items={activeTab.queued}
-                  canSend={
-                    runtimeAllows(activeTab.runtimeState, 'send') ||
-                    runtimeAllows(activeTab.runtimeState, 'steer')
-                  }
+                  canSend={runtimeAllows(activeTab.runtimeState, 'send')}
+                  canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
                   onRemove={(queuedId) => removeQueued(activeTab.id, queuedId)}
                   onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
                   sidebar={isSidebarMode}

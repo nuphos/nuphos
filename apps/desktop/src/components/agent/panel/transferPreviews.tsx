@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 
@@ -9,8 +9,8 @@ import type { FileTransferGroup } from '../../../types'
 import type { ReactNode } from 'react'
 
 // Inline previews for the images and videos in a transfer group, whichever
-// side sent it. Presigned URLs last minutes, so a broken preview re-resolves
-// them once.
+// side sent it. Presigned URLs last minutes, so a preview that breaks after
+// its links have aged re-resolves them.
 export function TransferPreviews({
   teamId,
   groupId,
@@ -22,8 +22,9 @@ export function TransferPreviews({
   fallback?: ReactNode
 }) {
   const [files, setFiles] = useState<FileTransferGroup['files'] | null>(null)
-  const [retried, setRetried] = useState(false)
+  const resolvedAt = useRef(0)
   const resolve = useCallback(() => {
+    resolvedAt.current = Date.now()
     void api
       .fileTransferResolve({ teamId, groupId })
       .then((resolved) => setFiles(resolved.files.filter((f) => f.downloadUrl && previewKind(f))))
@@ -33,12 +34,10 @@ export function TransferPreviews({
   useEffect(resolve, [resolve])
   if (files === null) return <></>
   if (files.length === 0) return <>{fallback}</>
-  const retry = retried
-    ? undefined
-    : () => {
-        setRetried(true)
-        resolve()
-      }
+  // A link that fails right after resolving is broken, not expired: don't loop.
+  const retry = () => {
+    if (Date.now() - resolvedAt.current > 60_000) resolve()
+  }
 
   return (
     <div className="mb-2 flex flex-wrap gap-2">
