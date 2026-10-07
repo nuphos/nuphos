@@ -34,16 +34,25 @@ struct RuntimePickerSheet: View {
                         ForEach(RuntimeInstance.grouped(store.runtimes), id: \.tier) { group in
                             Section(group.tier.title) {
                                 ForEach(group.runtimes) { runtime in
+                                    let quota = store.quotas[runtime.id]
                                     Button {
-                                        store.selectRuntime(runtime)
-                                        dismiss()
+                                        if quota?.needsSignIn == true, canSignIn(runtime) {
+                                            loginRuntime = runtime
+                                        } else {
+                                            store.selectRuntime(runtime)
+                                            dismiss()
+                                        }
                                     } label: {
-                                        RuntimeRow(runtime: runtime, selected: runtime.id == store.newConversationRuntime?.id)
+                                        RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == store.newConversationRuntime?.id)
                                     }
                                     .buttonStyle(.plain)
                                     .disabled(!runtime.isSelectable)
-                                    if store.selectedTeam?.isAdministrator == true, runtime.tier == .cloud {
-                                        Button("Sign in to \(runtime.label)") { loginRuntime = runtime }
+                                    // A signed-out agent says so in its row; this covers the ones
+                                    // whose provider can't report it.
+                                    .contextMenu {
+                                        if canSignIn(runtime) {
+                                            Button("Sign In Again", systemImage: "person.badge.key") { loginRuntime = runtime }
+                                        }
                                     }
                                 }
                             }
@@ -65,18 +74,28 @@ struct RuntimePickerSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .sheet(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
-            .sheet(item: $loginRuntime) { runtime in if let team = store.selectedTeam { AgentSetupSheet(team: team, runtime: runtime) } }
+            .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
+            .navigationDestination(item: $loginRuntime) { runtime in if let team = store.selectedTeam { AgentSetupView(team: team, runtime: runtime) } }
             .task { await store.loadRuntimes() }
-            .refreshable { await store.loadRuntimes(force: true) }
+            .task { await store.loadQuotas() }
+            .refreshable {
+                async let runtimes: Void = store.loadRuntimes(force: true)
+                async let quotas: Void = store.loadQuotas()
+                _ = await (runtimes, quotas)
+            }
         }
         .tint(Theme.heading)
         .presentationDetents([.medium, .large])
+    }
+
+    private func canSignIn(_ runtime: RuntimeInstance) -> Bool {
+        store.selectedTeam?.isAdministrator == true && runtime.tier == .cloud
     }
 }
 
 private struct RuntimeRow: View {
     let runtime: RuntimeInstance
+    let quota: RuntimeQuota?
     let selected: Bool
 
     var body: some View {
@@ -90,6 +109,7 @@ private struct RuntimeRow: View {
                 if let subtitle = runtime.subtitle {
                     Text(subtitle).font(.system(size: 13)).foregroundStyle(Theme.muted).lineLimit(2)
                 }
+                if let quota { QuotaLine(quota: quota) }
             }
             Spacer()
             if selected {
@@ -187,5 +207,46 @@ struct ModelSettingsSheet: View {
         }
         .tint(Theme.heading)
         .presentationDetents([.medium, .large])
+    }
+}
+
+/// "62% left · resets in 2 hr" for the window closest to its limit,
+/// or the reason there's nothing to show.
+private struct QuotaLine: View {
+    let quota: RuntimeQuota
+
+    var body: some View {
+        if let window = quota.tightest {
+            let left = max(0, Int((100 - window.usedPercent).rounded(.down)))
+            HStack(spacing: 6) {
+                Gauge(value: min(window.usedPercent, 100), in: 0...100) { EmptyView() }
+                    .gaugeStyle(.accessoryLinearCapacity)
+                    .tint(tone(window.usedPercent))
+                    .frame(width: 44)
+                    .scaleEffect(y: 0.8)
+                Text([left == 0 ? "Limit reached" : "\(left)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(window.usedPercent >= 80 ? tone(window.usedPercent) : Theme.muted)
+            }
+            .accessibilityElement(children: .combine)
+        } else if quota.needsSignIn {
+            Text("\(Image(systemName: "exclamationmark.circle.fill")) Sign in required")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.warning)
+        }
+    }
+
+    private func tone(_ used: Double) -> Color {
+        used >= 100 ? .red : used >= 80 ? Theme.warning : Theme.heading
+    }
+
+    private func reset(_ date: Date?) -> String? {
+        guard let date, date > .now else { return nil }
+        let minutes = Int(date.timeIntervalSinceNow / 60)
+        if minutes < 24 * 60 {
+            return minutes < 60 ? "resets in \(max(1, minutes))m" : "resets in \(minutes / 60)h \(minutes % 60)m"
+        }
+        return "resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
     }
 }

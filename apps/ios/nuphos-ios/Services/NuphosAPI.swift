@@ -120,6 +120,16 @@ enum NuphosAPI {
         return envelope.runtimes.compactMap(\.runtime)
     }
 
+    static func runtimeQuotas(token: String, teamId: String) async throws -> [RuntimeQuota] {
+        struct Entry: Decodable {
+            let quota: RuntimeQuota?
+            init(from decoder: Decoder) throws { quota = try? RuntimeQuota(from: decoder) }
+        }
+        struct Envelope: Decodable { let quotas: [Entry] }
+        let envelope: Envelope = try await get("teams/\(teamId)/agent-runtimes/quota", token: token, timeout: 30)
+        return envelope.quotas.compactMap(\.quota)
+    }
+
     /// `GET /teams/:id/favorites` — pinned chats live here.
     static func sidebarFavorites(token: String, teamId: String) async throws -> SidebarFavorites {
         try await get("teams/\(teamId)/favorites", token: token, timeout: 20)

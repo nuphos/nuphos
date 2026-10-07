@@ -86,6 +86,8 @@ final class AgentStore {
     private(set) var runtimes: [RuntimeInstance] = []
     private(set) var runtimesLoaded = false
     private(set) var runtimesError: String?
+    /// Usage by runtime id; missing while loading or when a lookup fails.
+    private(set) var quotas: [String: RuntimeQuota] = [:]
     /// Remembered per team; an unavailable remembered choice means "pick
     /// again", never a silent switch to another account.
     private(set) var selectedRuntimeId: String?
@@ -117,6 +119,13 @@ final class AgentStore {
         } catch {
             runtimesError = error.localizedDescription
         }
+    }
+
+    func loadQuotas() async {
+        guard let team = selectedTeam,
+              let list = try? await NuphosAPI.runtimeQuotas(token: token, teamId: team.id),
+              team.id == selectedTeam?.id else { return }
+        quotas = Dictionary(list.map { ($0.runtimeId, $0) }) { _, last in last }
     }
 
     private(set) var newModelConfig: SessionConfigState?
@@ -198,6 +207,7 @@ final class AgentStore {
         favorites = nil
         runtimes = []
         runtimesLoaded = false
+        quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
         restoreCredentialSelection()
     }
