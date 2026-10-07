@@ -84,7 +84,16 @@ final class ChatSession {
         guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
         return runtimeObservation.status(at: observations.now)
     }
-    private(set) var submitting = false
+    /// What the user just sent, shown as their bubble until the request is
+    /// admitted; it goes back to the composer if the upload fails or is cancelled.
+    struct Sending {
+        let submission: ComposerSubmission
+        let progress = Progress()
+        fileprivate var task: Task<Void, Never>?
+    }
+    private(set) var sending: Sending?
+    var submitting: Bool { sending != nil }
+    func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
     /// Prevent double submission until this request has a runtime admission or terminal response.
     private var awaitingAdmission = false
@@ -321,20 +330,22 @@ final class ChatSession {
                 }
             }
         }
-        submitting = true
         failedSubmission = nil
         error = nil
-        Task {
-            defer { submitting = false }
+        sending = Sending(submission: submission)
+        let progress = sending!.progress
+        sending?.task = Task {
             do {
                 if !uploads.isEmpty {
-                    let upload = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: uploads)
+                    let upload = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: uploads, progress: progress)
                     parts.append(isNativeRuntime ? upload.part : .text(.init(text: upload.instruction, state: .done)))
                 }
+                sending = nil
                 let message = ChatMessage(role: .user, parts: parts)
                 await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed, submission: submission)
             } catch {
-                self.error = error.localizedDescription
+                sending = nil
+                if !Task.isCancelled { self.error = error.localizedDescription }
                 failedSubmission = submission
             }
         }

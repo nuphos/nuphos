@@ -27,7 +27,7 @@ enum WorkspaceAPI {
 
     /// Uploads photos and files straight to the transfer store, so the chat
     /// request only carries a reference however large the attachments are.
-    static func upload(token: String, team: String, attachments: [ComposerAttachment]) async throws -> TransferUpload {
+    static func upload(token: String, team: String, attachments: [ComposerAttachment], progress: Progress) async throws -> TransferUpload {
         struct Intent: Decodable {
             struct File: Decodable { let relPath: String; let uploadUrl: String }
             let groupId: String
@@ -56,6 +56,7 @@ enum WorkspaceAPI {
             "files": .array(files.map { file in .object(["fileName": .string(file.name), "relPath": .string(file.relPath), "size": .number(Double(file.size)), "contentType": .string(file.type)]) })
         ]))
         guard intent.files.count == files.count else { throw NuphosAPI.Failure.invalidResponse }
+        progress.totalUnitCount = Int64(files.reduce(0) { $0 + $1.size })
         for item in intent.files {
             guard let index = files.firstIndex(where: { $0.relPath == item.relPath }), let url = URL(string: item.uploadUrl), url.scheme == "https" else { throw NuphosAPI.Failure.invalidResponse }
             var request = URLRequest(url: url)
@@ -64,9 +65,10 @@ enum WorkspaceAPI {
             request.setValue(files[index].type, forHTTPHeaderField: "Content-Type")
             // Presigned storage requests never receive the Nuphos bearer token.
             let response: URLResponse
+            let tracker = UploadProgress(parent: progress, units: Int64(files[index].size))
             switch attachments[index].kind {
-            case .image(let data): (_, response) = try await URLSession.shared.upload(for: request, from: data)
-            case .file(let file): (_, response) = try await URLSession.shared.upload(for: request, fromFile: file)
+            case .image(let data): (_, response) = try await URLSession.shared.upload(for: request, from: data, delegate: tracker)
+            case .file(let file): (_, response) = try await URLSession.shared.upload(for: request, fromFile: file, delegate: tracker)
             }
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 throw NuphosAPI.Failure.http(502, message: "Couldn't upload \(files[index].name). Your message has not been sent; try again.")
@@ -91,5 +93,18 @@ enum WorkspaceAPI {
         struct Group: Decodable { let files: [DownloadedFile] }
         let group: Group = try await request("teams/\(team)/file-transfers/\(groupId)/download", token: token)
         return group.files
+    }
+}
+
+/// Counts one upload's sent bytes into the message's overall progress.
+private nonisolated final class UploadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    let progress: Progress
+
+    init(parent: Progress, units: Int64) {
+        progress = Progress(totalUnitCount: units, parent: parent, pendingUnitCount: units)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+        progress.completedUnitCount = totalBytesSent
     }
 }

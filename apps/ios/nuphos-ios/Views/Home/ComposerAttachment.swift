@@ -78,6 +78,33 @@ struct ComposerSubmission: Sendable {
     var attachments: [ComposerAttachment]
 }
 
+/// A photo's thumbnail, or a file's extension on a plain card.
+struct AttachmentPreview: View {
+    let attachment: ComposerAttachment
+
+    var body: some View {
+        #if canImport(UIKit)
+        if let image = attachment.thumbnail {
+            Image(uiImage: image).resizable().scaledToFill()
+        } else {
+            filePlaceholder
+        }
+        #else
+        filePlaceholder
+        #endif
+    }
+
+    private var filePlaceholder: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "doc").font(.system(size: 18, weight: .medium)).foregroundStyle(Theme.body)
+            Text(attachment.fileExtension.isEmpty ? "FILE" : attachment.fileExtension)
+                .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.muted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bubble)
+    }
+}
+
 /// A 64pt square preview with a remove button in its corner.
 struct AttachmentTile: View {
     let attachment: ComposerAttachment
@@ -85,17 +112,7 @@ struct AttachmentTile: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            Group {
-                #if canImport(UIKit)
-                if let image = attachment.thumbnail {
-                    Image(uiImage: image).resizable().scaledToFill()
-                } else {
-                    filePlaceholder
-                }
-                #else
-                filePlaceholder
-                #endif
-            }
+            AttachmentPreview(attachment: attachment)
             .frame(width: 64, height: 64)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
@@ -113,15 +130,5 @@ struct AttachmentTile: View {
         }
         .padding(.top, 5)
         .padding(.trailing, 5)
-    }
-
-    private var filePlaceholder: some View {
-        VStack(spacing: 4) {
-            Image(systemName: "doc").font(.system(size: 18, weight: .medium)).foregroundStyle(Theme.body)
-            Text(attachment.fileExtension.isEmpty ? "FILE" : attachment.fileExtension)
-                .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.muted)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.bubble)
     }
 }

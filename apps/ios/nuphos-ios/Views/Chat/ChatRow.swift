@@ -37,6 +37,8 @@ enum ChatRow: Identifiable, Equatable {
         let scope: String
     }
     case activity(text: String)
+    /// The message being uploaded, before the server has it.
+    case sending
     case hint(id: String, text: String, isError: Bool)
 
     var id: String {
@@ -46,6 +48,7 @@ enum ChatRow: Identifiable, Equatable {
              .memory(let id, _, _), .memoryRecall(let id, _, _), .hint(let id, _, _):
             return id
         case .activity: return "activity"
+        case .sending: return "sending"
         }
     }
 }
