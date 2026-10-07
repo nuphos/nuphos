@@ -2020,3 +2020,20 @@ html.platform-darwin:not(.window-fullscreen)
 .react-grid-item > .react-resizable-handle::after {
   border-color: rgb(128 128 128 / 0.6);
 }
+
+/* While a home card is dragged or resized, only its header stays: the body
+   fades out so the card reads as a plain box being placed, then fades back. */
+.react-grid-item section > :not(.home-card-drag) {
+  transition: opacity var(--duration-quick) var(--ease-in-out);
+}
+
+.react-grid-item.react-draggable-dragging section > :not(.home-card-drag),
+.react-grid-item.resizing section > :not(.home-card-drag) {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-grid-item section > :not(.home-card-drag) {
+    transition: none;
+  }
+}
