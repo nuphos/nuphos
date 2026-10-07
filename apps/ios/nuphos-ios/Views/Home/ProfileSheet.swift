@@ -11,6 +11,7 @@ struct ProfileSheet: View {
 
     @State private var confirmSignOut = false
     @State private var privacyError: String?
+    @State private var hasOpenAIKey = Keychain.read(Whisper.keychainKey) != nil
 
     var body: some View {
         NavigationStack {
@@ -28,6 +29,23 @@ struct ProfileSheet: View {
                     InfoRow(label: "Email", value: currentUser.email)
                     InfoRow(label: "User ID", value: currentUser.id, monospaced: true)
                     InfoRow(label: "Avatar URL", value: currentUser.avatarURL, monospaced: true)
+                }
+                .listRowBackground(Theme.surface)
+
+                Section {
+                    if hasOpenAIKey {
+                        Text("OpenAI API key saved on this device")
+                        Button("Remove OpenAI API key", role: .destructive) {
+                            Keychain.delete(Whisper.keychainKey)
+                            hasOpenAIKey = false
+                        }
+                    } else {
+                        Text("Tap the microphone in the composer to add your OpenAI API key.")
+                    }
+                } header: {
+                    Text("Voice input")
+                } footer: {
+                    Text("Recordings are transcribed by OpenAI Whisper with your own key and billed to your OpenAI account.")
                 }
                 .listRowBackground(Theme.surface)
 
