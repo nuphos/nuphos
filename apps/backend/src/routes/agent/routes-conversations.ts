@@ -218,7 +218,7 @@ agent.get('/conversations/:sessionId', async (c) => {
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,
     timelineEvents: serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
     runtimeState,
-    promptSuggestion: result.conversation.claudeCodePreviewContext?.promptSuggestion ?? null,
+    promptSuggestion: result.conversation.claudeCodePreviewContext?.promptSuggestion || null,
     // Absolute index of messages[0] in the stored transcript. 0 unless a
     // `tail` cut off earlier messages; then it doubles as the "there are
     // earlier messages" signal and the `before` cursor for the messages route.

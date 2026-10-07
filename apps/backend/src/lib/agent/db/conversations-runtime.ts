@@ -83,16 +83,29 @@ export async function consumeConversationWorkLost(
 }
 
 /**
- * Offer the runtime's next-prompt guess to the composer. It lives in the
- * per-turn context, so the next turn's context write clears it.
+ * The runtime answered this turn, so its next-prompt guess may follow. The
+ * empty string marks the slot open; the next turn's context write replaces
+ * the context, so a guess that arrives after that has nowhere to land.
  */
+export async function openConversationPromptSuggestion(
+  sessionId: string,
+  teamId: string,
+  turnKey: string,
+): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId, teamId, 'claudeCodePreviewContext.activeTurnKey': turnKey },
+    { $set: { 'claudeCodePreviewContext.promptSuggestion': '' } },
+  )
+}
+
+/** Offer the runtime's next-prompt guess to the composer, if its turn asked for one. */
 export async function setConversationPromptSuggestion(
   sessionId: string,
   teamId: string,
   suggestion: string,
 ): Promise<void> {
   await agentConversations().updateOne(
-    { sessionId, teamId },
+    { sessionId, teamId, 'claudeCodePreviewContext.promptSuggestion': '' },
     { $set: { 'claudeCodePreviewContext.promptSuggestion': suggestion } },
   )
 }

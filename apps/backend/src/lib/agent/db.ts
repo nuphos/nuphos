@@ -28,6 +28,7 @@ export {
   consumeConversationWorkLost,
   getConversationPreviewAttachment,
   markConversationWorkLost,
+  openConversationPromptSuggestion,
   setConversationPreviewAttachment,
   setConversationPromptSuggestion,
   stampConversationAgentRuntime,

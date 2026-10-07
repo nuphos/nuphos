@@ -5,6 +5,7 @@
 import {
   clearConversationPreviewLocalTools,
   clearConversationPreviewTurn,
+  openConversationPromptSuggestion,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
@@ -125,6 +126,7 @@ export type PreparedPreviewTurn = {
   /** Queued-while-idle messages folded into the first prompt; persisted too. */
   carried: PendingUserMessage[]
   clearActiveTurn: () => Promise<void>
+  openPromptSuggestion: () => Promise<void>
 }
 
 export async function preparePreviewTurn(
@@ -205,6 +207,10 @@ export async function preparePreviewTurn(
     clearActiveTurn: () =>
       clearConversationPreviewTurn(sessionId, teamId, requestId).catch((err: unknown) => {
         traceAgentChatError('agent.chat.preview_active_turn_clear.error', err, args.run.trace, {})
+      }),
+    openPromptSuggestion: () =>
+      openConversationPromptSuggestion(sessionId, teamId, requestId).catch((err: unknown) => {
+        traceAgentChatError('agent.chat.prompt_suggestion_open.error', err, args.run.trace, {})
       }),
   }
 }

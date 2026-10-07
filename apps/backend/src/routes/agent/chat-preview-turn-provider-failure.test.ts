@@ -30,6 +30,7 @@ useChatPreviewPrepare({
     message: 'how many services use func-runtime-node20:latest',
     freshSessionMessage: () => 'how many services use func-runtime-node20:latest',
     carried: [],
+    openPromptSuggestion: () => Promise.resolve(),
     clearActiveTurn: async () => {},
   }),
   carriedUserMessages: () => [],
