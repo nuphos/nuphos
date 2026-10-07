@@ -42,6 +42,7 @@ struct DownloadCard: View {
                     .clipShape(shape)
                     // Screenshots are mostly white; the outline keeps them off the page.
                     .overlay(shape.strokeBorder(Theme.bubble))
+                    .overlay { if opening == file.id { ProgressView() } }
             } placeholder: {
                 shape.fill(Theme.bubble).frame(width: 200, height: 140)
             }
