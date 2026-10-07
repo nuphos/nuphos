@@ -18,7 +18,8 @@ cargo run --release -- logout
 Sign-in is shared with the desktop app: both read and write
 `~/.config/nuphos/cli.yaml` (`NUPHOS_CLI_CONFIG` overrides it), and the API
 endpoint saved on the desktop's sign-in screen (`cli.api-url`) applies here
-too. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team.
+too. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
+`NUPHOS_DEBUG_FRAMES=<file>` appends every stream event to a file.
 
 In the composer:
 

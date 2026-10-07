@@ -765,7 +765,7 @@ impl App {
             }
         };
         self.assistant = Some(i);
-        if matches!(kind.as_str(), "text-delta" | "reasoning-delta" | "tool-input-start") {
+        if matches!(kind.as_str(), "text-delta" | "reasoning-delta" | "tool-input-start" | "tool-input-available") {
             self.phase = None;
         }
         if let tx::Outcome::Error(text) = tx::apply(&mut self.messages[i], &frame) {
