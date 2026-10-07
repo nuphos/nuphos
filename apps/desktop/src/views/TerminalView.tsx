@@ -14,7 +14,7 @@ export function TerminalView({ teamId, filter }: { teamId: string; filter: strin
   const { conversationId } = useWorkspaceTab()
 
   if (filter !== RUNTIME_TERMINAL_FILTER) return <LocalTerminalView />
-  if (conversationId) return <LocalTerminalView target={{ teamId, sessionId: conversationId }} />
+  if (conversationId) return <LocalTerminalView runtime={{ teamId, sessionId: conversationId }} />
 
   return (
     <PageMeta pageKey="team.terminal" title="Terminal" icon={<Terminal className="h-3.5 w-3.5" />}>
