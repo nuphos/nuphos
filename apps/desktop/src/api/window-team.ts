@@ -35,6 +35,10 @@ import type {
   TeamInvitation,
   TeamMember,
   TeamRole,
+  HomeLayout,
+  HomeLayouts,
+  TeamActivity,
+  TeamActivityRange,
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
@@ -102,6 +106,13 @@ export type WindowTeamApi = {
     entries: SidebarFavoriteCloudEntry[],
     expectedRevision: number,
   ): Promise<SidebarFavoritesCloudSnapshot>
+  atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
+  atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
+  atlasPutHomeLayout(
+    teamId: string,
+    scope: 'personal' | 'team',
+    layout: HomeLayout | null,
+  ): Promise<void>
   atlasCreateTeam(name: string): Promise<AtlasTeam>
   atlasUpdateTeam(teamId: string, input: { name?: string; avatarUrl?: string }): Promise<AtlasTeam>
   atlasSetTeamEmailDomainDiscovery(teamId: string, enabled: boolean): Promise<AtlasTeam>

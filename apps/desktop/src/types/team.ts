@@ -1,4 +1,5 @@
 import type { AgentProvider } from './runtime.ts'
+
 export type UserInfo = {
   id: string
   name: string
@@ -112,4 +113,56 @@ export type SidebarFavoritesCloudSnapshot = {
   entries: SidebarFavoriteCloudEntry[]
   revision: number
   updatedAt: string | null
+}
+
+/** A repository a home card follows, addressed the way the GitHub API routes need it. */
+export type HomeRepo = { installationId: number; fullName: string }
+
+export type HomePullStatus = 'open' | 'ready' | 'draft'
+export type HomeRunStatus = 'failed' | 'running' | 'latest'
+
+/** A pull request or CI card: the repositories it follows and what it shows of them. */
+export type HomeGithubCard =
+  | { id: string; kind: 'pulls'; repos: HomeRepo[]; statuses: HomePullStatus[] }
+  | { id: string; kind: 'ci'; repos: HomeRepo[]; statuses: HomeRunStatus[] }
+
+/** A Nuphos Dashboards panel pinned to the home page. */
+export type HomePanel = { dashboardId: string; panelId: string }
+
+/**
+ * What the home page shows: the team activity card, the repositories each
+ * GitHub card follows (a card with none is hidden) and the dashboard panels
+ * pinned as cards of their own.
+ */
+export type HomeLayout = {
+  team: boolean
+  /** Pull request and CI cards; there can be any number of each. */
+  github: HomeGithubCard[]
+  panels: HomePanel[]
+  /** Where each card sits, in grid units; a card without an entry goes last. */
+  grid?: HomeGridItem[]
+}
+
+/** A card's place on the home grid: `i` is the card's key, the rest grid units. */
+export type HomeGridItem = { i: string; x: number; y: number; w: number; h: number }
+
+/** The caller's own layout and the team default; either is null when unset. */
+export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }
+
+export type TeamActivityRange = '1d' | '7d' | '30d'
+
+/** Who ran which sessions in each slot of a range, oldest slot first. */
+export type TeamActivity = {
+  range: TeamActivityRange
+  slotMinutes: number
+  start: string
+  sessions: { id: string; title: string; runtime: AgentProvider | null }[]
+  /** Every current member, busiest first. */
+  members: {
+    id: string
+    name: string
+    avatarURL: string
+    /** Per slot, the member's sessions running in it, as indexes into `sessions`. */
+    slots: number[][]
+  }[]
 }
