@@ -26,6 +26,8 @@ export function LocalClaudeSignIn({
   const busy = starting || login?.state === 'waiting' || login?.state === 'checking'
   const [attempted, setAttempted] = useState(false)
   const connected = attempted && !starting && login?.state === 'connected'
+  // A failure from an earlier, unrelated attempt is not this dialog's to report.
+  const retry = attempted && failure
 
   const previousLoginState = useRef(login?.state)
 
@@ -103,44 +105,45 @@ export function LocalClaudeSignIn({
         >
           <div className="space-y-4 p-5" role="status" aria-live="polite">
             <p className="text-[13px] text-secondary">
-              Sign in once for Nuphos on this computer. Your sign-in stays here, separate from
-              Claude in your terminal. Restarting Nuphos does not require another sign-in. Signing
-              in reconnects your local Claude agent and stops its running conversations.
+              {connected
+                ? 'Claude is connected. Your local Claude agent is ready.'
+                : login?.state === 'checking'
+                  ? 'Verifying your sign-in…'
+                  : busy
+                    ? 'Finish signing in in your browser. This updates on its own.'
+                    : retry
+                      ? 'Sign-in did not finish. Try again.'
+                      : 'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude agent and stops its running conversations.'}
             </p>
-            {connected ? (
-              <p className="text-[13px] text-main">
-                Claude is connected. Return to your conversation and resend your message.
-              </p>
-            ) : (
-              <>
-                <p className="text-[13px] text-secondary">
-                  {login?.state === 'checking'
-                    ? 'Verifying your sign-in…'
-                    : busy
-                      ? 'Complete sign-in in your browser, then return here. We will check it automatically.'
-                      : 'Open Claude sign-in to connect your account.'}
-                </p>
-                {login?.url && (
-                  <a
-                    href={login.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[13px] text-zViolet-400 underline"
-                  >
-                    Open Claude sign-in
-                  </a>
-                )}
-              </>
+            {busy && login?.url && (
+              <a
+                href={login.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[13px] text-zViolet-400 underline"
+              >
+                Reopen the sign-in page
+              </a>
             )}
             <div className="flex gap-2">
-              {!busy && !connected && (
-                <Button size="sm" onClick={() => void start()}>
-                  {failure || login?.state === 'cancelled' ? 'Try again' : 'Open Claude sign-in'}
+              {connected ? (
+                <Button size="sm" onClick={() => void close()}>
+                  Done
                 </Button>
+              ) : busy ? (
+                <Button size="sm" variant="ghost" onClick={() => void close()}>
+                  Cancel sign-in
+                </Button>
+              ) : (
+                <>
+                  <Button size="sm" onClick={() => void start()}>
+                    {retry ? 'Try again' : 'Sign in with Claude'}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => void close()}>
+                    Cancel
+                  </Button>
+                </>
               )}
-              <Button size="sm" variant="ghost" onClick={() => void close()}>
-                {busy ? 'Cancel sign-in' : 'Done'}
-              </Button>
             </div>
           </div>
         </Modal>

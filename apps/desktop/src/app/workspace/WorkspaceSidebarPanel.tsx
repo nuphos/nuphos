@@ -2,6 +2,7 @@ import { Profiler } from 'react'
 
 import { pageLocationForTab } from '../../app/workspaceTabFactory'
 import { Sidebar } from '../../components/Sidebar'
+import { sidebarView } from '../../components/sidebar/view'
 import { reportShellRender } from '../../lib/tabSwitchLog'
 import {
   MY_PREFERENCES_DEFAULT_SECTION,
@@ -54,9 +55,14 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
   } = ws
 
   if (!scope) return null
+  // Only a page with its own navigation (a cloud account, cluster, Grafana,
+  // repo) takes over the sidebar when its tab goes full screen; any other page
+  // keeps the regular main sidebar.
+  const pageHasOwnNavigation =
+    sidebarView(scope, ws.sidebarActive, grafanaInstance, sidebarRepositoryNav).level > 0
   const { dynamicNavigation, active, chatShown } = sidebarSurface(
     mainPageOpen,
-    ws.workspaceDockExpanded,
+    ws.workspaceDockExpanded && pageHasOwnNavigation,
     ws.sidebarActive,
   )
   const closeArchivedChatTabs = (sessionId: string) => {

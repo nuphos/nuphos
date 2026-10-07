@@ -52,7 +52,7 @@ enum NuphosAPI {
         return envelope.members
     }
 
-    enum ConversationScope: String { case mine, team }
+    enum ConversationScope: String { case mine, team, shared }
     enum ConversationArchiveFilter: String { case exclude, only }
     enum ConversationSort: String { case activity, created }
 
@@ -118,6 +118,16 @@ enum NuphosAPI {
         struct Envelope: Decodable { let runtimes: [Entry] }
         let envelope: Envelope = try await get("teams/\(teamId)/agent-runtimes", token: token, timeout: 20)
         return envelope.runtimes.compactMap(\.runtime)
+    }
+
+    static func runtimeQuotas(token: String, teamId: String) async throws -> [RuntimeQuota] {
+        struct Entry: Decodable {
+            let quota: RuntimeQuota?
+            init(from decoder: Decoder) throws { quota = try? RuntimeQuota(from: decoder) }
+        }
+        struct Envelope: Decodable { let quotas: [Entry] }
+        let envelope: Envelope = try await get("teams/\(teamId)/agent-runtimes/quota", token: token, timeout: 30)
+        return envelope.quotas.compactMap(\.quota)
     }
 
     /// `GET /teams/:id/favorites` — pinned chats live here.

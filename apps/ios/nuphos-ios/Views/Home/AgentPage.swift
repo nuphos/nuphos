@@ -13,6 +13,10 @@ struct AgentPage: View {
     @State private var draft = ""
     @State private var showWorkspaceSetup = false
     @State private var showAgentSetup = false
+    #if DEBUG
+    /// `-preview-agent-login`: the authorization-code step with a canned attempt.
+    @State private var previewLogin = false
+    #endif
     /// A chat started from the composer here.
     @State private var newChat: NewChat?
     /// DEBUG `-open-first-chat`: pushes the first conversation once loaded.
@@ -20,16 +24,8 @@ struct AgentPage: View {
     #if DEBUG
     @State private var didHandleLaunchAction = false
     #endif
-    /// A pinned chat tapped in the Pinned section.
-    @State private var pinnedOpen: PinnedEntry?
     /// A chat opened from a tapped notification.
     @State private var pushOpen: PushTarget?
-
-    struct PinnedEntry: Identifiable, Hashable {
-        let sessionId: String
-        let label: String
-        var id: String { sessionId }
-    }
 
     struct NewChat: Identifiable, Hashable {
         let id = UUID()
@@ -47,6 +43,17 @@ struct AgentPage: View {
         content
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
+            #if DEBUG
+            .sheet(isPresented: $previewLogin) {
+                if let team = store.selectedTeam {
+                    AgentSetupSheet(
+                        team: team,
+                        runtime: RuntimeInstance(id: "preview", provider: .claudeCode, label: "Claude Code", status: .active, kind: "managed", local: nil, defaults: nil),
+                        login: WorkspaceAPI.Login(attemptId: "preview", state: "awaiting_authorization", authorizationUrl: "https://claude.ai/oauth/authorize", verificationUri: nil, userCode: nil, error: nil, codeSubmitted: false)
+                    )
+                }
+            }
+            #endif
             .safeAreaInset(edge: .top, spacing: 0) {
                 if isSearching {
                     SearchBar(text: $store.search) {
@@ -83,9 +90,6 @@ struct AgentPage: View {
             .navigationDestination(item: $autoOpened) { conversation in
                 ExistingConversationView(conversation: conversation)
             }
-            .navigationDestination(item: $pinnedOpen) { entry in
-                PinnedConversationView(entry: entry)
-            }
             .navigationDestination(item: $pushOpen) { target in
                 PushedConversationView(target: target).id(target.id)
             }
@@ -102,6 +106,8 @@ struct AgentPage: View {
                 if CommandLine.arguments.contains("-open-first-chat") {
                     autoOpened = store.conversations.first
                 }
+                if CommandLine.arguments.contains("-show-agent-setup") { showAgentSetup = true }
+                if CommandLine.arguments.contains("-preview-agent-login") { previewLogin = true }
                 // `-preview-approval`: a canned tool run + pending approval, for UI work.
                 if CommandLine.arguments.contains("-preview-approval") {
                     let session = store.newSession() ?? ChatSession.fresh(token: "", teamId: "preview")
@@ -159,7 +165,7 @@ struct AgentPage: View {
     @ViewBuilder
     private var content: some View {
         switch store.phase {
-        case .loaded where !store.conversations.isEmpty || !store.pinnedChats.isEmpty:
+        case .loaded where !store.listedConversations.isEmpty:
             list
         default:
             // A scroll view even for the non-list states: with plain
@@ -209,7 +215,7 @@ struct AgentPage: View {
                 Button("Try again") { Task { await store.loadTeams() } }
                     .buttonStyle(.borderedProminent)
             }
-        case .loaded where store.conversations.isEmpty:
+        case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
                 Label(store.search.isEmpty ? (store.showArchived ? "No archived chats" : "No chats yet") : "No matches", systemImage: store.showArchived ? "archivebox" : "message")
             } description: {
@@ -224,44 +230,8 @@ struct AgentPage: View {
 
     private var list: some View {
         List {
-            if store.search.isEmpty, !store.showArchived, !store.pinnedChats.isEmpty {
-                Section {
-                    ForEach(store.pinnedChats, id: \.key) { entry in
-                        if let sessionId = entry.sessionId {
-                            let row = store.conversations.first { $0.sessionId == sessionId }
-                            Button {
-                                pinnedOpen = PinnedEntry(sessionId: sessionId, label: row?.displayTitle ?? entry.label)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "pin.fill").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 36)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(row?.displayTitle ?? entry.label)
-                                            .font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.heading).lineLimit(1)
-                                        if let row { Text(HistoryTime.format(row.lastActiveAt)).font(.system(size: 13)).foregroundStyle(Theme.muted) }
-                                    }
-                                    Spacer(minLength: 0)
-                                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted.opacity(0.6))
-                                }
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 16))
-                            .swipeActions(edge: .trailing) {
-                                Button { Task { await store.setPinned(false, sessionId: sessionId, title: entry.label) } } label: {
-                                    Label("Unpin", systemImage: "pin.slash")
-                                }
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Pinned").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
-                }
-                .listSectionSeparator(.hidden, edges: .top)
-            }
-
             Section {
-                ForEach(store.conversations) { conversation in
+                ForEach(store.listedConversations) { conversation in
                     NavigationLink(value: conversation) {
                         ConversationRow(conversation: conversation, pinned: store.isPinned(conversation.sessionId))
                     }
@@ -367,24 +337,6 @@ struct SearchBar: View {
 }
 
 /// A pinned chat that may not be in the loaded page: known by id only.
-private struct PinnedConversationView: View {
-    @Environment(AgentStore.self) private var store
-    let entry: AgentPage.PinnedEntry
-    @State private var session: ChatSession?
-
-    var body: some View {
-        Group {
-            if let session {
-                ConversationView(session: session)
-            } else {
-                Theme.canvas
-            }
-        }
-        .onAppear { if session == nil { session = store.session(sessionId: entry.sessionId, title: entry.label) } }
-        .onDisappear { Task { await store.reload() } }
-    }
-}
-
 /// A conversation opened from a notification, which may belong to another team.
 private struct PushedConversationView: View {
     @Environment(AgentStore.self) private var store

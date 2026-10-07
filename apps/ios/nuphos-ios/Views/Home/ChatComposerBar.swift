@@ -55,13 +55,21 @@ struct ChatComposerBar<Controls: View>: View {
                     .transition(.opacity)
             }
 
-            if expanded, hasControls {
+            // The controls own the sheets they present (agent setup, pickers).
+            // A text field in one of those sheets takes focus from the
+            // composer, so the row stays mounted while collapsed; removing it
+            // would close the sheet the user is typing in.
+            if hasControls {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) { controls() }
                         .padding(.horizontal, 12)
                 }
-                .padding(.top, -4)
-                .transition(.opacity)
+                .frame(height: expanded ? nil : 0)
+                .padding(.top, expanded ? -4 : 0)
+                .padding(.bottom, expanded ? 0 : -8)
+                .opacity(expanded ? 1 : 0)
+                .allowsHitTesting(expanded)
+                .accessibilityHidden(!expanded)
             }
 
             HStack(spacing: 8) {
@@ -103,13 +111,21 @@ struct ChatComposerBar<Controls: View>: View {
         .padding(.bottom, 8)
         .offset(y: handleDrag)
         .onChange(of: focused) { _, isFocused in if isFocused { collapsedByUser = false } }
+        // A composer leaving the screen takes its keyboard with it. Each page
+        // owns its own composer and focus, so a keyboard left up from a
+        // popped chat covers the list's composer, which never asked for it.
+        #if canImport(UIKit)
+        .onDisappear {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+        #endif
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }
             photoItems = []
             Task {
                 for item in items {
                     if let attachment = await ComposerAttachment.load(item) { attachments.append(attachment) }
-                    else { attachmentError = "Couldn’t prepare this photo. Try a different photo or choose it from Files." }
+                    else { attachmentError = "Couldn’t prepare this photo or video. Try a different one or choose it from Files." }
                 }
             }
         }
@@ -123,7 +139,7 @@ struct ChatComposerBar<Controls: View>: View {
         } message: {
             Text(attachmentError ?? "")
         }
-        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
+        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .any(of: [.images, .videos]))
         #if DEBUG
         .onAppear {
             let args = ProcessInfo.processInfo.arguments

@@ -64,7 +64,7 @@ function ReviewerRow({ reviewer }: { reviewer: Reviewer }) {
 }
 
 // GitHub label colours are arbitrary hex values the theme cannot vet.
-function LabelChip({ name, color }: { name: string; color: string }) {
+export function LabelChip({ name, color }: { name: string; color: string }) {
   const hex = /^[0-9a-f]{6}$/i.test(color) ? `#${color}` : null
 
   return (

@@ -19,6 +19,18 @@ struct ConversationRow: View {
         HStack(spacing: 12) {
             OwnerAvatar(owner: conversation.owner, size: 36)
                 .opacity(conversation.owner?.deactivated == true ? 0.5 : 1)
+                .overlay(alignment: .bottomTrailing) {
+                    if pinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 15, height: 15)
+                            .background(Circle().fill(Theme.muted))
+                            .overlay(Circle().stroke(Theme.canvas, lineWidth: 1.5))
+                            .offset(x: 3, y: 3)
+                            .accessibilityLabel("Pinned")
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(conversation.displayTitle)
@@ -58,12 +70,6 @@ struct ConversationRow: View {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
                     .accessibilityLabel(observation?.status(at: observations.now) ?? "Automatic continuation paused")
-            }
-            if pinned {
-                Image(systemName: "pin.fill")
-                    .font(Theme.Text.micro)
-                    .foregroundStyle(Theme.muted)
-                    .accessibilityLabel("Pinned")
             }
             if conversation.isArchived {
                 Image(systemName: "archivebox")

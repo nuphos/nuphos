@@ -5,7 +5,7 @@ import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { runtimeAllows, runtimeStatusLabel } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
-import { partitionAttachments, readImageParts, makeAttachmentTurn } from './attachments'
+import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID, emitFirstRunConvo } from './model'
@@ -194,24 +194,19 @@ export function useTurnDispatch(acc: Acc) {
       const trimmed = text.trim()
 
       if (!trimmed && filePaths.length === 0) return
-      const { imagePaths, otherPaths } = partitionAttachments(filePaths)
-
-      if (otherPaths.length > 0 && !teamId) {
+      if (filePaths.length > 0 && !teamId) {
         toast.error('No team selected', 'Select a team before attaching files.')
 
         return
       }
       if (activeId === HOME_TAB_ID) {
         const title = trimmed || filePaths.map(fileNameFromPath).join(', ')
-        // First message: images go straight to the model as vision; only
-        // non-image files use the deferred upload. The backend
+        // First message: attachments use the deferred upload. The backend
         // session doesn't exist until startChatWith runs agentStart, so that
         // upload is team-scoped (see startChatWith).
-        const imageParts = await readImageParts(imagePaths)
         const { messageId, optimisticPart, buildUserMsg, runUpload } = makeAttachmentTurn(
           text,
-          imageParts,
-          otherPaths,
+          filePaths,
           teamId!,
           { turnKind, currentUser },
         )
@@ -219,8 +214,8 @@ export function useTurnDispatch(acc: Acc) {
         emitFirstRunConvo('asked')
         startChatWith(
           title,
-          buildUserMsg(otherPaths.length > 0 ? optimisticPart() : null),
-          otherPaths.length > 0 ? { messageId, run: runUpload } : undefined,
+          buildUserMsg(filePaths.length > 0 ? optimisticPart() : null),
+          filePaths.length > 0 ? { messageId, run: runUpload } : undefined,
         )
 
         return
@@ -229,8 +224,14 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
-      if (runtimeAllows(tab.runtimeState, 'steer') && !runtimeAllows(tab.runtimeState, 'reply')) {
-        await sendSteering(activeId, trimmed, filePaths)
+      // Steering carries text only; a message with attachments waits in the
+      // queue and sends itself when the turn ends.
+      if (
+        filePaths.length === 0 &&
+        runtimeAllows(tab.runtimeState, 'steer') &&
+        !runtimeAllows(tab.runtimeState, 'reply')
+      ) {
+        await sendSteering(activeId, trimmed)
 
         return
       }
@@ -267,8 +268,8 @@ export function useTurnDispatch(acc: Acc) {
       const draft = tab?.queued?.find((candidate) => candidate.id === queuedId)
 
       if (!tab || !draft || draft.steering) return
-      if (runtimeAllows(tab.runtimeState, 'steer')) {
-        await sendSteering(tabId, draft.text, draft.filePaths, queuedId)
+      if (draft.filePaths.length === 0 && runtimeAllows(tab.runtimeState, 'steer')) {
+        await sendSteering(tabId, draft.text, queuedId)
 
         return
       }

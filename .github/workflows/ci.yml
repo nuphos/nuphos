@@ -64,6 +64,7 @@ jobs:
               - '.github/workflows/ci.yml'
             desktop:
               - 'apps/desktop/**'
+              - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
             ios:
               - 'apps/ios/**'

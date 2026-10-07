@@ -32,6 +32,7 @@ useChatPreviewPrepare({
       message: 'deploy it',
       freshSessionMessage: () => 'deploy it',
       carried: [],
+      openPromptSuggestion: () => Promise.resolve(),
       clearActiveTurn: () => {
         seen.released++
 

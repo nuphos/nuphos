@@ -7,7 +7,12 @@ import type {
   RegisterExternalRuntimeInput,
   UpdateRuntimeInput,
 } from '../types/runtime'
-import type { SidebarFavoriteCloudEntry, TeamRole } from '../types/team.ts'
+import type {
+  HomeLayout,
+  SidebarFavoriteCloudEntry,
+  TeamActivityRange,
+  TeamRole,
+} from '../types/team.ts'
 
 export const teamApi = {
   atlasReadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
@@ -59,6 +64,11 @@ export const teamApi = {
     entries: SidebarFavoriteCloudEntry[],
     expectedRevision: number,
   ) => window.api.atlasPutSidebarFavorites(teamId, entries, expectedRevision),
+  atlasGetHomeLayout: (teamId: string) => window.api.atlasGetHomeLayout(teamId),
+  atlasGetTeamActivity: (teamId: string, range: TeamActivityRange) =>
+    window.api.atlasGetTeamActivity(teamId, range),
+  atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: HomeLayout | null) =>
+    window.api.atlasPutHomeLayout(teamId, scope, layout),
   atlasCreateTeam: (name: string) => window.api.atlasCreateTeam(name),
   atlasUpdateTeam: (teamId: string, input: { name?: string; avatarUrl?: string }) =>
     window.api.atlasUpdateTeam(teamId, input),

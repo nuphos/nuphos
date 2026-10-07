@@ -167,6 +167,8 @@ export type AgentConversationDetail = AgentConversation & {
   activeRun?: AgentActiveRun | null
   slackThread?: AgentSlackThread | null
   timelineEvents?: AgentTimelineEvent[]
+  /** The runtime's guess at the next prompt, offered in the composer. */
+  promptSuggestion?: string | null
 }
 
 export type AgentConversationMessagesPage = {

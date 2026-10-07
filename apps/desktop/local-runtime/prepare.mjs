@@ -3,8 +3,8 @@
 //
 //   node local-runtime/prepare.mjs [--targets darwin-arm64,darwin-x64] [--openab <binary> | --no-openab] [--require]
 //
-// The adapters are nuphos-runtime's patched claude-agent-acp and codex-acp at a
-// pinned commit.
+// The adapters are this repository's apps/runtime/image adapters, patched as
+// the image patches them.
 // openab is built from zeabur/openab at a pinned commit unless --openab (or
 // NUPHOS_OPENAB_BINARY) supplies one. Without --require a target that cannot
 // get an openab binary is staged without one, and the app reports the Local
@@ -26,46 +26,25 @@ import { parseArgs } from 'node:util'
 
 import { patchDesktopAdapter } from './adapter-patches.mjs'
 import { findBrokenLinks } from './bundle-check.mjs'
-import { bundleStamp, digestOf, PATCH_SOURCES } from './bundle-stamp.mjs'
+import { bundleStamp, RUNTIME_DIR, RUNTIME_SOURCES } from './bundle-stamp.mjs'
 
-export const NUPHOS_RUNTIME_COMMIT = 'c32595ab3b69db57843a07b7b0aaf2b5c74d1a98'
 export const OPENAB_COMMIT = '735c6d0b5391581ea377ded8ba6999f69712535d'
 
 /** One nuphos-runtime adapter per agent the desktop can run, patched as its image patches it. */
 export const ADAPTERS = {
   'claude-code': {
     dir: 'claude-agent-acp',
-    files: [
-      'package.json',
-      'package-lock.json',
-      'patch-adapter.mjs',
-      'turn-completion.mjs',
-      'session-state.mjs',
-    ],
     patchTarget: 'node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js',
     entry: 'node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js',
     version: 'claude-agent-acp@0.74.0',
   },
   codex: {
     dir: 'codex-acp',
-    files: [
-      'package.json',
-      'package-lock.json',
-      'patch-adapter.mjs',
-      'session-config.mjs',
-      'steering.mjs',
-    ],
     patchTarget: 'node_modules/@agentclientprotocol/codex-acp/dist/index.js',
     entry: 'node_modules/@agentclientprotocol/codex-acp/dist/index.js',
     version: 'codex-acp@1.1.4',
   },
 }
-const SHARED_FILES = [
-  'runtime-defaults.mjs',
-  'mcp-bridge-config.mjs',
-  'mcp-http-bridge.mjs',
-  'session-home.mjs',
-]
 const RUST_TARGETS = {
   'darwin-arm64': 'aarch64-apple-darwin',
   'darwin-x64': 'x86_64-apple-darwin',
@@ -97,43 +76,18 @@ function hasCommand(command) {
   }
 }
 
-async function fetchRuntimeSources() {
-  const dir = join(cache, `nuphos-runtime-${NUPHOS_RUNTIME_COMMIT}`)
-  const files = [
-    ...SHARED_FILES,
-    ...Object.values(ADAPTERS).flatMap((adapter) =>
-      adapter.files.map((file) => `${adapter.dir}/${file}`),
-    ),
-  ]
-
-  for (const file of files) {
-    const target = join(dir, file)
-
-    if (existsSync(target)) continue
-    const url = `https://raw.githubusercontent.com/zeabur/nuphos-runtime/${NUPHOS_RUNTIME_COMMIT}/image/${file}`
-    const response = await fetch(url)
-
-    if (!response.ok) throw new Error(`${url}: HTTP ${String(response.status)}`)
-    mkdirSync(dirname(target), { recursive: true })
-    writeFileSync(target, await response.text())
-  }
-
-  return dir
-}
-
 async function buildAdapter(provider) {
   const adapter = ADAPTERS[provider]
-  const out = join(
-    cache,
-    `adapter-v2-${provider}-${NUPHOS_RUNTIME_COMMIT}-${digestOf(PATCH_SOURCES)}`,
-  )
+  const out = join(cache, `adapter-${provider}-${bundleStamp()}`)
 
   if (existsSync(join(out, '.complete'))) return out
-  const sources = await fetchRuntimeSources()
   const work = join(cache, `adapter-work-${provider}`)
 
   rmSync(work, { recursive: true, force: true })
-  cpSync(sources, work, { recursive: true })
+  for (const file of RUNTIME_SOURCES) {
+    mkdirSync(dirname(join(work, file)), { recursive: true })
+    cpSync(join(RUNTIME_DIR, file), join(work, file))
+  }
   const adapterDir = join(work, adapter.dir)
 
   run(
@@ -229,7 +183,6 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         {
           stamp: bundleStamp(),
           openabCommit: OPENAB_COMMIT,
-          nuphosRuntimeCommit: NUPHOS_RUNTIME_COMMIT,
           adapters: Object.fromEntries(
             Object.entries(ADAPTERS).map(([provider, adapter]) => [
               provider,

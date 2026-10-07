@@ -31,10 +31,9 @@ export async function listConversations(
     /** Narrow team scope to one member's conversations. */
     ownerId?: string
     /**
-     * A Trigger's run history. Omitted lists Chats, which excludes trigger
-     * runs entirely — the two are opposite listings, so this is never a
-     * refinement of the default. Several ids list a Watch group's partition
-     * triggers together.
+     * A Trigger's run history. Omitted lists Chats, which excludes trigger runs entirely — the two
+     * are opposite listings, so this is never a refinement of the default. Several ids list a
+     * Watch group's partition triggers together.
      */
     triggerIds?: string[]
     search?: string
@@ -56,7 +55,9 @@ export async function listConversations(
   if (options?.archived) params.set('archived', options.archived)
   if (options?.sort) params.set('sort', options.sort)
 
-  return callJson<ConversationsPage>('GET', `/agent/conversations?${String(params)}`)
+  const route = `/agent/conversations?${String(params)}`
+
+  return callJson<ConversationsPage>('GET', route, undefined, 12_000)
 }
 
 export async function setConversationArchived(
@@ -110,12 +111,13 @@ export async function pickUpConversationInSlack(
 export async function getConversation(
   sessionId: string,
   teamId?: string,
-  options?: { tail?: number },
+  options?: { tail?: number; runtimeState?: 'omit' },
 ): Promise<ConversationDetail> {
   const params = new URLSearchParams()
 
   if (teamId) params.set('teamId', teamId)
   if (options?.tail) params.set('tail', String(options.tail))
+  if (options?.runtimeState) params.set('runtimeState', options.runtimeState)
   const q = params.toString() ? `?${String(params)}` : ''
 
   return callJson<ConversationDetail>(

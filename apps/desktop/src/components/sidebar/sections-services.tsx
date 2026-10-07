@@ -131,16 +131,32 @@ export function sharedChatSection(sharedChatItems: Item[]): Section[] {
 }
 
 /**
- * What sits between the top nav and the viewer's own Chats: first what they
- * pinned, then the sessions they joined. Built as one ordered list so both land
- * in the right order from a single splice, and an empty group contributes no
- * section at all.
+ * The chat groups in team view: what the viewer pinned, then the sessions they
+ * joined, both above their own Chats — which drops the pinned rows so no chat
+ * is listed twice. An empty group contributes no section at all.
  */
-export function sectionsAboveChats(pinnedChatItems: Item[], sharedChatItems: Item[]): Section[] {
-  return [
+export function withChatSections(
+  sections: Section[],
+  pinnedChatItems: Item[],
+  sharedChatItems: Item[],
+  isPinned: (item: Item) => unknown,
+): Section[] {
+  const result = sections.flatMap((section) => {
+    if (section.title !== 'Chats') return [section]
+    const items = section.items.filter((item) => !isPinned(item))
+
+    return items.length > 0 ? [{ ...section, items }] : []
+  })
+  const chatsIndex = result.findIndex((section) => section.title === 'Chats')
+
+  result.splice(
+    chatsIndex === -1 ? 1 : chatsIndex,
+    0,
     ...(pinnedChatItems.length > 0 ? [{ title: 'Pinned', items: pinnedChatItems }] : []),
     ...sharedChatSection(sharedChatItems),
-  ]
+  )
+
+  return result
 }
 
 export function teamSections(

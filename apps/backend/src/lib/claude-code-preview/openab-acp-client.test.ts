@@ -525,6 +525,17 @@ describe('OpenAbAcpClient', () => {
       params: {
         sessionId: 'sess_timer',
         update: {
+          sessionUpdate: 'session_info_update',
+          _meta: { 'ai.nuphos/promptSuggestion': { suggestion: 'check the timer' } },
+        },
+      },
+    })
+    h.socket().receive({
+      jsonrpc: '2.0',
+      method: 'session/update',
+      params: {
+        sessionId: 'sess_timer',
+        update: {
           sessionUpdate: 'usage_update',
           used: 12,
           size: 200_000,
@@ -547,6 +558,7 @@ describe('OpenAbAcpClient', () => {
     expect(observed).toEqual([
       { kind: 'text', text: 'The timer fired.' },
       { kind: 'status', status: 'idle' },
+      { kind: 'prompt-suggestion', suggestion: 'check the timer' },
       { kind: 'complete', origin: { kind: 'task-notification' } },
     ])
   })

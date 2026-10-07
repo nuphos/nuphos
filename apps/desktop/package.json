@@ -43,6 +43,7 @@
     "posthog-node": "^5.35.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-grid-layout": "^2.3.0",
     "recharts": "^2.15.0",
     "shiki": "^3.23.0",
     "streamdown": "^2.5.0",

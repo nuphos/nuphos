@@ -28,8 +28,11 @@ export const agentApi = {
     teamId: string,
     selection: { configId: string; value: string },
   ) => ipcRenderer.invoke('agent:setSessionConfig', sessionId, teamId, selection),
-  agentGetConversation: (sessionId: string, teamId?: string, options?: { tail?: number }) =>
-    ipcRenderer.invoke('agent:getConversation', sessionId, teamId, options),
+  agentGetConversation: (
+    sessionId: string,
+    teamId?: string,
+    options?: { tail?: number; runtimeState?: 'omit' },
+  ) => ipcRenderer.invoke('agent:getConversation', sessionId, teamId, options),
   agentGetConversationMessages: (
     sessionId: string,
     args: { before: number; limit?: number },

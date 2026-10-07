@@ -85,6 +85,7 @@ export async function hydrateTranscriptPrefix(
   runOwnerUserId: string,
   conversationForResume: AgentConversation | null,
   actorId = runOwnerUserId,
+  deviceId?: string,
 ): Promise<UIMessage[]> {
   const baseIndex = body.baseIndex ?? 0
   let messages = body.messages
@@ -105,6 +106,7 @@ export async function hydrateTranscriptPrefix(
     runOwnerUserId,
     actorId,
     Boolean(body.resume || body.continueAfterInterruption),
+    deviceId,
   )
 
   return messages
