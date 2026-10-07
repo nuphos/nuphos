@@ -121,59 +121,58 @@ export function AgentHomePage({
   }, [firstRun])
 
   return (
-    <div className="flex-1 min-h-0 overflow-hidden selectable">
-      <div className="h-full min-h-0 px-6 pb-5 pt-4">
-        <div className="mx-auto grid h-full min-h-0 w-full max-w-[820px] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-          <div />
-          <div>
-            <AgentHomeAnimation key={entranceKey} title={homeGreeting(userName)} />
-            <DelayedPanelReveal replayKey={entranceKey}>
-              {/* The composer is untouched — the tray is a sibling painted
-                  behind it, same width, with its square top tucked under the
-                  composer's bottom so only the part below shows. */}
-              <div className="relative">
-                {/* First-run backing: an opaque fill at the composer's exact
-                    radius, so the translucent composer composites over page
-                    colour instead of tinting the tray tucked behind it — and
-                    a soft shadow, carried here rather than by the Composer,
-                    so the composer visibly presses down on the tray. In the
-                    corner notches the rounded backing doesn't reach, the
-                    tray's grey shows: that's the emerging-from-behind look,
-                    not a leak. Bound teams get no backing at all. */}
-                <div
-                  className={clsx(
-                    'relative z-10',
-                    firstRun &&
-                      'rounded-xl bg-appBg shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)]',
-                  )}
-                >
-                  <Composer
-                    variant="hero"
-                    onSend={onSend}
-                    onStop={onStop}
-                    streaming={streaming}
-                    credentialSelector={credentialSelector}
-                    runtimeControl={runtimeControl}
-                    newConversationModelControl={newConversationModelControl}
-                    bypassControl={bypassControl}
-                    pendingSeed={pendingSeed}
-                    onSeedConsumed={onSeedConsumed}
-                    firstRun={firstRun}
-                    autoFocus={autoFocusComposer && shown}
-                    dropRegisterRef={dropRegisterRef}
-                    draftKey={composerDraftKey(teamId)}
-                    onImportSession={onImportSession}
-                  />
-                </div>
-                {firstRun && !stripDismissed && (
-                  <ConnectorStrip onStart={handleStartConnect} onDismiss={dismissStrip} />
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin selectable">
+      <div className="flex min-h-full flex-col px-6 pb-8 pt-4">
+        {/* The space above the composer gives way as cards fill the page: a
+            bare home keeps the composer near the middle, a busy one scrolls. */}
+        <div className="min-h-[6vh] max-h-[28vh] flex-1" />
+        <div className="mx-auto w-full max-w-[820px]">
+          <AgentHomeAnimation key={entranceKey} title={homeGreeting(userName)} />
+          <DelayedPanelReveal replayKey={entranceKey}>
+            {/* The composer is untouched — the tray is a sibling painted
+                behind it, same width, with its square top tucked under the
+                composer's bottom so only the part below shows. */}
+            <div className="relative">
+              {/* First-run backing: an opaque fill at the composer's exact
+                  radius, so the translucent composer composites over page
+                  colour instead of tinting the tray tucked behind it — and
+                  a soft shadow, carried here rather than by the Composer,
+                  so the composer visibly presses down on the tray. In the
+                  corner notches the rounded backing doesn't reach, the
+                  tray's grey shows: that's the emerging-from-behind look,
+                  not a leak. Bound teams get no backing at all. */}
+              <div
+                className={clsx(
+                  'relative z-10',
+                  firstRun &&
+                    'rounded-xl bg-appBg shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)]',
                 )}
+              >
+                <Composer
+                  variant="hero"
+                  onSend={onSend}
+                  onStop={onStop}
+                  streaming={streaming}
+                  credentialSelector={credentialSelector}
+                  runtimeControl={runtimeControl}
+                  newConversationModelControl={newConversationModelControl}
+                  bypassControl={bypassControl}
+                  pendingSeed={pendingSeed}
+                  onSeedConsumed={onSeedConsumed}
+                  firstRun={firstRun}
+                  autoFocus={autoFocusComposer && shown}
+                  dropRegisterRef={dropRegisterRef}
+                  draftKey={composerDraftKey(teamId)}
+                  onImportSession={onImportSession}
+                />
               </div>
-              <LocalAgentHint />
-            </DelayedPanelReveal>
-          </div>
-
-          <div className="min-h-0 overflow-y-auto overflow-x-hidden pt-3 scrollbar-thin">
+              {firstRun && !stripDismissed && (
+                <ConnectorStrip onStart={handleStartConnect} onDismiss={dismissStrip} />
+              )}
+            </div>
+            <LocalAgentHint />
+          </DelayedPanelReveal>
+          <div className="pt-3">
             {!unbound &&
               !loading &&
               conversations.length === 0 &&
@@ -186,16 +185,19 @@ export function AgentHomePage({
                   />
                 </RevealedHistoryBlock>
               )}
-            {teamId && !unbound && (
-              <HomeWidgets
-                key={teamId}
-                teamId={teamId}
-                isTeamAdmin={isTeamAdmin}
-                onOpenConversation={onOpenConversation}
-              />
-            )}
           </div>
         </div>
+        {teamId && !unbound && (
+          <div className="mx-auto mt-6 w-full max-w-[1200px]">
+            <HomeWidgets
+              key={teamId}
+              teamId={teamId}
+              isTeamAdmin={isTeamAdmin}
+              onOpenConversation={onOpenConversation}
+            />
+          </div>
+        )}
+        <div className="flex-1" />
       </div>
     </div>
   )
