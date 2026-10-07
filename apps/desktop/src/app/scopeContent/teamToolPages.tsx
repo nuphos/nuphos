@@ -83,7 +83,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
 
   if (active === 'team.files') return <RuntimeFilesView teamId={scope.teamId} />
 
-  if (active === 'team.terminal') return <TerminalView teamId={scope.teamId} />
+  if (active === 'team.terminal') return <TerminalView teamId={scope.teamId} filter={filter} />
 
   if (active === 'team.browser') {
     return (

@@ -156,7 +156,9 @@ export function teamPageLocation(
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/files`)
   }
   if (active === 'team.terminal') {
-    return pageLocation(`/teams/${pathSegment(scope.teamId)}/terminal`)
+    const base = `/teams/${pathSegment(scope.teamId)}/terminal`
+
+    return pageLocation(navigation.filter ? `${base}/${pathSegment(navigation.filter)}` : base)
   }
   if (active === 'team.browser') {
     const query = navigation.browserUrl
