@@ -90,6 +90,41 @@ pub fn for_wire(message: &Value) -> Value {
     out
 }
 
+/// The `POST /agent/chat` body: the suffix from the last user message on,
+/// since the server already has everything before it.
+pub fn chat_body(session_id: &str, team_id: &str, base_index: usize, messages: &[Value]) -> Value {
+    let last_user = messages.iter().rposition(|m| role(m) == "user").unwrap_or(0);
+    let window: Vec<Value> = messages[last_user..].iter().map(for_wire).collect();
+    let mut body = json!({
+        "id": session_id,
+        "teamId": team_id,
+        "messages": window,
+        "streamId": uuid::Uuid::new_v4().to_string(),
+        "resume": false,
+        "resumeFrom": 0,
+        "clientCapabilities": { "localTools": false },
+    });
+    if base_index + last_user > 0 {
+        body["baseIndex"] = json!(base_index + last_user);
+    }
+    body
+}
+
+/// The call in the latest reply that is waiting for approval.
+pub fn pending_approval(messages: &[Value]) -> Option<(usize, usize)> {
+    let mi = messages.iter().rposition(|m| role(m) == "assistant")?;
+    let pi = parts(&messages[mi]).iter().position(|p| is_tool(p) && tool_state(p) == "approval-requested")?;
+    Some((mi, pi))
+}
+
+/// Records the decision on the tool part itself, which is how the server
+/// receives it.
+pub fn answer_approval(messages: &mut [Value], (mi, pi): (usize, usize), approved: bool) {
+    let part = &mut messages[mi]["parts"][pi];
+    part["state"] = json!("approval-responded");
+    part["approval"]["approved"] = json!(approved);
+}
+
 /// What a frame did to the turn.
 #[derive(Debug, PartialEq)]
 pub enum Outcome {

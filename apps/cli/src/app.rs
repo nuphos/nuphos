@@ -27,12 +27,14 @@ use unicode_width::UnicodeWidthStr;
 use crate::api::{Api, ApiError, StreamEvent};
 use crate::config::{self, Prefs};
 use crate::render::{self, dim, Markdown};
+use crate::shared::{self, current_name, option_of_kind};
 use crate::transcript::{self as tx, is_tool, is_tool_settled, part_type, parts, role, tool_state};
 
 const VIEWPORT_HEIGHT: u16 = 16;
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const COMMANDS: [(&str, &str); 6] = [
+const COMMANDS: [(&str, &str); 7] = [
     ("/model", "choose the model and reasoning effort"),
+    ("/team", "switch to another team"),
     ("/runtime", "choose the agent this conversation runs on"),
     ("/new", "start a new conversation"),
     ("/resume", "continue a previous conversation"),
@@ -59,6 +61,7 @@ struct Stream {
 }
 
 enum PickAction {
+    Team,
     Runtime,
     Conversation,
     /// A live conversation's model-config option (`model` or `effort`).
@@ -77,6 +80,14 @@ struct Picker {
     items: Vec<(String, String, Value)>,
     selected: usize,
     action: PickAction,
+}
+
+/// What the TUI opens with.
+pub enum Start {
+    /// A new conversation, optionally sending a first message.
+    New(Option<String>),
+    /// A conversation by id, or the picker.
+    Resume(Option<String>),
 }
 
 pub struct App {
@@ -157,7 +168,7 @@ impl App {
 
     // MARK: - Run loop
 
-    pub async fn run(mut self, resume: bool) -> Result<Option<String>> {
+    pub async fn run(mut self, start: Start) -> Result<Option<String>> {
         enable_raw_mode()?;
         execute!(stdout(), EnableBracketedPaste)?;
         let mut terminal = Terminal::with_options(
@@ -169,13 +180,16 @@ impl App {
             Line::from(vec![
                 Span::styled(">_ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Span::styled("Nuphos", Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(format!("  {}", self.team["name"].as_str().unwrap_or_default()), dim()),
             ]),
+            self.team_line(),
             Line::from(Span::styled("  / for commands · esc to stop a reply · ctrl+c to quit", dim())),
             Line::default(),
         ]);
-        if resume {
-            self.open_conversation_picker().await;
+        match start {
+            Start::New(Some(prompt)) => self.send(&prompt),
+            Start::New(None) => {}
+            Start::Resume(Some(id)) => self.resume(json!({ "sessionId": id })).await,
+            Start::Resume(None) => self.open_conversation_picker().await,
         }
 
         let result = self.event_loop(&mut terminal).await;
@@ -185,6 +199,14 @@ impl App {
         disable_raw_mode()?;
         result?;
         Ok((!self.is_new).then(|| self.session_id.clone()))
+    }
+
+    fn team_line(&self) -> Line<'static> {
+        Line::from(vec![
+            Span::styled("  team ", dim()),
+            Span::styled(shared::label(&self.team), Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled("  · /team to switch", dim()),
+        ])
     }
 
     async fn event_loop(&mut self, terminal: &mut Term) -> Result<()> {
@@ -356,9 +378,7 @@ impl App {
     }
 
     fn pending_approval(&self) -> Option<(usize, usize)> {
-        let mi = self.messages.iter().rposition(|m| role(m) == "assistant")?;
-        let pi = parts(&self.messages[mi]).iter().position(|p| is_tool(p) && tool_state(p) == "approval-requested")?;
-        Some((mi, pi))
+        tx::pending_approval(&self.messages)
     }
 
     // MARK: - Drawing
@@ -547,6 +567,7 @@ impl App {
             match command {
                 Some("/model") => self.open_model_picker().await,
                 Some("/runtime") => self.open_runtime_picker(),
+                Some("/team") => self.open_team_picker().await,
                 Some("/new") => {
                     if self.stream.is_some() {
                         self.notice = Some("Wait for the reply to finish, or press esc to stop it.".into());
@@ -592,10 +613,8 @@ impl App {
 
     fn send(&mut self, text: &str) {
         // A new message answers "no" to anything still waiting for approval.
-        if let Some((mi, pi)) = self.pending_approval() {
-            let part = &mut self.messages[mi]["parts"][pi];
-            part["state"] = json!("approval-responded");
-            part["approval"]["approved"] = json!(false);
+        if let Some(at) = self.pending_approval() {
+            tx::answer_approval(&mut self.messages, at, false);
         }
         self.messages.push(tx::user_message(text));
         self.assistant = None;
@@ -615,34 +634,16 @@ impl App {
     /// Answers the call waiting for approval and continues the turn. The
     /// decision travels on the tool part itself.
     fn decide(&mut self, approved: bool) {
-        let Some((mi, pi)) = self.pending_approval() else { return };
-        let part = &mut self.messages[mi]["parts"][pi];
-        part["state"] = json!("approval-responded");
-        part["approval"]["approved"] = json!(approved);
+        let Some(at) = self.pending_approval() else { return };
+        tx::answer_approval(&mut self.messages, at, approved);
         let mut body = self.chat_body();
         body["continueAfterInterruption"] = json!(true);
         body["resumeReason"] = json!("approval-decision");
         self.start_stream(body);
     }
 
-    /// The suffix from the last user message on — the server already has
-    /// everything before it.
     fn chat_body(&self) -> Value {
-        let last_user = self.messages.iter().rposition(|m| role(m) == "user").unwrap_or(0);
-        let window: Vec<Value> = self.messages[last_user..].iter().map(tx::for_wire).collect();
-        let mut body = json!({
-            "id": self.session_id,
-            "teamId": self.team_id(),
-            "messages": window,
-            "streamId": uuid::Uuid::new_v4().to_string(),
-            "resume": false,
-            "resumeFrom": 0,
-            "clientCapabilities": { "localTools": false },
-        });
-        if self.base_index + last_user > 0 {
-            body["baseIndex"] = json!(self.base_index + last_user);
-        }
-        body
+        tx::chat_body(&self.session_id, &self.team_id(), self.base_index, &self.messages)
     }
 
     fn start_stream(&mut self, body: Value) {
@@ -793,26 +794,13 @@ impl App {
 
     async fn load_runtimes(&mut self) {
         match self.api.runtimes(&self.team_id()).await {
-            Ok(list) => self.runtimes = list.into_iter().filter(|r| r["status"] == "active").collect(),
+            Ok(list) => self.runtimes = shared::active_runtimes(list),
             Err(e) => self.notice = Some(format!("Could not load agents: {e}")),
         }
     }
 
-    /// The last runtime used in this team, else the desktop's default: the
-    /// first of my own computers, then the first Cloud agent.
     fn default_runtime(&self) -> Option<Value> {
-        let saved = self.prefs.runtime_ids.get(&self.team_id());
-        let usable = |r: &&Value| r["notReady"].is_null() || r["notReady"] == false;
-        saved
-            .and_then(|id| self.runtimes.iter().find(|r| r["id"] == id.as_str()))
-            .or_else(|| {
-                self.runtimes
-                    .iter()
-                    .filter(usable)
-                    .find(|r| r["kind"] == "local" && r["local"]["ownerUserId"] == self.me_id.as_str())
-            })
-            .or_else(|| self.runtimes.iter().filter(usable).find(|r| r["kind"] != "local"))
-            .cloned()
+        shared::default_runtime(&self.runtimes, &self.prefs, &self.team_id(), &self.me_id)
     }
 
     fn runtime_default_model(&self) -> Option<String> {
@@ -836,18 +824,8 @@ impl App {
             return;
         }
         let current = self.runtime.as_ref().map(|r| r["id"].clone());
-        let items: Vec<_> = self
-            .runtimes
-            .iter()
-            .map(|r| {
-                let label = r["label"].as_str().or(r["provider"].as_str()).unwrap_or("agent").to_string();
-                let mut detail = if r["kind"] == "local" { "local" } else { "cloud" }.to_string();
-                if !(r["notReady"].is_null() || r["notReady"] == false) {
-                    detail.push_str(" · not ready");
-                }
-                (label, detail, r.clone())
-            })
-            .collect();
+        let items: Vec<_> =
+            self.runtimes.iter().map(|r| (shared::label(r), shared::runtime_detail(r), r.clone())).collect();
         if items.is_empty() {
             self.notice = Some("This team has no active agents.".into());
             return;
@@ -868,11 +846,7 @@ impl App {
             self.model_label = self.runtime_default_model();
             return;
         }
-        // Files can only follow to the same kind of Cloud agent.
-        let same_kind = self.runtime.as_ref().is_some_and(|r| {
-            r["provider"] == runtime["provider"] && r["kind"] != "local" && runtime["kind"] != "local"
-        });
-        let mode = if same_kind { "workspace" } else { "history" };
+        let mode = shared::move_mode(self.runtime.as_ref(), &runtime);
         let id = runtime["id"].as_str().unwrap_or_default().to_string();
         match self.api.move_runtime(&team, &self.session_id, &id, mode).await {
             Ok(moved) => {
@@ -1025,6 +999,36 @@ impl App {
         }
     }
 
+    // MARK: - Teams
+
+    async fn open_team_picker(&mut self) {
+        if self.stream.is_some() {
+            self.notice = Some("Wait for the reply to finish, or press esc to stop it.".into());
+            return;
+        }
+        match self.api.teams().await {
+            Ok(teams) => {
+                let selected = teams.iter().position(|t| t["id"] == self.team["id"]).unwrap_or(0);
+                let items = teams.into_iter().map(|t| (shared::label(&t), String::new(), t)).collect();
+                self.picker = Some(Picker { title: "Switch team".into(), items, selected, action: PickAction::Team });
+            }
+            Err(e) => self.notice = Some(e.message),
+        }
+    }
+
+    async fn choose_team(&mut self, team: Value) {
+        if team["id"] == self.team["id"] {
+            return;
+        }
+        shared::remember_team(&mut self.prefs, &team);
+        self.team = team;
+        self.load_runtimes().await;
+        self.messages.clear();
+        self.new_conversation();
+        self.pending_output.push(self.team_line());
+        self.pending_output.push(Line::default());
+    }
+
     // MARK: - Resume
 
     async fn open_conversation_picker(&mut self) {
@@ -1036,21 +1040,7 @@ impl App {
             Ok(list) if !list.is_empty() => {
                 let items = list
                     .into_iter()
-                    .map(|c| {
-                        let title = c["title"]
-                            .as_str()
-                            .filter(|t| !t.is_empty())
-                            .or(c["firstMessage"].as_str())
-                            .unwrap_or("Untitled chat");
-                        let title: String = title.lines().next().unwrap_or_default().chars().take(70).collect();
-                        let when = c["lastActiveAt"]
-                            .as_str()
-                            .unwrap_or_default()
-                            .get(..16)
-                            .map(|t| format!("{} UTC", t.replace('T', " ")))
-                            .unwrap_or_default();
-                        (title, when, c)
-                    })
+                    .map(|c| (shared::conversation_title(&c), shared::conversation_time(&c), c))
                     .collect();
                 self.picker = Some(Picker {
                     title: "Resume a conversation".into(),
@@ -1115,6 +1105,7 @@ impl App {
                 let Some(picker) = self.picker.take() else { return };
                 let Some((_, _, value)) = picker.items.into_iter().nth(picker.selected) else { return };
                 match picker.action {
+                    PickAction::Team => self.choose_team(value).await,
                     PickAction::Runtime => self.choose_runtime(value).await,
                     PickAction::Conversation => self.resume(value).await,
                     PickAction::SessionOption { config_id } => self.choose_session_option(config_id, value).await,
@@ -1156,21 +1147,6 @@ fn message_text(message: &Value) -> String {
         .filter_map(|p| p["text"].as_str())
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-/// A model-config option (`{ id, name, kind, currentValue, options }`).
-fn option_of_kind<'a>(config: &'a Value, kind: &str) -> Option<&'a Value> {
-    config["options"].as_array()?.iter().find(|o| o["kind"] == kind)
-}
-
-fn current_name(option: &Value) -> Option<String> {
-    let current = option["currentValue"].as_str()?;
-    let name = option["options"]
-        .as_array()
-        .and_then(|values| values.iter().find(|v| v["value"] == current))
-        .and_then(|v| v["name"].as_str())
-        .unwrap_or(current);
-    Some(name.to_string())
 }
 
 fn option_picker(option: &Value, title: &str) -> Option<Picker> {
