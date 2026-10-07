@@ -2009,33 +2009,24 @@ html.platform-darwin:not(.window-fullscreen)
   padding-left: calc(28px + 54px / var(--zoom-factor, 1));
 }
 
-/* Home cards grid (react-grid-layout): a quiet violet drop target and a
-   resize corner that reads on both themes. */
-.react-grid-item.react-grid-placeholder {
-  background: rgb(139 92 246);
-  opacity: 0.12;
+/* Home cards grid (react-grid-layout). While a card is dragged or resized
+   only one thing moves: the card itself steps aside and the drop target, drawn
+   in the card's shape, snaps along the grid. The extra .react-grid-layout
+   outranks the library's stylesheet, which loads after this one. */
+.react-grid-layout .react-grid-item.react-draggable-dragging,
+.react-grid-layout .react-grid-item.resizing {
+  opacity: 0;
+}
+
+.react-grid-layout .react-grid-item.react-grid-placeholder {
+  background: rgb(139 92 246 / 0.08);
+  border: 1px dashed rgb(139 92 246 / 0.6);
   border-radius: 8px;
+  opacity: 1;
 }
 
 .react-grid-item > .react-resizable-handle::after {
   border-color: rgb(128 128 128 / 0.6);
-}
-
-/* While a home card is dragged or resized, only its header stays: the body
-   fades out so the card reads as a plain box being placed, then fades back. */
-.react-grid-item section > :not(.home-card-drag) {
-  transition: opacity var(--duration-quick) var(--ease-in-out);
-}
-
-.react-grid-item.react-draggable-dragging section > :not(.home-card-drag),
-.react-grid-item.resizing section > :not(.home-card-drag) {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .react-grid-item section > :not(.home-card-drag) {
-    transition: none;
-  }
 }
 
 /* The home page is text-selectable, so pressing a card's header to drag it
