@@ -125,7 +125,7 @@ export function AgentHomePage({
       <div className="flex min-h-full flex-col px-6 pb-8 pt-4">
         {/* The space above the composer gives way as cards fill the page: a
             bare home keeps the composer near the middle, a busy one scrolls. */}
-        <div className="min-h-[6vh] max-h-[28vh] flex-1" />
+        <div className="min-h-[10vh] max-h-[28vh] flex-1" />
         <div className="mx-auto w-full max-w-[820px]">
           <AgentHomeAnimation key={entranceKey} title={homeGreeting(userName)} />
           <DelayedPanelReveal replayKey={entranceKey}>
