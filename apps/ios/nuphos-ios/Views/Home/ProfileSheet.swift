@@ -32,6 +32,7 @@ struct ProfileSheet: View {
                 }
                 .listRowBackground(Theme.surface)
 
+                #if os(iOS)
                 Section {
                     if hasOpenAIKey {
                         Text("OpenAI API key saved on this device")
@@ -48,6 +49,7 @@ struct ProfileSheet: View {
                     Text("Recordings are transcribed by OpenAI Whisper with your own key and billed to your OpenAI account.")
                 }
                 .listRowBackground(Theme.surface)
+                #endif
 
                 Section("Privacy") {
                     Link("Privacy policy", destination: URL(string: "https://nuphos.ai/privacy")!)

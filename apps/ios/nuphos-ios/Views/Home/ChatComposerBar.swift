@@ -236,7 +236,9 @@ struct ChatComposerBar<Controls: View>: View {
 
     // MARK: Voice input
 
-    private var micButton: some View {
+    /// iOS only: the macOS build has no microphone entitlement.
+    @ViewBuilder private var micButton: some View {
+        #if os(iOS)
         Button(action: startDictation) {
             Image(systemName: "mic")
                 .font(.system(size: 17, weight: .medium))
@@ -247,6 +249,7 @@ struct ChatComposerBar<Controls: View>: View {
         .buttonStyle(.plain)
         .disabled(preparingSubmission)
         .accessibilityLabel("Voice input")
+        #endif
     }
 
     /// ✕ discards the take; ✓ transcribes it into the input.
@@ -284,7 +287,7 @@ struct ChatComposerBar<Controls: View>: View {
                     .background(Theme.heading, in: Circle())
             }
             .buttonStyle(.plain)
-            .disabled(dictation.phase == .transcribing)
+            .disabled(dictation.phase != .recording)
             .accessibilityLabel("Finish voice input")
         }
         .padding(.vertical, expanded ? 0 : 4)
@@ -297,7 +300,11 @@ struct ChatComposerBar<Controls: View>: View {
         let take = VoiceDictation()
         dictation = take
         Task {
-            do { try await take.start() } catch {
+            do {
+                try await take.start()
+                // Cancelled while the permission prompt was up.
+                if dictation !== take { take.cancel() }
+            } catch {
                 take.cancel()
                 if dictation === take { dictation = nil }
                 dictationError = error.localizedDescription

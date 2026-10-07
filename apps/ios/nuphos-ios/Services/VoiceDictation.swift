@@ -6,7 +6,7 @@ import Observation
 /// sampling its level for the waveform, then hand the audio to Whisper.
 @Observable
 final class VoiceDictation {
-    enum Phase { case recording, transcribing }
+    enum Phase { case starting, recording, transcribing }
 
     enum Failure: LocalizedError {
         case microphoneDenied
@@ -16,7 +16,7 @@ final class VoiceDictation {
         }
     }
 
-    private(set) var phase = Phase.recording
+    private(set) var phase = Phase.starting
     /// Microphone level per sample, 0...1, oldest first.
     private(set) var levels: [CGFloat] = []
     private(set) var startedAt = Date()
@@ -28,9 +28,11 @@ final class VoiceDictation {
 
     func start() async throws {
         guard await AVAudioApplication.requestRecordPermission() else { throw Failure.microphoneDenied }
+        #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.record, mode: .default)
         try session.setActive(true)
+        #endif
         let recorder = try AVAudioRecorder(url: file, settings: [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: 16_000,
@@ -40,6 +42,7 @@ final class VoiceDictation {
         recorder.isMeteringEnabled = true
         recorder.record()
         self.recorder = recorder
+        phase = .recording
         startedAt = Date()
         meter = Task { [weak self] in
             while !Task.isCancelled, let self, let recorder = self.recorder {
@@ -70,7 +73,9 @@ final class VoiceDictation {
         meter?.cancel()
         recorder?.stop()
         recorder = nil
+        #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
     }
 }
 
