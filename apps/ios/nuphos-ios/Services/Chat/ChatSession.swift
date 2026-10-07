@@ -52,6 +52,8 @@ final class ChatSession {
     private(set) var runtimeLabel: String?
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// Files the agent sent the user here, read from the transfer store.
+    private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
     /// Model / effort / fast controls, for conversations on a native runtime.
     private(set) var sessionConfig: SessionConfigState?
@@ -121,6 +123,24 @@ final class ChatSession {
     func presetPermissionMode(_ mode: PermissionMode) { permissionMode = mode }
 
     var isNew: Bool { messages.isEmpty && loaded }
+
+    /// Re-reads the files the agent sent. The list is owner-only, as on the desktop.
+    func refreshDownloads() async {
+        guard isOwner, messages.contains(where: { $0.role == .assistant }) else { return }
+        struct List: Decodable { let groups: [TransferDownloadGroup] }
+        guard let list: List = try? await WorkspaceAPI.request(transferPath + "/downloads", token: token) else { return }
+        downloads = list.groups.filter { $0.expiresAt > .now && !$0.readyFiles.isEmpty }
+    }
+
+    /// Fresh presigned URLs for a group's files, by file id.
+    func downloadURLs(for group: TransferDownloadGroup) async throws -> [String: URL] {
+        let resolved: TransferDownloadGroup = try await WorkspaceAPI.request(transferPath + "/\(group.groupId)/download", token: token)
+        return Dictionary(uniqueKeysWithValues: resolved.readyFiles.compactMap { file in
+            file.downloadUrl.flatMap(URL.init(string:)).map { (file.id, $0) }
+        })
+    }
+
+    private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }
 
     // MARK: - Private
 
