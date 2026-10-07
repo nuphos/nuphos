@@ -22,7 +22,7 @@ useDb({
         updateOne: async (filter: Doc, update: { $set: Doc }) => {
           if (!Object.entries(filter).every(([path, value]) => read(path) === value)) return
           for (const [path, value] of Object.entries(update.$set)) {
-            const [head, leaf] = path.split('.')
+            const [head, leaf] = path.split('.') as [string, string?]
 
             if (leaf === undefined) doc[head] = value
             else doc[head] = { ...(doc[head] as Doc | undefined), [leaf]: value }
