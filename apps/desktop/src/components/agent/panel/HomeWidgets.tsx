@@ -7,6 +7,7 @@ import {
   MenuCheckboxItem,
   MenuContent,
   MenuItem,
+  MenuSeparator,
   MenuSubmenu,
   MenuSubmenuTrigger,
   MenuTrigger,
@@ -16,15 +17,10 @@ import { CiFailuresCard, PullRequestsCard } from './homeCards'
 import { DashboardPanelCard } from './homePanelCard'
 import { DashboardPanelsSubmenu } from './homePanelPicker'
 import { TeamActivityCard } from './homeTeamCard'
-import {
-  loadHomeWidgets,
-  panelKey,
-  repoKey,
-  saveHomeWidgets,
-  toggleItem,
-} from './homeWidgetSettings'
+import { panelKey, repoKey, toggleItem } from './homeWidgetSettings'
+import { useHomeLayout } from './useHomeLayout'
 
-import type { HomePanel, HomeRepo, HomeWidgetSettings } from './homeWidgetSettings'
+import type { HomePanel, HomeRepo } from './homeWidgetSettings'
 import type { ReactNode } from 'react'
 
 async function listInstallationRepos(teamId: string, installationId: number): Promise<HomeRepo[]> {
@@ -104,17 +100,20 @@ function RepoSubmenu({
  */
 export function HomeWidgets({
   teamId,
+  isTeamAdmin = false,
   onOpenConversation,
 }: {
   teamId: string
+  /** Administrators can make their layout the team default. */
+  isTeamAdmin?: boolean
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
-  const [settings, setSettings] = useState<HomeWidgetSettings>(() => loadHomeWidgets(teamId))
+  const home = useHomeLayout(teamId)
   const { repos, load } = useGithubRepos(teamId)
-  const update = (next: HomeWidgetSettings) => {
-    setSettings(next)
-    saveHomeWidgets(teamId, next)
-  }
+
+  if (!home.layout) return null
+  const settings = home.layout
+  const update = home.update
   const toggle = (card: 'pulls' | 'ci') => (repo: HomeRepo) =>
     update({ ...settings, [card]: toggleItem(settings[card], repo, repoKey) })
   const togglePanel = (pin: HomePanel) =>
@@ -156,6 +155,13 @@ export function HomeWidgets({
               selected={settings.panels}
               onToggle={togglePanel}
             />
+            <MenuSeparator />
+            <MenuItem disabled={!home.customized} onClick={home.resetToTeamDefault}>
+              Reset to team default
+            </MenuItem>
+            {isTeamAdmin && (
+              <MenuItem onClick={home.setAsTeamDefault}>Set as team default</MenuItem>
+            )}
           </MenuContent>
         </Menu>
       </div>

@@ -1,4 +1,5 @@
 import type { AgentProvider } from './runtime.ts'
+
 export type UserInfo = {
   id: string
   name: string
@@ -113,3 +114,24 @@ export type SidebarFavoritesCloudSnapshot = {
   revision: number
   updatedAt: string | null
 }
+
+/** A repository a home card follows, addressed the way the GitHub API routes need it. */
+export type HomeRepo = { installationId: number; fullName: string }
+
+/** A Nuphos Dashboards panel pinned to the home page. */
+export type HomePanel = { dashboardId: string; panelId: string }
+
+/**
+ * What the home page shows: the team activity card, the repositories each
+ * GitHub card follows (a card with none is hidden) and the dashboard panels
+ * pinned as cards of their own.
+ */
+export type HomeLayout = {
+  team: boolean
+  pulls: HomeRepo[]
+  ci: HomeRepo[]
+  panels: HomePanel[]
+}
+
+/** The caller's own layout and the team default; either is null when unset. */
+export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }

@@ -88,6 +88,13 @@ export const teamChannels = {
     entries: atlas.SidebarFavoriteEntry[],
     expectedRevision: number,
   ) => atlas.putSidebarFavorites(teamId, entries, expectedRevision),
+  'atlas:getHomeLayout': (_e: unknown, teamId: string) => atlas.getHomeLayout(teamId),
+  'atlas:putHomeLayout': (
+    _e: unknown,
+    teamId: string,
+    scope: 'personal' | 'team',
+    layout: unknown,
+  ) => atlas.putHomeLayout(teamId, scope, layout),
   'arch:listDiagrams': (_e: unknown, teamId: string) => atlas.archListDiagrams(teamId),
   'arch:getDiagram': (_e: unknown, teamId: string, diagramId: string) =>
     atlas.archGetDiagram(teamId, diagramId),

@@ -1,9 +1,9 @@
-import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
 
 import { runtimeApi } from './api-runtimes'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
+import type { AgentProvider } from '../../src/types/runtime'
 
 export const teamApi = {
   ...runtimeApi,
@@ -28,6 +28,9 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:getSidebarFavorites', teamId),
   atlasPutSidebarFavorites: (teamId: string, entries: unknown[], expectedRevision: number) =>
     ipcRenderer.invoke('atlas:putSidebarFavorites', teamId, entries, expectedRevision),
+  atlasGetHomeLayout: (teamId: string) => ipcRenderer.invoke('atlas:getHomeLayout', teamId),
+  atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: unknown) =>
+    ipcRenderer.invoke('atlas:putHomeLayout', teamId, scope, layout),
   archListDiagrams: (teamId: string) => ipcRenderer.invoke('arch:listDiagrams', teamId),
   archGetDiagram: (teamId: string, diagramId: string) =>
     ipcRenderer.invoke('arch:getDiagram', teamId, diagramId),

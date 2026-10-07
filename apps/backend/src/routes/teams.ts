@@ -20,6 +20,7 @@ import { githubInstallationsRoutes } from '@/routes/github-installations'
 import { gitlabBindingsRoutes } from '@/routes/gitlab-bindings'
 import { grafanaInstancesRoutes } from '@/routes/grafana-instances'
 import { hetznerAccountsRoutes } from '@/routes/hetzner-accounts'
+import { homeLayoutRoutes } from '@/routes/home-layout'
 import { huaweiAccountsRoutes } from '@/routes/huawei-accounts'
 import { instructionsRoutes } from '@/routes/instructions'
 import { jiraSitesRoutes } from '@/routes/jira-sites'
@@ -89,6 +90,7 @@ teamScoped.get('/usage', async (c) => c.json(await getTeamUsageSeries(c.get('tea
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
+teamScoped.route('/home-layout', homeLayoutRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 
 teamScoped.route('/clusters', teamClusters)

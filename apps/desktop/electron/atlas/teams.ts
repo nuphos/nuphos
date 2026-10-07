@@ -1,5 +1,6 @@
-import type { AgentProvider } from '../../src/types/runtime'
 import { call } from './client'
+
+import type { AgentProvider } from '../../src/types/runtime'
 
 /** Compatibility with older servers; never used to restrict access. */
 export type TeamBillingSummary = { activated: boolean; active: boolean }
@@ -93,6 +94,24 @@ export async function putSidebarFavorites(
     'PUT',
     `/teams/${encodeURIComponent(teamId)}/favorites`,
     { entries, expectedRevision },
+    { retry: false },
+  )
+}
+
+export async function getHomeLayout(teamId: string): Promise<unknown> {
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/home-layout`)
+}
+
+/** `scope: 'team'` is the administrator-set default; a null layout removes it. */
+export async function putHomeLayout(
+  teamId: string,
+  scope: 'personal' | 'team',
+  layout: unknown,
+): Promise<void> {
+  await call(
+    'PUT',
+    `/teams/${encodeURIComponent(teamId)}/home-layout/${scope}`,
+    { layout },
     { retry: false },
   )
 }
