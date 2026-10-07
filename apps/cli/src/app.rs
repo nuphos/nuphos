@@ -1031,8 +1031,8 @@ impl App {
                             .as_str()
                             .unwrap_or_default()
                             .get(..16)
-                            .unwrap_or_default()
-                            .replace('T', " ");
+                            .map(|t| format!("{} UTC", t.replace('T', " ")))
+                            .unwrap_or_default();
                         (title, when, c)
                     })
                     .collect();
