@@ -108,6 +108,8 @@ pub struct App {
     pending_output: Vec<Line<'static>>,
     tick: usize,
     quit: bool,
+    /// Approvals whose full command has been written out.
+    announced: Vec<String>,
 
     tx: UnboundedSender<StreamEvent>,
     rx: UnboundedReceiver<StreamEvent>,
@@ -140,6 +142,7 @@ impl App {
             pending_output: Vec::new(),
             tick: 0,
             quit: false,
+            announced: Vec::new(),
             tx,
             rx,
         };
@@ -210,6 +213,15 @@ impl App {
         let force = self.stream.is_none();
         let mut lines = std::mem::take(&mut self.pending_output);
         lines.extend(self.take_finished(force));
+        // A command waiting for approval is written out in full, however long.
+        if let Some((mi, pi)) = self.pending_approval() {
+            let part = &self.messages[mi]["parts"][pi];
+            let id = part["approval"]["id"].as_str().or(part["toolCallId"].as_str()).unwrap_or_default().to_string();
+            if !self.announced.contains(&id) {
+                lines.extend(render::approval(part));
+                self.announced.push(id);
+            }
+        }
         if lines.is_empty() {
             return Ok(());
         }
@@ -333,6 +345,8 @@ impl App {
                             dim().add_modifier(Modifier::ITALIC),
                         )));
                     }
+                    // Written out in full above the prompt instead.
+                    _ if is_tool(part) && tool_state(part) == "approval-requested" => {}
                     _ if is_tool(part) => out.extend(render::tool(part)),
                     _ => {}
                 }
@@ -365,7 +379,7 @@ impl App {
             } else if self.pending_approval().is_some() {
                 lines.push(Line::from(vec![
                     Span::styled(
-                        "  Allow this command?  ",
+                        "  Allow the command above?  ",
                         Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
                     ),
                     Span::raw("y "),
@@ -422,7 +436,7 @@ impl App {
             runtime,
             self.model_label.as_deref().unwrap_or("default model"),
         );
-        f.render_widget(Paragraph::new(Span::styled(status, dim())), status_area);
+        f.render_widget(Paragraph::new(Span::styled(render::clean(&status), dim())), status_area);
     }
 
     fn command_hints(&self) -> Option<Vec<Line<'static>>> {
@@ -499,6 +513,8 @@ impl App {
     }
 
     fn insert(&mut self, text: &str) {
+        let text: String = text.split('\n').map(render::clean).collect::<Vec<_>>().join("\n");
+        let text = text.as_str();
         let at = self.byte_at(self.caret);
         self.input.insert_str(at, text);
         self.caret += text.chars().count();

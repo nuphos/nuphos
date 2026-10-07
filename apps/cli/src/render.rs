@@ -116,6 +116,23 @@ fn output_text(output: &Value) -> String {
     }
 }
 
+/// What a call waiting for approval would run: every line of its command, so
+/// nothing is approved unseen.
+pub fn approval(part: &Value) -> Vec<Line<'static>> {
+    let input = &part["input"];
+    let title = part["title"].as_str().unwrap_or_else(|| tool_name(part)).to_string();
+    let body = input["command"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| serde_json::to_string_pretty(input).unwrap_or_default());
+    let mut lines = vec![Line::from(vec![
+        Span::styled("? ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(format!("{title} wants to run:"), Style::default().add_modifier(Modifier::BOLD)),
+    ])];
+    lines.extend(body.lines().map(|l| Line::from(vec![Span::styled("  │ ", dim()), Span::raw(l.to_string())])));
+    lines
+}
+
 /// A tool call as Codex shows one: a bullet, the call, and a few output lines.
 pub fn tool(part: &Value) -> Vec<Line<'static>> {
     let state = tool_state(part);
@@ -146,7 +163,24 @@ pub fn tool(part: &Value) -> Vec<Line<'static>> {
     lines
 }
 
-/// Wraps styled lines to `width` columns, keeping styles.
+/// Text from the server must not reach the terminal as control sequences
+/// (OSC 52 clipboard writes, links, cursor moves, `\r` overwrites) or as bidi
+/// overrides that reorder what is shown. Tabs become a space.
+pub fn clean_char(ch: char) -> Option<char> {
+    match ch {
+        '\t' => Some(' '),
+        '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' => None,
+        c if c.is_control() => None,
+        c => Some(c),
+    }
+}
+
+pub fn clean(text: &str) -> String {
+    text.chars().filter_map(clean_char).collect()
+}
+
+/// Wraps styled lines to `width` columns, keeping styles. Every line drawn
+/// passes through here, which is also where control characters are removed.
 pub fn wrap(lines: &[Line<'static>], width: u16) -> Vec<Line<'static>> {
     let width = width.max(10) as usize;
     let mut out = Vec::new();
@@ -155,7 +189,7 @@ pub fn wrap(lines: &[Line<'static>], width: u16) -> Vec<Line<'static>> {
         let mut used = 0;
         for span in &line.spans {
             let mut chunk = String::new();
-            for ch in span.content.chars() {
+            for ch in span.content.chars().filter_map(clean_char) {
                 let w = ch.width().unwrap_or(0);
                 if used + w > width {
                     if !chunk.is_empty() {
@@ -191,6 +225,20 @@ mod tests {
         assert_eq!(text(&md.line("ls -la").unwrap()), "  ls -la");
         assert!(md.line("```").is_none());
         assert_eq!(text(&md.line("- **a** `b`").unwrap()), "• a b");
+    }
+
+    #[test]
+    fn wrap_strips_control_sequences() {
+        let lines = wrap(&[Line::from("a\u{1b}]52;c;aGk=\u{7}b\rc\u{202E}d\u{9b}e")], 80);
+        assert_eq!(text(&lines[0]), "a]52;c;aGk=bcde");
+    }
+
+    #[test]
+    fn approval_shows_every_command_line() {
+        let part = serde_json::json!({"type":"tool","toolName":"Terminal","input":{"command":"echo a\nrm -rf /tmp/x"}});
+        let lines = approval(&part);
+        assert_eq!(lines.len(), 3);
+        assert_eq!(text(&lines[2]), "  │ rm -rf /tmp/x");
     }
 
     #[test]

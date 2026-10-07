@@ -57,7 +57,7 @@ async fn run() -> Result<()> {
     if command == "login" || session.token.is_none() {
         session = login::login(&api_url).await?;
         if command == "login" {
-            println!("Signed in as {}.", session.user.as_deref().unwrap_or("you"));
+            println!("Signed in as {}.", render::clean(session.user.as_deref().unwrap_or("you")));
             return Ok(());
         }
     }
@@ -81,7 +81,8 @@ async fn run() -> Result<()> {
     let app = app::App::new(api, me_id, team, prefs).await?;
     if let Some(session_id) = app.run(command == "resume").await? {
         let web = std::env::var("NUPHOS_WEB_URL").unwrap_or_else(|_| "https://nuphos.ai".into());
-        println!("Conversation: {}/teams/{team_id}/agent/{session_id}", web.trim_end_matches('/'));
+        let path = render::clean(&format!("/teams/{team_id}/agent/{session_id}"));
+        println!("Conversation: {}{path}", web.trim_end_matches('/'));
     }
     Ok(())
 }
@@ -100,7 +101,7 @@ async fn choose_team(api: &Api, prefs: &mut config::Prefs) -> Result<Value> {
         None => {
             println!("Choose a team:");
             for (i, t) in teams.iter().enumerate() {
-                println!("  {}. {}", i + 1, t["name"].as_str().unwrap_or_default());
+                println!("  {}. {}", i + 1, render::clean(t["name"].as_str().unwrap_or_default()));
             }
             loop {
                 print!("> ");
