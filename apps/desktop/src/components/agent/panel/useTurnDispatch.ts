@@ -224,8 +224,14 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
-      if (runtimeAllows(tab.runtimeState, 'steer') && !runtimeAllows(tab.runtimeState, 'reply')) {
-        await sendSteering(activeId, trimmed, filePaths)
+      // Steering carries text only; a message with attachments waits in the
+      // queue and sends itself when the turn ends.
+      if (
+        filePaths.length === 0 &&
+        runtimeAllows(tab.runtimeState, 'steer') &&
+        !runtimeAllows(tab.runtimeState, 'reply')
+      ) {
+        await sendSteering(activeId, trimmed)
 
         return
       }
@@ -262,8 +268,8 @@ export function useTurnDispatch(acc: Acc) {
       const draft = tab?.queued?.find((candidate) => candidate.id === queuedId)
 
       if (!tab || !draft || draft.steering) return
-      if (runtimeAllows(tab.runtimeState, 'steer')) {
-        await sendSteering(tabId, draft.text, draft.filePaths, queuedId)
+      if (draft.filePaths.length === 0 && runtimeAllows(tab.runtimeState, 'steer')) {
+        await sendSteering(tabId, draft.text, queuedId)
 
         return
       }

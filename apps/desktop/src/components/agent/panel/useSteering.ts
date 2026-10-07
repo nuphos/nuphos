@@ -15,12 +15,7 @@ export function useSteering({
   currentUser,
 }: Pick<PanelCtx, 'tabsRef' | 'setTabs' | 'teamId' | 'currentUser'>) {
   const sendSteering = useCallback(
-    async (
-      tabId: string,
-      text: string,
-      filePaths: string[],
-      queuedId: string = crypto.randomUUID(),
-    ) => {
+    async (tabId: string, text: string, queuedId: string = crypto.randomUUID()) => {
       const tab = tabsRef.current.find((t) => t.id === tabId)
 
       if (!tab?.sessionId) return
@@ -32,15 +27,13 @@ export function useSteering({
                 ...t,
                 queued: [
                   ...(t.queued ?? []).filter((q) => q.id !== queuedId),
-                  { id: queuedId, text, filePaths, steering: true },
+                  { id: queuedId, text, filePaths: [], steering: true },
                 ],
               }
             : t,
         ),
       )
       try {
-        if (filePaths.length)
-          throw new Error('Send attachments after this turn; steering currently accepts text.')
         const { messageId } = await api.agentSteerConversation(tab.sessionId, text, teamId)
         const metadata = optimisticSenderMetadata(currentUser, Date.now())
         const receipt = {
