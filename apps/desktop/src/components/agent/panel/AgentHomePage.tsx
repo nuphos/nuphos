@@ -188,7 +188,7 @@ export function AgentHomePage({
           </div>
         </div>
         {teamId && !unbound && (
-          <div className="mx-auto mt-6 w-full max-w-[1200px]">
+          <div className="mx-auto mt-6 w-full max-w-[820px]">
             <HomeWidgets
               key={teamId}
               teamId={teamId}
