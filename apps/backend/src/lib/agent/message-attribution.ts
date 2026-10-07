@@ -33,9 +33,7 @@ export async function createMessageMetadata(
         ? { avatarURL: trustedAvatarURL(user?.avatarURL) }
         : {}),
     },
-    ...(device
-      ? { device: { label: device.label, platform: device.platform } }
-      : {}),
+    ...(device ? { device: { label: device.label, platform: device.platform } } : {}),
     source,
     sentAt: new Date().toISOString(),
   }
