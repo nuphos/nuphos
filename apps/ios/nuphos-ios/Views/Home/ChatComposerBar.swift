@@ -103,6 +103,14 @@ struct ChatComposerBar<Controls: View>: View {
         .padding(.bottom, 8)
         .offset(y: handleDrag)
         .onChange(of: focused) { _, isFocused in if isFocused { collapsedByUser = false } }
+        // A composer leaving the screen takes its keyboard with it. Each page
+        // owns its own composer and focus, so a keyboard left up from a
+        // popped chat covers the list's composer, which never asked for it.
+        #if canImport(UIKit)
+        .onDisappear {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+        #endif
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }
             photoItems = []
