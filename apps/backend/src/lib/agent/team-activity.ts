@@ -18,8 +18,8 @@ export type TeamActivity = {
   slotMinutes: number
   /** ISO start of the first slot; slots follow back to back. */
   start: string
-  /** The sessions the slots refer to. */
-  sessions: { id: string; title: string }[]
+  /** The sessions the slots refer to, with the agent each ran on. */
+  sessions: { id: string; title: string; runtime: string | null }[]
   /** Every current member, busiest first. */
   members: MemberActivity[]
 }
@@ -128,12 +128,17 @@ async function scanTeamActivity(
     .find(
       { teamId, lastActiveAt: { $gte: new Date(start) } },
       {
-        projection: { sessionId: 1, userId: 1, title: 1 },
+        projection: { sessionId: 1, userId: 1, title: 1, agentRuntime: 1 },
         sort: { lastActiveAt: -1 },
         limit: MAX_SESSIONS,
       },
     )
-    .map((c) => ({ sessionId: c.sessionId, userId: c.userId, title: c.title }))
+    .map((c) => ({
+      sessionId: c.sessionId,
+      userId: c.userId,
+      title: c.title,
+      runtime: c.agentRuntime ?? null,
+    }))
     .toArray()
   const sessionIds = sessions.map((c) => c.sessionId)
   const messages = await agentMessages()
@@ -154,7 +159,7 @@ async function scanTeamActivity(
   }
 
   // Only sessions that ran in range are listed; slots refer to them by index.
-  const listed: { id: string; title: string }[] = []
+  const listed: TeamActivity['sessions'] = []
   const slotsByMember = new Map<string, number[][]>()
 
   for (const c of sessions) {
@@ -162,7 +167,7 @@ async function scanTeamActivity(
     const hit = list ? sessionSlots(turnIntervals(list, now), start, slotMs, slotCount) : []
 
     if (hit.length === 0) continue
-    const index = listed.push({ id: c.sessionId, title: c.title }) - 1
+    const index = listed.push({ id: c.sessionId, title: c.title, runtime: c.runtime }) - 1
     const slots =
       slotsByMember.get(c.userId) ?? Array.from({ length: slotCount }, (): number[] => [])
 

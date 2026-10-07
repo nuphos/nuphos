@@ -6,7 +6,8 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 const at = (min: number) => new Date(Date.UTC(2026, 9, 7, 0, min))
 
 let scans = 0
-let conversations: { sessionId: string; userId: string; title: string }[] = []
+let conversations: { sessionId: string; userId: string; title: string; agentRuntime?: string }[] =
+  []
 let messages: { sessionId: string; role: string; createdAt: Date }[] = []
 
 useAgentDb({
@@ -15,7 +16,11 @@ useAgentDb({
       find: () => {
         scans++
 
-        return { map: () => ({ toArray: async () => conversations }) }
+        return {
+          map: (fn: (c: (typeof conversations)[number]) => unknown) => ({
+            toArray: async () => conversations.map(fn),
+          }),
+        }
       },
     }) as never,
   agentMessages: () => ({ find: () => ({ toArray: async () => messages }) }) as never,
@@ -78,7 +83,7 @@ test('sessionSlots lists each slot a session ran in once, in order', () => {
 
 test('every member gets a row, busiest first, with the sessions they ran in each slot', async () => {
   conversations = [
-    { sessionId: 's1', userId: 'u-alice', title: 'Fix CI' },
+    { sessionId: 's1', userId: 'u-alice', title: 'Fix CI', agentRuntime: 'codex' },
     { sessionId: 's2', userId: 'u-alice', title: 'Deploy' },
     { sessionId: 's3', userId: 'u-bob', title: 'Old chat' },
   ]
@@ -93,8 +98,8 @@ test('every member gets a row, busiest first, with the sessions they ran in each
   const slot = Math.floor((at(560).getTime() - new Date(activity.start).getTime()) / (30 * 60_000))
 
   expect(activity.sessions).toEqual([
-    { id: 's1', title: 'Fix CI' },
-    { id: 's2', title: 'Deploy' },
+    { id: 's1', title: 'Fix CI', runtime: 'codex' },
+    { id: 's2', title: 'Deploy', runtime: null },
   ])
   expect(activity.members.map((m) => m.name)).toEqual(['Alice', 'Bob', 'Carol'])
   expect(activity.members[0]?.slots[slot]).toEqual([0, 1])

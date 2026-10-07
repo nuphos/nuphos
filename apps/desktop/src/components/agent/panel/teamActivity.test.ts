@@ -10,8 +10,8 @@ test('heatmapRows gives each member a row of timed cells naming their sessions',
     slotMinutes: 30,
     start: start.toISOString(),
     sessions: [
-      { id: 's1', title: 'Fix CI' },
-      { id: 's2', title: 'Deploy' },
+      { id: 's1', title: 'Fix CI', runtime: 'codex' },
+      { id: 's2', title: 'Deploy', runtime: null },
     ],
     members: [
       { id: 'a', name: 'Alice', avatarURL: '', slots: [[0, 1], [1], []] },

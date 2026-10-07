@@ -44,6 +44,7 @@ export function AgentHomePage({
   userName,
   onImportSession,
   isTeamAdmin = false,
+  onOpenConversation,
 }: {
   /** Only used to decide whether the starter suggestions are worth showing:
    *  they are for a team that has not started a conversation yet. */
@@ -84,6 +85,8 @@ export function AgentHomePage({
   onImportSession?: (session: LocalAgentSessionInfo) => void
   /** Administrators can make their home layout the team default. */
   isTeamAdmin?: boolean
+  /** Opens a conversation picked from a home card. */
+  onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const entranceKey = useEntranceCount(shown)
   const firstRun = unbound && ONBOARDING_EXTRA_STEPS_ENABLED
@@ -196,6 +199,7 @@ export function AgentHomePage({
               key={teamId}
               teamId={teamId}
               isTeamAdmin={isTeamAdmin}
+              onOpenConversation={onOpenConversation}
               revealAt={COMPOSER_REVEAL_MS + 300}
               replayKey={entranceKey}
             />

@@ -3,7 +3,7 @@ import type { TeamActivity } from '../../../types/team.ts'
 export type HeatCell = {
   start: Date
   end: Date
-  sessions: { id: string; title: string }[]
+  sessions: TeamActivity['sessions']
   /** 0 for no sessions, then 1–4 by share of the busiest cell on the card. */
   level: number
 }

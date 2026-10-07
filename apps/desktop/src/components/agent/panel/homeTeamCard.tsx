@@ -2,11 +2,12 @@ import { Button as BaseButton } from '@base-ui/react/button'
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip'
 import clsx from 'clsx'
 import { Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { Avatar } from '../../Avatar'
 
+import { AgentProviderIcon } from './icons'
 import { heatmapRows } from './teamActivity'
 
 import type { HeatCell } from './teamActivity'
@@ -35,7 +36,20 @@ const slotLabel = (minutes: number) =>
 
 type Hover = { el: Element; name: string; cell: HeatCell }
 
-function CellTooltip({ hover }: { hover: Hover | null }) {
+// Long enough to move the pointer from a cell onto the tooltip to click it.
+const CLOSE_DELAY_MS = 150
+
+function CellTooltip({
+  hover,
+  onKeep,
+  onLeave,
+  onOpenSession,
+}: {
+  hover: Hover | null
+  onKeep: () => void
+  onLeave: () => void
+  onOpenSession?: (sessionId: string, title: string) => void
+}) {
   return (
     <TooltipPrimitive.Root open={hover !== null}>
       <TooltipPrimitive.Portal>
@@ -45,26 +59,35 @@ function CellTooltip({ hover }: { hover: Hover | null }) {
           sideOffset={6}
           className="z-[1000]"
         >
-          <TooltipPrimitive.Popup className="max-w-[300px] rounded-lg border border-zGray-800/60 bg-main px-2.5 py-1.5 text-[11.5px] leading-snug text-secondary shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none">
+          <TooltipPrimitive.Popup
+            onMouseEnter={onKeep}
+            onMouseLeave={onLeave}
+            className="max-w-[300px] rounded-lg border border-zGray-800/60 bg-main px-1.5 py-1.5 text-[11.5px] leading-snug text-secondary shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none"
+          >
             {hover && (
               <>
-                <div className="text-main">{hover.name}</div>
-                <div className="mb-1 text-tertiary">{span(hover.cell)}</div>
+                <div className="px-1 text-main">{hover.name}</div>
+                <div className="mb-1 px-1 text-tertiary">{span(hover.cell)}</div>
                 {hover.cell.sessions.length === 0 ? (
-                  <div className="text-tertiary">No sessions running</div>
+                  <div className="px-1 text-tertiary">No sessions running</div>
                 ) : (
-                  <ul className="space-y-0.5">
+                  <div className="space-y-px">
                     {hover.cell.sessions.slice(0, MAX_TITLES).map((s) => (
-                      <li key={s.id} className="truncate">
-                        · {s.title || 'Untitled session'}
-                      </li>
+                      <BaseButton
+                        key={s.id}
+                        onClick={() => onOpenSession?.(s.id, s.title)}
+                        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:bg-zGray-800/60"
+                      >
+                        <AgentProviderIcon provider={s.runtime} className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{s.title || 'Untitled session'}</span>
+                      </BaseButton>
                     ))}
                     {hover.cell.sessions.length > MAX_TITLES && (
-                      <li className="text-tertiary">
+                      <div className="px-1 text-tertiary">
                         and {hover.cell.sessions.length - MAX_TITLES} more
-                      </li>
+                      </div>
                     )}
-                  </ul>
+                  </div>
                 )}
               </>
             )}
@@ -81,12 +104,27 @@ function CellTooltip({ hover }: { hover: Hover | null }) {
  * in it. Hovering a cell names the sessions. A longer range uses longer slots
  * so a row stays readable.
  */
-export function TeamActivityCard({ teamId }: { teamId: string }) {
+export function TeamActivityCard({
+  teamId,
+  onOpenConversation,
+}: {
+  teamId: string
+  onOpenConversation?: (sessionId: string, title: string) => void
+}) {
   const [range, setRange] = useState<TeamActivityRange>('7d')
   // Kept with the range it answers, so switching range shows the skeleton
   // until the new range arrives instead of the old grid.
   const [loaded, setLoaded] = useState<TeamActivity | null>(null)
   const [hover, setHover] = useState<Hover | null>(null)
+  const closeTimer = useRef<number | null>(null)
+  const keep = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    closeTimer.current = null
+  }
+  const leave = () => {
+    keep()
+    closeTimer.current = window.setTimeout(() => setHover(null), CLOSE_DELAY_MS)
+  }
   const activity = loaded?.range === range ? loaded : null
   const slotMinutes = RANGES.find((r) => r.value === range)?.slotMinutes ?? 60
 
@@ -140,7 +178,7 @@ export function TeamActivityCard({ teamId }: { teamId: string }) {
       {rows ? (
         <div
           className="min-h-0 flex-1 space-y-[3px] overflow-y-auto scrollbar-thin"
-          onMouseLeave={() => setHover(null)}
+          onMouseLeave={leave}
         >
           {rows.map((row) => (
             <div key={row.id} className="flex items-center gap-2">
@@ -157,7 +195,10 @@ export function TeamActivityCard({ teamId }: { teamId: string }) {
                 {row.cells.map((cell, i) => (
                   <div
                     key={i}
-                    onMouseEnter={(e) => setHover({ el: e.currentTarget, name: row.name, cell })}
+                    onMouseEnter={(e) => {
+                      keep()
+                      setHover({ el: e.currentTarget, name: row.name, cell })
+                    }}
                     className={clsx('h-3.5 rounded-[2px]', LEVELS[cell.level])}
                   />
                 ))}
@@ -179,7 +220,15 @@ export function TeamActivityCard({ teamId }: { teamId: string }) {
             ))}
             <span>More</span>
           </div>
-          <CellTooltip hover={hover} />
+          <CellTooltip
+            hover={hover}
+            onKeep={keep}
+            onLeave={leave}
+            onOpenSession={(id, title) => {
+              setHover(null)
+              onOpenConversation?.(id, title)
+            }}
+          />
         </div>
       ) : (
         <div className="h-32 rounded-md bg-zGray-800/40 animate-pulse" />

@@ -148,7 +148,7 @@ export type TeamActivity = {
   range: TeamActivityRange
   slotMinutes: number
   start: string
-  sessions: { id: string; title: string }[]
+  sessions: { id: string; title: string; runtime: AgentProvider | null }[]
   /** Every current member, busiest first. */
   members: {
     id: string
