@@ -2037,3 +2037,19 @@ html.platform-darwin:not(.window-fullscreen)
     transition: none;
   }
 }
+
+/* The home page is text-selectable, so pressing a card's header to drag it
+   would start a selection. The header is the drag handle, never text to copy,
+   and nothing on the page selects while a card is moving. Unlayered, so these
+   win over the base layer's .selectable rule. */
+.home-card-drag,
+.home-card-drag * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.selectable:has(.react-draggable-dragging, .resizing),
+.selectable:has(.react-draggable-dragging, .resizing) * {
+  user-select: none;
+  -webkit-user-select: none;
+}
