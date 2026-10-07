@@ -62,8 +62,8 @@ export function TeamActivityCard({ teamId }: { teamId: string }) {
   const peak = activity ? Math.max(0, ...activity.slots) : 0
 
   return (
-    <section className="min-w-0 rounded-lg border border-zGray-800/60 p-3 home-card-wide">
-      <div className="mb-3 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
+    <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+      <div className="home-card-drag cursor-grab active:cursor-grabbing mb-3 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
         <span>Team activity</span>
         {activity && (
@@ -88,7 +88,7 @@ export function TeamActivityCard({ teamId }: { teamId: string }) {
         </div>
       </div>
       {rows ? (
-        <div className="space-y-[3px]">
+        <div className="min-h-0 flex-1 space-y-[3px] overflow-y-auto scrollbar-thin">
           {rows.map((row) => (
             <div key={row.day.toDateString()} className="flex items-center gap-2">
               <span className="w-20 flex-shrink-0 text-right text-[10.5px] text-tertiary">

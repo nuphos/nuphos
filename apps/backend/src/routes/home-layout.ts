@@ -31,6 +31,20 @@ const layoutSchema = z
           .strict(),
       )
       .max(50),
+    grid: z
+      .array(
+        z
+          .object({
+            i: z.string().min(1).max(200),
+            x: z.number().int().min(0).max(100),
+            y: z.number().int().min(0).max(1000),
+            w: z.number().int().min(1).max(100),
+            h: z.number().int().min(1).max(100),
+          })
+          .strict(),
+      )
+      .max(200)
+      .optional(),
   })
   .strict()
 

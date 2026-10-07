@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { failingRuns, panelKey, repoKey, toggleItem } from './homeWidgetSettings.ts'
+import { failingRuns, gridFor, panelKey, repoKey, toggleItem } from './homeWidgetSettings.ts'
 
 import type { GithubWorkflowRun } from '../../../types'
 
@@ -52,4 +52,20 @@ test('toggleItem adds a missing entry and removes a present one by key', () => {
 
   assert.deepEqual(toggleItem([p], q, panelKey), [p, q])
   assert.deepEqual(toggleItem([p, q], { ...p }, panelKey), [q])
+})
+
+test('gridFor keeps saved places, appends new cards below, and drops removed ones', () => {
+  const grid = gridFor(
+    ['team', 'pulls', 'panel:d/p'],
+    [
+      { i: 'team', x: 0, y: 0, w: 12, h: 8 },
+      { i: 'ci', x: 6, y: 8, w: 6, h: 7 },
+    ],
+  )
+
+  assert.deepEqual(grid, [
+    { i: 'team', x: 0, y: 0, w: 12, h: 8 },
+    { i: 'pulls', x: 0, y: 8, w: 6, h: 7 },
+    { i: 'panel:d/p', x: 0, y: 15, w: 6, h: 6 },
+  ])
 })

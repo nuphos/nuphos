@@ -15,6 +15,7 @@ import {
 
 import { DelayedPanelReveal } from './homeAnimation'
 import { CiFailuresCard, PullRequestsCard } from './homeCards'
+import { HomeGrid } from './homeGrid'
 import { DashboardPanelCard } from './homePanelCard'
 import { DashboardPanelsSubmenu } from './homePanelPicker'
 import { TeamActivityCard } from './homeTeamCard'
@@ -132,7 +133,7 @@ export function HomeWidgets({
     settings.ci.length > 0 && <CiFailuresCard key="ci" teamId={teamId} repos={settings.ci} />,
     ...settings.panels.map((pin) => (
       <DashboardPanelCard
-        key={panelKey(pin)}
+        key={`panel:${panelKey(pin)}`}
         teamId={teamId}
         pin={pin}
         onUnpin={() => togglePanel(pin)}
@@ -189,19 +190,13 @@ export function HomeWidgets({
         </Menu>
       </DelayedPanelReveal>
       {cards.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {cards.map((card, i) => (
-            // A card marks itself `home-card-wide` when it wants the full row.
-            <DelayedPanelReveal
-              key={card.key}
-              replayKey={replayKey}
-              delayMs={revealAt + 150 * i}
-              className="min-w-0 md:[&:has(>.home-card-wide)]:col-span-2"
-            >
-              {card}
-            </DelayedPanelReveal>
-          ))}
-        </div>
+        <HomeGrid
+          cards={cards}
+          saved={settings.grid}
+          onChange={(grid) => update({ ...settings, grid })}
+          revealAt={revealAt}
+          replayKey={replayKey}
+        />
       )}
     </div>
   )

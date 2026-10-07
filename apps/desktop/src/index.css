@@ -2008,3 +2008,15 @@ html.platform-darwin:not(.window-fullscreen)
   .workspace-agent-titlebar {
   padding-left: calc(28px + 54px / var(--zoom-factor, 1));
 }
+
+/* Home cards grid (react-grid-layout): a quiet violet drop target and a
+   resize corner that reads on both themes. */
+.react-grid-item.react-grid-placeholder {
+  background: rgb(139 92 246);
+  opacity: 0.12;
+  border-radius: 8px;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  border-color: rgb(128 128 128 / 0.6);
+}

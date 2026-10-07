@@ -1,5 +1,4 @@
 import { Button as BaseButton } from '@base-ui/react/button'
-import clsx from 'clsx'
 import { LayoutDashboard, PinOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -79,14 +78,8 @@ export function DashboardPanelCard({
   }
 
   return (
-    <section
-      className={clsx(
-        'min-w-0 rounded-lg border border-zGray-800/60 p-3',
-        // Charts and tables need the width; a single number does not.
-        output?.kind !== 'scalar' && 'home-card-wide',
-      )}
-    >
-      <div className="group mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
+    <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+      <div className="group home-card-drag cursor-grab active:cursor-grabbing mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <LayoutDashboard className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={1.8} />
         <span className="truncate">{panel?.title ?? 'Dashboard panel'}</span>
         {loaded?.dashboardName && (
@@ -101,7 +94,7 @@ export function DashboardPanelCard({
           <PinOff className="h-3.5 w-3.5" strokeWidth={1.8} />
         </BaseButton>
       </div>
-      {body}
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{body}</div>
     </section>
   )
 }

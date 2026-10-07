@@ -84,13 +84,13 @@ function HomeCard({
   }
 
   return (
-    <section className="min-w-0 rounded-lg border border-zGray-800/60 p-3">
-      <div className="mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
+    <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+      <div className="home-card-drag cursor-grab active:cursor-grabbing mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         {icon}
         <span>{title}</span>
         {count !== null && <span className="text-tertiary tabular-nums">{count}</span>}
       </div>
-      {body}
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{body}</div>
     </section>
   )
 }

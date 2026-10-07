@@ -131,7 +131,12 @@ export type HomeLayout = {
   pulls: HomeRepo[]
   ci: HomeRepo[]
   panels: HomePanel[]
+  /** Where each card sits, in grid units; a card without an entry goes last. */
+  grid?: HomeGridItem[]
 }
+
+/** A card's place on the home grid: `i` is the card's key, the rest grid units. */
+export type HomeGridItem = { i: string; x: number; y: number; w: number; h: number }
 
 /** The caller's own layout and the team default; either is null when unset. */
 export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }

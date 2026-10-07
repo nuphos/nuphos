@@ -183,6 +183,7 @@ export type HomeLayout = {
   pulls: { installationId: number; fullName: string }[]
   ci: { installationId: number; fullName: string }[]
   panels: { dashboardId: string; panelId: string }[]
+  grid?: { i: string; x: number; y: number; w: number; h: number }[]
 }
 
 export const teamByosBindings = (): Collection<TeamByosBindings> =>
