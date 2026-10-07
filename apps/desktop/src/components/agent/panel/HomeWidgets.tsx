@@ -107,13 +107,17 @@ export function HomeWidgets({
             </MenuCheckboxItem>
             <MenuItem
               icon={<GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />}
-              onClick={() => addGithub({ id: newId(), kind: 'pulls', repos: [], status: 'open' })}
+              onClick={() =>
+                addGithub({ id: newId(), kind: 'pulls', repos: [], statuses: ['open'] })
+              }
             >
               Add pull requests card
             </MenuItem>
             <MenuItem
               icon={<CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />}
-              onClick={() => addGithub({ id: newId(), kind: 'ci', repos: [], status: 'failed' })}
+              onClick={() =>
+                addGithub({ id: newId(), kind: 'ci', repos: [], statuses: ['failed'] })
+              }
             >
               Add CI card
             </MenuItem>

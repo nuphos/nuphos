@@ -13,7 +13,7 @@ import {
   MenuTrigger,
 } from '../../ui/menu'
 
-import { PULL_STATUSES, RUN_STATUSES, repoKey, toggleItem } from './homeWidgetSettings'
+import { PULL_STATUSES, RUN_STATUSES, repoKey, statusLabel, toggleItem } from './homeWidgetSettings'
 
 import type { HomeGithubCard, HomeRepo } from './homeWidgetSettings'
 
@@ -45,6 +45,19 @@ function useGithubRepos(teamId: string) {
 
 const chevron = <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
 
+/** Repositories grouped by owner (an org or account), owners and names in order. */
+function byNamespace(repos: HomeRepo[]): [string, HomeRepo[]][] {
+  const groups = new Map<string, HomeRepo[]>()
+
+  for (const repo of repos.toSorted((a, b) => a.fullName.localeCompare(b.fullName))) {
+    const namespace = repo.fullName.split('/')[0] ?? ''
+
+    groups.set(namespace, [...(groups.get(namespace) ?? []), repo])
+  }
+
+  return [...groups]
+}
+
 /** A GitHub card's ⋯ menu: which repositories it follows, what it shows of them, removal. */
 export function GithubCardMenu({
   teamId,
@@ -59,6 +72,7 @@ export function GithubCardMenu({
 }) {
   const { repos, load } = useGithubRepos(teamId)
   const statuses = card.kind === 'pulls' ? PULL_STATUSES : RUN_STATUSES
+  const isFollowed = (repo: HomeRepo) => card.repos.some((r) => r.fullName === repo.fullName)
 
   return (
     <Menu onOpenChange={(open) => open && load()}>
@@ -76,19 +90,33 @@ export function GithubCardMenu({
               <span className="text-[10.5px] text-tertiary tabular-nums">{card.repos.length}</span>
             </span>
           </MenuSubmenuTrigger>
-          <MenuContent side="inline-end" align="start" className="w-[260px]">
+          <MenuContent side="inline-end" align="start" className="w-[220px]">
             {repos === null && <MenuItem disabled>Loading repositories…</MenuItem>}
             {repos?.length === 0 && <MenuItem disabled>No GitHub repositories connected</MenuItem>}
-            {repos?.map((repo) => (
-              <MenuCheckboxItem
-                key={`${String(repo.installationId)}/${repo.fullName}`}
-                checked={card.repos.some((r) => r.fullName === repo.fullName)}
-                onCheckedChange={() =>
-                  onChange({ ...card, repos: toggleItem(card.repos, repo, repoKey) })
-                }
-              >
-                <span className="block truncate">{repo.fullName}</span>
-              </MenuCheckboxItem>
+            {byNamespace(repos ?? []).map(([namespace, list]) => (
+              <MenuSubmenu key={namespace}>
+                <MenuSubmenuTrigger chevron={chevron}>
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="flex-1 truncate">{namespace}</span>
+                    <span className="text-[10.5px] text-tertiary tabular-nums">
+                      {list.filter((r) => isFollowed(r)).length || ''}
+                    </span>
+                  </span>
+                </MenuSubmenuTrigger>
+                <MenuContent side="inline-end" align="start" className="w-[240px]">
+                  {list.map((repo) => (
+                    <MenuCheckboxItem
+                      key={repo.fullName}
+                      checked={isFollowed(repo)}
+                      onCheckedChange={() =>
+                        onChange({ ...card, repos: toggleItem(card.repos, repo, repoKey) })
+                      }
+                    >
+                      <span className="block truncate">{repo.fullName.split('/')[1]}</span>
+                    </MenuCheckboxItem>
+                  ))}
+                </MenuContent>
+              </MenuSubmenu>
             ))}
           </MenuContent>
         </MenuSubmenu>
@@ -96,20 +124,23 @@ export function GithubCardMenu({
           <MenuSubmenuTrigger chevron={chevron}>
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className="flex-1">Status</span>
-              <span className="text-[10.5px] text-tertiary">
-                {statuses.find((s) => s.value === card.status)?.label}
-              </span>
+              <span className="truncate text-[10.5px] text-tertiary">{statusLabel(card)}</span>
             </span>
           </MenuSubmenuTrigger>
           <MenuContent side="inline-end" align="start" className="w-[200px]">
             {statuses.map((s) => (
-              <MenuItem
+              <MenuCheckboxItem
                 key={s.value}
-                selected={s.value === card.status}
-                onClick={() => onChange({ ...card, status: s.value } as HomeGithubCard)}
+                checked={(card.statuses as string[]).includes(s.value)}
+                onCheckedChange={() => {
+                  const next = toggleItem(card.statuses as string[], s.value, (v) => v)
+
+                  // A card always shows something: the last status cannot be cleared.
+                  if (next.length > 0) onChange({ ...card, statuses: next } as HomeGithubCard)
+                }}
               >
                 {s.label}
-              </MenuItem>
+              </MenuCheckboxItem>
             ))}
           </MenuContent>
         </MenuSubmenu>

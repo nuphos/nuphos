@@ -1,5 +1,6 @@
 import type { GithubPR, GithubWorkflowRun } from '../../../types'
 import type {
+  HomeGithubCard,
   HomeGridItem,
   HomeLayout,
   HomeLayouts,
@@ -32,10 +33,12 @@ export function starterLayout({
 }): HomeLayout {
   const github: HomeLayout['github'] = []
 
-  if (repo && hasPulls)
-    github.push({ id: 'starter-pulls', kind: 'pulls', repos: [repo], status: 'open' })
-  if (repo && hasRuns)
-    github.push({ id: 'starter-ci', kind: 'ci', repos: [repo], status: 'latest' })
+  if (repo && hasPulls) {
+    github.push({ id: 'starter-pulls', kind: 'pulls', repos: [repo], statuses: ['open'] })
+  }
+  if (repo && hasRuns) {
+    github.push({ id: 'starter-ci', kind: 'ci', repos: [repo], statuses: ['latest'] })
+  }
 
   return { ...DEFAULT_HOME_LAYOUT, github, panels }
 }
@@ -62,19 +65,35 @@ export const RUN_STATUSES: { value: HomeRunStatus; label: string; empty: string 
   { value: 'latest', label: 'Latest', empty: 'No runs yet' },
 ]
 
-export function filterPulls(pulls: GithubPR[], status: HomePullStatus): GithubPR[] {
-  if (status === 'open') return pulls
+/** A card's statuses as their labels, in menu order, e.g. "Failing, Running". */
+export function statusLabel(card: HomeGithubCard): string {
+  const all: { value: string; label: string }[] =
+    card.kind === 'pulls' ? PULL_STATUSES : RUN_STATUSES
+  const chosen = card.statuses as string[]
 
-  return pulls.filter((pr) => pr.draft === (status === 'draft'))
+  return all
+    .filter((s) => chosen.includes(s.value))
+    .map((s) => s.label)
+    .join(', ')
+}
+
+/** Pull requests in any of `statuses`; `open` takes them all. */
+export function filterPulls(pulls: GithubPR[], statuses: HomePullStatus[]): GithubPR[] {
+  if (statuses.includes('open')) return pulls
+
+  return pulls.filter((pr) => statuses.includes(pr.draft ? 'draft' : 'ready'))
 }
 
 /**
  * The runs a CI card shows. Only the latest run of each workflow on each
  * branch counts: a failure already followed by a newer run is history. Of
- * those, `failed` keeps the failures, `running` the ones still in progress or
- * queued, and `latest` all of them.
+ * those, a run shows when it matches any of `statuses`: `failed` for
+ * failures, `running` for ones still in progress or queued, `latest` for all.
  */
-export function filterRuns(runs: GithubWorkflowRun[], status: HomeRunStatus): GithubWorkflowRun[] {
+export function filterRuns(
+  runs: GithubWorkflowRun[],
+  statuses: HomeRunStatus[],
+): GithubWorkflowRun[] {
   const latest = new Map<string, GithubWorkflowRun>()
 
   for (const run of runs) {
@@ -83,12 +102,13 @@ export function filterRuns(runs: GithubWorkflowRun[], status: HomeRunStatus): Gi
 
     if (!seen || run.createdAt > seen.createdAt) latest.set(key, run)
   }
-  const current = [...latest.values()]
 
-  if (status === 'failed') return current.filter((run) => run.conclusion === 'failure')
-  if (status === 'running') return current.filter((run) => run.status !== 'completed')
-
-  return current
+  return [...latest.values()].filter(
+    (run) =>
+      statuses.includes('latest') ||
+      (statuses.includes('failed') && run.conclusion === 'failure') ||
+      (statuses.includes('running') && run.status !== 'completed'),
+  )
 }
 
 export const GRID_COLUMNS = 12

@@ -43,14 +43,15 @@ test('filterRuns looks only at the latest run of each workflow and branch', () =
     run(5, 'Lint', 'feat', '2026-10-01T00:00:00Z', 'success'),
     run(6, 'E2E', 'main', '2026-10-03T00:00:00Z', null),
   ]
-  const ids = (status: 'failed' | 'running' | 'latest') =>
-    filterRuns(runs, status)
+  const ids = (...statuses: ('failed' | 'running' | 'latest')[]) =>
+    filterRuns(runs, statuses)
       .map((r) => r.id)
       .sort()
 
   assert.deepEqual(ids('failed'), [3, 4])
   assert.deepEqual(ids('running'), [6])
   assert.deepEqual(ids('latest'), [2, 3, 4, 6])
+  assert.deepEqual(ids('failed', 'running'), [3, 4, 6])
 })
 
 test('filterPulls splits open pull requests into ready and draft', () => {
@@ -58,16 +59,20 @@ test('filterPulls splits open pull requests into ready and draft', () => {
   const pulls = [pr(1, false), pr(2, true)]
 
   assert.deepEqual(
-    filterPulls(pulls, 'open').map((p) => p.number),
+    filterPulls(pulls, ['open']).map((p) => p.number),
     [1, 2],
   )
   assert.deepEqual(
-    filterPulls(pulls, 'ready').map((p) => p.number),
+    filterPulls(pulls, ['ready']).map((p) => p.number),
     [1],
   )
   assert.deepEqual(
-    filterPulls(pulls, 'draft').map((p) => p.number),
+    filterPulls(pulls, ['draft']).map((p) => p.number),
     [2],
+  )
+  assert.deepEqual(
+    filterPulls(pulls, ['ready', 'draft']).map((p) => p.number),
+    [1, 2],
   )
 })
 
@@ -142,7 +147,7 @@ test('a starter layout adds only what the team already has data for', () => {
   })
   assert.deepEqual(starterLayout({ repo, hasPulls: false, hasRuns: true, panels: [pin] }), {
     team: true,
-    github: [{ id: 'starter-ci', kind: 'ci', repos: [repo], status: 'latest' }],
+    github: [{ id: 'starter-ci', kind: 'ci', repos: [repo], statuses: ['latest'] }],
     panels: [pin],
   })
   assert.equal(starterLayout({ repo, hasPulls: true, hasRuns: true, panels: [] }).github.length, 2)

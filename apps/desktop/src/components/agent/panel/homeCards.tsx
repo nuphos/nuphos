@@ -14,6 +14,7 @@ import {
   filterPulls,
   filterRuns,
   mergeRepoReads,
+  statusLabel,
 } from './homeWidgetSettings'
 
 import type { HomeGithubCard, HomeRepo } from './homeWidgetSettings'
@@ -223,20 +224,24 @@ export function GithubCard({
     card.repos,
     pulls ? loadPulls(teamId) : loadRuns(teamId),
   )
-  const status = (pulls ? PULL_STATUSES : RUN_STATUSES).find((s) => s.value === card.status)
+  // With several statuses, the empty message of the first one stands for all.
+  const empty =
+    (pulls ? PULL_STATUSES : RUN_STATUSES).find((s) =>
+      (card.statuses as string[]).includes(s.value),
+    )?.empty ?? ''
   let rows: ReactNode = null
   let count: number | null = null
 
   if (items && card.kind === 'pulls') {
-    const shown = filterPulls(items as WithRepo<GithubPR>[], card.status).toSorted((a, b) =>
+    const shown = filterPulls(items as WithRepo<GithubPR>[], card.statuses).toSorted((a, b) =>
       b.updatedAt.localeCompare(a.updatedAt),
     ) as WithRepo<GithubPR>[]
 
     count = shown.length
     rows = <PullRows pulls={shown.slice(0, MAX_ROWS)} />
   } else if (items && card.kind === 'ci') {
-    const shown = filterRuns(items as WithRepo<GithubWorkflowRun>[], card.status).toSorted((a, b) =>
-      b.createdAt.localeCompare(a.createdAt),
+    const shown = filterRuns(items as WithRepo<GithubWorkflowRun>[], card.statuses).toSorted(
+      (a, b) => b.createdAt.localeCompare(a.createdAt),
     ) as WithRepo<GithubWorkflowRun>[]
 
     count = shown.length
@@ -252,10 +257,10 @@ export function GithubCard({
           <CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />
         )
       }
-      title={`${pulls ? 'Pull requests' : 'CI'} · ${status?.label ?? ''}`}
+      title={`${pulls ? 'Pull requests' : 'CI'} · ${statusLabel(card)}`}
       menu={<GithubCardMenu teamId={teamId} card={card} onChange={onChange} onRemove={onRemove} />}
       count={count}
-      empty={status?.empty ?? ''}
+      empty={empty}
       failed={failed}
       total={card.repos.length}
     >

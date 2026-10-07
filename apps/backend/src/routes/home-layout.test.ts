@@ -54,7 +54,7 @@ const layout = (team: boolean): HomeLayout => ({
       id: 'c1',
       kind: 'ci',
       repos: [{ installationId: 1, fullName: 'nuphos/nuphos' }],
-      status: 'running',
+      statuses: ['running', 'failed'],
     },
   ],
   panels: [{ dashboardId: 'd1', panelId: 'p1' }],
@@ -118,7 +118,7 @@ test('a malformed layout is rejected', async () => {
     layout: {
       team: true,
       // A CI card cannot take a pull request status.
-      github: [{ id: 'c1', kind: 'ci', repos: [], status: 'draft' }],
+      github: [{ id: 'c1', kind: 'ci', repos: [], statuses: ['draft'] }],
       panels: [],
     },
   })

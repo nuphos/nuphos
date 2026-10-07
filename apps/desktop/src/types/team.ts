@@ -123,8 +123,8 @@ export type HomeRunStatus = 'failed' | 'running' | 'latest'
 
 /** A pull request or CI card: the repositories it follows and what it shows of them. */
 export type HomeGithubCard =
-  | { id: string; kind: 'pulls'; repos: HomeRepo[]; status: HomePullStatus }
-  | { id: string; kind: 'ci'; repos: HomeRepo[]; status: HomeRunStatus }
+  | { id: string; kind: 'pulls'; repos: HomeRepo[]; statuses: HomePullStatus[] }
+  | { id: string; kind: 'ci'; repos: HomeRepo[]; statuses: HomeRunStatus[] }
 
 /** A Nuphos Dashboards panel pinned to the home page. */
 export type HomePanel = { dashboardId: string; panelId: string }

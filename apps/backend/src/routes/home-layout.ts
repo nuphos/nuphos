@@ -30,7 +30,10 @@ const layoutSchema = z
               id: z.string().min(1).max(40),
               kind: z.literal('pulls'),
               repos: z.array(repoSchema).max(50),
-              status: z.enum(['open', 'ready', 'draft']),
+              statuses: z
+                .array(z.enum(['open', 'ready', 'draft']))
+                .min(1)
+                .max(3),
             })
             .strict(),
           z
@@ -38,7 +41,10 @@ const layoutSchema = z
               id: z.string().min(1).max(40),
               kind: z.literal('ci'),
               repos: z.array(repoSchema).max(50),
-              status: z.enum(['failed', 'running', 'latest']),
+              statuses: z
+                .array(z.enum(['failed', 'running', 'latest']))
+                .min(1)
+                .max(3),
             })
             .strict(),
         ]),

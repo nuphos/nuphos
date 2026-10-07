@@ -184,7 +184,7 @@ export type HomeLayout = {
     id: string
     kind: 'pulls' | 'ci'
     repos: { installationId: number; fullName: string }[]
-    status: string
+    statuses: string[]
   }[]
   panels: { dashboardId: string; panelId: string }[]
   grid?: { i: string; x: number; y: number; w: number; h: number }[]

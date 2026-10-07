@@ -104,7 +104,9 @@ export function DelayedPanelReveal({
   const shouldReduceMotion = useReducedMotion()
   const [open, setOpen] = useState(() => Boolean(shouldReduceMotion))
 
-  const revealKey = `${String(delayMs)}|${shouldReduceMotion ? '1' : '0'}|${String(replayKey)}`
+  // Only a new replayKey (or a motion preference change) replays the reveal; a
+  // block whose delay moves, as a card's does when one before it goes, stays.
+  const revealKey = `${shouldReduceMotion ? '1' : '0'}|${String(replayKey)}`
   const [revealedFor, setRevealedFor] = useState(revealKey)
 
   if (revealKey !== revealedFor) {
