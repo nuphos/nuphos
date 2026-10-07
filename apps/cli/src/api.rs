@@ -2,6 +2,7 @@
 //! stream. Responses stay `serde_json::Value`: the client reads a handful of
 //! fields and sends the rest back untouched.
 
+use std::io::Write;
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -219,6 +220,9 @@ impl Api {
             return Err(error.message);
         };
 
+        // `NUPHOS_DEBUG_FRAMES=<file>` appends every event, for debugging.
+        let mut debug = std::env::var_os("NUPHOS_DEBUG_FRAMES")
+            .and_then(|path| std::fs::OpenOptions::new().create(true).append(true).open(path).ok());
         let mut bytes = response.bytes_stream();
         let mut buffer: Vec<u8> = Vec::new();
         let mut data = String::new();
@@ -237,6 +241,9 @@ impl Api {
                 if line.is_empty() {
                     // A blank line ends the event.
                     if !data.is_empty() && data != "[DONE]" {
+                        if let Some(file) = debug.as_mut() {
+                            let _ = writeln!(file, "{stream_id} {data}");
+                        }
                         if let Ok(frame) = serde_json::from_str::<Value>(&data) {
                             let _ = tx.send(StreamEvent::Frame(stream_id.to_string(), frame));
                         }
