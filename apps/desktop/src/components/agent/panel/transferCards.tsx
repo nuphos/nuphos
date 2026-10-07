@@ -10,13 +10,13 @@ import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
 import { ImageAttachmentThumb } from './messageInline'
-import { isPreviewableImage } from './transferDownloads'
+import { previewKind } from './transferDownloads'
 
 import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
 
 // Files the agent produced for the user. Bytes live in the transfer store.
-// Images are shown inline (click to enlarge); every file can still be saved
+// Images (click to enlarge) and videos play inline; every file can still be saved
 // via a native dialog (single file) or streamed into a local zip.
 export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
   const [busy, setBusy] = useState<string | null>(null)
@@ -44,29 +44,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
   )
   // Team-scoped resolve (no sessionId) — the group is team+user scoped.
   const base = { teamId, groupId: group.groupId }
-  const images = expired ? [] : ready.filter(isPreviewableImage)
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
-  const [reresolved, setReresolved] = useState(false)
-  const hasImages = images.length > 0
-  // Presigned URLs last minutes, so a broken image re-resolves them once.
-  const resolveImages = useCallback(() => {
-    void api
-      .fileTransferResolve({ teamId, groupId: group.groupId })
-      .then((resolved) =>
-        setImageUrls(
-          Object.fromEntries(
-            resolved.files.flatMap((f) => (f.downloadUrl ? [[f.id, f.downloadUrl]] : [])),
-          ),
-        ),
-      )
-      .catch(() => {
-        // The download rows below still work; a missing thumbnail is not fatal.
-      })
-  }, [teamId, group.groupId])
-
-  useEffect(() => {
-    if (hasImages) resolveImages()
-  }, [hasImages, resolveImages])
+  const previews = expired ? [] : ready.filter((f) => previewKind(f) !== null)
 
   function savedToast(title: string, description: string, path: string) {
     // "Open in folder" lives only on the (transient) toast — right after the
@@ -131,25 +109,8 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
           </Button>
         )}
       </div>
-      {hasImages && (
-        <div className="mb-2 flex flex-wrap gap-2">
-          {images.map((f) => (
-            <ImageAttachmentThumb
-              key={f.id}
-              large
-              url={imageUrls[f.id]}
-              fileName={f.fileName}
-              onError={
-                reresolved
-                  ? undefined
-                  : () => {
-                      setReresolved(true)
-                      resolveImages()
-                    }
-              }
-            />
-          ))}
-        </div>
+      {previews.length > 0 && (
+        <DownloadPreviews teamId={teamId} groupId={group.groupId} files={previews} />
       )}
       <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
         {group.files.map((f) => (
@@ -183,6 +144,71 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// Inline previews for the images and videos in a download group, from
+// presigned URLs. Those last minutes, so a broken preview re-resolves them once.
+function DownloadPreviews({
+  teamId,
+  groupId,
+  files,
+}: {
+  teamId: string
+  groupId: string
+  files: FileTransferGroup['files']
+}) {
+  const [urls, setUrls] = useState<Record<string, string>>({})
+  const [retried, setRetried] = useState(false)
+  const resolve = useCallback(() => {
+    void api
+      .fileTransferResolve({ teamId, groupId })
+      .then((resolved) =>
+        setUrls(
+          Object.fromEntries(
+            resolved.files.flatMap((f) => (f.downloadUrl ? [[f.id, f.downloadUrl]] : [])),
+          ),
+        ),
+      )
+      .catch(() => {
+        // The download rows still work; a missing preview is not fatal.
+      })
+  }, [teamId, groupId])
+
+  useEffect(resolve, [resolve])
+  const retry = retried
+    ? undefined
+    : () => {
+        setRetried(true)
+        resolve()
+      }
+
+  return (
+    <div className="mb-2 flex flex-wrap gap-2">
+      {files.map((f) =>
+        previewKind(f) === 'video' ? (
+          urls[f.id] && (
+            <video
+              key={f.id}
+              src={urls[f.id]}
+              controls
+              preload="metadata"
+              onError={retry}
+              title={f.fileName}
+              className="max-h-72 max-w-full rounded-lg border border-zGray-800 bg-black"
+            />
+          )
+        ) : (
+          <ImageAttachmentThumb
+            key={f.id}
+            large
+            url={urls[f.id]}
+            fileName={f.fileName}
+            onError={retry}
+          />
+        ),
+      )}
     </div>
   )
 }
