@@ -193,19 +193,17 @@ export function AgentHomePage({
           </div>
         </div>
         {teamId && !unbound && (
-          // Same panel reveal as the composer, 0.3s after it.
-          <DelayedPanelReveal
-            replayKey={entranceKey}
-            delayMs={COMPOSER_REVEAL_MS + 300}
-            className="mx-auto mt-6 w-full max-w-[820px]"
-          >
+          <div className="mx-auto mt-6 w-full max-w-[820px]">
+            {/* The composer's panel reveal, starting 0.3s after it. */}
             <HomeWidgets
               key={teamId}
               teamId={teamId}
               isTeamAdmin={isTeamAdmin}
               onOpenConversation={onOpenConversation}
+              revealAt={COMPOSER_REVEAL_MS + 300}
+              replayKey={entranceKey}
             />
-          </DelayedPanelReveal>
+          </div>
         )}
       </div>
     </div>

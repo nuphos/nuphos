@@ -83,7 +83,7 @@ export function DashboardPanelCard({
       className={clsx(
         'min-w-0 rounded-lg border border-zGray-800/60 p-3',
         // Charts and tables need the width; a single number does not.
-        output?.kind !== 'scalar' && 'md:col-span-2',
+        output?.kind !== 'scalar' && 'home-card-wide',
       )}
     >
       <div className="group mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">

@@ -100,7 +100,7 @@ export function TeamActivityCard({
   }
 
   return (
-    <section className="min-w-0 rounded-lg border border-zGray-800/60 p-3 md:col-span-2">
+    <section className="min-w-0 rounded-lg border border-zGray-800/60 p-3 home-card-wide">
       <div className="mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
         <span>Team activity</span>
