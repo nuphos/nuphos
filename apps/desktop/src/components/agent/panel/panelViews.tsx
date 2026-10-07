@@ -171,6 +171,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       ? null
                       : activeTab.promptSuggestion
                   }
+                  autoFocus
                   runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                   executing={runtimeIsExecuting(activeTab.runtimeState)}
                   readOnly={activeTab.readOnly}
