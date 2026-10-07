@@ -15,7 +15,7 @@ import { SidebarHelpMenu } from './help-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
 import { SidebarItemContextMenu, SidebarSectionList } from './sections-list'
-import { sectionsAboveChats, sharedChatSection, teamSections } from './sections-services'
+import { sharedChatSection, teamSections, withChatSections } from './sections-services'
 import { settingsBackTarget } from './types'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
@@ -123,15 +123,10 @@ export function Sidebar({
 
   const [itemMenu, setItemMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
 
-  const renderSections = [...sections]
+  const renderSections = teamView
+    ? withChatSections(sections, pinnedChatItems, sharedChatItems, favoriteMatch)
+    : [...sections]
 
-  const chatsIndex = renderSections.findIndex((section) => section.title === 'Chats')
-
-  renderSections.splice(
-    chatsIndex === -1 ? 1 : chatsIndex,
-    0,
-    ...(teamView ? sectionsAboveChats(pinnedChatItems, sharedChatItems) : []),
-  )
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
     renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
   }

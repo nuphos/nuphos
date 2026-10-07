@@ -52,7 +52,7 @@ enum NuphosAPI {
         return envelope.members
     }
 
-    enum ConversationScope: String { case mine, team }
+    enum ConversationScope: String { case mine, team, shared }
     enum ConversationArchiveFilter: String { case exclude, only }
     enum ConversationSort: String { case activity, created }
 
