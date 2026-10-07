@@ -49,8 +49,14 @@ app.onError(errorHandler)
 
 const layout = (team: boolean): HomeLayout => ({
   team,
-  pulls: [{ installationId: 1, fullName: 'nuphos/nuphos' }],
-  ci: [],
+  github: [
+    {
+      id: 'c1',
+      kind: 'ci',
+      repos: [{ installationId: 1, fullName: 'nuphos/nuphos' }],
+      status: 'running',
+    },
+  ],
   panels: [{ dashboardId: 'd1', panelId: 'p1' }],
 })
 
@@ -108,7 +114,14 @@ test('layouts stay inside their team', async () => {
 })
 
 test('a malformed layout is rejected', async () => {
-  const res = await put('personal', { layout: { team: true, pulls: 'nope', ci: [], panels: [] } })
+  const res = await put('personal', {
+    layout: {
+      team: true,
+      // A CI card cannot take a pull request status.
+      github: [{ id: 'c1', kind: 'ci', repos: [], status: 'draft' }],
+      panels: [],
+    },
+  })
 
   expect(res.status).toBe(400)
 })

@@ -3,15 +3,17 @@ import { test } from 'node:test'
 
 import {
   editableLayout,
-  failingRuns,
+  filterPulls,
+  filterRuns,
   gridFor,
+  starterLayout,
   mergeRepoReads,
   panelKey,
   repoKey,
   toggleItem,
 } from './homeWidgetSettings.ts'
 
-import type { GithubWorkflowRun } from '../../../types'
+import type { GithubPR, GithubWorkflowRun } from '../../../types'
 
 const run = (
   id: number,
@@ -32,7 +34,7 @@ const run = (
   htmlUrl: `https://github.com/o/r/actions/runs/${String(id)}`,
 })
 
-test('failingRuns keeps only failures that are the latest run of their workflow and branch', () => {
+test('filterRuns looks only at the latest run of each workflow and branch', () => {
   const runs = [
     run(1, 'CI', 'main', '2026-10-01T00:00:00Z', 'failure'),
     run(2, 'CI', 'main', '2026-10-02T00:00:00Z', 'success'),
@@ -41,10 +43,31 @@ test('failingRuns keeps only failures that are the latest run of their workflow 
     run(5, 'Lint', 'feat', '2026-10-01T00:00:00Z', 'success'),
     run(6, 'E2E', 'main', '2026-10-03T00:00:00Z', null),
   ]
+  const ids = (status: 'failed' | 'running' | 'latest') =>
+    filterRuns(runs, status)
+      .map((r) => r.id)
+      .sort()
+
+  assert.deepEqual(ids('failed'), [3, 4])
+  assert.deepEqual(ids('running'), [6])
+  assert.deepEqual(ids('latest'), [2, 3, 4, 6])
+})
+
+test('filterPulls splits open pull requests into ready and draft', () => {
+  const pr = (number: number, draft: boolean) => ({ number, draft }) as GithubPR
+  const pulls = [pr(1, false), pr(2, true)]
 
   assert.deepEqual(
-    failingRuns(runs).map((r) => r.id),
-    [3, 4],
+    filterPulls(pulls, 'open').map((p) => p.number),
+    [1, 2],
+  )
+  assert.deepEqual(
+    filterPulls(pulls, 'ready').map((p) => p.number),
+    [1],
+  )
+  assert.deepEqual(
+    filterPulls(pulls, 'draft').map((p) => p.number),
+    [2],
   )
 })
 
@@ -81,9 +104,8 @@ test('gridFor keeps saved places, appends new cards below, and drops removed one
 test('a layout that failed to load is not editable', () => {
   assert.equal(editableLayout(null), null)
   assert.deepEqual(editableLayout({ personal: null, team: null }), {
-    team: false,
-    pulls: [],
-    ci: [],
+    team: true,
+    github: [],
     panels: [],
   })
 })
@@ -107,4 +129,21 @@ test('a failed repository read keeps its last rows and is reported', () => {
   )
   assert.deepEqual(second.failed, ['o/a'])
   assert.deepEqual(mergeRepoReads(new Map(), [{ repo: 'o/c', items: null }]).failed, ['o/c'])
+})
+
+test('a starter layout adds only what the team already has data for', () => {
+  const repo = { installationId: 1, fullName: 'o/app' }
+  const pin = { dashboardId: 'd', panelId: 'p' }
+
+  assert.deepEqual(starterLayout({ repo: null, hasPulls: false, hasRuns: false, panels: [] }), {
+    team: true,
+    github: [],
+    panels: [],
+  })
+  assert.deepEqual(starterLayout({ repo, hasPulls: false, hasRuns: true, panels: [pin] }), {
+    team: true,
+    github: [{ id: 'starter-ci', kind: 'ci', repos: [repo], status: 'latest' }],
+    panels: [pin],
+  })
+  assert.equal(starterLayout({ repo, hasPulls: true, hasRuns: true, panels: [] }).github.length, 2)
 })

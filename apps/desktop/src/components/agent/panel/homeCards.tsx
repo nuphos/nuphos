@@ -1,14 +1,23 @@
 import { Button as BaseButton } from '@base-ui/react/button'
-import { CircleX, GitPullRequest, GitPullRequestDraft } from 'lucide-react'
+import { CircleDot, GitPullRequest, GitPullRequestDraft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../../api'
 import { formatAge } from '../../../utils'
 import { openOnGithub } from '../../../views/github-repo/openOnGithub'
+import { RunStatusIcon } from '../../../views/github-repo/RunStatusIcon'
 
-import { failingRuns, mergeRepoReads } from './homeWidgetSettings'
+import { GithubCardMenu } from './homeGithubMenu'
+import {
+  PULL_STATUSES,
+  RUN_STATUSES,
+  filterPulls,
+  filterRuns,
+  mergeRepoReads,
+} from './homeWidgetSettings'
 
-import type { HomeRepo } from './homeWidgetSettings'
+import type { HomeGithubCard, HomeRepo } from './homeWidgetSettings'
+import type { GithubPR, GithubWorkflowRun } from '../../../types'
 import type { ReactNode } from 'react'
 
 const REFRESH_MS = 60_000
@@ -71,6 +80,7 @@ function useRepoItems<T>(
 function HomeCard({
   icon,
   title,
+  menu,
   count,
   empty,
   failed,
@@ -79,6 +89,8 @@ function HomeCard({
 }: {
   icon: ReactNode
   title: string
+  /** Header controls, at the right end. */
+  menu: ReactNode
   count: number | null
   empty: string
   /** Repositories whose latest read failed. */
@@ -89,7 +101,9 @@ function HomeCard({
 }) {
   let body = <div className="space-y-0.5">{children}</div>
 
-  if (count === null) {
+  if (total === 0) {
+    body = <div className="px-1 py-1.5 text-[12px] text-tertiary">Choose repositories from ⋯</div>
+  } else if (count === null) {
     body = (
       <div className="space-y-1.5">
         {[0, 1].map((i) => (
@@ -108,8 +122,9 @@ function HomeCard({
     <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
       <div className="home-card-drag cursor-grab active:cursor-grabbing mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         {icon}
-        <span>{title}</span>
-        {count !== null && <span className="text-tertiary tabular-nums">{count}</span>}
+        <span className="truncate">{title}</span>
+        {count !== null && total > 0 && <span className="text-tertiary tabular-nums">{count}</span>}
+        {menu}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{body}</div>
       {failed.length > 0 && failed.length < total && (
@@ -149,65 +164,102 @@ function HomeRow({
 const loadPulls = (teamId: string) => (repo: HomeRepo, owner: string, name: string) =>
   api.atlasListGithubPulls(teamId, repo.installationId, owner, name, 'open')
 
-const loadRuns = (teamId: string) => async (repo: HomeRepo, owner: string, name: string) =>
-  failingRuns(
-    (await api.atlasListGithubActionRuns(teamId, repo.installationId, owner, name, 1)).runs,
-  )
+const loadRuns =
+  (teamId: string) =>
+  async (repo: HomeRepo, owner: string, name: string): Promise<GithubWorkflowRun[]> =>
+    (await api.atlasListGithubActionRuns(teamId, repo.installationId, owner, name, 1)).runs
 
-export function PullRequestsCard({ teamId, repos }: { teamId: string; repos: HomeRepo[] }) {
-  const { items: pulls, failed } = useRepoItems(repos, loadPulls(teamId))
-  const sorted = pulls?.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+const repoName = (repo: string) => repo.split('/')[1] ?? repo
 
-  return (
-    <HomeCard
-      icon={<GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />}
-      title="Pull requests"
-      count={sorted?.length ?? null}
-      empty="No open pull requests"
-      failed={failed}
-      total={repos.length}
-    >
-      {sorted?.slice(0, MAX_ROWS).map((pr) => (
-        <HomeRow
-          key={`${pr.repo}#${String(pr.number)}`}
-          url={pr.htmlUrl}
-          icon={
-            pr.draft ? (
-              <GitPullRequestDraft className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
-            ) : (
-              <GitPullRequest className="h-3.5 w-3.5 text-[#73bf69]" strokeWidth={1.8} />
-            )
-          }
-          title={pr.title}
-          meta={`${pr.repo.split('/')[1]}#${String(pr.number)} · ${pr.author}`}
-        />
-      ))}
-    </HomeCard>
-  )
+function PullRows({ pulls }: { pulls: WithRepo<GithubPR>[] }) {
+  return pulls.map((pr) => (
+    <HomeRow
+      key={`${pr.repo}#${String(pr.number)}`}
+      url={pr.htmlUrl}
+      icon={
+        pr.draft ? (
+          <GitPullRequestDraft className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
+        ) : (
+          <GitPullRequest className="h-3.5 w-3.5 text-[#73bf69]" strokeWidth={1.8} />
+        )
+      }
+      title={pr.title}
+      meta={`${repoName(pr.repo)}#${String(pr.number)} · ${pr.author}`}
+    />
+  ))
 }
 
-export function CiFailuresCard({ teamId, repos }: { teamId: string; repos: HomeRepo[] }) {
-  const { items: runs, failed } = useRepoItems(repos, loadRuns(teamId))
-  const sorted = runs?.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
+function RunRows({ runs }: { runs: WithRepo<GithubWorkflowRun>[] }) {
+  return runs.map((run) => (
+    <HomeRow
+      key={run.id}
+      url={run.htmlUrl}
+      icon={<RunStatusIcon run={run} />}
+      title={`${run.name} · ${run.headBranch}`}
+      meta={`${repoName(run.repo)} · ${formatAge(run.createdAt)}`}
+    />
+  ))
+}
+
+/**
+ * A pull request or CI card. Each follows its own repositories and shows one
+ * status of them, both set from its ⋯ menu, so a team can keep, say, one
+ * card of running CI for one repository and another of failures for another.
+ */
+export function GithubCard({
+  teamId,
+  card,
+  onChange,
+  onRemove,
+}: {
+  teamId: string
+  card: HomeGithubCard
+  onChange: (card: HomeGithubCard) => void
+  onRemove: () => void
+}) {
+  const pulls = card.kind === 'pulls'
+  // The status is applied while rendering, so changing it needs no reload.
+  const { items, failed } = useRepoItems<GithubPR | GithubWorkflowRun>(
+    card.repos,
+    pulls ? loadPulls(teamId) : loadRuns(teamId),
+  )
+  const status = (pulls ? PULL_STATUSES : RUN_STATUSES).find((s) => s.value === card.status)
+  let rows: ReactNode = null
+  let count: number | null = null
+
+  if (items && card.kind === 'pulls') {
+    const shown = filterPulls(items as WithRepo<GithubPR>[], card.status).toSorted((a, b) =>
+      b.updatedAt.localeCompare(a.updatedAt),
+    ) as WithRepo<GithubPR>[]
+
+    count = shown.length
+    rows = <PullRows pulls={shown.slice(0, MAX_ROWS)} />
+  } else if (items && card.kind === 'ci') {
+    const shown = filterRuns(items as WithRepo<GithubWorkflowRun>[], card.status).toSorted((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    ) as WithRepo<GithubWorkflowRun>[]
+
+    count = shown.length
+    rows = <RunRows runs={shown.slice(0, MAX_ROWS)} />
+  }
 
   return (
     <HomeCard
-      icon={<CircleX className="h-3.5 w-3.5" strokeWidth={1.8} />}
-      title="CI failures"
-      count={sorted?.length ?? null}
-      empty="Nothing failing"
+      icon={
+        pulls ? (
+          <GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />
+        ) : (
+          <CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />
+        )
+      }
+      title={`${pulls ? 'Pull requests' : 'CI'} · ${status?.label ?? ''}`}
+      menu={<GithubCardMenu teamId={teamId} card={card} onChange={onChange} onRemove={onRemove} />}
+      count={count}
+      empty={status?.empty ?? ''}
       failed={failed}
-      total={repos.length}
+      total={card.repos.length}
     >
-      {sorted?.slice(0, MAX_ROWS).map((run) => (
-        <HomeRow
-          key={run.id}
-          url={run.htmlUrl}
-          icon={<CircleX className="h-3.5 w-3.5 text-error" strokeWidth={1.8} />}
-          title={`${run.name} · ${run.headBranch}`}
-          meta={`${run.repo.split('/')[1]} · ${formatAge(run.createdAt)}`}
-        />
-      ))}
+      {rows}
     </HomeCard>
   )
 }

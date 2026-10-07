@@ -180,8 +180,12 @@ export type TeamHomeLayout = {
 
 export type HomeLayout = {
   team: boolean
-  pulls: { installationId: number; fullName: string }[]
-  ci: { installationId: number; fullName: string }[]
+  github: {
+    id: string
+    kind: 'pulls' | 'ci'
+    repos: { installationId: number; fullName: string }[]
+    status: string
+  }[]
   panels: { dashboardId: string; panelId: string }[]
   grid?: { i: string; x: number; y: number; w: number; h: number }[]
 }

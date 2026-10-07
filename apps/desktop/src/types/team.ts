@@ -118,6 +118,14 @@ export type SidebarFavoritesCloudSnapshot = {
 /** A repository a home card follows, addressed the way the GitHub API routes need it. */
 export type HomeRepo = { installationId: number; fullName: string }
 
+export type HomePullStatus = 'open' | 'ready' | 'draft'
+export type HomeRunStatus = 'failed' | 'running' | 'latest'
+
+/** A pull request or CI card: the repositories it follows and what it shows of them. */
+export type HomeGithubCard =
+  | { id: string; kind: 'pulls'; repos: HomeRepo[]; status: HomePullStatus }
+  | { id: string; kind: 'ci'; repos: HomeRepo[]; status: HomeRunStatus }
+
 /** A Nuphos Dashboards panel pinned to the home page. */
 export type HomePanel = { dashboardId: string; panelId: string }
 
@@ -128,8 +136,8 @@ export type HomePanel = { dashboardId: string; panelId: string }
  */
 export type HomeLayout = {
   team: boolean
-  pulls: HomeRepo[]
-  ci: HomeRepo[]
+  /** Pull request and CI cards; there can be any number of each. */
+  github: HomeGithubCard[]
   panels: HomePanel[]
   /** Where each card sits, in grid units; a card without an entry goes last. */
   grid?: HomeGridItem[]

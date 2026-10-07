@@ -1,15 +1,44 @@
-import type { GithubWorkflowRun } from '../../../types'
+import type { GithubPR, GithubWorkflowRun } from '../../../types'
 import type {
   HomeGridItem,
   HomeLayout,
   HomeLayouts,
   HomePanel,
+  HomePullStatus,
   HomeRepo,
+  HomeRunStatus,
 } from '../../../types/team.ts'
 
-export type { HomeLayout, HomePanel, HomeRepo } from '../../../types/team.ts'
+export type { HomeGithubCard, HomeLayout, HomePanel, HomeRepo } from '../../../types/team.ts'
 
-export const EMPTY_HOME_LAYOUT: HomeLayout = { team: false, pulls: [], ci: [], panels: [] }
+/** What a team starts with: just the activity heatmap. */
+export const DEFAULT_HOME_LAYOUT: HomeLayout = { team: true, github: [], panels: [] }
+
+/**
+ * The default plus what a team already has to show: pull request and CI cards
+ * for `repo` when it has open pull requests or runs, and `panels` from the
+ * first dashboard.
+ */
+export function starterLayout({
+  repo,
+  hasPulls,
+  hasRuns,
+  panels,
+}: {
+  repo: HomeRepo | null
+  hasPulls: boolean
+  hasRuns: boolean
+  panels: HomePanel[]
+}): HomeLayout {
+  const github: HomeLayout['github'] = []
+
+  if (repo && hasPulls)
+    github.push({ id: 'starter-pulls', kind: 'pulls', repos: [repo], status: 'open' })
+  if (repo && hasRuns)
+    github.push({ id: 'starter-ci', kind: 'ci', repos: [repo], status: 'latest' })
+
+  return { ...DEFAULT_HOME_LAYOUT, github, panels }
+}
 
 export const repoKey = (repo: HomeRepo) => repo.fullName
 export const panelKey = (panel: HomePanel) => `${panel.dashboardId}/${panel.panelId}`
@@ -21,12 +50,31 @@ export function toggleItem<T>(list: T[], item: T, key: (t: T) => string): T[] {
   return list.some((t) => key(t) === k) ? list.filter((t) => key(t) !== k) : [...list, item]
 }
 
+export const PULL_STATUSES: { value: HomePullStatus; label: string; empty: string }[] = [
+  { value: 'open', label: 'Open', empty: 'No open pull requests' },
+  { value: 'ready', label: 'Ready for review', empty: 'Nothing ready for review' },
+  { value: 'draft', label: 'Draft', empty: 'No drafts' },
+]
+
+export const RUN_STATUSES: { value: HomeRunStatus; label: string; empty: string }[] = [
+  { value: 'failed', label: 'Failing', empty: 'Nothing failing' },
+  { value: 'running', label: 'Running', empty: 'Nothing running' },
+  { value: 'latest', label: 'Latest', empty: 'No runs yet' },
+]
+
+export function filterPulls(pulls: GithubPR[], status: HomePullStatus): GithubPR[] {
+  if (status === 'open') return pulls
+
+  return pulls.filter((pr) => pr.draft === (status === 'draft'))
+}
+
 /**
- * Runs that are failing right now: the latest run of each workflow on each
- * branch, kept only when it failed. A failure already followed by a newer run
- * of the same workflow on the same branch is history, not something to fix.
+ * The runs a CI card shows. Only the latest run of each workflow on each
+ * branch counts: a failure already followed by a newer run is history. Of
+ * those, `failed` keeps the failures, `running` the ones still in progress or
+ * queued, and `latest` all of them.
  */
-export function failingRuns(runs: GithubWorkflowRun[]): GithubWorkflowRun[] {
+export function filterRuns(runs: GithubWorkflowRun[], status: HomeRunStatus): GithubWorkflowRun[] {
   const latest = new Map<string, GithubWorkflowRun>()
 
   for (const run of runs) {
@@ -35,8 +83,12 @@ export function failingRuns(runs: GithubWorkflowRun[]): GithubWorkflowRun[] {
 
     if (!seen || run.createdAt > seen.createdAt) latest.set(key, run)
   }
+  const current = [...latest.values()]
 
-  return [...latest.values()].filter((run) => run.conclusion === 'failure')
+  if (status === 'failed') return current.filter((run) => run.conclusion === 'failure')
+  if (status === 'running') return current.filter((run) => run.status !== 'completed')
+
+  return current
 }
 
 export const GRID_COLUMNS = 12
@@ -45,6 +97,7 @@ export const GRID_COLUMNS = 12
 function defaultSize(key: string): { w: number; h: number } {
   if (key === 'team') return { w: GRID_COLUMNS, h: 8 }
   if (key.startsWith('panel:')) return { w: GRID_COLUMNS / 2, h: 6 }
+  // GitHub cards (`gh:<id>`).
 
   return { w: GRID_COLUMNS / 2, h: 7 }
 }
@@ -78,8 +131,20 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
  * The layout to show and edit, or null while it is unknown. Only a successful
  * read makes it known: editing from a stand-in would overwrite the real one.
  */
-export function editableLayout(saved: HomeLayouts | null): HomeLayout | null {
-  return saved ? (saved.personal ?? saved.team ?? EMPTY_HOME_LAYOUT) : null
+export function editableLayout(
+  saved: HomeLayouts | null,
+  fallback: HomeLayout = DEFAULT_HOME_LAYOUT,
+): HomeLayout | null {
+  if (!saved) return null
+  const layout = saved.personal ?? saved.team ?? fallback
+
+  // Layouts saved before a field existed read as without it.
+  return {
+    ...DEFAULT_HOME_LAYOUT,
+    ...layout,
+    github: layout.github ?? [],
+    panels: layout.panels ?? [],
+  }
 }
 
 export type RepoRead<T> = { repo: string; items: T[] | null }

@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../../api'
 import { toast } from '../../ui/toast'
 
-import { editableLayout } from './homeWidgetSettings'
+import { loadStarterLayout } from './homeStarter'
+import { DEFAULT_HOME_LAYOUT, editableLayout } from './homeWidgetSettings'
 
 import type { HomeLayout, HomeLayouts } from '../../../types/team.ts'
 
@@ -11,12 +12,15 @@ const RETRY_MS = 30_000
 
 /**
  * The home page layout, stored on the server so it follows the user across
- * machines. A member sees their own layout once they change anything, and the
- * team default until then. Writes apply locally first; a failed save reloads
- * what the server has.
+ * machines. A member sees their own layout once they change anything, the
+ * team default until then, and, when neither is saved, a starter layout built
+ * from what the team already has (see loadStarterLayout). Writes apply locally
+ * first; a failed save reloads what the server has.
  */
 export function useHomeLayout(teamId: string) {
   const [saved, setSaved] = useState<HomeLayouts | null>(null)
+  const [starter, setStarter] = useState<HomeLayout>(DEFAULT_HOME_LAYOUT)
+  const unsaved = saved !== null && !saved.personal && !saved.team
 
   const reload = useCallback(() => {
     // A failed read leaves `saved` as it was; see editableLayout.
@@ -24,6 +28,21 @@ export function useHomeLayout(teamId: string) {
   }, [teamId])
 
   useEffect(reload, [reload])
+
+  // Only worth the extra reads when nothing is saved to show instead.
+  useEffect(() => {
+    if (!unsaved) return
+    let alive = true
+
+    loadStarterLayout(teamId).then(
+      (next) => alive && setStarter(next),
+      () => {},
+    )
+
+    return () => {
+      alive = false
+    }
+  }, [teamId, unsaved])
 
   // Until the first read succeeds, keep trying in the background.
   useEffect(() => {
@@ -41,7 +60,7 @@ export function useHomeLayout(teamId: string) {
     })
   }
 
-  const layout = editableLayout(saved)
+  const layout = editableLayout(saved, starter)
 
   return {
     /** Null until a read succeeds; nothing is shown or editable before then. */

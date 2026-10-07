@@ -22,8 +22,28 @@ const repoSchema = z
 const layoutSchema = z
   .object({
     team: z.boolean(),
-    pulls: z.array(repoSchema).max(50),
-    ci: z.array(repoSchema).max(50),
+    github: z
+      .array(
+        z.discriminatedUnion('kind', [
+          z
+            .object({
+              id: z.string().min(1).max(40),
+              kind: z.literal('pulls'),
+              repos: z.array(repoSchema).max(50),
+              status: z.enum(['open', 'ready', 'draft']),
+            })
+            .strict(),
+          z
+            .object({
+              id: z.string().min(1).max(40),
+              kind: z.literal('ci'),
+              repos: z.array(repoSchema).max(50),
+              status: z.enum(['failed', 'running', 'latest']),
+            })
+            .strict(),
+        ]),
+      )
+      .max(30),
     panels: z
       .array(
         z
