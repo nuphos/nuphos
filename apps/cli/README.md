@@ -10,7 +10,6 @@ are redrawn.
 
 ```sh
 nuphos                    # TUI: new conversation in the default team
-nuphos "check the pods"   # TUI, sending a first message
 nuphos resume [SESSION]   # TUI on a previous conversation, or a picker
 ```
 

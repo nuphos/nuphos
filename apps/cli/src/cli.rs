@@ -143,12 +143,6 @@ pub async fn model(
     let runtimes = ctx.runtimes().await?;
     let runtime = shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id)
         .ok_or_else(|| anyhow!("This team has no active agents."))?;
-    if runtime["kind"] == "local" {
-        bail!(
-            "{} is a local agent; change its default model in the desktop app, or pass --session after the first message.",
-            label(&runtime)
-        );
-    }
     let runtime_id = runtime["id"].as_str().unwrap_or_default().to_string();
     if value.is_none() && effort.is_none() {
         let catalog = ctx.api.runtime_models(&team, &runtime_id, None).await?;
@@ -156,7 +150,8 @@ pub async fn model(
             ctx.print_json(&json!({ "runtime": runtime, "catalog": catalog }));
             return Ok(());
         }
-        println!("Default for new conversations on {} (team setting):", label(&runtime));
+        let scope = if runtime["kind"] == "local" { "set in the desktop app" } else { "team setting" };
+        println!("Default for new conversations on {} ({scope}):", label(&runtime));
         let current = runtime["defaults"]["model"].as_str().or(catalog["controls"]["modelId"].as_str());
         for m in catalog["models"].as_array().into_iter().flatten() {
             let id = m["id"].as_str().unwrap_or_default();
@@ -166,6 +161,12 @@ pub async fn model(
             println!("effort: {}", clean(effort));
         }
         return Ok(());
+    }
+    if runtime["kind"] == "local" {
+        bail!(
+            "{} is a local agent; change its default model in the desktop app, or pass --session after the first message.",
+            label(&runtime)
+        );
     }
     let mut defaults = runtime["defaults"].clone();
     if !defaults.is_object() {

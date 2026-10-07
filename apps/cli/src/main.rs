@@ -19,7 +19,7 @@ use crate::api::Api;
 /// A terminal client for Nuphos. Without a command it opens the interactive
 /// TUI; every TUI action is also a command for scripts and other agents.
 #[derive(Parser)]
-#[command(name = "nuphos", version, args_conflicts_with_subcommands = true)]
+#[command(name = "nuphos", version)]
 struct Args {
     /// Team id or name. Defaults to the team used last.
     #[arg(long, global = true, env = "NUPHOS_TEAM")]
@@ -29,8 +29,6 @@ struct Args {
     json: bool,
     #[command(subcommand)]
     command: Option<Command>,
-    /// Open the TUI and send this message.
-    prompt: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -121,7 +119,7 @@ async fn run(args: Args) -> Result<i32> {
         None | Some(Command::Resume { .. }) => {
             let start = match args.command {
                 Some(Command::Resume { session }) => app::Start::Resume(session),
-                _ => app::Start::New(args.prompt),
+                _ => app::Start::New,
             };
             let team_id = ctx.team["id"].as_str().unwrap_or_default().to_string();
             let app = app::App::new(ctx.api, ctx.me_id, ctx.team, ctx.prefs).await?;

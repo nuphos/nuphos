@@ -84,8 +84,7 @@ struct Picker {
 
 /// What the TUI opens with.
 pub enum Start {
-    /// A new conversation, optionally sending a first message.
-    New(Option<String>),
+    New,
     /// A conversation by id, or the picker.
     Resume(Option<String>),
 }
@@ -186,8 +185,7 @@ impl App {
             Line::default(),
         ]);
         match start {
-            Start::New(Some(prompt)) => self.send(&prompt),
-            Start::New(None) => {}
+            Start::New => {}
             Start::Resume(Some(id)) => self.resume(json!({ "sessionId": id })).await,
             Start::Resume(None) => self.open_conversation_picker().await,
         }
