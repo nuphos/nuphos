@@ -67,7 +67,7 @@ test('avatar URLs round-trip for clients without entering the model envelope', (
 })
 
 test('sender email and a well-formed device reach the model envelope', () => {
-  const device = { id: 'device-a', label: 'MacBook', platform: 'darwin' }
+  const device = { label: 'MacBook', platform: 'darwin' }
   const value = { ...metadata, sender: { ...metadata.sender, email: 'a@example.com' }, device }
   const json = JSON.parse(renderAttributedMessage('m', 'hello', value).split('\n')[1]!)
 
@@ -79,7 +79,7 @@ test('malformed email and device are dropped without losing attribution', () => 
   const value = {
     ...metadata,
     sender: { ...metadata.sender, email: 42 },
-    device: { id: '', label: 'x', platform: 'y', extra: true },
+    device: { label: '', platform: 'y' },
   }
   const parsed = parseMessageMetadata(value)
 

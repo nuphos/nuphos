@@ -34,7 +34,7 @@ export async function createMessageMetadata(
         : {}),
     },
     ...(device
-      ? { device: { id: device.deviceId, label: device.label, platform: device.platform } }
+      ? { device: { label: device.label, platform: device.platform } }
       : {}),
     source,
     sentAt: new Date().toISOString(),

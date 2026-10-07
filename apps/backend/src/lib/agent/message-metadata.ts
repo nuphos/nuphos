@@ -4,13 +4,13 @@ import { trustedAvatarURL } from '../identity/avatar-url'
 export type MessageMetadata = {
   version: 1
   sender: { type: 'user'; id: string; displayName: string; email?: string; avatarURL?: string }
-  /** The sender's registered Desktop the message was sent from, when known. */
+  /** Self-reported by the sender's registered Desktop; never proof of anything. */
   device?: MessageDevice
   source: 'nuphos' | 'slack'
   sentAt: string
 }
 
-export type MessageDevice = { id: string; label: string; platform: string }
+export type MessageDevice = { label: string; platform: string }
 
 const nonEmpty = (value: unknown): value is string => typeof value === 'string' && value !== ''
 
@@ -18,10 +18,9 @@ function parseDevice(value: unknown): MessageDevice | undefined {
   if (!value || typeof value !== 'object') return undefined
   const d = value as Partial<MessageDevice>
 
-  if (!nonEmpty(d.id) || typeof d.label !== 'string' || typeof d.platform !== 'string')
-    return undefined
+  if (!nonEmpty(d.label) || typeof d.platform !== 'string') return undefined
 
-  return { id: d.id, label: d.label, platform: d.platform }
+  return { label: d.label, platform: d.platform }
 }
 
 export function parseMessageMetadata(value: unknown): MessageMetadata | undefined {
