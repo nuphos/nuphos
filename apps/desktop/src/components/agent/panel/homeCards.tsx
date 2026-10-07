@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../../api'
 import { formatAge } from '../../../utils'
 import { openOnGithub } from '../../../views/github-repo/openOnGithub'
+import { LabelChip } from '../../../views/github-repo/PullRequestSidebar'
 import { RunStatusIcon } from '../../../views/github-repo/RunStatusIcon'
 
 import { GithubCardMenu } from './homeGithubMenu'
@@ -23,6 +24,7 @@ import type { ReactNode } from 'react'
 
 const REFRESH_MS = 60_000
 const MAX_ROWS = 8
+const MAX_LABELS = 3
 
 type WithRepo<T> = T & { repo: string }
 type RepoLoader<T> = (repo: HomeRepo, owner: string, name: string) => Promise<T[]>
@@ -120,7 +122,8 @@ function HomeCard({
   }
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+    // A size container, so rows can show more when the card is wide.
+    <section className="@container flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
       <div className="home-card-drag cursor-grab active:cursor-grabbing mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         {icon}
         <span className="truncate">{title}</span>
@@ -141,11 +144,14 @@ function HomeRow({
   url,
   icon,
   title,
+  labels,
   meta,
 }: {
   url: string
   icon: ReactNode
   title: string
+  /** Shown only when the card is wide enough, as GitHub's own lists do. */
+  labels?: ReactNode
   meta: string
 }) {
   return (
@@ -157,6 +163,11 @@ function HomeRow({
       <span className="min-w-0 flex-1 truncate text-[13px] text-secondary group-hover:text-main">
         {title}
       </span>
+      {labels && (
+        <span className="hidden max-w-[45%] flex-shrink-0 items-center gap-1 overflow-hidden @lg:flex">
+          {labels}
+        </span>
+      )}
       <span className="flex-shrink-0 font-mono text-[11px] text-tertiary">{meta}</span>
     </BaseButton>
   )
@@ -185,6 +196,18 @@ function PullRows({ pulls }: { pulls: WithRepo<GithubPR>[] }) {
         )
       }
       title={pr.title}
+      labels={
+        pr.labels.length > 0 && (
+          <>
+            {pr.labels.slice(0, MAX_LABELS).map((l) => (
+              <LabelChip key={l.name} name={l.name} color={l.color} />
+            ))}
+            {pr.labels.length > MAX_LABELS && (
+              <span className="text-[11px] text-tertiary">+{pr.labels.length - MAX_LABELS}</span>
+            )}
+          </>
+        )
+      }
       meta={`${repoName(pr.repo)}#${String(pr.number)} · ${pr.author}`}
     />
   ))
