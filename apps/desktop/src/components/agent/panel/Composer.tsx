@@ -28,7 +28,6 @@ export function Composer({
   variant = 'compact',
   onSend,
   onStop,
-  streaming: _transportStreaming,
   runtimeState,
   executing = false,
   readOnly = false,
@@ -49,6 +48,7 @@ export function Composer({
   draftKey,
   onImportSession,
   mentionScope,
+  promptSuggestion,
 }: {
   variant?: 'compact' | 'hero'
   onSend: (text: string, filePaths: string[]) => void
@@ -75,8 +75,6 @@ export function Composer({
   bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void
-  /** Fires when the editor crosses between empty and not. The hero uses it to
-   *  drop back to its categories once the user clears what it started. */
   /** No cloud connected — the example prompts must stay answerable read-only. */
   firstRun?: boolean
   autoFocus?: boolean
@@ -95,6 +93,7 @@ export function Composer({
   /** Turns on @teammate mentions; with a session, mentioned outsiders get an
    *  invite prompt after sending. */
   mentionScope?: { teamId: string; sessionId?: string }
+  promptSuggestion?: string | null
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -126,6 +125,7 @@ export function Composer({
     readOnlyPlaceholder,
     streaming,
     autoFocus,
+    promptSuggestion,
   })
 
   useComposerDraft(state, readOnly ? undefined : draftKey)

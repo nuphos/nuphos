@@ -30,6 +30,7 @@ useChatPreviewPrepare({
     message: 'fix it',
     freshSessionMessage: () => 'fix it',
     carried: [],
+    openPromptSuggestion: () => Promise.resolve(),
     clearActiveTurn: async () => {
       cleared++
     },

@@ -271,6 +271,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   // Runtime completion is authoritative; partial/late tool cards cannot cause
   // backend cancellation or another prompt after completion.
   if (acc.text) answers.push(acc.text)
+  await prepared.openPromptSuggestion()
 
   try {
     await finishPreviewTurn({

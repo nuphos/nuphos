@@ -1,4 +1,4 @@
-import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { getConversationPreviewAttachment, setConversationPromptSuggestion } from '@/lib/agent/db'
 import { logError, logEvent } from '@/lib/observability'
 
 import {
@@ -206,6 +206,17 @@ export function observeAutonomousUpdates(session: TeamSession): void {
       return
     if (update.kind === 'async-task') {
       observeCodexAsyncTask(session, update)
+
+      return
+    }
+    if (update.kind === 'prompt-suggestion') {
+      void setConversationPromptSuggestion(
+        session.conversationId,
+        session.teamId,
+        update.suggestion,
+      ).catch((error: unknown) => {
+        logHandlerError(error, session)
+      })
 
       return
     }
