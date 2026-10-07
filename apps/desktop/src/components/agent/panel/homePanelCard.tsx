@@ -72,7 +72,7 @@ export function DashboardPanelCard({
       <div className="px-1 py-1.5 text-[12px] text-tertiary">This panel is no longer available</div>
     )
   } else if (panel && output) {
-    body = <PanelOutputView output={output} />
+    body = <PanelOutputView output={output} fill />
   } else if (panel) {
     body = <div className="px-1 py-1.5 text-[12px] text-tertiary">No data yet</div>
   }
@@ -94,7 +94,8 @@ export function DashboardPanelCard({
           <PinOff className="h-3.5 w-3.5" strokeWidth={1.8} />
         </BaseButton>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{body}</div>
+      {/* Charts and tables take the card's height as it is resized. */}
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin [&>*]:h-full">{body}</div>
     </section>
   )
 }

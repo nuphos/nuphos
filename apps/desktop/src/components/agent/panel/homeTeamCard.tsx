@@ -177,12 +177,13 @@ export function TeamActivityCard({
       </div>
       {rows ? (
         <div
-          className="min-h-0 flex-1 space-y-[3px] overflow-y-auto scrollbar-thin"
+          // Rows share the card's height, so cells grow and shrink with it.
+          className="flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto scrollbar-thin"
           onMouseLeave={leave}
         >
           {rows.map((row) => (
-            <div key={row.id} className="flex items-center gap-2">
-              <span className="flex w-28 flex-shrink-0 items-center gap-1.5 truncate text-[11.5px] text-secondary">
+            <div key={row.id} className="flex min-h-[10px] flex-1 gap-2">
+              <span className="flex w-28 flex-shrink-0 items-center gap-1.5 self-center truncate text-[11.5px] text-secondary">
                 <Avatar src={row.avatarURL} name={row.name} size={16} className="rounded-full" />
                 <span className="truncate">{row.name}</span>
               </span>
@@ -199,13 +200,13 @@ export function TeamActivityCard({
                       keep()
                       setHover({ el: e.currentTarget, name: row.name, cell })
                     }}
-                    className={clsx('h-3.5 rounded-[2px]', LEVELS[cell.level])}
+                    className={clsx('rounded-[2px]', LEVELS[cell.level])}
                   />
                 ))}
               </div>
             </div>
           ))}
-          <div className="flex items-center gap-2 pt-1.5">
+          <div className="flex flex-none items-center gap-2 pt-1.5">
             <span className="w-28 flex-shrink-0" />
             <div className="flex flex-1 justify-between text-[10.5px] text-tertiary">
               {ticks.map((c, i) =>
@@ -213,7 +214,7 @@ export function TeamActivityCard({
               )}
             </div>
           </div>
-          <div className="flex items-center justify-end gap-1 pt-1 text-[10.5px] text-tertiary">
+          <div className="flex flex-none items-center justify-end gap-1 pt-1 text-[10.5px] text-tertiary">
             <span>Less</span>
             {LEVELS.map((cls) => (
               <span key={cls} className={clsx('h-2.5 w-2.5 rounded-[2px]', cls)} />

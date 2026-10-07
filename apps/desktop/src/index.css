@@ -2009,15 +2009,12 @@ html.platform-darwin:not(.window-fullscreen)
   padding-left: calc(28px + 54px / var(--zoom-factor, 1));
 }
 
-/* Home cards grid (react-grid-layout): where a dragged or resized card will
-   land is a dashed violet outline in the card's shape. The extra
-   .react-grid-layout outranks the library's stylesheet, which loads after
-   this one. */
+/* Home cards grid (react-grid-layout): no drop-target box. The dragged card
+   follows the pointer and the others make room, so the gap shows where it
+   lands. The extra .react-grid-layout outranks the library's stylesheet,
+   which loads after this one. */
 .react-grid-layout .react-grid-item.react-grid-placeholder {
-  background: rgb(139 92 246 / 0.08);
-  border: 1px dashed rgb(139 92 246 / 0.6);
-  border-radius: 8px;
-  opacity: 1;
+  display: none;
 }
 
 .react-grid-item > .react-resizable-handle::after {

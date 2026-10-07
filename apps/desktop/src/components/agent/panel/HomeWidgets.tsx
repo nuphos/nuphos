@@ -148,17 +148,27 @@ export function HomeWidgets({
 
   return (
     <div className="mb-6">
+      {cards.length > 0 && (
+        <HomeGrid
+          cards={cards}
+          saved={settings.grid}
+          onChange={(grid) => update({ ...settings, grid })}
+          revealAt={revealAt}
+          replayKey={replayKey}
+        />
+      )}
       <DelayedPanelReveal
         replayKey={replayKey}
-        delayMs={revealAt}
-        className="mb-2 flex justify-end"
+        // Below the cards, after the last of them has slid in.
+        delayMs={revealAt + 150 * cards.length}
+        className="mt-3 flex justify-center"
       >
         <Menu onOpenChange={(open) => open && load()}>
           <MenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main">
             <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
             Customize
           </MenuTrigger>
-          <MenuContent align="end" className="w-[232px]">
+          <MenuContent align="center" className="w-[232px]">
             <MenuCheckboxItem
               checked={settings.team}
               onCheckedChange={(team) => update({ ...settings, team })}
@@ -194,15 +204,6 @@ export function HomeWidgets({
           </MenuContent>
         </Menu>
       </DelayedPanelReveal>
-      {cards.length > 0 && (
-        <HomeGrid
-          cards={cards}
-          saved={settings.grid}
-          onChange={(grid) => update({ ...settings, grid })}
-          revealAt={revealAt}
-          replayKey={replayKey}
-        />
-      )}
     </div>
   )
 }
