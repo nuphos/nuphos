@@ -72,7 +72,6 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
       {addAgent.dialog}
       <AgentHomePage
         onImportSession={importSession}
-        onOpenConversation={(sessionId, title) => void c.openConversation(sessionId, title)}
         isTeamAdmin={isTeamAdmin}
         shown={c.homeShown}
         userName={c.userName}

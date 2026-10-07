@@ -102,7 +102,6 @@ function RepoSubmenu({
 export function HomeWidgets({
   teamId,
   isTeamAdmin = false,
-  onOpenConversation,
   revealAt,
   replayKey,
 }: {
@@ -113,7 +112,6 @@ export function HomeWidgets({
   replayKey: number
   /** Administrators can make their layout the team default. */
   isTeamAdmin?: boolean
-  onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const home = useHomeLayout(teamId)
   const { repos, load } = useGithubRepos(teamId)
@@ -127,9 +125,7 @@ export function HomeWidgets({
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
 
   const cards = [
-    settings.team && (
-      <TeamActivityCard key="team" teamId={teamId} onOpenConversation={onOpenConversation} />
-    ),
+    settings.team && <TeamActivityCard key="team" teamId={teamId} />,
     settings.pulls.length > 0 && (
       <PullRequestsCard key="pulls" teamId={teamId} repos={settings.pulls} />
     ),

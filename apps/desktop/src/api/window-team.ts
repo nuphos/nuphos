@@ -37,6 +37,8 @@ import type {
   TeamRole,
   HomeLayout,
   HomeLayouts,
+  TeamActivity,
+  TeamActivityRange,
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
@@ -105,6 +107,7 @@ export type WindowTeamApi = {
     expectedRevision: number,
   ): Promise<SidebarFavoritesCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
+  atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasPutHomeLayout(
     teamId: string,
     scope: 'personal' | 'team',

@@ -1,59 +1,33 @@
-import {
-  runtimeBackgroundRunning,
-  runtimeSnapshotFresh,
-  runtimeTurnActive,
-} from '../../../lib/runtimeExecution.ts'
+import type { TeamActivity } from '../../../types/team.ts'
 
-import type { AgentConversation, AgentConversationPerson } from '../../../api'
+export type HeatCell = { start: Date; count: number; level: number } | null
 
-/** Most urgent first: an agent waiting on its person outranks one that is busy. */
-export type ActivityStatus = 'waiting' | 'running' | 'background' | 'idle'
+/** One row per local calendar day, one column per slot of that day. */
+export type HeatRow = { day: Date; cells: HeatCell[] }
 
-const RANK: Record<ActivityStatus, number> = { waiting: 0, running: 1, background: 2, idle: 3 }
+/**
+ * Lays the activity slots out like GitHub's contribution graph: a row per
+ * local day, oldest first, with each slot in its time-of-day column. Slots
+ * outside the range stay empty. `level` is 0 for no sessions, then 1–4 by
+ * share of the busiest slot.
+ */
+export function heatmapRows(activity: TeamActivity): HeatRow[] {
+  const slotMs = activity.slotMinutes * 60_000
+  const perDay = (24 * 60) / activity.slotMinutes
+  const start = new Date(activity.start).getTime()
+  const peak = Math.max(1, ...activity.slots)
+  const rows = new Map<string, HeatRow>()
 
-export type MemberActivity = {
-  owner: AgentConversationPerson
-  status: ActivityStatus
-  /** The conversation that explains the status: the most urgent, then the most recent. */
-  conversation: AgentConversation
-  /** Conversations of this person that are not idle. */
-  busy: number
-}
+  activity.slots.forEach((count, i) => {
+    const at = new Date(start + i * slotMs)
+    const day = new Date(at.getFullYear(), at.getMonth(), at.getDate())
+    const key = day.toDateString()
+    const row = rows.get(key) ?? { day, cells: new Array<HeatCell>(perDay).fill(null) }
+    const column = Math.floor((at.getHours() * 60 + at.getMinutes()) / activity.slotMinutes)
 
-export function conversationStatus(c: AgentConversation): ActivityStatus {
-  const s = c.runtimeState
+    row.cells[column] = { start: at, count, level: count === 0 ? 0 : Math.ceil((count / peak) * 4) }
+    rows.set(key, row)
+  })
 
-  if (runtimeSnapshotFresh(s) && (s?.requestPending || (s?.requests?.length ?? 0) > 0))
-    return 'waiting'
-  if (runtimeTurnActive(s)) return 'running'
-  if (runtimeBackgroundRunning(s)) return 'background'
-
-  return 'idle'
-}
-
-/** One row per person, most urgent first, then most recently active. */
-export function summarizeTeamActivity(conversations: AgentConversation[]): MemberActivity[] {
-  const byOwner = new Map<string, MemberActivity>()
-
-  for (const conversation of conversations) {
-    if (!conversation.owner) continue
-    const status = conversationStatus(conversation)
-    const seen = byOwner.get(conversation.owner.id)
-    const busy = (seen?.busy ?? 0) + (status === 'idle' ? 0 : 1)
-    const better =
-      !seen ||
-      RANK[status] < RANK[seen.status] ||
-      (status === seen.status && conversation.lastActiveAt > seen.conversation.lastActiveAt)
-
-    byOwner.set(
-      conversation.owner.id,
-      better ? { owner: conversation.owner, status, conversation, busy } : { ...seen, busy },
-    )
-  }
-
-  return [...byOwner.values()].sort(
-    (a, b) =>
-      RANK[a.status] - RANK[b.status] ||
-      b.conversation.lastActiveAt.localeCompare(a.conversation.lastActiveAt),
-  )
+  return [...rows.values()]
 }

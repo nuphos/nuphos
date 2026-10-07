@@ -43,7 +43,6 @@ export function AgentHomePage({
   shown = true,
   userName,
   onImportSession,
-  onOpenConversation,
   isTeamAdmin = false,
 }: {
   /** Only used to decide whether the starter suggestions are worth showing:
@@ -83,8 +82,6 @@ export function AgentHomePage({
   userName?: string
   /** Continue a local Claude Code / Codex session on the selected agent. */
   onImportSession?: (session: LocalAgentSessionInfo) => void
-  /** Opens a team conversation picked from a home card. */
-  onOpenConversation?: (sessionId: string, title: string) => void
   /** Administrators can make their home layout the team default. */
   isTeamAdmin?: boolean
 }) {
@@ -199,7 +196,6 @@ export function AgentHomePage({
               key={teamId}
               teamId={teamId}
               isTeamAdmin={isTeamAdmin}
-              onOpenConversation={onOpenConversation}
               revealAt={COMPOSER_REVEAL_MS + 300}
               replayKey={entranceKey}
             />

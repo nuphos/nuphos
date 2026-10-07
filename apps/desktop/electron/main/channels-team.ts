@@ -89,6 +89,8 @@ export const teamChannels = {
     expectedRevision: number,
   ) => atlas.putSidebarFavorites(teamId, entries, expectedRevision),
   'atlas:getHomeLayout': (_e: unknown, teamId: string) => atlas.getHomeLayout(teamId),
+  'atlas:getTeamActivity': (_e: unknown, teamId: string, range: string) =>
+    atlas.getTeamActivity(teamId, range),
   'atlas:putHomeLayout': (
     _e: unknown,
     teamId: string,

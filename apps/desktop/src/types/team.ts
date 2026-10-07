@@ -135,3 +135,13 @@ export type HomeLayout = {
 
 /** The caller's own layout and the team default; either is null when unset. */
 export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }
+
+export type TeamActivityRange = '1d' | '7d' | '30d'
+
+/** Sessions running in each slot of a range, oldest slot first. */
+export type TeamActivity = {
+  range: TeamActivityRange
+  slotMinutes: number
+  start: string
+  slots: number[]
+}

@@ -1,6 +1,9 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 
+import { ACTIVITY_RANGES, getTeamActivity } from '@/lib/agent/team-activity'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
+import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { aliyunAccountsRoutes } from '@/routes/aliyun-accounts'
@@ -71,6 +74,10 @@ teamsRoutes.use('*', requireUserOrConversationAuth)
 
 registerTeamsRootRoutes(teamsRoutes)
 
+const activityQuerySchema = z.object({
+  range: z.enum(Object.keys(ACTIVITY_RANGES) as [keyof typeof ACTIVITY_RANGES]).default('7d'),
+})
+
 const teamScoped = new Hono<{
   Variables: TeamAuthVariables & ConversationTeamAuthVariables
 }>()
@@ -87,6 +94,9 @@ registerClaudeCodeRuntimeRoutes(teamScoped, 'codex')
 registerClaudeCodeRuntimeRoutes(teamScoped)
 
 teamScoped.get('/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
+teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) =>
+  c.json(await getTeamActivity(c.get('teamId'), c.req.valid('query').range)),
+)
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
 teamScoped.route('/favorites', sidebarFavoritesRoutes)

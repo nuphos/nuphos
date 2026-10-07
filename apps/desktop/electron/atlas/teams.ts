@@ -98,6 +98,13 @@ export async function putSidebarFavorites(
   )
 }
 
+export async function getTeamActivity(teamId: string, range: string): Promise<unknown> {
+  return call(
+    'GET',
+    `/teams/${encodeURIComponent(teamId)}/agent-activity?range=${encodeURIComponent(range)}`,
+  )
+}
+
 export async function getHomeLayout(teamId: string): Promise<unknown> {
   return call('GET', `/teams/${encodeURIComponent(teamId)}/home-layout`)
 }
