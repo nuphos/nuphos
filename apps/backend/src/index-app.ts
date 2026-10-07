@@ -22,6 +22,7 @@ import { desktopRoutes } from '@/routes/desktop'
 import { discordRoutes } from '@/routes/discord'
 import { discordAppRoutes } from '@/routes/discord-app'
 import { downloadHandoffRateLimitRoutes } from '@/routes/download-handoff-rate-limit'
+import { feedbackRoutes } from '@/routes/feedback'
 import { githubAppRoutes } from '@/routes/github-app'
 import { gitlabAppRoutes } from '@/routes/gitlab-app'
 import { health } from '@/routes/health'
@@ -87,6 +88,7 @@ app.route('/auth', auth)
 app.route('/internal/download-handoff-rate-limit', downloadHandoffRateLimitRoutes)
 app.route('/internal/claude-code-runtime-skills', claudeCodeRuntimeSkills)
 app.route('/desktop', desktopRoutes)
+app.route('/feedback', feedbackRoutes)
 app.route('/push', pushRoutes)
 app.route('/teams', teamsRoutes)
 app.route('/invitations', invitationsRoutes)
