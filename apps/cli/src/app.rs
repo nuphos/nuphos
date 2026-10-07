@@ -120,6 +120,9 @@ pub struct App {
     quit: bool,
     /// Approvals whose full command has been written out.
     announced: Vec<String>,
+    /// Streams of this conversation already followed to the end; the server
+    /// can list one as running for a moment after it ends.
+    ended: Vec<String>,
 
     tx: UnboundedSender<StreamEvent>,
     rx: UnboundedReceiver<StreamEvent>,
@@ -153,6 +156,7 @@ impl App {
             tick: 0,
             quit: false,
             announced: Vec::new(),
+            ended: Vec::new(),
             tx,
             rx,
         };
@@ -210,6 +214,7 @@ impl App {
     async fn event_loop(&mut self, terminal: &mut Term) -> Result<()> {
         let mut events = EventStream::new();
         let mut ticker = tokio::time::interval(Duration::from_millis(120));
+        let mut poller = tokio::time::interval(Duration::from_secs(3));
         while !self.quit {
             self.write_out(terminal)?;
             terminal.draw(|f| self.draw(f))?;
@@ -223,6 +228,7 @@ impl App {
                 }
                 Some(event) = self.rx.recv() => self.on_stream(event).await,
                 _ = ticker.tick() => self.tick = self.tick.wrapping_add(1),
+                _ = poller.tick() => self.poll().await,
             }
         }
         Ok(())
@@ -601,6 +607,7 @@ impl App {
         }
         self.session_id = uuid::Uuid::new_v4().to_string();
         self.is_new = true;
+        self.ended.clear();
         self.messages.clear();
         self.base_index = 0;
         self.assistant = None;
@@ -676,6 +683,7 @@ impl App {
         match event {
             StreamEvent::Frame(id, frame) if self.is_current(&id) => self.on_frame(frame),
             StreamEvent::Ended(id, error) if self.is_current(&id) => {
+                self.ended.push(id);
                 self.stream = None;
                 self.end_turn(error);
                 self.refresh_model_label().await;
@@ -1064,9 +1072,7 @@ impl App {
         self.new_conversation();
         self.session_id = id;
         self.is_new = false;
-        self.messages = detail["messages"].as_array().cloned().unwrap_or_default();
         self.base_index = detail["messagesFirstIndex"].as_u64().unwrap_or(0) as usize;
-        self.assistant = self.messages.iter().rposition(|m| role(m) == "assistant");
         self.runtime = detail["runtimeId"]
             .as_str()
             .and_then(|rid| self.runtimes.iter().find(|r| r["id"] == rid))
@@ -1080,13 +1086,49 @@ impl App {
         self.pending_output.extend(header);
         self.model_label = None;
         self.refresh_model_label().await;
+        self.follow(&detail);
+    }
 
-        // Reattach to a reply still running.
-        if let Some(stream_id) = detail["activeRun"]["streamId"].as_str() {
+    /// Takes in what the server has beyond what is shown, and attaches to a
+    /// reply running there — one started here earlier, or from another
+    /// device such as the desktop app.
+    fn follow(&mut self, detail: &Value) {
+        let base = detail["messagesFirstIndex"].as_u64().unwrap_or(0) as usize;
+        let mut server = detail["messages"].as_array().cloned().unwrap_or_default();
+        let running =
+            detail["activeRun"]["streamId"].as_str().filter(|id| !self.ended.iter().any(|e| e == id)).map(String::from);
+        if running.is_some() {
+            // The reply in progress is rebuilt from its stream.
+            if let Some(last_user) = server.iter().rposition(|m| role(m) == "user") {
+                server.truncate(last_user + 1);
+            }
+        }
+        let shown = self.base_index + self.messages.len();
+        for (i, message) in server.into_iter().enumerate() {
+            if base + i >= shown && !self.messages.iter().any(|m| m["id"] == message["id"]) {
+                self.messages.push(message);
+            }
+        }
+        self.assistant = self.messages.iter().rposition(|m| role(m) == "assistant");
+        if let Some(stream_id) = running {
+            self.assistant = None;
             let mut body = self.chat_body();
             body["streamId"] = json!(stream_id);
             body["resume"] = json!(true);
             self.start_stream(body);
+        }
+    }
+
+    /// While idle, checks the conversation every few seconds so turns sent
+    /// from elsewhere show up here, as the iOS app does.
+    async fn poll(&mut self) {
+        if self.is_new || self.stream.is_some() || self.picker.is_some() {
+            return;
+        }
+        if let Ok(detail) = self.api.conversation(&self.team_id(), &self.session_id).await {
+            if self.stream.is_none() {
+                self.follow(&detail);
+            }
         }
     }
 
