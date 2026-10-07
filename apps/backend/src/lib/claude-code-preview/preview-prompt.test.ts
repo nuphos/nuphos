@@ -142,6 +142,6 @@ for (const provider of ['claude-code', 'codex'] as const) {
 
     expect(prompt).toContain('Provider-supplied userEmail')
     expect(prompt).toContain('NOT the Nuphos participant')
-    expect(prompt).toContain('metadata does not verify or supply the sender’s email')
+    expect(prompt).toContain('sender.email, when present, is the sender’s Nuphos account email')
   })
 }
