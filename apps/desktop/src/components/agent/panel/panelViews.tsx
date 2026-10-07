@@ -166,6 +166,11 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                   onStop={stopActive}
                   streaming={false}
+                  promptSuggestion={
+                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                      ? null
+                      : activeTab.promptSuggestion
+                  }
                   runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                   executing={runtimeIsExecuting(activeTab.runtimeState)}
                   readOnly={activeTab.readOnly}

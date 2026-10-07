@@ -82,6 +82,21 @@ export async function consumeConversationWorkLost(
   return previous?.claudeCodePreviewWorkLost?.reason ?? null
 }
 
+/**
+ * Offer the runtime's next-prompt guess to the composer. It lives in the
+ * per-turn context, so the next turn's context write clears it.
+ */
+export async function setConversationPromptSuggestion(
+  sessionId: string,
+  teamId: string,
+  suggestion: string,
+): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId, teamId },
+    { $set: { 'claudeCodePreviewContext.promptSuggestion': suggestion } },
+  )
+}
+
 export async function stampConversationRuntimeInstance(
   sessionId: string,
   runtimeId: string,

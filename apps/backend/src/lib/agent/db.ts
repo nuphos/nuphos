@@ -29,6 +29,7 @@ export {
   getConversationPreviewAttachment,
   markConversationWorkLost,
   setConversationPreviewAttachment,
+  setConversationPromptSuggestion,
   stampConversationAgentRuntime,
   stampConversationRuntimeInstance,
 } from './db/conversations-runtime'

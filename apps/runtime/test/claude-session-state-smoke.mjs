@@ -139,6 +139,7 @@ function harness(t) {
     session,
     query,
     errors,
+    updates,
     states,
     lastState: () => states().at(-1),
     async prompt() {
@@ -265,4 +266,26 @@ test('loading a session publishes its current state and restores no turn', async
     assert.equal(agent.sessions[SESSION].activeTurn, null)
   }
   await tick()
+})
+
+test('a prompt suggestion after the turn is forwarded as session info', async (t) => {
+  const h = harness(t),
+    { response, uuid } = await h.prompt()
+
+  await h.emit(state('running'))
+  await h.emit(echo(uuid))
+  await h.emit(result(uuid))
+  await h.emit(state('idle'))
+  assert.equal((await response).stopReason, 'end_turn')
+
+  await h.emit({
+    type: 'prompt_suggestion',
+    suggestion: 'run the tests',
+    uuid: randomUUID(),
+    session_id: SESSION,
+  })
+  assert.deepEqual(
+    h.updates.map(({ update }) => update._meta?.['ai.nuphos/promptSuggestion']).filter(Boolean),
+    [{ suggestion: 'run the tests' }],
+  )
 })

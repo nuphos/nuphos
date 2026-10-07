@@ -54,6 +54,8 @@ export type ConversationPreviewContext = {
   activeTurnOrigin?: AgentSessionOrigin
   /** Whether that turn's client declared it can run local (Desktop) tools. */
   localTools?: boolean
+  /** The runtime's guess at the next user prompt, set after a turn ends. */
+  promptSuggestion?: string
 }
 
 export type { ConversationTimelineEvent }

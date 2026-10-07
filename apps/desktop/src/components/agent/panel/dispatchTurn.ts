@@ -161,6 +161,7 @@ export async function runDispatchTurn(
             bootQuiet: false,
             autoResumeAttempts: 0,
             credentialAccess,
+            promptSuggestion: null,
           }
         : t,
     ),

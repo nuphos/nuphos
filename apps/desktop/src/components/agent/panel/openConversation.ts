@@ -162,6 +162,7 @@ export async function runOpenConversation(
       runtimeId: detail.runtimeId,
       runtimeLabel: detail.runtimeLabel,
       timelineEvents: detail.timelineEvents,
+      promptSuggestion: detail.promptSuggestion,
       openedAt: Date.now(),
     }
 
