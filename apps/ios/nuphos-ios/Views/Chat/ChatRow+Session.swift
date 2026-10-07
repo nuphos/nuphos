@@ -38,8 +38,8 @@ extension ChatRow {
         }
         rows.append(contentsOf: timeline.trailing.map(timelineRow))
 
-        if session.submitting {
-            rows.append(.activity(text: "Sending…"))
+        if session.sending != nil {
+            rows.append(.sending)
         } else if session.isNativeRuntime {
             if let status = session.runtimeStatus {
                 if session.isStreaming {

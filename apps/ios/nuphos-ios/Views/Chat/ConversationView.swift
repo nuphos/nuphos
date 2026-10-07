@@ -274,7 +274,7 @@ struct ConversationView: View {
     private func rowSpacing(_ row: ChatRow) -> CGFloat {
         switch row {
         case .assistantText: 28
-        case .user: 22
+        case .user, .sending: 22
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall: 14
         case .activity, .hint: 18
@@ -318,6 +318,10 @@ struct ConversationView: View {
             MemoryRecallPill(entries: entries, fetched: fetched)
         case .activity(let text):
             ActivityRow(text: text)
+        case .sending:
+            if let sending = session.sending {
+                SendingBubble(submission: sending.submission, progress: sending.progress, onCancel: session.cancelSending)
+            }
         case .hint(_, let text, let isError):
             HintRow(text: text, isError: isError)
         }
@@ -369,6 +373,50 @@ struct UserBubble: View {
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.leading, 56)
+    }
+}
+
+/// The user's message while its attachments upload: what they sent, how far
+/// the upload is, and a way to take it back.
+struct SendingBubble: View {
+    let submission: ComposerSubmission
+    let progress: Progress
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            HStack(spacing: 6) {
+                ForEach(submission.attachments.prefix(4)) { attachment in
+                    AttachmentPreview(attachment: attachment)
+                        .frame(width: 96, height: 96)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+            if !submission.text.isEmpty {
+                Text(submission.text)
+                    .font(Theme.Text.body)
+                    .lineSpacing(Theme.Text.leading)
+                    .foregroundStyle(Theme.heading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            HStack(spacing: 10) {
+                // Progress is read, not stored: the bubble re-reads it twice a second.
+                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                    Text(label).font(Theme.Text.label).foregroundStyle(Theme.muted).monospacedDigit()
+                }
+                Button("Cancel", action: onCancel).font(Theme.Text.label)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.leading, 56)
+    }
+
+    private var label: String {
+        // Nothing to upload, or every byte is out and the server is answering.
+        guard progress.totalUnitCount > 0, progress.completedUnitCount < progress.totalUnitCount else { return "Sending…" }
+        return "Uploading \(progress.completedUnitCount.formatted(.byteCount(style: .file))) of \(progress.totalUnitCount.formatted(.byteCount(style: .file)))"
     }
 }
 
