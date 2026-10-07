@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { anchorDownloadGroups, shouldLoadTransferDownloads } from './transferDownloads.ts'
+import {
+  anchorDownloadGroups,
+  isPreviewableImage,
+  shouldLoadTransferDownloads,
+} from './transferDownloads.ts'
 
 import type { Message, Tab } from './model'
 import type { FileTransferGroup } from '../../../types'
@@ -130,4 +134,26 @@ test('no assistant message means nothing to anchor to', () => {
   )
 
   assert.equal(anchored.size, 0)
+})
+
+function file(
+  over: Partial<FileTransferGroup['files'][number]>,
+): FileTransferGroup['files'][number] {
+  return {
+    id: 'f',
+    fileName: 'a.bin',
+    relPath: 'a.bin',
+    size: 1,
+    contentType: null,
+    status: 'ready',
+    ...over,
+  }
+}
+
+test('previews ready images by content type, or by name when the type is missing', () => {
+  assert.equal(isPreviewableImage(file({ contentType: 'image/png', fileName: 'shot' })), true)
+  assert.equal(isPreviewableImage(file({ fileName: 'Shot.PNG' })), true)
+  assert.equal(isPreviewableImage(file({ contentType: 'text/plain', fileName: 'x.png' })), false)
+  assert.equal(isPreviewableImage(file({ fileName: 'run.log' })), false)
+  assert.equal(isPreviewableImage(file({ fileName: 'shot.png', status: 'pending' })), false)
 })

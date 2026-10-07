@@ -1,5 +1,5 @@
 import type { Message, Tab } from './model'
-import type { FileTransferGroup } from '../../../types'
+import type { FileTransferFile, FileTransferGroup } from '../../../types'
 
 // GET …/file-transfers/downloads is owner-only; a teammate viewing read-only gets a 403.
 export function shouldLoadTransferDownloads(tab: Tab | undefined): tab is Tab {
@@ -42,4 +42,15 @@ export function anchorDownloadGroups(
   }
 
   return byMessage
+}
+
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|svg)$/i
+
+// Images the agent sent are shown, not just offered for download. Agent pushes
+// often carry no content type, so the file name decides then.
+export function isPreviewableImage(file: FileTransferFile): boolean {
+  if (file.status !== 'ready') return false
+  if (file.contentType) return file.contentType.startsWith('image/')
+
+  return IMAGE_EXTENSIONS.test(file.fileName)
 }

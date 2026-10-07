@@ -2,19 +2,22 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 import { FileSearch } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../../api'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
+import { ImageAttachmentThumb } from './messageInline'
+import { isPreviewableImage } from './transferDownloads'
+
 import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
 
-// Files the agent produced for the user to download. Bytes live in
-// the transfer store; clicking fetches a presigned URL and saves via a native
-// dialog (single file) or streams all into a cross-platform zip locally.
+// Files the agent produced for the user. Bytes live in the transfer store.
+// Images are shown inline (click to enlarge); every file can still be saved
+// via a native dialog (single file) or streamed into a local zip.
 export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
@@ -41,6 +44,29 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
   )
   // Team-scoped resolve (no sessionId) — the group is team+user scoped.
   const base = { teamId, groupId: group.groupId }
+  const images = expired ? [] : ready.filter(isPreviewableImage)
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
+  const [reresolved, setReresolved] = useState(false)
+  const hasImages = images.length > 0
+  // Presigned URLs last minutes, so a broken image re-resolves them once.
+  const resolveImages = useCallback(() => {
+    void api
+      .fileTransferResolve({ teamId, groupId: group.groupId })
+      .then((resolved) =>
+        setImageUrls(
+          Object.fromEntries(
+            resolved.files.flatMap((f) => (f.downloadUrl ? [[f.id, f.downloadUrl]] : [])),
+          ),
+        ),
+      )
+      .catch(() => {
+        // The download rows below still work; a missing thumbnail is not fatal.
+      })
+  }, [teamId, group.groupId])
+
+  useEffect(() => {
+    if (hasImages) resolveImages()
+  }, [hasImages, resolveImages])
 
   function savedToast(title: string, description: string, path: string) {
     // "Open in folder" lives only on the (transient) toast — right after the
@@ -105,6 +131,26 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
           </Button>
         )}
       </div>
+      {hasImages && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {images.map((f) => (
+            <ImageAttachmentThumb
+              key={f.id}
+              large
+              url={imageUrls[f.id]}
+              fileName={f.fileName}
+              onError={
+                reresolved
+                  ? undefined
+                  : () => {
+                      setReresolved(true)
+                      resolveImages()
+                    }
+              }
+            />
+          ))}
+        </div>
+      )}
       <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
         {group.files.map((f) => (
           <div key={f.id} className="flex items-center gap-2 text-[12.5px]">
