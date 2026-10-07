@@ -182,8 +182,7 @@ struct AgentSetupView: View {
                 if let url = login.url {
                     Section {
                         Button { openURL(url) } label: {
-                            Label("Open Sign-In Page", systemImage: "arrow.up.forward.app")
-                                .frame(maxWidth: .infinity)
+                            Text("Open Sign-In Page").frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
