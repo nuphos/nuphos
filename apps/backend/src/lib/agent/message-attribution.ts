@@ -1,6 +1,7 @@
 import { trustedAvatarURL } from '../identity/avatar-url'
 
 import { addConversationParticipants } from './db/participants'
+import { getAgentDevice } from './devices/store'
 import { agentMessages } from './db/shared'
 import { assertSingleNewUserMessage } from './message-input'
 import { restoreAppMessageMetadata, parseMessageMetadata } from './message-metadata'
@@ -10,11 +11,16 @@ import type { UIMessage } from 'ai'
 
 import { getNuphosUserById } from '@/lib/identity/auth'
 
+/** `deviceId` is client-claimed, so it only counts when registered to this user. */
 export async function createMessageMetadata(
   userId: string,
   source: MessageMetadata['source'],
+  deviceId?: string,
 ): Promise<MessageMetadata> {
-  const user = await getNuphosUserById(userId)
+  const [user, device] = await Promise.all([
+    getNuphosUserById(userId),
+    deviceId ? getAgentDevice(userId, deviceId) : null,
+  ])
 
   return {
     version: 1,
@@ -22,10 +28,14 @@ export async function createMessageMetadata(
       type: 'user',
       id: userId,
       displayName: user?.name || user?.username || userId,
+      ...(user?.email ? { email: user.email } : {}),
       ...(trustedAvatarURL(user?.avatarURL)
         ? { avatarURL: trustedAvatarURL(user?.avatarURL) }
         : {}),
     },
+    ...(device
+      ? { device: { id: device.deviceId, label: device.label, platform: device.platform } }
+      : {}),
     source,
     sentAt: new Date().toISOString(),
   }
@@ -38,6 +48,7 @@ export async function attributeAppMessages(
   ownerId: string,
   actorId: string,
   continuation: boolean,
+  deviceId?: string,
 ): Promise<void> {
   const stored = await agentMessages()
     .find(
@@ -51,7 +62,7 @@ export async function attributeAppMessages(
   const last = messages.at(-1)
   const fresh =
     !continuation && last?.role === 'user' && !byId.has(last.id)
-      ? await createMessageMetadata(actorId, 'nuphos')
+      ? await createMessageMetadata(actorId, 'nuphos', deviceId)
       : undefined
 
   // Speaking in someone else's session is joining it, so the same step that

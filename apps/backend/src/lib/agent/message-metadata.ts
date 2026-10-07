@@ -3,9 +3,25 @@ import { trustedAvatarURL } from '../identity/avatar-url'
 /** Server-authored attribution. Never derive authorization from these fields. */
 export type MessageMetadata = {
   version: 1
-  sender: { type: 'user'; id: string; displayName: string; avatarURL?: string }
+  sender: { type: 'user'; id: string; displayName: string; email?: string; avatarURL?: string }
+  /** The sender's registered Desktop the message was sent from, when known. */
+  device?: MessageDevice
   source: 'nuphos' | 'slack'
   sentAt: string
+}
+
+export type MessageDevice = { id: string; label: string; platform: string }
+
+const nonEmpty = (value: unknown): value is string => typeof value === 'string' && value !== ''
+
+function parseDevice(value: unknown): MessageDevice | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const d = value as Partial<MessageDevice>
+
+  if (!nonEmpty(d.id) || typeof d.label !== 'string' || typeof d.platform !== 'string')
+    return undefined
+
+  return { id: d.id, label: d.label, platform: d.platform }
 }
 
 export function parseMessageMetadata(value: unknown): MessageMetadata | undefined {
@@ -22,14 +38,18 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
   )
     return undefined
 
+  const device = parseDevice(m.device)
+
   return {
     version: 1,
     sender: {
       type: 'user',
       id: m.sender.id,
       displayName: m.sender.displayName,
+      ...(nonEmpty(m.sender.email) ? { email: m.sender.email } : {}),
       ...(trustedAvatarURL(m.sender.avatarURL) ? { avatarURL: m.sender.avatarURL } : {}),
     },
+    ...(device ? { device } : {}),
     source: m.source,
     sentAt: m.sentAt,
   }
@@ -40,13 +60,10 @@ export function renderAttributedMessage(id: string, text: string, metadata: unkn
   const attribution = parseMessageMetadata(metadata)
 
   if (!attribution) return text
+  const { avatarURL: _avatarURL, ...sender } = attribution.sender
   const json = JSON.stringify({
     ...attribution,
-    sender: {
-      type: attribution.sender.type,
-      id: attribution.sender.id,
-      displayName: attribution.sender.displayName,
-    },
+    sender,
     messageId: id,
   }).replaceAll('<', '\\u003c')
 

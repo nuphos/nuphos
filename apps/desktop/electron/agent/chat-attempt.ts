@@ -1,5 +1,6 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
+import { readDeviceIdentity } from '../main/device-identity.ts'
 
 import {
   CHAT_STREAM_FIRST_BYTE_MAX_ATTEMPTS,
@@ -33,6 +34,7 @@ export async function postChatAttempt(
     accept: 'text/event-stream',
     'accept-encoding': 'identity',
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
+    'x-nuphos-device-id': readDeviceIdentity().deviceId,
   }
 
   if (locale) headers['x-atlas-locale'] = locale
