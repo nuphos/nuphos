@@ -19,7 +19,7 @@ their lid.
   and there is no extra model charge on top.
 - **The session outlives your machine.** A runtime can be local, a remote
   machine you own, or one Nuphos manages. Close the laptop and the turn keeps
-  going; pick it up from your phone.
+  going; pick it up from your phone in the iOS app.
 - **A session is a room with your teammates.** Invite someone into a running
   session the way you would a Notion page. Several people talk to the same
   agent, see the same tool calls, and steer together.
@@ -31,6 +31,9 @@ their lid.
   alerts, logs and traces, plus GitHub and Linear for repositories, pull
   requests and issues. GitLab, AWS including ECS, GCP, Cloudflare, Linode, and
   your MongoDB and SQL connections sit alongside them.
+- **A browser in the workspace.** Open web pages in a desktop tab beside the
+  conversation — docs, a dashboard, the app you are working on — with its own
+  history, instead of switching windows.
 - **Add the agent to Slack or Discord.** One step drops the same agent into a
   channel the team already uses.
 - **Triggers.** A schedule or a webhook starts a turn on its own — a cron, or
