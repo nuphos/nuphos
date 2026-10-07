@@ -5,10 +5,10 @@ import { api } from '../../api'
 import { PageMeta } from '../../app/pageMeta'
 import { useSidebarFavorites } from '../../components/sidebar/use-sidebar-favorites'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
-import { useBrowserHistory } from '../../hooks/useBrowserHistory'
+import { useDockHistory } from '../../hooks/useDockHistory'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
-import { searchBrowserHistory } from '../../lib/browserHistory'
 import { groupByConnectorCategory } from '../../lib/connectorCategories'
+import { frecency, searchDockHistory } from '../../lib/dockHistory'
 import { newTabOptionDomId, rankNewTabOptions } from '../../lib/launcherMatch'
 import { TEAM_WORKSPACE_NAV_ITEMS } from '../../lib/teamOverviewNav'
 import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
@@ -16,6 +16,7 @@ import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 import { HistoryIcon, LauncherIcon, NewTabGroupSection, NewTabOptionRow } from './NewTabOptions'
 
 import type { Item, Section } from '../../components/sidebar/types'
+import type { DockHistoryEntry } from '../../lib/dockHistory'
 import type { NewTabOption } from '../../lib/launcherMatch'
 import type { ReactNode } from 'react'
 
@@ -33,6 +34,10 @@ type Props = {
 
 type OptionGroup = { title: string; favorites?: boolean; options: NewTabOption[] }
 
+const RECENT_LIMIT = 6
+const sameTitle = (a: NewTabOption, b: NewTabOption) =>
+  a.label.toLocaleLowerCase() === b.label.toLocaleLowerCase()
+
 export function WorkspaceNewTabPage({
   focusSearch,
   userId,
@@ -46,10 +51,11 @@ export function WorkspaceNewTabPage({
 }: Props) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
+  // Frecency decays over days, so the time this New Tab opened is precise enough.
+  const [now] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
   const { conversationId } = useWorkspaceTab()
-  const history = useBrowserHistory(userId, teamId)
-  const historyResults = useMemo(() => searchBrowserHistory(history, query), [history, query])
+  const history = useDockHistory(userId, teamId)
 
   useEffect(() => {
     if (!focusSearch) return
@@ -110,7 +116,20 @@ export function WorkspaceNewTabPage({
       item.onActivate ? item.onActivate(newTab) : onOpenKey(item.key, null, newTab),
   })
   const itemOptions = (items: Item[]) => items.filter((item) => item.enabled).map(itemOption)
+  // Every page this dock has shown, most frecent first. A page that is also a
+  // launcher entry (same title) lends that entry its frecency instead.
+  const historyOption = (entry: DockHistoryEntry): NewTabOption => ({
+    id: `history:${entry.href}`,
+    label: entry.title,
+    detail: new URLSearchParams(entry.href.split('?')[1]).get('url') ?? 'Recent',
+    icon: <HistoryIcon />,
+    fallbackMatch: true,
+    frecency: frecency(entry, now),
+    open: (newTab) => onOpenPath?.(entry.href, entry.title, newTab),
+  })
+  const recent = searchDockHistory(history, '', now).map(historyOption)
   const groups: OptionGroup[] = [
+    { title: 'Recent', options: recent.slice(0, RECENT_LIMIT) },
     { title: 'Favorites', favorites: true, options: itemOptions(favoriteItems) },
     { title: 'Workspace', options: itemOptions(workspaceItems) },
     ...liveSections.map((section) => ({
@@ -119,27 +138,21 @@ export function WorkspaceNewTabPage({
     })),
   ]
   const searching = query.trim() !== ''
-  // While typing, every group collapses into one ranked list, history last.
-  // With an empty query the grouped launcher stays.
+  const launcherOptions = groups
+    .slice(1)
+    .flatMap((group) => group.options.map((option) => ({ ...option, detail: group.title })))
+  // While typing, every group collapses into one list ranked by match, then
+  // frecency. With an empty query the grouped launcher stays, Recent first.
   const options: NewTabOption[] = searching
     ? rankNewTabOptions(
         [
-          ...groups.flatMap((group) =>
-            group.options.map((option) => ({ ...option, detail: group.title })),
-          ),
-          ...historyResults.map((entry) => ({
-            id: `history:${entry.url}`,
-            label: entry.title,
-            detail: entry.url,
-            icon: <HistoryIcon />,
-            fallbackMatch: true,
-            open: (newTab: boolean) =>
-              onOpenPath?.(
-                `/teams/${encodeURIComponent(teamId)}/browser?${new URLSearchParams({ url: entry.url })}`,
-                entry.title,
-                newTab,
-              ),
+          ...launcherOptions.map((option) => ({
+            ...option,
+            frecency: recent.find((entry) => sameTitle(entry, option))?.frecency,
           })),
+          ...searchDockHistory(history, query, now)
+            .map(historyOption)
+            .filter((entry) => !launcherOptions.some((option) => sameTitle(entry, option))),
         ],
         query,
       )
@@ -185,7 +198,7 @@ export function WorkspaceNewTabPage({
                 aria-controls="new-tab-options"
                 aria-activedescendant={options[active] ? newTabOptionDomId(active) : undefined}
                 aria-label="Search destinations and browsing history"
-                onFocus={() => void api.appSelectAsciiInputSource().catch(() => undefined)}
+                onFocus={() => void api.appSelectAsciiInputSource().catch(() => {})}
                 onKeyDown={(event) => {
                   if (event.nativeEvent.isComposing) return
                   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {

@@ -28,13 +28,15 @@ export type NewTabOption = {
   /** Already matched elsewhere (history matches on URL too), so it stays in
    *  the results behind every label hit instead of being filtered out. */
   fallbackMatch?: boolean
+  /** Breaks ties within a match rank: pages opened often and lately come first. */
+  frecency?: number
   open: (newTab: boolean) => void
 }
 
 export const newTabOptionDomId = (index: number) => `new-tab-option-${String(index)}`
 
-/** Ranks options by how well their label matches the query. The sort is
- *  stable, so ties keep the page's order. */
+/** Ranks options by how well their label matches the query, then by
+ *  frecency. The sort is stable, so remaining ties keep the page's order. */
 export function rankNewTabOptions(options: NewTabOption[], query: string): NewTabOption[] {
   return options
     .map((option) => ({
@@ -42,6 +44,6 @@ export function rankNewTabOptions(options: NewTabOption[], query: string): NewTa
       rank: launcherMatchRank(option.label, query) ?? (option.fallbackMatch ? 3 : null),
     }))
     .filter((entry): entry is { option: NewTabOption; rank: number } => entry.rank !== null)
-    .sort((a, b) => a.rank - b.rank)
+    .sort((a, b) => a.rank - b.rank || (b.option.frecency ?? 0) - (a.option.frecency ?? 0))
     .map((entry) => entry.option)
 }
