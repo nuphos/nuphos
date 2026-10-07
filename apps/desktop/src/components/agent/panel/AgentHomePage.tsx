@@ -121,12 +121,13 @@ export function AgentHomePage({
   }, [firstRun])
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin selectable">
-      <div className="flex min-h-full flex-col px-6 pb-8 pt-4">
-        {/* The space above the composer gives way as cards fill the page: a
-            bare home keeps the composer near the middle, a busy one scrolls. */}
-        <div className="min-h-[10vh] max-h-[28vh] flex-1" />
-        <div className="mx-auto w-full max-w-[820px]">
+    // A size container, so the block above can measure half of what is visible.
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin selectable [container-type:size]">
+      <div className="flex min-h-full flex-col px-6 pb-8">
+        {/* Exactly half the visible height, bottom-aligned: the composer's
+            bottom edge sits on the page's middle, and everything else hangs
+            below it and scrolls. */}
+        <div className="mx-auto flex min-h-[50cqh] w-full max-w-[820px] flex-col justify-end">
           <AgentHomeAnimation key={entranceKey} title={homeGreeting(userName)} />
           <DelayedPanelReveal replayKey={entranceKey}>
             {/* The composer is untouched — the tray is a sibling painted
@@ -170,6 +171,10 @@ export function AgentHomePage({
                 <ConnectorStrip onStart={handleStartConnect} onDismiss={dismissStrip} />
               )}
             </div>
+          </DelayedPanelReveal>
+        </div>
+        <div className="mx-auto w-full max-w-[820px]">
+          <DelayedPanelReveal replayKey={entranceKey}>
             <LocalAgentHint />
           </DelayedPanelReveal>
           <div className="pt-3">
@@ -197,7 +202,6 @@ export function AgentHomePage({
             />
           </div>
         )}
-        <div className="flex-1" />
       </div>
     </div>
   )
