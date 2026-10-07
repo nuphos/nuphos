@@ -1,10 +1,10 @@
-import AVKit
 import QuickLook
 import SwiftUI
 
 /// The files in one transfer group: what the agent sent, or what the user
-/// uploaded. Images and videos show inline; every other file opens in Quick
-/// Look, which also offers Save and Share.
+/// uploaded. Images show inline; videos and other files are chips. Every file
+/// opens in Quick Look (videos play there) from a freshly signed link, with
+/// Save and Share.
 struct TransferCard: View {
     let groupId: String
     let fromUser: Bool
@@ -14,7 +14,6 @@ struct TransferCard: View {
     var names: [String] = []
 
     @State private var files: [TransferDownloadGroup.File] = []
-    @State private var players: [String: AVPlayer] = [:]
     @State private var opening: String?
     @State private var preview: URL?
     @State private var failed = false
@@ -23,17 +22,10 @@ struct TransferCard: View {
     var body: some View {
         VStack(alignment: fromUser ? .trailing : .leading, spacing: 8) {
             ForEach(files) { file in
-                if let player = players[file.id] {
-                    VideoPlayer(player: player)
-                        .frame(width: 280, height: 158)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .accessibilityLabel("Video \(file.fileName)")
-                } else {
-                    Button { Task { await open(file) } } label: { label(file) }
-                        .buttonStyle(.plain)
-                        .disabled(opening != nil)
-                        .accessibilityLabel("Open \(file.fileName)")
-                }
+                Button { Task { await open(file) } } label: { label(file) }
+                    .buttonStyle(.plain)
+                    .disabled(opening != nil)
+                    .accessibilityLabel("Open \(file.fileName)")
             }
             if unavailable {
                 ForEach(names, id: \.self) { name in chip(name, icon: "doc") }
@@ -48,9 +40,6 @@ struct TransferCard: View {
                 return
             }
             files = group.readyFiles
-            for file in files where file.isVideo {
-                if let url = file.downloadUrl.flatMap(URL.init(string:)) { players[file.id] = AVPlayer(url: url) }
-            }
         }
         .quickLookPreview($preview)
     }
@@ -70,7 +59,7 @@ struct TransferCard: View {
                 shape.fill(Theme.bubble).frame(width: 200, height: 140)
             }
         } else {
-            chip(file.fileName, icon: file.isImage ? "photo" : "doc", busy: opening == file.id)
+            chip(file.fileName, icon: file.isVideo ? "play.rectangle.fill" : file.isImage ? "photo" : "doc", busy: opening == file.id)
         }
     }
 
