@@ -12,9 +12,6 @@ import type { RuntimeExecution } from '../../../lib/runtimeExecution'
 function ShellRow({ shell }: { shell: ShellEntry }) {
   const command = trimDisplayBlock(shell.command)
   const output = trimDisplayBlock(shell.output)
-  const running = shell.status === 'running'
-  const failed =
-    !running && shell.exitCode !== null && shell.exitCode !== undefined && shell.exitCode !== 0
 
   return (
     <Collapsible.Root>
@@ -32,17 +29,9 @@ function ShellRow({ shell }: { shell: ShellEntry }) {
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-main">
           {command || shell.terminalId}
         </span>
-        {running ? (
-          <LoadingText className="flex-shrink-0 text-[11px]">running</LoadingText>
-        ) : (
-          <span
-            className={clsx('flex-shrink-0 text-[11px]', failed ? 'text-error' : 'text-tertiary')}
-          >
-            {failed ? `exit ${String(shell.exitCode)}` : 'exited'}
-          </span>
-        )}
+        <LoadingText className="flex-shrink-0 text-[11px]">running</LoadingText>
       </Collapsible.Trigger>
-      <Collapsible.Panel className="ml-1.5 mt-1.5 max-h-56 overflow-auto scrollbar-thin whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-3 font-mono text-[12px] leading-[1.55] text-secondary">
+      <Collapsible.Panel className="ml-1.5 mt-1.5 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-3 font-mono text-[12px] leading-[1.55] text-secondary">
         {output || 'No output yet.'}
       </Collapsible.Panel>
     </Collapsible.Root>
@@ -50,9 +39,10 @@ function ShellRow({ shell }: { shell: ShellEntry }) {
 }
 
 /**
- * Live shell activity for the current runtime snapshot — openab's terminal
+ * Shells still running in the current runtime snapshot — openab's terminal
  * embeds (Zed `_meta["terminal_output"]` convention) surfaced per tool.
- * Renders nothing once the snapshot holds no terminal-bearing tools.
+ * One scroll area caps the panel so a burst of background shells cannot
+ * push the conversation off screen. Renders nothing once none are running.
  */
 export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefined }) {
   const shells = shellsFromRuntimeState(snapshot)
@@ -62,9 +52,9 @@ export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefin
   return (
     <div className="space-y-1.5 text-[12.5px]">
       <div className="text-[11px] uppercase tracking-wider text-tertiary">
-        {shells.length} {shells.length === 1 ? 'shell' : 'shells'}
+        {shells.length} running {shells.length === 1 ? 'shell' : 'shells'}
       </div>
-      <div className="space-y-1">
+      <div className="max-h-56 space-y-1 overflow-auto scrollbar-thin">
         {shells.map((shell) => (
           <ShellRow key={shell.id} shell={shell} />
         ))}
