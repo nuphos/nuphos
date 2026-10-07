@@ -8,6 +8,7 @@ struct RuntimePickerSheet: View {
 
     @State private var showSetup = false
     @State private var loginRuntime: RuntimeInstance?
+    @State private var detent = PresentationDetent.medium
 
     var body: some View {
         NavigationStack {
@@ -85,7 +86,9 @@ struct RuntimePickerSheet: View {
             }
         }
         .tint(Theme.heading)
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
+        // Setting an agent up needs the whole sheet; the list does not.
+        .onChange(of: showSetup || loginRuntime != nil) { _, open in if open { detent = .large } }
     }
 
     private func canSignIn(_ runtime: RuntimeInstance) -> Bool {

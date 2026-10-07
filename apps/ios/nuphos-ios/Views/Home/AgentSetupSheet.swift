@@ -31,6 +31,7 @@ struct AgentSetupView: View {
     @State private var busy = false
     /// A just-created agent is still starting; sign-in needs it to answer first.
     @State private var agentStarting = false
+    @State private var copied = false
     @State private var error: String?
 
     init(team: Team, runtime: RuntimeInstance? = nil, login: WorkspaceAPI.Login? = nil) {
@@ -159,6 +160,25 @@ struct AgentSetupView: View {
             if login.state == "starting" {
                 Section { HStack { Spacer(); ProgressView("Preparing sign-in…"); Spacer() } }
             } else {
+                // Device sign-in: the code comes first, since the page asks for it.
+                if let userCode = login.userCode {
+                    Section {
+                        HStack {
+                            Text(userCode).font(.title2.monospaced().weight(.semibold)).textSelection(.enabled)
+                            Spacer()
+                            Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                                UIPasteboard.general.string = userCode
+                                copied = true
+                            }
+                            .labelStyle(.iconOnly)
+                            .contentTransition(.symbolEffect(.replace))
+                        }
+                    } header: {
+                        Text("Verification Code")
+                    } footer: {
+                        Text("1. Copy this code.\n2. Open the sign-in page and sign in with your \(vendor(runtime.provider)) account.\n3. Enter the code when asked. This page updates once you're signed in.")
+                    }
+                }
                 if let url = login.url {
                     Section {
                         Button { openURL(url) } label: {
@@ -169,16 +189,6 @@ struct AgentSetupView: View {
                         .controlSize(.large)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
-                    }
-                }
-                if let userCode = login.userCode {
-                    Section("Verification Code") {
-                        HStack {
-                            Text(userCode).font(.title2.monospaced().weight(.semibold)).textSelection(.enabled)
-                            Spacer()
-                            Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = userCode }
-                                .labelStyle(.iconOnly)
-                        }
                     }
                 }
                 if needsCode {
