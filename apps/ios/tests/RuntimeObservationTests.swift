@@ -155,6 +155,7 @@ struct RuntimeObservationTests {
         ChatRowTests.run()
         ComposerActionTests.run()
         SessionLinkTests.run()
+        SidebarFavoritesTests.run()
         ComposerDraftsTests.run()
         CredentialScopeTests.run()
         StreamBacklogTests.run()

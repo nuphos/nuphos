@@ -226,7 +226,7 @@ struct AgentPage: View {
         List {
             if store.search.isEmpty, !store.showArchived, !store.pinnedChats.isEmpty {
                 Section {
-                    ForEach(store.pinnedChats, id: \.key) { entry in
+                    ForEach(store.pinnedChats, id: \.sessionId) { entry in
                         if let sessionId = entry.sessionId {
                             let row = store.conversations.first { $0.sessionId == sessionId }
                             Button {
