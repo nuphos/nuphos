@@ -31,10 +31,9 @@ export async function listConversations(
     /** Narrow team scope to one member's conversations. */
     ownerId?: string
     /**
-     * A Trigger's run history. Omitted lists Chats, which excludes trigger
-     * runs entirely — the two are opposite listings, so this is never a
-     * refinement of the default. Several ids list a Watch group's partition
-     * triggers together.
+     * A Trigger's run history. Omitted lists Chats, which excludes trigger runs entirely — the two
+     * are opposite listings, so this is never a refinement of the default. Several ids list a
+     * Watch group's partition triggers together.
      */
     triggerIds?: string[]
     search?: string
@@ -56,7 +55,9 @@ export async function listConversations(
   if (options?.archived) params.set('archived', options.archived)
   if (options?.sort) params.set('sort', options.sort)
 
-  return callJson<ConversationsPage>('GET', `/agent/conversations?${String(params)}`)
+  const route = `/agent/conversations?${String(params)}`
+
+  return callJson<ConversationsPage>('GET', route, undefined, 12_000)
 }
 
 export async function setConversationArchived(
