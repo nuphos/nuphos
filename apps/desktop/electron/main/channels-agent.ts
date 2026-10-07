@@ -96,7 +96,7 @@ export const agentChannels = {
     _e: unknown,
     sessionId: string,
     teamId?: string,
-    options?: { tail?: number },
+    options?: { tail?: number; runtimeState?: 'omit' },
   ) => agent.getConversation(sessionId, teamId, options),
   'agent:getConversationMessages': (
     _e: unknown,

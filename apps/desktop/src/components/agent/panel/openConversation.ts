@@ -93,8 +93,11 @@ export async function runOpenConversation(
   })
   try {
     const runtimeObservedAt = performance.now()
+    // The runtime probe is skipped unless a run needs confirming; the catch-up
+    // poll fetches runtime state as soon as the tab is active.
     const detail = await api.agentGetConversation(sessionId, teamId, {
       tail: CONVERSATION_TAIL_LIMIT,
+      runtimeState: 'omit',
     })
 
     if (openGenerationRef.current !== generation) {
@@ -154,10 +157,9 @@ export async function runOpenConversation(
       slackThread: detail.slackThread ?? null,
       activitySource: detail.activitySource,
       claudeCodeRuntimeAttached: detail.claudeCodeRuntimeAttached,
-      runtimeState: {
-        ...(detail.runtimeState ?? { state: 'unsupported' as const }),
-        observedAt: runtimeObservedAt,
-      },
+      runtimeState: detail.runtimeState
+        ? { ...detail.runtimeState, observedAt: runtimeObservedAt }
+        : undefined,
       agentRuntime: detail.agentRuntime,
       runtimeId: detail.runtimeId,
       runtimeLabel: detail.runtimeLabel,
