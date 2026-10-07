@@ -27,7 +27,7 @@ Environment: NUPHOS_API_URL, NUPHOS_CLI_CONFIG, NUPHOS_TEAM";
 #[tokio::main]
 async fn main() {
     if let Err(e) = run().await {
-        eprintln!("nuphos: {e:#}");
+        eprintln!("nuphos: {}", render::clean(&format!("{e:#}")));
         std::process::exit(1);
     }
 }

@@ -221,8 +221,14 @@ impl Api {
         };
 
         // `NUPHOS_DEBUG_FRAMES=<file>` appends every event, for debugging.
-        let mut debug = std::env::var_os("NUPHOS_DEBUG_FRAMES")
-            .and_then(|path| std::fs::OpenOptions::new().create(true).append(true).open(path).ok());
+        let mut debug = std::env::var_os("NUPHOS_DEBUG_FRAMES").and_then(|path| {
+            let mut options = std::fs::OpenOptions::new();
+            options.create(true).append(true);
+            // It holds whole conversations, like cli.yaml holds the token.
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+            options.open(path).ok()
+        });
         let mut bytes = response.bytes_stream();
         let mut buffer: Vec<u8> = Vec::new();
         let mut data = String::new();
