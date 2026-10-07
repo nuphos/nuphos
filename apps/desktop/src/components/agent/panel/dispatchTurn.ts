@@ -2,7 +2,7 @@ import { getActiveDiagramId } from '../../../architecture/activeDiagram'
 import { track, trackError } from '../../../lib/analytics'
 import { toast } from '../../ui/toast'
 
-import { partitionAttachments, readImageParts, makeAttachmentTurn } from './attachments'
+import { makeAttachmentTurn } from './attachments'
 import { supersedePendingApprovals, finalizeIncompleteTools } from './clientTools'
 import { rememberDispatchedDraft } from './queuedAutoSend'
 import { INTERRUPTED_TOOL_MESSAGE, newAgentStreamId } from './stall'
@@ -52,11 +52,9 @@ export async function runDispatchTurn(
   const trimmed = text.trim()
 
   if (!trimmed && filePaths.length === 0) return
-  // Images go to the model as vision; only non-image files need the upload
-  // flow (and a team).
-  const { imagePaths, otherPaths } = partitionAttachments(filePaths)
-
-  if (otherPaths.length > 0 && !teamId) {
+  // Every attachment, images included, goes through the transfer store; the
+  // runtime receives them as local files.
+  if (filePaths.length > 0 && !teamId) {
     toast.error('No team selected', 'Select a team before attaching files.')
 
     return
@@ -67,11 +65,9 @@ export async function runDispatchTurn(
   if (tab.readOnly) return
   stoppedRunIdsRef.current.delete(tab.sessionId)
 
-  const imageParts = await readImageParts(imagePaths)
   const { messageId, optimisticPart, buildUserMsg, runUpload } = makeAttachmentTurn(
     text,
-    imageParts,
-    otherPaths,
+    filePaths,
     teamId!,
     { turnKind, currentUser },
   )
@@ -82,7 +78,7 @@ export async function runDispatchTurn(
 
   let uploadPart: TransferUploadPart | null = null
 
-  if (otherPaths.length > 0) {
+  if (filePaths.length > 0) {
     // Mark the tab busy so a second send queues instead of racing the upload.
     uploadingTabsRef.current.add(tabId)
     // Surface the message + loading card before the (potentially slow) upload.

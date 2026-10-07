@@ -1,6 +1,7 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { faImage } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import clsx from 'clsx'
 import { FileSearch, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
@@ -51,19 +52,37 @@ export function ImageAttachmentThumb({
   url,
   fileName,
   onRemove,
+  large,
+  onError,
 }: {
   url?: string
   fileName: string
   onRemove?: () => void
+  /** Whole image at its own proportions, for screenshots worth reading inline. */
+  large?: boolean
+  onError?: () => void
 }) {
   return (
     <Dialog.Root>
       {/* Outer wrapper is not clipped so the remove badge can straddle the corner. */}
-      <div className="relative h-12 w-12 flex-shrink-0" title={fileName}>
-        <div className="h-full w-full overflow-hidden rounded-lg border border-zGray-800 bg-zGray-900">
+      <div
+        className={clsx('relative flex-shrink-0', large ? 'max-w-full' : 'h-12 w-12')}
+        title={fileName}
+      >
+        <div
+          className={clsx(
+            'overflow-hidden rounded-lg border border-zGray-800 bg-zGray-900',
+            large ? 'min-h-12 min-w-12' : 'h-full w-full',
+          )}
+        >
           {url ? (
             <Dialog.Trigger className="block h-full w-full cursor-zoom-in outline-none">
-              <img src={url} alt={fileName} className="h-full w-full object-cover" />
+              <img
+                src={url}
+                alt={fileName}
+                onError={onError}
+                className={large ? 'block max-h-72 max-w-full' : 'h-full w-full object-cover'}
+              />
             </Dialog.Trigger>
           ) : (
             <div className="flex h-full w-full items-center justify-center text-tertiary">

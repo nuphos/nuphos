@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { anchorDownloadGroups, shouldLoadTransferDownloads } from './transferDownloads.ts'
+import {
+  anchorDownloadGroups,
+  previewKind,
+  shouldLoadTransferDownloads,
+} from './transferDownloads.ts'
 
 import type { Message, Tab } from './model'
 import type { FileTransferGroup } from '../../../types'
@@ -28,6 +32,11 @@ test("loads for the owner's settled conversation", () => {
   assert.equal(shouldLoadTransferDownloads(tab({})), true)
 })
 
+test('loads an idle runtime conversation that stays attached to its stream', () => {
+  // A reopened runtime conversation keeps its transport open while idle.
+  assert.equal(shouldLoadTransferDownloads(tab({ streaming: true })), true)
+})
+
 test("never loads a teammate's conversation, whose downloads route is owner-only", () => {
   assert.equal(shouldLoadTransferDownloads(tab({ foreign: true, readOnly: true })), false)
 })
@@ -36,8 +45,10 @@ test('an owner-side read-only view still loads', () => {
   assert.equal(shouldLoadTransferDownloads(tab({ readOnly: true })), true)
 })
 
-test('skips a streaming turn, a transcript without replies, and no tab', () => {
-  assert.equal(shouldLoadTransferDownloads(tab({ streaming: true })), false)
+test('skips an executing turn, a transcript without replies, and no tab', () => {
+  const executing = { state: 'active', observedAt: performance.now() } as Tab['runtimeState']
+
+  assert.equal(shouldLoadTransferDownloads(tab({ runtimeState: executing })), false)
   assert.equal(shouldLoadTransferDownloads(tab({ messages: [] })), false)
   assert.equal(shouldLoadTransferDownloads(undefined), false)
 })
@@ -130,4 +141,28 @@ test('no assistant message means nothing to anchor to', () => {
   )
 
   assert.equal(anchored.size, 0)
+})
+
+function file(
+  over: Partial<FileTransferGroup['files'][number]>,
+): FileTransferGroup['files'][number] {
+  return {
+    id: 'f',
+    fileName: 'a.bin',
+    relPath: 'a.bin',
+    size: 1,
+    contentType: null,
+    status: 'ready',
+    ...over,
+  }
+}
+
+test('previews ready images and videos by content type, or by name when it is missing', () => {
+  assert.equal(previewKind(file({ contentType: 'image/png', fileName: 'shot' })), 'image')
+  assert.equal(previewKind(file({ fileName: 'Shot.PNG' })), 'image')
+  assert.equal(previewKind(file({ contentType: 'video/quicktime', fileName: 'rec' })), 'video')
+  assert.equal(previewKind(file({ fileName: 'm1-screen-recording.mov' })), 'video')
+  assert.equal(previewKind(file({ contentType: 'text/plain', fileName: 'x.png' })), null)
+  assert.equal(previewKind(file({ fileName: 'run.log' })), null)
+  assert.equal(previewKind(file({ fileName: 'shot.png', status: 'pending' })), null)
 })

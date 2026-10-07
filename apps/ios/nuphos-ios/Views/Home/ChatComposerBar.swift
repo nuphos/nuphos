@@ -125,7 +125,7 @@ struct ChatComposerBar<Controls: View>: View {
             Task {
                 for item in items {
                     if let attachment = await ComposerAttachment.load(item) { attachments.append(attachment) }
-                    else { attachmentError = "Couldn’t prepare this photo. Try a different photo or choose it from Files." }
+                    else { attachmentError = "Couldn’t prepare this photo or video. Try a different one or choose it from Files." }
                 }
             }
         }
@@ -139,7 +139,7 @@ struct ChatComposerBar<Controls: View>: View {
         } message: {
             Text(attachmentError ?? "")
         }
-        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
+        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .any(of: [.images, .videos]))
         #if DEBUG
         .onAppear {
             let args = ProcessInfo.processInfo.arguments
