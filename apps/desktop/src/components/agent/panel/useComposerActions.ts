@@ -217,8 +217,8 @@ export function useComposerActions(
   // Publish an "attach these dropped files" handler so the panel-level drop zone
   // can route a drop here. A drop's DataTransfer is the same shape as
   // a paste's, so we reuse saveClipboardAttachments — local Finder drops carry a
-  // path; anything else saves via bytes. Routing into images/files happens at
-  // send time (partitionAttachments). null while read-only so the panel no-ops.
+  // path; anything else saves via bytes. Every attachment uploads through the
+  // transfer store at send time. null while read-only so the panel no-ops.
   useEffect(() => {
     if (!dropRegisterRef) return
     const handler = readOnly

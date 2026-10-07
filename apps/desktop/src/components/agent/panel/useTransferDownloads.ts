@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
+import { runtimeIsExecuting } from '../../../lib/runtimeExecution'
 
 import { anchorDownloadGroups, shouldLoadTransferDownloads } from './transferDownloads'
 
@@ -18,6 +19,7 @@ export function useTransferDownloads(
   tab: Tab,
   teamId: string | undefined,
 ): Map<string, FileTransferGroup[]> {
+  const executing = runtimeIsExecuting(tab.runtimeState)
   const [loaded, setLoaded] = useState<{ sessionId: string; groups: FileTransferGroup[] } | null>(
     null,
   )
@@ -41,7 +43,7 @@ export function useTransferDownloads(
     }
     // Re-read when a turn settles: that is when new files have landed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId, tab.sessionId, tab.streaming, tab.foreign, tab.messages.length])
+  }, [teamId, tab.sessionId, executing, tab.foreign, tab.messages.length])
 
   return useMemo(
     () =>

@@ -9,12 +9,15 @@ import { useReportVisibleError } from '../../VisibleErrorReporter'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
+import { mediaKind, previewKind } from './transferDownloads'
+import { TransferPreviews } from './transferPreviews'
+
 import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
 
-// Files the agent produced for the user to download. Bytes live in
-// the transfer store; clicking fetches a presigned URL and saves via a native
-// dialog (single file) or streams all into a cross-platform zip locally.
+// Files the agent produced for the user. Bytes live in the transfer store.
+// Images (click to enlarge) and videos play inline; every file can still be saved
+// via a native dialog (single file) or streamed into a local zip.
 export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
@@ -41,6 +44,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
   )
   // Team-scoped resolve (no sessionId) — the group is team+user scoped.
   const base = { teamId, groupId: group.groupId }
+  const hasPreviews = !expired && ready.some((f) => previewKind(f) !== null)
 
   function savedToast(title: string, description: string, path: string) {
     // "Open in folder" lives only on the (transient) toast — right after the
@@ -105,6 +109,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
           </Button>
         )}
       </div>
+      {hasPreviews && <TransferPreviews teamId={teamId} groupId={group.groupId} />}
       <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
         {group.files.map((f) => (
           <div key={f.id} className="flex items-center gap-2 text-[12.5px]">
@@ -151,7 +156,36 @@ function formatTransferBytes(bytes: number | null): string {
 
 // User-uploaded files. Bytes already live in the transfer store;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
-export function UploadedFilesCard({ part }: { part: TransferUploadPart }) {
+export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
+  // Only images and videos read as media, not as a file list.
+  const media =
+    teamId &&
+    part.status !== 'uploading' &&
+    part.status !== 'error' &&
+    part.groupId &&
+    !part.archive
+      ? part.files.length > 0 && part.files.every((f) => mediaKind(f.fileName))
+      : false
+  const card = <UploadedFilesList part={part} teamId={teamId} previews={!media} />
+
+  if (!media) return card
+
+  return (
+    <div className="flex max-w-[min(85%,480px)] justify-end self-end">
+      <TransferPreviews teamId={teamId!} groupId={part.groupId} fallback={card} />
+    </div>
+  )
+}
+
+function UploadedFilesList({
+  part,
+  teamId,
+  previews,
+}: {
+  part: TransferUploadPart
+  teamId?: string
+  previews: boolean
+}) {
   const total = part.files.length
   const ready = part.files.filter((f) => f.status === 'ready').length
   const uploading = part.status === 'uploading'
@@ -181,6 +215,9 @@ export function UploadedFilesCard({ part }: { part: TransferUploadPart }) {
                 : `Uploaded ${String(total)} file${total === 1 ? '' : 's'}${readySuffix}`}
         </span>
       </div>
+      {previews && teamId && !uploading && !errored && part.groupId && !part.archive && (
+        <TransferPreviews teamId={teamId} groupId={part.groupId} />
+      )}
       <div className="flex flex-col gap-1">
         {part.files.map((f, i) => (
           <div key={`${f.fileName}:${String(i)}`} className="flex items-center gap-2 text-[12.5px]">
