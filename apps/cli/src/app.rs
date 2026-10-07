@@ -17,7 +17,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Paragraph, Widget};
+use ratatui::widgets::{Block, BorderType, Padding, Paragraph, Widget};
 use ratatui::{Frame, Terminal, TerminalOptions, Viewport};
 use serde_json::{json, Value};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -390,7 +390,8 @@ impl App {
         let skip = live.len().saturating_sub(live_area.height as usize);
         f.render_widget(Paragraph::new(live.split_off(skip)), live_area);
 
-        let block = Block::bordered().border_type(BorderType::Rounded).border_style(dim());
+        let block =
+            Block::bordered().border_type(BorderType::Rounded).border_style(dim()).padding(Padding::horizontal(1));
         let inner = block.inner(composer_area);
         f.render_widget(block, composer_area);
         if self.input.is_empty() {
@@ -821,11 +822,7 @@ impl App {
             .iter()
             .map(|r| {
                 let label = r["label"].as_str().or(r["provider"].as_str()).unwrap_or("agent").to_string();
-                let mut detail = r["provider"].as_str().unwrap_or_default().to_string();
-                if r["kind"] == "local" {
-                    detail.push_str(" · ");
-                    detail.push_str(r["local"]["deviceLabel"].as_str().unwrap_or("local"));
-                }
+                let mut detail = if r["kind"] == "local" { "local" } else { "cloud" }.to_string();
                 if !(r["notReady"].is_null() || r["notReady"] == false) {
                     detail.push_str(" · not ready");
                 }
