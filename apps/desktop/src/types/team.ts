@@ -143,10 +143,18 @@ export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null
 
 export type TeamActivityRange = '1d' | '7d' | '30d'
 
-/** Sessions running in each slot of a range, oldest slot first. */
+/** Who ran which sessions in each slot of a range, oldest slot first. */
 export type TeamActivity = {
   range: TeamActivityRange
   slotMinutes: number
   start: string
-  slots: number[]
+  sessions: { id: string; title: string }[]
+  /** Every current member, busiest first. */
+  members: {
+    id: string
+    name: string
+    avatarURL: string
+    /** Per slot, the member's sessions running in it, as indexes into `sessions`. */
+    slots: number[][]
+  }[]
 }
