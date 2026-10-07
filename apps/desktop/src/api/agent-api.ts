@@ -93,7 +93,11 @@ export const agentApi = {
     window.api.agentSteerConversation(sessionId, text, teamId),
   agentSlackPickup: (sessionId: string, teamId?: string) =>
     window.api.agentSlackPickup(sessionId, teamId),
-  agentGetConversation: async (sessionId: string, teamId?: string, options?: { tail?: number }) => {
+  agentGetConversation: async (
+    sessionId: string,
+    teamId?: string,
+    options?: { tail?: number; runtimeState?: 'omit' },
+  ) => {
     const detail = await window.api.agentGetConversation(sessionId, teamId, options)
 
     receiveConversationReadStates([detail], true)

@@ -145,11 +145,13 @@ agent.get('/conversations/:sessionId', async (c) => {
   if (!result) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  const runtimeState = await conversationExecutionState(result.conversation)
   const transportRun =
     getLocalActiveAgentRun(result.conversation.userId, sessionId) ??
     (await getActiveAgentRunForSession(result.conversation.userId, sessionId))
-  const activeRun = runtimeState.state === 'active' ? transportRun : null
+  // Opening a chat (`runtimeState=omit`) probes the runtime only to confirm a run.
+  const probe = transportRun || c.req.query('runtimeState') !== 'omit'
+  const runtimeState = probe ? await conversationExecutionState(result.conversation) : undefined
+  const activeRun = runtimeState?.state === 'active' ? transportRun : null
   const startedAtMs = activeRun?.startedAt ? Number(activeRun.startedAt) : NaN
   const viewer = c.get('user')
   const ownerById = await buildConversationOwnerMap(teamId, [
