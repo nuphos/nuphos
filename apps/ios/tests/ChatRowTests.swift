@@ -24,6 +24,8 @@ enum ChatRowTests {
         var message = ChatMessage.user("Summarize this.")
         message.parts.append(.text(.init(text: instruction)))
         precondition(message.displayText == "Summarize this.\n\nAttached: report.pdf")
+        precondition(message.uploadedGroupIds == ["abc"])
+        precondition(ChatMessage.user("Ordinary user text").uploadedGroupIds.isEmpty)
         precondition(message.forWire.text.contains("transfer-pull.sh"))
         precondition(ChatMessage.user("Ordinary user text").displayText == "Ordinary user text")
     }

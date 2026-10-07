@@ -132,12 +132,10 @@ final class ChatSession {
         downloads = list.groups.filter { $0.expiresAt > .now && !$0.readyFiles.isEmpty }
     }
 
-    /// Fresh presigned URLs for a group's files, by file id.
-    func downloadURLs(for group: TransferDownloadGroup) async throws -> [String: URL] {
-        let resolved: TransferDownloadGroup = try await WorkspaceAPI.request(transferPath + "/\(group.groupId)/download", token: token)
-        return Dictionary(uniqueKeysWithValues: resolved.readyFiles.compactMap { file in
-            file.downloadUrl.flatMap(URL.init(string:)).map { (file.id, $0) }
-        })
+    /// A transfer group's files with fresh presigned URLs. Team-scoped, so it
+    /// resolves both what the agent sent and what the user uploaded.
+    func transferGroup(_ groupId: String) async throws -> TransferDownloadGroup {
+        try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
     }
 
     private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }

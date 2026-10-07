@@ -13,9 +13,13 @@ struct TransferDownloadGroup: Decodable, Equatable, Sendable {
         let status: String
         let downloadUrl: String?
 
-        var isImage: Bool {
-            if let contentType { return contentType.hasPrefix("image/") }
-            return UTType(filenameExtension: (fileName as NSString).pathExtension)?.conforms(to: .image) == true
+        var isImage: Bool { kind(prefix: "image/", type: .image) }
+        var isVideo: Bool { kind(prefix: "video/", type: .movie) }
+
+        /// Agent pushes often carry no content type; the file name decides then.
+        private func kind(prefix: String, type: UTType) -> Bool {
+            if let contentType { return contentType.hasPrefix(prefix) }
+            return UTType(filenameExtension: (fileName as NSString).pathExtension)?.conforms(to: type) == true
         }
     }
 

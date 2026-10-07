@@ -1,40 +1,55 @@
+import AVKit
 import QuickLook
 import SwiftUI
 
-/// Files the agent sent the user. Images show inline; every file opens in
-/// Quick Look, which also offers Save and Share.
-struct DownloadCard: View {
-    let group: TransferDownloadGroup
+/// The files in one transfer group: what the agent sent, or what the user
+/// uploaded. Images and videos show inline; every other file opens in Quick
+/// Look, which also offers Save and Share.
+struct TransferCard: View {
+    let groupId: String
+    let fromUser: Bool
     let session: ChatSession
 
-    @State private var imageURLs: [String: URL] = [:]
+    @State private var files: [TransferDownloadGroup.File] = []
+    @State private var players: [String: AVPlayer] = [:]
     @State private var opening: String?
     @State private var preview: URL?
     @State private var failed = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(group.readyFiles) { file in
-                Button { Task { await open(file) } } label: { label(file) }
-                    .buttonStyle(.plain)
-                    .disabled(opening != nil)
-                    .accessibilityLabel("Open \(file.fileName)")
+        VStack(alignment: fromUser ? .trailing : .leading, spacing: 8) {
+            ForEach(files) { file in
+                if let player = players[file.id] {
+                    VideoPlayer(player: player)
+                        .frame(width: 280, height: 158)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .accessibilityLabel("Video \(file.fileName)")
+                } else {
+                    Button { Task { await open(file) } } label: { label(file) }
+                        .buttonStyle(.plain)
+                        .disabled(opening != nil)
+                        .accessibilityLabel("Open \(file.fileName)")
+                }
             }
             if failed {
                 HintRow(text: "Couldn't open the file. Try again.", isError: true)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: fromUser ? .trailing : .leading)
+        .padding(.leading, fromUser ? 56 : 0)
         .task {
-            guard group.readyFiles.contains(where: \.isImage) else { return }
-            imageURLs = (try? await session.downloadURLs(for: group)) ?? [:]
+            guard let group = try? await session.transferGroup(groupId) else { return }
+            files = group.readyFiles
+            for file in files where file.isVideo {
+                if let url = file.downloadUrl.flatMap(URL.init(string:)) { players[file.id] = AVPlayer(url: url) }
+            }
         }
         .quickLookPreview($preview)
     }
 
     @ViewBuilder
     private func label(_ file: TransferDownloadGroup.File) -> some View {
-        if file.isImage, let url = imageURLs[file.id] {
+        if file.isImage, let url = file.downloadUrl.flatMap(URL.init(string:)) {
             let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
             AsyncImage(url: url) { image in
                 image.resizable().scaledToFit()
@@ -69,7 +84,10 @@ struct DownloadCard: View {
         defer { opening = nil }
         do {
             // Presigned URLs expire; mint a fresh one for every open.
-            guard let remote = try await session.downloadURLs(for: group)[file.id] else { throw URLError(.fileDoesNotExist) }
+            let fresh = try await session.transferGroup(groupId)
+            guard let remote = fresh.files.first(where: { $0.id == file.id })?.downloadUrl.flatMap(URL.init(string:)) else {
+                throw URLError(.fileDoesNotExist)
+            }
             let (temp, response) = try await URLSession.shared.download(from: remote)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
             let dir = FileManager.default.temporaryDirectory.appending(path: "downloads/\(file.id)")

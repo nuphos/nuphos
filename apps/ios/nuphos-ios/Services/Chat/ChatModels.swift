@@ -53,13 +53,26 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         guard role == .user else { return text }
         return parts.compactMap { part -> String? in
             guard case .text(let value) = part else { return nil }
-            let raw = value.text
-            guard raw.hasPrefix("[The user uploaded "), raw.hasSuffix("./uploads]"),
-                  let group = raw.range(of: "(transfer group "),
-                  let start = raw.range(of: "): ", range: group.upperBound..<raw.endIndex),
-                  let end = raw.range(of: ". To work with them, load the file-transfer skill", range: start.upperBound..<raw.endIndex) else { return raw }
-            return "Attached: " + raw[start.upperBound..<end.lowerBound]
+            guard let upload = Self.upload(in: value.text) else { return value.text }
+            return "Attached: " + upload.names
         }.joined(separator: "\n\n")
+    }
+
+    /// Transfer groups this user message uploaded, for their inline previews.
+    var uploadedGroupIds: [String] {
+        guard role == .user else { return [] }
+        return parts.compactMap { part in
+            guard case .text(let value) = part else { return nil }
+            return Self.upload(in: value.text)?.groupId
+        }
+    }
+
+    private static func upload(in raw: String) -> (groupId: String, names: Substring)? {
+        guard raw.hasPrefix("[The user uploaded "), raw.hasSuffix("./uploads]"),
+              let group = raw.range(of: "(transfer group "),
+              let start = raw.range(of: "): ", range: group.upperBound..<raw.endIndex),
+              let end = raw.range(of: ". To work with them, load the file-transfer skill", range: start.upperBound..<raw.endIndex) else { return nil }
+        return (String(raw[group.upperBound..<start.lowerBound]), raw[start.upperBound..<end.lowerBound])
     }
 
     /// The user's visible text, for the "New chat" title rule.

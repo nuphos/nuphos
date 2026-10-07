@@ -39,6 +39,11 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
     /// Loads a full-resolution, high-quality JPEG. Compression is decided
     /// later from the whole message budget, not an arbitrary per-photo cap.
     static func load(_ item: PhotosPickerItem) async -> ComposerAttachment? {
+        // Videos go up as files through the transfer store, like Files picks.
+        if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+            guard let movie = try? await item.loadTransferable(type: PickedMovie.self) else { return nil }
+            return ComposerAttachment(name: "Video." + movie.url.pathExtension.lowercased(), kind: .file(movie.url))
+        }
         guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
         guard let jpeg = ImageAttachment.jpeg(from: data) else { return nil }
         return ComposerAttachment(name: "Photo", kind: .image(jpeg))
@@ -116,5 +121,19 @@ struct AttachmentTile: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bubble)
+    }
+}
+
+/// A Photos video, copied out of the picker's short-lived file.
+private struct PickedMovie: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { SentTransferredFile($0.url) } importing: { received in
+            let dest = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(received.file.pathExtension)
+            try FileManager.default.copyItem(at: received.file, to: dest)
+            return PickedMovie(url: dest)
+        }
     }
 }

@@ -280,7 +280,7 @@ struct ConversationView: View {
         case .assistantText: 28
         case .user: 22
         case .timestamp: 14
-        case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
+        case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .transfer: 14
         case .activity, .hint: 18
         }
     }
@@ -320,8 +320,8 @@ struct ConversationView: View {
             MemoryPill(created: created, updated: updated)
         case .memoryRecall(_, let entries, let fetched):
             MemoryRecallPill(entries: entries, fetched: fetched)
-        case .downloads(_, let group):
-            DownloadCard(group: group, session: session)
+        case .transfer(_, let groupId, let fromUser):
+            TransferCard(groupId: groupId, fromUser: fromUser, session: session)
         case .activity(let text):
             ActivityRow(text: text)
         case .hint(_, let text, let isError):

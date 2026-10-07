@@ -25,10 +25,11 @@ extension ChatRow {
                 if !text.isEmpty || !images.isEmpty {
                     rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender ?? (session.sentHere.contains(message.id) ? session.me : nil)))
                 }
+                rows.append(contentsOf: message.uploadedGroupIds.map { .transfer(id: "transfer.\($0)", groupId: $0, fromUser: true) })
             case .assistant:
                 let isLive = session.isStreaming && index == messages.count - 1
                 rows.append(contentsOf: assistantRows(message, live: isLive, lastApprovalCallId: lastApprovalCallId))
-                rows.append(contentsOf: (downloads[message.id] ?? []).map { .downloads(id: "downloads.\($0.groupId)", group: $0) })
+                rows.append(contentsOf: (downloads[message.id] ?? []).map { .transfer(id: "transfer.\($0.groupId)", groupId: $0.groupId, fromUser: false) })
                 let interrupted = message.parts.contains { if case .turnInterrupted = $0 { return true }; return false }
                 if message.stoppedByUser == true, index == messages.count - 1, !session.isStreaming, !interrupted {
                     rows.append(.hint(id: "stopped.\(message.id)", text: "Stopped.", isError: false))
