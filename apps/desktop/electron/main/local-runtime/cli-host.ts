@@ -244,7 +244,7 @@ function stop(message = 'Stopping the local agents…'): void {
 setInterval(() => {
   const fresh = currentToken()
 
-  if (!fresh || unverifiedTokenSubject(fresh) !== owner)
+  if (!stopping && (!fresh || unverifiedTokenSubject(fresh) !== owner))
     stop('Signed out of Nuphos; stopping the local agents.')
 }, 2_000)
 // A closed terminal or a dropped SSH session stops them too.
