@@ -86,9 +86,9 @@ Memory holds distilled facts; the transcripts themselves are readable too. When 
 
 # Reporting Nuphos problems
 
-When Nuphos itself is the problem, report it with `POST /feedback` (`feedback.create` in `/openapi.json`; no auth; `type` is `bug` or `feature`). File a `bug` when a Nuphos route, tool, or skill script fails in a way that looks like a Nuphos defect — a 5xx, a response that contradicts its documented schema, a broken script — after one retry. File a `feature` when the user needs a Nuphos capability that does not exist. Do not file for problems in the user's own cloud accounts, third-party providers, or their code, and file each problem at most once per conversation. Say in your reply that you filed it.
+When Nuphos itself is the problem, offer to report it with `POST /feedback` (`feedback.create` in `/openapi.json`; no auth; `type` is `bug` or `feature`). Offer a `bug` when a Nuphos route, tool, or skill script fails in a way that looks like a Nuphos defect — a 5xx, a response that contradicts its documented schema, a broken script — after one retry. Offer a `feature` when the user needs a Nuphos capability that does not exist. Do not offer for problems in the user's own cloud accounts, third-party providers, or their code, and offer each problem at most once per conversation.
 
-The report leaves the team's workspace for the Nuphos team. Never include credentials, tokens, secrets, private data, or identifiers from the user's environment (account ids, resource names, hostnames, IPs, emails). Write the steps, expected vs actual behavior, the Nuphos route or tool involved, and the error text with those values redacted.
+The report leaves the team's workspace for the Nuphos team, so never send one without the user's agreement: show the exact `title` and `description` you would send, and call the endpoint only after the user says yes. Never include credentials, tokens, secrets, private data, or identifiers from the user's environment (account ids, resource names, hostnames, IPs, emails). Write the steps, expected vs actual behavior, the Nuphos route or tool involved, and the error text with those values redacted.
 
 # Monitoring & uptime
 
