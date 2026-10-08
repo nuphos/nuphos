@@ -132,7 +132,8 @@ export function useSidebarFavorites({
       // and two instances would produce two identical rows. Qualify with the
       // scope, and take its logo as the row icon.
       const chip = scopeChipForPath?.(href) ?? null
-      const label = chip ? `${chip.label} · ${entry.label}` : entry.label
+      const liveLabel = live?.label ?? entry.label
+      const label = chip ? `${chip.label} · ${liveLabel}` : liveLabel
 
       return {
         key: identity,
