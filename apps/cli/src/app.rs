@@ -160,6 +160,10 @@ pub struct App {
     update_check: Option<JoinHandle<Option<String>>>,
     /// The team's conversations as last fetched, so Sessions opens at once.
     sessions: Vec<Value>,
+    /// Others' conversations I take part in, and my sidebar favorites
+    /// (`{ entries, revision }`), whose conversations are the pinned ones.
+    shared_sessions: Vec<Value>,
+    favorites: Value,
     sessions_loading: bool,
     /// A conversation being opened, or checked for news while idle.
     loading: bool,
@@ -214,6 +218,8 @@ impl App {
             ended: Vec::new(),
             update_check: None,
             sessions: Vec::new(),
+            shared_sessions: Vec::new(),
+            favorites: json!({ "entries": [] }),
             sessions_loading: false,
             loading: false,
             polling: false,
@@ -653,7 +659,10 @@ impl App {
 
     /// `key:action` hints for what can be done right now, as many as fit.
     fn footer_hints(&self, width: u16) -> Line<'static> {
-        let hints: &[(&str, &str)] = if self.picker.is_some() {
+        let sessions = matches!(self.picker, Some(Picker { action: PickAction::Conversation, .. }));
+        let hints: &[(&str, &str)] = if sessions {
+            &[("↑↓", "choose"), ("enter", "open"), ("p", "pin"), ("esc", "close")]
+        } else if self.picker.is_some() {
             &[("↑↓", "choose"), ("enter", "select"), ("esc", "cancel")]
         } else if self.stream.is_some() {
             &[("esc", "stop"), ("ctrl+\\", "sessions"), ("↑↓", "scroll"), ("ctrl+c", "quit")]
@@ -1388,6 +1397,8 @@ impl App {
         shared::remember_team(&mut self.prefs, &team);
         self.team = team;
         self.sessions.clear();
+        self.shared_sessions.clear();
+        self.favorites = json!({ "entries": [] });
         self.runtimes.clear();
         self.runtime = None;
         self.messages.clear();
@@ -1404,7 +1415,7 @@ impl App {
         self.fetch_sessions();
         self.picker = Some(Picker {
             title: "Sessions".into(),
-            items: session_items(&self.sessions),
+            items: self.session_items(),
             selected: 0,
             action: PickAction::Conversation,
         });
@@ -1417,25 +1428,94 @@ impl App {
         self.sessions_loading = true;
         let (api, team) = (self.api.clone(), self.team_id());
         self.background(false, async move {
-            let result = api.conversations(&team).await;
+            let (mine, shared, favorites) = tokio::join!(
+                api.conversations(&team, "mine"),
+                api.conversations(&team, "shared"),
+                api.favorites(&team)
+            );
             Box::new(move |app: &mut App| {
                 app.sessions_loading = false;
                 if app.team_id() != team {
                     return app.fetch_sessions();
                 }
-                match result {
+                match mine {
                     Ok(list) => app.sessions = list,
                     Err(e) => return app.notice = Some(e.message),
                 }
-                // Keep the same conversation selected.
-                if let Some(picker) = app.picker.as_mut().filter(|p| matches!(p.action, PickAction::Conversation)) {
-                    let current = picker.items.get(picker.selected).map(|(_, _, c)| c["sessionId"].clone());
-                    picker.items = session_items(&app.sessions);
-                    picker.selected = picker
-                        .items
-                        .iter()
-                        .position(|(_, _, c)| Some(&c["sessionId"]) == current.as_ref())
-                        .unwrap_or(0);
+                // Older servers have neither; the list still works without them.
+                app.shared_sessions = shared.unwrap_or_default();
+                if let Ok(favorites) = favorites {
+                    app.favorites = favorites;
+                }
+                app.refresh_session_picker();
+            }) as Apply
+        });
+    }
+
+    /// Rebuilds an open Sessions page, keeping the same conversation selected.
+    fn refresh_session_picker(&mut self) {
+        let items = self.session_items();
+        if let Some(picker) = self.picker.as_mut().filter(|p| matches!(p.action, PickAction::Conversation)) {
+            let current = picker.items.get(picker.selected).map(|(_, _, c)| c["sessionId"].clone());
+            picker.selected = items.iter().position(|(_, _, c)| Some(&c["sessionId"]) == current.as_ref()).unwrap_or(0);
+            picker.items = items;
+        }
+    }
+
+    /// As in the desktop's sidebar: Pinned, then Shared, then my Chats, a
+    /// pinned conversation only once. Each row carries its section.
+    fn session_items(&self) -> Vec<(String, String, Value)> {
+        let entries = self.favorites["entries"].as_array().cloned().unwrap_or_default();
+        let pinned: Vec<(String, Value)> =
+            entries.iter().filter_map(|e| shared::pinned_session(e).map(|id| (id, e.clone()))).collect();
+        let is_pinned = |c: &Value| pinned.iter().any(|(id, _)| c["sessionId"] == id.as_str());
+        let known =
+            |id: &str| self.sessions.iter().chain(&self.shared_sessions).find(|c| c["sessionId"] == id).cloned();
+        let mut rows = Vec::new();
+        for (id, entry) in &pinned {
+            let c = known(id).unwrap_or_else(|| json!({ "sessionId": id, "title": entry["label"] }));
+            rows.push(("Pinned", c));
+        }
+        rows.extend(self.shared_sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Shared", c.clone())));
+        rows.extend(self.sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Chats", c.clone())));
+        rows.into_iter()
+            .map(|(section, mut c)| {
+                let mut detail = shared::conversation_time(&c);
+                if c["isOwner"] == false {
+                    if let Some(owner) = c["owner"]["name"].as_str() {
+                        detail = format!("{} · {detail}", render::clean(owner));
+                    }
+                }
+                c["section"] = json!(section);
+                (shared::conversation_title(&c), detail, c)
+            })
+            .collect()
+    }
+
+    /// `p` on Sessions: pins or unpins the selected conversation, in the same
+    /// favorites the desktop's sidebar shows. The page changes at once.
+    fn toggle_pin(&mut self) {
+        let Some((title, _, c)) = self.picker.as_ref().and_then(|p| p.items.get(p.selected)).cloned() else { return };
+        let id = c["sessionId"].as_str().unwrap_or_default().to_string();
+        let mut entries = self.favorites["entries"].as_array().cloned().unwrap_or_default();
+        let before = entries.len();
+        entries.retain(|e| shared::pinned_session(e).as_deref() != Some(id.as_str()));
+        if entries.len() == before {
+            entries.push(json!({ "label": title, "href": format!("/teams/{}/agent/{id}", self.team_id()) }));
+        }
+        let revision = self.favorites["revision"].clone();
+        self.favorites["entries"] = json!(entries);
+        self.refresh_session_picker();
+        let (api, team) = (self.api.clone(), self.team_id());
+        self.background(false, async move {
+            let result = api.set_favorites(&team, &json!(entries), &revision).await;
+            Box::new(move |app: &mut App| match result {
+                Ok(saved) if app.team_id() == team => app.favorites = saved,
+                Ok(_) => {}
+                // Changed elsewhere meanwhile (409), or failed: show what the server has.
+                Err(e) => {
+                    app.notice = Some(format!("Could not update pins: {}", e.message));
+                    app.fetch_sessions();
                 }
             }) as Apply
         });
@@ -1577,6 +1657,7 @@ impl App {
             KeyCode::Down => picker.selected = (picker.selected + 1).min(picker.items.len().saturating_sub(1)),
             KeyCode::Esc => self.picker = None,
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => self.picker = None,
+            KeyCode::Char('p') if matches!(picker.action, PickAction::Conversation) => self.toggle_pin(),
             KeyCode::Enter => {
                 let Some(picker) = self.picker.take() else { return };
                 let Some((_, _, value)) = picker.items.into_iter().nth(picker.selected) else { return };
@@ -1598,23 +1679,8 @@ impl App {
     }
 }
 
-/// Running conversations first; the server already sorts by activity.
-fn session_items(list: &[Value]) -> Vec<(String, String, Value)> {
-    let mut list = list.to_vec();
-    list.sort_by_key(|c| c["activeRun"].is_null());
-    list.into_iter()
-        .map(|c| {
-            let mut detail = shared::conversation_time(&c);
-            if !c["activeRun"].is_null() {
-                detail = format!("● running · {detail}");
-            }
-            (shared::conversation_title(&c), detail, c)
-        })
-        .collect()
-}
-
-/// The sessions page: running conversations, then recent ones, each with
-/// how long ago it was active on the right.
+/// The sessions page: Pinned, Shared and Chats, each row with how long ago
+/// it was active (and, if shared, whose it is) on the right; ● is running.
 fn session_lines(picker: &Picker, area: Rect, empty: &'static str) -> Vec<Line<'static>> {
     let width = area.width as usize;
     let mut lines = vec![Line::from(Span::styled("Sessions", Style::default().add_modifier(Modifier::BOLD)))];
@@ -1625,13 +1691,14 @@ fn session_lines(picker: &Picker, area: Rect, empty: &'static str) -> Vec<Line<'
     let mut group = None;
     for (i, (title, detail, c)) in picker.items.iter().enumerate() {
         let running = !c["activeRun"].is_null();
-        if group != Some(running) {
-            group = Some(running);
+        let section = c["section"].as_str().unwrap_or_default().to_string();
+        if group.as_ref() != Some(&section) {
             rows.push((None, Line::default()));
-            rows.push((None, Line::from(Span::styled(if running { "Running" } else { "Recent" }, dim()))));
+            rows.push((None, Line::from(Span::styled(section.clone(), dim()))));
+            group = Some(section);
         }
         let selected = i == picker.selected;
-        let time = detail.trim_start_matches("● running · ").to_string();
+        let time = detail.clone();
         let marker = if running { "● " } else { "  " };
         let room = width.saturating_sub(time.width() + 6);
         let title: String = title

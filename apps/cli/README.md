@@ -28,7 +28,8 @@ nuphos resume [SESSION]   # TUI on a previous conversation, or a picker
 
 A new conversation opens on a home screen with the shortcuts; typing anything
 switches to the conversation. `ctrl+\` (`ctrl+4` in terminals without the
-kitty keyboard protocol) lists your conversations, running ones first, and
+kitty keyboard protocol) lists your conversations as the desktop's sidebar does (Pinned, Shared, Chats;
+`p` pins or unpins, in the same favorites), and
 switching away from a reply leaves it running on the server.
 
 It opens in the team used last (the first team the first time) and shows
