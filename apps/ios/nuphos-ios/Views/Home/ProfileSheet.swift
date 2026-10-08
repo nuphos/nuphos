@@ -12,6 +12,7 @@ struct ProfileSheet: View {
     @State private var confirmSignOut = false
     @State private var privacyError: String?
     @State private var hasOpenAIKey = Keychain.read(Whisper.keychainKey) != nil
+    @AppStorage(Whisper.promptKey) private var whisperPrompt = Whisper.defaultPrompt
 
     var body: some View {
         NavigationStack {
@@ -43,10 +44,15 @@ struct ProfileSheet: View {
                     } else {
                         Text("Tap the microphone in the composer to add your OpenAI API key.")
                     }
+                    TextField("Transcription prompt", text: $whisperPrompt, axis: .vertical)
+                        .lineLimit(2...6)
+                    if whisperPrompt != Whisper.defaultPrompt {
+                        Button("Reset prompt") { whisperPrompt = Whisper.defaultPrompt }
+                    }
                 } header: {
                     Text("Voice input")
                 } footer: {
-                    Text("Recordings are transcribed by OpenAI Whisper with your own key and billed to your OpenAI account.")
+                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Recordings are transcribed by OpenAI Whisper with your own key and billed to your OpenAI account.")
                 }
                 .listRowBackground(Theme.surface)
                 #endif
