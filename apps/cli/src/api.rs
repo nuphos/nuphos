@@ -6,7 +6,8 @@ use std::io::Write;
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use reqwest::{Method, StatusCode};
+pub use reqwest::Method;
+use reqwest::StatusCode;
 use serde_json::{json, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -128,6 +129,13 @@ impl Api {
         self.call(Method::PUT, &format!("/teams/{team}/favorites"), &[], Some(&body)).await
     }
 
+    /// Connects a self-hosted agent with the pairing code its console shows;
+    /// administrators only.
+    pub async fn pair_runtime(&self, team: &str, url: &str, code: &str) -> Result<Value, ApiError> {
+        let body = json!({ "url": url, "code": code });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes/pair"), &[], Some(&body)).await
+    }
+
     pub async fn archive(&self, team: &str, session: &str) -> Result<Value, ApiError> {
         let body = json!({ "archived": true, "teamId": team });
         self.call(Method::PATCH, &format!("/agent/conversations/{session}/archive"), &[("teamId", team)], Some(&body))
@@ -142,6 +150,33 @@ impl Api {
     pub async fn runtimes(&self, team: &str) -> Result<Vec<Value>, ApiError> {
         let v = self.call(Method::GET, &format!("/teams/{team}/agent-runtimes"), &[], None).await?;
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
+    }
+
+    /// A Nuphos-managed Cloud agent; administrators only.
+    pub async fn create_runtime(&self, team: &str, provider: &str) -> Result<Value, ApiError> {
+        let body = json!({ "provider": provider });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes"), &[], Some(&body)).await
+    }
+
+    /// `{ online, … }` — whether the agent answers yet.
+    pub async fn runtime_status(&self, team: &str, runtime: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/status"), &[], None).await
+    }
+
+    /// Starts (POST) or reads (GET) a Cloud agent's sign-in to its provider account.
+    pub async fn runtime_login(&self, method: Method, team: &str, runtime: &str) -> Result<Value, ApiError> {
+        self.call(method, &format!("/teams/{team}/agent-runtimes/{runtime}/login"), &[], None).await
+    }
+
+    pub async fn submit_runtime_login_code(
+        &self,
+        team: &str,
+        runtime: &str,
+        attempt: &str,
+        code: &str,
+    ) -> Result<Value, ApiError> {
+        let body = json!({ "attemptId": attempt, "code": code });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes/{runtime}/login/code"), &[], Some(&body)).await
     }
 
     /// `{ models, controls }` — administrators only, unless the runtime is local.

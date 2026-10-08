@@ -5,7 +5,7 @@
 
 use std::future::Future;
 use std::io::{stdout, Stdout};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use crossterm::event::{
@@ -25,7 +25,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 use unicode_width::UnicodeWidthStr;
 
-use crate::api::{Api, ApiError, StreamEvent};
+use crate::api::{Api, ApiError, Method, StreamEvent};
 use crate::config::{self, Prefs};
 use crate::render::{self, dim, Markdown};
 use crate::shared::{self, current_name, option_of_kind};
@@ -47,14 +47,19 @@ const LOGO: [&str; 7] = [
 const TIPS: [&str; 4] = [
     "Press ctrl+\\ to jump between your conversations.",
     "A reply keeps running on the server when you quit; `nuphos resume` picks it up.",
-    "Use /runtime to run this conversation on another agent.",
+    "Use /agents to run this conversation on another agent, or to add one.",
     "Use /model to change the model and reasoning effort.",
 ];
+/// The agents Nuphos can run for a team, as the desktop's Add agent offers them.
+const PROVIDERS: [(&str, &str); 4] =
+    [("claude-code", "Claude Code"), ("codex", "Codex"), ("grok", "Grok Build"), ("antigravity", "Antigravity")];
+/// How long a sign-in may take, from starting the agent to the browser.
+const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const COMMANDS: [(&str, &str); 8] = [
     ("/model", "choose the model and reasoning effort"),
     ("/team", "switch to another team"),
-    ("/runtime", "choose the agent this conversation runs on"),
+    ("/agents", "choose, add or sign in the agents this team runs on"),
     ("/new", "start a new conversation"),
     ("/resume", "continue a previous conversation"),
     ("/archive", "archive this conversation and start a new one"),
@@ -95,6 +100,13 @@ enum PickAction {
     DefaultEffort {
         model: String,
     },
+}
+
+/// A question the composer answers instead of sending a message.
+enum Ask {
+    PairUrl,
+    PairCode { url: String },
+    LoginCode { runtime: Value, attempt: String, deadline: Instant },
 }
 
 struct Picker {
@@ -168,6 +180,9 @@ pub struct App {
     /// A conversation being opened, or checked for news while idle.
     loading: bool,
     polling: bool,
+    /// The question the composer is answering, and a sign-in in progress.
+    ask: Option<(String, Ask)>,
+    signing: Option<String>,
     /// Requests the spinner is shown for.
     busy: usize,
     apply_tx: UnboundedSender<Apply>,
@@ -224,6 +239,8 @@ impl App {
             loading: false,
             polling: false,
             busy: 0,
+            ask: None,
+            signing: None,
             apply_tx,
             apply_rx,
             update: None,
@@ -515,7 +532,7 @@ impl App {
 
     /// A new conversation before anything is typed.
     fn on_welcome(&self) -> bool {
-        self.is_new && self.messages.is_empty() && self.input.is_empty() && self.picker.is_none()
+        self.is_new && self.messages.is_empty() && self.input.is_empty() && self.picker.is_none() && self.ask.is_none()
     }
 
     /// Grok Build's home: the mark and the shortcuts in a box a third of the
@@ -525,7 +542,7 @@ impl App {
         let menu = [
             ("Sessions", "ctrl+\\"),
             ("Switch team", "/team"),
-            ("Choose the agent", "/runtime"),
+            ("Agents", "/agents"),
             ("Model and effort", "/model"),
             ("Quit", "ctrl+c"),
         ];
@@ -585,7 +602,7 @@ impl App {
             Constraint::Length(1),
         ])
         .areas(rest);
-        let tip_line = match &self.notice {
+        let tip_line = match self.signing.as_ref().or(self.notice.as_ref()) {
             Some(text) => Line::from(Span::styled(text.clone(), Style::default().fg(Color::Yellow))),
             None if self.busy > 0 => {
                 Line::from(Span::styled(format!("{} Loading…", SPINNER[self.tick % SPINNER.len()]), dim()))
@@ -640,7 +657,11 @@ impl App {
         let [prompt, text] = Layout::horizontal([Constraint::Length(2), Constraint::Min(0)]).areas(inner);
         f.render_widget(Span::styled("❯", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)), prompt);
         if self.input.is_empty() {
-            let placeholder = if self.is_new { "Ask Nuphos anything" } else { "Reply to Nuphos" };
+            let placeholder = match (&self.ask, self.is_new) {
+                (Some(_), _) => "Type the answer and press enter",
+                (None, true) => "Ask Nuphos anything",
+                (None, false) => "Reply to Nuphos",
+            };
             f.render_widget(Paragraph::new(Span::styled(placeholder, dim())), text);
         } else {
             let lines: Vec<&str> = self.input.split('\n').collect();
@@ -662,6 +683,10 @@ impl App {
         let sessions = matches!(self.picker, Some(Picker { action: PickAction::Conversation, .. }));
         let hints: &[(&str, &str)] = if sessions {
             &[("↑↓", "choose"), ("enter", "open"), ("p", "pin"), ("esc", "close")]
+        } else if matches!(self.picker, Some(Picker { action: PickAction::Runtime, .. })) {
+            &[("↑↓", "choose"), ("enter", "use or add"), ("l", "sign in"), ("esc", "close")]
+        } else if self.ask.is_some() {
+            &[("enter", "answer"), ("esc", "cancel")]
         } else if self.picker.is_some() {
             &[("↑↓", "choose"), ("enter", "select"), ("esc", "cancel")]
         } else if self.stream.is_some() {
@@ -710,6 +735,16 @@ impl App {
             return cmds;
         }
         let mut lines = Vec::new();
+        if let Some(signing) = &self.signing {
+            let spinner = SPINNER[self.tick % SPINNER.len()];
+            lines.push(Line::from(Span::styled(format!("{spinner} {signing}"), Style::default().fg(Color::Cyan))));
+        }
+        if let Some((question, _)) = &self.ask {
+            lines.push(Line::from(Span::styled(
+                question.clone(),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )));
+        }
         if self.pending_approval().is_some() {
             lines.push(Line::from(vec![
                 Span::styled(
@@ -783,6 +818,11 @@ impl App {
                 }
             }
             KeyCode::Char('d') if ctrl && self.input.is_empty() => self.quit = true,
+            KeyCode::Esc if self.ask.is_some() => {
+                self.ask = None;
+                self.signing = None;
+                self.set_input(String::new());
+            }
             KeyCode::Esc => {
                 if self.stream.is_some() {
                     self.stop();
@@ -855,6 +895,10 @@ impl App {
         if text.is_empty() {
             return;
         }
+        if let Some((_, ask)) = self.ask.take() {
+            self.set_input(String::new());
+            return self.answer(ask, text);
+        }
         if text.starts_with('/') {
             let name = text.split_whitespace().next().unwrap_or_default();
             let command = COMMANDS.iter().map(|(n, _)| *n).find(|n| n.starts_with(name));
@@ -862,7 +906,7 @@ impl App {
             self.notice = None;
             match command {
                 Some("/model") => self.open_model_picker(),
-                Some("/runtime") => self.open_runtime_picker(),
+                Some("/agents") => self.open_agents(),
                 Some("/team") => self.open_team_picker(),
                 Some("/new") => self.new_conversation(),
                 Some("/archive") => self.archive(),
@@ -1159,24 +1203,157 @@ impl App {
         });
     }
 
-    fn open_runtime_picker(&mut self) {
-        if self.stream.is_some() {
-            self.notice = Some("Wait for the reply to finish before switching agents.".into());
-            return;
-        }
+    /// `/agents`: the team's agents to run this conversation on, then ways to
+    /// add one: a Nuphos-managed agent, or a self-hosted one by pairing code.
+    fn open_agents(&mut self) {
         let current = self.runtime.as_ref().map(|r| r["id"].clone());
-        let items: Vec<_> =
+        let mut items: Vec<_> =
             self.runtimes.iter().map(|r| (shared::label(r), shared::runtime_detail(r), r.clone())).collect();
-        if items.is_empty() {
-            self.notice = Some("This team has no active agents.".into());
+        let selected = items.iter().position(|(_, _, r)| Some(&r["id"]) == current.as_ref()).unwrap_or(0);
+        for (provider, name) in PROVIDERS {
+            items.push((format!("+ New {name} agent"), "Nuphos-managed".into(), json!({ "add": provider })));
+        }
+        items.push(("+ Connect a self-hosted agent".into(), "pairing code".into(), json!({ "add": "self-hosted" })));
+        self.picker = Some(Picker { title: "Agents".into(), items, selected, action: PickAction::Runtime });
+    }
+
+    fn add_agent(&mut self, kind: &str) {
+        if kind == "self-hosted" {
+            self.ask = Some(("The agent's URL, from its console (https://… or wss://…)".into(), Ask::PairUrl));
             return;
         }
-        let selected = items.iter().position(|(_, _, r)| Some(&r["id"]) == current.as_ref()).unwrap_or(0);
-        self.picker =
-            Some(Picker { title: "Run this conversation on".into(), items, selected, action: PickAction::Runtime });
+        let (api, team, provider) = (self.api.clone(), self.team_id(), kind.to_string());
+        self.background(true, async move {
+            let result = api.create_runtime(&team, &provider).await;
+            Box::new(move |app: &mut App| match result {
+                Ok(runtime) => {
+                    app.notice = Some(format!("Added {}.", shared::label(&runtime)));
+                    app.adopt_agent(&runtime);
+                    app.sign_in_agent(runtime);
+                }
+                Err(e) => app.notice = Some(e.message),
+            }) as Apply
+        });
+    }
+
+    /// A new agent becomes the one new conversations start on.
+    fn adopt_agent(&mut self, runtime: &Value) {
+        if let Some(id) = runtime["id"].as_str() {
+            self.prefs.runtime_ids.insert(self.team_id(), id.to_string());
+            config::write_prefs(&self.prefs);
+        }
+        if self.is_new {
+            self.runtime = Some(runtime.clone());
+            self.model_label = None;
+        }
+        self.reload_runtimes();
+    }
+
+    /// What the composer was asked for: the pairing URL and code, or the code
+    /// a sign-in page shows.
+    fn answer(&mut self, ask: Ask, text: String) {
+        let (api, team) = (self.api.clone(), self.team_id());
+        match ask {
+            Ask::PairUrl => {
+                self.ask = Some(("The pairing code from the agent's console".into(), Ask::PairCode { url: text }))
+            }
+            Ask::PairCode { url } => self.background(true, async move {
+                let result = api.pair_runtime(&team, &url, &text).await;
+                Box::new(move |app: &mut App| match result {
+                    Ok(runtime) => {
+                        app.notice = Some(format!("Connected {}.", shared::label(&runtime)));
+                        app.adopt_agent(&runtime);
+                    }
+                    Err(e) => app.notice = Some(e.message),
+                }) as Apply
+            }),
+            Ask::LoginCode { runtime, attempt, deadline } => {
+                let id = runtime["id"].as_str().unwrap_or_default().to_string();
+                self.background(false, async move {
+                    let login = api.submit_runtime_login_code(&team, &id, &attempt, &text).await;
+                    Box::new(move |app: &mut App| app.on_login(runtime, login, deadline)) as Apply
+                });
+            }
+        }
+    }
+
+    /// `l` on Agents: signs a Cloud or self-hosted agent in to its provider
+    /// account. A just-created agent is waited for until it answers.
+    fn sign_in_agent(&mut self, runtime: Value) {
+        let label = shared::label(&runtime);
+        if runtime["kind"] == "local" {
+            return self.notice =
+                Some(format!("{label} signs in on its own computer, with `nuphos agent` or the app."));
+        }
+        self.signing = Some(format!("Starting {label}…"));
+        let (api, team) = (self.api.clone(), self.team_id());
+        let id = runtime["id"].as_str().unwrap_or_default().to_string();
+        let deadline = Instant::now() + SIGN_IN_TIMEOUT;
+        self.background(false, async move {
+            while !api.runtime_status(&team, &id).await.is_ok_and(|s| s["online"] == true) && Instant::now() < deadline
+            {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
+            let login = api.runtime_login(Method::POST, &team, &id).await;
+            Box::new(move |app: &mut App| app.on_login(runtime, login, deadline)) as Apply
+        });
+    }
+
+    fn on_login(&mut self, runtime: Value, login: Result<Value, ApiError>, deadline: Instant) {
+        let label = shared::label(&runtime);
+        let failed = |app: &mut App, why: String| {
+            app.signing = None;
+            app.notice = Some(format!("{label} did not sign in: {why}. Try again with l on /agents."));
+        };
+        let login = match login {
+            Ok(login) => login,
+            Err(e) => return failed(self, e.message),
+        };
+        let state = login["state"].as_str().unwrap_or_default();
+        if state == "connected" {
+            self.signing = None;
+            self.notice = Some(format!("{label} is signed in."));
+            return self.reload_runtimes();
+        }
+        if matches!(state, "failed" | "cancelled") {
+            return failed(self, render::clean(login["error"].as_str().unwrap_or(state)));
+        }
+        if Instant::now() > deadline {
+            return failed(self, "it took too long".into());
+        }
+        let submitted = login["codeSubmitted"] == true;
+        if let (Some(url), false) = (login["authorizationUrl"].as_str(), submitted) {
+            open_https(url);
+            self.signing = Some(format!("Sign {label} in at {}", render::clean(url)));
+            let attempt = login["attemptId"].as_str().unwrap_or_default().to_string();
+            self.ask =
+                Some(("Paste the code the sign-in page shows".into(), Ask::LoginCode { runtime, attempt, deadline }));
+            return;
+        }
+        if let Some(uri) = login["verificationUri"].as_str() {
+            let text = format!(
+                "Sign {label} in at {} with the code {}",
+                render::clean(uri),
+                render::clean(login["userCode"].as_str().unwrap_or_default())
+            );
+            if self.signing.as_deref() != Some(text.as_str()) {
+                open_https(uri);
+            }
+            self.signing = Some(text);
+        }
+        let (api, team) = (self.api.clone(), self.team_id());
+        let id = runtime["id"].as_str().unwrap_or_default().to_string();
+        self.background(false, async move {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            let login = api.runtime_login(Method::GET, &team, &id).await;
+            Box::new(move |app: &mut App| app.on_login(runtime, login, deadline)) as Apply
+        });
     }
 
     fn choose_runtime(&mut self, runtime: Value) {
+        if self.stream.is_some() {
+            return self.notice = Some("Wait for the reply to finish before switching agents.".into());
+        }
         let team = self.team_id();
         if self.is_new {
             if let Some(id) = runtime["id"].as_str() {
@@ -1232,7 +1409,7 @@ impl App {
         }
         // A new conversation starts on the runtime's defaults, as on the desktop.
         let Some(runtime) = self.runtime.clone() else {
-            self.notice = Some("Choose an agent with /runtime first.".into());
+            self.notice = Some("Choose an agent with /agents first.".into());
             return;
         };
         if runtime["kind"] == "local" {
@@ -1658,12 +1835,22 @@ impl App {
             KeyCode::Esc => self.picker = None,
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => self.picker = None,
             KeyCode::Char('p') if matches!(picker.action, PickAction::Conversation) => self.toggle_pin(),
+            KeyCode::Char('l') if matches!(picker.action, PickAction::Runtime) => {
+                let Some((_, _, agent)) = picker.items.get(picker.selected).cloned() else { return };
+                if agent["add"].is_null() {
+                    self.picker = None;
+                    self.sign_in_agent(agent);
+                }
+            }
             KeyCode::Enter => {
                 let Some(picker) = self.picker.take() else { return };
                 let Some((_, _, value)) = picker.items.into_iter().nth(picker.selected) else { return };
                 match picker.action {
                     PickAction::Team => self.choose_team(value),
-                    PickAction::Runtime => self.choose_runtime(value),
+                    PickAction::Runtime => match value["add"].as_str() {
+                        Some(kind) => self.add_agent(kind),
+                        None => self.choose_runtime(value),
+                    },
                     PickAction::Conversation => self.resume(value),
                     PickAction::SessionOption { config_id } => self.choose_session_option(config_id, value),
                     PickAction::DefaultModel => {
@@ -1728,6 +1915,13 @@ fn session_lines(picker: &Picker, area: Rect, empty: &'static str) -> Vec<Line<'
     let first = (at + 1).saturating_sub(room);
     lines.extend(rows.into_iter().skip(first).take(room).map(|(_, line)| line));
     lines
+}
+
+/// Only web pages are opened; anything else is just shown.
+fn open_https(url: &str) {
+    if url.starts_with("https://") {
+        let _ = open::that(url);
+    }
 }
 
 /// Leaves the alternate screen and the modes the TUI turned on; also run on a panic.
