@@ -41,6 +41,8 @@ function fallbackDirs(home: string): string[] {
     path.join(home, '.claude', 'local'),
     '/opt/homebrew/bin',
     '/usr/local/bin',
+    // The CLI bundled with the ChatGPT (Codex) desktop app, for users without a separate install.
+    '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin',
   ]
 }
 
