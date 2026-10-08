@@ -69,15 +69,22 @@ session.endSession();
                 if phase == 'restart':
                     subprocess.run(['docker', 'restart', name], check=True,
                                    stdout=subprocess.DEVNULL)
-                for attempt in range(120):
+                for attempt in range(30):
                     result = subprocess.run(['docker', 'exec', name, 'mongosh',
                                              'mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000', '--quiet',
                                              '--eval', probe], capture_output=True, text=True)
                     if result.returncode == 0:
                         break
+                    state = subprocess.check_output(['docker', 'inspect', '-f', '{{.State.Running}}', name], text=True).strip()
+                    if state != 'true':
+                        break
                     time.sleep(2)
-                else:
-                    raise RuntimeError(f'Mongo {phase} probe failed: {result.stderr[-2000:]} {result.stdout[-2000:]}')
+                if result.returncode != 0:
+                    logs = subprocess.run(['docker', 'logs', '--tail', '50', name], capture_output=True, text=True)
+                    details = logs.stdout + logs.stderr + result.stderr + result.stdout
+                    for line in env.read_text().splitlines():
+                        details = details.replace(line.split('=', 1)[1], '[redacted]')
+                    raise RuntimeError(f'Mongo {phase} failed: {details[-12000:]}')
                 print(f'PASS: template Mongo authentication and transaction after {phase}', flush=True)
         finally:
             subprocess.run(['docker', 'rm', '-fv', name], check=False,
