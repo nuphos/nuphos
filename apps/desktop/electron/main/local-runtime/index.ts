@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
@@ -16,7 +16,7 @@ import { readDeviceIdentity } from '../device-identity.ts'
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { ClaudeLogin } from './claude-login.ts'
-import { agentCliEnv, agentEnv, bundleFromManifest } from './config.ts'
+import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { LocalExecStream } from './exec-stream.ts'
@@ -46,25 +46,7 @@ function bundleRoot(): string {
 }
 
 function findBundle(): LocalRuntimeBundle | null {
-  const root = bundleRoot()
-
-  try {
-    const manifest = JSON.parse(
-      readFileSync(path.join(root, 'manifest.json'), 'utf8'),
-    ) as Parameters<typeof bundleFromManifest>[1]
-    const bundle = bundleFromManifest(root, manifest)
-
-    if (!bundle || !existsSync(bundle.openab)) return null
-    for (const provider of LOCAL_AGENT_PROVIDERS) {
-      const adapter = bundle.adapters[provider]
-
-      if (adapter && !existsSync(adapter.entry)) delete bundle.adapters[provider]
-    }
-
-    return bundle
-  } catch {
-    return null
-  }
+  return readBundle(bundleRoot())
 }
 
 async function userEnv(): Promise<NodeJS.ProcessEnv> {

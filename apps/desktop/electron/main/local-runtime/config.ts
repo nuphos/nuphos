@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
@@ -181,5 +182,24 @@ export function bundleFromManifest(root: string, manifest: Manifest): LocalRunti
     openab: path.join(root, manifest.openab),
     adapters,
     ...(typeof manifest.openabCommit === 'string' ? { openabCommit: manifest.openabCommit } : {}),
+  }
+}
+
+/** The bundle staged at `root`, less any adapter whose files are missing; null without openab. */
+export function readBundle(root: string): LocalRuntimeBundle | null {
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(root, 'manifest.json'), 'utf8')) as Manifest
+    const bundle = bundleFromManifest(root, manifest)
+
+    if (!bundle || !existsSync(bundle.openab)) return null
+    for (const provider of ['claude-code', 'codex'] as const) {
+      const adapter = bundle.adapters[provider]
+
+      if (adapter && !existsSync(adapter.entry)) delete bundle.adapters[provider]
+    }
+
+    return bundle
+  } catch {
+    return null
   }
 }
