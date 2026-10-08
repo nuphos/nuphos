@@ -70,13 +70,14 @@ session.endSession();
                     subprocess.run(['docker', 'restart', name], check=True,
                                    stdout=subprocess.DEVNULL)
                 for attempt in range(120):
-                    result = subprocess.run(['docker', 'exec', name, 'mongosh', '--quiet',
+                    result = subprocess.run(['docker', 'exec', name, 'mongosh',
+                                             'mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000', '--quiet',
                                              '--eval', probe], capture_output=True, text=True)
                     if result.returncode == 0:
                         break
                     time.sleep(2)
                 else:
-                    raise RuntimeError(f'Mongo {phase} failed to become primary')
+                    raise RuntimeError(f'Mongo {phase} probe failed: {result.stderr[-2000:]} {result.stdout[-2000:]}')
                 print(f'PASS: template Mongo authentication and transaction after {phase}', flush=True)
         finally:
             subprocess.run(['docker', 'rm', '-fv', name], check=False,
