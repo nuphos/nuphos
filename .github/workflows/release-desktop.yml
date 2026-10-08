@@ -165,5 +165,5 @@ jobs:
           - [Linux arm64]($BASE/Nuphos-$VERSION-arm64.AppImage)
           EOF
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --latest --generate-notes --notes-file release-notes.md
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Desktop $TAG" --latest --generate-notes --notes-file release-notes.md
           fi
