@@ -440,6 +440,7 @@ private struct OpenAIKeySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var key = ""
     @State private var error: String?
+    @State private var checking = false
     @FocusState private var focused: Bool
 
     private var trimmed: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -463,7 +464,9 @@ private struct OpenAIKeySheet: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(trimmed.isEmpty) }
+                ToolbarItem(placement: .confirmationAction) {
+                    if checking { ProgressView() } else { Button("Save", action: save).disabled(trimmed.isEmpty) }
+                }
             }
             .onAppear { focused = true }
         }
@@ -471,13 +474,20 @@ private struct OpenAIKeySheet: View {
     }
 
     private func save() {
-        guard !trimmed.isEmpty else { return }
-        do {
-            try Keychain.write(trimmed, for: Whisper.keychainKey)
-            dismiss()
-            onSave()
-        } catch {
-            self.error = error.localizedDescription
+        let key = trimmed
+        guard !key.isEmpty, !checking else { return }
+        checking = true
+        error = nil
+        Task {
+            defer { checking = false }
+            do {
+                try await Whisper.verify(key)
+                try Keychain.write(key, for: Whisper.keychainKey)
+                dismiss()
+                onSave()
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 }

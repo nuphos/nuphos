@@ -102,15 +102,36 @@ enum Whisper {
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
 
         let (data, response) = try await URLSession.shared.upload(for: request, from: body)
-        struct Reply: Decodable {
-            struct APIError: Decodable { let message: String }
-            let text: String?
-            let error: APIError?
-        }
-        let reply = try? JSONDecoder().decode(Reply.self, from: data)
-        guard (response as? HTTPURLResponse)?.statusCode == 200, let text = reply?.text else {
-            throw Failure(errorDescription: reply?.error?.message ?? "OpenAI couldn't transcribe the recording.")
+        guard let text = try reply(data, response).text else {
+            throw Failure(errorDescription: "OpenAI couldn't transcribe the recording.")
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Checks a key before it is saved, with a free call it must be allowed to make.
+    static func verify(_ apiKey: String) async throws {
+        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        _ = try reply(data, response)
+    }
+
+    private struct Reply: Decodable {
+        struct APIError: Decodable { let message: String }
+        let text: String?
+        let error: APIError?
+    }
+
+    private static func reply(_ data: Data, _ response: URLResponse) throws -> Reply {
+        let reply = try? JSONDecoder().decode(Reply.self, from: data)
+        switch (response as? HTTPURLResponse)?.statusCode {
+        case 200: return reply ?? Reply(text: nil, error: nil)
+        case 401:
+            // A key OpenAI no longer accepts is forgotten, so the next tap asks again.
+            Keychain.delete(keychainKey)
+            throw Failure(errorDescription: "OpenAI rejected this API key. Tap the microphone to enter a new one.")
+        default:
+            throw Failure(errorDescription: reply?.error?.message ?? "OpenAI couldn't be reached. Try again.")
+        }
     }
 }
