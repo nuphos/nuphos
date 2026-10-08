@@ -20,20 +20,29 @@ if ! gh api -X PATCH "repos/$repo/git/refs/heads/$branch" -f sha="$base" -F forc
   gh api "repos/$repo/git/refs" -f ref="refs/heads/$branch" -f sha="$base" >/dev/null
 fi
 
-additions='[]'
-for path in "$@"; do
-  additions=$(jq -c --arg path "$path" --arg contents "$(base64 -w0 "$root/$path")" \
-    '. + [{path: $path, contents: $contents}]' <<<"$additions")
-done
-jq -n --arg repo "$repo" --arg branch "$branch" --arg base "$base" --arg title "$title" --argjson additions "$additions" '{
-  query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }",
-  variables: { input: {
-    branch: { repositoryNameWithOwner: $repo, branchName: $branch },
-    expectedHeadOid: $base,
-    message: { headline: $title },
-    fileChanges: { additions: $additions }
-  } }
-}' | gh api graphql --input - >/dev/null
+# Node reads the files itself: a lockfile's base64 is too long for an argument.
+node - "$repo" "$branch" "$base" "$title" "$root" "$@" <<'JS' | gh api graphql --input - >/dev/null
+const fs = require('node:fs')
+const [repo, branch, base, title, root, ...paths] = process.argv.slice(2)
+const additions = paths.map((path) => ({
+  path,
+  contents: fs.readFileSync(`${root}/${path}`).toString('base64'),
+}))
+process.stdout.write(
+  JSON.stringify({
+    query:
+      'mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }',
+    variables: {
+      input: {
+        branch: { repositoryNameWithOwner: repo, branchName: branch },
+        expectedHeadOid: base,
+        message: { headline: title },
+        fileChanges: { additions },
+      },
+    },
+  }),
+)
+JS
 
 body="Opened by the [$GITHUB_WORKFLOW run]($GITHUB_SERVER_URL/$repo/actions/runs/$GITHUB_RUN_ID) after the update passed its tests and image smoke test. Merging it releases the new runtime version."
 existing="$(gh pr list --repo "$repo" --head "$branch" --state open --json number --jq '.[0].number // empty')"
