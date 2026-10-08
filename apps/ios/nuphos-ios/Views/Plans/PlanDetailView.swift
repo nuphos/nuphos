@@ -76,9 +76,8 @@ struct PlanDetailView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Label("Plan actions", systemImage: "ellipsis")
                     }
-                    .accessibilityLabel("Plan actions")
                 }
             }
         }

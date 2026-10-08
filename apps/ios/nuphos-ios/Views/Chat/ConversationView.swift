@@ -146,8 +146,10 @@ struct ConversationView: View {
                         }
                     } label: {
                         // The menu has closed by the time the request runs;
-                        // this is what shows it was taken.
-                        if updating { ProgressView() } else { Image(systemName: "ellipsis") }
+                        // this is what shows it was taken. A Label, not a bare
+                        // Image: the bar takes it as a native item, so the
+                        // whole glass answers, not just the glyph.
+                        if updating { ProgressView() } else { Label("Chat options", systemImage: "ellipsis") }
                     }
                     .disabled(updating)
                     .accessibilityLabel("Chat options")
