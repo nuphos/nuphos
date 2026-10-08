@@ -11,7 +11,8 @@ import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
-import { AddedReceipt, ParticipantList, ShareLink, TeammatePicker } from './ShareCard'
+import { AddedReceipt, ParticipantList, ShareLink } from './ShareCard'
+import { TeammatePicker } from './TeammatePicker'
 
 import type { AgentConversationParticipant } from '../../api/agent-types'
 import type { TeamMember } from '../../types'

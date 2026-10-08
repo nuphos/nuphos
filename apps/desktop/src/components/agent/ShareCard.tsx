@@ -8,8 +8,8 @@ import { Button } from '../ui/button'
 import type { AgentConversationParticipant } from '../../api/agent-types'
 import type { TeamMember } from '../../types'
 
-// The pieces of the Share card in SessionParticipants. They hold no state of
-// their own: the card owns who is picked, who was just added, and what is busy.
+// The pieces of the Share card in SessionParticipants (the picker lives in
+// TeammatePicker). The card owns who is picked, who was just added, and what is busy.
 
 /** "Ann", "Ann and Bo", "Ann, Bo, and 2 others". */
 function joinNames(names: string[]) {
@@ -24,7 +24,7 @@ const SECTION_LABEL = 'px-1 text-[11px] font-medium text-tertiary'
 const CHECK_BADGE =
   't-share-pop absolute flex h-4 w-4 items-center justify-center rounded-full border-2 border-main text-white'
 
-function CheckBadge({ className }: { className: string }) {
+export function CheckBadge({ className }: { className: string }) {
   return (
     <span className={clsx(CHECK_BADGE, className)}>
       <Check className="h-2.5 w-2.5" strokeWidth={3} />
@@ -125,110 +125,6 @@ export function ParticipantList({
           )}
         </div>
       ))}
-    </div>
-  )
-}
-
-function PickedChips({
-  picked,
-  onToggle,
-}: {
-  picked: TeamMember[]
-  onToggle: (member: TeamMember) => void
-}) {
-  if (picked.length === 0) {
-    return <span className="px-1 text-[12px] leading-6 text-tertiary">Pick people below</span>
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1 px-1">
-      {picked.map((member) => (
-        <span
-          key={member.id}
-          className="t-share-in flex h-6 items-center gap-1 rounded-full bg-zGray-800/60 pl-0.5 pr-1 text-[12px] text-main"
-        >
-          <Avatar src={member.avatarURL} name={member.name} size={20} className="!rounded-full" />
-          <span className="max-w-[96px] truncate">{member.name}</span>
-          <button
-            type="button"
-            className="rounded-full p-0.5 text-tertiary hover:text-main"
-            aria-label={`Unpick ${member.name}`}
-            onClick={() => onToggle(member)}
-          >
-            <X className="h-3 w-3" strokeWidth={2} />
-          </button>
-        </span>
-      ))}
-    </div>
-  )
-}
-
-/** Teammates as a face grid: a click picks or unpicks, the chips above echo the picks. */
-export function TeammatePicker({
-  members,
-  invitable,
-  picked,
-  disabled,
-  onToggle,
-}: {
-  members: TeamMember[] | null
-  invitable: TeamMember[]
-  picked: TeamMember[]
-  disabled: boolean
-  onToggle: (member: TeamMember) => void
-}) {
-  const pickedIds = new Set(picked.map((member) => member.id))
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className={SECTION_LABEL}>Add teammates</div>
-      <PickedChips picked={picked} onToggle={onToggle} />
-      {!members && (
-        <div className="flex items-center gap-2 px-1 text-[12px] text-tertiary">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-          Loading members…
-        </div>
-      )}
-      {members && invitable.length === 0 && (
-        <div className="px-1 text-[12px] text-tertiary">Everyone in the team is already here.</div>
-      )}
-      {invitable.length > 0 && (
-        <div className="grid max-h-[156px] grid-cols-5 gap-y-1 overflow-auto scrollbar-thin">
-          {invitable.map((member) => {
-            const selected = pickedIds.has(member.id)
-
-            return (
-              <button
-                key={member.id}
-                type="button"
-                aria-pressed={selected}
-                title={member.name}
-                disabled={disabled}
-                onClick={() => onToggle(member)}
-                className="flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 transition-colors hover:bg-zGray-800/40"
-              >
-                <span
-                  className={clsx(
-                    'relative rounded-full ring-2 ring-offset-2 ring-offset-[rgb(var(--color-background-base))] transition-shadow',
-                    selected ? 'ring-zViolet-accent' : 'ring-transparent',
-                  )}
-                >
-                  <Avatar
-                    src={member.avatarURL}
-                    name={member.name}
-                    size={36}
-                    className="!rounded-full"
-                  />
-                  {selected && <CheckBadge className="-bottom-0.5 -right-0.5 bg-zViolet-500" />}
-                </span>
-                <span className="w-full truncate text-[11px] text-secondary">
-                  {member.name.split(' ')[0]}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
