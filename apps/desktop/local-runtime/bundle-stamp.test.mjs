@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 
-import { bundleStamp, bundleState, digestOf, STAMP_SOURCES } from './bundle-stamp.mjs'
+import {
+  bundleStamp,
+  bundleState,
+  digestOf,
+  RUNTIME_DIR,
+  RUNTIME_SOURCES,
+  STAMP_SOURCES,
+} from './bundle-stamp.mjs'
 
 const ENTRY = 'node_modules/adapter/index.js'
 
@@ -54,4 +61,23 @@ test('the stamp follows the pins and patches in the staging sources', () => {
   writeFileSync(join(dir, 'claude-session-env.mjs'), '// next shell environment')
   assert.notEqual(bundleStamp(dir), previous)
   assert.notEqual(digestOf(['adapter-patches.mjs'], dir), digestOf(['skills-sync.mjs'], dir))
+})
+
+test('the stamp follows the runtime image adapters it stages', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'stamp-'))
+  const runtimeDir = mkdtempSync(join(tmpdir(), 'runtime-'))
+
+  for (const file of STAMP_SOURCES) writeFileSync(join(dir, file), `// ${file}`)
+  for (const file of RUNTIME_SOURCES) {
+    mkdirSync(dirname(join(runtimeDir, file)), { recursive: true })
+    writeFileSync(join(runtimeDir, file), `// ${file}`)
+  }
+  const before = bundleStamp(dir, runtimeDir)
+
+  writeFileSync(join(runtimeDir, 'claude-agent-acp/patch-adapter.mjs'), '// next adapter patch')
+  assert.notEqual(bundleStamp(dir, runtimeDir), before)
+})
+
+test('every staged runtime source exists in this repository', () => {
+  for (const file of RUNTIME_SOURCES) assert.ok(existsSync(join(RUNTIME_DIR, file)), file)
 })

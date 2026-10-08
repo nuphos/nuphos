@@ -2008,3 +2008,31 @@ html.platform-darwin:not(.window-fullscreen)
   .workspace-agent-titlebar {
   padding-left: calc(28px + 54px / var(--zoom-factor, 1));
 }
+
+/* Home cards grid (react-grid-layout): no drop-target box. The dragged card
+   follows the pointer and the others make room, so the gap shows where it
+   lands. The extra .react-grid-layout outranks the library's stylesheet,
+   which loads after this one. */
+.react-grid-layout .react-grid-item.react-grid-placeholder {
+  display: none;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  border-color: rgb(128 128 128 / 0.6);
+}
+
+/* The home page is text-selectable, so pressing a card's header to drag it
+   would start a selection. The header is the drag handle, never text to copy,
+   and nothing on the page selects while a card is moving. Unlayered, so these
+   win over the base layer's .selectable rule. */
+.home-card-drag,
+.home-card-drag * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.selectable:has(.react-draggable-dragging, .resizing),
+.selectable:has(.react-draggable-dragging, .resizing) * {
+  user-select: none;
+  -webkit-user-select: none;
+}

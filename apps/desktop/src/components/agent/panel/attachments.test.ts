@@ -28,14 +28,11 @@ test('text, image, and uploading messages have sender details on their first ren
   for (const kind of ['text', 'image', 'upload']) {
     const turn = makeAttachmentTurn(
       'hello',
-      kind === 'image'
-        ? [{ type: 'image', mediaType: 'image/png', url: 'data:image/png;base64,AA==' }]
-        : [],
-      kind === 'upload' ? ['/files/log.txt'] : [],
+      kind === 'image' ? ['/files/shot.png'] : kind === 'upload' ? ['/files/log.txt'] : [],
       'team',
       { currentUser: user },
     )
-    const message = turn.buildUserMsg(kind === 'upload' ? turn.optimisticPart() : null)
+    const message = turn.buildUserMsg(kind === 'text' ? null : turn.optimisticPart())
 
     assert.deepEqual(message.metadata?.sender, {
       type: 'user',
@@ -60,11 +57,11 @@ test('text, image, and uploading messages have sender details on their first ren
 })
 
 test('optimistic attribution uses the same name fallback and avatar restrictions as the server', () => {
-  const message = makeAttachmentTurn('hi', [], [], 'team', {
+  const message = makeAttachmentTurn('hi', [], 'team', {
     currentUser: { ...user, name: '', avatarURL: 'https://untrusted.example/avatar' },
   }).buildUserMsg(null)
 
   assert.equal(message.metadata?.sender.displayName, user.username)
   assert.equal(message.metadata?.sender.avatarURL, undefined)
-  assert.equal(makeAttachmentTurn('hi', [], [], 'team').buildUserMsg(null).metadata, undefined)
+  assert.equal(makeAttachmentTurn('hi', [], 'team').buildUserMsg(null).metadata, undefined)
 })

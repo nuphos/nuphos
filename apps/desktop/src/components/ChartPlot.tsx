@@ -72,7 +72,16 @@ function TooltipContent({
 }
 
 /** Shared chart body. Layout chrome and payload headings belong to its host. */
-export function ChartPlot({ payload, className }: { payload: ChartPayload; className?: string }) {
+export function ChartPlot({
+  payload,
+  className,
+  fill = false,
+}: {
+  payload: ChartPayload
+  className?: string
+  /** Take the parent's height instead of the default fixed one. */
+  fill?: boolean
+}) {
   const { type, xKey, series, data, stacked } = payload
   const gradientId = useId()
   const [hiddenKeys, setHiddenKeys] = useState<ReadonlySet<string>>(new Set())
@@ -103,8 +112,8 @@ export function ChartPlot({ payload, className }: { payload: ChartPayload; class
   }
 
   return (
-    <div className={clsx('flex w-full flex-col', className)}>
-      <div className="h-56 w-full">
+    <div className={clsx('flex w-full flex-col', fill && 'h-full', className)}>
+      <div className={clsx('w-full', fill ? 'min-h-0 flex-1' : 'h-56')}>
         <ResponsiveContainer width="100%" height="100%">
           {type === 'area' ? (
             <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>

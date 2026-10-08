@@ -35,7 +35,10 @@ enum AgentChatAPI {
         request.setValue(AccountAPI.aiConsentVersion, forHTTPHeaderField: "x-nuphos-ai-consent-version")
         request.setValue(Locale.current.identifier.replacingOccurrences(of: "_", with: "-"), forHTTPHeaderField: "x-atlas-locale")
         request.setValue("/teams/\(body.teamId)/agent/\(body.id)", forHTTPHeaderField: "x-atlas-url")
-        request.timeoutInterval = 60 * 60
+        // URLSession's idle timeout between packets, not a deadline for the
+        // turn: it covers a stalled upload, and heartbeats keep a live stream
+        // well inside it.
+        request.timeoutInterval = 60
         let data = try encoder.encode(body)
         try ChatPayload.check(data)
         request.httpBody = data

@@ -15,12 +15,12 @@ export type AppShortcutAction =
   | 'open-settings'
   | 'open-team-settings'
   | 'toggle-sidebar'
+  | 'toggle-dock-expanded'
   | 'shortcuts-help'
   | 'reopen-closed-tab'
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
 
 export type WindowShellApi = {
-  localTerminalDescribe(id: string): Promise<TerminalTarget | 'local' | null>
   localTerminalStart(
     id: string,
     cols: number,

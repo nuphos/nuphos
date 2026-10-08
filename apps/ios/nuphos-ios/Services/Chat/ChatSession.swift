@@ -52,6 +52,8 @@ final class ChatSession {
     private(set) var runtimeLabel: String?
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// Files the agent sent the user here, read from the transfer store.
+    private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
     /// Model / effort / fast controls, for conversations on a native runtime.
     private(set) var sessionConfig: SessionConfigState?
@@ -84,7 +86,16 @@ final class ChatSession {
         guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
         return runtimeObservation.status(at: observations.now)
     }
-    private(set) var submitting = false
+    /// What the user just sent, shown as their bubble until the request is
+    /// admitted; it goes back to the composer if the upload fails or is cancelled.
+    struct Sending {
+        let submission: ComposerSubmission
+        let progress = Progress()
+        fileprivate var task: Task<Void, Never>?
+    }
+    private(set) var sending: Sending?
+    var submitting: Bool { sending != nil }
+    func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
     /// Prevent double submission until this request has a runtime admission or terminal response.
     private var awaitingAdmission = false
@@ -121,6 +132,22 @@ final class ChatSession {
     func presetPermissionMode(_ mode: PermissionMode) { permissionMode = mode }
 
     var isNew: Bool { messages.isEmpty && loaded }
+
+    /// Re-reads the files the agent sent. The list is owner-only, as on the desktop.
+    func refreshDownloads() async {
+        guard isOwner, messages.contains(where: { $0.role == .assistant }) else { return }
+        struct List: Decodable { let groups: [TransferDownloadGroup] }
+        guard let list: List = try? await WorkspaceAPI.request(transferPath + "/downloads", token: token) else { return }
+        downloads = list.groups.filter { $0.expiresAt > .now && !$0.readyFiles.isEmpty }
+    }
+
+    /// A transfer group's files with fresh presigned URLs. Team-scoped, so it
+    /// resolves both what the agent sent and what the user uploaded.
+    func transferGroup(_ groupId: String) async throws -> TransferDownloadGroup {
+        try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
+    }
+
+    private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }
 
     // MARK: - Private
 
@@ -290,8 +317,9 @@ final class ChatSession {
         send(ComposerSubmission(text: text, attachments: []))
     }
 
-    /// Sends text plus attachments. Photos ride along as `file` parts (data
-    /// URLs, for vision); other files must finish uploading before dispatch.
+    /// Sends text plus attachments. Runtime agents get every attachment from
+    /// the transfer store, so the chat request stays small. The built-in agent
+    /// still reads photos inline for vision; its files upload first.
     func send(_ submission: ComposerSubmission) {
         let trimmed = submission.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = submission.attachments
@@ -312,26 +340,30 @@ final class ChatSession {
         }
         var parts: [ChatPart] = []
         if !trimmed.isEmpty { parts.append(.text(.init(text: trimmed, state: .done))) }
-        for a in attachments {
-            if let url = a.dataURL {
-                parts.append(.file(.init(mediaType: "image/jpeg", filename: a.name, url: url)))
+        let uploads = isNativeRuntime ? attachments : attachments.filter { !$0.isImage }
+        if !isNativeRuntime {
+            for a in attachments {
+                if let url = a.dataURL {
+                    parts.append(.file(.init(mediaType: "image/jpeg", filename: a.name, url: url)))
+                }
             }
         }
-        let files = attachments.filter { !$0.isImage }
-        submitting = true
         failedSubmission = nil
         error = nil
-        Task {
-            defer { submitting = false }
+        sending = Sending(submission: submission)
+        let progress = sending!.progress
+        sending?.task = Task {
             do {
-                if !files.isEmpty {
-                    let instruction = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: files)
-                    parts.append(.text(.init(text: instruction, state: .done)))
+                if !uploads.isEmpty {
+                    let upload = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: uploads, progress: progress)
+                    parts.append(isNativeRuntime ? upload.part : .text(.init(text: upload.instruction, state: .done)))
                 }
+                sending = nil
                 let message = ChatMessage(role: .user, parts: parts)
                 await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed, submission: submission)
             } catch {
-                self.error = error.localizedDescription
+                sending = nil
+                if !Task.isCancelled { self.error = error.localizedDescription }
                 failedSubmission = submission
             }
         }

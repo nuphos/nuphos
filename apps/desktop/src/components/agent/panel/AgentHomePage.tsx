@@ -8,9 +8,10 @@ import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
 import { ConnectorStrip } from './hero'
 import { RevealedHistoryBlock } from './historyRows'
-import { AgentHomeAnimation, DelayedPanelReveal } from './homeAnimation'
-import { StarterSuggestionsBlock } from './starterSuggestions'
+import { AgentHomeAnimation, COMPOSER_REVEAL_MS, DelayedPanelReveal } from './homeAnimation'
+import { HomeWidgets } from './HomeWidgets'
 import { LocalAgentHint } from './LocalAgentHint'
+import { StarterSuggestionsBlock } from './starterSuggestions'
 import { homeGreeting } from './textUtils'
 import { useEntranceCount } from './useEntranceCount'
 
@@ -42,6 +43,8 @@ export function AgentHomePage({
   shown = true,
   userName,
   onImportSession,
+  isTeamAdmin = false,
+  onOpenConversation,
 }: {
   /** Only used to decide whether the starter suggestions are worth showing:
    *  they are for a team that has not started a conversation yet. */
@@ -80,6 +83,10 @@ export function AgentHomePage({
   userName?: string
   /** Continue a local Claude Code / Codex session on the selected agent. */
   onImportSession?: (session: LocalAgentSessionInfo) => void
+  /** Administrators can make their home layout the team default. */
+  isTeamAdmin?: boolean
+  /** Opens a conversation picked from a home card. */
+  onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const entranceKey = useEntranceCount(shown)
   const firstRun = unbound && ONBOARDING_EXTRA_STEPS_ENABLED
@@ -114,59 +121,63 @@ export function AgentHomePage({
   }, [firstRun])
 
   return (
-    <div className="flex-1 min-h-0 overflow-hidden selectable">
-      <div className="h-full min-h-0 px-6 pb-5 pt-4">
-        <div className="mx-auto grid h-full min-h-0 w-full max-w-[820px] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-          <div />
-          <div>
-            <AgentHomeAnimation key={entranceKey} title={homeGreeting(userName)} />
-            <DelayedPanelReveal replayKey={entranceKey}>
-              {/* The composer is untouched — the tray is a sibling painted
-                  behind it, same width, with its square top tucked under the
-                  composer's bottom so only the part below shows. */}
-              <div className="relative">
-                {/* First-run backing: an opaque fill at the composer's exact
-                    radius, so the translucent composer composites over page
-                    colour instead of tinting the tray tucked behind it — and
-                    a soft shadow, carried here rather than by the Composer,
-                    so the composer visibly presses down on the tray. In the
-                    corner notches the rounded backing doesn't reach, the
-                    tray's grey shows: that's the emerging-from-behind look,
-                    not a leak. Bound teams get no backing at all. */}
-                <div
-                  className={clsx(
-                    'relative z-10',
-                    firstRun &&
-                      'rounded-xl bg-appBg shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)]',
-                  )}
-                >
-                  <Composer
-                    variant="hero"
-                    onSend={onSend}
-                    onStop={onStop}
-                    streaming={streaming}
-                    credentialSelector={credentialSelector}
-                    runtimeControl={runtimeControl}
-                    newConversationModelControl={newConversationModelControl}
-                    bypassControl={bypassControl}
-                    pendingSeed={pendingSeed}
-                    onSeedConsumed={onSeedConsumed}
-                    firstRun={firstRun}
-                    autoFocus={autoFocusComposer && shown}
-                    dropRegisterRef={dropRegisterRef}
-                    draftKey={composerDraftKey(teamId)}
-                    onImportSession={onImportSession}
-                  />
-                </div>
-                {firstRun && !stripDismissed && (
-                  <ConnectorStrip onStart={handleStartConnect} onDismiss={dismissStrip} />
+    // A size container, so the block above can measure half of what is visible.
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin selectable [container-type:size]">
+      <div className="flex min-h-full flex-col px-6 pb-8">
+        {/* Exactly half the visible height, bottom-aligned: the composer's
+            bottom edge sits on the page's middle, and everything else hangs
+            below it and scrolls. */}
+        <div className="mx-auto flex min-h-[50cqh] w-full max-w-[820px] flex-col justify-end">
+          <AgentHomeAnimation key={entranceKey} title={homeGreeting(userName)} />
+          <DelayedPanelReveal replayKey={entranceKey}>
+            {/* The composer is untouched — the tray is a sibling painted
+                behind it, same width, with its square top tucked under the
+                composer's bottom so only the part below shows. */}
+            <div className="relative">
+              {/* First-run backing: an opaque fill at the composer's exact
+                  radius, so the translucent composer composites over page
+                  colour instead of tinting the tray tucked behind it — and
+                  a soft shadow, carried here rather than by the Composer,
+                  so the composer visibly presses down on the tray. In the
+                  corner notches the rounded backing doesn't reach, the
+                  tray's grey shows: that's the emerging-from-behind look,
+                  not a leak. Bound teams get no backing at all. */}
+              <div
+                className={clsx(
+                  'relative z-10',
+                  firstRun &&
+                    'rounded-xl bg-appBg shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)]',
                 )}
+              >
+                <Composer
+                  variant="hero"
+                  onSend={onSend}
+                  onStop={onStop}
+                  streaming={streaming}
+                  credentialSelector={credentialSelector}
+                  runtimeControl={runtimeControl}
+                  newConversationModelControl={newConversationModelControl}
+                  bypassControl={bypassControl}
+                  pendingSeed={pendingSeed}
+                  onSeedConsumed={onSeedConsumed}
+                  firstRun={firstRun}
+                  autoFocus={autoFocusComposer && shown}
+                  dropRegisterRef={dropRegisterRef}
+                  draftKey={composerDraftKey(teamId)}
+                  onImportSession={onImportSession}
+                />
               </div>
-              <LocalAgentHint />
-            </DelayedPanelReveal>
-          </div>
-
-          <div className="min-h-0 overflow-y-auto overflow-x-hidden pt-3 scrollbar-thin">
+              {firstRun && !stripDismissed && (
+                <ConnectorStrip onStart={handleStartConnect} onDismiss={dismissStrip} />
+              )}
+            </div>
+          </DelayedPanelReveal>
+        </div>
+        <div className="mx-auto w-full max-w-[820px]">
+          <DelayedPanelReveal replayKey={entranceKey}>
+            <LocalAgentHint />
+          </DelayedPanelReveal>
+          <div className="pt-3">
             {!unbound &&
               !loading &&
               conversations.length === 0 &&
@@ -181,6 +192,19 @@ export function AgentHomePage({
               )}
           </div>
         </div>
+        {teamId && (
+          <div className="mx-auto mt-6 w-full max-w-[820px]">
+            {/* The composer's panel reveal, starting 0.3s after it. */}
+            <HomeWidgets
+              key={teamId}
+              teamId={teamId}
+              isTeamAdmin={isTeamAdmin}
+              onOpenConversation={onOpenConversation}
+              revealAt={COMPOSER_REVEAL_MS + 300}
+              replayKey={entranceKey}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

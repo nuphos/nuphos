@@ -8,6 +8,7 @@ export type OpenAbSessionUpdate =
   | { kind: 'text'; text: string }
   | { kind: 'agent'; update: PreviewAgentUpdate }
   | { kind: 'status'; status: string; runtimeSnapshot?: SessionExecutionState }
+  | { kind: 'prompt-suggestion'; suggestion: string }
   | {
       kind: 'async-task'
       asyncTaskId: string
@@ -186,6 +187,11 @@ function normalizeUpdate(payload: Record<string, unknown>): OpenAbSessionUpdate 
       : null
   }
   if (kind === 'session_info_update') {
+    const suggestion = (payload._meta as Record<string, { suggestion?: unknown }> | undefined)?.[
+      'ai.nuphos/promptSuggestion'
+    ]?.suggestion
+
+    if (typeof suggestion === 'string') return { kind: 'prompt-suggestion', suggestion }
     const status = runtimeThreadStatus(payload)
 
     return status ? { kind: 'status', status } : null
@@ -233,12 +239,16 @@ export function deliverOpenAbSessionUpdate(args: {
     // states would be discarded before the authoritative turn boundary.
     return
   }
-  // Async-task lifecycle and provider status belong to the session, not to
-  // whichever prompt is currently in flight. The persistent observer uses
-  // them to recognize work that outlives the prompt response; passing either
-  // through PromptUpdateTarget would also be invalid because neither is prompt
-  // content.
-  if (update.kind === 'async-task' || update.kind === 'status') {
+  // Async-task lifecycle, provider status and the next-prompt suggestion
+  // belong to the session, not to whichever prompt is currently in flight.
+  // The persistent observer uses them to recognize work that outlives the
+  // prompt response; passing any of them through PromptUpdateTarget would also
+  // be invalid because none is prompt content.
+  if (
+    update.kind === 'async-task' ||
+    update.kind === 'status' ||
+    update.kind === 'prompt-suggestion'
+  ) {
     if (args.cancelledSessions.has(sessionId)) return
     args.notify(sessionId, update)
 

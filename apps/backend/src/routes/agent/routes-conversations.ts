@@ -130,10 +130,9 @@ agent.get('/conversations/:sessionId', async (c) => {
   const userId = c.get('userId')
   const sessionId = c.req.param('sessionId')
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  // Opt-in transcript truncation: `?tail=N` returns only the last N messages
-  // (plus `messagesFirstIndex` so the client can page backwards). Omitting it
-  // keeps the full-transcript response for existing consumers (fork, old
-  // clients).
+  // Opt-in transcript truncation: `?tail=N` returns only the last N messages, plus
+  // `messagesFirstIndex` so the client can page backwards. Omitting it keeps the
+  // full transcript for existing consumers (fork, old clients).
   const tailRaw = c.req.query('tail')
   const tail = tailRaw !== undefined ? Number.parseInt(tailRaw, 10) : undefined
 
@@ -145,11 +144,13 @@ agent.get('/conversations/:sessionId', async (c) => {
   if (!result) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  const runtimeState = await conversationExecutionState(result.conversation)
   const transportRun =
     getLocalActiveAgentRun(result.conversation.userId, sessionId) ??
     (await getActiveAgentRunForSession(result.conversation.userId, sessionId))
-  const activeRun = runtimeState.state === 'active' ? transportRun : null
+  // Opening a chat (`runtimeState=omit`) probes the runtime only to confirm a run.
+  const probe = transportRun || c.req.query('runtimeState') !== 'omit'
+  const runtimeState = probe ? await conversationExecutionState(result.conversation) : undefined
+  const activeRun = runtimeState?.state === 'active' ? transportRun : null
   const startedAtMs = activeRun?.startedAt ? Number(activeRun.startedAt) : NaN
   const viewer = c.get('user')
   const ownerById = await buildConversationOwnerMap(teamId, [
@@ -218,6 +219,7 @@ agent.get('/conversations/:sessionId', async (c) => {
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,
     timelineEvents: serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
     runtimeState,
+    promptSuggestion: result.conversation.claudeCodePreviewContext?.promptSuggestion || null,
     // Absolute index of messages[0] in the stored transcript. 0 unless a
     // `tail` cut off earlier messages; then it doubles as the "there are
     // earlier messages" signal and the `before` cursor for the messages route.

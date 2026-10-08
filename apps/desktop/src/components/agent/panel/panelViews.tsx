@@ -129,10 +129,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.queued && activeTab.queued.length > 0 && (
                 <QueuedStrip
                   items={activeTab.queued}
-                  canSend={
-                    runtimeAllows(activeTab.runtimeState, 'send') ||
-                    runtimeAllows(activeTab.runtimeState, 'steer')
-                  }
+                  canSend={runtimeAllows(activeTab.runtimeState, 'send')}
+                  canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
                   onRemove={(queuedId) => removeQueued(activeTab.id, queuedId)}
                   onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
                   sidebar={isSidebarMode}
@@ -166,6 +164,12 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                   onStop={stopActive}
                   streaming={false}
+                  promptSuggestion={
+                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                      ? null
+                      : activeTab.promptSuggestion
+                  }
+                  autoFocus
                   runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                   executing={runtimeIsExecuting(activeTab.runtimeState)}
                   readOnly={activeTab.readOnly}

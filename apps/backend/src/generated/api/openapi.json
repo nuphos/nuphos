@@ -17828,6 +17828,90 @@
           }
         }
       }
+    },
+    "/feedback": {
+      "post": {
+        "operationId": "feedback.create",
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Report a Nuphos bug or request a feature",
+        "description": "Public, unauthenticated. Any person or agent that hits a problem using Nuphos, or misses a capability, can file it here. Reports are recorded for the Nuphos team to triage by hand. Rate limited per client; 429 means retry later.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "bug",
+                      "feature"
+                    ],
+                    "description": "`bug` for a defect, `feature` for a request."
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 200,
+                    "description": "One-line summary."
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 20000,
+                    "description": "What happened or what is wanted: steps, expected vs actual behavior, error output. Never include secrets, tokens, or private data."
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "Optional reporter identifier, e.g. the agent or client name and version."
+                  }
+                },
+                "required": [
+                  "type",
+                  "title",
+                  "description"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Id of the recorded report."
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
     }
   }
 }

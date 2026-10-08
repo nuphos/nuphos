@@ -7,6 +7,7 @@ extension ChatRow {
         let messages = session.messages
         let lastApprovalCallId = session.canReply ? lastPendingApproval(in: messages) : nil
         let timeline = placeTimeline(session.timelineEvents, messageDates: messages.map(\.createdAt), hasEarlier: session.baseIndex > 0)
+        let downloads = TransferDownloadGroup.anchor(session.downloads, in: messages)
 
         for (index, message) in messages.enumerated() {
             rows.append(contentsOf: (timeline.before[index] ?? []).map(timelineRow))
@@ -21,12 +22,14 @@ extension ChatRow {
                     if case .file(let f) = part, f.mediaType.hasPrefix("image/") { return f.url }
                     return nil
                 }
-                if !text.isEmpty || !images.isEmpty {
-                    rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender ?? (session.sentHere.contains(message.id) ? session.me : nil)))
+                let transfers = message.parts.compactMap(TransferUpload.init)
+                if !text.isEmpty || !images.isEmpty || !transfers.isEmpty {
+                    rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender ?? (session.sentHere.contains(message.id) ? session.me : nil), transfers: transfers))
                 }
             case .assistant:
                 let isLive = session.isStreaming && index == messages.count - 1
                 rows.append(contentsOf: assistantRows(message, live: isLive, lastApprovalCallId: lastApprovalCallId))
+                rows.append(contentsOf: (downloads[message.id] ?? []).map { .downloads(id: "downloads.\($0.groupId)", groupId: $0.groupId) })
                 let interrupted = message.parts.contains { if case .turnInterrupted = $0 { return true }; return false }
                 if message.stoppedByUser == true, index == messages.count - 1, !session.isStreaming, !interrupted {
                     rows.append(.hint(id: "stopped.\(message.id)", text: "Stopped.", isError: false))
@@ -37,8 +40,8 @@ extension ChatRow {
         }
         rows.append(contentsOf: timeline.trailing.map(timelineRow))
 
-        if session.submitting {
-            rows.append(.activity(text: "Sending…"))
+        if session.sending != nil {
+            rows.append(.sending)
         } else if session.isNativeRuntime {
             if let status = session.runtimeStatus {
                 if session.isStreaming {

@@ -1,9 +1,14 @@
+import { runtimeIsExecuting } from '../../../lib/runtimeExecution.ts'
+
 import type { Message, Tab } from './model'
-import type { FileTransferGroup } from '../../../types'
+import type { FileTransferFile, FileTransferGroup } from '../../../types'
 
 // GET …/file-transfers/downloads is owner-only; a teammate viewing read-only gets a 403.
+// Files land while the runtime executes, so read once it stops. `tab.streaming`
+// is only the transport: a reopened runtime conversation stays attached while
+// idle, and gating on it never read the store again.
 export function shouldLoadTransferDownloads(tab: Tab | undefined): tab is Tab {
-  if (!tab?.sessionId || tab.streaming || tab.foreign) return false
+  if (!tab?.sessionId || runtimeIsExecuting(tab.runtimeState) || tab.foreign) return false
 
   return tab.messages.some((m) => m.role === 'assistant')
 }
@@ -42,4 +47,22 @@ export function anchorDownloadGroups(
   }
 
   return byMessage
+}
+
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|svg)$/i
+const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm)$/i
+
+// Images and videos the agent sent are shown, not just offered for download.
+// Agent pushes often carry no content type, so the file name decides then.
+export function previewKind(file: FileTransferFile): 'image' | 'video' | null {
+  return file.status === 'ready' ? mediaKind(file.fileName, file.contentType) : null
+}
+
+export function mediaKind(fileName: string, contentType?: string | null): 'image' | 'video' | null {
+  const type = contentType ?? ''
+
+  if (type.startsWith('image/') || (!type && IMAGE_EXTENSIONS.test(fileName))) return 'image'
+  if (type.startsWith('video/') || (!type && VIDEO_EXTENSIONS.test(fileName))) return 'video'
+
+  return null
 }

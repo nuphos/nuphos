@@ -207,10 +207,19 @@ struct SidebarFavorites: Codable, Equatable, Sendable {
 
         static let sessionPrefix = "agent-session:"
 
+        /// The pinned chat, whichever identity it was pinned under: an
+        /// `agent-session:` key, or the `/teams/<team>/agent/<session>` href
+        /// Desktop pins a chat row by.
         var sessionId: String? {
-            guard let key, key.hasPrefix(Self.sessionPrefix) else { return nil }
-            let id = String(key.dropFirst(Self.sessionPrefix.count))
-            return id.isEmpty ? nil : id
+            if let key, key.hasPrefix(Self.sessionPrefix) {
+                let id = String(key.dropFirst(Self.sessionPrefix.count))
+                return id.isEmpty ? nil : id
+            }
+            guard let href, let path = URLComponents(string: href)?.percentEncodedPath else { return nil }
+            let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+            guard parts.count == 5, parts[0].isEmpty, parts[1] == "teams", !parts[2].isEmpty, parts[3] == "agent",
+                  let id = parts[4].removingPercentEncoding, !id.isEmpty else { return nil }
+            return id
         }
 
         static func chat(sessionId: String, label: String) -> Entry {
