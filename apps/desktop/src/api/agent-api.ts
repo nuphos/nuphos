@@ -1,4 +1,3 @@
-import type { AgentProvider } from '../types/runtime.ts'
 import { publishRuntimeStates } from '../lib/agentRuntimeStates.ts'
 import { receiveConversationReadStates } from '../lib/agentUnreadSessions.ts'
 
@@ -8,10 +7,16 @@ import type {
   UpdateAgentTriggerGroupInput,
   UpdateAgentTriggerInput,
 } from './agent-trigger-types.ts'
-import type { AgentCredentialSelection, AgentPersistedMessage } from './agent-types.ts'
+import type {
+  AgentCredentialSelection,
+  AgentPersistedMessage,
+  GeneralAccess,
+  ParticipantRole,
+} from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
 import type { PlanUpdatePatch } from './plan-types.ts'
 import type { CloudCliProvider } from '../lib/cloudCli.ts'
+import type { AgentProvider } from '../types/runtime.ts'
 
 export const agentApi = {
   cloudProbeCliVersion: (provider: CloudCliProvider, probeId?: string) =>
@@ -34,8 +39,23 @@ export const agentApi = {
     window.api.agentGetSessionConfig(sessionId, teamId),
   agentGetConversationParticipants: (sessionId: string, teamId?: string) =>
     window.api.agentGetConversationParticipants(sessionId, teamId),
-  agentInviteConversationParticipants: (sessionId: string, teamId: string, userIds: string[]) =>
-    window.api.agentInviteConversationParticipants(sessionId, teamId, userIds),
+  agentInviteConversationParticipants: (
+    sessionId: string,
+    teamId: string,
+    userIds: string[],
+    role: ParticipantRole = 'reply',
+  ) => window.api.agentInviteConversationParticipants(sessionId, teamId, userIds, role),
+  agentSetConversationParticipantRole: (
+    sessionId: string,
+    teamId: string,
+    userId: string,
+    role: ParticipantRole,
+  ) => window.api.agentSetConversationParticipantRole(sessionId, teamId, userId, role),
+  agentSetConversationGeneralAccess: (
+    sessionId: string,
+    teamId: string,
+    generalAccess: GeneralAccess,
+  ) => window.api.agentSetConversationGeneralAccess(sessionId, teamId, generalAccess),
   agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
     window.api.agentRemoveConversationParticipant(sessionId, teamId, userId),
   agentSetSessionConfig: (

@@ -1,5 +1,5 @@
-import type { AgentProvider } from '../types/runtime.ts'
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
+import type { AgentProvider } from '../types/runtime.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -13,7 +13,20 @@ export type AgentConversationPerson = {
 }
 
 /** Owner first, then whoever spoke here or was invited from Share. */
-export type AgentConversationParticipant = AgentConversationPerson & { isOwner: boolean }
+/** Who in the team may open a session without an invite. */
+export type GeneralAccess = 'none' | 'view' | 'reply'
+export type ParticipantRole = 'view' | 'reply'
+export type ConversationAccess = 'owner' | ParticipantRole
+
+export type AgentConversationParticipant = AgentConversationPerson & {
+  isOwner: boolean
+  role: ConversationAccess | null
+}
+
+export type ConversationAccessState = {
+  generalAccess: GeneralAccess
+  participants: AgentConversationParticipant[]
+}
 
 export type AgentConversation = {
   runtimeState?: import('../lib/runtimeExecution').RuntimeExecution

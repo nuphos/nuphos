@@ -34,6 +34,7 @@ import type { WindowK8sApi } from './api/window-k8s.ts'
 import type { WindowMonitoringApi } from './api/window-monitoring.ts'
 import type { WindowPosthogApi } from './api/window-posthog.ts'
 import type { WindowProviderAccessApi } from './api/window-provider-access.ts'
+import type { WindowSessionAccessApi } from './api/window-session-access.ts'
 import type { WindowShellApi } from './api/window-shell.ts'
 import type { WindowTeamApi } from './api/window-team.ts'
 
@@ -62,6 +63,7 @@ declare global {
       WindowMonitoringApi &
       WindowIntegrationsApi &
       WindowPosthogApi &
+      WindowSessionAccessApi &
       WindowAwsApi &
       WindowGcpClustersApi &
       WindowGitApi &

@@ -54,7 +54,10 @@ app.use('*', async (c, next) => {
 app.route('/', conversationParticipantsRoutes)
 app.onError(errorHandler)
 
-type ParticipantsBody = { participants: { id: string; name: string; isOwner: boolean }[] }
+type ParticipantsBody = {
+  generalAccess: string
+  participants: { id: string; name: string; isOwner: boolean; role: string | null }[]
+}
 
 async function listParticipants(team: string = TEAM) {
   const response = await app.request(`/conversations/shared/participants?teamId=${team}`)
@@ -70,11 +73,19 @@ async function remove(userId: string, team: string = TEAM) {
   })
 }
 
-async function invite(userIds: unknown, team: string = TEAM) {
+async function invite(userIds: unknown, team: string = TEAM, role?: string) {
   return app.request(`/conversations/shared/participants?teamId=${team}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userIds }),
+    body: JSON.stringify({ userIds, role }),
+  })
+}
+
+async function patch(path: string, body: Record<string, unknown>) {
+  return app.request(`/conversations/shared/${path}?teamId=${TEAM}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   })
 }
 
@@ -143,8 +154,10 @@ describe('conversation participants API', () => {
     expect(conversation?.timelineEvents).toBeUndefined()
   })
 
-  test('any participant can invite, but only current team members can be invited', async () => {
+  test('only the owner invites, and only current team members can be invited', async () => {
     viewer = TEAMMATE
+    expect((await invite([INVITEE])).status).toBe(403)
+    viewer = OWNER
     expect((await invite([INVITEE])).status).toBe(200)
 
     const rejected = await invite([INVITEE, OUTSIDER])
@@ -161,17 +174,18 @@ describe('conversation participants API', () => {
     expect(participantIds()).toEqual([TEAMMATE])
   })
 
-  test('a participant removes a teammate, and the timeline says who did it', async () => {
-    viewer = TEAMMATE
-    await invite([INVITEE])
+  test('the owner removes a teammate, and the timeline says who did it', async () => {
+    await invite([INVITEE], TEAM, 'view')
     const response = await remove(INVITEE)
     const body = (await response.json()) as ParticipantsBody
 
     expect(response.status).toBe(200)
     expect(body.participants.map((participant) => participant.id)).toEqual([OWNER, TEAMMATE])
+    // Their own grant goes with them, so a later re-invite starts clean.
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
     expect(conversation?.timelineEvents?.at(-1)).toMatchObject({
       kind: 'participant_removed',
-      actorId: TEAMMATE,
+      actorId: OWNER,
       targetId: INVITEE,
     })
     // Removing someone who is not here is a no-op, not a second event.
@@ -179,11 +193,86 @@ describe('conversation participants API', () => {
     expect(conversation?.timelineEvents).toHaveLength(2)
   })
 
-  test('the owner cannot be removed and an outsider cannot remove anyone', async () => {
-    viewer = TEAMMATE
+  test('the owner cannot be removed and nobody else can remove anyone', async () => {
     expect((await remove(OWNER)).status).toBe(400)
+    viewer = TEAMMATE
+    expect((await remove(TEAMMATE)).status).toBe(403)
     viewer = OUTSIDER
     expect((await remove(TEAMMATE)).status).toBe(403)
     expect(participantIds()).toEqual([TEAMMATE])
+  })
+
+  test('an invite carries a role, and re-inviting changes it', async () => {
+    const viewing = (await (await invite([INVITEE], TEAM, 'view')).json()) as ParticipantsBody
+
+    expect(viewing.participants.find((p) => p.id === INVITEE)?.role).toBe('view')
+    expect(viewing.participants.find((p) => p.id === TEAMMATE)?.role).toBe('reply')
+    expect(viewing.participants.find((p) => p.id === OWNER)?.role).toBe('owner')
+
+    await invite([INVITEE])
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+    expect((await invite([INVITEE], TEAM, 'admin')).status).toBe(400)
+  })
+
+  test('the owner changes a participant role; anyone else is refused', async () => {
+    const response = await patch(`participants/${TEAMMATE}`, { role: 'view' })
+
+    expect(response.status).toBe(200)
+    expect(conversation?.viewOnlyIds).toEqual([TEAMMATE])
+    expect((await patch(`participants/${INVITEE}`, { role: 'view' })).status).toBe(404)
+    viewer = TEAMMATE
+    expect((await patch(`participants/${TEAMMATE}`, { role: 'reply' })).status).toBe(403)
+  })
+
+  test('general access defaults to reply for older sessions and only the owner changes it', async () => {
+    expect((await listParticipants()).body.generalAccess).toBe('reply')
+    const response = await patch('access', { generalAccess: 'none' })
+
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as ParticipantsBody).generalAccess).toBe('none')
+    expect(conversation?.generalAccess).toBe('none')
+    expect((await patch('access', { generalAccess: 'public' })).status).toBe(400)
+    viewer = TEAMMATE
+    expect((await patch('access', { generalAccess: 'reply' })).status).toBe(403)
+  })
+
+  test('inviting the owner as view-only changes nothing about the owner', async () => {
+    const body = (await (await invite([OWNER], TEAM, 'view')).json()) as ParticipantsBody
+
+    expect(body.participants[0]).toMatchObject({ id: OWNER, role: 'owner' })
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+  })
+
+  test('removing a view-only participant and inviting them again starts at reply', async () => {
+    await invite([INVITEE], TEAM, 'view')
+    await remove(INVITEE)
+    const body = (await (await invite([INVITEE])).json()) as ParticipantsBody
+
+    expect(body.participants.find((p) => p.id === INVITEE)?.role).toBe('reply')
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+  })
+
+  test('a role change targets participants only and rejects unknown roles', async () => {
+    expect((await patch(`participants/${OWNER}`, { role: 'view' })).status).toBe(404)
+    expect((await patch(`participants/${TEAMMATE}`, { role: 'owner' })).status).toBe(400)
+    expect((await patch(`participants/${TEAMMATE}`, {})).status).toBe(200)
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+  })
+
+  test('changing general access keeps every participant role', async () => {
+    await patch(`participants/${TEAMMATE}`, { role: 'view' })
+    await patch('access', { generalAccess: 'reply' })
+    const body = (await (
+      await patch('access', { generalAccess: 'none' })
+    ).json()) as ParticipantsBody
+
+    expect(body.participants.find((p) => p.id === TEAMMATE)?.role).toBe('view')
+  })
+
+  test('an outsider can neither change general access nor roles', async () => {
+    viewer = OUTSIDER
+    expect((await patch('access', { generalAccess: 'reply' })).status).toBe(403)
+    expect((await patch(`participants/${TEAMMATE}`, { role: 'view' })).status).toBe(403)
+    expect(conversation?.generalAccess).toBeUndefined()
   })
 })
