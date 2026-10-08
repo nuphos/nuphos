@@ -414,10 +414,11 @@ Self-hosting the rest of Nuphos is in progress and not documented here.
 
 ## Versions and tags
 
-The version in `package.json` is the image's version. A release bumps it, tags
-the commit `runtime-vX.Y.Z`, and publishes every provider from that tag; the `Release runtime`
-workflow does all three. Builds are dispatch-only and always run `main`'s
-workflow definition against a commit reachable from `main`.
+The version in `package.json` is the image's version. To release, merge a pull
+request that bumps it: the `Release runtime` workflow then tags that commit
+`runtime-vX.Y.Z` and publishes every provider from the tag. A push that leaves the
+version on an existing tag publishes nothing. Builds always run `main`'s workflow
+definition against a commit reachable from `main`.
 
 Each release publishes four tags per provider:
 
@@ -509,20 +510,24 @@ OpenAI, xAI or Google.
 
 ### Automatic Claude SDK updates
 
-`Update Claude SDK and release` checks npm's stable `latest` daily at 06:23 UTC,
-with a manual **Run workflow** option. A newer SDK in the same major updates the
-SDK override, lockfile and Dockerfile assertion together. Helpers, patched Claude
+`Update Claude SDK` checks npm's stable `latest` daily at 06:23 UTC, with a
+manual **Run workflow** option. A newer SDK in the same major updates the SDK
+override, lockfile and Dockerfile assertion together. Helpers, patched Claude
 adapter regressions, an image build and native model discovery must pass before
-it commits a runtime patch and atomically pushes its tag. The existing build
-workflow publishes both providers so the shared runtime version stays usable.
-No change means no release; SDK major changes require manual review.
+it opens (or refreshes) the `runtime/update-claude-sdk` pull request with the
+update and a runtime patch bump. Merging that pull request releases it through
+`Release runtime`. No change means no pull request; SDK major changes require
+manual review.
 
-The workflow uses the same `GITHUB_TOKEN` write permission as manual releases and
-respects branch protection. Failed checks stop publication. If publication fails
-after tagging, rerun the failed jobs, or run **Build runtime image** with that tag;
-do not create another version merely to retry. Review failed scheduled runs in
-GitHub Actions. Publishing does not update Nuphos's configured runtime version or
-the Desktop's pinned runtime commit; those remain separate deployment steps.
+main only takes signed commits through a reviewed pull request, so the workflow
+creates its commit with the GitHub API and never pushes to main. The pull request
+is opened with `GITHUB_TOKEN`, which needs **Allow GitHub Actions to create and
+approve pull requests** enabled; such pull requests do not trigger CI, so the
+workflow's own checks are the gate. If publication fails after tagging, rerun the
+failed jobs, or run **Build runtime image** with that tag; do not create another
+version merely to retry. Publishing does not update Nuphos's configured runtime
+version or the Desktop's pinned runtime commit; those remain separate deployment
+steps.
 
 ### Release changelogs
 
@@ -531,17 +536,18 @@ changelog. Tagged builds publish a release only after all requested provider ima
 succeed. Notes include commits since the previous tag (including automated SDK
 updates), bundled SDK/CLI and adapter versions, image tags and a full comparison
 link. Untagged builds do not create releases. Reruns preserve existing notes and
-human edits. Both manual releases and automatic SDK releases use this same path.
+human edits. Every release, manual or automatic, uses this same path.
 
 ### Automatic Codex CLI updates
 
-`Update Codex CLI and release` checks npm's stable `latest` daily at 07:23 UTC
+`Update Codex CLI` checks npm's stable `latest` daily at 07:23 UTC
 and supports manual dispatch. It updates the pinned CLI and lockfile, runs the
 Codex adapter, active-turn steering and real CLI environment-isolation regressions,
 then builds and smoke-tests a candidate image including prompt-free model discovery.
-Only passing updates commit a runtime patch and publish both images and a GitHub
-Release. No change skips publication; major CLI changes require manual review.
-It shares the release lock with Claude SDK and manual releases.
+Only passing updates open (or refresh) the `runtime/update-codex-cli` pull request
+with a runtime patch bump; merging it releases. No change opens nothing; major CLI
+changes require manual review. If both update pull requests are open, they bump
+the same version: merge one, and the next scheduled run rebases the other.
 
 Both ACP adapters remain pinned: Nuphos patches their bundles, so adapter upgrades
 require a reviewed patch port and compatibility tests. CLI/SDK updates are automatic;

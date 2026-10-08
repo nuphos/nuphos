@@ -1,35 +1,21 @@
 name: Release runtime
 
-# Bumps the version on main, tags it, and publishes the images for that tag.
+# Releases the runtime when a merged pull request changes its version.
 #
-# Releases are on demand: the image changes rarely, and every change to it has
-# already passed CI on main by the time this runs. The bump commit is
-# version-only.
+# main only takes signed commits through a pull request, so a release starts as
+# a pull request that bumps apps/runtime/package.json (the SDK and CLI update
+# workflows open one). Once it lands, this tags that commit runtime-vX.Y.Z and
+# publishes every provider from the tag. A push that leaves the version on an
+# existing tag publishes nothing.
 
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: Version bump to apply
-        type: choice
-        options: [patch, minor]
-        default: patch
-        required: true
-      provider:
-        description: Runtime provider to publish
-        type: choice
-        options: [claude, codex, grok, antigravity, all]
-        default: all
-        required: true
-      reuse_base:
-        description: Reuse the published provider base at the pinned OpenAB revision
-        type: boolean
-        default: false
-
-run-name: Release ${{ inputs.bump }} (${{ inputs.provider }})
+  push:
+    branches: [main]
+    paths:
+      - apps/runtime/package.json
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: runtime-release
@@ -43,53 +29,43 @@ jobs:
   tag:
     if: github.ref == 'refs/heads/main' && vars.RUNTIME_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     outputs:
-      version: ${{ steps.bump.outputs.version }}
+      version: ${{ steps.tag.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-          fetch-tags: true
+          persist-credentials: false
 
-      - name: Bump the version and tag it
-        id: bump
+      - name: Tag the new version
+        id: tag
         env:
-          BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          CURRENT="$(jq -r .version package.json)"
-          if [[ ! "$CURRENT" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "::error::package.json version is not a stable semver value: '$CURRENT'"
+          VERSION="$(jq -r .version package.json)"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::package.json version is not a stable semver value: '$VERSION'"
             exit 1
           fi
-          MAJOR="${BASH_REMATCH[1]}"; MINOR="${BASH_REMATCH[2]}"; PATCH="${BASH_REMATCH[3]}"
-          if [[ "$BUMP" == minor ]]; then
-            VERSION="${MAJOR}.$((MINOR + 1)).0"
-          else
-            VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          TAG="runtime-v${VERSION}"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists; nothing to release."
+            exit 0
           fi
           node scripts/check-legacy-version.mjs "$VERSION"
-          if git rev-parse --verify --quiet "refs/tags/runtime-v${VERSION}" >/dev/null; then
-            echo "::error::tag runtime-v${VERSION} already exists"
-            exit 1
-          fi
-
-          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
-          mv package.json.tmp package.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore(release): runtime-v${VERSION}"
-          git tag "runtime-v${VERSION}"
-          git push --atomic origin HEAD:main "refs/tags/runtime-v${VERSION}"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" >/dev/null
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: tag
+    if: needs.tag.outputs.version != ''
     uses: ./.github/workflows/runtime-build.yml
     permissions:
       contents: write
       packages: write
     with:
       release_tag: runtime-v${{ needs.tag.outputs.version }}
-      provider: ${{ inputs.provider }}
-      reuse_base: ${{ inputs.reuse_base }}
+      provider: all
+      reuse_base: false
