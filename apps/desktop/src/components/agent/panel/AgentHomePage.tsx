@@ -192,7 +192,7 @@ export function AgentHomePage({
               )}
           </div>
         </div>
-        {teamId && !unbound && (
+        {teamId && (
           <div className="mx-auto mt-6 w-full max-w-[820px]">
             {/* The composer's panel reveal, starting 0.3s after it. */}
             <HomeWidgets
