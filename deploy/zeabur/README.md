@@ -1,7 +1,10 @@
 # Zeabur template
 
-[`template.yaml`](template.yaml) deploys Nuphos as four services: authenticated
-single-node MongoDB, RustFS, the released backend, and a Claude Code runtime.
+[`template.yaml`](template.yaml) deploys three services: authenticated
+single-node MongoDB, RustFS and the released backend. Deploy
+[`runtime-template.yaml`](runtime-template.yaml) in a **different Zeabur project**
+for the Claude Code runtime. This keeps the agent away from the data project
+network and its shared database, storage and email credentials.
 Redis is intentionally absent, matching the default local Compose stack.
 
 The template uses [Zeabur's template format](https://zeabur.com/docs/en-US/template/template-format)
@@ -9,7 +12,7 @@ and the [official schema](https://schema.zeabur.app/template.json).
 
 Deployment inputs:
 
-- Three domains for the backend, storage and runtime. Zeabur supplies their HTTPS URLs.
+- Two domains for the backend and storage; one more for the separate runtime. Zeabur supplies their HTTPS URLs.
 - A Zeabur Email API key (`ZSEND_API_KEY`) and a sender on a verified domain
   (`NUPHOS_EMAIL_FROM`). Production sign-in sends email; it never logs OTP codes.
 - An amd64 server for the runtime image, and your own Claude account after deployment.
@@ -33,5 +36,5 @@ python3 deploy/zeabur/check.py
 python3 deploy/zeabur/check.py --mongo
 ```
 
-CI validates the official schemas and Mongo bootstrap. It does not provision a
+CI validates both official schemas, the separation of service/variable sets, and Mongo bootstrap. It does not provision a
 Zeabur project or test domain binding, email delivery or model inference.

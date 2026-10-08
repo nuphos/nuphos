@@ -5,7 +5,7 @@ metadata:
   name: Nuphos
 spec:
   description:
-    Self-host Nuphos with MongoDB, S3-compatible storage and a Claude Code runtime. No Redis
+    Self-host the Nuphos backend with authenticated MongoDB and S3-compatible storage. No Redis
     required.
   tags:
     - Tool
@@ -19,10 +19,6 @@ spec:
       type: DOMAIN
       name: Storage domain
       description: HTTPS endpoint for signed file transfers, reachable by Desktop and runtime.
-    - key: RUNTIME_DOMAIN
-      type: DOMAIN
-      name: Runtime domain
-      description: HTTPS console and WSS agent endpoint.
     - key: ZSEND_API_KEY
       type: PASSWORD
       name: Zeabur Email API key
@@ -34,15 +30,16 @@ spec:
   readme: |
     # Nuphos
 
-    Deploy on an amd64 server. This template uses four persistent services and no Redis.
-    Supply three domains and a Zeabur Email API key with a verified sender for sign-in.
+    This template deploys the backend, MongoDB and RustFS with no Redis.
+    Supply two domains and a Zeabur Email API key with a verified sender for sign-in.
 
     1. Wait for the backend readiness check to pass.
     2. In Nuphos Desktop, choose **Self-hosted? Set API endpoint** and enter the backend HTTPS URL.
     3. Sign in using the email code and create a team.
-    4. Open the runtime HTTPS console and sign in with the generated password shown in the runtime service connection instructions.
-    5. Set its public URL to `wss://<runtime-domain>/acp`, then pair it with your team using the console's single-use code.
-    6. Sign in to Claude from the console. Chat requires your own model account.
+    4. Deploy `deploy/zeabur/runtime-template.yaml` into a **different Zeabur project** on an amd64 server. Never add the agent runtime to this data project: project variables include database/storage/email credentials.
+    5. Open the runtime HTTPS console and sign in with the generated password shown in the runtime service connection instructions.
+    6. Set its public URL to `wss://<runtime-domain>/acp`, then pair it with your team using the console's single-use code.
+    7. Sign in to Claude from the console. Chat requires your own model account.
 
     Use the published HTTPS storage endpoint for file transfers; no local hosts entry is needed.
     MongoDB has authentication, a single-node replica set and public TCP forwarding disabled.
@@ -80,8 +77,6 @@ spec:
             default: nuphos
           MONGO_INITDB_ROOT_PASSWORD:
             default: ${NUPHOS_MONGO_PASSWORD}
-          MONGO_REPLICA_KEY:
-            default: ${PASSWORD}${PASSWORD}
         configs:
           - path: /opt/nuphos-mongo.sh
             envsubst: false
@@ -89,11 +84,13 @@ spec:
               #!/bin/bash
               set -euo pipefail
               umask 077
-              mkdir -p -m 755 /tmp/nuphos-mongo
-              printf '%s' "$MONGO_REPLICA_KEY" > /tmp/nuphos-mongo/keyfile
-              chown mongodb:mongodb /tmp/nuphos-mongo/keyfile
-              chmod 400 /tmp/nuphos-mongo/keyfile
-              /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/nuphos-mongo/keyfile --bind_ip_all &
+              mkdir -p /data/configdb
+              if [ ! -s /data/configdb/nuphos-keyfile ]; then
+                head -c 48 /dev/urandom | base64 > /data/configdb/nuphos-keyfile
+              fi
+              chown mongodb:mongodb /data/configdb/nuphos-keyfile
+              chmod 400 /data/configdb/nuphos-keyfile
+              /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/configdb/nuphos-keyfile --bind_ip_all &
               pid=$!
               trap 'kill -TERM "$pid"; wait "$pid"' TERM INT
               for attempt in $(seq 1 120); do
@@ -262,31 +259,3 @@ spec:
       dependencies:
         - mongo
         - rustfs
-    - name: runtime
-      template: PREBUILT_V2
-      spec:
-        source:
-          image: ghcr.io/nuphos/runtime:0.1.18-claude-code
-        ports:
-          - id: web
-            port: 8080
-            type: HTTP
-        volumes:
-          - id: runtime-home
-            dir: /home/node
-          - id: runtime-workspace
-            dir: /workspace
-        healthCheck:
-          type: HTTP
-          port: web
-          http:
-            path: /
-        env:
-          OPENAB_STREAM_EDIT_INTERVAL_MS:
-            default: '300'
-          OPENAB_ACP_AUTH_KEY:
-            default: ${PASSWORD}${PASSWORD}
-        instructions:
-          - title: Runtime console password
-            content: ${OPENAB_ACP_AUTH_KEY}
-      domainKey: RUNTIME_DOMAIN

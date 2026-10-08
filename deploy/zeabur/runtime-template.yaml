@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://schema.zeabur.app/template.json
+apiVersion: zeabur.com/v1
+kind: Template
+metadata:
+  name: Nuphos Runtime
+spec:
+  description:
+    Claude Code runtime for Nuphos. Deploy in its own project, separate from backend data and
+    email credentials.
+  tags:
+    - Tool
+    - AI
+  variables:
+    - key: RUNTIME_DOMAIN
+      type: DOMAIN
+      name: Runtime domain
+      description: HTTPS console and WSS endpoint for pairing with your Nuphos backend.
+  readme: |
+    # Nuphos Runtime
+
+    Deploy on an amd64 server in a **separate project** from the Nuphos backend,
+    MongoDB and RustFS. Do not share database, storage or email credentials with
+    this project: the agent executes code here.
+
+    1. Open the runtime HTTPS console with the generated password in its connection instructions.
+    2. Set the public URL to `wss://<runtime-domain>/acp`.
+    3. Use the single-use pairing code to connect it to a team in your self-hosted Nuphos Desktop.
+    4. Sign in to your own Claude account from the console.
+
+    Keep the runtime home and workspace volumes across redeploys. The backend and
+    storage domains must be reachable over HTTPS from this project.
+  services:
+    - name: runtime
+      template: PREBUILT_V2
+      spec:
+        source:
+          image: ghcr.io/nuphos/runtime:0.1.18-claude-code
+        ports:
+          - id: web
+            port: 8080
+            type: HTTP
+        volumes:
+          - id: runtime-home
+            dir: /home/node
+          - id: runtime-workspace
+            dir: /workspace
+        healthCheck:
+          type: HTTP
+          port: web
+          http:
+            path: /
+        env:
+          OPENAB_STREAM_EDIT_INTERVAL_MS:
+            default: '300'
+          OPENAB_ACP_AUTH_KEY:
+            default: ${PASSWORD}${PASSWORD}
+        instructions:
+          - title: Runtime console password
+            content: ${OPENAB_ACP_AUTH_KEY}
+      domainKey: RUNTIME_DOMAIN

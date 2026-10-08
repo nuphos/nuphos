@@ -23,7 +23,14 @@ registry = Registry().with_resources(schemas.items())
 jsonschema.Draft7Validator(schemas['https://schema.zeabur.app/template.json'].contents,
                           registry=registry).validate(spec)
 services = {service['name']: service for service in spec['spec']['services']}
-assert set(services) == {'mongo', 'rustfs', 'backend', 'runtime'}
+assert set(services) == {'mongo', 'rustfs', 'backend'}
+runtime_template = yaml.safe_load((root / 'runtime-template.yaml').read_text())
+jsonschema.Draft7Validator(schemas['https://schema.zeabur.app/template.json'].contents,
+                          registry=registry).validate(runtime_template)
+assert [s['name'] for s in runtime_template['spec']['services']] == ['runtime']
+assert [v['key'] for v in runtime_template['spec']['variables']] == ['RUNTIME_DOMAIN']
+runtime_env = runtime_template['spec']['services'][0]['spec']['env']
+assert set(runtime_env) == {'OPENAB_STREAM_EDIT_INTERVAL_MS', 'OPENAB_ACP_AUTH_KEY'}
 backend = services['backend']['spec']['env']
 assert backend['NODE_ENV']['default'] == 'production'
 assert backend['ATLAS_REDIS_ENABLED']['default'] == 'false'
@@ -46,7 +53,6 @@ if '--mongo' in sys.argv:
         env = directory / 'mongo.env'
         env.write_text('MONGO_INITDB_ROOT_USERNAME=nuphos\n'
                        f'MONGO_INITDB_ROOT_PASSWORD={secrets.token_hex(32)}\n'
-                       f'MONGO_REPLICA_KEY={secrets.token_hex(32)}\n'
                        f'NUPHOS_MONGO_HOST={name}\n')
         env.chmod(0o600)
         probe = '''
