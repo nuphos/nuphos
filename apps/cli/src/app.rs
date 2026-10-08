@@ -14,10 +14,10 @@ use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use futures_util::{FutureExt, StreamExt};
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Layout, Position};
+use ratatui::layout::{Constraint, Layout, Margin, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Padding, Paragraph};
+use ratatui::widgets::{Block, BorderType, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState};
 use ratatui::{Frame, Terminal};
 use serde_json::{json, Value};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -33,6 +33,12 @@ use crate::transcript::{self as tx, is_tool, is_tool_settled, part_type, parts, 
 /// Alternate scroll mode: in the alternate screen, the wheel arrives as ↑/↓.
 const ALTERNATE_SCROLL_ON: &str = "\x1b[?1007h";
 const ALTERNATE_SCROLL_OFF: &str = "\x1b[?1007l";
+const TIPS: [&str; 4] = [
+    "press ctrl+\\ to jump between your conversations",
+    "a reply keeps running on the server when you quit; `nuphos resume` picks it up",
+    "use /runtime to run this conversation on another agent",
+    "use /model to change the model and reasoning effort",
+];
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const COMMANDS: [(&str, &str); 7] = [
     ("/model", "choose the model and reasoning effort"),
@@ -132,6 +138,10 @@ pub struct App {
     quit: bool,
     /// Approvals whose full command has been written out.
     announced: Vec<String>,
+    /// A newer release, shown as the welcome screen's tip.
+    update: Option<String>,
+    /// The conversation's title, for the top bar.
+    title: Option<String>,
     /// The check for a newer release, started with the TUI.
     update_check: Option<JoinHandle<Option<String>>>,
     /// Streams of this conversation already followed to the end; the server
@@ -178,6 +188,8 @@ impl App {
             announced: Vec::new(),
             ended: Vec::new(),
             update_check: None,
+            update: None,
+            title: None,
             tx,
             rx,
         };
@@ -202,15 +214,6 @@ impl App {
         }));
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
-        self.pending_output.extend([
-            Line::from(vec![
-                Span::styled(">_ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::styled("Nuphos", Style::default().add_modifier(Modifier::BOLD)),
-            ]),
-            self.team_line(),
-            Line::from(Span::styled("  / for commands · esc to stop a reply · ctrl+c to quit", dim())),
-            Line::default(),
-        ]);
         if crate::update::check_enabled() {
             self.update_check = Some(tokio::spawn(crate::update::latest()));
         }
@@ -228,27 +231,17 @@ impl App {
         Ok((!self.is_new).then(|| self.session_id.clone()))
     }
 
-    fn team_line(&self) -> Line<'static> {
-        Line::from(vec![
-            Span::styled("  team ", dim()),
-            Span::styled(shared::label(&self.team), Style::default().add_modifier(Modifier::BOLD)),
-            Span::styled("  · /team to switch", dim()),
-        ])
-    }
-
     fn take_update_check(&mut self) {
         if !self.update_check.as_ref().is_some_and(|h| h.is_finished()) {
             return;
         }
         let latest = self.update_check.take().and_then(|h| h.now_or_never()).and_then(|r| r.ok()).flatten();
         if let Some(version) = latest.filter(|v| crate::update::is_newer(v)) {
-            self.pending_output.push(Line::from(vec![
-                Span::styled(
-                    format!("  Update available: {} → {}", env!("CARGO_PKG_VERSION"), render::clean(&version)),
-                    Style::default().fg(Color::Yellow),
-                ),
-                Span::styled(" · run `nuphos update`", dim()),
-            ]));
+            self.update = Some(format!(
+                "Update available: {} → {} · run `nuphos update`",
+                env!("CARGO_PKG_VERSION"),
+                render::clean(&version)
+            ));
         }
     }
 
@@ -427,53 +420,196 @@ impl App {
     // MARK: - Drawing
 
     fn draw(&mut self, f: &mut Frame) {
-        let area = f.area();
+        // Two columns of margin on each side, as Codex and Grok Build keep.
+        let area = f.area().inner(Margin { horizontal: 2, vertical: 0 });
+        if self.on_welcome() {
+            return self.draw_welcome(f, area);
+        }
         let input_lines = self.input.split('\n').count().clamp(1, 6) as u16;
-        let panel = render::wrap(&self.panel_lines(area.height as usize / 2), area.width);
-        let panel_height = (panel.len() as u16).min(area.height / 2);
-        let [chat_area, panel_area, composer_area, status_area] = Layout::vertical([
+        let sessions = matches!(self.picker, Some(Picker { action: PickAction::Conversation, .. }));
+        let max_panel = if sessions { 0 } else { area.height / 2 };
+        let panel = render::wrap(&self.panel_lines(max_panel as usize), area.width);
+        let panel_height = (panel.len() as u16).min(max_panel);
+        let [top, _, chat_area, panel_area, composer_area, footer] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
             Constraint::Min(0),
             Constraint::Length(panel_height),
             Constraint::Length(input_lines + 2),
             Constraint::Length(1),
         ])
         .areas(area);
-        f.render_widget(Paragraph::new(self.chat_lines(chat_area.width, chat_area.height as usize)), chat_area);
+        self.draw_top_bar(f, top);
+        if let Some(picker) = self.picker.as_ref().filter(|_| sessions) {
+            f.render_widget(Paragraph::new(session_lines(picker, chat_area)), chat_area);
+            self.draw_composer(f, composer_area);
+            return f.render_widget(Paragraph::new(self.footer_hints(footer.width)), footer);
+        }
+        let text_area = Rect { width: chat_area.width.saturating_sub(2), ..chat_area };
+        let lines = self.chat_lines(text_area.width, text_area.height as usize);
+        f.render_widget(Paragraph::new(lines), text_area);
+        if self.rows > self.page {
+            let mut state = ScrollbarState::new(self.rows.saturating_sub(self.page))
+                .position(self.rows.saturating_sub(self.page + self.scroll));
+            let bar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None)
+                .track_symbol(Some(" "))
+                .thumb_symbol("┃");
+            f.render_stateful_widget(bar.style(dim()), chat_area, &mut state);
+        }
         f.render_widget(Paragraph::new(panel), panel_area);
+        self.draw_composer(f, composer_area);
+        f.render_widget(Paragraph::new(self.footer_hints(footer.width)), footer);
+    }
 
-        let block =
-            Block::bordered().border_type(BorderType::Rounded).border_style(dim()).padding(Padding::horizontal(1));
-        let inner = block.inner(composer_area);
-        f.render_widget(block, composer_area);
+    /// A new conversation before anything is typed.
+    fn on_welcome(&self) -> bool {
+        self.is_new && self.messages.is_empty() && self.input.is_empty() && self.picker.is_none()
+    }
+
+    /// Grok Build's home: a box a third of the way down with the name and the
+    /// shortcuts, and a tip above the composer.
+    fn draw_welcome(&mut self, f: &mut Frame, area: Rect) {
+        let bold = Style::default().add_modifier(Modifier::BOLD);
+        let menu = [
+            ("Sessions", "ctrl+\\"),
+            ("Switch team", "/team"),
+            ("Choose the agent", "/runtime"),
+            ("Model and effort", "/model"),
+            ("Quit", "ctrl+c"),
+        ];
+        let width = area.width.min(76);
+        let inner_width = width.saturating_sub(6) as usize;
+        let mut lines = vec![
+            Line::from(vec![
+                Span::styled("›_ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled("Nuphos", bold),
+                Span::styled(format!("  {}", env!("CARGO_PKG_VERSION")), dim()),
+            ]),
+            Line::from(vec![
+                Span::styled("team ", dim()),
+                Span::raw(shared::label(&self.team)),
+                Span::styled(format!(" · {}", self.agent_label()), dim()),
+            ]),
+            Line::default(),
+        ];
+        for (label, key) in menu {
+            let gap = inner_width.saturating_sub(label.width() + key.width());
+            lines.push(Line::from(vec![
+                Span::styled(label, bold),
+                Span::raw(" ".repeat(gap)),
+                Span::styled(key, dim()),
+            ]));
+        }
+        let box_height = lines.len() as u16 + 4;
+        let [top, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
+        self.draw_top_bar(f, top);
+        let below = 1 + 1 + 3 + 1 + 1;
+        let slack = rest.height.saturating_sub(box_height + below);
+        let hero = Rect::new(area.x + (area.width - width) / 2, rest.y + slack / 3, width, box_height.min(rest.height));
+        // Too short for the box: the composer matters more.
+        if box_height + below <= rest.height {
+            let block = Block::bordered().border_type(BorderType::Rounded).border_style(dim());
+            f.render_widget(Paragraph::new(lines).block(block.padding(Padding::new(2, 2, 1, 1))), hero);
+        }
+
+        let [_, tip, _, composer, _, footer] = Layout::vertical([
+            Constraint::Min(0),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ])
+        .areas(rest);
+        let tip_line = match self.update.as_ref().or(self.notice.as_ref()) {
+            Some(text) => Line::from(Span::styled(format!(" {text}"), Style::default().fg(Color::Yellow))),
+            None => Line::from(vec![
+                Span::styled(" Tip: ", dim().add_modifier(Modifier::BOLD)),
+                Span::styled(TIPS[self.session_id.len() % TIPS.len()], dim()),
+            ]),
+        };
+        f.render_widget(Paragraph::new(tip_line), tip);
+        self.draw_composer(f, composer);
+        f.render_widget(Paragraph::new(self.footer_hints(footer.width)), footer);
+    }
+
+    fn agent_label(&self) -> String {
+        let runtime = self.runtime.as_ref().and_then(|r| r["label"].as_str().or(r["provider"].as_str()));
+        render::clean(runtime.unwrap_or("default agent"))
+    }
+
+    /// The conversation's title on the left, the team on the right.
+    fn draw_top_bar(&self, f: &mut Frame, area: Rect) {
+        let title = self.title.as_deref().unwrap_or("New conversation");
+        let team = shared::label(&self.team);
+        let room = (area.width as usize).saturating_sub(team.width() + 2);
+        let title: String = render::clean(title).chars().take(room).collect();
+        let gap = (area.width as usize).saturating_sub(title.width() + team.width());
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(title, Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" ".repeat(gap)),
+                Span::styled(team, dim()),
+            ])),
+            area,
+        );
+    }
+
+    /// `❯` and the draft in a rounded box, with the agent and model set into
+    /// its bottom border.
+    fn draw_composer(&self, f: &mut Frame, area: Rect) {
+        let label = format!(" {} · {} ", self.agent_label(), self.model_label.as_deref().unwrap_or("default model"));
+        let block = Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(dim())
+            .title_bottom(Line::from(Span::styled(render::clean(&label), dim())).right_aligned())
+            .padding(Padding::horizontal(1));
+        let inner = block.inner(area);
+        f.render_widget(block, area);
+        let [prompt, text] = Layout::horizontal([Constraint::Length(2), Constraint::Min(0)]).areas(inner);
+        f.render_widget(Span::styled("❯", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)), prompt);
         if self.input.is_empty() {
             let placeholder = if self.is_new { "Ask Nuphos anything" } else { "Reply to Nuphos" };
-            f.render_widget(Paragraph::new(Span::styled(placeholder, dim())), inner);
+            f.render_widget(Paragraph::new(Span::styled(placeholder, dim())), text);
         } else {
             let lines: Vec<&str> = self.input.split('\n').collect();
-            let skip = lines.len().saturating_sub(inner.height as usize);
-            f.render_widget(Paragraph::new(lines[skip..].join("\n")), inner);
+            let skip = lines.len().saturating_sub(text.height as usize);
+            f.render_widget(Paragraph::new(lines[skip..].join("\n")), text);
         }
         if self.picker.is_none() {
             let before: String = self.input.chars().take(self.caret).collect();
             let row = before.matches('\n').count();
             let col = before.rsplit('\n').next().unwrap_or_default().width();
             let total = self.input.split('\n').count();
-            let row = row.saturating_sub(total.saturating_sub(inner.height as usize));
-            f.set_cursor_position(Position::new(inner.x + col as u16, inner.y + row as u16));
+            let row = row.saturating_sub(total.saturating_sub(text.height as usize));
+            f.set_cursor_position(Position::new(text.x + col as u16, text.y + row as u16));
         }
+    }
 
-        let runtime = self
-            .runtime
-            .as_ref()
-            .and_then(|r| r["label"].as_str().or(r["provider"].as_str()))
-            .unwrap_or("default agent");
-        let status = format!(
-            "  {} · {} · {}",
-            self.team["name"].as_str().unwrap_or_default(),
-            runtime,
-            self.model_label.as_deref().unwrap_or("default model"),
-        );
-        f.render_widget(Paragraph::new(Span::styled(render::clean(&status), dim())), status_area);
+    /// `key:action` hints for what can be done right now, as many as fit.
+    fn footer_hints(&self, width: u16) -> Line<'static> {
+        let hints: &[(&str, &str)] = if self.picker.is_some() {
+            &[("↑↓", "choose"), ("enter", "select"), ("esc", "cancel")]
+        } else if self.stream.is_some() {
+            &[("esc", "stop"), ("ctrl+\\", "sessions"), ("↑↓", "scroll"), ("ctrl+c", "quit")]
+        } else {
+            &[("enter", "send"), ("ctrl+\\", "sessions"), ("/", "commands"), ("↑↓", "scroll"), ("ctrl+c", "quit")]
+        };
+        let mut spans = Vec::new();
+        let mut used = 0;
+        for (i, (key, action)) in hints.iter().enumerate() {
+            let sep = if i > 0 { "  │  " } else { "" };
+            used += sep.width() + key.width() + action.width() + 1;
+            if used > width as usize {
+                break;
+            }
+            spans.push(Span::styled(sep, dim()));
+            spans.push(Span::styled(key.to_string(), Style::default().add_modifier(Modifier::BOLD)));
+            spans.push(Span::styled(format!(":{action}"), dim()));
+        }
+        Line::from(spans)
     }
 
     /// The conversation rows on screen: the written history, then the reply
@@ -522,10 +658,7 @@ impl App {
             ]));
         }
         if self.scroll > 0 {
-            lines.push(Line::from(Span::styled(
-                format!("  ↓ {} more lines below · pgdn to scroll down", self.scroll),
-                Style::default().fg(Color::Cyan),
-            )));
+            lines.push(Line::from(Span::styled(format!("▼ {} more", self.scroll), dim())).centered());
         }
         if let Some(notice) = &self.notice {
             lines.push(Line::from(Span::styled(notice.clone(), Style::default().fg(Color::Yellow))));
@@ -555,6 +688,13 @@ impl App {
 
     async fn on_key(&mut self, key: KeyEvent) {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        if ctrl && matches!(key.code, KeyCode::Char('\\') | KeyCode::Char('4')) {
+            return if matches!(self.picker, Some(Picker { action: PickAction::Conversation, .. })) {
+                self.picker = None;
+            } else {
+                self.open_conversation_picker().await;
+            };
+        }
         if self.picker.is_some() {
             return self.on_picker_key(key).await;
         }
@@ -678,11 +818,20 @@ impl App {
 
     // MARK: - Conversation
 
+    /// Each conversation gets the screen to itself. A reply still running
+    /// keeps going on the server; this client just stops following it.
     fn new_conversation(&mut self) {
-        if !self.messages.is_empty() {
-            self.pending_output.push(Line::from(Span::styled("─── new conversation ───", dim())));
-            self.pending_output.push(Line::default());
+        if let Some(stream) = self.stream.take() {
+            stream.task.abort();
         }
+        self.phase = None;
+        self.stopping = false;
+        self.pending_output.clear();
+        self.history.clear();
+        self.wrapped.clear();
+        self.scroll = 0;
+        self.announced.clear();
+        self.title = None;
         self.session_id = uuid::Uuid::new_v4().to_string();
         self.is_new = true;
         self.ended.clear();
@@ -1109,29 +1258,27 @@ impl App {
         self.load_runtimes().await;
         self.messages.clear();
         self.new_conversation();
-        self.pending_output.push(self.team_line());
-        self.pending_output.push(Line::default());
     }
 
     // MARK: - Resume
 
     async fn open_conversation_picker(&mut self) {
-        if self.stream.is_some() {
-            self.notice = Some("Wait for the reply to finish, or press esc to stop it.".into());
-            return;
-        }
         match self.api.conversations(&self.team_id()).await {
-            Ok(list) if !list.is_empty() => {
+            Ok(mut list) if !list.is_empty() => {
+                // Running ones first; the server already sorts by activity.
+                list.sort_by_key(|c| c["activeRun"].is_null());
                 let items = list
                     .into_iter()
-                    .map(|c| (shared::conversation_title(&c), shared::conversation_time(&c), c))
+                    .map(|c| {
+                        let mut detail = shared::conversation_time(&c);
+                        if !c["activeRun"].is_null() {
+                            detail = format!("● running · {detail}");
+                        }
+                        (shared::conversation_title(&c), detail, c)
+                    })
                     .collect();
-                self.picker = Some(Picker {
-                    title: "Resume a conversation".into(),
-                    items,
-                    selected: 0,
-                    action: PickAction::Conversation,
-                });
+                self.picker =
+                    Some(Picker { title: "Sessions".into(), items, selected: 0, action: PickAction::Conversation });
             }
             Ok(_) => self.notice = Some("No conversations yet.".into()),
             Err(e) => self.notice = Some(e.message),
@@ -1156,12 +1303,11 @@ impl App {
             .and_then(|rid| self.runtimes.iter().find(|r| r["id"] == rid))
             .cloned()
             .or_else(|| detail["runtimeLabel"].as_str().map(|label| json!({ "label": label })));
-        let title = detail["title"].as_str().filter(|t| !t.is_empty()).unwrap_or("Untitled chat");
-        let mut header = vec![Line::from(Span::styled(format!("─── {title} ───"), dim()))];
+        self.title = Some(shared::conversation_title(&detail));
         if self.base_index > 0 {
-            header.push(Line::from(Span::styled(format!("  ({} earlier messages not shown)", self.base_index), dim())));
+            let note = format!("({} earlier messages not shown)", self.base_index);
+            self.pending_output.push(Line::from(Span::styled(note, dim())));
         }
-        self.pending_output.extend(header);
         self.model_label = None;
         self.refresh_model_label().await;
         self.follow(&detail);
@@ -1238,6 +1384,53 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// The sessions page: running conversations, then recent ones, each with
+/// how long ago it was active on the right.
+fn session_lines(picker: &Picker, area: Rect) -> Vec<Line<'static>> {
+    let width = area.width as usize;
+    let mut lines = vec![Line::from(Span::styled("Sessions", Style::default().add_modifier(Modifier::BOLD)))];
+    let mut rows = Vec::new();
+    let mut group = None;
+    for (i, (title, detail, c)) in picker.items.iter().enumerate() {
+        let running = !c["activeRun"].is_null();
+        if group != Some(running) {
+            group = Some(running);
+            rows.push((None, Line::default()));
+            rows.push((None, Line::from(Span::styled(if running { "Running" } else { "Recent" }, dim()))));
+        }
+        let selected = i == picker.selected;
+        let time = detail.trim_start_matches("● running · ").to_string();
+        let marker = if running { "● " } else { "  " };
+        let room = width.saturating_sub(time.width() + 6);
+        let title: String = title
+            .chars()
+            .scan(0, |w, ch| {
+                *w += ch.to_string().width();
+                (*w <= room).then_some(ch)
+            })
+            .collect();
+        let gap = width.saturating_sub(title.width() + time.width() + 4);
+        let style =
+            if selected { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default() };
+        rows.push((
+            Some(i),
+            Line::from(vec![
+                Span::styled(if selected { "› " } else { "  " }, style),
+                Span::styled(marker, Style::default().fg(Color::Green)),
+                Span::styled(title, style),
+                Span::raw(" ".repeat(gap)),
+                Span::styled(time, dim()),
+            ]),
+        ));
+    }
+    // Keep the selected row on screen.
+    let room = (area.height as usize).saturating_sub(1);
+    let at = rows.iter().position(|(i, _)| *i == Some(picker.selected)).unwrap_or(0);
+    let first = (at + 1).saturating_sub(room);
+    lines.extend(rows.into_iter().skip(first).take(room).map(|(_, line)| line));
+    lines
 }
 
 /// Leaves the alternate screen and the modes the TUI turned on; also run on a panic.

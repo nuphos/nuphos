@@ -78,16 +78,21 @@ fn inline(text: &str) -> Vec<Span<'static>> {
     spans
 }
 
+/// A message from a person: a shaded band across the width, as in Grok Build.
 pub fn user(text: &str) -> Vec<Line<'static>> {
-    let mut lines = vec![Line::default()];
+    let band = Style::default().bg(Color::Rgb(36, 36, 36));
+    let mut lines = vec![Line::default(), Line::default().style(band)];
     for (i, l) in text.lines().enumerate() {
-        let prefix = if i == 0 { "› " } else { "  " };
-        lines.push(Line::from(vec![
-            Span::styled(prefix, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::styled(l.to_string(), Style::default().add_modifier(Modifier::BOLD)),
-        ]));
+        let prefix = if i == 0 { " ❯ " } else { "   " };
+        lines.push(
+            Line::from(vec![
+                Span::styled(prefix, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::raw(l.to_string()),
+            ])
+            .style(band),
+        );
     }
-    lines.push(Line::default());
+    lines.extend([Line::default().style(band), Line::default()]);
     lines
 }
 
@@ -185,6 +190,13 @@ pub fn wrap(lines: &[Line<'static>], width: u16) -> Vec<Line<'static>> {
     let width = width.max(10) as usize;
     let mut out = Vec::new();
     for line in lines {
+        // A line with a background (the user band) is padded to the full width.
+        let finish = |mut spans: Vec<Span<'static>>, used: usize| {
+            if line.style.bg.is_some() {
+                spans.push(Span::styled(" ".repeat(width.saturating_sub(used)), line.style));
+            }
+            Line::from(spans).style(line.style)
+        };
         let mut current: Vec<Span<'static>> = Vec::new();
         let mut used = 0;
         for span in &line.spans {
@@ -195,7 +207,7 @@ pub fn wrap(lines: &[Line<'static>], width: u16) -> Vec<Line<'static>> {
                     if !chunk.is_empty() {
                         current.push(Span::styled(std::mem::take(&mut chunk), span.style));
                     }
-                    out.push(Line::from(std::mem::take(&mut current)));
+                    out.push(finish(std::mem::take(&mut current), used));
                     used = 0;
                 }
                 chunk.push(ch);
@@ -205,7 +217,7 @@ pub fn wrap(lines: &[Line<'static>], width: u16) -> Vec<Line<'static>> {
                 current.push(Span::styled(chunk, span.style));
             }
         }
-        out.push(Line::from(current));
+        out.push(finish(current, used));
     }
     out
 }
