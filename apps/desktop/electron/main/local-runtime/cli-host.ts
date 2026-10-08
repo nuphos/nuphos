@@ -8,9 +8,12 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { callJson, readToken } from '../../agent/http.ts'
+import yaml from 'js-yaml'
+
+import { callJson } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
 import { unverifiedTokenSubject } from '../../auth-status.ts'
+import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
 import { defaultDeviceLabel, parseDeviceIdentity } from '../device-identity-core.ts'
 
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
@@ -64,7 +67,18 @@ const log = (message: string, data?: Record<string, unknown>) => {
 let lastSummary = ''
 let stopping = false
 
-const token = await readToken()
+/** The session in cli.yaml now: signing out here or in the app empties it. */
+function currentToken(): string | null {
+  try {
+    return (
+      (yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as { token?: string } | null)?.token ?? null
+    )
+  } catch {
+    return null
+  }
+}
+
+const token = currentToken()
 const owner = token ? unverifiedTokenSubject(token) : undefined
 
 if (!token || !owner) {
@@ -140,10 +154,18 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   createTunnel: (runtime, status, onChange) =>
     new RuntimeTunnelClient({
       connectBackend: () => {
+        // Each reconnect takes the session as it is now, as the desktop follows
+        // its own: signed out, or signed in as someone else, the agents stop.
+        const fresh = currentToken()
+
+        if (!fresh || unverifiedTokenSubject(fresh) !== owner) {
+          stop('Signed out of Nuphos; stopping the local agents.')
+          throw new Error('Signed out')
+        }
         const url = `${apiUrl().replace(/^http/u, 'ws')}/agent/devices/${encodeURIComponent(device.deviceId)}/runtime-tunnel`
 
         return new WebSocket(url, {
-          headers: { authorization: `Bearer ${token}`, 'x-atlas-client': clientVersion },
+          headers: { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion },
         })
       },
       connectFile: () => {
@@ -214,15 +236,18 @@ async function signInClaude(ownerId: string): Promise<void> {
   await controller.refresh(true, ['claude-code'])
 }
 
-const stop = () => {
+function stop(message = 'Stopping the local agents…'): void {
   if (stopping) process.exit(130)
   stopping = true
-  console.log('Stopping the local agents…')
+  console.log(message)
   void controller.shutdown().then(() => process.exit(0))
 }
 
-process.on('SIGINT', stop)
-process.on('SIGTERM', stop)
+// A closed terminal or a dropped SSH session stops them too.
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => stop())
 console.log(`Running this computer's agents for Nuphos as "${device.label}". Press Ctrl-C to stop.`)
+console.log(
+  'Conversations you move onto this computer can be continued by anyone in that team, and their messages run commands here.',
+)
 await controller.setUser(owner)
 await signInClaude(owner)

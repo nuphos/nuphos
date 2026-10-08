@@ -47,7 +47,9 @@ nuphos agent                                 # run this computer's agents
 
 `nuphos agent` makes this computer a local agent, as the desktop app does: the
 Claude Code and Codex you already have installed show up in every team you
-belong to, for you only, while it runs. It needs Node.js 22 or newer. On first
+belong to while it runs. Only you can start a conversation on them, but once
+you move a conversation onto this computer, anyone in that team can continue
+it, and their messages run commands here, as you. It needs Node.js 22 or newer. On first
 use it downloads the runtime for this release (openab and the ACP adapters)
 into `~/.local/share/nuphos/runtime`, and asks Claude Code to sign in once for
 Nuphos, separately from your own terminal. Codex uses your `codex login`. It

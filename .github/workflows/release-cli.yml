@@ -112,9 +112,11 @@ jobs:
         include:
           - runner: macos-26
             targets: darwin-arm64,darwin-x64
-          - runner: ubuntu-24.04
+          # 22.04: the glibc openab links against is the oldest it can run
+          # on, and 22.04 (2.35) covers Debian 12 as well.
+          - runner: ubuntu-22.04
             targets: linux-x64
-          - runner: ubuntu-24.04-arm
+          - runner: ubuntu-22.04-arm
             targets: linux-arm64
     runs-on: ${{ matrix.runner }}
     permissions:
