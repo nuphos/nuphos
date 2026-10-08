@@ -42,7 +42,17 @@ nuphos runtime [NAME] [--session ID]         # list agents / pick or move
 nuphos model [VALUE] [--effort E] [--session ID]
 nuphos stop --session ID
 nuphos login | logout
+nuphos agent                                 # run this computer's agents
 ```
+
+`nuphos agent` makes this computer a local agent, as the desktop app does: the
+Claude Code and Codex you already have installed show up in every team you
+belong to, for you only, while it runs. It needs Node.js 22 or newer. On first
+use it downloads the runtime for this release (openab and the ACP adapters)
+into `~/.local/share/nuphos/runtime`, and asks Claude Code to sign in once for
+Nuphos, separately from your own terminal. Codex uses your `codex login`. It
+runs as its own device, so the desktop app on the same computer is unaffected;
+`NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
 the session id. A command that needs approval is denied unless `--approve` is
@@ -80,9 +90,18 @@ Bump `version` in `Cargo.toml`, merge, then push a matching tag on main:
 git tag cli-v0.2.0 && git push origin cli-v0.2.0
 ```
 
-`.github/workflows/release-cli.yml` builds the four binaries and publishes
-them as the `CLI v0.2.0` GitHub Release, which the installer and
-`nuphos update` pick up.
+`.github/workflows/release-cli.yml` builds the four binaries, and the
+`nuphos agent` runtime for each platform, and publishes them as the
+`CLI v0.2.0` GitHub Release, which the installer and `nuphos update` pick up.
+
+To try `nuphos agent` from a checkout, stage the runtime and point at it:
+
+```sh
+cd apps/desktop && node local-runtime/prepare.mjs --targets linux-x64 --require
+bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm \
+  --outfile build/local-runtime/linux-x64/host.mjs
+NUPHOS_LOCAL_RUNTIME_DIR=$PWD/build/local-runtime/linux-x64 nuphos agent
+```
 
 ## Development
 

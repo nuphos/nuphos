@@ -2,7 +2,7 @@
 // this bundled file on the user's own Node, next to the staged openab and
 // adapters, signed in with the session the CLI and the desktop share.
 
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
@@ -62,6 +62,7 @@ const log = (message: string, data?: Record<string, unknown>) => {
   if (process.env.NUPHOS_DEBUG) console.error(`[agent] ${message}`, data ?? '')
 }
 let lastSummary = ''
+let stopping = false
 
 const token = await readToken()
 const owner = token ? unverifiedTokenSubject(token) : undefined
@@ -170,12 +171,15 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 
 /** One line per agent whenever what the user would see changes. */
 function report(): void {
+  if (stopping) return
   const { agents } = controller.state()
   const lines = LOCAL_AGENT_PROVIDERS.map((provider) => {
     const agent = agents[provider]
     let detail = 'starting…'
 
-    if (agent.online) detail = 'online'
+    if (agent.online && agent.cli?.installed && !agent.cli.loggedIn)
+      detail = 'not signed in; run `nuphos agent` in a terminal to sign in'
+    else if (agent.online) detail = 'online'
     else if (agent.error) detail = agent.error
     else if (!agent.available) detail = 'not bundled for this computer'
 
@@ -199,14 +203,17 @@ async function signInClaude(ownerId: string): Promise<void> {
 
   if (!cliPath || !agentHome) return
   console.log('Sign Claude Code in for Nuphos (a separate sign-in from your own terminal):')
-  spawnSync(cliPath, ['auth', 'login', '--claudeai'], {
-    env: agentCliEnv({ provider: 'claude-code', env: process.env, cliPath, agentHome }),
-    stdio: 'inherit',
+  await new Promise((resolve) => {
+    spawn(cliPath, ['auth', 'login', '--claudeai'], {
+      env: agentCliEnv({ provider: 'claude-code', env: process.env, cliPath, agentHome }),
+      stdio: 'inherit',
+    })
+      .on('exit', resolve)
+      .on('error', resolve)
   })
   await controller.refresh(true, ['claude-code'])
 }
 
-let stopping = false
 const stop = () => {
   if (stopping) process.exit(130)
   stopping = true
