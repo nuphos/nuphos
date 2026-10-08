@@ -7,11 +7,10 @@ import { AgentPanel } from '../../components/agent/AgentPanel'
 import { EditableConversationTitle } from '../../components/agent/panel/ConversationTitleEditor'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
+import { agentSessionUrl } from '../../components/agent/sessionUrl'
 import { teamCanUseAgent } from '../../lib/agentAccess'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
-import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { ConversationRail } from '../../views/ConversationRail'
 
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -126,23 +125,19 @@ export function WorkspaceAgentPane({
     },
     [],
   )
+  const sessionUrl = teamId && selectedSessionId ? agentSessionUrl(teamId, selectedSessionId) : null
   const copySessionUrl = useCallback(async () => {
-    if (!teamId || !selectedSessionId) return
-    const location = pageLocationForNavigation(
-      emptyNavigation({ kind: 'team', teamId }, 'team.agent', {
-        agentSessionId: selectedSessionId,
-      }),
-    )
+    if (!sessionUrl || !selectedSessionId) return
 
     try {
-      await navigator.clipboard.writeText(toAbsoluteAtlasUrl(location.href))
+      await navigator.clipboard.writeText(sessionUrl)
       setCopiedSessionId(selectedSessionId)
       if (copyResetRef.current) clearTimeout(copyResetRef.current)
       copyResetRef.current = setTimeout(() => setCopiedSessionId(null), 1200)
     } catch {
       setCopiedSessionId(null)
     }
-  }, [selectedSessionId, teamId])
+  }, [selectedSessionId, sessionUrl])
 
   // The dock covers this column instead of reflowing it: while expanded the
   // content keeps the width it had and the shrinking column clips it, until
@@ -220,12 +215,14 @@ export function WorkspaceAgentPane({
               canRename={currentHeading.canRename === true}
             />
           </div>
-          {selectedSessionId && (
+          {selectedSessionId && sessionUrl && (
             <>
               <SessionParticipants
                 key={selectedSessionId}
                 sessionId={selectedSessionId}
                 teamId={teamId}
+                title={currentHeading.title}
+                sessionUrl={sessionUrl}
                 currentUserId={user.id}
                 warnLocalAgent={
                   currentHeading.canRename === true && isLocalAgentRuntime(currentHeading.runtimeId)
