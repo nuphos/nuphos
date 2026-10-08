@@ -33,11 +33,21 @@ use crate::transcript::{self as tx, is_tool, is_tool_settled, part_type, parts, 
 /// Alternate scroll mode: in the alternate screen, the wheel arrives as ↑/↓.
 const ALTERNATE_SCROLL_ON: &str = "\x1b[?1007h";
 const ALTERNATE_SCROLL_OFF: &str = "\x1b[?1007l";
+/// The Nuphos mark (apps/desktop/public/logo.svg) in braille, 14×7.
+const LOGO: [&str; 7] = [
+    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀",
+    "⠀⢀⣴⣶⣶⣶⣤⡀⠈⠻⣷⣄⠀⠀",
+    "⣰⣿⠋⠁⠀⠉⠻⣿⣦⡀⠈⠻⣷⣄",
+    "⣿⣇⠀⠠⣾⣦⡀⠈⠻⡿⠂⠀⢹⣿",
+    "⠙⢿⣦⡀⠈⠻⣿⣦⡀⠀⢀⣠⣿⠏",
+    "⠀⠀⠙⢿⣦⡀⠈⠛⠿⠿⠿⠛⠁⠀",
+    "⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+];
 const TIPS: [&str; 4] = [
-    "press ctrl+\\ to jump between your conversations",
-    "a reply keeps running on the server when you quit; `nuphos resume` picks it up",
-    "use /runtime to run this conversation on another agent",
-    "use /model to change the model and reasoning effort",
+    "Press ctrl+\\ to jump between your conversations.",
+    "A reply keeps running on the server when you quit; `nuphos resume` picks it up.",
+    "Use /runtime to run this conversation on another agent.",
+    "Use /model to change the model and reasoning effort.",
 ];
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const COMMANDS: [(&str, &str); 7] = [
@@ -468,8 +478,8 @@ impl App {
         self.is_new && self.messages.is_empty() && self.input.is_empty() && self.picker.is_none()
     }
 
-    /// Grok Build's home: a box a third of the way down with the name and the
-    /// shortcuts, and a tip above the composer.
+    /// Grok Build's home: the mark and the shortcuts in a box a third of the
+    /// way down, a tip above the composer, and the endpoint in the corner.
     fn draw_welcome(&mut self, f: &mut Frame, area: Rect) {
         let bold = Style::default().add_modifier(Modifier::BOLD);
         let menu = [
@@ -479,39 +489,51 @@ impl App {
             ("Model and effort", "/model"),
             ("Quit", "ctrl+c"),
         ];
-        let width = area.width.min(76);
-        let inner_width = width.saturating_sub(6) as usize;
-        let mut lines = vec![
+        let width = area.width.saturating_sub(4).min(120);
+        // The mark goes when the box gets narrow; the menu needs the room.
+        let mark = if width >= 70 { LOGO.len() as u16 } else { 0 };
+        let mark_width = if mark > 0 { LOGO[0].chars().count() as u16 + 4 } else { 0 };
+        let text_width = width.saturating_sub(mark_width + 6) as usize;
+        let headline = match &self.update {
+            Some(update) => Span::styled(
+                update.clone(),
+                Style::default().fg(Color::Rgb(255, 199, 119)).add_modifier(Modifier::BOLD),
+            ),
+            None => Span::styled(format!("{} · {}", shared::label(&self.team), self.agent_label()), dim()),
+        };
+        let mut text = vec![
             Line::from(vec![
-                Span::styled("›_ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Span::styled("Nuphos", bold),
                 Span::styled(format!("  {}", env!("CARGO_PKG_VERSION")), dim()),
             ]),
-            Line::from(vec![
-                Span::styled("team ", dim()),
-                Span::raw(shared::label(&self.team)),
-                Span::styled(format!(" · {}", self.agent_label()), dim()),
-            ]),
+            Line::default(),
+            Line::from(headline),
             Line::default(),
         ];
         for (label, key) in menu {
-            let gap = inner_width.saturating_sub(label.width() + key.width());
-            lines.push(Line::from(vec![
+            let gap = text_width.saturating_sub(label.width() + key.width());
+            text.push(Line::from(vec![
                 Span::styled(label, bold),
                 Span::raw(" ".repeat(gap)),
                 Span::styled(key, dim()),
             ]));
         }
-        let box_height = lines.len() as u16 + 4;
+        let box_height = (text.len() as u16).max(mark) + 4;
+
         let [top, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
-        self.draw_top_bar(f, top);
-        let below = 1 + 1 + 3 + 1 + 1;
-        let slack = rest.height.saturating_sub(box_height + below);
-        let hero = Rect::new(area.x + (area.width - width) / 2, rest.y + slack / 3, width, box_height.min(rest.height));
+        f.render_widget(Span::styled(shared::label(&self.team), dim()), top);
+        let below = 1 + 1 + 3 + 1 + 1 + 1;
         // Too short for the box: the composer matters more.
         if box_height + below <= rest.height {
+            let slack = rest.height - box_height - below;
+            let hero = Rect::new(area.x + (area.width - width) / 2, rest.y + 1 + slack / 3, width, box_height);
             let block = Block::bordered().border_type(BorderType::Rounded).border_style(dim());
-            f.render_widget(Paragraph::new(lines).block(block.padding(Padding::new(2, 2, 1, 1))), hero);
+            let inner = block.inner(hero).inner(Margin { horizontal: 2, vertical: 1 });
+            f.render_widget(block, hero);
+            let [logo, body] = Layout::horizontal([Constraint::Length(mark_width), Constraint::Min(0)]).areas(inner);
+            let gray = Style::default().fg(Color::Gray).add_modifier(Modifier::DIM);
+            f.render_widget(Paragraph::new(LOGO.map(|l| Line::from(Span::styled(l, gray))).to_vec()), logo);
+            f.render_widget(Paragraph::new(text), body);
         }
 
         let [_, tip, _, composer, _, footer] = Layout::vertical([
@@ -523,16 +545,18 @@ impl App {
             Constraint::Length(1),
         ])
         .areas(rest);
-        let tip_line = match self.update.as_ref().or(self.notice.as_ref()) {
-            Some(text) => Line::from(Span::styled(format!(" {text}"), Style::default().fg(Color::Yellow))),
+        let tip_line = match &self.notice {
+            Some(text) => Line::from(Span::styled(text.clone(), Style::default().fg(Color::Yellow))),
             None => Line::from(vec![
-                Span::styled(" Tip: ", dim().add_modifier(Modifier::BOLD)),
+                Span::styled("Tip: ", dim().add_modifier(Modifier::BOLD)),
                 Span::styled(TIPS[self.session_id.len() % TIPS.len()], dim()),
             ]),
         };
         f.render_widget(Paragraph::new(tip_line), tip);
         self.draw_composer(f, composer);
-        f.render_widget(Paragraph::new(self.footer_hints(footer.width)), footer);
+        let host = config::api_url();
+        let host = host.trim_start_matches("https://").trim_start_matches("http://");
+        f.render_widget(Line::from(Span::styled(format!("[{}]", render::clean(host)), dim())).right_aligned(), footer);
     }
 
     fn agent_label(&self) -> String {
@@ -564,7 +588,9 @@ impl App {
         let block = Block::bordered()
             .border_type(BorderType::Rounded)
             .border_style(dim())
-            .title_bottom(Line::from(Span::styled(render::clean(&label), dim())).right_aligned())
+            .title_bottom(
+                Line::from(vec![Span::styled(render::clean(&label), dim()), Span::styled("─", dim())]).right_aligned(),
+            )
             .padding(Padding::horizontal(1));
         let inner = block.inner(area);
         f.render_widget(block, area);
