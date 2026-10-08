@@ -29,6 +29,10 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var preparingSubmission = false
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var handleDrag: CGFloat = 0
+    @State private var dictation: VoiceDictation?
+    @State private var transcription: Task<Void, Never>?
+    @State private var dictationError: String?
+    @State private var askingForKey = false
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
@@ -73,9 +77,22 @@ struct ChatComposerBar<Controls: View>: View {
             }
 
             HStack(spacing: 8) {
-                field
-                    .padding(.vertical, expanded ? 4 : 8)
-                if !expanded {
+                // While dictating, the bar takes the input's place; the
+                // field stays in the hierarchy so it keeps its identity.
+                ZStack {
+                    field
+                        .padding(.vertical, expanded ? 4 : 8)
+                        .opacity(dictation == nil ? 1 : 0)
+                        .allowsHitTesting(dictation == nil)
+                        .accessibilityHidden(dictation != nil)
+                    if let dictation {
+                        dictationBar(dictation)
+                            .transition(.opacity)
+                    }
+                }
+                if !expanded, dictation == nil {
+                    micButton
+                        .transition(.opacity)
                     trailingButton
                         .transition(.opacity)
                 }
@@ -90,10 +107,11 @@ struct ChatComposerBar<Controls: View>: View {
                     .transition(.opacity)
             }
 
-            if expanded {
+            if expanded, dictation == nil {
                 HStack(spacing: 8) {
                     attachMenu
                     Spacer(minLength: 0)
+                    micButton
                     trailingButton
                 }
                 .padding(.horizontal, 6)
@@ -107,6 +125,9 @@ struct ChatComposerBar<Controls: View>: View {
         .animation(.snappy(duration: 0.25), value: attachments)
         .animation(.easeOut(duration: 0.15), value: hasText)
         .animation(.easeOut(duration: 0.15), value: isStreaming)
+        .animation(.snappy(duration: 0.25), value: dictation == nil)
+        .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
+        .onDisappear(perform: cancelDictation)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .offset(y: handleDrag)
@@ -147,6 +168,7 @@ struct ChatComposerBar<Controls: View>: View {
             if args.contains("-preview-attachments"), attachments.isEmpty { attachments = Self.previewAttachments() }
             if args.contains("-open-photos") { showPhotos = true }
             if args.contains("-open-files") { showFiles = true }
+            if args.contains("-ask-openai-key") { askingForKey = true }
         }
         #endif
     }
@@ -209,6 +231,111 @@ struct ChatComposerBar<Controls: View>: View {
             .focused($focused)
             .submitLabel(.send)
             .onSubmit(send)
+            .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
+                Button("OK", role: .cancel) { dictationError = nil }
+            } message: {
+                Text(dictationError ?? "")
+            }
+    }
+
+    // MARK: Voice input
+
+    /// iOS only: the macOS build has no microphone entitlement.
+    @ViewBuilder private var micButton: some View {
+        #if os(iOS)
+        Button(action: startDictation) {
+            Image(systemName: "mic")
+                .font(.system(size: 17, weight: .medium))
+                .frame(width: 34, height: 34)
+                .foregroundStyle(Theme.body)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(preparingSubmission)
+        .accessibilityLabel("Voice input")
+        #endif
+    }
+
+    /// ✕ discards the take; ✓ transcribes it into the input.
+    private func dictationBar(_ dictation: VoiceDictation) -> some View {
+        HStack(spacing: 10) {
+            Button(action: cancelDictation) {
+                Image(systemName: "xmark")
+                    .font(Theme.Text.secondary.weight(.bold))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(Theme.heading)
+                    .background(Theme.muted.opacity(0.25), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cancel voice input")
+
+            if dictation.phase == .transcribing {
+                ProgressView().controlSize(.small)
+                Text("Transcribing…")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.muted)
+                Spacer(minLength: 0)
+            } else {
+                DictationWaveform(levels: dictation.levels)
+                Text(dictation.startedAt, style: .timer)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize()
+            }
+
+            Button(action: finishDictation) {
+                Image(systemName: "checkmark")
+                    .font(Theme.Text.secondary.weight(.bold))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(Theme.chatCanvas)
+                    .background(Theme.heading, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(dictation.phase != .recording)
+            .accessibilityLabel("Finish voice input")
+        }
+        .padding(.vertical, expanded ? 0 : 4)
+    }
+
+    private func startDictation() {
+        guard dictation == nil else { return }
+        guard Keychain.read(Whisper.keychainKey) != nil else { askingForKey = true; return }
+        focused = false
+        let take = VoiceDictation()
+        dictation = take
+        Task {
+            do {
+                try await take.start()
+                // Cancelled while the permission prompt was up.
+                if dictation !== take { take.cancel() }
+            } catch {
+                take.cancel()
+                if dictation === take { dictation = nil }
+                dictationError = error.localizedDescription
+            }
+        }
+    }
+
+    private func finishDictation() {
+        guard let take = dictation, let key = Keychain.read(Whisper.keychainKey) else { return }
+        transcription = Task {
+            do {
+                let words = try await take.finish(apiKey: key)
+                if !Task.isCancelled, !words.isEmpty {
+                    text = text.isEmpty || text.last?.isWhitespace == true ? text + words : text + " " + words
+                }
+            } catch {
+                if !Task.isCancelled { dictationError = error.localizedDescription }
+            }
+            if dictation === take { dictation = nil }
+        }
+    }
+
+    private func cancelDictation() {
+        transcription?.cancel()
+        transcription = nil
+        dictation?.cancel()
+        dictation = nil
     }
 
     private var attachmentStrip: some View {
@@ -318,6 +445,91 @@ extension ChatComposerBar where Controls == EmptyView {
     /// A composer with no control row.
     init(text: Binding<String>, isStreaming: Bool = false, canSteer: Bool = false, onSend: @escaping (ComposerSubmission) -> Void, onStop: (() -> Void)? = nil) {
         self.init(text: text, isStreaming: isStreaming, canSteer: canSteer, onSend: onSend, onStop: onStop, controls: { EmptyView() })
+    }
+}
+
+/// Asks for the user's own OpenAI key for voice input and keeps it in the
+/// Keychain. A sheet rather than an alert: an alert's text field is laid out
+/// by UIKit and does not line up with the rest of the alert.
+private struct OpenAIKeySheet: View {
+    var onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var key = ""
+    @State private var error: String?
+    @State private var checking = false
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    SecureField("sk-…", text: $key)
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit(save)
+                } footer: {
+                    Text("Voice input transcribes with OpenAI Whisper using your own API key. The key stays on this device; recordings are sent to OpenAI and billed to your account.")
+                }
+                if let error { Text(error).foregroundStyle(.red) }
+            }
+            .navigationTitle("OpenAI API key")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    if checking { ProgressView() } else { Button("Save", action: save).disabled(trimmed.isEmpty) }
+                }
+            }
+            .onAppear { focused = true }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func save() {
+        let key = trimmed
+        guard !key.isEmpty, !checking else { return }
+        checking = true
+        error = nil
+        Task {
+            defer { checking = false }
+            do {
+                try await Whisper.verify(key)
+                try Keychain.write(key, for: Whisper.keychainKey)
+                dismiss()
+                onSave()
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+}
+
+/// The live microphone level, newest at the trailing edge; the part not yet
+/// recorded is a dotted baseline.
+private struct DictationWaveform: View {
+    let levels: [CGFloat]
+
+    var body: some View {
+        Canvas { context, size in
+            let step: CGFloat = 4, bar: CGFloat = 2
+            let count = Int(size.width / step)
+            let recorded = levels.suffix(count)
+            let blank = count - recorded.count
+            for index in 0..<count {
+                let level = index < blank ? 0 : recorded[recorded.startIndex + index - blank]
+                let height = max(bar, level * size.height)
+                let rect = CGRect(x: CGFloat(index) * step, y: (size.height - height) / 2, width: bar, height: height)
+                context.fill(Path(roundedRect: rect, cornerRadius: bar / 2),
+                             with: .color(index < blank ? Theme.muted.opacity(0.5) : Theme.heading))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 24)
+        .accessibilityHidden(true)
     }
 }
 
