@@ -138,6 +138,11 @@ impl Api {
         self.call(Method::POST, &format!("/teams/{team}/agent-runtimes"), &[], Some(&body)).await
     }
 
+    /// `{ online, … }` — whether the agent answers yet.
+    pub async fn runtime_status(&self, team: &str, runtime: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/status"), &[], None).await
+    }
+
     /// Starts (POST) or reads (GET) a Cloud agent's sign-in to its provider account.
     pub async fn runtime_login(&self, method: Method, team: &str, runtime: &str) -> Result<Value, ApiError> {
         self.call(method, &format!("/teams/{team}/agent-runtimes/{runtime}/login"), &[], None).await

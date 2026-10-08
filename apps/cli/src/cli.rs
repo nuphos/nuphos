@@ -4,6 +4,7 @@
 //! one. `--json` prints machine-readable output.
 
 use std::io::Write;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Result};
 use reqwest::Method;
@@ -15,6 +16,10 @@ use crate::config::{self, Prefs};
 use crate::render::clean;
 use crate::shared::{self, label, option_of_kind};
 use crate::transcript as tx;
+
+const POLL: Duration = Duration::from_secs(2);
+/// Long enough to start an agent and finish a sign-in in the browser.
+const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 /// The signed-in context every command runs in.
 pub struct Ctx {
@@ -136,22 +141,39 @@ pub async fn login_runtime(ctx: &Ctx, name: &str) -> Result<()> {
 async fn sign_in_runtime(ctx: &Ctx, runtime: &Value) -> Result<()> {
     let team = ctx.team_id();
     let id = runtime["id"].as_str().unwrap_or_default();
+    let retry = format!("Try again with `nuphos runtime '{}' --login`.", label(runtime));
+    let deadline = Instant::now() + SIGN_IN_TIMEOUT;
+    let wait = |what: &str| -> Result<()> {
+        if Instant::now() > deadline {
+            bail!("{} did not {what} in time. {retry}", label(runtime));
+        }
+        Ok(())
+    };
+
+    // A just-created agent is still starting, and sign-in needs it to answer.
+    if !ctx.api.runtime_status(&team, id).await?["online"].as_bool().unwrap_or(false) {
+        eprintln!("Starting {}…", label(runtime));
+        while !ctx.api.runtime_status(&team, id).await?["online"].as_bool().unwrap_or(false) {
+            wait("start")?;
+            tokio::time::sleep(POLL).await;
+        }
+    }
+
     let mut login = ctx.api.runtime_login(Method::POST, &team, id).await?;
     let mut shown = false;
     loop {
         match login["state"].as_str().unwrap_or_default() {
             "connected" => break,
             "failed" | "cancelled" => bail!(
-                "{} did not sign in: {}. Try again with `nuphos runtime '{}' --login`.",
+                "{} did not sign in: {}. {retry}",
                 label(runtime),
-                clean(login["error"].as_str().unwrap_or("cancelled")),
-                label(runtime)
+                clean(login["error"].as_str().unwrap_or("cancelled"))
             ),
             "awaiting_authorization" if !shown => {
                 shown = true;
                 if let Some(url) = login["authorizationUrl"].as_str() {
                     eprintln!("Sign {} in at:\n\n  {}\n", label(runtime), clean(url));
-                    let _ = open::that(url);
+                    open_https(url);
                     eprint!("Paste the code the page shows: ");
                     let mut code = String::new();
                     std::io::stdin().read_line(&mut code)?;
@@ -160,17 +182,14 @@ async fn sign_in_runtime(ctx: &Ctx, runtime: &Value) -> Result<()> {
                     continue;
                 }
                 let uri = login["verificationUri"].as_str().unwrap_or_default();
-                eprintln!(
-                    "Sign {} in at {} with the code {}",
-                    label(runtime),
-                    clean(uri),
-                    clean(login["userCode"].as_str().unwrap_or_default())
-                );
-                let _ = open::that(uri);
+                let code = login["userCode"].as_str().unwrap_or_default();
+                eprintln!("Sign {} in at {} with the code {}", label(runtime), clean(uri), clean(code));
+                open_https(uri);
             }
             _ => {}
         }
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        wait("sign in")?;
+        tokio::time::sleep(POLL).await;
         login = ctx.api.runtime_login(Method::GET, &team, id).await?;
     }
     if ctx.json {
@@ -179,6 +198,13 @@ async fn sign_in_runtime(ctx: &Ctx, runtime: &Value) -> Result<()> {
         println!("{} is signed in and ready.", label(runtime));
     }
     Ok(())
+}
+
+/// Only web pages are opened; anything else is just printed.
+fn open_https(url: &str) {
+    if url.starts_with("https://") {
+        let _ = open::that(url);
+    }
 }
 
 /// `nuphos model [VALUE] [--effort E] [--session ID]`. With a session it is
