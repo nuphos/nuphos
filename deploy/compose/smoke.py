@@ -67,7 +67,23 @@ assert code, 'The development OTP was not logged'
 token = api('/auth/email/verify-code', {'email': email, 'code': code})['token']
 team_id = api('/teams', {'name': 'Compose smoke test'})['team']['id']
 root = f'/teams/{team_id}'
-print('PASS: email sign-in and team creation', flush=True)
+assert api(root + '/agent-triggers/scheduler-status')['cronEnabled']
+print('PASS: email sign-in, team creation and cron availability', flush=True)
+# Exercise the same S3 SDK and retention headers the journal sealer uses.
+compose('exec', '-T', 'backend', 'bun', '-e', '''
+import { PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { makeS3Client } from './src/lib/storage/s3-client';
+import { config } from './src/config';
+const j = config.journal;
+const s3 = makeS3Client({region:j.s3Region, endpoint:j.s3Endpoint,
+  accessKeyId:j.awsAccessKeyId, secretAccessKey:j.awsSecretAccessKey});
+const Key = 'compose-smoke/' + Date.now();
+await s3.send(new PutObjectCommand({Bucket:j.s3Bucket, Key, Body:'smoke',
+  ObjectLockMode:'GOVERNANCE', ObjectLockRetainUntilDate:new Date(Date.now()+3600000)}));
+const head = await s3.send(new HeadObjectCommand({Bucket:j.s3Bucket, Key}));
+if (head.ObjectLockMode !== 'GOVERNANCE') throw new Error('Journal retention missing');
+''')
+print('PASS: journal object retention', flush=True)
 
 password = compose('exec', '-T', 'runtime', 'cat', '/home/node/.nuphos-runtime/auth-key').strip()
 runtime = api(root + '/agent-runtimes/external', {

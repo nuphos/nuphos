@@ -2,13 +2,13 @@
 
 One `docker compose up` brings up a complete, minimal Nuphos:
 
-| Service              | Image                                   | Purpose                                                   |
-| -------------------- | --------------------------------------- | --------------------------------------------------------- |
-| `mongo`              | `mongo:8.0.32`                          | Single-node replica set (`rs0`), required by transactions |
-| `rustfs`             | `rustfs/rustfs:1.0.0`                   | S3-compatible object storage; creates its buckets on boot |
-| `redis` / `sentinel` | `redis:7.4-alpine`                      | Persistent queues, cron scheduling and journal sealing    |
-| `backend`            | built from `apps/backend/Dockerfile`    | Nuphos backend, one replica                               |
-| `runtime`            | `ghcr.io/nuphos/runtime:${RUNTIME_TAG}` | Claude Code agent runtime                                 |
+| Service              | Image                                   | Purpose                                                            |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| `mongo`              | `mongo:8.0.32`                          | Single-node replica set (`rs0`), required by transactions          |
+| `rustfs`             | `rustfs/rustfs:1.0.0`                   | S3-compatible storage; initializes buckets and journal Object Lock |
+| `redis` / `sentinel` | `redis:7.4-alpine`                      | Persistent queues, cron scheduling and journal sealing             |
+| `backend`            | built from `apps/backend/Dockerfile`    | Nuphos backend, one replica                                        |
+| `runtime`            | `ghcr.io/nuphos/runtime:${RUNTIME_TAG}` | Claude Code agent runtime                                          |
 
 All data lives in local volumes and **never touches production Mongo, Redis or S3**. Redis and Sentinel run on the internal data network, with no host ports. This is a single-node development stack, not a high-availability deployment.
 
@@ -102,7 +102,7 @@ The console lists every team connection with who made it, and revoking one there
 ## Verify
 
 With Python 3 installed, run `python3 smoke.py` after the stack is healthy.
-It creates a test user/team, checks Mongo and Redis readiness, signs in using
+It creates a test user/team, checks Mongo and Redis readiness and journal object retention, signs in using
 an email OTP, registers the runtime with provider detection, checks its status,
 and uploads/finalizes/downloads a file through RustFS. It does not require
 model credentials or call a paid model. The Compose GitHub Actions workflow
