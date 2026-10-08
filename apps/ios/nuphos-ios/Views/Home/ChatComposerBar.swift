@@ -43,7 +43,9 @@ struct ChatComposerBar<Controls: View>: View {
         // One TextField, always in the same place in the hierarchy: moving
         // it between branches re-creates it, which drops and re-acquires
         // focus in a loop.
-        VStack(alignment: .leading, spacing: 8) {
+        // Collapsed, the controls row is zero high; spacing around it would
+        // stay, so a collapsed composer has none.
+        VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
             if let submission = failedSubmission.wrappedValue {
                 Button("Edit unsent message") {
                     text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
@@ -70,7 +72,6 @@ struct ChatComposerBar<Controls: View>: View {
                 }
                 .frame(height: expanded ? nil : 0)
                 .padding(.top, expanded ? -4 : 0)
-                .padding(.bottom, expanded ? 0 : -8)
                 .opacity(expanded ? 1 : 0)
                 .allowsHitTesting(expanded)
                 .accessibilityHidden(!expanded)
