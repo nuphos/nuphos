@@ -154,14 +154,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   createTunnel: (runtime, status, onChange) =>
     new RuntimeTunnelClient({
       connectBackend: () => {
-        // Each reconnect takes the session as it is now, as the desktop follows
-        // its own: signed out, or signed in as someone else, the agents stop.
         const fresh = currentToken()
 
-        if (!fresh || unverifiedTokenSubject(fresh) !== owner) {
-          stop('Signed out of Nuphos; stopping the local agents.')
-          throw new Error('Signed out')
-        }
+        if (!fresh || unverifiedTokenSubject(fresh) !== owner) throw new Error('Signed out')
         const url = `${apiUrl().replace(/^http/u, 'ws')}/agent/devices/${encodeURIComponent(device.deviceId)}/runtime-tunnel`
 
         return new WebSocket(url, {
@@ -243,6 +238,15 @@ function stop(message = 'Stopping the local agents…'): void {
   void controller.shutdown().then(() => process.exit(0))
 }
 
+// The agents follow the session, as the desktop's do: signed out here or in the
+// app (the same cli.yaml), or signed in as someone else, they stop. Logging out
+// does not revoke the token, so an open tunnel would otherwise keep serving.
+setInterval(() => {
+  const fresh = currentToken()
+
+  if (!fresh || unverifiedTokenSubject(fresh) !== owner)
+    stop('Signed out of Nuphos; stopping the local agents.')
+}, 2_000)
 // A closed terminal or a dropped SSH session stops them too.
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => stop())
 console.log(`Running this computer's agents for Nuphos as "${device.label}". Press Ctrl-C to stop.`)
