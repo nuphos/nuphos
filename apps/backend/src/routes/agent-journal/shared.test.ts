@@ -3,6 +3,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
+import type { AgentConversation } from '@/lib/agent/db'
 import type * as dbActual from '@/lib/db'
 
 let memory = portabilityDb()
@@ -47,7 +48,7 @@ test('asking for a private session by id answers not found', async () => {
 })
 
 test('a private title is withheld from anyone it was not shared with', () => {
-  const [secret] = memory.rows('agent_conversations') as never[]
+  const secret = memory.rows('agent_conversations')[0] as AgentConversation
 
   expect(journalConversationTitle(secret, 'viewer')).toBe('Private session')
   expect(journalConversationTitle(secret, 'owner')).toBe('Secret')
