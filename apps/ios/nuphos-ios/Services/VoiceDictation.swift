@@ -96,14 +96,23 @@ enum Whisper {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
-        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n".utf8))
+        // Mandarin comes back in Taiwanese Traditional Chinese: the prompt sets
+        // the style, and verbose_json reports the language for the fallback below.
+        for (name, value) in [("model", "whisper-1"), ("response_format", "verbose_json"), ("prompt", "以下是台灣繁體中文的句子。")] {
+            body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".utf8))
+        }
         body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"dictation.m4a\"\r\nContent-Type: audio/m4a\r\n\r\n".utf8))
         body.append(try Data(contentsOf: file))
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
 
         let (data, response) = try await URLSession.shared.upload(for: request, from: body)
-        guard let text = try reply(data, response).text else {
+        let reply = try reply(data, response)
+        guard var text = reply.text else {
             throw Failure(errorDescription: "OpenAI couldn't transcribe the recording.")
+        }
+        // The prompt is only a hint; convert any Simplified characters it let through.
+        if reply.language == "chinese" {
+            text = text.applyingTransform(StringTransform("Hans-Hant"), reverse: false) ?? text
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -119,6 +128,7 @@ enum Whisper {
     private struct Reply: Decodable {
         struct APIError: Decodable { let message: String }
         let text: String?
+        var language: String? = nil
         let error: APIError?
     }
 
