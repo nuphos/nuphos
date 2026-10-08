@@ -183,6 +183,8 @@ pub struct App {
     /// The question the composer is answering, and a sign-in in progress.
     ask: Option<(String, Ask)>,
     signing: Option<String>,
+    /// Since when the agent being signed in has been starting.
+    starting_since: Option<Instant>,
     /// Requests the spinner is shown for.
     busy: usize,
     apply_tx: UnboundedSender<Apply>,
@@ -241,6 +243,7 @@ impl App {
             busy: 0,
             ask: None,
             signing: None,
+            starting_since: None,
             apply_tx,
             apply_rx,
             update: None,
@@ -602,7 +605,7 @@ impl App {
             Constraint::Length(1),
         ])
         .areas(rest);
-        let tip_line = match self.signing.as_ref().or(self.notice.as_ref()) {
+        let tip_line = match self.signing_status().or(self.notice.clone()).as_ref() {
             Some(text) => Line::from(Span::styled(text.clone(), Style::default().fg(Color::Yellow))),
             None if self.busy > 0 => {
                 Line::from(Span::styled(format!("{} Loading…", SPINNER[self.tick % SPINNER.len()]), dim()))
@@ -735,7 +738,7 @@ impl App {
             return cmds;
         }
         let mut lines = Vec::new();
-        if let Some(signing) = &self.signing {
+        if let Some(signing) = self.signing_status() {
             let spinner = SPINNER[self.tick % SPINNER.len()];
             lines.push(Line::from(Span::styled(format!("{spinner} {signing}"), Style::default().fg(Color::Cyan))));
         }
@@ -1277,6 +1280,15 @@ impl App {
         }
     }
 
+    /// Where a sign-in is, with how long the agent has been starting.
+    fn signing_status(&self) -> Option<String> {
+        let status = self.signing.clone()?;
+        Some(match self.starting_since {
+            Some(since) => format!("{status} ({}s)", since.elapsed().as_secs()),
+            None => status,
+        })
+    }
+
     /// `l` on Agents: signs a Cloud or self-hosted agent in to its provider
     /// account. A just-created agent is waited for until it answers.
     fn sign_in_agent(&mut self, runtime: Value) {
@@ -1285,7 +1297,14 @@ impl App {
             return self.notice =
                 Some(format!("{label} signs in on its own computer, with `nuphos agent` or the app."));
         }
-        self.signing = Some(format!("Starting {label}…"));
+        // A Nuphos-managed agent is a sandbox Nuphos Cloud boots for the team.
+        let provider = PROVIDERS.iter().find(|(p, _)| runtime["provider"] == *p).map_or(label.as_str(), |(_, n)| n);
+        self.signing = Some(if runtime["kind"] == "managed" {
+            format!("Starting your {provider} sandbox in Nuphos Cloud…")
+        } else {
+            format!("Waiting for {label} to come online…")
+        });
+        self.starting_since = Some(Instant::now());
         let (api, team) = (self.api.clone(), self.team_id());
         let id = runtime["id"].as_str().unwrap_or_default().to_string();
         let deadline = Instant::now() + SIGN_IN_TIMEOUT;
@@ -1300,6 +1319,7 @@ impl App {
     }
 
     fn on_login(&mut self, runtime: Value, login: Result<Value, ApiError>, deadline: Instant) {
+        self.starting_since = None;
         let label = shared::label(&runtime);
         let failed = |app: &mut App, why: String| {
             app.signing = None;
