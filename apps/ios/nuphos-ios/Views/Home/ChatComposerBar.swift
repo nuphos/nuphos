@@ -33,7 +33,6 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
     @State private var askingForKey = false
-    @State private var keyDraft = ""
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
@@ -144,19 +143,7 @@ struct ChatComposerBar<Controls: View>: View {
             Text(attachmentError ?? "")
         }
         .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
-        .alert("OpenAI API key", isPresented: $askingForKey) {
-            SecureField("sk-…", text: $keyDraft)
-            Button("Cancel", role: .cancel) { keyDraft = "" }
-            Button("Save") {
-                let key = keyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                keyDraft = ""
-                guard !key.isEmpty else { return }
-                do { try Keychain.write(key, for: Whisper.keychainKey); startDictation() }
-                catch { dictationError = error.localizedDescription }
-            }
-        } message: {
-            Text("Voice input transcribes with OpenAI Whisper using your own API key. The key stays on this device; recordings are sent to OpenAI and billed to your account.")
-        }
+        .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
         .onDisappear(perform: cancelDictation)
         #if DEBUG
         .onAppear {
@@ -165,6 +152,7 @@ struct ChatComposerBar<Controls: View>: View {
             if args.contains("-preview-attachments"), attachments.isEmpty { attachments = Self.previewAttachments() }
             if args.contains("-open-photos") { showPhotos = true }
             if args.contains("-open-files") { showFiles = true }
+            if args.contains("-ask-openai-key") { askingForKey = true }
         }
         #endif
     }
@@ -441,6 +429,56 @@ extension ChatComposerBar where Controls == EmptyView {
     /// A composer with no control row.
     init(text: Binding<String>, isStreaming: Bool = false, canSteer: Bool = false, onSend: @escaping (ComposerSubmission) -> Void, onStop: (() -> Void)? = nil) {
         self.init(text: text, isStreaming: isStreaming, canSteer: canSteer, onSend: onSend, onStop: onStop, controls: { EmptyView() })
+    }
+}
+
+/// Asks for the user's own OpenAI key for voice input and keeps it in the
+/// Keychain. A sheet rather than an alert: an alert's text field is laid out
+/// by UIKit and does not line up with the rest of the alert.
+private struct OpenAIKeySheet: View {
+    var onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var key = ""
+    @State private var error: String?
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    SecureField("sk-…", text: $key)
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit(save)
+                } footer: {
+                    Text("Voice input transcribes with OpenAI Whisper using your own API key. The key stays on this device; recordings are sent to OpenAI and billed to your account.")
+                }
+                if let error { Text(error).foregroundStyle(.red) }
+            }
+            .navigationTitle("OpenAI API key")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(trimmed.isEmpty) }
+            }
+            .onAppear { focused = true }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func save() {
+        guard !trimmed.isEmpty else { return }
+        do {
+            try Keychain.write(trimmed, for: Whisper.keychainKey)
+            dismiss()
+            onSave()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }
 
