@@ -130,10 +130,9 @@ agent.get('/conversations/:sessionId', async (c) => {
   const userId = c.get('userId')
   const sessionId = c.req.param('sessionId')
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  // Opt-in transcript truncation: `?tail=N` returns only the last N messages
-  // (plus `messagesFirstIndex` so the client can page backwards). Omitting it
-  // keeps the full-transcript response for existing consumers (fork, old
-  // clients).
+  // Opt-in transcript truncation: `?tail=N` returns only the last N messages, plus
+  // `messagesFirstIndex` so the client can page backwards. Omitting it keeps the
+  // full transcript for existing consumers (fork, old clients).
   const tailRaw = c.req.query('tail')
   const tail = tailRaw !== undefined ? Number.parseInt(tailRaw, 10) : undefined
 
