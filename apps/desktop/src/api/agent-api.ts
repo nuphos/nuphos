@@ -109,8 +109,8 @@ export const agentApi = {
     window.api.agentSetConversationArchived(sessionId, archived, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
     window.api.agentCancelRuntime(sessionId, teamId),
-  agentSteerConversation: (sessionId: string, text: string, teamId?: string) =>
-    window.api.agentSteerConversation(sessionId, text, teamId),
+  agentSteerConversation: (sessionId: string, text: string, teamId?: string, groupId?: string) =>
+    window.api.agentSteerConversation(sessionId, text, teamId, groupId),
   agentSlackPickup: (sessionId: string, teamId?: string) =>
     window.api.agentSlackPickup(sessionId, teamId),
   agentGetConversation: async (

@@ -88,8 +88,8 @@ export const agentChannels = {
   ) => agent.setConversationArchived(sessionId, archived, teamId),
   'agent:cancelRuntime': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.cancelRuntime(sessionId, teamId),
-  'agent:steerConversation': (_e: unknown, sessionId: string, text: string, teamId?: string) =>
-    agent.steerConversation(sessionId, text, teamId),
+  'agent:steerConversation': (_e: unknown, ...args: Parameters<typeof agent.steerConversation>) =>
+    agent.steerConversation(...args),
   'agent:slackPickup': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.pickUpConversationInSlack(sessionId, teamId),
   'agent:getConversation': (

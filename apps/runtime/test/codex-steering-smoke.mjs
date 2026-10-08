@@ -54,10 +54,10 @@ const appServerCalls = (method) =>
     .map(JSON.parse)
     .filter((call) => call.method === method)
 // OpenAB's steering request, verbatim apart from the prompt.
-const steer = (sessionId, text) =>
+const steer = (sessionId, text, attachments = []) =>
   send('_session/steering', {
     sessionId,
-    prompt: [{ type: 'text', text }],
+    prompt: [{ type: 'text', text }, ...attachments],
     _meta: { steering: { idleBehavior: 'promptRequired' } },
   })
 
@@ -136,6 +136,13 @@ test('mid-turn input joins the active native turn, which settles once', async ()
     expectedTurnId: 'smoke-turn',
     input: [{ type: 'text', text: 'Focus on tests', text_elements: [] }],
   })
+  const shot = { type: 'resource_link', uri: 'file:///tmp/shot.png', name: 'shot.png' }
+
+  assert.deepEqual((await steer(sessionId, 'See this', [shot])).result, { outcome: 'injected' })
+  const input = appServerCalls('turn/steer').at(-1).params.input
+
+  assert.equal(input.length, 2)
+  assert.match(input[1].text, /shot\.png/)
   assert.equal((await prompt).stopReason, 'end_turn')
   assert.equal(appServerCalls('turn/start').length, 1, 'steering must not start another turn')
 })

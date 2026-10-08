@@ -48,10 +48,11 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
   // Started the turn, but may have been made view-only since.
   if (!canReply(conversationAccess(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
-  const body = await c.req.json<{ text?: unknown }>()
+  const body = await c.req.json<{ text?: unknown; groupId?: unknown }>()
   const text = typeof body.text === 'string' ? body.text.trim() : ''
+  const groupId = typeof body.groupId === 'string' ? body.groupId : ''
 
-  if (!text) throw new AppError(400, 'invalid_request', 'text is required')
+  if (!text && !groupId) throw new AppError(400, 'invalid_request', 'text or groupId is required')
   const runtime = await conversationExecutionState(conversation)
 
   if (!runtime.actions?.steer)
@@ -66,8 +67,7 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
       'The running turn is not owned by your current credential context',
     )
   const messageId = crypto.randomUUID()
+  const sent = await steerConversationRuntime(conversation, { text, groupId, userId }, messageId)
 
-  await steerConversationRuntime(conversation, text, messageId)
-
-  return c.json({ ok: true, messageId })
+  return c.json({ ok: true, messageId, text: sent })
 })

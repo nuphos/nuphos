@@ -41,7 +41,7 @@ export function patchAdapter(source, helper) {
     .replace(
       routeAnchor,
       routeAnchor +
-        '.onRequest("_session/steering", { parse: (params) => params }, (ctx) => nuphosSteerCodex(getAgent(), ctx.params))',
+        '.onRequest("_session/steering", { parse: (params) => params }, (ctx) => nuphosSteerCodex(getAgent(), ctx.params, buildPromptItems))',
     )
     .replace(
       initializeAnchor,

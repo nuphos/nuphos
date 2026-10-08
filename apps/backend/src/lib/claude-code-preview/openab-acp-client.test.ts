@@ -1598,6 +1598,27 @@ test('steering uses the control method without attaching or prompting a session'
   client.close()
 })
 
+test('steering forwards attachments as native resource links', async () => {
+  const h = harness()
+  const client = await OpenAbAcpClient.connect({
+    url: 'ws://runtime.invalid/acp',
+    authKey: 'operator',
+    socketFactory: h.connect,
+  })
+  const link = { type: 'resource_link' as const, uri: 'file:///tmp/shot.png', name: 'shot.png' }
+  const pending = client.steerSession('session', 'Look', 'receipt', [link])
+  const frame = await nextSent(h.socket(), 0)
+
+  expect(frame.params).toEqual({
+    sessionId: 'session',
+    prompt: [{ type: 'text', text: 'Look' }, link],
+    messageId: 'receipt',
+  })
+  h.socket().receive({ jsonrpc: '2.0', id: frame.id, result: { outcome: 'injected' } })
+  expect(await pending).toEqual({ outcome: 'injected' })
+  client.close()
+})
+
 test('sends native local file references alongside text to a fresh runtime session', async () => {
   const h = harness()
   const client = await OpenAbAcpClient.connect({

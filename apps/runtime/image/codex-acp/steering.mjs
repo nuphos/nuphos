@@ -1,14 +1,13 @@
 // Forward into the existing native turn. Never cancel, start, or replay a turn.
-export async function nuphosSteerCodex(agent, params) {
+// `toInput` is the adapter's own prompt conversion, so steered attachments read
+// exactly like the ones in a normal prompt.
+export async function nuphosSteerCodex(agent, params, toInput) {
   if (
     typeof params?.sessionId !== 'string' ||
     !Array.isArray(params.prompt) ||
-    params.prompt.length === 0 ||
-    params.prompt.some(
-      (part) => part.type !== 'text' || typeof part.text !== 'string' || !part.text.trim(),
-    )
+    params.prompt.length === 0
   )
-    throw new Error('Steering requires a session and non-empty text')
+    throw new Error('Steering requires a session and a non-empty prompt')
   const session = agent.getSessionState(params.sessionId)
   const expectedTurnId = session.currentTurnId
   if (!expectedTurnId) return { outcome: 'promptRequired', reason: 'noRunningTurn' }
@@ -17,7 +16,7 @@ export async function nuphosSteerCodex(agent, params) {
     params: {
       threadId: params.sessionId,
       expectedTurnId,
-      input: params.prompt.map(({ text }) => ({ type: 'text', text, text_elements: [] })),
+      input: toInput(params.prompt),
     },
   })
   if (result?.turnId !== expectedTurnId) throw new Error('Invalid native steering acknowledgement')
