@@ -1,6 +1,5 @@
 import { clsx } from 'clsx'
-import { Check, Copy } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { connectedResourceLabels } from '../../app/accountScopes'
 import { AgentPanel } from '../../components/agent/AgentPanel'
@@ -8,10 +7,8 @@ import { EditableConversationTitle } from '../../components/agent/panel/Conversa
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { teamCanUseAgent } from '../../lib/agentAccess'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
-import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { ConversationRail } from '../../views/ConversationRail'
 
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -64,8 +61,6 @@ export function WorkspaceAgentPane({
     runtimeId?: string
   }>({ sessionId: null, title: 'Agent', runtime: null })
   const [conversationRailCollapsed, setConversationRailCollapsed] = useState(true)
-  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null)
-  const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const teamId = scope?.teamId
   const connectedResources = useMemo(
     () =>
@@ -89,11 +84,6 @@ export function WorkspaceAgentPane({
     runtimeUrlRef.current = activePageUrl
     runtimeKubeContextRef.current = activeKubeContext
   }, [activeKubeContext, activePageUrl])
-  useEffect(() => {
-    return () => {
-      if (copyResetRef.current) clearTimeout(copyResetRef.current)
-    }
-  }, [])
   const handleSessionChange = useCallback(
     (sessionId: string | null) => workspaceActions.selectSession(sessionId, { keepMainPage: true }),
     [workspaceActions],
@@ -126,23 +116,6 @@ export function WorkspaceAgentPane({
     },
     [],
   )
-  const copySessionUrl = useCallback(async () => {
-    if (!teamId || !selectedSessionId) return
-    const location = pageLocationForNavigation(
-      emptyNavigation({ kind: 'team', teamId }, 'team.agent', {
-        agentSessionId: selectedSessionId,
-      }),
-    )
-
-    try {
-      await navigator.clipboard.writeText(toAbsoluteAtlasUrl(location.href))
-      setCopiedSessionId(selectedSessionId)
-      if (copyResetRef.current) clearTimeout(copyResetRef.current)
-      copyResetRef.current = setTimeout(() => setCopiedSessionId(null), 1200)
-    } catch {
-      setCopiedSessionId(null)
-    }
-  }, [selectedSessionId, teamId])
 
   // The dock covers this column instead of reflowing it: while expanded the
   // content keeps the width it had and the shrinking column clips it, until
@@ -176,7 +149,6 @@ export function WorkspaceAgentPane({
   }, [workspaceExpanded])
 
   if (!teamId) return null
-  const copiedSessionUrl = copiedSessionId === selectedSessionId
   const currentHeading =
     heading.sessionId === selectedSessionId
       ? heading
@@ -203,7 +175,7 @@ export function WorkspaceAgentPane({
             dockOpen ? 'pr-3' : 'pr-12',
           )}
         >
-          {/* Keep the native drag rectangle beside the copy action so hit testing
+          {/* Keep the native drag rectangle beside the Share action so hit testing
             never relies on a no-drag hole inside its draggable ancestor. */}
           <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary">
             {currentHeading.runtime && (
@@ -221,32 +193,17 @@ export function WorkspaceAgentPane({
             />
           </div>
           {selectedSessionId && (
-            <>
-              <SessionParticipants
-                key={selectedSessionId}
-                sessionId={selectedSessionId}
-                teamId={teamId}
-                currentUserId={user.id}
-                warnLocalAgent={
-                  currentHeading.canRename === true && isLocalAgentRuntime(currentHeading.runtimeId)
-                }
-                onCopyLink={() => void copySessionUrl()}
-                copied={copiedSessionUrl}
-              />
-              <button
-                type="button"
-                onClick={() => void copySessionUrl()}
-                className="titlebar-no-drag flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main"
-                title={copiedSessionUrl ? 'Copied' : 'Copy session URL'}
-                aria-label={copiedSessionUrl ? 'Copied session URL' : 'Copy session URL'}
-              >
-                {copiedSessionUrl ? (
-                  <Check className="h-3.5 w-3.5 text-zViolet-accent" strokeWidth={2} />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-                )}
-              </button>
-            </>
+            <SessionParticipants
+              key={selectedSessionId}
+              sessionId={selectedSessionId}
+              teamId={teamId}
+              title={currentHeading.title}
+              currentUserId={user.id}
+              canManage={currentHeading.canRename === true}
+              warnLocalAgent={
+                currentHeading.canRename === true && isLocalAgentRuntime(currentHeading.runtimeId)
+              }
+            />
           )}
         </div>
         <div className="flex min-h-0 min-w-0 flex-1">

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 
+import type { GeneralAccess } from './access'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
@@ -82,11 +83,13 @@ export type AgentConversation = {
   // Teammates who joined this conversation beside its owner. Speaking in a
   // session and being invited from Share are the same fact — "this person is
   // part of this conversation" — so both append here instead of splitting into
-  // an invited/active pair of lists. Access itself is not stored: every member
-  // of the conversation's team can already read and send (see
-  // readableConversationScope / assertConversationSendable), so this list is
-  // about who is involved, never about who is allowed.
+  // an invited/active pair of lists. Being here is also the person's own
+  // access grant: reply, unless they are listed in viewOnlyIds.
   participantIds?: string[]
+  /** Participants who may read but not reply. Always a subset of participantIds. */
+  viewOnlyIds?: string[]
+  /** What the rest of the team may do; see access.ts. Absent = 'reply'. */
+  generalAccess?: GeneralAccess
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
   /** Incremented at every assistant turn boundary. Absent means zero. */
@@ -282,16 +285,6 @@ export function withTeamScope(
     ...base,
     $or: [{ teamId }, { teamId: { $exists: false } }],
   }
-}
-
-export function readableConversationScope(
-  base: Record<string, unknown>,
-  viewerUserId: string,
-  teamId: string | undefined,
-): Record<string, unknown> {
-  if (!teamId) return { ...base, userId: viewerUserId }
-
-  return { ...base, teamId }
 }
 
 export function escapeRegExp(value: string): string {

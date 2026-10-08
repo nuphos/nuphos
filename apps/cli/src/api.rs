@@ -111,6 +111,11 @@ impl Api {
         Ok(v["teams"].as_array().cloned().unwrap_or_default())
     }
 
+    pub async fn create_team(&self, name: &str) -> Result<Value, ApiError> {
+        let v = self.call(Method::POST, "/teams", &[], Some(&json!({ "name": name }))).await?;
+        Ok(v["team"].clone())
+    }
+
     /// `scope` is `mine`, or `shared`: others' conversations I take part in.
     pub async fn conversations(&self, team: &str, scope: &str) -> Result<Vec<Value>, ApiError> {
         let query =

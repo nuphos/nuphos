@@ -13,7 +13,13 @@ import {
 } from '@/lib/claude-code-preview/runtime-image-audit'
 import { db } from '@/lib/db'
 import { JOURNAL_COLLECTION } from '@/lib/journal'
-import { LIST_MAX_EVENTS, contentMatches } from '@/routes/agent-journal/shared'
+import {
+  JOURNAL_CONVERSATION_PROJECTION,
+  LIST_MAX_EVENTS,
+  contentMatches,
+  journalConversationTitle,
+  unreadableSessionIds,
+} from '@/routes/agent-journal/shared'
 
 import type { JournalDoc } from '@/lib/journal'
 import type { AuthVariables } from '@/middleware/auth'
@@ -148,10 +154,20 @@ export async function listAuditEventsView(
       (entry): entry is Extract<(typeof page)[number], { kind: 'agent' }> => entry.kind === 'agent',
     )
     .map((entry) => entry.doc)
+  const hidden = await unreadableSessionIds(
+    [...new Set(journalPage.map((doc) => doc.sessionId))],
+    userId,
+  )
   const events = page.map((entry) => {
     if (entry.kind === 'skill') return skillAuditEvent(entry.doc)
     if (entry.kind === 'runtime') return runtimeImageAuditEvent(entry.doc)
     const { _id, contentHot, ...event } = entry.doc as JournalDoc & { _id?: unknown }
+
+    if (hidden.has(event.sessionId)) {
+      const toolName = (event.payload as { toolName?: unknown } | undefined)?.toolName
+
+      return { kind: 'agent' as const, ...event, payload: { toolName }, withheld: true }
+    }
 
     // sessionId stays in agent events so those rows can open their real
     // conversation. Resource events deliberately have no fake session.
@@ -172,7 +188,7 @@ export async function listAuditEventsView(
     agentConversations()
       .find(
         { sessionId: { $in: [...new Set(journalPage.map((doc) => doc.sessionId))] } },
-        { projection: { sessionId: 1, title: 1, userId: 1 } },
+        { projection: JOURNAL_CONVERSATION_PROJECTION },
       )
       .toArray(),
     fetchCachedUsers([...new Set(actorUserIds)]),
@@ -184,7 +200,7 @@ export async function listAuditEventsView(
     conversations: Object.fromEntries(
       convDocs.map((conv) => [
         conv.sessionId,
-        { title: conv.title || 'Untitled chat', ownerUserId: conv.userId },
+        { title: journalConversationTitle(conv, userId), ownerUserId: conv.userId },
       ]),
     ),
     users,

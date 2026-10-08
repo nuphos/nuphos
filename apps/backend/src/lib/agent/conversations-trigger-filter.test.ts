@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
+import { readableByFilter } from './db/access'
 import { getConversations } from './db'
 
 import type * as dbActual from '@/lib/db'
@@ -29,6 +30,7 @@ useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbAc
 
 const TEAM = '64b5f1c2e4b0a1d2c3e4f5a6'
 const VIEWER = '642802f4c38340345aa2384d'
+const READABLE = { $and: [readableByFilter(VIEWER)] }
 const TRIGGER = '6512f0a1b2c3d4e5f6a7b8c9'
 const OTHER_TRIGGER = '6512f0a1b2c3d4e5f6a7b8ca'
 
@@ -43,6 +45,7 @@ describe('getConversations trigger filter', () => {
   test('the unfiltered list excludes every trigger-stamped conversation', async () => {
     expect(await queryFor({ teamId: TEAM, scope: 'team' })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       'metadata.trigger.id': { $exists: false },
     })
   })
@@ -50,6 +53,7 @@ describe('getConversations trigger filter', () => {
   test('a triggerId returns that trigger runs and nothing else', async () => {
     expect(await queryFor({ teamId: TEAM, scope: 'team', triggerIds: [TRIGGER] })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       'metadata.trigger.id': { $in: [TRIGGER] },
     })
   })
@@ -59,6 +63,7 @@ describe('getConversations trigger filter', () => {
       await queryFor({ teamId: TEAM, scope: 'team', triggerIds: [TRIGGER, OTHER_TRIGGER] }),
     ).toEqual({
       teamId: TEAM,
+      ...READABLE,
       'metadata.trigger.id': { $in: [TRIGGER, OTHER_TRIGGER] },
     })
   })
@@ -66,6 +71,7 @@ describe('getConversations trigger filter', () => {
   test('no triggerIds at all matches nothing rather than falling back to Chats', async () => {
     expect(await queryFor({ teamId: TEAM, scope: 'team', triggerIds: [] })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       'metadata.trigger.id': { $in: [] },
     })
   })

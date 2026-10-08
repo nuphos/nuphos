@@ -64,6 +64,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               : undefined,
         }
       : undefined
+  // Only the owner decides who has access, so only they are offered an invite
+  // for the teammates they mention.
+  const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
     autoModeAvailable && activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign && !gated
       ? { active: bypassBySession[activeTab.sessionId] ?? false, onSelect: selectBypassMode }
@@ -156,7 +159,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     sidebar={isSidebarMode}
                     dropRegisterRef={conversationDropRef}
                     draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                    mentionScope={teamId ? { teamId, sessionId: activeTab.sessionId } : undefined}
+                    mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
                 </DelayedPanelReveal>
               ) : (
@@ -184,7 +187,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   sidebar={isSidebarMode}
                   dropRegisterRef={conversationDropRef}
                   draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                  mentionScope={teamId ? { teamId, sessionId: activeTab.sessionId } : undefined}
+                  mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                 />
               )}
             </div>

@@ -128,7 +128,7 @@ async function scanTeamActivity(
     .find(
       { teamId, lastActiveAt: { $gte: new Date(start) } },
       {
-        projection: { sessionId: 1, userId: 1, title: 1, agentRuntime: 1 },
+        projection: { sessionId: 1, userId: 1, title: 1, agentRuntime: 1, generalAccess: 1 },
         sort: { lastActiveAt: -1 },
         limit: MAX_SESSIONS,
       },
@@ -136,7 +136,9 @@ async function scanTeamActivity(
     .map((c) => ({
       sessionId: c.sessionId,
       userId: c.userId,
-      title: c.title,
+      // The activity is team-wide and cached per team, so a private session
+      // shows that someone worked, never what on.
+      title: c.generalAccess === 'none' ? 'Private session' : c.title,
       runtime: c.agentRuntime ?? null,
     }))
     .toArray()

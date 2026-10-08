@@ -1719,6 +1719,42 @@
   }
 }
 
+/* Share card — a view, chip or receipt settles in; a check pops on. */
+@keyframes t-share-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(var(--panel-blur));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes t-share-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.t-share-in {
+  animation: t-share-in 220ms var(--panel-ease) both;
+}
+.t-share-pop {
+  animation: t-share-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-share-in,
+  .t-share-pop {
+    animation: none;
+  }
+}
+
 /* Update notification — slides up into the sidebar's bottom-left corner. */
 @keyframes update-notif-in {
   from {
