@@ -119,6 +119,10 @@ struct ChatComposerBar<Controls: View>: View {
                 .transition(.opacity)
             }
         }
+        // The glass answers a touch anywhere on it, so anywhere on it opens
+        // the input; the buttons and the handle inside still take their own.
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture { if dictation == nil { focused = true } }
         .disabled(preparingSubmission)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
@@ -353,10 +357,13 @@ struct ChatComposerBar<Controls: View>: View {
 
     private var attachMenu: some View {
         Menu {
-            Button { focused = false; showPhotos = true } label: {
+            // Focus stays: dropping it folds an empty composer, which takes
+            // this menu away while it is still dismissing, and the picker
+            // presented from it goes with it. The sheet hides the keyboard.
+            Button { showPhotos = true } label: {
                 Label("Photos", systemImage: "photo.on.rectangle")
             }
-            Button { focused = false; showFiles = true } label: { Label("Files", systemImage: "folder") }
+            Button { showFiles = true } label: { Label("Files", systemImage: "folder") }
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 18, weight: .medium))
