@@ -41,7 +41,7 @@ enum Command {
         #[arg(long)]
         session: Option<String>,
         /// Agent for a new conversation (id or label).
-        #[arg(long)]
+        #[arg(long = "agent", alias = "runtime")]
         runtime: Option<String>,
         /// Approve commands that need approval (otherwise they are denied).
         #[arg(long)]
@@ -51,13 +51,26 @@ enum Command {
     Resume { session: Option<String> },
     /// List recent conversations.
     Conversations,
-    /// List teams, or make TEAM the default.
-    Team { name: Option<String> },
-    /// List agents, or pick one for new conversations (or move --session to it).
+    /// List teams, make TEAM the default, or create it with --create.
+    Team {
+        name: Option<String>,
+        /// Create a team named NAME and make it the default.
+        #[arg(long, requires = "name")]
+        create: bool,
+    },
+    /// List agents, pick one for new conversations (or move --session to it),
+    /// add a Cloud agent with --create, or sign one in with --login.
+    #[command(name = "agents", alias = "runtime")]
     Runtime {
         name: Option<String>,
         #[arg(long)]
         session: Option<String>,
+        /// Add a Nuphos-managed Cloud agent for provider NAME (claude-code, codex, grok, antigravity) and sign it in.
+        #[arg(long, requires = "name", conflicts_with_all = ["session", "login"])]
+        create: bool,
+        /// Sign the Cloud agent NAME in to its provider account.
+        #[arg(long, requires = "name", conflicts_with = "session")]
+        login: bool,
     },
     /// Show or set the model and reasoning effort (of --session, or for new conversations).
     Model {
@@ -116,7 +129,16 @@ async fn run(args: Args) -> Result<i32> {
     let me = api.me().await?;
     let me_id = me["user"]["id"].as_str().or(me["id"].as_str()).unwrap_or_default().to_string();
     let mut prefs = config::read_prefs();
-    let team = shared::resolve_team(&api, &mut prefs, args.team.as_deref()).await?;
+    if let Some(Command::Team { name: Some(name), create: true }) = &args.command {
+        let team = shared::create_team(&api, &mut prefs, name).await?;
+        if args.json {
+            println!("{}", serde_json::to_string_pretty(&team)?);
+        } else {
+            println!("Created team {}; it is now the default.", shared::label(&team));
+        }
+        return Ok(0);
+    }
+    let team = shared::resolve_team(&api, &mut prefs, args.team.as_deref(), interactive).await?;
     let mut ctx = cli::Ctx { api, me_id, team, prefs, json: args.json };
 
     match args.command {
@@ -150,8 +172,14 @@ async fn run(args: Args) -> Result<i32> {
             cli::exec(&mut ctx, prompt.trim().to_string(), session, runtime, approve).await
         }
         Some(Command::Conversations) => cli::conversations(&ctx).await.map(|_| 0),
-        Some(Command::Team { name }) => cli::team(&mut ctx, name).await.map(|_| 0),
-        Some(Command::Runtime { name, session }) => cli::runtime(&mut ctx, name, session).await.map(|_| 0),
+        Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
+        Some(Command::Runtime { name: Some(provider), create: true, .. }) => {
+            cli::create_runtime(&mut ctx, &provider).await.map(|_| 0)
+        }
+        Some(Command::Runtime { name: Some(name), login: true, .. }) => {
+            cli::login_runtime(&ctx, &name).await.map(|_| 0)
+        }
+        Some(Command::Runtime { name, session, .. }) => cli::runtime(&mut ctx, name, session).await.map(|_| 0),
         Some(Command::Model { value, effort, session }) => {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }

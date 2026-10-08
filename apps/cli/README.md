@@ -29,16 +29,30 @@ nuphos resume [SESSION]   # TUI on a previous conversation, or a picker
 It opens in the team used last (the first team the first time) and shows
 which one; `/team` in the TUI, `nuphos team NAME` or `--team` switch it.
 
+Getting started needs neither the desktop app nor the web. The first run
+signs in through the browser and, if you are not in a team yet, asks for a
+name and creates one. Then add an agent for it to run on:
+
+```sh
+nuphos team "Acme" --create           # create a team and make it the default
+nuphos agents claude-code --create    # add a Nuphos-managed Cloud agent and sign it in
+nuphos agents "Claude Code" --login   # sign a Cloud agent in again
+```
+
+`--create` takes `claude-code`, `codex`, `grok` or `antigravity`. Signing in
+opens the provider's page; paste the code it shows back into the terminal.
+
 Every TUI action is also a command that needs no terminal, for scripts and
 other agents. `--json` prints machine-readable output.
 
 ```sh
 nuphos exec "list the EKS clusters"          # send, print the reply, exit
 echo "..." | nuphos exec --session ID        # continue a conversation
-nuphos exec --approve --runtime Codex "..."  # allow commands needing approval
+nuphos exec --approve --agent Codex "..."    # allow commands needing approval
 nuphos conversations                         # recent conversations
-nuphos team [NAME]                           # list teams / set the default
-nuphos runtime [NAME] [--session ID]         # list agents / pick or move
+nuphos team [NAME] [--create]                # list teams / set the default / create
+nuphos agents [NAME] [--session ID]          # list agents / pick or move
+nuphos agents NAME --create | --login        # add a Cloud agent / sign one in
 nuphos model [VALUE] [--effort E] [--session ID]
 nuphos stop --session ID
 nuphos login | logout
