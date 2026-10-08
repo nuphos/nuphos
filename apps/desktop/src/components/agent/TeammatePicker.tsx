@@ -47,7 +47,6 @@ export function TeammatePicker({
   const toggle = (member: TeamMember) => {
     onToggle(member)
     setQuery('')
-    inputRef.current?.focus()
   }
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -123,6 +122,9 @@ export function TeammatePicker({
                 aria-pressed={selected}
                 title={member.name}
                 disabled={disabled}
+                // A press would pull focus out of the search field and blink its
+                // ring; picking with the mouse should leave focus where it was.
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => toggle(member)}
                 className="flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 transition-colors hover:bg-zGray-800/40"
               >
