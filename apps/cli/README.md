@@ -61,20 +61,21 @@ too. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
 
 In the composer:
 
-| Key                    | Action                                   |
-| ---------------------- | ---------------------------------------- |
-| `enter`                | send                                     |
-| `alt+enter` / `ctrl+j` | new line                                 |
-| `esc`                  | stop the reply, or back to the latest    |
-| `↑` / `↓`, mouse wheel | scroll the conversation                  |
-| `pgup` / `pgdn`        | scroll a page                            |
-| `ctrl+\`               | sessions: switch to another conversation |
-| `y` / `n`              | answer a command waiting for approval    |
-| `/model`               | model and reasoning effort               |
-| `/runtime`             | the agent the conversation runs on       |
-| `/team`                | switch team                              |
-| `/new`, `/resume`      | start or continue a conversation         |
-| `/logout`, `/quit`     | sign out, exit                           |
+| Key                    | Action                                     |
+| ---------------------- | ------------------------------------------ |
+| `enter`                | send                                       |
+| `alt+enter` / `ctrl+j` | new line                                   |
+| `esc`                  | stop the reply, or back to the latest      |
+| `↑` / `↓`, mouse wheel | scroll the conversation                    |
+| `pgup` / `pgdn`        | scroll a page                              |
+| `ctrl+\`               | sessions: switch to another conversation   |
+| `y` / `n`              | answer a command waiting for approval      |
+| `/model`               | model and reasoning effort                 |
+| `/runtime`             | the agent the conversation runs on         |
+| `/team`                | switch team                                |
+| `/new`, `/resume`      | start or continue a conversation           |
+| `/archive`             | archive this conversation, start a new one |
+| `/logout`, `/quit`     | sign out, exit                             |
 
 The wheel scrolls through the terminal's alternate scroll mode, so the mouse is
 left alone and selecting text to copy works as usual. Scrolled up, the view
