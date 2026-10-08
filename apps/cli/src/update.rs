@@ -1,5 +1,6 @@
 //! New releases: the TUI checks for one on start, and `nuphos update`
-//! installs it by running the same script as the first install.
+//! installs it by running the install script from that release's tag, so
+//! what runs is what shipped with it rather than whatever is on main.
 
 use std::time::Duration;
 
@@ -7,7 +8,6 @@ use anyhow::{anyhow, bail, Result};
 use serde_json::Value;
 
 const RELEASES: &str = "https://api.github.com/repos/nuphos/nuphos/releases?per_page=50";
-const INSTALLER: &str = "https://raw.githubusercontent.com/nuphos/nuphos/main/apps/cli/install.sh";
 
 /// The newest published CLI version; other components share the repository.
 pub async fn latest() -> Option<String> {
@@ -57,7 +57,9 @@ pub async fn update() -> Result<i32> {
     println!("Updating nuphos {current} → {latest}");
     let status = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("curl -fsSL {INSTALLER} | sh"))
+        .arg(format!(
+            "curl -fsSL https://raw.githubusercontent.com/nuphos/nuphos/cli-v{latest}/apps/cli/install.sh | sh"
+        ))
         .env("NUPHOS_INSTALL_DIR", dir)
         .env("NUPHOS_VERSION", &latest)
         .status()?;
