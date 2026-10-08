@@ -72,7 +72,6 @@ describe('archived conversation listing', () => {
 
     await getConversations(VIEWER, {
       teamId: TEAM,
-      ...READABLE,
       sort: 'archived',
       cursor: newest.toISOString(),
     })

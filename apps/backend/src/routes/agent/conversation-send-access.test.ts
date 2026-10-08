@@ -84,3 +84,33 @@ test('a viewer who may only read is served read-only', () => {
     readOnly: true,
   })
 })
+
+test('the serializer tells each viewer what they may do', () => {
+  const doc = { userId: 'owner', teamId, generalAccess: 'none', participantIds: ['invited'] }
+  const as = (id: string) => serializeConversationForViewer(doc, { id } as NuphosUser, new Map())
+
+  expect(as('owner')).toMatchObject({ access: 'owner', readOnly: false, isOwner: true })
+  expect(as('invited')).toMatchObject({ access: 'reply', readOnly: false, isOwner: false })
+  // Lists never hand this one over; if a caller did, it must still be read-only.
+  expect(as('stranger')).toMatchObject({ access: null, readOnly: true })
+  expect(
+    serializeConversationForViewer(
+      { userId: 'owner', teamId },
+      { id: 'x' } as NuphosUser,
+      new Map(),
+    ),
+  ).toMatchObject({
+    access: 'reply',
+    generalAccess: 'reply',
+    readOnly: false,
+  })
+})
+
+test('a removed participant falls back to whatever general access still grants', async () => {
+  conversation!.generalAccess = 'view'
+  conversation!.participantIds = []
+  await expect(assertConversationSendable('shared', 'teammate', teamId)).rejects.toMatchObject({
+    status: 403,
+    code: 'conversation_read_only',
+  })
+})

@@ -84,7 +84,6 @@ describe('getConversations ownerId filter', () => {
   test('the owner filter composes with search and the archived filter', async () => {
     const query = await queryFor({
       teamId: TEAM,
-      ...READABLE,
       scope: 'team',
       ownerId: OTHER,
       search: 'deploy',
@@ -94,6 +93,8 @@ describe('getConversations ownerId filter', () => {
     expect(query.userId).toBe(OTHER)
     expect(query.archivedAt).toEqual({ $exists: false })
     expect(Array.isArray(query.$or)).toBe(true)
+    // Search's $or sits beside the access filter instead of replacing it.
+    expect(query.$and).toEqual(READABLE.$and)
   })
 })
 
@@ -125,7 +126,6 @@ describe('getConversations shared scope', () => {
   test('composes with the archived exclusion the sidebar asks for', async () => {
     const query = await queryFor({
       teamId: TEAM,
-      ...READABLE,
       scope: 'shared',
       archived: 'exclude',
       sort: 'created',

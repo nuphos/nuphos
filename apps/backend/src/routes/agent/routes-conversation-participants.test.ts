@@ -235,4 +235,44 @@ describe('conversation participants API', () => {
     viewer = TEAMMATE
     expect((await patch('access', { generalAccess: 'reply' })).status).toBe(403)
   })
+
+  test('inviting the owner as view-only changes nothing about the owner', async () => {
+    const body = (await (await invite([OWNER], TEAM, 'view')).json()) as ParticipantsBody
+
+    expect(body.participants[0]).toMatchObject({ id: OWNER, role: 'owner' })
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+  })
+
+  test('removing a view-only participant and inviting them again starts at reply', async () => {
+    await invite([INVITEE], TEAM, 'view')
+    await remove(INVITEE)
+    const body = (await (await invite([INVITEE])).json()) as ParticipantsBody
+
+    expect(body.participants.find((p) => p.id === INVITEE)?.role).toBe('reply')
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+  })
+
+  test('a role change targets participants only and rejects unknown roles', async () => {
+    expect((await patch(`participants/${OWNER}`, { role: 'view' })).status).toBe(404)
+    expect((await patch(`participants/${TEAMMATE}`, { role: 'owner' })).status).toBe(400)
+    expect((await patch(`participants/${TEAMMATE}`, {})).status).toBe(200)
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+  })
+
+  test('changing general access keeps every participant role', async () => {
+    await patch(`participants/${TEAMMATE}`, { role: 'view' })
+    await patch('access', { generalAccess: 'reply' })
+    const body = (await (
+      await patch('access', { generalAccess: 'none' })
+    ).json()) as ParticipantsBody
+
+    expect(body.participants.find((p) => p.id === TEAMMATE)?.role).toBe('view')
+  })
+
+  test('an outsider can neither change general access nor roles', async () => {
+    viewer = OUTSIDER
+    expect((await patch('access', { generalAccess: 'reply' })).status).toBe(403)
+    expect((await patch(`participants/${TEAMMATE}`, { role: 'view' })).status).toBe(403)
+    expect(conversation?.generalAccess).toBeUndefined()
+  })
 })

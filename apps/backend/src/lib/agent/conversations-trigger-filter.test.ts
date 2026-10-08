@@ -79,7 +79,6 @@ describe('getConversations trigger filter', () => {
   test('a trigger listing still honours search and the cursor', async () => {
     const query = await queryFor({
       teamId: TEAM,
-      ...READABLE,
       scope: 'team',
       triggerIds: [TRIGGER],
       search: 'cost',
