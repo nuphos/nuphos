@@ -118,6 +118,8 @@ struct ChatComposerBar<Controls: View>: View {
         .animation(.easeOut(duration: 0.15), value: hasText)
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
+        .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
+        .onDisappear(perform: cancelDictation)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .offset(y: handleDrag)
@@ -143,8 +145,6 @@ struct ChatComposerBar<Controls: View>: View {
             Text(attachmentError ?? "")
         }
         .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
-        .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
-        .onDisappear(perform: cancelDictation)
         #if DEBUG
         .onAppear {
             let args = ProcessInfo.processInfo.arguments
