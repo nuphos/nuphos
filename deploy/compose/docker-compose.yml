@@ -72,18 +72,6 @@ services:
             esac
           done
         done
-        # The journal writes retained object versions. Enable versioning first,
-        # including when upgrading a volume created by an older Compose stack.
-        curl -fsS --retry 5 --retry-all-errors --retry-delay 1 -X PUT \
-          --aws-sigv4 'aws:amz:us-east-1:s3' --user "$$S3_ACCESS_KEY:$$S3_SECRET_KEY" \
-          -H 'Content-Type: application/xml' \
-          --data '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>' \
-          "$$S3_ENDPOINT/nuphos-journal?versioning"
-        curl -fsS --retry 5 --retry-all-errors --retry-delay 1 -X PUT \
-          --aws-sigv4 'aws:amz:us-east-1:s3' --user "$$S3_ACCESS_KEY:$$S3_SECRET_KEY" \
-          -H 'Content-Type: application/xml' \
-          --data '<ObjectLockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ObjectLockEnabled>Enabled</ObjectLockEnabled></ObjectLockConfiguration>' \
-          "$$S3_ENDPOINT/nuphos-journal?object-lock"
         touch /tmp/buckets-ready
         wait $$pid
     networks: [data, default]
@@ -100,43 +88,6 @@ services:
       start_period: 5s
     restart: unless-stopped
 
-  redis:
-    image: redis:7.4-alpine
-    command: ['redis-server', '--appendonly', 'yes', '--protected-mode', 'no']
-    networks: [data]
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    restart: unless-stopped
-
-  sentinel:
-    image: redis:7.4-alpine
-    networks: [data]
-    depends_on:
-      redis:
-        condition: service_healthy
-    # Sentinel rewrites its configuration, so create a writable file at boot.
-    command:
-      - /bin/sh
-      - -ec
-      - |
-        printf '%s\n' 'port 26379' 'protected-mode no' 'sentinel resolve-hostnames yes' 'sentinel announce-hostnames yes' 'sentinel monitor mymaster redis 6379 1' > /tmp/sentinel.conf
-        exec redis-server /tmp/sentinel.conf --sentinel
-    healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'redis-cli -p 26379 sentinel get-master-addr-by-name mymaster | grep -q redis',
-        ]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    restart: unless-stopped
-
   backend:
     build:
       context: ../..
@@ -148,8 +99,6 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_healthy
-      sentinel:
-        condition: service_healthy
     environment:
       NODE_ENV: development
       PORT: '3000'
@@ -159,9 +108,7 @@ services:
       NUPHOS_AUTH_BASE_URL: http://localhost:${BACKEND_PORT:-3000}
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true'
       NUPHOS_LOCAL_STACK: 'true'
-      ATLAS_REDIS_ENABLED: 'true'
-      ATLAS_REDIS_SENTINELS: sentinel:26379
-      ATLAS_REDIS_MASTER: mymaster
+      ATLAS_REDIS_ENABLED: 'false'
       BRAINTRUST_TRACING_ENABLED: 'false'
       NUPHOS_BACKEND_URL: http://backend:3000
       NUPHOS_FILE_TRANSFER_S3_BUCKET: nuphos-file-transfers
@@ -215,7 +162,6 @@ networks:
     internal: true
 
 volumes:
-  redis-data:
   mongo-data:
   mongo-config:
   rustfs-data:

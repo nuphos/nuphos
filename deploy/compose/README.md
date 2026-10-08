@@ -2,15 +2,14 @@
 
 One `docker compose up` brings up a complete, minimal Nuphos:
 
-| Service              | Image                                   | Purpose                                                            |
-| -------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| `mongo`              | `mongo:8.0.32`                          | Single-node replica set (`rs0`), required by transactions          |
-| `rustfs`             | `rustfs/rustfs:1.0.0`                   | S3-compatible storage; initializes buckets and journal Object Lock |
-| `redis` / `sentinel` | `redis:7.4-alpine`                      | Persistent queues, cron scheduling and journal sealing             |
-| `backend`            | built from `apps/backend/Dockerfile`    | Nuphos backend, one replica                                        |
-| `runtime`            | `ghcr.io/nuphos/runtime:${RUNTIME_TAG}` | Claude Code agent runtime                                          |
+| Service   | Image                                   | Purpose                                                   |
+| --------- | --------------------------------------- | --------------------------------------------------------- |
+| `mongo`   | `mongo:8.0.32`                          | Single-node replica set (`rs0`), required by transactions |
+| `rustfs`  | `rustfs/rustfs:1.0.0`                   | S3-compatible storage; initializes buckets on boot        |
+| `backend` | built from `apps/backend/Dockerfile`    | Nuphos backend, one replica                               |
+| `runtime` | `ghcr.io/nuphos/runtime:${RUNTIME_TAG}` | Claude Code agent runtime                                 |
 
-All data lives in local volumes and **never touches production Mongo, Redis or S3**. Redis and Sentinel run on the internal data network, with no host ports. This is a single-node development stack, not a high-availability deployment.
+All data lives in local volumes and **never touches production Mongo, Redis or S3**. There is no Redis: the backend runs in single-replica in-memory mode.
 
 Mongo sits only on the internal `data` network, reachable by services on that network. The `runtime`, which executes agent code, is not on that network.
 
@@ -102,7 +101,7 @@ The console lists every team connection with who made it, and revoking one there
 ## Verify
 
 With Python 3 installed, run `python3 smoke.py` after the stack is healthy.
-It creates a test user/team, checks Mongo and Redis readiness and journal object retention, signs in using
+It creates a test user/team, checks Mongo readiness and confirms Redis and cron are disabled, signs in using
 an email OTP, registers the runtime with provider detection, checks its status,
 and uploads/finalizes/downloads a file through RustFS. It does not require
 model credentials or call a paid model. The Compose GitHub Actions workflow
@@ -165,7 +164,7 @@ rm .env                       # start over with new secrets too
 
 ## Known limitations
 
-- The full Compose stack enables Redis-backed queues, cron and journal sealing. The host hot-reload launcher (`bun run dev`) still uses its existing in-memory mode and starts only Mongo, RustFS and the runtime.
+- No Redis: cron scheduling, background thread queues and audit journal sealing are disabled. Both Compose and `bun run dev` use single-replica in-memory mode.
 - No Bedrock keys: the backend's own model calls (conversation titles, dashboard insights, the auto-mode judge) are unavailable. Chat on the runtime is unaffected.
 - `/admin` is not configured.
 - This is a development stack: `NODE_ENV=development`, secrets in a local `.env`, and every port bound to `127.0.0.1` only. Do not expose it publicly.
