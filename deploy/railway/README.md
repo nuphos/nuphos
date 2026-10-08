@@ -19,7 +19,9 @@ These are source templates, not published Railway marketplace template IDs.
 Prerequisites: Node 22.18+, the current Railway CLI with `railway config` support,
 a Railway account with volume capacity, two custom domains whose DNS you control,
 and a Zeabur Email API key with a verified sender. The default data volumes are
-10 GiB each in `us-west2`; review capacity and pricing before applying.
+10 GiB each in `us-west2`; services are explicitly placed in the same region.
+Keep service and volume regions aligned when customizing; changing an existing
+volume region can require a destructive replacement. Review capacity and pricing before applying.
 
 ```sh
 cd deploy/railway
@@ -49,7 +51,11 @@ railway config apply --file .railway/railway.ts
 Review the plan before approving it. Configure the DNS records Railway provides
 for both custom domains. MongoDB has no public TCP proxy. The backend uses the
 private Mongo hostname, while presigned S3 URLs use the public HTTPS storage
-domain so Desktop and external agents can reach them.
+domain so Desktop and external agents can reach them. Mongo announces `localhost`
+as its single-node replica identity, with `directConnection=true` on the private
+client connection, so replacing a container does not invalidate replica membership.
+RustFS uses `RAILWAY_RUN_UID=0` to write Railway's root-owned volume; the isolated
+agent still drops to UID 1000.
 
 Wait for `https://<API_DOMAIN>/health/ready` to return 200. Services restart automatically if backend startup races Mongo initialization. Confirm
 `/health/redis` reports disabled. In Nuphos Desktop select **Self-hosted? Set API
@@ -78,7 +84,8 @@ Verify that the CLI names the **runtime project**, not the data project, before
 applying. The Dockerfile source defaults to `nuphos/nuphos` on `main`. To test an
 unmerged branch or deploy a fork, set `NUPHOS_GITHUB_REPO` and
 `NUPHOS_GITHUB_BRANCH` in this shell before planning. The source must contain
-`deploy/railway/runtime/Dockerfile`.
+`deploy/railway/runtime/Dockerfile`. The spec explicitly selects the Dockerfile
+builder. Verify the deployed commit before pairing the runtime.
 
 Set the runtime domain's DNS record. Open its HTTPS console using
 `RUNTIME_PASSWORD`, set the public URL to `wss://<RUNTIME_DOMAIN>/acp`, pair it with
@@ -105,6 +112,12 @@ separation and shell syntax, tests the runtime wrapper across container
 replacement, and tests the shared Mongo bootstrap in the Zeabur job.
 Railway routing, DNS, email delivery and model inference require a real deployment
 and are not exercised by these offline checks.
+
+A live Railway deployment on 2026-10-08 verified backend readiness, Redis disabled,
+Mongo transactions, public HTTPS S3 upload/download, and runtime UID 1000. Mongo,
+S3 objects and runtime home/workspace files survived service restarts. This used
+two isolated projects, generated Railway domains and 1 GiB test volumes. Email
+sign-in, model inference and custom-domain DNS were not tested.
 
 Keep one backend replica. Redis-backed cron, background thread queues and journal
 sealing are disabled. Backend model features and Kubernetes-managed agents need

@@ -41,6 +41,14 @@ test('data project keeps Mongo private, persistent, authenticated and Redis-free
     assert.equal(checked.status, 0, checked.stderr)
   }
   assert.match(mongo.deploy.startCommand, /--ipv6/)
+  assert.equal(mongo.variables.NUPHOS_MONGO_HOST.value, 'localhost')
+  assert.equal(storage.variables.RAILWAY_RUN_UID.value, '0')
+  for (const service of services) {
+    assert.deepEqual(service.deploy.multiRegionConfig, { 'us-west2': { numReplicas: 1 } })
+    for (const attachment of Object.values(service.volumeAttachments ?? {})) {
+      assert.equal(attachment.volumeConfig.region, 'us-west2')
+    }
+  }
 })
 
 test('runtime is a separate project with only runtime variables and a home volume', async () => {
@@ -57,6 +65,9 @@ test('runtime is a separate project with only runtime variables and a home volum
     ['/home/node'],
   )
   assert.equal(result.resources.filter((r) => r.type === 'service').length, 1)
+  assert.deepEqual(runtime.build, { builder: 'DOCKERFILE', dockerfilePath: 'Dockerfile' })
+  assert.deepEqual(runtime.deploy.multiRegionConfig, { 'us-west2': { numReplicas: 1 } })
+  assert.equal(runtime.volumeAttachments['runtime-home'].volumeConfig.region, 'us-west2')
 })
 
 test('missing deployment inputs fail before contacting Railway', async () => {

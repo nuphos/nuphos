@@ -22,11 +22,12 @@ export default defineRailway(() => {
   const mongo = service('mongo', {
     source: image('mongo:8.0.32'),
     start: bootstrap('mongo', '/bin/bash'),
-    replicas: 1,
-    deploy: { restartPolicyType: 'ALWAYS', sleepApplication: false },
+    replicas: { 'us-west2': 1 },
+    deploy: { restartPolicyType: 'ALWAYS' },
     volumeMounts: { '/data': mongoData },
     env: {
-      NUPHOS_MONGO_HOST: '${{RAILWAY_PRIVATE_DOMAIN}}',
+      // Stable replica identity across container replacement; clients use directConnection.
+      NUPHOS_MONGO_HOST: 'localhost',
       MONGO_INITDB_ROOT_USERNAME: 'nuphos',
       MONGO_INITDB_ROOT_PASSWORD: mongoPassword,
     },
@@ -34,14 +35,16 @@ export default defineRailway(() => {
   const storage = service('storage', {
     source: image('rustfs/rustfs:1.0.0'),
     start: bootstrap('rustfs', '/bin/sh'),
-    replicas: 1,
-    deploy: { restartPolicyType: 'ALWAYS', sleepApplication: false },
+    replicas: { 'us-west2': 1 },
+    deploy: { restartPolicyType: 'ALWAYS' },
     healthcheck: '/health',
     domains: [{ domain: storageDomain, port: 9000 }],
     volumeMounts: { '/data': storageData },
     env: {
       PORT: '9000',
       RUSTFS_ADDRESS: '[::]:9000',
+      // Railway volumes are root-owned; the agent remains non-root in its own project.
+      RAILWAY_RUN_UID: '0',
       RUSTFS_ACCESS_KEY: 'nuphos',
       RUSTFS_SECRET_KEY: storageSecret,
       S3_ACCESS_KEY: 'nuphos',
@@ -52,8 +55,8 @@ export default defineRailway(() => {
   })
   const backend = service('backend', {
     source: image('ghcr.io/nuphos/backend:v0.85.0'),
-    replicas: 1,
-    deploy: { restartPolicyType: 'ALWAYS', sleepApplication: false },
+    replicas: { 'us-west2': 1 },
+    deploy: { restartPolicyType: 'ALWAYS' },
     healthcheck: '/health/ready',
     healthcheckTimeout: 300,
     domains: [{ domain: apiDomain, port: 3000 }],
