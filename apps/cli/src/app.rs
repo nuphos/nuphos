@@ -1,7 +1,7 @@
-//! The terminal UI. Like Codex, it draws in an inline viewport at the bottom
-//! of the terminal: finished output is written above it into the terminal's
-//! own scrollback and never redrawn, and only the reply still streaming, the
-//! composer and the status line live in the viewport.
+//! The terminal UI. Like Codex, it takes over the whole screen (the
+//! alternate screen): the conversation scrolls above a composer pinned to the
+//! bottom. Alternate scroll mode makes the terminal send the mouse wheel as
+//! ↑/↓, so the wheel scrolls while the terminal's own text selection still works.
 
 use std::io::{stdout, Stdout};
 use std::time::Duration;
@@ -11,14 +11,14 @@ use crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
 };
 use crossterm::execute;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use futures_util::{FutureExt, StreamExt};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Padding, Paragraph, Widget};
-use ratatui::{Frame, Terminal, TerminalOptions, Viewport};
+use ratatui::widgets::{Block, BorderType, Padding, Paragraph};
+use ratatui::{Frame, Terminal};
 use serde_json::{json, Value};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
@@ -30,7 +30,9 @@ use crate::render::{self, dim, Markdown};
 use crate::shared::{self, current_name, option_of_kind};
 use crate::transcript::{self as tx, is_tool, is_tool_settled, part_type, parts, role, tool_state};
 
-const VIEWPORT_HEIGHT: u16 = 16;
+/// Alternate scroll mode: in the alternate screen, the wheel arrives as ↑/↓.
+const ALTERNATE_SCROLL_ON: &str = "\x1b[?1007h";
+const ALTERNATE_SCROLL_OFF: &str = "\x1b[?1007l";
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const COMMANDS: [(&str, &str); 7] = [
     ("/model", "choose the model and reasoning effort"),
@@ -116,6 +118,16 @@ pub struct App {
     picker: Option<Picker>,
     notice: Option<String>,
     pending_output: Vec<Line<'static>>,
+    /// Everything written out so far, and the same wrapped to `wrap_width`.
+    history: Vec<Line<'static>>,
+    wrapped: Vec<Line<'static>>,
+    wrap_width: u16,
+    /// Rows scrolled up from the bottom; 0 follows new output.
+    scroll: usize,
+    /// Rows the conversation took last frame, to hold a scrolled-up view still.
+    rows: usize,
+    /// Rows the conversation had on screen last frame.
+    page: usize,
     tick: usize,
     quit: bool,
     /// Approvals whose full command has been written out.
@@ -155,6 +167,12 @@ impl App {
             picker: None,
             notice: None,
             pending_output: Vec::new(),
+            history: Vec::new(),
+            wrapped: Vec::new(),
+            wrap_width: 0,
+            scroll: 0,
+            rows: 0,
+            page: 0,
             tick: 0,
             quit: false,
             announced: Vec::new(),
@@ -176,11 +194,13 @@ impl App {
 
     pub async fn run(mut self, start: Start) -> Result<Option<String>> {
         enable_raw_mode()?;
-        execute!(stdout(), EnableBracketedPaste)?;
-        let mut terminal = Terminal::with_options(
-            CrosstermBackend::new(stdout()),
-            TerminalOptions { viewport: Viewport::Inline(VIEWPORT_HEIGHT) },
-        )?;
+        execute!(stdout(), EnterAlternateScreen, EnableBracketedPaste, crossterm::style::Print(ALTERNATE_SCROLL_ON))?;
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            restore_terminal();
+            hook(info);
+        }));
+        let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
         self.pending_output.extend([
             Line::from(vec![
@@ -202,9 +222,8 @@ impl App {
 
         let result = self.event_loop(&mut terminal).await;
 
-        terminal.clear()?;
-        execute!(stdout(), DisableBracketedPaste)?;
-        disable_raw_mode()?;
+        drop(terminal);
+        restore_terminal();
         result?;
         Ok((!self.is_new).then(|| self.session_id.clone()))
     }
@@ -259,7 +278,7 @@ impl App {
         Ok(())
     }
 
-    /// Writes finished output above the viewport, into scrollback.
+    /// Moves finished output into the history, wrapped to the screen width.
     fn write_out(&mut self, terminal: &mut Term) -> Result<()> {
         let force = self.stream.is_none();
         let mut lines = std::mem::take(&mut self.pending_output);
@@ -273,18 +292,13 @@ impl App {
                 self.announced.push(id);
             }
         }
-        if lines.is_empty() {
-            return Ok(());
+        let width = terminal.size()?.width;
+        if width != self.wrap_width {
+            self.wrap_width = width;
+            self.wrapped = render::wrap(&self.history, width);
         }
-        let size = terminal.size()?;
-        let wrapped = render::wrap(&lines, size.width);
-        let chunk = size.height.saturating_sub(VIEWPORT_HEIGHT).max(1) as usize;
-        for block in wrapped.chunks(chunk) {
-            let block = block.to_vec();
-            terminal.insert_before(block.len() as u16, |buf| {
-                Paragraph::new(block).render(buf.area, buf);
-            })?;
-        }
+        self.wrapped.extend(render::wrap(&lines, width));
+        self.history.extend(lines);
         Ok(())
     }
 
@@ -412,46 +426,20 @@ impl App {
 
     // MARK: - Drawing
 
-    fn draw(&self, f: &mut Frame) {
+    fn draw(&mut self, f: &mut Frame) {
         let area = f.area();
         let input_lines = self.input.split('\n').count().clamp(1, 6) as u16;
-        let [live_area, composer_area, status_area] =
-            Layout::vertical([Constraint::Min(0), Constraint::Length(input_lines + 2), Constraint::Length(1)])
-                .areas(area);
-
-        let mut live = if let Some(picker) = &self.picker {
-            picker_lines(picker, live_area.height as usize)
-        } else {
-            let mut lines = self.live_lines();
-            if let Some(cmds) = self.command_hints() {
-                lines = cmds;
-            } else if self.pending_approval().is_some() {
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        "  Allow the command above?  ",
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-                    ),
-                    Span::raw("y "),
-                    Span::styled("yes  ", dim()),
-                    Span::raw("n "),
-                    Span::styled("no", dim()),
-                ]));
-            } else if self.stream.is_some() {
-                let label = if self.stopping { "Stopping…" } else { self.phase.as_deref().unwrap_or("Working…") };
-                lines.push(Line::from(vec![
-                    Span::styled(format!("{} ", SPINNER[self.tick % SPINNER.len()]), Style::default().fg(Color::Cyan)),
-                    Span::styled(label.to_string(), dim()),
-                    Span::styled("  esc to stop", dim()),
-                ]));
-            }
-            if let Some(notice) = &self.notice {
-                lines.push(Line::from(Span::styled(notice.clone(), Style::default().fg(Color::Yellow))));
-            }
-            lines
-        };
-        live = render::wrap(&live, live_area.width);
-        let skip = live.len().saturating_sub(live_area.height as usize);
-        f.render_widget(Paragraph::new(live.split_off(skip)), live_area);
+        let panel = render::wrap(&self.panel_lines(area.height as usize / 2), area.width);
+        let panel_height = (panel.len() as u16).min(area.height / 2);
+        let [chat_area, panel_area, composer_area, status_area] = Layout::vertical([
+            Constraint::Min(0),
+            Constraint::Length(panel_height),
+            Constraint::Length(input_lines + 2),
+            Constraint::Length(1),
+        ])
+        .areas(area);
+        f.render_widget(Paragraph::new(self.chat_lines(chat_area.width, chat_area.height as usize)), chat_area);
+        f.render_widget(Paragraph::new(panel), panel_area);
 
         let block =
             Block::bordered().border_type(BorderType::Rounded).border_style(dim()).padding(Padding::horizontal(1));
@@ -486,6 +474,63 @@ impl App {
             self.model_label.as_deref().unwrap_or("default model"),
         );
         f.render_widget(Paragraph::new(Span::styled(render::clean(&status), dim())), status_area);
+    }
+
+    /// The conversation rows on screen: the written history, then the reply
+    /// still streaming, `scroll` rows up from the bottom.
+    fn chat_lines(&mut self, width: u16, height: usize) -> Vec<Line<'static>> {
+        let live = render::wrap(&self.live_lines(), width);
+        let total = self.wrapped.len() + live.len();
+        // Scrolled up, new output below must not move what is being read.
+        if self.scroll > 0 && total > self.rows {
+            self.scroll += total - self.rows;
+        }
+        self.rows = total;
+        self.page = height;
+        self.scroll = self.scroll.min(total.saturating_sub(height));
+        let start = total.saturating_sub(height + self.scroll);
+        self.wrapped.iter().chain(live.iter()).skip(start).take(height).cloned().collect()
+    }
+
+    /// What sits between the conversation and the composer: a picker, the
+    /// command list, an approval prompt or the spinner, and any notice.
+    fn panel_lines(&self, max: usize) -> Vec<Line<'static>> {
+        if let Some(picker) = &self.picker {
+            return picker_lines(picker, (picker.items.len() + 2).min(max));
+        }
+        if let Some(cmds) = self.command_hints() {
+            return cmds;
+        }
+        let mut lines = Vec::new();
+        if self.pending_approval().is_some() {
+            lines.push(Line::from(vec![
+                Span::styled(
+                    "  Allow the command above?  ",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw("y "),
+                Span::styled("yes  ", dim()),
+                Span::raw("n "),
+                Span::styled("no", dim()),
+            ]));
+        } else if self.stream.is_some() {
+            let label = if self.stopping { "Stopping…" } else { self.phase.as_deref().unwrap_or("Working…") };
+            lines.push(Line::from(vec![
+                Span::styled(format!("{} ", SPINNER[self.tick % SPINNER.len()]), Style::default().fg(Color::Cyan)),
+                Span::styled(label.to_string(), dim()),
+                Span::styled("  esc to stop", dim()),
+            ]));
+        }
+        if self.scroll > 0 {
+            lines.push(Line::from(Span::styled(
+                format!("  ↓ {} more lines below · pgdn to scroll down", self.scroll),
+                Style::default().fg(Color::Cyan),
+            )));
+        }
+        if let Some(notice) = &self.notice {
+            lines.push(Line::from(Span::styled(notice.clone(), Style::default().fg(Color::Yellow))));
+        }
+        lines
     }
 
     fn command_hints(&self) -> Option<Vec<Line<'static>>> {
@@ -529,14 +574,22 @@ impl App {
                     self.stop().await;
                 } else {
                     self.notice = None;
+                    self.scroll = 0;
                 }
             }
+            KeyCode::Up => self.scroll += 1,
+            KeyCode::Down => self.scroll = self.scroll.saturating_sub(1),
+            KeyCode::PageUp => self.scroll += self.page.saturating_sub(1).max(1),
+            KeyCode::PageDown => self.scroll = self.scroll.saturating_sub(self.page.saturating_sub(1).max(1)),
             KeyCode::Char(ch @ ('y' | 'n')) if self.input.is_empty() && self.pending_approval().is_some() => {
                 self.decide(ch == 'y');
             }
             KeyCode::Enter if key.modifiers.intersects(KeyModifiers::ALT | KeyModifiers::SHIFT) => self.insert("\n"),
             KeyCode::Char('j') if ctrl => self.insert("\n"),
-            KeyCode::Enter => self.submit().await,
+            KeyCode::Enter => {
+                self.scroll = 0;
+                self.submit().await;
+            }
             KeyCode::Char('u') if ctrl => self.set_input(String::new()),
             KeyCode::Char('a') if ctrl => self.caret = 0,
             KeyCode::Char('e') if ctrl => self.caret = self.input.chars().count(),
@@ -1185,6 +1238,18 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// Leaves the alternate screen and the modes the TUI turned on; also run on a panic.
+fn restore_terminal() {
+    let _ = execute!(
+        stdout(),
+        crossterm::style::Print(ALTERNATE_SCROLL_OFF),
+        DisableBracketedPaste,
+        LeaveAlternateScreen,
+        crossterm::cursor::Show
+    );
+    let _ = disable_raw_mode();
 }
 
 fn picker_lines(picker: &Picker, height: usize) -> Vec<Line<'static>> {

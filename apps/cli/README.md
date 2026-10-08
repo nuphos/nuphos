@@ -2,9 +2,9 @@
 
 `nuphos` is a terminal client for Nuphos agent conversations. It talks to the
 same API as the desktop and iOS apps (`POST /agent/chat` and its event stream),
-and its layout follows the Codex CLI: finished output goes into the terminal's
-own scrollback, and only the reply in progress, the composer and a status line
-are redrawn.
+and its layout follows the Codex CLI: it takes over the whole terminal, the
+conversation scrolls above a composer pinned to the bottom, and a reply streams
+in full rather than in a fixed-height box.
 
 ## Install
 
@@ -60,13 +60,19 @@ In the composer:
 | ---------------------- | ------------------------------------- |
 | `enter`                | send                                  |
 | `alt+enter` / `ctrl+j` | new line                              |
-| `esc`                  | stop the reply                        |
+| `esc`                  | stop the reply, or back to the latest |
+| `↑` / `↓`, mouse wheel | scroll the conversation               |
+| `pgup` / `pgdn`        | scroll a page                         |
 | `y` / `n`              | answer a command waiting for approval |
 | `/model`               | model and reasoning effort            |
 | `/runtime`             | the agent the conversation runs on    |
 | `/team`                | switch team                           |
 | `/new`, `/resume`      | start or continue a conversation      |
 | `/logout`, `/quit`     | sign out, exit                        |
+
+The wheel scrolls through the terminal's alternate scroll mode, so the mouse is
+left alone and selecting text to copy works as usual. Scrolled up, the view
+stays put while a reply streams in below it.
 
 Before the first message, `/model` changes the agent's default model, which is
 what the desktop's new-conversation picker does too. For a Cloud agent that is
