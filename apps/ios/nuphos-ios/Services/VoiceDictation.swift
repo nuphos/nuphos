@@ -84,6 +84,9 @@ final class VoiceDictation {
 enum Whisper {
     static let keychainKey = "openai-api-key"
 
+    /// Whisper reads only the last 224 tokens of this, so keep it short.
+    private static let prompt = "以下是台灣繁體中文的句子，可能提到 Nuphos、Zeabur、Claude Code、Codex、Kubernetes、kubectl、Helm、EKS、GKE、AWS、GCP、Cloudflare、Grafana、Linear、GitHub、PR、CI。"
+
     struct Failure: LocalizedError {
         let errorDescription: String?
     }
@@ -96,9 +99,10 @@ enum Whisper {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
-        // Mandarin comes back in Taiwanese Traditional Chinese: the prompt sets
-        // the style, and verbose_json reports the language for the fallback below.
-        for (name, value) in [("model", "whisper-1"), ("response_format", "verbose_json"), ("prompt", "以下是台灣繁體中文的句子。")] {
+        // The prompt sets the style (Mandarin in Taiwanese Traditional Chinese)
+        // and spells the names Whisper would otherwise guess at; verbose_json
+        // reports the language for the fallback below.
+        for (name, value) in [("model", "whisper-1"), ("response_format", "verbose_json"), ("prompt", prompt)] {
             body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".utf8))
         }
         body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"dictation.m4a\"\r\nContent-Type: audio/m4a\r\n\r\n".utf8))
