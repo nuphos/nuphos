@@ -3,6 +3,7 @@
 //! bottom. Alternate scroll mode makes the terminal send the mouse wheel as
 //! ↑/↓, so the wheel scrolls while the terminal's own text selection still works.
 
+use std::future::Future;
 use std::io::{stdout, Stdout};
 use std::time::Duration;
 
@@ -50,17 +51,20 @@ const TIPS: [&str; 4] = [
     "Use /model to change the model and reasoning effort.",
 ];
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const COMMANDS: [(&str, &str); 7] = [
+const COMMANDS: [(&str, &str); 8] = [
     ("/model", "choose the model and reasoning effort"),
     ("/team", "switch to another team"),
     ("/runtime", "choose the agent this conversation runs on"),
     ("/new", "start a new conversation"),
     ("/resume", "continue a previous conversation"),
+    ("/archive", "archive this conversation and start a new one"),
     ("/logout", "sign out of Nuphos here and in the desktop app"),
     ("/quit", "exit"),
 ];
 
 type Term = Terminal<CrosstermBackend<Stdout>>;
+/// What a background request does to the app once it returns.
+type Apply = Box<dyn FnOnce(&mut App) + Send>;
 
 /// How far the transcript has been written out above the viewport.
 #[derive(Default)]
@@ -154,6 +158,16 @@ pub struct App {
     title: Option<String>,
     /// The check for a newer release, started with the TUI.
     update_check: Option<JoinHandle<Option<String>>>,
+    /// The team's conversations as last fetched, so Sessions opens at once.
+    sessions: Vec<Value>,
+    sessions_loading: bool,
+    /// A conversation being opened, or checked for news while idle.
+    loading: bool,
+    polling: bool,
+    /// Requests the spinner is shown for.
+    busy: usize,
+    apply_tx: UnboundedSender<Apply>,
+    apply_rx: UnboundedReceiver<Apply>,
     /// Streams of this conversation already followed to the end; the server
     /// can list one as running for a moment after it ends.
     ended: Vec<String>,
@@ -165,6 +179,7 @@ pub struct App {
 impl App {
     pub async fn new(api: Api, me_id: String, team: Value, prefs: Prefs) -> Result<Self> {
         let (tx, rx) = unbounded_channel();
+        let (apply_tx, apply_rx) = unbounded_channel();
         let mut app = App {
             api,
             prefs,
@@ -198,12 +213,22 @@ impl App {
             announced: Vec::new(),
             ended: Vec::new(),
             update_check: None,
+            sessions: Vec::new(),
+            sessions_loading: false,
+            loading: false,
+            polling: false,
+            busy: 0,
+            apply_tx,
+            apply_rx,
             update: None,
             title: None,
             tx,
             rx,
         };
-        app.load_runtimes().await;
+        match app.api.runtimes(&app.team_id()).await {
+            Ok(list) => app.runtimes = shared::active_runtimes(list),
+            Err(e) => app.notice = Some(format!("Could not load agents: {e}")),
+        }
         app.new_conversation();
         Ok(app)
     }
@@ -224,13 +249,14 @@ impl App {
         }));
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
+        self.fetch_sessions();
         if crate::update::check_enabled() {
             self.update_check = Some(tokio::spawn(crate::update::latest()));
         }
         match start {
             Start::New => {}
-            Start::Resume(Some(id)) => self.resume(json!({ "sessionId": id })).await,
-            Start::Resume(None) => self.open_conversation_picker().await,
+            Start::Resume(Some(id)) => self.resume(json!({ "sessionId": id })),
+            Start::Resume(None) => self.open_conversation_picker(),
         }
 
         let result = self.event_loop(&mut terminal).await;
@@ -274,8 +300,10 @@ impl App {
                 _ = ticker.tick() => {
                     self.tick = self.tick.wrapping_add(1);
                     self.take_update_check();
+
                 }
-                _ = poller.tick() => self.poll().await,
+                Some(apply) = self.apply_rx.recv() => apply(self),
+                _ = poller.tick() => self.poll(),
             }
         }
         Ok(())
@@ -451,9 +479,15 @@ impl App {
         .areas(area);
         self.draw_top_bar(f, top);
         if let Some(picker) = self.picker.as_ref().filter(|_| sessions) {
-            f.render_widget(Paragraph::new(session_lines(picker, chat_area)), chat_area);
+            let empty = if self.sessions_loading { "Loading…" } else { "No conversations yet." };
+            f.render_widget(Paragraph::new(session_lines(picker, chat_area, empty)), chat_area);
             self.draw_composer(f, composer_area);
             return f.render_widget(Paragraph::new(self.footer_hints(footer.width)), footer);
+        }
+        if self.loading {
+            let spinner = SPINNER[self.tick % SPINNER.len()];
+            let line = Line::from(Span::styled(format!("{spinner} Loading conversation…"), dim()));
+            f.render_widget(Paragraph::new(vec![Line::default(), line]), chat_area);
         }
         let text_area = Rect { width: chat_area.width.saturating_sub(2), ..chat_area };
         let lines = self.chat_lines(text_area.width, text_area.height as usize);
@@ -547,6 +581,9 @@ impl App {
         .areas(rest);
         let tip_line = match &self.notice {
             Some(text) => Line::from(Span::styled(text.clone(), Style::default().fg(Color::Yellow))),
+            None if self.busy > 0 => {
+                Line::from(Span::styled(format!("{} Loading…", SPINNER[self.tick % SPINNER.len()]), dim()))
+            }
             None => Line::from(vec![
                 Span::styled("Tip: ", dim().add_modifier(Modifier::BOLD)),
                 Span::styled(TIPS[self.session_id.len() % TIPS.len()], dim()),
@@ -675,6 +712,8 @@ impl App {
                 Span::raw("n "),
                 Span::styled("no", dim()),
             ]));
+        } else if self.stream.is_none() && self.busy > 0 {
+            lines.push(Line::from(Span::styled(format!("{} Loading…", SPINNER[self.tick % SPINNER.len()]), dim())));
         } else if self.stream.is_some() {
             let label = if self.stopping { "Stopping…" } else { self.phase.as_deref().unwrap_or("Working…") };
             lines.push(Line::from(vec![
@@ -718,7 +757,7 @@ impl App {
             return if matches!(self.picker, Some(Picker { action: PickAction::Conversation, .. })) {
                 self.picker = None;
             } else {
-                self.open_conversation_picker().await;
+                self.open_conversation_picker();
             };
         }
         if self.picker.is_some() {
@@ -727,7 +766,7 @@ impl App {
         match key.code {
             KeyCode::Char('c') if ctrl => {
                 if self.stream.is_some() {
-                    self.stop().await;
+                    self.stop();
                 } else if !self.input.is_empty() {
                     self.set_input(String::new());
                 } else {
@@ -737,7 +776,7 @@ impl App {
             KeyCode::Char('d') if ctrl && self.input.is_empty() => self.quit = true,
             KeyCode::Esc => {
                 if self.stream.is_some() {
-                    self.stop().await;
+                    self.stop();
                 } else {
                     self.notice = None;
                     self.scroll = 0;
@@ -813,17 +852,12 @@ impl App {
             self.set_input(String::new());
             self.notice = None;
             match command {
-                Some("/model") => self.open_model_picker().await,
+                Some("/model") => self.open_model_picker(),
                 Some("/runtime") => self.open_runtime_picker(),
-                Some("/team") => self.open_team_picker().await,
-                Some("/new") => {
-                    if self.stream.is_some() {
-                        self.notice = Some("Wait for the reply to finish, or press esc to stop it.".into());
-                    } else {
-                        self.new_conversation();
-                    }
-                }
-                Some("/resume") => self.open_conversation_picker().await,
+                Some("/team") => self.open_team_picker(),
+                Some("/new") => self.new_conversation(),
+                Some("/archive") => self.archive(),
+                Some("/resume") => self.open_conversation_picker(),
                 Some("/logout") => {
                     let _ = config::write_session(&config::Session::default());
                     self.is_new = true;
@@ -834,8 +868,9 @@ impl App {
             }
             return;
         }
-        if self.stream.is_some() {
-            self.notice = Some("Wait for the reply to finish, or press esc to stop it.".into());
+        if self.stream.is_some() || self.loading {
+            let busy = if self.loading { "the conversation to load" } else { "the reply to finish" };
+            self.notice = Some(format!("Wait for {busy}, or press esc to stop it."));
             return;
         }
         self.set_input(String::new());
@@ -850,6 +885,7 @@ impl App {
         if let Some(stream) = self.stream.take() {
             stream.task.abort();
         }
+        self.loading = false;
         self.phase = None;
         self.stopping = false;
         self.pending_output.clear();
@@ -918,18 +954,27 @@ impl App {
         self.notice = None;
     }
 
-    async fn stop(&mut self) {
+    fn stop(&mut self) {
         if self.stopping {
             return;
         }
         self.stopping = true;
-        if let Err(e) = self.api.cancel_runtime(&self.team_id(), &self.session_id).await {
-            // Never admitted on the server: nothing to stop but the request.
-            if let Some(stream) = self.stream.take() {
-                stream.task.abort();
-            }
-            self.end_turn(Some(e.message));
-        }
+        let (api, team, session) = (self.api.clone(), self.team_id(), self.session_id.clone());
+        let stream = self.stream.as_ref().map(|s| s.id.clone());
+        self.background(false, async move {
+            let result = api.cancel_runtime(&team, &session).await;
+            Box::new(move |app: &mut App| {
+                // Never admitted on the server: nothing to stop but the request.
+                if let Err(e) = result {
+                    if app.stream.as_ref().map(|s| s.id.clone()) == stream {
+                        if let Some(stream) = app.stream.take() {
+                            stream.task.abort();
+                        }
+                        app.end_turn(Some(e.message));
+                    }
+                }
+            }) as Apply
+        });
     }
 
     async fn on_stream(&mut self, event: StreamEvent) {
@@ -939,7 +984,7 @@ impl App {
                 self.ended.push(id);
                 self.stream = None;
                 self.end_turn(error);
-                self.refresh_model_label().await;
+                self.refresh_model_label();
             }
             _ => {}
         }
@@ -1051,11 +1096,34 @@ impl App {
 
     // MARK: - Runtimes and models
 
-    async fn load_runtimes(&mut self) {
-        match self.api.runtimes(&self.team_id()).await {
-            Ok(list) => self.runtimes = shared::active_runtimes(list),
-            Err(e) => self.notice = Some(format!("Could not load agents: {e}")),
-        }
+    /// Reloads the team's agents, keeping the one in use (with fresh
+    /// defaults) or, if it is gone, the default one.
+    fn reload_runtimes(&mut self) {
+        let (api, team) = (self.api.clone(), self.team_id());
+        self.background(false, async move {
+            let result = api.runtimes(&team).await;
+            Box::new(move |app: &mut App| {
+                if app.team_id() != team {
+                    return;
+                }
+                match result {
+                    Ok(list) => {
+                        app.runtimes = shared::active_runtimes(list);
+                        let current = app.runtime.as_ref().map(|r| r["id"].clone());
+                        app.runtime = app
+                            .runtimes
+                            .iter()
+                            .find(|r| Some(&r["id"]) == current.as_ref())
+                            .cloned()
+                            .or_else(|| app.default_runtime());
+                        if app.is_new {
+                            app.model_label = app.runtime_default_model();
+                        }
+                    }
+                    Err(e) => app.notice = Some(format!("Could not load agents: {e}")),
+                }
+            }) as Apply
+        });
     }
 
     fn default_runtime(&self) -> Option<Value> {
@@ -1066,15 +1134,20 @@ impl App {
         self.runtime.as_ref()?["defaults"]["model"].as_str().filter(|m| *m != "default").map(String::from)
     }
 
-    async fn refresh_model_label(&mut self) {
+    fn refresh_model_label(&mut self) {
         if self.is_new {
             return;
         }
-        if let Ok(config) = self.api.model_config(&self.team_id(), &self.session_id).await {
-            if let Some(label) = option_of_kind(&config, "model").and_then(current_name) {
-                self.model_label = Some(label);
-            }
-        }
+        let (api, team, session) = (self.api.clone(), self.team_id(), self.session_id.clone());
+        self.background(false, async move {
+            let config = api.model_config(&team, &session).await.ok();
+            Box::new(move |app: &mut App| {
+                let label = config.as_ref().and_then(|c| option_of_kind(c, "model")).and_then(current_name);
+                if app.session_id == session && label.is_some() {
+                    app.model_label = label;
+                }
+            }) as Apply
+        });
     }
 
     fn open_runtime_picker(&mut self) {
@@ -1094,7 +1167,7 @@ impl App {
             Some(Picker { title: "Run this conversation on".into(), items, selected, action: PickAction::Runtime });
     }
 
-    async fn choose_runtime(&mut self, runtime: Value) {
+    fn choose_runtime(&mut self, runtime: Value) {
         let team = self.team_id();
         if self.is_new {
             if let Some(id) = runtime["id"].as_str() {
@@ -1107,33 +1180,46 @@ impl App {
         }
         let mode = shared::move_mode(self.runtime.as_ref(), &runtime);
         let id = runtime["id"].as_str().unwrap_or_default().to_string();
-        match self.api.move_runtime(&team, &self.session_id, &id, mode).await {
-            Ok(moved) => {
-                let label = moved["runtimeLabel"].as_str().or(runtime["label"].as_str()).unwrap_or("agent").to_string();
-                self.pending_output.push(Line::from(Span::styled(format!("  ↪ moved to {label} ({mode})"), dim())));
-                self.runtime = Some(runtime);
-                self.model_label = None;
-                self.refresh_model_label().await;
-            }
-            Err(e) => self.notice = Some(e.message),
-        }
+        let (api, session) = (self.api.clone(), self.session_id.clone());
+        self.background(true, async move {
+            let result = api.move_runtime(&team, &session, &id, mode).await;
+            Box::new(move |app: &mut App| {
+                if app.session_id != session {
+                    return;
+                }
+                match result {
+                    Ok(moved) => {
+                        let label = moved["runtimeLabel"].as_str().or(runtime["label"].as_str()).unwrap_or("agent");
+                        let line = format!("  ↪ moved to {label} ({mode})");
+                        app.pending_output.push(Line::from(Span::styled(line, dim())));
+                        app.runtime = Some(runtime);
+                        app.model_label = None;
+                        app.refresh_model_label();
+                    }
+                    Err(e) => app.notice = Some(e.message),
+                }
+            }) as Apply
+        });
     }
 
-    async fn open_model_picker(&mut self) {
+    fn open_model_picker(&mut self) {
         if self.stream.is_some() {
             self.notice = Some("Wait for the reply to finish before changing the model.".into());
             return;
         }
-        let team = self.team_id();
+        let (api, team) = (self.api.clone(), self.team_id());
         if !self.is_new {
-            match self.api.model_config(&team, &self.session_id).await {
-                Ok(config) => match option_of_kind(&config, "model") {
-                    Some(option) => self.picker = option_picker(option, "Model"),
-                    None => self.notice = Some("This agent does not offer a model choice right now.".into()),
-                },
-                Err(e) => self.notice = Some(e.message),
-            }
-            return;
+            let session = self.session_id.clone();
+            return self.background(true, async move {
+                let result = api.model_config(&team, &session).await;
+                Box::new(move |app: &mut App| match result {
+                    Ok(config) => match option_of_kind(&config, "model") {
+                        Some(option) => app.picker = option_picker(option, "Model"),
+                        None => app.notice = Some("This agent does not offer a model choice right now.".into()),
+                    },
+                    Err(e) => app.notice = Some(e.message),
+                }) as Apply
+            });
         }
         // A new conversation starts on the runtime's defaults, as on the desktop.
         let Some(runtime) = self.runtime.clone() else {
@@ -1145,8 +1231,15 @@ impl App {
                 Some("Change a local agent's default model in the desktop app, or send a message first.".into());
             return;
         }
-        let id = runtime["id"].as_str().unwrap_or_default();
-        match self.api.runtime_models(&team, id, None).await {
+        let id = runtime["id"].as_str().unwrap_or_default().to_string();
+        self.background(true, async move {
+            let result = api.runtime_models(&team, &id, None).await;
+            Box::new(move |app: &mut App| app.show_default_models(&runtime, result)) as Apply
+        });
+    }
+
+    fn show_default_models(&mut self, runtime: &Value, result: Result<Value, ApiError>) {
+        match result {
             Ok(catalog) => {
                 let current =
                     runtime["defaults"]["model"].as_str().or(catalog["controls"]["modelId"].as_str()).map(String::from);
@@ -1184,38 +1277,47 @@ impl App {
         }
     }
 
-    async fn choose_session_option(&mut self, config_id: String, value: Value) {
-        let team = self.team_id();
+    fn choose_session_option(&mut self, config_id: String, value: Value) {
+        let (api, team, session) = (self.api.clone(), self.team_id(), self.session_id.clone());
         let value = value.as_str().unwrap_or_default().to_string();
-        match self.api.set_model_config(&team, &self.session_id, &config_id, &value).await {
-            Ok(config) => {
-                if let Some(label) = option_of_kind(&config, "model").and_then(current_name) {
-                    self.model_label = Some(label);
-                }
-                // After the model, offer its effort levels.
-                let is_model = option_of_kind(&config, "model").is_some_and(|o| o["id"] == config_id.as_str());
-                if is_model {
-                    if let Some(effort) = option_of_kind(&config, "effort") {
-                        self.picker = option_picker(effort, "Reasoning effort");
+        self.background(true, async move {
+            let result = api.set_model_config(&team, &session, &config_id, &value).await;
+            Box::new(move |app: &mut App| match result {
+                Ok(config) => {
+                    if let Some(label) = option_of_kind(&config, "model").and_then(current_name) {
+                        app.model_label = Some(label);
+                    }
+                    // After the model, offer its effort levels.
+                    let is_model = option_of_kind(&config, "model").is_some_and(|o| o["id"] == config_id.as_str());
+                    if is_model {
+                        if let Some(effort) = option_of_kind(&config, "effort") {
+                            app.picker = option_picker(effort, "Reasoning effort");
+                        }
                     }
                 }
-            }
-            Err(e) => self.notice = Some(busy_message(e)),
-        }
+                Err(e) => app.notice = Some(busy_message(e)),
+            }) as Apply
+        });
     }
 
-    async fn choose_default_model(&mut self, model: String) {
+    fn choose_default_model(&mut self, model: String) {
         let Some(runtime) = self.runtime.clone() else { return };
-        let team = self.team_id();
-        let id = runtime["id"].as_str().unwrap_or_default();
-        let controls = self.api.runtime_models(&team, id, Some(&model)).await.ok().map(|c| c["controls"].clone());
+        let (api, team) = (self.api.clone(), self.team_id());
+        let id = runtime["id"].as_str().unwrap_or_default().to_string();
+        self.background(true, async move {
+            let controls = api.runtime_models(&team, &id, Some(&model)).await.ok().map(|c| c["controls"].clone());
+            Box::new(move |app: &mut App| app.show_default_efforts(&runtime, model, controls)) as Apply
+        });
+    }
+
+    fn show_default_efforts(&mut self, runtime: &Value, model: String, controls: Option<Value>) {
         let efforts: Vec<Value> = controls
             .as_ref()
             .and_then(|c| c["effort"].as_array())
             .map(|a| a.iter().filter(|o| o["value"] != "default").cloned().collect())
             .unwrap_or_default();
         if efforts.is_empty() {
-            return self.save_defaults(json!({ "model": model })).await;
+            return self.save_defaults(json!({ "model": model }));
         }
         let inherited =
             runtime["defaults"]["effort"].as_str().or(controls.as_ref().and_then(|c| c["defaultEffort"].as_str()));
@@ -1242,87 +1344,130 @@ impl App {
         });
     }
 
-    async fn save_defaults(&mut self, defaults: Value) {
+    fn save_defaults(&mut self, defaults: Value) {
         let Some(runtime) = self.runtime.clone() else { return };
-        let id = runtime["id"].as_str().unwrap_or_default();
-        match self.api.set_runtime_defaults(&self.team_id(), id, &defaults).await {
-            Ok(_) => {
-                self.load_runtimes().await;
-                self.runtime = self.runtimes.iter().find(|r| r["id"] == runtime["id"]).cloned().or(Some(runtime));
-                if let Some(r) = self.runtime.as_mut() {
-                    r["defaults"] = defaults;
+        let (api, team) = (self.api.clone(), self.team_id());
+        let id = runtime["id"].as_str().unwrap_or_default().to_string();
+        self.background(true, async move {
+            let result = api.set_runtime_defaults(&team, &id, &defaults).await;
+            Box::new(move |app: &mut App| match result {
+                Ok(_) => {
+                    if let Some(r) = app.runtime.as_mut().filter(|r| r["id"] == runtime["id"]) {
+                        r["defaults"] = defaults;
+                    }
+                    app.model_label = app.runtime_default_model();
+                    app.reload_runtimes();
                 }
-                self.model_label = self.runtime_default_model();
-            }
-            Err(e) => self.notice = Some(e.message),
-        }
+                Err(e) => app.notice = Some(e.message),
+            }) as Apply
+        });
     }
 
     // MARK: - Teams
 
-    async fn open_team_picker(&mut self) {
-        if self.stream.is_some() {
-            self.notice = Some("Wait for the reply to finish, or press esc to stop it.".into());
-            return;
-        }
-        match self.api.teams().await {
-            Ok(teams) => {
-                let selected = teams.iter().position(|t| t["id"] == self.team["id"]).unwrap_or(0);
-                let items = teams.into_iter().map(|t| (shared::label(&t), String::new(), t)).collect();
-                self.picker = Some(Picker { title: "Switch team".into(), items, selected, action: PickAction::Team });
-            }
-            Err(e) => self.notice = Some(e.message),
-        }
+    fn open_team_picker(&mut self) {
+        let api = self.api.clone();
+        self.background(true, async move {
+            let result = api.teams().await;
+            Box::new(move |app: &mut App| match result {
+                Ok(teams) => {
+                    let selected = teams.iter().position(|t| t["id"] == app.team["id"]).unwrap_or(0);
+                    let items = teams.into_iter().map(|t| (shared::label(&t), String::new(), t)).collect();
+                    app.picker =
+                        Some(Picker { title: "Switch team".into(), items, selected, action: PickAction::Team });
+                }
+                Err(e) => app.notice = Some(e.message),
+            }) as Apply
+        });
     }
 
-    async fn choose_team(&mut self, team: Value) {
+    fn choose_team(&mut self, team: Value) {
         if team["id"] == self.team["id"] {
             return;
         }
         shared::remember_team(&mut self.prefs, &team);
         self.team = team;
-        self.load_runtimes().await;
+        self.sessions.clear();
+        self.runtimes.clear();
+        self.runtime = None;
         self.messages.clear();
         self.new_conversation();
+        self.fetch_sessions();
+        self.reload_runtimes();
     }
 
     // MARK: - Resume
 
-    async fn open_conversation_picker(&mut self) {
-        match self.api.conversations(&self.team_id()).await {
-            Ok(mut list) if !list.is_empty() => {
-                // Running ones first; the server already sorts by activity.
-                list.sort_by_key(|c| c["activeRun"].is_null());
-                let items = list
-                    .into_iter()
-                    .map(|c| {
-                        let mut detail = shared::conversation_time(&c);
-                        if !c["activeRun"].is_null() {
-                            detail = format!("● running · {detail}");
-                        }
-                        (shared::conversation_title(&c), detail, c)
-                    })
-                    .collect();
-                self.picker =
-                    Some(Picker { title: "Sessions".into(), items, selected: 0, action: PickAction::Conversation });
-            }
-            Ok(_) => self.notice = Some("No conversations yet.".into()),
-            Err(e) => self.notice = Some(e.message),
-        }
+    /// Opens Sessions at once with the list from last time, and fetches a
+    /// fresh one in the background.
+    fn open_conversation_picker(&mut self) {
+        self.fetch_sessions();
+        self.picker = Some(Picker {
+            title: "Sessions".into(),
+            items: session_items(&self.sessions),
+            selected: 0,
+            action: PickAction::Conversation,
+        });
     }
 
-    async fn resume(&mut self, summary: Value) {
+    fn fetch_sessions(&mut self) {
+        if self.sessions_loading {
+            return;
+        }
+        self.sessions_loading = true;
+        let (api, team) = (self.api.clone(), self.team_id());
+        self.background(false, async move {
+            let result = api.conversations(&team).await;
+            Box::new(move |app: &mut App| {
+                app.sessions_loading = false;
+                if app.team_id() != team {
+                    return app.fetch_sessions();
+                }
+                match result {
+                    Ok(list) => app.sessions = list,
+                    Err(e) => return app.notice = Some(e.message),
+                }
+                // Keep the same conversation selected.
+                if let Some(picker) = app.picker.as_mut().filter(|p| matches!(p.action, PickAction::Conversation)) {
+                    let current = picker.items.get(picker.selected).map(|(_, _, c)| c["sessionId"].clone());
+                    picker.items = session_items(&app.sessions);
+                    picker.selected = picker
+                        .items
+                        .iter()
+                        .position(|(_, _, c)| Some(&c["sessionId"]) == current.as_ref())
+                        .unwrap_or(0);
+                }
+            }) as Apply
+        });
+    }
+
+    /// Switches to the conversation at once and loads it in the background.
+    fn resume(&mut self, summary: Value) {
         let Some(id) = summary["sessionId"].as_str().map(String::from) else { return };
-        let detail = match self.api.conversation(&self.team_id(), &id).await {
-            Ok(d) => d,
-            Err(e) => {
-                self.notice = Some(e.message);
-                return;
-            }
-        };
         self.new_conversation();
-        self.session_id = id;
+        self.session_id = id.clone();
         self.is_new = false;
+        self.title = Some(shared::conversation_title(&summary)).filter(|t| t != "Untitled chat");
+        self.model_label = None;
+        self.loading = true;
+        let (api, team) = (self.api.clone(), self.team_id());
+        self.background(false, async move {
+            let detail = api.conversation(&team, &id).await;
+            let config = api.model_config(&team, &id).await.ok();
+            Box::new(move |app: &mut App| {
+                if app.session_id == id {
+                    app.loading = false;
+                    app.show_conversation(detail, config);
+                }
+            }) as Apply
+        });
+    }
+
+    fn show_conversation(&mut self, detail: Result<Value, ApiError>, config: Option<Value>) {
+        let detail = match detail {
+            Ok(d) => d,
+            Err(e) => return self.notice = Some(e.message),
+        };
         self.base_index = detail["messagesFirstIndex"].as_u64().unwrap_or(0) as usize;
         self.runtime = detail["runtimeId"]
             .as_str()
@@ -1334,9 +1479,28 @@ impl App {
             let note = format!("({} earlier messages not shown)", self.base_index);
             self.pending_output.push(Line::from(Span::styled(note, dim())));
         }
-        self.model_label = None;
-        self.refresh_model_label().await;
+        self.model_label = config.as_ref().and_then(|c| option_of_kind(c, "model")).and_then(current_name);
         self.follow(&detail);
+    }
+
+    /// Archives this conversation and starts a new one; the request finishes
+    /// in the background and only reports back if it fails.
+    fn archive(&mut self) {
+        if self.is_new {
+            return self.notice = Some("Nothing to archive yet.".into());
+        }
+        let (api, team, id) = (self.api.clone(), self.team_id(), self.session_id.clone());
+        self.sessions.retain(|c| c["sessionId"] != id.as_str());
+        self.new_conversation();
+        self.notice = Some("Archived.".into());
+        self.background(false, async move {
+            let result = api.archive(&team, &id).await;
+            Box::new(move |app: &mut App| {
+                if let Err(e) = result {
+                    app.notice = Some(format!("Could not archive: {}", e.message));
+                }
+            }) as Apply
+        });
     }
 
     /// Takes in what the server has beyond what is shown, and attaches to a
@@ -1371,15 +1535,37 @@ impl App {
 
     /// While idle, checks the conversation every few seconds so turns sent
     /// from elsewhere show up here, as the iOS app does.
-    async fn poll(&mut self) {
-        if self.is_new || self.stream.is_some() || self.picker.is_some() {
+    fn poll(&mut self) {
+        if self.is_new || self.stream.is_some() || self.picker.is_some() || self.loading || self.polling {
             return;
         }
-        if let Ok(detail) = self.api.conversation(&self.team_id(), &self.session_id).await {
-            if self.stream.is_none() {
-                self.follow(&detail);
-            }
-        }
+        self.polling = true;
+        let (api, team, session) = (self.api.clone(), self.team_id(), self.session_id.clone());
+        self.background(false, async move {
+            let detail = api.conversation(&team, &session).await;
+            Box::new(move |app: &mut App| {
+                app.polling = false;
+                match detail {
+                    Ok(detail) if app.session_id == session && app.stream.is_none() => app.follow(&detail),
+                    _ => {}
+                }
+            }) as Apply
+        });
+    }
+
+    /// Runs a request off the event loop and applies its result when it
+    /// returns, so the screen never waits on the network. `busy` shows the
+    /// spinner meanwhile.
+    fn background(&mut self, busy: bool, request: impl Future<Output = Apply> + Send + 'static) {
+        self.busy += usize::from(busy);
+        let tx = self.apply_tx.clone();
+        tokio::spawn(async move {
+            let apply = request.await;
+            let _ = tx.send(Box::new(move |app: &mut App| {
+                app.busy -= usize::from(busy);
+                apply(app);
+            }));
+        });
     }
 
     // MARK: - Picker
@@ -1395,15 +1581,15 @@ impl App {
                 let Some(picker) = self.picker.take() else { return };
                 let Some((_, _, value)) = picker.items.into_iter().nth(picker.selected) else { return };
                 match picker.action {
-                    PickAction::Team => self.choose_team(value).await,
-                    PickAction::Runtime => self.choose_runtime(value).await,
-                    PickAction::Conversation => self.resume(value).await,
-                    PickAction::SessionOption { config_id } => self.choose_session_option(config_id, value).await,
+                    PickAction::Team => self.choose_team(value),
+                    PickAction::Runtime => self.choose_runtime(value),
+                    PickAction::Conversation => self.resume(value),
+                    PickAction::SessionOption { config_id } => self.choose_session_option(config_id, value),
                     PickAction::DefaultModel => {
-                        self.choose_default_model(value.as_str().unwrap_or_default().to_string()).await
+                        self.choose_default_model(value.as_str().unwrap_or_default().to_string())
                     }
                     PickAction::DefaultEffort { model } => {
-                        self.save_defaults(json!({ "model": model, "effort": value })).await
+                        self.save_defaults(json!({ "model": model, "effort": value }))
                     }
                 }
             }
@@ -1412,11 +1598,29 @@ impl App {
     }
 }
 
+/// Running conversations first; the server already sorts by activity.
+fn session_items(list: &[Value]) -> Vec<(String, String, Value)> {
+    let mut list = list.to_vec();
+    list.sort_by_key(|c| c["activeRun"].is_null());
+    list.into_iter()
+        .map(|c| {
+            let mut detail = shared::conversation_time(&c);
+            if !c["activeRun"].is_null() {
+                detail = format!("● running · {detail}");
+            }
+            (shared::conversation_title(&c), detail, c)
+        })
+        .collect()
+}
+
 /// The sessions page: running conversations, then recent ones, each with
 /// how long ago it was active on the right.
-fn session_lines(picker: &Picker, area: Rect) -> Vec<Line<'static>> {
+fn session_lines(picker: &Picker, area: Rect, empty: &'static str) -> Vec<Line<'static>> {
     let width = area.width as usize;
     let mut lines = vec![Line::from(Span::styled("Sessions", Style::default().add_modifier(Modifier::BOLD)))];
+    if picker.items.is_empty() {
+        lines.extend([Line::default(), Line::from(Span::styled(empty, dim()))]);
+    }
     let mut rows = Vec::new();
     let mut group = None;
     for (i, (title, detail, c)) in picker.items.iter().enumerate() {

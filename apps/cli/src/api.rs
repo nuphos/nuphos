@@ -117,6 +117,12 @@ impl Api {
         Ok(v["conversations"].as_array().cloned().unwrap_or_default())
     }
 
+    pub async fn archive(&self, team: &str, session: &str) -> Result<Value, ApiError> {
+        let body = json!({ "archived": true, "teamId": team });
+        self.call(Method::PATCH, &format!("/agent/conversations/{session}/archive"), &[("teamId", team)], Some(&body))
+            .await
+    }
+
     pub async fn conversation(&self, team: &str, session: &str) -> Result<Value, ApiError> {
         let query = [("teamId", team), ("tail", "50")];
         self.call(Method::GET, &format!("/agent/conversations/{session}"), &query, None).await
