@@ -122,28 +122,36 @@ function defaultSize(key: string): { w: number; h: number } {
   return { w: GRID_COLUMNS / 2, h: 7 }
 }
 
+const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
+  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
 /**
  * The grid for the cards on show, in order: a card keeps its saved place and
- * size, and one without (newly added) goes below everything else. Saved
- * entries for cards no longer on show are dropped.
+ * size, and one without (newly added) takes the first free spot that fits it,
+ * row by row — beside a half-width card when there is room, below otherwise.
+ * Saved entries for cards no longer on show are dropped.
  */
 export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridItem[] {
   const byKey = new Map(saved.map((item) => [item.i, item]))
-  let bottom = Math.max(
-    0,
-    ...keys.map((k) => byKey.get(k)).map((item) => (item ? item.y + item.h : 0)),
-  )
+  const taken = keys.flatMap((k) => byKey.get(k) ?? [])
 
   return keys.map((i) => {
     const item = byKey.get(i)
 
     if (item) return item
     const size = defaultSize(i)
-    const placed = { i, x: 0, y: bottom, ...size }
 
-    bottom += size.h
+    for (let y = 0; ; y++) {
+      for (let x = 0; x + size.w <= GRID_COLUMNS; x++) {
+        const spot = { i, x, y, ...size }
 
-    return placed
+        if (!taken.some((other) => overlaps(other, spot))) {
+          taken.push(spot)
+
+          return spot
+        }
+      }
+    }
   })
 }
 
