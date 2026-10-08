@@ -18,8 +18,10 @@ export type Item = {
   active?: boolean
   /** Optional count to render as a small badge to the right of the label. */
   badge?: number
-  /** Optional hover-revealed trailing control (see SidebarNavItem.trailing). */
+  /** Status content preserved when the item is pinned. */
   trailing?: ReactNode
+  /** Row actions omitted from pinned favorites. */
+  actions?: ReactNode
   /** Overrides the default onSelect(key) click behavior (Favorites rows).
    *  `newTab` is true for a cmd/ctrl-click. */
   onActivate?: (newTab: boolean) => void

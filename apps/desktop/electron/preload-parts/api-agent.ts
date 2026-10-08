@@ -1,5 +1,6 @@
-import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
+
+import type { AgentProvider } from '../../src/types/runtime'
 
 export const agentApi = {
   agentMoveConversationRuntime: (
@@ -10,12 +11,6 @@ export const agentApi = {
   ) => ipcRenderer.invoke('agent:moveConversationRuntime', sessionId, teamId, runtimeId, mode),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:getSessionConfig', sessionId, teamId),
-  agentGetConversationParticipants: (sessionId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:getConversationParticipants', sessionId, teamId),
-  agentInviteConversationParticipants: (sessionId: string, teamId: string, userIds: string[]) =>
-    ipcRenderer.invoke('agent:inviteConversationParticipants', sessionId, teamId, userIds),
-  agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
-    ipcRenderer.invoke('agent:removeConversationParticipant', sessionId, teamId, userId),
   agentImportLocalSession: (args: {
     source: 'claude-code' | 'codex'
     id: string

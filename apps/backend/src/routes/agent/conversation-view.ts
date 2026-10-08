@@ -1,6 +1,7 @@
 import { config } from '@/config'
 import { normalizeConversationActivitySource } from '@/lib/agent/conversation-activity-source'
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
+import { canReply, conversationAccess, generalAccessOf } from '@/lib/agent/db/access'
 import { conversationReadState } from '@/lib/agent/db/read-state'
 import { fetchCachedUsers } from '@/lib/agent/directory'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
@@ -9,6 +10,7 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { serializeConversationDoc } from './transcript'
 
+import type { AgentConversation } from '@/lib/agent/db'
 import type { NuphosUser } from '@/lib/identity'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
 
@@ -160,6 +162,8 @@ export function serializeConversationForViewer(
   slackThread?: Pick<SlackAgentThread, 'origin'> | null,
 ) {
   const isOwner = conversation.userId === viewer.id
+  const grants = conversation as unknown as AgentConversation
+  const access = conversationAccess(grants, viewer.id)
   const owner =
     ownerById.get(conversation.userId) ??
     (isOwner
@@ -195,7 +199,11 @@ export function serializeConversationForViewer(
     ...(triggerRun ? { triggerRun } : {}),
     owner,
     isOwner,
-    readOnly: !isOwner && !conversation.teamId,
+    // What this viewer may do; the list and detail routes only return what
+    // they may at least read, so null here means a personal conversation.
+    access,
+    generalAccess: generalAccessOf(grants),
+    readOnly: !canReply(access),
     ...(isOwner
       ? conversationReadState(conversation)
       : { activitySeq: undefined, readSeq: undefined, unread: false }),

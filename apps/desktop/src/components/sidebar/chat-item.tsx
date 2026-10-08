@@ -44,10 +44,8 @@ export function chatSidebarItem({
       }),
     ).href,
     trailing: (
-      <>
-        <ChatRowStatusDot conversation={conversation} runtimeState={runtimeState} unread={unread} />
-        {actions}
-      </>
+      <ChatRowStatusDot conversation={conversation} runtimeState={runtimeState} unread={unread} />
     ),
+    actions,
   }
 }

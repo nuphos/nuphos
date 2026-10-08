@@ -5,13 +5,9 @@ import { resolveForNewSession } from '@/lib/agent/memory-slots/session-stamp'
 
 import { fallbackTitle } from '../title-fallback'
 
+import { initialGeneralAccess, readableConversationScope } from './access'
 import { recordAgentEvent } from './events'
-import {
-  agentConversations,
-  agentMessages,
-  readableConversationScope,
-  withTeamScope,
-} from './shared'
+import { agentConversations, agentMessages, withTeamScope } from './shared'
 
 import type { ConversationTriggerRun } from '../conversation-trigger-run'
 import type {
@@ -56,6 +52,7 @@ export async function upsertConversationShell(data: {
   runtimeLabel?: string
 }): Promise<{ isNew: boolean }> {
   const now = new Date()
+  const generalAccess = initialGeneralAccess(data.source)
   // MongoDB rejects the same field appearing in both $setOnInsert and $set
   // ("Updating the path 'title' would create a conflict at 'title'", error
   // code 40). When data.title is truthy, $set.title fires, so don't also
@@ -70,6 +67,7 @@ export async function upsertConversationShell(data: {
     firstMessage: data.firstMessage.slice(0, 500),
     messageCount: 0,
     createdAt: now,
+    ...(generalAccess ? { generalAccess } : {}),
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
     metadata: {

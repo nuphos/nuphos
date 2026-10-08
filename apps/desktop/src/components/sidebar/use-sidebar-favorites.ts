@@ -141,6 +141,7 @@ export function useSidebarFavorites({
         icon:
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),
         iconNode: chip?.icon ?? live?.iconNode,
+        trailing: live?.trailing,
         enabled: true,
         active: sessionId
           ? sessionId === activeSessionId
@@ -164,7 +165,7 @@ export function useSidebarFavorites({
     // No trailing archive control on favorite rows — a favorite is an explicit
     // pin, and archiving from here while the pin stays would look like a no-op.
     return live
-      ? { ...live, trailing: undefined, onActivate }
+      ? { ...live, actions: undefined, onActivate }
       : {
           onActivate,
           key: identity,
