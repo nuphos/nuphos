@@ -63,9 +63,13 @@ async function defaultHasActiveRuntimeTurn(teamId: string, runtimeId: string): P
   )
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === runtimeId)
 
-  if (!endpoint) return true
+  if (!endpoint) return false
   let client: OpenAbAcpClient | undefined
 
+  // Only a turn the runtime reports as running holds a rollout. Anything the
+  // guard cannot read as one (unreachable, an older runtime's answer, leftover
+  // background tools) lets it through: holding on those deadlocks the update
+  // that would fix them.
   try {
     client = await OpenAbAcpClient.connect({
       ...(await reachableRuntimeEndpoint(endpoint)),
@@ -75,16 +79,12 @@ async function defaultHasActiveRuntimeTurn(teamId: string, runtimeId: string): P
     await client.initialize()
     const inventory = await client.getRuntimeExecutionState()
 
-    if (!Array.isArray(inventory.sessions)) return true
-
-    return inventory.sessions.some(
-      (snapshot: { state?: string; phase?: string }) =>
-        !['idle', 'dormant', 'interrupted'].includes(snapshot.state ?? '') ||
-        snapshot.phase === 'background_tools',
+    return (
+      Array.isArray(inventory.sessions) &&
+      inventory.sessions.some((snapshot: { state?: string }) => snapshot.state === 'active')
     )
   } catch {
-    // Unreachable is not idle. Explicit operator restarts remain possible.
-    return true
+    return false
   } finally {
     client?.close()
   }
