@@ -1,7 +1,5 @@
-- New agents: Grok Build and Google Antigravity join Claude Code and Codex.
-- Session timelines show who joined, left or moved a session.
-- Smoother streaming: replies fade in as they arrive, and opening a running conversation no longer replays it.
-- Pick the model, effort and Fast mode before starting a conversation. Changes made during a reply apply after it.
-- Devices and Credentials now have separate pickers in the composer.
-- Self-hosted? Set your API endpoint from the sign-in screen.
-- Fixes: a rejected follow-up message returns to the composer, and attachments, image history and long drafts are preserved.
+- Voice input: dictate in the composer with Whisper using your own OpenAI API key, stored only on this device.
+- Attachments: images and videos now show inline in the conversation.
+- Redesigned agent setup, plus agent usage at a glance.
+- Pinned and shared chats are now available on iOS.
+- Fixes: sign-in and transcript glitches, and the keyboard now closes when you leave a composer.
