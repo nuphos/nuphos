@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            printf 'Install or update:\n\n```sh\ncurl -fsSL nuphos.ai/install | sh\n```\n' > notes.md
+            printf 'Install or update:\n\n```sh\ncurl -fsSL https://nuphos.ai/install | sh\n```\n' > notes.md
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --latest=false \
               --title "CLI ${TAG#cli-}" --generate-notes --notes-file notes.md
           fi

@@ -9,7 +9,7 @@ are redrawn.
 ## Install
 
 ```sh
-curl -fsSL nuphos.ai/install | sh
+curl -fsSL https://nuphos.ai/install | sh
 ```
 
 `nuphos.ai/install` redirects to `apps/cli/install.sh` at a release tag. It

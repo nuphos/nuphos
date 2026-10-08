@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs or updates the `nuphos` CLI from the newest GitHub release:
 #
-#   curl -fsSL nuphos.ai/install | sh
+#   curl -fsSL https://nuphos.ai/install | sh
 #
 # NUPHOS_VERSION=X.Y.Z pins a version, NUPHOS_INSTALL_DIR changes where it
 # goes (default ~/.local/bin), and NUPHOS_DOWNLOAD_URL points at a mirror of
