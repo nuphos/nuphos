@@ -80,6 +80,9 @@ produce Patch or Minor versions — a Major needs an explicit manual `X.0.0`.
 `docker compose up` — MongoDB, S3-compatible storage, the backend, and one agent
 runtime. Start at [`deploy/compose/README.md`](deploy/compose/README.md).
 
+For Zeabur, use [`deploy/zeabur/template.yaml`](deploy/zeabur/template.yaml);
+see the [deployment inputs and setup guide](deploy/zeabur/README.md).
+
 What to know before you plan around it:
 
 - **One team per deployment.** Teams are the scope for everything — sessions,
