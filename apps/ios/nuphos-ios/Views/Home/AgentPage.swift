@@ -246,7 +246,7 @@ struct AgentPage: View {
                         }
                         .tint(conversation.isArchived ? .blue : .orange) }
                         Button {
-                            Task { await store.setPinned(!store.isPinned(conversation.sessionId), sessionId: conversation.sessionId, title: conversation.displayTitle) }
+                            Task { try? await store.setPinned(!store.isPinned(conversation.sessionId), sessionId: conversation.sessionId, title: conversation.displayTitle) }
                         } label: {
                             Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
                         }
@@ -315,6 +315,8 @@ struct SearchBar: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
+            .contentShape(Capsule())
+            .onTapGesture { focused = true }
             .glassEffect(.regular, in: Capsule())
 
             Button("Cancel", action: onCancel)
