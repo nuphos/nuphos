@@ -17,9 +17,7 @@ export type ConversationsSort = 'activity' | 'created' | 'archived'
 
 /**
  * teamId leads and is required — the backend rejects a listing without one, so
- * a caller that can't name the team has no question to ask. It used to trail a
- * pair of optional arguments, which is how a call site came to pass something
- * else entirely in its place.
+ * a caller that can't name the team has no question to ask.
  */
 export async function listConversations(
   teamId: string,

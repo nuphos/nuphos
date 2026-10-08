@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react'
 
+import { useRecordDockVisit } from '../../hooks/useDockHistory'
 import { pageLocationForNavigation } from '../../lib/appRoutes'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { navigationSnapshot, pageLocationForTab } from '../workspaceTabFactory'
@@ -14,6 +15,7 @@ import type { UpdateWorkspaceTab } from './paneTypes'
 
 export function useTabPageMeta({
   tabId,
+  userId,
   tab,
   active,
   pageHref,
@@ -22,6 +24,7 @@ export function useTabPageMeta({
   openInChat,
 }: {
   tabId: string
+  userId: string
   tab: WorkspaceTabState
   active: boolean
   pageHref: string
@@ -29,6 +32,8 @@ export function useTabPageMeta({
   copyLink: (href: string) => Promise<void>
   openInChat: (href: string) => void
 }) {
+  // The page meta this hook stores is what the dock history remembers.
+  useRecordDockVisit(userId, tab)
   const setPageMeta = useCallback(
     ({ pageKey, title, icon, iconKey, canonicalHref }: PageMetaInput) => {
       updateTab(tabId, (cur) => {

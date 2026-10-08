@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { PageMeta } from '../app/pageMeta'
 import { BrowserLoadingProgress } from '../components/BrowserLoadingProgress'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
-import { recordBrowserVisit } from '../lib/browserHistory'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import type { WebviewTag } from 'electron'
@@ -13,11 +12,7 @@ import type { WebviewTag } from 'electron'
 export function BrowserView({
   url,
   onNavigate,
-  userId,
-  teamId,
 }: {
-  userId: string
-  teamId: string
   url?: string
   onNavigate?: (url: string) => void
 }) {
@@ -80,16 +75,12 @@ export function BrowserView({
         setLoading(false)
       }
     }
-    const recordVisit = () => recordBrowserVisit(userId, teamId, view.getURL(), view.getTitle())
     const onTitle = (event: Electron.PageTitleUpdatedEvent) => {
       setTitle(event.title || 'Browser')
-      recordBrowserVisit(userId, teamId, view.getURL(), event.title)
     }
 
     view.addEventListener('dom-ready', onReady)
     view.addEventListener('did-navigate', sync)
-    view.addEventListener('did-navigate', recordVisit)
-    view.addEventListener('did-navigate-in-page', recordVisit)
     view.addEventListener('did-navigate-in-page', sync)
     view.addEventListener('did-start-loading', onStart)
     view.addEventListener('did-stop-loading', onStop)
@@ -101,8 +92,6 @@ export function BrowserView({
     return () => {
       view.removeEventListener('dom-ready', onReady)
       view.removeEventListener('did-navigate', sync)
-      view.removeEventListener('did-navigate', recordVisit)
-      view.removeEventListener('did-navigate-in-page', recordVisit)
       view.removeEventListener('did-navigate-in-page', sync)
       view.removeEventListener('did-start-loading', onStart)
       view.removeEventListener('did-stop-loading', onStop)
@@ -111,7 +100,7 @@ export function BrowserView({
       view.remove()
       viewRef.current = null
     }
-  }, [initialUrl, userId, teamId])
+  }, [initialUrl])
 
   useEffect(() => {
     if (lastRefresh.current === refreshKey) return

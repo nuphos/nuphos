@@ -157,7 +157,7 @@ export const WorkspaceTabPane = memo(
       enterCluster,
     })
     const { setPageMeta, pageMetaContext, rowLinkValue, workspaceTabContextValue } = useTabPageMeta(
-      { tabId, tab, active, pageHref, updateTab, copyLink, openInChat },
+      { tabId, userId: user.id, tab, active, pageHref, updateTab, copyLink, openInChat },
     )
 
     return (
