@@ -3,6 +3,7 @@ import { abandonPendingPreviewWaits } from './decision-waiter'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
+import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
@@ -105,12 +106,22 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
   }).catch(() => undefined)
 }
 
-/** Deliver to the existing native turn. No queue, resume, or prompt fallback. */
+/** The receipt names attached files, so the transcript records what was sent. */
+export function steeringText(typed: string, fileNames: string[]): string {
+  return [typed, fileNames.length ? `[Attached: ${fileNames.join(', ')}]` : '']
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+/**
+ * Deliver to the existing native turn. No queue, resume, or prompt fallback.
+ * Returns the text the runtime received, which is also the steering receipt.
+ */
 export async function steerConversationRuntime(
   conversation: AgentConversation,
-  text: string,
+  steer: { text: string; groupId?: string; userId: string },
   messageId: string,
-): Promise<void> {
+): Promise<string> {
   const attachment = liveAttachment(conversation)
 
   if (!attachment || !conversation.teamId) throw new Error('Conversation has no runtime session')
@@ -120,6 +131,19 @@ export async function steerConversationRuntime(
 
   if (!endpoint || endpoint.url !== attachment.runtimeUrl)
     throw new Error('Conversation runtime changed')
+  // Same delivery as a normal turn: files land on the runtime as local paths.
+  const files = steer.groupId
+    ? await runtimeAttachments(
+        [{ type: 'transfer-upload', groupId: steer.groupId }],
+        { teamId: conversation.teamId, userId: steer.userId, sessionId: conversation.sessionId },
+        [],
+      )
+    : []
+  const attachments = await materializeRuntimeAttachments(conversation.teamId, endpoint, files)
+  const text = steeringText(
+    steer.text,
+    files.map((file) => file.name),
+  )
   const client = await OpenAbAcpClient.connect({
     ...(await reachableRuntimeEndpoint(endpoint)),
     connectTimeoutMs: 3_000,
@@ -128,10 +152,17 @@ export async function steerConversationRuntime(
 
   try {
     await client.initialize()
-    const result = await client.steerSession(attachment.openabSessionId, text, messageId)
+    const result = await client.steerSession(
+      attachment.openabSessionId,
+      text,
+      messageId,
+      attachments,
+    )
 
     if (result.outcome !== 'injected')
       throw new Error('The turn already ended. Your message was not sent; send it as a new turn.')
+
+    return text
   } finally {
     client.close()
   }

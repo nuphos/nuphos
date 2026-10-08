@@ -15,7 +15,12 @@ export function useSteering({
   currentUser,
 }: Pick<PanelCtx, 'tabsRef' | 'setTabs' | 'teamId' | 'currentUser'>) {
   const sendSteering = useCallback(
-    async (tabId: string, text: string, queuedId: string = crypto.randomUUID()) => {
+    async (
+      tabId: string,
+      text: string,
+      filePaths: string[] = [],
+      queuedId: string = crypto.randomUUID(),
+    ) => {
       const tab = tabsRef.current.find((t) => t.id === tabId)
 
       if (!tab?.sessionId) return
@@ -27,18 +32,25 @@ export function useSteering({
                 ...t,
                 queued: [
                   ...(t.queued ?? []).filter((q) => q.id !== queuedId),
-                  { id: queuedId, text, filePaths: [], steering: true },
+                  { id: queuedId, text, filePaths, steering: true },
                 ],
               }
             : t,
         ),
       )
       try {
-        const { messageId } = await api.agentSteerConversation(tab.sessionId, text, teamId)
+        // Attachments take the normal upload path; the backend places them on
+        // the runtime and names them in the receipt text it returns.
+        const groupId =
+          filePaths.length > 0 && teamId
+            ? (await api.fileTransferUpload({ teamId, sessionId: tab.sessionId, filePaths }))
+                .groupId
+            : undefined
+        const sent = await api.agentSteerConversation(tab.sessionId, text, teamId, groupId)
         const metadata = optimisticSenderMetadata(currentUser, Date.now())
         const receipt = {
           type: 'data-steering' as const,
-          data: { id: messageId, text, ...(metadata ? { metadata } : {}) },
+          data: { id: sent.messageId, text: sent.text ?? text, ...(metadata ? { metadata } : {}) },
         }
 
         setTabs((tabs) =>

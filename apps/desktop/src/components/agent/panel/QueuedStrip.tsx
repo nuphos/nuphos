@@ -20,7 +20,6 @@ export function QueuedStrip({
   onRemove: (queuedId: string) => void
   onSteer: (queuedId: string) => void
   canSend?: boolean
-  /** Steering carries text only; a draft with files waits for the turn to end. */
   canSteer?: boolean
   sidebar?: boolean
 }) {
@@ -68,7 +67,7 @@ export function QueuedStrip({
               <button
                 type="button"
                 onClick={() => onSteer(item.id)}
-                disabled={!(canSend || (canSteer && item.filePaths.length === 0)) || item.steering}
+                disabled={!(canSend || canSteer) || item.steering}
                 className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-zGray-800 enabled:hover:text-main disabled:opacity-40"
                 title="Send draft"
                 aria-label="Send draft"

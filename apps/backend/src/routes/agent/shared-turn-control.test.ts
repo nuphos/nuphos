@@ -15,6 +15,7 @@ let actor = 'bbbbbbbbbbbbbbbbbbbbbbbb'
 let member = true
 let cancelled = 0
 let steered = 0
+let steeredWith: unknown[] = []
 const conversation = { sessionId: 'shared-control', userId: 'owner', teamId }
 
 useIdentity({
@@ -30,8 +31,11 @@ useSessionExecutionState({
   cancelConversationRuntime: async () => {
     cancelled++
   },
-  steerConversationRuntime: async () => {
+  steerConversationRuntime: async (...args) => {
     steered++
+    steeredWith = args.slice(1)
+
+    return 'receipt'
   },
 })
 const app = new Hono().route('/agent', agent)
@@ -69,4 +73,20 @@ test('a teammate cannot control another actor’s turn or a revoked team session
   expect((await request('steer')).status).toBe(404)
   expect(cancelled).toBe(0)
   expect(steered).toBe(0)
+})
+
+test('steering forwards an uploaded group and returns the delivered receipt', async () => {
+  const response = await app.request(`/agent/conversations/shared-control/steer?teamId=${teamId}`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
+    body: JSON.stringify({ groupId: 'group-1' }),
+  })
+
+  expect(response.status).toBe(200)
+  expect(((await response.json()) as { text: string }).text).toBe('receipt')
+  expect(steeredWith[0]).toEqual({
+    text: '',
+    groupId: 'group-1',
+    userId: 'bbbbbbbbbbbbbbbbbbbbbbbb',
+  })
 })

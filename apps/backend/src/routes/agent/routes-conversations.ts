@@ -242,10 +242,11 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  const body = await c.req.json<{ text?: unknown }>()
+  const body = await c.req.json<{ text?: unknown; groupId?: unknown }>()
   const text = typeof body.text === 'string' ? body.text.trim() : ''
+  const groupId = typeof body.groupId === 'string' ? body.groupId : ''
 
-  if (!text) throw new AppError(400, 'invalid_request', 'text is required')
+  if (!text && !groupId) throw new AppError(400, 'invalid_request', 'text or groupId is required')
   const runtime = await conversationExecutionState(conversation)
 
   if (!runtime.actions?.steer)
@@ -260,10 +261,9 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
       'The running turn is not owned by your current credential context',
     )
   const messageId = crypto.randomUUID()
+  const sent = await steerConversationRuntime(conversation, { text, groupId, userId }, messageId)
 
-  await steerConversationRuntime(conversation, text, messageId)
-
-  return c.json({ ok: true, messageId })
+  return c.json({ ok: true, messageId, text: sent })
 })
 
 // Page backwards through transcript messages before the absolute `before`

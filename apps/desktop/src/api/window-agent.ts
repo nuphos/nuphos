@@ -152,7 +152,8 @@ export type WindowAgentApi = {
     sessionId: string,
     text: string,
     teamId?: string,
-  ): Promise<{ ok: boolean; messageId: string }>
+    groupId?: string,
+  ): Promise<{ ok: boolean; messageId: string; text?: string }>
   agentSlackPickup(
     sessionId: string,
     teamId?: string,
