@@ -1,5 +1,7 @@
 //! Choices the TUI and the non-interactive commands make the same way.
 
+use std::io::Write;
+
 use anyhow::{bail, Result};
 use serde_json::Value;
 
@@ -7,18 +9,40 @@ use crate::api::Api;
 use crate::config::{self, Prefs};
 use crate::render::clean;
 
+pub const ADD_AGENT_HINT: &str = "Add an agent with `nuphos runtime claude-code --create` (or codex).";
+
 /// `--team` (or `NUPHOS_TEAM`), the team used last time, then the first
-/// team. Never asks: the TUI shows the team and `/team` switches it.
-pub async fn resolve_team(api: &Api, prefs: &mut Prefs, wanted: Option<&str>) -> Result<Value> {
+/// team. Asks only when there is no team at all, to name a new one.
+pub async fn resolve_team(api: &Api, prefs: &mut Prefs, wanted: Option<&str>, interactive: bool) -> Result<Value> {
     let teams = api.teams().await?;
     if teams.is_empty() {
-        bail!("You are not a member of any Nuphos team yet. Create one in the Nuphos app first.");
+        if !interactive {
+            bail!("You are not a member of any Nuphos team yet. Create one with `nuphos team --create NAME`.");
+        }
+        print!("You are not in a Nuphos team yet. Name one to create it: ");
+        std::io::stdout().flush()?;
+        let mut name = String::new();
+        std::io::stdin().read_line(&mut name)?;
+        let team = create_team(api, prefs, &name).await?;
+        println!("Created team {}. {ADD_AGENT_HINT}", label(&team));
+        return Ok(team);
     }
     if let Some(name) = wanted {
         return find(&teams, name, "team");
     }
     let team =
         prefs.team_id.as_deref().and_then(|id| teams.iter().find(|t| t["id"] == id)).unwrap_or(&teams[0]).clone();
+    remember_team(prefs, &team);
+    Ok(team)
+}
+
+/// Creates a team with me as its administrator and makes it the default.
+pub async fn create_team(api: &Api, prefs: &mut Prefs, name: &str) -> Result<Value> {
+    let name = name.trim();
+    if name.is_empty() {
+        bail!("A team needs a name.");
+    }
+    let team = api.create_team(name).await?;
     remember_team(prefs, &team);
     Ok(team)
 }

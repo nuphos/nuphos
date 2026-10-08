@@ -110,6 +110,11 @@ impl Api {
         Ok(v["teams"].as_array().cloned().unwrap_or_default())
     }
 
+    pub async fn create_team(&self, name: &str) -> Result<Value, ApiError> {
+        let v = self.call(Method::POST, "/teams", &[], Some(&json!({ "name": name }))).await?;
+        Ok(v["team"].clone())
+    }
+
     pub async fn conversations(&self, team: &str) -> Result<Vec<Value>, ApiError> {
         let query =
             [("teamId", team), ("limit", "30"), ("scope", "mine"), ("sort", "activity"), ("archived", "exclude")];
@@ -125,6 +130,28 @@ impl Api {
     pub async fn runtimes(&self, team: &str) -> Result<Vec<Value>, ApiError> {
         let v = self.call(Method::GET, &format!("/teams/{team}/agent-runtimes"), &[], None).await?;
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
+    }
+
+    /// A Nuphos-managed Cloud agent; administrators only.
+    pub async fn create_runtime(&self, team: &str, provider: &str) -> Result<Value, ApiError> {
+        let body = json!({ "provider": provider });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes"), &[], Some(&body)).await
+    }
+
+    /// Starts (POST) or reads (GET) a Cloud agent's sign-in to its provider account.
+    pub async fn runtime_login(&self, method: Method, team: &str, runtime: &str) -> Result<Value, ApiError> {
+        self.call(method, &format!("/teams/{team}/agent-runtimes/{runtime}/login"), &[], None).await
+    }
+
+    pub async fn submit_runtime_login_code(
+        &self,
+        team: &str,
+        runtime: &str,
+        attempt: &str,
+        code: &str,
+    ) -> Result<Value, ApiError> {
+        let body = json!({ "attemptId": attempt, "code": code });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes/{runtime}/login/code"), &[], Some(&body)).await
     }
 
     /// `{ models, controls }` — administrators only, unless the runtime is local.

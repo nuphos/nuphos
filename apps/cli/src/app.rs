@@ -858,7 +858,7 @@ impl App {
         let items: Vec<_> =
             self.runtimes.iter().map(|r| (shared::label(r), shared::runtime_detail(r), r.clone())).collect();
         if items.is_empty() {
-            self.notice = Some("This team has no active agents.".into());
+            self.notice = Some(format!("This team has no active agents. {}", shared::ADD_AGENT_HINT));
             return;
         }
         let selected = items.iter().position(|(_, _, r)| Some(&r["id"]) == current.as_ref()).unwrap_or(0);

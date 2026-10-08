@@ -6,6 +6,7 @@
 use std::io::Write;
 
 use anyhow::{anyhow, bail, Result};
+use reqwest::Method;
 use serde_json::{json, Value};
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -112,6 +113,74 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
     Ok(())
 }
 
+/// `nuphos runtime PROVIDER --create`: adds a Nuphos-managed Cloud agent,
+/// picks it for new conversations, and signs it in.
+pub async fn create_runtime(ctx: &mut Ctx, provider: &str) -> Result<()> {
+    let team = ctx.team_id();
+    let runtime = ctx.api.create_runtime(&team, provider).await?;
+    ctx.prefs.runtime_ids.insert(team, runtime["id"].as_str().unwrap_or_default().to_string());
+    config::write_prefs(&ctx.prefs);
+    eprintln!("Added {}; new conversations run on it.", label(&runtime));
+    sign_in_runtime(ctx, &runtime).await
+}
+
+/// `nuphos runtime NAME --login`: signs a Cloud agent in to its provider
+/// account, again or for the first time.
+pub async fn login_runtime(ctx: &Ctx, name: &str) -> Result<()> {
+    let runtime = shared::find(&ctx.api.runtimes(&ctx.team_id()).await?, name, "agent")?;
+    sign_in_runtime(ctx, &runtime).await
+}
+
+/// The browser shows either a code to paste back here or a device code to
+/// confirm there; the agent keeps the sign-in, Nuphos does not.
+async fn sign_in_runtime(ctx: &Ctx, runtime: &Value) -> Result<()> {
+    let team = ctx.team_id();
+    let id = runtime["id"].as_str().unwrap_or_default();
+    let mut login = ctx.api.runtime_login(Method::POST, &team, id).await?;
+    let mut shown = false;
+    loop {
+        match login["state"].as_str().unwrap_or_default() {
+            "connected" => break,
+            "failed" | "cancelled" => bail!(
+                "{} did not sign in: {}. Try again with `nuphos runtime '{}' --login`.",
+                label(runtime),
+                clean(login["error"].as_str().unwrap_or("cancelled")),
+                label(runtime)
+            ),
+            "awaiting_authorization" if !shown => {
+                shown = true;
+                if let Some(url) = login["authorizationUrl"].as_str() {
+                    eprintln!("Sign {} in at:\n\n  {}\n", label(runtime), clean(url));
+                    let _ = open::that(url);
+                    eprint!("Paste the code the page shows: ");
+                    let mut code = String::new();
+                    std::io::stdin().read_line(&mut code)?;
+                    let attempt = login["attemptId"].as_str().unwrap_or_default().to_string();
+                    login = ctx.api.submit_runtime_login_code(&team, id, &attempt, code.trim()).await?;
+                    continue;
+                }
+                let uri = login["verificationUri"].as_str().unwrap_or_default();
+                eprintln!(
+                    "Sign {} in at {} with the code {}",
+                    label(runtime),
+                    clean(uri),
+                    clean(login["userCode"].as_str().unwrap_or_default())
+                );
+                let _ = open::that(uri);
+            }
+            _ => {}
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        login = ctx.api.runtime_login(Method::GET, &team, id).await?;
+    }
+    if ctx.json {
+        ctx.print_json(runtime);
+    } else {
+        println!("{} is signed in and ready.", label(runtime));
+    }
+    Ok(())
+}
+
 /// `nuphos model [VALUE] [--effort E] [--session ID]`. With a session it is
 /// that conversation's setting; without one it is the default the next new
 /// conversation starts with, as on the desktop (a team setting for a Cloud
@@ -142,7 +211,7 @@ pub async fn model(
 
     let runtimes = ctx.runtimes().await?;
     let runtime = shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id)
-        .ok_or_else(|| anyhow!("This team has no active agents."))?;
+        .ok_or_else(|| anyhow!("This team has no active agents. {}", shared::ADD_AGENT_HINT))?;
     let runtime_id = runtime["id"].as_str().unwrap_or_default().to_string();
     if value.is_none() && effort.is_none() {
         let catalog = ctx.api.runtime_models(&team, &runtime_id, None).await?;
