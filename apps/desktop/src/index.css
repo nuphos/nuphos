@@ -1052,6 +1052,13 @@
     -webkit-app-region: no-drag;
   }
 
+  /* A collapsed dock retains its content for the width animation. Ancestor
+     scrolling (e.g. scrollIntoView) can move that clipped content over the
+     session header; Electron's drag regions do not respect overflow clipping. */
+  [data-dock-open='false'] .titlebar-drag {
+    -webkit-app-region: no-drag;
+  }
+
   /* Electron derives draggable regions geometrically from the layout, so an
      overlay's `no-drag` never cancels a `drag` region sitting underneath it —
      the same reason the settings overlay has to hide the whole app shell (see

@@ -89,6 +89,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
       {scope?.teamId && (
         <aside
           data-workspace-focus-surface="tab"
+          data-dock-open={dockOpen}
           ref={dockRef}
           onTransitionEnd={(event) => {
             if (event.target === event.currentTarget && event.propertyName === 'width') {
