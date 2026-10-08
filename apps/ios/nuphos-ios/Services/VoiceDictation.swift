@@ -84,11 +84,11 @@ final class VoiceDictation {
 enum Whisper {
     static let keychainKey = "openai-api-key"
 
-    /// The transcription prompt, editable in Account. It sets the style
-    /// (Mandarin in Taiwanese Traditional Chinese) and spells names Whisper
-    /// would otherwise guess at. Whisper reads only its last 224 tokens.
+    /// The transcription prompt, editable in Account. Whisper copies its
+    /// spelling and style, so it lists names Whisper would otherwise guess at.
+    /// Whisper reads only its last 224 tokens.
     static let promptKey = "whisper-prompt"
-    static let defaultPrompt = "以下是台灣繁體中文的句子，可能提到 Nuphos、Zeabur、Claude Code、Codex、Kubernetes、kubectl、Helm、EKS、GKE、AWS、GCP、Cloudflare、Grafana、Linear、GitHub、PR、CI。"
+    static let defaultPrompt = "Nuphos, Zeabur, Claude Code, Codex, Kubernetes, kubectl, Helm, EKS, GKE, AWS, GCP, Cloudflare, Grafana, Linear, GitHub, PR, CI."
 
     struct Failure: LocalizedError {
         let errorDescription: String?
@@ -118,7 +118,7 @@ enum Whisper {
         guard var text = reply.text else {
             throw Failure(errorDescription: "OpenAI couldn't transcribe the recording.")
         }
-        // The prompt is only a hint; convert any Simplified characters it let through.
+        // Whisper writes Mandarin in Simplified Chinese by default; convert it to Traditional.
         if reply.language == "chinese" {
             text = text.applyingTransform(StringTransform("Hans-Hant"), reverse: false) ?? text
         }
