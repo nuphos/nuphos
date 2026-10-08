@@ -193,6 +193,7 @@ export function SidebarSectionList({
                               )}
                               {favoriteToggle}
                               {item.trailing}
+                              {item.actions}
                             </>
                           }
                           icon={item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)}
