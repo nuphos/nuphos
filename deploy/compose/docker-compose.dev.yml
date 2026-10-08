@@ -10,8 +10,6 @@ services:
       - 127.0.0.1:${MONGO_PORT:-27117}:27017
 
   runtime:
-    ports:
-      - 127.0.0.1:${RUNTIME_PORT:-18180}:8080
     extra_hosts:
       - host.docker.internal:host-gateway
 

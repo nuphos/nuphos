@@ -1,0 +1,40 @@
+name: Compose
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/compose/**'
+      - 'apps/backend/**'
+      - 'apps/runtime/**'
+      - '.github/workflows/compose.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Local stack smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: deploy/compose
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate local secrets
+        run: ./init-env.sh
+      - name: Validate development overlay
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
+      - name: Build and start the complete stack
+        run: docker compose up -d --build --wait --wait-timeout 600
+      - name: Exercise sign-in, runtime and storage
+        run: python3 smoke.py
+      - name: Show container health
+        if: always()
+        run: docker compose ps -a
+      - name: Remove test containers and volumes
+        if: always()
+        run: docker compose down -v --remove-orphans
