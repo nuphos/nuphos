@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FirstRunPanel } from '../../views/onboarding/FirstRunPanel'
 
 import { WorkspaceMainPane } from './WorkspaceMainPane'
+import { useWorkspacePane } from './WorkspacePaneContext'
 import { WorkspaceTabStrip } from './WorkspaceTabStrip'
 
 import type { WorkspaceController } from './useWorkspaceController'
@@ -58,6 +59,25 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
   useEffect(() => {
     if (!dockOpen) setWorkspaceDockExpanded(false)
   }, [dockOpen, setWorkspaceDockExpanded])
+
+  // ⇧⌘↩ — expand or restore the dock; from closed it opens straight to expanded.
+  const paneActive = useWorkspacePane()?.active ?? true
+
+  useEffect(() => {
+    if (!paneActive || !scope?.teamId || typeof window.api.onAppShortcut !== 'function') return
+
+    return window.api.onAppShortcut((action) => {
+      if (action !== 'toggle-dock-expanded') return
+      setSuppressDockTransition(true)
+      if (dockOpen) {
+        setWorkspaceDockExpanded((expanded) => !expanded)
+
+        return
+      }
+      workspaceActions.setDockOpen(true)
+      setWorkspaceDockExpanded(true)
+    })
+  }, [paneActive, scope?.teamId, dockOpen, workspaceActions, setWorkspaceDockExpanded])
 
   useEffect(() => {
     if (!suppressDockTransition) return
