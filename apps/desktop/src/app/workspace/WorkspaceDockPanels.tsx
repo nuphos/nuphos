@@ -33,6 +33,11 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     return Number.isFinite(stored) && stored > 0 ? Math.min(60, Math.max(24, stored)) : 42
   })
   const [dragging, setDragging] = useState(false)
+  // Expanded as of the last finished width transition. While the dock animates
+  // back from full width its content follows the aside's width; snapping it to
+  // the docked width at once left a blank band beside it until the aside caught up.
+  const [settledExpanded, setSettledExpanded] = useState(workspaceDockExpanded)
+  const contentFollowsAside = dockOpen && (workspaceDockExpanded || settledExpanded)
 
   useEffect(() => {
     if (!dragging) return
@@ -85,6 +90,11 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
         <aside
           data-workspace-focus-surface="tab"
           ref={dockRef}
+          onTransitionEnd={(event) => {
+            if (event.target === event.currentTarget && event.propertyName === 'width') {
+              setSettledExpanded(workspaceDockExpanded)
+            }
+          }}
           style={{
             width: dockOpen ? (workspaceDockExpanded ? '100%' : `${String(widthVw)}cqw`) : 0,
           }}
@@ -108,7 +118,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
             </div>
           )}
           <div
-            style={{ width: workspaceDockExpanded ? '100%' : `${String(widthVw)}cqw` }}
+            style={{ width: contentFollowsAside ? '100%' : `${String(widthVw)}cqw` }}
             className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
           >
             <WorkspaceTabStrip ws={ws} userId={user.id} />
