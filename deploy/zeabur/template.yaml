@@ -89,10 +89,11 @@ spec:
               #!/bin/bash
               set -euo pipefail
               umask 077
-              printf '%s' "$MONGO_REPLICA_KEY" > /tmp/mongo-keyfile
-              chown mongodb:mongodb /tmp/mongo-keyfile
-              chmod 400 /tmp/mongo-keyfile
-              /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/mongo-keyfile --bind_ip_all &
+              mkdir -p -m 755 /tmp/nuphos-mongo
+              printf '%s' "$MONGO_REPLICA_KEY" > /tmp/nuphos-mongo/keyfile
+              chown mongodb:mongodb /tmp/nuphos-mongo/keyfile
+              chmod 400 /tmp/nuphos-mongo/keyfile
+              /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/nuphos-mongo/keyfile --bind_ip_all &
               pid=$!
               trap 'kill -TERM "$pid"; wait "$pid"' TERM INT
               for attempt in $(seq 1 120); do
