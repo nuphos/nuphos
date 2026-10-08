@@ -1,6 +1,7 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
 import { Check, Copy, Link2, Loader2, Users, X } from 'lucide-react'
+import { useState } from 'react'
 
 import { Avatar } from '../Avatar'
 import { Button } from '../ui/button'
@@ -33,15 +34,15 @@ export function CheckBadge({ className }: { className: string }) {
 }
 
 /** The link with its Copy button, and who that link opens for. */
-export function ShareLink({
-  url,
-  copied,
-  onCopy,
-}: {
-  url: string
-  copied: boolean
-  onCopy: () => void
-}) {
+export function ShareLink({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false)
+  const onCopy = () => {
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1200)
+    })
+  }
+
   return (
     <div className="flex flex-col rounded-lg border border-zGray-800/60">
       <div className="flex items-center gap-2 py-1 pl-2.5 pr-1">

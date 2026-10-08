@@ -12,6 +12,7 @@ import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
 import { AddedReceipt, ParticipantList, ShareLink } from './ShareCard'
+import { agentSessionUrl } from './sessionUrl'
 import { TeammatePicker } from './TeammatePicker'
 
 import type { AgentConversationParticipant } from '../../api/agent-types'
@@ -76,21 +77,15 @@ export function SessionParticipants({
   sessionId,
   teamId,
   title,
-  sessionUrl,
   currentUserId,
   warnLocalAgent,
-  onCopyLink,
-  copied,
 }: {
   sessionId: string
   teamId: string
   title: string
-  sessionUrl: string
   currentUserId: string
   /** The viewer owns this session and it runs on their own computer's Local Agent. */
   warnLocalAgent: boolean
-  onCopyLink: () => void
-  copied: boolean
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
   const [members, setMembers] = useState<TeamMember[] | null>(null)
@@ -235,7 +230,7 @@ export function SessionParticipants({
                     <X className="h-3.5 w-3.5" strokeWidth={2} />
                   </Popover.Close>
                 </div>
-                <ShareLink url={sessionUrl} copied={copied} onCopy={onCopyLink} />
+                <ShareLink url={agentSessionUrl(teamId, sessionId)} />
                 {warnLocalAgent && (
                   <div className="flex gap-2 px-1 text-[12px] leading-snug text-warning">
                     <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
