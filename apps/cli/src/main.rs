@@ -1,5 +1,6 @@
 //! `nuphos` — a terminal client for Nuphos agent conversations.
 
+mod agent;
 mod api;
 mod app;
 mod cli;
@@ -85,6 +86,8 @@ enum Command {
         #[arg(long)]
         session: String,
     },
+    /// Run this computer's Claude Code and Codex as local agents, as the desktop app does.
+    Agent,
     /// Sign in through the browser (shared with the desktop app).
     Login,
     /// Sign out here and in the desktop app.
@@ -117,6 +120,10 @@ async fn run(args: Args) -> Result<i32> {
             return Ok(0);
         }
         Some(Command::Update) => return update::update().await,
+        Some(Command::Agent) => {
+            sign_in(std::io::stdin().is_terminal()).await?;
+            return agent::run().await;
+        }
         Some(Command::Login) => {
             let session = login::login(&config::api_url()).await?;
             println!("Signed in as {}.", render::clean(session.user.as_deref().unwrap_or("you")));
@@ -184,7 +191,7 @@ async fn run(args: Args) -> Result<i32> {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }
         Some(Command::Stop { session }) => cli::stop(&ctx, &session).await.map(|_| 0),
-        Some(Command::Login | Command::Logout | Command::Update) => Ok(0),
+        Some(Command::Agent | Command::Login | Command::Logout | Command::Update) => Ok(0),
     }
 }
 
