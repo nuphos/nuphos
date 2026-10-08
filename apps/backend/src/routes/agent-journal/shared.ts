@@ -1,3 +1,4 @@
+import { agentConversations } from '@/lib/agent/db'
 import { conversationAccess } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
 import { canonicalize, sha256Hex } from '@/lib/journal'
@@ -59,4 +60,26 @@ export function journalConversationTitle(conversation: AgentConversation, viewer
   return conversationAccess(conversation, viewerId)
     ? conversation.title || 'Untitled chat'
     : 'Private session'
+}
+
+/**
+ * The sessions among `sessionIds` this viewer may not open. Their events stay
+ * in the team audit as facts (who ran which tool, when) but lose their content.
+ * A session with no conversation doc left has nobody to protect, so it stays.
+ */
+export async function unreadableSessionIds(sessionIds: string[], viewerId: string) {
+  if (sessionIds.length === 0) return new Set<string>()
+  const docs = await agentConversations()
+    .find({ sessionId: { $in: sessionIds } }, { projection: JOURNAL_CONVERSATION_PROJECTION })
+    .toArray()
+
+  return new Set(
+    docs.filter((doc) => !conversationAccess(doc, viewerId)).map((doc) => doc.sessionId),
+  )
+}
+
+/** An explicitly requested session answers like the transcript route: not found. */
+export async function assertJournalSessionsReadable(sessionIds: string[], viewerId: string) {
+  if ((await unreadableSessionIds(sessionIds, viewerId)).size > 0)
+    throw new AppError(404, 'not_found', 'Conversation not found')
 }

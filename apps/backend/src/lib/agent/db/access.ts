@@ -66,12 +66,20 @@ export function readableByFilter(viewerId: string) {
 }
 
 /**
- * New conversations started from the app or an external client are private
- * until shared. Channel and trigger conversations live somewhere the team
- * already shares, so they keep the team-wide default.
+ * Every new conversation is private until shared, whichever way it was
+ * created: the app, an external client, a transcript sync, an agent thread.
+ * Only conversations that live where the team already talks — a Slack,
+ * Discord or Lark channel, or a trigger's run — start team-wide.
  */
 export function initialGeneralAccess(source: string | undefined): GeneralAccess | undefined {
-  return source === 'app' || source === 'mcp' ? 'none' : undefined
+  const teamWide =
+    source !== undefined &&
+    (['slack.', 'discord.', 'lark.', 'agent.trigger.'].some((prefix) =>
+      source.startsWith(prefix),
+    ) ||
+      source === 'agent.trigger')
+
+  return teamWide ? undefined : 'none'
 }
 
 /** A read filter: the owner alone without a team, else whoever conversationAccess admits. */

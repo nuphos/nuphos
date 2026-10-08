@@ -39,9 +39,14 @@ describe('conversationAccess', () => {
   })
 })
 
-test('sessions started from the app or an external client begin private', () => {
+test('new sessions begin private unless a channel or trigger created them', () => {
   expect(initialGeneralAccess('app')).toBe('none')
   expect(initialGeneralAccess('mcp')).toBe('none')
+  expect(initialGeneralAccess('agent.thread')).toBe('none')
+  // A transcript sync can insert before /chat and carries no source.
+  expect(initialGeneralAccess(undefined)).toBe('none')
   expect(initialGeneralAccess('slack.agent')).toBeUndefined()
+  expect(initialGeneralAccess('discord.agent')).toBeUndefined()
+  expect(initialGeneralAccess('lark.agent')).toBeUndefined()
   expect(initialGeneralAccess('agent.trigger')).toBeUndefined()
 })

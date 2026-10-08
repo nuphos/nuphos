@@ -10,6 +10,7 @@ import { listAuditEventsView } from '@/routes/agent-journal/list-events'
 import {
   JOURNAL_CONVERSATION_PROJECTION,
   LIST_MAX_CONVERSATIONS,
+  assertJournalSessionsReadable,
   journalConversationTitle,
 } from '@/routes/agent-journal/shared'
 
@@ -61,7 +62,10 @@ export function registerAgentJournalListRoute(agentJournal: Hono<{ Variables: Au
     }
     const sessionId = c.req.query('sessionId')
 
-    if (sessionId) base.sessionId = sessionId
+    if (sessionId) {
+      await assertJournalSessionsReadable([sessionId], userId)
+      base.sessionId = sessionId
+    }
     const from = c.req.query('from')
     const to = c.req.query('to')
 

@@ -18,8 +18,10 @@ import {
   EXPORT_MAX_SESSIONS,
   JOURNAL_CONVERSATION_PROJECTION,
   contentMatches,
+  assertJournalSessionsReadable,
   journalConversationTitle,
   normalizeRangeTimestamp,
+  unreadableSessionIds,
 } from '@/routes/agent-journal/shared'
 
 import type { JournalDoc } from '@/lib/journal'
@@ -115,7 +117,17 @@ export function registerAgentJournalExportRoute(agentJournal: Hono<{ Variables: 
         `Export matches more than ${String(EXPORT_MAX_SESSIONS)} sessions; choose a shorter date range`,
       )
     }
-    const sessionIds = selectedRows.map((row) => row._id)
+    // The team export carries whole chains, content included, so it holds only
+    // sessions this viewer may open; asking for one they may not is a 404.
+    if (scope === 'team') await assertJournalSessionsReadable(explicitSessionIds, userId)
+    const hidden =
+      scope === 'team'
+        ? await unreadableSessionIds(
+            selectedRows.map((row) => row._id),
+            userId,
+          )
+        : new Set<string>()
+    const sessionIds = selectedRows.map((row) => row._id).filter((id) => !hidden.has(id))
     // Freeze each selected chain at its true tail before reading documents.
     // New events appended while the export runs belong to the next export;
     // this one remains complete and verifiable as of these snapshot heads.

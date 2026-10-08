@@ -39,9 +39,12 @@ export function TeammatePicker({
   const pickedIds = new Set(picked.map((member) => member.id))
   const shown = invitable.filter((member) => matches(member, query))
 
-  // Keep the newest chip and the caret in view as the line grows.
+  // Keep the newest chip and the caret in view as the line grows. Scrolling the
+  // line itself, not scrollIntoView, which would move every scrolling ancestor.
   useLayoutEffect(() => {
-    inputRef.current?.scrollIntoView({ block: 'nearest', inline: 'end' })
+    const line = inputRef.current?.parentElement
+
+    if (line) line.scrollLeft = line.scrollWidth
   }, [picked.length])
 
   const toggle = (member: TeamMember) => {

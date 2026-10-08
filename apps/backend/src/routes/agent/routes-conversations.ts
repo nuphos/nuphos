@@ -28,10 +28,7 @@ import {
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
-import {
-  conversationExecutionState,
-  steerConversationRuntime,
-} from '@/lib/claude-code-preview/session-execution-state'
+import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
@@ -233,37 +230,6 @@ agent.get('/conversations/:sessionId', async (c) => {
         }
       : null,
   })
-})
-
-agent.post('/conversations/:sessionId/steer', async (c) => {
-  const userId = c.get('userId')
-  const sessionId = c.req.param('sessionId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  const conversation = await getReadableConversation(sessionId, userId, teamId)
-
-  if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  const body = await c.req.json<{ text?: unknown }>()
-  const text = typeof body.text === 'string' ? body.text.trim() : ''
-
-  if (!text) throw new AppError(400, 'invalid_request', 'text is required')
-  const runtime = await conversationExecutionState(conversation)
-
-  if (!runtime.actions?.steer)
-    throw new AppError(409, 'runtime_steering_unavailable', 'This agent cannot accept steering')
-  const active = await getActiveAgentRunForSession(conversation.userId, sessionId)
-
-  // This guard protects the actor's credential scope, not runtime activity.
-  if (!active?.actorUserId || active.actorUserId !== userId)
-    throw new AppError(
-      409,
-      'conversation_actor_unavailable',
-      'The running turn is not owned by your current credential context',
-    )
-  const messageId = crypto.randomUUID()
-
-  await steerConversationRuntime(conversation, text, messageId)
-
-  return c.json({ ok: true, messageId })
 })
 
 // Page backwards through transcript messages before the absolute `before`

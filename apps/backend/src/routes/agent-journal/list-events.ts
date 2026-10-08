@@ -18,6 +18,7 @@ import {
   LIST_MAX_EVENTS,
   contentMatches,
   journalConversationTitle,
+  unreadableSessionIds,
 } from '@/routes/agent-journal/shared'
 
 import type { JournalDoc } from '@/lib/journal'
@@ -153,10 +154,20 @@ export async function listAuditEventsView(
       (entry): entry is Extract<(typeof page)[number], { kind: 'agent' }> => entry.kind === 'agent',
     )
     .map((entry) => entry.doc)
+  const hidden = await unreadableSessionIds(
+    [...new Set(journalPage.map((doc) => doc.sessionId))],
+    userId,
+  )
   const events = page.map((entry) => {
     if (entry.kind === 'skill') return skillAuditEvent(entry.doc)
     if (entry.kind === 'runtime') return runtimeImageAuditEvent(entry.doc)
     const { _id, contentHot, ...event } = entry.doc as JournalDoc & { _id?: unknown }
+
+    if (hidden.has(event.sessionId)) {
+      const toolName = (event.payload as { toolName?: unknown } | undefined)?.toolName
+
+      return { kind: 'agent' as const, ...event, payload: { toolName }, withheld: true }
+    }
 
     // sessionId stays in agent events so those rows can open their real
     // conversation. Resource events deliberately have no fake session.

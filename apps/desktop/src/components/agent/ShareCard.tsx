@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { Avatar } from '../Avatar'
 import { Button } from '../ui/button'
+import { toast } from '../ui/toast'
 
 import { RoleMenu } from './ShareAccess'
 
@@ -87,10 +88,13 @@ export function CheckBadge({ className }: { className: string }) {
 export function ShareLink({ url, children }: { url: string; children: React.ReactNode }) {
   const [copied, setCopied] = useState(false)
   const onCopy = () => {
-    void navigator.clipboard.writeText(url).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1200)
-    })
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1200)
+      })
+      .catch(() => toast.error('Could not copy the link'))
   }
 
   return (
