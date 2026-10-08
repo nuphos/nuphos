@@ -23,7 +23,7 @@ use ratatui::{Frame, Terminal};
 use serde_json::{json, Value};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::api::{Api, ApiError, Method, StreamEvent};
 use crate::config::{self, Prefs};
@@ -106,7 +106,7 @@ enum PickAction {
 enum Ask {
     PairUrl,
     PairCode { url: String },
-    LoginCode { runtime: Value, attempt: String, deadline: Instant },
+    LoginCode { runtime: Value, attempt: String, deadline: Instant, url: String },
 }
 
 struct Picker {
@@ -489,7 +489,7 @@ impl App {
         if self.on_welcome() {
             return self.draw_welcome(f, area);
         }
-        let input_lines = self.input.split('\n').count().clamp(1, 6) as u16;
+        let input_lines = self.composer_view(area.width.saturating_sub(6)).0.len().clamp(1, 6) as u16;
         let sessions = matches!(self.picker, Some(Picker { action: PickAction::Conversation, .. }));
         let max_panel = if sessions { 0 } else { area.height / 2 };
         let panel = render::wrap(&self.panel_lines(max_panel as usize), area.width);
@@ -661,24 +661,55 @@ impl App {
         f.render_widget(Span::styled("❯", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)), prompt);
         if self.input.is_empty() {
             let placeholder = match (&self.ask, self.is_new) {
+                (Some((_, Ask::LoginCode { .. })), _) => "Paste the code here",
                 (Some(_), _) => "Type the answer and press enter",
                 (None, true) => "Ask Nuphos anything",
                 (None, false) => "Reply to Nuphos",
             };
             f.render_widget(Paragraph::new(Span::styled(placeholder, dim())), text);
-        } else {
-            let lines: Vec<&str> = self.input.split('\n').collect();
-            let skip = lines.len().saturating_sub(text.height as usize);
-            f.render_widget(Paragraph::new(lines[skip..].join("\n")), text);
+        }
+        let (lines, row, col) = self.composer_view(text.width);
+        let skip = (row + 1).saturating_sub(text.height as usize);
+        if !self.input.is_empty() {
+            let shown: Vec<Line> = lines.into_iter().skip(skip).take(text.height as usize).map(Line::from).collect();
+            f.render_widget(Paragraph::new(shown), text);
         }
         if self.picker.is_none() {
-            let before: String = self.input.chars().take(self.caret).collect();
-            let row = before.matches('\n').count();
-            let col = before.rsplit('\n').next().unwrap_or_default().width();
-            let total = self.input.split('\n').count();
-            let row = row.saturating_sub(total.saturating_sub(text.height as usize));
-            f.set_cursor_position(Position::new(text.x + col as u16, text.y + row as u16));
+            f.set_cursor_position(Position::new(text.x + col as u16, text.y + (row - skip) as u16));
         }
+    }
+
+    /// The draft as the composer shows it: wrapped to `width`, with the
+    /// caret's row and column. A pasted sign-in code shows only its length.
+    fn composer_view(&self, width: u16) -> (Vec<String>, usize, usize) {
+        if matches!(self.ask, Some((_, Ask::LoginCode { .. }))) && !self.input.is_empty() {
+            let text = format!("{} characters pasted · enter to sign in", self.input.chars().count());
+            let col = text.width();
+            return (vec![text], 0, col);
+        }
+        let width = width.max(1) as usize;
+        let mut lines = vec![String::new()];
+        let mut used = 0;
+        let mut caret = None;
+        for (i, ch) in self.input.chars().enumerate() {
+            let w = ch.width().unwrap_or(0);
+            if ch != '\n' && used + w > width {
+                lines.push(String::new());
+                used = 0;
+            }
+            if i == self.caret {
+                caret = Some((lines.len() - 1, used));
+            }
+            if ch == '\n' {
+                lines.push(String::new());
+                used = 0;
+            } else if let Some(line) = lines.last_mut() {
+                line.push(ch);
+                used += w;
+            }
+        }
+        let (row, col) = caret.unwrap_or((lines.len() - 1, used));
+        (lines, row, col)
     }
 
     /// `key:action` hints for what can be done right now, as many as fit.
@@ -742,11 +773,27 @@ impl App {
             let spinner = SPINNER[self.tick % SPINNER.len()];
             lines.push(Line::from(Span::styled(format!("{spinner} {signing}"), Style::default().fg(Color::Cyan))));
         }
-        if let Some((question, _)) = &self.ask {
-            lines.push(Line::from(Span::styled(
+        match &self.ask {
+            Some((title, Ask::LoginCode { url, .. })) => lines.extend([
+                Line::from(Span::styled(title.clone(), Style::default().add_modifier(Modifier::BOLD))),
+                Line::from(vec![
+                    Span::styled("  1. ", dim()),
+                    Span::raw("Sign in on the page that opened in your browser."),
+                ]),
+                Line::from(vec![
+                    Span::styled("     Not opened? ", dim()),
+                    Span::styled(url.clone(), dim().add_modifier(Modifier::UNDERLINED)),
+                ]),
+                Line::from(vec![
+                    Span::styled("  2. ", dim()),
+                    Span::raw("Paste the code it shows below, then press enter."),
+                ]),
+            ]),
+            Some((question, _)) => lines.push(Line::from(Span::styled(
                 question.clone(),
                 Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-            )));
+            ))),
+            None => {}
         }
         if self.pending_approval().is_some() {
             lines.push(Line::from(vec![
@@ -1270,7 +1317,8 @@ impl App {
                     Err(e) => app.notice = Some(e.message),
                 }) as Apply
             }),
-            Ask::LoginCode { runtime, attempt, deadline } => {
+            Ask::LoginCode { runtime, attempt, deadline, .. } => {
+                self.signing = Some(format!("Checking the code for {}…", shared::label(&runtime)));
                 let id = runtime["id"].as_str().unwrap_or_default().to_string();
                 self.background(false, async move {
                     let login = api.submit_runtime_login_code(&team, &id, &attempt, &text).await;
@@ -1344,10 +1392,11 @@ impl App {
         let submitted = login["codeSubmitted"] == true;
         if let (Some(url), false) = (login["authorizationUrl"].as_str(), submitted) {
             open_https(url);
-            self.signing = Some(format!("Sign {label} in at {}", render::clean(url)));
+            self.signing = None;
+            self.notice = None;
             let attempt = login["attemptId"].as_str().unwrap_or_default().to_string();
-            self.ask =
-                Some(("Paste the code the sign-in page shows".into(), Ask::LoginCode { runtime, attempt, deadline }));
+            let url = render::clean(url);
+            self.ask = Some((format!("Sign {label} in"), Ask::LoginCode { runtime, attempt, deadline, url }));
             return;
         }
         if let Some(uri) = login["verificationUri"].as_str() {
