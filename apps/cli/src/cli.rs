@@ -308,7 +308,7 @@ fn print_options(config: &Value) {
 
 /// `nuphos conversations`: recent conversations, newest first.
 pub async fn conversations(ctx: &Ctx) -> Result<()> {
-    let list = ctx.api.conversations(&ctx.team_id()).await?;
+    let list = ctx.api.conversations(&ctx.team_id(), "mine").await?;
     if ctx.json {
         ctx.print_json(&json!(list));
         return Ok(());

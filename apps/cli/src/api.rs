@@ -6,7 +6,8 @@ use std::io::Write;
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use reqwest::{Method, StatusCode};
+pub use reqwest::Method;
+use reqwest::StatusCode;
 use serde_json::{json, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -115,11 +116,35 @@ impl Api {
         Ok(v["team"].clone())
     }
 
-    pub async fn conversations(&self, team: &str) -> Result<Vec<Value>, ApiError> {
+    /// `scope` is `mine`, or `shared`: others' conversations I take part in.
+    pub async fn conversations(&self, team: &str, scope: &str) -> Result<Vec<Value>, ApiError> {
         let query =
-            [("teamId", team), ("limit", "30"), ("scope", "mine"), ("sort", "activity"), ("archived", "exclude")];
+            [("teamId", team), ("limit", "30"), ("scope", scope), ("sort", "activity"), ("archived", "exclude")];
         let v = self.call(Method::GET, "/agent/conversations", &query, None).await?;
         Ok(v["conversations"].as_array().cloned().unwrap_or_default())
+    }
+
+    /// The sidebar favorites, pinned conversations among them: `{ entries, revision }`.
+    pub async fn favorites(&self, team: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/teams/{team}/favorites"), &[], None).await
+    }
+
+    pub async fn set_favorites(&self, team: &str, entries: &Value, revision: &Value) -> Result<Value, ApiError> {
+        let body = json!({ "entries": entries, "expectedRevision": revision });
+        self.call(Method::PUT, &format!("/teams/{team}/favorites"), &[], Some(&body)).await
+    }
+
+    /// Connects a self-hosted agent with the pairing code its console shows;
+    /// administrators only.
+    pub async fn pair_runtime(&self, team: &str, url: &str, code: &str) -> Result<Value, ApiError> {
+        let body = json!({ "url": url, "code": code });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes/pair"), &[], Some(&body)).await
+    }
+
+    pub async fn archive(&self, team: &str, session: &str) -> Result<Value, ApiError> {
+        let body = json!({ "archived": true, "teamId": team });
+        self.call(Method::PATCH, &format!("/agent/conversations/{session}/archive"), &[("teamId", team)], Some(&body))
+            .await
     }
 
     pub async fn conversation(&self, team: &str, session: &str) -> Result<Value, ApiError> {

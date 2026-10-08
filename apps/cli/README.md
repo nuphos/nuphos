@@ -2,9 +2,9 @@
 
 `nuphos` is a terminal client for Nuphos agent conversations. It talks to the
 same API as the desktop and iOS apps (`POST /agent/chat` and its event stream),
-and its layout follows the Codex CLI: finished output goes into the terminal's
-own scrollback, and only the reply in progress, the composer and a status line
-are redrawn.
+and its layout follows the Codex CLI: it takes over the whole terminal, the
+conversation scrolls above a composer pinned to the bottom, and a reply streams
+in full rather than in a fixed-height box.
 
 ## Install
 
@@ -25,6 +25,12 @@ installs it in place. `NUPHOS_NO_UPDATE_CHECK=1` turns the check off.
 nuphos                    # TUI: new conversation in the default team
 nuphos resume [SESSION]   # TUI on a previous conversation, or a picker
 ```
+
+A new conversation opens on a home screen with the shortcuts; typing anything
+switches to the conversation. `ctrl+\` (`ctrl+4` in terminals without the
+kitty keyboard protocol) lists your conversations as the desktop's sidebar does (Pinned, Shared, Chats;
+`p` pins or unpins, in the same favorites), and
+switching away from a reply leaves it running on the server.
 
 It opens in the team used last (the first team the first time) and shows
 which one; `/team` in the TUI, `nuphos team NAME` or `--team` switch it.
@@ -70,17 +76,25 @@ too. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
 
 In the composer:
 
-| Key                    | Action                                |
-| ---------------------- | ------------------------------------- |
-| `enter`                | send                                  |
-| `alt+enter` / `ctrl+j` | new line                              |
-| `esc`                  | stop the reply                        |
-| `y` / `n`              | answer a command waiting for approval |
-| `/model`               | model and reasoning effort            |
-| `/runtime`             | the agent the conversation runs on    |
-| `/team`                | switch team                           |
-| `/new`, `/resume`      | start or continue a conversation      |
-| `/logout`, `/quit`     | sign out, exit                        |
+| Key                    | Action                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `enter`                | send                                                                                                  |
+| `alt+enter` / `ctrl+j` | new line                                                                                              |
+| `esc`                  | stop the reply, or back to the latest                                                                 |
+| `↑` / `↓`, mouse wheel | scroll the conversation                                                                               |
+| `pgup` / `pgdn`        | scroll a page                                                                                         |
+| `ctrl+\`               | sessions: switch to another conversation                                                              |
+| `y` / `n`              | answer a command waiting for approval                                                                 |
+| `/model`               | model and reasoning effort                                                                            |
+| `/agents`              | the agents this team runs on: choose one, add a Nuphos-managed or self-hosted one, `l` to sign one in |
+| `/team`                | switch team                                                                                           |
+| `/new`, `/resume`      | start or continue a conversation                                                                      |
+| `/archive`             | archive this conversation, start a new one                                                            |
+| `/logout`, `/quit`     | sign out, exit                                                                                        |
+
+The wheel scrolls through the terminal's alternate scroll mode, so the mouse is
+left alone and selecting text to copy works as usual. Scrolled up, the view
+stays put while a reply streams in below it.
 
 Before the first message, `/model` changes the agent's default model, which is
 what the desktop's new-conversation picker does too. For a Cloud agent that is
