@@ -48,6 +48,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       desktop: ${{ steps.filter.outputs.desktop }}
       ios: ${{ steps.filter.outputs.ios }}
+      cli: ${{ steps.filter.outputs.cli }}
       dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
       lint_config: ${{ steps.filter.outputs.lint_config }}
       import_cycles: ${{ steps.filter.outputs.import_cycles }}
@@ -68,6 +69,9 @@ jobs:
               - '.github/workflows/ci.yml'
             ios:
               - 'apps/ios/**'
+              - '.github/workflows/ci.yml'
+            cli:
+              - 'apps/cli/**'
               - '.github/workflows/ci.yml'
             dev_scripts:
               - 'scripts/**'
@@ -116,6 +120,32 @@ jobs:
           xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build -quiet
+
+  cli:
+    name: CLI (fmt + clippy + test)
+    needs: changes
+    if: needs.changes.outputs.cli == 'true'
+    # The image ships rustup and a stable toolchain.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/cli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked
+      # The release builds this target; catch a break before a tag does.
+      - name: Static Linux build
+        run: |
+          sudo apt-get update && sudo apt-get install -y musl-tools
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --locked --target x86_64-unknown-linux-musl
 
   backend:
     name: Backend (typecheck + test + docker build)

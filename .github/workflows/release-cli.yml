@@ -1,0 +1,115 @@
+name: Release CLI
+
+# Push a `cli-vX.Y.Z` tag on main, matching apps/cli/Cargo.toml, to publish
+# the `nuphos` binaries as a GitHub Release. apps/cli/install.sh and
+# `nuphos update` install from the newest of these releases.
+
+on:
+  push:
+    tags: ['cli-v*']
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-cli
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.repository == 'nuphos/nuphos' && startsWith(github.ref, 'refs/tags/cli-v')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release tag
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' apps/cli/Cargo.toml | head -1)
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo '::error::Expected a stable SemVer version'; exit 1; }
+          [[ "$RELEASE_TAG" == "cli-v$VERSION" ]] || { echo '::error::Tag must match apps/cli/Cargo.toml'; exit 1; }
+          git merge-base --is-ancestor HEAD origin/main || { echo '::error::Release commit must be on main'; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      # A draft until every binary is attached, so the installer never sees a
+      # release with missing assets.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            printf 'Install or update:\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/%s/main/apps/cli/install.sh | sh\n```\n' "$GITHUB_REPOSITORY" > notes.md
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --latest=false \
+              --title "CLI ${TAG#cli-}" --generate-notes --notes-file notes.md
+          fi
+
+  build:
+    needs: validate
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-15
+          - target: x86_64-apple-darwin
+            runner: macos-15
+          # musl: one static binary for any Linux distribution.
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/cli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          rustup target add "$TARGET"
+          cargo build --release --locked --target "$TARGET"
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          ASSET="nuphos-$TARGET.tar.gz"
+          tar -czf "$ASSET" -C "target/$TARGET/release" nuphos
+          if command -v sha256sum >/dev/null; then sha256sum "$ASSET" > "$ASSET.sha256"; else shasum -a 256 "$ASSET" > "$ASSET.sha256"; fi
+          gh release upload "$TAG" "$ASSET" "$ASSET.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
