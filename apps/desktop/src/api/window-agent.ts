@@ -1,4 +1,3 @@
-import type { AgentProvider } from '../types/runtime.ts'
 import type {
   AgentAuditConversationsPage,
   AgentAuditEventsPage,
@@ -27,7 +26,6 @@ import type {
   AgentConversationCredentialsResponse,
   AgentConversationDetail,
   AgentConversationMessagesPage,
-  AgentConversationParticipant,
   AgentConversationsPage,
   AgentCredentialOptions,
   AgentCredentialSelection,
@@ -39,6 +37,7 @@ import type { LocalSessionImportResult, LocalSessionSource } from './app-types.t
 import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
+import type { AgentProvider } from '../types/runtime.ts'
 
 export type WindowAgentApi = {
   cloudProbeCliVersion(provider: CloudCliProvider, probeId?: string): Promise<string | null>
@@ -62,20 +61,6 @@ export type WindowAgentApi = {
     agentRuntime: AgentProvider
   }): Promise<LocalSessionImportResult>
   agentGetSessionConfig(sessionId: string, teamId: string): Promise<SessionConfigState>
-  agentGetConversationParticipants(
-    sessionId: string,
-    teamId?: string,
-  ): Promise<{ participants: AgentConversationParticipant[] }>
-  agentInviteConversationParticipants(
-    sessionId: string,
-    teamId: string,
-    userIds: string[],
-  ): Promise<{ participants: AgentConversationParticipant[] }>
-  agentRemoveConversationParticipant(
-    sessionId: string,
-    teamId: string,
-    userId: string,
-  ): Promise<{ participants: AgentConversationParticipant[] }>
   agentSetSessionConfig(
     sessionId: string,
     teamId: string,

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
+import { readableByFilter } from './db/access'
 import { getConversations, restoreArchivedConversation } from './db'
 
 import type * as dbActual from '@/lib/db'
@@ -34,6 +35,7 @@ useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbAc
 
 const TEAM = '64b5f1c2e4b0a1d2c3e4f5a6'
 const VIEWER = '642802f4c38340345aa2384d'
+const READABLE = { $and: [readableByFilter(VIEWER)] }
 
 beforeEach(() => {
   lastQuery = undefined
@@ -48,6 +50,7 @@ describe('archived conversation listing', () => {
 
     expect(lastQuery).toEqual({
       teamId: TEAM,
+      ...READABLE,
       userId: VIEWER,
       'metadata.trigger.id': { $exists: false },
       archivedAt: { $exists: true },
@@ -69,6 +72,7 @@ describe('archived conversation listing', () => {
 
     await getConversations(VIEWER, {
       teamId: TEAM,
+      ...READABLE,
       sort: 'archived',
       cursor: newest.toISOString(),
     })

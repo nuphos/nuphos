@@ -4,62 +4,29 @@ import { Loader2, TriangleAlert, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { LOCAL_AGENT_SHARING_WARNING } from '../../lib/localAgentSharing'
-import { Avatar } from '../Avatar'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
-import { AddedReceipt, ParticipantList, ShareLink } from './ShareCard'
 import { agentSessionUrl } from './sessionUrl'
+import { GeneralAccessRow, RoleMenu } from './ShareAccess'
+import {
+  AddedReceipt,
+  AvatarStack,
+  ParticipantList,
+  ShareLink,
+  TitlebarDragSuspender,
+} from './ShareCard'
 import { TeammatePicker } from './TeammatePicker'
 
-import type { AgentConversationParticipant } from '../../api/agent-types'
+import type {
+  AgentConversationParticipant,
+  ConversationAccessState,
+  GeneralAccess,
+  ParticipantRole,
+} from '../../api/agent-types'
 import type { TeamMember } from '../../types'
-
-const AVATAR_SIZE = 22
-// Reuse the ring the IAM avatar group uses, recoloured for the agent titlebar so
-// overlapping avatars read as separate discs.
-const AVATAR_CHROME = 'shrink-0 !rounded-full border-2 border-agentCanvas !shadow-none'
-const VISIBLE_AVATARS = 3
-
-function AvatarStack({ participants }: { participants: AgentConversationParticipant[] }) {
-  if (participants.length === 0) return null
-  const hidden = participants.length - VISIBLE_AVATARS
-
-  return (
-    <span className="flex -space-x-1.5">
-      {participants.slice(0, VISIBLE_AVATARS).map((participant) => (
-        <Avatar
-          key={participant.id}
-          src={participant.avatarURL}
-          name={participant.name}
-          size={AVATAR_SIZE}
-          className={clsx(AVATAR_CHROME, participant.deactivated && 'opacity-50')}
-        />
-      ))}
-      {hidden > 0 && (
-        <span
-          className={clsx(
-            AVATAR_CHROME,
-            'flex items-center justify-center bg-zGray-800 text-[10px] text-secondary',
-          )}
-          style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
-        >
-          +{hidden}
-        </span>
-      )}
-    </span>
-  )
-}
-
-/** Lives inside the portal, so the titlebar stops dragging exactly while the card is open. */
-function TitlebarDragSuspender() {
-  useSuspendTitlebarDrag(true)
-
-  return null
-}
 
 function addLabel(count: number) {
   if (count === 0) return 'Add to session'
@@ -68,31 +35,36 @@ function addLabel(count: number) {
 }
 
 /**
- * The session's people, and the Share card that brings more of them in or takes
- * them out. Every member of the team can already open and reply to a team
- * session, so neither grants or revokes anything — it records who belongs here,
- * which is what puts them in this header and the session's timeline.
+ * The session's people, and the Share card that decides who else may open it:
+ * a team-wide general access plus a role for each invited person, resolved the
+ * way Notion does — the broader grant wins. Only the owner changes any of it;
+ * everyone else sees who is here and what they may do.
  */
 export function SessionParticipants({
   sessionId,
   teamId,
   title,
   currentUserId,
+  canManage,
   warnLocalAgent,
 }: {
   sessionId: string
   teamId: string
   title: string
   currentUserId: string
+  /** The viewer owns this session, so they decide who has access. */
+  canManage: boolean
   /** The viewer owns this session and it runs on their own computer's Local Agent. */
   warnLocalAgent: boolean
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
+  const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
+  const [inviteRole, setInviteRole] = useState<ParticipantRole>('reply')
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [picked, setPicked] = useState<TeamMember[]>([])
   // Set once an invite lands: the card shows its receipt instead of the picker.
   const [added, setAdded] = useState<TeamMember[] | null>(null)
-  // 'invite', 'undo', or the id of a participant being removed.
+  // 'invite', 'undo', 'access', or the id of the participant being changed.
   const [pending, setPending] = useState<string | null>(null)
 
   // The pane keys this component by sessionId, so a session switch remounts it
@@ -104,7 +76,7 @@ export function SessionParticipants({
       api
         .agentGetConversationParticipants(sessionId, teamId)
         .then((result) => {
-          if (!cancelled) setParticipants(result.participants)
+          if (!cancelled) apply(result)
         })
         .catch((err: unknown) => toast.apiError('Failed to load session participants', err))
     const reloadIfThisSession = (event: Event) => {
@@ -119,6 +91,12 @@ export function SessionParticipants({
       window.removeEventListener(TIMELINE_CHANGED_EVENT, reloadIfThisSession)
     }
   }, [sessionId, teamId])
+
+  // Every access call answers with the whole state, so the card never merges.
+  function apply(result: ConversationAccessState) {
+    setParticipants(result.participants)
+    setGeneralAccess(result.generalAccess)
+  }
 
   const onOpenChange = (open: boolean) => {
     if (!open) return
@@ -145,9 +123,10 @@ export function SessionParticipants({
         sessionId,
         teamId,
         picked.map((member) => member.id),
+        inviteRole,
       )
       .then((result) => {
-        setParticipants(result.participants)
+        apply(result)
         setAdded(picked)
         setPicked([])
         announceTimelineChange(sessionId)
@@ -158,9 +137,7 @@ export function SessionParticipants({
 
   const removeIds = async (ids: string[]) => {
     for (const id of ids) {
-      const result = await api.agentRemoveConversationParticipant(sessionId, teamId, id)
-
-      setParticipants(result.participants)
+      apply(await api.agentRemoveConversationParticipant(sessionId, teamId, id))
     }
     announceTimelineChange(sessionId)
   }
@@ -169,6 +146,24 @@ export function SessionParticipants({
     setPending(participant.id)
     removeIds([participant.id])
       .catch((err: unknown) => toast.apiError(`Failed to remove ${participant.name}`, err))
+      .finally(() => setPending(null))
+  }
+
+  const changeRole = (participant: AgentConversationParticipant, role: ParticipantRole) => {
+    setPending(participant.id)
+    api
+      .agentSetConversationParticipantRole(sessionId, teamId, participant.id, role)
+      .then(apply)
+      .catch((err: unknown) => toast.apiError(`Failed to change ${participant.name}`, err))
+      .finally(() => setPending(null))
+  }
+
+  const changeGeneralAccess = (value: GeneralAccess) => {
+    setPending('access')
+    api
+      .agentSetConversationGeneralAccess(sessionId, teamId, value)
+      .then(apply)
+      .catch((err: unknown) => toast.apiError('Failed to change general access', err))
       .finally(() => setPending(null))
   }
 
@@ -216,7 +211,16 @@ export function SessionParticipants({
             style={{ transformOrigin: 'top right' }}
           >
             {added ? (
-              <AddedReceipt added={added} undoing={pending === 'undo'} onUndo={undo} />
+              <AddedReceipt
+                added={added}
+                detail={
+                  inviteRole === 'view' && generalAccess !== 'reply'
+                    ? 'They can view this session'
+                    : 'They can view and reply'
+                }
+                undoing={pending === 'undo'}
+                onUndo={undo}
+              />
             ) : (
               <div className="t-share-in flex flex-col gap-3 p-3">
                 <div className="flex items-center gap-2 px-1">
@@ -230,7 +234,13 @@ export function SessionParticipants({
                     <X className="h-3.5 w-3.5" strokeWidth={2} />
                   </Popover.Close>
                 </div>
-                <ShareLink url={agentSessionUrl(teamId, sessionId)} />
+                <ShareLink url={agentSessionUrl(teamId, sessionId)}>
+                  <GeneralAccessRow
+                    value={generalAccess}
+                    canManage={canManage && pending === null}
+                    onChange={changeGeneralAccess}
+                  />
+                </ShareLink>
                 {warnLocalAgent && (
                   <div className="flex gap-2 px-1 text-[12px] leading-snug text-warning">
                     <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
@@ -240,28 +250,42 @@ export function SessionParticipants({
                 <ParticipantList
                   participants={participants}
                   currentUserId={currentUserId}
+                  generalAccess={generalAccess}
+                  canManage={canManage}
                   pending={pending}
+                  onRoleChange={changeRole}
                   onRemove={remove}
                 />
-                <TeammatePicker
-                  members={members}
-                  invitable={invitable}
-                  picked={picked}
-                  disabled={pending !== null}
-                  onToggle={togglePicked}
-                />
-                <Button
-                  variant="neutral"
-                  size="sm"
-                  className="w-full"
-                  disabled={picked.length === 0 || pending !== null}
-                  onClick={invite}
-                >
-                  {pending === 'invite' && (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                  )}
-                  {pending === 'invite' ? 'Adding…' : addLabel(picked.length)}
-                </Button>
+                {canManage ? (
+                  <>
+                    <TeammatePicker
+                      members={members}
+                      invitable={invitable}
+                      picked={picked}
+                      disabled={pending !== null}
+                      onToggle={togglePicked}
+                    />
+                    <div className="flex items-center gap-2">
+                      <RoleMenu value={inviteRole} onChange={setInviteRole} />
+                      <Button
+                        variant="neutral"
+                        size="sm"
+                        className="flex-1"
+                        disabled={picked.length === 0 || pending !== null}
+                        onClick={invite}
+                      >
+                        {pending === 'invite' && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                        )}
+                        {pending === 'invite' ? 'Adding…' : addLabel(picked.length)}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="px-1 text-[12px] text-tertiary">
+                    Only the owner can change who has access.
+                  </div>
+                )}
               </div>
             )}
           </Popover.Popup>

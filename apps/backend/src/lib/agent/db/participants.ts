@@ -1,5 +1,6 @@
 import { agentConversations } from './shared'
 
+import type { GeneralAccess, ParticipantRole } from './access'
 import type { AgentConversation, ConversationTimelineEvent } from './shared'
 
 /**
@@ -42,6 +43,7 @@ export async function inviteConversationParticipants(
   sessionId: string,
   actorId: string,
   userIds: readonly string[],
+  role: ParticipantRole = 'reply',
 ): Promise<AgentConversation | null> {
   for (const id of new Set(userIds)) {
     await agentConversations().updateOne(
@@ -60,7 +62,37 @@ export async function inviteConversationParticipants(
     )
   }
 
-  return await agentConversations().findOne({ sessionId })
+  // Re-inviting someone already here sets their role too, so the invite form
+  // and the per-person menu never disagree about it.
+  return await setParticipantRole(sessionId, userIds, role)
+}
+
+/** Set participants' own role. Callers pass participants only, never the owner. */
+export async function setParticipantRole(
+  sessionId: string,
+  userIds: readonly string[],
+  role: ParticipantRole,
+): Promise<AgentConversation | null> {
+  const ids = [...new Set(userIds)]
+
+  return await agentConversations().findOneAndUpdate(
+    { sessionId },
+    role === 'view'
+      ? { $addToSet: { viewOnlyIds: { $each: ids } } }
+      : { $pull: { viewOnlyIds: { $in: ids } } },
+    { returnDocument: 'after' },
+  )
+}
+
+export async function setGeneralAccess(
+  sessionId: string,
+  generalAccess: GeneralAccess,
+): Promise<AgentConversation | null> {
+  return await agentConversations().findOneAndUpdate(
+    { sessionId },
+    { $set: { generalAccess } },
+    { returnDocument: 'after' },
+  )
 }
 
 /** Take someone out of the conversation; a no-op when they were not in it. */
@@ -72,7 +104,7 @@ export async function removeConversationParticipant(
   await agentConversations().updateOne(
     { sessionId, participantIds: userId },
     {
-      $pull: { participantIds: userId },
+      $pull: { participantIds: userId, viewOnlyIds: userId },
       $push: pushTimelineEvent({
         kind: 'participant_removed',
         at: new Date(),

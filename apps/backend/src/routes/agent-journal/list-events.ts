@@ -13,7 +13,12 @@ import {
 } from '@/lib/claude-code-preview/runtime-image-audit'
 import { db } from '@/lib/db'
 import { JOURNAL_COLLECTION } from '@/lib/journal'
-import { LIST_MAX_EVENTS, contentMatches } from '@/routes/agent-journal/shared'
+import {
+  JOURNAL_CONVERSATION_PROJECTION,
+  LIST_MAX_EVENTS,
+  contentMatches,
+  journalConversationTitle,
+} from '@/routes/agent-journal/shared'
 
 import type { JournalDoc } from '@/lib/journal'
 import type { AuthVariables } from '@/middleware/auth'
@@ -172,7 +177,7 @@ export async function listAuditEventsView(
     agentConversations()
       .find(
         { sessionId: { $in: [...new Set(journalPage.map((doc) => doc.sessionId))] } },
-        { projection: { sessionId: 1, title: 1, userId: 1 } },
+        { projection: JOURNAL_CONVERSATION_PROJECTION },
       )
       .toArray(),
     fetchCachedUsers([...new Set(actorUserIds)]),
@@ -184,7 +189,7 @@ export async function listAuditEventsView(
     conversations: Object.fromEntries(
       convDocs.map((conv) => [
         conv.sessionId,
-        { title: conv.title || 'Untitled chat', ownerUserId: conv.userId },
+        { title: journalConversationTitle(conv, userId), ownerUserId: conv.userId },
       ]),
     ),
     users,

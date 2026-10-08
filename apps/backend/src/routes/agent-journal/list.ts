@@ -7,7 +7,11 @@ import { JOURNAL_COLLECTION } from '@/lib/journal'
 import { SEAL_STATE_COLLECTION } from '@/lib/journal/sealer'
 import { resolveVerifiedTeamId } from '@/routes/agent'
 import { listAuditEventsView } from '@/routes/agent-journal/list-events'
-import { LIST_MAX_CONVERSATIONS } from '@/routes/agent-journal/shared'
+import {
+  JOURNAL_CONVERSATION_PROJECTION,
+  LIST_MAX_CONVERSATIONS,
+  journalConversationTitle,
+} from '@/routes/agent-journal/shared'
 
 import type { JournalDoc } from '@/lib/journal'
 import type { SealStateDoc } from '@/lib/journal/sealer'
@@ -180,7 +184,7 @@ export function registerAgentJournalListRoute(agentJournal: Hono<{ Variables: Au
       agentConversations()
         .find(
           { sessionId: { $in: page.map((row) => row._id) } },
-          { projection: { sessionId: 1, title: 1, userId: 1 } },
+          { projection: JOURNAL_CONVERSATION_PROJECTION },
         )
         .toArray(),
       fetchCachedUsers([...new Set(page.flatMap((row) => row.userIds))]),
@@ -192,7 +196,7 @@ export function registerAgentJournalListRoute(agentJournal: Hono<{ Variables: Au
     const convMeta = new Map(
       convDocs.map((conv) => [
         conv.sessionId,
-        { title: conv.title || 'Untitled chat', ownerUserId: conv.userId },
+        { title: journalConversationTitle(conv, userId), ownerUserId: conv.userId },
       ]),
     )
 

@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
+import { readableByFilter } from './db/access'
 import { getConversations } from './db'
 
 import type * as dbActual from '@/lib/db'
@@ -29,6 +30,7 @@ useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbAc
 
 const TEAM = '64b5f1c2e4b0a1d2c3e4f5a6'
 const VIEWER = '642802f4c38340345aa2384d'
+const READABLE = { $and: [readableByFilter(VIEWER)] }
 const OTHER = '62e6289482f5f9d9408f1a79'
 
 async function queryFor(options: Parameters<typeof getConversations>[1]) {
@@ -47,6 +49,7 @@ describe('getConversations ownerId filter', () => {
   test('team scope without an owner lists the whole team', async () => {
     expect(await queryFor({ teamId: TEAM, scope: 'team' })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       ...NO_TRIGGER_RUNS,
     })
   })
@@ -54,6 +57,7 @@ describe('getConversations ownerId filter', () => {
   test('an owner narrows team scope to that member', async () => {
     expect(await queryFor({ teamId: TEAM, scope: 'team', ownerId: OTHER })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       userId: OTHER,
       ...NO_TRIGGER_RUNS,
     })
@@ -71,6 +75,7 @@ describe('getConversations ownerId filter', () => {
     // narrower scope widen into another member's conversations.
     expect(await queryFor({ teamId: TEAM, scope: 'mine', ownerId: OTHER })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       userId: VIEWER,
       ...NO_TRIGGER_RUNS,
     })
@@ -79,6 +84,7 @@ describe('getConversations ownerId filter', () => {
   test('the owner filter composes with search and the archived filter', async () => {
     const query = await queryFor({
       teamId: TEAM,
+      ...READABLE,
       scope: 'team',
       ownerId: OTHER,
       search: 'deploy',
@@ -99,6 +105,7 @@ describe('getConversations shared scope', () => {
   test('asks for conversations the viewer joined but does not own', async () => {
     expect(await queryFor({ teamId: TEAM, scope: 'shared' })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       participantIds: VIEWER,
       userId: { $ne: VIEWER },
       ...NO_TRIGGER_RUNS,
@@ -108,6 +115,7 @@ describe('getConversations shared scope', () => {
   test('an owner filter cannot redirect it at someone else', async () => {
     expect(await queryFor({ teamId: TEAM, scope: 'shared', ownerId: OTHER })).toEqual({
       teamId: TEAM,
+      ...READABLE,
       participantIds: VIEWER,
       userId: { $ne: VIEWER },
       ...NO_TRIGGER_RUNS,
@@ -117,6 +125,7 @@ describe('getConversations shared scope', () => {
   test('composes with the archived exclusion the sidebar asks for', async () => {
     const query = await queryFor({
       teamId: TEAM,
+      ...READABLE,
       scope: 'shared',
       archived: 'exclude',
       sort: 'created',

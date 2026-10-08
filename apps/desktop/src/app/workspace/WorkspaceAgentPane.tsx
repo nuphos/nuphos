@@ -199,6 +199,7 @@ export function WorkspaceAgentPane({
               teamId={teamId}
               title={currentHeading.title}
               currentUserId={user.id}
+              canManage={currentHeading.canRename === true}
               warnLocalAgent={
                 currentHeading.canRename === true && isLocalAgentRuntime(currentHeading.runtimeId)
               }

@@ -16,7 +16,9 @@ import {
   EXPORT_MAX_AGENT_EVENTS,
   EXPORT_MAX_RESOURCE_EVENTS,
   EXPORT_MAX_SESSIONS,
+  JOURNAL_CONVERSATION_PROJECTION,
   contentMatches,
+  journalConversationTitle,
   normalizeRangeTimestamp,
 } from '@/routes/agent-journal/shared'
 
@@ -180,7 +182,7 @@ export function registerAgentJournalExportRoute(agentJournal: Hono<{ Variables: 
         ? agentConversations()
             .find(
               { sessionId: { $in: sessionIds } },
-              { projection: { sessionId: 1, title: 1, userId: 1 } },
+              { projection: JOURNAL_CONVERSATION_PROJECTION },
             )
             .toArray()
         : Promise.resolve([]),
@@ -215,7 +217,7 @@ export function registerAgentJournalExportRoute(agentJournal: Hono<{ Variables: 
     const metadataBySession = new Map(
       convDocs.map((conv) => [
         conv.sessionId,
-        { title: conv.title || 'Untitled chat', ownerUserId: conv.userId ?? null },
+        { title: journalConversationTitle(conv, userId), ownerUserId: conv.userId ?? null },
       ]),
     )
     const sessions = sessionIds.map((sessionId) => {

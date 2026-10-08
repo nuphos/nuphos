@@ -55,3 +55,32 @@ test('a teammate can view and reply to a session on another member’s local age
   conversation!.runtimeId = 'local_owner_device'
   expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
 })
+
+test('general access and a participant role decide who may reply', async () => {
+  conversation!.generalAccess = 'none'
+  await expect(assertConversationSendable('shared', 'teammate', teamId)).rejects.toMatchObject({
+    status: 403,
+  })
+  conversation!.participantIds = ['teammate']
+  expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
+  conversation!.viewOnlyIds = ['teammate']
+  await expect(assertConversationSendable('shared', 'teammate', teamId)).rejects.toMatchObject({
+    status: 403,
+    code: 'conversation_read_only',
+  })
+  // The broader grant wins: a team that may reply outranks a view-only invite.
+  conversation!.generalAccess = 'reply'
+  expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
+  expect(await assertConversationSendable('shared', 'owner', teamId)).toBe(conversation)
+})
+
+test('a viewer who may only read is served read-only', () => {
+  const viewer = { id: 'teammate' } as NuphosUser
+  const viewOnly = { userId: 'owner', teamId, generalAccess: 'view' }
+
+  expect(serializeConversationForViewer(viewOnly, viewer, new Map())).toMatchObject({
+    access: 'view',
+    generalAccess: 'view',
+    readOnly: true,
+  })
+})
