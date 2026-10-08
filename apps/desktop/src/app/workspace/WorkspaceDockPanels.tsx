@@ -117,34 +117,38 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
         </aside>
       )}
       {scope?.teamId && dockOpen && (
-        <Tooltip
-          side="bottom"
-          content={
-            <span className="flex items-center gap-2">
-              {workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'}
-              <Kbd combo="mod+shift+enter" />
-            </span>
-          }
-        >
-          <button
-            type="button"
-            onClick={() => setWorkspaceDockExpanded((expanded) => !expanded)}
-            className={clsx(
-              'workspace-dock-expand titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
-              workspaceDockExpanded ? 'bg-zGray-800/60 text-main' : 'text-secondary',
-            )}
-            aria-label={
-              workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'
+        // The span carries the fixed titlebar position so the tooltip anchors to
+        // the button rather than to where the button would sit in the flow.
+        <span className="workspace-dock-expand titlebar-no-drag">
+          <Tooltip
+            side="bottom"
+            content={
+              <span className="flex items-center gap-2">
+                {workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'}
+                <Kbd combo="mod+shift+enter" />
+              </span>
             }
-            aria-pressed={workspaceDockExpanded}
           >
-            {workspaceDockExpanded ? (
-              <Minimize2 className="h-4 w-4" strokeWidth={1.7} />
-            ) : (
-              <Maximize2 className="h-4 w-4" strokeWidth={1.7} />
-            )}
-          </button>
-        </Tooltip>
+            <button
+              type="button"
+              onClick={() => setWorkspaceDockExpanded((expanded) => !expanded)}
+              className={clsx(
+                'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
+                workspaceDockExpanded ? 'bg-zGray-800/60 text-main' : 'text-secondary',
+              )}
+              aria-label={
+                workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'
+              }
+              aria-pressed={workspaceDockExpanded}
+            >
+              {workspaceDockExpanded ? (
+                <Minimize2 className="h-4 w-4" strokeWidth={1.7} />
+              ) : (
+                <Maximize2 className="h-4 w-4" strokeWidth={1.7} />
+              )}
+            </button>
+          </Tooltip>
+        </span>
       )}
       {scope?.teamId && (
         <button
