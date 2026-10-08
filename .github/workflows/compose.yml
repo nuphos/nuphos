@@ -5,6 +5,8 @@ on:
     paths:
       - 'deploy/compose/**'
       - 'deploy/zeabur/**'
+      - 'deploy/railway/**'
+      - 'deploy/cloudflare/**'
       - 'apps/backend/**'
       - 'apps/runtime/**'
       - '.github/workflows/compose.yml'
@@ -52,3 +54,31 @@ jobs:
         run: python3 -m pip install PyYAML==6.0.3 jsonschema==4.26.0
       - name: Validate template and Mongo bootstrap
         run: python3 deploy/zeabur/check.py --mongo
+
+  platform-templates:
+    name: Railway and Cloudflare template validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Validate Railway project specifications
+        working-directory: deploy/railway
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          npm test
+          python3 smoke.py
+      - name: Validate Cloudflare Worker and build container image without deploying
+        working-directory: deploy/cloudflare
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          npm test
+          npm run build
