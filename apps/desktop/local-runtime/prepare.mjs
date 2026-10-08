@@ -6,7 +6,8 @@
 // The adapters are this repository's apps/runtime/image adapters, patched as
 // the image patches them.
 // openab is built from zeabur/openab at a pinned commit unless --openab (or
-// NUPHOS_OPENAB_BINARY) supplies one. Without --require a target that cannot
+// NUPHOS_OPENAB_BINARY) supplies one. Its build lives in ~/.cache/nuphos, so
+// every checkout on this computer shares it. Without --require a target that cannot
 // get an openab binary is staged without one, and the app reports the Local
 // runtime as unavailable in that build.
 import { execFileSync } from 'node:child_process'
@@ -20,6 +21,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -118,7 +120,7 @@ function buildOpenab(target) {
   const triple = RUST_TARGETS[target]
 
   if (!triple || !hasCommand('cargo')) return null
-  const source = join(cache, `openab-${OPENAB_COMMIT}`)
+  const source = join(homedir(), '.cache', 'nuphos', `openab-${OPENAB_COMMIT}`)
 
   if (!existsSync(join(source, 'Cargo.toml'))) {
     rmSync(source, { recursive: true, force: true })

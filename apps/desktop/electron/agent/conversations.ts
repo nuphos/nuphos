@@ -169,10 +169,7 @@ export async function updateConversationCredentials(args: {
   return callJson<AgentConversationCredentialsResponse>(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(args.sessionId)}/credentials${teamQuery(args.teamId)}`,
-    {
-      teamId: args.teamId,
-      credentialAccess: args.credentialAccess,
-    },
+    { teamId: args.teamId, credentialAccess: args.credentialAccess },
   )
 }
 
