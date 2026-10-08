@@ -9,10 +9,11 @@ are redrawn.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nuphos/nuphos/main/apps/cli/install.sh | sh
+curl -fsSL nuphos.ai/install | sh
 ```
 
-It installs the newest release for macOS or Linux (x86_64 and arm64) into
+`nuphos.ai/install` redirects to `apps/cli/install.sh` at a release tag. It
+installs the newest release for macOS or Linux (x86_64 and arm64) into
 `~/.local/bin`, after checking its SHA-256. `NUPHOS_VERSION` pins a version
 and `NUPHOS_INSTALL_DIR` changes the directory.
 
@@ -83,6 +84,10 @@ git tag cli-v0.2.0 && git push origin cli-v0.2.0
 `.github/workflows/release-cli.yml` builds the four binaries and publishes
 them as the `CLI v0.2.0` GitHub Release, which the installer and
 `nuphos update` pick up.
+
+`nuphos.ai/install` is pinned to the tag of the `install.sh` it serves (the
+`/install` redirect in the landing page's `next.config.ts`). Move it to the new
+tag when a release changes `install.sh`.
 
 ## Development
 
