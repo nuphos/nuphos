@@ -139,6 +139,12 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked
+      # The release builds this target; catch a break before a tag does.
+      - name: Static Linux build
+        run: |
+          sudo apt-get update && sudo apt-get install -y musl-tools
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --locked --target x86_64-unknown-linux-musl
 
   backend:
     name: Backend (typecheck + test + docker build)

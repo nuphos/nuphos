@@ -6,6 +6,19 @@ and its layout follows the Codex CLI: finished output goes into the terminal's
 own scrollback, and only the reply in progress, the composer and a status line
 are redrawn.
 
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nuphos/nuphos/main/apps/cli/install.sh | sh
+```
+
+It installs the newest release for macOS or Linux (x86_64 and arm64) into
+`~/.local/bin`, after checking its SHA-256. `NUPHOS_VERSION` pins a version
+and `NUPHOS_INSTALL_DIR` changes the directory.
+
+The TUI checks for a newer release when it starts and says so; `nuphos update`
+installs it in place. `NUPHOS_NO_UPDATE_CHECK=1` turns the check off.
+
 ## Usage
 
 ```sh
@@ -58,6 +71,18 @@ In the composer:
 Before the first message, `/model` changes the agent's default model, which is
 what the desktop's new-conversation picker does too. For a Cloud agent that is
 a team setting and needs an administrator.
+
+## Releasing
+
+Bump `version` in `Cargo.toml`, merge, then push a matching tag on main:
+
+```sh
+git tag cli-v0.2.0 && git push origin cli-v0.2.0
+```
+
+`.github/workflows/release-cli.yml` builds the four binaries and publishes
+them as the `CLI v0.2.0` GitHub Release, which the installer and
+`nuphos update` pick up.
 
 ## Development
 

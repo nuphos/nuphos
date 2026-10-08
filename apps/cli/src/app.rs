@@ -12,7 +12,7 @@ use crossterm::event::{
 };
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use futures_util::StreamExt;
+use futures_util::{FutureExt, StreamExt};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::{Color, Modifier, Style};
@@ -120,6 +120,8 @@ pub struct App {
     quit: bool,
     /// Approvals whose full command has been written out.
     announced: Vec<String>,
+    /// The check for a newer release, started with the TUI.
+    update_check: Option<JoinHandle<Option<String>>>,
     /// Streams of this conversation already followed to the end; the server
     /// can list one as running for a moment after it ends.
     ended: Vec<String>,
@@ -157,6 +159,7 @@ impl App {
             quit: false,
             announced: Vec::new(),
             ended: Vec::new(),
+            update_check: None,
             tx,
             rx,
         };
@@ -188,6 +191,9 @@ impl App {
             Line::from(Span::styled("  / for commands · esc to stop a reply · ctrl+c to quit", dim())),
             Line::default(),
         ]);
+        if crate::update::check_enabled() {
+            self.update_check = Some(tokio::spawn(crate::update::latest()));
+        }
         match start {
             Start::New => {}
             Start::Resume(Some(id)) => self.resume(json!({ "sessionId": id })).await,
@@ -211,6 +217,22 @@ impl App {
         ])
     }
 
+    fn take_update_check(&mut self) {
+        if !self.update_check.as_ref().is_some_and(|h| h.is_finished()) {
+            return;
+        }
+        let latest = self.update_check.take().and_then(|h| h.now_or_never()).and_then(|r| r.ok()).flatten();
+        if let Some(version) = latest.filter(|v| crate::update::is_newer(v)) {
+            self.pending_output.push(Line::from(vec![
+                Span::styled(
+                    format!("  Update available: {} → {}", env!("CARGO_PKG_VERSION"), render::clean(&version)),
+                    Style::default().fg(Color::Yellow),
+                ),
+                Span::styled(" · run `nuphos update`", dim()),
+            ]));
+        }
+    }
+
     async fn event_loop(&mut self, terminal: &mut Term) -> Result<()> {
         let mut events = EventStream::new();
         let mut ticker = tokio::time::interval(Duration::from_millis(120));
@@ -227,7 +249,10 @@ impl App {
                     }
                 }
                 Some(event) = self.rx.recv() => self.on_stream(event).await,
-                _ = ticker.tick() => self.tick = self.tick.wrapping_add(1),
+                _ = ticker.tick() => {
+                    self.tick = self.tick.wrapping_add(1);
+                    self.take_update_check();
+                }
                 _ = poller.tick() => self.poll().await,
             }
         }

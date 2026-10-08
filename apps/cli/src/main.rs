@@ -8,6 +8,7 @@ mod login;
 mod render;
 mod shared;
 mod transcript;
+mod update;
 
 use std::io::{IsTerminal, Read};
 
@@ -75,6 +76,8 @@ enum Command {
     Login,
     /// Sign out here and in the desktop app.
     Logout,
+    /// Install the newest release over this binary.
+    Update,
 }
 
 #[tokio::main]
@@ -100,6 +103,7 @@ async fn run(args: Args) -> Result<i32> {
             println!("Signed out of Nuphos.");
             return Ok(0);
         }
+        Some(Command::Update) => return update::update().await,
         Some(Command::Login) => {
             let session = login::login(&config::api_url()).await?;
             println!("Signed in as {}.", render::clean(session.user.as_deref().unwrap_or("you")));
@@ -152,7 +156,7 @@ async fn run(args: Args) -> Result<i32> {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }
         Some(Command::Stop { session }) => cli::stop(&ctx, &session).await.map(|_| 0),
-        Some(Command::Login | Command::Logout) => Ok(0),
+        Some(Command::Login | Command::Logout | Command::Update) => Ok(0),
     }
 }
 
