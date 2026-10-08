@@ -41,7 +41,7 @@ enum Command {
         #[arg(long)]
         session: Option<String>,
         /// Agent for a new conversation (id or label).
-        #[arg(long)]
+        #[arg(long = "agent", alias = "runtime")]
         runtime: Option<String>,
         /// Approve commands that need approval (otherwise they are denied).
         #[arg(long)]
@@ -60,6 +60,7 @@ enum Command {
     },
     /// List agents, pick one for new conversations (or move --session to it),
     /// add a Cloud agent with --create, or sign one in with --login.
+    #[command(name = "agents", alias = "runtime")]
     Runtime {
         name: Option<String>,
         #[arg(long)]

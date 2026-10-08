@@ -9,7 +9,7 @@ use crate::api::Api;
 use crate::config::{self, Prefs};
 use crate::render::clean;
 
-pub const ADD_AGENT_HINT: &str = "Add an agent with `nuphos runtime claude-code --create` (or codex).";
+pub const ADD_AGENT_HINT: &str = "Add an agent with `nuphos agents claude-code --create` (or codex).";
 
 /// `--team` (or `NUPHOS_TEAM`), the team used last time, then the first
 /// team. Asks only when there is no team at all, to name a new one.

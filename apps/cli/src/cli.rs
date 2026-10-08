@@ -71,7 +71,7 @@ pub async fn team(ctx: &mut Ctx, name: Option<String>) -> Result<()> {
     Ok(())
 }
 
-/// `nuphos runtime [NAME] [--session ID]`: list the team's agents, or pick
+/// `nuphos agents [NAME] [--session ID]`: list the team's agents, or pick
 /// NAME for new conversations, or move a conversation to it.
 pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String>) -> Result<()> {
     let runtimes = ctx.runtimes().await?;
@@ -118,7 +118,7 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
     Ok(())
 }
 
-/// `nuphos runtime PROVIDER --create`: adds a Nuphos-managed Cloud agent,
+/// `nuphos agents PROVIDER --create`: adds a Nuphos-managed Cloud agent,
 /// picks it for new conversations, and signs it in.
 pub async fn create_runtime(ctx: &mut Ctx, provider: &str) -> Result<()> {
     let team = ctx.team_id();
@@ -129,7 +129,7 @@ pub async fn create_runtime(ctx: &mut Ctx, provider: &str) -> Result<()> {
     sign_in_runtime(ctx, &runtime).await
 }
 
-/// `nuphos runtime NAME --login`: signs a Cloud agent in to its provider
+/// `nuphos agents NAME --login`: signs a Cloud agent in to its provider
 /// account, again or for the first time.
 pub async fn login_runtime(ctx: &Ctx, name: &str) -> Result<()> {
     let runtime = shared::find(&ctx.api.runtimes(&ctx.team_id()).await?, name, "agent")?;
@@ -141,7 +141,7 @@ pub async fn login_runtime(ctx: &Ctx, name: &str) -> Result<()> {
 async fn sign_in_runtime(ctx: &Ctx, runtime: &Value) -> Result<()> {
     let team = ctx.team_id();
     let id = runtime["id"].as_str().unwrap_or_default();
-    let retry = format!("Try again with `nuphos runtime '{}' --login`.", label(runtime));
+    let retry = format!("Try again with `nuphos agents '{}' --login`.", label(runtime));
     let deadline = Instant::now() + SIGN_IN_TIMEOUT;
     let wait = |what: &str| -> Result<()> {
         if Instant::now() > deadline {
@@ -374,7 +374,7 @@ pub async fn exec(
             body["agentRuntime"] = r["provider"].clone();
         }
     } else if runtime.is_some() {
-        bail!("--runtime picks the agent for a new conversation; use `nuphos runtime NAME --session ID` to move one.");
+        bail!("--agent picks the agent for a new conversation; use `nuphos agents NAME --session ID` to move one.");
     }
 
     let (sender, mut rx) = unbounded_channel();
