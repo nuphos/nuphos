@@ -2,6 +2,8 @@ import { clsx } from 'clsx'
 import { Maximize2, Minimize2, PanelRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
+import { Kbd } from '../../components/ui/kbd'
+import { Tooltip } from '../../components/ui/tooltip'
 import { FirstRunPanel } from '../../views/onboarding/FirstRunPanel'
 
 import { WorkspaceMainPane } from './WorkspaceMainPane'
@@ -31,7 +33,6 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     return Number.isFinite(stored) && stored > 0 ? Math.min(60, Math.max(24, stored)) : 42
   })
   const [dragging, setDragging] = useState(false)
-  const [suppressDockTransition, setSuppressDockTransition] = useState(false)
 
   useEffect(() => {
     if (!dragging) return
@@ -68,7 +69,6 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
 
     return window.api.onAppShortcut((action) => {
       if (action !== 'toggle-dock-expanded') return
-      setSuppressDockTransition(true)
       if (dockOpen) {
         setWorkspaceDockExpanded((expanded) => !expanded)
 
@@ -78,13 +78,6 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
       setWorkspaceDockExpanded(true)
     })
   }, [paneActive, scope?.teamId, dockOpen, workspaceActions, setWorkspaceDockExpanded])
-
-  useEffect(() => {
-    if (!suppressDockTransition) return
-    const frame = window.requestAnimationFrame(() => setSuppressDockTransition(false))
-
-    return () => window.cancelAnimationFrame(frame)
-  }, [suppressDockTransition])
 
   return (
     <>
@@ -98,9 +91,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
           className={clsx(
             'relative flex min-h-0 flex-shrink-0 flex-col overflow-hidden sidebar-surface',
             dockOpen && !workspaceDockExpanded && 'border-l border-zGray-800/60',
-            !dragging &&
-              !suppressDockTransition &&
-              'transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            !dragging && 'transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           )}
         >
           {dockOpen && !workspaceDockExpanded && (
@@ -126,39 +117,40 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
         </aside>
       )}
       {scope?.teamId && dockOpen && (
-        <button
-          type="button"
-          onClick={() => {
-            // Fullscreen changes both columns at once. Animating only the
-            // dock's width made the Agent disappear first and left a growing
-            // blank gap; commit this mode switch as one clean frame instead.
-            setSuppressDockTransition(true)
-            setWorkspaceDockExpanded((expanded) => !expanded)
-          }}
-          className={clsx(
-            'workspace-dock-expand titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
-            workspaceDockExpanded ? 'bg-zGray-800/60 text-main' : 'text-secondary',
-          )}
-          title={workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'}
-          aria-label={workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'}
-          aria-pressed={workspaceDockExpanded}
+        <Tooltip
+          side="bottom"
+          content={
+            <span className="flex items-center gap-2">
+              {workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'}
+              <Kbd combo="mod+shift+enter" />
+            </span>
+          }
         >
-          {workspaceDockExpanded ? (
-            <Minimize2 className="h-4 w-4" strokeWidth={1.7} />
-          ) : (
-            <Maximize2 className="h-4 w-4" strokeWidth={1.7} />
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceDockExpanded((expanded) => !expanded)}
+            className={clsx(
+              'workspace-dock-expand titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
+              workspaceDockExpanded ? 'bg-zGray-800/60 text-main' : 'text-secondary',
+            )}
+            aria-label={
+              workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'
+            }
+            aria-pressed={workspaceDockExpanded}
+          >
+            {workspaceDockExpanded ? (
+              <Minimize2 className="h-4 w-4" strokeWidth={1.7} />
+            ) : (
+              <Maximize2 className="h-4 w-4" strokeWidth={1.7} />
+            )}
+          </button>
+        </Tooltip>
       )}
       {scope?.teamId && (
         <button
           type="button"
           onClick={() => {
             setFirstRunPanelOpen(false)
-            if (dockOpen && workspaceDockExpanded) {
-              setSuppressDockTransition(true)
-              setWorkspaceDockExpanded(false)
-            }
             workspaceActions.toggleDock()
           }}
           className={clsx(

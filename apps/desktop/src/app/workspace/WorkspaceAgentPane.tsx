@@ -1,4 +1,3 @@
-import type { AgentProvider } from '../../types/runtime'
 import { clsx } from 'clsx'
 import { Check, Copy } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -19,6 +18,7 @@ import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
+import type { AgentProvider } from '../../types/runtime'
 
 export function WorkspaceAgentPane({
   ws,
@@ -154,9 +154,12 @@ export function WorkspaceAgentPane({
   return (
     <main
       data-workspace-focus-surface="session"
+      // An expanded dock squeezes this column to zero width rather than
+      // removing it, so the dock's width transition animates both columns.
+      inert={workspaceExpanded}
       className={clsx(
         'min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-agentCanvas',
-        workspaceExpanded ? 'hidden' : 'flex',
+        ws.mainPageOpen ? 'hidden' : 'flex',
       )}
     >
       <div
