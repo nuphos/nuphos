@@ -38,7 +38,7 @@ const MAX_INVITES_PER_REQUEST = 20
 async function serializeAccess(
   conversation: Pick<
     AgentConversation,
-    'userId' | 'participantIds' | 'viewOnlyIds' | 'generalAccess'
+    'userId' | 'participantIds' | 'viewOnlyIds' | 'managerIds' | 'generalAccess'
   >,
   teamId: string | undefined,
 ) {
@@ -63,7 +63,7 @@ async function serializeAccess(
 function readRole(value: unknown): ParticipantRole {
   if (value === undefined) return 'reply'
   if (!PARTICIPANT_ROLES.includes(value as ParticipantRole))
-    throw new AppError(400, 'invalid_request', 'role must be "view" or "reply"')
+    throw new AppError(400, 'invalid_request', 'role must be "view", "reply" or "manage"')
 
   return value as ParticipantRole
 }

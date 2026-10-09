@@ -77,9 +77,15 @@ export async function setParticipantRole(
 
   return await agentConversations().findOneAndUpdate(
     { sessionId },
-    role === 'view'
-      ? { $addToSet: { viewOnlyIds: { $each: ids } } }
-      : { $pull: { viewOnlyIds: { $in: ids } } },
+    {
+      $pull: {
+        ...(role !== 'view' ? { viewOnlyIds: { $in: ids } } : {}),
+        ...(role !== 'manage' ? { managerIds: { $in: ids } } : {}),
+      },
+      ...(role === 'reply'
+        ? {}
+        : { $addToSet: { [role === 'view' ? 'viewOnlyIds' : 'managerIds']: { $each: ids } } }),
+    },
     { returnDocument: 'after' },
   )
 }
@@ -104,7 +110,7 @@ export async function removeConversationParticipant(
   await agentConversations().updateOne(
     { sessionId, participantIds: userId },
     {
-      $pull: { participantIds: userId, viewOnlyIds: userId },
+      $pull: { participantIds: userId, viewOnlyIds: userId, managerIds: userId },
       $push: pushTimelineEvent({
         kind: 'participant_removed',
         at: new Date(),

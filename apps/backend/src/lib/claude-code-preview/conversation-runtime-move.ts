@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { config } from '@/config'
+import { canManage, conversationAccess } from '@/lib/agent/db/access'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { isLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
@@ -28,9 +29,14 @@ export async function moveConversationRuntime(
   userId: string,
 ) {
   const teamId = conversation.teamId
+  const ownerId = conversation.userId
 
-  if (!teamId || conversation.userId !== userId)
-    throw new AppError(403, 'conversation_read_only', 'Only the conversation owner can move it.')
+  if (!teamId || !canManage(conversationAccess(conversation, userId)))
+    throw new AppError(
+      403,
+      'conversation_read_only',
+      'Only the conversation owner or a manager can move it.',
+    )
   const provider = runtimeProvider(conversation.agentRuntime)
   const sourceUrl = conversation.claudeCodePreview?.runtimeUrl
   const sourceHosted = sourceUrl ? await findHostedRuntime(teamId, sourceUrl) : null
@@ -47,6 +53,15 @@ export async function moveConversationRuntime(
       'This conversation belongs to another environment. Open it there to move it to another agent. Nothing has been changed.',
     )
   const target = await requireRuntimeInstance(teamId, targetId, userId)
+
+  // Local and self-hosted agents run on someone's own machine, with the owner's
+  // credentials; only the owner puts a session there.
+  if (userId !== ownerId && target.kind !== 'managed')
+    throw new AppError(
+      403,
+      'conversation_read_only',
+      'Only the conversation owner can move it to a local or self-hosted agent.',
+    )
 
   if (target.status !== 'active')
     throw new AppError(409, 'runtime_unavailable', 'Choose an agent that is enabled.')
@@ -86,7 +101,7 @@ export async function moveConversationRuntime(
     {
       sessionId: conversation.sessionId,
       teamId,
-      userId,
+      userId: ownerId,
       runtimeId: conversation.runtimeId ?? { $exists: false },
       $or: [
         { runtimeOperation: { $exists: false } },
@@ -105,7 +120,7 @@ export async function moveConversationRuntime(
   let release: (() => void) | null = null
 
   try {
-    release = await claimAgentRunForSession(userId, conversation.sessionId, true)
+    release = await claimAgentRunForSession(ownerId, conversation.sessionId, true)
     if (!release)
       throw new AppError(
         409,
@@ -147,7 +162,7 @@ export async function moveConversationRuntime(
       {
         sessionId: conversation.sessionId,
         teamId,
-        userId,
+        userId: ownerId,
         'runtimeOperation.token': token,
         'runtimeOperation.expiresAt': { $gt: new Date() },
       },

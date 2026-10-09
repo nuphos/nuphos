@@ -4,12 +4,13 @@
  * what one person may do, never lower it below this.
  */
 export type GeneralAccess = 'none' | 'view' | 'reply'
-export type ParticipantRole = 'view' | 'reply'
+/** `manage` also changes the session's runtime and credentials. */
+export type ParticipantRole = 'view' | 'reply' | 'manage'
 /** What one viewer may do in a conversation. */
 export type ConversationAccess = 'owner' | ParticipantRole
 
 export const GENERAL_ACCESS_VALUES: readonly GeneralAccess[] = ['none', 'view', 'reply']
-export const PARTICIPANT_ROLES: readonly ParticipantRole[] = ['view', 'reply']
+export const PARTICIPANT_ROLES: readonly ParticipantRole[] = ['view', 'reply', 'manage']
 
 // Spelled out rather than picked from AgentConversation, so shared.ts can use
 // this module without the two importing each other.
@@ -17,6 +18,7 @@ type GrantFields = {
   generalAccess?: GeneralAccess
   participantIds?: string[]
   viewOnlyIds?: string[]
+  managerIds?: string[]
 }
 type AccessFields = GrantFields & { userId: string; teamId?: string }
 
@@ -31,7 +33,9 @@ export function generalAccessOf(conversation: GrantFields) {
 export function participantRole(conversation: GrantFields, userId: string): ParticipantRole | null {
   if (!conversation.participantIds?.includes(userId)) return null
 
-  return conversation.viewOnlyIds?.includes(userId) ? 'view' : 'reply'
+  if (conversation.viewOnlyIds?.includes(userId)) return 'view'
+
+  return conversation.managerIds?.includes(userId) ? 'manage' : 'reply'
 }
 
 /**
@@ -48,6 +52,7 @@ export function conversationAccess(
   const general = generalAccessOf(conversation)
   const own = participantRole(conversation, viewerId)
 
+  if (own === 'manage') return 'manage'
   if (general === 'reply' || own === 'reply') return 'reply'
   if (general === 'view' || own === 'view') return 'view'
 
@@ -55,7 +60,12 @@ export function conversationAccess(
 }
 
 export function canReply(access: ConversationAccess | null) {
-  return access === 'owner' || access === 'reply'
+  return access === 'owner' || access === 'reply' || access === 'manage'
+}
+
+/** Moving the session to another runtime or changing its credentials. */
+export function canManage(access: ConversationAccess | null) {
+  return access === 'owner' || access === 'manage'
 }
 
 /** The Mongo form of "conversationAccess is not null", for list and read queries. */

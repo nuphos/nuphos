@@ -15,7 +15,8 @@ export type AgentConversationPerson = {
 /** Owner first, then whoever spoke here or was invited from Share. */
 /** Who in the team may open a session without an invite. */
 export type GeneralAccess = 'none' | 'view' | 'reply'
-export type ParticipantRole = 'view' | 'reply'
+/** `manage` also moves the session to another runtime and changes its credentials. */
+export type ParticipantRole = 'view' | 'reply' | 'manage'
 export type ConversationAccess = 'owner' | ParticipantRole
 
 export type AgentConversationParticipant = AgentConversationPerson & {
@@ -43,6 +44,8 @@ export type AgentConversation = {
   triggerRun?: AgentConversationTriggerRun
   isOwner?: boolean
   readOnly?: boolean
+  /** The owner or a manager: may change the runtime and credentials. */
+  canManage?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
   transcriptUpdatedAt?: string

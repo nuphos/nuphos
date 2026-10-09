@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  canManage,
   canReply,
   conversationAccess,
   generalAccessOf,
@@ -39,6 +40,21 @@ describe('conversationAccess', () => {
         'teammate',
       ),
     ).toBe('reply')
+  })
+
+  test('a manager can reply and change the runtime and credentials; reply cannot', () => {
+    const managed = {
+      ...base,
+      generalAccess: 'reply' as const,
+      participantIds: ['teammate'],
+      managerIds: ['teammate'],
+    }
+
+    expect(conversationAccess(managed, 'teammate')).toBe('manage')
+    expect(canReply('manage')).toBe(true)
+    expect(canManage('manage')).toBe(true)
+    expect(canManage('owner')).toBe(true)
+    expect(canManage(conversationAccess(managed, 'other'))).toBe(false)
   })
 
   test('a personal conversation is the owner’s alone', () => {

@@ -141,6 +141,8 @@ export type Tab = {
   auditForcedReadOnly?: boolean
   /** A teammate's conversation: owner-only endpoints answer 403, so never call them. */
   foreign?: boolean
+  /** A teammate's conversation this viewer may still move and re-credential. */
+  canManage?: boolean
   /** Every credential option that existed when this conversation's selection was last saved. */
   credentialOptionsSeen?: AgentCredentialSelection
   slackThread?: AgentSlackThread | null

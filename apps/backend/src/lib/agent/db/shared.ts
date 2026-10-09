@@ -84,10 +84,12 @@ export type AgentConversation = {
   // session and being invited from Share are the same fact — "this person is
   // part of this conversation" — so both append here instead of splitting into
   // an invited/active pair of lists. Being here is also the person's own
-  // access grant: reply, unless they are listed in viewOnlyIds.
+  // access grant: reply, unless they are listed in viewOnlyIds or managerIds.
   participantIds?: string[]
   /** Participants who may read but not reply. Always a subset of participantIds. */
   viewOnlyIds?: string[]
+  /** Participants who may also change the runtime and credentials. Disjoint from viewOnlyIds. */
+  managerIds?: string[]
   /** What the rest of the team may do; see access.ts. Absent = 'reply'. */
   generalAccess?: GeneralAccess
   /** Who joined, left or moved this session, shown between its messages. */

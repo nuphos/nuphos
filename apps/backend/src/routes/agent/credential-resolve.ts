@@ -38,6 +38,61 @@ export async function resolveAgentCredentialAccess(params: {
   }
 }
 
+/**
+ * A manager edits the owner's selection, choosing among the credentials they
+ * can use themselves. What else the owner selected is not theirs to see or
+ * drop, so it stays; and since turns run with the owner's credentials, the
+ * result is held to what the owner can use.
+ */
+export async function resolveManagerCredentialAccess(params: {
+  teamId: string
+  managerId: string
+  ownerId: string
+  selection: unknown
+  stored?: AgentCredentialAccess
+}): Promise<{ access: AgentCredentialAccess; options: AgentCredentialOptions }> {
+  const [{ access, options }, ownerOptions] = await Promise.all([
+    resolveAgentCredentialAccess({
+      teamId: params.teamId,
+      userId: params.managerId,
+      selection: params.selection,
+      stored: params.stored,
+    }),
+    getAgentCredentialOptions(params.teamId, params.ownerId),
+  ])
+
+  return {
+    options,
+    access: {
+      ...managerCredentialAccess(access, params.stored, options, ownerOptions),
+      updatedAt: access.updatedAt,
+      updatedBy: params.managerId,
+    },
+  }
+}
+
+export function managerCredentialAccess(
+  chosen: AgentCredentialSelection,
+  stored: AgentCredentialSelection | undefined,
+  managerOptions: AgentCredentialOptions,
+  ownerOptions: AgentCredentialOptions,
+) {
+  type Lists = Record<string, string[] | undefined>
+  const merged: Lists = { ...(chosen as Lists) }
+  const visible = availableCredentialAccess(stored ?? {}, managerOptions) as Lists
+
+  for (const [key, ids] of Object.entries(stored ?? {})) {
+    // A stored selection also carries updatedAt and updatedBy.
+    if (!Array.isArray(ids)) continue
+    const seen = new Set(visible[key])
+    const hidden = ids.filter((id: string) => !seen.has(id))
+
+    if (hidden.length) merged[key] = [...new Set([...(merged[key] ?? []), ...hidden])]
+  }
+
+  return availableCredentialAccess(merged, ownerOptions)
+}
+
 // A client that predates a selection key omits it; keep the stored value for
 // that key instead of letting the omission clear it. An explicit [] still clears.
 export function withOmittedKeysFromStored(
