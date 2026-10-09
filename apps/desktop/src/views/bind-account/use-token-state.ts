@@ -1,12 +1,10 @@
 import { useState } from 'react'
 
-import type { CloudflareScopeAccess, CloudflareScopeKey } from './constants'
+import { CLOUDFLARE_DEFAULT_SCOPE_ACCESS } from './constants'
 
 export function useTokenProviderState() {
   const [cloudflareConnecting, setCloudflareConnecting] = useState(false)
-  const [cfScopeAccess, setCfScopeAccess] = useState<
-    Record<CloudflareScopeKey, CloudflareScopeAccess>
-  >({ dns: 'write', workers: 'write', pages: 'write', r2: 'write', d1: 'write', kv: 'write' })
+  const [cfScopeAccess, setCfScopeAccess] = useState(CLOUDFLARE_DEFAULT_SCOPE_ACCESS)
   const [linodeLabel, setLinodeLabel] = useState('')
   const [linodeToken, setLinodeToken] = useState('')
   const [hetznerLabel, setHetznerLabel] = useState('')
@@ -40,14 +38,7 @@ export function useTokenProviderState() {
   const [resendApiKey, setResendApiKey] = useState('')
 
   function resetTokenState() {
-    setCfScopeAccess({
-      dns: 'write',
-      workers: 'write',
-      pages: 'write',
-      r2: 'write',
-      d1: 'write',
-      kv: 'write',
-    })
+    setCfScopeAccess(CLOUDFLARE_DEFAULT_SCOPE_ACCESS)
     setLinodeLabel('')
     setLinodeToken('')
     setHetznerLabel('')

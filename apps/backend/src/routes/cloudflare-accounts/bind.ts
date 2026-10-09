@@ -61,7 +61,8 @@ const startOAuthSchema = z
           .regex(/^[a-z0-9_.:-]+$/i)
           .max(64),
       )
-      .max(64)
+      // Room for every scope Cloudflare offers (~400 today).
+      .max(1000)
       .optional(),
   })
   .strict()
