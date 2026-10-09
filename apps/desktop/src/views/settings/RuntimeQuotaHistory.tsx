@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { ChartPlot } from '../../components/ChartPlot'
 
+import { quotaHistoryCharts } from './quotaHistoryCharts'
 import { PanelHeading } from './RuntimePanel'
-import { quotaHistoryCharts } from './runtimeQuotaHistory'
 
 import type {
   RuntimeInstance,

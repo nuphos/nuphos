@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { quotaHistoryCharts } from './runtimeQuotaHistory.ts'
+import { quotaHistoryCharts } from './quotaHistoryCharts.ts'
 
 import type { RuntimeInstance } from '../../types/runtime'
 
