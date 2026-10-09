@@ -4,6 +4,13 @@ import '@/routes/agent'
 
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
+import { getLocalActiveAgentRun } from '@/lib/agent/run-admission'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
+import { useDb } from '@/lib/test/doubles/db'
+import { useRedis } from '@/lib/test/doubles/redis'
+import { autonomous } from '@/routes/agent/chat-preview-autonomous-runs'
+
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { setClaudeCodeAutonomousUpdateHandler } from './agent-chat-runtime'
 import {
@@ -17,13 +24,6 @@ import type { OpenAbSessionUpdate } from './openab-acp-client'
 import type { RuntimeHandoff } from './runtime-handoff'
 import type { TeamPreviewClient } from './team-openab-runtime'
 
-import { getLocalActiveAgentRun } from '@/lib/agent/run-admission'
-import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
-import { useDb } from '@/lib/test/doubles/db'
-import { useRedis } from '@/lib/test/doubles/redis'
-import { autonomous } from '@/routes/agent/chat-preview-autonomous-runs'
-
 const endpoint = {
   url: 'wss://runtime.invalid/acp',
   authKey: 'k',
@@ -34,12 +34,16 @@ const noop = () => {}
 const stored = new Map<string, string>()
 const loads: { session: string; servers: unknown }[] = []
 const persisted: { sessionId: string; userId: string; parts: unknown[] }[] = []
+let replay: OpenAbSessionUpdate[] = []
+let hasAttachment = true
+let activeStream: string | null = null
 let emit: (update: OpenAbSessionUpdate) => void = noop
 let acquire: ReturnType<typeof spyOn>
 
 const client = {
   loadSession: async (session: string, _cwd: string, servers: unknown) => {
     loads.push({ session, servers })
+    for (const update of replay) emit(update)
 
     return { alive: true }
   },
@@ -55,11 +59,16 @@ const client = {
 } as unknown as TeamPreviewClient
 
 useRedis({
+  redisEnabled: () => activeStream !== null,
   withRedis: (op) =>
     op({
       hgetall: async () => Object.fromEntries(stored),
-      hdel: async (_key: string, field: string) => (stored.delete(field) ? 1 : 0),
-      hset: async (_key: string, field: string, value: string) => {
+      hmget: async () => [activeStream, '0', 'actor'],
+      get: async () => (activeStream ? 'live-replica' : null),
+      eval: async (_script: string, _count: number, _key: string, field: string, raw: string) =>
+        stored.get(field) === raw && stored.delete(field) ? 1 : 0,
+      hsetnx: async (_key: string, field: string, value: string) => {
+        if (stored.has(field)) return 0
         stored.set(field, value)
 
         return 1
@@ -70,8 +79,12 @@ useDb({
   db: () => ({ collection: () => ({ findOne: async () => null, updateOne: async () => ({}) }) }),
 })
 useAgentDb({
-  getConversationBySessionId: async (sessionId: string) =>
-    ({ sessionId, teamId: 'team', userId: 'owner', claudeCodePreview: attachment }) as never,
+  getConversationBySessionId: async (sessionId: string) => ({
+    sessionId,
+    teamId: 'team',
+    userId: 'owner',
+    claudeCodePreview: hasAttachment ? attachment : undefined,
+  }),
   getConversationPreviewAttachment: async () => attachment,
   appendAutonomousConversationTurn: async (data: {
     sessionId: string
@@ -82,7 +95,7 @@ useAgentDb({
   },
 })
 useConversationChatRoute({
-  resolveConversationChatRuntime: async () => ({ endpoint }) as never,
+  resolveConversationChatRuntime: async () => ({ endpoint }),
 })
 
 async function until(check: () => boolean): Promise<void> {
@@ -100,6 +113,9 @@ const handoff = (at: number): RuntimeHandoff => ({
 
 beforeEach(() => {
   stored.clear()
+  replay = []
+  hasAttachment = true
+  activeStream = null
   loads.length = 0
   persisted.length = 0
   emit = noop
@@ -182,4 +198,54 @@ test('the adopting replica streams and saves the rest of the turn', async () => 
   expect(persisted).toEqual([
     { sessionId: 'conv', userId: 'owner', parts: [{ type: 'text', text: 'Project created.' }] },
   ])
+})
+
+test('crash adoption saves output replayed inside session/resume, under the durable owner', async () => {
+  replay = [
+    {
+      kind: 'agent',
+      update: {
+        kind: 'runtime-state',
+        snapshot: {
+          schemaVersion: 2,
+          state: 'active',
+          phase: 'working',
+        },
+      },
+    },
+    { kind: 'text', text: 'Recovered final result.' },
+    {
+      kind: 'agent',
+      update: {
+        kind: 'runtime-state',
+        snapshot: {
+          schemaVersion: 2,
+          state: 'idle',
+          phase: 'idle',
+        },
+      },
+    },
+  ]
+  await adoptRuntimeHandoff({ ...handoff(Date.now()), abandonedStreamId: 'dead-stream' })
+  await until(() => persisted.length > 0)
+  expect(persisted).toEqual([
+    {
+      sessionId: 'conv',
+      userId: 'owner',
+      parts: [{ type: 'text', text: 'Recovered final result.' }],
+    },
+  ])
+  expect(getLocalActiveAgentRun('owner', 'conv')).toBeNull()
+})
+
+test('crash adoption skips a conversation moved away from its attachment', async () => {
+  hasAttachment = false
+  await adoptRuntimeHandoff({ ...handoff(Date.now()), abandonedStreamId: 'dead-stream' })
+  expect(loads).toEqual([])
+})
+
+test('crash adoption never takes output from a newer live run', async () => {
+  activeStream = 'new-stream'
+  await adoptRuntimeHandoff({ ...handoff(Date.now()), abandonedStreamId: 'dead-stream' })
+  expect(loads).toEqual([])
 })

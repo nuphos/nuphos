@@ -1,3 +1,10 @@
+import {
+  getConversationPreviewAttachment,
+  markConversationWorkLost,
+  setConversationPreviewAttachment,
+} from '@/lib/agent/db'
+import { logEvent } from '@/lib/observability'
+
 import { getLocalAgentDefaults } from './local-agent-defaults'
 import { getRuntimeDefaults } from './runtime-defaults'
 import {
@@ -10,13 +17,6 @@ import type { AcpHttpMcpServer } from './openab-acp-client'
 import type { OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeDefaults } from './runtime-defaults'
 import type { TeamPreviewClient, TeamRuntimeEndpoint } from './team-openab-runtime'
-
-import {
-  getConversationPreviewAttachment,
-  markConversationWorkLost,
-  setConversationPreviewAttachment,
-} from '@/lib/agent/db'
-import { logEvent } from '@/lib/observability'
 
 /**
  * Reattach to the conversation's durable OpenAB session, or create one. The
@@ -33,6 +33,7 @@ export async function attachOpenAbSession(
   mcpServers: AcpHttpMcpServer[],
   systemPrompt: string | undefined,
   runtime: OpenAbSessionRuntime | undefined,
+  onResume?: (sessionId: string, defaults: RuntimeDefaults) => void,
 ): Promise<{ openabSessionId: string; fresh: boolean; defaults: RuntimeDefaults }> {
   await assertConversationRuntimeAvailable(conversationId)
   await assertRuntimeNotDeleting(teamId, endpoint.runtimeId, endpoint.url)
@@ -50,6 +51,8 @@ export async function attachOpenAbSession(
   const sessionRuntime = { ...runtime, defaults }
 
   if (stored?.runtimeUrl === endpoint.url) {
+    // Resuming may immediately replay output, before the RPC response.
+    onResume?.(stored.openabSessionId, defaults)
     const { alive } = await client.loadSession(
       stored.openabSessionId,
       cwd,

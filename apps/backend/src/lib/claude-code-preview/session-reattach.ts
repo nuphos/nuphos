@@ -1,13 +1,13 @@
+import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { isShuttingDown } from '@/lib/lifecycle'
+import { logError, logEvent } from '@/lib/observability'
+
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { observeAutonomousUpdates } from './autonomous-session-observer'
 import { markBackgroundWorkLost } from './background-work'
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
-
-import { getConversationPreviewAttachment } from '@/lib/agent/db'
-import { isShuttingDown } from '@/lib/lifecycle'
-import { logError, logEvent } from '@/lib/observability'
 
 export const REATTACH_DELAYS_MS = [0, 1_000, 2_000, 5_000, 10_000, 30_000, 60_000]
 
@@ -41,16 +41,27 @@ export async function resumeSessionOn(
   session: TeamSession,
   client: TeamPreviewClient,
 ): Promise<{ alive: boolean }> {
-  const result = await client.loadSession(
-    session.openabSessionId,
-    previewRuntimeCwd(session.conversationId),
-    session.mcpServers,
-    session.systemPrompt,
-    session.runtime,
-  )
+  const previous = session.client
 
   session.client = client
   observeSession(session)
+  let result: { alive: boolean }
+
+  try {
+    result = await client.loadSession(
+      session.openabSessionId,
+      previewRuntimeCwd(session.conversationId),
+      session.mcpServers,
+      session.systemPrompt,
+      session.runtime,
+    )
+  } catch (error) {
+    if (session.client === client) {
+      session.client = previous
+      observeSession(session)
+    }
+    throw error
+  }
   if (!result.alive) {
     session.innerSessionLost = true
     logEvent('warn', 'agent.openab_session.inner_session_lost', {
@@ -107,7 +118,7 @@ export async function reattachAfterTransportLoss(
   wait: Sleep = sleep,
 ): Promise<boolean> {
   // A draining replica hands its sessions on; winning one back would strand it.
-  if (session.reattaching === transport || isShuttingDown()) return false
+  if (session.reattaching || isShuttingDown()) return false
   session.reattaching = transport
   // Set only by a failure against the runtime itself, never by a bookkeeping
   // read that happened to throw: a Mongo hiccup is no evidence about the
