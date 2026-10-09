@@ -70,16 +70,28 @@ export function prepareCodexHome(
     const lines = contents.split('\n').map((line) => line.trim())
     const tableStart = lines.findIndex((line) => line.startsWith('['))
     const root = tableStart === -1 ? lines : lines.slice(0, tableStart)
-    const hasNotify = root.some((line) =>
+    const notifyIndex = root.findIndex((line) =>
       ['notify', '"notify"', "'notify'"].includes(line.split('=', 1)[0].trim()),
     )
+    const oldNotify = `notify = ${JSON.stringify([client, 'turn-ended'])}`
+    // Only the native helper needs the App's home; Codex keeps its isolated config.
+    const notify = `notify = ${JSON.stringify(['/usr/bin/env', `CODEX_HOME=${ownerHome}`, client, 'turn-ended'])}`
 
     // Only add the known App client, never import the owner's arbitrary notify commands.
     // Prepend: notify is a root key, not a field in the last plugin/project table.
-    if (existsSync(client) && !hasNotify)
-      writeFileSync(config, `notify = ${JSON.stringify([client, 'turn-ended'])}\n${contents}`, {
-        mode: 0o600,
-      })
+    if (existsSync(client) && (notifyIndex === -1 || root[notifyIndex] === oldNotify))
+      writeFileSync(
+        config,
+        notifyIndex === -1
+          ? `${notify}\n${contents}`
+          : contents
+              .split('\n')
+              .map((line, index) => (index === notifyIndex ? notify : line))
+              .join('\n'),
+        {
+          mode: 0o600,
+        },
+      )
 
     return existsSync(path.join(ownerHome, 'auth.json')) ? home : undefined
   } catch {

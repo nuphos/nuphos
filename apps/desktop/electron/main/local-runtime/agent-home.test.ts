@@ -94,7 +94,11 @@ test('an existing isolated home gains native macOS cleanup without importing per
   prepareCodexHome(f.dir, f.env)
   const prepared = readFileSync(config, 'utf8')
 
-  assert.equal(prepared, `notify = ${JSON.stringify([client, 'turn-ended'])}\n${original}`)
+  const notify = ['/usr/bin/env', `CODEX_HOME=${f.owner}`, client, 'turn-ended']
+
+  assert.equal(prepared, `notify = ${JSON.stringify(notify)}\n${original}`)
+  // Migrate the earlier generated command; it inherited the isolated home.
+  writeFileSync(config, `notify = ${JSON.stringify([client, 'turn-ended'])}\n${original}`)
   prepareCodexHome(f.dir, f.env)
   assert.equal(readFileSync(config, 'utf8'), prepared)
 })
