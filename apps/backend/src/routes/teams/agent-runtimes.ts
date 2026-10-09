@@ -21,8 +21,6 @@ import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
 import { defaultRuntimeLabel, OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
-import { runtimeLogins } from '@/lib/claude-code-preview/runtime-login-store'
-import { fetchRuntimeQuota } from '@/lib/claude-code-preview/runtime-quota'
 import {
   removeTeamRuntime,
   renameTeamRuntime,
@@ -42,6 +40,7 @@ import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
 import { registerRuntimeFileRoutes } from './runtime-files'
+import { registerRuntimeQuotaRoutes } from './runtime-quota'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Context, Hono } from 'hono'
@@ -68,28 +67,6 @@ export const probeSchema = z
     authKey: z.string().trim().min(1).max(500),
   })
   .strict()
-
-/** Provider usage for every agent in the team, each read by the agent that
- *  holds its own credential. */
-function registerRuntimeQuotaRoute(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
-  teamScoped.get('/agent-runtimes/quota', async (c) => {
-    const teamId = c.get('teamId')
-    // With the user, so their own computers' agents are in the list at all.
-    const instances = await listRuntimeInstances(teamId, c.get('userId'))
-    const signIns = await runtimeLogins()
-      .find({ teamId, state: 'connected' }, { projection: { runtimeId: 1, attemptId: 1 } })
-      .toArray()
-    const signIn = new Map(signIns.map((login) => [login.runtimeId, login.attemptId]))
-
-    return c.json({
-      quotas: await Promise.all(
-        instances.map((instance) =>
-          fetchRuntimeQuota(teamId, instance, undefined, undefined, signIn.get(instance.id)),
-        ),
-      ),
-    })
-  })
-}
 
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   registerRuntimeFileRoutes(teamScoped)
@@ -153,7 +130,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       })
     },
   )
-  registerRuntimeQuotaRoute(teamScoped)
+  registerRuntimeQuotaRoutes(teamScoped)
   teamScoped.get('/agent-runtimes/:runtimeId/status', async (c) => {
     const instance = await requireRuntimeInstance(
       c.get('teamId'),

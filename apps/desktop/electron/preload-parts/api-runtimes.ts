@@ -27,6 +27,8 @@ export const runtimeApi = {
   atlasListRuntimeInstances: (teamId: string) =>
     ipcRenderer.invoke('atlas:listRuntimeInstances', teamId),
   atlasListRuntimeQuotas: (teamId: string) => ipcRenderer.invoke('atlas:listRuntimeQuotas', teamId),
+  atlasGetRuntimeQuotaHistory: (teamId: string, range: string) =>
+    ipcRenderer.invoke('atlas:getRuntimeQuotaHistory', teamId, range),
   atlasCreateRuntimeInstance: (teamId: string, input: CreateRuntimeInput) =>
     ipcRenderer.invoke('atlas:createRuntimeInstance', teamId, input),
   atlasProbeExternalRuntimeProvider: (teamId: string, url: string, password: string) =>

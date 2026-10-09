@@ -125,6 +125,16 @@ export type RuntimeMetricSample = {
 
 export type RuntimeMetrics = { samples: RuntimeMetricSample[] }
 
+export type RuntimeQuotaHistoryRange = '1d' | '7d' | '30d'
+
+/** One usage window of one agent over time, the highest use in each bucket. */
+export type RuntimeQuotaHistorySeries = {
+  runtimeId: string
+  windowId: string
+  label: string
+  points: { at: string; usedPercent: number }[]
+}
+
 export type RuntimeLoginStatus = {
   attemptId: string
   state: 'starting' | 'awaiting_authorization' | 'connected' | 'failed' | 'cancelled'
