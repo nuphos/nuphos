@@ -110,7 +110,7 @@ struct ChatComposerBar<Controls: View>: View {
 
             if expanded, dictation == nil {
                 HStack(spacing: 8) {
-                    attachMenu
+                    attachButtons
                     Spacer(minLength: 0)
                     micButton
                     trailingButton
@@ -356,24 +356,25 @@ struct ChatComposerBar<Controls: View>: View {
         }
     }
 
-    private var attachMenu: some View {
-        Menu {
-            // Focus stays: dropping it folds an empty composer, which takes
-            // this menu away while it is still dismissing, and the picker
-            // presented from it goes with it. The sheet hides the keyboard.
-            Button { showPhotos = true } label: {
-                Label("Photos", systemImage: "photo.on.rectangle")
-            }
-            Button { showFiles = true } label: { Label("Files", systemImage: "folder") }
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 18, weight: .medium))
+    /// Two buttons, not a menu: opening a menu takes focus from the input,
+    /// which folds an empty composer and takes the menu away with it.
+    private var attachButtons: some View {
+        HStack(spacing: 0) {
+            attachButton("photo", label: "Photos") { showPhotos = true }
+            attachButton("paperclip", label: "Files") { showFiles = true }
+        }
+    }
+
+    private func attachButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .medium))
                 .frame(width: 34, height: 34)
                 .foregroundStyle(Theme.body)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Attach")
+        .accessibilityLabel(label)
     }
 
     /// One button, never two: a running turn with nothing typed stops it,
