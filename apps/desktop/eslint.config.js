@@ -299,6 +299,38 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
 
+  {
+    files: ['src/**/*.{js,jsx,mjs,cjs,ts,tsx}', 'electron/**/*.{js,mjs,cjs,ts}'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          globals: ['alert', 'confirm', 'prompt'].map((name) => ({
+            name,
+            message: 'Use ConfirmDialog, Modal or toast instead of native browser dialogs.',
+          })),
+          checkGlobalObject: true,
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis', 'self'].flatMap((object) =>
+          ['alert', 'confirm', 'prompt'].map((property) => ({
+            object,
+            property,
+            message: 'Use ConfirmDialog, Modal or toast instead of native browser dialogs.',
+          })),
+        ),
+        ...['showMessageBox', 'showMessageBoxSync', 'showErrorBox'].map((property) => ({
+          property,
+          message:
+            'Use showAppDialog or requireMainProcessConsent instead of native message boxes.',
+        })),
+      ],
+    },
+  },
+
   // Must stay last: turns off every stylistic rule Prettier owns.
   prettier,
 ])
