@@ -3,12 +3,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
 
+import { ChangeActionDialogs } from './mongo/ChangeActionDialogs'
 import { ChangeDetail } from './mongo/ChangeDetail'
 import { CenteredLoader, StatusBadge } from './mongo/ChangesCommon'
 import { CreateChangeDialog } from './mongo/CreateChangeDialog'
 import { useResetOnKey } from './useResetOnKey'
 
 import type { DatabaseChangeRequest, DatabaseConnection, TeamMember } from '../types'
+import type { PendingChangeAction } from './mongo/ChangeActionDialogs'
 
 type Props = {
   teamId: string
@@ -30,6 +32,7 @@ export function MongoDatabaseChanges({
   const [createOpen, setCreateOpen] = useState(false)
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pendingDecision, setPendingDecision] = useState<PendingChangeAction | null>(null)
 
   const load = useCallback(() => {
     api
@@ -105,15 +108,12 @@ export function MongoDatabaseChanges({
     setSelectedId(next.id)
   }
 
-  async function decide(action: 'submit' | 'approve' | 'reject' | 'cancel') {
-    if (!selected) return
-    const comment =
-      action === 'approve' || action === 'reject'
-        ? (window.prompt(`${action === 'approve' ? 'Approval' : 'Rejection'} comment (optional)`) ??
-          null)
-        : null
-
-    if (action === 'reject' && comment === null) return
+  async function decide(
+    action: 'submit' | 'approve' | 'reject' | 'cancel',
+    change = selected,
+    comment: string | null = null,
+  ) {
+    if (!change) return
     setBusyAction(action)
     setError(null)
     try {
@@ -121,7 +121,7 @@ export function MongoDatabaseChanges({
         await api.atlasDecideDatabaseChangeRequest(
           teamId,
           connection.id,
-          selected.id,
+          change.id,
           action,
           comment,
         ),
@@ -133,14 +133,7 @@ export function MongoDatabaseChanges({
     }
   }
 
-  async function execute() {
-    if (!selected) return
-    if (
-      !confirm(
-        `Execute approved ${selected.operation} on ${selected.database}.${selected.collection}? This will mutate the database using the stored credential.`,
-      )
-    )
-      return
+  async function execute(change: DatabaseChangeRequest) {
     setBusyAction('execute')
     setError(null)
     try {
@@ -148,7 +141,7 @@ export function MongoDatabaseChanges({
         await api.atlasExecuteDatabaseChangeRequest(
           teamId,
           connection.id,
-          selected.id,
+          change.id,
           crypto.randomUUID(),
         ),
       )
@@ -236,8 +229,12 @@ export function MongoDatabaseChanges({
               currentUserId={currentUserId}
               memberName={memberName}
               busyAction={busyAction}
-              onDecide={(action) => void decide(action)}
-              onExecute={() => void execute()}
+              onDecide={(action) => {
+                if (action === 'approve' || action === 'reject') {
+                  setPendingDecision({ action, change: selected })
+                } else void decide(action)
+              }}
+              onExecute={() => setPendingDecision({ action: 'execute', change: selected })}
               onOpenPlanInChat={onOpenPlanInChat}
             />
           ) : (
@@ -247,6 +244,13 @@ export function MongoDatabaseChanges({
           )}
         </div>
       </div>
+      <ChangeActionDialogs
+        pendingDecision={pendingDecision}
+        busy={Boolean(busyAction)}
+        onClose={() => setPendingDecision(null)}
+        onDecide={decide}
+        onExecute={execute}
+      />
       <CreateChangeDialog
         open={createOpen}
         teamId={teamId}
