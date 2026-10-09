@@ -82,8 +82,12 @@ function providerEnv(launch: AgentCliLaunch): Record<string, string> {
   return {
     CLAUDE_CODE_EXECUTABLE: launch.cliPath,
     CLAUDE_CONFIG_DIR: launch.agentHome,
-    // Pin login independently of the HOME assigned to each conversation's tools.
-    CLAUDE_SECURESTORAGE_CONFIG_DIR: launch.agentHome,
+    // On macOS reuse the terminal's Keychain entry, without loading its settings.
+    // Claude uses the unsuffixed default entry when this value is empty.
+    CLAUDE_SECURESTORAGE_CONFIG_DIR:
+      process.platform === 'darwin'
+        ? (launch.env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? launch.env.CLAUDE_CONFIG_DIR ?? '')
+        : launch.agentHome,
     ENABLE_CLAUDEAI_MCP_SERVERS: 'false',
   }
 }

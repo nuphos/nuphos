@@ -1,7 +1,9 @@
 # Local Claude sign-in verification (NUPS-877)
 
-The change keeps Claude credentials in the Nuphos user's `claude-home` and pins
-both `CLAUDE_CONFIG_DIR` and `CLAUDE_SECURESTORAGE_CONFIG_DIR` there. Login, probes and the Claude SDK process keep the host HOME so macOS can read
+On macOS, `CLAUDE_CONFIG_DIR` stays in the Nuphos user's `claude-home`, while
+`CLAUDE_SECURESTORAGE_CONFIG_DIR` selects the terminal's existing Keychain entry
+(including custom terminal config directories). No credential is copied.
+Linux and Windows keep their existing independent login. Login, probes and the Claude SDK process keep the host HOME so macOS can read
 and write the login Keychain. On macOS the desktop adapter applies the isolated
 HOME only when executing tool commands through `CLAUDE_CODE_SHELL_PREFIX`,
 with login-shell startup and shell snapshots disabled. Provider CLI config paths
@@ -18,8 +20,9 @@ stopping Codex. These tests do not prove macOS Keychain access or OAuth success.
 Use a Desktop build containing this branch. Do not use the previously installed
 Desktop build to assess the new UI. Keep the normal terminal Claude login intact.
 
-1. First run (both create-workspace and join-workspace): when Claude is installed
-   but not connected to Nuphos, show the local-agent setup. Offer sign-in and a
+1. First run (both create-workspace and join-workspace): when terminal Claude is
+   already signed in on macOS, connect without another OAuth flow. When it is
+   not signed in, show the local-agent setup. Offer sign-in and a
    clear "Continue to Nuphos" option to skip setup. The new-conversation screen and User settings →
    Local agent also offer sign-in.
 2. Open sign-in. Confirm the browser opens, or use "Open Claude sign-in". Cancel
@@ -29,16 +32,16 @@ Desktop build to assess the new UI. Keep the normal terminal Claude login intact
    connected, and the local Claude agent becomes selectable. Send a short message
    and verify a real response with Nuphos session HOME isolation enabled.
 4. Quit and reopen Nuphos, then create another conversation. Neither operation
-   should request another sign-in. Terminal Claude should retain its own login.
-5. Sign out of **only the Nuphos credential store**, using its two absolute config
-   variables, or revoke only the new authorization. Do not sign out the terminal's
-   existing account. Trigger a conversation and verify the reauthentication card
+   should request another sign-in. Terminal Claude should use the same Keychain login on macOS.
+5. With a disposable test account, expire its authorization. On macOS login
+   changes affect terminal Claude too: never sign out a real account for this test. Trigger a conversation and verify the reauthentication card
    provides a direct sign-in button even for a non-admin owner of the local agent.
 6. Reconnect and resend the failed message. Confirm an actual response. The app
    must not silently resend the prior prompt or switch it to another agent.
 7. While sign-in is pending, log out of Nuphos or switch Nuphos accounts. The login
    process and any pending launch must be cancelled; the next account must not
-   inherit the prior account's login state.
+   inherit a pending login process. macOS local agents use the device owner's
+   existing Claude login, with separate Nuphos configuration.
 
 Reconnecting Claude restarts the local Claude runtime and stops its current
 conversations. The dialog states this before launching sign-in. Codex is not
@@ -80,3 +83,13 @@ completion and installed-app restart/reboot remain manual acceptance items.
 - Cause a sign-in failure, close the dialog and reopen it: show Try again without
   replaying the error toast. A new failed attempt should toast its specific
   main-process error (for example, a timeout).
+
+## Existing-login verification (2026-10-09)
+
+On an M1 with Claude Code 2.1.290, a fresh isolated config directory and the
+terminal Keychain selector passed `claude auth status`, a real CLI prompt, and
+installed Desktop ACP initialize → session/new → session/prompt with a Nuphos
+session ID. ACP returned `end_turn`; Bash HOME and AWS_CONFIG_FILE pointed at
+the conversation home. No `.credentials.json` was created and no OAuth was run.
+This verifies Keychain reuse, not long-running concurrent token refresh or the
+Linux/Windows file-backed login path.

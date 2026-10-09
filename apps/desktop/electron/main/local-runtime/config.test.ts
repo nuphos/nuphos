@@ -25,23 +25,29 @@ const launch: LocalRuntimeLaunch = {
   env: { HOME: '/Users/me', PATH: '/usr/bin', AWS_SECRET_ACCESS_KEY: 'secret' },
 }
 
-test('Claude Code runs from a config dir of Nuphos’s own, with its own login', () => {
+test('Claude Code runs from a config dir of Nuphos’s own, with the platform credential store', () => {
   const env = agentEnv(launch)
 
   assert.equal(env.CLAUDE_CONFIG_DIR, '/data/users/u1/claude-home')
-  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, launch.agentHome)
+  assert.equal(
+    env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    process.platform === 'darwin' ? '' : launch.agentHome,
+  )
   assert.equal(env.ENABLE_CLAUDEAI_MCP_SERVERS, 'false')
   assert.match(openabConfigToml(launch), /^CLAUDE_CONFIG_DIR = "\/data\/users\/u1\/claude-home"$/mu)
 })
 
-test('the owner’s Claude config never selects the Nuphos credential store', () => {
+test('a custom terminal credential store does not load personal settings', () => {
   const env = agentEnv({
     ...launch,
     env: { ...launch.env, CLAUDE_CONFIG_DIR: '/Users/me/.claude-work' },
   })
 
   assert.equal(env.CLAUDE_CONFIG_DIR, '/data/users/u1/claude-home')
-  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, launch.agentHome)
+  assert.equal(
+    env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    process.platform === 'darwin' ? '/Users/me/.claude-work' : launch.agentHome,
+  )
 })
 
 test('Claude keeps the host home for Keychain access and filters the owner’s environment', () => {
@@ -89,4 +95,17 @@ test('Codex keeps an isolated home, never the owner’s CODEX_HOME', () => {
   assert.equal(env.CODEX_HOME, '/data/users/u1/codex-home')
   assert.equal(env.CLAUDE_CODE_EXECUTABLE, undefined)
   assert.equal(env.CLAUDE_CONFIG_DIR, undefined)
+})
+
+test('an explicit default Keychain override wins over a custom terminal config', () => {
+  const env = agentEnv({
+    ...launch,
+    env: { ...launch.env, CLAUDE_CONFIG_DIR: '/personal', CLAUDE_SECURESTORAGE_CONFIG_DIR: '' },
+  })
+
+  assert.equal(env.CLAUDE_CONFIG_DIR, launch.agentHome)
+  assert.equal(
+    env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    process.platform === 'darwin' ? '' : launch.agentHome,
+  )
 })

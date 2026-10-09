@@ -53,7 +53,7 @@ NUPHOS_TEST_JS
       path: path.join(dir, 'claude'),
       version: '2.1.0',
       loggedIn: true,
-      account: isolated,
+      account: process.platform === 'darwin' ? env.CLAUDE_CONFIG_DIR : isolated,
     })
     assert.deepEqual(await probeAgentCli('codex', env, isolated), {
       installed: true,
@@ -71,7 +71,10 @@ NUPHOS_TEST_JS
       isolated,
     )
 
-    assert.equal(override.installed && override.account, isolated)
+    assert.equal(
+      override.installed && override.account,
+      process.platform === 'darwin' ? '' : isolated,
+    )
     const unavailable = await probeAgentCli('claude-code', env, undefined)
 
     assert.equal(unavailable.installed && unavailable.loggedIn, null)
