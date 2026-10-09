@@ -15,7 +15,7 @@ test('every bucket of the range is on the axis, floored like the backend', () =>
   assert.equal(new Date(buckets.at(-1) ?? 0).toISOString(), '2026-10-09T12:00:00.000Z')
 })
 
-test('a row per reporting agent, windows by name, gaps where nothing was read', () => {
+test('a row per reporting agent, windows by name, bands only where readings stopped', () => {
   const rows = quotaHistoryRows(
     [
       {
@@ -53,13 +53,13 @@ test('a row per reporting agent, windows by name, gaps where nothing was read', 
   )
   const fiveHour = rows[0]?.windows[0]?.data.slice(-4).map((p) => p.value)
 
-  assert.deepEqual(fiveHour, [20, null, 35, null])
-  // Everything before 09:00, the 10:00 hour, and the hour in progress up to now.
+  // The lone empty 10:00 hour between two readings is bridged, so it is not drawn.
+  assert.deepEqual(fiveHour, [null, 20, 35, null])
+  // Everything before 09:00, and the hour in progress up to now.
   assert.deepEqual(
     rows[0]?.gaps.map((g) => [new Date(g.from).toISOString(), new Date(g.to).toISOString()]),
     [
       [new Date(quotaBuckets('7d', now)[0] ?? 0).toISOString(), '2026-10-09T09:00:00.000Z'],
-      ['2026-10-09T10:00:00.000Z', '2026-10-09T11:00:00.000Z'],
       ['2026-10-09T12:00:00.000Z', new Date(now).toISOString()],
     ],
   )

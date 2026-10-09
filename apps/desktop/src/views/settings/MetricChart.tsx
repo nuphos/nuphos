@@ -13,7 +13,7 @@ const ACCENT = 'rgb(164, 105, 255)'
 const CAPACITY = 'rgb(118, 124, 140)'
 
 /** The faint band behind a stretch with no reading; legends reuse it. */
-export const GAP_FILL = 'rgba(118, 124, 140, 0.14)'
+export const GAP_FILL = 'rgba(118, 124, 140, 0.08)'
 
 export type MetricPoint = { at: number; value: number | null; capacity?: number | null }
 
