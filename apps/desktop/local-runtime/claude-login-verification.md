@@ -93,3 +93,10 @@ session ID. ACP returned `end_turn`; Bash HOME and AWS_CONFIG_FILE pointed at
 the conversation home. No `.credentials.json` was created and no OAuth was run.
 This verifies Keychain reuse, not long-running concurrent token refresh or the
 Linux/Windows file-backed login path.
+
+## Upgrade behavior on macOS
+
+Nuphos now uses the same Claude account as terminal Claude. Signing in through
+Nuphos updates that shared login. Existing Nuphos-only Keychain entries are left
+intact but are no longer selected; people who signed in only through an older
+Nuphos version must sign in once if their terminal has no existing login.

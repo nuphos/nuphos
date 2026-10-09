@@ -209,7 +209,7 @@ function report(): void {
   console.log(`${new Date().toLocaleTimeString()} ${device.label}\n${summary}`)
 }
 
-/** Claude Code serves Nuphos from a home of its own, which needs its own sign-in. */
+/** Sign in only when the same credential store used by the agent is not authenticated. */
 async function signInClaude(ownerId: string): Promise<void> {
   const cli = controller.state().agents['claude-code'].cli
 
