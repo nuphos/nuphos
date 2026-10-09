@@ -12,6 +12,12 @@ test('one chart per usage window, one line per agent, with gaps left empty', () 
     [
       {
         runtimeId: 'a',
+        windowId: 'seven_day',
+        label: 'Weekly',
+        points: [{ at: '2026-10-09T10:00:00.000Z', usedPercent: 50 }],
+      },
+      {
+        runtimeId: 'a',
         windowId: 'five_hour',
         label: '5-hour',
         points: [
@@ -24,12 +30,6 @@ test('one chart per usage window, one line per agent, with gaps left empty', () 
         windowId: 'primary',
         label: '5-hour',
         points: [{ at: '2026-10-09T11:00:00.000Z', usedPercent: 60 }],
-      },
-      {
-        runtimeId: 'a',
-        windowId: 'seven_day',
-        label: 'Weekly',
-        points: [{ at: '2026-10-09T10:00:00.000Z', usedPercent: 50 }],
       },
       // An agent this caller no longer lists is left out.
       {

@@ -50,20 +50,23 @@ export function quotaHistoryCharts(
     byLabel.set(s.label, [...(byLabel.get(s.label) ?? []), s])
   }
 
-  return [...byLabel].map(([label, lines]) => {
-    const used = lines.map(
-      (line) => new Map(line.points.map((p) => [p.at, p.usedPercent] as const)),
-    )
+  // Sorted by name so a chart keeps its place whichever order the API answers in.
+  return [...byLabel]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, lines]) => {
+      const used = lines.map(
+        (line) => new Map(line.points.map((p) => [p.at, p.usedPercent] as const)),
+      )
 
-    return {
-      type: 'line',
-      title: label,
-      xKey: 'time',
-      series: lines.map((line) => ({ key: line.runtimeId, label: names.get(line.runtimeId) })),
-      data: times.map((at) => ({
-        time: timeLabel(at, range),
-        ...Object.fromEntries(lines.map((line, i) => [line.runtimeId, used[i]?.get(at) ?? null])),
-      })),
-    }
-  })
+      return {
+        type: 'line',
+        title: label,
+        xKey: 'time',
+        series: lines.map((line) => ({ key: line.runtimeId, label: names.get(line.runtimeId) })),
+        data: times.map((at) => ({
+          time: timeLabel(at, range),
+          ...Object.fromEntries(lines.map((line, i) => [line.runtimeId, used[i]?.get(at) ?? null])),
+        })),
+      }
+    })
 }
