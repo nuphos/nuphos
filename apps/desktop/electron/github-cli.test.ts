@@ -37,7 +37,7 @@ before(async () => {
   mock.module('./agent/cloud-cli-probe-core.ts', {
     namedExports: { findExecutable: async () => ({ path: '/opt/homebrew/bin/gh' }) },
   })
-  mock.module('./consent.ts', { namedExports: { requireNativeConsent: async () => consent } })
+  mock.module('./consent.ts', { namedExports: { requireMainProcessConsent: async () => consent } })
   cli = await import('./github-cli.ts')
 })
 
@@ -88,7 +88,7 @@ test('GitHub explains a refused write; other failures get a fixed message', asyn
   })
 })
 
-test('a merge pins the head SHA and does nothing without native consent', async () => {
+test('a merge pins the head SHA and does nothing without main-process consent', async () => {
   await cli.githubCliMerge(sender, pull, 'rebase')
   assert.deepEqual(JSON.parse(calls[0].stdin), { merge_method: 'rebase', sha })
 

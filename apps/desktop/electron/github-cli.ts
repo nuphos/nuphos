@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 
 import { findExecutable } from './agent/cloud-cli-probe-core.ts'
-import { requireNativeConsent } from './consent.ts'
+import { requireMainProcessConsent } from './consent.ts'
 import { resolveShellEnv } from './shell-env.ts'
 
 import type {
@@ -146,7 +146,7 @@ export async function githubCliMerge(
   if (!MERGE_METHODS.has(method)) throw new Error('Invalid merge method')
   // A merge cannot be undone from here, so the confirmation lives where a
   // compromised renderer cannot click it.
-  const confirmed = await requireNativeConsent(sender, {
+  const confirmed = await requireMainProcessConsent(sender, {
     title: 'Merge pull request?',
     message: `Merge ${pull.owner}/${pull.repo}#${String(pull.number)} using your GitHub CLI account?`,
     detail: `Method: ${method}. GitHub will record this merge as your account, not Nuphos.`,

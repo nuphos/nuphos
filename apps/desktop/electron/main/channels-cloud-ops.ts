@@ -1,6 +1,6 @@
 import { probeCloudCli, probeCloudCliVersion } from '../agent/cloud-cli-probe'
 import * as atlas from '../atlas'
-import { requireNativeConsent } from '../consent'
+import { requireMainProcessConsent } from '../consent'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
 import * as terminal from '../terminal'
@@ -226,9 +226,9 @@ export const cloudOpsChannels = {
     if (podExec.hasPodExecSession(id)) return { id }
     // Real security boundary for the node root shell: a privileged pod with
     // host PID/IPC/network and the node's root filesystem. The renderer's
-    // in-app explainer is UX; this native prompt is what a rogue renderer
+    // in-app explainer is UX; this isolated prompt is what a rogue renderer
     // can't click through. See electron/consent.ts.
-    const ok = await requireNativeConsent(e.sender, {
+    const ok = await requireMainProcessConsent(e.sender, {
       title: 'Open a root shell on this node?',
       message: `Start a privileged shell on node "${node}"?`,
       detail:
