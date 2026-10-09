@@ -4,6 +4,7 @@ import { logError } from '@/lib/observability'
 
 import { runtimeLabel } from './runtime-provider'
 import { normalizeGrokUsage } from './runtime-quota-grok'
+import { recordRuntimeQuotaSample } from './runtime-quota-history'
 import { probeRuntimeQuota } from './runtime-quota-probe'
 import { clampPercent, unavailable } from './runtime-quota-shape'
 import { RuntimeCapabilityError } from './team-openab-runtime'
@@ -157,8 +158,14 @@ const NORMALIZE = {
   grok: normalizeGrokUsage,
 } as const
 
-export type RuntimeQuotaDeps = { probe: typeof probeRuntimeQuota }
-const defaultDeps: RuntimeQuotaDeps = { probe: probeRuntimeQuota }
+export type RuntimeQuotaDeps = {
+  probe: typeof probeRuntimeQuota
+  record?: (quota: RuntimeQuota) => Promise<void>
+}
+const defaultDeps: RuntimeQuotaDeps = {
+  probe: probeRuntimeQuota,
+  record: recordRuntimeQuotaSample,
+}
 
 type Held = { quota: RuntimeQuota; holdMs: number }
 
@@ -197,6 +204,14 @@ async function fetchUncached(
     reading.usage,
     fetchedAt,
   )
+
+  // The history is a by-product of this read; losing a row must not cost the answer.
+  void deps.record?.(quota).catch((error: unknown) => {
+    logError('agent.runtime_quota.record_failed', error, {
+      team_id: teamId,
+      runtime_id: instance.id,
+    })
+  })
 
   return {
     quota: reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota,

@@ -5,6 +5,7 @@ import type {
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
+  RuntimeQuotaHistoryRange,
   UpdateRuntimeInput,
 } from '../types/runtime'
 import type {
@@ -33,6 +34,8 @@ export const teamApi = {
   ) => window.api.atlasSubmitRuntimeLoginCode(teamId, runtimeId, attemptId, code),
   atlasListRuntimeInstances: (teamId: string) => window.api.atlasListRuntimeInstances(teamId),
   atlasListRuntimeQuotas: (teamId: string) => window.api.atlasListRuntimeQuotas(teamId),
+  atlasGetRuntimeQuotaHistory: (teamId: string, range: RuntimeQuotaHistoryRange) =>
+    window.api.atlasGetRuntimeQuotaHistory(teamId, range),
   atlasCreateRuntimeInstance: (teamId: string, input: CreateRuntimeInput) =>
     window.api.atlasCreateRuntimeInstance(teamId, input),
   atlasProbeExternalRuntimeProvider: (

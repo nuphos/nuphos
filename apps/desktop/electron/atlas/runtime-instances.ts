@@ -8,6 +8,8 @@ import type {
   RuntimeInstance,
   RuntimeLoginStatus,
   RuntimeMetrics,
+  RuntimeQuotaHistoryRange,
+  RuntimeQuotaHistorySeries,
   RuntimeQuota,
   PairExternalRuntimeInput,
   PairedExternalRuntime,
@@ -87,6 +89,17 @@ export function getRuntimeInstanceMetrics(
   hours: number,
 ): Promise<RuntimeMetrics> {
   return call('GET', `${path(teamId, runtimeId)}/metrics?hours=${String(hours)}`)
+}
+export async function getRuntimeQuotaHistory(
+  teamId: string,
+  range: RuntimeQuotaHistoryRange,
+): Promise<RuntimeQuotaHistorySeries[]> {
+  return (
+    await call<{ series: RuntimeQuotaHistorySeries[] }>(
+      'GET',
+      `${path(teamId)}/quota/history?range=${range}`,
+    )
+  ).series
 }
 export async function listRuntimeQuotas(teamId: string): Promise<RuntimeQuota[]> {
   return (await call<{ quotas: RuntimeQuota[] }>('GET', `${path(teamId)}/quota`)).quotas
