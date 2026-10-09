@@ -186,3 +186,7 @@ services:
           name: nuphos-storage
           type: web
           envVarKey: RUSTFS_SECRET_KEY
+      - key: NUPHOS_FILE_TRANSFER_S3_ACCESS_KEY_ID
+        value: nuphos
+      - key: ATLAS_SKILLS_S3_ACCESS_KEY_ID
+        value: nuphos

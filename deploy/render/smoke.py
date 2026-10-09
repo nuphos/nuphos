@@ -109,6 +109,24 @@ else
   test "$(curl -fsS --aws-sigv4 aws:amz:us-east-1:s3 --user "$S3_ACCESS_KEY:$S3_SECRET_KEY" "$url")" = render-persist
 fi
 '''
+    backend_storage_probe = """
+import {storageConfig} from './src/config/storage.ts';
+import {makeS3Client} from './src/lib/storage/s3-client.ts';
+import {PutObjectCommand,GetObjectCommand} from '@aws-sdk/client-s3';
+import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
+const stores=storageConfig();
+for (const opts of [stores.fileTransfer.s3,stores.skillsStore.s3]) {
+  if (!opts.bucket || !opts.accessKeyId || !opts.secretAccessKey) throw Error('Missing backend S3 configuration');
+  const client=makeS3Client({...opts,endpoint:'http://nuphos-storage:9000',requestChecksumCalculation:'WHEN_REQUIRED'});
+  const input={Bucket:opts.bucket,Key:'backend-client-smoke'};
+  if(process.env.RENDER_TEST_PHASE==='startup') {
+    const put=await getSignedUrl(client,new PutObjectCommand(input),{expiresIn:60});
+    if(!(await fetch(put,{method:'PUT',body:'backend-persist'})).ok)throw Error('Backend signed upload failed');
+  }
+  const get=await getSignedUrl(client,new GetObjectCommand(input),{expiresIn:60});
+  if(await (await fetch(get)).text()!=='backend-persist')throw Error('Backend signed download/persistence failed');
+}
+"""
     try:
         compose('up', '-d', '--build')
         for phase in ('startup', 'replacement'):
@@ -140,6 +158,7 @@ fi
             if phase == 'startup':
                 compose('exec', '-T', 'nuphos-storage', 'sh', '-c', storage_probe, 'probe', 'write')
             compose('exec', '-T', 'nuphos-storage', 'sh', '-c', storage_probe, 'probe', 'read')
+            compose('exec', '-T', '-e', f'RENDER_TEST_PHASE={phase}', 'nuphos-backend', 'bun', '-e', backend_storage_probe)
             redis = compose('exec', '-T', 'nuphos-backend', 'bun', '-e',
                             "console.log(JSON.stringify(await (await fetch('http://127.0.0.1:3000/health/redis')).json()))")
             assert json.loads(redis)['status'] == 'disabled'
