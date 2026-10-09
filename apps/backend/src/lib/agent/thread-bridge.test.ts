@@ -4,12 +4,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
 
-import {
-  authorizeThreadDelivery,
-  createAgentThread,
-  sameThreadCredentials,
-  sendAgentThreadMessage,
-} from './thread-bridge'
+import { authorizeThreadDelivery, createAgentThread, sendAgentThreadMessage } from './thread-bridge'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
 import type { ThreadTurn } from './thread-bridge'
@@ -110,14 +105,21 @@ describe('conversation-scoped thread tools', () => {
   test.each([
     ['another owner', { userId: 'teammate' }],
     ['another team', { teamId: 'other-team' }],
-    ['another runtime', { runtimeId: 'other-runtime' }],
-    ['another provider', { agentRuntime: 'claude-code' }],
     ['archived target', { archivedAt: new Date() }],
-    ['broader credentials', { credentialAccess: { ...access, awsRoleIds: ['role-1', 'role-2'] } }],
   ])('refuses %s', async (_, change) => {
     Object.assign(target, change)
     await expect(sendAgentThreadMessage(actor, 'target', 'Do work')).rejects.toThrow()
     expect(jobs).toHaveLength(0)
+  })
+
+  test('delivers to an own thread with another runtime or credential selection', async () => {
+    Object.assign(target, {
+      runtimeId: 'other-runtime',
+      agentRuntime: 'claude-code',
+      credentialAccess: { ...access, awsRoleIds: ['role-1', 'role-2'] },
+    })
+    await sendAgentThreadMessage(actor, 'target', 'Do work')
+    expect(jobs).toHaveLength(1)
   })
 
   test('refuses self-delivery, unknown targets and non-owner source sessions', async () => {
@@ -127,23 +129,12 @@ describe('conversation-scoped thread tools', () => {
     await expect(createAgentThread(actor, 'Work', 'Task')).rejects.toThrow()
   })
 
-  test('rechecks membership and selection before a queued job executes', async () => {
+  test('rechecks membership and ownership before a queued job executes', async () => {
     await sendAgentThreadMessage(actor, 'target', 'Work')
     member = false
     await expect(authorizeThreadDelivery(jobs[0]!)).rejects.toThrow()
     member = true
-    source.credentialAccess = { ...access, awsRoleIds: [] }
+    target.userId = 'teammate'
     await expect(authorizeThreadDelivery(jobs[0]!)).rejects.toThrow()
-  })
-
-  test('compares selections independent of order/audit fields but preserves legacy unset semantics', () => {
-    expect(
-      sameThreadCredentials(
-        { ...access, awsRoleIds: ['a', 'b'] },
-        { ...access, awsRoleIds: ['b', 'a'], updatedBy: 'other' },
-      ),
-    ).toBe(true)
-    expect(sameThreadCredentials(access, { ...access, githubInstallationIds: [] })).toBe(false)
-    expect(sameThreadCredentials(undefined, undefined)).toBe(false)
   })
 })

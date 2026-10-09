@@ -19,9 +19,9 @@ MCP surface for either agent runtime, without patching another upstream bundle.
    The existing run claim starts an idle conversation or enqueues a message for
    an active one. Agent-generated input is explicitly identified as such.
 
-Both threads must belong to the acting user in the same team and retain the
-same runtime and credential selection. Membership and scope are checked again
-when the queued job executes. This deliberately does not grant an agent the
+Both threads must belong to the acting user in the same team. The target runs
+with its own runtime and credential selection, which the same owner chose.
+Membership and ownership are checked again when the queued job executes. This deliberately does not grant an agent the
 human user's full workspace-wide conversation capabilities. Shared conversations
 owned by another actor are not delegation sources. Existing list/read tools
 remain the discovery path.
