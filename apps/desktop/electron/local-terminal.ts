@@ -16,6 +16,8 @@ type TerminalSession = {
   events: LocalTerminalEvent[]
   bufferedBytes: number
   exited: boolean
+  agentScope?: string
+  userTookOver: boolean
 }
 
 export function terminalSize(value: number, fallback: number): number {
@@ -33,7 +35,7 @@ export class LocalTerminalSessions {
    * and remounted whenever its session leaves and re-enters the main pane, and
    * re-mounting must find the same shell rather than spawn another.
    */
-  start(owner: WebContents, id: string, cols: number, rows: number): { id: string; shell: string } {
+  start(owner: WebContents, id: string, cols: number, rows: number, cwd = os.homedir(), agentScope?: string): { id: string; shell: string } {
     if (typeof id !== 'string' || !id || id.length > 200) {
       throw new Error('Invalid terminal id.')
     }
@@ -54,7 +56,7 @@ export class LocalTerminalSessions {
       name: 'xterm-256color',
       cols: terminalSize(cols, 80),
       rows: terminalSize(rows, 24),
-      cwd: os.homedir(),
+      cwd,
       env: { ...env, TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'Nuphos' },
     })
     const session: TerminalSession = {
@@ -64,6 +66,8 @@ export class LocalTerminalSessions {
       events: [],
       bufferedBytes: 0,
       exited: false,
+      agentScope,
+      userTookOver: false,
     }
 
     this.sessions.set(id, session)
@@ -110,12 +114,32 @@ export class LocalTerminalSessions {
     }
   }
 
-  input(owner: WebContents, id: string, data: string): void {
+  input(owner: WebContents, id: string, data: string, fromUser = true): void {
     const session = this.owned(owner, id)
 
     if (typeof data !== 'string' || data.length > 1024 * 1024)
       throw new Error('Invalid terminal input.')
+    if (fromUser) session.userTookOver = true
     if (!session.exited) session.pty.write(data)
+  }
+
+  agentRequest(id: string, scope: string, data?: string) {
+    const session = this.sessions.get(id)
+
+    if (!session) throw new Error('Terminal is no longer available.')
+
+    if (session.agentScope !== scope) throw new Error('Terminal belongs to another conversation.')
+    if (data !== undefined) {
+      if (session.userTookOver) throw new Error('The user took over this terminal. Open a new terminal.')
+      if (session.exited) throw new Error('Terminal has exited.')
+      if (data.length > 65536) throw new Error('Terminal input is too large.')
+      session.pty.write(data)
+    }
+
+    const output = session.events.filter(e => e.type === 'data').map(e => e.data).join('')
+
+    return { terminalId: id, output: output.slice(-65536), outputIsRecentSnapshot: true,
+      exited: session.exited, userTookOver: session.userTookOver }
   }
 
   resize(owner: WebContents, id: string, cols: number, rows: number): void {

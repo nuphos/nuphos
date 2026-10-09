@@ -82,6 +82,12 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
       if (started && !ended)
         void api.localTerminalResize(tabId, terminal.cols, terminal.rows).catch(reportError)
     }
+    // Terminal-generated device replies must not count as a human taking over.
+    let fromUser = false
+    const takeOver = () => { fromUser = true }
+
+    host.addEventListener('keydown', takeOver, true)
+    host.addEventListener('paste', takeOver, true)
     const input = terminal.onData((data) => {
       if (!started || ended) return
       if (target && new TextEncoder().encode(data).length > 16384) {
@@ -89,7 +95,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
 
         return
       }
-      void api.localTerminalInput(tabId, data).catch((error: unknown) => {
+      void api.localTerminalInput(tabId, data, fromUser).catch((error: unknown) => {
         if (!disposed) toast.apiError('Could not send terminal input', error)
       })
     })
@@ -124,6 +130,8 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
       disposed = true
       observer.disconnect()
       input.dispose()
+      host.removeEventListener('keydown', takeOver, true)
+      host.removeEventListener('paste', takeOver, true)
       offEvent?.()
       terminal.dispose()
       terminalRef.current = null

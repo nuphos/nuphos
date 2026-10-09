@@ -128,7 +128,7 @@ test(
   },
 )
 
-test('sessions reject another window and cleanup on reload', () => {
+test('sessions reject another window and cleanup on reload', async () => {
   const sessions = new LocalTerminalSessions()
   const first = renderer()
   const other = renderer()
@@ -137,6 +137,12 @@ test('sessions reject another window and cleanup on reload', () => {
     const id = 'tab-1'
 
     sessions.start(first.owner, id, 80, 24)
+    if (process.platform !== 'win32') {
+      const ready = waitForOutput(first.emitter, 'RELOAD_SHELL_READY')
+
+      sessions.input(first.owner, id, "printf '%s%s\\n' RELOAD_SHELL_ READY\r")
+      await ready
+    }
 
     assert.throws(() => sessions.replay(other.owner, id), /not available/)
     assert.throws(() => sessions.start(other.owner, id, 80, 24), /not available/)
@@ -149,3 +155,51 @@ test('sessions reject another window and cleanup on reload', () => {
     sessions.closeAll()
   }
 })
+
+test('agent terminal is scoped, survives reads and yields permanently to user input',
+  { timeout: 20_000, skip: process.platform === 'win32' }, async () => {
+    const sessions = new LocalTerminalSessions()
+    const { owner, emitter } = renderer()
+    const scope = JSON.stringify(['team', 'conversation'])
+
+    try {
+      sessions.start(owner, 'agent-tab', 80, 24, undefined, scope)
+      assert.throws(() => sessions.agentRequest('agent-tab', 'another-conversation', 'echo bad\r'), /another conversation/)
+      const ready = waitForOutput(emitter, 'AGENT_SHARED_OUTPUT')
+
+      sessions.agentRequest('agent-tab', scope, "printf '%s%s\\n' AGENT_SHARED_ OUTPUT\r")
+      await ready
+      assert.match(sessions.agentRequest('agent-tab', scope).output, /AGENT_SHARED_OUTPUT/)
+      sessions.input(owner, 'agent-tab', '', false)
+      assert.equal(sessions.agentRequest('agent-tab', scope).userTookOver, false)
+      sessions.input(owner, 'agent-tab', 'echo user')
+      assert.equal(sessions.agentRequest('agent-tab', scope).userTookOver, true)
+      assert.throws(() => sessions.agentRequest('agent-tab', scope, '\r'), /user took over/)
+      const agentExited = new Promise<void>(resolve => {
+        emitter.on('terminal-event', (event: LocalTerminalEvent) => {
+          if (event.id === 'agent-tab' && event.type === 'exit') resolve()
+        })
+      })
+
+      sessions.input(owner, 'agent-tab', '\x15exit\r')
+      await agentExited
+      sessions.close(owner, 'agent-tab')
+      assert.throws(() => sessions.agentRequest('agent-tab', scope), /no longer available/)
+      sessions.start(owner, 'user-tab', 80, 24)
+      const userReady = waitForOutput(emitter, 'USER_SHELL_READY')
+
+      sessions.input(owner, 'user-tab', "printf '%s%s\\n' USER_SHELL_ READY\r")
+      await userReady
+      assert.throws(() => sessions.agentRequest('user-tab', scope), /another conversation/)
+      const exited = new Promise<void>(resolve => {
+        emitter.on('terminal-event', (event: LocalTerminalEvent) => {
+          if (event.id === 'user-tab' && event.type === 'exit') resolve()
+        })
+      })
+
+      sessions.input(owner, 'user-tab', 'exit\r')
+      await exited
+    } finally {
+      sessions.closeAll()
+    }
+  })

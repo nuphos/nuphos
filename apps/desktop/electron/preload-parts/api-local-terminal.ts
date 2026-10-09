@@ -1,13 +1,21 @@
 import { ipcRenderer } from 'electron'
 
-import type { LocalTerminalEvent, TerminalTarget } from '../../src/api/local-terminal-types'
+import type { DockTerminalRequest, LocalTerminalEvent, TerminalTarget } from '../../src/api/local-terminal-types'
 
 export const localTerminalApi = {
+  acceptDockTerminal: (id: string) => ipcRenderer.invoke('local-terminal:accept-dock', id),
+  onDockTerminalRequest: (callback: (request: DockTerminalRequest) => void) => {
+    const handler = (_event: unknown, request: DockTerminalRequest) => callback(request)
+
+    ipcRenderer.on('local-terminal:open-dock', handler)
+
+    return () => ipcRenderer.off('local-terminal:open-dock', handler)
+  },
   localTerminalStart: (id: string, cols: number, rows: number, target?: TerminalTarget) =>
     ipcRenderer.invoke('local-terminal:start', id, cols, rows, target),
   localTerminalReplay: (id: string) => ipcRenderer.invoke('local-terminal:replay', id),
-  localTerminalInput: (id: string, data: string) =>
-    ipcRenderer.invoke('local-terminal:input', id, data),
+  localTerminalInput: (id: string, data: string, fromUser = true) =>
+    ipcRenderer.invoke('local-terminal:input', id, data, fromUser),
   localTerminalResize: (id: string, cols: number, rows: number) =>
     ipcRenderer.invoke('local-terminal:resize', id, cols, rows),
   localTerminalClose: (id: string) => ipcRenderer.invoke('local-terminal:close', id),

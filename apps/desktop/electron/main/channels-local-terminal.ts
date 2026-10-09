@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 
+import { acceptDockTerminal } from '../agent/dock-terminal'
 import { localTerminals } from '../local-terminal'
 import { runtimeTerminals } from '../runtime-terminal'
 
@@ -31,6 +32,7 @@ const terminals = (event: IpcMainInvokeEvent, id: string) =>
   runtimeTerminals.describe(owner(event), id) ? runtimeTerminals : localTerminals
 
 export const localTerminalChannels = {
+  'local-terminal:accept-dock': (event: IpcMainInvokeEvent, id: string) => acceptDockTerminal(owner(event), id),
   'local-terminal:start': (
     event: IpcMainInvokeEvent,
     id: string,
@@ -43,8 +45,10 @@ export const localTerminalChannels = {
       : localTerminals.start(owner(event), id, cols, rows),
   'local-terminal:replay': (event: IpcMainInvokeEvent, id: string) =>
     terminals(event, id).replay(owner(event), id),
-  'local-terminal:input': (event: IpcMainInvokeEvent, id: string, data: string) =>
-    terminals(event, id).input(owner(event), id, data),
+  'local-terminal:input': (event: IpcMainInvokeEvent, id: string, data: string, fromUser = true) =>
+    runtimeTerminals.describe(owner(event), id)
+      ? runtimeTerminals.input(owner(event), id, data)
+      : localTerminals.input(owner(event), id, data, fromUser),
   'local-terminal:resize': (event: IpcMainInvokeEvent, id: string, cols: number, rows: number) =>
     terminals(event, id).resize(owner(event), id, cols, rows),
   'local-terminal:close': (event: IpcMainInvokeEvent, id: string) =>

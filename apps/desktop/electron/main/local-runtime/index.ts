@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
+import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
 import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl } from '../../api-endpoint.ts'
@@ -145,6 +146,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         return workspace ? new LocalFileStream(workspace) : null
       },
       connectExec: () => new LocalExecStream(),
+      connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider) => {
         const running = runtime(provider)
 
@@ -293,8 +295,5 @@ export function listLocalRuntimeActivity(before?: string): Promise<unknown> {
 
   if (before) query.set('before', before)
 
-  return callJson(
-    'GET',
-    `/agent/devices/${encodeURIComponent(deviceId)}/runtime-activity?${query.toString()}`,
-  )
+  return callJson('GET', `/agent/devices/${encodeURIComponent(deviceId)}/runtime-activity?${query.toString()}`)
 }
