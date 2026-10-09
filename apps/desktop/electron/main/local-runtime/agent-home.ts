@@ -67,11 +67,16 @@ export function prepareCodexHome(
 
     const client = path.join(ownerHome, CUA_CLIENT)
     const contents = existsSync(config) ? readFileSync(config, 'utf8') : ''
-    const root = contents.split(/^\s*\[/mu, 1)[0]
+    const lines = contents.split('\n').map((line) => line.trim())
+    const tableStart = lines.findIndex((line) => line.startsWith('['))
+    const root = tableStart === -1 ? lines : lines.slice(0, tableStart)
+    const hasNotify = root.some((line) =>
+      ['notify', '"notify"', "'notify'"].includes(line.split('=', 1)[0].trim()),
+    )
 
     // Only add the known App client, never import the owner's arbitrary notify commands.
     // Prepend: notify is a root key, not a field in the last plugin/project table.
-    if (existsSync(client) && !/^\s*(?:notify|"notify"|'notify')\s*=/mu.test(root))
+    if (existsSync(client) && !hasNotify)
       writeFileSync(config, `notify = ${JSON.stringify([client, 'turn-ended'])}\n${contents}`, {
         mode: 0o600,
       })
