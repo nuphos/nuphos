@@ -14,6 +14,16 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 
 const CUA_PLUGIN = 'unified-computer-use@openai-bundled'
 const CUA_PLUGIN_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
+const CUA_CLIENT = path.join(
+  'computer-use',
+  'Codex Computer Use.app',
+  'Contents',
+  'SharedSupport',
+  'SkyComputerUseClient.app',
+  'Contents',
+  'MacOS',
+  'SkyComputerUseClient',
+)
 
 /** False when something other than a link already sits at `file`. */
 function linkFrom(ownerHome: string, home: string, file: string): boolean {
@@ -32,8 +42,8 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
  * App's Computer Use plugin, so Codex serving Nuphos never loads their
  * personal config.toml, MCP servers, connectors or AGENTS.md. Links rather
  * than copies: Codex refreshes the token in place, and the App updates the
- * plugin in place. Loading the plugin itself, not just its MCP server, brings
- * the App's turn-end hook that puts away the Computer Use cursor.
+ * plugin in place. The plugin supplies MCP cleanup hooks; the App's native
+ * notify client separately ends the macOS Computer Use turn and its cursor.
  * Undefined when there is no login to link or the link cannot be made; Codex
  * then does not run as a local agent at all.
  */
@@ -54,6 +64,17 @@ export function prepareCodexHome(
       !(existsSync(config) && readFileSync(config, 'utf8').includes(CUA_PLUGIN))
     )
       appendFileSync(config, `\n[plugins."${CUA_PLUGIN}"]\nenabled = true\n`, { mode: 0o600 })
+
+    const client = path.join(ownerHome, CUA_CLIENT)
+    const contents = existsSync(config) ? readFileSync(config, 'utf8') : ''
+    const root = contents.split(/^\s*\[/mu, 1)[0]
+
+    // Only add the known App client, never import the owner's arbitrary notify commands.
+    // Prepend: notify is a root key, not a field in the last plugin/project table.
+    if (existsSync(client) && !/^\s*(?:notify|"notify"|'notify')\s*=/mu.test(root))
+      writeFileSync(config, `notify = ${JSON.stringify([client, 'turn-ended'])}\n${contents}`, {
+        mode: 0o600,
+      })
 
     return existsSync(path.join(ownerHome, 'auth.json')) ? home : undefined
   } catch {
