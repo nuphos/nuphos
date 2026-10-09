@@ -67,7 +67,7 @@ final class AgentStore {
     }
 
     /// Pins or unpins; retried once on a stale revision.
-    func setPinned(_ pinned: Bool, sessionId: String, title: String) async {
+    func setPinned(_ pinned: Bool, sessionId: String, title: String) async throws {
         guard let team = selectedTeam else { return }
         for _ in 0..<2 {
             var loaded = favorites
@@ -80,8 +80,6 @@ final class AgentStore {
                 return
             } catch AgentChatAPI.Conflict.favoritesChanged {
                 favorites = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team.id)
-            } catch {
-                return
             }
         }
     }

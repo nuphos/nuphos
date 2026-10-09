@@ -75,6 +75,7 @@ struct AddConnectorSheet: View {
                         .foregroundStyle(Theme.muted)
                 }
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(connectors.connecting != nil)

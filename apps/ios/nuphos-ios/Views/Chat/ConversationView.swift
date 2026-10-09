@@ -22,6 +22,7 @@ struct ConversationView: View {
     @State private var didSendInitial = false
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
+    @State private var updating = false
     @State private var showRename = false
     @State private var renamedTitle = ""
 
@@ -115,7 +116,12 @@ struct ConversationView: View {
                             }
                         }
                         Button {
-                            Task { await store.setPinned(!store.isPinned(session.sessionId), sessionId: session.sessionId, title: session.title) }
+                            Task {
+                                updating = true
+                                defer { updating = false }
+                                do { try await store.setPinned(!store.isPinned(session.sessionId), sessionId: session.sessionId, title: session.title) }
+                                catch { archiveError = error.localizedDescription }
+                            }
                         } label: {
                             Label(store.isPinned(session.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(session.sessionId) ? "pin.slash" : "pin")
                         }
@@ -123,6 +129,8 @@ struct ConversationView: View {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
                             Button {
                                 Task {
+                                    updating = true
+                                    defer { updating = false }
                                     do {
                                         try await session.setArchived(!session.isArchived)
                                         // Either direction takes the chat out
@@ -137,8 +145,13 @@ struct ConversationView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        // The menu has closed by the time the request runs;
+                        // this is what shows it was taken. A Label, not a bare
+                        // Image: the bar takes it as a native item, so the
+                        // whole glass answers, not just the glyph.
+                        if updating { ProgressView() } else { Label("Chat options", systemImage: "ellipsis") }
                     }
+                    .disabled(updating)
                     .accessibilityLabel("Chat options")
                 }
             }
@@ -556,6 +569,7 @@ struct QueuedStrip: View {
                         Text(item).lineLimit(1).font(Theme.Text.label)
                         Button { onRemove(index) } label: {
                             Image(systemName: "xmark").font(Theme.Text.micro.weight(.bold))
+                                .contentShape(Rectangle().inset(by: -10))
                         }
                         .buttonStyle(.plain)
                     }

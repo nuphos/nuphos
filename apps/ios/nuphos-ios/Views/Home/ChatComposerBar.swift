@@ -43,7 +43,9 @@ struct ChatComposerBar<Controls: View>: View {
         // One TextField, always in the same place in the hierarchy: moving
         // it between branches re-creates it, which drops and re-acquires
         // focus in a loop.
-        VStack(alignment: .leading, spacing: 8) {
+        // Collapsed, the controls row is zero high; spacing around it would
+        // stay, so a collapsed composer has none.
+        VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
             if let submission = failedSubmission.wrappedValue {
                 Button("Edit unsent message") {
                     text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
@@ -70,7 +72,6 @@ struct ChatComposerBar<Controls: View>: View {
                 }
                 .frame(height: expanded ? nil : 0)
                 .padding(.top, expanded ? -4 : 0)
-                .padding(.bottom, expanded ? 0 : -8)
                 .opacity(expanded ? 1 : 0)
                 .allowsHitTesting(expanded)
                 .accessibilityHidden(!expanded)
@@ -109,7 +110,7 @@ struct ChatComposerBar<Controls: View>: View {
 
             if expanded, dictation == nil {
                 HStack(spacing: 8) {
-                    attachMenu
+                    attachButtons
                     Spacer(minLength: 0)
                     micButton
                     trailingButton
@@ -119,6 +120,10 @@ struct ChatComposerBar<Controls: View>: View {
                 .transition(.opacity)
             }
         }
+        // The glass answers a touch anywhere on it, so anywhere on it opens
+        // the input; the buttons and the handle inside still take their own.
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture { if dictation == nil { focused = true } }
         .disabled(preparingSubmission)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
@@ -351,21 +356,25 @@ struct ChatComposerBar<Controls: View>: View {
         }
     }
 
-    private var attachMenu: some View {
-        Menu {
-            Button { focused = false; showPhotos = true } label: {
-                Label("Photos", systemImage: "photo.on.rectangle")
-            }
-            Button { focused = false; showFiles = true } label: { Label("Files", systemImage: "folder") }
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 18, weight: .medium))
+    /// Two buttons, not a menu: opening a menu takes focus from the input,
+    /// which folds an empty composer and takes the menu away with it.
+    private var attachButtons: some View {
+        HStack(spacing: 0) {
+            attachButton("photo", label: "Photos") { showPhotos = true }
+            attachButton("paperclip", label: "Files") { showFiles = true }
+        }
+    }
+
+    private func attachButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .medium))
                 .frame(width: 34, height: 34)
                 .foregroundStyle(Theme.body)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Attach")
+        .accessibilityLabel(label)
     }
 
     /// One button, never two: a running turn with nothing typed stops it,
