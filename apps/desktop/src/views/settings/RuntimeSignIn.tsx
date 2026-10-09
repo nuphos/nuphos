@@ -25,7 +25,7 @@ export function RuntimeSignIn({
   const note = hostSignIn
     ? signedOut
       ? 'Not signed in. Sign in here, or on the agent’s host:'
-      : 'This agent does not report its sign-in. If conversations ask for a sign-in, update its image, or sign in on its host:'
+      : 'Sign-in status is unknown. Try signing in here, or on the agent’s host:'
     : signedOut
       ? 'Not signed in.'
       : 'This agent does not report its sign-in yet.'
@@ -38,7 +38,7 @@ export function RuntimeSignIn({
           <code className="block break-all font-mono text-[12px] text-secondary">{hostSignIn}</code>
         )}
       </div>
-      {signedOut && onSignIn && (
+      {onSignIn && (
         <button
           type="button"
           onClick={onSignIn}

@@ -13,7 +13,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { claudeHomeSettings, prepareClaudeHome, prepareCodexHome } from './agent-home.ts'
+import {
+  claudeHomeSettings,
+  prepareAgentHome,
+  prepareClaudeHome,
+  prepareCodexHome,
+} from './agent-home.ts'
 
 const CUA_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
 
@@ -108,4 +113,12 @@ test('the prepared home holds only Nuphos’s own settings, readable by the owne
     claudeHomeSettings(workspace),
   )
   if (process.platform !== 'win32') assert.equal(statSync(home).mode & 0o777, 0o700)
+})
+
+test('the runtime links the same custom CODEX_HOME used by local login', (t) => {
+  const f = codexFixture(t)
+  const home = prepareAgentHome('codex', f.dir, path.join(f.dir, 'workspace'), f.env)
+
+  assert.ok(home)
+  assert.equal(readlinkSync(path.join(home, 'auth.json')), path.join(f.owner, 'auth.json'))
 })

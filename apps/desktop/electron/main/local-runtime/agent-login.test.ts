@@ -3,11 +3,14 @@ import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { test } from 'node:test'
 
-import { ClaudeLogin, claudeLoginUrl } from './claude-login.ts'
+import { LocalAgentLogin, claudeLoginUrl } from './agent-login.ts'
 
 import type { spawn } from 'node:child_process'
 
-function harness(connected: () => Promise<boolean> = async () => true) {
+function harness(
+  connected: () => Promise<boolean> = async () => true,
+  provider: 'claude-code' | 'codex' = 'claude-code',
+) {
   const children: (EventEmitter & {
     stdout: PassThrough
     stderr: PassThrough
@@ -15,7 +18,8 @@ function harness(connected: () => Promise<boolean> = async () => true) {
   })[] = []
   let killed = 0
   const calls: unknown[][] = []
-  const login = new ClaudeLogin({
+  const login = new LocalAgentLogin({
+    provider,
     changed: () => {},
     connected,
     spawn: ((...args: unknown[]) => {
@@ -126,5 +130,56 @@ test('a nonzero exit clears the authorization URL and allows another login', () 
   assert.equal(login.state().url, undefined)
   login.start('/bin/claude', {})
   assert.equal(calls.length, 2)
+  login.cancel()
+})
+
+test('Codex device login parses fragmented ANSI output and requires verification', async () => {
+  const { login, children, calls } = harness(async () => true, 'codex')
+
+  login.start('/bin/codex', { CODEX_HOME: '/owner/.codex' })
+  assert.deepEqual(calls[0]?.slice(0, 2), [
+    '/bin/codex',
+    ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth'],
+  ])
+  children[0]?.stdout.write('Open https://evil.example/\n')
+  assert.equal(login.state().url, undefined)
+  children[0]?.stdout.write(
+    'https://auth.openai.com/codex/device\nEnter this one-time code\n\u001b[32mABCD-',
+  )
+  assert.equal(login.state().userCode, undefined)
+  children[0]?.stdout.write('1234\u001b[0m\n')
+  assert.equal(login.state().url, 'https://auth.openai.com/codex/device')
+  assert.equal(login.state().userCode, 'ABCD-1234')
+  children[0]?.emit('exit', 0)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(login.state(), { state: 'connected' })
+})
+
+test('Codex cancellation clears its code and ignores a late successful exit', () => {
+  const { login, children, killed } = harness(async () => true, 'codex')
+
+  login.start('/bin/codex', {})
+  children[0]?.stdout.write(
+    'https://auth.openai.com/codex/device\nEnter this one-time code\nABCD-1234\n',
+  )
+  login.cancel()
+  children[0]?.emit('exit', 0)
+  assert.equal(killed(), 1)
+  assert.deepEqual(login.state(), { state: 'cancelled' })
+  login.start('/bin/codex', {})
+  assert.deepEqual(login.state(), { state: 'waiting' })
+  login.cancel()
+})
+
+test('Codex authentication failures expose only a fixed message and permit retry', () => {
+  const { login, children } = harness(async () => true, 'codex')
+
+  login.start('/bin/codex', {})
+  children[0]?.stderr.write('refresh_token=private')
+  children[0]?.emit('exit', 1)
+  assert.equal(login.state().state, 'failed')
+  assert.doesNotMatch(JSON.stringify(login.state()), /private/u)
+  login.start('/bin/codex', {})
+  assert.deepEqual(login.state(), { state: 'waiting' })
   login.cancel()
 })

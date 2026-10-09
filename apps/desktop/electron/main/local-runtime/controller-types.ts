@@ -71,6 +71,7 @@ export type LocalRuntimeControllerDeps = {
     provider: LocalAgentProvider,
     userDir: string,
     workspace: string,
+    env: NodeJS.ProcessEnv,
   ) => string | undefined
   /** Makes sure the backend knows this device before its tunnel connects. */
   registerDevice: () => Promise<void>

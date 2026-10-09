@@ -6,7 +6,9 @@ export const deviceApi = {
   deviceSetLabel: (label: string) => window.api.deviceSetLabel(label),
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),
+  localRuntimeStartCodexLogin: () => window.api.localRuntimeStartCodexLogin(),
   localRuntimeCancelClaudeLogin: () => window.api.localRuntimeCancelClaudeLogin(),
+  localRuntimeCancelCodexLogin: () => window.api.localRuntimeCancelCodexLogin(),
   localRuntimeGetState: () => window.api.localRuntimeGetState(),
   localAgentSetDefaults: (runtimeId: string, defaults: RuntimeDefaults) =>
     window.api.localAgentSetDefaults(runtimeId, defaults),

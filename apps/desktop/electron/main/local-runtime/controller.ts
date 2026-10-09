@@ -38,8 +38,8 @@ export class LocalRuntimeController {
       this.agents,
       {
         ...deps,
-        agentHome: (provider) =>
-          this.userId ? this.prepareHome(provider, this.userId) : undefined,
+        agentHome: (provider, env) =>
+          this.userId ? this.prepareHome(provider, this.userId, env) : undefined,
       },
       () => this.tunnel?.sendStatus(),
     )
@@ -85,7 +85,7 @@ export class LocalRuntimeController {
 
     await Promise.all(
       providers.map(async (provider) => {
-        const agentHome = this.prepareHome(provider, userId)
+        const agentHome = this.prepareHome(provider, userId, env)
         const cli = await this.deps.probeCli(provider, env, agentHome)
 
         if (userId === this.userId) this.agents[provider].cli = cli
@@ -123,11 +123,11 @@ export class LocalRuntimeController {
     this.deps.onChange?.()
   }
 
-  private prepareHome(provider: LocalAgentProvider, userId: string): string | undefined {
-    const dir = userDir(this.deps.dataDir(), userId)
-    const workspace = userDir(this.deps.dataDir(), userId, 'workspace')
+  private prepareHome(provider: LocalAgentProvider, id: string, env: NodeJS.ProcessEnv) {
+    const dir = userDir(this.deps.dataDir(), id)
+    const workspace = userDir(this.deps.dataDir(), id, 'workspace')
 
-    return this.deps.prepareAgentHome(provider, dir, workspace)
+    return this.deps.prepareAgentHome(provider, dir, workspace, env)
   }
 
   private async stopAgent(provider: LocalAgentProvider): Promise<void> {
@@ -178,7 +178,7 @@ export class LocalRuntimeController {
     const probedAt = Date.now()
 
     if (!current()) return
-    const agentHome = this.prepareHome(provider, userId)
+    const agentHome = this.prepareHome(provider, userId, env)
 
     const cli = await this.deps.probeCli(provider, env, agentHome)
 

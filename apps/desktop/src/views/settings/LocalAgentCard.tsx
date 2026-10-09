@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button'
 import { useTextSwap } from '../../hooks/useTextSwap'
 
 import { unbundledStatus } from './localAgentBundle'
-import { LocalClaudeSignIn } from './LocalClaudeSignIn'
+import { LocalAgentSignIn } from './LocalAgentSignIn'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { RuntimeStatusTone } from './runtimePresentation'
@@ -13,23 +13,16 @@ import type { AgentCliStatus, DevBundleHint, LocalAgentProvider, LocalAgentState
 
 export const LOCAL_AGENT_CARD = 'rounded-lg border border-zGray-800/70 bg-surface'
 
-const AGENT: Record<
-  LocalAgentProvider,
-  { name: string; command: string; install: string; signIn: string; connectors: string }
-> = {
+const AGENT: Record<LocalAgentProvider, { name: string; install: string; connectors: string }> = {
   'claude-code': {
     name: 'Claude Code',
-    command: 'claude',
     install: 'curl -fsSL https://claude.ai/install.sh | bash',
-    signIn: 'claude, then /login',
     connectors:
       'Your own Claude Code settings, CLAUDE.md, hooks, plugins, skills, MCP servers and claude.ai connectors are never loaded.',
   },
   codex: {
     name: 'Codex',
-    command: 'codex',
     install: 'npm install -g @openai/codex',
-    signIn: 'codex login',
     connectors: 'Your own Codex config, MCP servers and connectors are never loaded.',
   },
 }
@@ -71,40 +64,22 @@ function CliStatus({
         </p>
       </div>
     )
-  if (provider === 'claude-code')
-    return (
-      <div className="space-y-2 text-[12px] text-tertiary">
-        <p>
-          {cli.loggedIn === true
-            ? 'Signed in to Claude for Nuphos on this computer.'
-            : 'Connect Claude to use this computer as your agent.'}
-        </p>
-        <LocalClaudeSignIn
-          label={cli.loggedIn === true ? 'Sign in again' : 'Sign in with Claude'}
-        />
-      </div>
-    )
-  if (cli.loggedIn === false)
-    return (
-      <div className="space-y-1.5 text-[12px] text-tertiary">
-        <p className="font-medium text-warning">{agent.name} is not signed in.</p>
-        <p>
-          Sign in from a terminal with <Code>{agent.signIn}</Code>, then check again.
-        </p>
-      </div>
-    )
 
   return (
-    <div className="space-y-0.5 text-[12px] text-tertiary">
-      <p className="text-main">
-        {cli.loggedIn === null ? `Could not read the ${agent.name} sign-in` : 'Signed in'}
-        {cli.loggedIn && cli.account && ` with ${cli.account}`}
-        {cli.plan && <span className="text-tertiary"> · {cli.plan}</span>}
+    <div className="space-y-2 text-[12px] text-tertiary">
+      <p>
+        {cli.loggedIn === true
+          ? `Signed in to ${agent.name}.`
+          : cli.loggedIn === null
+            ? `Could not read the ${agent.name} sign-in. Check again or sign in.`
+            : `Connect ${agent.name} to use this computer as your agent.`}
+        {cli.loggedIn && cli.account && <span> {cli.account}</span>}
+        {cli.plan && <span> · {cli.plan}</span>}
       </p>
-      <p className="truncate" title={cli.path}>
-        {cli.path}
-        {cli.version && ` · ${cli.version}`}
-      </p>
+      <LocalAgentSignIn
+        provider={provider}
+        label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
+      />
     </div>
   )
 }

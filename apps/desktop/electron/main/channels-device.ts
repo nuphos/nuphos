@@ -7,6 +7,8 @@ import {
 import {
   getLocalRuntimeState,
   startLocalClaudeLogin,
+  startLocalCodexLogin,
+  cancelLocalCodexLogin,
   cancelLocalClaudeLogin,
   listLocalRuntimeActivity,
   openLocalRuntimeWorkspace,
@@ -17,6 +19,8 @@ export const deviceChannels = {
   'device:getIdentity': () => getDeviceIdentity(),
   'device:setLabel': (_e: unknown, label: string) => updateDeviceLabel(label),
   'device:listAudit': (_e: unknown, before?: string) => listDeviceAudit(before),
+  'localRuntime:startCodexLogin': () => startLocalCodexLogin(),
+  'localRuntime:cancelCodexLogin': () => cancelLocalCodexLogin(),
   'localRuntime:startClaudeLogin': () => startLocalClaudeLogin(),
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:getState': () => getLocalRuntimeState(),

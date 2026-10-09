@@ -41,7 +41,7 @@ export function prepareCodexHome(
   userDir: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const ownerHome = env.CODEX_HOME ?? path.join(os.homedir(), '.codex')
+  const ownerHome = env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
   const home = path.join(userDir, 'codex-home')
   const config = path.join(home, 'config.toml')
 
@@ -114,6 +114,9 @@ export function prepareAgentHome(
   provider: LocalAgentProvider,
   userDir: string,
   workspace: string,
+  env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  return provider === 'codex' ? prepareCodexHome(userDir) : prepareClaudeHome(userDir, workspace)
+  return provider === 'codex'
+    ? prepareCodexHome(userDir, env)
+    : prepareClaudeHome(userDir, workspace)
 }

@@ -21,7 +21,7 @@ export function createUsageSampler(
   agents: Record<LocalAgentProvider, Agent>,
   deps: {
     userEnv: () => Promise<NodeJS.ProcessEnv>
-    agentHome?: (provider: LocalAgentProvider) => string | undefined
+    agentHome?: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => string | undefined
     readUsage: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<unknown>
   },
   onReading: () => void,
@@ -57,14 +57,15 @@ export function createUsageSampler(
     // a ten-minute cadence into twenty.
     const startedAt = now()
 
-    const agentHome = deps.agentHome?.(provider)
-
-    if (deps.agentHome && !agentHome) return
     attempts.set(provider, { at: startedAt, inFlight: true })
     const usage = await deps
       .userEnv()
-      .then((env) =>
-        deps.readUsage(
+      .then((env) => {
+        const agentHome = deps.agentHome?.(provider, env)
+
+        if (deps.agentHome && !agentHome) return undefined
+
+        return deps.readUsage(
           provider,
           agentHome
             ? agentCliEnv({
@@ -74,8 +75,8 @@ export function createUsageSampler(
                 cliPath: agent.cli && agent.cli.installed ? agent.cli.path : '',
               })
             : env,
-        ),
-      )
+        )
+      })
       .catch(() => {})
       .finally(() => attempts.set(provider, { at: startedAt, inFlight: false }))
 
