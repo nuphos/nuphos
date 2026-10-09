@@ -64,7 +64,7 @@ export function useLocalAgentSetup(onFinish: (teamId: string | null) => void) {
               <p className="text-[13px] text-secondary">
                 {connected
                   ? 'Claude is signed in on this computer. Keep Nuphos open while your local agent works.'
-                  : 'Claude Code is installed. Sign in to connect it to Nuphos on this computer.'}
+                  : 'Claude Code is installed. Connect it to Nuphos with a separate sign-in on this computer.'}
               </p>
               {!connected && <LocalClaudeSignIn />}
             </section>

@@ -6,7 +6,6 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 import { useStableCallback } from '../../hooks/useStableCallback'
-import { isMac } from '../../lib/platform'
 
 /** One sign-in flow for onboarding, settings and conversation recovery. */
 export function LocalClaudeSignIn({
@@ -114,9 +113,7 @@ export function LocalClaudeSignIn({
                     ? 'Finish signing in in your browser. This updates on its own.'
                     : retry
                       ? 'Sign-in did not finish. Try again.'
-                      : isMac
-                        ? 'Nuphos uses the Claude sign-in from your terminal. Signing in updates that shared login, restarts your local Claude agent and stops its running conversations.'
-                        : 'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude agent and stops its running conversations.'}
+                      : 'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude agent and stops its running conversations.'}
             </p>
             {busy && login?.url && (
               <a
