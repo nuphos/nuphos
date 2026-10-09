@@ -302,7 +302,9 @@ it only to teams that may share them.
 Nuphos conversations have separate CLI homes under
 `~/.nuphos/session-homes/<sha256-conversation-id>`. Both adapters give shell tools
 that conversation's `HOME`, XDG directories, and explicit config paths for gcloud,
-gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. The home persists across
+gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. `XDG_CACHE_HOME` and
+`GOMODCACHE` stay in the runtime home so build and package caches (Go, Bun,
+Playwright, …) are shared instead of copied per conversation. The home persists across
 new/load/resume and token refresh; existing runtime-global credentials are never
 copied into it. Re-run credential setup inside the conversation after upgrading.
 The agent provider's own login remains runtime-owned so this does not require a

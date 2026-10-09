@@ -28,7 +28,10 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     APPDATA: nuphosJoin(home, 'AppData', 'Roaming'),
     LOCALAPPDATA: nuphosJoin(home, 'AppData', 'Local'),
     XDG_CONFIG_HOME: config,
-    XDG_CACHE_HOME: nuphosJoin(home, '.cache'),
+    // Caches hold no configuration; sharing them stops every conversation from
+    // re-downloading and rebuilding the same Go modules and Bun packages.
+    XDG_CACHE_HOME: nuphosJoin(runtimeHome, '.cache'),
+    GOMODCACHE: nuphosJoin(runtimeHome, 'go', 'pkg', 'mod'),
     XDG_DATA_HOME: nuphosJoin(home, '.local', 'share'),
     XDG_STATE_HOME: nuphosJoin(home, '.local', 'state'),
     CLOUDSDK_CONFIG: nuphosJoin(config, 'gcloud'),
