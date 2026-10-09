@@ -84,7 +84,7 @@ export function ChangeActionDialogs({
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             disabled={busy}
-            className="mt-2 w-full rounded-md border border-zGray-800 bg-field p-2 text-main"
+            className="mt-2 w-full rounded-md border border-zGray-800 bg-field p-2 text-main outline-none focus:border-zViolet-500"
           />
         </label>
       </Modal>
