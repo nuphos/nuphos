@@ -9,7 +9,9 @@ import type { Collection } from 'mongodb'
 const RETENTION_SECONDS = 31 * 24 * 3600
 
 export const QUOTA_HISTORY_RANGES = {
-  '1d': { hours: 24, bucketMinutes: 10 },
+  // A reading is held ten minutes and polled every thirty seconds, so readings land a
+  // little over ten minutes apart: a ten-minute bucket would come up empty now and then.
+  '1d': { hours: 24, bucketMinutes: 15 },
   '7d': { hours: 24 * 7, bucketMinutes: 60 },
   '30d': { hours: 24 * 30, bucketMinutes: 360 },
 } as const

@@ -68,7 +68,12 @@ function AgentUsageRow({
           className="h-3.5 w-3.5 shrink-0 text-tertiary opacity-0 transition-opacity group-hover:opacity-70"
         />
       </button>
-      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4 xl:grid-cols-4">
+      <div
+        className="mt-3 grid gap-x-6 gap-y-4"
+        style={{
+          gridTemplateColumns: `repeat(${String(Math.min(row.windows.length, 3))}, minmax(0, 1fr))`,
+        }}
+      >
         {row.windows.map((window) => (
           <MetricChart
             key={window.id}
