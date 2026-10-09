@@ -5,7 +5,7 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../../types/runtime'
-import { LocalClaudeSignIn } from '../../../views/settings/LocalClaudeSignIn'
+import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import {
   Menu,
@@ -184,7 +184,8 @@ export function RuntimeSelector({
         />
       )}
       {signingIn && (
-        <LocalClaudeSignIn
+        <LocalAgentSignIn
+          provider={signingIn.endsWith('_codex') ? 'codex' : 'claude-code'}
           initiallyOpen
           onClosed={(connected) => {
             if (connected) onSelect(signingIn)
@@ -214,7 +215,7 @@ export function RuntimeSelector({
                 <MenuGroupLabel>{group.title}</MenuGroupLabel>
                 {group.agents.map((instance) => {
                   const needsLocalLogin =
-                    instance.provider === 'claude-code' &&
+                    (instance.provider === 'claude-code' || instance.provider === 'codex') &&
                     agentTier(instance, owner) === 'local' &&
                     instance.local?.signedIn !== true
 

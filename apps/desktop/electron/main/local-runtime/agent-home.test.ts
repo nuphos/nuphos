@@ -13,7 +13,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { claudeHomeSettings, prepareClaudeHome, prepareCodexHome } from './agent-home.ts'
+import {
+  claudeHomeSettings,
+  prepareAgentHome,
+  prepareClaudeHome,
+  prepareCodexHome,
+} from './agent-home.ts'
 
 const CUA_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
 
@@ -108,4 +113,25 @@ test('the prepared home holds only Nuphos’s own settings, readable by the owne
     claudeHomeSettings(workspace),
   )
   if (process.platform !== 'win32') assert.equal(statSync(home).mode & 0o777, 0o700)
+})
+
+test('the runtime links the same custom CODEX_HOME used by local login', (t) => {
+  const f = codexFixture(t)
+  const home = prepareAgentHome('codex', f.dir, path.join(f.dir, 'workspace'), f.env)
+
+  assert.ok(home)
+  assert.equal(readlinkSync(path.join(home, 'auth.json')), path.join(f.owner, 'auth.json'))
+})
+
+test('changing CODEX_HOME relinks only isolated symlinks, without copying credentials', (t) => {
+  const f = codexFixture(t)
+  const home = prepareCodexHome(f.dir, f.env)
+  const nextOwner = path.join(f.dir, 'next-owner')
+
+  mkdirSync(nextOwner)
+  writeFileSync(path.join(nextOwner, 'auth.json'), '{"new":true}')
+  assert.equal(prepareCodexHome(f.dir, { CODEX_HOME: nextOwner }), home)
+  assert.ok(home)
+  assert.equal(readlinkSync(path.join(home, 'auth.json')), path.join(nextOwner, 'auth.json'))
+  assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{}')
 })

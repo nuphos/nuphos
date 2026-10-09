@@ -132,7 +132,7 @@ export function RuntimeLoginDialog({
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={() => void close()}
       title={`Sign in with ${account}`}
       description={instance.label}
       closeOnBackdrop={false}
@@ -183,8 +183,8 @@ export function RuntimeLoginDialog({
               </a>
             )}
             <p className="text-xs leading-5 text-tertiary">
-              We’ll connect the agent automatically after you approve, even if you close this
-              window. The code expires in 15 minutes.
+              We’ll connect the agent automatically after you approve. Keep this window open;
+              closing it cancels sign-in. The code expires in 15 minutes.
             </p>
           </>
         ) : failed ? (
