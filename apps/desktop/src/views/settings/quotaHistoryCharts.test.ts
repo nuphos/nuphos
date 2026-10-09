@@ -41,6 +41,7 @@ test('one chart per usage window, one line per agent, with gaps left empty', () 
     ],
     [agent('a', 'Claude'), agent('b', 'Codex')],
     '7d',
+    Date.parse('2026-10-09T11:30:00.000Z'),
   )
 
   assert.deepEqual(
@@ -56,9 +57,14 @@ test('one chart per usage window, one line per agent, with gaps left empty', () 
       ['Weekly', [{ key: 'a', label: 'Claude' }]],
     ],
   )
+  const data = charts[0]?.data ?? []
+
+  // Seven days of hourly buckets, the empty ones included.
+  assert.equal(data.length, 7 * 24 + 1)
   assert.deepEqual(
-    charts[0]?.data.map(({ a, b }) => [a, b]),
+    data.slice(-3).map(({ a, b }) => [a, b]),
     [
+      [null, null],
       [20, null],
       [35, 60],
     ],
