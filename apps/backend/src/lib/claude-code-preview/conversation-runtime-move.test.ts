@@ -136,16 +136,18 @@ test('failed restore and active turns preserve the original placement and releas
   expect(conversation.runtimeId).toBe('old')
   expect(conversation.runtimeOperation).toBeUndefined()
 })
-test('a manager moves the session for its owner, but never onto a local agent', async () => {
+test('a manager moves the session for its owner, but only onto a managed agent', async () => {
   const managed = { ...conversation, participantIds: ['manager'], managerIds: ['manager'] }
 
   await moveConversationRuntime(managed, 'new', 'history', 'manager')
   expect(conversation).toMatchObject({ userId: 'owner', runtimeId: 'new' })
   expect(conversation.timelineEvents).toMatchObject([{ kind: 'runtime_moved', actorId: 'manager' }])
-  target = { ...target, id: 'local', kind: 'local' }
-  await expect(
-    moveConversationRuntime({ ...managed, runtimeId: 'new' }, 'local', 'history', 'manager'),
-  ).rejects.toMatchObject({ status: 403 })
+  for (const kind of ['local', 'external'] as const) {
+    target = { ...target, id: kind, kind }
+    await expect(
+      moveConversationRuntime({ ...managed, runtimeId: 'new' }, kind, 'history', 'manager'),
+    ).rejects.toMatchObject({ status: 403 })
+  }
 })
 test('readers, disabled destinations, and deleting destinations are rejected', async () => {
   await expect(

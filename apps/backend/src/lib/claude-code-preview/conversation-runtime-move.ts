@@ -54,6 +54,15 @@ export async function moveConversationRuntime(
     )
   const target = await requireRuntimeInstance(teamId, targetId, userId)
 
+  // Local and self-hosted agents run on someone's own machine, with the owner's
+  // credentials; only the owner puts a session there.
+  if (userId !== ownerId && target.kind !== 'managed')
+    throw new AppError(
+      403,
+      'conversation_read_only',
+      'Only the conversation owner can move it to a local or self-hosted agent.',
+    )
+
   if (target.status !== 'active')
     throw new AppError(409, 'runtime_unavailable', 'Choose an agent that is enabled.')
   await assertRuntimeNotDeleting(teamId, target.id)
@@ -75,13 +84,6 @@ export async function moveConversationRuntime(
 
   if (development) endpoints.push(development)
   if (target.kind === 'local') {
-    // A local agent runs on someone's own computer; only the owner puts a session there.
-    if (userId !== ownerId)
-      throw new AppError(
-        403,
-        'conversation_read_only',
-        'Only the conversation owner can move it to a local agent.',
-      )
     if (mode === 'workspace')
       throw new AppError(
         409,

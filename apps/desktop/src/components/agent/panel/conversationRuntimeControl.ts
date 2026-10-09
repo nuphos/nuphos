@@ -141,9 +141,9 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
         status: current?.status,
       },
-      // Only the owner puts a session on a computer's Local Agent.
+      // Only the owner puts a session on a local or self-hosted agent.
       options: tab?.foreign
-        ? runtimeInstances.filter((instance) => instance.kind !== 'local')
+        ? runtimeInstances.filter((instance) => instance.kind === 'managed')
         : runtimeInstances,
       onSelect: (runtimeId: string) => {
         const target = runtimeInstances.find((instance) => instance.id === runtimeId)
