@@ -5,41 +5,13 @@ import { getTeamMembership } from '@/lib/identity'
 import { agentConversations, getConversationBySessionId, upsertConversationShell } from './db'
 import { enqueueThreadTurn } from './thread-queue'
 
-import type { AgentConversation, AgentCredentialAccess } from './db'
+import type { AgentConversation } from './db'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
 export type ThreadTurn = ThreadActor & {
   targetSessionId: string
   messageId: string
   prompt: string
-}
-
-/** A conversation-scoped agent must not use another thread to gain credentials. */
-export function sameThreadCredentials(
-  source: AgentCredentialAccess | undefined,
-  target: AgentCredentialAccess | undefined,
-): boolean {
-  if (!source || !target) return false
-  const keys = new Set([...Object.keys(source), ...Object.keys(target)])
-
-  keys.delete('updatedAt')
-  keys.delete('updatedBy')
-
-  return [...keys].every((key) => {
-    const a = source[key as keyof AgentCredentialAccess]
-    const b = target[key as keyof AgentCredentialAccess]
-
-    // Undefined can mean legacy team-wide reach; do not equate it with [].
-    if (a === undefined || b === undefined) return a === b
-
-    return (
-      Array.isArray(a) &&
-      Array.isArray(b) &&
-      a.length === b.length &&
-      a.every((id) => b.includes(id)) &&
-      b.every((id) => a.includes(id))
-    )
-  })
 }
 
 export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentConversation> {
@@ -70,15 +42,6 @@ export async function authorizeThreadDelivery(data: ThreadTurn): Promise<AgentCo
     target.archivedAt
   ) {
     throw new Error('Target must be another unarchived conversation you own in this team.')
-  }
-  if (
-    source.runtimeId !== target.runtimeId ||
-    source.agentRuntime !== target.agentRuntime ||
-    !sameThreadCredentials(source.credentialAccess, target.credentialAccess)
-  ) {
-    throw new Error(
-      'Threads must use the same runtime and credential selection. No permissions were widened.',
-    )
   }
 
   return target
