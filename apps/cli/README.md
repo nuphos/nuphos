@@ -71,8 +71,9 @@ belong to while it runs. Only you can start a conversation on them, but once
 you move a conversation onto this computer, anyone in that team can continue
 it, and their messages run commands here, as you. It needs Node.js 22 or newer. On first
 use it downloads the runtime for this release (openab and the ACP adapters)
-into `~/.local/share/nuphos/runtime`, and asks Claude Code to sign in once for
-Nuphos, separately from your own terminal. Codex uses your `codex login`. It
+into `~/.local/share/nuphos/runtime`. On macOS it reuses your terminal Claude
+login; if none exists, it asks you to sign in to that shared login. Linux and
+Windows use a separate Claude sign-in for Nuphos. Codex uses your `codex login`. It
 runs as its own device, so the desktop app on the same computer is unaffected;
 `NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
 

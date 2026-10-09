@@ -165,19 +165,18 @@ async function claudeUsageRequest(
   const dir = env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude')
   let credential = await readJson(path.join(dir, '.credentials.json'))
 
-  // Claude's macOS login uses a Keychain entry scoped to its isolated config directory.
+  // Match Claude's Keychain selection, including the terminal's unsuffixed default entry.
   if (process.platform === 'darwin' && env.CLAUDE_CONFIG_DIR) {
     const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? env.CLAUDE_CONFIG_DIR
-    const suffix = createHash('sha256')
-      .update(storageDir.normalize('NFC'))
-      .digest('hex')
-      .slice(0, 8)
+    const suffix = storageDir
+      ? `-${createHash('sha256').update(storageDir.normalize('NFC')).digest('hex').slice(0, 8)}`
+      : ''
 
     try {
       credential = JSON.parse(
         await run(
           '/usr/bin/security',
-          ['find-generic-password', '-s', `Claude Code-credentials-${suffix}`, '-w'],
+          ['find-generic-password', '-s', `Claude Code-credentials${suffix}`, '-w'],
           env,
         ),
       ) as Record<string, unknown>

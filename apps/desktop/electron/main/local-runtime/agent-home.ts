@@ -99,8 +99,8 @@ export function claudeHomeSettings(workspace: string): Record<string, unknown> {
 /**
  * A CLAUDE_CONFIG_DIR of Nuphos's own, so Claude Code serving Nuphos never
  * loads the owner's settings, hooks, plugins, skills, MCP servers or
- * CLAUDE.md. Claude signs in separately here; session HOME changes and the
- * owner's terminal do not select or overwrite this credential store.
+ * CLAUDE.md. On macOS the login uses the terminal Keychain independently of
+ * this directory; other platforms keep their existing file-backed login.
  */
 export function prepareClaudeHome(userDir: string, workspace: string): string | undefined {
   const home = path.join(userDir, 'claude-home')
