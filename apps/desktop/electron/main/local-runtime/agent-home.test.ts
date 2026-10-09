@@ -122,3 +122,16 @@ test('the runtime links the same custom CODEX_HOME used by local login', (t) => 
   assert.ok(home)
   assert.equal(readlinkSync(path.join(home, 'auth.json')), path.join(f.owner, 'auth.json'))
 })
+
+test('changing CODEX_HOME relinks only isolated symlinks, without copying credentials', (t) => {
+  const f = codexFixture(t)
+  const home = prepareCodexHome(f.dir, f.env)
+  const nextOwner = path.join(f.dir, 'next-owner')
+
+  mkdirSync(nextOwner)
+  writeFileSync(path.join(nextOwner, 'auth.json'), '{"new":true}')
+  assert.equal(prepareCodexHome(f.dir, { CODEX_HOME: nextOwner }), home)
+  assert.ok(home)
+  assert.equal(readlinkSync(path.join(home, 'auth.json')), path.join(nextOwner, 'auth.json'))
+  assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{}')
+})

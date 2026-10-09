@@ -4,7 +4,9 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import os from 'node:os'
@@ -20,7 +22,14 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
   const link = path.join(home, file)
   const existing = lstatSync(link, { throwIfNoEntry: false })
 
-  if (existing) return existing.isSymbolicLink()
+  if (existing) {
+    if (!existing.isSymbolicLink()) return false
+    const target = path.resolve(path.dirname(link), readlinkSync(link))
+
+    if (path.toNamespacedPath(target) === path.toNamespacedPath(path.join(ownerHome, file)))
+      return true
+    unlinkSync(link)
+  }
   mkdirSync(path.dirname(link), { recursive: true })
   symlinkSync(path.join(ownerHome, file), link, 'junction')
 
