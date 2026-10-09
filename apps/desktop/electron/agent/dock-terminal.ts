@@ -76,7 +76,7 @@ export async function runDockTerminal(raw: string, options: { sessionId?: string
           pending.delete(id)
           reject(
             new Error(
-              'Open this conversation on the selected Desktop before opening its terminal.',
+              'The selected Desktop did not accept the terminal request. Ensure it is open and signed in.',
             ),
           )
         }, 5_000)

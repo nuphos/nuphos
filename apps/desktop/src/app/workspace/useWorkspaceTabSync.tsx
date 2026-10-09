@@ -8,8 +8,8 @@ import {
   planExecTeardown,
   planSshTeardown,
 } from '../../lib/terminalTabTeardown'
-import { createWorkspaceTab } from '../workspaceTabFactory'
 
+import { openDockTerminal } from './openDockTerminal'
 import { selectAllResidentTabs, selectCurrentBucket } from './store/workspaceState'
 
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
@@ -65,29 +65,9 @@ export function useWorkspaceTabSync(a: Args) {
   useEffect(
     () =>
       api.onDockTerminalRequest((request) => {
-        const state = workspaceStore.getState()
-
-        if (
-          state.sessionId !== request.sessionId ||
-          state.sessionReadOnly ||
-          state.teamScope?.teamId !== request.teamId ||
-          state.mainPageOpen
-        )
-          return
-        void api.acceptDockTerminal(request.id).then((accepted) => {
-          if (!accepted) return
-          const tab = {
-            ...createWorkspaceTab(request.teamId),
-            id: request.id,
-            active: 'team.terminal',
-          }
-
-          workspaceStore.dispatch({
-            type: 'openTab',
-            sessionKey: request.sessionId,
-            tab,
-            options: { openDock: true },
-          })
+        // Only the renderer that claims the request receives the tab.
+        void openDockTerminal(workspaceStore, request, api.acceptDockTerminal).catch(() => {
+          // The main process reports open failures to the requesting agent.
         })
       }),
     [workspaceStore],
