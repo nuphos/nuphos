@@ -82,8 +82,7 @@ runtime. Start at [`deploy/compose/README.md`](deploy/compose/README.md).
 
 For Zeabur, use [`deploy/zeabur/template.yaml`](deploy/zeabur/template.yaml);
 see the [deployment inputs and setup guide](deploy/zeabur/README.md).
-[Railway project templates](deploy/railway/README.md) and
-[Render Blueprints](deploy/render/README.md) are also available.
+[Railway project templates](deploy/railway/README.md) are also available.
 
 What to know before you plan around it:
 
