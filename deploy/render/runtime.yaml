@@ -1,0 +1,23 @@
+# Keep the runtime outside the data stack private network (data uses oregon).
+services:
+  - name: nuphos-runtime
+    type: web
+    runtime: docker
+    region: ohio
+    plan: 1c-2g
+    numInstances: 1
+    dockerfilePath: ./deploy/railway/runtime/Dockerfile
+    dockerContext: ./deploy/railway/runtime
+    autoDeployTrigger: 'off'
+    disk:
+      name: runtime-home
+      mountPath: /home/node
+      sizeGB: 10
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: '8080'
+      - key: OPENAB_STREAM_EDIT_INTERVAL_MS
+        value: '300'
+      - key: OPENAB_ACP_AUTH_KEY
+        generateValue: true
