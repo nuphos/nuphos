@@ -18,6 +18,7 @@ for (const file of [
   test(`native dialog policy is enforced for ${file}`, async () => {
     const config = await eslint.calculateConfigForFile(file)
     const rules = Object.fromEntries(ruleIds.map((id) => [id, config.rules[id]]))
+
     for (const id of ruleIds) assert.equal(config.rules[id][0], 2, id)
     const linter = new Linter()
     const lint = (code: string) =>
@@ -27,6 +28,7 @@ for (const file of [
         },
         rules,
       })
+
     for (const code of [
       'alert("error")',
       'confirm("remove?")',
@@ -46,6 +48,7 @@ for (const file of [
       'const show = native.showErrorBox; show("error", "details")',
     ]) {
       const messages = lint(code)
+
       assert.ok(
         messages.some(
           (message) =>
