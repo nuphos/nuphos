@@ -75,7 +75,8 @@ export function prepareCodexHome(
     )
     const oldNotify = `notify = ${JSON.stringify([client, 'turn-ended'])}`
     // Only the native helper needs the App's home; Codex keeps its isolated config.
-    const notify = `notify = ${JSON.stringify(['/usr/bin/env', `CODEX_HOME=${ownerHome}`, client, 'turn-ended'])}`
+    const nativeCommand = ['/usr/bin/env', `CODEX_HOME=${ownerHome}`, client, 'turn-ended']
+    const notify = `notify = ${JSON.stringify(nativeCommand)}`
 
     // Only add the known App client, never import the owner's arbitrary notify commands.
     // Prepend: notify is a root key, not a field in the last plugin/project table.
