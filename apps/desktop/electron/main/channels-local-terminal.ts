@@ -46,10 +46,10 @@ export const localTerminalChannels = {
       : localTerminals.start(owner(event), id, cols, rows),
   'local-terminal:replay': (event: IpcMainInvokeEvent, id: string) =>
     terminals(event, id).replay(owner(event), id),
-  'local-terminal:input': (event: IpcMainInvokeEvent, id: string, data: string, fromUser = true) =>
+  'local-terminal:input': (event: IpcMainInvokeEvent, id: string, data: string) =>
     runtimeTerminals.describe(owner(event), id)
       ? runtimeTerminals.input(owner(event), id, data)
-      : localTerminals.input(owner(event), id, data, fromUser),
+      : localTerminals.input(owner(event), id, data),
   'local-terminal:resize': (event: IpcMainInvokeEvent, id: string, cols: number, rows: number) =>
     terminals(event, id).resize(owner(event), id, cols, rows),
   'local-terminal:close': (event: IpcMainInvokeEvent, id: string) =>

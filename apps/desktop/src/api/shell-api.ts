@@ -10,8 +10,8 @@ export const shellApi = {
   localTerminalStart: (...args: Parameters<typeof window.api.localTerminalStart>) =>
     window.api.localTerminalStart(...args),
   localTerminalReplay: (id: string) => window.api.localTerminalReplay(id),
-  localTerminalInput: (id: string, data: string, fromUser = true) =>
-    window.api.localTerminalInput(id, data, fromUser),
+  localTerminalInput: (id: string, data: string) =>
+    window.api.localTerminalInput(id, data),
   localTerminalResize: (id: string, cols: number, rows: number) =>
     window.api.localTerminalResize(id, cols, rows),
   localTerminalClose: (id: string) => window.api.localTerminalClose(id),

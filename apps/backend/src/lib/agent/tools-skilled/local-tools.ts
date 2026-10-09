@@ -158,7 +158,7 @@ export function createLocalExecTool(
       description:
         "Execute a shell command on one of the user's local devices (their own Desktop machines that allow local exec and are currently online; only in their own conversations). " +
         "You CAN operate on the user's local files and apps with this — listing, reading, moving, or deleting their files when asked. Never claim you cannot touch the local machine while this tool is available. " +
-        'Default to this for isolated local commands with a result and exit code: npm, docker, git, make, cargo, gcloud, aws, etc. Use local_terminal when an interactive or persistent shell, human takeover, or a visible terminal is needed. ' +
+        'Default to this for isolated local commands with a result and exit code: npm, docker, git, make, cargo, gcloud, aws, etc. Use local_terminal when an interactive or persistent shell, shared input, or a visible terminal is needed. ' +
         "For cloud operations, use sandbox bash when Nuphos-managed credentials work; use local_exec when the fix requires the user's locally authenticated cloud CLI, including scoped connector permission changes on a device already signed in to the matching CLI with administration access. Verify the local cloud account and identity first. " +
         "IMPORTANT: do NOT use this to run `kubectl port-forward`. Use the typed `port_forward_start` tool instead — `kubectl port-forward` via shell leaves no UI state, the user can't see or stop the forward, and a forward opened inside the sandbox is unreachable from the user's machine.",
       execute: async ({

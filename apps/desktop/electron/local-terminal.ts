@@ -17,7 +17,6 @@ type TerminalSession = {
   bufferedBytes: number
   exited: boolean
   agentScope?: string
-  userTookOver: boolean
 }
 
 export function terminalSize(value: number, fallback: number): number {
@@ -74,7 +73,6 @@ export class LocalTerminalSessions {
       bufferedBytes: 0,
       exited: false,
       agentScope,
-      userTookOver: false,
     }
 
     this.sessions.set(id, session)
@@ -121,12 +119,11 @@ export class LocalTerminalSessions {
     }
   }
 
-  input(owner: WebContents, id: string, data: string, fromUser = true): void {
+  input(owner: WebContents, id: string, data: string): void {
     const session = this.owned(owner, id)
 
     if (typeof data !== 'string' || data.length > 1024 * 1024)
       throw new Error('Invalid terminal input.')
-    if (fromUser) session.userTookOver = true
     if (!session.exited) session.pty.write(data)
   }
 
@@ -137,8 +134,6 @@ export class LocalTerminalSessions {
 
     if (session.agentScope !== scope) throw new Error('Terminal belongs to another conversation.')
     if (data !== undefined) {
-      if (session.userTookOver)
-        throw new Error('The user took over this terminal. Open a new terminal.')
       if (session.exited) throw new Error('Terminal has exited.')
       if (data.length > 65536) throw new Error('Terminal input is too large.')
       session.pty.write(data)
@@ -154,7 +149,6 @@ export class LocalTerminalSessions {
       output: output.slice(-65536),
       outputIsRecentSnapshot: true,
       exited: session.exited,
-      userTookOver: session.userTookOver,
     }
   }
 

@@ -157,7 +157,7 @@ test('sessions reject another window and cleanup on reload', async () => {
 })
 
 test(
-  'agent terminal is scoped, survives reads and yields permanently to user input',
+  'agent terminal is scoped and remains shared after user input',
   { timeout: 20_000, skip: process.platform === 'win32' },
   async () => {
     const sessions = new LocalTerminalSessions()
@@ -175,11 +175,16 @@ test(
       sessions.agentRequest('agent-tab', scope, "printf '%s%s\\n' AGENT_SHARED_ OUTPUT\r")
       await ready
       assert.match(sessions.agentRequest('agent-tab', scope).output, /AGENT_SHARED_OUTPUT/)
-      sessions.input(owner, 'agent-tab', '', false)
-      assert.equal(sessions.agentRequest('agent-tab', scope).userTookOver, false)
-      sessions.input(owner, 'agent-tab', 'echo user')
-      assert.equal(sessions.agentRequest('agent-tab', scope).userTookOver, true)
-      assert.throws(() => sessions.agentRequest('agent-tab', scope, '\r'), /user took over/)
+      const humanReady = waitForOutput(emitter, 'HUMAN_SHARED_OUTPUT')
+
+      sessions.input(owner, 'agent-tab', "printf '%s%s\\n' HUMAN_SHARED_ OUTPUT\r")
+      await humanReady
+      const agentReady = waitForOutput(emitter, 'AGENT_AFTER_HUMAN')
+
+      sessions.agentRequest('agent-tab', scope, "printf '%s%s\\n' AGENT_AFTER_ HUMAN\r")
+      await agentReady
+      assert.match(sessions.agentRequest('agent-tab', scope).output, /AGENT_AFTER_HUMAN/)
+      sessions.agentRequest('agent-tab', scope, '\x03')
       const agentExited = new Promise<void>((resolve) => {
         emitter.on('terminal-event', (event: LocalTerminalEvent) => {
           if (event.id === 'agent-tab' && event.type === 'exit') resolve()

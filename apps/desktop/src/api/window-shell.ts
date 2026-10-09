@@ -34,7 +34,7 @@ export type WindowShellApi = {
     target?: TerminalTarget,
   ): Promise<{ id: string; shell: string }>
   localTerminalReplay(id: string): Promise<void>
-  localTerminalInput(id: string, data: string, fromUser?: boolean): Promise<void>
+  localTerminalInput(id: string, data: string): Promise<void>
   localTerminalResize(id: string, cols: number, rows: number): Promise<void>
   localTerminalClose(id: string): Promise<void>
   onLocalTerminalEvent(callback: (event: LocalTerminalEvent) => void): () => void
