@@ -393,7 +393,7 @@ test('reconnecting Claude after login leaves the Codex process running', async (
   assert.deepEqual(events, ['stop', started('claude-code')])
 })
 
-test('usage reads the same isolated provider credentials as the running agents', async () => {
+test('usage reads the same provider credentials as the running agents', async () => {
   const { controller, usageEnvs } = harness()
 
   await controller.setUser('alice')
@@ -405,7 +405,7 @@ test('usage reads the same isolated provider credentials as the running agents',
   assert.equal(
     usageEnvs.find((entry) => entry.provider === 'claude-code')?.env
       .CLAUDE_SECURESTORAGE_CONFIG_DIR,
-    home('claude-code'),
+    process.platform === 'darwin' ? '' : home('claude-code'),
   )
   assert.equal(usageEnvs.find((entry) => entry.provider === 'codex')?.env.CODEX_HOME, home('codex'))
   await controller.setUser(null)
