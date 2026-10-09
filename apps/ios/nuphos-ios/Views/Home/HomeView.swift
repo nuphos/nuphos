@@ -50,9 +50,8 @@ struct HomeView: View {
                         Button {
                             isSearching.toggle()
                         } label: {
-                            Image(systemName: "magnifyingglass")
+                            Label("Search chats", systemImage: "magnifyingglass")
                         }
-                        .accessibilityLabel("Search chats")
                     }
                     ToolbarSpacer(.fixed, placement: .topBarTrailing)
                     ToolbarItem(placement: .topBarTrailing) {
@@ -66,9 +65,8 @@ struct HomeView: View {
                         Button {
                             isSearching.toggle()
                         } label: {
-                            Image(systemName: "magnifyingglass")
+                            Label("Search plans", systemImage: "magnifyingglass")
                         }
-                        .accessibilityLabel("Search plans")
                     }
                     ToolbarSpacer(.fixed, placement: .topBarTrailing)
                     ToolbarItem(placement: .topBarTrailing) {
@@ -191,11 +189,10 @@ private struct FilterMenu: View {
                 Label("Archived", systemImage: "archivebox")
             }
         } label: {
-            Image(systemName: store.scope == .mine && !store.showArchived && store.sort == .created
+            Label("Filter chats", systemImage: store.scope == .mine && !store.showArchived && store.sort == .created
                   ? "line.3.horizontal.decrease"
                   : "line.3.horizontal.decrease.circle.fill")
         }
-        .accessibilityLabel("Filter chats")
     }
 }
 
@@ -210,11 +207,10 @@ private struct PlansFilterMenu: View {
                 Label("Show dismissed", systemImage: "nosign")
             }
         } label: {
-            Image(systemName: plans.showDismissed
+            Label("Filter plans", systemImage: plans.showDismissed
                   ? "line.3.horizontal.decrease.circle.fill"
                   : "line.3.horizontal.decrease")
         }
-        .accessibilityLabel("Filter plans")
     }
 }
 

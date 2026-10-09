@@ -120,6 +120,7 @@ private struct RuntimeRow: View {
             }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }
 
@@ -173,6 +174,7 @@ struct ModelSettingsSheet: View {
                                                 Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
                                             }
                                         }
+                                        .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
                                     .disabled(!config.isEditable || saving || (session != nil && (session?.canManage != true || error != nil)))

@@ -1,6 +1,6 @@
 import type {
   DeviceExecAuditPage,
-  ClaudeLoginState,
+  LocalAgentLoginState,
   DeviceIdentity,
   LocalRuntimeActivityPage,
   LocalRuntimeState,
@@ -12,7 +12,9 @@ export type WindowDeviceApi = {
   deviceGetIdentity(): Promise<DeviceIdentity>
   deviceSetLabel(label: string): Promise<DeviceIdentity>
   deviceListAudit(before?: string): Promise<DeviceExecAuditPage>
-  localRuntimeStartClaudeLogin(): Promise<ClaudeLoginState>
+  localRuntimeStartCodexLogin(): Promise<LocalAgentLoginState>
+  localRuntimeCancelCodexLogin(): Promise<void>
+  localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>
   localRuntimeGetState(): Promise<LocalRuntimeState>
   localAgentSetDefaults(runtimeId: string, defaults: RuntimeDefaults): Promise<void>

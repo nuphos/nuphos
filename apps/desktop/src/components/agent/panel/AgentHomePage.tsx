@@ -45,6 +45,7 @@ export function AgentHomePage({
   onImportSession,
   isTeamAdmin = false,
   onOpenConversation,
+  onOpenNuphosLink,
 }: {
   /** Only used to decide whether the starter suggestions are worth showing:
    *  they are for a team that has not started a conversation yet. */
@@ -86,6 +87,7 @@ export function AgentHomePage({
   /** Administrators can make their home layout the team default. */
   isTeamAdmin?: boolean
   /** Opens a conversation picked from a home card. */
+  onOpenNuphosLink?: (href: string) => boolean
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const entranceKey = useEntranceCount(shown)
@@ -200,6 +202,7 @@ export function AgentHomePage({
               teamId={teamId}
               isTeamAdmin={isTeamAdmin}
               onOpenConversation={onOpenConversation}
+              onOpenNuphosLink={onOpenNuphosLink}
               revealAt={COMPOSER_REVEAL_MS + 300}
               replayKey={entranceKey}
             />

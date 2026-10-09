@@ -71,6 +71,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     <>
       {addAgent.dialog}
       <AgentHomePage
+        onOpenNuphosLink={c.onOpenNuphosLink}
         onImportSession={importSession}
         isTeamAdmin={isTeamAdmin}
         onOpenConversation={(sessionId, title) => void c.openConversation(sessionId, title)}

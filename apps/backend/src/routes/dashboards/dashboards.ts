@@ -19,9 +19,8 @@ import {
   dashboardPanelSnapshots,
 } from '@/models'
 
-import { dashboardForView, dashboardViewSchema } from './view-range'
-
 import { resolvePanelInsights, serializeDashboard, serializePanel } from './serialize'
+import { dashboardForView, dashboardViewSchema } from './view-range'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { NuphosDashboard, DashboardTimeRange } from '@/models'
@@ -137,11 +136,13 @@ export function registerDashboardRoutes(
 
   nuphosDashboardsRoutes.get('/:dashboardId', zv('query', dashboardViewSchema), async (c) => {
     const { teamId, dashboard } = await loadDashboard(c.get('teamId'), c.req.param('dashboardId'))
-    const view = dashboardForView(dashboard, c.req.valid('query'))
+    const query = c.req.valid('query')
+    const view = dashboardForView(dashboard, query)
+    const preset = query.preset ?? (query.periodStart ? undefined : dashboard.rangePreset)
     const panels = await dashboardPanels().find({ teamId, dashboardId: dashboard._id }).toArray()
     const [snapshots, successfulSnapshots] = await Promise.all([
       resolvePanelSnapshots(teamId, view, panels),
-      resolveLastSuccessfulPanelSnapshots(teamId, panels, view),
+      resolveLastSuccessfulPanelSnapshots(teamId, panels, view, preset),
     ])
     const insights = await resolvePanelInsights(teamId, panels, snapshots)
 

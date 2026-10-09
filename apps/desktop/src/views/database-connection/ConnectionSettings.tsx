@@ -118,7 +118,7 @@ export function RemoveConnectionModal({
       <div className="space-y-3 px-5 py-4">
         <div className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2.5 text-[11.5px] leading-5 text-warning">
           Type <span className="font-mono font-semibold">{connection.name}</span> to continue. A
-          final system confirmation will appear before the backend request is sent.
+          final confirmation will appear before the backend request is sent.
         </div>
         <label className="block text-[12px] text-secondary">
           Database name

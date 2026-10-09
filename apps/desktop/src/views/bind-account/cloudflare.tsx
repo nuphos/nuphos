@@ -4,7 +4,8 @@ import clsx from 'clsx'
 
 import { CloudLogo } from '../../components/CloudLogo'
 
-import { CLOUDFLARE_BASELINE_SCOPES, CLOUDFLARE_SCOPE_RESOURCES } from './constants'
+import { CLOUDFLARE_SCOPE_CATEGORIES } from './cloudflare-scopes'
+import { cloudflareScopesFor } from './constants'
 
 import type { BindState } from './use-bind-state'
 
@@ -40,8 +41,8 @@ export function CloudflareConnect({
       </p>
 
       {/* Access selector — picked scopes are sent to the authorize request */}
-      <div className="mt-4 space-y-1.5">
-        {CLOUDFLARE_SCOPE_RESOURCES.map((r) => (
+      <div className="mt-4 max-h-[340px] space-y-1.5 overflow-y-auto scrollbar-thin">
+        {CLOUDFLARE_SCOPE_CATEGORIES.map((r) => (
           <div
             key={r.key}
             className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2"
@@ -75,15 +76,7 @@ export function CloudflareConnect({
       {/* Primary CTA */}
       <button
         type="button"
-        onClick={() => {
-          const selected = CLOUDFLARE_SCOPE_RESOURCES.filter(
-            (r) => cfScopeAccess[r.key] !== 'off',
-          ).flatMap((r) =>
-            r.scopes.map((base) => `${base}.${cfScopeAccess[r.key] === 'read' ? 'read' : 'write'}`),
-          )
-
-          onConnect([...selected, ...CLOUDFLARE_BASELINE_SCOPES])
-        }}
+        onClick={() => onConnect(cloudflareScopesFor(cfScopeAccess))}
         disabled={cloudflareConnecting || submitting}
         className={clsx(
           'group relative mt-5 flex h-11 w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl text-[13px] font-semibold text-white transition-all',

@@ -4,7 +4,7 @@
 // memory ingest chain.
 import { randomUUID } from 'node:crypto'
 
-import { syncConversationTranscript } from '@/lib/agent/db'
+import { getConversationMessagesHead, syncConversationTranscript } from '@/lib/agent/db'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
@@ -17,6 +17,7 @@ import {
   turnInterruptedPart,
 } from '@/lib/claude-code-preview/preview-transcript'
 
+import { serializeMessageDoc } from './errors'
 import { traceAgentChatError } from './trace'
 import { getFirstTranscriptMessage, uiMessagesToTranscript } from './transcript'
 
@@ -121,7 +122,11 @@ export async function finishPreviewTurn(args: {
       provider: args.provider,
       preserveTitle: true,
     })
-    args.emit({ type: 'atlas-transcript-snapshot', messages: transcriptMessages })
+    // Emit the stored timestamps too: download cards use them to stay with
+    // their original turn instead of briefly piling onto the latest reply.
+    const stored = await getConversationMessagesHead(sessionId, userId, transcriptMessages.length)
+
+    args.emit({ type: 'atlas-transcript-snapshot', messages: stored.map(serializeMessageDoc) })
   } catch (err) {
     traceAgentChatError('agent.chat.preview_transcript_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,
@@ -225,7 +230,11 @@ export async function persistInterruptedPreviewTurn(args: {
       provider: args.provider,
       preserveTitle: true,
     })
-    args.emit({ type: 'atlas-transcript-snapshot', messages: transcriptMessages })
+    // Emit the stored timestamps too: download cards use them to stay with
+    // their original turn instead of briefly piling onto the latest reply.
+    const stored = await getConversationMessagesHead(sessionId, userId, transcriptMessages.length)
+
+    args.emit({ type: 'atlas-transcript-snapshot', messages: stored.map(serializeMessageDoc) })
   } catch (err) {
     traceAgentChatError('agent.chat.preview_interrupted_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,

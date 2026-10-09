@@ -410,3 +410,13 @@ test('usage reads the same provider credentials as the running agents', async ()
   assert.equal(usageEnvs.find((entry) => entry.provider === 'codex')?.env.CODEX_HOME, home('codex'))
   await controller.setUser(null)
 })
+
+test('reconnecting Codex after login leaves the Claude process running', async () => {
+  const { controller, events } = harness()
+
+  await controller.setUser('alice')
+  events.length = 0
+  await controller.refresh(true, ['codex'])
+  assert.deepEqual(events, ['stop', started('codex')])
+  await controller.shutdown()
+})

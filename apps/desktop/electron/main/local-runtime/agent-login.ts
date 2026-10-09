@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process'
+import { stripVTControlCharacters } from 'node:util'
 
 import type { ChildProcess } from 'node:child_process'
 
-export type ClaudeLoginState = {
+export type LocalAgentLoginState = {
   state: 'idle' | 'waiting' | 'checking' | 'connected' | 'failed' | 'cancelled'
   url?: string
+  userCode?: string
   error?: string
 }
 
@@ -28,27 +30,28 @@ export function claudeLoginUrl(output: string): string | undefined {
   }
 }
 
-export class ClaudeLogin {
+export class LocalAgentLogin {
   private child: ChildProcess | undefined
   private timer: ReturnType<typeof setTimeout> | undefined
-  private value: ClaudeLoginState = { state: 'idle' }
+  private value: LocalAgentLoginState = { state: 'idle' }
   private generation = 0
 
   private readonly deps: {
+    provider?: 'claude-code' | 'codex'
     changed: () => void
     connected: () => Promise<boolean>
     spawn?: typeof spawn
   }
 
-  constructor(deps: ClaudeLogin['deps']) {
+  constructor(deps: LocalAgentLogin['deps']) {
     this.deps = deps
   }
 
-  state(): ClaudeLoginState {
+  state(): LocalAgentLoginState {
     return this.value
   }
 
-  private update(value: ClaudeLoginState): void {
+  private update(value: LocalAgentLoginState): void {
     this.value = value
     this.deps.changed()
   }
@@ -61,23 +64,31 @@ export class ClaudeLogin {
     this.update({ state: 'cancelled' })
   }
 
-  start(cli: string, env: NodeJS.ProcessEnv): ClaudeLoginState {
+  start(cli: string, env: NodeJS.ProcessEnv): LocalAgentLoginState {
     if (this.value.state === 'waiting' || this.value.state === 'checking') return this.value
     const generation = ++this.generation
     const current = () => generation === this.generation
     let output = ''
+    const codex = this.deps.provider === 'codex'
+    const name = codex ? 'Codex' : 'Claude'
 
     this.update({ state: 'waiting' })
     let child: ChildProcess
 
     try {
-      child = (this.deps.spawn ?? spawn)(cli, ['auth', 'login', '--claudeai'], {
-        env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: cli.endsWith('.cmd'),
-      })
+      child = (this.deps.spawn ?? spawn)(
+        cli,
+        codex
+          ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
+          : ['auth', 'login', '--claudeai'],
+        {
+          env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: cli.endsWith('.cmd'),
+        },
+      )
     } catch {
-      this.update({ state: 'failed', error: 'Could not start Claude sign-in. Please try again.' })
+      this.update({ state: 'failed', error: `Could not start ${name} sign-in. Please try again.` })
 
       return this.value
     }
@@ -94,20 +105,32 @@ export class ClaudeLogin {
     const receive = (chunk: Buffer) => {
       if (!current()) return
       output = (output + chunk.toString()).slice(-16_384)
-      const url = claudeLoginUrl(output)
+      const plain = stripVTControlCharacters(output)
+      const userCode =
+        codex && plain.includes('https://auth.openai.com/codex/device')
+          ? /Enter this one-time code[^\n]*\n[ \t]*([A-Za-z0-9-]{4,32})[ \t]*\r?\n/u.exec(
+              plain,
+            )?.[1]
+          : undefined
+      const url = codex
+        ? userCode
+          ? 'https://auth.openai.com/codex/device'
+          : undefined
+        : claudeLoginUrl(output)
 
-      if (url && url !== this.value.url) this.update({ state: 'waiting', url })
+      if (url && url !== this.value.url)
+        this.update({ state: 'waiting', url, ...(userCode ? { userCode } : {}) })
     }
 
     child.stdout?.on('data', receive)
     child.stderr?.on('data', receive)
     child.once('error', () =>
-      fail('Could not open Claude sign-in. Check that Claude Code is installed and try again.'),
+      fail(`Could not open ${name} sign-in. Check that it is installed and try again.`),
     )
     child.once('exit', (code) => {
       if (!current()) return
       if (code !== 0) {
-        fail('Claude sign-in did not finish. Please try again.')
+        fail(`${name} sign-in did not finish. Please try again.`)
 
         return
       }
@@ -122,7 +145,7 @@ export class ClaudeLogin {
                 ? { state: 'connected' }
                 : {
                     state: 'failed',
-                    error: 'Sign-in finished, but Claude is not ready yet. Please try again.',
+                    error: `Sign-in finished, but ${name} is not ready yet. Please try again.`,
                   },
             )
         },

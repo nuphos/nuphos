@@ -128,6 +128,7 @@ struct AttachmentTile: View {
                     .foregroundStyle(Theme.canvas)
                     .frame(width: 18, height: 18)
                     .background(Theme.heading, in: Circle())
+                    .contentShape(Circle().inset(by: -8))
             }
             .buttonStyle(.plain)
             .offset(x: 5, y: -5)

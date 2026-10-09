@@ -15,7 +15,7 @@ import { readDeviceIdentity } from '../device-identity.ts'
 
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
-import { ClaudeLogin } from './claude-login.ts'
+import { LocalAgentLogin } from './agent-login.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
@@ -45,9 +45,7 @@ function bundleRoot(): string {
   )
 }
 
-function findBundle(): LocalRuntimeBundle | null {
-  return readBundle(bundleRoot())
-}
+const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 
 async function userEnv(): Promise<NodeJS.ProcessEnv> {
   return { ...process.env, ...((await resolveShellEnv()) ?? {}) }
@@ -164,42 +162,59 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   log: logLocalTool,
 })
 
-const claudeLogin = new ClaudeLogin({
-  changed: broadcastState,
-  connected: async () => {
-    const state = await controller.refresh(true, ['claude-code'])
-    const cli = state.agents['claude-code'].cli
+const logins = Object.fromEntries(
+  LOCAL_AGENT_PROVIDERS.map((provider) => [
+    provider,
+    new LocalAgentLogin({
+      provider,
+      changed: broadcastState,
+      connected: async () => {
+        const state = await controller.refresh(true, [provider])
+        const cli = state.agents[provider].cli
 
-    return cli?.installed === true && cli.loggedIn === true
-  },
-})
+        return cli?.installed === true && cli.loggedIn === true
+      },
+    }),
+  ]),
+) as Record<LocalAgentProvider, LocalAgentLogin>
 
 let loginRequest = 0
 
-export async function startLocalClaudeLogin() {
+async function startLocalLogin(provider: LocalAgentProvider) {
   const userId = controller.state().userId
 
   if (!userId) throw new Error('Sign in to Nuphos first.')
   const request = ++loginRequest
   const env = await userEnv()
+  const login = logins[provider]
 
-  if (request !== loginRequest) return claudeLogin.state()
+  if (request !== loginRequest) return login.state()
   if (controller.state().userId !== userId) throw new Error('Nuphos account changed. Try again.')
-  const cliPath = findAgentCli('claude-code', env)
+  const cliPath = findAgentCli(provider, env)
   const userDir = path.join(dataDir(), 'users', userId)
-  const agentHome = prepareAgentHome('claude-code', userDir, path.join(userDir, 'workspace'))
+  const agentHome =
+    provider === 'codex'
+      ? (env.CODEX_HOME ?? path.join(env.HOME ?? app.getPath('home'), '.codex'))
+      : prepareAgentHome(provider, userDir, path.join(userDir, 'workspace'))
 
-  if (!cliPath || !agentHome) throw new Error('Install Claude Code on this computer first.')
+  if (!cliPath || !agentHome) throw new Error('Install the agent on this computer first.')
 
-  return claudeLogin.start(
-    cliPath,
-    agentCliEnv({ provider: 'claude-code', env, cliPath, agentHome }),
-  )
+  mkdirSync(agentHome, { recursive: true, mode: 0o700 })
+
+  return login.start(cliPath, agentCliEnv({ provider, env, cliPath, agentHome }))
 }
+
+export const startLocalClaudeLogin = () => startLocalLogin('claude-code')
+export const startLocalCodexLogin = () => startLocalLogin('codex')
 
 export function cancelLocalClaudeLogin(): void {
   loginRequest += 1
-  claudeLogin.cancel()
+  logins['claude-code'].cancel()
+}
+
+export function cancelLocalCodexLogin(): void {
+  loginRequest += 1
+  logins.codex.cancel()
 }
 
 /** The runtime follows the signed-in account: any change of session stops it first. */
@@ -207,7 +222,10 @@ export function initLocalRuntime(): void {
   const follow = (token: string | null) => {
     const userId = token ? (unverifiedTokenSubject(token) ?? null) : null
 
-    if (userId !== controller.state().userId) cancelLocalClaudeLogin()
+    if (userId !== controller.state().userId) {
+      cancelLocalClaudeLogin()
+      cancelLocalCodexLogin()
+    }
     void controller.setUser(userId)
   }
 
@@ -231,6 +249,7 @@ export function initLocalRuntime(): void {
 /** Resolves once openab has exited, so quitting never leaves it behind. */
 export function stopLocalRuntime(): Promise<void> {
   cancelLocalClaudeLogin()
+  cancelLocalCodexLogin()
 
   return controller.shutdown()
 }
@@ -238,7 +257,8 @@ export function stopLocalRuntime(): Promise<void> {
 export function getLocalRuntimeState(): LocalRuntimeState & {
   deviceId: string
   devBundle?: DevBundleHint
-  claudeLogin: ReturnType<ClaudeLogin['state']>
+  claudeLogin: ReturnType<LocalAgentLogin['state']>
+  codexLogin: ReturnType<LocalAgentLogin['state']>
 } {
   const bundle = findBundle()
   const incomplete = LOCAL_AGENT_PROVIDERS.some((provider) => !bundle?.adapters[provider])
@@ -246,7 +266,8 @@ export function getLocalRuntimeState(): LocalRuntimeState & {
 
   return {
     ...controller.state(),
-    claudeLogin: claudeLogin.state(),
+    claudeLogin: logins['claude-code'].state(),
+    codexLogin: logins.codex.state(),
     deviceId: readDeviceIdentity().deviceId,
     ...(devBundle ? { devBundle } : {}),
   }

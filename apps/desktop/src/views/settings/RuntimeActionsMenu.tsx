@@ -26,11 +26,8 @@ export function RuntimeActionsMenu({
 }) {
   if (!canEdit) return null
   const enabled = instance.status === 'active'
-  // An older image, or one given a token by its operator, has no answer and no sign-in to run.
-  const canSignIn =
-    enabled &&
-    (instance.kind === 'managed' || instance.kind === 'external') &&
-    authenticated !== undefined
+  // Unknown authentication is not evidence that the agent cannot sign in.
+  const canSignIn = enabled && (instance.kind === 'managed' || instance.kind === 'external')
 
   return (
     <Menu>

@@ -13,7 +13,8 @@ import { useTitleGenerator } from '@/lib/test/doubles/title-generator'
 import type { AgentRun } from './types'
 import type { UIMessage } from 'ai'
 
-const persisted: { messages: { role: string; parts: unknown[] }[] }[] = []
+const persisted: { messages: { id: string; role: string; parts: unknown[] }[] }[] = []
+const storedAt = new Date('2026-10-09T04:00:00.000Z')
 let createdPlans: unknown[] = []
 let titleGate: Promise<void> = Promise.resolve()
 
@@ -23,6 +24,12 @@ useAgentDb({
 
     return Promise.resolve(null) as never
   },
+  getConversationMessagesHead: async () =>
+    persisted.at(-1)!.messages.map((message) => ({
+      ...message,
+      messageId: message.id,
+      createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
+    })) as never,
   getConversation: async () => {
     await titleGate
 
@@ -36,7 +43,7 @@ useAgentPlans({
   listPlansCreatedForConversation: async () => createdPlans as never,
 })
 
-const { finishPreviewTurn } = await import('./chat-preview-finish')
+const { finishPreviewTurn, persistInterruptedPreviewTurn } = await import('./chat-preview-finish')
 
 describe('finishPreviewTurn with steering segments', () => {
   test('persists assistant/user/assistant in exchange order', async () => {
@@ -74,7 +81,10 @@ describe('finishPreviewTurn with steering segments', () => {
 
     expect(roles).toEqual(['user', 'assistant', 'user', 'assistant'])
     expect(frames.find((frame) => frame.type === 'atlas-transcript-snapshot')?.messages).toEqual(
-      persisted[0]!.messages,
+      persisted[0]!.messages.map((message) => ({
+        ...message,
+        createdAt: storedAt.toISOString(),
+      })),
     )
     expect(JSON.stringify(persisted[0]!.messages.at(-1))).toContain('answer 2')
     expect(JSON.stringify(persisted[0]!.messages[2])).toContain('改查 staging')
@@ -162,3 +172,53 @@ test('title enrichment cannot keep a completed runtime turn open', async () => {
   await finishing
   titleGate = Promise.resolve()
 })
+
+for (const interrupted of [false, true]) {
+  test(`snapshot keeps stored timestamps for historical and ${interrupted ? 'interrupted' : 'completed'} replies`, async () => {
+    createdPlans = []
+    const frames: Record<string, unknown>[] = []
+    const args = {
+      run: {
+        trace: undefined,
+        streamId: 'stream',
+        abortController: new AbortController(),
+      } as unknown as AgentRun,
+      sessionId: 'timestamps',
+      teamId: 'team',
+      userId: 'owner',
+      messages: [
+        {
+          id: 'old-answer',
+          role: 'assistant' as const,
+          parts: [{ type: 'text' as const, text: 'Earlier files' }],
+        },
+      ],
+      firstMessage: 'start',
+      locale: 'en-US',
+      provider: 'test',
+      requestId: 'request',
+      startedAt: 0,
+      text: 'New files',
+      answer: 'New files',
+      reasoning: '',
+      toolSteps: [],
+      finalStepStart: 0,
+      steered: [],
+      memory: null,
+      error: new Error('interrupted'),
+      emit: (frame: Record<string, unknown>) => {
+        frames.push(frame)
+      },
+    }
+
+    if (interrupted) await persistInterruptedPreviewTurn(args)
+    else await finishPreviewTurn(args)
+
+    const snapshot = frames.find((frame) => frame.type === 'atlas-transcript-snapshot')
+      ?.messages as { id: string; createdAt: string }[]
+
+    expect(snapshot).toHaveLength(2)
+    expect(snapshot[0]).toMatchObject({ id: 'old-answer', createdAt: '2026-10-08T04:00:00.000Z' })
+    expect(snapshot[1]!.createdAt).toBe(storedAt.toISOString())
+  })
+}
