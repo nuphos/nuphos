@@ -1,17 +1,19 @@
-import { beforeEach, expect, test } from 'bun:test'
-import { ObjectId } from 'mongodb'
+import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test'
 import { Hono } from 'hono'
+import { ObjectId } from 'mongodb'
 
-import { AppError } from '@/lib/errors'
-
-import { useDb } from '@/lib/test/doubles/db'
-import { panelSnapshotKey } from '@/lib/dashboards/exec-service'
 import { evaluatePanelAlert } from '@/lib/dashboards/alert-service'
-import { dashboardForView, dashboardViewSchema } from './view-range'
+import { panelSnapshotKey, resolveParams } from '@/lib/dashboards/exec-service'
+import { AppError } from '@/lib/errors'
+import { useDb } from '@/lib/test/doubles/db'
+
 import { registerDashboardRoutes } from './dashboards'
 import { registerDashboardExecutionRoutes } from './execution'
-import type { NuphosDashboard, DashboardPanel, DashboardPanelSnapshot } from '@/models'
+import { dashboardForView, dashboardViewSchema } from './view-range'
+
+import type { serializePanel } from './serialize'
 import type { TeamAuthVariables } from '@/middleware/auth'
+import type { NuphosDashboard, DashboardPanel, DashboardPanelSnapshot } from '@/models'
 
 const teamId = new ObjectId()
 const dashboard: NuphosDashboard = {
@@ -52,6 +54,7 @@ let alertReads = 0
 let savedDashboard = dashboard
 let reuseSnapshot = false
 let dashboardWrites = 0
+let successfulSnapshot: DashboardPanelSnapshot | null = null
 
 useDb({
   db: () => ({
@@ -81,21 +84,29 @@ useDb({
           limit: () => cursor,
           next: () =>
             Promise.resolve(
-              reuseSnapshot && name === 'cost_panel_snapshots'
-                ? {
-                    _id: new ObjectId(),
-                    teamId,
-                    panelId: panel._id,
-                    dashboardId: dashboard._id,
-                    codeHash: 'h',
-                    paramsHash: filter.paramsHash,
-                    params: {},
-                    scriptVersion: 1,
-                    status: 'running',
-                    requestedAt: new Date(),
-                    createdAt: new Date(),
-                  }
-                : null,
+              successfulSnapshot &&
+                name === 'cost_panel_snapshots' &&
+                filter.status === 'complete' &&
+                (filter.paramsHash === successfulSnapshot.paramsHash ||
+                  (filter.paramsHash as { $in?: string[] })?.$in?.includes(
+                    successfulSnapshot.paramsHash,
+                  ))
+                ? successfulSnapshot
+                : reuseSnapshot && name === 'cost_panel_snapshots'
+                  ? {
+                      _id: new ObjectId(),
+                      teamId,
+                      panelId: panel._id,
+                      dashboardId: dashboard._id,
+                      codeHash: 'h',
+                      paramsHash: filter.paramsHash,
+                      params: {},
+                      scriptVersion: 1,
+                      status: 'running',
+                      requestedAt: new Date(),
+                      createdAt: new Date(),
+                    }
+                  : null,
             ),
           toArray: () => Promise.resolve(name === 'cost_panels' ? [panel] : []),
         }
@@ -105,13 +116,29 @@ useDb({
     }),
   }),
 })
+function readDashboard(query: string) {
+  const app = new Hono<{ Variables: TeamAuthVariables }>()
+
+  app.use('*', async (c, next) => {
+    c.set('teamId', teamId.toHexString())
+    await next()
+  })
+  registerDashboardRoutes(app)
+
+  return app.request(`/${dashboard._id.toHexString()}${query}`)
+}
+
 beforeEach(() => {
+  setSystemTime(new Date('2026-10-09T05:15:00Z'))
   lookups = []
   alertReads = 0
   savedDashboard = dashboard
   reuseSnapshot = false
   dashboardWrites = 0
+  successfulSnapshot = null
 })
+
+afterEach(() => setSystemTime())
 
 test('custom and rolling views leave the saved default and schedule unchanged', () => {
   const before = structuredClone(dashboard.timeRange)
@@ -142,16 +169,7 @@ test('rejects partial, reversed, invalid and ambiguous ranges', () => {
 })
 
 test('GET filters both current and last-successful snapshots by the view params without writes', async () => {
-  const app = new Hono<{ Variables: TeamAuthVariables }>()
-
-  app.use('*', async (c, next) => {
-    c.set('teamId', teamId.toHexString())
-    await next()
-  })
-  registerDashboardRoutes(app)
-  const response = await app.request(
-    `/${dashboard._id.toHexString()}?${new URLSearchParams(historical)}`,
-  )
+  const response = await readDashboard(`?${new URLSearchParams(historical)}`)
 
   expect(response.status).toBe(200)
   const result = (await response.json()) as {
@@ -250,5 +268,38 @@ for (const role of ['ADMINISTRATOR', 'EDITOR', 'VIEWER'] as const) {
       expect(savedDashboard.cadence).toBe('daily')
     }
     expect(dashboardWrites).toBe(canEdit ? 2 : 0)
+  })
+}
+
+for (const query of ['', '?preset=thisMonth']) {
+  test(`GET ${query}: a rolling view retains yesterday's success without changing execution state`, async () => {
+    savedDashboard = { ...dashboard, rangePreset: 'thisMonth' }
+    const view = dashboardForView(savedDashboard, {})
+    const end = new Date(view.timeRange.periodEnd.getTime() - 86_400_000)
+
+    const prior = { ...view, timeRange: { ...view.timeRange, periodEnd: end } }
+
+    successfulSnapshot = {
+      _id: new ObjectId(),
+      teamId,
+      panelId: panel._id,
+      dashboardId: dashboard._id,
+      ...panelSnapshotKey(prior, panel),
+      scriptVersion: 1,
+      ...resolveParams(prior, panel),
+      status: 'complete',
+      output: { kind: 'scalar', title: 'Cost', value: 42, unit: 'usd' },
+      requestedAt: end,
+      createdAt: end,
+      expiresAt: new Date('2027-01-01'),
+    }
+    const expectedHash = successfulSnapshot.paramsHash
+    const response = await readDashboard(query)
+    const result = (await response.json()) as { panels: ReturnType<typeof serializePanel>[] }
+
+    expect(response.status).toBe(200)
+    expect(result.panels[0]?.currentSnapshot).toBeNull()
+    expect(result.panels[0]?.lastSuccessfulSnapshot?.paramsHash).toBe(expectedHash)
+    expect(dashboardWrites).toBe(0)
   })
 }

@@ -143,6 +143,7 @@ export function DashboardCanvas({
               >
                 <PanelCard
                   panel={panel}
+                  viewTimeRange={detail.viewTimeRange ?? detail.dashboard.timeRange}
                   loading={refreshing || busyPanels.has(panel.id)}
                   onExecute={onExecutePanel}
                   onEdit={(p) => setEditor({ panel: p })}
