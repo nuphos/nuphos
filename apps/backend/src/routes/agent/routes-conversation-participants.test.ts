@@ -224,6 +224,22 @@ describe('conversation participants API', () => {
     expect((await patch(`participants/${TEAMMATE}`, { role: 'reply' })).status).toBe(403)
   })
 
+  test('manage and view are exclusive, and removing someone drops either', async () => {
+    expect((await patch(`participants/${TEAMMATE}`, { role: 'view' })).status).toBe(200)
+    const body = (await (
+      await patch(`participants/${TEAMMATE}`, { role: 'manage' })
+    ).json()) as ParticipantsBody
+
+    expect(body.participants.find((p) => p.id === TEAMMATE)?.role).toBe('manage')
+    expect(conversation?.managerIds).toEqual([TEAMMATE])
+    expect(conversation?.viewOnlyIds ?? []).toEqual([])
+    await patch(`participants/${TEAMMATE}`, { role: 'reply' })
+    expect(conversation?.managerIds ?? []).toEqual([])
+    await patch(`participants/${TEAMMATE}`, { role: 'manage' })
+    await remove(TEAMMATE)
+    expect(conversation?.managerIds ?? []).toEqual([])
+  })
+
   test('general access defaults to reply for older sessions and only the owner changes it', async () => {
     expect((await listParticipants()).body.generalAccess).toBe('reply')
     const response = await patch('access', { generalAccess: 'none' })

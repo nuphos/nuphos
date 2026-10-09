@@ -13,9 +13,22 @@ const GENERAL_OPTIONS: { value: GeneralAccess; title: string; detail: string }[]
   { value: 'reply', title: 'Everyone in the team', detail: 'Can view and reply' },
 ]
 
-const ROLE_LABEL: Record<ParticipantRole, string> = { reply: 'Can reply', view: 'Can view' }
+const ROLE_LABEL: Record<ParticipantRole, string> = {
+  manage: 'Can manage',
+  reply: 'Can reply',
+  view: 'Can view',
+}
 
-const RANK: Record<GeneralAccess, number> = { none: 0, view: 1, reply: 2 }
+const ROLE_DETAIL: Partial<Record<ParticipantRole, string>> = {
+  manage: 'Reply, and change the agent and credentials',
+}
+
+const RANK: Record<GeneralAccess | ParticipantRole, number> = {
+  none: 0,
+  view: 1,
+  reply: 2,
+  manage: 3,
+}
 
 const TRIGGER =
   'flex h-6 shrink-0 items-center gap-0.5 rounded-md px-1.5 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 disabled:pointer-events-none'
@@ -101,7 +114,7 @@ export function RoleMenu({
         <ChevronDown className="h-3 w-3" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent align="end" className="w-[200px]">
-        {(['reply', 'view'] as const).map((role) => {
+        {(['manage', 'reply', 'view'] as const).map((role) => {
           const belowFloor = RANK[floor] > RANK[role]
 
           return (
@@ -112,7 +125,10 @@ export function RoleMenu({
               title={belowFloor ? 'Everyone in the team already has more access' : undefined}
               onClick={() => role !== value && onChange(role)}
             >
-              {ROLE_LABEL[role]}
+              <span className="block">{ROLE_LABEL[role]}</span>
+              {ROLE_DETAIL[role] && (
+                <span className="block text-[11px] text-tertiary">{ROLE_DETAIL[role]}</span>
+              )}
             </MenuItem>
           )
         })}

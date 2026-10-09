@@ -146,7 +146,7 @@ export function ParticipantList({
     <div className="flex flex-col gap-1">
       <div className={SECTION_LABEL}>In this session</div>
       {participants.map((participant) => {
-        const role = participant.role === 'view' ? 'view' : 'reply'
+        const role = participant.role && participant.role !== 'owner' ? participant.role : 'reply'
 
         return (
           <div
@@ -175,7 +175,11 @@ export function ParticipantList({
             )}
             {!participant.isOwner && !canManage && (
               <span className="px-1.5 text-[12px] text-tertiary">
-                {role === 'view' && generalAccess !== 'reply' ? 'Can view' : 'Can reply'}
+                {role === 'manage'
+                  ? 'Can manage'
+                  : role === 'view' && generalAccess !== 'reply'
+                    ? 'Can view'
+                    : 'Can reply'}
               </span>
             )}
           </div>

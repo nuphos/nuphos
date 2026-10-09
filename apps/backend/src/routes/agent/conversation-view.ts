@@ -1,7 +1,7 @@
 import { config } from '@/config'
 import { normalizeConversationActivitySource } from '@/lib/agent/conversation-activity-source'
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
-import { canReply, conversationAccess, generalAccessOf } from '@/lib/agent/db/access'
+import { canManage, canReply, conversationAccess, generalAccessOf } from '@/lib/agent/db/access'
 import { conversationReadState } from '@/lib/agent/db/read-state'
 import { fetchCachedUsers } from '@/lib/agent/directory'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
@@ -204,6 +204,8 @@ export function serializeConversationForViewer(
     access,
     generalAccess: generalAccessOf(grants),
     readOnly: !canReply(access),
+    // May move the session to another runtime and change its credentials.
+    canManage: canManage(access),
     ...(isOwner
       ? conversationReadState(conversation)
       : { activitySeq: undefined, readSeq: undefined, unread: false }),
