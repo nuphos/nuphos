@@ -13,7 +13,9 @@ afterEach(() => {
   for (const tunnel of tunnels.splice(0)) tunnel.closed()
 })
 
-async function setup(options: { reply?: boolean; exec?: boolean; member?: boolean; terminal?: boolean } = {}) {
+async function setup(
+  options: { reply?: boolean; exec?: boolean; member?: boolean; terminal?: boolean } = {},
+) {
   const bus = createLocalTunnelBus()
   const presence = createMemoryPresenceStore()
   const commands: string[] = []
@@ -42,7 +44,14 @@ async function setup(options: { reply?: boolean; exec?: boolean; member?: boolea
 
   tunnels.push(tunnel)
   tunnel.receive(
-    JSON.stringify({ t: 'status', status: { agents: {}, localExec: options.exec !== false, localTerminal: options.terminal === true } }),
+    JSON.stringify({
+      t: 'status',
+      status: {
+        agents: {},
+        localExec: options.exec !== false,
+        localTerminal: options.terminal === true,
+      },
+    }),
   )
   tunnel.receive(JSON.stringify({ t: 'pong' }))
   await Promise.resolve()
@@ -98,14 +107,27 @@ test('a deadline closes the command stream, with no automatic replay', async () 
   expect(deps.commands).toEqual(['sleep 30'])
 })
 
-
 test('terminal requests require their own capability and never reach old exec clients', async () => {
   const old = await setup()
 
-  expect(await dispatchLocalExec('u1', 'd1', '{"action":"open"}', { teamId: 't1', deps: old, purpose: 'terminal' })).toEqual({ status: 'device_disconnected' })
+  expect(
+    await dispatchLocalExec('u1', 'd1', '{"action":"open"}', {
+      teamId: 't1',
+      deps: old,
+      purpose: 'terminal',
+    }),
+  ).toEqual({ status: 'device_disconnected' })
   expect(old.commands).toEqual([])
   const current = await setup({ terminal: true })
 
-  expect((await dispatchLocalExec('u1', 'd1', '{"action":"open"}', { teamId: 't1', deps: current, purpose: 'terminal' })).status).toBe('ok')
+  expect(
+    (
+      await dispatchLocalExec('u1', 'd1', '{"action":"open"}', {
+        teamId: 't1',
+        deps: current,
+        purpose: 'terminal',
+      })
+    ).status,
+  ).toBe('ok')
   expect(current.commands).toEqual(['{"action":"open"}'])
 })

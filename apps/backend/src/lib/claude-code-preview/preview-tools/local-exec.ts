@@ -4,7 +4,8 @@
 // tools-list/call rather than baked into a static module like the other
 // local tools. It is relayed to the owner's device, so unlike those tools it
 // does not depend on the sending client's `localTools` capability.
-import { createLocalExecTool, createLocalTerminalTool } from '@/lib/agent/tools-skilled/local-tools'
+import { createLocalTerminalTool } from '@/lib/agent/tools-skilled/local-terminal'
+import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
@@ -40,8 +41,11 @@ export async function localExecToolModule(ctx: PreviewToolContext): Promise<Prev
 
   return toolModuleFromAiSdkTools({
     local_terminal: createLocalTerminalTool(devices, {
-      userId: ctx.userId, conversationOwnerUserId: ctx.conversationOwnerUserId,
-      teamId: ctx.teamId, sessionId: ctx.sessionId, origin: ctx.turnOrigin ?? 'user',
+      userId: ctx.userId,
+      conversationOwnerUserId: ctx.conversationOwnerUserId,
+      teamId: ctx.teamId,
+      sessionId: ctx.sessionId,
+      origin: ctx.turnOrigin ?? 'user',
     }),
     local_exec: createLocalExecTool(devices, {
       userId: ctx.userId,

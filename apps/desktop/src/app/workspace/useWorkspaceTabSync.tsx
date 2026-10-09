@@ -62,18 +62,36 @@ export function useWorkspaceTabSync(a: Args) {
   // never persisted, so only the session that performed the action celebrates.
   const [landingCelebration, setLandingCelebration] = useState(false)
 
-  useEffect(() => api.onDockTerminalRequest(request => {
-    const state = workspaceStore.getState()
+  useEffect(
+    () =>
+      api.onDockTerminalRequest((request) => {
+        const state = workspaceStore.getState()
 
-    if (state.sessionId !== request.sessionId || state.sessionReadOnly ||
-      state.teamScope?.teamId !== request.teamId || state.mainPageOpen) return
-    void api.acceptDockTerminal(request.id).then(accepted => {
-      if (!accepted) return
-      const tab = { ...createWorkspaceTab(request.teamId), id: request.id, active: 'team.terminal' }
+        if (
+          state.sessionId !== request.sessionId ||
+          state.sessionReadOnly ||
+          state.teamScope?.teamId !== request.teamId ||
+          state.mainPageOpen
+        )
+          return
+        void api.acceptDockTerminal(request.id).then((accepted) => {
+          if (!accepted) return
+          const tab = {
+            ...createWorkspaceTab(request.teamId),
+            id: request.id,
+            active: 'team.terminal',
+          }
 
-      workspaceStore.dispatch({ type: 'openTab', sessionKey: request.sessionId, tab, options: { openDock: true } })
-    })
-  }), [workspaceStore])
+          workspaceStore.dispatch({
+            type: 'openTab',
+            sessionKey: request.sessionId,
+            tab,
+            options: { openDock: true },
+          })
+        })
+      }),
+    [workspaceStore],
+  )
 
   // Terminal teardown is *observed*, not requested: every path that ends a
   // terminal drops the tab or navigates it elsewhere, so "a tab that stopped

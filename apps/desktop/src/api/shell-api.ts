@@ -5,11 +5,13 @@ import type { PortForwardEvent } from '../types/navigation.ts'
 
 export const shellApi = {
   acceptDockTerminal: (id: string) => window.api.acceptDockTerminal(id),
-  onDockTerminalRequest: (...args: Parameters<typeof window.api.onDockTerminalRequest>) => window.api.onDockTerminalRequest(...args),
+  onDockTerminalRequest: (...args: Parameters<typeof window.api.onDockTerminalRequest>) =>
+    window.api.onDockTerminalRequest(...args),
   localTerminalStart: (...args: Parameters<typeof window.api.localTerminalStart>) =>
     window.api.localTerminalStart(...args),
   localTerminalReplay: (id: string) => window.api.localTerminalReplay(id),
-  localTerminalInput: (id: string, data: string, fromUser = true) => window.api.localTerminalInput(id, data, fromUser),
+  localTerminalInput: (id: string, data: string, fromUser = true) =>
+    window.api.localTerminalInput(id, data, fromUser),
   localTerminalResize: (id: string, cols: number, rows: number) =>
     window.api.localTerminalResize(id, cols, rows),
   localTerminalClose: (id: string) => window.api.localTerminalClose(id),

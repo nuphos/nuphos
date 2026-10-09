@@ -32,7 +32,8 @@ const terminals = (event: IpcMainInvokeEvent, id: string) =>
   runtimeTerminals.describe(owner(event), id) ? runtimeTerminals : localTerminals
 
 export const localTerminalChannels = {
-  'local-terminal:accept-dock': (event: IpcMainInvokeEvent, id: string) => acceptDockTerminal(owner(event), id),
+  'local-terminal:accept-dock': (event: IpcMainInvokeEvent, id: string) =>
+    acceptDockTerminal(owner(event), id),
   'local-terminal:start': (
     event: IpcMainInvokeEvent,
     id: string,

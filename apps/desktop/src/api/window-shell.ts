@@ -1,4 +1,8 @@
-import type { DockTerminalRequest, LocalTerminalEvent, TerminalTarget } from './local-terminal-types'
+import type {
+  DockTerminalRequest,
+  LocalTerminalEvent,
+  TerminalTarget,
+} from './local-terminal-types'
 import type { Plan } from './plan-types.ts'
 import type { K8sWatchEvent, K8sWatchKind, K8sWatchSubscribeResult } from './watch-types.ts'
 import type { PodExecEvent, SshTerminalEvent } from '../types/aws-compute.ts'

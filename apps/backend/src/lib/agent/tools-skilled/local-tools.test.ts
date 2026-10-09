@@ -32,7 +32,8 @@ useAgentDeviceAudit({
   },
 })
 
-const { createLocalExecTool, createLocalTerminalTool } = await import('./local-tools')
+const { createLocalExecTool } = await import('./local-tools')
+const { createLocalTerminalTool } = await import('./local-terminal')
 
 const turn = {
   userId: 'u1',
@@ -249,25 +250,41 @@ describe('createLocalExecTool audit', () => {
   })
 })
 
-
 describe('shared dock terminal authorization', () => {
   test('binds requests to the server conversation and records an audit', async () => {
-    dispatchOutcome = { status: 'ok', result: { stdout: '{"terminalId":"tab-1"}', stderr: '', exitCode: 0 } }
+    dispatchOutcome = {
+      status: 'ok',
+      result: { stdout: '{"terminalId":"tab-1"}', stderr: '', exitCode: 0 },
+    }
     const tool = createLocalTerminalTool(twoDevices, turn) as ExecTool
-    const result = await tool.execute({ label: 'open', action: 'open', device: 'd1', sessionId: 'forged' }, {})
+    const result = await tool.execute(
+      { label: 'open', action: 'open', device: 'd1', sessionId: 'forged' },
+      {},
+    )
 
     expect(result).toEqual({ terminalId: 'tab-1' })
-    expect(JSON.parse(dispatchCalls[0]!.command)).toMatchObject({ sessionId: 's1', teamId: 't1', action: 'open' })
+    expect(JSON.parse(dispatchCalls[0]!.command)).toMatchObject({
+      sessionId: 's1',
+      teamId: 't1',
+      action: 'open',
+    })
     expect(audits[0]).toMatchObject({ deviceId: 'd1', sessionId: 's1', outcome: 'ok' })
   })
 
   test('rejects another participant and an unavailable device without dispatch', async () => {
-    const other = createLocalTerminalTool(twoDevices, { ...turn, conversationOwnerUserId: 'u2' }) as ExecTool
+    const other = createLocalTerminalTool(twoDevices, {
+      ...turn,
+      conversationOwnerUserId: 'u2',
+    }) as ExecTool
 
-    expect(await other.execute({ label: 'open', action: 'open', device: 'd1' }, {})).toHaveProperty('error')
+    expect(await other.execute({ label: 'open', action: 'open', device: 'd1' }, {})).toHaveProperty(
+      'error',
+    )
     const single = createLocalTerminalTool([twoDevices[0]!], turn) as ExecTool
 
-    expect(await single.execute({ label: 'open', action: 'open', device: 'missing' }, {})).toHaveProperty('error')
+    expect(
+      await single.execute({ label: 'open', action: 'open', device: 'missing' }, {}),
+    ).toHaveProperty('error')
     expect(dispatchCalls).toEqual([])
   })
 })

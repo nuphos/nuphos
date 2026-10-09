@@ -156,15 +156,20 @@ test('sessions reject another window and cleanup on reload', async () => {
   }
 })
 
-test('agent terminal is scoped, survives reads and yields permanently to user input',
-  { timeout: 20_000, skip: process.platform === 'win32' }, async () => {
+test(
+  'agent terminal is scoped, survives reads and yields permanently to user input',
+  { timeout: 20_000, skip: process.platform === 'win32' },
+  async () => {
     const sessions = new LocalTerminalSessions()
     const { owner, emitter } = renderer()
     const scope = JSON.stringify(['team', 'conversation'])
 
     try {
       sessions.start(owner, 'agent-tab', 80, 24, undefined, scope)
-      assert.throws(() => sessions.agentRequest('agent-tab', 'another-conversation', 'echo bad\r'), /another conversation/)
+      assert.throws(
+        () => sessions.agentRequest('agent-tab', 'another-conversation', 'echo bad\r'),
+        /another conversation/,
+      )
       const ready = waitForOutput(emitter, 'AGENT_SHARED_OUTPUT')
 
       sessions.agentRequest('agent-tab', scope, "printf '%s%s\\n' AGENT_SHARED_ OUTPUT\r")
@@ -175,7 +180,7 @@ test('agent terminal is scoped, survives reads and yields permanently to user in
       sessions.input(owner, 'agent-tab', 'echo user')
       assert.equal(sessions.agentRequest('agent-tab', scope).userTookOver, true)
       assert.throws(() => sessions.agentRequest('agent-tab', scope, '\r'), /user took over/)
-      const agentExited = new Promise<void>(resolve => {
+      const agentExited = new Promise<void>((resolve) => {
         emitter.on('terminal-event', (event: LocalTerminalEvent) => {
           if (event.id === 'agent-tab' && event.type === 'exit') resolve()
         })
@@ -191,7 +196,7 @@ test('agent terminal is scoped, survives reads and yields permanently to user in
       sessions.input(owner, 'user-tab', "printf '%s%s\\n' USER_SHELL_ READY\r")
       await userReady
       assert.throws(() => sessions.agentRequest('user-tab', scope), /another conversation/)
-      const exited = new Promise<void>(resolve => {
+      const exited = new Promise<void>((resolve) => {
         emitter.on('terminal-event', (event: LocalTerminalEvent) => {
           if (event.id === 'user-tab' && event.type === 'exit') resolve()
         })
@@ -202,4 +207,5 @@ test('agent terminal is scoped, survives reads and yields permanently to user in
     } finally {
       sessions.closeAll()
     }
-  })
+  },
+)

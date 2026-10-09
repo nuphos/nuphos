@@ -119,7 +119,11 @@ export class RuntimeTunnelClient {
   sendStatus(): void {
     this.send({
       t: 'status',
-      status: { ...this.deps.status(), localExec: Boolean(this.deps.connectExec), localTerminal: Boolean(this.deps.connectTerminal) },
+      status: {
+        ...this.deps.status(),
+        localExec: Boolean(this.deps.connectExec),
+        localTerminal: Boolean(this.deps.connectTerminal),
+      },
     })
   }
 
@@ -236,10 +240,10 @@ export class RuntimeTunnelClient {
       purpose === 'terminal'
         ? this.deps.connectTerminal?.()
         : purpose === 'file'
-        ? this.deps.connectFile?.()
-        : purpose === 'exec'
-          ? this.deps.connectExec?.()
-          : this.deps.connectRuntime(purpose, provider)
+          ? this.deps.connectFile?.()
+          : purpose === 'exec'
+            ? this.deps.connectExec?.()
+            : this.deps.connectRuntime(purpose, provider)
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

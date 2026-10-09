@@ -35,7 +35,14 @@ export class LocalTerminalSessions {
    * and remounted whenever its session leaves and re-enters the main pane, and
    * re-mounting must find the same shell rather than spawn another.
    */
-  start(owner: WebContents, id: string, cols: number, rows: number, cwd = os.homedir(), agentScope?: string): { id: string; shell: string } {
+  start(
+    owner: WebContents,
+    id: string,
+    cols: number,
+    rows: number,
+    cwd = os.homedir(),
+    agentScope?: string,
+  ): { id: string; shell: string } {
     if (typeof id !== 'string' || !id || id.length > 200) {
       throw new Error('Invalid terminal id.')
     }
@@ -130,16 +137,25 @@ export class LocalTerminalSessions {
 
     if (session.agentScope !== scope) throw new Error('Terminal belongs to another conversation.')
     if (data !== undefined) {
-      if (session.userTookOver) throw new Error('The user took over this terminal. Open a new terminal.')
+      if (session.userTookOver)
+        throw new Error('The user took over this terminal. Open a new terminal.')
       if (session.exited) throw new Error('Terminal has exited.')
       if (data.length > 65536) throw new Error('Terminal input is too large.')
       session.pty.write(data)
     }
 
-    const output = session.events.filter(e => e.type === 'data').map(e => e.data).join('')
+    const output = session.events
+      .filter((e) => e.type === 'data')
+      .map((e) => e.data)
+      .join('')
 
-    return { terminalId: id, output: output.slice(-65536), outputIsRecentSnapshot: true,
-      exited: session.exited, userTookOver: session.userTookOver }
+    return {
+      terminalId: id,
+      output: output.slice(-65536),
+      outputIsRecentSnapshot: true,
+      exited: session.exited,
+      userTookOver: session.userTookOver,
+    }
   }
 
   resize(owner: WebContents, id: string, cols: number, rows: number): void {

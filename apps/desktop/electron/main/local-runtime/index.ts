@@ -231,9 +231,7 @@ export function initLocalRuntime(): void {
     void controller.setUser(userId)
   }
 
-  authSession.subscribe((next) => {
-    follow(next)
-  })
+  authSession.subscribe(follow)
   follow(authSession.current())
   if (devBuild())
     watchDevBundle(bundleRoot(), {
@@ -295,5 +293,8 @@ export function listLocalRuntimeActivity(before?: string): Promise<unknown> {
 
   if (before) query.set('before', before)
 
-  return callJson('GET', `/agent/devices/${encodeURIComponent(deviceId)}/runtime-activity?${query.toString()}`)
+  return callJson(
+    'GET',
+    `/agent/devices/${encodeURIComponent(deviceId)}/runtime-activity?${query.toString()}`,
+  )
 }

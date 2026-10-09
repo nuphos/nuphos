@@ -8,22 +8,42 @@ const starts: unknown[][] = []
 const writes: unknown[][] = []
 const owner = {} as WebContents
 
-mock.module('electron', { namedExports: {
-  BrowserWindow: { getAllWindows: () => [{ webContents: { send: (_channel: string, request: typeof frames[number]) => frames.push(request) } }] },
-} })
-mock.module('../local-terminal.ts', { namedExports: {
-  localTerminals: {
-    start: (...args: unknown[]) => starts.push(args),
-    agentRequest: (...args: unknown[]) => { writes.push(args);
-
- return { terminalId: args[0], output: 'hello' } },
+mock.module('electron', {
+  namedExports: {
+    BrowserWindow: {
+      getAllWindows: () => [
+        {
+          webContents: {
+            send: (_channel: string, request: (typeof frames)[number]) => frames.push(request),
+          },
+        },
+      ],
+    },
   },
-} })
+})
+mock.module('../local-terminal.ts', {
+  namedExports: {
+    localTerminals: {
+      start: (...args: unknown[]) => starts.push(args),
+      agentRequest: (...args: unknown[]) => {
+        writes.push(args)
 
-const { runDockTerminal, acceptDockTerminal, abortDockTerminal } = await import('./dock-terminal.ts')
-const request = (action: string, rest = {}) => JSON.stringify({ action, teamId: 't1', sessionId: 's1', ...rest })
+        return { terminalId: args[0], output: 'hello' }
+      },
+    },
+  },
+})
 
-beforeEach(() => { frames.length = 0; starts.length = 0; writes.length = 0 })
+const { runDockTerminal, acceptDockTerminal, abortDockTerminal } =
+  await import('./dock-terminal.ts')
+const request = (action: string, rest = {}) =>
+  JSON.stringify({ action, teamId: 't1', sessionId: 's1', ...rest })
+
+beforeEach(() => {
+  frames.length = 0
+  starts.length = 0
+  writes.length = 0
+})
 
 test('only one renderer can claim a request and start its scoped PTY', async () => {
   const result = runDockTerminal(request('open', { cwd: '/tmp' }), { sessionId: 'exec1' })
@@ -48,7 +68,10 @@ test('disconnect cancels an unclaimed request and a late renderer cannot spawn',
 
 test('writes and interrupts use the conversation scope and read does not send input', async () => {
   for (const action of ['write', 'interrupt', 'read']) {
-    const result = await runDockTerminal(request(action, { terminalId: 'tab1', data: 'echo hi\r' }), { sessionId: 'exec3' })
+    const result = await runDockTerminal(
+      request(action, { terminalId: 'tab1', data: 'echo hi\r' }),
+      { sessionId: 'exec3' },
+    )
 
     assert.equal(result.exitCode, 0)
   }

@@ -107,8 +107,11 @@ export class DeviceRuntimeSocket {
     try {
       const presence = await this.deps.presence.get(userId, deviceId)
 
-      if (!presence || (purpose === 'exec' && presence.status?.localExec !== true) ||
-        (purpose === 'terminal' && presence.status?.localTerminal !== true)) {
+      if (
+        !presence ||
+        (purpose === 'exec' && presence.status?.localExec !== true) ||
+        (purpose === 'terminal' && presence.status?.localTerminal !== true)
+      ) {
         throw new Error(OFFLINE_REASON)
       }
       this.conn = presence.conn

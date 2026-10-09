@@ -1,6 +1,10 @@
 import { ipcRenderer } from 'electron'
 
-import type { DockTerminalRequest, LocalTerminalEvent, TerminalTarget } from '../../src/api/local-terminal-types'
+import type {
+  DockTerminalRequest,
+  LocalTerminalEvent,
+  TerminalTarget,
+} from '../../src/api/local-terminal-types'
 
 export const localTerminalApi = {
   acceptDockTerminal: (id: string) => ipcRenderer.invoke('local-terminal:accept-dock', id),

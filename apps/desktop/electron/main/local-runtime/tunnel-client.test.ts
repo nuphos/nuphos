@@ -257,7 +257,9 @@ test('dock terminals have a distinct capability and never fall through to local 
   const client = new RuntimeTunnelClient({
     connectBackend: () => backend,
     connectRuntime: () => null,
-    connectExec: () => { throw new Error('Terminal request must not execute as shell text') },
+    connectExec: () => {
+      throw new Error('Terminal request must not execute as shell text')
+    },
     connectTerminal: () => terminal,
     status: () => ({ agents: {} }),
   })
@@ -265,9 +267,13 @@ test('dock terminals have a distinct capability and never fall through to local 
   client.start()
   backend.emit('open')
   assert.equal(JSON.parse(backend.sent[0] ?? '{}').status.localTerminal, true)
-  backend.emit('message', { data: JSON.stringify({ t: 'open', s: 'terminal-1', purpose: 'terminal' }) })
+  backend.emit('message', {
+    data: JSON.stringify({ t: 'open', s: 'terminal-1', purpose: 'terminal' }),
+  })
   terminal.emit('open')
-  backend.emit('message', { data: JSON.stringify({ t: 'data', s: 'terminal-1', d: '{"action":"open"}' }) })
+  backend.emit('message', {
+    data: JSON.stringify({ t: 'data', s: 'terminal-1', d: '{"action":"open"}' }),
+  })
   assert.deepEqual(terminal.sent, ['{"action":"open"}'])
   client.stop()
 })

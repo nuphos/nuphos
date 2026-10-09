@@ -84,7 +84,9 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
     }
     // Terminal-generated device replies must not count as a human taking over.
     let fromUser = false
-    const takeOver = () => { fromUser = true }
+    const takeOver = () => {
+      fromUser = true
+    }
 
     host.addEventListener('keydown', takeOver, true)
     host.addEventListener('paste', takeOver, true)
