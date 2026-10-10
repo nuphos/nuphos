@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { api } from '../../api'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
-import { toast } from '../../components/ui/toast'
-import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 import { useStableCallback } from '../../hooks/useStableCallback'
 import { isMac } from '../../lib/platform'
 
-/** One sign-in flow for onboarding, settings and conversation recovery. */
+import { useLocalAgentLogin } from './useLocalAgentLogin'
+
+/** One sign-in dialog for settings, the agent selector and conversation recovery. */
 export function LocalAgentSignIn({
   provider = 'claude-code',
   label,
@@ -20,36 +19,17 @@ export function LocalAgentSignIn({
   initiallyOpen?: boolean
   onClosed?: (connected: boolean) => void
 }) {
-  const state = useLocalRuntimeState()
   const [open, setOpen] = useState(initiallyOpen)
-  const [failed, setFailed] = useState(false)
-  const [starting, setStarting] = useState(false)
-  const codex = provider === 'codex'
-  const name = codex ? 'Codex' : 'Claude'
-  const login = codex ? state?.codexLogin : state?.claudeLogin
-  const failure = failed || login?.state === 'failed'
-  const busy = starting || login?.state === 'waiting' || login?.state === 'checking'
-  const [attempted, setAttempted] = useState(false)
-  const connected = attempted && !starting && login?.state === 'connected'
-  // A failure from an earlier, unrelated attempt is not this dialog's to report.
-  const retry = attempted && failure
-
-  const previousLoginState = useRef(login?.state)
-
-  useEffect(() => {
-    const justFailed = login?.state === 'failed' && previousLoginState.current !== 'failed'
-
-    previousLoginState.current = login?.state
-    if (open && justFailed) {
-      toast.error(`${name} sign-in failed`, login.error ?? 'Please try signing in again.')
-    }
-  }, [open, login?.state, login?.error, name])
+  const { name, codex, login, busy, retry, connected, start, cancel, resume } = useLocalAgentLogin(
+    provider,
+    open,
+  )
 
   const closeFromEscape = useStableCallback(close)
 
   useEffect(() => {
     if (!open) return
-    // Consume Escape before the surrounding onboarding Modal's document listener.
+    // Consume Escape before a surrounding Modal's document listener.
     // Keep the parent mounted even while cancellation waits for the main process.
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
@@ -63,29 +43,10 @@ export function LocalAgentSignIn({
     return () => document.removeEventListener('keydown', onKey, true)
   }, [open, closeFromEscape])
 
-  async function start() {
-    setOpen(true)
-    setFailed(false)
-    setStarting(true)
-    setAttempted(true)
-    try {
-      await (codex ? api.localRuntimeStartCodexLogin() : api.localRuntimeStartClaudeLogin())
-    } catch (err) {
-      setFailed(true)
-      toast.apiError(`Could not start ${name} sign-in`, err)
-    } finally {
-      setStarting(false)
-    }
-  }
   async function close() {
-    try {
-      if (busy)
-        await (codex ? api.localRuntimeCancelCodexLogin() : api.localRuntimeCancelClaudeLogin())
-      setOpen(false)
-      onClosed?.(connected)
-    } catch (err) {
-      toast.apiError(`Could not cancel ${name} sign-in`, err)
-    }
+    if (!(await cancel())) return
+    setOpen(false)
+    onClosed?.(connected)
   }
 
   return (
@@ -94,8 +55,7 @@ export function LocalAgentSignIn({
         <Button
           size="sm"
           onClick={() => {
-            setAttempted(login?.state === 'waiting' || login?.state === 'checking')
-            setFailed(false)
+            resume()
             setOpen(true)
           }}
         >
