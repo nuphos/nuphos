@@ -7,7 +7,7 @@ struct RuntimePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showSetup = false
-    @State private var loginRuntime: RuntimeInstance?
+    @State private var detailRuntime: RuntimeInstance?
     @State private var detent = PresentationDetent.medium
 
     var body: some View {
@@ -38,8 +38,8 @@ struct RuntimePickerSheet: View {
                                     let quota = store.quotas[runtime.id]
                                     HStack(spacing: 12) {
                                         Button {
-                                            if quota?.needsSignIn == true, store.canSignIn(runtime) {
-                                                loginRuntime = runtime
+                                            if quota?.needsSignIn == true, canManage(runtime) {
+                                                detailRuntime = runtime
                                             } else {
                                                 store.selectRuntime(runtime)
                                                 dismiss()
@@ -49,13 +49,10 @@ struct RuntimePickerSheet: View {
                                         }
                                         .buttonStyle(.plain)
                                         .disabled(!runtime.isSelectable)
-                                        // A signed-out agent says so in its row; this covers the ones
-                                        // whose provider can't report it.
-                                        if store.canSignIn(runtime) {
-                                            Button("Sign In Again", systemImage: "person.badge.key") { loginRuntime = runtime }
+                                        if canManage(runtime) {
+                                            Button("Agent details", systemImage: "info.circle") { detailRuntime = runtime }
                                                 .labelStyle(.iconOnly)
                                                 .buttonStyle(.borderless)
-                                                .foregroundStyle(Theme.muted)
                                         }
                                     }
                                 }
@@ -79,7 +76,7 @@ struct RuntimePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
-            .navigationDestination(item: $loginRuntime) { runtime in if let team = store.selectedTeam { AgentSetupView(team: team, runtime: runtime) } }
+            .navigationDestination(item: $detailRuntime) { runtime in if let team = store.selectedTeam { AgentDetailView(team: team, runtime: runtime) } }
             .task { await store.loadRuntimes() }
             .task { await store.loadQuotas() }
             .refreshable {
@@ -90,8 +87,14 @@ struct RuntimePickerSheet: View {
         }
         .tint(Theme.heading)
         .presentationDetents([.medium, .large], selection: $detent)
-        // Setting an agent up needs the whole sheet; the list does not.
-        .onChange(of: showSetup || loginRuntime != nil) { _, open in if open { detent = .large } }
+        // An agent's own page needs the whole sheet; the list does not.
+        .onChange(of: showSetup || detailRuntime != nil) { _, open in if open { detent = .large } }
+    }
+
+    /// Only a workspace administrator manages a Cloud agent; a computer's agent
+    /// is managed on that computer.
+    private func canManage(_ runtime: RuntimeInstance) -> Bool {
+        store.selectedTeam?.isAdministrator == true && runtime.tier == .cloud
     }
 }
 

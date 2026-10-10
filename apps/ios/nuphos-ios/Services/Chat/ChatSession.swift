@@ -21,9 +21,7 @@ final class ChatSession {
     private(set) var transportStreaming = false
     /// Status line under the reply while nothing renderable has arrived.
     private(set) var phaseLabel: String?
-    private(set) var error: String? { didSet { needsRuntimeSignIn = false } }
-    /// `error` is the agent's provider sign-in having lapsed.
-    private(set) var needsRuntimeSignIn = false
+    private(set) var error: String?
     private(set) var queued: [String] = []
     private(set) var isOwner = false
     private var canCancelRun = false
@@ -52,7 +50,6 @@ final class ChatSession {
     /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity`.
     private(set) var agentRuntime: String?
     private(set) var runtimeLabel: String?
-    private(set) var runtimeId: String?
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
     /// Files the agent sent the user here, read from the transfer store.
@@ -662,7 +659,7 @@ final class ChatSession {
 
     private enum TurnResult {
         case completed(sawTurnComplete: Bool, paused: Paused?)
-        case failed(String, signIn: Bool = false)
+        case failed(String)
         case aborted
     }
 
@@ -693,8 +690,8 @@ final class ChatSession {
                     // A cancelled URL request without task cancellation is only a lost subscription.
                     finishTurn(error: nil)
                     return
-                case .failed(let message, let signIn):
-                    finishTurn(error: message, signIn: signIn)
+                case .failed(let message):
+                    finishTurn(error: message)
                     return
                 case .completed(let sawTurnComplete, let paused):
                     if stoppedByUser || paused?.reason == "stopped-by-user" {
@@ -719,7 +716,7 @@ final class ChatSession {
         }
     }
 
-    private func finishTurn(error message: String?, signIn: Bool = false) {
+    private func finishTurn(error message: String?) {
         awaitingAdmission = false
         if !isNativeRuntime { finalizeOrphans() }
         if let i = messages.lastIndex(where: { $0.role == .assistant }) {
@@ -733,7 +730,6 @@ final class ChatSession {
         currentStreamId = nil
         if let message {
             error = message
-            needsRuntimeSignIn = signIn
             scheduleTranscriptSync(after: .milliseconds(250))
         } else if !isNativeRuntime, !wasStopped, let last = messages.last, last.role == .assistant, !last.hasRenderableContent {
             error = "The agent returned an empty reply."
@@ -795,7 +791,6 @@ final class ChatSession {
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
         if let l = detail.runtimeLabel { runtimeLabel = l }
-        if let id = detail.runtimeId { runtimeId = id }
         timelineEvents = detail.timelineEvents
         isArchived = detail.archivedAt != nil
     }
@@ -910,7 +905,7 @@ final class ChatSession {
                         // retry re-hits the same missing credential, so fail with the
                         // sign-in guidance the backend already wrote.
                         if code == "runtime_auth_required" {
-                            return .failed(lastErrorText ?? "The agent hit an error.", signIn: true)
+                            return .failed(lastErrorText ?? "The agent hit an error.")
                         }
                         needsFreshRetry = true
                         continue
@@ -966,8 +961,6 @@ final class ChatSession {
                     try? await Task.sleep(for: backoff(gatewayRetries, base: 0.7, max: 5))
                     if !isNativeRuntime && !options.explicitResume { forceFresh = true; resumeFrom = 0 } else { reconnects += 1 }
                     continue
-                case .runtimeLoginRequired:
-                    return .failed(conflict.localizedDescription, signIn: true)
                 default:
                     return .failed(conflict.localizedDescription)
                 }
