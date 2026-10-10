@@ -73,7 +73,8 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const conversationOwnerUserId = params.conversationOwnerUserId ?? userId
   const source = params.source ?? 'agent.trigger'
   const channelDefaults = source === 'discord.agent' || source === 'slack.agent'
-  const fullAccessDefault = channelDefaults || (params.origin ?? 'user') !== 'user'
+  const fullAccessDefault =
+    source !== 'agent.resource' && (channelDefaults || (params.origin ?? 'user') !== 'user')
   const locale = params.locale ?? 'en-US'
   const requestId = randomUUID()
   const streamId = randomUUID()

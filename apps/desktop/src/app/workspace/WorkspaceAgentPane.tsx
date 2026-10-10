@@ -6,6 +6,7 @@ import { AgentPanel } from '../../components/agent/AgentPanel'
 import { EditableConversationTitle } from '../../components/agent/panel/ConversationTitleEditor'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
+import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
@@ -161,7 +162,7 @@ export function WorkspaceAgentPane({
       // it, so the dock's width transition slides over it.
       inert={workspaceExpanded}
       className={clsx(
-        'min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-agentCanvas',
+        'min-h-0 min-w-0 flex-1 flex-col overflow-hidden workspace-content-surface',
         ws.mainPageOpen ? 'hidden' : 'flex',
       )}
     >
@@ -177,7 +178,10 @@ export function WorkspaceAgentPane({
         >
           {/* Keep the native drag rectangle beside the Share action so hit testing
             never relies on a no-drag hole inside its draggable ancestor. */}
-          <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary">
+          <div
+            key={`heading-${selectedSessionId ?? 'home'}`}
+            className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary"
+          >
             {currentHeading.runtime && (
               <AgentProviderIcon
                 provider={currentHeading.runtime}
@@ -185,12 +189,20 @@ export function WorkspaceAgentPane({
               />
             )}
             <EditableConversationTitle
-              key={selectedSessionId ?? 'home'}
+              key={`title-${selectedSessionId ?? 'home'}`}
               sessionId={selectedSessionId}
               teamId={teamId}
               title={currentHeading.title}
               canRename={currentHeading.canRename === true}
             />
+            {selectedSessionId && (
+              <SessionTitlebarResources
+                key={`resources-${selectedSessionId}`}
+                sessionId={selectedSessionId}
+                teamId={teamId}
+                onOpen={stableOpenNuphosLinkFromChat}
+              />
+            )}
           </div>
           {selectedSessionId && (
             <SessionParticipants
