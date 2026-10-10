@@ -1,0 +1,282 @@
+import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '../../components/ui/combobox'
+import { toast } from '../../components/ui/toast'
+
+import { inputClasses, loginButtonClasses as buttonClass } from './styles'
+
+import type { RuntimeLoginStep as Step } from '../../types/runtime'
+
+type Option = Extract<Step, { kind: 'choose' }>['options'][number]
+
+function Choose({
+  step,
+  value,
+  onChange,
+}: {
+  step: Extract<Step, { kind: 'choose' }>
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+
+    return q
+      ? step.options.filter((option) => `${option.label} ${option.value}`.toLowerCase().includes(q))
+      : step.options
+  }, [step.options, query])
+
+  return (
+    <Combobox
+      modal
+      items={matches}
+      filter={null}
+      value={step.options.find((option) => option.value === value) ?? null}
+      onInputValueChange={setQuery}
+      onValueChange={(option: Option | null) => onChange(option?.value ?? '')}
+      itemToStringLabel={(option: Option) => option.label}
+      autoHighlight
+    >
+      <ComboboxInput aria-label={step.message} placeholder="Search…" className="h-10" />
+      <ComboboxContent className="max-h-[340px] w-[var(--anchor-width)] p-0 [padding-block:0]">
+        <ComboboxList className="max-h-[300px] overflow-auto p-0 [padding-block:0]">
+          {(option: Option) => (
+            <ComboboxItem key={option.value} value={option}>
+              <span className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                {option.hint && (
+                  <span className="shrink-0 text-xs text-tertiary">{option.hint}</span>
+                )}
+              </span>
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  )
+}
+
+type Paste = 'code' | 'address' | 'none'
+
+const BROWSER_PROMPT: Record<Paste, string> = {
+  address:
+    'Approve access on the page. Your browser then ends on a page that does not load; copy the full address from its address bar and paste it here.',
+  code: 'Approve access on the page, then paste the code it shows you here.',
+  none: 'Approve access on the page. The agent connects as soon as you do.',
+}
+const PASTE_PLACEHOLDER: Record<Paste, string> = {
+  address: 'Paste the full address (starts with http://localhost)',
+  code: 'Paste code',
+  none: '',
+}
+
+/** A short list is picked directly; a long one is searched. */
+const PICK_LIMIT = 6
+
+function Pick({
+  step,
+  onSubmit,
+}: {
+  step: Extract<Step, { kind: 'choose' }>
+  onSubmit: (answer: string) => Promise<void>
+}) {
+  const [sending, setSending] = useState<string | null>(null)
+
+  async function pick(value: string) {
+    setSending(value)
+    try {
+      await onSubmit(value)
+    } catch (cause) {
+      toast.apiError('Could not continue sign-in', cause)
+      setSending(null)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {step.options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          disabled={sending !== null}
+          onClick={() => void pick(option.value)}
+          className="flex w-full items-center justify-between gap-3 rounded-lg border border-zGray-700 px-4 py-3 text-left text-[13px] text-main hover:bg-zGray-800/60 disabled:opacity-50"
+        >
+          <span className="min-w-0 truncate">{option.label}</span>
+          {sending === option.value ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          ) : (
+            option.hint && <span className="shrink-0 text-xs text-tertiary">{option.hint}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const CODE_LINE = /^.*code:\s*([A-Z0-9-]{4,32}).*$/imu
+
+/** The page's host, or nothing for an address no browser could open. */
+function pageHost(url: string): string | undefined {
+  try {
+    return new URL(url).hostname || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** A device page's one-time code, large and copyable, then whatever else the provider said. */
+function Instructions({ instructions }: { instructions: string }) {
+  const [copied, setCopied] = useState(false)
+  const code = CODE_LINE.exec(instructions)?.[1]
+  const rest = (code ? instructions.replace(CODE_LINE, '') : instructions).trim()
+
+  return (
+    <>
+      {code && (
+        <button
+          type="button"
+          aria-label="Copy sign-in code"
+          onClick={() => {
+            void navigator.clipboard.writeText(code).then(
+              () => setCopied(true),
+              () => toast.error('Could not copy code'),
+            )
+          }}
+          className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
+        >
+          <code className="text-2xl font-semibold tracking-widest">{code}</code>
+          <span className="flex items-center gap-1.5 text-xs text-secondary">
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Copied' : 'Copy'}
+          </span>
+        </button>
+      )}
+      {rest && (
+        <p className="whitespace-pre-wrap rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-3 text-[13px] text-main select-text">
+          {rest}
+        </p>
+      )}
+    </>
+  )
+}
+
+/** What the user types or picks for a step that takes an answer. */
+function Answer({ step, onSubmit }: { step: Step; onSubmit: (answer: string) => Promise<void> }) {
+  const [answer, setAnswer] = useState('')
+  const [sending, setSending] = useState(false)
+  const secret = step.kind === 'input' && step.secret === true
+
+  async function submit(event: React.SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (sending || !answer.trim()) return
+    setSending(true)
+    try {
+      await onSubmit(answer.trim())
+    } catch (cause) {
+      toast.apiError('Could not continue sign-in', cause)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void submit(event)} className="flex items-center gap-2">
+      {step.kind === 'choose' ? (
+        <Choose step={step} value={answer} onChange={setAnswer} />
+      ) : (
+        <input
+          aria-label={step.kind === 'input' ? step.message : 'Code or address'}
+          className={inputClasses}
+          type={secret ? 'password' : 'text'}
+          value={answer}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={
+            step.kind === 'input' ? step.placeholder : PASTE_PLACEHOLDER[step.paste ?? 'none']
+          }
+          disabled={sending}
+          onChange={(event) => setAnswer(event.target.value)}
+        />
+      )}
+      <button
+        type="submit"
+        disabled={sending || !answer.trim()}
+        className={`${buttonClass} shrink-0`}
+      >
+        {sending ? 'Sending…' : 'Continue'}
+      </button>
+    </form>
+  )
+}
+
+/** One step of a sign-in that asks before it authorizes, as OpenCode's does. */
+export function RuntimeLoginStep({
+  step,
+  submitted,
+  onSubmit,
+}: {
+  step: Step
+  submitted: boolean
+  onSubmit: (answer: string) => Promise<void>
+}) {
+  if (submitted)
+    return (
+      <div className="flex items-center gap-3 text-[13px] text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Continuing sign-in…
+      </div>
+    )
+  if (step.kind !== 'browser')
+    return (
+      <>
+        <p className="text-[13px] leading-5 text-secondary">{step.message}</p>
+        {step.kind === 'choose' && step.options.length <= PICK_LIMIT ? (
+          <Pick step={step} onSubmit={onSubmit} />
+        ) : (
+          <Answer step={step} onSubmit={onSubmit} />
+        )}
+        {step.kind === 'input' && step.secret && (
+          <p className="text-xs leading-5 text-tertiary">
+            Nuphos encrypts it on its way to the agent, which keeps it; Nuphos does not keep a copy.
+          </p>
+        )}
+      </>
+    )
+
+  return (
+    <>
+      <p className="text-[13px] leading-5 text-secondary">{BROWSER_PROMPT[step.paste ?? 'none']}</p>
+      {/* A loopback page's own words ("this window will close") are not what happens here. */}
+      {step.instructions && step.paste !== 'address' && (
+        <Instructions instructions={step.instructions} />
+      )}
+      {pageHost(step.url) && (
+        <a
+          href={step.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${buttonClass} w-full`}
+        >
+          Open {pageHost(step.url)} <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
+      {step.paste ? (
+        <Answer step={step} onSubmit={onSubmit} />
+      ) : (
+        <p className="flex items-center gap-2 text-[13px] text-secondary">
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          Waiting for approval…
+        </p>
+      )}
+    </>
+  )
+}

@@ -275,6 +275,21 @@
         }
       },
       "commands": { "agy-acp-server": { "path": "agy_acp_server.par", "args": ["--uid="] } }
+    },
+    "opencode": {
+      "version": "1.18.35",
+      "kind": "archive",
+      "downloads": {
+        "amd64": {
+          "url": "https://github.com/anomalyco/opencode/releases/download/v1.18.35/opencode-linux-x64.tar.gz",
+          "sha256": "c8f888b451f5494a18f858fffb0e0b68f4e4baa9c241761c5f206884f0fa640d"
+        },
+        "arm64": {
+          "url": "https://github.com/anomalyco/opencode/releases/download/v1.18.35/opencode-linux-arm64.tar.gz",
+          "sha256": "f7f2ba59ee8aa94d388f9696575a32d20e71c2ee48def9f80fc693a60fec6c72"
+        }
+      },
+      "commands": { "opencode": "opencode" }
     }
   }
 }

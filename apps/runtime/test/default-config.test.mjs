@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-const VARIANTS = ['claude-code', 'codex', 'grok', 'antigravity']
+const VARIANTS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode']
 const dockerfile = readFileSync(new URL('../image/Dockerfile', import.meta.url), 'utf8')
 const configs = new Map(
   VARIANTS.map((variant) => [

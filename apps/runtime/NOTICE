@@ -52,6 +52,9 @@ Agent CLIs and ACP adapters
   pinned build from the vendor on first use; their use is subject to the
   vendors' terms.
 
+  Not included either: OpenCode (MIT, https://github.com/anomalyco/opencode).
+  The opencode image downloads the pinned release from GitHub on first use.
+
 
 Command-line tools
 ------------------

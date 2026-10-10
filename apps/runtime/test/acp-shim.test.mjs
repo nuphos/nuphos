@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -18,7 +18,9 @@ rl.on('line', (line) => {
   if (m.id === undefined) return
   const seen = { method: m.method, params: m.params, pid: process.pid, env: {
     HOME: process.env.HOME, NUPHOS_TOKEN: process.env.NUPHOS_TOKEN, EXTRA: process.env.EXTRA,
-    GROK_HOME: process.env.GROK_HOME, GEMINI_HOME: process.env.GEMINI_HOME } }
+    GROK_HOME: process.env.GROK_HOME, GEMINI_HOME: process.env.GEMINI_HOME,
+    XDG_DATA_HOME: process.env.XDG_DATA_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+    OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE } }
   const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
 })
@@ -110,6 +112,58 @@ test('grok opens the session under its own env and takes the instructions as rul
     })
     assert.deepEqual(prompt.result.seen.params.prompt, [{ type: 'text', text: 'hi' }])
   })
+})
+
+test('opencode shares only its own data directory with the runtime home', async () => {
+  await withShim('opencode', async ({ call, children, home }) => {
+    await call('initialize', { protocolVersion: 1 })
+    const { seen } = (await call('session/new', session('Be Nuphos.'))).result
+
+    assert.deepEqual(children[1].command, ['opencode', 'acp'])
+    assert.match(seen.env.HOME, /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+    // The rest of XDG_DATA_HOME stays the conversation's own.
+    assert.equal(seen.env.XDG_DATA_HOME, join(seen.env.HOME, '.local', 'share'))
+    assert.equal(
+      await realpath(join(seen.env.XDG_DATA_HOME, 'opencode')),
+      await realpath(join(home, '.local', 'share', 'opencode')),
+    )
+    // Its provider settings too, such as Bedrock's region; not the rest of the config.
+    assert.equal(seen.env.XDG_CONFIG_HOME, join(seen.env.HOME, '.config'))
+    assert.equal(
+      await realpath(join(seen.env.XDG_CONFIG_HOME, 'opencode')),
+      await realpath(join(home, '.config', 'opencode')),
+    )
+    assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
+    assert.equal(seen.params._meta.rules, undefined)
+  })
+})
+
+// Like OpenCode, replays a loaded session's history before answering session/load.
+const REPLAYING_AGENT = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const send = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method === 'session/load')
+    send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 's1',
+      update: { sessionUpdate: 'user_message_chunk', content: { type: 'text', text: 'old' } } } })
+  send({ jsonrpc: '2.0', id: m.id, result: {} })
+})
+`
+
+test('history replayed while a session loads does not open a turn', async () => {
+  await withShim(
+    'opencode',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/load', { ...session('Be Nuphos.'), sessionId: 's1' })
+
+      assert.ok(notifications.some((m) => m.params?.update?.content?.text === 'old'))
+      assert.ok(!notifications.some((m) => m.params?.update?._meta?.['ai.nuphos/sessionState']))
+    },
+    REPLAYING_AGENT,
+  )
 })
 
 test('antigravity takes the instructions on the first prompt only', async () => {

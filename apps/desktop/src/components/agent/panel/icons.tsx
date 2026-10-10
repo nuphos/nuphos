@@ -43,11 +43,21 @@ export function AntigravityIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function OpenCodeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="96 96 320 320" fill="currentColor" aria-hidden="true" {...props}>
+      <path opacity="0.4" d="M320 224V352H192V224H320Z" />
+      <path fillRule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" />
+    </svg>
+  )
+}
+
 const PROVIDER_ICON: Record<AgentProvider, (props: SVGProps<SVGSVGElement>) => ReactElement> = {
   'claude-code': ClaudeIcon,
   codex: CodexIcon,
   grok: GrokIcon,
   antigravity: AntigravityIcon,
+  opencode: OpenCodeIcon,
 }
 
 /** The agent's mark; Claude Code's when the provider is unknown, as for legacy records. */

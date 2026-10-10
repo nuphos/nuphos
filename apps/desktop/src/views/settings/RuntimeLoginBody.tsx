@@ -5,6 +5,7 @@ import { toast } from '../../components/ui/toast'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { BrowserCodeEntry } from './BrowserCodeEntry'
+import { RuntimeLoginStep } from './RuntimeLoginStep'
 import { loginButtonClasses as buttonClass } from './styles'
 
 import type { RuntimeLogin } from './useRuntimeLogin'
@@ -78,7 +79,14 @@ export function RuntimeLoginBody({
 
   return (
     <>
-      {authorizationUrl && login ? (
+      {awaiting && login?.step ? (
+        <RuntimeLoginStep
+          key={JSON.stringify(login.step)}
+          step={login.step}
+          submitted={login.codeSubmitted === true}
+          onSubmit={state.submitCode}
+        />
+      ) : authorizationUrl && login ? (
         <BrowserCodeEntry
           provider={instance.provider}
           url={authorizationUrl}

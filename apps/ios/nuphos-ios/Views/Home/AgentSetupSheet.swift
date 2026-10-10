@@ -28,6 +28,7 @@ struct AgentSetupView: View {
     @State private var runtime: RuntimeInstance?
     @State private var login: WorkspaceAPI.Login?
     @State private var code = ""
+    @State private var search = ""
     @State private var busy = false
     /// A just-created agent is still starting; sign-in needs it to answer first.
     @State private var agentStarting = false
@@ -41,11 +42,11 @@ struct AgentSetupView: View {
     }
 
     private static let providers: [(RuntimeInstance.Provider, vendor: String)] = [
-        (.claudeCode, "Anthropic"), (.codex, "OpenAI"), (.grok, "xAI"), (.antigravity, "Google"),
+        (.claudeCode, "Anthropic"), (.codex, "OpenAI"), (.grok, "xAI"), (.antigravity, "Google"), (.opencode, "OpenCode"),
     ]
 
     private var connected: Bool { login?.state == "connected" }
-    private var needsCode: Bool { login?.pending == true && login?.authorizationUrl != nil && login?.codeSubmitted != true }
+    private var needsCode: Bool { login?.needsAnswer == true && login?.step?.kind != "choose" }
     private var trimmedCode: String { code.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
@@ -120,7 +121,7 @@ struct AgentSetupView: View {
                     .onChange(of: name) { _, value in if value.count > 80 { name = String(value.prefix(80)) } }
             }
         } footer: {
-            Text("You'll sign in with your own \(vendor(provider)) account. Your plan's usage limits apply.")
+            Text("You'll sign in with your own \(account(provider)) account. Your plan's usage limits apply.")
         }
     }
 
@@ -159,6 +160,8 @@ struct AgentSetupView: View {
         } else if let login, login.pending {
             if login.state == "starting" {
                 Section { HStack { Spacer(); ProgressView("Preparing sign-in…"); Spacer() } }
+            } else if let step = login.step {
+                stepSections(step, login: login)
             } else {
                 // Device sign-in: the code comes first, since the page asks for it.
                 if let userCode = login.userCode {
@@ -230,17 +233,110 @@ struct AgentSetupView: View {
         }
     }
 
+    /// A step of a sign-in that asks before it authorizes, as OpenCode's does.
+    @ViewBuilder
+    private func stepSections(_ step: WorkspaceAPI.Login.Step, login: WorkspaceAPI.Login) -> some View {
+        if login.codeSubmitted == true {
+            Section { HStack { Spacer(); ProgressView("Continuing sign-in…"); Spacer() } }
+        } else if step.kind == "choose" {
+            let options = (step.options ?? []).filter {
+                search.isEmpty || $0.label.localizedCaseInsensitiveContains(search) || $0.value.localizedCaseInsensitiveContains(search)
+            }
+            Section {
+                if (step.options?.count ?? 0) > 8 {
+                    TextField("Search", text: $search)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                ForEach(options) { option in
+                    Button {
+                        code = option.value
+                        search = ""
+                        submitCode()
+                    } label: {
+                        HStack {
+                            Text(option.label).foregroundStyle(Theme.heading)
+                            Spacer()
+                            if let hint = option.hint { Text(hint).font(.footnote).foregroundStyle(.secondary) }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(busy)
+                }
+            } header: {
+                Text(step.message ?? "Choose")
+            }
+        } else if step.kind == "input" {
+            Section {
+                Group {
+                    if step.secret == true {
+                        SecureField(step.placeholder ?? "", text: $code)
+                    } else {
+                        TextField(step.placeholder ?? "", text: $code)
+                    }
+                }
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.continue)
+                .onSubmit { if !trimmedCode.isEmpty { submitCode() } }
+            } header: {
+                Text(step.message ?? "")
+            } footer: {
+                if step.secret == true { Text("Nuphos encrypts it on its way to the agent, which keeps it; Nuphos does not keep a copy.") }
+            }
+        } else {
+            if let instructions = step.instructions, !instructions.isEmpty {
+                Section { Text(instructions).textSelection(.enabled) }
+            }
+            if let url = login.url {
+                Section {
+                    Button { openURL(url) } label: {
+                        Text("Open \(url.host() ?? "Sign-In Page")").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
+            }
+            if let paste = step.paste {
+                Section {
+                    TextField(paste == "address" ? "http://localhost…" : "Authorization code", text: $code)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.continue)
+                        .onSubmit { if !trimmedCode.isEmpty { submitCode() } }
+                } header: {
+                    Text(paste == "address" ? "Redirect Address" : "Authorization Code")
+                } footer: {
+                    Text(paste == "address"
+                        ? "After signing in, your browser opens a page that won't load. Copy its full address and paste it here."
+                        : "After signing in, copy the code shown on the page and paste it here.")
+                }
+            } else {
+                Section { HStack { Spacer(); ProgressView("Waiting for approval…"); Spacer() } }
+            }
+        }
+    }
+
+    /// Whose account the sign-in uses; OpenCode signs in to whichever model provider you pick.
+    private func account(_ provider: RuntimeInstance.Provider) -> String {
+        provider == .opencode ? "model provider" : vendor(provider)
+    }
+
     private func vendor(_ provider: RuntimeInstance.Provider) -> String {
         Self.providers.first { $0.0 == provider }?.vendor ?? RuntimeInstance.Provider.name(provider.rawValue)
     }
 
     private func headline(_ runtime: RuntimeInstance) -> String {
         if agentStarting { return "A new agent takes a moment to start." }
-        guard let login else { return "Use your own \(vendor(runtime.provider)) account. Your plan's usage limits apply." }
+        guard let login else { return "Use your own \(account(runtime.provider)) account. Your plan's usage limits apply." }
         switch login.state {
         case "connected": return "\(runtime.label) is ready to use."
         case "starting", "awaiting_authorization":
-            return login.url == nil ? "Getting your sign-in page ready." : "Sign in with your \(vendor(runtime.provider)) account, then come back here."
+            if login.step != nil, login.url == nil { return "Choose how to sign in, then follow the steps." }
+            return login.url == nil ? "Getting your sign-in page ready." : "Sign in with your \(account(runtime.provider)) account, then come back here."
         default: return login.error ?? "Sign-in didn't finish."
         }
     }

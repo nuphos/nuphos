@@ -26,7 +26,11 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
     writeFileSync(
       join(cwd, 'image/tools/manifest.json'),
       JSON.stringify({
-        tools: { grok: { version: '1.0.46' }, 'antigravity-acp': { version: '1.3.0' } },
+        tools: {
+          grok: { version: '1.0.46' },
+          'antigravity-acp': { version: '1.3.0' },
+          opencode: { version: '1.18.35' },
+        },
       }),
     )
     git('init', '-b', 'main')
@@ -65,6 +69,8 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-codex/)
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-grok/)
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-antigravity/)
+    assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-opencode/)
+    assert.match(notes, /\| OpenCode \| 1\.18\.35 \|/)
     assert.match(notes, /\| Grok Build CLI \| 1\.0\.46 \|/)
     assert.match(notes, /nuphos\/nuphos\/compare\/runtime-v0\.1\.0\.\.\.runtime-v0\.1\.1/)
     assert.throws(() =>
