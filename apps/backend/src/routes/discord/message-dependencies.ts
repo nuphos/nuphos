@@ -15,14 +15,13 @@ import {
 } from '@/lib/discord/store'
 import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 
-import { recordDiscordSessionMessage, discordSessionContext } from './session-context'
+import { recordDiscordSessionMessage } from './session-context'
 import { getDiscordThreadHistory, recordDiscordThreadMessage } from './thread-history'
 import { buildMessagesForDiscordTurn } from './transcript'
 import { executeDiscordTurn } from './turn'
 
 export const defaultDependencies = {
   recordDiscordSessionMessage,
-  discordSessionContext,
   discordDecisions,
   claimDiscordEvent,
   discordAgentThreads,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { recordDiscordSessionMessage, discordSessionContext } from './session-context'
+import { recordDiscordSessionMessage, unsyncedDiscordMessages } from './session-context'
 
 import type { DiscordSessionMessage } from './session-context'
 import type { Collection } from 'mongodb'
@@ -42,8 +42,8 @@ describe('durable Discord session context', () => {
     expect(writes[1]?.[1]).not.toHaveProperty('$set')
   })
 
-  test('reads only this installation and session, preserving chronology and participant identity', async () => {
-    const history = ['newer', 'older'].map((messageId) => ({
+  test('returns only thread messages the transcript has not received, oldest first', async () => {
+    const history = ['400', '300', '200', '90'].map((messageId) => ({
       ...scope,
       _id: `session:${messageId}`,
       messageId,
@@ -71,14 +71,12 @@ describe('durable Discord session context', () => {
         }
       },
     } as unknown as Pick<Collection<DiscordSessionMessage>, 'find'>
-    const rendered = (await discordSessionContext(scope, 'current', collection))!
+    const unsynced = (syncedIds: string[]) =>
+      unsyncedDiscordMessages(scope, 'current', syncedIds, collection)
 
-    expect(rendered.indexOf('older observation')).toBeLessThan(
-      rendered.indexOf('newer observation'),
-    )
-    expect(rendered).toContain('"authorDiscordUserId":"older"')
-    expect(rendered).toContain('not a new instruction or approval')
-    expect(rendered).not.toContain('teamId')
-    expect(rendered).toEndWith('Current message:')
+    // 90 predates the anchor (shorter snowflake), 300 is already in the transcript.
+    expect((await unsynced(['100', '300'])).map((m) => m.messageId)).toEqual(['200', '400'])
+    // A transcript from before Discord ids were tracked has nothing to anchor on.
+    expect(await unsynced([])).toEqual([])
   })
 })

@@ -27,7 +27,6 @@ export async function handleDiscordMention(
 ): Promise<void> {
   const {
     recordDiscordSessionMessage,
-    discordSessionContext,
     discordDecisions,
     claimDiscordEvent,
     discordAgentThreads,
@@ -227,12 +226,16 @@ export async function handleDiscordMention(
       userId: thread.agentUserId,
       sessionId: thread.sessionId,
       actorUserId: userMapping.nuphosUserId,
-      message: buildPendingUserMessage({
-        renderedText,
-        source: 'discord',
-        metadata,
-        actorUserId: userMapping.nuphosUserId,
-      }),
+      message: {
+        ...buildPendingUserMessage({
+          renderedText,
+          source: 'discord',
+          metadata,
+          actorUserId: userMapping.nuphosUserId,
+        }),
+        // The Discord id is how the transcript knows this message has arrived.
+        id: `discord-${event.id}`,
+      },
     })
 
     if (claim.mode === 'dropped') {
@@ -251,10 +254,15 @@ export async function handleDiscordMention(
     }
 
     try {
-      const messages = await buildMessagesForDiscordTurn({
-        sessionId: thread.sessionId,
+      const { messages, turnContext } = await buildMessagesForDiscordTurn({
+        scope: {
+          sessionId: thread.sessionId,
+          teamId: thread.teamId,
+          guildId: thread.guildId,
+          generation: thread.generation,
+        },
         ownerUserId: thread.agentUserId,
-        teamId: thread.teamId,
+        messageId: event.id,
         renderedText,
         metadata,
         carried: claim.carried,
@@ -273,15 +281,7 @@ export async function handleDiscordMention(
         nuphosToken: signNuphosToken(userMapping.nuphosUserId, 60 * 60 * 8),
         messages,
         firstMessage: text,
-        turnContext: await discordSessionContext(
-          {
-            sessionId: thread.sessionId,
-            teamId: thread.teamId,
-            guildId: thread.guildId,
-            generation: thread.generation,
-          },
-          event.id,
-        ),
+        turnContext,
       })
     } finally {
       claim.release()

@@ -138,7 +138,7 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
-  const [memory, systemPrompt, compactionSummary, carried] = await Promise.all([
+  const [memory, systemPrompt, compactionSummary, drained] = await Promise.all([
     recallForPreviewTurn({
       sessionId,
       userId: actorUserId,
@@ -170,6 +170,8 @@ export async function preparePreviewTurn(
     previewCompactionSummary(sessionId, userId),
     drainPendingUserMessages(userId, sessionId, actorUserId),
   ])
+  // A channel that syncs its thread into the transcript may already hold a queued message.
+  const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
   const messages = turnPromptMessages(args.messages, args.resume)
   const inputs = turnInputMessages(messages)
   const images = args.resume ? [] : inputs.flatMap((m) => promptImages(m.parts))

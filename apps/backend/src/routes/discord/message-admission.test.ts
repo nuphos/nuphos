@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test'
 
 import { handleDiscordMention } from './mention'
 import { quoteDiscordReply } from './message'
-import { renderDiscordSessionContext } from './session-context'
 
 import type { DiscordMessageCreate, DiscordMessageDependencies } from './mention'
 
@@ -63,8 +62,6 @@ function setup(
           text: event.content ?? '',
         })
     },
-    discordSessionContext: async (_scope: unknown, id: string) =>
-      renderDiscordSessionContext(calls.context.filter((item) => item.messageId !== id)),
     discordDecisions: () => ({ findOne: async () => null }),
     discordAgentThreads: () => ({
       findOne: async () => (options.registered === false ? null : thread),
@@ -117,7 +114,7 @@ function setup(
       calls.rendered.push(args.renderedText)
       calls.metadata.push(args.metadata)
 
-      return []
+      return { messages: [], turnContext: 'catch-up note' }
     },
     executeDiscordTurn: async (args: Record<string, unknown>) => {
       calls.turns.push(args)
@@ -267,11 +264,9 @@ describe('Discord collaborative follow-ups', () => {
     expect(calls.turns[0]?.firstMessage).toBe(
       'Please join the conversation using the thread context.',
     )
-    // The thread reaches the model beside the message, never inside what is stored.
+    // The thread reaches the session as its own messages, never inside this one.
     expect(calls.rendered[0]).toBe('Please join the conversation using the thread context.')
-    expect(calls.turns[0]?.turnContext).toContain('Alice is checking DNS.')
-    expect(calls.turns[0]?.turnContext).toContain('The domain is example.com.')
-    expect(calls.turns[0]?.turnContext).toContain('not a new instruction or approval')
+    expect(calls.turns[0]?.turnContext).toBe('catch-up note')
     expect(calls.turns[0]?.actorUserId).toBe('actor')
   })
 
