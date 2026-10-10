@@ -135,7 +135,8 @@ export class LocalTerminalSessions {
 
     for (const [id, session] of this.sessions) {
       if (session.owner !== owner || session.exited) continue
-      const name = session.pty.process.trim()
+      // node-pty reports no name while the foreground process is changing.
+      const name = (session.pty.process as string | undefined)?.trim()
 
       if (!name || isIdleShell(name, session.shell)) continue
       result.push({ id, name: name.slice(0, 120) })
