@@ -54,7 +54,7 @@ extension ChatRow {
             rows.append(.activity(text: session.phaseLabel ?? "Thinking…"))
         }
         if let error = session.error, !session.stoppedByUser {
-            rows.append(.hint(id: "error", text: error, isError: true))
+            rows.append(.hint(id: session.needsRuntimeSignIn ? "sign-in" : "error", text: error, isError: true))
         }
         return rows
     }

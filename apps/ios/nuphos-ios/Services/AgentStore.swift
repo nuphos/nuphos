@@ -143,6 +143,12 @@ final class AgentStore {
         quotas = Dictionary(list.map { ($0.runtimeId, $0) }) { _, last in last }
     }
 
+    /// Only a workspace administrator signs a Cloud agent in; a computer's agent
+    /// is signed in on that computer.
+    func canSignIn(_ runtime: RuntimeInstance) -> Bool {
+        selectedTeam?.isAdministrator == true && runtime.tier == .cloud
+    }
+
     private(set) var newModelConfig: SessionConfigState?
     private(set) var newModelError: String?
     private(set) var newModelSaving = false

@@ -15,6 +15,7 @@ struct ConversationView: View {
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
     @State private var planLink: PlanLink.Target?
+    @State private var loginRuntime: RuntimeInstance?
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var alwaysAllowTarget: ChatPart.ToolPart?
@@ -162,6 +163,7 @@ struct ConversationView: View {
             Text(archiveError ?? "")
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
+        .sheet(item: $loginRuntime) { runtime in if let team = store.selectedTeam { AgentSetupSheet(team: team, runtime: runtime) } }
         .sheet(item: $planLink) { target in
             NavigationStack {
                 PlanDetailView(
@@ -342,8 +344,15 @@ struct ConversationView: View {
             if let sending = session.sending {
                 SendingBubble(submission: sending.submission, progress: sending.progress, onCancel: session.cancelSending)
             }
-        case .hint(_, let text, let isError):
-            HintRow(text: text, isError: isError)
+        case .hint(let id, let text, let isError):
+            VStack(alignment: .leading, spacing: 8) {
+                HintRow(text: text, isError: isError)
+                // The agent this chat runs on, when this user may sign it in again.
+                if id == "sign-in", store.selectedTeam?.id == session.teamId,
+                   let runtime = store.runtimes.first(where: { $0.id == session.runtimeId ?? session.runtime?.id }), store.canSignIn(runtime) {
+                    Button("Sign In") { loginRuntime = runtime }.buttonStyle(.bordered)
+                }
+            }
         }
     }
 }

@@ -38,7 +38,7 @@ struct RuntimePickerSheet: View {
                                     let quota = store.quotas[runtime.id]
                                     HStack(spacing: 12) {
                                         Button {
-                                            if quota?.needsSignIn == true, canSignIn(runtime) {
+                                            if quota?.needsSignIn == true, store.canSignIn(runtime) {
                                                 loginRuntime = runtime
                                             } else {
                                                 store.selectRuntime(runtime)
@@ -51,7 +51,7 @@ struct RuntimePickerSheet: View {
                                         .disabled(!runtime.isSelectable)
                                         // A signed-out agent says so in its row; this covers the ones
                                         // whose provider can't report it.
-                                        if canSignIn(runtime) {
+                                        if store.canSignIn(runtime) {
                                             Button("Sign In Again", systemImage: "person.badge.key") { loginRuntime = runtime }
                                                 .labelStyle(.iconOnly)
                                                 .buttonStyle(.borderless)
@@ -92,10 +92,6 @@ struct RuntimePickerSheet: View {
         .presentationDetents([.medium, .large], selection: $detent)
         // Setting an agent up needs the whole sheet; the list does not.
         .onChange(of: showSetup || loginRuntime != nil) { _, open in if open { detent = .large } }
-    }
-
-    private func canSignIn(_ runtime: RuntimeInstance) -> Bool {
-        store.selectedTeam?.isAdministrator == true && runtime.tier == .cloud
     }
 }
 
