@@ -79,6 +79,7 @@ export function useWorkspaceActions({
   setJoiningTeamId,
   joinedTeams,
   setJoinedExisting,
+  onCreated,
   onFinish,
 }: {
   workspaceName: string
@@ -103,6 +104,8 @@ export function useWorkspaceActions({
   setJoiningTeamId: Dispatch<SetStateAction<string | null>>
   joinedTeams: { id: string; name: string }[]
   setJoinedExisting: Dispatch<SetStateAction<boolean>>
+  /** A new workspace exists and is ready for its agent setup. */
+  onCreated: (team: AtlasTeam) => void
   onFinish: (teamId: string | null) => void
 }) {
   const handleCreate = useCallback(async () => {
@@ -115,7 +118,7 @@ export function useWorkspaceActions({
       const team = await onCreateWorkspace(name)
 
       setTeamId(team.id)
-      if (afterWorkspace() === 'finish') onFinish(team.id)
+      if (afterWorkspace() === 'finish') onCreated(team)
       else setChatStep('security')
     } catch (e) {
       toast.apiError('Could not create workspace', e)
@@ -123,7 +126,7 @@ export function useWorkspaceActions({
     } finally {
       setCreating(false)
     }
-  }, [workspaceName, creating, setCreating, setChatStep, onCreateWorkspace, setTeamId, onFinish])
+  }, [workspaceName, creating, setCreating, setChatStep, onCreateWorkspace, setTeamId, onCreated])
 
   // Picking a card is a pure selection — nothing is joined until Continue
   // commits the whole set, so changing one's mind before that costs nothing.

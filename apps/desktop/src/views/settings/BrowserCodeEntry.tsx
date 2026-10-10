@@ -87,7 +87,7 @@ export function BrowserCodeEntry({
           disabled={submitting || !code.trim()}
           className={`${buttonClass} shrink-0`}
         >
-          {submitting ? 'Sending…' : 'Continue'}
+          {submitting ? 'Sending…' : 'Connect'}
         </button>
       </form>
     </>
