@@ -49,7 +49,7 @@ jobs:
           node --test test/claude-turn-completion-smoke.mjs test/claude-session-state-smoke.mjs test/claude-session-home-smoke.mjs
       - name: Stage the adapters into the Desktop Local runtime
         working-directory: apps/desktop
-        run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
+        run: node local-runtime/prepare.mjs --no-openab
 
   image:
     name: Runtime image (${{ matrix.provider }})
