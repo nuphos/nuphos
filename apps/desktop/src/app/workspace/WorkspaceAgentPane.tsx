@@ -12,6 +12,7 @@ import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 import { ConversationRail } from '../../views/ConversationRail'
 
+import { SessionFindBar } from './SessionFindBar'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
@@ -122,6 +123,7 @@ export function WorkspaceAgentPane({
   // content keeps the width it had and the shrinking column clips it, until
   // the dock has finished its width transition back.
   const contentRef = useRef<HTMLDivElement>(null)
+  const transcriptRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const content = contentRef.current
@@ -162,7 +164,7 @@ export function WorkspaceAgentPane({
       // it, so the dock's width transition slides over it.
       inert={workspaceExpanded}
       className={clsx(
-        'min-h-0 min-w-0 flex-1 flex-col overflow-hidden workspace-content-surface',
+        'relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden workspace-content-surface',
         ws.mainPageOpen ? 'hidden' : 'flex',
       )}
     >
@@ -218,7 +220,12 @@ export function WorkspaceAgentPane({
             />
           )}
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1">
+        <SessionFindBar
+          key={selectedSessionId ?? 'home'}
+          rootRef={transcriptRef}
+          active={paneActive && !ws.mainPageOpen && !workspaceExpanded}
+        />
+        <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
           <ConversationRail
             collapsed={conversationRailCollapsed}
             teamId={teamId}
