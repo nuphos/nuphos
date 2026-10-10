@@ -82,7 +82,8 @@ export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefi
         </span>
       }
     >
-      <span className={`shrink-0 ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
+      {/* `whitespace-pre` keeps the prefix's leading space inside the inline-flex trigger. */}
+      <span className={`shrink-0 whitespace-pre ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
         {prefix}
         {summary}
       </span>
