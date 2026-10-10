@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import {
   anchorDownloadGroups,
+  filesBesidePreviews,
   previewKind,
   shouldLoadTransferDownloads,
 } from './transferDownloads.ts'
@@ -165,4 +166,27 @@ test('previews ready images and videos by content type, or by name when it is mi
   assert.equal(previewKind(file({ contentType: 'text/plain', fileName: 'x.png' })), null)
   assert.equal(previewKind(file({ fileName: 'run.log' })), null)
   assert.equal(previewKind(file({ fileName: 'shot.png', status: 'pending' })), null)
+})
+
+test('rows beside previews hold back only images that became thumbnails', () => {
+  const files = [
+    { fileName: 'a.png', status: 'ready' },
+    { fileName: 'b.png', status: 'failed' },
+    { fileName: 'c.png', status: 'ready' },
+    { fileName: 'clip.mp4', status: 'ready' },
+    { fileName: 'notes.pdf', status: 'ready' },
+  ]
+  const names = (rows: typeof files) => rows.map((f) => f.fileName)
+
+  // Resolving: ready images are expected to preview; everything else is listed.
+  assert.deepEqual(names(filesBesidePreviews(files, null)), ['b.png', 'clip.mp4', 'notes.pdf'])
+  // Resolved without c.png (no link): it comes back as a row instead of vanishing.
+  assert.deepEqual(names(filesBesidePreviews(files, new Set(['a.png']))), [
+    'b.png',
+    'c.png',
+    'clip.mp4',
+    'notes.pdf',
+  ])
+  // Nothing resolved (expired, someone else's files): every file is a row.
+  assert.deepEqual(names(filesBesidePreviews(files, new Set())), names(files))
 })
