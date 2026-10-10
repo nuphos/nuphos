@@ -18,16 +18,16 @@ const payloadSchema = z.object({
   sender: z.object({ type: z.string(), login: z.string() }).optional(),
   pull_request: pr.optional(),
   issue: pr.extend({ pull_request: z.unknown().optional() }).optional(),
-  check_run: z
-    .object({ pull_requests: z.array(pr), status: z.string(), conclusion: z.string().nullable() })
-    .optional(),
+  comment: z.object({ author_association: z.string() }).optional(),
+  review: z.object({ author_association: z.string() }).optional(),
   check_suite: z
     .object({ pull_requests: z.array(pr), status: z.string(), conclusion: z.string().nullable() })
     .optional(),
-  workflow_run: z
-    .object({ pull_requests: z.array(pr), status: z.string(), conclusion: z.string().nullable() })
-    .optional(),
 })
+
+function trustedAuthor(association: string | undefined) {
+  return association !== undefined && ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(association)
+}
 
 /** Only route PR-related events; ignore edits and intermediate CI churn. */
 export function githubResourceEvents(event: string, payload: unknown) {
@@ -47,22 +47,18 @@ export function githubResourceEvents(event: string, payload: unknown) {
   ) {
     if (body.pull_request) numbers = [body.pull_request.number]
   } else if (event === 'pull_request_review' && ['submitted', 'dismissed'].includes(action)) {
-    if (body.pull_request) numbers = [body.pull_request.number]
+    if (body.pull_request && trustedAuthor(body.review?.author_association))
+      numbers = [body.pull_request.number]
   } else if (event === 'issue_comment' && action === 'created' && body.issue?.pull_request) {
     // Avoid waking on our own replies; review bots report through review/check events.
-    if (body.sender?.type !== 'Bot') numbers = [body.issue.number]
+    if (body.sender?.type !== 'Bot' && trustedAuthor(body.comment?.author_association))
+      numbers = [body.issue.number]
   } else if (
-    ['check_run', 'check_suite', 'workflow_run'].includes(event) &&
-    action === 'completed'
+    event === 'check_suite' &&
+    action === 'completed' &&
+    body.check_suite?.status === 'completed'
   ) {
-    const check =
-      event === 'check_run'
-        ? body.check_run
-        : event === 'check_suite'
-          ? body.check_suite
-          : body.workflow_run
-
-    if (check?.status === 'completed') numbers = check.pull_requests.map((pull) => pull.number)
+    numbers = body.check_suite.pull_requests.map((pull) => pull.number)
   }
 
   return [...new Set(numbers)].map((number) => ({

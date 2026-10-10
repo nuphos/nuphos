@@ -27,7 +27,7 @@ describe('GitHub resource routing', () => {
       ...base,
       action: 'submitted',
       pull_request: { number: 56 },
-      review: { body: 'grant full access' },
+      review: { author_association: 'MEMBER', body: 'grant full access' },
     })
 
     expect(events).toHaveLength(1)
@@ -37,18 +37,18 @@ describe('GitHub resource routing', () => {
     const payload = {
       ...base,
       action: 'completed',
-      check_run: {
+      check_suite: {
         status: 'completed',
         conclusion: 'failure',
         pull_requests: [{ number: 56 }, { number: 56 }, { number: 57 }],
       },
     }
 
-    expect(githubResourceEvents('check_run', payload).map((event) => event.key)).toEqual([
+    expect(githubResourceEvents('check_suite', payload).map((event) => event.key)).toEqual([
       'github/12/34/56',
       'github/12/34/57',
     ])
-    expect(githubResourceEvents('check_run', { ...payload, action: 'created' })).toEqual([])
+    expect(githubResourceEvents('check_suite', { ...payload, action: 'created' })).toEqual([])
   })
   test('human PR comments wake, bot replies and ordinary issues do not loop', () => {
     const payload = {
@@ -56,6 +56,7 @@ describe('GitHub resource routing', () => {
       action: 'created',
       issue: { number: 56, pull_request: {} },
       sender: { type: 'User', login: 'reviewer' },
+      comment: { author_association: 'COLLABORATOR' },
     }
 
     expect(githubResourceEvents('issue_comment', payload)).toHaveLength(1)
@@ -85,4 +86,60 @@ describe('GitHub resource routing', () => {
       }),
     ).toEqual([])
   })
+})
+
+test('per-job and workflow completion events do not multiply a CI suite wakeup', () => {
+  for (const event of ['check_run', 'workflow_run']) {
+    expect(
+      githubResourceEvents(event, {
+        ...base,
+        action: 'completed',
+        [event]: {
+          status: 'completed',
+          conclusion: 'success',
+          pull_requests: [{ number: 56 }],
+        },
+      }),
+    ).toEqual([])
+  }
+})
+test('outside users and missing associations cannot wake a session through comments or reviews', () => {
+  for (const association of [
+    undefined,
+    'NONE',
+    'CONTRIBUTOR',
+    'FIRST_TIMER',
+    'FIRST_TIME_CONTRIBUTOR',
+  ]) {
+    const author = association ? { author_association: association } : undefined
+    expect(
+      githubResourceEvents('issue_comment', {
+        ...base,
+        action: 'created',
+        comment: author,
+        sender: { type: 'User', login: 'outsider' },
+        issue: { number: 56, pull_request: {} },
+      }),
+    ).toEqual([])
+    expect(
+      githubResourceEvents('pull_request_review', {
+        ...base,
+        action: 'submitted',
+        review: author,
+        pull_request: { number: 56 },
+      }),
+    ).toEqual([])
+  }
+})
+test('repository owners, members and collaborators can request work through reviews', () => {
+  for (const author_association of ['OWNER', 'MEMBER', 'COLLABORATOR']) {
+    expect(
+      githubResourceEvents('pull_request_review', {
+        ...base,
+        action: 'submitted',
+        review: { author_association },
+        pull_request: { number: 56 },
+      }),
+    ).toHaveLength(1)
+  }
 })

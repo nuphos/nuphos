@@ -92,8 +92,6 @@ githubAppRoutes.post('/webhook', async (c) => {
     throw new AppError(400, 'invalid_payload', 'Webhook body is not valid JSON')
   }
 
-  await routeResourceWebhook(event, payload, delivery === '?' ? '' : delivery)
-
   if (event === 'installation') {
     const installationId = payload.installation?.id
     const action = payload.action
@@ -140,6 +138,9 @@ githubAppRoutes.post('/webhook', async (c) => {
   } else {
     logEvent('info', 'github.webhook.ignored', { delivery, event })
   }
+
+  // Preserve installation cleanup and existing trigger routing even if resource delivery fails.
+  await routeResourceWebhook(event, payload, delivery === '?' ? '' : delivery)
 
   return c.body(null, 204)
 })
