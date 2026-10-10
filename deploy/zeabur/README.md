@@ -1,5 +1,10 @@
 # Zeabur template
 
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/H9M7E7)
+
+Deploy the data stack with the button, then [deploy the runtime](https://zeabur.com/templates/AUECDT)
+in a **different project**. Review the required email and domain inputs before deploying.
+
 [`template.yaml`](template.yaml) deploys three services: authenticated
 single-node MongoDB, RustFS and the released backend. Deploy
 [`runtime-template.yaml`](runtime-template.yaml) in a **different Zeabur project**
