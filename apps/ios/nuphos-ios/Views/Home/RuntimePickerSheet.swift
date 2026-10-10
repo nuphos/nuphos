@@ -27,11 +27,6 @@ struct RuntimePickerSheet: View {
                     ProgressView("Loading agents…").tint(Theme.muted)
                 } else {
                     List {
-                        if store.selectedRuntimeUnavailable {
-                            Text("Your last agent is offline or signed out. Choose another one.")
-                                .font(.system(size: 13)).foregroundStyle(Theme.muted)
-                                .listRowBackground(Color.clear)
-                        }
                         ForEach(RuntimeInstance.grouped(store.runtimes), id: \.tier) { group in
                             Section(group.tier.title) {
                                 ForEach(group.runtimes) { runtime in
@@ -61,8 +56,6 @@ struct RuntimePickerSheet: View {
                         }
                     }
                     .scrollContentBackground(.hidden)
-                    // The notice is a bare row; the grouped list's top margin above it reads as a hole.
-                    .contentMargins(.top, store.selectedRuntimeUnavailable ? 0 : nil, for: .scrollContent)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
