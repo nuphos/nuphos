@@ -42,27 +42,29 @@ describe('durable Discord session context', () => {
     expect(writes[1]?.[1]).not.toHaveProperty('$set')
   })
 
-  test('returns only thread messages the transcript has not received, oldest first', async () => {
-    const history = ['400', '300', '200', '90'].map((messageId) => ({
-      ...scope,
-      _id: `session:${messageId}`,
-      messageId,
-      authorDiscordUserId: messageId,
-      authorName: messageId,
-      text: `${messageId} observation`,
-      recordedAt: new Date(),
-    }))
+  test('asks for what the transcript lacks since its anchor, oldest first', async () => {
+    const anchoredAt = new Date('2026-01-01T00:00:00.000Z')
+    const history = [{ messageId: '200' }, { messageId: '400' }]
     const collection = {
+      findOne: async (filter: unknown) => {
+        expect(filter).toEqual({ _id: 'session:100' })
+
+        return { recordedAt: anchoredAt }
+      },
       find: (filter: unknown) => {
-        expect(filter).toEqual({ ...scope, messageId: { $ne: 'current' } })
+        expect(filter).toEqual({
+          ...scope,
+          messageId: { $nin: ['current', '100', '300'] },
+          recordedAt: { $gte: anchoredAt },
+        })
 
         return {
           sort: (sort: unknown) => {
-            expect(sort).toEqual({ recordedAt: -1, messageId: -1 })
+            expect(sort).toEqual({ recordedAt: 1, messageId: 1 })
 
             return {
               limit: (limit: number) => {
-                expect(limit).toBe(50)
+                expect(limit).toBe(200)
 
                 return { toArray: async () => history }
               },
@@ -70,13 +72,12 @@ describe('durable Discord session context', () => {
           },
         }
       },
-    } as unknown as Pick<Collection<DiscordSessionMessage>, 'find'>
-    const unsynced = (syncedIds: string[]) =>
-      unsyncedDiscordMessages(scope, 'current', syncedIds, collection)
+    } as unknown as Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'>
 
-    // 90 predates the anchor (shorter snowflake), 300 is already in the transcript.
-    expect((await unsynced(['100', '300'])).map((m) => m.messageId)).toEqual(['200', '400'])
+    expect(await unsyncedDiscordMessages(scope, 'current', ['100', '300'], collection)).toEqual(
+      history as DiscordSessionMessage[],
+    )
     // A transcript from before Discord ids were tracked has nothing to anchor on.
-    expect(await unsynced([])).toEqual([])
+    expect(await unsyncedDiscordMessages(scope, 'current', [], collection)).toEqual([])
   })
 })

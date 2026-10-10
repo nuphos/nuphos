@@ -45,8 +45,6 @@ export async function recordDiscordSessionMessage(
   )
 }
 
-const laterThan = (a: string, b: string) => (a.length === b.length ? a > b : a.length > b.length)
-
 /**
  * Thread messages the session transcript has not received yet, oldest first.
  * `syncedIds` are the Discord message ids already in the transcript, in order;
@@ -57,21 +55,22 @@ export async function unsyncedDiscordMessages(
   scope: DiscordSessionScope,
   currentMessageId: string,
   syncedIds: string[],
-  collection: Pick<Collection<DiscordSessionMessage>, 'find'> = messages(),
+  collection: Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'> = messages(),
 ): Promise<DiscordSessionMessage[]> {
-  const anchor = syncedIds[0]
+  const anchor =
+    syncedIds[0] && (await collection.findOne({ _id: `${scope.sessionId}:${syncedIds[0]}` }))
 
   if (!anchor) return []
-  const synced = new Set(syncedIds)
-  // Full text remains durable for the entire session. Limit the catch-up
-  // window, not storage.
-  const recent = await collection
-    .find({ ...scope, messageId: { $ne: currentMessageId } })
-    .sort({ recordedAt: -1, messageId: -1 })
-    .limit(50)
-    .toArray()
 
-  return recent
-    .toReversed()
-    .filter((message) => !synced.has(message.messageId) && laterThan(message.messageId, anchor))
+  // Oldest first, so a backlog longer than one batch is caught up over the
+  // following turns instead of losing its start.
+  return collection
+    .find({
+      ...scope,
+      messageId: { $nin: [currentMessageId, ...syncedIds] },
+      recordedAt: { $gte: anchor.recordedAt },
+    })
+    .sort({ recordedAt: 1, messageId: 1 })
+    .limit(200)
+    .toArray()
 }
