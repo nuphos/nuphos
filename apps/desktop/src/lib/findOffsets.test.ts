@@ -16,6 +16,10 @@ test('keeps offsets aligned after characters whose lowercase is longer', () => {
   assert.deepEqual(findOffsets('İİ node', 'NODE'), [3])
 })
 
+test('stops at the limit', () => {
+  assert.deepEqual(findOffsets('a a a a', 'a', 2), [0, 2])
+})
+
 test('returns nothing for an empty query', () => {
   assert.deepEqual(findOffsets('anything', ''), [])
 })
