@@ -70,6 +70,7 @@
         "tencentcloud-sdk-nodejs-tke": "^4.1.258",
         "yaml": "^2.8.3",
         "zod": "^3.23.8",
+        "zod-to-json-schema": "^3.25.0",
       },
       "devDependencies": {
         "@eslint/js": "^10",
@@ -84,7 +85,6 @@
         "eslint-plugin-unicorn": "72.0.0",
         "typescript": "^5.7.2",
         "typescript-eslint": "^8",
-        "zod-to-json-schema": "^3.25.0",
       },
     },
   },
