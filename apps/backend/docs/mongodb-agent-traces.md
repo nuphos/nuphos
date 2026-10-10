@@ -32,8 +32,7 @@ check per-session access, not merely team membership.
   provider `doGenerate` attempt (including failed attempts), and the final AI
   SDK result including getter-backed text, reasoning, steps, tools, token
   usage, response ids and provider metadata.
-- Existing step/tool telemetry hooks, including aborted unfinished spans.
-- Existing content truncation in step serialization is unchanged;
+- Existing caller-side message serialization is unchanged;
   the Mongo sink adds no preview limit. Provider transport bodies and response
   headers are excluded, preserving the previous capture contract.
 
@@ -41,8 +40,7 @@ Native `generateText` instrumentation covers current callers; adding another
 SDK function to `wrapAI` requires equivalent instrumentation and parity tests.
 New spans export self-contained `mongo:` parent handles. Conversation roots use
 `conversationTraceParent`; legacy vendor parent fields are left untouched in old
-Mongo documents but are not read or reused. Opaque pre-migration handles fall
-back to stable hashes without loading a vendor decoder. Ownership metadata
+Mongo documents but are not read or reused. Unrecognized parent handles are ignored; there is no vendor decoder. Ownership metadata
 survives with OTel disabled.
 
 ## Storage and retention
@@ -102,16 +100,18 @@ user's turn, so this is not an unconditional no-loss guarantee. Also, loss of th
 spool volume loses undelivered data. `agent.trace.delivery_deferred` reports
 retained events awaiting Mongo delivery. Shutdown drains within the existing
 guard-flush deadline, leaves unacknowledged rows on disk and closes the queue.
-Index failures are logged without preventing backend startup.
+Index failures are logged without preventing backend startup. When the spool
+path is unset, startup emits `agent.trace.disabled` with
+`full_content_capture: false` so disabled capture is visible operationally.
 
 ## Verification
 
 Run `bun test src/lib/agent/trace-store`. Tests use the real AI SDK with a mock
 provider and a fixed output fixture captured from the removed SDK 3.9.0, without
 live model/vendor calls or a vendor runtime dependency.
-Coverage includes disabled exporters and opt-out, parent identities, an 18 MB
+Coverage includes disabled OTel and opt-out, parent identities, an 18 MB
 payload, transient failures, durable replay, single-consumer backpressure,
-retention timestamps, binary round trips, cancellation, flush timeout and purge.
+retention timestamps, binary round trips, startup visibility, flush timeout and purge.
 
 Deployment requires the persistent spool to be explicitly enabled for full trace
 capture. Removing the vendor does not automatically enable Mongo capture on
@@ -120,3 +120,14 @@ check enqueue and delivery failures, and size storage/latency before rollout.
 Production parity and historical backfill are not established by these tests.
 Old replicas keep their previous tracing behavior until replaced; this PR does
 not revoke vendor credentials or delete historical vendor data.
+
+## Rollout gate
+
+[NUPS-995](https://linear.app/zeabur/issue/NUPS-995), assigned to Yuanlin Lin, owns
+production enablement, including synchronous-enqueue latency and poison-row
+recovery. This PR does not confirm that production volumes are provisioned.
+Before deploying with full capture, that owner must verify a persistent volume
+for every replica, measure enqueue latency under representative event sizes,
+and establish an operator recovery path for permanently failing queue rows.
+Retention stays at 0 until an explicit retention policy is selected. These are
+production-enablement prerequisites, not claims established by the unit tests.

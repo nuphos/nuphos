@@ -45,7 +45,7 @@ function responseSnapshot(result: unknown): Record<string, unknown> {
   return snapshot
 }
 
-// Match Braintrust's transport exclusions; structured prompts/results remain.
+// Exclude HTTP transport bodies/headers; retain structured prompts and results.
 export function withoutTransport(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withoutTransport)
   if (!value || typeof value !== 'object') return value

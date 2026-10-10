@@ -4,7 +4,7 @@ import { Binary } from 'mongodb'
 
 import { config } from '@/config'
 import { db } from '@/lib/db'
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import { TraceSpool } from './spool'
 
@@ -70,7 +70,14 @@ export function serializeTracePayload(value: unknown): string {
 }
 
 export async function setupTraceIndexes(): Promise<void> {
-  if (!config.agent.mongoTraceSpoolPath) return
+  if (!config.agent.mongoTraceSpoolPath) {
+    logEvent('info', 'agent.trace.disabled', {
+      reason: 'AGENT_MONGO_TRACE_SPOOL_PATH is not configured',
+      full_content_capture: false,
+    })
+
+    return
+  }
   getSpool()
   void flushTraceWrites().catch((error: unknown) => {
     logError('agent.trace.replay_failed', error)

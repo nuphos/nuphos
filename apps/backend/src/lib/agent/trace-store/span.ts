@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 
 import { writeTraceEvent } from './store'
 
@@ -23,17 +23,8 @@ export function traceParent(parent?: string): Parent | undefined {
       return undefined
     }
   }
-  // Stable across replicas/restarts for conversation handles saved before
-  // Mongo tracing existed. Never retain a process-local alias map.
-  const spanId = createHash('sha256').update(parent).digest('hex')
 
-  return { spanId, rootSpanId: spanId }
-}
-
-export function withMongoParent<T>(parent: string | undefined, fn: () => T): T {
-  const context = traceParent(parent)
-
-  return context ? active.run(context, fn) : fn()
+  return undefined
 }
 
 export class MongoTraceSpan {

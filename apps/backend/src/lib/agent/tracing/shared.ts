@@ -144,14 +144,6 @@ export function safeError(error: unknown) {
   return { message: String(error) }
 }
 
-export function safeJsonSize(value: unknown): number {
-  try {
-    return JSON.stringify(value).length
-  } catch {
-    return 0
-  }
-}
-
 export function truncateText(value: unknown, maxLength = 4000): unknown {
   if (typeof value !== 'string') return value
 

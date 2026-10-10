@@ -40,15 +40,12 @@ export function aiTelemetry(metadata: AgentTelemetryMetadata):
   return { isEnabled: otelEnabled, metadata: cleaned }
 }
 
-export { createAgentTelemetryIntegration } from './tracing/integration'
 export { startTraceSpan } from './tracing/spans'
 export {
   createConversationParent,
-  logConversationEvent,
   logSpanError,
   traced,
   updateConversationParent,
-  withTraceParent,
 } from './tracing/traced'
 
 export type { SpanLike } from './tracing/shared'

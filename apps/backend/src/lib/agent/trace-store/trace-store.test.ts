@@ -16,10 +16,8 @@ import {
   startTraceSpan,
   traced,
   updateConversationParent,
-  withTraceParent,
   wrapAI,
 } from '../tracing'
-import { createAgentTelemetryIntegration } from '../tracing/integration'
 
 import { MongoTraceSpan, traceParent } from './span'
 import { closeTraceStore, flushTraceWrites, serializeTracePayload } from './store'
@@ -81,19 +79,17 @@ test('Mongo spans survive without OTel, preserve nested parents and updates', as
     metadata: { sessionId: 'session-1', teamId: 'team-1' },
   })
 
-  await withTraceParent(root, () =>
-    traced({ name: 'turn' }, async (turn) => {
-      const exported = await turn.export()
-      const tool = startTraceSpan({ name: 'tool', parent: exported })
-      const data = { text: 'x'.repeat(50_000), '$literal.key': 1 }
+  await traced({ name: 'turn', parent: root }, async (turn) => {
+    const exported = await turn.export()
+    const tool = startTraceSpan({ name: 'tool', parent: exported })
+    const data = { text: 'x'.repeat(50_000), '$literal.key': 1 }
 
-      tool.log({ output: data, metrics: { duration_ms: 42 } })
-      data.text = 'mutated'
-      tool.event('tool.finished', { ok: true })
-      tool.end()
-      tool.end()
-    }),
-  )
+    tool.log({ output: data, metrics: { duration_ms: 42 } })
+    data.text = 'mutated'
+    tool.event('tool.finished', { ok: true })
+    tool.end()
+    tool.end()
+  })
   updateConversationParent(root, { metrics: { total_tokens: 10 } })
   await flushTraceWrites()
   const rows = events()
@@ -136,14 +132,14 @@ test('full payload exceeding BSON document limit is reconstructible and retries 
   expect(events()).toHaveLength(2)
 })
 
-test('errors keep stack and cause; legacy parent identity survives re-parsing', async () => {
+test('errors keep stack and cause; unrecognized parents are ignored', async () => {
   await expect(
     traced({ name: 'failure', parent: 'legacy-export' }, async () => {
       throw new Error('outer', { cause: new Error('inner') })
     }),
   ).rejects.toThrow('outer')
   await flushTraceWrites()
-  expect(traceParent('legacy-export')).toEqual(traceParent('legacy-export'))
+  expect(traceParent('legacy-export')).toBeUndefined()
   const errorRow = events().find((row) => row.kind === 'log')!
 
   expect(payload(errorRow)).toMatchObject({
@@ -214,29 +210,6 @@ test('real AI SDK records resolved provider prompt, structured output, usage and
     totalUsage: { inputTokens: 3, outputTokens: 4 },
   })
   expect(JSON.stringify(rows)).not.toContain('excluded')
-})
-
-test('step integration persists tool errors, reasoning, metrics and unfinished-span draining', async () => {
-  const integration = createAgentTelemetryIntegration({ metadata: { sessionId: 'step-session' } })!
-  const hooks = integration.integration as Record<string, (event: unknown) => Promise<void>>
-
-  await hooks.onStepStart!({ stepNumber: 0, messages: [{ role: 'user', content: 'input' }] })
-  await hooks.onToolCallStart!({
-    stepNumber: 0,
-    toolCall: { toolCallId: 'tool-1', toolName: 'bash', input: { command: 'true' } },
-  })
-  integration.drainOpenSpans('abort', new Error('cancelled'))
-  await flushTraceWrites()
-  expect(events().filter((row) => row.kind === 'end')).toHaveLength(2)
-  expect(
-    events()
-      .filter((row) => row.kind === 'log')
-      .map(payload),
-  ).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({ error: expect.objectContaining({ message: 'cancelled' }) }),
-    ]),
-  )
 })
 
 // Captured from the removed vendor SDK 3.9.0 using this mock provider.
