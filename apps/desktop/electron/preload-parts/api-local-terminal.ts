@@ -3,6 +3,7 @@ import { ipcRenderer } from 'electron'
 import type { LocalTerminalEvent, TerminalTarget } from '../../src/api/local-terminal-types'
 
 export const localTerminalApi = {
+  localTerminalProcesses: () => ipcRenderer.invoke('local-terminal:processes'),
   localTerminalStart: (id: string, cols: number, rows: number, target?: TerminalTarget) =>
     ipcRenderer.invoke('local-terminal:start', id, cols, rows, target),
   localTerminalReplay: (id: string) => ipcRenderer.invoke('local-terminal:replay', id),

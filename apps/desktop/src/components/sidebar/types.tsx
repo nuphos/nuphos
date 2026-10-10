@@ -12,6 +12,7 @@ import type { ReactNode } from 'react'
 export type Item = {
   key: string
   label: string
+  description?: ReactNode
   icon?: LucideIcon
   iconNode?: ReactNode
   enabled: boolean

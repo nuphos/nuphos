@@ -44,6 +44,13 @@ export async function initTriggerScheduler(): Promise<boolean> {
   _worker = new Worker(
     AGENT_TRIGGER_QUEUE,
     async (job, token) => {
+      if (job.name === 'resource-session-turn') {
+        const { executeResourceTurn } = await import('./resource-turn')
+
+        await executeResourceTurn(job.data)
+
+        return
+      }
       if (job.name === 'agent-thread-turn') {
         const { executeThreadTurn } = await import('./thread-turn')
 

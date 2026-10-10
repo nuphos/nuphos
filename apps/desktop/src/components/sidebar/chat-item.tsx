@@ -2,6 +2,7 @@ import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatusDot } from './ChatRowStatusDot'
+import { SessionResources } from './SessionResources'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
@@ -35,6 +36,13 @@ export function chatSidebarItem({
     key: `agent-session:${conversation.sessionId}`,
     label: conversation.title || conversation.firstMessage || 'Untitled chat',
     ...chatRowIcon(conversation, runtimeState),
+    description: (
+      <SessionResources
+        sessionId={conversation.sessionId}
+        teamId={teamId}
+        resources={conversation.linkedResources ?? []}
+      />
+    ),
     enabled: true,
     active,
     ...(readOnly ? { readOnlyChat: true } : {}),

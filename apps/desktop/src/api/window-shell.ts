@@ -21,6 +21,7 @@ export type AppShortcutAction =
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
 
 export type WindowShellApi = {
+  localTerminalProcesses(): Promise<{ id: string; name: string }[]>
   localTerminalStart(
     id: string,
     cols: number,

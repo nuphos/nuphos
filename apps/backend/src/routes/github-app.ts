@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 
 import { config } from '@/config'
+import { routeResourceWebhook } from '@/lib/agent/resource-webhook'
 import { routeGithubWebhook } from '@/lib/agent/webhook-session-router'
 import { removeGithubInstallationFromAllTeams } from '@/lib/byos/account'
 import { invalidateInstallationToken, verifyWebhookSignature } from '@/lib/byos/github'
@@ -137,6 +138,9 @@ githubAppRoutes.post('/webhook', async (c) => {
   } else {
     logEvent('info', 'github.webhook.ignored', { delivery, event })
   }
+
+  // Preserve installation cleanup and existing trigger routing even if resource delivery fails.
+  await routeResourceWebhook(event, payload, delivery === '?' ? '' : delivery)
 
   return c.body(null, 204)
 })
