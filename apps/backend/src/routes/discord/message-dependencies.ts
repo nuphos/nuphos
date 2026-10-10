@@ -17,7 +17,7 @@ import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 
 import { recordDiscordSessionMessage } from './session-context'
 import { getDiscordThreadHistory, recordDiscordThreadMessage } from './thread-history'
-import { buildMessagesForDiscordTurn } from './transcript'
+import { buildMessagesForDiscordTurn, syncDiscordThread } from './transcript'
 import { executeDiscordTurn } from './turn'
 
 export const defaultDependencies = {
@@ -40,6 +40,7 @@ export const defaultDependencies = {
   recordDiscordThreadMessage,
   judgeThreadAddressing,
   buildMessagesForDiscordTurn,
+  syncDiscordThread,
   createMessageMetadata,
   executeDiscordTurn,
   turnRunner,

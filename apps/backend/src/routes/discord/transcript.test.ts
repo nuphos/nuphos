@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { buildMessagesForDiscordTurn } from './transcript'
+import { buildMessagesForDiscordTurn, syncDiscordThread } from './transcript'
 
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
@@ -21,11 +21,43 @@ const entry = (messageId: string, authorDiscordUserId: string, text: string) => 
   recordedAt: new Date('2026-02-02T00:00:00.000Z'),
 })
 
+function dependencies(unsynced: ReturnType<typeof entry>[]) {
+  const calls = { synced: [] as string[][], appended: [] as Record<string, unknown>[] }
+  const deps = {
+    getConversationWithMessages: async () => ({
+      messages: [
+        { messageId: 'discord-100', role: 'user', parts: [{ type: 'text', text: 'first' }] },
+        { messageId: 'reply', role: 'assistant', parts: [{ type: 'text', text: 'done' }] },
+      ],
+    }),
+    appendConversationMessages: async (data: Record<string, unknown>) => {
+      calls.appended.push(data)
+    },
+    unsyncedDiscordMessages: async (query: unknown, ids: string[]) => {
+      // Only the four scope fields may reach the session-log query.
+      expect(query).toEqual(scope)
+      calls.synced.push(ids)
+
+      return unsynced
+    },
+    discordUserMappings: () => ({
+      findOne: async ({ discordUserId }: { discordUserId: string }) =>
+        ({ linked: { nuphosUserId: 'bob' }, removed: { nuphosUserId: 'eve' } })[discordUserId] ??
+        null,
+    }),
+    getTeamMembership: async (userId: string) => (userId === 'bob' ? { role: 'MEMBER' } : null),
+    createMessageMetadata: async (id: string) => metadata(id),
+  } as unknown as Parameters<typeof buildMessagesForDiscordTurn>[1]
+
+  return { calls, deps }
+}
+
 function build(unsynced: ReturnType<typeof entry>[], carriedId?: string) {
-  const synced: string[][] = []
+  const { calls, deps } = dependencies(unsynced)
   const result = buildMessagesForDiscordTurn(
     {
-      scope,
+      // A thread document carries more than the scope; none of it may leak into queries.
+      scope: { ...scope, threadChannelId: 'thread' } as typeof scope,
       ownerUserId: 'owner',
       messageId: '300',
       renderedText: 'what now?',
@@ -34,30 +66,37 @@ function build(unsynced: ReturnType<typeof entry>[], carriedId?: string) {
         ? [{ id: carriedId, renderedText: 'queued', source: 'discord', receivedAt: '' }]
         : [],
     },
-    {
-      getConversationWithMessages: async () => ({
-        messages: [
-          { messageId: 'discord-100', role: 'user', parts: [{ type: 'text', text: 'first' }] },
-          { messageId: 'reply', role: 'assistant', parts: [{ type: 'text', text: 'done' }] },
-        ],
-      }),
-      unsyncedDiscordMessages: async (_scope: unknown, _current: string, ids: string[]) => {
-        synced.push(ids)
-
-        return unsynced
-      },
-      discordUserMappings: () => ({
-        findOne: async ({ discordUserId }: { discordUserId: string }) =>
-          ({ linked: { nuphosUserId: 'bob' }, removed: { nuphosUserId: 'eve' } })[discordUserId] ??
-          null,
-      }),
-      getTeamMembership: async (userId: string) => (userId === 'bob' ? { role: 'MEMBER' } : null),
-      createMessageMetadata: async (id: string) => metadata(id),
-    } as unknown as Parameters<typeof buildMessagesForDiscordTurn>[1],
+    deps,
   )
 
-  return { result, synced }
+  return { result, synced: calls.synced }
 }
+
+test('a thread message is written into the session as it arrives', async () => {
+  const { calls, deps } = dependencies([entry('200', 'linked', 'checking DNS')])
+
+  await syncDiscordThread(scope, 'owner', deps)
+  expect(calls.appended).toEqual([
+    {
+      sessionId: 'session',
+      userId: 'owner',
+      teamId: 'team',
+      messages: [
+        {
+          id: 'discord-200',
+          role: 'user',
+          parts: [{ type: 'text', text: 'checking DNS' }],
+          metadata: { ...metadata('bob'), sentAt: '2026-02-02T00:00:00.000Z' },
+        },
+      ],
+    },
+  ])
+
+  const idle = dependencies([])
+
+  await syncDiscordThread(scope, 'owner', idle.deps)
+  expect(idle.calls.appended).toEqual([])
+})
 
 test('thread messages nobody addressed to the agent join the session as their own messages', async () => {
   const { result, synced } = build([
@@ -108,8 +147,10 @@ test('a message already queued for this turn is not synced a second time', async
   expect(both.turnContext).toBeUndefined()
 
   // A turn recovered during admission carries the very message it was claimed for.
-  const recovered = await build([], 'discord-300').result
+  // The session log holds the current message too; it is answered, not caught up.
+  const recovered = await build([entry('300', 'linked', 'what now?')], 'discord-300').result
 
   expect(recovered.messages.map((m) => m.id)).toEqual(['discord-100', 'reply', 'discord-300'])
   expect(recovered.messages[2]?.parts).toEqual([{ type: 'text', text: 'what now?' }])
+  expect(recovered.turnContext).toBeUndefined()
 })

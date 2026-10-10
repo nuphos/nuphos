@@ -54,7 +54,7 @@ describe('durable Discord session context', () => {
       find: (filter: unknown) => {
         expect(filter).toEqual({
           ...scope,
-          messageId: { $nin: ['current', '100', '300'] },
+          messageId: { $nin: ['100', '300'] },
           recordedAt: { $gte: anchoredAt },
         })
 
@@ -74,10 +74,10 @@ describe('durable Discord session context', () => {
       },
     } as unknown as Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'>
 
-    expect(await unsyncedDiscordMessages(scope, 'current', ['100', '300'], collection)).toEqual(
+    expect(await unsyncedDiscordMessages(scope, ['100', '300'], collection)).toEqual(
       history as DiscordSessionMessage[],
     )
     // A transcript from before Discord ids were tracked has nothing to anchor on.
-    expect(await unsyncedDiscordMessages(scope, 'current', [], collection)).toEqual([])
+    expect(await unsyncedDiscordMessages(scope, [], collection)).toEqual([])
   })
 })

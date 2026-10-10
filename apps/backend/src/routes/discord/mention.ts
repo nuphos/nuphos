@@ -45,6 +45,7 @@ export async function handleDiscordMention(
     recordDiscordThreadMessage,
     judgeThreadAddressing,
     buildMessagesForDiscordTurn,
+    syncDiscordThread,
     createMessageMetadata,
     executeDiscordTurn,
     turnRunner,
@@ -255,12 +256,7 @@ export async function handleDiscordMention(
 
     try {
       const { messages, turnContext } = await buildMessagesForDiscordTurn({
-        scope: {
-          sessionId: thread.sessionId,
-          teamId: thread.teamId,
-          guildId: thread.guildId,
-          generation: thread.generation,
-        },
+        scope: thread,
         ownerUserId: thread.agentUserId,
         messageId: event.id,
         renderedText,
@@ -295,5 +291,10 @@ export async function handleDiscordMention(
     await markDiscordEvent(event.id, 'failed', err instanceof Error ? err.message : String(err))
   } finally {
     clearInterval(refreshTimer)
+    // Whatever this message was, the session should now hold it.
+    if (registeredThread)
+      await syncDiscordThread(registeredThread, registeredThread.agentUserId).catch(
+        (err: unknown) => logError('discord.agent.thread_sync.error', err, { event_id: event.id }),
+      )
   }
 }

@@ -17,6 +17,13 @@ export type DiscordSessionMessage = DiscordSessionScope & {
   text: string
   recordedAt: Date
 }
+/** Exactly the fields a session-log query may match on. */
+export const discordSessionScope = (thread: DiscordSessionScope): DiscordSessionScope => ({
+  sessionId: thread.sessionId,
+  teamId: thread.teamId,
+  guildId: thread.guildId,
+  generation: thread.generation,
+})
 const messages = () => db().collection<DiscordSessionMessage>('discord_session_messages')
 
 /** An immutable, full-text session log, independent of whether a turn runs. */
@@ -53,7 +60,6 @@ export async function recordDiscordSessionMessage(
  */
 export async function unsyncedDiscordMessages(
   scope: DiscordSessionScope,
-  currentMessageId: string,
   syncedIds: string[],
   collection: Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'> = messages(),
 ): Promise<DiscordSessionMessage[]> {
@@ -67,7 +73,7 @@ export async function unsyncedDiscordMessages(
   return collection
     .find({
       ...scope,
-      messageId: { $nin: [currentMessageId, ...syncedIds] },
+      messageId: { $nin: syncedIds },
       recordedAt: { $gte: anchor.recordedAt },
     })
     .sort({ recordedAt: 1, messageId: 1 })

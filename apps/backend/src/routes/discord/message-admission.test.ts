@@ -46,6 +46,7 @@ function setup(
       text: string
     }[],
     rendered: [] as string[],
+    synced: 0,
     metadata: [] as unknown[],
   }
   const dependencies = {
@@ -116,6 +117,9 @@ function setup(
 
       return { messages: [], turnContext: 'catch-up note' }
     },
+    syncDiscordThread: async () => {
+      calls.synced++
+    },
     executeDiscordTurn: async (args: Record<string, unknown>) => {
       calls.turns.push(args)
     },
@@ -160,6 +164,8 @@ describe('Discord conversation admission', () => {
     expect(calls.recorded).toBe(1)
     expect(calls.turns).toEqual([])
     expect(calls.posts).toEqual([])
+    // It still reaches the session the moment it arrives.
+    expect(calls.synced).toBe(1)
   })
   test('the sender travels as metadata, not as a prefix in the message text', async () => {
     const { calls, dependencies } = setup()
