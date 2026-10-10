@@ -66,7 +66,9 @@ export function Composer({
   credentialSelector?: CredentialSelectorControl
   runtimeControl?: RuntimeControl
   modelSession?: ModelSession
-  /** Runtime defaults the first message applies; shown until a session has its own model. */
+  /** No session yet to read a live model list from — reads/writes the
+   *  runtime's saved default model instead. Only rendered without a
+   *  `modelSession`, since once a session exists `ModelSelector` takes over. */
   newConversationModelControl?: ReactNode
   /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
    *  Permissions) — absent when the conversation has no session yet. */
@@ -109,8 +111,6 @@ export function Composer({
     runtimeState ? !runtimeAllows(runtimeState, 'send') : streaming,
   )
   const hero = variant === 'hero'
-  const dormant = modelControl.data?.status === 'dormant' && !modelControl.data.options.length
-  const showDefaultModel = Boolean(newConversationModelControl) && (!modelSession || dormant)
   const sendBlocked =
     runtimeSendBlocked ||
     modelControl.saving ||
@@ -275,9 +275,9 @@ export function Composer({
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && <RuntimeSelector {...runtimeControl} />}
-              {showDefaultModel && newConversationModelControl}
+              {!modelSession && newConversationModelControl}
             </div>
-            {modelSession && !showDefaultModel && (
+            {modelSession && (
               <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />
             )}
             <ComposerSendControls
