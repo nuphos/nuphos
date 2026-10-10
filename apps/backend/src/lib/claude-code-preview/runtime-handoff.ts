@@ -4,6 +4,7 @@ import {
   getActiveAgentRunForSession,
   sweepAbandonedAgentRuns,
 } from '@/lib/agent/run-store/ownership'
+import { ownerKey } from '@/lib/agent/run-store/shared'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
@@ -137,6 +138,13 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
     handoff.ownerUserId,
     { external: endpoint.external, backendUrl: endpoint.backendUrl },
   )
+  const abandonedStreamId = handoff.abandonedStreamId
+
+  if (
+    abandonedStreamId &&
+    (await withRedis((redis) => redis.get(ownerKey(handoff.ownerUserId, abandonedStreamId))))
+  )
+    return
   const session = await openConversationSession(
     handoff.teamId,
     handoff.conversationId,

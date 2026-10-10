@@ -37,6 +37,7 @@ const persisted: { sessionId: string; userId: string; parts: unknown[] }[] = []
 let replay: OpenAbSessionUpdate[] = []
 let hasAttachment = true
 let activeStream: string | null = null
+let restoredOwner = false
 let emit: (update: OpenAbSessionUpdate) => void = noop
 let acquire: ReturnType<typeof spyOn>
 
@@ -64,7 +65,7 @@ useRedis({
     op({
       hgetall: async () => Object.fromEntries(stored),
       hmget: async () => [activeStream, '0', 'actor'],
-      get: async () => (activeStream ? 'live-replica' : null),
+      get: async () => (activeStream || restoredOwner ? 'live-replica' : null),
       eval: async (_script: string, _count: number, _key: string, field: string, raw: string) =>
         stored.get(field) === raw && stored.delete(field) ? 1 : 0,
       hsetnx: async (_key: string, field: string, value: string) => {
@@ -116,6 +117,7 @@ beforeEach(() => {
   replay = []
   hasAttachment = true
   activeStream = null
+  restoredOwner = false
   loads.length = 0
   persisted.length = 0
   emit = noop
@@ -248,4 +250,11 @@ test('crash adoption never takes output from a newer live run', async () => {
   activeStream = 'new-stream'
   await adoptRuntimeHandoff({ ...handoff(Date.now()), abandonedStreamId: 'dead-stream' })
   expect(loads).toEqual([])
+})
+
+test('crash adoption skips an owner restored after failover without its active guard', async () => {
+  restoredOwner = true
+  await adoptRuntimeHandoff({ ...handoff(Date.now()), abandonedStreamId: 'dead-stream' })
+  expect(loads).toEqual([])
+  expect(acquire).not.toHaveBeenCalled()
 })
