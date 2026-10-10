@@ -6,8 +6,18 @@ conversation principal. It resolves the resource through a selected integration;
 callers cannot supply a display URL or substitute another session. Re-linking the
 same resource is idempotent. Only owners and managers can change bindings.
 
-The active conversation's **Linked resources** sidebar shows the saved title,
-last observed state and external link. The unlink button removes only the binding.
+Each sidebar session shows compact resource identifiers below its title; both
+lines select the session through one shared hover surface. At most two resource
+identifiers are shown there, without an overflow count. The session titlebar shows
+resource tags: the identifier opens the resource in a workspace browser tab, and
+the separate, always-visible unlink button removes only the binding. Provider
+colors, hover feedback, and reduced-motion-aware transitions support both themes.
+
+Running local dock terminal processes appear beside the session resources in the
+sidebar and titlebar, including when the dock is not currently mounted. Idle
+shells are omitted, and process badges clear after the foreground process exits.
+On macOS, Cmd+D splits the workspace; Ctrl+D remains available to the terminal.
+
 Linear issues are navigation links in this first version; their state is captured
 when linked. This does not replace the Linear issue's `Nuphos session` attachment.
 
