@@ -21,6 +21,10 @@ on:
       - 'eslint-rules/**'
       - '.claude/hooks/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: read
@@ -255,14 +259,16 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
         run: pnpm lint
       - name: Run tests
+        timeout-minutes: 3
         working-directory: apps/desktop
         run: pnpm test
       - name: Stage the local agent adapter
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
+      # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
         working-directory: apps/desktop
-        run: pnpm run electron:build --mac --publish never
+        run: pnpm run electron:build --mac --arm64 --x64 --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
