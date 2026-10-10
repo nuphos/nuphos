@@ -250,3 +250,30 @@ test('file reads use their own bounded stream and are closed on logout', () => {
   client.stop()
   assert.equal(file.closed, true)
 })
+
+test('dock terminals have a distinct capability and never fall through to local exec', () => {
+  const backend = new FakeSocket()
+  const terminal = new FakeSocket()
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => backend,
+    connectRuntime: () => null,
+    connectExec: () => {
+      throw new Error('Terminal request must not execute as shell text')
+    },
+    connectTerminal: () => terminal,
+    status: () => ({ agents: {} }),
+  })
+
+  client.start()
+  backend.emit('open')
+  assert.equal(JSON.parse(backend.sent[0] ?? '{}').status.localTerminal, true)
+  backend.emit('message', {
+    data: JSON.stringify({ t: 'open', s: 'terminal-1', purpose: 'terminal' }),
+  })
+  terminal.emit('open')
+  backend.emit('message', {
+    data: JSON.stringify({ t: 'data', s: 'terminal-1', d: '{"action":"open"}' }),
+  })
+  assert.deepEqual(terminal.sent, ['{"action":"open"}'])
+  client.stop()
+})

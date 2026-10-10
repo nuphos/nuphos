@@ -10,6 +10,7 @@ import {
   planSshTeardown,
 } from '../../lib/terminalTabTeardown'
 
+import { openDockTerminal } from './openDockTerminal'
 import { selectAllResidentTabs, selectCurrentBucket } from './store/workspaceState'
 
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
@@ -63,6 +64,17 @@ export function useWorkspaceTabSync(a: Args) {
   // mid-onboarding plays at the landing. Cleared by the shell once played;
   // never persisted, so only the session that performed the action celebrates.
   const [landingCelebration, setLandingCelebration] = useState(false)
+
+  useEffect(
+    () =>
+      api.onDockTerminalRequest((request) => {
+        // Only the renderer that claims the request receives the tab.
+        void openDockTerminal(workspaceStore, request, api.acceptDockTerminal).catch(() => {
+          // The main process reports open failures to the requesting agent.
+        })
+      }),
+    [workspaceStore],
+  )
 
   // Terminal teardown is *observed*, not requested: every path that ends a
   // terminal drops the tab or navigates it elsewhere, so "a tab that stopped
