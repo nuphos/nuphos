@@ -1,4 +1,5 @@
 import { appendConversationMessages, getConversationWithMessages } from '@/lib/agent/db'
+import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { fenceUntrusted } from '@/lib/agent/untrusted-content'
@@ -52,6 +53,7 @@ const userMessage = (id: string, text: string, metadata?: MessageMetadata) =>
 const defaultDependencies = {
   getConversationWithMessages,
   appendConversationMessages,
+  addConversationParticipants,
   unsyncedDiscordMessages,
   discordUserMappings,
   getTeamMembership,
@@ -80,6 +82,7 @@ async function threadState(thread: DiscordSessionScope, ownerUserId: string, dep
   )
   const authors = new Map<string, MessageMetadata | undefined>()
   const unsynced: UIMessage[] = []
+  const joined: string[] = []
 
   for (const entry of entries) {
     const id = `discord-${entry.messageId}`
@@ -100,6 +103,8 @@ async function threadState(thread: DiscordSessionScope, ownerUserId: string, dep
           ? await deps.createMessageMetadata(mapping.nuphosUserId, 'discord')
           : undefined,
       )
+      if (mapping && member && mapping.nuphosUserId !== ownerUserId)
+        joined.push(mapping.nuphosUserId)
     }
     const author = authors.get(entry.authorDiscordUserId)
 
@@ -117,6 +122,8 @@ async function threadState(thread: DiscordSessionScope, ownerUserId: string, dep
           ),
     )
   }
+  // Speaking in the thread is joining the session, as speaking in the app is.
+  await deps.addConversationParticipants(scope.sessionId, joined)
 
   return { scope, prior, unsynced }
 }

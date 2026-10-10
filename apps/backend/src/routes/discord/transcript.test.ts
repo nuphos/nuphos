@@ -22,7 +22,11 @@ const entry = (messageId: string, authorDiscordUserId: string, text: string) => 
 })
 
 function dependencies(unsynced: ReturnType<typeof entry>[]) {
-  const calls = { synced: [] as string[][], appended: [] as Record<string, unknown>[] }
+  const calls = {
+    synced: [] as string[][],
+    appended: [] as Record<string, unknown>[],
+    joined: [] as unknown[][],
+  }
   const deps = {
     getConversationWithMessages: async () => ({
       messages: [
@@ -30,6 +34,9 @@ function dependencies(unsynced: ReturnType<typeof entry>[]) {
         { messageId: 'reply', role: 'assistant', parts: [{ type: 'text', text: 'done' }] },
       ],
     }),
+    addConversationParticipants: async (...args: unknown[]) => {
+      calls.joined.push(args)
+    },
     appendConversationMessages: async (data: Record<string, unknown>) => {
       calls.appended.push(data)
     },
@@ -73,9 +80,15 @@ function build(unsynced: ReturnType<typeof entry>[], carriedId?: string) {
 }
 
 test('a thread message is written into the session as it arrives', async () => {
-  const { calls, deps } = dependencies([entry('200', 'linked', 'checking DNS')])
+  const { calls, deps } = dependencies([
+    entry('200', 'linked', 'checking DNS'),
+    entry('210', 'removed', 'me too'),
+    entry('220', 'stranger', 'hello'),
+  ])
 
   await syncDiscordThread(scope, 'owner', deps)
+  // Only a linked teammate joins the session by speaking in the thread.
+  expect(calls.joined).toEqual([['session', ['bob']]])
   expect(calls.appended).toEqual([
     {
       sessionId: 'session',
@@ -88,6 +101,8 @@ test('a thread message is written into the session as it arrives', async () => {
           parts: [{ type: 'text', text: 'checking DNS' }],
           metadata: { ...metadata('bob'), sentAt: '2026-02-02T00:00:00.000Z' },
         },
+        expect.objectContaining({ id: 'discord-210', metadata: undefined }),
+        expect.objectContaining({ id: 'discord-220', metadata: undefined }),
       ],
     },
   ])
