@@ -20,6 +20,8 @@ export type WorkspaceState = {
   sessionId: string | null
   /** A management page replaces the chat surface; its tab lives in the main-page bucket. */
   mainPageOpen: boolean
+  /** Runtime-only signal for repeated explicit New chat navigation. */
+  newChatRequest: number
   sessionReadOnly: boolean
   /** Team identity for a session whose dock has no active tab to name one. */
   teamScope: TeamScope | null
@@ -131,6 +133,7 @@ export function createWorkspaceState(
     sessionId: null,
     mainPageOpen: false,
     sessionReadOnly: false,
+    newChatRequest: 0,
     teamScope: null,
     teamsKnown: false,
     buckets,

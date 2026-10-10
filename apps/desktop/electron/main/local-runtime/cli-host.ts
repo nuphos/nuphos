@@ -209,7 +209,7 @@ function report(): void {
   console.log(`${new Date().toLocaleTimeString()} ${device.label}\n${summary}`)
 }
 
-/** Claude Code serves Nuphos from a home of its own, which needs its own sign-in. */
+/** Sign in only when the same credential store used by the agent is not authenticated. */
 async function signInClaude(ownerId: string): Promise<void> {
   const cli = controller.state().agents['claude-code'].cli
 
@@ -219,7 +219,11 @@ async function signInClaude(ownerId: string): Promise<void> {
   const agentHome = prepareAgentHome('claude-code', userDir, path.join(userDir, 'workspace'))
 
   if (!cliPath || !agentHome) return
-  console.log('Sign Claude Code in for Nuphos (a separate sign-in from your own terminal):')
+  console.log(
+    process.platform === 'darwin'
+      ? 'Sign Claude Code in for Nuphos (updates the Claude login used by your terminal):'
+      : 'Sign Claude Code in for Nuphos (a separate sign-in from your own terminal):',
+  )
   await new Promise((resolve) => {
     spawn(cliPath, ['auth', 'login', '--claudeai'], {
       env: agentCliEnv({ provider: 'claude-code', env: process.env, cliPath, agentHome }),

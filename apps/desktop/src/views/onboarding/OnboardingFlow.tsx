@@ -9,11 +9,11 @@ import { AgentStage } from './flow/AgentStage'
 import { deriveDefaultWorkspaceName } from './flow/shared'
 import { useFlowAdvance, useOnboardingTimers } from './flow/use-flow-advance'
 import { useJoinOptionsSync, useWorkspaceActions } from './flow/use-join-options'
-import { useLocalAgentSetup } from './flow/use-local-agent-setup'
 import { ONBOARDING_EXTRA_STEPS_ENABLED, openingAct } from './onboardingSteps'
+import { AgentSetupFlow } from './setup/AgentSetupFlow'
 
 import type { Act, ChatStep, OnboardingFlowProps, OnboardingProvider } from './flow/shared'
-import type { DiscoverableTeam, TeamInvitation } from '../../types'
+import type { AtlasTeam, DiscoverableTeam, TeamInvitation } from '../../types'
 
 export type {
   OnboardingFlowProps,
@@ -36,7 +36,8 @@ export function OnboardingFlow({
   onFinish,
 }: OnboardingFlowProps) {
   const initialStepN = initialStep ?? 1
-  const localSetup = useLocalAgentSetup(onFinish)
+  // Set once a new workspace exists: its agent setup takes over the window. Joiners skip it.
+  const [setupTeam, setSetupTeam] = useState<AtlasTeam | null>(null)
   const [act, setAct] = useState<Act>(openingAct(initialStepN))
   const [chatStep, setChatStep] = useState<ChatStep>(
     initialStepN >= 5
@@ -156,7 +157,8 @@ export function OnboardingFlow({
       setJoiningTeamId,
       joinedTeams,
       setJoinedExisting,
-      onFinish: localSetup.finish,
+      onCreated: setSetupTeam,
+      onFinish,
     })
 
   const {
@@ -172,7 +174,7 @@ export function OnboardingFlow({
     handleEnterApp,
   } = useFlowAdvance({
     joinedExisting,
-    onFinish: localSetup.finish,
+    onFinish,
     teamId,
     currentTeamId,
     setTeamId,
@@ -197,6 +199,8 @@ export function OnboardingFlow({
     return () => window.removeEventListener('keydown', onKey)
   }, [dismissable, onClose])
 
+  if (setupTeam) return <AgentSetupFlow team={setupTeam} onFinish={() => onFinish(setupTeam.id)} />
+
   return (
     // The overlay stays transparent so the window's native vibrancy/blur shows
     // through the (translucent) sidebar-surface, like the real docked sidebar.
@@ -208,7 +212,7 @@ export function OnboardingFlow({
     <div
       className={clsx(
         'fixed inset-0 z-40 flex flex-col text-main',
-        !slackDialogOpen && !localSetup.dialog && 'titlebar-drag',
+        !slackDialogOpen && 'titlebar-drag',
       )}
     >
       <div className="relative flex-1 min-h-0">
@@ -273,7 +277,6 @@ export function OnboardingFlow({
         )}
       </div>
 
-      {localSetup.dialog}
       {slackDialogOpen && teamId && (
         <BindSlackDialog
           open

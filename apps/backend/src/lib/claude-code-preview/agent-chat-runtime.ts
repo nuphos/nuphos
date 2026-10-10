@@ -1,14 +1,14 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { RunHandoff } from '@/lib/lifecycle'
 
-import { registry, sessionsByConversation, sessionCreations } from './agent-chat-registry'
+import { registry } from './agent-chat-registry'
 import {
   setClaudeCodeAutonomousPermissionHandler,
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
-import { attachOpenAbSession } from './openab-session-attach'
+import { openConversationSession } from './open-conversation-session'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
   assertConversationRuntimeAvailable,
@@ -33,6 +33,8 @@ export {
   cancelPreviewConversationSession,
 } from './agent-chat-registry'
 
+export { openConversationSession } from './open-conversation-session'
+
 export { setClaudeCodeAutonomousUpdateHandler, setClaudeCodeAutonomousPermissionHandler }
 export type {
   ClaudeCodeAutonomousContext,
@@ -50,73 +52,6 @@ export {
   previewSessionPrincipalChanged,
   sessionContextStale,
 } from './session-context'
-
-export async function openConversationSession(
-  teamId: string,
-  conversationId: string,
-  userId: string,
-  locale: string,
-  endpoint: TeamRuntimeEndpoint,
-  mcpServers: AcpHttpMcpServer[],
-  systemPrompt: string | undefined,
-  runtime: OpenAbSessionRuntime | undefined,
-  onFreshSession?: () => void,
-): Promise<TeamSession> {
-  const key = `${teamId}:${conversationId}`
-  const existing = sessionsByConversation.get(key)
-
-  if (existing) {
-    const attachment = await getConversationPreviewAttachment(conversationId, teamId)
-
-    if (
-      existing.endpoint.url === endpoint.url &&
-      existing.openabSessionId === attachment?.openabSessionId
-    )
-      return existing
-    existing.stopObserving?.()
-    sessionsByConversation.delete(key)
-  }
-  let creation = sessionCreations.get(key)
-
-  if (!creation) {
-    creation = (async () => {
-      const client = await registry.acquire(teamId, endpoint)
-      const { openabSessionId, fresh, defaults } = await attachOpenAbSession(
-        client,
-        teamId,
-        conversationId,
-        endpoint,
-        mcpServers,
-        systemPrompt,
-        runtime,
-      )
-
-      if (fresh) onFreshSession?.()
-      const session: TeamSession = {
-        teamId,
-        conversationId,
-        userId,
-        locale,
-        openabSessionId,
-        client,
-        endpoint,
-        mcpServers,
-        ...(systemPrompt ? { systemPrompt } : {}),
-        runtime: { ...runtime, defaults },
-        contextDeliveredAt: Date.now(),
-      }
-
-      observeSession(session)
-
-      sessionsByConversation.set(key, session)
-
-      return session
-    })().finally(() => sessionCreations.delete(key))
-    sessionCreations.set(key, creation)
-  }
-
-  return creation
-}
 
 /**
  * Runs one prompt on the conversation's OpenAB session, streaming text deltas.
@@ -167,6 +102,7 @@ export async function runClaudeCodePreviewPrompt(args: {
     () => {
       fresh = true
     },
+    args.conversationOwnerUserId ?? args.userId,
   )
 
   // Query runtime admission without attaching a replacement prompt socket.

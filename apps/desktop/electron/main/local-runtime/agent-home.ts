@@ -16,6 +16,16 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 
 const CUA_PLUGIN = 'unified-computer-use@openai-bundled'
 const CUA_PLUGIN_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
+const CUA_CLIENT = path.join(
+  'computer-use',
+  'Codex Computer Use.app',
+  'Contents',
+  'SharedSupport',
+  'SkyComputerUseClient.app',
+  'Contents',
+  'MacOS',
+  'SkyComputerUseClient',
+)
 
 /** False when something other than a link already sits at `file`. */
 function linkFrom(ownerHome: string, home: string, file: string): boolean {
@@ -41,8 +51,8 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
  * App's Computer Use plugin, so Codex serving Nuphos never loads their
  * personal config.toml, MCP servers, connectors or AGENTS.md. Links rather
  * than copies: Codex refreshes the token in place, and the App updates the
- * plugin in place. Loading the plugin itself, not just its MCP server, brings
- * the App's turn-end hook that puts away the Computer Use cursor.
+ * plugin in place. The plugin supplies MCP cleanup hooks; the App's native
+ * notify client separately ends the macOS Computer Use turn and its cursor.
  * Undefined when there is no login to link or the link cannot be made; Codex
  * then does not run as a local agent at all.
  */
@@ -63,6 +73,35 @@ export function prepareCodexHome(
       !(existsSync(config) && readFileSync(config, 'utf8').includes(CUA_PLUGIN))
     )
       appendFileSync(config, `\n[plugins."${CUA_PLUGIN}"]\nenabled = true\n`, { mode: 0o600 })
+
+    const client = path.join(ownerHome, CUA_CLIENT)
+    const contents = existsSync(config) ? readFileSync(config, 'utf8') : ''
+    const lines = contents.split('\n').map((line) => line.trim())
+    const tableStart = lines.findIndex((line) => line.startsWith('['))
+    const root = tableStart === -1 ? lines : lines.slice(0, tableStart)
+    const notifyIndex = root.findIndex((line) =>
+      ['notify', '"notify"', "'notify'"].includes(line.split('=', 1)[0].trim()),
+    )
+    const oldNotify = `notify = ${JSON.stringify([client, 'turn-ended'])}`
+    // Only the native helper needs the App's home; Codex keeps its isolated config.
+    const nativeCommand = ['/usr/bin/env', `CODEX_HOME=${ownerHome}`, client, 'turn-ended']
+    const notify = `notify = ${JSON.stringify(nativeCommand)}`
+
+    // Only add the known App client, never import the owner's arbitrary notify commands.
+    // Prepend: notify is a root key, not a field in the last plugin/project table.
+    if (existsSync(client) && (notifyIndex === -1 || root[notifyIndex] === oldNotify))
+      writeFileSync(
+        config,
+        notifyIndex === -1
+          ? `${notify}\n${contents}`
+          : contents
+              .split('\n')
+              .map((line, index) => (index === notifyIndex ? notify : line))
+              .join('\n'),
+        {
+          mode: 0o600,
+        },
+      )
 
     return existsSync(path.join(ownerHome, 'auth.json')) ? home : undefined
   } catch {
@@ -99,8 +138,8 @@ export function claudeHomeSettings(workspace: string): Record<string, unknown> {
 /**
  * A CLAUDE_CONFIG_DIR of Nuphos's own, so Claude Code serving Nuphos never
  * loads the owner's settings, hooks, plugins, skills, MCP servers or
- * CLAUDE.md. Claude signs in separately here; session HOME changes and the
- * owner's terminal do not select or overwrite this credential store.
+ * CLAUDE.md. On macOS the login uses the terminal Keychain independently of
+ * this directory; other platforms keep their existing file-backed login.
  */
 export function prepareClaudeHome(userDir: string, workspace: string): string | undefined {
   const home = path.join(userDir, 'claude-home')

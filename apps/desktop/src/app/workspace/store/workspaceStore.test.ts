@@ -278,7 +278,27 @@ test('a no-op action does not notify subscribers', () => {
     notified += 1
   })
   actions.setDockOpen(false)
-  actions.selectSession(null)
+  actions.selectSession(null, { keepMainPage: true })
   actions.updateActiveTab((tab) => tab)
   assert.equal(notified, 0)
+})
+
+test('each explicit New chat request resets home scroll without resetting its dock', () => {
+  const { store, actions } = setup()
+
+  actions.selectSession('chat-1')
+  actions.selectSession(null)
+  const first = store.getState()
+
+  actions.selectSession(null)
+  assert.equal(store.getState().newChatRequest, first.newChatRequest + 1)
+  assert.equal(selectCurrentBucket(store.getState()), selectCurrentBucket(first))
+
+  const request = store.getState().newChatRequest
+
+  actions.selectSession(null, { keepMainPage: true })
+  actions.openTab(createWorkspaceTab(TEAM_A))
+  assert.equal(store.getState().newChatRequest, request)
+  actions.selectSession('chat-1')
+  assert.equal(store.getState().newChatRequest, request)
 })

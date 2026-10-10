@@ -231,6 +231,7 @@ export function WorkspaceAgentPane({
             connectedResources={connectedResources}
             onStartConnect={startFirstRunConnect}
             autoFocusComposer={paneActive && !dockOpen}
+            newChatRequest={ws.newChatRequest}
             sessionId={selectedSessionId}
             sessionReadOnly={selectedSessionReadOnly}
             onSessionChange={handleSessionChange}

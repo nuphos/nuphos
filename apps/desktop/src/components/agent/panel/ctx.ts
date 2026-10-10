@@ -58,6 +58,7 @@ export type PanelCtx = {
   onSessionChange?: (sessionId: string | null) => void
   onOpenNuphosLink?: (href: string) => boolean
   onOpenAgentSettings?: () => void
+  newChatRequest: number
   autoFocusComposer: boolean
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
