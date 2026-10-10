@@ -47,6 +47,7 @@ export async function generateConversationTitle(
       experimental_telemetry: aiTelemetry({
         userId: context?.userId,
         sessionId: context?.sessionId,
+        teamId: context?.teamId,
         locale,
         phase: 'title-gen',
         provider: config.agent.modelProvider,

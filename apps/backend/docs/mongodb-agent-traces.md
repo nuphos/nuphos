@@ -39,8 +39,11 @@ not exist in Mongo; new children and updates reference its decoded span id.
 UTF-8 and JSON. Decode after concatenation because a multibyte character can
 cross a chunk boundary. The event header is published only after all chunks
 have majority acknowledgement; no 16 MiB document limit truncation occurs.
-There is no TTL on either collection. Conversation deletion purges its trace
-events and chunks after draining pending writes; purge failures are logged.
+There is no TTL on either collection. The maintenance deletion helper purges
+trace events and chunks after waiting only for that session's pending writes;
+a write failure does not skip deletion. The current HTTP conversation DELETE
+route is disabled, so this hook is not an active retention policy. A still-running
+turn can write again after deletion and must be stopped before purging.
 These collections contain conversation data and require the same access
 restrictions and backups as the other agent collections. No public read endpoint is introduced.
 
@@ -48,7 +51,8 @@ restrictions and backups as the other agent collections. No public read endpoint
 
 Writes use majority acknowledgement, stable event/chunk ids and three attempts.
 They do not block the model. Normal backend shutdown drains pending writes
-before closing Mongo. `agent.trace.write_failed` and
+before closing Mongo, concurrently within the existing guard-flush deadline.
+Trace-index setup failures are logged without preventing backend startup. `agent.trace.write_failed` and
 `backend.shutdown.trace_flush_failed` report exhausted retries; this is not a
 transactional outbox and cannot guarantee delivery after SIGKILL or a prolonged
 database outage. Partial chunks from an exhausted upload are not published as

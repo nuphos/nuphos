@@ -34,7 +34,7 @@ export type AgentTelemetryMetadata = Record<string, AttrPrimitive | undefined | 
 
 export function aiTelemetry(metadata: AgentTelemetryMetadata):
   | {
-      isEnabled: true
+      isEnabled: boolean
       metadata: Record<string, AttrPrimitive>
       functionId?: string
       integrations?: NonNullable<TelemetrySettings['integrations']>
@@ -43,7 +43,6 @@ export function aiTelemetry(metadata: AgentTelemetryMetadata):
   // Enable when either tracing destination is active. Braintrust uses the
   // `integrations` hook the AI SDK exposes; the OTel pipeline picks up spans
   // automatically through the global tracer provider registered at boot.
-  if (!enabled && !otelEnabled) return undefined
   const cleaned: Record<string, AttrPrimitive> = {}
 
   for (const [k, v] of Object.entries(metadata)) {
@@ -51,7 +50,7 @@ export function aiTelemetry(metadata: AgentTelemetryMetadata):
     cleaned[k] = v
   }
 
-  return { isEnabled: true, metadata: cleaned }
+  return { isEnabled: enabled || otelEnabled, metadata: cleaned }
 }
 
 export {

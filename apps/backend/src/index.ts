@@ -60,7 +60,9 @@ watchDevLauncher(config.devLauncherPid, () => {
 validateAwsOidcConfig()
 
 await connectDb()
-await setupTraceIndexes()
+await setupTraceIndexes().catch((error: unknown) => {
+  logError('agent.trace.indexes_failed', error)
+})
 logEvent('info', 'backend.mongodb.connected')
 // Memory provider registry boot gate: a malformed provider bundle or a
 // MEMORY_PROVIDER default naming an unregistered/external provider fails the
@@ -234,13 +236,16 @@ async function shutdown(sig: string) {
   // 4. Flush asynchronous busy-guard releases before Redis closes so sessions
   //    are not blocked until their lease TTL expires. The run-store owner-lease
   //    sweep remains the fallback for releases that arrive after this point.
-  try {
-    await flushGuardWrites(shutdownBudget.guardFlushMs)
-  } catch (err) {
-    logError('backend.shutdown.guard_flush_failed', err, {
-      flush_deadline_ms: shutdownBudget.guardFlushMs,
-    })
-  }
+  await Promise.allSettled([
+    flushGuardWrites(shutdownBudget.guardFlushMs).catch((err: unknown) => {
+      logError('backend.shutdown.guard_flush_failed', err, {
+        flush_deadline_ms: shutdownBudget.guardFlushMs,
+      })
+    }),
+    flushTraceWrites(shutdownBudget.guardFlushMs).catch((error: unknown) => {
+      logError('backend.shutdown.trace_flush_failed', error)
+    }),
+  ])
 
   await closeAgentWorkerQueues()
 
@@ -248,11 +253,6 @@ async function shutdown(sig: string) {
   shutdownMemoryRetentionRollup()
   conversationAutoArchive.shutdown()
   shutdownStuckTurnProbe()
-  try {
-    await flushTraceWrites()
-  } catch (error) {
-    logError('backend.shutdown.trace_flush_failed', error)
-  }
   await Promise.allSettled([shutdownPostHog(), shutdownJournalSealer(), closeRedis(), closeDb()])
 
   // 6. Flush + close OTel pipelines AFTER deps so any "db closing" /

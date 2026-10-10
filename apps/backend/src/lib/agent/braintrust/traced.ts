@@ -39,13 +39,6 @@ export async function traced<T>(
 
     return span.withActive(async () => {
       try {
-        if (args.metadata !== undefined || args.input !== undefined) {
-          span.log({
-            ...(args.input !== undefined ? { input: args.input } : {}),
-            ...(args.metadata ? { metadata: args.metadata } : {}),
-          })
-        }
-
         return await fn(span)
       } catch (err) {
         span.log({ error: err })
@@ -60,12 +53,6 @@ export async function traced<T>(
     async (span) => {
       const dualSpan = makeDualSpan(args, span)
 
-      if (args.metadata !== undefined || args.input !== undefined) {
-        dualSpan.log({
-          ...(args.input !== undefined ? { input: args.input } : {}),
-          ...(args.metadata ? { metadata: args.metadata } : {}),
-        })
-      }
       if (dualSpan instanceof DualTraceSpan) {
         return await dualSpan.withActive(async () => {
           try {
@@ -84,6 +71,7 @@ export async function traced<T>(
     {
       name: args.name,
       type: args.type,
+      event: { input: args.input, metadata: args.metadata },
       ...(braintrustParent(args.parent) ? { parent: braintrustParent(args.parent) } : {}),
     },
   )
@@ -118,7 +106,6 @@ export async function createConversationParent(args: {
       type: 'task',
     })
 
-    mongoSpan.record('log', { output: args.output, metrics: args.metrics })
     mongoSpan.end()
 
     return mongoSpan.export()
@@ -140,7 +127,6 @@ export async function createConversationParent(args: {
     span,
   )
 
-  mongoSpan.record('log', { output: args.output, metrics: args.metrics })
   try {
     return mongoSpan.export(await span.export())
   } finally {

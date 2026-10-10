@@ -7,6 +7,7 @@ import { flushTraceWrites, purgeConversationTraces, serializeTracePayload } from
 
 let release: (() => void) | undefined
 let block = false
+let failures = 0
 const deletes: unknown[] = []
 const headers: Record<string, unknown>[] = []
 
@@ -14,6 +15,7 @@ useDb({
   db: () => ({
     collection: (name: string) => ({
       updateOne: async (_filter: unknown, update: { $setOnInsert: Record<string, unknown> }) => {
+        if (failures-- > 0) throw new Error('temporary database outage')
         if (block)
           await new Promise<void>((resolve) => {
             release = resolve
@@ -66,4 +68,37 @@ test('cyclic error causes do not drop the entire trace event', () => {
     message: 'cycle',
     cause: '[Circular]',
   })
+})
+
+test('purge runs after its own failed writes and preserves the failure report', async () => {
+  failures = 3
+  const span = new MongoTraceSpan({
+    name: 'failed-purge',
+    metadata: { sessionId: 'failed-session' },
+  })
+
+  await purgeConversationTraces('failed-session')
+  expect(deletes.slice(-2)).toEqual([
+    { name: 'agent_trace_payloads', filter: { sessionId: 'failed-session' } },
+    { name: 'agent_trace_events', filter: { sessionId: 'failed-session' } },
+  ])
+  expect(headers.some((row) => row.spanId === span.context.spanId)).toBe(false)
+  await expect(flushTraceWrites()).rejects.toThrow('could not be persisted')
+})
+
+test('purge does not wait for another session', async () => {
+  block = true
+  const span = new MongoTraceSpan({ name: 'other', metadata: { sessionId: 'other-session' } })
+
+  try {
+    await purgeConversationTraces('target-session')
+    expect(headers.some((row) => row.spanId === span.context.spanId)).toBe(false)
+    expect(deletes.slice(-1)).toEqual([
+      { name: 'agent_trace_events', filter: { sessionId: 'target-session' } },
+    ])
+  } finally {
+    block = false
+    release!()
+    await flushTraceWrites()
+  }
 })

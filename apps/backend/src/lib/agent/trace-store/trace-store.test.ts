@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { useDb } from '@/lib/test/doubles/db'
 
 import {
+  aiTelemetry,
   createConversationParent,
   startTraceSpan,
   traced,
@@ -162,7 +163,11 @@ test('real AI SDK records resolved provider prompt, structured output, usage and
     system: 'system instructions',
     prompt: 'question',
     output: Output.object({ schema: z.object({ answer: z.string() }) }),
-    experimental_telemetry: { isEnabled: false, metadata: { sessionId: 'sdk-session' } },
+    experimental_telemetry: aiTelemetry({
+      sessionId: 'sdk-session',
+      teamId: 'sdk-team',
+      userId: 'sdk-user',
+    }),
   })
 
   expect(result.output).toEqual({ answer: 'yes' })

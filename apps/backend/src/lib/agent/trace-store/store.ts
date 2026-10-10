@@ -21,7 +21,7 @@ export type TraceEvent = {
 }
 
 const CHUNK_BYTES = 512 * 1024
-const pending = new Set<Promise<void>>()
+const pending = new Map<Promise<void>, string | undefined>()
 let failedWrites = 0
 
 // Snapshot at log-time, before callers can mutate an input/result. JSON is
@@ -134,19 +134,16 @@ export function writeTraceEvent(event: TraceEvent, payload: unknown): void {
     }
   })()
 
-  pending.add(task)
+  pending.set(task, event.sessionId)
   void task.finally(() => pending.delete(task))
 }
 
-export async function flushTraceWrites(timeoutMs = 10_000): Promise<void> {
+async function withDeadline(work: Promise<unknown>, timeoutMs: number): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined
-  const drain = async () => {
-    while (pending.size) await Promise.all(pending)
-  }
 
   try {
     await Promise.race([
-      drain(),
+      work,
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           reject(
@@ -158,6 +155,14 @@ export async function flushTraceWrites(timeoutMs = 10_000): Promise<void> {
   } finally {
     clearTimeout(timer)
   }
+}
+
+export async function flushTraceWrites(timeoutMs = 10_000): Promise<void> {
+  const drain = async () => {
+    while (pending.size) await Promise.all(pending.keys())
+  }
+
+  await withDeadline(drain(), timeoutMs)
   if (failedWrites) {
     const count = failedWrites
 
@@ -167,7 +172,16 @@ export async function flushTraceWrites(timeoutMs = 10_000): Promise<void> {
 }
 
 export async function purgeConversationTraces(sessionId: string): Promise<void> {
-  await flushTraceWrites()
-  await db().collection('agent_trace_payloads').deleteMany({ sessionId })
-  await db().collection('agent_trace_events').deleteMany({ sessionId })
+  const writes = [...pending].filter(([, owner]) => owner === sessionId).map(([write]) => write)
+
+  try {
+    await withDeadline(Promise.allSettled(writes), 5_000)
+  } finally {
+    // A failed or slow write must never skip either deletion. Do not consume
+    // the global failure counter: shutdown still needs to report that loss.
+    await Promise.all([
+      db().collection('agent_trace_payloads').deleteMany({ sessionId }),
+      db().collection('agent_trace_events').deleteMany({ sessionId }),
+    ])
+  }
 }
