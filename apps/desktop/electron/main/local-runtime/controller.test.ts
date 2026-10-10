@@ -19,7 +19,6 @@ function harness(
   agentHome = true,
   cliCache: Record<string, Partial<Record<LocalAgentProvider, AgentCliStatus>>> = {},
   bundled = { current: true },
-  prepareComputerUse?: () => Promise<void>,
 ) {
   const events: string[] = []
   const probeHomes: (string | undefined)[] = []
@@ -67,7 +66,6 @@ function harness(
     },
     prepareAgentHome: (provider, userDir) =>
       agentHome ? path.join(userDir, `${provider}-home`) : undefined,
-    prepareComputerUse,
     registerDevice: () => {
       events.push('register')
 
@@ -411,47 +409,4 @@ test('usage reads the same isolated provider credentials as the running agents',
   )
   assert.equal(usageEnvs.find((entry) => entry.provider === 'codex')?.env.CODEX_HOME, home('codex'))
   await controller.setUser(null)
-})
-
-test('Codex waits for Computer Use authorization while Claude can start', async () => {
-  let allow!: () => void
-  const permission = new Promise<void>((resolve) => {
-    allow = resolve
-  })
-  const h = harness({}, true, {}, { current: true }, () => permission)
-  const starting = h.controller.setUser('alice')
-
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.ok(h.events.includes(started('claude-code')))
-  assert.ok(!h.events.includes(started('codex')))
-  allow()
-  await starting
-  assert.ok(h.events.includes(started('codex')))
-  await h.controller.shutdown()
-})
-
-test('denied Computer Use authorization prevents Codex startup', async () => {
-  const h = harness({}, true, {}, { current: true }, () =>
-    Promise.reject(new Error('permission denied')),
-  )
-
-  await h.controller.setUser('alice')
-  assert.ok(!h.events.includes(started('codex')))
-  assert.match(h.controller.state().agents.codex.error ?? '', /permission denied/u)
-  await h.controller.shutdown()
-})
-
-test('signing out while authorization is pending cannot start Codex', async () => {
-  let allow!: () => void
-  const permission = new Promise<void>((resolve) => {
-    allow = resolve
-  })
-  const h = harness({}, true, {}, { current: true }, () => permission)
-  const starting = h.controller.setUser('alice')
-
-  await new Promise((resolve) => setImmediate(resolve))
-  await h.controller.setUser(null)
-  allow()
-  await starting
-  assert.ok(!h.events.includes(started('codex')))
 })
