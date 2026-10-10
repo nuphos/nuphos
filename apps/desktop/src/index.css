@@ -442,6 +442,16 @@
       box-shadow 150ms ease;
   }
 
+  /* Session find (SessionFindBar): every match, then the one stepped to. */
+  ::highlight(session-find) {
+    background-color: rgb(250 204 21 / 0.35);
+  }
+
+  ::highlight(session-find-current) {
+    background-color: rgb(249 115 22 / 0.85);
+    color: #000;
+  }
+
   .composer-surface {
     box-shadow:
       inset 0 1px 0 var(--surface-inner-highlight),
@@ -1242,10 +1252,10 @@
   }
 
   .sidebar-surface {
-    background-color: rgba(var(--color-appBg), 0.9);
+    background-color: rgba(var(--color-appBg), 0.75);
   }
   html.light .sidebar-surface {
-    background-color: rgba(var(--color-appBg), 0.7);
+    background-color: rgba(var(--color-appBg), 0.65);
   }
   /* Docked, the partial alpha lets the window's vibrancy through. Floating over
      the content while collapsed there is no vibrancy behind it — only the page,
@@ -2078,4 +2088,89 @@ html.platform-darwin:not(.window-fullscreen)
 .selectable:has(.react-draggable-dragging, .resizing) * {
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Sidebar sessions share the existing resize and stagger motion tokens. */
+.t-sidebar-session {
+  --stagger-dur: var(--resize-dur);
+  --stagger-distance: 4px;
+  --stagger-stagger: 0ms;
+}
+@starting-style {
+  .t-sidebar-session[data-open='true'] {
+    grid-template-rows: 0fr;
+  }
+  .t-sidebar-session.is-shown > .t-stagger-line {
+    opacity: 0;
+    transform: translateY(var(--stagger-distance));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-sidebar-session > .t-stagger-line {
+    transform: none !important;
+  }
+}
+
+/* Session heading changes use the text-swap motion tokens without delaying navigation. */
+.t-session-heading {
+  animation: t-session-heading-enter var(--text-swap-dur) var(--text-swap-ease) both;
+}
+@keyframes t-session-heading-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--text-swap-translate-y));
+    filter: blur(var(--text-swap-blur));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-session-heading {
+    animation: none;
+  }
+}
+
+/* Small resource labels need theme-specific contrast, including hover fills. */
+:root {
+  --resource-linear: #a4adff;
+  --resource-open: #66d98c;
+  --resource-merged: #c4a2ff;
+  --resource-closed: #ff9aa3;
+}
+html.light {
+  --resource-linear: #505fc4;
+  --resource-open: #16713a;
+  --resource-merged: #7541b1;
+  --resource-closed: #b42332;
+}
+.session-resource-linear {
+  color: var(--resource-linear);
+}
+.session-resource-open {
+  color: var(--resource-open);
+}
+.session-resource-merged {
+  color: var(--resource-merged);
+}
+.session-resource-closed {
+  color: var(--resource-closed);
+}
+.session-resource-tag {
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+  background-color: color-mix(in srgb, currentColor 6%, rgb(var(--color-background-base)));
+}
+.session-resource-tag button[title='Unlink resource']:hover {
+  color: var(--resource-closed);
+}
+
+/* Let a trace of the native backdrop through page canvases, not their controls. */
+.workspace-content-surface {
+  background-color: rgba(var(--color-background-base), 0.9);
+}
+.workspace-content-surface .agent-page-layout,
+.workspace-content-surface .workspace-page-toolbar {
+  background-color: transparent;
 }

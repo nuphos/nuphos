@@ -3,15 +3,111 @@ import { randomUUID } from 'node:crypto'
 import { pausedTurnKind } from '@/lib/agent/round-continuation'
 import { turnRunner } from '@/lib/agent/turn-runner'
 import { sendDiscordMessage } from '@/lib/discord/api'
-import { discordInstallations, discordChannelMappings, markDiscordEvent } from '@/lib/discord/store'
+import { parseMessageMetadata } from '@/lib/agent/message-metadata'
+import {
+  discordAgentThreads,
+  discordInstallations,
+  discordChannelMappings,
+  markDiscordEvent,
+} from '@/lib/discord/store'
 import { startDiscordTyping } from '@/lib/discord/typing'
 import { logError } from '@/lib/observability'
 import { SlackAgentRunSink } from '@/lib/slack/stream-sink'
 
 import { postDiscordToolApproval } from './approval'
 import { recordDiscordThreadMessage } from './thread-history'
+import { syncDiscordThread } from './transcript'
 
 import type { UIMessage } from 'ai'
+
+type DiscordThreadRef = {
+  teamId: string
+  guildId: string
+  generation: number
+  parentChannelId: string
+}
+
+async function isDiscordThreadConnected(thread: DiscordThreadRef): Promise<boolean> {
+  const installation = await discordInstallations().findOne({
+    teamId: thread.teamId,
+    guildId: thread.guildId,
+    generation: thread.generation,
+    enabled: true,
+  })
+
+  return Boolean(
+    installation &&
+    (await discordChannelMappings().findOne({
+      teamId: thread.teamId,
+      guildId: thread.guildId,
+      channelId: thread.parentChannelId,
+      enabled: true,
+    })),
+  )
+}
+
+const mirrorDependencies = {
+  discordAgentThreads,
+  isDiscordThreadConnected,
+  sendDiscordMessage,
+  recordDiscordThreadMessage,
+  syncDiscordThread,
+}
+
+/**
+ * A turn started from the Nuphos app in a session bound to a Discord thread:
+ * the question and the reply are posted to the thread too, so the thread
+ * mirrors the session. Returns null when the session has no connected thread;
+ * otherwise the sink to attach to the run, and `finish` to call once it ends.
+ */
+export async function mirrorAppTurnToDiscord(
+  args: {
+    sessionId: string
+    teamId: string
+    /** The message that started the turn; absent when a turn is only resumed. */
+    message?: UIMessage
+  },
+  deps: typeof mirrorDependencies = mirrorDependencies,
+): Promise<{ frameSink: SlackAgentRunSink; finish: () => Promise<void> } | null> {
+  const thread = await deps.discordAgentThreads().findOne({
+    sessionId: args.sessionId,
+    teamId: args.teamId,
+  })
+
+  if (!thread || !(await deps.isDiscordThreadConnected(thread))) return null
+  const post = async (authorName: string, text: string, fromBot: boolean) => {
+    if (!(await deps.isDiscordThreadConnected(thread))) return
+    await deps.sendDiscordMessage(
+      thread.threadChannelId,
+      fromBot ? text : `**${authorName}** (from Nuphos):\n${text}`,
+    )
+    await deps.recordDiscordThreadMessage(args.sessionId, {
+      id: randomUUID(),
+      authorName,
+      text,
+      ...(fromBot ? { fromBot } : {}),
+    })
+  }
+  const text = args.message?.parts
+    .flatMap((part) => (part.type === 'text' && part.text ? [part.text] : []))
+    .join('\n\n')
+
+  if (text) {
+    const sender = parseMessageMetadata(args.message?.metadata)?.sender.displayName
+
+    await post(sender ?? 'Someone', text, false)
+  }
+  const frameSink = new SlackAgentRunSink((reply) => post('Nuphos', reply, true))
+
+  return {
+    frameSink,
+    finish: async () => {
+      await frameSink.settle()
+      // What the thread said while this turn held the transcript.
+      await deps.syncDiscordThread(thread, thread.agentUserId)
+    },
+  }
+}
 
 export async function executeDiscordTurn(args: {
   eventId: string
@@ -26,25 +122,10 @@ export async function executeDiscordTurn(args: {
   nuphosToken: string
   messages: UIMessage[]
   firstMessage: string
+  turnContext?: string
 }): Promise<void> {
-  const isConnected = async () => {
-    const installation = await discordInstallations().findOne({
-      teamId: args.teamId,
-      guildId: args.guildId,
-      generation: args.installationGeneration,
-      enabled: true,
-    })
-
-    return Boolean(
-      installation &&
-      (await discordChannelMappings().findOne({
-        teamId: args.teamId,
-        guildId: args.guildId,
-        channelId: args.parentChannelId,
-        enabled: true,
-      })),
-    )
-  }
+  const isConnected = () =>
+    isDiscordThreadConnected({ ...args, generation: args.installationGeneration })
 
   if (!(await isConnected())) {
     await markDiscordEvent(args.eventId, 'ignored')
@@ -87,6 +168,7 @@ export async function executeDiscordTurn(args: {
       sessionId: args.sessionId,
       messages: args.messages,
       firstMessage: args.firstMessage,
+      ...(args.turnContext ? { turnContext: args.turnContext } : {}),
       source: 'discord.agent',
       frameSink: sink,
     })

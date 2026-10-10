@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export type TunnelPurpose = 'transport' | 'control' | 'exec' | 'file'
+export type TunnelPurpose = 'transport' | 'control' | 'exec' | 'file' | 'terminal'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
 
@@ -79,6 +79,7 @@ export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
 
 export const localRuntimeStatusSchema = z.object({
   localExec: z.boolean().optional(),
+  localTerminal: z.boolean().optional(),
   agents: z.object({
     'claude-code': localAgentStatusSchema.optional(),
     codex: localAgentStatusSchema.optional(),

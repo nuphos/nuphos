@@ -1,9 +1,10 @@
 import { clsx } from 'clsx'
 import { useCallback, useEffect, useState } from 'react'
 
+import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
-import { paneRects, removePane, splitPane } from './splitLayout'
+import { isSplitShortcut, paneRects, removePane, splitPane } from './splitLayout'
 import { createWorkspaceState, selectAllResidentTabs, selectScope } from './store/workspaceState'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
 
@@ -72,13 +73,7 @@ export function WorkspaceSplits({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        !(event.metaKey || event.ctrlKey) ||
-        event.altKey ||
-        event.code !== 'KeyD' ||
-        event.isComposing
-      )
-        return
+      if (!isSplitShortcut(event, isMac)) return
       event.preventDefault()
       event.stopImmediatePropagation()
       if (!event.repeat) split(event.shiftKey ? 'column' : 'row')

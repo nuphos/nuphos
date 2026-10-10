@@ -131,9 +131,6 @@ export function agentConfig() {
       // (undefined) only in a dev env with neither set.
       approvalSecret: optional('AGENT_AUTO_MODE_APPROVAL_SECRET') ?? optional('JOURNAL_HMAC_KEY'),
     },
-    // Opt in with a private, persistent, replica-local SQLite spool path.
-    // No payload truncation or drop-on-full: failed delivery stays on disk.
-    mongoTraceSpoolPath: optional('AGENT_MONGO_TRACE_SPOOL_PATH'),
     // 0 preserves all history. Positive values expire both headers and chunks.
     mongoTraceRetentionDays: boundedInt('AGENT_MONGO_TRACE_RETENTION_DAYS', 0, {
       min: 0,

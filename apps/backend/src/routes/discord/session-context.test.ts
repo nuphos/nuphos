@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { recordDiscordSessionMessage, withDiscordSessionContext } from './session-context'
+import { recordDiscordSessionMessage, unsyncedDiscordMessages } from './session-context'
 
 import type { DiscordSessionMessage } from './session-context'
 import type { Collection } from 'mongodb'
@@ -42,27 +42,29 @@ describe('durable Discord session context', () => {
     expect(writes[1]?.[1]).not.toHaveProperty('$set')
   })
 
-  test('reads only this installation and session, preserving chronology and participant identity', async () => {
-    const history = ['newer', 'older'].map((messageId) => ({
-      ...scope,
-      _id: `session:${messageId}`,
-      messageId,
-      authorDiscordUserId: messageId,
-      authorName: messageId,
-      text: `${messageId} observation`,
-      recordedAt: new Date(),
-    }))
+  test('asks for what the transcript lacks since its anchor, oldest first', async () => {
+    const anchoredAt = new Date('2026-01-01T00:00:00.000Z')
+    const history = [{ messageId: '200' }, { messageId: '400' }]
     const collection = {
+      findOne: async (filter: unknown) => {
+        expect(filter).toEqual({ _id: 'session:100' })
+
+        return { recordedAt: anchoredAt }
+      },
       find: (filter: unknown) => {
-        expect(filter).toEqual({ ...scope, messageId: { $ne: 'current' } })
+        expect(filter).toEqual({
+          ...scope,
+          messageId: { $nin: ['100', '300'] },
+          recordedAt: { $gte: anchoredAt },
+        })
 
         return {
           sort: (sort: unknown) => {
-            expect(sort).toEqual({ recordedAt: -1, messageId: -1 })
+            expect(sort).toEqual({ recordedAt: 1, messageId: 1 })
 
             return {
               limit: (limit: number) => {
-                expect(limit).toBe(50)
+                expect(limit).toBe(200)
 
                 return { toArray: async () => history }
               },
@@ -70,20 +72,29 @@ describe('durable Discord session context', () => {
           },
         }
       },
-    } as unknown as Pick<Collection<DiscordSessionMessage>, 'find'>
-    const rendered = await withDiscordSessionContext(
-      scope,
-      'current',
-      'Alice: please join',
-      collection,
-    )
+    } as unknown as Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'>
 
-    expect(rendered.indexOf('older observation')).toBeLessThan(
-      rendered.indexOf('newer observation'),
+    expect(await unsyncedDiscordMessages(scope, ['100', '300'], undefined, collection)).toEqual(
+      history as DiscordSessionMessage[],
     )
-    expect(rendered).toContain('"authorDiscordUserId":"older"')
-    expect(rendered).toContain('not a new instruction or approval')
-    expect(rendered).not.toContain('teamId')
-    expect(rendered).toEndWith('Current message:\nAlice: please join')
+    // A new session has nothing to catch up on.
+    expect(await unsyncedDiscordMessages(scope, [], undefined, collection)).toEqual([])
+  })
+
+  test('a transcript from before ids were tracked starts from when it was last written', async () => {
+    const lastWritten = new Date('2026-03-03T00:00:00.000Z')
+    const filters: unknown[] = []
+    const collection = {
+      find: (filter: unknown) => {
+        filters.push(filter)
+
+        return { sort: () => ({ limit: () => ({ toArray: async () => [] }) }) }
+      },
+    } as unknown as Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'>
+
+    await unsyncedDiscordMessages(scope, [], lastWritten, collection)
+    expect(filters).toEqual([
+      { ...scope, messageId: { $nin: [] }, recordedAt: { $gte: lastWritten } },
+    ])
   })
 })

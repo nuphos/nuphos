@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 
+import type { SessionResource } from '../session-resources'
+
 import type { GeneralAccess } from './access'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
@@ -66,6 +68,7 @@ export type AgentConversation = {
   sessionId: string // Frontend-generated UUID
   userId: string // Nuphos user id
   teamId?: string
+  linkedResources?: SessionResource[]
   titleManuallySet?: boolean
   title: string
   firstMessage: string

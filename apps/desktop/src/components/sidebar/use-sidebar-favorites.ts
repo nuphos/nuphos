@@ -142,6 +142,7 @@ export function useSidebarFavorites({
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),
         iconNode: chip?.icon ?? live?.iconNode,
         trailing: live?.trailing,
+        description: live?.description,
         enabled: true,
         active: sessionId
           ? sessionId === activeSessionId

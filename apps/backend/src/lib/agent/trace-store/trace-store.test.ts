@@ -1,7 +1,3 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-
 import { generateText, Output } from 'ai'
 import { MockLanguageModelV3 } from 'ai/test'
 import { afterEach, beforeEach, expect, test } from 'bun:test'
@@ -20,27 +16,15 @@ import {
 } from '../tracing'
 
 import { MongoTraceSpan, traceParent } from './span'
-import { closeTraceStore, flushTraceWrites, serializeTracePayload } from './store'
+import { flushTraceWrites, serializeTracePayload } from './store'
 
 import type { Binary } from 'mongodb'
 
 const records = new Map<string, Record<string, unknown>>()
 let failures = 0
 
-let directory: string
-const originalPath = config.agent.mongoTraceSpoolPath
-
-beforeEach(() => {
-  directory = mkdtempSync(join(tmpdir(), 'mongo-traces-'))
-  config.agent.mongoTraceSpoolPath = join(directory, 'queue.sqlite')
-})
 afterEach(async () => {
-  try {
-    await closeTraceStore()
-  } finally {
-    config.agent.mongoTraceSpoolPath = originalPath
-    rmSync(directory, { recursive: true, force: true })
-  }
+  await flushTraceWrites()
 })
 
 useDb({
@@ -63,9 +47,6 @@ useDb({
 beforeEach(() => {
   records.clear()
   failures = 0
-})
-afterEach(async () => {
-  await flushTraceWrites()
 })
 const events = () => [...records.values()].filter((row) => row.collection === 'agent_trace_events')
 const payload = (row: Record<string, unknown>) =>
@@ -259,13 +240,6 @@ test('native exports preserve ids and ownership across later spans', async () =>
     parentSpanId: row.spanId,
     sessionId: 'same-session',
   })
-})
-
-test('disabled Mongo tracing makes no additional content copy', async () => {
-  config.agent.mongoTraceSpoolPath = undefined
-  new MongoTraceSpan({ name: 'disabled', input: 'sensitive' }).end()
-  await flushTraceWrites()
-  expect(records.size).toBe(0)
 })
 
 test('binary values retain every byte in compact base64 form', () => {

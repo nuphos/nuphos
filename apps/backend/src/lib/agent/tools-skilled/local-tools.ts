@@ -20,7 +20,7 @@ export type LocalExecTurn = {
   origin: AgentSessionOrigin
 }
 
-type LocalExecToolResult =
+export type LocalExecToolResult =
   { stdout: string; stderr: string; exitCode: number; ranOn?: string } | { error: string }
 
 /**
@@ -128,7 +128,11 @@ function describeDevices(devices: LocalExecDevice[]): string {
  * decision wait. `devices` is the set already selected for this conversation
  * AND currently online AND opted in — resolved fresh per turn by the caller.
  */
-export function createLocalExecTool(devices: LocalExecDevice[], turn: LocalExecTurn): unknown {
+export function createLocalExecTool(
+  devices: LocalExecDevice[],
+  turn: LocalExecTurn,
+  purpose: 'exec' | 'terminal' = 'exec',
+): unknown {
   const audit = (
     deviceId: string,
     command: string,
@@ -154,7 +158,8 @@ export function createLocalExecTool(devices: LocalExecDevice[], turn: LocalExecT
       description:
         "Execute a shell command on one of the user's local devices (their own Desktop machines that allow local exec and are currently online; only in their own conversations). " +
         "You CAN operate on the user's local files and apps with this — listing, reading, moving, or deleting their files when asked. Never claim you cannot touch the local machine while this tool is available. " +
-        'Use this when the task requires tools or authenticated state installed locally: npm, docker, git, make, cargo, gcloud, aws, etc. ' +
+        'Default to this for isolated local commands with a result and exit code: npm, docker, git, make, cargo, gcloud, aws, etc. Use local_terminal when an interactive or persistent shell, shared input, or a visible terminal is needed. ' +
+        'Send commands directly. NEVER use this tool to launch or drive Terminal, iTerm, Windows Terminal or another terminal app to execute commands (including open -a Terminal, AppleScript/osascript do script or GUI keyboard automation). Use local_terminal for a terminal/dock request; if unavailable, report it rather than launching another app. ' +
         "For cloud operations, use sandbox bash when Nuphos-managed credentials work; use local_exec when the fix requires the user's locally authenticated cloud CLI, including scoped connector permission changes on a device already signed in to the matching CLI with administration access. Verify the local cloud account and identity first. " +
         "IMPORTANT: do NOT use this to run `kubectl port-forward`. Use the typed `port_forward_start` tool instead — `kubectl port-forward` via shell leaves no UI state, the user can't see or stop the forward, and a forward opened inside the sandbox is unreachable from the user's machine.",
       execute: async ({
@@ -183,7 +188,10 @@ export function createLocalExecTool(devices: LocalExecDevice[], turn: LocalExecT
               "No local devices are available for this conversation. Ask the user to select their device in this conversation's credential selector (the shield button in the composer); they must have Nuphos Desktop open and signed in on that device.",
           }
         }
-        const deviceId = pickDevice(devices, device)
+        const deviceId =
+          purpose === 'terminal' && device && !devices.some((d) => d.deviceId === device)
+            ? undefined
+            : pickDevice(devices, device)
 
         if (!deviceId) {
           const choices = `pass device=<deviceId>, one of: ${describeDevices(devices)}.`
@@ -208,7 +216,10 @@ export function createLocalExecTool(devices: LocalExecDevice[], turn: LocalExecT
         let outcome: Awaited<ReturnType<typeof dispatchLocalExec>>
 
         try {
-          outcome = await dispatchLocalExec(turn.userId, deviceId, command, { teamId: turn.teamId })
+          outcome = await dispatchLocalExec(turn.userId, deviceId, command, {
+            teamId: turn.teamId,
+            ...(purpose === 'terminal' ? { purpose } : {}),
+          })
         } catch (err) {
           await audit(deviceId, command, requestedAt, {
             outcome: 'error',
