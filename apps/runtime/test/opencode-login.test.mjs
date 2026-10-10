@@ -80,7 +80,7 @@ test('providers are offered featured first, with the ones already signed in mark
   assert.deepEqual(providerOptions(PROVIDERS), [
     { value: 'openai', label: 'OpenAI' },
     { value: 'github-copilot', label: 'GitHub Copilot' },
-    { value: 'groq', label: 'Groq', hint: 'Signed in' },
+    { value: 'groq', label: 'Groq', hint: 'Connected' },
     { value: 'zai', label: 'Z.AI' },
   ])
 })

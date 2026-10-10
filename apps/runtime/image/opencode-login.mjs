@@ -64,7 +64,7 @@ export function providerOptions({ all, connected }) {
     .map(({ id, name }) => ({
       value: id,
       label: name,
-      ...(connected.includes(id) ? { hint: 'Signed in' } : {}),
+      ...(connected.includes(id) ? { hint: 'Connected' } : {}),
     }))
 }
 

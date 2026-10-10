@@ -14,7 +14,7 @@ export function createRuntimeModelCatalog(deps: {
 }) {
   const cache = new Map<string, { expires: number; result: Promise<RuntimeModelCatalog> }>()
 
-  return async (
+  const catalog = async (
     teamId: string,
     runtimeId: string,
     model?: string,
@@ -61,4 +61,13 @@ export function createRuntimeModelCatalog(deps: {
 
     return entry.result
   }
+
+  /** A sign-in can change which models an agent offers (OpenCode's do), so it drops them. */
+  const forget = (teamId: string, runtimeId: string) => {
+    const prefix = JSON.stringify([teamId, runtimeId]).slice(0, -1)
+
+    for (const key of cache.keys()) if (key.startsWith(`${prefix},`)) cache.delete(key)
+  }
+
+  return Object.assign(catalog, { forget })
 }

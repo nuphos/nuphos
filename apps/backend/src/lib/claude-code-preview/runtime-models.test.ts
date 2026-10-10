@@ -33,6 +33,27 @@ test('model discovery deduplicates concurrent requests, isolates workspaces, and
   expect(calls).toEqual(['one', 'two', 'one'])
 })
 
+test('a sign-in drops only that agent’s cached models', async () => {
+  const calls: string[] = []
+  const catalog = createRuntimeModelCatalog({
+    requireInstance: (_team, id) => Promise.resolve(instance(id)),
+    discover: (_team, agent, model) => {
+      calls.push(`${agent.id}:${model ?? ''}`)
+
+      return Promise.resolve({
+        models: [{ id: 'm', name: 'M' }],
+        controls: { modelId: 'm', fast: false, effort: [] },
+      })
+    },
+    now: () => 0,
+  })
+
+  await Promise.all([catalog('team', 'a'), catalog('team', 'a', 'm'), catalog('team', 'ab')])
+  catalog.forget('team', 'a')
+  await Promise.all([catalog('team', 'a'), catalog('team', 'a', 'm'), catalog('team', 'ab')])
+  expect(calls).toEqual(['a:', 'a:m', 'ab:', 'a:', 'a:m'])
+})
+
 test('failed and empty discoveries are retryable without leaking diagnostics', async () => {
   let attempts = 0
   const catalog = createRuntimeModelCatalog({

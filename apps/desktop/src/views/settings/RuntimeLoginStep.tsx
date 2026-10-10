@@ -1,4 +1,4 @@
-import { ExternalLink, Loader2 } from 'lucide-react'
+import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import {
@@ -50,8 +50,12 @@ function Choose({
         <ComboboxList className="max-h-[300px] overflow-auto p-0 [padding-block:0]">
           {(option: Option) => (
             <ComboboxItem key={option.value} value={option}>
-              <span className="flex-1 truncate">{option.label}</span>
-              {option.hint && <span className="text-xs text-tertiary">{option.hint}</span>}
+              <span className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                {option.hint && (
+                  <span className="shrink-0 text-xs text-tertiary">{option.hint}</span>
+                )}
+              </span>
             </ComboboxItem>
           )}
         </ComboboxList>
@@ -72,6 +76,83 @@ const PASTE_PLACEHOLDER: Record<Paste, string> = {
   address: 'Paste the full address (starts with http://localhost)',
   code: 'Paste code',
   none: '',
+}
+
+/** A short list is picked directly; a long one is searched. */
+const PICK_LIMIT = 6
+
+function Pick({
+  step,
+  onSubmit,
+}: {
+  step: Extract<Step, { kind: 'choose' }>
+  onSubmit: (answer: string) => Promise<void>
+}) {
+  const [sending, setSending] = useState<string | null>(null)
+
+  async function pick(value: string) {
+    setSending(value)
+    try {
+      await onSubmit(value)
+    } catch (cause) {
+      toast.apiError('Could not continue sign-in', cause)
+      setSending(null)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {step.options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          disabled={sending !== null}
+          onClick={() => void pick(option.value)}
+          className="flex w-full items-center justify-between gap-3 rounded-lg border border-zGray-700 px-4 py-3 text-left text-[13px] text-main hover:bg-zGray-800/60 disabled:opacity-50"
+        >
+          <span className="min-w-0 truncate">{option.label}</span>
+          {sending === option.value ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          ) : (
+            option.hint && <span className="shrink-0 text-xs text-tertiary">{option.hint}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** The one-time code a device page asks for, when the instructions carry one. */
+function DeviceCode({ instructions }: { instructions: string }) {
+  const [copied, setCopied] = useState(false)
+  const code = /code:\s*([A-Z0-9-]{4,32})/iu.exec(instructions)?.[1]
+
+  if (!code)
+    return (
+      <p className="whitespace-pre-wrap rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-3 text-[13px] text-main select-text">
+        {instructions}
+      </p>
+    )
+
+  return (
+    <button
+      type="button"
+      aria-label="Copy sign-in code"
+      onClick={() => {
+        void navigator.clipboard.writeText(code).then(
+          () => setCopied(true),
+          () => toast.error('Could not copy code'),
+        )
+      }}
+      className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
+    >
+      <code className="text-2xl font-semibold tracking-widest">{code}</code>
+      <span className="flex items-center gap-1.5 text-xs text-secondary">
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        {copied ? 'Copied' : 'Copy'}
+      </span>
+    </button>
+  )
 }
 
 /** What the user types or picks for a step that takes an answer. */
@@ -144,7 +225,11 @@ export function RuntimeLoginStep({
     return (
       <>
         <p className="text-[13px] leading-5 text-secondary">{step.message}</p>
-        <Answer step={step} onSubmit={onSubmit} />
+        {step.kind === 'choose' && step.options.length <= PICK_LIMIT ? (
+          <Pick step={step} onSubmit={onSubmit} />
+        ) : (
+          <Answer step={step} onSubmit={onSubmit} />
+        )}
         {step.kind === 'input' && step.secret && (
           <p className="text-xs leading-5 text-tertiary">
             Nuphos passes the key to the agent, which keeps it; Nuphos does not keep a copy.
@@ -156,11 +241,7 @@ export function RuntimeLoginStep({
   return (
     <>
       <p className="text-[13px] leading-5 text-secondary">{BROWSER_PROMPT[step.paste ?? 'none']}</p>
-      {step.instructions && (
-        <p className="whitespace-pre-wrap rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-3 text-[13px] text-main select-text">
-          {step.instructions}
-        </p>
-      )}
+      {step.instructions && <DeviceCode instructions={step.instructions} />}
       {step.url && (
         <a
           href={step.url}
