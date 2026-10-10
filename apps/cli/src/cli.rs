@@ -208,9 +208,7 @@ fn open_https(url: &str) {
 }
 
 /// `nuphos model [VALUE] [--effort E] [--session ID]`. With a session it is
-/// that conversation's setting; without one it is the default the next new
-/// conversation starts with, as on the desktop (a team setting for a Cloud
-/// agent).
+/// that conversation's setting; without one it lists the agent's models.
 pub async fn model(
     ctx: &mut Ctx,
     value: Option<String>,
@@ -235,49 +233,19 @@ pub async fn model(
         return Ok(());
     }
 
+    if value.is_some() || effort.is_some() {
+        bail!("Pick a model per conversation: pass --session, or choose one in the app before the first message.");
+    }
     let runtimes = ctx.runtimes().await?;
     let runtime = shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id)
         .ok_or_else(|| anyhow!("This team has no active agents. {}", shared::ADD_AGENT_HINT))?;
     let runtime_id = runtime["id"].as_str().unwrap_or_default().to_string();
-    if value.is_none() && effort.is_none() {
-        let catalog = ctx.api.runtime_models(&team, &runtime_id, None).await?;
-        if ctx.json {
-            ctx.print_json(&json!({ "runtime": runtime, "catalog": catalog }));
-            return Ok(());
-        }
-        let scope = if runtime["kind"] == "local" { "set in the desktop app" } else { "team setting" };
-        println!("Default for new conversations on {} ({scope}):", label(&runtime));
-        let current = runtime["defaults"]["model"].as_str().or(catalog["controls"]["modelId"].as_str());
-        for m in catalog["models"].as_array().into_iter().flatten() {
-            let id = m["id"].as_str().unwrap_or_default();
-            row(Some(id) == current, &[id, m["name"].as_str().unwrap_or_default()]);
-        }
-        if let Some(effort) = runtime["defaults"]["effort"].as_str() {
-            println!("effort: {}", clean(effort));
-        }
-        return Ok(());
-    }
-    if runtime["kind"] == "local" {
-        bail!(
-            "{} is a local agent; change its default model in the desktop app, or pass --session after the first message.",
-            label(&runtime)
-        );
-    }
-    let mut defaults = runtime["defaults"].clone();
-    if !defaults.is_object() {
-        defaults = json!({});
-    }
-    if let Some(v) = value {
-        defaults["model"] = json!(v);
-    }
-    if let Some(e) = effort {
-        defaults["effort"] = json!(e);
-    }
-    ctx.api.set_runtime_defaults(&team, &runtime_id, &defaults).await?;
+    let config = ctx.api.runtime_model_config(&team, &runtime_id, &json!({})).await?;
     if ctx.json {
-        ctx.print_json(&defaults);
+        ctx.print_json(&json!({ "runtime": runtime, "config": config }));
     } else {
-        println!("New conversations on {} start with {}", label(&runtime), clean(&defaults.to_string()));
+        println!("Models on {}:", label(&runtime));
+        print_options(&config);
     }
     Ok(())
 }

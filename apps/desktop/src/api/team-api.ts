@@ -1,3 +1,4 @@
+import type { SessionConfigPick } from './session-config-types.ts'
 import type { LarkBindInput } from '../types/messaging.ts'
 import type {
   AgentProvider,
@@ -52,8 +53,8 @@ export const teamApi = {
     window.api.atlasUpdateRuntimeInstance(teamId, runtimeId, input),
   atlasRemoveRuntimeInstance: (teamId: string, runtimeId: string) =>
     window.api.atlasRemoveRuntimeInstance(teamId, runtimeId),
-  atlasGetRuntimeModels: (teamId: string, runtimeId: string, model?: string) =>
-    window.api.atlasGetRuntimeModels(teamId, runtimeId, model),
+  atlasGetRuntimeModelConfig: (teamId: string, runtimeId: string, pick: SessionConfigPick) =>
+    window.api.atlasGetRuntimeModelConfig(teamId, runtimeId, pick),
   atlasRequestRuntimeUpdate: (teamId: string, runtimeId: string) =>
     window.api.atlasRequestRuntimeUpdate(teamId, runtimeId),
   atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string) =>

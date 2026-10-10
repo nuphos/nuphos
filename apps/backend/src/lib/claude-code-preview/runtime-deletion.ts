@@ -5,7 +5,6 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { placementNamespace, runtimeControllerGone } from './runtime-controllers'
 import { deleteRuntimeAuthSecret } from './runtime-credential-secret'
-import { removeRuntimeDefaults } from './runtime-defaults'
 import { withRuntimePlacementLease } from './runtime-placement-lease'
 import { inspectClaim, removeClaim } from './runtime-deletion-volumes'
 import { runtimeDeletions } from './runtime-portability-store'
@@ -226,7 +225,6 @@ export async function reconcileRuntimeDeletions(
 
       if (latest?.placements.every(placementSettled)) {
         await removeTeamRuntime(job.teamId, job._id, kube)
-        await removeRuntimeDefaults(job.teamId, job._id)
         await runtimeDeletions().updateOne(
           { _id: job._id, teamId: job.teamId },
           { $set: { completedAt: new Date() }, $unset: { error: '' } },

@@ -3,7 +3,6 @@ import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
-import { listRuntimeDefaults } from './runtime-defaults'
 import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
@@ -86,11 +85,6 @@ export async function listRuntimeInstances(
     ...groups.flat(),
     ...(userId ? await listOwnLocalRuntimes(teamId, userId) : []),
   ]
-  const defaults = await listRuntimeDefaults(
-    teamId,
-    instances.map((instance) => instance.id),
-  )
-
   const deletions = await runtimeDeletions()
     .find({ teamId, completedAt: { $exists: false } })
     .sort({ requestedAt: 1 })
@@ -107,7 +101,6 @@ export async function listRuntimeInstances(
           },
         }
       : {}),
-    defaults: instance.kind === 'local' ? instance.defaults : (defaults.get(instance.id) ?? {}),
   }))
 }
 

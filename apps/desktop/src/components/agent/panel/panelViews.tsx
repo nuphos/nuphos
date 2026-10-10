@@ -58,10 +58,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       ? {
           sessionId: activeTab.sessionId,
           teamId,
-          initialModelName:
-            activeTab.initialModel?.runtimeId === activeTab.runtimeId
-              ? activeTab.initialModel?.name
-              : undefined,
         }
       : undefined
   // Only the owner decides who has access, so only they are offered an invite

@@ -2,7 +2,6 @@ import { AppError } from '@/lib/errors'
 
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
-import { runtimeModelCatalog } from './runtime-models'
 import {
   AUTHORIZATION_FIELDS,
   claimRuntimeLogin,
@@ -147,8 +146,6 @@ export async function performRuntimeLogin<Target>(
       },
       { $set: { state: 'connected' }, $unset: AUTHORIZATION_FIELDS },
     )
-    // A sign-in can change which models the agent offers (OpenCode's do).
-    runtimeModelCatalog.forget(doc.teamId, doc.runtimeId)
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },

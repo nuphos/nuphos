@@ -12,12 +12,6 @@ export const AGENT_PROVIDER: Record<AgentProvider, { label: string; account: str
   opencode: { label: 'OpenCode', account: 'a model provider' },
 }
 
-export type RuntimeDefaults = {
-  model?: string
-  fast?: 'on' | 'off'
-  effort?: string
-}
-
 export type LocalRuntimeSummary = {
   ownerUserId: string
   deviceId: string
@@ -47,7 +41,6 @@ export type RuntimeInstance = {
   deletion?: { state: 'deleting'; error?: string }
   /** This computer's agent, known locally before the team catalog lists it. */
   starting?: boolean
-  defaults?: RuntimeDefaults
   createdAt: string
 }
 
@@ -55,7 +48,6 @@ export type CreateRuntimeInput = {
   /** Defaults to the agent type's name, made unique in the team. */
   label?: string
   provider: RuntimeInstance['provider']
-  defaults?: RuntimeDefaults
 }
 
 /** A runtime the operator runs themselves: Nuphos only learns where it is and
@@ -92,7 +84,6 @@ export type PairedExternalRuntime = {
 export type UpdateRuntimeInput = {
   label?: string
   status?: RuntimeInstance['status']
-  defaults?: RuntimeDefaults
 }
 
 export type RuntimeQuotaWindow = {
@@ -152,16 +143,4 @@ export type RuntimeLoginStatus = {
   codeSubmitted?: boolean
   error?: string
   expiresAt: string
-}
-
-export type RuntimeModelCatalog = {
-  models: { id: string; name: string; description?: string }[]
-  controls?: {
-    modelId: string
-    effort: { value: string; name: string }[]
-    fast: boolean
-    defaultFast?: 'on' | 'off'
-    defaultEffort?: string
-  }
-  message?: string
 }

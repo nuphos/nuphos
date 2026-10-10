@@ -2,7 +2,7 @@ import { beforeEach, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
-import { shouldInitializePermissionMode } from './chat-permission-mode'
+import { isFirstTurn, shouldInitializePermissionMode } from './chat-permission-mode'
 
 import type { AgentChatBody } from './types'
 
@@ -77,4 +77,13 @@ test('resume, later turns, and paginated history cannot initialize the mode', ()
       null,
     ),
   ).toBe(false)
+})
+
+test('the first turn is recognised without a permission mode, and only once', () => {
+  const { permissionMode: _mode, ...first } = body
+
+  expect(isFirstTurn(first, null)).toBe(true)
+  expect(isFirstTurn(first, { messageCount: 1 })).toBe(true)
+  expect(isFirstTurn(first, { messageCount: 3 })).toBe(false)
+  expect(isFirstTurn({ ...first, resume: true }, null)).toBe(false)
 })

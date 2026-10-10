@@ -1,7 +1,6 @@
 import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
-import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import {
@@ -9,11 +8,6 @@ import {
   requireRuntimeInstance,
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
-import {
-  runtimeDefaultsSchema,
-  setRuntimeDefaults,
-  removeRuntimeDefaults,
-} from '@/lib/claude-code-preview/runtime-defaults'
 import { requestRuntimeDeletion } from '@/lib/claude-code-preview/runtime-deletion'
 import { createManagedRuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
 import { listRuntimeMetricSamples } from '@/lib/claude-code-preview/runtime-metrics-store'
@@ -27,6 +21,8 @@ import {
   setTeamRuntimeStatus,
 } from '@/lib/claude-code-preview/runtime-registry'
 import { claudeCodePreviewRuntimeStatus } from '@/lib/claude-code-preview/runtime-status'
+import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
+import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import {
   runtimeTerminalTarget,
   runtimeTerminalEvents,
@@ -50,13 +46,14 @@ const createSchema = z
   .object({
     label: label.optional(),
     provider: z.enum(OPENAB_PROVIDERS),
-    defaults: runtimeDefaultsSchema.optional(),
+    // Ignored: agents no longer carry model defaults; accepted so older clients still save.
+    defaults: z.unknown().optional(),
   })
   .strict()
 const updateSchema = z
   .object({
     label: label.optional(),
-    defaults: runtimeDefaultsSchema.optional(),
+    defaults: z.unknown().optional(),
     status: z.enum(['active', 'disabled']).optional(),
   })
   .strict()
@@ -99,10 +96,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
   teamScoped.get(
     '/agent-runtimes/:runtimeId/models',
     zv('query', z.object({ model: z.string().trim().min(1).max(500).optional() })),
-    async (c, next) => {
-      if (isLocalRuntimeId(c.req.param('runtimeId'))) await next()
-      else await requireTeamRole('ADMINISTRATOR')(c, next)
-    },
     async (c) =>
       c.json(
         await runtimeModelCatalog(
@@ -112,6 +105,20 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
           c.get('userId'),
         ),
       ),
+  )
+  // A conversation that has not started yet picks from the runtime's own choices.
+  teamScoped.get(
+    '/agent-runtimes/:runtimeId/model-config',
+    zv('query', sessionConfigPickSchema),
+    async (c) => {
+      const { options } = await offeredSessionConfig(
+        (model) =>
+          runtimeModelCatalog(c.get('teamId'), c.req.param('runtimeId'), model, c.get('userId')),
+        c.req.valid('query'),
+      )
+
+      return c.json({ status: 'dormant', options })
+    },
   )
   teamScoped.get(
     '/agent-runtimes/:runtimeId/metrics',
@@ -202,10 +209,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
         userId: c.get('userId'),
       })
 
-      if (input.defaults !== undefined)
-        await setRuntimeDefaults(teamId, instance.id, input.defaults)
-
-      return c.json({ ...instance, defaults: input.defaults ?? {} }, 201)
+      return c.json(instance, 201)
     },
   )
   teamScoped.patch(
@@ -233,9 +237,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
           await setTeamRuntimeStatus(teamId, instance.id, patch.status)
       }
 
-      if (patch.defaults !== undefined)
-        await setRuntimeDefaults(teamId, instance.id, patch.defaults)
-
       return c.json(await requireRuntimeInstance(teamId, instance.id))
     },
   )
@@ -255,8 +256,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       return c.json({ status: 'deleting' }, 202)
     }
     await removeTeamRuntime(teamId, instance.id)
-
-    await removeRuntimeDefaults(teamId, instance.id)
 
     return c.body(null, 204)
   })

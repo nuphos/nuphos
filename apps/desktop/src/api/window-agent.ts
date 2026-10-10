@@ -35,7 +35,11 @@ import type {
 } from './agent-types.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
-import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
+import type {
+  SessionConfigPick,
+  SessionConfigSelection,
+  SessionConfigState,
+} from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
@@ -85,6 +89,8 @@ export type WindowAgentApi = {
     permissionMode?: 'auto' | 'bypass'
     agentRuntime?: AgentProvider
     runtimeId?: string
+    /** Model settings picked before this conversation existed. */
+    initialSessionConfig?: SessionConfigPick
   }): Promise<void>
   agentNotifyStopped(args: {
     title: string

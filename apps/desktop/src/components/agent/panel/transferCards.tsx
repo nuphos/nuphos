@@ -9,15 +9,16 @@ import { useReportVisibleError } from '../../VisibleErrorReporter'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { mediaKind, previewKind } from './transferDownloads'
+import { filesBesidePreviews, mediaKind, previewKind } from './transferDownloads'
 import { TransferPreviews } from './transferPreviews'
 
 import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
 
 // Files the agent produced for the user. Bytes live in the transfer store.
-// Images (click to enlarge) and videos play inline; every file can still be saved
-// via a native dialog (single file) or streamed into a local zip.
+// Images show as thumbnails (saved from the preview) and videos play inline, with
+// no frame around them; any other file is a row saved through a native dialog,
+// and several rows can be saved together as a zip of the whole group.
 export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
@@ -62,56 +63,14 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     })
   }
 
-  async function downloadOne(fileId: string, fileName: string) {
-    setBusy(fileId)
-    try {
-      const r = await api.fileTransferDownloadOne({ ...base, fileId, fileName })
+  function fileRows(files: FileTransferGroup['files']) {
+    if (files.length === 0) return null
+    // Images are saved from their preview; several listed files can go in one zip.
+    const zippable = !expired && files.filter((f) => f.status === 'ready').length > 1
 
-      if (r.saved && r.path) savedToast('Saved', fileName, r.path)
-    } catch (err) {
-      toast.apiError('Download failed', err)
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  async function downloadZip() {
-    setBusy('__zip__')
-    try {
-      const r = await api.fileTransferDownloadAllZip({ ...base, zipName: group.label || 'files' })
-
-      if (r.saved && r.path)
-        savedToast('Saved zip', `${String(r.count ?? ready.length)} file(s)`, r.path)
-    } catch (err) {
-      toast.apiError('Download failed', err)
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  return (
-    <div className="w-full max-w-[85%] self-start rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2.5">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[11.5px] text-tertiary">
-          <FileSearch className="h-3 w-3" strokeWidth={2} />
-          {expired
-            ? 'Expired — files are no longer available'
-            : `${String(ready.length)} file${ready.length === 1 ? '' : 's'} ready to download`}
-        </span>
-        {!expired && ready.length > 1 && (
-          <Button
-            variant="primary"
-            onClick={() => void downloadZip()}
-            disabled={busy !== null}
-            className="h-auto rounded px-1.5 py-[4px] text-[10px] font-medium leading-tight"
-          >
-            {busy === '__zip__' ? 'Zipping…' : 'Download all as zip'}
-          </Button>
-        )}
-      </div>
-      {hasPreviews && <TransferPreviews teamId={teamId} groupId={group.groupId} />}
+    return (
       <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
-        {group.files.map((f) => (
+        {files.map((f) => (
           <div key={f.id} className="flex items-center gap-2 text-[12.5px]">
             <span
               className={clsx(
@@ -141,7 +100,67 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
             )}
           </div>
         ))}
+        {zippable && (
+          <Button
+            variant="ghost"
+            onClick={() => void downloadZip()}
+            disabled={busy !== null}
+            title="Saves every file in this group, images included"
+            className="h-auto self-start rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
+          >
+            {busy === '__zip__' ? 'Zipping…' : 'Download all as zip'}
+          </Button>
+        )}
       </div>
+    )
+  }
+
+  async function downloadZip() {
+    setBusy('__zip__')
+    try {
+      const r = await api.fileTransferDownloadAllZip({ ...base, zipName: group.label || 'files' })
+
+      if (r.saved && r.path)
+        savedToast('Saved zip', `${String(r.count ?? ready.length)} file(s)`, r.path)
+    } catch (err) {
+      toast.apiError('Download failed', err)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function downloadOne(fileId: string, fileName: string) {
+    setBusy(fileId)
+    try {
+      const r = await api.fileTransferDownloadOne({ ...base, fileId, fileName })
+
+      if (r.saved && r.path) savedToast('Saved', fileName, r.path)
+    } catch (err) {
+      toast.apiError('Download failed', err)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="w-full max-w-[85%] self-start">
+      {expired && (
+        <p className="mb-1.5 flex items-center gap-1.5 text-[11.5px] text-tertiary">
+          <FileSearch className="h-3 w-3" strokeWidth={2} />
+          Expired — files are no longer available
+        </p>
+      )}
+      {hasPreviews ? (
+        <TransferPreviews
+          teamId={teamId}
+          groupId={group.groupId}
+          onDownload={(f) => void downloadOne(f.id, f.fileName)}
+        >
+          {(previewed) => fileRows(filesBesidePreviews(group.files, previewed))}
+        </TransferPreviews>
+      ) : (
+        fileRows(group.files)
+      )}
     </div>
   )
 }
@@ -156,35 +175,39 @@ function formatTransferBytes(bytes: number | null): string {
 
 // User-uploaded files. Bytes already live in the transfer store;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
+// Images show as thumbnails above it; when nothing else is left to list, the
+// card itself is dropped so a photo message reads as photos.
 export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
-  // Only images and videos read as media, not as a file list.
-  const media =
-    teamId &&
+  const previewTeam =
     part.status !== 'uploading' &&
     part.status !== 'error' &&
     part.groupId &&
-    !part.archive
-      ? part.files.length > 0 && part.files.every((f) => mediaKind(f.fileName))
-      : false
-  const card = <UploadedFilesList part={part} teamId={teamId} previews={!media} />
+    !part.archive &&
+    part.files.some((f) => mediaKind(f.fileName))
+      ? teamId
+      : undefined
 
-  if (!media) return card
+  if (!previewTeam) return <UploadedFilesList part={part} rows={part.files} />
 
   return (
-    <div className="flex max-w-[min(85%,480px)] justify-end self-end">
-      <TransferPreviews teamId={teamId!} groupId={part.groupId} fallback={card} />
+    <div className="flex w-full max-w-[min(85%,480px)] flex-col items-end self-end">
+      <TransferPreviews teamId={previewTeam} groupId={part.groupId}>
+        {(previewed) => {
+          const rows = filesBesidePreviews(part.files, previewed)
+
+          return rows.length > 0 && <UploadedFilesList part={part} rows={rows} />
+        }}
+      </TransferPreviews>
     </div>
   )
 }
 
 function UploadedFilesList({
   part,
-  teamId,
-  previews,
+  rows,
 }: {
   part: TransferUploadPart
-  teamId?: string
-  previews: boolean
+  rows: TransferUploadPart['files']
 }) {
   const total = part.files.length
   const ready = part.files.filter((f) => f.status === 'ready').length
@@ -215,17 +238,8 @@ function UploadedFilesList({
                 : `Uploaded ${String(total)} file${total === 1 ? '' : 's'}${readySuffix}`}
         </span>
       </div>
-      {previews &&
-        teamId &&
-        !uploading &&
-        !errored &&
-        part.groupId &&
-        !part.archive &&
-        part.files.some((f) => mediaKind(f.fileName)) && (
-          <TransferPreviews teamId={teamId} groupId={part.groupId} />
-        )}
       <div className="flex flex-col gap-1">
-        {part.files.map((f, i) => (
+        {rows.map((f, i) => (
           <div key={`${f.fileName}:${String(i)}`} className="flex items-center gap-2 text-[12.5px]">
             <span
               className={clsx(

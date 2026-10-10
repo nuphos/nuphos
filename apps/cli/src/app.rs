@@ -100,11 +100,6 @@ enum PickAction {
     SessionOption {
         config_id: String,
     },
-    /// A new conversation: the runtime's default model, then its effort.
-    DefaultModel,
-    DefaultEffort {
-        model: String,
-    },
 }
 
 /// A question the composer answers instead of sending a message.
@@ -136,6 +131,8 @@ pub struct App {
     runtimes: Vec<Value>,
     runtime: Option<Value>,
     model_label: Option<String>,
+    /// Model settings picked for a conversation not started yet.
+    new_pick: Value,
 
     session_id: String,
     /// No message sent yet: the conversation does not exist on the server.
@@ -214,6 +211,7 @@ impl App {
             runtimes: Vec::new(),
             runtime: None,
             model_label: None,
+            new_pick: json!({}),
             session_id: String::new(),
             is_new: true,
             messages: Vec::new(),
@@ -1010,7 +1008,8 @@ impl App {
         self.assistant = None;
         self.cursor = Cursor::default();
         self.runtime = self.default_runtime();
-        self.model_label = self.runtime_default_model();
+        self.model_label = None;
+        self.new_pick = json!({});
     }
 
     fn send(&mut self, text: &str) {
@@ -1028,6 +1027,9 @@ impl App {
             if let Some(runtime) = &self.runtime {
                 body["runtimeId"] = runtime["id"].clone();
                 body["agentRuntime"] = runtime["provider"].clone();
+            }
+            if self.new_pick.as_object().is_some_and(|pick| !pick.is_empty()) {
+                body["initialSessionConfig"] = self.new_pick.clone();
             }
         }
         self.start_stream(body);
@@ -1224,8 +1226,10 @@ impl App {
                             .find(|r| Some(&r["id"]) == current.as_ref())
                             .cloned()
                             .or_else(|| app.default_runtime());
-                        if app.is_new {
-                            app.model_label = app.runtime_default_model();
+                        // Picks belong to one agent; drop them only when it changed.
+                        if app.is_new && app.runtime.as_ref().map(|r| r["id"].clone()) != current {
+                            app.model_label = None;
+                            app.new_pick = json!({});
                         }
                     }
                     Err(e) => app.notice = Some(format!("Could not load agents: {e}")),
@@ -1236,10 +1240,6 @@ impl App {
 
     fn default_runtime(&self) -> Option<Value> {
         shared::default_runtime(&self.runtimes, &self.prefs, &self.team_id(), &self.me_id)
-    }
-
-    fn runtime_default_model(&self) -> Option<String> {
-        self.runtime.as_ref()?["defaults"]["model"].as_str().filter(|m| *m != "default").map(String::from)
     }
 
     fn refresh_model_label(&mut self) {
@@ -1435,7 +1435,8 @@ impl App {
                 config::write_prefs(&self.prefs);
             }
             self.runtime = Some(runtime);
-            self.model_label = self.runtime_default_model();
+            self.model_label = None;
+            self.new_pick = json!({});
             return;
         }
         let mode = shared::move_mode(self.runtime.as_ref(), &runtime);
@@ -1467,81 +1468,47 @@ impl App {
             self.notice = Some("Wait for the reply to finish before changing the model.".into());
             return;
         }
-        let (api, team) = (self.api.clone(), self.team_id());
-        if !self.is_new {
-            let session = self.session_id.clone();
-            return self.background(true, async move {
-                let result = api.model_config(&team, &session).await;
-                Box::new(move |app: &mut App| match result {
-                    Ok(config) => match option_of_kind(&config, "model") {
-                        Some(option) => app.picker = option_picker(option, "Model"),
-                        None => app.notice = Some("This agent does not offer a model choice right now.".into()),
-                    },
-                    Err(e) => app.notice = Some(e.message),
-                }) as Apply
-            });
-        }
-        // A new conversation starts on the runtime's defaults, as on the desktop.
-        let Some(runtime) = self.runtime.clone() else {
+        let (api, team, session) = (self.api.clone(), self.team_id(), self.session_id.clone());
+        // A new conversation picks from its runtime's own models; the first message carries the pick.
+        let runtime = self.new_runtime_id();
+        if self.is_new && runtime.is_none() {
             self.notice = Some("Choose an agent with /agents first.".into());
             return;
-        };
-        if runtime["kind"] == "local" {
-            self.notice =
-                Some("Change a local agent's default model in the desktop app, or send a message first.".into());
-            return;
         }
-        let id = runtime["id"].as_str().unwrap_or_default().to_string();
+        let pick = self.new_pick.clone();
         self.background(true, async move {
-            let result = api.runtime_models(&team, &id, None).await;
-            Box::new(move |app: &mut App| app.show_default_models(&runtime, result)) as Apply
+            let result = match runtime {
+                Some(runtime) => api.runtime_model_config(&team, &runtime, &pick).await,
+                None => api.model_config(&team, &session).await,
+            };
+            Box::new(move |app: &mut App| match result {
+                Ok(config) => match option_of_kind(&config, "model") {
+                    Some(option) => app.picker = option_picker(option, "Model"),
+                    None => app.notice = Some("This agent does not offer a model choice right now.".into()),
+                },
+                Err(e) => app.notice = Some(e.message),
+            }) as Apply
         });
     }
 
-    fn show_default_models(&mut self, runtime: &Value, result: Result<Value, ApiError>) {
-        match result {
-            Ok(catalog) => {
-                let current =
-                    runtime["defaults"]["model"].as_str().or(catalog["controls"]["modelId"].as_str()).map(String::from);
-                let items: Vec<_> = catalog["models"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .map(|m| {
-                        let id = m["id"].as_str().unwrap_or_default();
-                        (
-                            m["name"].as_str().unwrap_or(id).to_string(),
-                            m["description"].as_str().unwrap_or_default().to_string(),
-                            json!(id),
-                        )
-                    })
-                    .collect();
-                if items.is_empty() {
-                    self.notice =
-                        catalog["message"].as_str().map(String::from).or(Some("No models are available.".into()));
-                    return;
-                }
-                let selected = items.iter().position(|(_, _, v)| v.as_str() == current.as_deref()).unwrap_or(0);
-                self.picker = Some(Picker {
-                    title: "Default model for new conversations on this agent (team setting)".into(),
-                    items,
-                    selected,
-                    action: PickAction::DefaultModel,
-                });
-            }
-            Err(e) if e.status == 403 => {
-                self.notice =
-                    Some("Only team administrators can change a Cloud agent's model before the first message.".into())
-            }
-            Err(e) => self.notice = Some(e.message),
-        }
+    /// The agent a conversation not started yet will run on.
+    fn new_runtime_id(&self) -> Option<String> {
+        self.runtime.as_ref().filter(|_| self.is_new).and_then(|r| r["id"].as_str()).map(String::from)
     }
 
     fn choose_session_option(&mut self, config_id: String, value: Value) {
         let (api, team, session) = (self.api.clone(), self.team_id(), self.session_id.clone());
         let value = value.as_str().unwrap_or_default().to_string();
+        let runtime = self.new_runtime_id();
+        if runtime.is_some() {
+            self.new_pick[&config_id] = Value::String(value.clone());
+        }
+        let pick = self.new_pick.clone();
         self.background(true, async move {
-            let result = api.set_model_config(&team, &session, &config_id, &value).await;
+            let result = match runtime {
+                Some(runtime) => api.runtime_model_config(&team, &runtime, &pick).await,
+                None => api.set_model_config(&team, &session, &config_id, &value).await,
+            };
             Box::new(move |app: &mut App| match result {
                 Ok(config) => {
                     if let Some(label) = option_of_kind(&config, "model").and_then(current_name) {
@@ -1556,69 +1523,6 @@ impl App {
                     }
                 }
                 Err(e) => app.notice = Some(busy_message(e)),
-            }) as Apply
-        });
-    }
-
-    fn choose_default_model(&mut self, model: String) {
-        let Some(runtime) = self.runtime.clone() else { return };
-        let (api, team) = (self.api.clone(), self.team_id());
-        let id = runtime["id"].as_str().unwrap_or_default().to_string();
-        self.background(true, async move {
-            let controls = api.runtime_models(&team, &id, Some(&model)).await.ok().map(|c| c["controls"].clone());
-            Box::new(move |app: &mut App| app.show_default_efforts(&runtime, model, controls)) as Apply
-        });
-    }
-
-    fn show_default_efforts(&mut self, runtime: &Value, model: String, controls: Option<Value>) {
-        let efforts: Vec<Value> = controls
-            .as_ref()
-            .and_then(|c| c["effort"].as_array())
-            .map(|a| a.iter().filter(|o| o["value"] != "default").cloned().collect())
-            .unwrap_or_default();
-        if efforts.is_empty() {
-            return self.save_defaults(json!({ "model": model }));
-        }
-        let inherited =
-            runtime["defaults"]["effort"].as_str().or(controls.as_ref().and_then(|c| c["defaultEffort"].as_str()));
-        let selected = efforts
-            .iter()
-            .position(|o| o["value"].as_str() == inherited)
-            .or_else(|| efforts.iter().position(|o| o["value"] == "medium"))
-            .unwrap_or(0);
-        let items = efforts
-            .iter()
-            .map(|o| {
-                (
-                    o["name"].as_str().or(o["value"].as_str()).unwrap_or_default().to_string(),
-                    String::new(),
-                    o["value"].clone(),
-                )
-            })
-            .collect();
-        self.picker = Some(Picker {
-            title: "Reasoning effort".into(),
-            items,
-            selected,
-            action: PickAction::DefaultEffort { model },
-        });
-    }
-
-    fn save_defaults(&mut self, defaults: Value) {
-        let Some(runtime) = self.runtime.clone() else { return };
-        let (api, team) = (self.api.clone(), self.team_id());
-        let id = runtime["id"].as_str().unwrap_or_default().to_string();
-        self.background(true, async move {
-            let result = api.set_runtime_defaults(&team, &id, &defaults).await;
-            Box::new(move |app: &mut App| match result {
-                Ok(_) => {
-                    if let Some(r) = app.runtime.as_mut().filter(|r| r["id"] == runtime["id"]) {
-                        r["defaults"] = defaults;
-                    }
-                    app.model_label = app.runtime_default_model();
-                    app.reload_runtimes();
-                }
-                Err(e) => app.notice = Some(e.message),
             }) as Apply
         });
     }
@@ -1927,12 +1831,6 @@ impl App {
                     },
                     PickAction::Conversation => self.resume(value),
                     PickAction::SessionOption { config_id } => self.choose_session_option(config_id, value),
-                    PickAction::DefaultModel => {
-                        self.choose_default_model(value.as_str().unwrap_or_default().to_string())
-                    }
-                    PickAction::DefaultEffort { model } => {
-                        self.save_defaults(json!({ "model": model, "effort": value }))
-                    }
                 }
             }
             _ => {}

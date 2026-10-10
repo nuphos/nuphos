@@ -7,13 +7,10 @@ import {
   decodeActivityCursor,
   listLocalRuntimeActivity,
 } from '@/lib/agent/devices/local-runtime/activity'
-import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
-import { setLocalAgentDefaults } from '@/lib/claude-code-preview/local-agent-defaults'
-import { runtimeDefaultsSchema } from '@/lib/claude-code-preview/runtime-defaults'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 import { logError } from '@/lib/observability'
@@ -24,7 +21,6 @@ import { agent } from './router'
 import type { LocalRuntimeActivityPage } from '@/lib/agent/devices/local-runtime/activity'
 import type { RuntimeTunnel, TunnelHolderDeps } from '@/lib/agent/devices/local-runtime/holder'
 import type { AgentDevice } from '@/lib/agent/devices/store'
-import type { RuntimeDefaults } from '@/lib/claude-code-preview/runtime-defaults'
 import type { NuphosTeamMember } from '@/lib/identity'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
@@ -40,7 +36,6 @@ export type DeviceRuntimeRouteDependencies = {
   ) => Promise<LocalRuntimeActivityPage>
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
   getTeamMembers: (teamId: string) => Promise<NuphosTeamMember[]>
-  setLocalAgentDefaults: (runtimeId: string, defaults: RuntimeDefaults) => Promise<void>
 }
 
 function defaultDependencies(): DeviceRuntimeRouteDependencies {
@@ -54,7 +49,6 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
     listActivity: listLocalRuntimeActivity,
     conversationTitlesFor,
     getTeamMembers: (teamId) => getTeamMembers(teamId),
-    setLocalAgentDefaults,
   }
 }
 
@@ -171,21 +165,6 @@ export function createDeviceRuntimeRoutes(
         })),
         nextCursor: page.nextCursor,
       })
-    },
-  )
-
-  routes.put(
-    '/local-agents/:runtimeId/defaults',
-    zv('param', z.object({ runtimeId: z.string().trim().min(1).max(300) })),
-    zv('json', runtimeDefaultsSchema),
-    async (c) => {
-      const { runtimeId } = c.req.valid('param')
-
-      if (parseLocalRuntimeId(runtimeId)?.userId !== c.get('userId'))
-        throw new AppError(404, 'runtime_not_found', 'This agent is not one of yours')
-      await deps.setLocalAgentDefaults(runtimeId, c.req.valid('json'))
-
-      return c.json({ ok: true })
     },
   )
 

@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
 
+import type { SessionConfigPick } from '../../src/api/session-config-types'
 import type {
   CreateRuntimeInput,
   PairExternalRuntimeInput,
@@ -41,8 +42,8 @@ export const runtimeApi = {
     ipcRenderer.invoke('atlas:updateRuntimeInstance', teamId, runtimeId, input),
   atlasRemoveRuntimeInstance: (teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('atlas:removeRuntimeInstance', teamId, runtimeId),
-  atlasGetRuntimeModels: (teamId: string, runtimeId: string, model?: string) =>
-    ipcRenderer.invoke('atlas:getRuntimeModels', teamId, runtimeId, model),
+  atlasGetRuntimeModelConfig: (teamId: string, runtimeId: string, pick: SessionConfigPick) =>
+    ipcRenderer.invoke('atlas:getRuntimeModelConfig', teamId, runtimeId, pick),
   atlasRequestRuntimeUpdate: (teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('atlas:requestRuntimeUpdate', teamId, runtimeId),
   atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string) =>

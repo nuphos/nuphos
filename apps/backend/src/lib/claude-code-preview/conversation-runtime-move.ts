@@ -195,11 +195,12 @@ export async function moveConversationRuntime(
         // every path that reads the attachment before the next prompt handed it
         // to the runtime and got "Invalid sessionId" — a 500 on /agent/chat and
         // on model-config. Clearing it means the first prompt creates the
-        // session, and takes the destination's own defaults while doing so.
+        // session; model choices belong to the old agent, so they go too.
         $unset: {
           runtimeOperation: '',
           claudeCodePreviewContext: '',
           claudeCodePreview: '',
+          initialSessionConfig: '',
         },
       },
     )

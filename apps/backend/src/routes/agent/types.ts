@@ -1,6 +1,7 @@
 import type { AgentCredentialSelection } from './types-credentials'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { SpanLike } from '@/lib/agent/tracing'
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 import type { UIMessage } from 'ai'
@@ -33,6 +34,8 @@ export type AgentChatBody = {
   permissionMode?: 'auto' | 'bypass'
   agentRuntime?: OpenAbProvider
   runtimeId?: string
+  /** Model settings picked before the conversation had a session; applied when one starts. */
+  initialSessionConfig?: RuntimeDefaults
   clientCapabilities?: {
     localTools?: boolean
   }

@@ -13,3 +13,6 @@ export type SessionConfigState = {
 }
 
 export type SessionConfigSelection = { configId: string; value: string }
+
+/** Settings picked before a session exists, by option id; the runtime applies them when it starts one. */
+export type SessionConfigPick = Partial<Record<'model' | 'effort' | 'fast', string>>

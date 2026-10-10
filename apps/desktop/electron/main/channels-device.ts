@@ -1,9 +1,4 @@
-import {
-  getDeviceIdentity,
-  listDeviceAudit,
-  setLocalAgentDefaults,
-  updateDeviceLabel,
-} from './device-controller.ts'
+import { getDeviceIdentity, listDeviceAudit, updateDeviceLabel } from './device-controller.ts'
 import {
   getLocalRuntimeState,
   startLocalClaudeLogin,
@@ -28,8 +23,6 @@ export const deviceChannels = {
   'localRuntime:startClaudeLogin': () => startLocalClaudeLogin(),
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:getState': () => getLocalRuntimeState(),
-  'localAgent:setDefaults': (_e: unknown, runtimeId: string, defaults: unknown) =>
-    setLocalAgentDefaults(runtimeId, defaults),
   'localRuntime:refresh': () => refreshLocalRuntime(),
   // Running agents keep their version; the next one started picks up the update.
   'localRuntime:updateAgent': async (_e: unknown, provider: LocalAgentProvider) => {

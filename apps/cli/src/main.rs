@@ -73,7 +73,7 @@ enum Command {
         #[arg(long, requires = "name", conflicts_with = "session")]
         login: bool,
     },
-    /// Show or set the model and reasoning effort (of --session, or for new conversations).
+    /// Show or set a conversation's model and reasoning effort (--session), or list the agent's models.
     Model {
         value: Option<String>,
         #[arg(long)]

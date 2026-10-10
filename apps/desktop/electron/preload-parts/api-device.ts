@@ -16,8 +16,6 @@ export const deviceApi = {
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
   localRuntimeCancelCodexLogin: () => ipcRenderer.invoke('localRuntime:cancelCodexLogin'),
   localRuntimeGetState: () => ipcRenderer.invoke('localRuntime:getState'),
-  localAgentSetDefaults: (runtimeId: string, defaults: unknown) =>
-    ipcRenderer.invoke('localAgent:setDefaults', runtimeId, defaults),
   onLocalRuntimeState: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)
 

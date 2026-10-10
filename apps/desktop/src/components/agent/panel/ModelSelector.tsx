@@ -58,12 +58,17 @@ function modelHint(
     return 'Send a message to start this session before changing model settings.'
 }
 
+export type ModelControl = Pick<
+  ReturnType<typeof useSessionConfig>,
+  'data' | 'loading' | 'slow' | 'saving' | 'error' | 'stalled' | 'queued' | 'open' | 'select'
+> & { setOpen: (open: boolean) => void; refresh: () => void }
+
 export function ModelSelector({
   control,
   disabled,
   streaming,
 }: {
-  control: ReturnType<typeof useSessionConfig>
+  control: ModelControl
   disabled: boolean
   streaming: boolean
 }) {
@@ -79,7 +84,7 @@ export function ModelSelector({
 
   // A runtime that exposes no model controls gets no picker at all.
   if (status === 'unsupported') return null
-  const label = modelLabel(model, status) || control.initialModelName || ''
+  const label = modelLabel(model, status)
   const blocked =
     disabled ||
     saving ||

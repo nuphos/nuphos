@@ -64,7 +64,12 @@ final class ChatSession {
     private var sessionConfigReading = false
 
     private(set) var initialModelTitle: String?
-    func presetSessionConfig(_ config: SessionConfigState?) { initialModelTitle = config?.modelTitle }
+    /// Settings picked before this conversation existed; the first message carries them.
+    private var initialSessionConfig: [String: String]?
+    func presetSessionConfig(_ config: SessionConfigState?, pick: [String: String]) {
+        initialModelTitle = config?.modelTitle
+        initialSessionConfig = pick.isEmpty ? nil : pick
+    }
 
     /// Conversations on Claude Code / Codex, where the runtime holds the
     /// transcript and can take a message mid-turn.
@@ -505,7 +510,8 @@ final class ChatSession {
             submission: submission.map { (message.id, $0) },
             permissionMode: wasEmpty ? permissionMode.rawValue : nil,
             agentRuntime: wasEmpty ? runtime?.provider.rawValue : nil,
-            runtimeId: wasEmpty ? runtime?.id : nil
+            runtimeId: wasEmpty ? runtime?.id : nil,
+            initialSessionConfig: wasEmpty ? initialSessionConfig : nil
         ))
     }
 
@@ -655,6 +661,7 @@ final class ChatSession {
         var permissionMode: String?
         var agentRuntime: String?
         var runtimeId: String?
+        var initialSessionConfig: [String: String]?
     }
 
     private enum TurnResult {
@@ -876,6 +883,7 @@ final class ChatSession {
                 credentialAccess: credentialAccess?.json,
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
+                initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
                 clientCapabilities: ["localTools": false]
             )
 

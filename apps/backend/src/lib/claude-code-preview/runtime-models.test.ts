@@ -8,8 +8,7 @@ function instance(id: string): RuntimeInstance {
   return { id, label: id, provider: 'codex', status: 'active', kind: 'managed', createdAt: '' }
 }
 
-test('model discovery deduplicates concurrent requests, isolates workspaces, and expires choices', async () => {
-  let now = 0
+test('model discovery deduplicates concurrent requests, isolates workspaces, and keeps nothing', async () => {
   const calls: string[] = []
   const catalog = createRuntimeModelCatalog({
     requireInstance: (_team, id) => Promise.resolve(instance(id)),
@@ -19,7 +18,6 @@ test('model discovery deduplicates concurrent requests, isolates workspaces, and
 
       return { models: [{ id: `${team}-model`, name: team }] }
     },
-    now: () => now,
   })
   const [first, second] = await Promise.all([catalog('one', 'same'), catalog('one', 'same')])
 
@@ -27,31 +25,7 @@ test('model discovery deduplicates concurrent requests, isolates workspaces, and
   expect(calls).toEqual(['one'])
   expect((await catalog('two', 'same')).models[0]?.id).toBe('two-model')
   await catalog('one', 'same')
-  expect(calls).toEqual(['one', 'two'])
-  now = 5 * 60_000 + 1
-  await catalog('one', 'same')
   expect(calls).toEqual(['one', 'two', 'one'])
-})
-
-test('a sign-in drops only that agent’s cached models', async () => {
-  const calls: string[] = []
-  const catalog = createRuntimeModelCatalog({
-    requireInstance: (_team, id) => Promise.resolve(instance(id)),
-    discover: (_team, agent, model) => {
-      calls.push(`${agent.id}:${model ?? ''}`)
-
-      return Promise.resolve({
-        models: [{ id: 'm', name: 'M' }],
-        controls: { modelId: 'm', fast: false, effort: [] },
-      })
-    },
-    now: () => 0,
-  })
-
-  await Promise.all([catalog('team', 'a'), catalog('team', 'a', 'm'), catalog('team', 'ab')])
-  catalog.forget('team', 'a')
-  await Promise.all([catalog('team', 'a'), catalog('team', 'a', 'm'), catalog('team', 'ab')])
-  expect(calls).toEqual(['a:', 'a:m', 'ab:', 'a:', 'a:m'])
 })
 
 test('failed and empty discoveries are retryable without leaking diagnostics', async () => {
@@ -66,7 +40,6 @@ test('failed and empty discoveries are retryable without leaking diagnostics', a
         models: attempts === 2 ? [] : [{ id: 'available', name: 'Available' }],
       })
     },
-    now: () => 0,
   })
 
   await expect(catalog('one', 'runtime')).rejects.toThrow('Could not load models')
@@ -75,7 +48,7 @@ test('failed and empty discoveries are retryable without leaking diagnostics', a
   expect(attempts).toBe(3)
 })
 
-test('cached models cannot bypass runtime availability or workspace authorization', async () => {
+test('model discovery cannot bypass runtime availability or workspace authorization', async () => {
   let enabled = true
   const catalog = createRuntimeModelCatalog({
     requireInstance: (team, id) => {
@@ -84,7 +57,6 @@ test('cached models cannot bypass runtime availability or workspace authorizatio
       return Promise.resolve({ ...instance(id), status: enabled ? 'active' : 'disabled' })
     },
     discover: () => Promise.resolve({ models: [{ id: 'model', name: 'Model' }] }),
-    now: () => 0,
   })
 
   await catalog('one', 'runtime')
@@ -93,7 +65,7 @@ test('cached models cannot bypass runtime availability or workspace authorizatio
   await expect(catalog('two', 'runtime')).rejects.toThrow('not found')
 })
 
-test('capabilities are cached separately for each selected model and runtime default', async () => {
+test('capabilities are discovered for each selected model and runtime default', async () => {
   const calls: (string | undefined)[] = []
   const catalog = createRuntimeModelCatalog({
     requireInstance: (_team, id) => Promise.resolve(instance(id)),
@@ -105,12 +77,31 @@ test('capabilities are cached separately for each selected model and runtime def
         controls: { modelId: model ?? 'default-model', effort: [], fast: model === 'fast-model' },
       })
     },
-    now: () => 0,
   })
 
   expect((await catalog('team', 'runtime', 'fast-model')).controls?.fast).toBe(true)
   expect((await catalog('team', 'runtime', 'standard')).controls?.fast).toBe(false)
   expect((await catalog('team', 'runtime')).controls?.modelId).toBe('default-model')
-  await catalog('team', 'runtime', 'fast-model')
   expect(calls).toEqual(['fast-model', 'standard', undefined])
+})
+
+test('a runtime runs one discovery at a time and refuses a long queue', async () => {
+  let running = 0
+  let peak = 0
+  const catalog = createRuntimeModelCatalog({
+    requireInstance: (_team, id) => Promise.resolve(instance(id)),
+    discover: async (_team, _instance, model) => {
+      peak = Math.max(peak, ++running)
+      await new Promise((resolve) => setTimeout(resolve, 1))
+      running--
+
+      return { models: [{ id: model ?? 'default', name: 'Model' }] }
+    },
+  })
+  const reads = ['a', 'b', 'c', 'd'].map((model) => catalog('team', 'runtime', model))
+
+  await expect(catalog('team', 'runtime', 'e')).rejects.toThrow('busy')
+  expect((await Promise.all(reads)).map((read) => read.models[0]?.id)).toEqual(['a', 'b', 'c', 'd'])
+  expect(peak).toBe(1)
+  expect((await catalog('team', 'runtime', 'e')).models[0]?.id).toBe('e')
 })
