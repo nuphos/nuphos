@@ -173,7 +173,7 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
         const owned = this.pending.get(id)?.accepted !== false
 
         this.pending.delete(id)
-        reject(timer.timeoutError(method))
+        reject(timer.timeoutError(method, Boolean(context.sessionId)))
         if (context.sessionId && owned) {
           this.cancel(context.sessionId)
           // A stall still had live frames; only silence implicates the shared socket.

@@ -12,6 +12,7 @@ const LIST_DESCRIPTION =
 const READ_DESCRIPTION =
   "Read one conversation's transcript in compact form: one line per message (`#index role: text`), tool calls summarized as `[tool: name]`. " +
   'Pages by message index — pass the returned next_index to continue. Read only the window you need. ' +
+  'Turn termination records are returned separately in turn_diagnostics, even when transcript text is truncated; timestamps describe backend observations and missing fields were not recorded. ' +
   'Tool inputs/outputs are omitted by default to keep the transcript small; set include_tool_details only when the exact command or result matters.'
 
 function conversationSummary(
@@ -119,6 +120,7 @@ export function createSessionTools(
           created_at: page.conversation.createdAt.toISOString(),
           message_count: page.conversation.messageCount,
           ...(session_id === conversationId ? { is_current_conversation: true } : {}),
+          turn_diagnostics: page.turnDiagnostics,
           transcript: page.lines.join('\n'),
           next_index: page.nextIndex,
         }

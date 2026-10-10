@@ -4,8 +4,6 @@
 // on a new streamId once it has decided).
 import { randomUUID } from 'node:crypto'
 
-import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
-
 import {
   appendAgentRunDone,
   appendAgentRunFrame,
@@ -15,10 +13,39 @@ import {
 } from './run-frames'
 import { createAgentRun, registerAgentRun } from './run-registry'
 
-import type { AgentRun } from './types'
+import type { AgentChatBody, AgentRun } from './types'
+import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { PreviewDecision, PreviewWait } from '@/lib/claude-code-preview/decision-waiter'
 import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
 import type { PreviewFrameConsumer } from '@/lib/claude-code-preview/run-frame-bridge'
+import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
+import type { UIMessage } from 'ai'
+
+import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
+
+export type PreviewChatTurnArgs = {
+  run: AgentRun
+  sessionId: string
+  teamId: string
+  userId: string
+  actorUserId?: string
+  origin: AgentSessionOrigin
+  messages: UIMessage[]
+  firstMessage: string
+  locale: string
+  endpoint: TeamRuntimeEndpoint
+  kubeContext?: string
+  /** The client driving this turn can run port forwards and other client-side local tools. */
+  localToolsEnabled?: boolean
+  /** Set when the client is resuming a turn rather than sending a new message. */
+  resume?: { reason?: NonNullable<AgentChatBody['resumeReason']> }
+  diagramId?: string
+  currentUrl?: string | null
+  slackThread?: { teamId: string; channelId: string; threadTs: string }
+  /** Background shown to the model beside this turn's message, never stored in it. */
+  turnContext?: string
+  onRunHandoff?: (next: AgentRun) => void
+}
 
 export type PreviewRunState = {
   current: () => AgentRun

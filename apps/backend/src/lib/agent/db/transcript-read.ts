@@ -1,6 +1,8 @@
 import { renderAttributedMessage } from '../message-metadata'
+
 import { getReadableConversation } from './conversations'
 import { agentMessages } from './shared'
+import { transcriptTurnDiagnostics } from './transcript-diagnostics'
 
 import type { AgentMessage } from './shared'
 
@@ -90,6 +92,7 @@ export async function getConversationTranscriptForAgent(
 ): Promise<{
   conversation: { sessionId: string; title: string; createdAt: Date; messageCount: number }
   lines: string[]
+  turnDiagnostics: ReturnType<typeof transcriptTurnDiagnostics>
   nextIndex: number | null
 } | null> {
   const conversation = await getReadableConversation(
@@ -125,6 +128,7 @@ export async function getConversationTranscriptForAgent(
     lines: page.map((message) =>
       compactTranscriptLine(message, { includeToolDetails: options.includeToolDetails }),
     ),
+    turnDiagnostics: page.flatMap(transcriptTurnDiagnostics),
     nextIndex: messages.length > limit && last ? last.index + 1 : null,
   }
 }

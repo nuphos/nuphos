@@ -3,17 +3,17 @@
 // would have generated. The history preamble lives in
 // preview-history-preamble.ts (this file sits at the max-lines limit).
 
-import { getCompactionSummary, getConversation, updateConversationTitle } from '@/lib/agent/db'
-import { fallbackTitle } from '@/lib/agent/title-fallback'
-import { generateConversationTitle } from '@/lib/agent/title-generator'
-import { logError } from '@/lib/observability'
-
 import { CodexTurnFailedError } from './codex-turn-failure'
 import { OpenAbConnectionLostError, runtimeUsageExhaustedMessage } from './openab-acp-errors'
 import { attributeReceipt } from './steering-receipt'
 
 import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
 import type { UIMessage } from 'ai'
+
+import { getCompactionSummary, getConversation, updateConversationTitle } from '@/lib/agent/db'
+import { fallbackTitle } from '@/lib/agent/title-fallback'
+import { generateConversationTitle } from '@/lib/agent/title-generator'
+import { logError } from '@/lib/observability'
 
 export type PreviewToolStep = {
   toolCallId: string
@@ -32,7 +32,7 @@ export type PreviewTurnInterruption = {
 
 export const INTERRUPTED_TOOL_ERROR = 'Interrupted before the tool finished.'
 
-// User-facing wording only; the raw error stays in telemetry.
+// User-facing summary; interruption diagnostics also retain a best-effort secret-masked error.
 const INTERRUPTION_MESSAGES: Record<PreviewTurnInterruption['reason'], string> = {
   cancelled: 'The turn was stopped before the agent finished.',
   timeout: 'The agent did not respond in time.',
