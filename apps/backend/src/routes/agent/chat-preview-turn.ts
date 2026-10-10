@@ -62,6 +62,8 @@ export type PreviewChatTurnArgs = {
   diagramId?: string
   currentUrl?: string | null
   slackThread?: { teamId: string; channelId: string; threadTs: string }
+  /** Background shown to the model beside this turn's message, never stored in it. */
+  turnContext?: string
   onRunHandoff?: (next: AgentRun) => void
 }
 

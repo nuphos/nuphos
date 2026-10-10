@@ -6,9 +6,11 @@ export type MessageMetadata = {
   sender: { type: 'user'; id: string; displayName: string; email?: string; avatarURL?: string }
   /** Self-reported by the sender's registered Desktop; never proof of anything. */
   device?: MessageDevice
-  source: 'nuphos' | 'slack'
+  source: (typeof SOURCES)[number]
   sentAt: string
 }
+
+const SOURCES = ['nuphos', 'slack', 'discord', 'lark'] as const
 
 export type MessageDevice = { label: string; platform: string }
 
@@ -27,7 +29,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
   if (!value || typeof value !== 'object') return undefined
   const m = value as Partial<MessageMetadata>
 
-  if (m.version !== 1 || (m.source !== 'nuphos' && m.source !== 'slack')) return undefined
+  if (m.version !== 1 || !m.source || !SOURCES.includes(m.source)) return undefined
   if (!m.sender || m.sender.type !== 'user' || typeof m.sender.id !== 'string' || !m.sender.id)
     return undefined
   if (
