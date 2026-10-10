@@ -35,7 +35,7 @@ docker compose ps             # wait until rustfs, backend and runtime are healt
 
 Without `init-env.sh`, copy `.env.example` to `.env` and fill each value with the `openssl` command noted on its line.
 
-To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.18-claude-code`), then run `docker compose up -d runtime`.
+To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.19-claude-code`), then run `docker compose up -d runtime`.
 
 ## First sign-in
 
