@@ -75,7 +75,11 @@ export function ConversationMessageList({
     // Match the composer's column and inner padding so messages stay inside its edges.
     <div className="mx-auto w-full max-w-[760px] space-y-4 px-3">
       {hasEarlier && (
-        <div className="flex items-center justify-center gap-2 py-1 text-[11.5px] text-tertiary">
+        <div
+          // Read by SessionFindBar: part of the conversation is not in the DOM.
+          data-earlier-messages
+          className="flex items-center justify-center gap-2 py-1 text-[11.5px] text-tertiary"
+        >
           {tab.loadingEarlier ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
