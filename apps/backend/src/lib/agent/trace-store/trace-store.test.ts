@@ -18,8 +18,8 @@ import {
   updateConversationParent,
   withTraceParent,
   wrapAI,
-} from '../braintrust'
-import { createAgentTelemetryIntegration } from '../braintrust/integration'
+} from '../tracing'
+import { createAgentTelemetryIntegration } from '../tracing/integration'
 
 import { MongoTraceSpan, traceParent } from './span'
 import { closeTraceStore, flushTraceWrites, serializeTracePayload } from './store'
@@ -73,7 +73,7 @@ const events = () => [...records.values()].filter((row) => row.collection === 'a
 const payload = (row: Record<string, unknown>) =>
   JSON.parse(row.payload as string) as Record<string, unknown>
 
-test('Mongo spans survive without Braintrust/OTel, preserve nested parents and updates', async () => {
+test('Mongo spans survive without OTel, preserve nested parents and updates', async () => {
   const root = await createConversationParent({
     spanId: 'session-1',
     input: 'prompt',
@@ -170,7 +170,7 @@ const model = () =>
       providerMetadata: { test: { marker: 'retained' } },
       response: {
         id: 'response-1',
-        timestamp: new Date(),
+        timestamp: new Date('2026-01-01T00:00:00.000Z'),
         modelId: 'test',
         headers: { secret: 'excluded' },
       },
@@ -239,91 +239,53 @@ test('step integration persists tool errors, reasoning, metrics and unfinished-s
   )
 })
 
-test('Mongo contains the prompt and result recorded by the actual Braintrust SDK', async () => {
-  const bt = await import('braintrust')
-  const { wrapMongoGenerateText, withoutTransport } = await import('./ai-sdk')
-  const experiment = bt._exportsForTestingOnly.initTestExperiment('mongo-parity')
-  const logger = bt._exportsForTestingOnly.useTestBackgroundLogger()
+// Captured from the removed vendor SDK 3.9.0 using this mock provider.
+// Keep the fixture as a content-parity contract without retaining the dependency.
+test('Mongo preserves the pre-removal generation output contract', async () => {
+  const { default: expected } = await import('./fixtures/generate-text.json')
 
-  try {
-    const wrapped = wrapMongoGenerateText(bt.wrapAISDK({ generateText }).generateText)
+  await wrapAI({ generateText }).generateText({
+    model: model(),
+    system: 'parity system',
+    prompt: 'parity input',
+  })
+  await flushTraceWrites()
+  const nativeCall = events().find(
+    (row) => row.name === 'generateText' && row.kind === 'log' && payload(row).output,
+  )
 
-    await experiment.traced(async () =>
-      wrapped({ model: model(), system: 'parity system', prompt: 'parity input' }),
-    )
-    const vendorRows = await logger.drain()
+  expect(payload(nativeCall!).output).toMatchObject(expected)
+  const all = JSON.stringify(events().map(payload))
 
-    await flushTraceWrites()
-    const native = events().map(payload)
-    const vendor = JSON.stringify(vendorRows)
-    const mongo = JSON.stringify(native)
-
-    for (const marker of ['parity system', 'parity input', 'response-1', 'retained', 'answer']) {
-      expect(vendor).toContain(marker)
-      expect(mongo).toContain(marker)
-    }
-    expect(vendorRows.length).toBeGreaterThan(1)
-    const vendorCall = vendorRows.find(
-      (row) => 'span_attributes' in row && row.span_attributes?.name === 'generateText',
-    )
-    const nativeCall = events().find(
-      (row) => row.name === 'generateText' && row.kind === 'log' && payload(row).output,
-    )
-
-    expect(vendorCall).toBeDefined()
-    // Braintrust represents excluded HTTP fields with '<omitted>'; Mongo omits them.
-    expect(vendorCall && 'output' in vendorCall).toBe(true)
-    expect(payload(nativeCall!).output).toMatchObject(
-      withoutTransport(vendorCall && 'output' in vendorCall ? vendorCall.output : {}) as Record<
-        string,
-        unknown
-      >,
-    )
-  } finally {
-    bt._exportsForTestingOnly.clearTestBackgroundLogger()
-  }
+  for (const marker of ['parity system', 'parity input', 'response-1', 'retained', 'answer'])
+    expect(all).toContain(marker)
 })
 
-test('dual-write exports stay compatible with old replicas and share vendor span ids', async () => {
-  const bt = await import('braintrust')
-  const { makeDualSpan } = await import('../braintrust/spans')
-  const experiment = bt._exportsForTestingOnly.initTestExperiment('parent-parity')
-  const logger = bt._exportsForTestingOnly.useTestBackgroundLogger()
+test('native exports preserve ids and ownership across later spans', async () => {
+  const span = startTraceSpan({
+    name: 'native',
+    input: { exact: 'input' },
+    metadata: { sessionId: 'same-session' },
+  })
+  const parent = await span.export()
 
-  try {
-    await experiment.traced(async (vendorSpan) => {
-      const dual = makeDualSpan(
-        { name: 'dual', input: { exact: 'input' }, metadata: { sessionId: 'same-session' } },
-        vendorSpan,
-      )
-      const parent = await dual.export()
+  expect(parent.startsWith('mongo:')).toBe(true)
+  span.log({ output: { exact: 'output' }, metrics: { cost: 1.5 }, metadata: { model: 'test' } })
+  new MongoTraceSpan({ name: 'later-child', parent }).end()
+  span.end()
+  await flushTraceWrites()
+  const row = events().find((event) => event.name === 'native' && event.kind === 'log')!
 
-      expect(parent).toBe(await vendorSpan.export())
-      expect(traceParent(parent)).toMatchObject({
-        spanId: vendorSpan.spanId,
-        rootSpanId: vendorSpan.rootSpanId,
-      })
-      dual.log({ output: { exact: 'output' }, metrics: { cost: 1.5 }, metadata: { model: 'test' } })
-      const child = new MongoTraceSpan({ name: 'later-child', parent })
-
-      child.end()
-      dual.end()
-    })
-    const vendor = await logger.drain()
-
-    await flushTraceWrites()
-    const row = events().find((event) => event.name === 'dual' && event.kind === 'log')!
-
-    expect(vendor.some((item) => 'span_id' in item && item.span_id === row.spanId)).toBe(true)
-    expect(payload(row)).toEqual({
-      output: { exact: 'output' },
-      metrics: { cost: 1.5 },
-      metadata: { model: 'test' },
-    })
-    expect(events().find((event) => event.name === 'later-child')?.parentSpanId).toBe(row.spanId)
-  } finally {
-    bt._exportsForTestingOnly.clearTestBackgroundLogger()
-  }
+  expect(traceParent(parent)).toMatchObject({ spanId: row.spanId })
+  expect(payload(row)).toEqual({
+    output: { exact: 'output' },
+    metrics: { cost: 1.5 },
+    metadata: { model: 'test' },
+  })
+  expect(events().find((event) => event.name === 'later-child')).toMatchObject({
+    parentSpanId: row.spanId,
+    sessionId: 'same-session',
+  })
 })
 
 test('disabled Mongo tracing makes no additional content copy', async () => {

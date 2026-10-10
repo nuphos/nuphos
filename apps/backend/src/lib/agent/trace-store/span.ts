@@ -1,8 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { createHash, randomUUID } from 'node:crypto'
 
-import { SpanComponentsV4 } from 'braintrust/util'
-
 import { writeTraceEvent } from './store'
 
 import type { TraceEvent } from './store'
@@ -12,7 +10,6 @@ const PREFIX = 'mongo:'
 type Parent = {
   spanId: string
   rootSpanId: string
-  braintrust?: string
   metadata?: Record<string, unknown>
 }
 const active = new AsyncLocalStorage<Parent>()
@@ -26,23 +23,11 @@ export function traceParent(parent?: string): Parent | undefined {
       return undefined
     }
   }
-  try {
-    const data = SpanComponentsV4.fromStr(parent).data
-
-    if (data.span_id && data.root_span_id)
-      return { spanId: data.span_id, rootSpanId: data.root_span_id, braintrust: parent }
-  } catch {
-    // Legacy OTel handles have no vendor span ids.
-  }
   // Stable across replicas/restarts for conversation handles saved before
   // Mongo tracing existed. Never retain a process-local alias map.
   const spanId = createHash('sha256').update(parent).digest('hex')
 
-  return { spanId, rootSpanId: spanId, braintrust: parent }
-}
-
-export function vendorParent(parent?: string): string | undefined {
-  return parent?.startsWith(PREFIX) ? traceParent(parent)?.braintrust : parent
+  return { spanId, rootSpanId: spanId }
 }
 
 export function withMongoParent<T>(parent: string | undefined, fn: () => T): T {
@@ -57,32 +42,27 @@ export class MongoTraceSpan {
   private ended = false
   private readonly fields: Omit<TraceEvent, 'sequence' | 'kind'>
 
-  constructor(
-    args: {
-      name: string
-      type?: string
-      parent?: string
-      metadata?: Record<string, unknown>
-      input?: unknown
-      spanId?: string
-    },
-    identity?: { spanId: string; rootSpanId: string; spanParents: string[] },
-  ) {
+  constructor(args: {
+    name: string
+    type?: string
+    parent?: string
+    metadata?: Record<string, unknown>
+    input?: unknown
+    spanId?: string
+  }) {
     const parent = args.spanId ? undefined : traceParent(args.parent)
-    const spanId = identity?.spanId ?? args.spanId ?? randomUUID()
+    const spanId = args.spanId ?? randomUUID()
     const metadata = { ...parent?.metadata, ...args.metadata }
 
     this.context = {
       spanId,
-      rootSpanId: identity?.rootSpanId ?? parent?.rootSpanId ?? spanId,
+      rootSpanId: parent?.rootSpanId ?? spanId,
       metadata,
     }
     this.fields = {
       spanId,
       rootSpanId: this.context.rootSpanId,
-      ...(identity?.spanParents[0] || parent
-        ? { parentSpanId: identity?.spanParents[0] ?? parent?.spanId }
-        : {}),
+      ...(parent ? { parentSpanId: parent.spanId } : {}),
       name: args.name,
       type: args.type,
       ...Object.fromEntries(
@@ -94,8 +74,7 @@ export class MongoTraceSpan {
     this.record('start', { ...args, metadata, start: Date.now() / 1000 })
   }
 
-  export(braintrust?: string): string {
-    if (braintrust) return braintrust
+  export(): string {
     const metadata = Object.fromEntries(
       ['sessionId', 'teamId', 'userId'].flatMap((key) =>
         this.context.metadata?.[key] ? [[key, this.context.metadata[key]]] : [],

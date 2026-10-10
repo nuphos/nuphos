@@ -1,6 +1,6 @@
 import { config } from '@/config'
-import { createConversationParent, updateConversationParent } from '@/lib/agent/braintrust'
-import { ensureBraintrustParent } from '@/lib/agent/db'
+import { ensureConversationTraceParent } from '@/lib/agent/db'
+import { createConversationParent, updateConversationParent } from '@/lib/agent/tracing'
 
 import { traceAgentChatError } from './trace'
 
@@ -27,12 +27,7 @@ function serializeTelemetryPart(part: UIMessage['parts'][number]): Record<string
   return { ...(part as Record<string, unknown>) }
 }
 
-// Serialize UIMessages into the chat shape Braintrust's UI recognizes as an
-// input panel: `[{ role, content }]` where `content` is either a plain string
-// (when the message has a single text part) or an array of content parts.
-// Keeping the field name `content` is what lets Braintrust render the chat
-// preview — `parts` (the AI SDK UIMessage field name) falls through to a
-// raw-JSON view and looks like "no input is set" in the UI.
+// Keep the existing role/content trace schema for stored conversation snapshots.
 export function serializeTelemetryMessages(messages: UIMessage[]): Record<string, unknown>[] {
   return messages.map((message) => {
     const parts = message.parts.map(serializeTelemetryPart)
@@ -107,7 +102,7 @@ export async function ensureConversationRootAfterTurn(args: {
   if (!rollup) return
 
   try {
-    const parent = await ensureBraintrustParent(sessionId, userId, teamId, () =>
+    const parent = await ensureConversationTraceParent(sessionId, userId, teamId, () =>
       createConversationParent({
         name: 'conversation',
         spanId: sessionId,
@@ -174,7 +169,7 @@ export async function ensureConversationRootAfterTurn(args: {
       },
     })
   } catch (err) {
-    traceAgentChatError('agent.chat.braintrust_parent_after_turn.error', err, trace, {
+    traceAgentChatError('agent.chat.trace_parent_after_turn.error', err, trace, {
       request_id: requestId,
       first_message_present: Boolean(firstMessage),
       rollup_finish_reason: rollup.finishReason,

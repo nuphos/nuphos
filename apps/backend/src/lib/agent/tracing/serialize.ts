@@ -11,7 +11,7 @@ import { truncateText } from './shared'
 import type { ToolResultError } from '@/lib/agent/tool-result-errors'
 
 // Larger cap for "content" fields (input/output/reasoning) where we want the
-// Braintrust trace to actually be readable. 4000 chars clips real assistant
+// stored trace to actually be readable. 4000 chars clips real assistant
 // turns and reasoning blocks; 32k keeps spans bounded while preserving almost
 // every real-world message intact.
 const CONTENT_TRUNCATE_LIMIT = 32_000
@@ -21,7 +21,7 @@ const truncateContent = (v: unknown) => truncateText(v, CONTENT_TRUNCATE_LIMIT)
 // be a multi-MB bash dump or file contents). Strings go through the regular
 // content truncator; everything else is JSON-sized, and if it exceeds the
 // limit we replace it with a marker object carrying a preview so the span
-// stays readable but doesn't blow out Braintrust's per-row size cap.
+// stays readable but doesn't blow out the established step-serialization size bound.
 function truncateStructured(value: unknown): unknown {
   if (value === undefined || value === null) return value
   if (typeof value === 'string') return truncateContent(value)

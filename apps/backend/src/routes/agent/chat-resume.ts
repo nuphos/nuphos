@@ -1,5 +1,5 @@
-import { startTraceSpan } from '@/lib/agent/braintrust'
 import { streamAgentRunFromRedis } from '@/lib/agent/run-store'
+import { startTraceSpan } from '@/lib/agent/tracing'
 import { AppError } from '@/lib/errors'
 
 import { agentRuns } from './run-registry'

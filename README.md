@@ -183,7 +183,7 @@ single source of repository rules for people and agents alike.
 - Open PRs ready for review. Use a draft only when the change is genuinely
   unfinished or a draft was asked for.
 - Titles follow Semantic Commit Messages, e.g.
-  `fix(agent): improve Braintrust chat traces`, with no tool prefix such as
+  `fix(agent): improve agent chat traces`, with no tool prefix such as
   `[codex]`.
 - Develop and check backend-only changes from `apps/backend` and desktop-only
   changes from `apps/desktop`. A contract change that affects both lands in one

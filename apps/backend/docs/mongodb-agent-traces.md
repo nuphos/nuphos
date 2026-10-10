@@ -1,8 +1,9 @@
 # MongoDB agent traces
 
-This optional sink preserves new agent trace content independently of the
-Braintrust and OTel switches. Braintrust stays configured for comparison before
-removal. Historical Braintrust data is not imported.
+The backend records new agent traces in MongoDB, with independent OpenTelemetry
+instrumentation. The Braintrust SDK, exporter, configuration and backfill script
+have been removed. No new trace data is sent to Braintrust. Historical vendor
+data is not imported or deleted.
 
 ## Enablement and privacy
 
@@ -16,7 +17,7 @@ filesystem does not provide recovery after replacement.
 The SQLite file is mode 0600; newly created parent directories are mode 0700.
 Payloads may contain prompts, tool output, credentials printed by tools and error
 stacks. There is deliberately no new redaction or truncation: that would violate
-content parity with Braintrust. Apply the same access, encryption and backup
+the full-content migration contract. Apply the same access, encryption and backup
 controls as conversation data to both MongoDB and the spool. SQLite secure-delete
 clears acknowledged queue rows; underlying filesystem snapshots/backups have
 separate retention. No public read endpoint is introduced. Future readers must
@@ -32,16 +33,17 @@ check per-session access, not merely team membership.
   SDK result including getter-backed text, reasoning, steps, tools, token
   usage, response ids and provider metadata.
 - Existing step/tool telemetry hooks, including aborted unfinished spans.
-- Braintrust's existing content truncation in step serialization is unchanged;
+- Existing content truncation in step serialization is unchanged;
   the Mongo sink adds no preview limit. Provider transport bodies and response
-  headers are excluded, matching the Braintrust SDK defaults.
+  headers are excluded, preserving the previous capture contract.
 
 Native `generateText` instrumentation covers current callers; adding another
 SDK function to `wrapAI` requires equivalent instrumentation and parity tests.
-Explicit dual-written spans share Braintrust ids. Existing Braintrust parent
-handles stay compatible with mixed-version replicas. Mongo-only spans export
-self-contained `mongo:` handles. Ownership metadata survives with both optional
-exporters disabled.
+New spans export self-contained `mongo:` parent handles. Conversation roots use
+`conversationTraceParent`; legacy vendor parent fields are left untouched in old
+Mongo documents but are not read or reused. Opaque pre-migration handles fall
+back to stable hashes without loading a vendor decoder. Ownership metadata
+survives with OTel disabled.
 
 ## Storage and retention
 
@@ -105,12 +107,16 @@ Index failures are logged without preventing backend startup.
 ## Verification
 
 Run `bun test src/lib/agent/trace-store`. Tests use the real AI SDK with a mock
-provider and Braintrust's in-memory logger, without live model/vendor calls.
+provider and a fixed output fixture captured from the removed SDK 3.9.0, without
+live model/vendor calls or a vendor runtime dependency.
 Coverage includes disabled exporters and opt-out, parent identities, an 18 MB
 payload, transient failures, durable replay, single-consumer backpressure,
 retention timestamps, binary round trips, cancellation, flush timeout and purge.
 
-Before removing Braintrust, deploy with the persistent spool explicitly enabled,
-verify new collections against representative sessions, and check enqueue and
-delivery failures. Production parity, storage sizing and historical backfill
-are not established by these tests.
+Deployment requires the persistent spool to be explicitly enabled for full trace
+capture. Removing the vendor does not automatically enable Mongo capture on
+existing deployments. Verify new collections against representative sessions,
+check enqueue and delivery failures, and size storage/latency before rollout.
+Production parity and historical backfill are not established by these tests.
+Old replicas keep their previous tracing behavior until replaced; this PR does
+not revoke vendor credentials or delete historical vendor data.

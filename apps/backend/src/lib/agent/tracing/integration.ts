@@ -86,7 +86,7 @@ export function createAgentTelemetryIntegration(args: {
         type: 'llm',
         parent,
         // Log the messages sent to the model for this step so each thinking
-        // span is self-contained in Braintrust and OTel.
+        // span is self-contained in MongoDB and OTel.
         input: serializeStepInput(event.messages),
         metadata: {
           ...baseMetadata,
@@ -258,5 +258,3 @@ export function createAgentTelemetryIntegration(args: {
 
   return { integration, drainOpenSpans }
 }
-
-export const createBraintrustTelemetryIntegration = createAgentTelemetryIntegration

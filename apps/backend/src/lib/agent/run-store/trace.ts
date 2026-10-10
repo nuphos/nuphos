@@ -1,8 +1,8 @@
-import { logSpanError } from '@/lib/agent/braintrust'
+import { logSpanError } from '@/lib/agent/tracing'
 import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { replicaId } from '@/lib/redis'
 
-import type { SpanLike } from '@/lib/agent/braintrust'
+import type { SpanLike } from '@/lib/agent/tracing'
 
 export type AgentRunStoreTrace = {
   requestId?: string

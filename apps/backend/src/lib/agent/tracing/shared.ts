@@ -1,36 +1,18 @@
 import { inspect } from 'node:util'
 
-import { initLogger } from 'braintrust'
-
 import { config } from '@/config'
 import { trimUnderscores } from '@/lib/agent/text-scan'
 import { sanitizeProperties } from '@/lib/observability'
 import { getTracer } from '@/otel/api'
 
-import { vendorParent } from '../trace-store/span'
-
 import type { Attributes, Context as OtelContext } from '@opentelemetry/api'
 
-export const enabled =
-  Boolean(config.agent.braintrustApiKey) && config.agent.braintrustTracingEnabled
-// `aiTelemetry()` previously only flipped on for Braintrust. With OTel wired
-// up as a peer pipeline we also want experimental_telemetry enabled whenever
-// OTel is on so the AI SDK emits spans against the global tracer provider.
-// Metrics-only mode also needs spans because GenAIMetricsSpanProcessor reads
-// gen_ai.* attributes off the AI SDK's span onEnd to mint the metrics.
+// Metrics-only mode also needs AI SDK spans for gen_ai.* metrics.
 export const otelEnabled =
   config.otel.enabled && (config.otel.traces.enabled || config.otel.metrics.enabled)
 
-if (enabled) {
-  initLogger({
-    projectName: config.agent.braintrustProjectName,
-    apiKey: config.agent.braintrustApiKey,
-    asyncFlush: true,
-  })
-}
-
 // Lightweight span surface so callers do not have to know which tracing sinks
-// are enabled. The implementation can write Braintrust, OTel, or both.
+// are enabled. The implementation can write MongoDB, OTel, or both.
 export type SpanLike = {
   export: () => Promise<string>
   end: () => number
@@ -51,18 +33,10 @@ export type SpanLike = {
   event: (name: string, attrs?: Record<string, unknown>) => void
 }
 
-export const noopSpan: SpanLike = {
-  export: async () => '',
-  end: () => Date.now() / 1000,
-  log: () => {},
-  event: () => {},
-}
 export const agentTracer = getTracer('agent')
 const exportedOtelParents = new Map<string, { context: OtelContext; createdAt: number }>()
 const EXPORTED_OTEL_PARENT_MAX = 5_000
 const EXPORTED_OTEL_PARENT_TTL_MS = 60 * 60 * 1000
-
-export const OTEL_PARENT_PREFIX = 'otel:'
 
 export type SpanType = 'llm' | 'score' | 'function' | 'eval' | 'task' | 'tool' | 'review'
 
@@ -97,12 +71,6 @@ export function lookupOtelParent(exported: string | undefined): OtelContext | un
   }
 
   return found.context
-}
-
-export function braintrustParent(parent: string | undefined): string | undefined {
-  const exported = vendorParent(parent)
-
-  return exported && !exported.startsWith(OTEL_PARENT_PREFIX) ? exported : undefined
 }
 
 function attrKey(key: string): string {

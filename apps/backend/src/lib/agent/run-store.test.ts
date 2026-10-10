@@ -4,7 +4,7 @@ import { useRedis } from '@/lib/test/doubles/redis'
 
 import type { real as realRedis } from '@/lib/test/doubles/redis'
 
-// run-store pulls in braintrust → config, which eagerly validates a couple of
+// run-store pulls in tracing → config, which eagerly validates a couple of
 // env vars. Provide throwaway values so importing the module under test doesn't
 // require a real backend environment.
 process.env.MONGODB_URI ??= 'mongodb://localhost:27017'

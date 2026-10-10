@@ -45,23 +45,23 @@ export async function renameConversation(
   return result.matchedCount > 0
 }
 
-// Prefix marking an in-flight claim — see `ensureBraintrustParent`. Stored
-// values starting with this prefix are not valid Braintrust parent references
+// Prefix marking an in-flight claim — see `ensureConversationTraceParent`. Stored
+// values starting with this prefix are not valid native parent references
 // and must not be returned to callers.
-const BRAINTRUST_PARENT_CLAIM_PREFIX = '_claim:'
+const TRACE_PARENT_CLAIM_PREFIX = '_claim:'
 
 function isClaimToken(value: string | undefined | null): boolean {
-  return typeof value === 'string' && value.startsWith(BRAINTRUST_PARENT_CLAIM_PREFIX)
+  return typeof value === 'string' && value.startsWith(TRACE_PARENT_CLAIM_PREFIX)
 }
 
-// Returns the conversation's stored Braintrust parent string, creating one via
+// Returns the conversation's stored native parent string, creating one via
 // `factory` if missing. Bails when no conversation document exists (no point
 // generating a parent we can't persist — future turns would also miss the doc
 // and churn out fresh parents, defeating the whole point). Concurrency-safe:
 // callers atomically claim the slot with a sentinel before invoking the
 // (expensive) factory, so concurrent first-turns can't both create orphan
-// Braintrust spans.
-export async function ensureBraintrustParent(
+// conversation roots.
+export async function ensureConversationTraceParent(
   sessionId: string,
   userId: string,
   teamId: string | undefined,
@@ -69,21 +69,21 @@ export async function ensureBraintrustParent(
 ): Promise<string | undefined> {
   const filter = withTeamScope({ sessionId, userId }, teamId)
   const existing = await agentConversations().findOne(filter, {
-    projection: { braintrustParent: 1 },
+    projection: { conversationTraceParent: 1 },
   })
 
   if (!existing) return undefined
-  if (existing.braintrustParent && !isClaimToken(existing.braintrustParent)) {
-    return existing.braintrustParent
+  if (existing.conversationTraceParent && !isClaimToken(existing.conversationTraceParent)) {
+    return existing.conversationTraceParent
   }
 
   // Atomically reserve the slot. Filter requires the doc still has no
-  // `braintrustParent`, so only one of N concurrent callers wins.
-  const claimToken = `${BRAINTRUST_PARENT_CLAIM_PREFIX}${randomUUID()}`
+  // `conversationTraceParent`, so only one of N concurrent callers wins.
+  const claimToken = `${TRACE_PARENT_CLAIM_PREFIX}${randomUUID()}`
   const claimed = await agentConversations().findOneAndUpdate(
-    { ...filter, braintrustParent: { $exists: false } },
-    { $set: { braintrustParent: claimToken } },
-    { returnDocument: 'after', projection: { braintrustParent: 1 } },
+    { ...filter, conversationTraceParent: { $exists: false } },
+    { $set: { conversationTraceParent: claimToken } },
+    { returnDocument: 'after', projection: { conversationTraceParent: 1 } },
   )
 
   if (!claimed) {
@@ -91,9 +91,9 @@ export async function ensureBraintrustParent(
     // value. If the winner is still in the middle of `factory()` we'll see
     // their claim token — return undefined rather than a placeholder.
     const after = await agentConversations().findOne(filter, {
-      projection: { braintrustParent: 1 },
+      projection: { conversationTraceParent: 1 },
     })
-    const value = after?.braintrustParent
+    const value = after?.conversationTraceParent
 
     return value && !isClaimToken(value) ? value : undefined
   }
@@ -101,9 +101,12 @@ export async function ensureBraintrustParent(
   // We hold the claim — only this caller invokes the factory.
   const releaseClaim = () =>
     agentConversations()
-      .updateOne({ ...filter, braintrustParent: claimToken }, { $unset: { braintrustParent: '' } })
+      .updateOne(
+        { ...filter, conversationTraceParent: claimToken },
+        { $unset: { conversationTraceParent: '' } },
+      )
       .catch((err: unknown) => {
-        logError('braintrust.parent_claim_release_failed', err)
+        logError('agent.trace.parent_claim_release_failed', err)
       })
 
   let created: string | undefined
@@ -120,8 +123,8 @@ export async function ensureBraintrustParent(
     return undefined
   }
   await agentConversations().updateOne(
-    { ...filter, braintrustParent: claimToken },
-    { $set: { braintrustParent: created } },
+    { ...filter, conversationTraceParent: claimToken },
+    { $set: { conversationTraceParent: created } },
   )
 
   return created
