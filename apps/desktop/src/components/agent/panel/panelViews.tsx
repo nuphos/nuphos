@@ -12,6 +12,7 @@ import { Conversation } from './Conversation'
 import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
+import { NewConversationModelSelector } from './NewConversationModelSelector'
 import { AuthorizationActionContext } from './parts'
 import { QueuedStrip } from './QueuedStrip'
 
@@ -64,6 +65,13 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               : undefined,
         }
       : undefined
+  // Until the runtime session exists, the first message applies the agent's
+  // defaults (also right after a move), so show and edit those.
+  const runtime = c.runtimeInstances.find((instance) => instance.id === activeTab?.runtimeId)
+  const defaultModelControl =
+    modelSession && runtime && (runtime.kind === 'local' || isTeamAdmin) ? (
+      <NewConversationModelSelector teamId={teamId} runtime={runtime} isTeamAdmin={isTeamAdmin} />
+    ) : undefined
   // Only the owner decides who has access, so only they are offered an invite
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
@@ -153,6 +161,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     credentialSelector={visibleConversationCredentialSelector}
                     runtimeControl={runtimeControl}
                     modelSession={modelSession}
+                    newConversationModelControl={defaultModelControl}
                     bypassControl={bypassControl}
                     pendingSeed={pendingPromptReady}
                     onSeedConsumed={onPromptConsumed}
@@ -181,6 +190,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   credentialSelector={visibleConversationCredentialSelector}
                   runtimeControl={runtimeControl}
                   modelSession={modelSession}
+                  newConversationModelControl={defaultModelControl}
                   bypassControl={bypassControl}
                   pendingSeed={pendingPromptReady}
                   onSeedConsumed={onPromptConsumed}
