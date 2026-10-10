@@ -41,7 +41,6 @@ function insertBeforeFinalText(
 
 export async function finishPreviewTurn(args: {
   run: AgentRun
-  diagnostics?: TurnDiagnostics
   sessionId: string
   teamId: string
   userId: string
@@ -107,7 +106,6 @@ export async function finishPreviewTurn(args: {
   // interleaved commentary and tools around them.
   const parts = insertBeforeFinalText(orderedParts, nativePlanParts)
 
-  if (args.diagnostics) parts.push({ type: 'data-turn-diagnostics', data: args.diagnostics })
   const tail = [
     ...args.steered,
     ...(parts.length > 0 ? [{ id: randomUUID(), role: 'assistant' as const, parts }] : []),

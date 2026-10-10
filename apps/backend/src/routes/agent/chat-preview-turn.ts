@@ -23,8 +23,8 @@ import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
 import type { PreviewChatTurnArgs } from './chat-preview-run'
 import type { PreviewDecision } from '@/lib/claude-code-preview/decision-waiter'
 import type { OpenAbPermissionHandler } from '@/lib/claude-code-preview/openab-acp-session'
-
 import type { UIMessage } from 'ai'
+
 import { config } from '@/config'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
 import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
@@ -41,7 +41,6 @@ import {
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 import { createSteeringAttribution } from '@/lib/claude-code-preview/steering-receipt'
-
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
 
@@ -63,7 +62,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       streamId: run.streamId,
       startedAt,
       runtimeId: args.endpoint.runtimeId,
-      provider: args.endpoint.provider,
     },
     () => ({
       ...previewRuntimeObservability(teamId, args.endpoint.provider, [args.endpoint.url]),
@@ -270,7 +268,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   // Runtime completion is authoritative; partial/late tool cards cannot cause
   // backend cancellation or another prompt after completion.
   if (acc.text) answers.push(acc.text)
-  const completedDiagnostics = diagnostic.finish()
 
   await prepared.openPromptSuggestion()
 
@@ -279,7 +276,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       ...args,
       requestId,
       startedAt,
-      diagnostics: completedDiagnostics,
       text: acc.text,
       answer: answers.join('\n\n'),
       reasoning: acc.reasoning,

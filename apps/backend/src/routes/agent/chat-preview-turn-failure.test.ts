@@ -102,7 +102,7 @@ test('runtime failures persist partial work and close dangling tools instead of 
         diagnostics: expect.objectContaining({
           streamId: run.streamId,
           error: failure.error,
-          lastProgressAt: expect.any(String),
+          lastOutputAt: expect.any(String),
           lastTool: expect.objectContaining({ toolCallId: 'pending', status: 'pending' }),
         }),
       }),
@@ -164,4 +164,23 @@ test('a lost runtime connection hands the turn to the reattached session instead
   expect(run.frames.join('')).not.toContain('turn-interrupted')
   expect(run.frames.join('')).toContain('atlas-turn-complete')
   expect(run.done).toBe(true)
+})
+
+test('a typed backend deadline reaches persisted interruption diagnostics', async () => {
+  const { OpenAbTimeoutError } = await import('@/lib/claude-code-preview/turn-diagnostics')
+
+  cause = new OpenAbTimeoutError('OpenAB ACP session/prompt timed out', 'inactivity', 12345)
+  const run = createAgentRun('user-failure', 'session-failure', 'run-backend-timeout')
+
+  await expect(runClaudeCodePreviewChatTurn(turnArgs(run))).rejects.toThrow('timed out')
+  expect(persisted.at(-1)!.messages.at(-1)!.parts).toContainEqual(
+    expect.objectContaining({
+      type: 'turn-interrupted',
+      diagnostics: expect.objectContaining({
+        source: 'backend',
+        timeoutKind: 'inactivity',
+        timeoutMs: 12345,
+      }),
+    }),
+  )
 })

@@ -6,12 +6,12 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
+import type { AgentRun } from './types'
+import type { UIMessage } from 'ai'
+
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentPlans } from '@/lib/test/doubles/agent-plans'
 import { useTitleGenerator } from '@/lib/test/doubles/title-generator'
-
-import type { AgentRun } from './types'
-import type { UIMessage } from 'ai'
 
 const persisted: { messages: { id: string; role: string; parts: unknown[] }[] }[] = []
 const storedAt = new Date('2026-10-09T04:00:00.000Z')
@@ -20,27 +20,27 @@ let titleGate: Promise<void> = Promise.resolve()
 
 useAgentDb({
   syncConversationTranscript: (args) => {
-    persisted.push({ messages: args.messages as never })
+    persisted.push({ messages: args.messages })
 
-    return Promise.resolve(null) as never
+    return Promise.resolve(null)
   },
   getConversationMessagesHead: async () =>
     persisted.at(-1)!.messages.map((message) => ({
       ...message,
       messageId: message.id,
       createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
-    })) as never,
+    })),
   getConversation: async () => {
     await titleGate
 
-    return { title: 'kept' } as never
+    return { title: 'kept' }
   },
 })
 useTitleGenerator({
   generateConversationTitle: () => Promise.resolve('t'),
 })
 useAgentPlans({
-  listPlansCreatedForConversation: async () => createdPlans as never,
+  listPlansCreatedForConversation: async () => createdPlans,
 })
 
 const { finishPreviewTurn, persistInterruptedPreviewTurn } = await import('./chat-preview-finish')
@@ -65,13 +65,6 @@ describe('finishPreviewTurn with steering segments', () => {
       provider: 'test',
       requestId: 'r1',
       startedAt: 0,
-      diagnostics: {
-        streamId: 'r1',
-        startedAt: new Date(0).toISOString(),
-        endedAt: new Date(1000).toISOString(),
-        elapsedMs: 1000,
-        source: 'runtime',
-      },
       text: 'answer 2',
       answer: 'answer 1\n\nanswer 2',
       reasoning: '',
@@ -87,10 +80,6 @@ describe('finishPreviewTurn with steering segments', () => {
     const roles = persisted[0]!.messages.map((message) => message.role)
 
     expect(roles).toEqual(['user', 'assistant', 'user', 'assistant'])
-    expect(persisted[0]!.messages.at(-1)!.parts).toContainEqual({
-      type: 'data-turn-diagnostics',
-      data: expect.objectContaining({ streamId: 'r1', elapsedMs: 1000 }),
-    })
     expect(frames.find((frame) => frame.type === 'atlas-transcript-snapshot')?.messages).toEqual(
       persisted[0]!.messages.map((message) => ({
         ...message,
@@ -233,3 +222,31 @@ for (const interrupted of [false, true]) {
     expect(snapshot[1]!.createdAt).toBe(storedAt.toISOString())
   })
 }
+
+test('a completed turn without text or tools persists no assistant message', async () => {
+  createdPlans = []
+  await finishPreviewTurn({
+    run: { trace: undefined } as unknown as AgentRun,
+    sessionId: 'empty',
+    teamId: 'team',
+    userId: 'owner',
+    messages: [{ id: 'question', role: 'user', parts: [{ type: 'text', text: 'start' }] }],
+    firstMessage: 'start',
+    locale: 'en-US',
+    provider: 'test',
+    requestId: 'empty-run',
+    startedAt: 0,
+    text: '',
+    answer: '',
+    reasoning: '',
+    orderedParts: [],
+    toolSteps: [],
+    finalStepStart: 0,
+    steered: [],
+    memory: null,
+    emit: () => {},
+  })
+  expect(persisted.at(-1)!.messages).toEqual([
+    { id: 'question', role: 'user', parts: [{ type: 'text', text: 'start' }] },
+  ])
+})

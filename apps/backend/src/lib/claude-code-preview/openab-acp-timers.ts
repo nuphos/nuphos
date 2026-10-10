@@ -7,7 +7,7 @@ export type CallTimer = {
   arm: (progress?: boolean) => ReturnType<typeof setTimeout>
   /** Whether the progress window, not the inactivity window, is what ran out. */
   stalled: () => boolean
-  timeoutError: (method: string) => Error
+  timeoutError: (method: string, sessionScoped: boolean) => Error
 }
 
 /**
@@ -40,14 +40,18 @@ export function createCallTimer(
       )
     },
     stalled,
-    timeoutError: (method) =>
-      new OpenAbTimeoutError(
-        stalled()
+    timeoutError: (method, sessionScoped) => {
+      const progressExpired = stalled()
+      const otherKind = sessionScoped ? 'inactivity' : 'call-deadline'
+
+      return new OpenAbTimeoutError(
+        progressExpired
           ? `OpenAB ACP ${method} timed out: no turn progress for ${String(Math.round(progressWindowMs / 1000))}s`
           : `OpenAB ACP ${method} timed out`,
-        stalled() ? 'progress' : 'inactivity',
-        stalled() ? progressWindowMs : inactivityMs,
-      ),
+        progressExpired ? 'progress' : otherKind,
+        progressExpired ? progressWindowMs : inactivityMs,
+      )
+    },
   }
 }
 

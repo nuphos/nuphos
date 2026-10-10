@@ -58,8 +58,8 @@ test('structured diagnostics omit arbitrary payloads and survive without prose',
   expect(
     transcriptTurnDiagnostics({
       index: 2,
-      role: 'assistant' as const,
+      role: 'assistant',
       parts: [{ type: 'data-turn-diagnostics', data }],
-    })[0]?.outcome,
-  ).toBe('completed')
+    }),
+  ).toEqual([])
 })

@@ -1,15 +1,16 @@
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 
 import type { PreviewToolStep } from './preview-transcript'
+import type { TurnDiagnostics } from '@/lib/agent/turn-diagnostics-schema'
 
-import { redactSecrets } from '@/lib/journal/redact'
+import { turnDiagnosticsSchema } from '@/lib/agent/turn-diagnostics-schema'
 import { errorMessage } from '@/lib/observability-sanitize'
 
 /** A backend deadline, with the actual configured window rather than a guessed default. */
 export class OpenAbTimeoutError extends Error {
   constructor(
     message: string,
-    readonly timeoutKind: 'inactivity' | 'progress',
+    readonly timeoutKind: 'inactivity' | 'progress' | 'call-deadline',
     readonly timeoutMs: number,
   ) {
     super(message)
@@ -17,33 +18,14 @@ export class OpenAbTimeoutError extends Error {
   }
 }
 
-export type TurnDiagnostics = {
-  streamId: string
-  startedAt: string
-  endedAt: string
-  lastProgressAt?: string
-  elapsedMs: number
-  /** Backend-observed progress, not the runtime watchdog's internal clock. */
-  progressSilenceMs?: number
-  runtimeId?: string
-  provider?: string
-  buildSha?: string
-  adapterVersion?: string
-  source: 'backend' | 'runtime' | 'transport' | 'cancel' | 'unknown'
-  error?: string
-  errorCode?: number
-  timeoutKind?: 'inactivity' | 'progress' | 'runtime-reported-unknown'
-  timeoutMs?: number
-  lastTool?: { toolCallId: string; toolName: string; status: string }
-}
+export type { TurnDiagnostics } from '@/lib/agent/turn-diagnostics-schema'
 
 export function turnDiagnostics(args: {
   streamId: string
   startedAt: number
   endedAt?: number
-  lastProgressAt?: number
+  lastOutputAt?: number
   runtimeId?: string
-  provider?: string
   buildSha?: string
   adapterVersion?: string
   error?: unknown
@@ -61,54 +43,55 @@ export function turnDiagnostics(args: {
   if (error === undefined || error instanceof OpenAbRpcError || runtimeTimeout) source = 'runtime'
   if (error instanceof OpenAbConnectionLostError) source = 'transport'
   if (error instanceof OpenAbTimeoutError) source = 'backend'
-  if (args.aborted) source = 'cancel'
+  if (args.aborted) source = 'abort'
   let timeoutKind: TurnDiagnostics['timeoutKind']
   let timeoutMs: number | undefined
 
   if (runtimeTimeout) {
     timeoutKind = 'runtime-reported-unknown'
-    timeoutMs = Number(runtimeTimeout[1]) * 1000
+    const reported = Number(runtimeTimeout[1]) * 1000
+
+    timeoutMs = Number.isFinite(reported) ? reported : undefined
   }
   if (error instanceof OpenAbTimeoutError) {
     timeoutKind = error.timeoutKind
     timeoutMs = error.timeoutMs
   }
-  let toolStatus = 'pending'
+  let toolStatus: 'pending' | 'completed' | 'failed' = 'pending'
 
   if (lastTool?.output !== undefined) toolStatus = 'completed'
   if (lastTool?.errorText !== undefined) toolStatus = 'failed'
 
-  return {
+  return turnDiagnosticsSchema.parse({
     streamId: args.streamId,
     startedAt: new Date(args.startedAt).toISOString(),
     endedAt: new Date(endedAt).toISOString(),
     elapsedMs: Math.max(0, endedAt - args.startedAt),
-    lastProgressAt:
-      args.lastProgressAt === undefined ? undefined : new Date(args.lastProgressAt).toISOString(),
-    progressSilenceMs:
-      args.lastProgressAt === undefined ? undefined : Math.max(0, endedAt - args.lastProgressAt),
+    lastOutputAt:
+      args.lastOutputAt === undefined ? undefined : new Date(args.lastOutputAt).toISOString(),
+    outputSilenceMs:
+      args.lastOutputAt === undefined ? undefined : Math.max(0, endedAt - args.lastOutputAt),
     runtimeId: args.runtimeId,
-    provider: args.provider,
     buildSha: args.buildSha,
     adapterVersion: args.adapterVersion,
     source,
-    error: message ? redactSecrets(message).redacted.slice(0, 2000) : undefined,
+    error: message || undefined,
     errorCode: error instanceof OpenAbRpcError ? error.code : undefined,
     timeoutKind,
     timeoutMs,
     lastTool: lastTool
       ? {
           toolCallId: lastTool.toolCallId,
-          toolName: redactSecrets(lastTool.toolName).redacted.slice(0, 200),
+          toolName: lastTool.toolName,
           status: toolStatus,
         }
       : undefined,
-  }
+  })
 }
 
 /** Keep the observed build after a socket closes and evicts the live registry entry. */
 export function createTurnDiagnostics(
-  context: Pick<TurnDiagnostics, 'streamId' | 'runtimeId' | 'provider'> & { startedAt: number },
+  context: Pick<TurnDiagnostics, 'streamId' | 'runtimeId'> & { startedAt: number },
   observe: () => {
     buildSha?: string
     adapterVersion?: string
@@ -116,7 +99,7 @@ export function createTurnDiagnostics(
     aborted: boolean
   },
 ) {
-  let lastProgressAt: number | undefined
+  let lastOutputAt: number | undefined
   let build: { buildSha?: string; adapterVersion?: string } = {}
   const observation = () => {
     const current = observe()
@@ -131,8 +114,7 @@ export function createTurnDiagnostics(
   return {
     observe: observation,
     progress: () => {
-      lastProgressAt = Date.now()
-      if (!build.buildSha && !build.adapterVersion) observation()
+      lastOutputAt = Date.now()
     },
     finish: (error?: unknown) => {
       const current = observation()
@@ -141,7 +123,7 @@ export function createTurnDiagnostics(
         ...context,
         ...current,
         toolSteps: current.toolSteps(),
-        lastProgressAt,
+        lastOutputAt,
         error,
       })
     },
