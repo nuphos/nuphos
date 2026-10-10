@@ -4,8 +4,13 @@
 // routes-chat-post.ts so the route reads as request orchestration and stays
 // within the file-size budget.
 
+import { agentConversations } from '@/lib/agent/db'
 import { trackAgentProducer } from '@/lib/agent/producer-drain'
+import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
+import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
+import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
 
+import { isFirstTurn } from './chat-permission-mode'
 import { runClaudeCodePreviewChatTurn } from './chat-preview-turn'
 import { beginSlackBoundTurnDelivery } from './chat-slack-bound'
 import {
@@ -15,7 +20,6 @@ import {
   finishAgentRun,
 } from './run-frames'
 import { attachAgentRunFrameSink } from './run-registry'
-import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
 import { traceAgentChatError } from './trace'
 import { persistAcceptedConversationTurn } from './transcript'
 import { restoreArchivedSession } from './turn-unarchive'
@@ -118,6 +122,24 @@ export function launchAcceptedChatTurn(args: {
         })
 
       if (!teamId) throw new Error('An agent conversation is missing its Team scope.')
+      // Settings picked before the conversation existed: keep only what the
+      // runtime offers, so session creation never meets a value it refuses.
+      // Only the owner's first turn chooses them.
+      const { runtimeId } = chatRuntime
+      const initialPick =
+        body.initialSessionConfig &&
+        runtimeId &&
+        chatCtx.userId === run.userId &&
+        isFirstTurn(body, null)
+          ? offeredSessionConfig(
+              (model) => runtimeModelCatalog(teamId, runtimeId, model, run.userId),
+              body.initialSessionConfig,
+            ).then(
+              ({ kept }) => kept,
+              () => {},
+            )
+          : undefined
+
       // The sink must be attached before frames flow; the claim release and
       // finalize in `finally` then close the Slack turn.
       slackDelivery = await slackDeliveryPromise
@@ -131,6 +153,13 @@ export function launchAcceptedChatTurn(args: {
       }).catch(() => null)
       if (discordSink) attachFrameSink(run, discordSink.frameSink)
       await isNewConversationPromise
+      const kept = await initialPick
+
+      if (kept && Object.keys(kept).length)
+        await agentConversations().updateOne(
+          { sessionId, teamId, claudeCodePreview: { $exists: false } },
+          { $set: { initialSessionConfig: kept } },
+        )
       await runClaudeCodePreviewChatTurn({
         run,
         sessionId,

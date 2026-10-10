@@ -8,9 +8,9 @@ import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
-import type { RuntimeDefaults } from '@/lib/claude-code-preview/runtime-defaults'
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
-import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config'
+import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type BackgroundWorkLoss = 'session_lost' | 'unreachable'
@@ -127,6 +127,9 @@ export type AgentConversation = {
   // conversation, on which runtime endpoint. Durable so any backend replica
   // reattaches to the same inner session instead of forking a new one.
   claudeCodePreview?: ConversationPreviewAttachment
+  /** Model settings picked before a session exists; the runtime applies them
+   *  when it creates one. Cleared by a move, since choices are per agent. */
+  initialSessionConfig?: RuntimeDefaults
   claudeCodePreviewContext?: ConversationPreviewContext
   // What became of whatever the inner agent process left running — background
   // tasks, monitors, watchers. `session_lost` is a resume answering that the

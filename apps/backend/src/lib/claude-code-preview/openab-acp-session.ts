@@ -1,7 +1,6 @@
 // Wire-level types for the OpenAB ACP client and the session-creation
 // options it forwards to the runtime's inner claude-agent-acp session.
 import type { PreviewAgentUpdate } from './preview-agent-update'
-import type { RuntimeDefaults } from './runtime-defaults'
 import type { OpenAbProvider } from './runtime-provider'
 
 export const ACP_INITIALIZE_PARAMS = {
@@ -63,6 +62,9 @@ export type OpenAbAcpClientOptions = {
   promptProgressTimeoutMs?: number
   retireGraceMs?: number
 }
+
+/** Model settings the runtime applies when it creates the session. */
+export type RuntimeDefaults = { model?: string; fast?: 'on' | 'off'; effort?: string }
 
 export type OpenAbSessionRuntime = {
   defaults?: RuntimeDefaults

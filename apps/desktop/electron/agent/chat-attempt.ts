@@ -97,6 +97,7 @@ export async function postChatAttempt(
         permissionMode: args.permissionMode,
         agentRuntime: args.agentRuntime,
         runtimeId: args.runtimeId,
+        initialSessionConfig: args.initialSessionConfig,
         clientCapabilities: { localTools: true },
         // Only the very first POST of an auto-resumed run carries the
         // nudge; subsequent reconnects within that same run are

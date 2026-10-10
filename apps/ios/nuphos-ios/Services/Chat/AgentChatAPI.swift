@@ -19,6 +19,7 @@ enum AgentChatAPI {
         var credentialAccess: JSONValue?
         var agentRuntime: String?
         var runtimeId: String?
+        var initialSessionConfig: [String: String]?
         var clientCapabilities: [String: Bool]?
     }
 

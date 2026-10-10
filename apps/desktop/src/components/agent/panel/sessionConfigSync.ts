@@ -67,7 +67,12 @@ export class SessionConfigSync {
 
   private schedule() {
     clearTimeout(this.poll)
-    if (this.active)
+    // A dormant session's choices change only when a message starts it, the
+    // menu opens or the window regains focus, which all refresh; polling would
+    // only re-probe the runtime. Keep polling until it has listed some.
+    const dormant = this.snapshot.data?.status === 'dormant' && this.snapshot.data.options.length
+
+    if (this.active && !dormant)
       this.poll = setTimeout(
         () => void this.refresh(),
         Math.min(10_000 * 2 ** this.failures, 60_000),

@@ -12,7 +12,6 @@ import { provisionHostedRuntime } from './runtime-reconcile'
 import { registerTeamRuntime, runtimes } from './runtime-registry'
 
 import type { LocalRuntimeSummary } from './local-runtime-catalog'
-import type { RuntimeDefaults } from './runtime-defaults'
 import type { OpenAbProvider } from './runtime-provider'
 
 export type RuntimeInstance = {
@@ -32,7 +31,6 @@ export type RuntimeInstance = {
   local?: LocalRuntimeSummary
   deletion?: { state: 'deleting'; error?: string }
   createdAt: string
-  defaults?: RuntimeDefaults
 }
 
 /**

@@ -1,5 +1,4 @@
 import type { LocalAgentProvider, LocalRuntimeState } from './device-types.ts'
-import type { RuntimeDefaults } from '../types/runtime.ts'
 
 export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
@@ -10,8 +9,6 @@ export const deviceApi = {
   localRuntimeCancelClaudeLogin: () => window.api.localRuntimeCancelClaudeLogin(),
   localRuntimeCancelCodexLogin: () => window.api.localRuntimeCancelCodexLogin(),
   localRuntimeGetState: () => window.api.localRuntimeGetState(),
-  localAgentSetDefaults: (runtimeId: string, defaults: RuntimeDefaults) =>
-    window.api.localAgentSetDefaults(runtimeId, defaults),
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),

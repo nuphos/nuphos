@@ -10,7 +10,6 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
-import { RuntimeDefaultsSection } from './RuntimeDefaultsSection'
 import { RuntimeInstanceForm } from './RuntimeInstanceForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
@@ -232,9 +231,6 @@ export function RuntimeInstanceCard({
                 />
               )
             )}
-            <div className="px-5 py-6">
-              <RuntimeDefaultsSection teamId={teamId} instance={instance} isAdmin={isAdmin} />
-            </div>
             <div className="px-5 py-6">
               <RuntimeUsageSection quota={quota} />
             </div>

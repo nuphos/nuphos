@@ -61,6 +61,7 @@ function context(runtime: AgentProvider) {
       kind: 'managed',
       createdAt: '',
     },
+    newConversationSessionConfig: {},
     newConversationCredentialAccess: {} as StartChatCtx['newConversationCredentialAccess'],
     defaultPermissionMode: 'auto',
     credentialAccessRef: { current: new Map() },
@@ -93,6 +94,7 @@ test('each new conversation sends its chosen runtime and stamps the first transc
     assert.equal(requests.at(-1)?.runtimeId, `instance-${runtime}`)
     assert.equal(requests.at(-1)?.agentRuntime, runtime)
     assert.equal(requests.at(-1)?.sessionId, state.synced[0].sessionId)
+    assert.equal(requests.at(-1)?.initialSessionConfig, undefined)
   }
   assert.notEqual(requests[0].sessionId, requests[1].sessionId)
   assert.equal(requests[0].teamId, requests[1].teamId)
@@ -175,12 +177,10 @@ test('first prompt has sender attribution before the agent acknowledges it', () 
   assert.equal(message.metadata?.sentAt, new Date(message.createdAt).toISOString())
 })
 
-test('the first streaming tab retains its submitted model before session config is available', () => {
+test('the first message carries the model settings picked before the session existed', () => {
   const state = context('codex')
 
-  state.ctx.newConversationRuntime!.defaults = { model: 'gpt-6.1', effort: 'high' }
+  state.ctx.newConversationSessionConfig = { model: 'gpt-6.1', effort: 'high' }
   runStartChatWith(state.ctx, 'hello')
-  assert.deepEqual(state.tabs()[0]?.initialModel, { runtimeId: 'instance-codex', name: 'gpt-6.1' })
-  assert.equal(state.tabs()[0]?.streaming, true)
-  assert.deepEqual(state.synced[0]?.initialModel, state.tabs()[0]?.initialModel)
+  assert.deepEqual(requests.at(-1)?.initialSessionConfig, { model: 'gpt-6.1', effort: 'high' })
 })
