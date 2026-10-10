@@ -90,9 +90,9 @@ test('toggleItem adds a missing entry and removes a present one by key', () => {
   assert.deepEqual(toggleItem([p, q], { ...p }, panelKey), [q])
 })
 
-test('gridFor keeps saved places, appends new cards below, and drops removed ones', () => {
+test('gridFor keeps saved places, puts new cards in the first free spot, and drops removed ones', () => {
   const grid = gridFor(
-    ['team', 'pulls', 'panel:d/p'],
+    ['team', 'pulls', 'panel:d/p', 'gh:new'],
     [
       { i: 'team', x: 0, y: 0, w: 12, h: 8 },
       { i: 'ci', x: 6, y: 8, w: 6, h: 7 },
@@ -101,9 +101,25 @@ test('gridFor keeps saved places, appends new cards below, and drops removed one
 
   assert.deepEqual(grid, [
     { i: 'team', x: 0, y: 0, w: 12, h: 8 },
+    // The removed CI card's place is free again, so the panel moves in beside
+    // the pull requests instead of going below them.
     { i: 'pulls', x: 0, y: 8, w: 6, h: 7 },
-    { i: 'panel:d/p', x: 0, y: 15, w: 6, h: 6 },
+    { i: 'panel:d/p', x: 6, y: 8, w: 6, h: 6 },
+    // Under the shorter panel, which frees up first.
+    { i: 'gh:new', x: 6, y: 14, w: 6, h: 7 },
   ])
+})
+
+test('gridFor puts a new card beside a half-width one rather than below it', () => {
+  const grid = gridFor(
+    ['team', 'gh:prs', 'gh:ci'],
+    [
+      { i: 'team', x: 0, y: 0, w: 12, h: 8 },
+      { i: 'gh:prs', x: 0, y: 8, w: 6, h: 7 },
+    ],
+  )
+
+  assert.deepEqual(grid[2], { i: 'gh:ci', x: 6, y: 8, w: 6, h: 7 })
 })
 
 test('a layout that failed to load is not editable', () => {
