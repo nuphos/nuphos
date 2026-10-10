@@ -4,7 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { probeAgentCli, updateAgentCli } from './agent-cli.ts'
+import { updateAgentCli } from './agent-cli-update.ts'
+import { probeAgentCli } from './agent-cli.ts'
 
 // Real child processes make sure the status command sees the runtime environment,
 // rather than merely checking the object we intended to pass to execFile.

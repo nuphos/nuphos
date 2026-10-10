@@ -46,6 +46,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   })
 
   const runtimeControl = {
+    teamId,
     value: newConversationRuntime,
     options: runtimeInstances,
     quotas: runtimeQuotas,

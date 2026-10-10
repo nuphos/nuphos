@@ -135,6 +135,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
 
     return {
+      teamId,
       value: {
         id: tab?.runtimeId,
         provider,

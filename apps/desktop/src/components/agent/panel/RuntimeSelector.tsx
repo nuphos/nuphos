@@ -1,6 +1,7 @@
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
@@ -24,6 +25,8 @@ import type { QuotaTone } from '../../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
+  /** Lets the selector ask each agent whether an update is available. */
+  teamId?: string
   value: {
     id?: string
     provider: RuntimeInstance['provider']
@@ -99,6 +102,7 @@ function runtimeOptionNote(instance: RuntimeInstance): string {
 }
 
 export function RuntimeSelector({
+  teamId,
   value,
   options = [],
   quota,
@@ -121,6 +125,7 @@ export function RuntimeSelector({
     : loading
       ? 'Loading agents…'
       : 'Choose agent'
+  const updates = useAgentUpdates(teamId, options)
   const selectedQuota = quota ?? (value?.id ? quotas?.get(value.id) : undefined)
   const [usageWaitExpired, setUsageWaitExpired] = useState<string | undefined>()
 
@@ -148,6 +153,14 @@ export function RuntimeSelector({
         />
       ) : (
         <span className="max-w-40 truncate">{label}</span>
+      )}
+      {value?.id && updates.has(value.id) && (
+        <Tooltip content="Update available">
+          <span
+            aria-label="Update available"
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-zViolet-400"
+          />
+        </Tooltip>
       )}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
       {usageLoading ? (
@@ -243,6 +256,9 @@ export function RuntimeSelector({
                         <span className="text-[11px] text-tertiary">
                           {AGENT_PROVIDER[instance.provider].label}
                           {runtimeOptionNote(instance)}
+                          {updates.has(instance.id) && (
+                            <span className="text-zViolet-400"> · Update available</span>
+                          )}
                           <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
                         </span>
                       </span>

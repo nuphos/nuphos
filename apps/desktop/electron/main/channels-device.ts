@@ -15,7 +15,7 @@ import {
   refreshLocalRuntime,
   userEnv,
 } from './local-runtime/index.ts'
-import { updateAgentCli } from './local-runtime/agent-cli.ts'
+import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 
 import type { LocalAgentProvider } from './local-runtime/agent-cli.ts'
 
@@ -37,6 +37,7 @@ export const deviceChannels = {
 
     return refreshLocalRuntime()
   },
+  'localRuntime:latestAgentVersions': () => latestAgentCliVersions(),
   'localRuntime:openWorkspace': () => openLocalRuntimeWorkspace(),
   'localRuntime:listActivity': (_e: unknown, before?: string) => listLocalRuntimeActivity(before),
 }

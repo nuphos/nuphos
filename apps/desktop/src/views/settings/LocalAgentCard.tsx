@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { useLocalAgentLatest } from '../../hooks/useAgentUpdates'
+import { localUpdateVersion } from '../../lib/agentUpdate'
 import { useTextSwap } from '../../hooks/useTextSwap'
 
 import { unbundledStatus } from './localAgentBundle'
@@ -54,11 +56,13 @@ function Code({ children }: { children: string }) {
 }
 
 /** Runs the CLI's own `update`; a CLI inside an app bundle is updated by that app instead. */
-function UpdateButton({ provider, path }: { provider: LocalAgentProvider; path: string }) {
+function UpdateButton({ provider, cli }: { provider: LocalAgentProvider; cli: AgentCliStatus }) {
   const [updating, setUpdating] = useState(false)
+  const latest = useLocalAgentLatest()[provider]
   const { name, command } = AGENT[provider]
 
-  if (path.includes('.app/Contents/')) return null
+  if (!cli.installed || cli.path.includes('.app/Contents/')) return null
+  const next = localUpdateVersion(cli, latest)
 
   async function update() {
     setUpdating(true)
@@ -79,7 +83,7 @@ function UpdateButton({ provider, path }: { provider: LocalAgentProvider; path: 
 
   return (
     <Button size="sm" variant="secondary" disabled={updating} onClick={() => void update()}>
-      {updating ? 'Updating…' : 'Update'}
+      {updating ? 'Updating…' : next ? `Update to v${next}` : 'Update'}
     </Button>
   )
 }
@@ -121,7 +125,7 @@ function CliStatus({
           provider={provider}
           label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
         />
-        <UpdateButton provider={provider} path={cli.path} />
+        <UpdateButton provider={provider} cli={cli} />
       </div>
     </div>
   )

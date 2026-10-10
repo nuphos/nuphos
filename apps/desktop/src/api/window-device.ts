@@ -22,6 +22,7 @@ export type WindowDeviceApi = {
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
   localRuntimeUpdateAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
+  localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
   localRuntimeOpenWorkspace(): Promise<void>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
 }
