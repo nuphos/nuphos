@@ -149,17 +149,16 @@ export function SessionResources({
           </span>
         )
       })}
-      {!titlebar &&
-        processes.map((name) => (
-          <span
-            key={name}
-            className="inline-flex min-w-0 max-w-40 items-center gap-1 text-secondary"
-            title={name}
-          >
-            <Terminal className="size-3 shrink-0" />
-            <span className="truncate">{name}</span>
-          </span>
-        ))}
+      {processes.map((name) => (
+        <span
+          key={name}
+          className={`inline-flex min-w-0 max-w-40 items-center gap-1 text-secondary ${titlebar ? 'shrink-0 rounded border border-[var(--sidebar-overlay-active)] px-1.5 py-0.5' : ''}`}
+          title={name}
+        >
+          <Terminal className="size-3 shrink-0" />
+          <span className="truncate">{name}</span>
+        </span>
+      ))}
     </div>
   )
 }
