@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 
 import {
@@ -6,6 +9,7 @@ import {
   pastedAddress,
   providerOptions,
   runOpenCodeLogin,
+  writeBedrockOptions,
 } from '../image/opencode-login.mjs'
 
 const PROVIDERS = {
@@ -14,6 +18,7 @@ const PROVIDERS = {
     { id: 'groq', name: 'Groq' },
     { id: 'openai', name: 'OpenAI' },
     { id: 'github-copilot', name: 'GitHub Copilot' },
+    { id: 'amazon-bedrock', name: 'Amazon Bedrock' },
   ],
   connected: ['groq'],
 }
@@ -51,7 +56,7 @@ const BROWSER_URL =
   'https://auth.openai.com/oauth/authorize?redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&state=s'
 
 /** Drives the helper against a stand-in for OpenCode's server, answering in order. */
-async function login(answers, authorization = {}) {
+async function login(answers, authorization = {}, configFile = '/nonexistent/opencode.json') {
   const frames = []
   const calls = []
   const fetchImpl = async (url, init = {}) => {
@@ -72,6 +77,7 @@ async function login(answers, authorization = {}) {
     lines: lines(),
     emit: (frame) => frames.push(frame),
     fetchImpl,
+    configFile,
   })
   return { frames, calls }
 }
@@ -80,6 +86,7 @@ test('providers are offered featured first, with the ones already signed in mark
   assert.deepEqual(providerOptions(PROVIDERS), [
     { value: 'openai', label: 'OpenAI' },
     { value: 'github-copilot', label: 'GitHub Copilot' },
+    { value: 'amazon-bedrock', label: 'Amazon Bedrock' },
     { value: 'groq', label: 'Groq', hint: 'Connected' },
     { value: 'zai', label: 'Z.AI' },
   ])
@@ -193,4 +200,100 @@ test('a method’s own fields are asked for, and only when they apply', async ()
 
 test('an answer that is not one of the choices ends the sign-in', async () => {
   await assert.rejects(login(['not-a-provider']))
+})
+
+async function withConfig(run) {
+  const dir = await mkdtemp(join(tmpdir(), 'opencode-config-'))
+  try {
+    await run(join(dir, 'opencode', 'opencode.json'))
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+test('Bedrock signs in with an API key and keeps its region in OpenCode’s config', async () => {
+  await withConfig(async (file) => {
+    const { frames, calls } = await login(
+      ['amazon-bedrock', 'api-key', 'eu-west-1', 'bedrock-api-key-x'],
+      {},
+      file,
+    )
+
+    assert.deepEqual(frames.slice(1, -1), [
+      {
+        type: 'choose',
+        message: 'Sign in to Amazon Bedrock',
+        options: [
+          { value: 'api-key', label: 'Bedrock API key' },
+          { value: 'access-key', label: 'AWS access key' },
+        ],
+      },
+      { type: 'input', message: 'AWS region', placeholder: 'us-east-1' },
+      { type: 'input', message: 'Amazon Bedrock API key', secret: true },
+    ])
+    assert.deepEqual(calls.at(-1), {
+      url: 'http://127.0.0.1:1/auth/amazon-bedrock',
+      method: 'PUT',
+      body: { type: 'api', key: 'bedrock-api-key-x' },
+    })
+    assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), {
+      provider: { 'amazon-bedrock': { options: { region: 'eu-west-1' } } },
+    })
+    assert.equal((await stat(file)).mode & 0o777, 0o600)
+  })
+})
+
+test('Bedrock signs in with AWS access keys, replacing a saved API key', async () => {
+  await withConfig(async (file) => {
+    const { frames, calls } = await login(
+      ['amazon-bedrock', 'access-key', 'us-west-2', 'AKIAEXAMPLE', 'secret'],
+      {},
+      file,
+    )
+
+    assert.equal(frames.at(-1).type, 'authenticated')
+    assert.equal(frames.at(-2).secret, true)
+    // A saved Bedrock API key would take precedence over the keys.
+    assert.equal(calls.at(-1).method, 'DELETE')
+    assert.equal(calls.at(-1).url, 'http://127.0.0.1:1/auth/amazon-bedrock')
+    assert.deepEqual(JSON.parse(await readFile(file, 'utf8')).provider['amazon-bedrock'], {
+      options: { region: 'us-west-2', accessKeyId: 'AKIAEXAMPLE', secretAccessKey: 'secret' },
+    })
+  })
+})
+
+test('Bedrock options replace saved credentials and keep the rest of the config', async () => {
+  await withConfig(async (file) => {
+    await writeBedrockOptions(file, { region: 'us-east-1', accessKeyId: 'A', secretAccessKey: 'S' })
+    const config = JSON.parse(await readFile(file, 'utf8'))
+    config.theme = 'dark'
+    config.provider['amazon-bedrock'].options.endpoint = 'https://bedrock.example'
+    await writeFile(file, JSON.stringify(config))
+
+    await writeBedrockOptions(file, { region: 'ap-northeast-1' })
+    assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), {
+      theme: 'dark',
+      provider: {
+        'amazon-bedrock': {
+          options: { endpoint: 'https://bedrock.example', region: 'ap-northeast-1' },
+        },
+      },
+    })
+  })
+})
+
+test('a region that is not one is refused before anything is saved', async () => {
+  await withConfig(async (file) => {
+    await assert.rejects(login(['amazon-bedrock', 'api-key', 'virginia'], {}, file))
+    await assert.rejects(stat(file))
+  })
+})
+
+test('a config OpenCode’s user wrote with comments is left alone', async () => {
+  await withConfig(async (file) => {
+    await writeBedrockOptions(file, { region: 'us-east-1' })
+    await writeFile(file, '{ // mine\n}')
+    await assert.rejects(writeBedrockOptions(file, { region: 'us-east-1' }))
+    assert.equal(await readFile(file, 'utf8'), '{ // mine\n}')
+  })
 })

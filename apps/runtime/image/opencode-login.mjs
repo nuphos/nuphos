@@ -11,8 +11,15 @@
 // placeholder?, secret?} each wait for one line; `browser` {url, instructions?, paste?}
 // waits for the pasted code or address when `paste` is set, and otherwise for OpenCode
 // to see the approval itself.
+//
+// Amazon Bedrock has no sign-in of its own in OpenCode: it takes a Bedrock API key, or
+// AWS credentials and a region from OpenCode's config. Both are asked for here; the
+// config is OpenCode's global one in this container, not environment variables, which
+// every shell command the agent runs would inherit.
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
@@ -27,6 +34,13 @@ const FEATURED = [
   'opencode',
 ]
 const API_KEY = { type: 'api', label: 'API key' }
+const BEDROCK = 'amazon-bedrock'
+const BEDROCK_METHODS = [
+  { value: 'api-key', label: 'Bedrock API key' },
+  { value: 'access-key', label: 'AWS access key' },
+]
+const AWS_REGION = /^[a-z]{2}(?:-gov)?-[a-z]+-\d{1,2}$/u
+const CONFIG_FILE = join(process.env.HOME ?? '/home/node', '.config', 'opencode', 'opencode.json')
 
 class LoginError extends Error {}
 
@@ -102,11 +116,35 @@ export function startServer({ home }) {
   })
 }
 
+/**
+ * Sets Bedrock's options in OpenCode's config, keeping everything else in it. Saved
+ * credentials are replaced, not merged, so switching methods leaves nothing behind.
+ */
+export async function writeBedrockOptions(file, options) {
+  let config = {}
+  try {
+    config = JSON.parse(await readFile(file, 'utf8'))
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw new LoginError('OpenCode config is not plain JSON')
+  }
+  const kept = { ...config.provider?.[BEDROCK]?.options }
+  for (const key of ['accessKeyId', 'secretAccessKey', 'sessionToken', 'apiKey']) delete kept[key]
+  config.provider = {
+    ...config.provider,
+    [BEDROCK]: { ...config.provider?.[BEDROCK], options: { ...kept, ...options } },
+  }
+  await mkdir(dirname(file), { recursive: true, mode: 0o700 })
+  const temporary = `${file}.${String(process.pid)}.tmp`
+  await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+  await rename(temporary, file)
+}
+
 export async function runOpenCodeLogin({
   server,
   lines,
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   fetchImpl = fetch,
+  configFile = CONFIG_FILE,
 }) {
   const api = async (method, path, body) => {
     const response = await fetchImpl(`${server.base}${path}`, {
@@ -141,6 +179,23 @@ export async function runOpenCodeLogin({
   ])
   const providerID = await choose('Choose a model provider', providerOptions(providers))
   const name = providers.all.find((provider) => provider.id === providerID).name
+  if (providerID === BEDROCK) {
+    const how = await choose(`Sign in to ${name}`, BEDROCK_METHODS)
+    const region = await input({ message: 'AWS region', placeholder: 'us-east-1' })
+    if (!AWS_REGION.test(region)) throw new LoginError('Not an AWS region')
+    if (how === 'api-key') {
+      const key = await input({ message: 'Amazon Bedrock API key', secret: true })
+      await api('PUT', `/auth/${BEDROCK}`, { type: 'api', key })
+      await writeBedrockOptions(configFile, { region })
+    } else {
+      const accessKeyId = await input({ message: 'AWS access key ID', placeholder: 'AKIA…' })
+      const secretAccessKey = await input({ message: 'AWS secret access key', secret: true })
+      // A saved Bedrock API key would win over these.
+      await api('DELETE', `/auth/${BEDROCK}`)
+      await writeBedrockOptions(configFile, { region, accessKeyId, secretAccessKey })
+    }
+    return emit({ type: 'authenticated' })
+  }
   const offered = methods[providerID]?.length ? methods[providerID] : [API_KEY]
   const index =
     offered.length === 1

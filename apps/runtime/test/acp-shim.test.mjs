@@ -19,7 +19,7 @@ rl.on('line', (line) => {
   const seen = { method: m.method, params: m.params, pid: process.pid, env: {
     HOME: process.env.HOME, NUPHOS_TOKEN: process.env.NUPHOS_TOKEN, EXTRA: process.env.EXTRA,
     GROK_HOME: process.env.GROK_HOME, GEMINI_HOME: process.env.GEMINI_HOME,
-    XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+    XDG_DATA_HOME: process.env.XDG_DATA_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
     OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE } }
   const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
@@ -126,6 +126,12 @@ test('opencode shares only its own data directory with the runtime home', async 
     assert.equal(
       await realpath(join(seen.env.XDG_DATA_HOME, 'opencode')),
       await realpath(join(home, '.local', 'share', 'opencode')),
+    )
+    // Its provider settings too, such as Bedrock's region; not the rest of the config.
+    assert.equal(seen.env.XDG_CONFIG_HOME, join(seen.env.HOME, '.config'))
+    assert.equal(
+      await realpath(join(seen.env.XDG_CONFIG_HOME, 'opencode')),
+      await realpath(join(home, '.config', 'opencode')),
     )
     assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
     assert.equal(seen.params._meta.rules, undefined)

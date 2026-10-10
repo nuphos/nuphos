@@ -59,10 +59,11 @@ export const PROVIDERS = {
   opencode: {
     command: ['opencode', 'acp'],
     home: () => ({ OPENCODE_DISABLE_AUTOUPDATE: '1' }),
-    // OpenCode keeps its login (auth.json) and its sessions in XDG_DATA_HOME/opencode.
-    // Only that directory is shared with the runtime home; the rest of XDG_DATA_HOME
-    // stays the conversation's own, as for every other tool.
-    shared: [join('.local', 'share', 'opencode')],
+    // OpenCode keeps its login (auth.json) and its sessions in XDG_DATA_HOME/opencode,
+    // and provider settings such as Bedrock's region in XDG_CONFIG_HOME/opencode. Only
+    // those directories are shared with the runtime home; the rest of the XDG
+    // directories stays the conversation's own, as for every other tool.
+    shared: [join('.local', 'share', 'opencode'), join('.config', 'opencode')],
     // No system prompt parameter over ACP: the instructions lead the first prompt.
     instruct: null,
     // A prompt sent while a turn runs joins that turn instead of starting its own.

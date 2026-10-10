@@ -34,6 +34,9 @@ Three things, in layers:
    the same shim and installs the same way. It answers on OpenCode Zen's free
    models without a sign-in, and signs in to any provider OpenCode supports, by
    any method it offers for it (API key, device page or browser sign-in).
+   Amazon Bedrock takes a Bedrock API key or AWS access keys plus a region,
+   which the sign-in keeps in OpenCode's own config rather than in environment
+   variables every shell command would inherit.
 3. **The Nuphos toolset layer**, built from [`image/`](image) in this
    repository: a set of patches to the adapters, a handful of helper programs,
    and the command-line tools an agent is expected to be able to reach for.
