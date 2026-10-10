@@ -26,6 +26,8 @@ export const deviceApi = {
     return () => ipcRenderer.off('localRuntime:state', handler)
   },
   localRuntimeRefresh: () => ipcRenderer.invoke('localRuntime:refresh'),
+  localRuntimeUpdateAgent: (provider: string) =>
+    ipcRenderer.invoke('localRuntime:updateAgent', provider),
   localRuntimeOpenWorkspace: () => ipcRenderer.invoke('localRuntime:openWorkspace'),
   localRuntimeListActivity: (before?: string) =>
     ipcRenderer.invoke('localRuntime:listActivity', before),

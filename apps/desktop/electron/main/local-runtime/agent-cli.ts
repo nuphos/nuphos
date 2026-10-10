@@ -26,6 +26,7 @@ export type AgentCliStatus =
 
 const PROBE_TIMEOUT_MS = 15_000
 const USAGE_TIMEOUT_MS = 10_000
+const UPDATE_TIMEOUT_MS = 5 * 60_000
 const MAX_USAGE_CHARS = 200_000
 const COMMAND: Record<LocalAgentProvider, string> = { 'claude-code': 'claude', codex: 'codex' }
 
@@ -88,6 +89,25 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
         if (error && !output.trim()) reject(new Error(error.message))
         else resolve(output)
       },
+    )
+  })
+}
+
+/** `claude update` / `codex update`: each CLI knows how it was installed and updates itself that way. */
+export function updateAgentCli(
+  provider: LocalAgentProvider,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  const file = LOCAL_AGENT_PROVIDERS.includes(provider) ? findAgentCli(provider, env) : null
+
+  if (!file) return Promise.reject(new Error('Install the agent on this computer first.'))
+
+  return new Promise((resolve, reject) => {
+    execFile(
+      file,
+      ['update'],
+      { env, timeout: UPDATE_TIMEOUT_MS, shell: file.endsWith('.cmd') },
+      (error) => (error ? reject(new Error(error.message)) : resolve()),
     )
   })
 }

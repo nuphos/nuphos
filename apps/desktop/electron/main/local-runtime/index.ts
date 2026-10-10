@@ -47,7 +47,7 @@ function bundleRoot(): string {
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 
-async function userEnv(): Promise<NodeJS.ProcessEnv> {
+export async function userEnv(): Promise<NodeJS.ProcessEnv> {
   return { ...process.env, ...((await resolveShellEnv()) ?? {}) }
 }
 

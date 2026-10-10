@@ -1,7 +1,10 @@
 import clsx from 'clsx'
 import { RotateCw } from 'lucide-react'
+import { useState } from 'react'
 
+import { api } from '../../api'
 import { Button } from '../../components/ui/button'
+import { toast } from '../../components/ui/toast'
 import { useTextSwap } from '../../hooks/useTextSwap'
 
 import { unbundledStatus } from './localAgentBundle'
@@ -13,15 +16,20 @@ import type { AgentCliStatus, DevBundleHint, LocalAgentProvider, LocalAgentState
 
 export const LOCAL_AGENT_CARD = 'rounded-lg border border-zGray-800/70 bg-surface'
 
-const AGENT: Record<LocalAgentProvider, { name: string; install: string; connectors: string }> = {
+const AGENT: Record<
+  LocalAgentProvider,
+  { name: string; command: string; install: string; connectors: string }
+> = {
   'claude-code': {
     name: 'Claude Code',
+    command: 'claude',
     install: 'curl -fsSL https://claude.ai/install.sh | bash',
     connectors:
       'Your own Claude Code settings, CLAUDE.md, hooks, plugins, skills, MCP servers and claude.ai connectors are never loaded.',
   },
   codex: {
     name: 'Codex',
+    command: 'codex',
     install: 'npm install -g @openai/codex',
     connectors: 'Your own Codex config, MCP servers and connectors are never loaded.',
   },
@@ -42,6 +50,37 @@ function Code({ children }: { children: string }) {
     <code className="select-all rounded bg-field px-1.5 py-0.5 font-mono text-[11.5px] text-main">
       {children}
     </code>
+  )
+}
+
+/** Runs the CLI's own `update`; a CLI inside an app bundle is updated by that app instead. */
+function UpdateButton({ provider, path }: { provider: LocalAgentProvider; path: string }) {
+  const [updating, setUpdating] = useState(false)
+  const { name, command } = AGENT[provider]
+
+  if (path.includes('.app/Contents/')) return null
+
+  async function update() {
+    setUpdating(true)
+    try {
+      const state = await api.localRuntimeUpdateAgent(provider)
+      const cli = state.agents[provider].cli
+      const version = cli?.installed ? cli.version : undefined
+
+      toast.success(`${name} is up to date`, version ? `Version ${version}` : undefined)
+    } catch (err) {
+      toast.apiError(`Could not update ${name}`, err, {
+        fallback: `Run \`${command} update\` in a terminal to see why.`,
+      })
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  return (
+    <Button size="sm" variant="secondary" disabled={updating} onClick={() => void update()}>
+      {updating ? 'Updating…' : 'Update'}
+    </Button>
   )
 }
 
@@ -75,11 +114,15 @@ function CliStatus({
             : `Connect ${agent.name} to use this computer as your agent.`}
         {cli.loggedIn && cli.account && <span> {cli.account}</span>}
         {cli.plan && <span> · {cli.plan}</span>}
+        {cli.version && <span> · v{cli.version}</span>}
       </p>
-      <LocalAgentSignIn
-        provider={provider}
-        label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
-      />
+      <div className="flex items-center gap-2">
+        <LocalAgentSignIn
+          provider={provider}
+          label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
+        />
+        <UpdateButton provider={provider} path={cli.path} />
+      </div>
     </div>
   )
 }

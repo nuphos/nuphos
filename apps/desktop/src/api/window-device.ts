@@ -1,6 +1,7 @@
 import type {
   DeviceExecAuditPage,
   LocalAgentLoginState,
+  LocalAgentProvider,
   DeviceIdentity,
   LocalRuntimeActivityPage,
   LocalRuntimeState,
@@ -20,6 +21,7 @@ export type WindowDeviceApi = {
   localAgentSetDefaults(runtimeId: string, defaults: RuntimeDefaults): Promise<void>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
+  localRuntimeUpdateAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeOpenWorkspace(): Promise<void>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
 }

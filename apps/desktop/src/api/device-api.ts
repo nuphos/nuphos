@@ -1,4 +1,4 @@
-import type { LocalRuntimeState } from './device-types.ts'
+import type { LocalAgentProvider, LocalRuntimeState } from './device-types.ts'
 import type { RuntimeDefaults } from '../types/runtime.ts'
 
 export const deviceApi = {
@@ -15,6 +15,8 @@ export const deviceApi = {
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),
+  localRuntimeUpdateAgent: (provider: LocalAgentProvider) =>
+    window.api.localRuntimeUpdateAgent(provider),
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
   localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
 }
