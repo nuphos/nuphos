@@ -12,7 +12,7 @@ specifications, with no Redis:
 
 The data spec reads the bootstrap scripts from `../zeabur/template.yaml`, so use
 a checkout of this repository, not a standalone copy of this directory.
-These are source templates, not published Railway marketplace template IDs.
+These are source templates. Only the runtime has a published marketplace template (see below).
 
 ## Deploy the data project
 
@@ -92,10 +92,14 @@ Set the runtime domain's DNS record. Open its HTTPS console using
 your team using the single-use code, and sign in to your own Claude account.
 Keep the home volume when redeploying: it contains credentials and workspaces.
 
-To publish native marketplace templates later, use Railway's
-[`railway templates create`](https://docs.railway.com/cli/templates) on each
-verified project separately. Review and remove deployment-specific secrets before
-publishing. This repository does not publish or create Railway resources in CI.
+The runtime is also published as a one-click marketplace template,
+[Nuphos Agent Runtime](https://railway.com/deploy/nuphos-agent-runtime). It runs the
+public `ghcr.io/nuphos/runtime` image directly instead of building this directory:
+`RAILWAY_RUN_UID=0` and a start command do what `runtime/start.sh` does, and with no
+`OPENAB_ACP_AUTH_KEY` set the console asks for a password on first open. After a
+runtime release, update the template's image tag with
+[`railway templates`](https://docs.railway.com/cli/templates). This repository does
+not publish or create Railway resources in CI.
 
 ## Validation and scope
 
