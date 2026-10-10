@@ -101,7 +101,9 @@ test('no release at all leaves the default unresolved, while a pin still resolve
 
 test('self-hosted compose pins one published release across its own files', () => {
   const compose = readFileSync(join(COMPOSE_DIR, 'docker-compose.yml'), 'utf8')
-  const tag = /ghcr\.io\/nuphos\/runtime:\$\{RUNTIME_TAG:-(\d+\.\d+\.\d+-claude-code)\}/.exec(compose)?.[1]
+  const tag = /ghcr\.io\/nuphos\/runtime:\$\{RUNTIME_TAG:-(\d+\.\d+\.\d+-claude-code)\}/.exec(
+    compose,
+  )?.[1]
 
   // Compose cannot ask a registry anything at template time, so it names a release
   // literally. Its two files must at least agree on which.
