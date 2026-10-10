@@ -86,11 +86,9 @@ export class SessionConfigSync {
       if (this.active && version === this.version) this.publish({ slow: true })
     }, 2_000)
     try {
-      const incoming = await bounded(this.transport.read(), 15_000)
-      const data =
-        incoming.options.length || incoming.status === 'ready' || incoming.status === 'unsupported'
-          ? incoming
-          : { ...incoming, options: this.snapshot.data?.options ?? [] }
+      // The backend already falls back to the session's last confirmed options;
+      // an empty list means this session has none, e.g. after moving agents.
+      const data = await bounded(this.transport.read(), 15_000)
 
       if (!this.active || version !== this.version) return
       this.failures = 0
