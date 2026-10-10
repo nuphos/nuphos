@@ -72,6 +72,8 @@ export type LocalRuntimeControllerDeps = {
     userDir: string,
     workspace: string,
   ) => string | undefined
+  /** Desktop waits for native cleanup permission before Codex can use the computer. */
+  prepareComputerUse?: () => Promise<void>
   /** Makes sure the backend knows this device before its tunnel connects. */
   registerDevice: () => Promise<void>
   createProcess: () => RuntimeProcess

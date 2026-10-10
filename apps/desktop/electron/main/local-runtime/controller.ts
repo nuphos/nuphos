@@ -199,6 +199,19 @@ export class LocalRuntimeController {
       return
     }
 
+    if (provider === 'codex') {
+      try {
+        await this.deps.prepareComputerUse?.()
+      } catch (error) {
+        if (current()) {
+          agent.error = String(error)
+          this.changed()
+        }
+
+        return
+      }
+      if (!current()) return
+    }
     await this.startProcess({ provider, userId, cliPath: agent.cli.path, env, current, agentHome })
   }
 

@@ -16,6 +16,7 @@ import { readDeviceIdentity } from '../device-identity.ts'
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { ClaudeLogin } from './claude-login.ts'
+import { prepareComputerUse } from './computer-use-permission.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
@@ -100,6 +101,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   writeCliCache,
   onChange: broadcastState,
   prepareAgentHome,
+  prepareComputerUse,
   registerDevice: () => syncDeviceRegistration(),
   createProcess: () => new OpenabProcess(),
   probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
