@@ -15,6 +15,7 @@ import {
   finishAgentRun,
 } from './run-frames'
 import { attachAgentRunFrameSink } from './run-registry'
+import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
 import { traceAgentChatError } from './trace'
 import { persistAcceptedConversationTurn } from './transcript'
 import { restoreArchivedSession } from './turn-unarchive'
@@ -82,6 +83,7 @@ export function launchAcceptedChatTurn(args: {
       : Promise.resolve(null)
 
     let slackDelivery: Awaited<typeof slackDeliveryPromise> = null
+    let discordSink: Awaited<ReturnType<typeof mirrorAppTurnToDiscord>> = null
     let pumpError: unknown
 
     try {
@@ -119,6 +121,15 @@ export function launchAcceptedChatTurn(args: {
       // The sink must be attached before frames flow; the claim release and
       // finalize in `finally` then close the Slack turn.
       slackDelivery = await slackDeliveryPromise
+      // A session bound to a Discord thread mirrors what is said in the app.
+      discordSink = await mirrorAppTurnToDiscord({
+        sessionId,
+        teamId,
+        ...(body.continueAfterInterruption
+          ? {}
+          : { message: messages.findLast((message) => message.role === 'user') }),
+      }).catch(() => null)
+      if (discordSink) attachFrameSink(run, discordSink)
       await isNewConversationPromise
       await runClaudeCodePreviewChatTurn({
         run,
@@ -133,6 +144,7 @@ export function launchAcceptedChatTurn(args: {
         endpoint: chatRuntime.endpoint,
         onRunHandoff: (next) => {
           if (slackDelivery) attachFrameSink(next, slackDelivery.frameSink)
+          if (discordSink) attachFrameSink(next, discordSink)
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
         ...(body.continueAfterInterruption
@@ -173,6 +185,7 @@ export function launchAcceptedChatTurn(args: {
       // card/transcript tail would 409 the desktop's machine-speed
       // continuations (client-tool re-POSTs, stall auto-resume).
       args.releaseClaim?.()
+      await discordSink?.settle().catch(() => {})
       if (slackDelivery) {
         await slackDelivery
           .finalize({ stopped: run.abortController.signal.aborted, error: pumpError })
