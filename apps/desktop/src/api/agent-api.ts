@@ -19,6 +19,10 @@ import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
 export const agentApi = {
+  agentGetSessionResources: (sessionId: string, teamId: string) =>
+    window.api.agentGetSessionResources(sessionId, teamId),
+  agentUnlinkSessionResource: (sessionId: string, teamId: string, resourceId: string) =>
+    window.api.agentUnlinkSessionResource(sessionId, teamId, resourceId),
   cloudProbeCliVersion: (provider: CloudCliProvider, probeId?: string) =>
     window.api.cloudProbeCliVersion(provider, probeId),
   cloudProbeCli: (provider: CloudCliProvider) => window.api.cloudProbeCli(provider),

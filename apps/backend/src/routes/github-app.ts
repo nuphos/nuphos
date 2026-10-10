@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 
 import { config } from '@/config'
+import { routeResourceWebhook } from '@/lib/agent/resource-webhook'
 import { routeGithubWebhook } from '@/lib/agent/webhook-session-router'
 import { removeGithubInstallationFromAllTeams } from '@/lib/byos/account'
 import { invalidateInstallationToken, verifyWebhookSignature } from '@/lib/byos/github'
@@ -90,6 +91,8 @@ githubAppRoutes.post('/webhook', async (c) => {
   } catch {
     throw new AppError(400, 'invalid_payload', 'Webhook body is not valid JSON')
   }
+
+  await routeResourceWebhook(event, payload, delivery === '?' ? '' : delivery)
 
   if (event === 'installation') {
     const installationId = payload.installation?.id
