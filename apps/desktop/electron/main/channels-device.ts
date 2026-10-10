@@ -13,7 +13,11 @@ import {
   listLocalRuntimeActivity,
   openLocalRuntimeWorkspace,
   refreshLocalRuntime,
+  userEnv,
 } from './local-runtime/index.ts'
+import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
+
+import type { LocalAgentProvider } from './local-runtime/agent-cli.ts'
 
 export const deviceChannels = {
   'device:getIdentity': () => getDeviceIdentity(),
@@ -27,6 +31,13 @@ export const deviceChannels = {
   'localAgent:setDefaults': (_e: unknown, runtimeId: string, defaults: unknown) =>
     setLocalAgentDefaults(runtimeId, defaults),
   'localRuntime:refresh': () => refreshLocalRuntime(),
+  // Running agents keep their version; the next one started picks up the update.
+  'localRuntime:updateAgent': async (_e: unknown, provider: LocalAgentProvider) => {
+    await updateAgentCli(provider, await userEnv())
+
+    return refreshLocalRuntime()
+  },
+  'localRuntime:latestAgentVersions': () => latestAgentCliVersions(),
   'localRuntime:openWorkspace': () => openLocalRuntimeWorkspace(),
   'localRuntime:listActivity': (_e: unknown, before?: string) => listLocalRuntimeActivity(before),
 }
