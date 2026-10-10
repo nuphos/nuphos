@@ -1,0 +1,194 @@
+name: Android release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Play version code (1-2100000000; higher than every previous submission)'
+        required: true
+        type: string
+      version_name:
+        description: 'Reviewed Android version name, for example 1.0.1'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Check and build unsigned AAB
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    env:
+      VERSION_CODE: ${{ inputs.version_code }}
+      VERSION_NAME: ${{ inputs.version_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Validate release inputs
+        working-directory: apps/android
+        run: python3 scripts/release_metadata.py --version-code "$VERSION_CODE" --version-name "$VERSION_NAME"
+      - name: Accept SDK licenses and install platform
+        run: |
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "platform-tools"
+      - name: Test, lint, and build unsigned bundle
+        working-directory: apps/android
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+          ./gradlew --no-daemon -PnuphosVersionCode="$VERSION_CODE" -PnuphosVersionName="$VERSION_NAME" :app:testDebugUnitTest :app:lintRelease :app:bundleRelease
+      - name: Validate actual bundle and record metadata
+        working-directory: apps/android
+        run: |
+          curl --fail --location --connect-timeout 15 --max-time 180 --retry 3 -o "$RUNNER_TEMP/bundletool.jar" https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          echo 'a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  '"$RUNNER_TEMP/bundletool.jar" | sha256sum --check
+          java -jar "$RUNNER_TEMP/bundletool.jar" validate --bundle=app/build/outputs/bundle/release/app-release.aab
+          java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle=app/build/outputs/bundle/release/app-release.aab > "$RUNNER_TEMP/manifest.xml"
+          mkdir -p "$RUNNER_TEMP/android-unsigned"
+          cp app/build/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/android-unsigned/unsigned.aab"
+          python3 scripts/release_metadata.py --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --manifest "$RUNNER_TEMP/manifest.xml" --bundle "$RUNNER_TEMP/android-unsigned/unsigned.aab" --output "$RUNNER_TEMP/android-unsigned/metadata.json"
+      - name: Upload unsigned build evidence
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/android-unsigned/*
+          if-no-files-found: error
+          retention-days: 14
+
+  sign:
+    name: Sign approved upload bundle
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: android-release
+    steps:
+      # No checkout or project scripts in this job. Secrets are scoped to the fixed signing step.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: ${{ runner.temp }}/android-unsigned
+      - name: Sign and verify bundle
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, re, shutil, subprocess, tempfile
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP'])
+          output = root / 'android-signed'
+          try:
+              required = ('ANDROID_UPLOAD_KEYSTORE_BASE64', 'ANDROID_UPLOAD_STORE_PASSWORD',
+                          'ANDROID_UPLOAD_KEY_ALIAS', 'ANDROID_UPLOAD_KEY_PASSWORD', 'ANDROID_UPLOAD_CERT_SHA256')
+              if any(not os.environ.get(key) for key in required):
+                  raise ValueError('Missing signing configuration')
+              fingerprint = os.environ['ANDROID_UPLOAD_CERT_SHA256'].replace(':', '').lower()
+              if not re.fullmatch('[a-f0-9]{64}', fingerprint):
+                  raise ValueError('Invalid certificate fingerprint')
+              code, name = os.environ['VERSION_CODE'], os.environ['VERSION_NAME']
+              if not re.fullmatch(r'[1-9][0-9]{0,9}', code) or int(code) > 2100000000 or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}', name):
+                  raise ValueError('Invalid release version')
+              source = root / 'android-unsigned'
+              bundle = source / 'unsigned.aab'
+              metadata = json.loads((source / 'metadata.json').read_text())
+              expected = {'source_commit': os.environ['GITHUB_SHA'], 'repository': os.environ['GITHUB_REPOSITORY'],
+                          'run_id': os.environ['GITHUB_RUN_ID'], 'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                          'package_id': 'ai.nuphos.android', 'version_code': int(code), 'version_name': name,
+                          'min_sdk': 33, 'target_sdk': 36, 'signed': False,
+                          'unsigned_sha256': hashlib.sha256(bundle.read_bytes()).hexdigest()}
+              if metadata != expected:
+                  raise ValueError('Build provenance or bundle checksum mismatch')
+              with tempfile.TemporaryDirectory(prefix='android-sign-', dir=root) as directory:
+                  private = Path(directory)
+                  key = private / 'upload.keystore'
+                  key.write_bytes(base64.b64decode(''.join(os.environ['ANDROID_UPLOAD_KEYSTORE_BASE64'].split()), validate=True))
+                  key.chmod(0o600)
+                  signed = private / 'signed.aab'
+                  subprocess.run(['jarsigner', '-keystore', str(key), '-storepass:env', 'ANDROID_UPLOAD_STORE_PASSWORD',
+                                  '-keypass:env', 'ANDROID_UPLOAD_KEY_PASSWORD', '-digestalg', 'SHA-256',
+                                  '-signedjar', str(signed), str(bundle), os.environ['ANDROID_UPLOAD_KEY_ALIAS']],
+                                 check=True, capture_output=True, timeout=120)
+                  verifier = private / 'VerifyBundle.java'
+                  verifier.write_text(r'''
+          import java.util.*;
+          import java.util.jar.*;
+          import java.security.*;
+          import java.security.cert.X509Certificate;
+          import java.io.*;
+          class VerifyBundle {
+              public static void main(String[] args) throws Exception {
+                  int count = 0;
+                  Set<String> names = new HashSet<>();
+                  try (JarFile jar = new JarFile(args[0], true)) {
+                      var entries = jar.entries();
+                      while (entries.hasMoreElements()) {
+                          var entry = entries.nextElement();
+                          if (!names.add(entry.getName())) throw new SecurityException("Duplicate entry");
+                          if (entry.isDirectory()) continue;
+                          try (var input = jar.getInputStream(entry)) { input.transferTo(OutputStream.nullOutputStream()); }
+                          String name = entry.getName().toUpperCase(Locale.ROOT);
+                          if (name.equals("META-INF/MANIFEST.MF") || name.matches("META-INF/[^/]+\\.(SF|RSA|DSA|EC)") || name.matches("META-INF/SIG-[^/]+")) continue;
+                          var signers = entry.getCodeSigners();
+                          if (signers == null || signers.length != 1) throw new SecurityException("Unsigned or multi-signer entry");
+                          var certificate = (X509Certificate) signers[0].getSignerCertPath().getCertificates().get(0);
+                          certificate.checkValidity();
+                          String digest = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded()));
+                          if (!digest.equals(args[1])) throw new SecurityException("Unexpected signer");
+                          count++;
+                      }
+                  }
+                  if (count == 0) throw new SecurityException("No signed payload");
+              }
+          }
+          ''')
+                  subprocess.run(['java', str(verifier), str(signed), fingerprint], check=True, capture_output=True, timeout=120)
+                  output.mkdir(mode=0o700)
+                  filename = f'Nuphos-Android-{name}-{code}.aab'
+                  shutil.copyfile(signed, output / filename)
+                  metadata.update(signed=True, upload_certificate_sha256=fingerprint,
+                                  signed_sha256=hashlib.sha256(signed.read_bytes()).hexdigest())
+                  (output / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
+                  (output / 'SHA256SUMS.txt').write_text(f"{metadata['signed_sha256']}  {filename}\n")
+              print('Signed bundle verified; public artifacts are ready.')
+          except Exception:
+              shutil.rmtree(output, ignore_errors=True)
+              raise SystemExit('Signing failed. Check protected configuration, build provenance and certificate identity.')
+          PY
+      - name: Upload signed AAB and public metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-signed-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/android-signed/*.aab
+            ${{ runner.temp }}/android-signed/metadata.json
+            ${{ runner.temp }}/android-signed/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP"/android-sign-* "$RUNNER_TEMP/android-signed"
