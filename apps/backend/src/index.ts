@@ -14,7 +14,7 @@ import {
 import { drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
-import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
+import { closeTraceStore, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
 import { validateAwsOidcConfig } from '@/lib/byos/aws-oidc'
@@ -242,7 +242,7 @@ async function shutdown(sig: string) {
         flush_deadline_ms: shutdownBudget.guardFlushMs,
       })
     }),
-    flushTraceWrites(shutdownBudget.guardFlushMs).catch((error: unknown) => {
+    closeTraceStore(shutdownBudget.guardFlushMs).catch((error: unknown) => {
       logError('backend.shutdown.trace_flush_failed', error)
     }),
   ])

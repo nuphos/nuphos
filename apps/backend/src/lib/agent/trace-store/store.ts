@@ -2,9 +2,13 @@ import { randomUUID } from 'node:crypto'
 
 import { Binary } from 'mongodb'
 
+import { config } from '@/config'
 import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
 
+import { TraceSpool } from './spool'
+
+import type { QueuedTrace } from './spool'
 import type { Document } from 'mongodb'
 
 export type TraceEvent = {
@@ -21,7 +25,7 @@ export type TraceEvent = {
 }
 
 const CHUNK_BYTES = 512 * 1024
-const pending = new Map<Promise<void>, string | undefined>()
+let spool: TraceSpool | undefined
 let failedWrites = 0
 
 // Snapshot at log-time, before callers can mutate an input/result. JSON is
@@ -49,7 +53,16 @@ export function serializeTracePayload(value: unknown): string {
       while (ancestors.length && ancestors.at(-1) !== this) ancestors.pop()
       if (ancestors.includes(item as object)) return '[Circular]'
       ancestors.push(item as object)
-      if (item instanceof Uint8Array) return { type: 'Buffer', data: [...item] }
+      // Buffer.toJSON runs before the replacer; inspect the original value.
+      const original = (this as Record<string, unknown>)[key]
+
+      if (original instanceof Uint8Array) {
+        return {
+          type: 'Buffer',
+          encoding: 'base64',
+          data: Buffer.from(original).toString('base64'),
+        }
+      }
 
       return item
     }) ?? 'null'
@@ -57,6 +70,11 @@ export function serializeTracePayload(value: unknown): string {
 }
 
 export async function setupTraceIndexes(): Promise<void> {
+  if (!config.agent.mongoTraceSpoolPath) return
+  getSpool()
+  void flushTraceWrites().catch((error: unknown) => {
+    logError('agent.trace.replay_failed', error)
+  })
   const events = db().collection<Document & { _id: string }>('agent_trace_events')
 
   await events.createIndex({ sessionId: 1, ts: 1 })
@@ -64,21 +82,54 @@ export async function setupTraceIndexes(): Promise<void> {
   await events.createIndex({ spanId: 1, ts: 1, sequence: 1 })
   await events.createIndex({ teamId: 1, ts: -1 })
   await db().collection('agent_trace_payloads').createIndex({ sessionId: 1 })
+  await events.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+  await db()
+    .collection('agent_trace_payloads')
+    .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+}
+
+function getSpool(): TraceSpool | undefined {
+  const path = config.agent.mongoTraceSpoolPath
+
+  if (!path) return undefined
+  spool ??= new TraceSpool(path, deliverTrace, (error) => {
+    logError('agent.trace.delivery_deferred', error)
+  })
+
+  return spool
 }
 
 export function writeTraceEvent(event: TraceEvent, payload: unknown): void {
-  let json: string
-
+  if (!config.agent.mongoTraceSpoolPath) return
   try {
-    json = serializeTracePayload(payload)
+    const ts = new Date()
+    const retentionDays = config.agent.mongoTraceRetentionDays
+
+    getSpool()?.enqueue({
+      id: randomUUID(),
+      sessionId: event.sessionId ?? null,
+      header: JSON.stringify({
+        ...event,
+        ts,
+        ...(retentionDays > 0
+          ? {
+              expiresAt: new Date(ts.getTime() + retentionDays * 86_400_000),
+            }
+          : {}),
+      }),
+      payload: serializeTracePayload(payload),
+    })
   } catch (error) {
     failedWrites++
-    logError('agent.trace.serialize_failed', error, { span_id: event.spanId })
-
-    return
+    logError('agent.trace.enqueue_failed', error, { span_id: event.spanId })
   }
-  const id = randomUUID()
-  const ts = new Date()
+}
+
+async function deliverTrace(row: QueuedTrace): Promise<void> {
+  const event = JSON.parse(row.header) as TraceEvent & { ts: string; expiresAt?: string }
+  const { id, payload: json } = row
+  const ts = new Date(event.ts)
+  const expiry = event.expiresAt ? { expiresAt: new Date(event.expiresAt) } : {}
   const write = async () => {
     const bytes = Buffer.from(json)
     const chunkCount = Math.ceil(bytes.length / CHUNK_BYTES)
@@ -93,6 +144,8 @@ export function writeTraceEvent(event: TraceEvent, payload: unknown): void {
           {
             $setOnInsert: {
               eventId: id,
+              ts,
+              ...expiry,
               sessionId: event.sessionId,
               index,
               data: new Binary(bytes.subarray(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES)),
@@ -110,6 +163,7 @@ export function writeTraceEvent(event: TraceEvent, payload: unknown): void {
         $setOnInsert: {
           ...event,
           ts,
+          ...expiry,
           payloadBytes: bytes.length,
           ...(chunkCount > 1 ? { chunkCount } : { payload: json }),
         },
@@ -117,71 +171,42 @@ export function writeTraceEvent(event: TraceEvent, payload: unknown): void {
       { upsert: true, writeConcern: { w: 'majority', wtimeoutMS: 5_000 }, maxTimeMS: 5_000 },
     )
   }
-  const task = (async () => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await write()
 
-        return
-      } catch (error) {
-        if (attempt === 2) {
-          failedWrites++
-          logError('agent.trace.write_failed', error, { span_id: event.spanId, event_id: id })
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, 100 * 2 ** attempt))
-        }
-      }
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await write()
+
+      return
+    } catch (error) {
+      if (attempt === 2) throw error // Keep the row on disk for later retry.
+      await new Promise((resolve) => setTimeout(resolve, 100 * 2 ** attempt))
     }
-  })()
-
-  pending.set(task, event.sessionId)
-  void task.finally(() => pending.delete(task))
-}
-
-async function withDeadline(work: Promise<unknown>, timeoutMs: number): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-
-  try {
-    await Promise.race([
-      work,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          reject(
-            new Error(`Mongo trace flush timed out with ${String(pending.size)} pending writes`),
-          )
-        }, timeoutMs)
-      }),
-    ])
-  } finally {
-    clearTimeout(timer)
   }
 }
 
 export async function flushTraceWrites(timeoutMs = 10_000): Promise<void> {
-  const drain = async () => {
-    while (pending.size) await Promise.all(pending.keys())
-  }
-
-  await withDeadline(drain(), timeoutMs)
+  await spool?.flush(timeoutMs)
   if (failedWrites) {
     const count = failedWrites
 
     failedWrites = 0
-    throw new Error(`${String(count)} Mongo trace events could not be persisted`)
+    throw new Error(`${String(count)} Mongo trace events could not be enqueued`)
+  }
+}
+
+export async function closeTraceStore(timeoutMs = 10_000): Promise<void> {
+  try {
+    await flushTraceWrites(timeoutMs)
+  } finally {
+    spool?.close()
+    spool = undefined
   }
 }
 
 export async function purgeConversationTraces(sessionId: string): Promise<void> {
-  const writes = [...pending].filter(([, owner]) => owner === sessionId).map(([write]) => write)
-
-  try {
-    await withDeadline(Promise.allSettled(writes), 5_000)
-  } finally {
-    // A failed or slow write must never skip either deletion. Do not consume
-    // the global failure counter: shutdown still needs to report that loss.
-    await Promise.all([
-      db().collection('agent_trace_payloads').deleteMany({ sessionId }),
-      db().collection('agent_trace_events').deleteMany({ sessionId }),
-    ])
-  }
+  await spool?.purge(sessionId)
+  await Promise.all([
+    db().collection('agent_trace_payloads').deleteMany({ sessionId }),
+    db().collection('agent_trace_events').deleteMany({ sessionId }),
+  ])
 }

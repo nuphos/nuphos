@@ -1,15 +1,41 @@
-import { expect, test } from 'bun:test'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
+import { afterEach, beforeEach, expect, test } from 'bun:test'
+
+import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { MongoTraceSpan, updateMongoParent } from './span'
-import { flushTraceWrites, purgeConversationTraces, serializeTracePayload } from './store'
+import {
+  closeTraceStore,
+  flushTraceWrites,
+  purgeConversationTraces,
+  serializeTracePayload,
+} from './store'
 
 let release: (() => void) | undefined
 let block = false
 let failures = 0
 const deletes: unknown[] = []
 const headers: Record<string, unknown>[] = []
+
+let directory: string
+const originalPath = config.agent.mongoTraceSpoolPath
+
+beforeEach(() => {
+  directory = mkdtempSync(join(tmpdir(), 'mongo-traces-'))
+  config.agent.mongoTraceSpoolPath = join(directory, 'queue.sqlite')
+})
+afterEach(async () => {
+  try {
+    await closeTraceStore()
+  } finally {
+    config.agent.mongoTraceSpoolPath = originalPath
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
 
 useDb({
   db: () => ({
@@ -49,6 +75,7 @@ test('root updates retain session ownership and conversation deletion purges bot
   })
 
   updateMongoParent(span.export(), { metrics: { tokens: 4 } })
+  await flushTraceWrites()
   await purgeConversationTraces('session')
   expect(headers.find((row) => row.kind === 'update')).toMatchObject({
     sessionId: 'session',
@@ -70,7 +97,7 @@ test('cyclic error causes do not drop the entire trace event', () => {
   })
 })
 
-test('purge runs after its own failed writes and preserves the failure report', async () => {
+test('purge removes queued data even when its delivery fails', async () => {
   failures = 3
   const span = new MongoTraceSpan({
     name: 'failed-purge',
@@ -83,7 +110,7 @@ test('purge runs after its own failed writes and preserves the failure report', 
     { name: 'agent_trace_events', filter: { sessionId: 'failed-session' } },
   ])
   expect(headers.some((row) => row.spanId === span.context.spanId)).toBe(false)
-  await expect(flushTraceWrites()).rejects.toThrow('could not be persisted')
+  await flushTraceWrites()
 })
 
 test('purge does not wait for another session', async () => {

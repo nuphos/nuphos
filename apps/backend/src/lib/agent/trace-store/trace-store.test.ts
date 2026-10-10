@@ -1,8 +1,13 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { generateText, Output } from 'ai'
 import { MockLanguageModelV3 } from 'ai/test'
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { z } from 'zod'
 
+import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
 
 import {
@@ -17,12 +22,28 @@ import {
 import { createAgentTelemetryIntegration } from '../braintrust/integration'
 
 import { MongoTraceSpan, traceParent } from './span'
-import { flushTraceWrites, serializeTracePayload } from './store'
+import { closeTraceStore, flushTraceWrites, serializeTracePayload } from './store'
 
 import type { Binary } from 'mongodb'
 
 const records = new Map<string, Record<string, unknown>>()
 let failures = 0
+
+let directory: string
+const originalPath = config.agent.mongoTraceSpoolPath
+
+beforeEach(() => {
+  directory = mkdtempSync(join(tmpdir(), 'mongo-traces-'))
+  config.agent.mongoTraceSpoolPath = join(directory, 'queue.sqlite')
+})
+afterEach(async () => {
+  try {
+    await closeTraceStore()
+  } finally {
+    config.agent.mongoTraceSpoolPath = originalPath
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
 
 useDb({
   db: () => ({
@@ -302,5 +323,40 @@ test('dual-write exports stay compatible with old replicas and share vendor span
     expect(events().find((event) => event.name === 'later-child')?.parentSpanId).toBe(row.spanId)
   } finally {
     bt._exportsForTestingOnly.clearTestBackgroundLogger()
+  }
+})
+
+test('disabled Mongo tracing makes no additional content copy', async () => {
+  config.agent.mongoTraceSpoolPath = undefined
+  new MongoTraceSpan({ name: 'disabled', input: 'sensitive' }).end()
+  await flushTraceWrites()
+  expect(records.size).toBe(0)
+})
+
+test('binary values retain every byte in compact base64 form', () => {
+  const bytes = new Uint8Array([0, 1, 127, 128, 255])
+  const snapshot = JSON.parse(serializeTracePayload({ bytes, buffer: Buffer.from(bytes) }))
+
+  for (const field of ['bytes', 'buffer']) {
+    expect(snapshot[field].encoding).toBe('base64')
+    expect(Buffer.from(snapshot[field].data, 'base64')).toEqual(Buffer.from(bytes))
+  }
+})
+
+test('retention applies the same expiry to headers and all payload chunks', async () => {
+  const original = config.agent.mongoTraceRetentionDays
+
+  try {
+    config.agent.mongoTraceRetentionDays = 7
+    new MongoTraceSpan({ name: 'retained', input: 'x'.repeat(600_000) }).end()
+    await flushTraceWrites()
+    const row = events().find((event) => event.kind === 'start')!
+    const chunks = [...records.values()].filter((record) => record.eventId === row._id)
+
+    expect((row.expiresAt as Date).getTime() - (row.ts as Date).getTime()).toBe(7 * 86_400_000)
+    expect(chunks.length).toBeGreaterThan(1)
+    for (const chunk of chunks) expect(chunk.expiresAt).toEqual(row.expiresAt)
+  } finally {
+    config.agent.mongoTraceRetentionDays = original
   }
 })

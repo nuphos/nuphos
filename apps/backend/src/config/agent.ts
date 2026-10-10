@@ -135,6 +135,14 @@ export function agentConfig() {
     // (src/lib/agent/prompts/) — unset only disables tracing.
     braintrustApiKey: optional('BRAINTRUST_API_KEY'),
     braintrustProjectName: optional('BRAINTRUST_PROJECT_NAME') ?? 'atlas-backend',
+    // Opt in with a private, persistent, replica-local SQLite spool path.
+    // No payload truncation or drop-on-full: failed delivery stays on disk.
+    mongoTraceSpoolPath: optional('AGENT_MONGO_TRACE_SPOOL_PATH'),
+    // 0 preserves all history. Positive values expire both headers and chunks.
+    mongoTraceRetentionDays: boundedInt('AGENT_MONGO_TRACE_RETENTION_DAYS', 0, {
+      min: 0,
+      max: 36500,
+    }),
     braintrustTracingEnabled: bool('BRAINTRUST_TRACING_ENABLED', true),
     maxOutputTokens: boundedInt('ATLAS_AGENT_MAX_OUTPUT_TOKENS', 32_000, {
       min: 1,
