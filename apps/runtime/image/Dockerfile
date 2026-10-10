@@ -62,7 +62,7 @@ FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.293
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.296
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs \
