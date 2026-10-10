@@ -15,7 +15,7 @@ export function localUpdateVersion(
   cli: AgentCliStatus | null | undefined,
   latest: string | undefined,
 ): string | undefined {
-  if (!cli?.installed || !cli.version || !latest || cli.path.includes('.app/Contents/')) return
+  if (!cli?.installed || !cli.version || !latest || cli.bundled) return
 
   return newerVersion(latest, cli.version) ? latest : undefined
 }

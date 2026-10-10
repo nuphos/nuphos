@@ -61,7 +61,7 @@ function UpdateButton({ provider, cli }: { provider: LocalAgentProvider; cli: Ag
   const latest = useLocalAgentLatest()[provider]
   const { name, command } = AGENT[provider]
 
-  if (!cli.installed || cli.path.includes('.app/Contents/')) return null
+  if (!cli.installed || cli.bundled) return null
   const next = localUpdateVersion(cli, latest)
 
   async function update() {

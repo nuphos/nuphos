@@ -23,11 +23,5 @@ test('offers a local update only for a CLI that can update itself', () => {
   assert.equal(localUpdateVersion(cli, '2.1.0'), undefined)
   assert.equal(localUpdateVersion(cli, undefined), undefined)
   assert.equal(localUpdateVersion({ installed: false }, '2.2.0'), undefined)
-  assert.equal(
-    localUpdateVersion(
-      { ...cli, path: '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex' },
-      '2.2.0',
-    ),
-    undefined,
-  )
+  assert.equal(localUpdateVersion({ ...cli, bundled: true }, '2.2.0'), undefined)
 })
