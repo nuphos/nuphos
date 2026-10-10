@@ -128,7 +128,10 @@
       "extendInfo": {
         "NSAppleEventsUsageDescription": "Nuphos uses automation to notify Computer Use when an agent turn ends."
       },
-      "notarize": true
+      "notarize": true,
+      "binaries": [
+        "Contents/Resources/local-runtime/cua-permission"
+      ]
     },
     "win": {
       "target": [

@@ -8,14 +8,8 @@ DispatchQueue.global().async {
         fputs("Computer Use service is not running\n", stderr)
         exit(1)
     }
-    var pid = service.processIdentifier
-    var target = AEAddressDesc()
-    let created = withUnsafePointer(to: &pid) {
-        AECreateDesc(typeKernelProcessID, $0, MemoryLayout<pid_t>.size, &target)
-    }
-    guard created == noErr else { exit(1) }
-    defer { AEDisposeDesc(&target) }
-    let status = AEDeterminePermissionToAutomateTarget(&target, 0x536b4375, 0x5870634e, true)
+    let target = NSAppleEventDescriptor(processIdentifier: service.processIdentifier)
+    let status = AEDeterminePermissionToAutomateTarget(target.aeDesc, 0x536b4375, 0x5870634e, true)
     if status != noErr {
         fputs("Computer Use automation permission was not granted (\(status))\n", stderr)
     }
