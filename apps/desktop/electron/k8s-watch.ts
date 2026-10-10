@@ -40,6 +40,7 @@ export async function subscribe(
     scopeKey: entry.scopeKey,
     webContents,
     primed: true,
+    onDestroyed: () => unsubscribe(sub.id),
   }
 
   entry.subscribers.add(sub)
@@ -102,9 +103,7 @@ export async function subscribe(
       )
     }
   }
-  webContents.once('destroyed', () => {
-    unsubscribe(sub.id)
-  })
+  webContents.once('destroyed', sub.onDestroyed)
   const snapshot = [...entry.cache.values()]
 
   return { subscriptionId: sub.id, snapshot, state: entry.state, error: entry.lastError }
@@ -129,6 +128,7 @@ export function unsubscribe(subscriptionId: string) {
 
   if (!sub) return
   subscriptions.delete(subscriptionId)
+  sub.webContents.off('destroyed', sub.onDestroyed)
   const entry = informers.get(sub.scopeKey)
 
   if (!entry) return
