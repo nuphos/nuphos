@@ -9,10 +9,11 @@ in full rather than in a fixed-height box.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nuphos/nuphos/main/apps/cli/install.sh | sh
+curl -fsSL https://nuphos.ai/install | sh
 ```
 
-It installs the newest release for macOS or Linux (x86_64 and arm64) into
+`nuphos.ai/install` redirects to `apps/cli/install.sh` at a release tag. It
+installs the newest release for macOS or Linux (x86_64 and arm64) into
 `~/.local/bin`, after checking its SHA-256. `NUPHOS_VERSION` pins a version
 and `NUPHOS_INSTALL_DIR` changes the directory.
 
@@ -133,6 +134,10 @@ bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm \
   --outfile build/local-runtime/linux-x64/host.mjs
 NUPHOS_LOCAL_RUNTIME_DIR=$PWD/build/local-runtime/linux-x64 nuphos agent
 ```
+
+`nuphos.ai/install` is pinned to the tag of the `install.sh` it serves (the
+`/install` redirect in the landing page's `next.config.ts`). Move it to the new
+tag when a release changes `install.sh`.
 
 ## Development
 
