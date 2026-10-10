@@ -64,6 +64,18 @@ export function managedRuntimePlan(
   return { kind: 'create', replace: created }
 }
 
+/**
+ * The unsigned Nuphos Cloud agent to remove when the user leaves for Self-hosted or skips:
+ * only staying on Nuphos Cloud keeps it. `created` is cleared once sign-in completes, so a
+ * connected agent is never removed.
+ */
+export function unsignedAgentToRemove(
+  created: RuntimeInstance | null,
+  next: 'managed' | 'self-hosted' | 'skip',
+): RuntimeInstance | null {
+  return next === 'managed' ? null : created
+}
+
 export type SetupScreen = 'local' | 'cloud' | 'managed' | 'self-hosted' | 'done'
 
 /** Which of the two stepper steps a screen belongs to; the completion screen has none. */

@@ -7,6 +7,7 @@ import {
   newlyConnectedAgent,
   readyLocalAgents,
   setupStep,
+  unsignedAgentToRemove,
 } from './agentSetup.ts'
 import { SELF_HOSTED_PLATFORM_IDS, SELF_HOSTED_PLATFORMS } from './selfHostedPlatforms.ts'
 
@@ -55,6 +56,15 @@ test('the Nuphos Cloud picker reuses its unsigned agent and replaces it when the
   assert.deepEqual(managedRuntimePlan(null, 'codex'), { kind: 'create', replace: null })
   assert.deepEqual(managedRuntimePlan(claude, 'claude-code'), { kind: 'reuse', instance: claude })
   assert.deepEqual(managedRuntimePlan(claude, 'codex'), { kind: 'create', replace: claude })
+})
+
+test('leaving Nuphos Cloud removes its unsigned agent; staying keeps it', () => {
+  const claude = agent('c1', 'managed')
+
+  assert.equal(unsignedAgentToRemove(claude, 'managed'), null)
+  assert.equal(unsignedAgentToRemove(claude, 'self-hosted'), claude)
+  assert.equal(unsignedAgentToRemove(claude, 'skip'), claude)
+  assert.equal(unsignedAgentToRemove(null, 'skip'), null)
 })
 
 test('a self-hosted agent counts as new only when it was not there before', () => {

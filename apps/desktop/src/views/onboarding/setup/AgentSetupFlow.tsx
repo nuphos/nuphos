@@ -1,6 +1,10 @@
 import { useState } from 'react'
 
-import { setupStep } from './agentSetup'
+import { api } from '../../../api'
+import { toast } from '../../../components/ui/toast'
+import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
+
+import { setupStep, unsignedAgentToRemove } from './agentSetup'
 import { CloudAgentStep } from './CloudAgentStep'
 import { LocalAgentsStep } from './LocalAgentsStep'
 import { ManagedCloudSetup } from './ManagedCloudSetup'
@@ -18,10 +22,33 @@ export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: 
   const [screen, setScreen] = useState<SetupScreen>('local')
   const [managed, setManaged] = useState<RuntimeInstance | null>(null)
   const [cloudAgent, setCloudAgent] = useState<ConnectedCloudAgent | null>(null)
+  const [leaving, setLeaving] = useState(false)
   const step = setupStep(screen)
   const connected = (agent: ConnectedCloudAgent) => {
     setCloudAgent(agent)
     setScreen('done')
+  }
+
+  // Skipping or switching to Self-hosted must not leave an unsigned Nuphos Cloud agent running.
+  async function leaveCloudStep(next: 'managed' | 'self-hosted' | 'skip') {
+    const orphan = unsignedAgentToRemove(managed, next)
+
+    if (orphan) {
+      setLeaving(true)
+      try {
+        await api.atlasRemoveRuntimeInstance(team.id, orphan.id)
+        setManaged(null)
+        window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+      } catch (error) {
+        toast.apiError('Could not remove the unfinished agent', error)
+
+        return
+      } finally {
+        setLeaving(false)
+      }
+    }
+    if (next === 'skip') onFinish()
+    else setScreen(next)
   }
 
   return (
@@ -37,8 +64,9 @@ export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: 
       {screen === 'cloud' && (
         <CloudAgentStep
           isAdmin={team.role === 'ADMINISTRATOR'}
-          onSkip={onFinish}
-          onChoose={setScreen}
+          busy={leaving}
+          onSkip={() => void leaveCloudStep('skip')}
+          onChoose={(choice) => void leaveCloudStep(choice)}
         />
       )}
       {screen === 'managed' && (
@@ -47,9 +75,11 @@ export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: 
           created={managed}
           onCreatedChange={setManaged}
           onBack={() => setScreen('cloud')}
-          onConnected={(instance) =>
+          onConnected={(instance) => {
+            // Signed in: it is the workspace's agent now, never an orphan to remove.
+            setManaged(null)
             connected({ provider: instance.provider, label: instance.label })
-          }
+          }}
         />
       )}
       {screen === 'self-hosted' && (

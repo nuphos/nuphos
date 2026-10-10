@@ -49,10 +49,13 @@ function Comparison() {
 /** Step 2: why a cloud agent, then which kind — or, for non-admins, who adds one. */
 export function CloudAgentStep({
   isAdmin,
+  busy,
   onSkip,
   onChoose,
 }: {
   isAdmin: boolean
+  /** Leaving is removing an unsigned agent this flow created. */
+  busy: boolean
   onSkip: () => void
   onChoose: (choice: CloudChoice) => void
 }) {
@@ -65,11 +68,13 @@ export function CloudAgentStep({
       actions={
         <>
           {isAdmin && (
-            <Button variant="ghost" onClick={onSkip}>
+            <Button variant="ghost" disabled={busy} onClick={onSkip}>
               Skip for now
             </Button>
           )}
-          <Button onClick={() => (isAdmin ? onChoose(choice) : onSkip())}>Continue</Button>
+          <Button disabled={busy} onClick={() => (isAdmin ? onChoose(choice) : onSkip())}>
+            Continue
+          </Button>
         </>
       }
     >
