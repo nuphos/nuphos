@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
+import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
 import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl } from '../../api-endpoint.ts'
@@ -145,6 +146,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         return workspace ? new LocalFileStream(workspace) : null
       },
       connectExec: () => new LocalExecStream(),
+      connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider) => {
         const running = runtime(provider)
 
@@ -229,9 +231,7 @@ export function initLocalRuntime(): void {
     void controller.setUser(userId)
   }
 
-  authSession.subscribe((next) => {
-    follow(next)
-  })
+  authSession.subscribe(follow)
   follow(authSession.current())
   if (devBuild())
     watchDevBundle(bundleRoot(), {
