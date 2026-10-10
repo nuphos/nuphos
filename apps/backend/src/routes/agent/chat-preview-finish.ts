@@ -4,6 +4,16 @@
 // memory ingest chain.
 import { randomUUID } from 'node:crypto'
 
+import { serializeMessageDoc } from './errors'
+import { traceAgentChatError } from './trace'
+import { getFirstTranscriptMessage, uiMessagesToTranscript } from './transcript'
+
+import type { AgentRun } from './types'
+import type { PreviewTurnMemory } from '@/lib/claude-code-preview/preview-recall'
+import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
+import type { TurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
+import type { UIMessage } from 'ai'
+
 import { getConversationMessagesHead, syncConversationTranscript } from '@/lib/agent/db'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
@@ -16,15 +26,6 @@ import {
   previewAssistantMessageParts,
   turnInterruptedPart,
 } from '@/lib/claude-code-preview/preview-transcript'
-
-import { serializeMessageDoc } from './errors'
-import { traceAgentChatError } from './trace'
-import { getFirstTranscriptMessage, uiMessagesToTranscript } from './transcript'
-
-import type { AgentRun } from './types'
-import type { PreviewTurnMemory } from '@/lib/claude-code-preview/preview-recall'
-import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
-import type { UIMessage } from 'ai'
 
 function insertBeforeFinalText(
   parts: UIMessage['parts'],
@@ -40,6 +41,7 @@ function insertBeforeFinalText(
 
 export async function finishPreviewTurn(args: {
   run: AgentRun
+  diagnostics?: TurnDiagnostics
   sessionId: string
   teamId: string
   userId: string
@@ -104,6 +106,8 @@ export async function finishPreviewTurn(args: {
   // immediately before the final answer instead of moving the answer's
   // interleaved commentary and tools around them.
   const parts = insertBeforeFinalText(orderedParts, nativePlanParts)
+
+  if (args.diagnostics) parts.push({ type: 'data-turn-diagnostics', data: args.diagnostics })
   const tail = [
     ...args.steered,
     ...(parts.length > 0 ? [{ id: randomUUID(), role: 'assistant' as const, parts }] : []),
@@ -178,6 +182,7 @@ export async function finishPreviewTurn(args: {
  */
 export async function persistInterruptedPreviewTurn(args: {
   run: AgentRun
+  diagnostics?: TurnDiagnostics
   sessionId: string
   teamId: string
   userId: string
@@ -197,7 +202,10 @@ export async function persistInterruptedPreviewTurn(args: {
 }): Promise<void> {
   const { run, sessionId, teamId, userId } = args
   const interruption = classifyPreviewInterruption(args.error, run.abortController.signal.aborted)
-  const part = turnInterruptedPart(`${run.streamId}:interrupted`, interruption)
+  const part = {
+    ...turnInterruptedPart(`${run.streamId}:interrupted`, interruption),
+    ...(args.diagnostics ? { diagnostics: args.diagnostics } : {}),
+  }
 
   args.emit(part)
   const parts = [

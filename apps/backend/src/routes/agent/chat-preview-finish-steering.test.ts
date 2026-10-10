@@ -65,6 +65,13 @@ describe('finishPreviewTurn with steering segments', () => {
       provider: 'test',
       requestId: 'r1',
       startedAt: 0,
+      diagnostics: {
+        streamId: 'r1',
+        startedAt: new Date(0).toISOString(),
+        endedAt: new Date(1000).toISOString(),
+        elapsedMs: 1000,
+        source: 'runtime',
+      },
       text: 'answer 2',
       answer: 'answer 1\n\nanswer 2',
       reasoning: '',
@@ -80,6 +87,10 @@ describe('finishPreviewTurn with steering segments', () => {
     const roles = persisted[0]!.messages.map((message) => message.role)
 
     expect(roles).toEqual(['user', 'assistant', 'user', 'assistant'])
+    expect(persisted[0]!.messages.at(-1)!.parts).toContainEqual({
+      type: 'data-turn-diagnostics',
+      data: expect.objectContaining({ streamId: 'r1', elapsedMs: 1000 }),
+    })
     expect(frames.find((frame) => frame.type === 'atlas-transcript-snapshot')?.messages).toEqual(
       persisted[0]!.messages.map((message) => ({
         ...message,

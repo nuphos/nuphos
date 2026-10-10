@@ -96,6 +96,17 @@ test('runtime failures persist partial work and close dangling tools instead of 
       expect.objectContaining({ toolCallId: 'pending', state: 'output-error' }),
       expect.objectContaining({ type: 'turn-interrupted', reason: failure.reason }),
     ])
+    expect(messages.at(-1)!.parts).toContainEqual(
+      expect.objectContaining({
+        type: 'turn-interrupted',
+        diagnostics: expect.objectContaining({
+          streamId: run.streamId,
+          error: failure.error,
+          lastProgressAt: expect.any(String),
+          lastTool: expect.objectContaining({ toolCallId: 'pending', status: 'pending' }),
+        }),
+      }),
+    )
     expect(run.frames.join('')).toContain('turn-interrupted')
     expect(run.frames.join('')).not.toContain('atlas-turn-complete')
   }

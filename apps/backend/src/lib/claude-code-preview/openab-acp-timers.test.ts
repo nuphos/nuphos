@@ -48,10 +48,14 @@ describe('createCallTimer', () => {
   })
 
   test('without a progress window only inactivity applies', () => {
-    const timer = createCallTimer(() => undefined, 1_000)
+    const timer = createCallTimer(() => {}, 1_000)
 
     clearTimeout(timer.arm())
     expect(timer.stalled()).toBe(false)
     expect(timer.timeoutError('session/prompt').message).toBe('OpenAB ACP session/prompt timed out')
+    expect(timer.timeoutError('session/prompt')).toMatchObject({
+      timeoutKind: 'inactivity',
+      timeoutMs: 1_000,
+    })
   })
 })

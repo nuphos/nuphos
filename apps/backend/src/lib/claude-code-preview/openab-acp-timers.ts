@@ -1,3 +1,5 @@
+import { OpenAbTimeoutError } from './turn-diagnostics'
+
 import type { PendingCall } from './openab-acp-session.ts'
 
 export type CallTimer = {
@@ -39,10 +41,12 @@ export function createCallTimer(
     },
     stalled,
     timeoutError: (method) =>
-      new Error(
+      new OpenAbTimeoutError(
         stalled()
           ? `OpenAB ACP ${method} timed out: no turn progress for ${String(Math.round(progressWindowMs / 1000))}s`
           : `OpenAB ACP ${method} timed out`,
+        stalled() ? 'progress' : 'inactivity',
+        stalled() ? progressWindowMs : inactivityMs,
       ),
   }
 }
