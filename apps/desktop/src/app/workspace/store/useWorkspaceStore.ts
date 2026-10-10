@@ -40,6 +40,7 @@ export function useWorkspaceStore() {
     mountedTabIds: bucket.mountedTabIds,
     dockOpen: bucket.dockOpen,
     selectedSessionId: state.sessionId,
+    newChatRequest: state.newChatRequest,
     mainPageOpen: state.mainPageOpen,
     selectedSessionReadOnly: state.sessionReadOnly,
     workspaceScope: selectScope(state),

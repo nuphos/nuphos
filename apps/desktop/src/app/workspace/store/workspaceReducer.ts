@@ -62,7 +62,10 @@ function selectSession(
 
   const mainPageOpen = action.keepMainPage === true && state.mainPageOpen
 
+  const newChatRequest = action.resetHomeScroll ? state.newChatRequest + 1 : state.newChatRequest
+
   if (
+    newChatRequest === state.newChatRequest &&
     action.sessionId === state.sessionId &&
     action.readOnly === state.sessionReadOnly &&
     teamScope === state.teamScope &&
@@ -74,6 +77,7 @@ function selectSession(
   return {
     ...state,
     sessionId: action.sessionId,
+    newChatRequest,
     sessionReadOnly: action.readOnly,
     teamScope,
     mainPageOpen,

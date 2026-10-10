@@ -75,6 +75,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         onImportSession={importSession}
         isTeamAdmin={isTeamAdmin}
         onOpenConversation={(sessionId, title) => void c.openConversation(sessionId, title)}
+        newChatRequest={c.newChatRequest}
         shown={c.homeShown}
         userName={c.userName}
         conversations={history}
