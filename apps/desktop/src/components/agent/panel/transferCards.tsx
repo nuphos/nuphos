@@ -62,6 +62,45 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     })
   }
 
+  function fileRows(files: FileTransferGroup['files']) {
+    if (files.length === 0) return null
+
+    return (
+      <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
+        {files.map((f) => (
+          <div key={f.id} className="flex items-center gap-2 text-[12.5px]">
+            <span
+              className={clsx(
+                'h-1.5 w-1.5 flex-shrink-0 rounded-full',
+                expired
+                  ? 'bg-tertiary'
+                  : f.status === 'ready'
+                    ? 'bg-success'
+                    : f.status === 'failed'
+                      ? 'bg-error'
+                      : 'bg-tertiary',
+              )}
+            />
+            <span className="min-w-0 flex-1 truncate text-secondary" title={f.relPath}>
+              {f.fileName}
+            </span>
+            <span className="flex-shrink-0 text-tertiary">{formatTransferBytes(f.size)}</span>
+            {!expired && f.status === 'ready' && (
+              <Button
+                variant="ghost"
+                onClick={() => void downloadOne(f.id, f.fileName)}
+                disabled={busy !== null}
+                className="h-auto flex-shrink-0 rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
+              >
+                {busy === f.id ? '…' : 'Download'}
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   async function downloadOne(fileId: string, fileName: string) {
     setBusy(fileId)
     try {
@@ -109,39 +148,16 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
           </Button>
         )}
       </div>
-      {hasPreviews && <TransferPreviews teamId={teamId} groupId={group.groupId} />}
-      <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
-        {group.files.map((f) => (
-          <div key={f.id} className="flex items-center gap-2 text-[12.5px]">
-            <span
-              className={clsx(
-                'h-1.5 w-1.5 flex-shrink-0 rounded-full',
-                expired
-                  ? 'bg-tertiary'
-                  : f.status === 'ready'
-                    ? 'bg-success'
-                    : f.status === 'failed'
-                      ? 'bg-error'
-                      : 'bg-tertiary',
-              )}
-            />
-            <span className="min-w-0 flex-1 truncate text-secondary" title={f.relPath}>
-              {f.fileName}
-            </span>
-            <span className="flex-shrink-0 text-tertiary">{formatTransferBytes(f.size)}</span>
-            {!expired && f.status === 'ready' && (
-              <Button
-                variant="ghost"
-                onClick={() => void downloadOne(f.id, f.fileName)}
-                disabled={busy !== null}
-                className="h-auto flex-shrink-0 rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
-              >
-                {busy === f.id ? '…' : 'Download'}
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
+      {hasPreviews && (
+        <TransferPreviews
+          teamId={teamId}
+          groupId={group.groupId}
+          fallback={fileRows(group.files.filter((f) => previewKind(f)))}
+          onDownload={(f) => void downloadOne(f.id, f.fileName)}
+        />
+      )}
+      {/* Previewed images and videos are not repeated as file rows. */}
+      {fileRows(hasPreviews ? group.files.filter((f) => !previewKind(f)) : group.files)}
     </div>
   )
 }
@@ -196,6 +212,18 @@ function UploadedFilesList({
   const archiveSuffix =
     entries == null ? '' : ` · ${String(entries)} file${entries === 1 ? '' : 's'}`
   const readySuffix = ready < total ? ` · ${String(ready)}/${String(total)} ready` : ''
+  // The team the inline previews resolve against, when this card shows any.
+  const previewTeam =
+    previews &&
+    !uploading &&
+    !errored &&
+    part.groupId &&
+    !part.archive &&
+    part.files.some((f) => mediaKind(f.fileName))
+      ? teamId
+      : undefined
+  // Previewed images and videos are not repeated as file rows.
+  const rows = previewTeam ? part.files.filter((f) => !mediaKind(f.fileName)) : part.files
 
   return (
     <div className="w-full max-w-[min(85%,480px)] self-end rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2">
@@ -215,17 +243,9 @@ function UploadedFilesList({
                 : `Uploaded ${String(total)} file${total === 1 ? '' : 's'}${readySuffix}`}
         </span>
       </div>
-      {previews &&
-        teamId &&
-        !uploading &&
-        !errored &&
-        part.groupId &&
-        !part.archive &&
-        part.files.some((f) => mediaKind(f.fileName)) && (
-          <TransferPreviews teamId={teamId} groupId={part.groupId} />
-        )}
+      {previewTeam && <TransferPreviews teamId={previewTeam} groupId={part.groupId} />}
       <div className="flex flex-col gap-1">
-        {part.files.map((f, i) => (
+        {rows.map((f, i) => (
           <div key={`${f.fileName}:${String(i)}`} className="flex items-center gap-2 text-[12.5px]">
             <span
               className={clsx(
