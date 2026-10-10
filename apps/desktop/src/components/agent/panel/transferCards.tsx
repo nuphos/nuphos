@@ -17,7 +17,8 @@ import type { FileTransferGroup } from '../../../types'
 
 // Files the agent produced for the user. Bytes live in the transfer store.
 // Images show as thumbnails (saved from the preview) and videos play inline, with
-// no frame around them; any other file is a row saved through a native dialog.
+// no frame around them; any other file is a row saved through a native dialog,
+// and several rows can be saved together as a zip of the whole group.
 export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
@@ -64,6 +65,8 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
 
   function fileRows(files: FileTransferGroup['files']) {
     if (files.length === 0) return null
+    // Images are saved from their preview; several listed files can go in one zip.
+    const zippable = !expired && files.filter((f) => f.status === 'ready').length > 1
 
     return (
       <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
@@ -97,8 +100,33 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
             )}
           </div>
         ))}
+        {zippable && (
+          <Button
+            variant="ghost"
+            onClick={() => void downloadZip()}
+            disabled={busy !== null}
+            title="Saves every file in this group, images included"
+            className="h-auto self-start rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
+          >
+            {busy === '__zip__' ? 'Zipping…' : 'Download all as zip'}
+          </Button>
+        )}
       </div>
     )
+  }
+
+  async function downloadZip() {
+    setBusy('__zip__')
+    try {
+      const r = await api.fileTransferDownloadAllZip({ ...base, zipName: group.label || 'files' })
+
+      if (r.saved && r.path)
+        savedToast('Saved zip', `${String(r.count ?? ready.length)} file(s)`, r.path)
+    } catch (err) {
+      toast.apiError('Download failed', err)
+    } finally {
+      setBusy(null)
+    }
   }
 
   async function downloadOne(fileId: string, fileName: string) {
