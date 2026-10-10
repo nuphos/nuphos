@@ -55,18 +55,21 @@ export async function recordDiscordSessionMessage(
 /**
  * Thread messages the session transcript has not received yet, oldest first.
  * `syncedIds` are the Discord message ids already in the transcript, in order;
- * the first anchors the sync, so a transcript from before ids were tracked
- * receives nothing rather than a replay of its own history.
+ * the first anchors the sync. A transcript from before ids were tracked has
+ * no anchor and starts from `legacySince`, the last time it was written, so it
+ * receives what came after rather than a replay of its own history.
  */
 export async function unsyncedDiscordMessages(
   scope: DiscordSessionScope,
   syncedIds: string[],
+  legacySince?: Date,
   collection: Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'> = messages(),
 ): Promise<DiscordSessionMessage[]> {
-  const anchor =
-    syncedIds[0] && (await collection.findOne({ _id: `${scope.sessionId}:${syncedIds[0]}` }))
+  const since = syncedIds[0]
+    ? (await collection.findOne({ _id: `${scope.sessionId}:${syncedIds[0]}` }))?.recordedAt
+    : legacySince
 
-  if (!anchor) return []
+  if (!since) return []
 
   // Oldest first, so a backlog longer than one batch is caught up over the
   // following turns instead of losing its start.
@@ -74,7 +77,7 @@ export async function unsyncedDiscordMessages(
     .find({
       ...scope,
       messageId: { $nin: syncedIds },
-      recordedAt: { $gte: anchor.recordedAt },
+      recordedAt: { $gte: since },
     })
     .sort({ recordedAt: 1, messageId: 1 })
     .limit(200)

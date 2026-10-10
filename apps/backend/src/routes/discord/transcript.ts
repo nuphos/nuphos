@@ -2,6 +2,7 @@ import { appendConversationMessages, getConversationWithMessages } from '@/lib/a
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
+import { turnRunner } from '@/lib/agent/turn-runner'
 import { fenceUntrusted } from '@/lib/agent/untrusted-content'
 import { discordUserMappings } from '@/lib/discord/store'
 import { getTeamMembership } from '@/lib/identity'
@@ -54,6 +55,7 @@ const defaultDependencies = {
   getConversationWithMessages,
   appendConversationMessages,
   addConversationParticipants,
+  hasActiveAgentRunForSession: turnRunner.hasActiveAgentRunForSession,
   unsyncedDiscordMessages,
   discordUserMappings,
   getTeamMembership,
@@ -79,6 +81,7 @@ async function threadState(thread: DiscordSessionScope, ownerUserId: string, dep
   const entries = await deps.unsyncedDiscordMessages(
     scope,
     prior.flatMap((message) => /^discord-(\d+)$/.exec(message.id)?.[1] ?? []),
+    existing?.conversation.transcriptUpdatedAt,
   )
   const authors = new Map<string, MessageMetadata | undefined>()
   const unsynced: UIMessage[] = []
@@ -131,14 +134,15 @@ async function threadState(thread: DiscordSessionScope, ownerUserId: string, dep
 /**
  * Writes what the thread has said into the session as it arrives, so the
  * session mirrors the thread without waiting for the agent to be asked. A turn
- * in flight rewrites the transcript from its own copy when it ends; whatever
- * that drops is still in the session log, and the next sync restores it.
+ * in flight rewrites the transcript from its own copy when it ends, so the
+ * sync stands aside for it and runs again when that turn is over.
  */
 export async function syncDiscordThread(
   thread: DiscordSessionScope,
   ownerUserId: string,
   dependencies: Dependencies = defaultDependencies,
 ): Promise<void> {
+  if (await dependencies.hasActiveAgentRunForSession(ownerUserId, thread.sessionId)) return
   const { scope, unsynced } = await threadState(thread, ownerUserId, dependencies)
 
   if (unsynced.length === 0) return

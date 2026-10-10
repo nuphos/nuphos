@@ -74,10 +74,27 @@ describe('durable Discord session context', () => {
       },
     } as unknown as Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'>
 
-    expect(await unsyncedDiscordMessages(scope, ['100', '300'], collection)).toEqual(
+    expect(await unsyncedDiscordMessages(scope, ['100', '300'], undefined, collection)).toEqual(
       history as DiscordSessionMessage[],
     )
-    // A transcript from before Discord ids were tracked has nothing to anchor on.
-    expect(await unsyncedDiscordMessages(scope, [], collection)).toEqual([])
+    // A new session has nothing to catch up on.
+    expect(await unsyncedDiscordMessages(scope, [], undefined, collection)).toEqual([])
+  })
+
+  test('a transcript from before ids were tracked starts from when it was last written', async () => {
+    const lastWritten = new Date('2026-03-03T00:00:00.000Z')
+    const filters: unknown[] = []
+    const collection = {
+      find: (filter: unknown) => {
+        filters.push(filter)
+
+        return { sort: () => ({ limit: () => ({ toArray: async () => [] }) }) }
+      },
+    } as unknown as Pick<Collection<DiscordSessionMessage>, 'find' | 'findOne'>
+
+    await unsyncedDiscordMessages(scope, [], lastWritten, collection)
+    expect(filters).toEqual([
+      { ...scope, messageId: { $nin: [] }, recordedAt: { $gte: lastWritten } },
+    ])
   })
 })

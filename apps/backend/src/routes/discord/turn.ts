@@ -16,6 +16,7 @@ import { SlackAgentRunSink } from '@/lib/slack/stream-sink'
 
 import { postDiscordToolApproval } from './approval'
 import { recordDiscordThreadMessage } from './thread-history'
+import { syncDiscordThread } from './transcript'
 
 import type { UIMessage } from 'ai'
 
@@ -45,31 +46,42 @@ async function isDiscordThreadConnected(thread: DiscordThreadRef): Promise<boole
   )
 }
 
+const mirrorDependencies = {
+  discordAgentThreads,
+  isDiscordThreadConnected,
+  sendDiscordMessage,
+  recordDiscordThreadMessage,
+  syncDiscordThread,
+}
+
 /**
  * A turn started from the Nuphos app in a session bound to a Discord thread:
  * the question and the reply are posted to the thread too, so the thread
- * mirrors the session. Returns the sink to attach to the run, or null when the
- * session has no connected thread.
+ * mirrors the session. Returns null when the session has no connected thread;
+ * otherwise the sink to attach to the run, and `finish` to call once it ends.
  */
-export async function mirrorAppTurnToDiscord(args: {
-  sessionId: string
-  teamId: string
-  /** The message that started the turn; absent when a turn is only resumed. */
-  message?: UIMessage
-}): Promise<SlackAgentRunSink | null> {
-  const thread = await discordAgentThreads().findOne({
+export async function mirrorAppTurnToDiscord(
+  args: {
+    sessionId: string
+    teamId: string
+    /** The message that started the turn; absent when a turn is only resumed. */
+    message?: UIMessage
+  },
+  deps: typeof mirrorDependencies = mirrorDependencies,
+): Promise<{ frameSink: SlackAgentRunSink; finish: () => Promise<void> } | null> {
+  const thread = await deps.discordAgentThreads().findOne({
     sessionId: args.sessionId,
     teamId: args.teamId,
   })
 
-  if (!thread || !(await isDiscordThreadConnected(thread))) return null
+  if (!thread || !(await deps.isDiscordThreadConnected(thread))) return null
   const post = async (authorName: string, text: string, fromBot: boolean) => {
-    if (!(await isDiscordThreadConnected(thread))) return
-    await sendDiscordMessage(
+    if (!(await deps.isDiscordThreadConnected(thread))) return
+    await deps.sendDiscordMessage(
       thread.threadChannelId,
       fromBot ? text : `**${authorName}** (from Nuphos):\n${text}`,
     )
-    await recordDiscordThreadMessage(args.sessionId, {
+    await deps.recordDiscordThreadMessage(args.sessionId, {
       id: randomUUID(),
       authorName,
       text,
@@ -85,8 +97,16 @@ export async function mirrorAppTurnToDiscord(args: {
 
     await post(sender ?? 'Someone', text, false)
   }
+  const frameSink = new SlackAgentRunSink((reply) => post('Nuphos', reply, true))
 
-  return new SlackAgentRunSink((reply) => post('Nuphos', reply, true))
+  return {
+    frameSink,
+    finish: async () => {
+      await frameSink.settle()
+      // What the thread said while this turn held the transcript.
+      await deps.syncDiscordThread(thread, thread.agentUserId)
+    },
+  }
 }
 
 export async function executeDiscordTurn(args: {

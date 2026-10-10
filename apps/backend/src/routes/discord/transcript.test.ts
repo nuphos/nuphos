@@ -21,14 +21,16 @@ const entry = (messageId: string, authorDiscordUserId: string, text: string) => 
   recordedAt: new Date('2026-02-02T00:00:00.000Z'),
 })
 
-function dependencies(unsynced: ReturnType<typeof entry>[]) {
+function dependencies(unsynced: ReturnType<typeof entry>[], busy = false) {
   const calls = {
     synced: [] as string[][],
     appended: [] as Record<string, unknown>[],
     joined: [] as unknown[][],
   }
   const deps = {
+    hasActiveAgentRunForSession: async () => busy,
     getConversationWithMessages: async () => ({
+      conversation: {},
       messages: [
         { messageId: 'discord-100', role: 'user', parts: [{ type: 'text', text: 'first' }] },
         { messageId: 'reply', role: 'assistant', parts: [{ type: 'text', text: 'done' }] },
@@ -111,6 +113,12 @@ test('a thread message is written into the session as it arrives', async () => {
 
   await syncDiscordThread(scope, 'owner', idle.deps)
   expect(idle.calls.appended).toEqual([])
+
+  // A turn in flight would overwrite the append; the sync waits for it to end.
+  const busy = dependencies([entry('200', 'linked', 'checking DNS')], true)
+
+  await syncDiscordThread(scope, 'owner', busy.deps)
+  expect(busy.calls.appended).toEqual([])
 })
 
 test('thread messages nobody addressed to the agent join the session as their own messages', async () => {

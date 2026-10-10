@@ -129,7 +129,7 @@ export function launchAcceptedChatTurn(args: {
           ? {}
           : { message: messages.findLast((message) => message.role === 'user') }),
       }).catch(() => null)
-      if (discordSink) attachFrameSink(run, discordSink)
+      if (discordSink) attachFrameSink(run, discordSink.frameSink)
       await isNewConversationPromise
       await runClaudeCodePreviewChatTurn({
         run,
@@ -144,7 +144,7 @@ export function launchAcceptedChatTurn(args: {
         endpoint: chatRuntime.endpoint,
         onRunHandoff: (next) => {
           if (slackDelivery) attachFrameSink(next, slackDelivery.frameSink)
-          if (discordSink) attachFrameSink(next, discordSink)
+          if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
         ...(body.continueAfterInterruption
@@ -185,7 +185,7 @@ export function launchAcceptedChatTurn(args: {
       // card/transcript tail would 409 the desktop's machine-speed
       // continuations (client-tool re-POSTs, stall auto-resume).
       args.releaseClaim?.()
-      await discordSink?.settle().catch(() => {})
+      await discordSink?.finish().catch(() => {})
       if (slackDelivery) {
         await slackDelivery
           .finalize({ stopped: run.abortController.signal.aborted, error: pumpError })
