@@ -1,46 +1,34 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { afterEach, expect, test } from 'bun:test'
 
-import { afterEach, beforeEach, expect, test } from 'bun:test'
-
-import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
+import { useObservability } from '@/lib/test/doubles/observability'
 
 import { MongoTraceSpan, updateMongoParent } from './span'
-import {
-  closeTraceStore,
-  flushTraceWrites,
-  purgeConversationTraces,
-  serializeTracePayload,
-} from './store'
+import { flushTraceWrites, purgeConversationTraces, serializeTracePayload } from './store'
 
 let release: (() => void) | undefined
 let block = false
 let failures = 0
+let attempts = 0
+const errors: string[] = []
+
+useObservability({
+  logError: (event) => {
+    errors.push(event)
+  },
+})
 const deletes: unknown[] = []
 const headers: Record<string, unknown>[] = []
 
-let directory: string
-const originalPath = config.agent.mongoTraceSpoolPath
-
-beforeEach(() => {
-  directory = mkdtempSync(join(tmpdir(), 'mongo-traces-'))
-  config.agent.mongoTraceSpoolPath = join(directory, 'queue.sqlite')
-})
 afterEach(async () => {
-  try {
-    await closeTraceStore()
-  } finally {
-    config.agent.mongoTraceSpoolPath = originalPath
-    rmSync(directory, { recursive: true, force: true })
-  }
+  await flushTraceWrites()
 })
 
 useDb({
   db: () => ({
     collection: (name: string) => ({
       updateOne: async (_filter: unknown, update: { $setOnInsert: Record<string, unknown> }) => {
+        attempts++
         if (failures-- > 0) throw new Error('temporary database outage')
         if (block)
           await new Promise<void>((resolve) => {
@@ -97,7 +85,7 @@ test('cyclic error causes do not drop the entire trace event', () => {
   })
 })
 
-test('purge removes queued data even when its delivery fails', async () => {
+test('purge waits for failed in-flight delivery before deleting', async () => {
   failures = 3
   const span = new MongoTraceSpan({
     name: 'failed-purge',
@@ -128,4 +116,22 @@ test('purge does not wait for another session', async () => {
     release!()
     await flushTraceWrites()
   }
+})
+
+test('permanent failures stop after three attempts, log, and do not reject callers', async () => {
+  const before = attempts
+
+  errors.length = 0
+  failures = 100
+  const failed = new MongoTraceSpan({ name: 'unavailable' })
+
+  await flushTraceWrites()
+  expect(attempts - before).toBe(3)
+  expect(headers.some((row) => row.spanId === failed.context.spanId)).toBe(false)
+  expect(errors).toContain('agent.trace.write_failed')
+  failures = 0
+  const recovered = new MongoTraceSpan({ name: 'recovered' })
+
+  await flushTraceWrites()
+  expect(headers.some((row) => row.spanId === recovered.context.spanId)).toBe(true)
 })

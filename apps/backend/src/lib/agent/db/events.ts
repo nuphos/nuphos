@@ -32,6 +32,7 @@ export async function setupAgentIndexes(): Promise<void> {
       { teamId: 1, userId: 1, archivedAt: -1 },
       { background: true, partialFilterExpression: { archivedAt: { $exists: true } } },
     )
+    await c.createIndex({ 'linkedResources.key': 1 }, { background: true })
     await c.createIndex({ sessionId: 1 }, { unique: true, background: true })
     await c.createIndex({ teamId: 1, 'claudeCodePreview.runtimeUrl': 1 }, { background: true })
     await c.createIndex({ teamId: 1, previousRuntimeUrls: 1 }, { background: true })
