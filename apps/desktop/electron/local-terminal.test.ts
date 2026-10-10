@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { EventEmitter } from 'node:events'
+import { EventEmitter, on } from 'node:events'
 import { test } from 'node:test'
 
 import { LocalTerminalSessions, terminalSize } from './local-terminal.ts'
@@ -39,6 +39,24 @@ function waitForOutput(emitter: EventEmitter, expected: string): Promise<void> {
     emitter.on('terminal-event', onEvent)
   })
 }
+
+async function waitForExit(emitter: EventEmitter, id: string, signal: AbortSignal) {
+  const events = on(emitter, 'terminal-event', { signal }) as AsyncIterable<[LocalTerminalEvent]>
+
+  for await (const [event] of events) {
+    if (event.id === id && event.type === 'exit') return
+  }
+}
+
+test('waiting for shell exit is canceled with the test and releases its listener', async () => {
+  const emitter = new EventEmitter()
+  const controller = new AbortController()
+  const exited = waitForExit(emitter, 'tab', controller.signal)
+
+  controller.abort()
+  await assert.rejects(exited, { name: 'AbortError' })
+  assert.equal(emitter.listenerCount('terminal-event'), 0)
+})
 
 test('terminal dimensions remain valid for hidden panes and malformed input', () => {
   assert.equal(terminalSize(0, 80), 2)
@@ -189,11 +207,7 @@ test(
     sessions.agentRequest('agent-tab', scope, "printf '%s%s\\n' AGENT_AFTER_ HUMAN\r")
     await agentReady
     assert.match(sessions.agentRequest('agent-tab', scope).output, /AGENT_AFTER_HUMAN/)
-    const agentExited = new Promise<void>((resolve) => {
-      emitter.on('terminal-event', (event: LocalTerminalEvent) => {
-        if (event.id === 'agent-tab' && event.type === 'exit') resolve()
-      })
-    })
+    const agentExited = waitForExit(emitter, 'agent-tab', t.signal)
 
     sessions.input(owner, 'agent-tab', '\x15exit\r')
     await agentExited
@@ -205,11 +219,7 @@ test(
     sessions.input(owner, 'user-tab', "printf '%s%s\\n' USER_SHELL_ READY\r")
     await userReady
     assert.throws(() => sessions.agentRequest('user-tab', scope), /another conversation/)
-    const exited = new Promise<void>((resolve) => {
-      emitter.on('terminal-event', (event: LocalTerminalEvent) => {
-        if (event.id === 'user-tab' && event.type === 'exit') resolve()
-      })
-    })
+    const exited = waitForExit(emitter, 'user-tab', t.signal)
 
     sessions.input(owner, 'user-tab', 'exit\r')
     await exited
