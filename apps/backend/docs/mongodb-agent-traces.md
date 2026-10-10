@@ -7,20 +7,13 @@ data is not imported or deleted.
 
 ## Enablement and privacy
 
-Set `AGENT_MONGO_TRACE_SPOOL_PATH` to a file on a **private, persistent volume
-unique to each backend replica**, for example `/var/lib/nuphos/agent-traces.sqlite`.
-An unset path disables this additional content copy, including on self-hosted
-installations. Do not share a spool between replicas or unrelated deployments.
-Mount and restore each replica's volume across restarts; an ephemeral container
-filesystem does not provide recovery after replacement.
+New agent traces write directly to the existing MongoDB connection. No local
+storage, per-replica volume or separate enablement setting is required.
 
-The SQLite file is mode 0600; newly created parent directories are mode 0700.
 Payloads may contain prompts, tool output, credentials printed by tools and error
 stacks. There is deliberately no new redaction or truncation: that would violate
 the full-content migration contract. Apply the same access, encryption and backup
-controls as conversation data to both MongoDB and the spool. SQLite secure-delete
-clears acknowledged queue rows; underlying filesystem snapshots/backups have
-separate retention. No public read endpoint is introduced. Future readers must
+controls as conversation data to MongoDB. No public read endpoint is introduced. Future readers must
 check per-session access, not merely team membership.
 
 ## Coverage
@@ -62,72 +55,54 @@ is introduced.
 `AGENT_MONGO_TRACE_RETENTION_DAYS=0` (default) retains all content. A positive
 value stamps an identical `expiresAt` on new headers and their chunks; TTL indexes
 expire both collections. Changing the setting affects new events only, not
-already stamped records, existing history or queued events. TTL deletion is
+already stamped records, existing history or in-flight events. TTL deletion is
 asynchronous and must not be treated as atomic multi-document removal.
 
-The maintenance deletion helper removes locally queued records for the session,
-waits only for its active write (up to 5 seconds), then attempts both Mongo
-collections' deletion even after delivery errors. Stop active turns on **all
-replicas** first: new or slow in-flight writes can otherwise recreate data.
-The HTTP conversation DELETE route remains disabled, so this helper is not an
-active retention policy. Transcript edits do not rewrite this append-only copy.
+The maintenance deletion helper waits up to five seconds for the session's
+in-flight local writes before deleting both collections. A timeout fails the
+purge rather than reporting success while a write could recreate records.
+Stop active turns on **all replicas** first: new or remote in-flight writes can
+otherwise recreate data. The HTTP conversation DELETE route remains disabled.
+Transcript edits do not rewrite this append-only copy.
 
 ## Delivery and capacity
 
-Enqueue snapshots the event into a synchronous SQLite transaction with FULL
-synchronization. The database is the queue: there is no unbounded in-memory list
-of pending payloads or promises. One consumer per backend reads one event at a
-time and submits one Mongo operation at a time on the existing pool. Other trace
-payloads remain on disk. There is no drop-on-full or payload cap.
+Each event is snapshotted and immediately sent to MongoDB. There is no SQLite
+spool, replay worker or application-level waiting queue. Up to three attempts
+use the same event/chunk ids and idempotent upserts, with 100 ms and 200 ms
+between attempts. Each Mongo operation has a five-second server execution and
+write-concern timeout; driver server-selection/pool waits can add time.
 
-Stable event/chunk ids and idempotent upserts tolerate acknowledgement loss and
-replay after a crash. Three failed Mongo attempts leave the row on disk and retry
-later; startup replays the same file even without a new event. An unavailable
-Mongo destination can therefore grow the spool indefinitely. Monitor persistent
-volume capacity and deferred-delivery logs. A permanently invalid event blocks
-later delivery until repaired; do not discard it merely to clear the queue.
+Serialization or exhausted delivery failures log `agent.trace.write_failed`
+without failing the conversation. Failed events are not retained for later
+replay. Process termination or a Mongo outage can lose traces. Partially written
+chunks may remain without a header after a failed large event; positive retention
+expires them, while retention 0 requires maintenance cleanup if needed.
 
-Full-content capture has a real cost: JSON snapshotting and disk enqueue run on
-the caller's thread. Memory is bounded by the largest active event, not by an
-arbitrary payload cap; a single exceptionally large event can still exhaust
-memory. Validate event-loop latency, disk throughput and storage growth against
-representative workloads before deployment. Full-history turn inputs can cause
+The store tracks only active writes so shutdown can wait within its existing
+guard-flush deadline. It does not cancel writes when the deadline expires.
+Concurrency follows event production and the existing Mongo pool; pending writes
+retain their full snapshots in memory. Large payloads or a slow database can
+increase memory pressure. There is no content truncation or drop-on-full policy.
+JSON snapshotting runs on the caller's thread. Full-history inputs can cause
 quadratic storage growth over long conversations.
 
-`agent.trace.enqueue_failed` reports serialization/disk failures (including a
-full disk); those events were **not durably accepted**. Tracing does not fail the
-user's turn, so this is not an unconditional no-loss guarantee. Also, loss of the
-spool volume loses undelivered data. `agent.trace.delivery_deferred` reports
-retained events awaiting Mongo delivery. Shutdown drains within the existing
-guard-flush deadline, leaves unacknowledged rows on disk and closes the queue.
-Index failures are logged without preventing backend startup. When the spool
-path is unset, startup emits `agent.trace.disabled` with
-`full_content_capture: false` so disabled capture is visible operationally.
+Index failures are logged without preventing backend startup.
 
 ## Verification
 
 Run `bun test src/lib/agent/trace-store`. Tests use the real AI SDK with a mock
 provider and a fixed output fixture captured from the removed SDK 3.9.0, without
 live model/vendor calls or a vendor runtime dependency.
-Coverage includes disabled OTel and opt-out, parent identities, an 18 MB
-payload, transient failures, durable replay, single-consumer backpressure,
-retention timestamps, binary round trips, startup visibility, flush timeout and purge.
+Coverage includes disabled OTel, parent identities, an 18 MB payload, bounded
+retries, permanent failure logging, retention timestamps, binary round trips,
+startup indexes, flush timeout and purge.
 
-Deployment requires the persistent spool to be explicitly enabled for full trace
-capture. Removing the vendor does not automatically enable Mongo capture on
-existing deployments. Verify new collections against representative sessions,
-check enqueue and delivery failures, and size storage/latency before rollout.
-Production parity and historical backfill are not established by these tests.
-Old replicas keep their previous tracing behavior until replaced; this PR does
-not revoke vendor credentials or delete historical vendor data.
-
-## Rollout gate
-
-[NUPS-995](https://linear.app/zeabur/issue/NUPS-995), assigned to Yuanlin Lin, owns
-production enablement, including synchronous-enqueue latency and poison-row
-recovery. This PR does not confirm that production volumes are provisioned.
-Before deploying with full capture, that owner must verify a persistent volume
-for every replica, measure enqueue latency under representative event sizes,
-and establish an operator recovery path for permanently failing queue rows.
-Retention stays at 0 until an explicit retention policy is selected. These are
-production-enablement prerequisites, not claims established by the unit tests.
+Deploying this version enables full-content Mongo capture automatically. Verify
+new collections against representative sessions and monitor write failures,
+memory pressure and storage growth. No persistent per-replica volume is needed.
+Production parity and historical backfill are not established by unit tests.
+Old replicas keep their previous tracing behavior until replaced. This change
+does not drain or delete any old SQLite spool; if a deployment enabled one,
+drain it with the old version before upgrading. It does not revoke vendor
+credentials or delete historical vendor data.
