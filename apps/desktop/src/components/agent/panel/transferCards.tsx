@@ -9,7 +9,7 @@ import { useReportVisibleError } from '../../VisibleErrorReporter'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { mediaKind, previewKind } from './transferDownloads'
+import { filesBesidePreviews, mediaKind, previewKind } from './transferDownloads'
 import { TransferPreviews } from './transferPreviews'
 
 import type { TransferUploadPart } from './parts'
@@ -148,16 +148,17 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
           </Button>
         )}
       </div>
-      {hasPreviews && (
+      {hasPreviews ? (
         <TransferPreviews
           teamId={teamId}
           groupId={group.groupId}
-          fallback={fileRows(group.files.filter((f) => previewKind(f)))}
           onDownload={(f) => void downloadOne(f.id, f.fileName)}
-        />
+        >
+          {(previewed) => fileRows(filesBesidePreviews(group.files, previewed))}
+        </TransferPreviews>
+      ) : (
+        fileRows(group.files)
       )}
-      {/* Previewed images and videos are not repeated as file rows. */}
-      {fileRows(hasPreviews ? group.files.filter((f) => !previewKind(f)) : group.files)}
     </div>
   )
 }
@@ -172,35 +173,39 @@ function formatTransferBytes(bytes: number | null): string {
 
 // User-uploaded files. Bytes already live in the transfer store;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
+// Images show as thumbnails above it; when nothing else is left to list, the
+// card itself is dropped so a photo message reads as photos.
 export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
-  // Only images and videos read as media, not as a file list.
-  const media =
-    teamId &&
+  const previewTeam =
     part.status !== 'uploading' &&
     part.status !== 'error' &&
     part.groupId &&
-    !part.archive
-      ? part.files.length > 0 && part.files.every((f) => mediaKind(f.fileName))
-      : false
-  const card = <UploadedFilesList part={part} teamId={teamId} previews={!media} />
+    !part.archive &&
+    part.files.some((f) => mediaKind(f.fileName))
+      ? teamId
+      : undefined
 
-  if (!media) return card
+  if (!previewTeam) return <UploadedFilesList part={part} rows={part.files} />
 
   return (
-    <div className="flex max-w-[min(85%,480px)] justify-end self-end">
-      <TransferPreviews teamId={teamId!} groupId={part.groupId} fallback={card} />
+    <div className="flex w-full max-w-[min(85%,480px)] flex-col items-end self-end">
+      <TransferPreviews teamId={previewTeam} groupId={part.groupId}>
+        {(previewed) => {
+          const rows = filesBesidePreviews(part.files, previewed)
+
+          return rows.length > 0 && <UploadedFilesList part={part} rows={rows} />
+        }}
+      </TransferPreviews>
     </div>
   )
 }
 
 function UploadedFilesList({
   part,
-  teamId,
-  previews,
+  rows,
 }: {
   part: TransferUploadPart
-  teamId?: string
-  previews: boolean
+  rows: TransferUploadPart['files']
 }) {
   const total = part.files.length
   const ready = part.files.filter((f) => f.status === 'ready').length
@@ -212,18 +217,6 @@ function UploadedFilesList({
   const archiveSuffix =
     entries == null ? '' : ` · ${String(entries)} file${entries === 1 ? '' : 's'}`
   const readySuffix = ready < total ? ` · ${String(ready)}/${String(total)} ready` : ''
-  // The team the inline previews resolve against, when this card shows any.
-  const previewTeam =
-    previews &&
-    !uploading &&
-    !errored &&
-    part.groupId &&
-    !part.archive &&
-    part.files.some((f) => mediaKind(f.fileName))
-      ? teamId
-      : undefined
-  // Previewed images and videos are not repeated as file rows.
-  const rows = previewTeam ? part.files.filter((f) => !mediaKind(f.fileName)) : part.files
 
   return (
     <div className="w-full max-w-[min(85%,480px)] self-end rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2">
@@ -243,7 +236,6 @@ function UploadedFilesList({
                 : `Uploaded ${String(total)} file${total === 1 ? '' : 's'}${readySuffix}`}
         </span>
       </div>
-      {previewTeam && <TransferPreviews teamId={previewTeam} groupId={part.groupId} />}
       <div className="flex flex-col gap-1">
         {rows.map((f, i) => (
           <div key={`${f.fileName}:${String(i)}`} className="flex items-center gap-2 text-[12.5px]">
