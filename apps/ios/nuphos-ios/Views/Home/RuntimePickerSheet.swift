@@ -61,6 +61,8 @@ struct RuntimePickerSheet: View {
                         }
                     }
                     .scrollContentBackground(.hidden)
+                    // The notice is a bare row; the grouped list's top margin above it reads as a hole.
+                    .contentMargins(.top, store.selectedRuntimeUnavailable ? 0 : nil, for: .scrollContent)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
