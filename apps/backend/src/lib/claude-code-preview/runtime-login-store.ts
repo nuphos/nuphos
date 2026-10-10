@@ -4,6 +4,8 @@ import { config } from '@/config'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 
+import type { RuntimeLoginStep } from './runtime-login-step'
+
 export type RuntimeLoginStatus = {
   attemptId: string
   state: 'starting' | 'awaiting_authorization' | 'connected' | 'failed' | 'cancelled'
@@ -11,6 +13,8 @@ export type RuntimeLoginStatus = {
   userCode?: string
   /** A browser flow that ends in a code the user pastes back into the app. */
   authorizationUrl?: string
+  /** What a stepped sign-in asks of the user now. */
+  step?: RuntimeLoginStep
   codeSubmitted?: boolean
   error?: string
   expiresAt: string
@@ -29,8 +33,10 @@ export const AUTHORIZATION_FIELDS = {
   userCode: '',
   verificationUri: '',
   authorizationUrl: '',
+  step: '',
   pendingCode: '',
 } as const
+
 export const runtimeLogins = () => db().collection<RuntimeLoginDoc>('runtime_login_attempts')
 export function runtimeLoginKey(teamId: string, runtimeId: string): string {
   return createHash('sha256')
@@ -51,12 +57,14 @@ export function publicLogin(doc: RuntimeLoginDoc): RuntimeLoginStatus {
       : {
           ...(doc.error ? { error: doc.error } : {}),
           ...(doc.state === 'awaiting_authorization'
-            ? doc.authorizationUrl
-              ? {
-                  authorizationUrl: doc.authorizationUrl,
-                  ...(doc.codeSubmitted ? { codeSubmitted: true } : {}),
-                }
-              : { verificationUri: doc.verificationUri, userCode: doc.userCode }
+            ? doc.step
+              ? { step: doc.step, ...(doc.codeSubmitted ? { codeSubmitted: true } : {}) }
+              : doc.authorizationUrl
+                ? {
+                    authorizationUrl: doc.authorizationUrl,
+                    ...(doc.codeSubmitted ? { codeSubmitted: true } : {}),
+                  }
+                : { verificationUri: doc.verificationUri, userCode: doc.userCode }
             : {}),
         }),
   }
@@ -84,7 +92,11 @@ export async function submitLoginCode(
       _id: doc._id,
       attemptId: doc.attemptId,
       state: 'awaiting_authorization',
-      authorizationUrl: { $exists: true },
+      $or: [
+        { authorizationUrl: { $exists: true } },
+        { 'step.kind': { $in: ['choose', 'input'] } },
+        { 'step.paste': { $exists: true } },
+      ],
       codeSubmitted: { $ne: true },
       expiresAt: { $gt: new Date() },
     },

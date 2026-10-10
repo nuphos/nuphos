@@ -18,10 +18,37 @@ enum WorkspaceAPI {
         let userCode: String?
         let error: String?
         let codeSubmitted: Bool?
+        /// One step of a sign-in that asks before it authorizes (OpenCode).
+        var step: Step? = nil
         var pending: Bool { state == "starting" || state == "awaiting_authorization" }
         var url: URL? {
-            guard let raw = authorizationUrl ?? verificationUri, let url = URL(string: raw), url.scheme == "https" else { return nil }
+            guard let raw = step?.url ?? authorizationUrl ?? verificationUri, let url = URL(string: raw), url.scheme == "https" else { return nil }
             return url
+        }
+        /// Whether the sign-in waits for something the user types, picks or pastes.
+        var needsAnswer: Bool {
+            guard pending, codeSubmitted != true else { return false }
+            if let step { return step.kind != "browser" || step.paste != nil }
+            return authorizationUrl != nil
+        }
+
+        struct Step: Decodable, Equatable {
+            struct Option: Decodable, Equatable, Identifiable {
+                let value: String
+                let label: String
+                let hint: String?
+                var id: String { value }
+            }
+            /// `choose`, `input` or `browser`.
+            let kind: String
+            let message: String?
+            let options: [Option]?
+            let placeholder: String?
+            let secret: Bool?
+            let url: String?
+            let instructions: String?
+            /// `code` or `address` when the page hands something back.
+            let paste: String?
         }
     }
 

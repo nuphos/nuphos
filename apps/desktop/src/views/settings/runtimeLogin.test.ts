@@ -29,10 +29,6 @@ test('a device code links to its own agent’s page only', () => {
     'https://accounts.x.ai/oauth2/device',
   )
   assert.equal(devicePage('grok', 'https://auth.openai.com/codex/device'), undefined)
-  assert.equal(
-    devicePage('opencode', 'https://auth.openai.com/codex/device'),
-    'https://auth.openai.com/codex/device',
-  )
   assert.equal(devicePage('codex', undefined), undefined)
 })
 

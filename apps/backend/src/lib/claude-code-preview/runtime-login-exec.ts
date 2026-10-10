@@ -6,14 +6,11 @@ import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 
 import { kubectlArgs } from './kubectl-command'
+import { parseLoginStep } from './runtime-login-step'
+
+import type { RuntimeLoginFrame } from './runtime-login-step'
 
 const ACCOUNT_DIR = '/var/run/secrets/kubernetes.io/serviceaccount'
-
-export type RuntimeLoginFrame =
-  | { type: 'device'; verificationUri: string; userCode: string }
-  | { type: 'authorize'; url: string }
-  | { type: 'authenticated' }
-  | { type: 'error'; message: string }
 
 const LOGIN_ERRORS = new Map<unknown, string>([
   [
@@ -55,7 +52,7 @@ export function isGoogleAuthorizeUrl(value: unknown): value is string {
   }
 }
 
-/** The device pages a runtime may send a user to: ChatGPT for Codex and OpenCode, xAI for Grok Build. */
+/** The device pages a runtime may send a user to: ChatGPT for Codex, xAI for Grok Build. */
 const DEVICE_VERIFICATION_URIS = new Set([
   'https://auth.openai.com/codex/device',
   'https://accounts.x.ai/oauth2/device',
@@ -71,6 +68,8 @@ export function loginFrameReader(
   onFrame: (frame: RuntimeLoginFrame) => void,
   // The provider's own advice when its sign-in fails.
   failed = LOGIN_ERRORS.get('failed'),
+  // Whether this runtime may ask the user in steps (OpenCode).
+  steps = false,
 ) {
   let pending = ''
 
@@ -85,8 +84,10 @@ export function loginFrameReader(
       pending = pending.slice(newline + 1)
       if (!line.trim()) continue
       const frame = JSON.parse(line) as Record<string, unknown>
+      const step = steps ? parseLoginStep(frame) : undefined
 
-      if (
+      if (step) onFrame({ type: 'step', step })
+      else if (
         frame.type === 'device' &&
         DEVICE_VERIFICATION_URIS.has(frame.verificationUri as string) &&
         typeof frame.userCode === 'string' &&

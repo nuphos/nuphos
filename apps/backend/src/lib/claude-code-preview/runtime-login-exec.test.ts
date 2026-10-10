@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { loginFrameReader, readRuntimeLoginSocket } from './runtime-login-exec'
 
-import type { RuntimeLoginFrame } from './runtime-login-exec'
+import type { RuntimeLoginFrame } from './runtime-login-step'
 
 function socketFixture(exit: 'Success' | 'Failure' | 'Disconnected') {
   const requests: { authorization: string | null; protocol: string | null }[] = []
@@ -181,4 +181,52 @@ test('Grok Build and Antigravity sign in through their own pages only', () => {
     { type: 'device', ...device },
     { type: 'authorize', url: google },
   ])
+})
+
+test('only a runtime that signs in by steps may ask, and only within bounds', async () => {
+  const { loginFrameReader } = await import('./runtime-login-exec')
+  const frames: unknown[] = []
+  const choose = {
+    type: 'choose',
+    message: 'Choose a model provider',
+    options: [{ value: 'openai', label: 'OpenAI', hint: 'Signed in', extra: 'dropped' }],
+  }
+
+  expect(() => loginFrameReader(() => {})(`${JSON.stringify(choose)}\n`)).toThrow()
+  const read = loginFrameReader((frame) => frames.push(frame), undefined, true)
+
+  read(`${JSON.stringify(choose)}\n`)
+  read(`${JSON.stringify({ type: 'input', message: 'API key', secret: true })}\n`)
+  read(
+    `${JSON.stringify({ type: 'browser', url: 'https://github.com/login/device', instructions: 'Enter code: AB-12' })}\n`,
+  )
+  read(`${JSON.stringify({ type: 'browser', url: '', instructions: 'Run az login first.' })}\n`)
+  expect(frames).toEqual([
+    {
+      type: 'step',
+      step: {
+        kind: 'choose',
+        message: 'Choose a model provider',
+        options: [{ value: 'openai', label: 'OpenAI', hint: 'Signed in' }],
+      },
+    },
+    { type: 'step', step: { kind: 'input', message: 'API key', secret: true } },
+    {
+      type: 'step',
+      step: {
+        kind: 'browser',
+        url: 'https://github.com/login/device',
+        instructions: 'Enter code: AB-12',
+      },
+    },
+    { type: 'step', step: { kind: 'browser', url: '', instructions: 'Run az login first.' } },
+  ])
+  for (const bad of [
+    { type: 'browser', url: 'http://example.com/' },
+    { type: 'browser', url: 'https://example.com/', paste: 'anything' },
+    { type: 'choose', message: 'x', options: [] },
+    { type: 'choose', message: 'x', options: [{ value: '', label: 'x' }] },
+    { type: 'input', message: 'x'.repeat(501) },
+  ])
+    expect(() => read(`${JSON.stringify(bad)}\n`)).toThrow()
 })

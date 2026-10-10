@@ -22,7 +22,9 @@ let docs: RuntimeLoginDoc[] = []
 function matches(doc: RuntimeLoginDoc, query: Query): boolean {
   return Object.entries(query).every(([field, value]) => {
     if (field === '$or') return (value as Query[]).some((branch) => matches(doc, branch))
-    const actual = doc[field as keyof RuntimeLoginDoc]
+    const actual = field
+      .split('.')
+      .reduce<unknown>((object, key) => (object as Query | undefined)?.[key], doc)
 
     if (value && typeof value === 'object' && !(value instanceof Date)) {
       const op = value as {
@@ -261,4 +263,71 @@ test('a pasted sign-in result is a Claude code or a loopback callback, nothing e
     'the code',
   ])
     expect(AUTHORIZATION_CODE.test(bad)).toBe(false)
+})
+
+test('a stepped sign-in takes one answer per step, each checked against that step', async () => {
+  const { acceptsAnswer } = await import('./runtime-login')
+  const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
+  const { deps } = dependencies()
+  const delivered: string[] = []
+  const answered = [Promise.withResolvers<void>(), Promise.withResolvers<void>()]
+
+  deps.exec = async (_target, emit) => {
+    emit({
+      type: 'step',
+      step: {
+        kind: 'choose',
+        message: 'Choose a model provider',
+        options: [
+          { value: 'openai', label: 'OpenAI' },
+          { value: 'groq', label: 'Groq' },
+        ],
+      },
+    })
+    await answered[0]!.promise
+    emit({ type: 'step', step: { kind: 'input', message: 'Groq API key', secret: true } })
+    await answered[1]!.promise
+    emit({ type: 'authenticated' })
+  }
+  deps.input = (_target, _attempt, text) => {
+    answered[delivered.push(text) - 1]!.resolve()
+
+    return Promise.resolve()
+  }
+  const login = performRuntimeLogin(doc, deps)
+
+  const kind = () => docs[0]?.step?.kind
+
+  while (kind() !== 'choose') await Bun.sleep(5)
+  expect(publicLogin(docs[0]!).step).toMatchObject({ kind: 'choose' })
+  expect(acceptsAnswer(docs[0]!, 'anthropic')).toBe(false)
+  await submitLoginCode(docs[0]!, 'groq')
+  while (kind() !== 'input') await Bun.sleep(5)
+  // A new step waits for its own answer.
+  expect(publicLogin(docs[0]!).codeSubmitted).toBeUndefined()
+  await submitLoginCode(docs[0]!, 'gsk-secret')
+  expect(JSON.stringify(publicLogin(docs[0]!))).not.toContain('gsk-secret')
+  await login
+
+  expect(delivered).toEqual(['groq', 'gsk-secret'])
+  expect(docs[0]?.state).toBe('connected')
+  expect(JSON.stringify(docs[0])).not.toContain('gsk-secret')
+  expect(docs[0]?.step).toBeUndefined()
+})
+
+test('a page OpenCode watches itself takes no answer; one that ends on loopback takes its address', async () => {
+  const { acceptsAnswer } = await import('./runtime-login')
+  const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
+  const browser = { kind: 'browser' as const, url: 'https://github.com/login/device' }
+
+  docs[0]!.state = 'awaiting_authorization'
+  docs[0]!.step = browser
+  await expect(submitLoginCode(docs[0]!, 'anything')).rejects.toMatchObject({ status: 409 })
+  docs[0]!.step = { ...browser, paste: 'address' }
+  expect(acceptsAnswer(docs[0]!, 'http://localhost:1455/auth/callback?code=c')).toBe(true)
+  expect(acceptsAnswer(docs[0]!, 'https://evil.example/?code=c')).toBe(false)
+  expect(
+    await submitLoginCode(docs[0]!, 'http://localhost:1455/auth/callback?code=c'),
+  ).toMatchObject({ codeSubmitted: true })
+  expect(doc.attemptId).toBe(docs[0]!.attemptId)
 })

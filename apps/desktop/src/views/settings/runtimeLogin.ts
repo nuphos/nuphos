@@ -10,7 +10,6 @@ const AUTHORIZE_PAGES: Partial<Record<AgentProvider, (url: URL) => boolean>> = {
 const DEVICE_PAGES: Partial<Record<AgentProvider, string>> = {
   codex: 'https://auth.openai.com/codex/device',
   grok: 'https://accounts.x.ai/oauth2/device',
-  opencode: 'https://auth.openai.com/codex/device',
 }
 
 /** The browser page to open and paste back from, when this agent signs in that way. */

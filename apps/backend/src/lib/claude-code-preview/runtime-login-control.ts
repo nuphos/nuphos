@@ -7,7 +7,7 @@ import { loginFrameReader } from './runtime-login-exec'
 import { runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
-import type { RuntimeLoginFrame } from './runtime-login-exec'
+import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc } from './runtime-login-store'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamPreviewClient } from './team-openab-runtime'
@@ -22,7 +22,7 @@ const LOGIN_FAILED: Record<OpenAbProvider, string> = {
   grok: 'Sign-in did not complete. Start again and confirm the code on the xAI page.',
   antigravity:
     'Sign-in did not complete. Start again and paste the whole address your browser ended on after Google sign-in.',
-  opencode: CODEX_LOGIN_FAILED,
+  opencode: 'Sign-in did not complete. Start again and check the details you entered.',
 }
 
 async function controlEndpoint(teamId: string, runtimeId: string) {
@@ -82,8 +82,9 @@ export async function driveControlRuntimeLogin(
   signal: AbortSignal,
   doc: RuntimeLoginDoc,
   failure = CODEX_LOGIN_FAILED,
+  steps = false,
 ): Promise<void> {
-  const read = loginFrameReader(onFrame, failure)
+  const read = loginFrameReader(onFrame, failure, steps)
   const exited = Promise.withResolvers<number>()
 
   exited.promise.catch(() => {})
@@ -139,13 +140,15 @@ async function execControlRuntimeLogin(
   doc: RuntimeLoginDoc,
 ): Promise<void> {
   const client = await controlRegistry.acquire(doc.teamId, endpoint)
+  const provider = runtimeProvider(endpoint.provider)
 
   await driveControlRuntimeLogin(
     client,
     onFrame,
     signal,
     doc,
-    LOGIN_FAILED[runtimeProvider(endpoint.provider)],
+    LOGIN_FAILED[provider],
+    provider === 'opencode',
   )
 }
 

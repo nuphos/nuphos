@@ -11,8 +11,9 @@
 //   the patched adapters apply them.
 // - Nuphos's instructions, in whatever form the agent accepts them.
 import { spawn } from 'node:child_process'
+import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
@@ -57,12 +58,11 @@ export const PROVIDERS = {
   },
   opencode: {
     command: ['opencode', 'acp'],
-    // OpenCode keeps its login (auth.json) and its sessions under XDG_DATA_HOME, which
-    // the session home moves; pin it to the runtime's so every session shares both.
-    home: (runtimeHome) => ({
-      XDG_DATA_HOME: join(runtimeHome, '.local', 'share'),
-      OPENCODE_DISABLE_AUTOUPDATE: '1',
-    }),
+    home: () => ({ OPENCODE_DISABLE_AUTOUPDATE: '1' }),
+    // OpenCode keeps its login (auth.json) and its sessions in XDG_DATA_HOME/opencode.
+    // Only that directory is shared with the runtime home; the rest of XDG_DATA_HOME
+    // stays the conversation's own, as for every other tool.
+    shared: [join('.local', 'share', 'opencode')],
     // No system prompt parameter over ACP: the instructions lead the first prompt.
     instruct: null,
     // A prompt sent while a turn runs joins that turn instead of starting its own.
@@ -82,12 +82,28 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
       ([key, value]) => SESSION_ENV.has(key) && typeof value === 'string',
     ),
   )
+  const sessionHome = nuphosSessionHomeEnv(env, runtimeEnv)
+  if (sessionHome.NUPHOS_SESSION_HOME)
+    for (const path of PROVIDERS[provider].shared ?? [])
+      shareFromRuntimeHome(path, sessionHome.NUPHOS_SESSION_HOME, runtimeHome)
   // The provider's home is pinned to the runtime's, after the session home moves HOME.
   return {
     ...runtimeEnv,
     ...env,
-    ...nuphosSessionHomeEnv(env, runtimeEnv),
+    ...sessionHome,
     ...PROVIDERS[provider].home(runtimeHome),
+  }
+}
+
+/** Links `path` in the conversation's home to the same path in the runtime's home. */
+function shareFromRuntimeHome(path, sessionHome, runtimeHome) {
+  const link = join(sessionHome, path)
+  mkdirSync(join(runtimeHome, path), { recursive: true, mode: 0o700 })
+  mkdirSync(dirname(link), { recursive: true, mode: 0o700 })
+  try {
+    lstatSync(link)
+  } catch {
+    symlinkSync(join(runtimeHome, path), link)
   }
 }
 
@@ -150,6 +166,8 @@ export function runShim({
   // agent started on its own.
   const prompts = new Map()
   const autonomous = new Set()
+  // Sessions being loaded or resumed: the history the agent replays is not a turn.
+  const opening = new Set()
   // A prompt's turn can end before its answer reaches the client, and a wakeup can
   // start in between; until the answer, the session's later updates wait here.
   const held = new Map()
@@ -265,7 +283,12 @@ export function runShim({
     // Output no prompt asked for opens a turn the agent started on its own: a
     // wakeup's reminder, its first thought or text, or a new tool. A tool update
     // alone is a background command reporting, not a turn.
-    if (TURN_OPENERS.has(kind) && !prompting(sessionId) && !autonomous.has(sessionId)) {
+    if (
+      TURN_OPENERS.has(kind) &&
+      !opening.has(sessionId) &&
+      !prompting(sessionId) &&
+      !autonomous.has(sessionId)
+    ) {
       autonomous.add(sessionId)
       write(sessionState(sessionId, 'active'))
     }
@@ -299,7 +322,9 @@ export function runShim({
       _meta: meta,
       mcpServers: nuphosBridgeMcpServers(message.params?.mcpServers ?? [], runtimeEnv),
     }
+    if (params.sessionId) opening.add(params.sessionId)
     transforms.set(message.id, async (reply) => {
+      opening.delete(params.sessionId)
       if (reply.error) return reply
       // A loaded or resumed session gets the current instructions too.
       const sessionId = reply.result?.sessionId ?? params.sessionId

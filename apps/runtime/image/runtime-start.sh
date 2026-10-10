@@ -123,7 +123,7 @@ if mkdir -p "$workspace/.claude" 2>/dev/null; then
   fi
 fi
 
-# Grok Build and Antigravity install on first use (see the Dockerfile). Start that
+# Grok Build, Antigravity and OpenCode install on first use (see the Dockerfile). Start that
 # now, so the first conversation does not wait on a download; a session that comes
 # sooner waits on the same per-tool lock.
 if [ -n "${NUPHOS_RUNTIME_PREINSTALL:-}" ]; then

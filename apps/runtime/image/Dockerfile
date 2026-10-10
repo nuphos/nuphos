@@ -95,10 +95,10 @@ ENV PATH="/opt/nuphos-codex-acp/node_modules/.bin:${PATH}" \
     OPENAB_AGENT_AUTH_COMMAND="codex login --device-auth" \
     OPENAB_ADAPTER_VERSION="codex-acp@1.1.4"
 
-# Grok Build and Antigravity speak ACP themselves, so they take no adapter: the shim
-# adds the Nuphos layer in front of the agent. Both agents are proprietary and are
-# not redistributed in this image; tools/manifest.json installs the pinned build on
-# first use, into the home volume.
+# Grok Build, Antigravity and OpenCode speak ACP themselves, so they take no adapter:
+# the shim adds the Nuphos layer in front of the agent. None is in this image (the
+# first two are proprietary); tools/manifest.json installs the pinned build on first
+# use, into the home volume.
 FROM common AS grok
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs grok" \
     OPENAB_AGENT_AUTH_COMMAND="grok login --device-auth" \
@@ -110,8 +110,6 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs antigravity" \
     OPENAB_ADAPTER_VERSION="antigravity-acp@1.3.0" \
     NUPHOS_RUNTIME_PREINSTALL=antigravity-acp
 
-# OpenCode is open source and speaks ACP too (`opencode acp`); it installs on first
-# use like the others, so the image stays the same size for every provider.
 FROM common AS opencode
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
     OPENAB_AGENT_AUTH_COMMAND="opencode providers login" \

@@ -9,7 +9,7 @@ export const AGENT_PROVIDER: Record<AgentProvider, { label: string; account: str
   codex: { label: 'Codex', account: 'ChatGPT' },
   grok: { label: 'Grok Build', account: 'xAI' },
   antigravity: { label: 'Antigravity', account: 'Google' },
-  opencode: { label: 'OpenCode', account: 'ChatGPT' },
+  opencode: { label: 'OpenCode', account: 'a model provider' },
 }
 
 export type RuntimeDefaults = {
@@ -136,12 +136,19 @@ export type RuntimeQuotaHistorySeries = {
   points: { at: string; usedPercent: number }[]
 }
 
+/** One step of a sign-in that asks before it authorizes (OpenCode). */
+export type RuntimeLoginStep =
+  | { kind: 'choose'; message: string; options: { value: string; label: string; hint?: string }[] }
+  | { kind: 'input'; message: string; placeholder?: string; secret?: boolean }
+  | { kind: 'browser'; url: string; instructions?: string; paste?: 'code' | 'address' }
+
 export type RuntimeLoginStatus = {
   attemptId: string
   state: 'starting' | 'awaiting_authorization' | 'connected' | 'failed' | 'cancelled'
   verificationUri?: string
   userCode?: string
   authorizationUrl?: string
+  step?: RuntimeLoginStep
   codeSubmitted?: boolean
   error?: string
   expiresAt: string

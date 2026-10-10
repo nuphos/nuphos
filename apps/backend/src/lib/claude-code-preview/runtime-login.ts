@@ -12,7 +12,7 @@ import {
 } from './runtime-login-store'
 
 import type { ControlLoginTarget } from './runtime-login-control'
-import type { RuntimeLoginFrame } from './runtime-login-exec'
+import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc, RuntimeLoginStatus } from './runtime-login-store'
 
 const running = new Map<string, AbortController>()
@@ -101,16 +101,27 @@ export async function performRuntimeLogin<Target>(
         else if (frame.type === 'error')
           throw new AppError(422, 'runtime_login_failed', frame.message)
         else {
-          const prompt =
-            frame.type === 'authorize'
-              ? { authorizationUrl: frame.url }
-              : { verificationUri: frame.verificationUri, userCode: frame.userCode }
+          // Each step replaces the one before it and takes a fresh answer.
+          const update =
+            frame.type === 'step'
+              ? {
+                  $set: { state: 'awaiting_authorization' as const, step: frame.step },
+                  $unset: { codeSubmitted: '' as const },
+                }
+              : {
+                  $set: {
+                    state: 'awaiting_authorization' as const,
+                    ...(frame.type === 'authorize'
+                      ? { authorizationUrl: frame.url }
+                      : { verificationUri: frame.verificationUri, userCode: frame.userCode }),
+                  },
+                }
 
           updates = updates
             .then(async () => {
               await runtimeLogins().updateOne(
                 { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },
-                { $set: { state: 'awaiting_authorization', ...prompt } },
+                update,
               )
             })
             .catch(() => {
@@ -198,6 +209,18 @@ export async function cancelRuntimeLogin(
  */
 export const AUTHORIZATION_CODE =
   /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
+const LOOPBACK_ADDRESS = /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\S*$/u
+
+/** Whether `answer` is what the sign-in is waiting for; the runtime checks it again. */
+export function acceptsAnswer(doc: RuntimeLoginDoc, answer: string): boolean {
+  const { step } = doc
+
+  if (!step) return AUTHORIZATION_CODE.test(answer)
+  if (step.kind === 'choose') return step.options.some((option) => option.value === answer)
+  if (step.kind === 'browser' && step.paste === 'address') return LOOPBACK_ADDRESS.test(answer)
+
+  return answer.length > 0
+}
 
 export async function submitRuntimeLoginCode(
   teamId: string,
@@ -211,6 +234,14 @@ export async function submitRuntimeLoginCode(
 
   if (doc.attemptId !== attemptId)
     throw new AppError(404, 'runtime_login_not_found', 'This sign-in attempt has ended')
+  if (!acceptsAnswer(doc, code))
+    throw new AppError(
+      400,
+      'runtime_login_invalid_code',
+      doc.step?.kind === 'choose'
+        ? 'Pick one of the options shown'
+        : 'Paste the whole code or address the sign-in page shows',
+    )
 
   return submitLoginCode(doc, code)
 }
