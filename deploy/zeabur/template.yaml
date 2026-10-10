@@ -1,0 +1,261 @@
+# yaml-language-server: $schema=https://schema.zeabur.app/template.json
+apiVersion: zeabur.com/v1
+kind: Template
+metadata:
+  name: Nuphos
+spec:
+  description:
+    Self-host the Nuphos backend with authenticated MongoDB and S3-compatible storage. No Redis
+    required.
+  tags:
+    - Tool
+    - AI
+  variables:
+    - key: API_DOMAIN
+      type: DOMAIN
+      name: Backend domain
+      description: HTTPS endpoint used by Nuphos Desktop and runtime callbacks.
+    - key: STORAGE_DOMAIN
+      type: DOMAIN
+      name: Storage domain
+      description: HTTPS endpoint for signed file transfers, reachable by Desktop and runtime.
+    - key: ZSEND_API_KEY
+      type: PASSWORD
+      name: Zeabur Email API key
+      description: Required for production email OTP sign-in.
+    - key: NUPHOS_EMAIL_FROM
+      type: STRING
+      name: Sender address
+      description: A sender on a verified Zeabur Email domain, e.g. Nuphos <noreply@example.com>.
+  readme: |
+    # Nuphos
+
+    This template deploys the backend, MongoDB and RustFS with no Redis.
+    Supply two domains and a Zeabur Email API key with a verified sender for sign-in.
+
+    1. Wait for the backend readiness check to pass.
+    2. In Nuphos Desktop, choose **Self-hosted? Set API endpoint** and enter the backend HTTPS URL.
+    3. Sign in using the email code and create a team.
+    4. Deploy `deploy/zeabur/runtime-template.yaml` into a **different Zeabur project** on an amd64 server. Never add the agent runtime to this data project: project variables include database/storage/email credentials.
+    5. Open the runtime HTTPS console and sign in with the generated password shown in the runtime service connection instructions.
+    6. Set its public URL to `wss://<runtime-domain>/acp`, then pair it with your team using the console's single-use code.
+    7. Sign in to Claude from the console. Chat requires your own model account.
+
+    Use the published HTTPS storage endpoint for file transfers; no local hosts entry is needed.
+    MongoDB has authentication, a single-node replica set and public TCP forwarding disabled.
+    Keep all generated credentials and volumes when redeploying. Deleting volumes deletes your data.
+
+    This is a single-replica installation. Cron, background thread queues and journal sealing are disabled without Redis. Backend-generated titles/insights require separately configured model credentials. Managed agents require Kubernetes. This template does not create those integrations.
+  services:
+    - name: mongo
+      template: PREBUILT_V2
+      spec:
+        source:
+          image: mongo:8.0.32
+          command:
+            - /bin/bash
+            - /opt/nuphos-mongo.sh
+        ports:
+          - id: database
+            port: 27017
+            type: TCP
+        portForwarding:
+          enabled: false
+        volumes:
+          - id: mongo-data
+            dir: /data/db
+          - id: mongo-config
+            dir: /data/configdb
+        env:
+          NUPHOS_MONGO_HOST:
+            default: ${CONTAINER_HOSTNAME}
+            expose: true
+          NUPHOS_MONGO_PASSWORD:
+            default: ${PASSWORD}
+            expose: true
+          MONGO_INITDB_ROOT_USERNAME:
+            default: nuphos
+          MONGO_INITDB_ROOT_PASSWORD:
+            default: ${NUPHOS_MONGO_PASSWORD}
+        configs:
+          - path: /opt/nuphos-mongo.sh
+            envsubst: false
+            template: |
+              #!/bin/bash
+              set -euo pipefail
+              umask 077
+              mkdir -p /data/configdb
+              if [ ! -s /data/configdb/nuphos-keyfile ]; then
+                head -c 48 /dev/urandom | base64 > /data/configdb/nuphos-keyfile
+              fi
+              chown mongodb:mongodb /data/configdb/nuphos-keyfile
+              chmod 400 /data/configdb/nuphos-keyfile
+              /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/configdb/nuphos-keyfile --bind_ip_all &
+              pid=$!
+              trap 'kill -TERM "$pid"; wait "$pid"' TERM INT
+              for attempt in $(seq 1 120); do
+                kill -0 "$pid" || exit 1
+                if mongosh 'mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000' --quiet --eval '
+                  const admin = db.getSiblingDB("admin");
+                  if (!admin.auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD)) quit(1);
+                  try { rs.status(); } catch (e) {
+                    if (e.code !== 94) throw e;
+                    rs.initiate({_id:"rs0",members:[{_id:0,host:process.env.NUPHOS_MONGO_HOST+":27017"}]});
+                  }
+                  quit(db.hello().isWritablePrimary ? 0 : 1);
+                ' >/dev/null 2>&1; then
+                  wait "$pid"
+                  exit $?
+                fi
+                sleep 2
+              done
+              echo 'Mongo replica set initialization timed out' >&2
+              kill -TERM "$pid"
+              wait "$pid"
+              exit 1
+    - name: rustfs
+      template: PREBUILT_V2
+      spec:
+        source:
+          image: rustfs/rustfs:1.0.0
+          command:
+            - /bin/sh
+            - -ec
+            - /bin/sh /opt/nuphos-storage.sh
+        ports:
+          - id: web
+            port: 9000
+            type: HTTP
+        volumes:
+          - id: rustfs-data
+            dir: /data
+        env:
+          NUPHOS_STORAGE_URL:
+            default: ${ZEABUR_WEB_URL}
+            expose: true
+          NUPHOS_STORAGE_ACCESS_KEY:
+            default: nuphos
+            expose: true
+          NUPHOS_STORAGE_SECRET_KEY:
+            default: ${PASSWORD}
+            expose: true
+          RUSTFS_ACCESS_KEY:
+            default: ${NUPHOS_STORAGE_ACCESS_KEY}
+          RUSTFS_SECRET_KEY:
+            default: ${NUPHOS_STORAGE_SECRET_KEY}
+          RUSTFS_ADDRESS:
+            default: 0.0.0.0:9000
+          S3_ACCESS_KEY:
+            default: ${NUPHOS_STORAGE_ACCESS_KEY}
+          S3_SECRET_KEY:
+            default: ${NUPHOS_STORAGE_SECRET_KEY}
+          S3_ENDPOINT:
+            default: http://127.0.0.1:9000
+          BUCKETS:
+            default: nuphos-file-transfers nuphos-skills nuphos-journal
+        configs:
+          - path: /opt/nuphos-storage.sh
+            envsubst: false
+            template: |
+              #!/bin/sh
+              set -eu
+              rm -f /tmp/buckets-ready
+              /entrypoint.sh rustfs &
+              pid=$!
+              trap 'kill -TERM $pid' TERM INT
+              until curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1; do
+                kill -0 $pid 2>/dev/null || { echo "rustfs exited before becoming healthy" >&2; exit 1; }
+                sleep 1
+              done
+              # /health answers before the S3 API does, so 5xx and refused connections are retried.
+              for bucket in $BUCKETS; do
+                waited=0
+                while :; do
+                  status=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+                    --aws-sigv4 'aws:amz:us-east-1:s3' --user "$S3_ACCESS_KEY:$S3_SECRET_KEY" \
+                    "$S3_ENDPOINT/$bucket" || true)
+                  case "$status" in
+                    200|409) echo "bucket $bucket ready"; break ;;
+                    000|5??)
+                      kill -0 $pid 2>/dev/null || { echo "rustfs exited while creating buckets" >&2; exit 1; }
+                      if [ "$waited" -ge 60 ]; then
+                        echo "bucket $bucket: HTTP $status after ${waited}s" >&2; kill -TERM $pid; exit 1
+                      fi
+                      delay=$((waited < 8 ? 1 : 4))
+                      sleep "$delay"
+                      waited=$((waited + delay)) ;;
+                    *) echo "bucket $bucket: HTTP $status" >&2; kill -TERM $pid; exit 1 ;;
+                  esac
+                done
+              done
+              touch /tmp/buckets-ready
+              wait $pid
+        healthCheck:
+          type: HTTP
+          port: web
+          http:
+            path: /health
+      domainKey: STORAGE_DOMAIN
+    - name: backend
+      template: PREBUILT_V2
+      spec:
+        source:
+          image: ghcr.io/nuphos/backend:v0.85.0
+        ports:
+          - id: web
+            port: 3000
+            type: HTTP
+        healthCheck:
+          type: HTTP
+          port: web
+          http:
+            path: /health/ready
+        env:
+          NODE_ENV:
+            default: production
+          PORT:
+            default: '3000'
+          MONGODB_URI:
+            default: mongodb://nuphos:${NUPHOS_MONGO_PASSWORD}@${NUPHOS_MONGO_HOST}:27017/nuphos?authSource=admin&replicaSet=rs0&directConnection=true
+          MONGODB_DB:
+            default: nuphos
+          NUPHOS_JWT_SECRET:
+            default: ${PASSWORD}${PASSWORD}
+          NUPHOS_AUTH_BASE_URL:
+            default: ${ZEABUR_WEB_URL}
+          NUPHOS_BACKEND_URL:
+            default: ${ZEABUR_WEB_URL}
+          NUPHOS_PUBLIC_BACKEND_URL:
+            default: ${ZEABUR_WEB_URL}
+          ATLAS_REDIS_ENABLED:
+            default: 'false'
+          BRAINTRUST_TRACING_ENABLED:
+            default: 'false'
+          CLAUDE_CODE_RUNTIME_KUBECTL:
+            default: 'false'
+          CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED:
+            default: 'false'
+          NUPHOS_FILE_TRANSFER_S3_BUCKET:
+            default: nuphos-file-transfers
+          NUPHOS_FILE_TRANSFER_S3_REGION:
+            default: us-east-1
+          NUPHOS_FILE_TRANSFER_S3_ENDPOINT:
+            default: ${NUPHOS_STORAGE_URL}
+          NUPHOS_FILE_TRANSFER_S3_ACCESS_KEY_ID:
+            default: ${NUPHOS_STORAGE_ACCESS_KEY}
+          NUPHOS_FILE_TRANSFER_S3_SECRET_ACCESS_KEY:
+            default: ${NUPHOS_STORAGE_SECRET_KEY}
+          ATLAS_SKILLS_BUCKET:
+            default: nuphos-skills
+          ATLAS_SKILLS_S3_REGION:
+            default: us-east-1
+          ATLAS_SKILLS_S3_ENDPOINT:
+            default: ${NUPHOS_STORAGE_URL}
+          ATLAS_SKILLS_S3_ACCESS_KEY_ID:
+            default: ${NUPHOS_STORAGE_ACCESS_KEY}
+          ATLAS_SKILLS_S3_SECRET_ACCESS_KEY:
+            default: ${NUPHOS_STORAGE_SECRET_KEY}
+      domainKey: API_DOMAIN
+      dependencies:
+        - mongo
+        - rustfs

@@ -76,9 +76,21 @@ produce Patch or Minor versions — a Major needs an explicit manual `X.0.0`.
 
 ## Self-hosting
 
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/H9M7E7)
+[![Railway deployment guide](https://img.shields.io/badge/Railway-Deployment%20guide-0B0D0E?logo=railway&logoColor=white)](deploy/railway/README.md)
+[![Docker Compose setup](https://img.shields.io/badge/Docker%20Compose-Setup-2496ED?logo=docker&logoColor=white)](deploy/compose/README.md)
+
+The Zeabur button deploys the data stack. Then [deploy the agent runtime](https://zeabur.com/templates/AUECDT)
+in a **separate project**. Railway currently uses the CLI deployment guide rather
+than a published one-click template.
+
 `deploy/compose` brings up a complete, minimal Nuphos with one
 `docker compose up` — MongoDB, S3-compatible storage, the backend, and one agent
 runtime. Start at [`deploy/compose/README.md`](deploy/compose/README.md).
+
+For Zeabur, use [`deploy/zeabur/template.yaml`](deploy/zeabur/template.yaml);
+see the [deployment inputs and setup guide](deploy/zeabur/README.md).
+[Railway project templates](deploy/railway/README.md) are also available.
 
 What to know before you plan around it:
 
