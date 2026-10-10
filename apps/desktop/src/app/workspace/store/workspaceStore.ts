@@ -95,6 +95,7 @@ export function createWorkspaceStore(
         readOnly: options?.readOnly ?? false,
         teamId: options?.teamId,
         keepMainPage: options?.keepMainPage,
+        resetHomeScroll: sessionId === null && !options?.keepMainPage,
       }),
     openMainPage: (teamId) => dispatch({ type: 'openMainPage', teamId }),
     setSessionReadOnly: (readOnly) => dispatch({ type: 'setSessionReadOnly', readOnly }),

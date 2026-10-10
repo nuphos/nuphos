@@ -25,6 +25,7 @@ export type WorkspaceAction =
       readOnly: boolean
       teamId?: string
       keepMainPage?: boolean
+      resetHomeScroll?: boolean
     }
   | { type: 'openMainPage'; teamId: string }
   | { type: 'setSessionReadOnly'; readOnly: boolean }
