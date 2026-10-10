@@ -77,7 +77,7 @@ produce Patch or Minor versions — a Major needs an explicit manual `X.0.0`.
 ## Self-hosting
 
 [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/H9M7E7)
-[![Railway deployment guide](https://img.shields.io/badge/Railway-Deployment%20guide-0B0D0E?logo=railway&logoColor=white)](deploy/railway/README.md)
+[![Railway deployment guide](https://railway.com/button.svg)](deploy/railway/README.md)
 [![Docker Compose setup](https://img.shields.io/badge/Docker%20Compose-Setup-2496ED?logo=docker&logoColor=white)](deploy/compose/README.md)
 
 The Zeabur button deploys the data stack. Then [deploy the agent runtime](https://zeabur.com/templates/AUECDT)
