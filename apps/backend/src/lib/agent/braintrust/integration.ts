@@ -4,7 +4,7 @@ import {
   serializeStepInput,
   tokenMetrics,
 } from './serialize'
-import { enabled, otelEnabled, safeJsonSize } from './shared'
+import { safeJsonSize } from './shared'
 import { startTraceSpan } from './spans'
 
 import type { SpanLike } from './shared'
@@ -28,8 +28,6 @@ export function createAgentTelemetryIntegration(args: {
       drainOpenSpans: (status: 'finish' | 'abort' | 'error', error?: unknown) => void
     }
   | undefined {
-  if (!enabled && !otelEnabled) return undefined
-
   const parent = args.parent
   const baseMetadata = args.metadata ?? {}
   const stepSpans = new Map<

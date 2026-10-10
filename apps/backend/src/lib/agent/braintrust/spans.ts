@@ -1,9 +1,9 @@
-import { randomUUID } from 'node:crypto'
-
 import { context as otelContextApi, SpanStatusCode, trace } from '@opentelemetry/api'
 import { logError as bLogError, startSpan as bStartSpan } from 'braintrust'
 
 import { logError } from '@/lib/observability'
+
+import { MongoTraceSpan } from '../trace-store/span'
 
 import {
   agentTracer,
@@ -11,8 +11,6 @@ import {
   enabled,
   errorForOtel,
   lookupOtelParent,
-  noopSpan,
-  OTEL_PARENT_PREFIX,
   otelEnabled,
   payloadAttrs,
   prefixedAttrs,
@@ -26,10 +24,10 @@ import type { Span as BraintrustSpan } from 'braintrust'
 
 export class DualTraceSpan implements SpanLike {
   private braintrustEnded = false
-  private otelEnded = false
-  private syntheticExport?: string
+  private localEnded = false
 
   constructor(
+    private readonly mongoSpan: MongoTraceSpan,
     private readonly braintrustSpan: BraintrustSpan | undefined,
     private readonly otelSpan: OtelSpan | undefined,
     private readonly otelSpanContext: OtelContext | undefined,
@@ -45,10 +43,7 @@ export class DualTraceSpan implements SpanLike {
         logError('braintrust.span_export_failed', err)
       }
     }
-    if (!exported && this.otelSpanContext) {
-      this.syntheticExport ??= `${OTEL_PARENT_PREFIX}${randomUUID()}`
-      exported = this.syntheticExport
-    }
+    exported = this.mongoSpan.export(exported || undefined)
     rememberOtelParent(exported, this.otelSpanContext)
 
     return exported
@@ -61,6 +56,7 @@ export class DualTraceSpan implements SpanLike {
     metrics?: Record<string, number>
     error?: unknown
   }): void {
+    this.mongoSpan.record('log', event)
     if (event.error !== undefined && this.braintrustSpan) {
       bLogError(this.braintrustSpan, event.error)
     }
@@ -88,12 +84,13 @@ export class DualTraceSpan implements SpanLike {
   }
 
   event(name: string, attrs?: Record<string, unknown>): void {
+    this.mongoSpan.record('event', { name, attributes: attrs })
     this.otelSpan?.addEvent(name, prefixedAttrs('atlas.', attrs))
   }
 
   end(): number {
     this.endBraintrust()
-    this.endOtel()
+    this.endLocalSpans()
 
     return Date.now() / 1000
   }
@@ -104,14 +101,17 @@ export class DualTraceSpan implements SpanLike {
     this.braintrustSpan?.end()
   }
 
-  endOtel(): void {
-    if (this.otelEnded) return
-    this.otelEnded = true
+  endLocalSpans(): void {
+    if (this.localEnded) return
+    this.localEnded = true
+    this.mongoSpan.end()
     this.otelSpan?.end()
   }
 
   withActive<R>(fn: () => R): R {
-    return this.otelSpanContext ? otelContextApi.with(this.otelSpanContext, fn) : fn()
+    return this.mongoSpan.withActive(() =>
+      this.otelSpanContext ? otelContextApi.with(this.otelSpanContext, fn) : fn(),
+    )
   }
 }
 
@@ -151,9 +151,12 @@ export function makeDualSpan(
 ): DualTraceSpan | SpanLike {
   const { span, spanContext } = startOtelSpan(args)
 
-  if (!braintrustSpan && !span) return noopSpan
-
-  return new DualTraceSpan(braintrustSpan, span, spanContext)
+  return new DualTraceSpan(
+    new MongoTraceSpan(args, braintrustSpan),
+    braintrustSpan,
+    span,
+    spanContext,
+  )
 }
 
 export function startTraceSpan(args: {

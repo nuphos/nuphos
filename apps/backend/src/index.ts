@@ -14,6 +14,7 @@ import {
 import { drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
+import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
 import { validateAwsOidcConfig } from '@/lib/byos/aws-oidc'
@@ -59,6 +60,7 @@ watchDevLauncher(config.devLauncherPid, () => {
 validateAwsOidcConfig()
 
 await connectDb()
+await setupTraceIndexes()
 logEvent('info', 'backend.mongodb.connected')
 // Memory provider registry boot gate: a malformed provider bundle or a
 // MEMORY_PROVIDER default naming an unregistered/external provider fails the
@@ -246,6 +248,11 @@ async function shutdown(sig: string) {
   shutdownMemoryRetentionRollup()
   conversationAutoArchive.shutdown()
   shutdownStuckTurnProbe()
+  try {
+    await flushTraceWrites()
+  } catch (error) {
+    logError('backend.shutdown.trace_flush_failed', error)
+  }
   await Promise.allSettled([shutdownPostHog(), shutdownJournalSealer(), closeRedis(), closeDb()])
 
   // 6. Flush + close OTel pipelines AFTER deps so any "db closing" /

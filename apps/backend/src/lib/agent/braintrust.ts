@@ -4,16 +4,22 @@
 import { wrapAISDK } from 'braintrust'
 
 import { enabled, otelEnabled } from './braintrust/shared'
+import { wrapMongoGenerateText } from './trace-store/ai-sdk'
 
-import type { TelemetrySettings } from 'ai'
+import type { generateText, TelemetrySettings } from 'ai'
 
 // Wrap a partial of the AI SDK module (streamText / generateText / etc.) so
 // each call lands in Braintrust as a span with prompt, output, tools, usage,
 // and any metadata passed via `experimental_telemetry`.
 export function wrapAI<T extends Record<string, unknown>>(sdk: T): T {
-  if (!enabled) return sdk
+  const wrapped = enabled ? (wrapAISDK(sdk as Parameters<typeof wrapAISDK>[0]) as T) : sdk
 
-  return wrapAISDK(sdk as Parameters<typeof wrapAISDK>[0]) as unknown as T
+  if (typeof wrapped.generateText !== 'function') return wrapped
+
+  return {
+    ...wrapped,
+    generateText: wrapMongoGenerateText(wrapped.generateText as typeof generateText),
+  }
 }
 
 // Back-compat alias: existing call sites import `wrapStreamText`.

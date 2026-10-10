@@ -148,6 +148,9 @@ export async function ensureConversationRootAfterTurn(args: {
 
     updateConversationParent(parent, {
       metadata: {
+        sessionId,
+        userId,
+        teamId,
         lastTurnAt: new Date().toISOString(),
         lastFinishReason: rollup.finishReason,
         ...(rollup.memory

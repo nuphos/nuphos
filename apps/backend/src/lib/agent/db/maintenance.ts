@@ -4,6 +4,8 @@ import { purgeConversationAttribution } from '@/lib/agent/memory-slots/attributi
 import { purgeConversationPreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { logError } from '@/lib/observability'
 
+import { purgeConversationTraces } from '../trace-store/store'
+
 import { agentConversations, agentMessages, withTeamScope } from './shared'
 
 // Refuses to blank a title. The conversation already carries a usable one from
@@ -167,6 +169,9 @@ export async function deleteConversation(
 
   if (result.deletedCount === 0) return false
   await agentMessages().deleteMany({ sessionId, userId })
+  await purgeConversationTraces(sessionId).catch((err: unknown) => {
+    logError('agent.trace.purge_failed', err, { sessionId })
+  })
   // A6: measurement rows carry PII (userId/teamId/notes) and must die with
   // the conversation. Fail-open: the conversation is already gone, so a
   // transient purge error must not 5xx the delete (a retry would then 404);

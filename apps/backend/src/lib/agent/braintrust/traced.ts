@@ -8,6 +8,8 @@ import {
 
 import { logError } from '@/lib/observability'
 
+import { MongoTraceSpan, updateMongoParent, withMongoParent } from '../trace-store/span'
+
 import { braintrustParent, enabled, lookupOtelParent } from './shared'
 import { DualTraceSpan, makeDualSpan, startTraceSpan } from './spans'
 
@@ -56,7 +58,7 @@ export async function traced<T>(
 
   return bTraced(
     async (span) => {
-      const dualSpan = makeDualSpan(args, span as BraintrustSpan)
+      const dualSpan = makeDualSpan(args, span)
 
       if (args.metadata !== undefined || args.input !== undefined) {
         dualSpan.log({
@@ -72,7 +74,7 @@ export async function traced<T>(
             dualSpan.log({ error: err })
             throw err
           } finally {
-            dualSpan.endOtel()
+            dualSpan.endLocalSpans()
           }
         })
       }
@@ -109,7 +111,18 @@ export async function createConversationParent(args: {
   input?: unknown
   output?: unknown
 }): Promise<string | undefined> {
-  if (!enabled) return undefined
+  if (!enabled) {
+    const mongoSpan = new MongoTraceSpan({
+      ...args,
+      name: args.name ?? 'conversation',
+      type: 'task',
+    })
+
+    mongoSpan.record('log', { output: args.output, metrics: args.metrics })
+    mongoSpan.end()
+
+    return mongoSpan.export()
+  }
   const span = bStartSpan({
     name: args.name ?? 'conversation',
     type: 'task',
@@ -122,9 +135,16 @@ export async function createConversationParent(args: {
     },
   })
 
+  const mongoSpan = new MongoTraceSpan(
+    { ...args, name: args.name ?? 'conversation', type: 'task' },
+    span,
+  )
+
+  mongoSpan.record('log', { output: args.output, metrics: args.metrics })
   try {
-    return await span.export()
+    return mongoSpan.export(await span.export())
   } finally {
+    mongoSpan.end()
     span.end()
   }
 }
@@ -139,10 +159,14 @@ export function updateConversationParent(
   exported: string | undefined,
   event: { metadata?: Record<string, unknown>; metrics?: Record<string, number> },
 ): void {
-  if (!enabled || !exported) return
+  if (!exported) return
+  updateMongoParent(exported, event)
+  const btParent = braintrustParent(exported)
+
+  if (!enabled || !btParent) return
   try {
     bUpdateSpan({
-      exported,
+      exported: btParent,
       ...(event.metadata ? { metadata: event.metadata } : {}),
       ...(event.metrics ? { metrics: event.metrics } : {}),
     })
@@ -201,5 +225,5 @@ export function withTraceParent<R>(parent: string | undefined, fn: () => R): R {
     return bWithParent(btParent, fn)
   }
 
-  return otelParent ? otelContextApi.with(otelParent, run) : run()
+  return withMongoParent(parent, () => (otelParent ? otelContextApi.with(otelParent, run) : run()))
 }

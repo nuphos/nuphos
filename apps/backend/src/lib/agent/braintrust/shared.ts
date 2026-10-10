@@ -7,9 +7,12 @@ import { trimUnderscores } from '@/lib/agent/text-scan'
 import { sanitizeProperties } from '@/lib/observability'
 import { getTracer } from '@/otel/api'
 
+import { vendorParent } from '../trace-store/span'
+
 import type { Attributes, Context as OtelContext } from '@opentelemetry/api'
 
-export const enabled = !!config.agent.braintrustApiKey && config.agent.braintrustTracingEnabled
+export const enabled =
+  Boolean(config.agent.braintrustApiKey) && config.agent.braintrustTracingEnabled
 // `aiTelemetry()` previously only flipped on for Braintrust. With OTel wired
 // up as a peer pipeline we also want experimental_telemetry enabled whenever
 // OTel is on so the AI SDK emits spans against the global tracer provider.
@@ -97,7 +100,9 @@ export function lookupOtelParent(exported: string | undefined): OtelContext | un
 }
 
 export function braintrustParent(parent: string | undefined): string | undefined {
-  return parent && !parent.startsWith(OTEL_PARENT_PREFIX) ? parent : undefined
+  const exported = vendorParent(parent)
+
+  return exported && !exported.startsWith(OTEL_PARENT_PREFIX) ? exported : undefined
 }
 
 function attrKey(key: string): string {
