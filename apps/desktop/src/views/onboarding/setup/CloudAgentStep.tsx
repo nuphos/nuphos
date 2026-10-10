@@ -1,5 +1,5 @@
 import { RadioGroup } from '@base-ui/react/radio-group'
-import { Cloud, Laptop, Loader2, Server } from 'lucide-react'
+import { Cloud, Laptop, Server } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '../../../components/ui/button'
@@ -52,8 +52,7 @@ export function CloudAgentStep({
   onSkip,
   onChoose,
 }: {
-  /** `undefined` while the workspace role is loading. */
-  isAdmin: boolean | undefined
+  isAdmin: boolean
   onSkip: () => void
   onChoose: (choice: CloudChoice) => void
 }) {
@@ -70,25 +69,14 @@ export function CloudAgentStep({
               Skip for now
             </Button>
           )}
-          <Button
-            disabled={isAdmin === undefined}
-            onClick={() => (isAdmin ? onChoose(choice) : onSkip())}
-          >
-            Continue
-          </Button>
+          <Button onClick={() => (isAdmin ? onChoose(choice) : onSkip())}>Continue</Button>
         </>
       }
     >
       <Comparison />
       <div className="space-y-3">
         <h2 className="text-[14px] font-medium text-main">Add a cloud agent</h2>
-        {isAdmin === undefined && (
-          <p className="flex items-center gap-2 text-[13px] text-secondary">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Checking your workspace role…
-          </p>
-        )}
-        {isAdmin === true && (
+        {isAdmin && (
           <RadioGroup
             value={choice}
             onValueChange={(value: CloudChoice) => setChoice(value)}
@@ -112,7 +100,7 @@ export function CloudAgentStep({
             />
           </RadioGroup>
         )}
-        {isAdmin === false && (
+        {!isAdmin && (
           <p className="rounded-xl border border-zGray-800 bg-zGray-900/60 px-4 py-3 text-[13px] leading-5 text-secondary">
             Cloud agents are added by workspace admins. Ask an admin of this workspace to add one;
             it shows up for you automatically.

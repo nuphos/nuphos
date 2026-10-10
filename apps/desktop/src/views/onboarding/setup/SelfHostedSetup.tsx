@@ -39,19 +39,18 @@ function DeployStep({ n, title, children }: { n: number; title: string; children
 
 /** Waits for the agent's console to hand it over: its Connect link, a typed pairing code, or the team list. */
 function DeployAndConnect({
-  teamId,
-  teams,
+  team,
   platform,
   onBack,
   onConnected,
 }: {
-  teamId: string
-  teams: readonly AtlasTeam[]
+  team: AtlasTeam
   platform: SelfHostedPlatform
   onBack: () => void
   onConnected: (agent: ConnectedCloudAgent) => void
 }) {
   const { name, url } = SELF_HOSTED_PLATFORMS[platform]
+  const teamId = team.id
   const { instances, loading, refresh } = useRuntimeInstances(teamId)
   const [knownIds, setKnownIds] = useState<ReadonlySet<string>>()
   const [link, setLink] = useState<ConnectAgentLink | null>(null)
@@ -122,7 +121,8 @@ function DeployAndConnect({
         <ConnectAgentDialog
           key={`${link.url}:${link.code}`}
           link={link}
-          teams={teams}
+          // Only the workspace being set up: connecting elsewhere would leave this screen waiting.
+          teams={[team]}
           currentTeamId={teamId}
           onClose={() => setLink(null)}
           onConnected={() => {
@@ -137,13 +137,11 @@ function DeployAndConnect({
 
 /** Self-hosted: pick where it runs, deploy it there, and wait for it to connect. */
 export function SelfHostedSetup({
-  teamId,
-  teams,
+  team,
   onBack,
   onConnected,
 }: {
-  teamId: string
-  teams: readonly AtlasTeam[]
+  team: AtlasTeam
   onBack: () => void
   onConnected: (agent: ConnectedCloudAgent) => void
 }) {
@@ -153,8 +151,7 @@ export function SelfHostedSetup({
   if (deploying)
     return (
       <DeployAndConnect
-        teamId={teamId}
-        teams={teams}
+        team={team}
         platform={platform}
         onBack={() => setDeploying(false)}
         onConnected={onConnected}

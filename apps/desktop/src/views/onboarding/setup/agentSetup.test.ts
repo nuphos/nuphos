@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
-  canAddCloudAgent,
   localAgentStatus,
+  managedRuntimePlan,
   newlyConnectedAgent,
   readyLocalAgents,
   setupStep,
@@ -12,7 +12,6 @@ import { SELF_HOSTED_PLATFORM_IDS, SELF_HOSTED_PLATFORMS } from './selfHostedPla
 
 import type { LocalRuntimeState } from '../../../api/device-types.ts'
 import type { RuntimeInstance } from '../../../types/runtime.ts'
-import type { AtlasTeam } from '../../../types/team.ts'
 
 const agent = (id: string, kind: RuntimeInstance['kind']) =>
   ({ id, kind, provider: 'codex', label: id, status: 'active', createdAt: '' }) as RuntimeInstance
@@ -50,16 +49,12 @@ test('ready local agents keep the Claude Code, Codex order', () => {
   assert.deepEqual(readyLocalAgents(null), [])
 })
 
-test('only workspace administrators can add a cloud agent', () => {
-  const teams: AtlasTeam[] = [
-    { id: 'a', name: 'A', role: 'ADMINISTRATOR' },
-    { id: 'b', name: 'B', role: 'EDITOR' },
-  ]
+test('the Nuphos Cloud picker reuses its unsigned agent and replaces it when the agent changes', () => {
+  const claude = { ...agent('c1', 'managed'), provider: 'claude-code' } as RuntimeInstance
 
-  assert.equal(canAddCloudAgent(undefined, 'a'), undefined)
-  assert.equal(canAddCloudAgent(teams, 'a'), true)
-  assert.equal(canAddCloudAgent(teams, 'b'), false)
-  assert.equal(canAddCloudAgent(teams, 'missing'), false)
+  assert.deepEqual(managedRuntimePlan(null, 'codex'), { kind: 'create', replace: null })
+  assert.deepEqual(managedRuntimePlan(claude, 'claude-code'), { kind: 'reuse', instance: claude })
+  assert.deepEqual(managedRuntimePlan(claude, 'codex'), { kind: 'create', replace: claude })
 })
 
 test('a self-hosted agent counts as new only when it was not there before', () => {

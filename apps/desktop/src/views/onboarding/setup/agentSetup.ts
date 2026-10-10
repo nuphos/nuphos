@@ -4,7 +4,6 @@ import type {
   LocalRuntimeState,
 } from '../../../api/device-types.ts'
 import type { RuntimeInstance } from '../../../types/runtime.ts'
-import type { AtlasTeam } from '../../../types/team.ts'
 
 export const LOCAL_SETUP_PROVIDERS = [
   'claude-code',
@@ -39,16 +38,6 @@ export function readyLocalAgents(state: LocalRuntimeState | null): LocalAgentPro
   )
 }
 
-/** Only administrators add cloud agents; `undefined` while the team list is still loading. */
-export function canAddCloudAgent(
-  teams: readonly AtlasTeam[] | undefined,
-  teamId: string,
-): boolean | undefined {
-  if (!teams) return undefined
-
-  return teams.find((team) => team.id === teamId)?.role === 'ADMINISTRATOR'
-}
-
 /** A self-hosted agent that joined the team after `knownIds` was taken. */
 export function newlyConnectedAgent(
   knownIds: ReadonlySet<string> | undefined,
@@ -57,6 +46,22 @@ export function newlyConnectedAgent(
   if (!knownIds) return undefined
 
   return instances.find((instance) => instance.kind === 'external' && !knownIds.has(instance.id))
+}
+
+export type ManagedRuntimePlan =
+  { kind: 'reuse'; instance: RuntimeInstance } | { kind: 'create'; replace: RuntimeInstance | null }
+
+/**
+ * What Continue does on the Nuphos Cloud picker, given the agent this flow already created and
+ * has not signed in yet: reuse it for the same agent, or remove it before creating a different one.
+ */
+export function managedRuntimePlan(
+  created: RuntimeInstance | null,
+  provider: RuntimeInstance['provider'],
+): ManagedRuntimePlan {
+  if (created?.provider === provider) return { kind: 'reuse', instance: created }
+
+  return { kind: 'create', replace: created }
 }
 
 export type SetupScreen = 'local' | 'cloud' | 'managed' | 'self-hosted' | 'done'

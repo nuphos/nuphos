@@ -1,9 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
-import { api } from '../../../api'
-import { toast } from '../../../components/ui/toast'
-
-import { canAddCloudAgent, setupStep } from './agentSetup'
+import { setupStep } from './agentSetup'
 import { CloudAgentStep } from './CloudAgentStep'
 import { LocalAgentsStep } from './LocalAgentsStep'
 import { ManagedCloudSetup } from './ManagedCloudSetup'
@@ -14,36 +11,18 @@ import { SetupComplete } from './SetupComplete'
 import type { SetupScreen } from './agentSetup'
 import type { ConnectedCloudAgent } from './SelfHostedSetup'
 import type { AtlasTeam } from '../../../types'
+import type { RuntimeInstance } from '../../../types/runtime'
 
 /** Full-window agent setup after creating a workspace: local agents, then an optional cloud agent. */
 export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: () => void }) {
   const [screen, setScreen] = useState<SetupScreen>('local')
-  const [teams, setTeams] = useState<AtlasTeam[]>()
+  const [managed, setManaged] = useState<RuntimeInstance | null>(null)
   const [cloudAgent, setCloudAgent] = useState<ConnectedCloudAgent | null>(null)
   const step = setupStep(screen)
   const connected = (agent: ConnectedCloudAgent) => {
     setCloudAgent(agent)
     setScreen('done')
   }
-
-  useEffect(() => {
-    let cancelled = false
-
-    api.atlasListTeams().then(
-      (list) => {
-        if (!cancelled) setTeams(list.some((item) => item.id === team.id) ? list : [...list, team])
-      },
-      (error: unknown) => {
-        if (cancelled) return
-        toast.apiError('Could not load your workspace', error)
-        setTeams([team])
-      },
-    )
-
-    return () => {
-      cancelled = true
-    }
-  }, [team])
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-main px-6 pb-10 pt-14 text-main">
@@ -57,7 +36,7 @@ export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: 
       {screen === 'local' && <LocalAgentsStep onContinue={() => setScreen('cloud')} />}
       {screen === 'cloud' && (
         <CloudAgentStep
-          isAdmin={canAddCloudAgent(teams, team.id)}
+          isAdmin={team.role === 'ADMINISTRATOR'}
           onSkip={onFinish}
           onChoose={setScreen}
         />
@@ -65,6 +44,8 @@ export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: 
       {screen === 'managed' && (
         <ManagedCloudSetup
           teamId={team.id}
+          created={managed}
+          onCreatedChange={setManaged}
           onBack={() => setScreen('cloud')}
           onConnected={(instance) =>
             connected({ provider: instance.provider, label: instance.label })
@@ -72,12 +53,7 @@ export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: 
         />
       )}
       {screen === 'self-hosted' && (
-        <SelfHostedSetup
-          teamId={team.id}
-          teams={teams ?? [team]}
-          onBack={() => setScreen('cloud')}
-          onConnected={connected}
-        />
+        <SelfHostedSetup team={team} onBack={() => setScreen('cloud')} onConnected={connected} />
       )}
       {screen === 'done' && <SetupComplete cloudAgent={cloudAgent} onFinish={onFinish} />}
     </div>

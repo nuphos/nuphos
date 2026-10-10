@@ -11,6 +11,7 @@ import { AGENT_PROVIDER, AGENT_PROVIDERS } from '../../../types/runtime'
 import { RuntimeLoginBody } from '../../settings/RuntimeLoginBody'
 import { useRuntimeLogin } from '../../settings/useRuntimeLogin'
 
+import { managedRuntimePlan } from './agentSetup'
 import { RadioCard, SetupScreen } from './SetupChrome'
 
 import type { AgentProvider, RuntimeInstance } from '../../../types/runtime'
@@ -72,36 +73,46 @@ function SignInPanel({
 /** Nuphos Cloud: pick the agent, create it, then sign it in without leaving the flow. */
 export function ManagedCloudSetup({
   teamId,
+  created,
+  onCreatedChange,
   onBack,
   onConnected,
 }: {
   teamId: string
+  /** The agent this flow created and has not signed in yet; owned by the flow so it outlives Back. */
+  created: RuntimeInstance | null
+  onCreatedChange: (instance: RuntimeInstance | null) => void
   onBack: () => void
   onConnected: (instance: RuntimeInstance) => void
 }) {
-  const [provider, setProvider] = useState<AgentProvider>('claude-code')
+  const [provider, setProvider] = useState<AgentProvider>(created?.provider ?? 'claude-code')
   const [saving, setSaving] = useState(false)
   const [instance, setInstance] = useState<RuntimeInstance | null>(null)
-  // Going back from sign-in and continuing with the same agent reuses it instead of adding another.
-  const [created, setCreated] = useState<RuntimeInstance | null>(null)
 
   async function create() {
     if (saving) return
-    if (created?.provider === provider) {
-      setInstance(created)
+    const plan = managedRuntimePlan(created, provider)
+
+    if (plan.kind === 'reuse') {
+      setInstance(plan.instance)
 
       return
     }
     setSaving(true)
     try {
+      // A different agent replaces the unsigned one, so the team is not left running both.
+      if (plan.replace) {
+        await api.atlasRemoveRuntimeInstance(teamId, plan.replace.id)
+        onCreatedChange(null)
+      }
       const next = await api.atlasCreateRuntimeInstance(teamId, { provider })
 
-      setCreated(next)
+      onCreatedChange(next)
       setInstance(next)
-      window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     } catch (error) {
       toast.apiError('Could not add agent', error)
     } finally {
+      window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
       setSaving(false)
     }
   }
