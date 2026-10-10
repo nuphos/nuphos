@@ -1,5 +1,5 @@
 /** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
-export const AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity'] as const
+export const AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'] as const
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
 
@@ -9,6 +9,7 @@ export const AGENT_PROVIDER: Record<AgentProvider, { label: string; account: str
   codex: { label: 'Codex', account: 'ChatGPT' },
   grok: { label: 'Grok Build', account: 'xAI' },
   antigravity: { label: 'Antigravity', account: 'Google' },
+  opencode: { label: 'OpenCode', account: 'ChatGPT' },
 }
 
 export type RuntimeDefaults = {

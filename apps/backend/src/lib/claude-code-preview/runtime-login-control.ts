@@ -22,6 +22,7 @@ const LOGIN_FAILED: Record<OpenAbProvider, string> = {
   grok: 'Sign-in did not complete. Start again and confirm the code on the xAI page.',
   antigravity:
     'Sign-in did not complete. Start again and paste the whole address your browser ended on after Google sign-in.',
+  opencode: CODEX_LOGIN_FAILED,
 }
 
 async function controlEndpoint(teamId: string, runtimeId: string) {

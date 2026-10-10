@@ -3,7 +3,7 @@
 // prints only model metadata. Credentials and adapter diagnostics stay private.
 export const RUNTIME_MODEL_PROBE = String.raw`
 const { spawn } = await import('node:child_process');
-const agents = { 'claude-code': ['claude-agent-acp'], codex: ['codex-acp'], grok: ['node', '/opt/acp-shim.mjs', 'grok'], antigravity: ['node', '/opt/acp-shim.mjs', 'antigravity'] };
+const agents = { 'claude-code': ['claude-agent-acp'], codex: ['codex-acp'], grok: ['node', '/opt/acp-shim.mjs', 'grok'], antigravity: ['node', '/opt/acp-shim.mjs', 'antigravity'], opencode: ['node', '/opt/acp-shim.mjs', 'opencode'] };
 const params = Object.hasOwn(agents, process.argv[1])
   ? { provider: process.argv[1], model: process.argv[2] }
   : JSON.parse(await (await import('node:fs/promises')).readFile((await import('node:path')).join(process.argv[2], 'params.json'), 'utf8'));

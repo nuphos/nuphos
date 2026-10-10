@@ -66,7 +66,7 @@ enum Command {
         name: Option<String>,
         #[arg(long)]
         session: Option<String>,
-        /// Add a Nuphos-managed Cloud agent for provider NAME (claude-code, codex, grok, antigravity) and sign it in.
+        /// Add a Nuphos-managed Cloud agent for provider NAME (claude-code, codex, grok, antigravity, opencode) and sign it in.
         #[arg(long, requires = "name", conflicts_with_all = ["session", "login"])]
         create: bool,
         /// Sign the Cloud agent NAME in to its provider account.

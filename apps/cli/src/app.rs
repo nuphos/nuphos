@@ -51,8 +51,13 @@ const TIPS: [&str; 4] = [
     "Use /model to change the model and reasoning effort.",
 ];
 /// The agents Nuphos can run for a team, as the desktop's Add agent offers them.
-const PROVIDERS: [(&str, &str); 4] =
-    [("claude-code", "Claude Code"), ("codex", "Codex"), ("grok", "Grok Build"), ("antigravity", "Antigravity")];
+const PROVIDERS: [(&str, &str); 5] = [
+    ("claude-code", "Claude Code"),
+    ("codex", "Codex"),
+    ("grok", "Grok Build"),
+    ("antigravity", "Antigravity"),
+    ("opencode", "OpenCode"),
+];
 /// How long a sign-in may take, from starting the agent to the browser.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];

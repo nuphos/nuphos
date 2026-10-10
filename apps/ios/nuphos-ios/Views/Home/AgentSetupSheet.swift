@@ -41,7 +41,7 @@ struct AgentSetupView: View {
     }
 
     private static let providers: [(RuntimeInstance.Provider, vendor: String)] = [
-        (.claudeCode, "Anthropic"), (.codex, "OpenAI"), (.grok, "xAI"), (.antigravity, "Google"),
+        (.claudeCode, "Anthropic"), (.codex, "OpenAI"), (.grok, "xAI"), (.antigravity, "Google"), (.opencode, "OpenCode"),
     ]
 
     private var connected: Bool { login?.state == "connected" }

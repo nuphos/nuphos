@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import { runtimeShortName } from './runtime-provider'
+import { runsBehindAcpShim, runtimeShortName } from './runtime-provider'
 
 import type { OpenAbProvider } from './runtime-provider'
 
@@ -139,24 +139,21 @@ export function runtimeConfigMapObject(
       labels: { 'app.kubernetes.io/managed-by': PROVISIONER_FIELD_MANAGER },
     },
     data: {
-      'config.toml':
-        // Grok Build and Antigravity speak ACP natively; the image's shim adds the
-        // Nuphos session layer in front of them.
-        provider === 'grok' || provider === 'antigravity'
-          ? `[agent]\ncommand = "node"\nargs = ["/opt/acp-shim.mjs", "${provider}"]\nworking_dir = "/workspace"\n\n` +
-            `[agent.env]\n${memoryEnv}\n${poolConfig}`
-          : provider === 'codex'
-            ? `[agent]\ncommand = "codex-acp"\nworking_dir = "/workspace"\n\n` +
-              // OpenAB applies [pool] default_config_options only after
-              // session/new; codex-acp reads this on new, load and resume alike.
-              `[agent.env]\nINITIAL_AGENT_MODE = "agent-full-access"\n${memoryEnv}\n${poolConfig}`
-            : `[agent]\ncommand = "claude-agent-acp"\nworking_dir = "/workspace"\n\n` +
-              // Decision tools block until a human answers; Claude Code's MCP call
-              // timeout must outlast that. OpenAB env_clear()s the agent, so it
-              // rides in [agent.env], not the container env.
-              `[agent.env]\nMCP_TOOL_TIMEOUT = "${String(MCP_TOOL_TIMEOUT_MS)}"\nMCP_TIMEOUT = "30000"\n${memoryEnv}\n${
-                poolConfig
-              }`,
+      'config.toml': runsBehindAcpShim(provider)
+        ? `[agent]\ncommand = "node"\nargs = ["/opt/acp-shim.mjs", "${provider}"]\nworking_dir = "/workspace"\n\n` +
+          `[agent.env]\n${memoryEnv}\n${poolConfig}`
+        : provider === 'codex'
+          ? `[agent]\ncommand = "codex-acp"\nworking_dir = "/workspace"\n\n` +
+            // OpenAB applies [pool] default_config_options only after
+            // session/new; codex-acp reads this on new, load and resume alike.
+            `[agent.env]\nINITIAL_AGENT_MODE = "agent-full-access"\n${memoryEnv}\n${poolConfig}`
+          : `[agent]\ncommand = "claude-agent-acp"\nworking_dir = "/workspace"\n\n` +
+            // Decision tools block until a human answers; Claude Code's MCP call
+            // timeout must outlast that. OpenAB env_clear()s the agent, so it
+            // rides in [agent.env], not the container env.
+            `[agent.env]\nMCP_TOOL_TIMEOUT = "${String(MCP_TOOL_TIMEOUT_MS)}"\nMCP_TIMEOUT = "30000"\n${memoryEnv}\n${
+              poolConfig
+            }`,
     },
   }
 }

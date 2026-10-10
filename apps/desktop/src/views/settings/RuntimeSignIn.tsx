@@ -5,6 +5,7 @@ const HOST_SIGN_IN: Partial<Record<RuntimeInstance['provider'], string>> = {
   'claude-code': 'docker exec -it <container> claude auth login',
   codex: 'docker exec -it <container> codex login --device-auth',
   grok: 'docker exec -it <container> grok login --device-auth',
+  opencode: 'docker exec -it <container> opencode providers login',
 }
 
 /** The agent owns its login; this only shows what the agent reports. */

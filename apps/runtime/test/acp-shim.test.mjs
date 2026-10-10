@@ -18,7 +18,9 @@ rl.on('line', (line) => {
   if (m.id === undefined) return
   const seen = { method: m.method, params: m.params, pid: process.pid, env: {
     HOME: process.env.HOME, NUPHOS_TOKEN: process.env.NUPHOS_TOKEN, EXTRA: process.env.EXTRA,
-    GROK_HOME: process.env.GROK_HOME, GEMINI_HOME: process.env.GEMINI_HOME } }
+    GROK_HOME: process.env.GROK_HOME, GEMINI_HOME: process.env.GEMINI_HOME,
+    XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+    OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE } }
   const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
 })
@@ -109,6 +111,19 @@ test('grok opens the session under its own env and takes the instructions as rul
       prompt: [{ type: 'text', text: 'hi' }],
     })
     assert.deepEqual(prompt.result.seen.params.prompt, [{ type: 'text', text: 'hi' }])
+  })
+})
+
+test('opencode keeps its login and sessions in the runtime home, not the session one', async () => {
+  await withShim('opencode', async ({ call, children, home }) => {
+    await call('initialize', { protocolVersion: 1 })
+    const { seen } = (await call('session/new', session('Be Nuphos.'))).result
+
+    assert.deepEqual(children[1].command, ['opencode', 'acp'])
+    assert.match(seen.env.HOME, /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+    assert.equal(seen.env.XDG_DATA_HOME, join(home, '.local', 'share'))
+    assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
+    assert.equal(seen.params._meta.rules, undefined)
   })
 })
 

@@ -1,5 +1,7 @@
 // Wire-level types for the OpenAB ACP client and the session-creation
 // options it forwards to the runtime's inner claude-agent-acp session.
+import { runsBehindAcpShim } from './runtime-provider'
+
 import type { PreviewAgentUpdate } from './preview-agent-update'
 import type { RuntimeDefaults } from './runtime-defaults'
 import type { OpenAbProvider } from './runtime-provider'
@@ -154,9 +156,9 @@ export function sessionMeta(
       },
     }
   }
-  // Grok Build and Antigravity run behind the runtime's ACP shim, which turns this
-  // one shape into whatever each agent accepts (apps/runtime/image/acp-shim.mjs).
-  if (runtime?.provider === 'grok' || runtime?.provider === 'antigravity') {
+  // Agents behind the runtime's ACP shim get one shape, which the shim turns into
+  // whatever each agent accepts (apps/runtime/image/acp-shim.mjs).
+  if (runtime?.provider && runsBehindAcpShim(runtime.provider)) {
     return {
       _meta: {
         'dev.openab/permissionPolicy': 'relay',

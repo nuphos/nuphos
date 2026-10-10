@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity). Claude Code and Codex get this layer by patching their Node adapters;
+// Antigravity, OpenCode). Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
 //
@@ -53,6 +53,19 @@ export const PROVIDERS = {
     instruct: null,
     // A second prompt while one runs is answered out of order with a "Concurrent
     // receive" error, so a session's prompts wait their turn, as in the CLI.
+    serialPrompts: true,
+  },
+  opencode: {
+    command: ['opencode', 'acp'],
+    // OpenCode keeps its login (auth.json) and its sessions under XDG_DATA_HOME, which
+    // the session home moves; pin it to the runtime's so every session shares both.
+    home: (runtimeHome) => ({
+      XDG_DATA_HOME: join(runtimeHome, '.local', 'share'),
+      OPENCODE_DISABLE_AUTOUPDATE: '1',
+    }),
+    // No system prompt parameter over ACP: the instructions lead the first prompt.
+    instruct: null,
+    // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
   },
 }

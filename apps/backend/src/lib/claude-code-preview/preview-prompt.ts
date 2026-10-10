@@ -138,7 +138,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
   })
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
-  // Codex and Antigravity read the `.agents/skills` link to it.
+  // Codex, Antigravity and OpenCode read the `.agents/skills` link to it.
   const provider = args.provider ?? 'claude-code'
   const nativeText = (text: string | null) =>
     text === null || provider === 'claude-code'

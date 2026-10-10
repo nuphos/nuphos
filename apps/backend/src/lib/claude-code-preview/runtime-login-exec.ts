@@ -55,7 +55,7 @@ export function isGoogleAuthorizeUrl(value: unknown): value is string {
   }
 }
 
-/** The device pages a runtime may send a user to: ChatGPT for Codex, xAI for Grok Build. */
+/** The device pages a runtime may send a user to: ChatGPT for Codex and OpenCode, xAI for Grok Build. */
 const DEVICE_VERIFICATION_URIS = new Set([
   'https://auth.openai.com/codex/device',
   'https://accounts.x.ai/oauth2/device',

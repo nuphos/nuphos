@@ -34,6 +34,7 @@ export async function probeExternalRuntimeProvider(
     if (adapterVersion?.startsWith('claude-agent-acp')) return 'claude-code'
     if (adapterVersion?.startsWith('grok@')) return 'grok'
     if (adapterVersion?.startsWith('antigravity-acp@')) return 'antigravity'
+    if (adapterVersion?.startsWith('opencode@')) return 'opencode'
 
     return undefined
   } catch {
