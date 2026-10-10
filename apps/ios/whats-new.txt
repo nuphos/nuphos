@@ -1,5 +1,5 @@
-- Voice input: dictate in the composer with Whisper using your own OpenAI API key, stored only on this device.
-- Attachments: images and videos now show inline in the conversation.
-- Redesigned agent setup, plus agent usage at a glance.
-- Pinned and shared chats are now available on iOS.
-- Fixes: sign-in and transcript glitches, and the keyboard now closes when you leave a composer.
+- New agent: OpenCode joins Claude Code, Codex, Grok Build and Antigravity.
+- Each Cloud agent has its own page: rename it, sign it in again, disable or remove it.
+- Several images in one message show as a compact grid, and the preview steps through them.
+- Pick the model per conversation from what the agent offers.
+- Fixes: taps on the composer edges and toolbar icons now act on the first touch.
