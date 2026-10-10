@@ -442,6 +442,16 @@
       box-shadow 150ms ease;
   }
 
+  /* Session find (SessionFindBar): every match, then the one stepped to. */
+  ::highlight(session-find) {
+    background-color: rgb(250 204 21 / 0.35);
+  }
+
+  ::highlight(session-find-current) {
+    background-color: rgb(249 115 22 / 0.85);
+    color: #000;
+  }
+
   .composer-surface {
     box-shadow:
       inset 0 1px 0 var(--surface-inner-highlight),
