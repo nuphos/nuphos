@@ -112,6 +112,7 @@ test('outside users and missing associations cannot wake a session through comme
     'FIRST_TIME_CONTRIBUTOR',
   ]) {
     const author = association ? { author_association: association } : undefined
+
     expect(
       githubResourceEvents('issue_comment', {
         ...base,
