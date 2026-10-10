@@ -36,23 +36,26 @@ struct RuntimePickerSheet: View {
                             Section(group.tier.title) {
                                 ForEach(group.runtimes) { runtime in
                                     let quota = store.quotas[runtime.id]
-                                    Button {
-                                        if quota?.needsSignIn == true, canSignIn(runtime) {
-                                            loginRuntime = runtime
-                                        } else {
-                                            store.selectRuntime(runtime)
-                                            dismiss()
+                                    HStack(spacing: 12) {
+                                        Button {
+                                            if quota?.needsSignIn == true, canSignIn(runtime) {
+                                                loginRuntime = runtime
+                                            } else {
+                                                store.selectRuntime(runtime)
+                                                dismiss()
+                                            }
+                                        } label: {
+                                            RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == store.newConversationRuntime?.id)
                                         }
-                                    } label: {
-                                        RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == store.newConversationRuntime?.id)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(!runtime.isSelectable)
-                                    // A signed-out agent says so in its row; this covers the ones
-                                    // whose provider can't report it.
-                                    .contextMenu {
+                                        .buttonStyle(.plain)
+                                        .disabled(!runtime.isSelectable)
+                                        // A signed-out agent says so in its row; this covers the ones
+                                        // whose provider can't report it.
                                         if canSignIn(runtime) {
                                             Button("Sign In Again", systemImage: "person.badge.key") { loginRuntime = runtime }
+                                                .labelStyle(.iconOnly)
+                                                .buttonStyle(.borderless)
+                                                .foregroundStyle(Theme.muted)
                                         }
                                     }
                                 }
