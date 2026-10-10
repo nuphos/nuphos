@@ -3,8 +3,9 @@ import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
 import { Welcome } from './homeAnimation'
 import { useLocalSessionImport } from './importLocalSession'
-import { NewConversationModelSelector } from './NewConversationModelSelector'
+import { ModelSelector } from './ModelSelector'
 import { useAddAgent } from './useAddAgent'
+import { useRuntimeModelConfig } from './useRuntimeModelConfig'
 
 import type { PanelViewCtx } from './ctx'
 
@@ -19,6 +20,8 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     homeStarterSuggestions,
     isTeamAdmin,
     newConversationRuntime,
+    newConversationSessionConfig,
+    pickNewConversationSessionConfig,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,
@@ -57,12 +60,19 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     onSettings: onOpenAgentSettings,
     ...addAgent.control,
   }
-  const newConversationModelControl = (
-    <NewConversationModelSelector
-      teamId={teamId}
-      runtime={newConversationRuntime}
-      isTeamAdmin={isTeamAdmin}
-    />
+  // A local agent still starting has no models to report yet.
+  const modelRuntimeId =
+    newConversationRuntime?.status === 'active' && !newConversationRuntime.starting
+      ? newConversationRuntime.id
+      : undefined
+  const modelControl = useRuntimeModelConfig(
+    teamId,
+    modelRuntimeId,
+    newConversationSessionConfig,
+    pickNewConversationSessionConfig,
+  )
+  const newConversationModelControl = modelRuntimeId && (
+    <ModelSelector control={modelControl} disabled={false} streaming={false} />
   )
 
   const bypassControl = autoModeAvailable

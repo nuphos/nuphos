@@ -13,6 +13,7 @@ import type { StallDetail } from './stall'
 import type { TextStreamBuffer } from './streamBuffer'
 import type { useStarterSuggestions } from './useStarterSuggestions'
 import type { PermissionMode } from '../../../lib/permissionMode'
+import type { SessionConfigPick } from '../../../api/session-config-types'
 import type { UserInfo } from '../../../types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 import type { Dispatch, DragEvent, SetStateAction } from 'react'
@@ -135,6 +136,8 @@ export type PanelCtx = {
   refreshHistory: () => Promise<void>
   syncTranscriptNow: (tab: Tab) => void
   newConversationRuntime: RuntimeInstance | null
+  newConversationSessionConfig: SessionConfigPick
+  pickNewConversationSessionConfig: (pick: SessionConfigPick) => void
   runtimeInstances: RuntimeInstance[]
   runtimeInstancesLoading: boolean
   runtimeInstancesError: string | null

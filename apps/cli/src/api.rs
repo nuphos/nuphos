@@ -184,17 +184,12 @@ impl Api {
         self.call(Method::POST, &format!("/teams/{team}/agent-runtimes/{runtime}/login/code"), &[], Some(&body)).await
     }
 
-    /// `{ models, controls }` — administrators only, unless the runtime is local.
-    pub async fn runtime_models(&self, team: &str, runtime: &str, model: Option<&str>) -> Result<Value, ApiError> {
-        let query: Vec<(&str, &str)> = model.map(|m| vec![("model", m)]).unwrap_or_default();
-        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/models"), &query, None).await
-    }
-
-    /// Replaces the runtime's defaults — what a new conversation's first
-    /// message starts with. For a Cloud agent this is the team's setting.
-    pub async fn set_runtime_defaults(&self, team: &str, runtime: &str, defaults: &Value) -> Result<Value, ApiError> {
-        let body = json!({ "defaults": defaults });
-        self.call(Method::PATCH, &format!("/teams/{team}/agent-runtimes/{runtime}"), &[], Some(&body)).await
+    /// The runtime's own model settings for a conversation not started yet,
+    /// shaped like `model_config`; `pick` marks the chosen values.
+    pub async fn runtime_model_config(&self, team: &str, runtime: &str, pick: &Value) -> Result<Value, ApiError> {
+        let query: Vec<(&str, &str)> =
+            pick.as_object().into_iter().flatten().filter_map(|(k, v)| v.as_str().map(|v| (k.as_str(), v))).collect();
+        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/model-config"), &query, None).await
     }
 
     pub async fn model_config(&self, team: &str, session: &str) -> Result<Value, ApiError> {

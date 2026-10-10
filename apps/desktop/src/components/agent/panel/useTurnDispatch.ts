@@ -27,6 +27,7 @@ type Acc = Pick<
   | 'kubeContextRef'
   | 'lastCredentialSyncedRef'
   | 'newConversationRuntime'
+  | 'newConversationSessionConfig'
   | 'newConversationCredentialAccess'
   | 'sendableCredentialAccess'
   | 'setActiveId'
@@ -50,6 +51,7 @@ export function useTurnDispatch(acc: Acc) {
     kubeContextRef,
     lastCredentialSyncedRef,
     newConversationRuntime,
+    newConversationSessionConfig,
     newConversationCredentialAccess,
     sendableCredentialAccess,
     setActiveId,
@@ -82,6 +84,7 @@ export function useTurnDispatch(acc: Acc) {
             setBypassBySession,
             defaultPermissionMode,
             newConversationRuntime: runtime,
+            newConversationSessionConfig,
             newConversationCredentialAccess,
             credentialAccessRef,
             lastCredentialSyncedRef,
@@ -119,6 +122,7 @@ export function useTurnDispatch(acc: Acc) {
       setBypassBySession,
       defaultPermissionMode,
       newConversationRuntime,
+      newConversationSessionConfig,
       newConversationCredentialAccess,
       credentialAccessRef,
       credentialOptions,

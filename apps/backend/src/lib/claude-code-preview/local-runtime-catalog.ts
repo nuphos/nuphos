@@ -8,9 +8,6 @@ import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protoco
 import { isActiveTeamMember, listAgentDevicesForUser } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
-import { getLocalAgentDefaults } from './local-agent-defaults'
-
-import type { RuntimeDefaults } from './runtime-defaults'
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { PreviewRuntimeStatus } from './runtime-status'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
@@ -38,21 +35,18 @@ export type LocalRuntimeInstance = {
   kind: 'local'
   createdAt: string
   local: LocalRuntimeSummary
-  defaults: RuntimeDefaults
 }
 
 export type LocalRuntimeCatalogDeps = {
   listDevices: (userId: string) => Promise<AgentDevice[]>
   isMember: (userId: string, teamId: string) => Promise<boolean>
   getPresence: (userId: string, deviceId: string) => Promise<LocalRuntimePresence | null>
-  getDefaults: (runtimeId: string) => Promise<RuntimeDefaults>
 }
 
 const defaultDeps: LocalRuntimeCatalogDeps = {
   listDevices: (userId) => listAgentDevicesForUser(userId),
   isMember: (userId, teamId) => isActiveTeamMember(userId, teamId),
   getPresence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
-  getDefaults: (runtimeId) => getLocalAgentDefaults(runtimeId),
 }
 
 const PROVIDER_LABEL: Record<LocalAgentProvider, string> = {
@@ -97,7 +91,6 @@ export async function listOwnLocalRuntimes(
                   }
                 : {}),
             },
-            defaults: await deps.getDefaults(id),
           }
         }),
       )

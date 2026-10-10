@@ -24,6 +24,21 @@ useAgentDb({
 
 const { hydrateStoredPrefix, validateChatBody } = await import('./chat-validate')
 
+test('a first-turn model pick is trimmed, and anything else is refused', () => {
+  const body = {
+    id: 'new-chat',
+    messages: [],
+    initialSessionConfig: { model: ' opus ', fast: 'on' },
+  }
+
+  validateChatBody(body as never)
+  expect(body.initialSessionConfig).toEqual({ model: 'opus', fast: 'on' })
+  for (const initialSessionConfig of [{ fast: 'yes' }, { tools: 'all' }, { effort: '' }, 'opus'])
+    expect(() =>
+      validateChatBody({ id: 'new-chat', messages: [], initialSessionConfig } as never),
+    ).toThrow('initialSessionConfig')
+})
+
 test('accepts a per-conversation runtime or an omitted preference', () => {
   for (const agentRuntime of [undefined, 'claude-code', 'codex'] as const) {
     expect(() => validateChatBody({ id: 'new-chat', messages: [], agentRuntime })).not.toThrow()

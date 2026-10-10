@@ -3,6 +3,11 @@ import { AppError } from '@/lib/errors'
 import type { RuntimeInstance } from './runtime-instances'
 import type { RuntimeModelCatalog } from './runtime-models'
 
+/** Distinct models that may wait for one runtime; more are refused, not queued. */
+const MAX_WAITING_PER_RUNTIME = 4
+
+/** Reads always reach the runtime, so a re-login or upgrade shows at once.
+ *  Identical reads share one discovery, and a runtime runs one at a time. */
 export function createRuntimeModelCatalog(deps: {
   requireInstance: (teamId: string, runtimeId: string, userId?: string) => Promise<RuntimeInstance>
   discover: (
@@ -10,9 +15,9 @@ export function createRuntimeModelCatalog(deps: {
     instance: RuntimeInstance,
     model?: string,
   ) => Promise<RuntimeModelCatalog>
-  now: () => number
 }) {
-  const cache = new Map<string, { expires: number; result: Promise<RuntimeModelCatalog> }>()
+  const joins = new Map<string, Promise<RuntimeModelCatalog>>()
+  const runtimes = new Map<string, { tail: Promise<unknown>; size: number }>()
 
   return async (
     teamId: string,
@@ -29,36 +34,33 @@ export function createRuntimeModelCatalog(deps: {
         'Connect and enable this agent to load models.',
       )
     const key = JSON.stringify([teamId, runtimeId, model ?? null])
-    const previous = cache.get(key)
+    const pending = joins.get(key)
 
-    if (previous && previous.expires > deps.now()) return previous.result
-    for (const [id, entry] of cache) if (entry.expires <= deps.now()) cache.delete(id)
-    if (cache.size >= 100)
+    if (pending) return pending
+    const runtimeKey = JSON.stringify([teamId, runtimeId])
+    const queue = runtimes.get(runtimeKey) ?? { tail: Promise.resolve(), size: 0 }
+
+    if (queue.size >= MAX_WAITING_PER_RUNTIME)
       throw new AppError(503, 'runtime_busy', 'Model discovery is busy. Retry shortly.')
-    const entry = {
-      expires: deps.now() + 60_000,
-      result: Promise.resolve({ models: [] } as RuntimeModelCatalog),
-    }
-
-    entry.result = deps.discover(teamId, instance, model).then(
-      (result) => {
-        if (result.models.length && (!model || result.controls))
-          entry.expires = deps.now() + 5 * 60_000
-        else if (cache.get(key) === entry) cache.delete(key)
-
-        return result
-      },
-      () => {
-        if (cache.get(key) === entry) cache.delete(key)
+    const result = queue.tail
+      .then(() => deps.discover(teamId, instance, model))
+      .catch(() => {
         throw new AppError(
           503,
           'runtime_models_unavailable',
           'Could not load models. Check the agent connection and retry.',
         )
-      },
-    )
-    cache.set(key, entry)
+      })
+      .finally(() => {
+        joins.delete(key)
+        if (--queue.size === 0) runtimes.delete(runtimeKey)
+      })
 
-    return entry.result
+    queue.tail = result.catch(() => undefined)
+    queue.size++
+    runtimes.set(runtimeKey, queue)
+    joins.set(key, result)
+
+    return result
   }
 }

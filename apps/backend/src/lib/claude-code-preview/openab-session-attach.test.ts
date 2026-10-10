@@ -3,7 +3,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { attachOpenAbSession } from './openab-session-attach'
 
 import type { OpenAbSessionRuntime } from './openab-acp-session'
-import type { RuntimeDefaults } from './runtime-defaults'
+import type { RuntimeDefaults } from './openab-acp-session'
 import type { TeamPreviewClient } from './team-openab-runtime'
 import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
 
@@ -27,7 +27,8 @@ useAgentDb({
 useDb({
   db: () => ({
     collection: (name: string) => ({
-      findOne: () => Promise.resolve(name === 'agent_runtime_defaults' ? { defaults } : null),
+      findOne: () =>
+        Promise.resolve(name === 'agent_conversations' ? { initialSessionConfig: defaults } : null),
     }),
   }),
 })
@@ -78,7 +79,7 @@ beforeEach(() => {
   calls.length = 0
 })
 
-test('a new conversation snapshots defaults into native session metadata before the first prompt', async () => {
+test('a new session snapshots the conversation’s picks into native session metadata', async () => {
   defaults = { model: 'b', fast: 'off', effort: 'high' }
   expect(await attach()).toEqual({ openabSessionId: 'new-session', fresh: true, defaults })
   expect(calls).toEqual([
@@ -91,7 +92,7 @@ test('a new conversation snapshots defaults into native session metadata before 
   })
 })
 
-test('changing defaults never overwrites an existing conversation on resume or session replacement', async () => {
+test('a later pick never overwrites a started session on resume or session replacement', async () => {
   defaults = { model: 'b' }
   attachment = {
     openabSessionId: 'existing',
@@ -108,14 +109,14 @@ test('changing defaults never overwrites an existing conversation on resume or s
   expect(attachment?.runtimeDefaults).toEqual({ model: 'a' })
 })
 
-test('legacy conversations never pick up newly configured defaults', async () => {
+test('legacy sessions never pick up a later pick', async () => {
   defaults = { model: 'b' }
   attachment = { openabSessionId: 'existing', runtimeUrl: endpoint.url }
   await attach()
   expect(calls[0]?.runtime?.defaults).toEqual({})
 })
 
-test('failed placement reads cannot start a fresh session with new defaults', async () => {
+test('failed placement reads cannot start a fresh session', async () => {
   readsFail = true
   await expect(attach()).rejects.toThrow('Database unavailable')
   expect(calls).toEqual([])

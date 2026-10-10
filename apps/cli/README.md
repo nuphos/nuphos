@@ -59,7 +59,8 @@ nuphos conversations                         # recent conversations
 nuphos team [NAME] [--create]                # list teams / set the default / create
 nuphos agents [NAME] [--session ID]          # list agents / pick or move
 nuphos agents NAME --create | --login        # add a Cloud agent / sign one in
-nuphos model [VALUE] [--effort E] [--session ID]
+nuphos model                                 # list the agent's models
+nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
 nuphos login | logout
 nuphos agent                                 # run this computer's agents
@@ -109,9 +110,8 @@ The wheel scrolls through the terminal's alternate scroll mode, so the mouse is
 left alone and selecting text to copy works as usual. Scrolled up, the view
 stays put while a reply streams in below it.
 
-Before the first message, `/model` changes the agent's default model, which is
-what the desktop's new-conversation picker does too. For a Cloud agent that is
-a team setting and needs an administrator.
+Before the first message, `/model` picks from the agent's own models; the first
+message carries the pick, as the desktop's new-conversation picker does.
 
 ## Releasing
 

@@ -1,4 +1,5 @@
 import type { AgentProvider } from '../../src/types/runtime.ts'
+import type { SessionConfigPick } from '../../src/api/session-config-types.ts'
 import { captureMain } from '../analytics.ts'
 import { apiUrl } from '../api-endpoint.ts'
 
@@ -85,6 +86,7 @@ export type StartChatArgs = {
   permissionMode?: 'auto' | 'bypass'
   agentRuntime?: AgentProvider
   runtimeId?: string
+  initialSessionConfig?: SessionConfigPick
 }
 
 export type ChatStreamState = {
