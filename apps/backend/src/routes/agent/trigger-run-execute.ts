@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
-import { startTraceSpan } from '@/lib/agent/braintrust'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { regionLabel } from '@/lib/agent/model-provider'
+import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'

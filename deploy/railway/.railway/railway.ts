@@ -72,7 +72,6 @@ export default defineRailway(() => {
       ZSEND_API_KEY: required('ZSEND_API_KEY'),
       NUPHOS_EMAIL_FROM: required('NUPHOS_EMAIL_FROM'),
       ATLAS_REDIS_ENABLED: 'false',
-      BRAINTRUST_TRACING_ENABLED: 'false',
       CLAUDE_CODE_RUNTIME_KUBECTL: 'false',
       CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
       NUPHOS_FILE_TRANSFER_S3_BUCKET: 'nuphos-file-transfers',

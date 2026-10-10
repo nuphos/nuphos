@@ -24,9 +24,9 @@ const initializedModes: unknown[] = []
 
 useDb({
   db: () => ({
-    collection: () => ({
+    collection: (collection: string) => ({
       updateOne: async (filter: unknown, update: unknown) => {
-        initializedModes.push({ filter, update })
+        if (collection === 'auto_mode_authorizations') initializedModes.push({ filter, update })
       },
       findOne: async () => null,
     }),

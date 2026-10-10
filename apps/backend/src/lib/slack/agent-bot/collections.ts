@@ -117,7 +117,7 @@ export type SlackReplyFeedback = {
 // One row per thread-addressing judgement — the judge's whole context (full
 // prompt included) and what it decided. slackProcessedEvents only says a reply
 // ended 'ignored'; auditing a misjudged reply and iterating on the prompt needs
-// the exact input the model saw, which otherwise lives only in Braintrust.
+// the exact input the model saw, independently of optional execution tracing.
 export type SlackAddressingVerdict = {
   _id?: ObjectId
   /** `live:<eventId>` or `braintrust:<spanId>` — one unique key across both

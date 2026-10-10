@@ -37,6 +37,9 @@ jobs:
       - name: Show container health
         if: always()
         run: docker compose ps -a
+      - name: Show failed startup logs
+        if: failure()
+        run: docker compose logs --no-color --tail 150 backend
       - name: Remove test containers and volumes
         if: always()
         run: docker compose down -v --remove-orphans

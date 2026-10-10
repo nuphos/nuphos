@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
-import { logSpanError, startTraceSpan } from '@/lib/agent/braintrust'
 import { requestAgentRunCancellation } from '@/lib/agent/run-store'
+import { logSpanError, startTraceSpan } from '@/lib/agent/tracing'
 import { logError, logEvent } from '@/lib/observability'
 import { capture } from '@/lib/posthog'
 
@@ -83,7 +83,7 @@ agent.post('/chat/:streamId/abort', async (c) => {
 // The customer-facing terminal failure (auto-resume exhausted, empty response,
 // etc.) is detected on the CLIENT — the backend pump only ever saw recoverable
 // pauses, so without this beacon the actual give-up was invisible server-side
-// (not in stdout, OTel, or Braintrust). The client posts the full cause chain
+// (not in stdout, OTel, or MongoDB). The client posts the full cause chain
 // here on give-up; we record it as an error-level child span so the worst
 // outcome is queryable everywhere alongside the per-pause breadcrumbs.
 agent.post('/chat/:streamId/report-failure', async (c) => {
@@ -115,7 +115,7 @@ agent.post('/chat/:streamId/report-failure', async (c) => {
     typeof body.message === 'string' && body.message
       ? body.message
       : `Agent turn failed on the client (${phase}).`
-  // A real Error so the stack/exception path lights up in OTel + Braintrust.
+  // A real Error so the stack/exception path lights up in OTel + MongoDB.
   const failure = new Error(message)
 
   failure.name = 'AgentClientFailure'
@@ -168,7 +168,7 @@ agent.post('/chat/:streamId/report-failure', async (c) => {
 
     return c.json({ ok: true })
   }
-  // stdout (always) + a dedicated, top-level Braintrust/OTel span with the error
+  // stdout (always) + a dedicated, top-level MongoDB/OTel span with the error
   // attached, so this terminal failure is independently queryable by name in
   // every surface — not annotated onto a shared span where it'd be overwritten.
   logError('agent.chat.client_failure', failure, extras)

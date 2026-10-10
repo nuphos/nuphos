@@ -100,10 +100,9 @@ export type AgentConversation = {
   readSeq?: number
   compactionSummary?: string
   compactionMessageCount?: number
-  // Exported Braintrust parent reference for this conversation. Created lazily
-  // on the first turn that has Braintrust enabled, so every subsequent turn
-  // nests under one "conversation" trace in the Braintrust UI.
-  braintrustParent?: string
+  // Native Mongo parent reference. Legacy vendor fields remain untouched in
+  // stored documents but are not read or reused by the native tracer.
+  conversationTraceParent?: string
   credentialAccess?: AgentCredentialAccess
   // Execution runtime is chosen once when the conversation is created and is
   // changed only by an explicit move. Team settings are defaults for NEW conversations;

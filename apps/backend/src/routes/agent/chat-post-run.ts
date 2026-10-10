@@ -4,6 +4,8 @@
 // routes-chat-post.ts so the route reads as request orchestration and stays
 // within the file-size budget.
 
+import { trackAgentProducer } from '@/lib/agent/producer-drain'
+
 import { runClaudeCodePreviewChatTurn } from './chat-preview-turn'
 import { beginSlackBoundTurnDelivery } from './chat-slack-bound'
 import {
@@ -20,13 +22,11 @@ import { restoreArchivedSession } from './turn-unarchive'
 import type { SlackMirrorPayload } from './chat-slack-bound'
 import type { AgentRunFrameSink } from './run-registry'
 import type { AgentChatBody, AgentRun, InternalChatCtx } from './types'
-import type { SpanLike } from '@/lib/agent/braintrust'
 import type { AgentCredentialAccess } from '@/lib/agent/db'
+import type { SpanLike } from '@/lib/agent/tracing'
 import type { ConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
 import type { UIMessage } from 'ai'
-
-import { trackAgentProducer } from '@/lib/agent/producer-drain'
 
 export type SlackBoundTurn = {
   thread: SlackAgentThread
