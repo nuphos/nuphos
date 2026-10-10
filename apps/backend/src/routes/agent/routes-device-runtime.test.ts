@@ -7,11 +7,15 @@ import { createLocalTunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { openLocalRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { errorHandler } from '@/lib/errors'
-import { createDeviceRuntimeRoutes } from '@/routes/agent/routes-device-runtime'
+import {
+  createDeviceRuntimeRoutes,
+  runtimeTunnelEvents,
+} from '@/routes/agent/routes-device-runtime'
 
 import type { AuthVariables } from '@/middleware/auth'
 import type { DeviceRuntimeRouteDependencies } from '@/routes/agent/routes-device-runtime'
 import type { Server } from 'bun'
+import type { WSContext } from 'hono/ws'
 
 const bus = createLocalTunnelBus()
 const presence = createMemoryPresenceStore()
@@ -82,6 +86,36 @@ function waitFor<T>(register: (resolve: (value: T) => void) => void): Promise<T>
 }
 
 describe('device runtime tunnel route', () => {
+  test('a failed presence claim handles queued message and close callbacks without rejecting', async () => {
+    let failClaim!: (error: Error) => void
+    const closed: unknown[][] = []
+    const events = runtimeTunnelEvents('owner', 'd1', {
+      ...deps().holder,
+      presence: {
+        ...presence,
+        claim: () =>
+          new Promise((_resolve, reject) => {
+            failClaim = reject
+          }),
+      },
+    })
+
+    events.onOpen(new Event('open'), {
+      send: () => {},
+      close: (...args: unknown[]) => {
+        closed.push(args)
+      },
+    } as unknown as WSContext)
+    events.onMessage(new MessageEvent('message', { data: JSON.stringify({ t: 'pong' }) }))
+    events.onClose()
+    await Bun.sleep(0)
+    failClaim(new Error('Device presence unavailable'))
+    // Bun fails this test on an unhandled child rejection, even when onOpen
+    // catches the original rejected initialization promise.
+    await Bun.sleep(10)
+    expect(closed).toEqual([[1011, 'Could not open the runtime tunnel']])
+  })
+
   test('the owner computer holds a tunnel that carries a stream end to end', async () => {
     const host = serve('owner')
     const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`)

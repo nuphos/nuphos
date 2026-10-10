@@ -7,15 +7,16 @@ import {
   decodeActivityCursor,
   listLocalRuntimeActivity,
 } from '@/lib/agent/devices/local-runtime/activity'
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
 import { setLocalAgentDefaults } from '@/lib/claude-code-preview/local-agent-defaults'
 import { runtimeDefaultsSchema } from '@/lib/claude-code-preview/runtime-defaults'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 import { zv } from '@/lib/validate'
 
 import { agent } from './router'
@@ -67,8 +68,8 @@ const activityQuery = z.object({
     .optional(),
 })
 
-function tunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) {
-  let tunnel: Promise<RuntimeTunnel> | undefined
+export function runtimeTunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) {
+  let tunnel: Promise<RuntimeTunnel | undefined> | undefined
 
   return {
     onOpen: (_event: Event, ws: WSContext) => {
@@ -84,8 +85,11 @@ function tunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) 
           },
         },
         deps,
-      )
-      tunnel.catch(() => {
+      ).catch((error: unknown): undefined => {
+        logError('agent.local_runtime.tunnel_open_failed', error, {
+          user_id: userId,
+          device_id: deviceId,
+        })
         ws.close(1011, 'Could not open the runtime tunnel')
       })
     },
@@ -94,12 +98,12 @@ function tunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) 
       const data = event.data
 
       void tunnel?.then((attached) => {
-        attached.receive(data)
+        attached?.receive(data)
       })
     },
     onClose: () => {
       void tunnel?.then((attached) => {
-        attached.closed()
+        attached?.closed()
       })
     },
   }
@@ -124,7 +128,10 @@ export function createDeviceRuntimeRoutes(
     if (c.req.header('upgrade')?.toLowerCase() !== 'websocket')
       throw new AppError(426, 'upgrade_required', 'Connect with a WebSocket')
 
-    return upgradeWebSocket(c as unknown as Context, tunnelEvents(userId, deviceId, deps.holder))
+    return upgradeWebSocket(
+      c as unknown as Context,
+      runtimeTunnelEvents(userId, deviceId, deps.holder),
+    )
   })
 
   routes.get(

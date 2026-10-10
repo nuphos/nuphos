@@ -220,3 +220,17 @@ test('a bookkeeping read that keeps throwing reports nothing', async () => {
   expect(acquire).not.toHaveBeenCalled()
   expect(workLost).toBeNull()
 })
+
+test('a replacement closing during resume does not start a second reattach loop', async () => {
+  const broken = fakeClient('broken')
+  const healthy = fakeClient('healthy')
+
+  broken.loadSession = async () => {
+    broken.close()
+    throw new Error('resume connection closed')
+  }
+  acquire = spyOn(registry, 'acquire').mockResolvedValueOnce(broken).mockResolvedValue(healthy)
+  expect(await reattachAfterTransportLoss(session, session.client, [0, 0], instant)).toBe(true)
+  expect(acquire).toHaveBeenCalledTimes(2)
+  expect(session.client).toBe(healthy)
+})

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { RUNTIME_HANDOFFS_KEY } from '@/lib/claude-code-preview/runtime-handoff-store'
 import { useRedis } from '@/lib/test/doubles/redis'
+
+import { sweepAbandonedAgentRuns } from './run-store/ownership'
 
 import type { real as realRedis } from '@/lib/test/doubles/redis'
 
@@ -83,7 +86,7 @@ class FakeRedis {
   }
 
   del(key: string): Promise<number> {
-    const existed = !!this.live(key)
+    const existed = Boolean(this.live(key))
 
     this.store.delete(key)
 
@@ -152,6 +155,40 @@ class FakeRedis {
     const argv = args.slice(numKeys)
     const key = keys[0]!
 
+    if (script.includes('HSETNX')) {
+      const e = this.live(key)
+      const ttl = e?.expireAt == null ? -1 : e.expireAt - this.now
+
+      if (
+        !e ||
+        e.type !== 'hash' ||
+        e.value.get('streamId') !== argv[0] ||
+        this.live(keys[1]!) ||
+        ttl < 0 ||
+        ttl > Number(argv[1])
+      )
+        return Promise.resolve(0)
+      const team = e.value.get('teamId')
+
+      if (team) {
+        void this.hsetnx(
+          keys[2]!,
+          `${team}:${argv[3]}`,
+          JSON.stringify({
+            teamId: team,
+            conversationId: argv[3],
+            ownerUserId: argv[2],
+            actorUserId: e.value.get('actorUserId') ?? argv[2],
+            locale: 'en-US',
+            at: Number(argv[4]),
+            abandonedStreamId: argv[0],
+          }),
+        )
+      }
+      this.store.delete(key)
+
+      return Promise.resolve(1)
+    }
     if (script.includes('HGET')) {
       const e = this.live(key)
 
@@ -179,6 +216,15 @@ class FakeRedis {
     return Promise.resolve(0)
   }
 
+  scan(): Promise<[string, string[]]> {
+    return Promise.resolve([
+      '0',
+      [...this.store.keys()].filter(
+        (key) => key.startsWith('atlas:agentrun-active:') && this.live(key)?.type === 'hash',
+      ),
+    ])
+  }
+
   pipeline() {
     const ops: [string, unknown[]][] = []
     const rec: Record<string, (...a: unknown[]) => unknown> = {}
@@ -194,7 +240,6 @@ class FakeRedis {
       const results: [null, unknown][] = []
 
       for (const [method, a] of ops) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         results.push([null, await (this as any)[method](...a)])
       }
 
@@ -211,7 +256,7 @@ const redis = new FakeRedis()
 // and a process-lifetime constant is all the ownership comparisons need.
 useRedis({
   redisEnabled: () => true,
-  getRedis: () => redis as unknown as ReturnType<typeof realRedis.getRedis>,
+  getRedis: () => redis,
   withRedis: async (op) =>
     op(redis as unknown as Parameters<Parameters<typeof realRedis.withRedis>[0]>[0]),
 })
@@ -468,4 +513,52 @@ describe('redis resume orphan fast-fail', () => {
     await reader.cancel()
     await drain.catch(() => {})
   }, 15_000)
+})
+
+describe('crashed replica recovery', () => {
+  test('queues the original actor once without a connected desktop; live owners are left alone', async () => {
+    const release = startAgentRunOwnership(USER, SESSION, STREAM, {
+      teamId: 'team',
+      actorUserId: 'actor',
+      heartbeatMs: 1_000_000,
+    })
+
+    try {
+      await flush()
+      await sweepAbandonedAgentRuns()
+      expect(await redis.hmget(RUNTIME_HANDOFFS_KEY, `team:${SESSION}`)).toEqual([null])
+      // Model a dead process by moving Redis time beyond both lease/grace,
+      // without firing this process's heartbeat.
+      redis.advance(25_000)
+      await Promise.all([sweepAbandonedAgentRuns(), sweepAbandonedAgentRuns()])
+      const [raw] = await redis.hmget(RUNTIME_HANDOFFS_KEY, `team:${SESSION}`)
+
+      expect(JSON.parse(raw!)).toMatchObject({
+        teamId: 'team',
+        conversationId: SESSION,
+        ownerUserId: USER,
+        actorUserId: 'actor',
+        abandonedStreamId: STREAM,
+      })
+      expect(await redis.hmget(`atlas:agentrun-active:${USER}:${SESSION}`, 'streamId')).toEqual([
+        null,
+      ])
+      await sweepAbandonedAgentRuns()
+      expect(await redis.hmget(RUNTIME_HANDOFFS_KEY, `team:${SESSION}`)).toEqual([raw ?? null])
+    } finally {
+      release()
+      await flush()
+    }
+  })
+
+  test('a completed turn is never queued for recovery', async () => {
+    const release = startAgentRunOwnership(USER, SESSION, STREAM, { teamId: 'team' })
+
+    await flush()
+    release()
+    await flush()
+    redis.advance(25_000)
+    await sweepAbandonedAgentRuns()
+    expect(await redis.hmget(RUNTIME_HANDOFFS_KEY, `team:${SESSION}`)).toEqual([null])
+  })
 })
