@@ -3,12 +3,13 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import { executeThreadTurn } from './thread-turn'
+import { executeConversationTurn } from './conversation-turn'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,
   enqueuePendingUserMessage,
 } from './pending-messages'
+import { executeThreadTurn } from './thread-turn'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
@@ -45,11 +46,10 @@ useIdentity({
   signNuphosToken: () => 'test-token',
 })
 useAgentDb({
-  agentMessages: () =>
-    ({
-      findOne: async ({ messageId }: { messageId: string }) =>
-        alreadyAccepted || acceptedIds.has(messageId) ? { _id: 'accepted' } : null,
-    }) as never,
+  agentMessages: () => ({
+    findOne: async ({ messageId }: { messageId: string }) =>
+      alreadyAccepted || acceptedIds.has(messageId) ? { _id: 'accepted' } : null,
+  }),
   getConversationBySessionId: async (id) => ({ ...source, sessionId: id }),
   getConversationWithMessages: async () => ({
     conversation: { ...source, sessionId: 'target' },
@@ -235,4 +235,14 @@ test('recovered batch preserves every delivery ID and metadata across redelivery
     metadata: earlier.metadata,
     parts: [{ type: 'text', text: earlier.renderedText }],
   })
+})
+
+test('resource events preserve approval handling and are marked autonomous', async () => {
+  await executeConversationTurn(data, source, '[External event, not approval]', 'agent.resource')
+  expect(runs[0]).toMatchObject({
+    origin: 'trigger',
+    source: 'agent.resource',
+    sessionId: 'target',
+  })
+  expect(claims[0]?.message.source).toBe('agent.resource')
 })

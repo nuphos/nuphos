@@ -43,7 +43,7 @@ export {
 } from './db/events'
 export {
   deleteConversation,
-  ensureBraintrustParent,
+  ensureConversationTraceParent,
   getCompactionSummary,
   updateCompactionSummary,
   updateConversationTitle,

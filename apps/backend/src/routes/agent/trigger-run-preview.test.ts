@@ -24,9 +24,9 @@ const initializedModes: unknown[] = []
 
 useDb({
   db: () => ({
-    collection: () => ({
+    collection: (collection: string) => ({
       updateOne: async (filter: unknown, update: unknown) => {
-        initializedModes.push({ filter, update })
+        if (collection === 'auto_mode_authorizations') initializedModes.push({ filter, update })
       },
       findOne: async () => null,
     }),
@@ -150,6 +150,23 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
         update: { $setOnInsert: { bypass: true } },
       })
     }
+  })
+
+  test('resource webhook wakeups never initialize Full Access', async () => {
+    initializedModes.length = 0
+    await runAgentForTrigger({
+      userId: 'principal',
+      nuphosToken: 'token',
+      teamId: 'team-1',
+      sessionId: 'resource-session',
+      origin: 'trigger',
+      source: 'agent.resource',
+      firstMessage: 'continue',
+      messages: [
+        { id: 'resource-event', role: 'user', parts: [{ type: 'text', text: 'PR reviewed' }] },
+      ],
+    })
+    expect(initializedModes).toEqual([])
   })
 
   test('user-origin sessions keep their existing permission mode', async () => {

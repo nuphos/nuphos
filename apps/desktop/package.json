@@ -125,7 +125,13 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": true
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Nuphos uses automation to notify Computer Use when an agent turn ends."
+      },
+      "notarize": true,
+      "binaries": [
+        "Contents/Resources/local-runtime/cua-permission"
+      ]
     },
     "win": {
       "target": [

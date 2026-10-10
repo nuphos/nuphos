@@ -115,6 +115,7 @@ export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     MCP_TOOL_TIMEOUT: '1800000',
     MCP_TIMEOUT: '30000',
     NUPHOS_MCP_BRIDGE: launch.adapter.bridge,
+    NUPHOS_CUA_PERMISSION_CLIENT: path.join(launch.bundle.root, 'cua-permission'),
     NUPHOS_RUNTIME_WORKSPACE: launch.workspace,
   }
 }

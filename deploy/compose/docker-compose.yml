@@ -109,7 +109,6 @@ services:
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true'
       NUPHOS_LOCAL_STACK: 'true'
       ATLAS_REDIS_ENABLED: 'false'
-      BRAINTRUST_TRACING_ENABLED: 'false'
       NUPHOS_BACKEND_URL: http://backend:3000
       NUPHOS_FILE_TRANSFER_S3_BUCKET: nuphos-file-transfers
       NUPHOS_FILE_TRANSFER_S3_ENDPOINT: http://rustfs:9000

@@ -52,7 +52,8 @@ export function AgentSetupFlow({ team, onFinish }: { team: AtlasTeam; onFinish: 
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-main px-6 pb-10 pt-14 text-main">
+    <div className="fixed inset-0 z-40 flex flex-col overflow-y-auto sidebar-surface px-6 pb-10 pt-14 text-main">
+      {/* Same surface as the create-workspace step before it, so the window does not change colour. */}
       {/* Only the top strip drags the window, so portaled dialogs keep their clicks. */}
       <div className="titlebar-drag absolute inset-x-0 top-0 h-11" aria-hidden="true" />
       {step && (

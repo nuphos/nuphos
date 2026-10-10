@@ -14,15 +14,12 @@ import {
 import { Kbd } from '../ui/kbd'
 
 import { SidebarSectionSkeleton } from './parts'
+import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
 
 import type { Item, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
-
-function isChatRow(item: Item): boolean {
-  return favoriteSessionId({ key: item.key, href: item.href }) !== null
-}
 
 function favoriteToggleTitle(chatRow: boolean, favorited: boolean): string {
   if (chatRow) return favorited ? 'Unpin chat' : 'Pin chat'
@@ -131,7 +128,7 @@ export function SidebarSectionList({
                     // context menu: team-level, enabled rows only.
                     const shortcut = SIDEBAR_ITEM_SHORTCUTS[item.key]
                     const favorited = Boolean(favoriteMatch(item))
-                    const chatRow = isChatRow(item)
+                    const chatRow = favoriteSessionId({ key: item.key, href: item.href }) !== null
                     const favoriteToggle = canFavorite(item) ? (
                       <span
                         role="button"
@@ -156,7 +153,11 @@ export function SidebarSectionList({
                       </span>
                     ) : null
                     const row = (
-                      <div
+                      <SessionRowSurface
+                        item={item}
+                        active={isActive}
+                        onOpenKey={onOpenKey}
+                        onSelect={onSelect}
                         onContextMenu={
                           // Only open when the menu would have something in it.
                           canFavorite(item) || (teamView && Boolean(rowSessionId))
@@ -169,6 +170,7 @@ export function SidebarSectionList({
                       >
                         <SidebarNavItem
                           active={isActive}
+                          sharedBackground={Boolean(item.description)}
                           disabled={!item.enabled}
                           onClick={(event) => {
                             if (!item.enabled) return
@@ -198,7 +200,8 @@ export function SidebarSectionList({
                           }
                           icon={item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)}
                         />
-                      </div>
+                        {item.description}
+                      </SessionRowSurface>
                     )
 
                     // Chat rows collapse out (t-collapse, grid-rows) while an
@@ -210,10 +213,13 @@ export function SidebarSectionList({
                     return rowSessionId ? (
                       <div
                         key={item.key}
-                        className="t-collapse"
+                        className={clsx(
+                          't-collapse t-sidebar-session t-stagger',
+                          archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
+                        )}
                         data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                       >
-                        <div className="t-collapse-inner">{row}</div>
+                        <div className="t-collapse-inner t-stagger-line">{row}</div>
                       </div>
                     ) : (
                       <div key={item.key}>{row}</div>
@@ -257,13 +263,13 @@ export function SidebarItemContextMenu({
               favoriteMatch(menu.item)
                 ? {
                     key: 'unfavorite',
-                    label: favoriteToggleTitle(isChatRow(menu.item), true),
+                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, true),
                     icon: StarOff,
                     onSelect: () => toggleFavorite(menu.item),
                   }
                 : {
                     key: 'favorite',
-                    label: favoriteToggleTitle(isChatRow(menu.item), false),
+                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, false),
                     icon: Star,
                     onSelect: () => toggleFavorite(menu.item),
                   },

@@ -1,8 +1,8 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 
-import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
+import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
 import {

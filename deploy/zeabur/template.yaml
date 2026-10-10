@@ -229,8 +229,6 @@ spec:
             default: ${ZEABUR_WEB_URL}
           ATLAS_REDIS_ENABLED:
             default: 'false'
-          BRAINTRUST_TRACING_ENABLED:
-            default: 'false'
           CLAUDE_CODE_RUNTIME_KUBECTL:
             default: 'false'
           CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED:

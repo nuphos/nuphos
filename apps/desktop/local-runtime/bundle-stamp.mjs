@@ -5,8 +5,13 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-export const PATCH_SOURCES = ['adapter-patches.mjs', 'skills-sync.mjs', 'claude-session-env.mjs']
-export const STAMP_SOURCES = ['prepare.mjs', ...PATCH_SOURCES]
+export const PATCH_SOURCES = [
+  'adapter-patches.mjs',
+  'skills-sync.mjs',
+  'claude-session-env.mjs',
+  'computer-use-permission.mjs',
+]
+export const STAMP_SOURCES = ['prepare.mjs', 'computer-use-permission.swift', ...PATCH_SOURCES]
 /** The runtime image's adapters, staged as the image stages them. */
 export const RUNTIME_DIR = join(here, '../../runtime/image')
 export const RUNTIME_SOURCES = [

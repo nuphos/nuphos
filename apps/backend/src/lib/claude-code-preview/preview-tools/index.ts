@@ -20,6 +20,7 @@ import { kubeconfigToolModule } from './kubeconfig'
 import { localExecToolModule } from './local-exec'
 import { skillToolSet } from './skills'
 import { slackPreviewToolModule } from './slack'
+import { sessionResourceToolModule } from './session-resources'
 import { threadToolModule } from './threads'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
@@ -158,6 +159,7 @@ type ModuleFactory = (ctx: PreviewToolContext) => Promise<PreviewToolModule>
 // Modules with their own blocking/side-channel semantics, beyond the plain
 // AI SDK adaptation above.
 const EXTRA_MODULES: ModuleFactory[] = [
+  () => Promise.resolve(sessionResourceToolModule()),
   () => Promise.resolve(threadToolModule()),
   (ctx) => Promise.resolve(connectorToolModule(ctx)),
   () => Promise.resolve(decisionToolModule()),
