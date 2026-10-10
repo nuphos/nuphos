@@ -62,7 +62,7 @@ export function finalizeExhaustedTurn(
     stallToolName: pausedDetail?.toolName ?? null,
   })
   // Beacon the terminal failure to the backend so how the turn ended for
-  // the user is recorded server-side too (stdout + OTel + Braintrust).
+  // the user is recorded server-side too (stdout + OTel + MongoDB).
   // Captured here, fired after setTabs returns (see declaration).
   decision.terminalFailureReportPayload = {
     streamId: tabSnapshot.streamId,

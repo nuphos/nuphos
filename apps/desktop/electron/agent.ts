@@ -17,3 +17,5 @@ export * from './agent/triggers'
 export * from './agent/types'
 
 export * from './agent/session-config'
+
+export * from './agent/session-resources'

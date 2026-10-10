@@ -1,9 +1,9 @@
 import { generateText as rawGenerateText } from 'ai'
 
 import { config } from '@/config'
-import { aiTelemetry, wrapAI } from '@/lib/agent/braintrust'
 import { extractFencedBlock } from '@/lib/agent/text-scan'
 import { newModelCallId, recordSideCallTokenUsage } from '@/lib/agent/token-usage-side-call'
+import { aiTelemetry, wrapAI } from '@/lib/agent/tracing'
 import { logError } from '@/lib/observability'
 
 import { getModel, regionLabel } from './model-provider'

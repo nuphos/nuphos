@@ -1,4 +1,5 @@
 import os from 'node:os'
+import { basename } from 'node:path'
 
 import { spawn } from 'node-pty'
 
@@ -17,6 +18,21 @@ type TerminalSession = {
   bufferedBytes: number
   exited: boolean
   agentScope?: string
+}
+
+export function isIdleShell(name: string, shell: string): boolean {
+  const processName = basename(name)
+    .replace(/^-/, '')
+    .replace(/\.exe$/i, '')
+    .toLowerCase()
+
+  return (
+    processName ===
+      basename(shell)
+        .replace(/\.exe$/i, '')
+        .toLowerCase() ||
+    ['sh', 'bash', 'zsh', 'fish', 'dash', 'powershell', 'pwsh', 'cmd'].includes(processName)
+  )
 }
 
 export function terminalSize(value: number, fallback: number): number {
@@ -111,6 +127,21 @@ export class LocalTerminalSessions {
       throw new Error('Terminal session is not available in this window.')
 
     return session
+  }
+
+  /** Query live PTYs, including ones whose dock view is currently unmounted. */
+  processes(owner: WebContents): { id: string; name: string }[] {
+    const result: { id: string; name: string }[] = []
+
+    for (const [id, session] of this.sessions) {
+      if (session.owner !== owner || session.exited) continue
+      const name = session.pty.process.trim()
+
+      if (!name || isIdleShell(name, session.shell)) continue
+      result.push({ id, name: name.slice(0, 120) })
+    }
+
+    return result
   }
 
   replay(owner: WebContents, id: string): void {

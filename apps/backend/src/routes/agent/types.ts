@@ -1,6 +1,6 @@
 import type { AgentCredentialSelection } from './types-credentials'
-import type { SpanLike } from '@/lib/agent/braintrust'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { SpanLike } from '@/lib/agent/tracing'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 import type { UIMessage } from 'ai'

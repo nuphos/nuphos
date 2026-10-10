@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { observeTerminalProcesses } from '../../lib/sessionTerminalProcesses'
 import {
   collectExecScopes,
   collectLiveSshTabs,
@@ -22,6 +23,8 @@ type Args = WorkspaceProps & WorkspaceShellStateResult & WorkspaceActiveTabResul
 export function useWorkspaceTabSync(a: Args) {
   const { tabs, activeTabId, closedSshTabsRef, workspaceStore, workspaceActions } = a
   const { closeTab, updateTab, updateActiveTab } = workspaceActions
+
+  useEffect(() => observeTerminalProcesses(workspaceStore), [workspaceStore])
 
   const [teamsLoading, setTeamsLoading] = useState(false)
   // Backend not yet reachable on first load (app outran a booting local backend)

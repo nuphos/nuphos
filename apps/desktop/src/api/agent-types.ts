@@ -1,4 +1,5 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
+import type { SessionResource } from './session-resource-types'
 import type { AgentProvider } from '../types/runtime.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
@@ -31,6 +32,7 @@ export type ConversationAccessState = {
 
 export type AgentConversation = {
   runtimeState?: import('../lib/runtimeExecution').RuntimeExecution
+  linkedResources?: SessionResource[]
   sessionId: string
   teamId?: string
   title: string

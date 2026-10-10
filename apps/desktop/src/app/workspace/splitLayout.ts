@@ -58,3 +58,16 @@ export function paneRects(
     })
   })
 }
+
+/** macOS shell control keys must not invoke Command shortcuts. */
+export function isSplitShortcut(
+  event: Pick<KeyboardEvent, 'metaKey' | 'ctrlKey' | 'altKey' | 'code' | 'isComposing'>,
+  mac: boolean,
+): boolean {
+  return (
+    (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&
+    !event.altKey &&
+    event.code === 'KeyD' &&
+    !event.isComposing
+  )
+}

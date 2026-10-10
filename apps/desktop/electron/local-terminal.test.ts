@@ -69,12 +69,21 @@ test(
       sessions.input(owner, id, 'stty size\r')
       await resized
       sessions.input(owner, id, 'sleep 30\r')
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      for (let attempt = 0; attempt < 30; attempt++) {
+        if (sessions.processes(owner).some((process) => process.name === 'sleep')) break
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      assert.deepEqual(sessions.processes(owner), [{ id, name: 'sleep' }])
+      assert.deepEqual(sessions.processes(renderer().owner), [])
       sessions.input(owner, id, '\x03')
       const interrupted = waitForOutput(emitter, 'NUPHOS_INTERRUPT_OK')
 
       sessions.input(owner, id, "printf '%s%s\\n' NUPHOS_ INTERRUPT_OK\r")
       await interrupted
+      for (let attempt = 0; attempt < 30 && sessions.processes(owner).length; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      assert.deepEqual(sessions.processes(owner), [])
       assert.ok(events.some((event) => event.type === 'data'))
       emitter.emit('destroyed')
       assert.throws(() => sessions.input(owner, id, 'echo should-not-run\r'), /not available/)

@@ -1,9 +1,9 @@
-import { logSpanError, startTraceSpan } from '@/lib/agent/braintrust'
+import { logSpanError, startTraceSpan } from '@/lib/agent/tracing'
 import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { capture } from '@/lib/posthog'
 
 import type { AgentRunTrace } from './types'
-import type { SpanLike } from '@/lib/agent/braintrust'
+import type { SpanLike } from '@/lib/agent/tracing'
 
 function traceSpans(trace: AgentRunTrace | undefined): SpanLike[] {
   const spans: SpanLike[] = []

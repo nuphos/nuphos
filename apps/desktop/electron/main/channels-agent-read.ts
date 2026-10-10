@@ -4,6 +4,14 @@ import type { GeneralAccess, ParticipantRole } from '../../src/api/agent-types'
 
 // Conversation-level channels that no longer fit in channels-agent.ts (max-lines).
 export const agentReadChannels = {
+  'agent:getSessionResources': (_e: unknown, sessionId: string, teamId: string) =>
+    agent.getSessionResources(sessionId, teamId),
+  'agent:unlinkSessionResource': (
+    _e: unknown,
+    sessionId: string,
+    teamId: string,
+    resourceId: string,
+  ) => agent.unlinkSessionResource(sessionId, teamId, resourceId),
   'agent:markConversationRead': (_e: unknown, sessionId: string, seq: number, teamId?: string) =>
     agent.markConversationRead(sessionId, seq, teamId),
   'agent:getConversationParticipants': (_e: unknown, sessionId: string, teamId?: string) =>
