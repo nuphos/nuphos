@@ -1,18 +1,15 @@
-import { agentConversations } from '@/lib/agent/db/shared'
-import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
 import { placementNamespace, runtimeControllerGone } from './runtime-controllers'
 import { deleteRuntimeAuthSecret } from './runtime-credential-secret'
-import { withRuntimePlacementLease } from './runtime-placement-lease'
 import { inspectClaim, removeClaim } from './runtime-deletion-volumes'
+import { runtimeHomeClaimName, runtimeWorkspaceClaimName } from './runtime-objects'
+import { withRuntimePlacementLease } from './runtime-placement-lease'
 import { runtimeDeletions } from './runtime-portability-store'
 import { removeTeamRuntime, runtimes, setTeamRuntimeStatus } from './runtime-registry'
 import { clearRuntimeAuthKey } from './runtime-registry-credentials'
-import { runtimeHomeClaimName, runtimeWorkspaceClaimName } from './runtime-objects'
 import { runtimeServiceName } from './runtime-service-name'
-import { findWorkspaceArchive, saveRuntimeWorkspace } from './runtime-workspace'
 
 import type { KubeClient, KubeResource } from './kube-client'
 import type { RuntimeInstance } from './runtime-instances'
@@ -46,43 +43,8 @@ export async function requestRuntimeDeletion(
   )
 }
 
-async function savePlacement(job: RuntimeDeletion, url: string) {
-  const conversations = await agentConversations()
-    .find({
-      teamId: job.teamId,
-      $or: [{ 'claudeCodePreview.runtimeUrl': url }, { previousRuntimeUrls: url }],
-    })
-    .toArray()
-
-  for (const conversation of conversations) {
-    // Deletion intent blocks new turns. The shared admission reservation drains
-    // turns admitted before the intent and serializes a simultaneous move.
-    const release = await claimAgentRunForSession(conversation.userId, conversation.sessionId, true)
-
-    if (!release)
-      throw new AppError(409, 'conversation_busy', 'Waiting for running conversations to finish.')
-    try {
-      const current = await agentConversations().findOne({
-        sessionId: conversation.sessionId,
-        teamId: job.teamId,
-        $or: [{ 'claudeCodePreview.runtimeUrl': url }, { previousRuntimeUrls: url }],
-      })
-
-      if (!current) continue
-      const archive = await findWorkspaceArchive(job.teamId, conversation.sessionId, url)
-
-      if (!archive || archive.createdAt < job.requestedAt) {
-        await saveRuntimeWorkspace(job.teamId, conversation.sessionId, job.provider, url)
-      }
-    } finally {
-      release()
-    }
-  }
-}
-
 type Placement = RuntimeDeletion['placements'][number]
-/** Each environment only removes its own verified placement. Other environments
- * retain credentials and storage until their own controller has saved its data. */
+/** Each environment only removes its own verified placement. */
 async function deletePlacement(
   job: RuntimeDeletion,
   placement: Placement,
@@ -138,10 +100,6 @@ async function deletePlacement(
     )
   }
 
-  if (placement.state === 'pending') {
-    await savePlacement(job, placement.url)
-    await setState('saved')
-  }
   await setState('deleting')
   if (deployment) {
     if (!deployment.metadata.deletionTimestamp)
@@ -150,16 +108,14 @@ async function deletePlacement(
     // Foreground deletion keeps the Deployment until its pods have terminated.
     return
   }
-  if (await removeClaim(kube, homeClaim, home)) return
-  if (await removeClaim(kube, workspaceClaim, workspace)) return
+  const homePending = await removeClaim(kube, homeClaim, home)
+  const workspacePending = await removeClaim(kube, workspaceClaim, workspace)
   const serviceResource = resource('Service')
   const service = await getResource(serviceResource)
 
-  if (service) {
+  if (service && !service.metadata.deletionTimestamp)
     await kube.delete(serviceResource, service.metadata.uid)
-
-    return
-  }
+  if (homePending || workspacePending || service) return
   await deleteRuntimeAuthSecret(job.teamId, placement.id, kube, namespace)
   await clearRuntimeAuthKey(job.teamId, placement.id)
   await setTeamRuntimeStatus(job.teamId, placement.id, 'disabled')

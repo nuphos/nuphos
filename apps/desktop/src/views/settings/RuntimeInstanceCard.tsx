@@ -254,7 +254,7 @@ export function RuntimeInstanceCard({
           title={`Remove ${instance.label}?`}
           description={
             instance.kind === 'managed'
-              ? 'Nuphos will save conversation workspaces before permanently deleting this agent and its disk, including its sign-in. Your conversation history stays in Nuphos. Move a conversation to another agent to continue with reconstructed context. If a workspace cannot be saved, deletion pauses.'
+              ? 'This permanently deletes the agent, its disks, workspaces, and sign-in, and stops running conversations. Your conversation history stays in Nuphos. Move any workspace you want to keep to another agent before removing this one.'
               : 'This disconnects the external agent. Its files remain on the external machine. Your conversations stay in Nuphos and can be moved using conversation history.'
           }
           destructive
