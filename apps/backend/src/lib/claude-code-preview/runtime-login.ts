@@ -2,9 +2,11 @@ import { AppError } from '@/lib/errors'
 
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
+import { runtimeModelCatalog } from './runtime-models'
 import {
   AUTHORIZATION_FIELDS,
   claimRuntimeLogin,
+  openAnswer,
   publicLogin,
   readRuntimeLogin,
   runtimeLogins,
@@ -65,14 +67,14 @@ export async function performRuntimeLogin<Target>(
   )
   let target: Target | undefined
   // A code may be submitted to any replica; the one driving the sign-in collects it.
-  const deliverCode = async (code: string) => {
+  const deliverCode = async (sealed: string) => {
     if (target === undefined || !deps.input) return
     const taken = await runtimeLogins().updateOne(
-      { ...filter, pendingCode: code },
+      { ...filter, pendingCode: sealed },
       { $unset: { pendingCode: '' } },
     )
 
-    if (taken.matchedCount) await deps.input(target, doc, code)
+    if (taken.matchedCount) await deps.input(target, doc, openAnswer(doc.attemptId, sealed))
   }
   const cancelled = setInterval(() => {
     void runtimeLogins()
@@ -145,6 +147,8 @@ export async function performRuntimeLogin<Target>(
       },
       { $set: { state: 'connected' }, $unset: AUTHORIZATION_FIELDS },
     )
+    // A sign-in can change which models the agent offers (OpenCode's do).
+    runtimeModelCatalog.forget(doc.teamId, doc.runtimeId)
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },

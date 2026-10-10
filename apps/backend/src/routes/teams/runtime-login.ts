@@ -7,7 +7,6 @@ import {
   submitRuntimeLoginCode,
 } from '@/lib/claude-code-preview/runtime-login'
 import { publicLogin, readRuntimeLogin } from '@/lib/claude-code-preview/runtime-login-store'
-import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
@@ -28,14 +27,12 @@ export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAut
   teamScoped.get(path, requireTeamRole('ADMINISTRATOR'), async (c) => {
     c.header('Cache-Control', 'no-store')
     await requireLoginInstance(c.get('teamId'), c.req.param('runtimeId'))
-    const status = publicLogin(
-      await readRuntimeLogin(c.get('teamId'), c.req.param('runtimeId'), c.get('userId')),
+
+    return c.json(
+      publicLogin(
+        await readRuntimeLogin(c.get('teamId'), c.req.param('runtimeId'), c.get('userId')),
+      ),
     )
-
-    if (status.state === 'connected')
-      runtimeModelCatalog.forget(c.get('teamId'), c.req.param('runtimeId'))
-
-    return c.json(status)
   })
   teamScoped.delete(
     path,

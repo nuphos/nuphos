@@ -20,6 +20,18 @@ const text = (value: unknown, max: number): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= max
 const optionalText = (value: unknown, max: number) => value === undefined || text(value, max)
 
+/** An https page with a host and no credentials in it: what a client may offer to open. */
+function pageUrl(value: unknown): value is string {
+  if (!text(value, 4096)) return false
+  try {
+    const url = new URL(value)
+
+    return url.protocol === 'https:' && url.hostname !== '' && !url.username && !url.password
+  } catch {
+    return false
+  }
+}
+
 /** A step frame, bounded field by field; anything else is not a step. */
 export function parseLoginStep(frame: Record<string, unknown>): RuntimeLoginStep | undefined {
   if (frame.type === 'choose' && text(frame.message, 500) && Array.isArray(frame.options)) {
@@ -60,7 +72,7 @@ export function parseLoginStep(frame: Record<string, unknown>): RuntimeLoginStep
   if (
     frame.type === 'browser' &&
     // Empty when the method has no page, such as a CLI sign-in on the runtime's host.
-    (frame.url === '' || (text(frame.url, 4096) && frame.url.startsWith('https://'))) &&
+    (frame.url === '' || pageUrl(frame.url)) &&
     (frame.instructions === undefined ||
       (typeof frame.instructions === 'string' && frame.instructions.length <= 1000)) &&
     (frame.paste === undefined || frame.paste === 'code' || frame.paste === 'address')

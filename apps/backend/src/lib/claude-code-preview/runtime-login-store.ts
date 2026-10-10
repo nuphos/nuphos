@@ -1,4 +1,11 @@
-import { createHash, randomUUID } from 'node:crypto'
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  hkdfSync,
+  randomBytes,
+  randomUUID,
+} from 'node:crypto'
 
 import { config } from '@/config'
 import { db } from '@/lib/db'
@@ -25,7 +32,10 @@ export type RuntimeLoginDoc = Omit<RuntimeLoginStatus, 'expiresAt'> & {
   runtimeId: string
   userId: string
   expiresAt: Date
-  /** Held only until the replica driving the sign-in hands it to the runtime. */
+  /**
+   * The user's answer, sealed (`sealAnswer`): it can be an API key or an AWS secret, so it
+   * is never stored readable, only until the replica driving the sign-in hands it on.
+   */
   pendingCode?: string
 }
 /** What a sign-in that leaves `awaiting_authorization` must no longer show or hold. */
@@ -36,6 +46,39 @@ export const AUTHORIZATION_FIELDS = {
   step: '',
   pendingCode: '',
 } as const
+
+// Derived from the JWT secret with its own context, as the email OTP key is, so the
+// answers need no extra env var and stay out of reach of a database read.
+let answerKey: Buffer | null = null
+
+function answerCipherKey(): Buffer {
+  if (!answerKey) {
+    const secret = config.auth.jwtSecret
+
+    if (!secret) throw new Error('NUPHOS_JWT_SECRET or JWT_SECRET_KEY is required for sign-in')
+    answerKey = Buffer.from(hkdfSync('sha256', secret, '', 'nuphos-runtime-login-answer-v1', 32))
+  }
+
+  return answerKey
+}
+
+/** AES-256-GCM, bound to the attempt, so a sealed answer opens for that attempt only. */
+export function sealAnswer(attemptId: string, answer: string): string {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', answerCipherKey(), iv).setAAD(Buffer.from(attemptId))
+  const sealed = Buffer.concat([cipher.update(answer, 'utf8'), cipher.final()])
+
+  return [iv, cipher.getAuthTag(), sealed].map((part) => part.toString('base64url')).join('.')
+}
+
+export function openAnswer(attemptId: string, sealed: string): string {
+  const [iv, tag, data] = sealed.split('.').map((part) => Buffer.from(part, 'base64url'))
+  const decipher = createDecipheriv('aes-256-gcm', answerCipherKey(), iv!)
+    .setAAD(Buffer.from(attemptId))
+    .setAuthTag(tag!)
+
+  return Buffer.concat([decipher.update(data!), decipher.final()]).toString('utf8')
+}
 
 export const runtimeLogins = () => db().collection<RuntimeLoginDoc>('runtime_login_attempts')
 export function runtimeLoginKey(teamId: string, runtimeId: string): string {
@@ -100,7 +143,7 @@ export async function submitLoginCode(
       codeSubmitted: { $ne: true },
       expiresAt: { $gt: new Date() },
     },
-    { $set: { pendingCode: code, codeSubmitted: true } },
+    { $set: { pendingCode: sealAnswer(doc.attemptId, code), codeSubmitted: true } },
   )
 
   if (!result.matchedCount)

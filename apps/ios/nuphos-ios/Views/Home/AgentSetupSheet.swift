@@ -283,7 +283,7 @@ struct AgentSetupView: View {
             } header: {
                 Text(step.message ?? "")
             } footer: {
-                if step.secret == true { Text("Nuphos passes the key to the agent, which keeps it; Nuphos does not keep a copy.") }
+                if step.secret == true { Text("Nuphos encrypts it on its way to the agent, which keeps it; Nuphos does not keep a copy.") }
             }
         } else {
             if let instructions = step.instructions, !instructions.isEmpty {
@@ -292,7 +292,7 @@ struct AgentSetupView: View {
             if let url = login.url {
                 Section {
                     Button { openURL(url) } label: {
-                        Text("Open Sign-In Page").frame(maxWidth: .infinity)
+                        Text("Open \(url.host() ?? "Sign-In Page")").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)

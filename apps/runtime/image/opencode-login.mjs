@@ -155,6 +155,10 @@ export async function runOpenCodeLogin({
     if (!response.ok) throw new LoginError(`OpenCode answered ${String(response.status)}`)
     return response.json()
   }
+  // OpenCode answers 200 with `false` when a credential was not saved.
+  const saved = async (method, path, body) => {
+    if ((await api(method, path, body)) !== true) throw new LoginError('OpenCode did not sign in')
+  }
   const answer = async () => {
     const { value, done } = await lines.next()
     if (done) throw new LoginError('No answer')
@@ -185,13 +189,17 @@ export async function runOpenCodeLogin({
     if (!AWS_REGION.test(region)) throw new LoginError('Not an AWS region')
     if (how === 'api-key') {
       const key = await input({ message: 'Amazon Bedrock API key', secret: true })
-      await api('PUT', `/auth/${BEDROCK}`, { type: 'api', key })
+      await saved('PUT', `/auth/${BEDROCK}`, { type: 'api', key })
       await writeBedrockOptions(configFile, { region })
     } else {
       const accessKeyId = await input({ message: 'AWS access key ID', placeholder: 'AKIA…' })
-      const secretAccessKey = await input({ message: 'AWS secret access key', secret: true })
+      const secretAccessKey = await input({
+        message:
+          'AWS secret access key. Every conversation on this agent can read it, so use a key allowed only bedrock:InvokeModel*.',
+        secret: true,
+      })
       // A saved Bedrock API key would win over these.
-      await api('DELETE', `/auth/${BEDROCK}`)
+      await saved('DELETE', `/auth/${BEDROCK}`)
       await writeBedrockOptions(configFile, { region, accessKeyId, secretAccessKey })
     }
     return emit({ type: 'authenticated' })
@@ -233,7 +241,7 @@ export async function runOpenCodeLogin({
 
   if (method.type === 'api') {
     const key = await input({ message: `${name} API key`, secret: true })
-    await api('PUT', `/auth/${encodeURIComponent(providerID)}`, {
+    await saved('PUT', `/auth/${encodeURIComponent(providerID)}`, {
       type: 'api',
       key,
       ...(Object.keys(inputs).length ? { metadata: inputs } : {}),
@@ -247,16 +255,19 @@ export async function runOpenCodeLogin({
   const { url, instructions } = authorization
   if (authorization.method === 'code') {
     emit({ type: 'browser', url, instructions, paste: 'code' })
-    await api('POST', `${path}/callback`, { method: index, code: await answer() })
+    await saved('POST', `${path}/callback`, { method: index, code: await answer() })
     return emit({ type: 'authenticated' })
   }
   // OpenCode waits for the approval itself: a device page it polls, or a listener in
   // this container that the browser cannot reach, so the user pastes its address back.
   const redirect = loopbackRedirect(url)
   emit({ type: 'browser', url, instructions, ...(redirect ? { paste: 'address' } : {}) })
-  const approved = api('POST', `${path}/callback`, { method: index })
+  const approved = saved('POST', `${path}/callback`, { method: index })
   if (redirect) {
-    const address = pastedAddress(await answer(), redirect)
+    // A callback that fails first, such as OpenCode's listener timing out, ends the
+    // sign-in now rather than after a paste that can no longer help.
+    const failed = approved.then(() => new Promise(() => {}))
+    const address = pastedAddress(await Promise.race([answer(), failed]), redirect)
     if (!address) throw new LoginError('Not the sign-in address')
     await fetchImpl(address, { redirect: 'manual' }).catch(() => {})
   }
@@ -273,6 +284,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1)
   }
   for (const event of ['SIGTERM', 'SIGINT']) process.once(event, fail)
+  // Whatever ends this process, the server goes with it.
+  process.once('exit', () => server?.stop())
   process.stdout.on('error', fail)
   setTimeout(fail, 15 * 60_000).unref()
   try {

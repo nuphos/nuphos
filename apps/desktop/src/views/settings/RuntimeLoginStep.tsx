@@ -122,36 +122,50 @@ function Pick({
   )
 }
 
-/** The one-time code a device page asks for, when the instructions carry one. */
-function DeviceCode({ instructions }: { instructions: string }) {
-  const [copied, setCopied] = useState(false)
-  const code = /code:\s*([A-Z0-9-]{4,32})/iu.exec(instructions)?.[1]
+const CODE_LINE = /^.*code:\s*([A-Z0-9-]{4,32}).*$/imu
 
-  if (!code)
-    return (
-      <p className="whitespace-pre-wrap rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-3 text-[13px] text-main select-text">
-        {instructions}
-      </p>
-    )
+/** The page's host, or nothing for an address no browser could open. */
+function pageHost(url: string): string | undefined {
+  try {
+    return new URL(url).hostname || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** A device page's one-time code, large and copyable, then whatever else the provider said. */
+function Instructions({ instructions }: { instructions: string }) {
+  const [copied, setCopied] = useState(false)
+  const code = CODE_LINE.exec(instructions)?.[1]
+  const rest = (code ? instructions.replace(CODE_LINE, '') : instructions).trim()
 
   return (
-    <button
-      type="button"
-      aria-label="Copy sign-in code"
-      onClick={() => {
-        void navigator.clipboard.writeText(code).then(
-          () => setCopied(true),
-          () => toast.error('Could not copy code'),
-        )
-      }}
-      className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
-    >
-      <code className="text-2xl font-semibold tracking-widest">{code}</code>
-      <span className="flex items-center gap-1.5 text-xs text-secondary">
-        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-        {copied ? 'Copied' : 'Copy'}
-      </span>
-    </button>
+    <>
+      {code && (
+        <button
+          type="button"
+          aria-label="Copy sign-in code"
+          onClick={() => {
+            void navigator.clipboard.writeText(code).then(
+              () => setCopied(true),
+              () => toast.error('Could not copy code'),
+            )
+          }}
+          className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
+        >
+          <code className="text-2xl font-semibold tracking-widest">{code}</code>
+          <span className="flex items-center gap-1.5 text-xs text-secondary">
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Copied' : 'Copy'}
+          </span>
+        </button>
+      )}
+      {rest && (
+        <p className="whitespace-pre-wrap rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-3 text-[13px] text-main select-text">
+          {rest}
+        </p>
+      )}
+    </>
   )
 }
 
@@ -232,7 +246,7 @@ export function RuntimeLoginStep({
         )}
         {step.kind === 'input' && step.secret && (
           <p className="text-xs leading-5 text-tertiary">
-            Nuphos passes the key to the agent, which keeps it; Nuphos does not keep a copy.
+            Nuphos encrypts it on its way to the agent, which keeps it; Nuphos does not keep a copy.
           </p>
         )}
       </>
@@ -243,16 +257,16 @@ export function RuntimeLoginStep({
       <p className="text-[13px] leading-5 text-secondary">{BROWSER_PROMPT[step.paste ?? 'none']}</p>
       {/* A loopback page's own words ("this window will close") are not what happens here. */}
       {step.instructions && step.paste !== 'address' && (
-        <DeviceCode instructions={step.instructions} />
+        <Instructions instructions={step.instructions} />
       )}
-      {step.url && (
+      {pageHost(step.url) && (
         <a
           href={step.url}
           target="_blank"
           rel="noopener noreferrer"
           className={`${buttonClass} w-full`}
         >
-          Open {new URL(step.url).hostname} <ExternalLink className="h-3.5 w-3.5" />
+          Open {pageHost(step.url)} <ExternalLink className="h-3.5 w-3.5" />
         </a>
       )}
       {step.paste ? (

@@ -56,7 +56,12 @@ const BROWSER_URL =
   'https://auth.openai.com/oauth/authorize?redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&state=s'
 
 /** Drives the helper against a stand-in for OpenCode's server, answering in order. */
-async function login(answers, authorization = {}, configFile = '/nonexistent/opencode.json') {
+async function login(
+  answers,
+  authorization = {},
+  configFile = '/nonexistent/opencode.json',
+  { callback = async () => true, more = false } = {},
+) {
   const frames = []
   const calls = []
   const fetchImpl = async (url, init = {}) => {
@@ -66,11 +71,14 @@ async function login(answers, authorization = {}, configFile = '/nonexistent/ope
     if (pathname === '/provider') return json(PROVIDERS)
     if (pathname === '/provider/auth') return json(METHODS)
     if (pathname.endsWith('/oauth/authorize')) return json(authorization)
-    if (pathname.startsWith('/auth/') || pathname.endsWith('/oauth/callback')) return json(true)
+    if (pathname.endsWith('/oauth/callback')) return json(await callback())
+    if (pathname.startsWith('/auth/')) return json(true)
     return json(null)
   }
   async function* lines() {
     yield* answers
+    // A user who has not answered yet.
+    if (more) await new Promise(() => {})
   }
   await runOpenCodeLogin({
     server: { base: 'http://127.0.0.1:1', authorization: 'Basic x' },
@@ -296,4 +304,20 @@ test('a config OpenCode’s user wrote with comments is left alone', async () =>
     await assert.rejects(writeBedrockOptions(file, { region: 'us-east-1' }))
     assert.equal(await readFile(file, 'utf8'), '{ // mine\n}')
   })
+})
+
+test('a callback that fails while the address is awaited ends the sign-in at once', async () => {
+  await assert.rejects(
+    login(['openai', '0'], { url: BROWSER_URL, method: 'auto', instructions: '' }, undefined, {
+      callback: () => Promise.reject(new Error('listener timed out')),
+      more: true,
+    }),
+  )
+})
+
+test('a callback OpenCode answers with false is not a sign-in', async () => {
+  const device = { url: 'https://github.com/login/device', method: 'auto', instructions: 'x' }
+  await assert.rejects(
+    login(['github-copilot', 'github.com'], device, undefined, { callback: async () => false }),
+  )
 })

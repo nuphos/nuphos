@@ -157,6 +157,7 @@ test('a pasted Claude code reaches the runtime once, and no copy of it outlives 
   expect(await submitLoginCode(docs[0], 'the-code#the-state')).toMatchObject({
     codeSubmitted: true,
   })
+  expect(JSON.stringify(docs[0])).not.toContain('the-code')
   expect(JSON.stringify(publicLogin(docs[0]))).not.toContain('the-code')
   // One code per attempt: the CLI exits on a rejected one, so a retry is a new sign-in.
   await expect(submitLoginCode(docs[0], 'another#code')).rejects.toMatchObject({ status: 409 })
@@ -306,6 +307,9 @@ test('a stepped sign-in takes one answer per step, each checked against that ste
   // A new step waits for its own answer.
   expect(publicLogin(docs[0]!).codeSubmitted).toBeUndefined()
   await submitLoginCode(docs[0]!, 'gsk-secret')
+  // Stored sealed while the attempt runs, not only gone once it ends.
+  expect(docs[0]!.pendingCode).toBeString()
+  expect(JSON.stringify(docs[0])).not.toContain('gsk-secret')
   expect(JSON.stringify(publicLogin(docs[0]!))).not.toContain('gsk-secret')
   await login
 
@@ -330,4 +334,14 @@ test('a page OpenCode watches itself takes no answer; one that ends on loopback 
     await submitLoginCode(docs[0]!, 'http://localhost:1455/auth/callback?code=c'),
   ).toMatchObject({ codeSubmitted: true })
   expect(doc.attemptId).toBe(docs[0]!.attemptId)
+})
+
+test('a sealed answer opens only for the attempt it was sealed for', async () => {
+  const { openAnswer, sealAnswer } = await import('./runtime-login-store')
+  const sealed = sealAnswer('attempt-1', 'AKIA-secret')
+
+  expect(sealed).not.toContain('AKIA')
+  expect(openAnswer('attempt-1', sealed)).toBe('AKIA-secret')
+  expect(() => openAnswer('attempt-2', sealed)).toThrow()
+  expect(sealAnswer('attempt-1', 'AKIA-secret')).not.toBe(sealed)
 })

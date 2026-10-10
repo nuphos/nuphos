@@ -223,6 +223,8 @@ test('only a runtime that signs in by steps may ask, and only within bounds', as
   ])
   for (const bad of [
     { type: 'browser', url: 'http://example.com/' },
+    { type: 'browser', url: 'https://' },
+    { type: 'browser', url: 'https://user:pass@example.com/' },
     { type: 'browser', url: 'https://example.com/', paste: 'anything' },
     { type: 'choose', message: 'x', options: [] },
     { type: 'choose', message: 'x', options: [{ value: '', label: 'x' }] },
