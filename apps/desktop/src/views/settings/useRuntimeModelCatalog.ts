@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { concreteModelChoices } from '../../lib/modelChoices'
 
 import type { RuntimeModelCatalog } from '../../types/runtime'
@@ -71,6 +72,15 @@ export function useRuntimeModelCatalog(
       cancelled = true
     }
   }, [teamId, runtimeId, canLoad, requestKey, value])
+
+  // A sign-in can change the models an agent offers (OpenCode's do).
+  useEffect(() => {
+    const reload = () => setRevision((previous) => previous + 1)
+
+    window.addEventListener(RUNTIME_INSTANCES_CHANGED, reload)
+
+    return () => window.removeEventListener(RUNTIME_INSTANCES_CHANGED, reload)
+  }, [])
 
   useEffect(() => {
     if (!canLoad || !catalog || catalog.models.length) return

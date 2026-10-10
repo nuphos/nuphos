@@ -241,7 +241,10 @@ export function RuntimeLoginStep({
   return (
     <>
       <p className="text-[13px] leading-5 text-secondary">{BROWSER_PROMPT[step.paste ?? 'none']}</p>
-      {step.instructions && <DeviceCode instructions={step.instructions} />}
+      {/* A loopback page's own words ("this window will close") are not what happens here. */}
+      {step.instructions && step.paste !== 'address' && (
+        <DeviceCode instructions={step.instructions} />
+      )}
       {step.url && (
         <a
           href={step.url}
