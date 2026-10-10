@@ -1,6 +1,7 @@
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import {
   freshAgent,
+  authorizeComputerUse,
   HEALTHY_AFTER_MS,
   AGENT_HOME_UNAVAILABLE,
   INSTALL_HINT,
@@ -199,19 +200,7 @@ export class LocalRuntimeController {
       return
     }
 
-    if (provider === 'codex') {
-      try {
-        await this.deps.prepareComputerUse?.()
-      } catch (error) {
-        if (current()) {
-          agent.error = String(error)
-          this.changed()
-        }
-
-        return
-      }
-      if (!current()) return
-    }
+    if (!(await authorizeComputerUse(this.deps, provider, agent, current))) return
     await this.startProcess({ provider, userId, cliPath: agent.cli.path, env, current, agentHome })
   }
 

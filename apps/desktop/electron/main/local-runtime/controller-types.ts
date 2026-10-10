@@ -206,3 +206,25 @@ export type LocalAgentRun = Omit<ProbeModelsRun, 'workspace'> & {
   userId: string
   current: () => boolean
 }
+
+/** Do not start Codex while macOS is asking for consent or after the account changed. */
+export async function authorizeComputerUse(
+  deps: LocalRuntimeControllerDeps,
+  provider: LocalAgentProvider,
+  agent: Agent,
+  current: () => boolean,
+): Promise<boolean> {
+  if (provider !== 'codex' || !deps.prepareComputerUse) return current()
+  try {
+    await deps.prepareComputerUse()
+  } catch (error) {
+    if (current()) {
+      agent.error = String(error)
+      deps.onChange?.()
+    }
+
+    return false
+  }
+
+  return current()
+}

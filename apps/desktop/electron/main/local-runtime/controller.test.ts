@@ -420,6 +420,7 @@ test('Codex waits for Computer Use authorization while Claude can start', async 
   })
   const h = harness({}, true, {}, { current: true }, () => permission)
   const starting = h.controller.setUser('alice')
+
   await new Promise((resolve) => setImmediate(resolve))
   assert.ok(h.events.includes(started('claude-code')))
   assert.ok(!h.events.includes(started('codex')))
@@ -433,6 +434,7 @@ test('denied Computer Use authorization prevents Codex startup', async () => {
   const h = harness({}, true, {}, { current: true }, () =>
     Promise.reject(new Error('permission denied')),
   )
+
   await h.controller.setUser('alice')
   assert.ok(!h.events.includes(started('codex')))
   assert.match(h.controller.state().agents.codex.error ?? '', /permission denied/u)
@@ -446,6 +448,7 @@ test('signing out while authorization is pending cannot start Codex', async () =
   })
   const h = harness({}, true, {}, { current: true }, () => permission)
   const starting = h.controller.setUser('alice')
+
   await new Promise((resolve) => setImmediate(resolve))
   await h.controller.setUser(null)
   allow()
