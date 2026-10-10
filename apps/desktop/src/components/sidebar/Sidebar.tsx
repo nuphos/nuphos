@@ -16,7 +16,6 @@ import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
 import { SidebarItemContextMenu, SidebarSectionList } from './sections-list'
 import { sharedChatSection, teamSections, withChatSections } from './sections-services'
-import { SessionResources } from './SessionResources'
 import { settingsBackTarget } from './types'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
@@ -225,7 +224,6 @@ export function Sidebar({
             {dynamicNavigation && !settingsBack && onSidebarBack && (
               <SidebarBackControl hierarchy={hierarchy} onBack={() => onSidebarBack()} />
             )}
-            <SessionResources teamId={teamId} sessionId={chatShown ? agentSessionId : null} />
             <SidebarSectionList
               sections={sidebarSections}
               scope={teamScope}

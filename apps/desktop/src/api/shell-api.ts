@@ -4,6 +4,7 @@ import type { PodExecEvent, SshTerminalEvent } from '../types/aws-compute.ts'
 import type { PortForwardEvent } from '../types/navigation.ts'
 
 export const shellApi = {
+  localTerminalProcesses: () => window.api.localTerminalProcesses(),
   localTerminalStart: (...args: Parameters<typeof window.api.localTerminalStart>) =>
     window.api.localTerminalStart(...args),
   localTerminalReplay: (id: string) => window.api.localTerminalReplay(id),

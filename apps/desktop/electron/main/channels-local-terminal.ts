@@ -31,6 +31,7 @@ const terminals = (event: IpcMainInvokeEvent, id: string) =>
   runtimeTerminals.describe(owner(event), id) ? runtimeTerminals : localTerminals
 
 export const localTerminalChannels = {
+  'local-terminal:processes': (event: IpcMainInvokeEvent) => localTerminals.processes(owner(event)),
   'local-terminal:start': (
     event: IpcMainInvokeEvent,
     id: string,

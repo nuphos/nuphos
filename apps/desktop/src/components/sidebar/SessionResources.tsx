@@ -1,121 +1,165 @@
-import { GitPullRequest, Link2, Unlink } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { GitMerge, GitPullRequest, GitPullRequestClosed, Link2, Terminal, X } from 'lucide-react'
+import { useContext, useEffect, useState } from 'react'
 
-import { api } from '../../api'
-import { SIDEBAR_GROUP_TITLE_CLASS } from '../SidebarNavItem'
+import { agentApi } from '../../api/agent-api'
+import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
+import { toast } from '../ui/toast'
 
-import type { SessionResourcesResponse } from '../../api/session-resource-types'
+import { ResourceOpenContext } from './resource-open-context'
 
+import type { SessionResource } from '../../api/session-resource-types'
+
+/** Resource links belong to their session, including sessions that are not open. */
 export function SessionResources({
+  resources,
   teamId,
   sessionId,
+  titlebar = false,
 }: {
+  resources: SessionResource[]
   teamId: string
-  sessionId: string | null
+  sessionId: string
+  titlebar?: boolean
 }) {
-  if (!teamId || !sessionId) return null
+  const processes = useSessionTerminalProcesses(sessionId)
+  const open = useContext(ResourceOpenContext)
+  const ResourceLabel = titlebar ? 'button' : 'span'
 
-  return <LinkedResources key={`${teamId}:${sessionId}`} teamId={teamId} sessionId={sessionId} />
-}
-
-/** Remount on team/session changes so a previous conversation never flashes here. */
-function LinkedResources({ teamId, sessionId }: { teamId: string; sessionId: string }) {
-  const [data, setData] = useState<SessionResourcesResponse>({ resources: [], canManage: false })
-  const [error, setError] = useState('')
-  const [removing, setRemoving] = useState<string | null>(null)
+  const [canManage, setCanManage] = useState(false)
+  const [removed, setRemoved] = useState<string[]>([])
+  const [removing, setRemoving] = useState<string[]>([])
 
   useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    const refresh = async () => {
-      try {
-        const result = await api.agentGetSessionResources(sessionId, teamId)
+    let disposed = false
 
-        if (!cancelled) {
-          setData(result)
-          setError('')
-        }
-      } catch {
-        if (!cancelled) {
-          setData({ resources: [], canManage: false })
-          setError('Unable to load linked resources')
-        }
-      } finally {
-        if (!cancelled) timer = setTimeout(() => void refresh(), 10_000)
-      }
+    if (titlebar && resources.length) {
+      void agentApi
+        .agentGetSessionResources(sessionId, teamId)
+        .then((result) => {
+          if (!disposed) setCanManage(result.canManage)
+        })
+        .catch(() => {})
     }
-
-    void refresh()
 
     return () => {
-      cancelled = true
-      clearTimeout(timer)
+      disposed = true
     }
-  }, [sessionId, teamId])
+  }, [sessionId, teamId, resources.length, titlebar])
 
-  async function unlink(id: string) {
-    setRemoving(id)
+  async function unlink(resourceId: string) {
+    setRemoving((ids) => [...ids, resourceId])
     try {
-      await api.agentUnlinkSessionResource(sessionId, teamId, id)
-      setData((current) => ({
-        ...current,
-        resources: current.resources.filter((resource) => resource.id !== id),
-      }))
-      setError('')
-    } catch {
-      setError('Unable to unlink resource')
+      await agentApi.agentUnlinkSessionResource(sessionId, teamId, resourceId)
+      setRemoved((ids) => [...ids, resourceId])
+    } catch (error) {
+      toast.apiError('Could not unlink resource', error)
     } finally {
-      setRemoving(null)
+      setRemoving((ids) => ids.filter((id) => id !== resourceId))
     }
   }
 
-  if (!data.resources.length && !error) return null
+  if (!resources.length && !processes.length) return null
+  const linked = resources.filter((resource) => !removed.includes(resource.id))
+  const visible = titlebar ? linked : linked.slice(0, 2)
 
   return (
-    <section className="mb-3" aria-label="Linked resources">
-      <div className={SIDEBAR_GROUP_TITLE_CLASS}>Linked resources</div>
-      {data.resources.map((resource) => {
-        const Icon = resource.provider === 'github' ? GitPullRequest : Link2
+    <div
+      className={
+        titlebar
+          ? 't-session-heading titlebar-no-drag flex min-w-0 items-center gap-1 overflow-hidden text-[11px] text-tertiary'
+          : 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-2 pl-8 text-[11px] text-tertiary'
+      }
+      aria-label="Linked resources"
+    >
+      {visible.map((resource) => {
+        let Icon = Link2
+        let color = 'session-resource-linear'
+
+        if (resource.provider === 'github') {
+          Icon = GitPullRequest
+          color = 'session-resource-open'
+          if (resource.state === 'merged') {
+            Icon = GitMerge
+            color = 'session-resource-merged'
+          } else if (resource.state === 'closed') {
+            Icon = GitPullRequestClosed
+            color = 'session-resource-closed'
+          }
+        }
         const label =
           resource.provider === 'github'
-            ? `${resource.repository} #${resource.number}`
-            : resource.title
+            ? `#${String(resource.number)}`
+            : resource.title.split(/\s+/, 1)[0]
 
         return (
-          <div
+          <span
             key={resource.id}
-            className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-zGray-800/40"
+            className={`inline-flex shrink-0 items-center ${titlebar ? 'session-resource-tag rounded border' : ''} ${color}`}
           >
-            <button
-              type="button"
-              className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
-              title={`${resource.title} · ${resource.state}`}
-              onClick={() => void api.appOpenExternal(resource.url)}
+            <ResourceLabel
+              onPointerDown={(event) => {
+                if (titlebar) event.stopPropagation()
+              }}
+              onClick={(event) => {
+                if (!titlebar) return
+                event.stopPropagation()
+                const href = pageLocationForNavigation(
+                  emptyNavigation({ kind: 'team', teamId }, 'team.browser', {
+                    browserUrl: resource.url,
+                  }),
+                ).href
+
+                open?.(href, label, true)
+              }}
+              key={resource.id}
+              className={
+                titlebar
+                  ? 'inline-flex min-w-0 max-w-24 items-center gap-1 rounded-l px-1.5 py-0.5 transition-colors hover:bg-[var(--sidebar-overlay-hover)] active:bg-[var(--sidebar-overlay-active)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
+                  : 'inline-flex min-w-0 max-w-40 items-center gap-1'
+              }
+              title={`${resource.repository ?? ''} ${resource.title} · ${resource.state}`}
+              aria-label={`${label} · ${resource.state}`}
             >
-              <Icon className="h-3.5 w-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{label}</span>
-              <span className="max-w-16 truncate text-secondary">{resource.state}</span>
-            </button>
-            {data.canManage && (
+              <span className="inline-flex shrink-0">
+                {resource.provider === 'linear' ? (
+                  <img src="/linear.svg" alt="Linear" className="size-3 shrink-0" />
+                ) : (
+                  <Icon className="size-3 shrink-0" />
+                )}
+              </span>
+              <span className="truncate">{label}</span>
+            </ResourceLabel>
+            {titlebar && canManage && (
               <button
                 type="button"
-                disabled={removing !== null}
-                className="shrink-0 text-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                 aria-label={`Unlink ${label}`}
-                title="Unlink and stop future notifications"
-                onClick={() => void unlink(resource.id)}
+                title="Unlink resource"
+                disabled={removing.includes(resource.id)}
+                className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  void unlink(resource.id)
+                }}
               >
-                <Unlink className="h-3 w-3" />
+                <X className="size-3" />
               </button>
             )}
-          </div>
+          </span>
         )
       })}
-      {error && (
-        <p role="status" className="px-2 text-xs text-secondary">
-          {error}
-        </p>
-      )}
-    </section>
+      {!titlebar &&
+        processes.map((name) => (
+          <span
+            key={name}
+            className="inline-flex min-w-0 max-w-40 items-center gap-1 text-secondary"
+            title={name}
+          >
+            <Terminal className="size-3 shrink-0" />
+            <span className="truncate">{name}</span>
+          </span>
+        ))}
+    </div>
   )
 }
