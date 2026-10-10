@@ -304,7 +304,7 @@ enum AgentChatAPI {
             case .streamConflict: "That stream belongs to another conversation."
             case .conversationBusy: "This conversation is busy with another reply."
             case .runtimeNotReady: "The agent is not ready for a new message yet. Try again in a moment."
-            case .runtimeLoginRequired: "This agent is not signed in. Sign in to it on the computer running it, or ask an administrator to sign in a Cloud agent from the desktop app's Settings → Agent."
+            case .runtimeLoginRequired: "This agent is not signed in. Sign in to it on the computer running it, or ask an administrator to sign in a Cloud agent from the agent list."
             case .runtimeDisabled: "This conversation's agent is disabled. Start a new chat on another agent."
             case .runtimeNotFound: "This agent is no longer available in this workspace. Start a new chat on another agent."
             case .runtimeOffline: "The computer running this agent is offline. Open Nuphos on it with the local agent turned on, or start a new chat on a Cloud agent."

@@ -7,7 +7,7 @@ struct RuntimePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showSetup = false
-    @State private var loginRuntime: RuntimeInstance?
+    @State private var detailRuntime: RuntimeInstance?
     @State private var detent = PresentationDetent.medium
 
     var body: some View {
@@ -27,32 +27,27 @@ struct RuntimePickerSheet: View {
                     ProgressView("Loading agents…").tint(Theme.muted)
                 } else {
                     List {
-                        if store.selectedRuntimeUnavailable {
-                            Text("Your last agent is offline or signed out. Choose another one.")
-                                .font(.system(size: 13)).foregroundStyle(Theme.muted)
-                                .listRowBackground(Color.clear)
-                        }
                         ForEach(RuntimeInstance.grouped(store.runtimes), id: \.tier) { group in
                             Section(group.tier.title) {
                                 ForEach(group.runtimes) { runtime in
                                     let quota = store.quotas[runtime.id]
-                                    Button {
-                                        if quota?.needsSignIn == true, canSignIn(runtime) {
-                                            loginRuntime = runtime
-                                        } else {
-                                            store.selectRuntime(runtime)
-                                            dismiss()
+                                    HStack(spacing: 12) {
+                                        Button {
+                                            if quota?.needsSignIn == true, canManage(runtime) {
+                                                detailRuntime = runtime
+                                            } else {
+                                                store.selectRuntime(runtime)
+                                                dismiss()
+                                            }
+                                        } label: {
+                                            RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == store.newConversationRuntime?.id)
                                         }
-                                    } label: {
-                                        RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == store.newConversationRuntime?.id)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(!runtime.isSelectable)
-                                    // A signed-out agent says so in its row; this covers the ones
-                                    // whose provider can't report it.
-                                    .contextMenu {
-                                        if canSignIn(runtime) {
-                                            Button("Sign In Again", systemImage: "person.badge.key") { loginRuntime = runtime }
+                                        .buttonStyle(.plain)
+                                        .disabled(!runtime.isSelectable)
+                                        if canManage(runtime) {
+                                            Button("Agent details", systemImage: "info.circle") { detailRuntime = runtime }
+                                                .labelStyle(.iconOnly)
+                                                .buttonStyle(.borderless)
                                         }
                                     }
                                 }
@@ -76,7 +71,7 @@ struct RuntimePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
-            .navigationDestination(item: $loginRuntime) { runtime in if let team = store.selectedTeam { AgentSetupView(team: team, runtime: runtime) } }
+            .navigationDestination(item: $detailRuntime) { runtime in if let team = store.selectedTeam { AgentDetailView(team: team, runtime: runtime) } }
             .task { await store.loadRuntimes() }
             .task { await store.loadQuotas() }
             .refreshable {
@@ -87,11 +82,13 @@ struct RuntimePickerSheet: View {
         }
         .tint(Theme.heading)
         .presentationDetents([.medium, .large], selection: $detent)
-        // Setting an agent up needs the whole sheet; the list does not.
-        .onChange(of: showSetup || loginRuntime != nil) { _, open in if open { detent = .large } }
+        // An agent's own page needs the whole sheet; the list does not.
+        .onChange(of: showSetup || detailRuntime != nil) { _, open in if open { detent = .large } }
     }
 
-    private func canSignIn(_ runtime: RuntimeInstance) -> Bool {
+    /// Only a workspace administrator manages a Cloud agent; a computer's agent
+    /// is managed on that computer.
+    private func canManage(_ runtime: RuntimeInstance) -> Bool {
         store.selectedTeam?.isAdministrator == true && runtime.tier == .cloud
     }
 }
