@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { handleDiscordMention } from './mention'
+import { quoteDiscordReply } from './message'
 import { renderDiscordSessionContext } from './session-context'
 
 import type { DiscordMessageCreate, DiscordMessageDependencies } from './mention'
@@ -46,6 +47,7 @@ function setup(
       text: string
     }[],
     rendered: [] as string[],
+    metadata: [] as unknown[],
   }
   const dependencies = {
     recordDiscordSessionMessage: async (
@@ -61,11 +63,8 @@ function setup(
           text: event.content ?? '',
         })
     },
-    withDiscordSessionContext: async (_scope: unknown, id: string, text: string) =>
-      renderDiscordSessionContext(
-        calls.context.filter((item) => item.messageId !== id),
-        text,
-      ),
+    discordSessionContext: async (_scope: unknown, id: string) =>
+      renderDiscordSessionContext(calls.context.filter((item) => item.messageId !== id)),
     discordDecisions: () => ({ findOne: async () => null }),
     discordAgentThreads: () => ({
       findOne: async () => (options.registered === false ? null : thread),
@@ -108,8 +107,15 @@ function setup(
         verdict: options.addressed === null ? null : { addressed: options.addressed !== false },
       }
     },
-    buildMessagesForDiscordTurn: async (args: { renderedText: string }) => {
+    createMessageMetadata: async (userId: string, source: string) => ({
+      version: 1,
+      sender: { type: 'user', id: userId, displayName: 'Actor' },
+      source,
+      sentAt: '2026-01-01T00:00:00.000Z',
+    }),
+    buildMessagesForDiscordTurn: async (args: { renderedText: string; metadata: unknown }) => {
       calls.rendered.push(args.renderedText)
+      calls.metadata.push(args.metadata)
 
       return []
     },
@@ -157,6 +163,34 @@ describe('Discord conversation admission', () => {
     expect(calls.recorded).toBe(1)
     expect(calls.turns).toEqual([])
     expect(calls.posts).toEqual([])
+  })
+  test('the sender travels as metadata, not as a prefix in the message text', async () => {
+    const { calls, dependencies } = setup()
+
+    await handleDiscordMention(message(), 'bot', false, dependencies)
+    expect(calls.rendered[0]).toBe('What about staging?')
+    expect(calls.metadata[0]).toMatchObject({ source: 'discord', sender: { id: 'actor' } })
+  })
+  test('a reply carries the message it points at', async () => {
+    const { calls, dependencies } = setup()
+
+    await handleDiscordMention(
+      {
+        ...message(),
+        content: '<@bot> look into this',
+        referenced_message: {
+          author: { username: 'alertbot' },
+          embeds: [{ title: 'API 5xx spike', fields: [{ name: 'Region', value: 'hnd1' }] }],
+        },
+      },
+      'bot',
+      false,
+      dependencies,
+    )
+    expect(calls.rendered[0]).toBe(
+      'In reply to alertbot:\n> API 5xx spike\n> Region: hnd1\n\nlook into this',
+    )
+    expect(quoteDiscordReply({ content: '' }, 'hi')).toBe('hi')
   })
   test('direct mentions bypass the addressing judge', async () => {
     const { calls, dependencies } = setup({ addressed: false })
@@ -233,9 +267,11 @@ describe('Discord collaborative follow-ups', () => {
     expect(calls.turns[0]?.firstMessage).toBe(
       'Please join the conversation using the thread context.',
     )
-    expect(calls.rendered[0]).toContain('Alice is checking DNS.')
-    expect(calls.rendered[0]).toContain('The domain is example.com.')
-    expect(calls.rendered[0]).toContain('not a new instruction or approval')
+    // The thread reaches the model beside the message, never inside what is stored.
+    expect(calls.rendered[0]).toBe('Please join the conversation using the thread context.')
+    expect(calls.turns[0]?.turnContext).toContain('Alice is checking DNS.')
+    expect(calls.turns[0]?.turnContext).toContain('The domain is example.com.')
+    expect(calls.turns[0]?.turnContext).toContain('not a new instruction or approval')
     expect(calls.turns[0]?.actorUserId).toBe('actor')
   })
 

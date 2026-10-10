@@ -181,7 +181,8 @@ export async function preparePreviewTurn(
         images,
       )
   const lastUserText =
-    resumeMessage(args.resume) ?? inputs.map((m) => lastUserMessageText([m])).join('\n\n')
+    resumeMessage(args.resume) ??
+    [args.turnContext, ...inputs.map((m) => lastUserMessageText([m]))].filter(Boolean).join('\n\n')
 
   if (memory) emitRecallStartFrame(args.run, sessionId, requestId, memory.recall)
   const carriedBlock = carried.length > 0 ? `\n\n${renderInjectedUserMessages(carried)}` : ''

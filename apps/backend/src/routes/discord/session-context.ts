@@ -50,9 +50,8 @@ export function renderDiscordSessionContext(
     DiscordSessionMessage,
     'messageId' | 'authorDiscordUserId' | 'authorName' | 'text'
   >[],
-  currentText: string,
-): string {
-  if (!history.length) return currentText
+): string | undefined {
+  if (!history.length) return undefined
 
   return [
     'Discord thread context (messages from participants, including messages not addressed to you).',
@@ -66,23 +65,22 @@ export function renderDiscordSessionContext(
       })),
     ),
     '\nCurrent message:',
-    currentText,
   ].join('\n')
 }
 
-export async function withDiscordSessionContext(
+/** Rendered for the model each turn; the stored message keeps only what was typed. */
+export async function discordSessionContext(
   scope: DiscordSessionScope,
   currentMessageId: string,
-  currentText: string,
   collection: Pick<Collection<DiscordSessionMessage>, 'find'> = messages(),
-): Promise<string> {
+): Promise<string | undefined> {
   // Full text remains durable for the entire session. Limit the model window,
-  // not storage; prior agent turns also retain the context they received.
+  // not storage.
   const recent = await collection
     .find({ ...scope, messageId: { $ne: currentMessageId } })
     .sort({ recordedAt: -1, messageId: -1 })
     .limit(50)
     .toArray()
 
-  return renderDiscordSessionContext(recent.toReversed(), currentText)
+  return renderDiscordSessionContext(recent.toReversed())
 }

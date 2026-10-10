@@ -2,22 +2,14 @@ import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
 import { logError, logEvent } from '@/lib/observability'
 
 import { defaultDependencies } from './message-dependencies'
-import { composeDiscordCarriedText } from './transcript'
+import { quoteDiscordReply } from './message'
+
+import type { DiscordMessageCreate } from './message'
 
 import type { DiscordMessageDependencies } from './message-dependencies'
 
+export type { DiscordMessageCreate } from './message'
 export type { DiscordMessageDependencies } from './message-dependencies'
-
-export type DiscordMessageCreate = {
-  id: string
-  guild_id?: string
-  channel_id: string
-  content?: string
-  author?: { id: string; username?: string; global_name?: string | null; bot?: boolean }
-  member?: { nick?: string | null }
-  webhook_id?: string
-  mentions?: { id: string }[]
-}
 
 function stripBotMention(content: string, botUserId: string): string {
   return content.replace(new RegExp(`<@!?${botUserId}>`, 'g'), '').trim()
@@ -35,7 +27,7 @@ export async function handleDiscordMention(
 ): Promise<void> {
   const {
     recordDiscordSessionMessage,
-    withDiscordSessionContext,
+    discordSessionContext,
     discordDecisions,
     claimDiscordEvent,
     discordAgentThreads,
@@ -54,6 +46,7 @@ export async function handleDiscordMention(
     recordDiscordThreadMessage,
     judgeThreadAddressing,
     buildMessagesForDiscordTurn,
+    createMessageMetadata,
     executeDiscordTurn,
     turnRunner,
   } = dependencies
@@ -226,16 +219,10 @@ export async function handleDiscordMention(
 
       return
     }
-    const renderedText = await withDiscordSessionContext(
-      {
-        sessionId: thread.sessionId,
-        teamId: thread.teamId,
-        guildId: thread.guildId,
-        generation: thread.generation,
-      },
-      event.id,
-      `${senderName} wrote over Discord:\n\n${text}`,
-    )
+    const renderedText = event.referenced_message
+      ? quoteDiscordReply(event.referenced_message, text)
+      : text
+    const metadata = await createMessageMetadata(userMapping.nuphosUserId, 'discord')
     const claim = await turnRunner.claimAgentRunOrEnqueue({
       userId: thread.agentUserId,
       sessionId: thread.sessionId,
@@ -243,6 +230,7 @@ export async function handleDiscordMention(
       message: buildPendingUserMessage({
         renderedText,
         source: 'discord',
+        metadata,
         actorUserId: userMapping.nuphosUserId,
       }),
     })
@@ -267,7 +255,9 @@ export async function handleDiscordMention(
         sessionId: thread.sessionId,
         ownerUserId: thread.agentUserId,
         teamId: thread.teamId,
-        renderedText: composeDiscordCarriedText(claim.carried, renderedText),
+        renderedText,
+        metadata,
+        carried: claim.carried,
       })
 
       await executeDiscordTurn({
@@ -283,6 +273,15 @@ export async function handleDiscordMention(
         nuphosToken: signNuphosToken(userMapping.nuphosUserId, 60 * 60 * 8),
         messages,
         firstMessage: text,
+        turnContext: await discordSessionContext(
+          {
+            sessionId: thread.sessionId,
+            teamId: thread.teamId,
+            guildId: thread.guildId,
+            generation: thread.generation,
+          },
+          event.id,
+        ),
       })
     } finally {
       claim.release()

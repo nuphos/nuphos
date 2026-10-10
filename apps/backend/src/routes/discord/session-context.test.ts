@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { recordDiscordSessionMessage, withDiscordSessionContext } from './session-context'
+import { recordDiscordSessionMessage, discordSessionContext } from './session-context'
 
 import type { DiscordSessionMessage } from './session-context'
 import type { Collection } from 'mongodb'
@@ -71,12 +71,7 @@ describe('durable Discord session context', () => {
         }
       },
     } as unknown as Pick<Collection<DiscordSessionMessage>, 'find'>
-    const rendered = await withDiscordSessionContext(
-      scope,
-      'current',
-      'Alice: please join',
-      collection,
-    )
+    const rendered = (await discordSessionContext(scope, 'current', collection))!
 
     expect(rendered.indexOf('older observation')).toBeLessThan(
       rendered.indexOf('newer observation'),
@@ -84,6 +79,6 @@ describe('durable Discord session context', () => {
     expect(rendered).toContain('"authorDiscordUserId":"older"')
     expect(rendered).toContain('not a new instruction or approval')
     expect(rendered).not.toContain('teamId')
-    expect(rendered).toEndWith('Current message:\nAlice: please join')
+    expect(rendered).toEndWith('Current message:')
   })
 })

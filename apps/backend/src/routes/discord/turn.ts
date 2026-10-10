@@ -26,6 +26,7 @@ export async function executeDiscordTurn(args: {
   nuphosToken: string
   messages: UIMessage[]
   firstMessage: string
+  turnContext?: string
 }): Promise<void> {
   const isConnected = async () => {
     const installation = await discordInstallations().findOne({
@@ -87,6 +88,7 @@ export async function executeDiscordTurn(args: {
       sessionId: args.sessionId,
       messages: args.messages,
       firstMessage: args.firstMessage,
+      ...(args.turnContext ? { turnContext: args.turnContext } : {}),
       source: 'discord.agent',
       frameSink: sink,
     })
