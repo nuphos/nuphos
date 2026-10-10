@@ -16,8 +16,8 @@ import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
 
 // Files the agent produced for the user. Bytes live in the transfer store.
-// Images (click to enlarge) and videos play inline; every file can still be saved
-// via a native dialog (single file) or streamed into a local zip.
+// Images show as thumbnails (saved from the preview) and videos play inline, with
+// no frame around them; any other file is a row saved through a native dialog.
 export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
@@ -114,40 +114,14 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     }
   }
 
-  async function downloadZip() {
-    setBusy('__zip__')
-    try {
-      const r = await api.fileTransferDownloadAllZip({ ...base, zipName: group.label || 'files' })
-
-      if (r.saved && r.path)
-        savedToast('Saved zip', `${String(r.count ?? ready.length)} file(s)`, r.path)
-    } catch (err) {
-      toast.apiError('Download failed', err)
-    } finally {
-      setBusy(null)
-    }
-  }
-
   return (
-    <div className="w-full max-w-[85%] self-start rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2.5">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[11.5px] text-tertiary">
+    <div className="w-full max-w-[85%] self-start">
+      {expired && (
+        <p className="mb-1.5 flex items-center gap-1.5 text-[11.5px] text-tertiary">
           <FileSearch className="h-3 w-3" strokeWidth={2} />
-          {expired
-            ? 'Expired — files are no longer available'
-            : `${String(ready.length)} file${ready.length === 1 ? '' : 's'} ready to download`}
-        </span>
-        {!expired && ready.length > 1 && (
-          <Button
-            variant="primary"
-            onClick={() => void downloadZip()}
-            disabled={busy !== null}
-            className="h-auto rounded px-1.5 py-[4px] text-[10px] font-medium leading-tight"
-          >
-            {busy === '__zip__' ? 'Zipping…' : 'Download all as zip'}
-          </Button>
-        )}
-      </div>
+          Expired — files are no longer available
+        </p>
+      )}
       {hasPreviews ? (
         <TransferPreviews
           teamId={teamId}
