@@ -1,12 +1,8 @@
 import clsx from 'clsx'
-import { RotateCw } from 'lucide-react'
-import { useState } from 'react'
+import { Loader2, RotateCw } from 'lucide-react'
 
-import { api } from '../../api'
 import { Button } from '../../components/ui/button'
-import { toast } from '../../components/ui/toast'
-import { useLocalAgentLatest } from '../../hooks/useAgentUpdates'
-import { localUpdateVersion } from '../../lib/agentUpdate'
+import { useLocalAgentUpdate } from '../../hooks/useAgentUpdates'
 import { useTextSwap } from '../../hooks/useTextSwap'
 
 import { unbundledStatus } from './localAgentBundle'
@@ -18,20 +14,15 @@ import type { AgentCliStatus, DevBundleHint, LocalAgentProvider, LocalAgentState
 
 export const LOCAL_AGENT_CARD = 'rounded-lg border border-zGray-800/70 bg-surface'
 
-const AGENT: Record<
-  LocalAgentProvider,
-  { name: string; command: string; install: string; connectors: string }
-> = {
+const AGENT: Record<LocalAgentProvider, { name: string; install: string; connectors: string }> = {
   'claude-code': {
     name: 'Claude Code',
-    command: 'claude',
     install: 'curl -fsSL https://claude.ai/install.sh | bash',
     connectors:
       'Your own Claude Code settings, CLAUDE.md, hooks, plugins, skills, MCP servers and claude.ai connectors are never loaded.',
   },
   codex: {
     name: 'Codex',
-    command: 'codex',
     install: 'npm install -g @openai/codex',
     connectors: 'Your own Codex config, MCP servers and connectors are never loaded.',
   },
@@ -55,35 +46,22 @@ function Code({ children }: { children: string }) {
   )
 }
 
-/** Runs the CLI's own `update`; a CLI inside an app bundle is updated by that app instead. */
-function UpdateButton({ provider, cli }: { provider: LocalAgentProvider; cli: AgentCliStatus }) {
-  const [updating, setUpdating] = useState(false)
-  const latest = useLocalAgentLatest()[provider]
-  const { name, command } = AGENT[provider]
+/** Shown only when a newer release exists; the update itself is shared with every agent selector. */
+function UpdateButton({ provider }: { provider: LocalAgentProvider }) {
+  const { version, updating, start } = useLocalAgentUpdate(provider)
 
-  if (!cli.installed || cli.bundled) return null
-  const next = localUpdateVersion(cli, latest)
-
-  async function update() {
-    setUpdating(true)
-    try {
-      const state = await api.localRuntimeUpdateAgent(provider)
-      const cli = state.agents[provider].cli
-      const version = cli?.installed ? cli.version : undefined
-
-      toast.success(`${name} is up to date`, version ? `Version ${version}` : undefined)
-    } catch (err) {
-      toast.apiError(`Could not update ${name}`, err, {
-        fallback: `Run \`${command} update\` in a terminal to see why.`,
-      })
-    } finally {
-      setUpdating(false)
-    }
-  }
+  if (!version && !updating) return null
 
   return (
-    <Button size="sm" variant="secondary" disabled={updating} onClick={() => void update()}>
-      {updating ? 'Updating…' : next ? `Update to v${next}` : 'Update'}
+    <Button size="sm" variant="secondary" disabled={updating} onClick={start}>
+      {updating ? (
+        <>
+          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+          Updating…
+        </>
+      ) : (
+        `Update to v${version ?? ''}`
+      )}
     </Button>
   )
 }
@@ -125,7 +103,7 @@ function CliStatus({
           provider={provider}
           label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
         />
-        <UpdateButton provider={provider} cli={cli} />
+        <UpdateButton provider={provider} />
       </div>
     </div>
   )

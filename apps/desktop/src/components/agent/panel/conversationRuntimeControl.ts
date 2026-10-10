@@ -28,6 +28,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   const {
     activeTab: tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,
@@ -136,6 +137,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
 
     return {
       teamId,
+      canUpdateTeamAgents: isTeamAdmin,
       value: {
         id: tab?.runtimeId,
         provider,
@@ -183,6 +185,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     sessionId,
     tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,

@@ -47,6 +47,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
 
   const runtimeControl = {
     teamId,
+    canUpdateTeamAgents: isTeamAdmin,
     value: newConversationRuntime,
     options: runtimeInstances,
     quotas: runtimeQuotas,

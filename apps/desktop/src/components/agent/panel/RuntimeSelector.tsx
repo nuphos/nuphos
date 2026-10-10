@@ -19,6 +19,7 @@ import {
 } from '../../ui/menu'
 import { Tooltip } from '../../ui/tooltip'
 
+import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
 
 import type { QuotaTone } from '../../../lib/runtimeQuota'
@@ -27,6 +28,8 @@ import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 export type RuntimeControl = {
   /** Lets the selector ask each agent whether an update is available. */
   teamId?: string
+  /** A team agent's update can be started from the list. */
+  canUpdateTeamAgents?: boolean
   value: {
     id?: string
     provider: RuntimeInstance['provider']
@@ -104,6 +107,7 @@ function runtimeOptionNote(instance: RuntimeInstance): string {
 
 export function RuntimeSelector({
   teamId,
+  canUpdateTeamAgents,
   value,
   options = [],
   quota,
@@ -126,7 +130,8 @@ export function RuntimeSelector({
     : loading
       ? 'Loading agents…'
       : 'Choose agent'
-  const updates = useAgentUpdates(teamId, options)
+  const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
+  const selectedUpdate = value?.id ? updates.get(value.id) : undefined
   const selectedQuota = quota ?? (value?.id ? quotas?.get(value.id) : undefined)
   const [usageWaitExpired, setUsageWaitExpired] = useState<string | undefined>()
 
@@ -155,14 +160,7 @@ export function RuntimeSelector({
       ) : (
         <span className="max-w-40 truncate">{label}</span>
       )}
-      {value?.id && updates.has(value.id) && (
-        <Tooltip content="Update available">
-          <span
-            aria-label="Update available"
-            className="h-1.5 w-1.5 shrink-0 rounded-full bg-zViolet-400"
-          />
-        </Tooltip>
-      )}
+      {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
       {usageLoading ? (
         <span
@@ -228,6 +226,7 @@ export function RuntimeSelector({
                 {index > 0 && <MenuSeparator />}
                 <MenuGroupLabel>{group.title}</MenuGroupLabel>
                 {group.agents.map((instance) => {
+                  const update = updates.get(instance.id)
                   const needsLocalLogin =
                     (instance.provider === 'claude-code' || instance.provider === 'codex') &&
                     agentTier(instance, owner) === 'local' &&
@@ -253,13 +252,13 @@ export function RuntimeSelector({
                       }}
                     >
                       <span className="flex min-w-0 flex-col">
-                        <span className="truncate">{agentName(instance, owner)}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate">{agentName(instance, owner)}</span>
+                          {update && <AgentUpdateBadge update={update} actionable />}
+                        </span>
                         <span className="text-[11px] text-tertiary">
                           {AGENT_PROVIDER[instance.provider].label}
                           {runtimeOptionNote(instance)}
-                          {updates.has(instance.id) && (
-                            <span className="text-zViolet-400"> · Update available</span>
-                          )}
                           <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
                         </span>
                       </span>
