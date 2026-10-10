@@ -1,15 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { runInNewContext } from 'node:vm'
-import {
-  COMPUTER_USE_PERMISSION_SCRIPT,
-  nuphosAuthorizeComputerUse,
-} from './computer-use-permission.mjs'
+import { nuphosAuthorizeComputerUse } from './computer-use-permission.mjs'
 
 const authorize = (platform) =>
   runInNewContext(`(${nuphosAuthorizeComputerUse.toString()})`, {
-    process: { platform },
-    COMPUTER_USE_PERMISSION_SCRIPT,
+    process: { platform, env: { NUPHOS_CUA_PERMISSION_CLIENT: '/bundle/cua-permission' } },
   })
 const cua = { _meta: { connector_id: 'computer-use' } }
 
@@ -30,8 +26,8 @@ test('CUA waits for consent and receives cancellation signal without a handshake
   const controller = new AbortController()
   let done = false
   const pending = authorize('darwin')(cua, controller.signal, (command, args, options) => {
-    assert.equal(command, '/usr/bin/osascript')
-    assert.equal(args[3], COMPUTER_USE_PERMISSION_SCRIPT)
+    assert.equal(command, '/bundle/cua-permission')
+    assert.equal(args.length, 0)
     assert.equal(options.signal, controller.signal)
     assert.equal(options.timeout, undefined)
     return consent

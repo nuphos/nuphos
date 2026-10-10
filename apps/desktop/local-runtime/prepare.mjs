@@ -167,6 +167,23 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         verbatimSymlinks: true,
         filter: (path) => !path.endsWith('.complete'),
       })
+    if (target.startsWith('darwin')) {
+      const arch = target.endsWith('arm64') ? 'arm64' : 'x86_64'
+
+      run(
+        'xcrun',
+        [
+          'swiftc',
+          '-O',
+          '-target',
+          `${arch}-apple-macosx12.0`,
+          join(desktopDir, 'local-runtime', 'computer-use-permission.swift'),
+          '-o',
+          join(out, 'cua-permission'),
+        ],
+        desktopDir,
+      )
+    }
     const binary = skipOpenab ? null : (openab ?? buildOpenab(target))
 
     if (binary) {

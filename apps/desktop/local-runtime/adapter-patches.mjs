@@ -1,7 +1,4 @@
-import {
-  COMPUTER_USE_PERMISSION_SCRIPT,
-  nuphosAuthorizeComputerUse,
-} from './computer-use-permission.mjs'
+import { nuphosAuthorizeComputerUse } from './computer-use-permission.mjs'
 import { nuphosDesktopClaudeEnv } from './claude-session-env.mjs'
 import { nuphosLocalSyncSkills } from './skills-sync.mjs'
 
@@ -61,10 +58,7 @@ export function patchDesktopAdapter(source, provider) {
       ? `import { constants as nuphosDesktopFs, mkdirSync as nuphosDesktopMkdir, writeFileSync as nuphosDesktopWrite } from 'node:fs';\nimport { join as nuphosDesktopJoin } from 'node:path';\n${nuphosDesktopClaudeEnv.toString()}\n`
       : ''
 
-  const computerUse =
-    provider === 'codex'
-      ? `const COMPUTER_USE_PERMISSION_SCRIPT = ${JSON.stringify(COMPUTER_USE_PERMISSION_SCRIPT)};\n${nuphosAuthorizeComputerUse.toString()}\n`
-      : ''
+  const computerUse = provider === 'codex' ? `${nuphosAuthorizeComputerUse.toString()}\n` : ''
 
   return `${shebang}${computerUse}${claudeEnv}${nuphosLocalSyncSkills.toString()}\n${patched.slice(shebang.length)}`
 }

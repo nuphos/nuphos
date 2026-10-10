@@ -11,7 +11,7 @@ export const PATCH_SOURCES = [
   'claude-session-env.mjs',
   'computer-use-permission.mjs',
 ]
-export const STAMP_SOURCES = ['prepare.mjs', ...PATCH_SOURCES]
+export const STAMP_SOURCES = ['prepare.mjs', 'computer-use-permission.swift', ...PATCH_SOURCES]
 /** The runtime image's adapters, staged as the image stages them. */
 export const RUNTIME_DIR = join(here, '../../runtime/image')
 export const RUNTIME_SOURCES = [
