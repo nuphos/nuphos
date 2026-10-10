@@ -95,8 +95,10 @@ Keep the home volume when redeploying: it contains credentials and workspaces.
 The runtime is also published as a one-click marketplace template,
 [Nuphos Agent Runtime](https://railway.com/deploy/nuphos-agent-runtime). It runs the
 public `ghcr.io/nuphos/runtime` image directly instead of building this directory:
-`RAILWAY_RUN_UID=0` and a start command do what `runtime/start.sh` does, and with no
-`OPENAB_ACP_AUTH_KEY` set the console asks for a password on first open. After a
+`RAILWAY_RUN_UID=0` and a start command do what `runtime/start.sh` does.
+`OPENAB_ACP_AUTH_KEY` is a generated template variable
+(`${{secret(64, "abcdef0123456789")}}`), so a fresh deployment is never open for its
+first visitor to claim: read the console password from the service's Variables. After a
 runtime release, update the template's image tag with
 [`railway templates`](https://docs.railway.com/cli/templates). This repository does
 not publish or create Railway resources in CI.
