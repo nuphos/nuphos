@@ -1,11 +1,21 @@
+export type NestedItem<T> = {
+  item: T
+  depth: number
+  /** Per level, whether a later sibling at that level still follows this row. */
+  trail: boolean[]
+  hasChildren: boolean
+}
+
 /**
  * Puts each row right after its parent, one level deeper, keeping the given
  * order among siblings. A row whose parent is not in this list — archived,
  * pinned into another section, or unlinked — is simply a top-level row.
+ * Rows under a folded parent are left out.
  */
 export function nestItems<T extends { key: string; parentKey?: string }>(
   items: readonly T[],
-): { item: T; depth: number }[] {
+  isFolded: (key: string) => boolean = () => false,
+): NestedItem<T>[] {
   const keys = new Set(items.map((item) => item.key))
   const children = new Map<string, T[]>()
 
@@ -14,14 +24,17 @@ export function nestItems<T extends { key: string; parentKey?: string }>(
       children.set(item.parentKey, [...(children.get(item.parentKey) ?? []), item])
     }
   }
-  const nested: { item: T; depth: number }[] = []
-  const visit = (item: T, depth: number) => {
-    nested.push({ item, depth })
-    for (const child of children.get(item.key) ?? []) visit(child, depth + 1)
+  const nested: NestedItem<T>[] = []
+  const visit = (item: T, trail: boolean[]) => {
+    const kids = children.get(item.key) ?? []
+
+    nested.push({ item, depth: trail.length, trail, hasChildren: kids.length > 0 })
+    if (isFolded(item.key)) return
+    kids.forEach((kid, index) => visit(kid, [...trail, index < kids.length - 1]))
   }
 
   for (const item of items) {
-    if (!item.parentKey || !keys.has(item.parentKey)) visit(item, 0)
+    if (!item.parentKey || !keys.has(item.parentKey)) visit(item, [])
   }
 
   return nested
