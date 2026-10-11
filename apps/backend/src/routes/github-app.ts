@@ -136,7 +136,7 @@ githubAppRoutes.post('/webhook', async (c) => {
   } else if (event === 'ping') {
     logEvent('info', 'github.webhook.ping', { delivery })
   } else {
-    logEvent('info', 'github.webhook.ignored', { delivery, event })
+    logEvent('info', 'github.webhook.ignored', { delivery, github_event: event })
   }
 
   // Preserve installation cleanup and existing trigger routing even if resource delivery fails.
