@@ -24,7 +24,7 @@ export function createLocalTerminalTool(devices: LocalExecDevice[], turn: LocalE
         'write sends literal terminal input; append "\\r" to submit a command. read returns bounded recent output, not proof a command completed. ' +
         'The shell persists between calls until the tab closes. Output may contain ANSI codes. ' +
         'Only agent-created terminals in this conversation are accessible. ' +
-        'A request to open a terminal and run a command belongs here: NEVER emulate it by using local_exec to launch or drive an external terminal app. Default to local_exec for isolated commands needing a reliable exit code. Use local_terminal when an interactive or persistent shell, shared input, or a visible terminal is needed. Follow the same local command authorization rules.',
+        'A request to open a terminal and run a command belongs here: NEVER emulate it by using local_exec to launch or drive an external terminal app. Follow the same local command authorization rules.',
       execute: async (input: {
         action: string
         terminalId?: string
