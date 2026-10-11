@@ -23,7 +23,7 @@ const conversation = {
 }
 const payload = {
   installation: { id: 12 },
-  repository: { id: 34 },
+  repository: { id: 34, full_name: 'acme/app' },
   action: 'synchronize',
   pull_request: { number: 56 },
 }
