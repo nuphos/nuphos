@@ -140,8 +140,8 @@ export type AgentActiveRun = {
 
 export type AgentMessageMetadata = {
   version: 1
-  sender: { type: 'user'; id: string; displayName: string; avatarURL?: string }
-  source: 'nuphos' | 'slack' | 'discord' | 'lark'
+  sender: { type: 'user' | 'agent' | 'system'; id: string; displayName: string; avatarURL?: string }
+  source: 'nuphos' | 'slack' | 'discord' | 'lark' | 'agent.thread' | 'agent.resource'
   sentAt: string
 }
 
