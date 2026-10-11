@@ -43,3 +43,12 @@ export function forceReconnect(client: Pick<Redis, 'status' | 'disconnect'>): bo
 
   return true
 }
+
+/**
+ * True when a client has reached `end`. ioredis never leaves that state, so
+ * only a restart brings the replica back. A Redis outage leaves a client
+ * `reconnecting`, not `end`, so this does not flag every replica at once.
+ */
+export function anyClientEnded(clients: (Pick<Redis, 'status'> | null)[]): boolean {
+  return clients.some((client) => client?.status === 'end')
+}

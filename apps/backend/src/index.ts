@@ -1,5 +1,9 @@
 // MUST be the first import: bootstrap.ts awaits telemetry setup at module
-// evaluation, before AWS / GCP / AI SDK imports can capture an unpatched fetch.
+// evaluation, before AWS / GCP / AI SDK imports can capture an unpatched fetch
+// and before any module caches a metric instrument from the no-op meter. It is
+// a bare import because import sorting moves named imports, and did: metrics
+// were never exported while this sat below '@/index-app'.
+import '@/otel/bootstrap'
 
 import { existsSync } from 'node:fs'
 

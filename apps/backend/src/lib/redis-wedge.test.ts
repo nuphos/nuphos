@@ -3,7 +3,12 @@ import net from 'node:net'
 import { describe, expect, test } from 'bun:test'
 import Redis from 'ioredis'
 
-import { REDIS_OP_TIMEOUT_MESSAGE, createRedisWedgeDetector, forceReconnect } from './redis-wedge'
+import {
+  REDIS_OP_TIMEOUT_MESSAGE,
+  anyClientEnded,
+  createRedisWedgeDetector,
+  forceReconnect,
+} from './redis-wedge'
 
 const timeout = () => new Error(REDIS_OP_TIMEOUT_MESSAGE)
 
@@ -97,6 +102,33 @@ describe('forceReconnect', () => {
       expect(forceReconnect(client)).toBe(false)
       await until(() => client.status === 'ready')
       expect(await client.ping()).toBe('PONG')
+      expect(anyClientEnded([client, null])).toBe(false)
+    } finally {
+      client.disconnect()
+      sentinel.close()
+    }
+  })
+})
+
+describe('anyClientEnded', () => {
+  test('flags a client that a disconnect during reconnect ended for good', async () => {
+    const sentinel = await fakeSentinel()
+    const client = new Redis({
+      sentinels: [{ host: '127.0.0.1', port: sentinel.port }],
+      name: 'master',
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => 10,
+    })
+
+    client.on('error', () => {})
+
+    try {
+      await until(() => client.status === 'ready')
+      client.disconnect(true)
+      await until(() => client.status === 'connecting')
+      client.disconnect(true)
+      await until(() => client.status === 'end')
+      expect(anyClientEnded([null, client])).toBe(true)
     } finally {
       client.disconnect()
       sentinel.close()

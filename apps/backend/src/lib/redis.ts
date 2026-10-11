@@ -3,10 +3,16 @@ import { randomBytes } from 'node:crypto'
 import Redis from 'ioredis'
 
 import { config } from '@/config'
-import { errorTelemetryProperties, logEvent } from '@/lib/observability'
+import { isShuttingDown } from '@/lib/lifecycle'
+import { logEvent } from '@/lib/observability'
 import { instrumentRedis } from '@/otel/instrumentation/redis'
 
-import { REDIS_OP_TIMEOUT_MESSAGE, createRedisWedgeDetector, forceReconnect } from './redis-wedge'
+import {
+  REDIS_OP_TIMEOUT_MESSAGE,
+  anyClientEnded,
+  createRedisWedgeDetector,
+  forceReconnect,
+} from './redis-wedge'
 
 import type { RedisOptions } from 'ioredis'
 
@@ -74,36 +80,44 @@ export function redisEnabled(): boolean {
   return config.redis.enabled
 }
 
+// Failures repeat the same few messages, so the stack is left out: on a broken
+// client it multiplied every one of thousands of lines per second.
+function errorFields(err: unknown): { error_name: string; error_message: string } {
+  return err instanceof Error
+    ? { error_name: err.name, error_message: err.message }
+    : { error_name: 'Error', error_message: String(err) }
+}
+
+function newClient(role: 'client' | 'subscriber'): Redis {
+  const client = new Redis(buildOptions())
+
+  client.on('error', (err) => {
+    logEvent('warn', 'redis.client.error', { role, replica_id: replicaId, ...errorFields(err) })
+  })
+  client.on('end', () => {
+    if (isShuttingDown()) return
+    logEvent('error', 'redis.client.ended', { role, replica_id: replicaId })
+  })
+  instrumentRedis(client, { role })
+
+  return client
+}
+
 export function getRedis(): Redis {
-  if (!_client) {
-    _client = new Redis(buildOptions())
-    _client.on('error', (err) => {
-      logEvent('warn', 'redis.client.error', {
-        role: 'client',
-        replica_id: replicaId,
-        ...errorTelemetryProperties(err),
-      })
-    })
-    instrumentRedis(_client, { role: 'client' })
-  }
+  _client ??= newClient('client')
 
   return _client
 }
 
 export function getSubscriber(): Redis {
-  if (!_subscriber) {
-    _subscriber = new Redis(buildOptions())
-    _subscriber.on('error', (err) => {
-      logEvent('warn', 'redis.client.error', {
-        role: 'subscriber',
-        replica_id: replicaId,
-        ...errorTelemetryProperties(err),
-      })
-    })
-    instrumentRedis(_subscriber, { role: 'subscriber' })
-  }
+  _subscriber ??= newClient('subscriber')
 
   return _subscriber
+}
+
+/** Liveness: a client in `end` never reconnects, so the pod must restart. */
+export function redisClientEnded(): boolean {
+  return anyClientEnded([_client, _subscriber])
 }
 
 /** Run a Redis op with a strict timeout. Returns null on disable / timeout / error
@@ -137,10 +151,7 @@ export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T
     return result
   } catch (err) {
     wedge.failure(err)
-    logEvent('warn', 'redis.operation.failed', {
-      replica_id: replicaId,
-      ...errorTelemetryProperties(err),
-    })
+    logEvent('warn', 'redis.operation.failed', { replica_id: replicaId, ...errorFields(err) })
 
     return null
   } finally {
