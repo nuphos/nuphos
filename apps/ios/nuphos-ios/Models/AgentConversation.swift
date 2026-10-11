@@ -174,8 +174,6 @@ struct AgentConversationDetail: Decodable, Sendable {
     let activeRun: ActiveRun?
     let runtimeState: JSONValue?
     let isOwner: Bool?
-    let canCancelRun: Bool?
-    let canRespondToRun: Bool?
     let readOnly: Bool?
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
@@ -189,7 +187,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     let timelineEvents: [TimelineEvent]
 
     private enum CodingKeys: String, CodingKey {
-        case isOwner, canCancelRun, canRespondToRun, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
+        case isOwner, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
     }
 
     init(from decoder: Decoder) throws {
@@ -199,8 +197,6 @@ struct AgentConversationDetail: Decodable, Sendable {
         activeRun = try? c.decodeIfPresent(ActiveRun.self, forKey: .activeRun)
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
-        canCancelRun = try c.decodeIfPresent(Bool.self, forKey: .canCancelRun)
-        canRespondToRun = try c.decodeIfPresent(Bool.self, forKey: .canRespondToRun)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)

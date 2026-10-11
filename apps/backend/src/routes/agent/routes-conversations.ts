@@ -209,8 +209,6 @@ agent.get('/conversations/:sessionId', async (c) => {
     // invisible to the thread — a transient read-only view is the cheaper
     // failure.
     readOnly: slackThreadLookupFailed ? true : conversationForViewer.readOnly,
-    canCancelRun: conversationForViewer.isOwner || activeRun?.actorUserId === userId,
-    canRespondToRun: activeRun?.actorUserId === userId,
     slackThread,
     messages: result.messages.map(serializeMessageDoc),
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,

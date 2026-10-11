@@ -24,8 +24,6 @@ final class ChatSession {
     private(set) var error: String?
     private(set) var queued: [String] = []
     private(set) var isOwner = false
-    private var canCancelRun = false
-    private var canRespondToRun = false
     var canManage: Bool { loaded && isOwner && !readOnly }
     private(set) var readOnly = false
     private(set) var loaded = false
@@ -107,9 +105,9 @@ final class ChatSession {
     private(set) var steeringPending = false
     /// Prevent double submission until this request has a runtime admission or terminal response.
     private var awaitingAdmission = false
-    var canSteer: Bool { canRespondToRun && !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
-    var canReply: Bool { !readOnly && (!isNativeRuntime || (canRespondToRun && allows("reply"))) }
-    var canCancel: Bool { (isOwner || canCancelRun) && !readOnly && !isStopping && (isNativeRuntime ? allows("cancel") : transportStreaming) }
+    var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
+    var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
+    var canCancel: Bool { !readOnly && !isStopping && (isNativeRuntime ? allows("cancel") : transportStreaming) }
     var canSubmit: Bool { loaded && loadError == nil && !readOnly && failedSubmission == nil && !submitting && !awaitingAdmission && !steeringPending && (!isNativeRuntime || isNew || allows("send") || canReply || canSteer) }
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action, at: observations.now) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
@@ -273,8 +271,6 @@ final class ChatSession {
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
-            canCancelRun = detail.canCancelRun ?? false
-        canRespondToRun = detail.canRespondToRun ?? false
             if let t = detail.title, !t.isEmpty { title = t }
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
@@ -827,8 +823,6 @@ final class ChatSession {
 
     private func adoptRuntime(from detail: AgentConversationDetail) {
         isOwner = detail.isOwner ?? false
-        canCancelRun = detail.canCancelRun ?? false
-        canRespondToRun = detail.canRespondToRun ?? false
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
         if let id = detail.runtimeId { runtimeId = id }
