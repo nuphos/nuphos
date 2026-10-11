@@ -84,7 +84,8 @@ Notes:
 - Files and images attached to the message that mentioned you arrive with the
   turn, in the file-transfer store. For an attachment on any other message,
   `attachments[].url` is a signed link that expires within a day: download it
-  (`curl -sSfo "./uploads/$NAME" "$URL"`) and open the file. Read an image
+  (`curl -sSfo ./uploads/attachment-1.png "$URL"`, under a file name you
+  choose, not the one typed into Discord) and open the file. Read an image
   before answering a question about it.
 - To send the user a file or image, push it with the `file-transfer` skill. It
   is attached to this conversation's Discord thread when the turn ends (up to

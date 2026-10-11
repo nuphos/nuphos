@@ -131,7 +131,7 @@ export async function postAgentProducedDiscordFiles(args: {
     if (unattached.length > 0) {
       await sendDiscordMessage(
         args.channelId,
-        `I could not attach ${unattached.join(', ')} here (Discord accepts files up to 10 MB). Download from the conversation in the Nuphos app.`,
+        `I could not attach ${unattached.join(', ')} here. Download from the conversation in the Nuphos app.`,
       )
     }
   } catch (err) {
