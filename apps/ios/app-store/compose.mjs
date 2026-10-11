@@ -78,7 +78,11 @@ for (const [name, s] of Object.entries(shots)) {
   const html = `<!doctype html><meta charset="utf-8"><style>${CSS}</style><div class="bg" style="background-image:url('file://${ui.BUILD}/hero-${s.bg}.png')"></div>
     <div class="copy"><h1>${s.h1}</h1><p>${s.p}</p></div>${s.body}`;
   fs.writeFileSync(`build/html/${name}.html`, html);
-  await p.goto(`file://${process.cwd()}/build/html/${name}.html`); await p.screenshot({ path: `${OUT}/${name}.png` });
+  await p.goto(`file://${process.cwd()}/build/html/${name}.html`);
+  // The first page can be captured before fonts and images settle, which changes the pixels.
+  await p.evaluate(() => Promise.all([document.fonts.ready, ...[...document.images].map((i) => i.decode().catch(() => {}))]));
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: `${OUT}/${name}.png` });
   console.log(name);
 }
 await b.close();
