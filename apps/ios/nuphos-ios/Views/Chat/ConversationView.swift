@@ -11,6 +11,7 @@ struct ConversationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var readerID = UUID()
     @State private var onScreen = false
+    @State private var composerHeight: CGFloat = 0
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
@@ -74,6 +75,7 @@ struct ConversationView: View {
                     ) }
                 }
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
         }
         .onAppear {
             UIEventLog.pageTransition(from: sourcePage, to: "chat")
@@ -260,11 +262,12 @@ struct ConversationView: View {
     @ViewBuilder
     private var transcript: some View {
         #if os(iOS)
-        TranscriptList(rows: rows, submittedRowID: session.lastSubmittedRowID, sessionID: session.sessionId) { row in
+        TranscriptList(rows: rows, submittedRowID: session.lastSubmittedRowID, sessionID: session.sessionId, composerHeight: composerHeight) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
                 .padding(.bottom, rowSpacing(row)))
         }
+        .ignoresSafeArea(.all, edges: .bottom)
         #else
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {

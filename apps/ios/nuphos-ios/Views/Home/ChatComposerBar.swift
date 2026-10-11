@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The composer. Collapsed it is a single capsule; once focused (or holding
-/// text/attachments) it opens into rows: a drag handle, optional controls,
+/// text/attachments) it opens into rows: optional controls,
 /// the input on its own line, attachment tiles, then `+` and send/stop.
 struct ChatComposerBar<Controls: View>: View {
     @Binding var text: String
@@ -28,7 +28,6 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var attachmentError: String?
     @State private var preparingSubmission = false
     @State private var photoItems: [PhotosPickerItem] = []
-    @State private var handleDrag: CGFloat = 0
     @State private var dictation: VoiceDictation?
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
@@ -56,11 +55,6 @@ struct ChatComposerBar<Controls: View>: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
             }
-            if expanded {
-                dragHandle
-                    .transition(.opacity)
-            }
-
             // The controls own the sheets they present (agent setup, pickers).
             // A text field in one of those sheets takes focus from the
             // composer, so the row stays mounted while collapsed; removing it
@@ -71,7 +65,6 @@ struct ChatComposerBar<Controls: View>: View {
                         .padding(.horizontal, 12)
                 }
                 .frame(height: expanded ? nil : 0)
-                .padding(.top, expanded ? -4 : 0)
                 .opacity(expanded ? 1 : 0)
                 .allowsHitTesting(expanded)
                 .accessibilityHidden(!expanded)
@@ -120,10 +113,19 @@ struct ChatComposerBar<Controls: View>: View {
                 .transition(.opacity)
             }
         }
+        .padding(.top, expanded ? 12 : 0)
         // The glass answers a touch anywhere on it, so anywhere on it opens
-        // the input; the buttons and the handle inside still take their own.
+        // the input; the buttons inside still take their own.
         .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onTapGesture { if dictation == nil { focused = true } }
+        // A pull down anywhere on the composer puts the keyboard away. The
+        // keyboard does its own animation, so nothing here follows the finger.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12)
+                .onChanged { value in
+                    if focused, value.translation.height > abs(value.translation.width) { collapse() }
+                }
+        )
         .disabled(preparingSubmission)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
@@ -135,7 +137,6 @@ struct ChatComposerBar<Controls: View>: View {
         .onDisappear(perform: cancelDictation)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-        .offset(y: handleDrag)
         .onChange(of: focused) { _, isFocused in if isFocused { collapsedByUser = false } }
         // A composer leaving the screen takes its keyboard with it. Each page
         // owns its own composer and focus, so a keyboard left up from a
@@ -196,32 +197,6 @@ struct ChatComposerBar<Controls: View>: View {
     #endif
 
     // MARK: Pieces
-
-    /// Tap or pull down to put the keyboard away and fold the composer.
-    /// The drag is free-form: nothing changes until the finger lifts.
-    private var dragHandle: some View {
-        Capsule()
-            .fill(Theme.muted.opacity(0.6))
-            .frame(width: 36, height: 5)
-            .frame(maxWidth: .infinity, minHeight: 28)
-            .contentShape(Rectangle())
-            .onTapGesture { collapse() }
-            .gesture(
-                // Global space: the composer itself moves with the finger,
-                // so a local-space translation would jitter.
-                DragGesture(minimumDistance: 4, coordinateSpace: .global)
-                    .onChanged { value in
-                        handleDrag = max(0, value.translation.height)
-                    }
-                    .onEnded { value in
-                        let shouldClose = value.translation.height > 40 || value.predictedEndTranslation.height > 120
-                        withAnimation(.snappy(duration: 0.25)) { handleDrag = 0 }
-                        if shouldClose { collapse() }
-                    }
-            )
-            .accessibilityLabel("Collapse composer")
-            .accessibilityAddTraits(.isButton)
-    }
 
     private func collapse() {
         focused = false
