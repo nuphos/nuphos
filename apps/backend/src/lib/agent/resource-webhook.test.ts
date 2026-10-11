@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
 
-import { githubResourceEvents, githubStatusCommit } from './resource-webhook'
+import { githubPullState, githubResourceEvents, githubStatusCommit } from './resource-webhook'
 
 const base = { installation: { id: 12 }, repository: { id: 34, full_name: 'acme/app' } }
 
@@ -208,4 +208,37 @@ test('review Apps wake the PR; bot comments still do not', () => {
       issue: { number: 56, pull_request: {} },
     }),
   ).toEqual([])
+})
+
+test('own merges update the linked tag state even though they never wake a session', () => {
+  const previous = config.byos.github.appSlug
+
+  config.byos.github.appSlug = 'nuphos'
+  const merged = {
+    ...base,
+    action: 'closed',
+    sender: { type: 'Bot', login: 'nuphos[bot]' },
+    pull_request: { number: 56, state: 'closed', merged: true },
+  }
+
+  expect(githubResourceEvents('pull_request', merged)).toEqual([])
+  expect(githubPullState('pull_request', merged)).toEqual({
+    key: 'github/12/34/56',
+    state: 'merged',
+  })
+  expect(
+    githubPullState('pull_request', {
+      ...merged,
+      pull_request: { number: 56, state: 'closed', merged: false },
+    })?.state,
+  ).toBe('closed')
+  expect(
+    githubPullState('pull_request', {
+      ...merged,
+      action: 'reopened',
+      pull_request: { number: 56, state: 'open' },
+    })?.state,
+  ).toBe('open')
+  expect(githubPullState('pull_request', { ...merged, action: 'synchronize' })).toBeNull()
+  config.byos.github.appSlug = previous
 })

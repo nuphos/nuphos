@@ -43,7 +43,9 @@ Events without an associated PR do not wake sessions. Write access is read from
 GitHub's collaborator permission API, because `author_association` reports
 private org members as outside contributors. Events from the configured Nuphos
 App bot and bot issue comments are ignored to avoid reply loops, except check
-suite completions: CI results on the agent's own pushes still wake the session. GitHub
+suite completions: CI results on the agent's own pushes still wake the session. A PR
+closing, merging or reopening updates the linked tag's state even when the Nuphos
+App did it; only the wakeup is skipped. GitHub
 must actually deliver a subscribed event; linking does not alter App subscriptions
 or retroactively replay earlier events.
 

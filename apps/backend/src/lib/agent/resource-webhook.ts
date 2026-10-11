@@ -25,7 +25,9 @@ const payloadSchema = z.object({
   }),
   action: z.string().max(100).optional(),
   sender: z.object({ type: z.string(), login: z.string() }).optional(),
-  pull_request: pr.optional(),
+  pull_request: pr
+    .extend({ state: z.string().optional(), merged: z.boolean().optional() })
+    .optional(),
   issue: pr.extend({ pull_request: z.unknown().optional() }).optional(),
   check_suite: z
     .object({ pull_requests: z.array(pr), status: z.string(), conclusion: z.string().nullable() })
@@ -182,6 +184,25 @@ async function statusEvents(commit: NonNullable<ReturnType<typeof githubStatusCo
     }))
 }
 
+/**
+ * The PR state a linked tag should show after an open/close. Unlike wakeups this
+ * includes our own events: agents merge through the App, and a tag that only
+ * refreshed on a wake would stay "open" after every such merge.
+ */
+export function githubPullState(event: string, payload: unknown) {
+  const parsed = payloadSchema.safeParse(payload)
+
+  if (event !== 'pull_request' || !parsed.success) return null
+  const { action, installation, repository, pull_request: pull } = parsed.data
+
+  if (!pull?.state || !['closed', 'reopened'].includes(action ?? '')) return null
+
+  return {
+    key: `github/${String(installation.id)}/${String(repository.id)}/${String(pull.number)}`,
+    state: pull.merged ? 'merged' : pull.state,
+  }
+}
+
 export type ResourceTurn = {
   sessionId: string
   resourceId: string
@@ -190,6 +211,15 @@ export type ResourceTurn = {
 }
 
 export async function routeResourceWebhook(event: string, payload: unknown, deliveryId: string) {
+  const pullState = githubPullState(event, payload)
+
+  if (pullState) {
+    await agentConversations().updateMany(
+      { 'linkedResources.key': pullState.key },
+      { $set: { 'linkedResources.$[resource].state': pullState.state } },
+      { arrayFilters: [{ 'resource.key': pullState.key }] },
+    )
+  }
   const commit = githubStatusCommit(event, payload)
   const events = commit ? await statusEvents(commit) : githubResourceEvents(event, payload)
 
