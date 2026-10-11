@@ -14,12 +14,14 @@ export function SessionResources({
   sessionId,
   titlebar = false,
   onOpen,
+  onOpenTab,
 }: {
   resources: SessionResource[]
   teamId: string
   sessionId: string
   titlebar?: boolean
   onOpen?: (url: string, external: boolean) => void
+  onOpenTab?: (tabId: string) => void
 }) {
   const processes = useSessionTerminalProcesses(sessionId)
   const ResourceLabel = titlebar ? 'button' : 'span'
@@ -141,15 +143,23 @@ export function SessionResources({
           </span>
         )
       })}
-      {processes.map((name) => (
-        <span
-          key={name}
-          className={`inline-flex min-w-0 max-w-40 items-center gap-1 text-secondary ${titlebar ? 'shrink-0 rounded border border-[var(--sidebar-overlay-active)] px-1.5 py-0.5' : ''}`}
+      {processes.map(({ tabId, name }) => (
+        <ResourceLabel
+          key={tabId}
+          onPointerDown={(event) => {
+            if (titlebar) event.stopPropagation()
+          }}
+          onClick={(event) => {
+            if (!titlebar) return
+            event.stopPropagation()
+            onOpenTab?.(tabId)
+          }}
+          className={`inline-flex min-w-0 max-w-40 items-center gap-1 text-secondary ${titlebar ? 'shrink-0 rounded border border-[var(--sidebar-overlay-active)] px-1.5 py-0.5 transition-colors hover:bg-[var(--sidebar-overlay-hover)] active:bg-[var(--sidebar-overlay-active)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-current' : ''}`}
           title={name}
         >
           <Terminal className="size-3 shrink-0" />
           <span className="truncate">{name}</span>
-        </span>
+        </ResourceLabel>
       ))}
     </div>
   )

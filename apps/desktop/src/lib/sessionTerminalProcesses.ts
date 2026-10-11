@@ -4,17 +4,20 @@ import { api } from '../api'
 
 import type { WorkspaceStore } from '../app/workspace/store/workspaceStore'
 
-const sources = new Map<WorkspaceStore, Record<string, string[]>>()
+/** A dock terminal tab with a foreground command, keyed by tab so it can be focused. */
+export type TerminalProcess = { tabId: string; name: string }
+
+const sources = new Map<WorkspaceStore, Record<string, TerminalProcess[]>>()
 const listeners = new Set<() => void>()
-const empty: string[] = []
-let snapshot: Record<string, string[]> = {}
+const empty: TerminalProcess[] = []
+let snapshot: Record<string, TerminalProcess[]> = {}
 
 function publish() {
-  const next: Record<string, string[]> = {}
+  const next: Record<string, TerminalProcess[]> = {}
 
   for (const sessions of sources.values()) {
-    for (const [sessionId, names] of Object.entries(sessions)) {
-      next[sessionId] = [...new Set([...(next[sessionId] ?? []), ...names])]
+    for (const [sessionId, processes] of Object.entries(sessions)) {
+      next[sessionId] = [...(next[sessionId] ?? []), ...processes]
     }
   }
   if (JSON.stringify(next) === JSON.stringify(snapshot)) return
@@ -27,7 +30,7 @@ export function observeTerminalProcesses(store: WorkspaceStore): () => void {
   let stopped = false
   let timer: ReturnType<typeof setTimeout>
   const poll = async () => {
-    const sessions: Record<string, string[]> = {}
+    const sessions: Record<string, TerminalProcess[]> = {}
     const buckets = store.getState().buckets
     const tabSessions = new Map<string, string>()
 
@@ -44,7 +47,7 @@ export function observeTerminalProcesses(store: WorkspaceStore): () => void {
 
           if (sessionId) {
             sessions[sessionId] ??= []
-            sessions[sessionId].push(process.name)
+            sessions[sessionId].push({ tabId: process.id, name: process.name })
           }
         }
       }
@@ -67,7 +70,7 @@ export function observeTerminalProcesses(store: WorkspaceStore): () => void {
   }
 }
 
-export function useSessionTerminalProcesses(sessionId: string): string[] {
+export function useSessionTerminalProcesses(sessionId: string): TerminalProcess[] {
   return useSyncExternalStore(
     (notify) => {
       listeners.add(notify)

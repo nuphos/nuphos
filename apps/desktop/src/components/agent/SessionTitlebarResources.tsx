@@ -9,10 +9,12 @@ export function SessionTitlebarResources({
   sessionId,
   teamId,
   onOpen,
+  onOpenTab,
 }: {
   sessionId: string
   teamId: string
   onOpen: (url: string, external: boolean) => void
+  onOpenTab: (tabId: string) => void
 }) {
   const [resources, setResources] = useState<SessionResource[]>([])
 
@@ -43,6 +45,7 @@ export function SessionTitlebarResources({
       sessionId={sessionId}
       teamId={teamId}
       onOpen={onOpen}
+      onOpenTab={onOpenTab}
     />
   )
 }

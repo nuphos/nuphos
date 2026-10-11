@@ -91,6 +91,13 @@ export function WorkspaceAgentPane({
     (sessionId: string | null) => workspaceActions.selectSession(sessionId, { keepMainPage: true }),
     [workspaceActions],
   )
+  const openDockTab = useCallback(
+    (tabId: string) => {
+      workspaceActions.activateTab(tabId)
+      workspaceActions.setDockOpen(true)
+    },
+    [workspaceActions],
+  )
   const handleOpenAgentSettings = useCallback(
     () => openSettingsSection('workspace.agent'),
     [openSettingsSection],
@@ -204,6 +211,7 @@ export function WorkspaceAgentPane({
                 sessionId={selectedSessionId}
                 teamId={teamId}
                 onOpen={stableOpenSessionResource}
+                onOpenTab={openDockTab}
               />
             )}
           </div>
