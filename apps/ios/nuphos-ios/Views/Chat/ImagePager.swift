@@ -3,7 +3,8 @@ import SwiftUI
 import UIKit
 
 /// Full-screen image preview. Swiping sideways steps through the group and
-/// wraps at either end, a pinch zooms, and a pull down closes it.
+/// wraps at either end, a pinch zooms, and a pull down closes it. Whichever
+/// way a drag starts decides which of those it is.
 struct ImagePager: View {
     let urls: [URL]
     @State var current: URL
@@ -47,7 +48,13 @@ private struct Pages: UIViewControllerRepresentable {
         let pager = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: [.interPageSpacing: 16])
         pager.dataSource = context.coordinator
         pager.delegate = context.coordinator
-        pager.setViewControllers([context.coordinator.page(current)], direction: .forward, animated: false)
+        pager.setViewControllers([ZoomPage(url: current)], direction: .forward, animated: false)
+        // One touch, one axis: the paging scroll view waits for the pull to
+        // decline, and the pull only takes drags that start mostly downward.
+        let pull = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pull(_:)))
+        pull.delegate = context.coordinator
+        pager.view.addGestureRecognizer(pull)
+        for case let scroll as UIScrollView in pager.view.subviews { scroll.panGestureRecognizer.require(toFail: pull) }
         return pager
     }
 
@@ -55,19 +62,42 @@ private struct Pages: UIViewControllerRepresentable {
         context.coordinator.parent = self
     }
 
-    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIGestureRecognizerDelegate {
         var parent: Pages
         init(_ parent: Pages) { self.parent = parent }
 
-        func page(_ url: URL) -> ZoomPage {
-            ZoomPage(url: url, pull: { [weak self] in self?.parent.pull = $0 }, close: { [weak self] in self?.parent.close() })
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer,
+                  let page = (pan.view?.next as? UIPageViewController)?.viewControllers?.first as? ZoomPage,
+                  !page.isZoomed else { return false }
+            let velocity = pan.velocity(in: pan.view)
+            return velocity.y > abs(velocity.x)
+        }
+
+        /// The image follows the finger and shrinks a little; letting go far
+        /// enough down, or with a flick, closes the preview.
+        @objc func pull(_ pan: UIPanGestureRecognizer) {
+            guard let page = (pan.view?.next as? UIPageViewController)?.viewControllers?.first?.view else { return }
+            let offset = pan.translation(in: pan.view)
+            switch pan.state {
+            case .changed:
+                let scale = 1 - min(max(offset.y, 0) / 300, 1) * 0.3
+                page.transform = CGAffineTransform(translationX: offset.x, y: offset.y).scaledBy(x: scale, y: scale)
+                parent.pull = max(offset.y, 0)
+            case .ended where offset.y > 100 || pan.velocity(in: pan.view).y > 800:
+                parent.close()
+            case .ended, .cancelled:
+                UIView.animate(withDuration: 0.25) { page.transform = .identity }
+                withAnimation(.snappy(duration: 0.25)) { parent.pull = 0 }
+            default: break
+            }
         }
 
         /// The neighbour `step` away, wrapping past either end.
         private func neighbour(of controller: UIViewController, step: Int) -> UIViewController? {
             let urls = parent.urls
             guard urls.count > 1, let index = urls.firstIndex(of: (controller as! ZoomPage).url) else { return nil }
-            return page(urls[(index + step + urls.count) % urls.count])
+            return ZoomPage(url: urls[(index + step + urls.count) % urls.count])
         }
 
         func pageViewController(_ pager: UIPageViewController, viewControllerBefore controller: UIViewController) -> UIViewController? {
@@ -84,19 +114,17 @@ private struct Pages: UIViewControllerRepresentable {
     }
 }
 
-/// One image in a scroll view: the scroll view's own zoom and vertical bounce
-/// give the pinch and the finger-following pull.
+/// One image in a scroll view, for the pinch. Until it is zoomed there is
+/// nothing to pan, so its own pan stays out of the way of paging and the pull.
 private final class ZoomPage: UIViewController, UIScrollViewDelegate {
     let url: URL
-    private let pull: (CGFloat) -> Void
-    private let close: () -> Void
     private let scroll = UIScrollView()
     private let image = UIImageView()
 
-    init(url: URL, pull: @escaping (CGFloat) -> Void, close: @escaping () -> Void) {
+    var isZoomed: Bool { scroll.zoomScale > 1 }
+
+    init(url: URL) {
         self.url = url
-        self.pull = pull
-        self.close = close
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -108,7 +136,7 @@ private final class ZoomPage: UIViewController, UIScrollViewDelegate {
         scroll.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         scroll.delegate = self
         scroll.maximumZoomScale = 4
-        scroll.alwaysBounceVertical = true
+        scroll.panGestureRecognizer.isEnabled = false
         scroll.showsVerticalScrollIndicator = false
         scroll.showsHorizontalScrollIndicator = false
         scroll.contentInsetAdjustmentBehavior = .never
@@ -123,12 +151,8 @@ private final class ZoomPage: UIViewController, UIScrollViewDelegate {
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? { image }
 
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.zoomScale == 1 { pull(max(0, -scrollView.contentOffset.y)) }
-    }
-
-    func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-        if scrollView.zoomScale == 1, scrollView.contentOffset.y < -80 || velocity.y < -1 { close() }
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        scrollView.panGestureRecognizer.isEnabled = isZoomed
     }
 }
 #endif
