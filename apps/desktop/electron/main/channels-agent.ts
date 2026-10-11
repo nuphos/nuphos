@@ -86,6 +86,8 @@ export const agentChannels = {
     archived: boolean,
     teamId?: string,
   ) => agent.setConversationArchived(sessionId, archived, teamId),
+  'agent:unlinkConversationParent': (_e: unknown, sessionId: string, teamId?: string) =>
+    agent.unlinkConversationParent(sessionId, teamId),
   'agent:cancelRuntime': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.cancelRuntime(sessionId, teamId),
   'agent:steerConversation': (_e: unknown, ...args: Parameters<typeof agent.steerConversation>) =>

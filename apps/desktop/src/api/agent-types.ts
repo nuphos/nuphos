@@ -55,6 +55,8 @@ export type AgentConversation = {
   lastActiveAt: string
   /** Owner-set archive marker; conversation stays intact and listable. */
   archivedAt?: string
+  /** The conversation that opened this one as a thread; the sidebar nests it there. */
+  parentSessionId?: string
   /** This conversation is backed by a long-lived Claude Code runtime session. */
   claudeCodeRuntimeAttached?: boolean
   agentRuntime?: AgentProvider

@@ -46,6 +46,9 @@ export function chatSidebarItem({
     enabled: true,
     active,
     ...(readOnly ? { readOnlyChat: true } : {}),
+    ...(conversation.parentSessionId
+      ? { parentKey: `agent-session:${conversation.parentSessionId}` }
+      : {}),
     href: pageLocationForNavigation(
       emptyNavigation({ kind: 'team', teamId }, 'team.agent', {
         agentSessionId: conversation.sessionId,

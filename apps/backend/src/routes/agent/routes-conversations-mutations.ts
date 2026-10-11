@@ -9,6 +9,7 @@ import {
   setConversationArchived,
   setMessageFeedback,
   syncConversationTranscript,
+  unlinkConversationParent,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
 import { conversationAccess } from '@/lib/agent/db/access'
@@ -161,6 +162,15 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   }
 
   return c.json({ ok: true, archived: body.archived })
+})
+
+agent.delete('/conversations/:sessionId/parent', async (c) => {
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+  const found = await unlinkConversationParent(c.req.param('sessionId'), c.get('userId'), teamId)
+
+  if (!found) throw new AppError(404, 'not_found', 'Conversation not found')
+
+  return c.json({ ok: true })
 })
 
 agent.put('/conversations/:sessionId/transcript', async (c) => {

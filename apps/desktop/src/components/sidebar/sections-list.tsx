@@ -1,9 +1,8 @@
 import clsx from 'clsx'
-import { Archive, Pencil, ChevronDown, ChevronRight, Star, StarOff } from 'lucide-react'
+import { ChevronDown, ChevronRight, Star } from 'lucide-react'
 
-import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
+import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
-import { ContextMenu } from '../ContextMenu'
 import {
   SIDEBAR_GROUP_GAP_CLASS,
   SIDEBAR_GROUP_ITEMS_CLASS,
@@ -13,6 +12,7 @@ import {
 } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
+import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
 import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
@@ -20,12 +20,6 @@ import { isSidebarItemActive } from './types'
 import type { Item, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
-
-function favoriteToggleTitle(chatRow: boolean, favorited: boolean): string {
-  if (chatRow) return favorited ? 'Unpin chat' : 'Pin chat'
-
-  return favorited ? 'Remove from Favorites' : 'Add to Favorites'
-}
 
 function favoriteToggleAriaLabel(chatRow: boolean, favorited: boolean, label: string): string {
   if (chatRow) return `${favorited ? 'Unpin' : 'Pin'} ${label}`
@@ -112,7 +106,7 @@ export function SidebarSectionList({
                 {section.loading ? (
                   <SidebarSectionSkeleton />
                 ) : (
-                  section.items.map((item) => {
+                  nestItems(section.items).map(({ item, depth }) => {
                     const Icon = item.icon
                     const isActive =
                       item.enabled &&
@@ -219,7 +213,12 @@ export function SidebarSectionList({
                         )}
                         data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                       >
-                        <div className="t-collapse-inner t-stagger-line">{row}</div>
+                        <div
+                          className="t-collapse-inner t-stagger-line"
+                          style={depth ? { paddingLeft: depth * 12 } : undefined}
+                        >
+                          {row}
+                        </div>
                       </div>
                     ) : (
                       <div key={item.key}>{row}</div>
@@ -232,67 +231,5 @@ export function SidebarSectionList({
         </div>
       ))}
     </>
-  )
-}
-
-export function SidebarItemContextMenu({
-  menu,
-  onClose,
-  canFavorite,
-  favoriteMatch,
-  toggleFavorite,
-  archiveChat,
-  renameChat,
-}: {
-  menu: { x: number; y: number; item: Item }
-  onClose: () => void
-  canFavorite: (item: Item) => boolean
-  favoriteMatch: (item: Item) => SidebarFavorite | undefined
-  toggleFavorite: (item: Item) => void
-  renameChat: (sessionId: string, title: string) => void
-  archiveChat: (sessionId: string) => Promise<void>
-}) {
-  return (
-    <ContextMenu
-      x={menu.x}
-      y={menu.y}
-      onClose={onClose}
-      items={[
-        ...(canFavorite(menu.item)
-          ? [
-              favoriteMatch(menu.item)
-                ? {
-                    key: 'unfavorite',
-                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, true),
-                    icon: StarOff,
-                    onSelect: () => toggleFavorite(menu.item),
-                  }
-                : {
-                    key: 'favorite',
-                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, false),
-                    icon: Star,
-                    onSelect: () => toggleFavorite(menu.item),
-                  },
-            ]
-          : []),
-        ...(menu.item.key.startsWith('agent-session:') && !menu.item.readOnlyChat
-          ? [
-              {
-                key: 'rename',
-                label: 'Rename chat',
-                icon: Pencil,
-                onSelect: () =>
-                  renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
-              },
-              {
-                key: 'archive',
-                label: 'Archive chat',
-                icon: Archive,
-                onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
-              },
-            ]
-          : []),
-      ]}
-    />
   )
 }

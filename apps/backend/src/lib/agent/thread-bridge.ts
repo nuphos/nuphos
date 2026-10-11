@@ -73,6 +73,7 @@ export async function createAgentThread(actor: ThreadActor, prompt: string, titl
     agentRuntime: source.agentRuntime,
     runtimeId: source.runtimeId,
     runtimeLabel: source.runtimeLabel,
+    parentSessionId: actor.sessionId,
   })
   try {
     await enqueueThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })

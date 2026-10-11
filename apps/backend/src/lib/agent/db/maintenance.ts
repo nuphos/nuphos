@@ -45,6 +45,20 @@ export async function renameConversation(
   return result.matchedCount > 0
 }
 
+// Stops nesting a thread under the conversation that opened it.
+export async function unlinkConversationParent(
+  sessionId: string,
+  userId: string,
+  teamId: string | undefined,
+): Promise<boolean> {
+  const result = await agentConversations().updateOne(
+    withTeamScope({ sessionId, userId }, teamId),
+    { $unset: { parentSessionId: '' } },
+  )
+
+  return result.matchedCount > 0
+}
+
 // Prefix marking an in-flight claim — see `ensureConversationTraceParent`. Stored
 // values starting with this prefix are not valid native parent references
 // and must not be returned to callers.

@@ -38,6 +38,8 @@ export type Item = {
    * row's menu offers neither. Pinning still works: that is the viewer's own.
    */
   readOnlyChat?: boolean
+  /** The row this one nests under when both are in the same section. */
+  parentKey?: string
 }
 
 export type Section = {

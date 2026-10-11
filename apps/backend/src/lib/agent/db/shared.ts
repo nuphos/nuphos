@@ -103,6 +103,7 @@ export type AgentConversation = {
   readSeq?: number
   compactionSummary?: string
   compactionMessageCount?: number
+  parentSessionId?: string // Opener via create_thread; the sidebar nests under it until unlinked.
   // Native Mongo parent reference. Legacy vendor fields remain untouched in
   // stored documents but are not read or reused by the native tracer.
   conversationTraceParent?: string

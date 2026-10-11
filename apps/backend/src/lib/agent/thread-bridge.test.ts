@@ -78,6 +78,7 @@ describe('conversation-scoped thread tools', () => {
       runtimeId: 'runtime-1',
       credentialAccess: access,
       sessionId: result.threadId,
+      parentSessionId: 'source',
     })
     expect(jobs[0]).toMatchObject({
       ...actor,
