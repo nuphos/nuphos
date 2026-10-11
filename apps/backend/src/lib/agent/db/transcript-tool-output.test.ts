@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+
 import { withoutToolOutputs } from './transcript-tool-output'
 
 test('a tool result is not stored, but the tool still reads as completed', () => {
@@ -7,7 +8,7 @@ test('a tool result is not stored, but the tool still reads as completed', () =>
     toolCallId: 'read',
     toolName: 'Read File',
     state: 'output-available',
-    input: { file_path: '/tmp/shot.png' },
+    input: { file_path: 'screenshots/shot.png' },
     output: [{ type: 'image', source: { type: 'base64', data: 'AAAA' } }],
     completedAt: 1,
   }
@@ -25,7 +26,7 @@ test('a tool result is not stored, but the tool still reads as completed', () =>
       toolCallId: 'read',
       toolName: 'Read File',
       state: 'output-available',
-      input: { file_path: '/tmp/shot.png' },
+      input: { file_path: 'screenshots/shot.png' },
       completedAt: 1,
     },
     { type: 'tool-exec', toolCallId: 'exec', state: 'output-error', errorText: 'exit 1' },
