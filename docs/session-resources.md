@@ -35,8 +35,8 @@ routing events. Enable the corresponding events on the installed GitHub App:
   App that reports checks has its own suite, so a push can wake a session once per
   App; the agent reads the PR's current state on every wake.
 - Status: success, failure or error. A commit status names a commit, not a PR, so
-  when the repository has a linked PR the router asks GitHub which PRs hold that
-  commit; pending statuses are ignored.
+  when the repository has a linked PR the router asks GitHub which open PRs have
+  that commit as their head; pending statuses are ignored.
 
 The router matches the installation ID, stable repository ID and PR number.
 Events without an associated PR do not wake sessions. Write access is read from
