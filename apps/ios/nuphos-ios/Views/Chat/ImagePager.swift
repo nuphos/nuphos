@@ -9,15 +9,16 @@ struct ImagePager: View {
     let urls: [URL]
     @State var current: URL
     @State private var pull: CGFloat = 0
+    @State private var closing = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        Pages(urls: urls, current: $current, pull: $pull, close: { dismiss() })
+        Pages(urls: urls, current: $current, pull: $pull, close: close)
             .ignoresSafeArea()
             .background(Color.black.opacity(1 - min(pull / 300, 0.6)).ignoresSafeArea())
             .overlay(alignment: .top) {
                 HStack {
-                    Button("Done", systemImage: "xmark") { dismiss() }
+                    Button("Done", systemImage: "xmark", action: close)
                     Spacer()
                     if urls.count > 1, let index = urls.firstIndex(of: current) {
                         Text(verbatim: "\(index + 1) / \(urls.count)").monospacedDigit()
@@ -32,7 +33,19 @@ struct ImagePager: View {
                 .padding(.top, 8)
                 .opacity(pull > 0 ? 0 : 1)
             }
+            .opacity(closing ? 0 : 1)
             .presentationBackground(.clear)
+    }
+
+    /// Fades out where it is; the cover's own slide down is skipped.
+    private func close() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            closing = true
+        } completion: {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { dismiss() }
+        }
     }
 }
 
@@ -54,7 +67,9 @@ private struct Pages: UIViewControllerRepresentable {
         let pull = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pull(_:)))
         pull.delegate = context.coordinator
         pager.view.addGestureRecognizer(pull)
-        for case let scroll as UIScrollView in pager.view.subviews { scroll.panGestureRecognizer.require(toFail: pull) }
+        let scrolls = pager.view.subviews.compactMap { $0 as? UIScrollView }
+        assert(!scrolls.isEmpty, "UIPageViewController no longer exposes its paging scroll view")
+        for scroll in scrolls { scroll.panGestureRecognizer.require(toFail: pull) }
         return pager
     }
 
