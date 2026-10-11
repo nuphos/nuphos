@@ -16,10 +16,10 @@ struct ImagePager: View {
             .background(Color.black.opacity(1 - min(pull / 300, 0.6)).ignoresSafeArea())
             .overlay(alignment: .top) {
                 HStack {
-                    Button("Close", systemImage: "xmark") { dismiss() }
+                    Button("Done", systemImage: "xmark") { dismiss() }
                     Spacer()
                     if urls.count > 1, let index = urls.firstIndex(of: current) {
-                        Text("\(index + 1) / \(urls.count)").monospacedDigit()
+                        Text(verbatim: "\(index + 1) / \(urls.count)").monospacedDigit()
                     }
                     Spacer()
                     ShareLink(item: current) { Image(systemName: "square.and.arrow.up") }

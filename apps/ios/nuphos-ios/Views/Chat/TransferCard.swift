@@ -137,8 +137,12 @@ struct TransferCard: View {
             }
             previewItems = (file.isImage ? images : [file]).compactMap { locals[$0.id] }
             #if os(iOS)
-            if file.isImage {
-                pagerStart = locals[file.id]
+            // The pager shows what UIImage decodes; anything else (an SVG,
+            // say) stays with Quick Look.
+            let decodable = previewItems.filter { UIImage(contentsOfFile: $0.path) != nil }
+            if file.isImage, let start = locals[file.id], decodable.contains(start) {
+                previewItems = decodable
+                pagerStart = start
                 return
             }
             #endif
