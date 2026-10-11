@@ -6,6 +6,7 @@ import {
   sessionResourceInput,
   unlinkSessionResource,
 } from '@/lib/agent/session-resources'
+import { sessionResources } from '@/lib/agent/session-thread-resources'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
@@ -28,7 +29,8 @@ export function sessionResourceToolModule(): PreviewToolModule {
       },
       {
         name: 'list_session_resources',
-        description: 'List the external resources linked to this conversation.',
+        description:
+          'List the external resources linked to this conversation, including its Slack or Discord thread.',
         inputSchema: toolInputJsonSchema(list),
       },
       {
@@ -51,7 +53,7 @@ export function sessionResourceToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult({ resources: (await resourceConversation(ctx)).linkedResources ?? [] })
+        return toolResult({ resources: await sessionResources(await resourceConversation(ctx)) })
       },
       unlink_session_resource: async (args) => {
         const parsed = unlink.safeParse(args)

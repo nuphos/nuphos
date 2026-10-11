@@ -2,9 +2,11 @@ import { buildConversationOwnerMap, serializeConversationForViewer } from './con
 import { getLocalActiveAgentRun } from './run-registry'
 
 import type { AgentConversation } from '@/lib/agent/db'
+import type { SessionThreadResource } from '@/lib/agent/session-thread-resources'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadsBySessionIds } from '@/lib/slack/agent-bot'
@@ -49,8 +51,9 @@ export async function serializeConversationList<T extends ListedConversation>(
   viewer: Parameters<typeof serializeConversationForViewer>[1],
   teamId: string | undefined,
 ): Promise<Record<string, unknown>[]> {
+  const sessionIds = conversations.map((conversation) => conversation.sessionId)
   const slackThreadsPromise: Promise<SlackAgentThreadSummary[]> = getSlackAgentThreadsBySessionIds(
-    conversations.map((conversation) => conversation.sessionId),
+    sessionIds,
   ).catch((err: unknown) => {
     logError('agent.conversations.slack_enrichment.error', err, {
       conversation_count: conversations.length,
@@ -59,13 +62,18 @@ export async function serializeConversationList<T extends ListedConversation>(
 
     return []
   })
-  const [ownerById, slackThreads, activeRuns] = await Promise.all([
+  const [ownerById, slackThreads, activeRuns, threadResources] = await Promise.all([
     buildConversationOwnerMap(
       teamId,
       conversations.map((conversation) => conversation.userId),
     ),
     slackThreadsPromise,
     Promise.all(conversations.map(activeRunFor)),
+    sessionThreadResources(sessionIds).catch((err: unknown) => {
+      logError('agent.conversations.thread_resources.error', err, { team_id: teamId })
+
+      return new Map<string, SessionThreadResource[]>()
+    }),
   ])
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
@@ -76,6 +84,10 @@ export async function serializeConversationList<T extends ListedConversation>(
       ownerById,
       slackThreadBySessionId.get(conversation.sessionId),
     ),
+    linkedResources: [
+      ...((conversation.linkedResources as unknown[] | undefined) ?? []),
+      ...(threadResources.get(conversation.sessionId) ?? []),
+    ],
     activeRun: activeRuns[index]?.activeRun ?? null,
     runtimeState: activeRuns[index]?.runtimeState ?? { state: 'unknown' },
   }))

@@ -21,6 +21,14 @@ On macOS, Cmd+D splits the workspace; Ctrl+D remains available to the terminal.
 Linear issues are navigation links in this first version; their state is captured
 when linked. This does not replace the Linear issue's `Nuphos session` attachment.
 
+A session's Slack or Discord thread appears as a tag too. It is not stored on the
+conversation: the thread routing rows (`slack_agent_threads`,
+`discord_agent_threads`) already are the binding, so resource reads derive the
+tag from them. That covers threads started in Slack or Discord, `slack_post`
+notification threads, and Slack pickups. Thread tags open in the system's Slack
+or Discord app and have no unlink button, since unlinking would cut the thread off
+from the session.
+
 ## GitHub wakeups
 
 The existing `/github-app/webhook` ingress verifies GitHub's signature before
