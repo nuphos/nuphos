@@ -21,6 +21,9 @@ import type { Item, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
 
+// A nested row's indent; it also puts each guide under its parent's icon.
+const NEST_INDENT = 16
+
 function favoriteToggleAriaLabel(chatRow: boolean, favorited: boolean, label: string): string {
   if (chatRow) return `${favorited ? 'Unpin' : 'Pin'} ${label}`
 
@@ -214,10 +217,19 @@ export function SidebarSectionList({
                         data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                       >
                         <div
-                          className="t-collapse-inner t-stagger-line"
-                          style={depth ? { paddingLeft: depth * 12 } : undefined}
+                          className="t-collapse-inner t-stagger-line relative"
+                          style={depth ? { paddingLeft: depth * NEST_INDENT } : undefined}
                         >
                           {row}
+                          {/* One guide per ancestor, under its icon; adjacent rows join them. */}
+                          {Array.from({ length: depth }, (_, level) => (
+                            <span
+                              key={level}
+                              aria-hidden
+                              className="pointer-events-none absolute inset-y-0 w-px bg-zGray-800/60"
+                              style={{ left: (level + 1) * NEST_INDENT }}
+                            />
+                          ))}
                         </div>
                       </div>
                     ) : (
