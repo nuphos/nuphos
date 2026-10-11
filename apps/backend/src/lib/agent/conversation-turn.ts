@@ -77,7 +77,14 @@ export async function executeConversationTurn(
           metadata: message.metadata,
           parts: [{ type: 'text', text: message.renderedText }],
         }))
-      : [{ id: data.messageId, role: 'user', metadata, parts: [{ type: 'text', text: renderedText }] }]
+      : [
+          {
+            id: data.messageId,
+            role: 'user',
+            metadata,
+            parts: [{ type: 'text', text: renderedText }],
+          },
+        ]
 
     const outcome = await turnRunner.runAgentForTrigger({
       userId: data.userId,

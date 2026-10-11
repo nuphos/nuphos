@@ -153,7 +153,10 @@ test('recovered pending messages include the delivery exactly once', async () =>
   })
   await executeThreadTurn(data)
   expect(JSON.stringify(runs[0]?.messages).match(/CI passed/g)).toHaveLength(1)
-  expect(runs[0]?.messages[1]?.metadata).toMatchObject({ source: 'agent.thread', sourceSessionId: 'source' })
+  expect(runs[0]?.messages[1]?.metadata).toMatchObject({
+    source: 'agent.thread',
+    sourceSessionId: 'source',
+  })
 })
 
 test('redelivery of an already accepted message does not repeat work', async () => {
@@ -256,7 +259,13 @@ test('resource events preserve approval handling and are marked autonomous', asy
     sentAt: '2026-10-11T00:00:00Z',
   }
 
-  await executeConversationTurn(data, source, 'GitHub check_suite.completed.', 'agent.resource', metadata)
+  await executeConversationTurn(
+    data,
+    source,
+    'GitHub check_suite.completed.',
+    'agent.resource',
+    metadata,
+  )
   expect(runs[0]).toMatchObject({
     origin: 'trigger',
     source: 'agent.resource',
@@ -264,5 +273,8 @@ test('resource events preserve approval handling and are marked autonomous', asy
   })
   expect(claims[0]?.message.source).toBe('agent.resource')
   expect(claims[0]?.message.metadata).toEqual(metadata)
-  expect(runs[0]?.messages[1]).toMatchObject({ metadata, parts: [{ type: 'text', text: 'GitHub check_suite.completed.' }] })
+  expect(runs[0]?.messages[1]).toMatchObject({
+    metadata,
+    parts: [{ type: 'text', text: 'GitHub check_suite.completed.' }],
+  })
 })

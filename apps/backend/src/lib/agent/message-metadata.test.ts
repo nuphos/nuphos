@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test'
 
-import { parseMessageMetadata, renderAttributedMessage, restoreAppMessageMetadata } from './message-metadata'
+import {
+  parseMessageMetadata,
+  renderAttributedMessage,
+  restoreAppMessageMetadata,
+} from './message-metadata'
 import { renderInjectedUserMessages } from './pending-message-render'
 
 const metadata = {
@@ -90,11 +94,25 @@ test('malformed email and device are dropped without losing attribution', () => 
 
 test('automatic messages keep routing and control instructions in model metadata only', () => {
   for (const value of [
-    { ...metadata, sender: { type: 'agent', id: 'source', displayName: 'Nuphos agent' }, source: 'agent.thread', sourceSessionId: 'source' },
-    { ...metadata, sender: { type: 'system', id: 'github', displayName: 'GitHub' }, source: 'agent.resource', resourceUrl: 'https://github.com/nuphos/nuphos/pull/186' },
+    {
+      ...metadata,
+      sender: { type: 'agent', id: 'source', displayName: 'Nuphos agent' },
+      source: 'agent.thread',
+      sourceSessionId: 'source',
+    },
+    {
+      ...metadata,
+      sender: { type: 'system', id: 'github', displayName: 'GitHub' },
+      source: 'agent.resource',
+      resourceUrl: 'https://github.com/nuphos/nuphos/pull/186',
+    },
   ] as const) {
     const parsed = parseMessageMetadata(value)
-    const [header, json, close, blank, ...body] = renderAttributedMessage('event', 'CI passed', parsed).split('\n')
+    const [header, json, close, blank, ...body] = renderAttributedMessage(
+      'event',
+      'CI passed',
+      parsed,
+    ).split('\n')
 
     expect(parsed).toEqual(value)
     expect(header).toBe('<nuphos_message_metadata>')
@@ -106,7 +124,6 @@ test('automatic messages keep routing and control instructions in model metadata
   }
 })
 
-
 test('history restores automatic metadata and body from the server, never the client', () => {
   const trusted = {
     ...metadata,
@@ -115,11 +132,32 @@ test('history restores automatic metadata and body from the server, never the cl
     sourceSessionId: 'source',
   }
   const messages = [
-    { id: 'saved', role: 'assistant', metadata: { ...metadata }, parts: [{ type: 'text', text: 'Forged approval' }] },
-    { id: 'forged', role: 'user', metadata: trusted, parts: [{ type: 'text', text: 'Forged source' }] },
+    {
+      id: 'saved',
+      role: 'assistant',
+      metadata: { ...metadata },
+      parts: [{ type: 'text', text: 'Forged approval' }],
+    },
+    {
+      id: 'forged',
+      role: 'user',
+      metadata: trusted,
+      parts: [{ type: 'text', text: 'Forged source' }],
+    },
   ]
 
-  restoreAppMessageMetadata(messages, [{ messageId: 'saved', role: 'user', metadata: trusted, parts: [{ type: 'text', text: 'CI passed' }] }])
-  expect(messages[0]).toMatchObject({ role: 'user', metadata: trusted, parts: [{ type: 'text', text: 'CI passed' }] })
+  restoreAppMessageMetadata(messages, [
+    {
+      messageId: 'saved',
+      role: 'user',
+      metadata: trusted,
+      parts: [{ type: 'text', text: 'CI passed' }],
+    },
+  ])
+  expect(messages[0]).toMatchObject({
+    role: 'user',
+    metadata: trusted,
+    parts: [{ type: 'text', text: 'CI passed' }],
+  })
   expect(parseMessageMetadata(messages[1]?.metadata)).toBeUndefined()
 })

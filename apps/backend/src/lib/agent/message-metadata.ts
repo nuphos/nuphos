@@ -3,7 +3,13 @@ import { trustedAvatarURL } from '../identity/avatar-url'
 /** Server-authored attribution. Never derive authorization from these fields. */
 export type MessageMetadata = {
   version: 1
-  sender: { type: 'user' | 'agent' | 'system'; id: string; displayName: string; email?: string; avatarURL?: string }
+  sender: {
+    type: 'user' | 'agent' | 'system'
+    id: string
+    displayName: string
+    email?: string
+    avatarURL?: string
+  }
   /** Self-reported by the sender's registered Desktop; never proof of anything. */
   device?: MessageDevice
   source: (typeof SOURCES)[number]
