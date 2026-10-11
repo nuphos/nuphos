@@ -231,13 +231,38 @@ struct AgentPage: View {
     private var list: some View {
         List {
             Section {
-                ForEach(store.listedConversations) { conversation in
+                ForEach(store.nestedConversations) { item in
+                    let conversation = item.conversation
+                    let folded = item.hasChildren && store.isFolded(conversation.sessionId)
                     NavigationLink(value: conversation) {
-                        ConversationRow(conversation: conversation, pinned: store.isPinned(conversation.sessionId))
+                        HStack(spacing: 0) {
+                            ConversationRow(
+                                conversation: conversation, pinned: store.isPinned(conversation.sessionId), hidden: item.hidden
+                            )
+                            if item.hasChildren {
+                                Button { store.toggleFolded(conversation.sessionId) } label: {
+                                    Image(systemName: folded ? "chevron.right" : "chevron.down")
+                                        .font(Theme.Text.label.weight(.semibold))
+                                        .foregroundStyle(Theme.muted)
+                                        .frame(width: 32, height: 32)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel(folded ? "Show threads" : "Hide threads")
+                            }
+                        }
+                        // Insets live here, not on the row, so the tree lines span the whole row.
+                        .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
+                        .padding(.vertical, 12)
+                        .background(alignment: .leading) {
+                            ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
+                        }
                     }
                     .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                     .listSectionSeparator(.hidden, edges: .top)
+                    // A separator would cut through the lines of an open tree.
+                    .listRowSeparator(item.depth > 0 || (item.hasChildren && !folded) ? .hidden : .automatic)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if conversation.canManage { Button {
                             Task { await store.setArchived(!conversation.isArchived, conversation: conversation) }
@@ -251,6 +276,14 @@ struct AgentPage: View {
                             Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
                         }
                         .tint(.indigo)
+                        if conversation.canManage, conversation.parentSessionId != nil {
+                            Button {
+                                Task { await store.unlinkParent(conversation) }
+                            } label: {
+                                Label("Unlink", systemImage: "link.badge.minus")
+                            }
+                            .tint(.gray)
+                        }
                     }
                 }
 

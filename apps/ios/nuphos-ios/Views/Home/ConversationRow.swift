@@ -5,14 +5,21 @@ import SwiftUI
 struct ConversationRow: View {
     let conversation: AgentConversation
     var pinned = false
+    /// Threads a folded parent hides; the row shows the most pressing of their states.
+    var hidden: [AgentConversation] = []
     @Environment(AgentStore.self) private var store
     private let observations = RuntimeObservations.shared
     private var team: String { conversation.teamId ?? store.selectedTeam?.id ?? "" }
     private var observation: RuntimeObservation? { observations.value(team: team, session: conversation.sessionId) }
-    private var indicator: ConversationIndicator {
-        let unread = ConversationUnread.shared.contains(team: team, session: conversation.sessionId)
-        guard conversation.isNativeRuntime else { return conversation.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observation, at: observations.now, unread: unread)
+    private var indicator: ConversationIndicator { indicator(for: conversation) }
+    private var shownIndicator: ConversationIndicator {
+        ([conversation] + hidden).map(indicator(for:)).max { $0.urgency < $1.urgency } ?? .none
+    }
+
+    private func indicator(for row: AgentConversation) -> ConversationIndicator {
+        let unread = ConversationUnread.shared.contains(team: team, session: row.sessionId)
+        guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), at: observations.now, unread: unread)
     }
 
     var body: some View {
@@ -49,7 +56,7 @@ struct ConversationRow: View {
 
             Spacer(minLength: 0)
 
-            switch indicator {
+            switch shownIndicator {
             case .turn:
                 ProgressView()
                     .controlSize(.small)

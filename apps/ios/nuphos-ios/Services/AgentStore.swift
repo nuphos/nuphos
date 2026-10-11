@@ -96,6 +96,44 @@ final class AgentStore {
         }
     }
 
+    // MARK: - Threads
+
+    private static let foldedThreadsKey = "nuphos.agent.foldedThreads"
+    /// Thread parents folded on the Agent page, per team.
+    private var foldedThreads: [String: Set<String>] =
+        (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
+            .mapValues(Set.init)
+
+    /// The Agent page's rows: agent-opened threads under the conversation
+    /// that opened them. A pinned thread stays with the pins.
+    var nestedConversations: [NestedConversation] {
+        ConversationNesting.nest(
+            listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], pinned: pinnedSessionIds
+        )
+    }
+
+    func isFolded(_ sessionId: String) -> Bool { foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true }
+
+    func toggleFolded(_ sessionId: String) {
+        guard let team = selectedTeam?.id else { return }
+        var folded = foldedThreads[team] ?? []
+        if folded.remove(sessionId) == nil { folded.insert(sessionId) }
+        foldedThreads[team] = folded
+        UserDefaults.standard.set(foldedThreads.mapValues(Array.init), forKey: Self.foldedThreadsKey)
+    }
+
+    func unlinkParent(_ conversation: AgentConversation) async {
+        guard conversation.canManage, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        do {
+            try await AgentChatAPI.unlinkParent(token: token, teamId: teamId, sessionId: conversation.sessionId)
+            if let index = conversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {
+                conversations[index].parentSessionId = nil
+            }
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
     // MARK: - Runtimes
 
     private(set) var runtimes: [RuntimeInstance] = []

@@ -122,6 +122,14 @@ enum AgentChatAPI {
         )
     }
 
+    /// `DELETE /agent/conversations/:id/parent` — stops nesting a thread under its opener.
+    static func unlinkParent(token: String, teamId: String, sessionId: String) async throws {
+        _ = try await send(
+            "DELETE", "agent/conversations/\(sessionId)/parent",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none
+        )
+    }
+
     /// `POST /agent/conversations/:id/read` — the server keeps the larger marker.
     static func markRead(token: String, teamId: String, sessionId: String, seq: Int) async throws -> ConversationUnread.Marker {
         struct Body: Encodable { var seq: Int }

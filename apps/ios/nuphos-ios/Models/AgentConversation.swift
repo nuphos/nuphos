@@ -56,6 +56,9 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Owner-only read state, shared by all of the owner's devices.
     let activitySeq: Int?
     let readSeq: Int?
+    /// The conversation that opened this one as a thread; the Agent page
+    /// nests it there. Cleared when the owner unlinks it.
+    var parentSessionId: String?
 
     var id: String { sessionId }
 
@@ -94,6 +97,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         activitySeq = try? c.decodeIfPresent(Int.self, forKey: .activitySeq)
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
+        parentSessionId = try c.decodeIfPresent(String.self, forKey: .parentSessionId)
     }
 
     init(
@@ -103,7 +107,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         tokenUsage: TokenUsage? = nil, activitySource: ActivitySource? = nil,
         agentRuntime: String? = nil, runtimeId: String? = nil, runtimeLabel: String? = nil,
         activeRun: ActiveRun? = nil, runtimeState: JSONValue? = nil,
-        activitySeq: Int? = nil, readSeq: Int? = nil
+        activitySeq: Int? = nil, readSeq: Int? = nil, parentSessionId: String? = nil
     ) {
         self.sessionId = sessionId
         self.teamId = teamId
@@ -125,6 +129,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.runtimeState = runtimeState
         self.activitySeq = activitySeq
         self.readSeq = readSeq
+        self.parentSessionId = parentSessionId
     }
 }
 
