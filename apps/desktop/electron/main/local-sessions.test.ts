@@ -43,7 +43,24 @@ test('injected context is not what the person typed', () => {
   )
   assert.equal(conversationPrompt('fix the <Button> padding'), 'fix the <Button> padding')
   assert.equal(conversationPrompt('<div> is misaligned'), '<div> is misaligned')
+  assert.equal(
+    conversationPrompt('<details>trace</details> explain this'),
+    '<details>trace</details> explain this',
+  )
 })
+
+function writeClaudeSession(home: string, name: string, sidechain: boolean, prompt: string) {
+  const dir = path.join(home, '.claude', 'projects', '-work-app')
+  const record = {
+    type: 'user',
+    isSidechain: sidechain,
+    cwd: '/work/app',
+    message: { role: 'user', content: prompt },
+  }
+
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, `${name}.jsonl`), JSON.stringify(record))
+}
 
 test('Codex sessions list only what a person typed into', async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'local-sessions-'))
@@ -67,6 +84,27 @@ test('Codex sessions list only what a person typed into', async () => {
     assert.deepEqual(
       sessions.map((session) => session.title),
       ['Why does the build fail?'],
+    )
+  } finally {
+    process.env.HOME = previousHome
+    fs.rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('Claude Code sub-agent transcripts are not listed', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'local-sessions-'))
+  const previousHome = process.env.HOME
+
+  process.env.HOME = home
+  try {
+    writeClaudeSession(home, 'typed', false, 'Rename the billing module')
+    writeClaudeSession(home, 'agent-a5c6', true, 'Search the repo for billing usages')
+
+    const sessions = await listLocalAgentSessions('claude-code')
+
+    assert.deepEqual(
+      sessions.map((session) => session.title),
+      ['Rename the billing module'],
     )
   } finally {
     process.env.HOME = previousHome

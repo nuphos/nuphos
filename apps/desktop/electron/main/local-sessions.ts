@@ -105,7 +105,8 @@ export function conversationPrompt(value: string | null): string | null {
   return text
 }
 
-const LEADING_TAG_BLOCK = /^<([a-z][\w-]*)>[\s\S]*?<\/\1>/u
+// Harness tags are snake_case or kebab-case; plain HTML a person pastes is not.
+const LEADING_TAG_BLOCK = /^<([a-z]+[_-][\w-]*)>[\s\S]*?<\/\1>/u
 
 export function cleanSessionTitle(value: string | null, fallback: string): string {
   const cleaned = value?.replace(/\s+/g, ' ').trim()
@@ -148,6 +149,8 @@ async function readSessionPreview(
       if (!record || typeof record !== 'object') continue
       const item = record as Record<string, unknown>
 
+      // Claude Code marks a sub-agent's transcript as a side chain.
+      if (item.isSidechain === true) return null
       if (typeof item.cwd === 'string') cwd ??= compactSessionPath(item.cwd)
       if (item.type === 'session_meta') {
         const payload =
@@ -196,7 +199,7 @@ async function readSessionPreview(
       }
     }
 
-    const title = aiTitle ?? firstUser
+    const title = (aiTitle ?? firstUser)?.trim()
 
     return title ? { title, subtitle: cwd } : null
   } finally {
