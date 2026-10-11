@@ -49,17 +49,20 @@ test('injected context is not what the person typed', () => {
   )
 })
 
-function writeClaudeSession(home: string, name: string, sidechain: boolean, prompt: string) {
+function writeClaudeSession(home: string, name: string, turns: [boolean, string][]) {
   const dir = path.join(home, '.claude', 'projects', '-work-app')
-  const record = {
+  const records = turns.map(([sidechain, prompt]) => ({
     type: 'user',
     isSidechain: sidechain,
     cwd: '/work/app',
     message: { role: 'user', content: prompt },
-  }
+  }))
 
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, `${name}.jsonl`), JSON.stringify(record))
+  fs.writeFileSync(
+    path.join(dir, `${name}.jsonl`),
+    records.map((record) => JSON.stringify(record)).join('\n'),
+  )
 }
 
 test('Codex sessions list only what a person typed into', async () => {
@@ -97,8 +100,12 @@ test('Claude Code sub-agent transcripts are not listed', async () => {
 
   process.env.HOME = home
   try {
-    writeClaudeSession(home, 'typed', false, 'Rename the billing module')
-    writeClaudeSession(home, 'agent-a5c6', true, 'Search the repo for billing usages')
+    // An older Claude Code writes its sub-agents' records into the main session.
+    writeClaudeSession(home, 'typed', [
+      [false, 'Rename the billing module'],
+      [true, 'Search the repo for billing usages'],
+    ])
+    writeClaudeSession(home, 'agent-a5c6', [[true, 'Search the repo for billing usages']])
 
     const sessions = await listLocalAgentSessions('claude-code')
 

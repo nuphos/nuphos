@@ -136,6 +136,7 @@ async function readSessionPreview(
     let aiTitle: string | null = null
     let firstUser: string | null = null
     let cwd: string | null = null
+    let sidechain: boolean | null = null
 
     for (const line of text.split('\n')) {
       if (!line.trim()) continue
@@ -149,8 +150,10 @@ async function readSessionPreview(
       if (!record || typeof record !== 'object') continue
       const item = record as Record<string, unknown>
 
-      // Claude Code marks a sub-agent's transcript as a side chain.
-      if (item.isSidechain === true) return null
+      // A Claude Code sub-agent's own transcript is a side chain from its first
+      // record; a main session may still carry its sub-agents' records.
+      if (typeof item.isSidechain === 'boolean') sidechain ??= item.isSidechain
+      if (sidechain) return null
       if (typeof item.cwd === 'string') cwd ??= compactSessionPath(item.cwd)
       if (item.type === 'session_meta') {
         const payload =
