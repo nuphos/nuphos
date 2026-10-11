@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useStableCallback } from '../../hooks/useStableCallback'
+import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import {
   appPathForExternalLink,
   isBindableGithubLink,
@@ -191,12 +192,34 @@ export function useWorkspaceChatLinks(a: Args) {
     [openAppOpenDeepLink, openBoundProviderLinkFromChat, openNuphosLinkInNewTab],
   )
 
+  // A session resource is linked through a bound integration, so its provider
+  // page normally resolves in-app; the browser tab only covers a binding removed
+  // since. ⌘-click is the system-browser escape hatch.
+  const openSessionResource = useCallback(
+    (url: string, external: boolean) => {
+      if (external || !teamId) {
+        openExternalLink(url)
+
+        return
+      }
+      const path =
+        appPathForExternalLink(url, teamId, boundResources) ??
+        pageLocationForNavigation(
+          emptyNavigation({ kind: 'team', teamId }, 'team.browser', { browserUrl: url }),
+        ).href
+
+      openNuphosLinkInNewTab(path)
+    },
+    [boundResources, openExternalLink, openNuphosLinkInNewTab, teamId],
+  )
+
   // Pane props whose dependency chains root in `tabs`/`activeTab` — they churn
   // on every poll tick and switch, and one unstable prop re-renders every
   // mounted pane: the memoized pane is only as good as its least stable prop.
   const stableDockAgentToSidebar = useStableCallback(dockAgentToSidebar)
   const stableOpenNuphosLinkFromChat = useStableCallback(openNuphosLinkFromChat)
   const stableOpenNodeLink = useStableCallback(openNodeLink)
+  const stableOpenSessionResource = useStableCallback(openSessionResource)
   const stableOpenPlanInChat = useStableCallback(openPlanInChat)
   const stableOpenConversationHere = useStableCallback(openConversationHere)
   const stableEnterCluster = useStableCallback((params: Parameters<typeof enterCluster>[0]) => {
@@ -217,6 +240,7 @@ export function useWorkspaceChatLinks(a: Args) {
     stableDockAgentToSidebar,
     stableOpenNuphosLinkFromChat,
     stableOpenNodeLink,
+    stableOpenSessionResource,
     stableOpenPlanInChat,
     stableOpenConversationHere,
     stableEnterCluster,

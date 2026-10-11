@@ -54,6 +54,7 @@ export function WorkspaceAgentPane({
     workspaceActions,
     startFirstRunConnect,
     stableOpenNuphosLinkFromChat,
+    stableOpenSessionResource,
   } = ws
   const [heading, setHeading] = useState<{
     sessionId: string | null
@@ -202,7 +203,7 @@ export function WorkspaceAgentPane({
                 key={`resources-${selectedSessionId}`}
                 sessionId={selectedSessionId}
                 teamId={teamId}
-                onOpen={stableOpenNuphosLinkFromChat}
+                onOpen={stableOpenSessionResource}
               />
             )}
           </div>

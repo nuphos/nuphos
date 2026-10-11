@@ -1,12 +1,9 @@
 import { GitMerge, GitPullRequest, GitPullRequestClosed, Link2, Terminal, X } from 'lucide-react'
-import { useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { agentApi } from '../../api/agent-api'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
 import { toast } from '../ui/toast'
-
-import { ResourceOpenContext } from './resource-open-context'
 
 import type { SessionResource } from '../../api/session-resource-types'
 
@@ -16,14 +13,15 @@ export function SessionResources({
   teamId,
   sessionId,
   titlebar = false,
+  onOpen,
 }: {
   resources: SessionResource[]
   teamId: string
   sessionId: string
   titlebar?: boolean
+  onOpen?: (url: string, external: boolean) => void
 }) {
   const processes = useSessionTerminalProcesses(sessionId)
-  const open = useContext(ResourceOpenContext)
   const ResourceLabel = titlebar ? 'button' : 'span'
 
   const [canManage, setCanManage] = useState(false)
@@ -104,13 +102,7 @@ export function SessionResources({
               onClick={(event) => {
                 if (!titlebar) return
                 event.stopPropagation()
-                const href = pageLocationForNavigation(
-                  emptyNavigation({ kind: 'team', teamId }, 'team.browser', {
-                    browserUrl: resource.url,
-                  }),
-                ).href
-
-                open?.(href, label, true)
+                onOpen?.(resource.url, event.metaKey)
               }}
               key={resource.id}
               className={
