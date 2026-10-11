@@ -98,7 +98,7 @@ export function conversationPrompt(value: string | null): string | null {
   for (let block = LEADING_TAG_BLOCK.exec(text); block; block = LEADING_TAG_BLOCK.exec(text)) {
     text = text.slice(block[0].length).trim()
   }
-  if (!text || /^<[a-z][\w-]*>/u.test(text)) return null
+  if (!text) return null
   if (text.startsWith('# AGENTS.md instructions')) return null
   if (text.includes('========= MEMORY_SUMMARY BEGINS =========')) return null
 

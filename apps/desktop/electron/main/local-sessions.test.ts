@@ -30,7 +30,7 @@ function writeCodexSession(home: string, name: string, source: unknown, prompts:
 test('injected context is not what the person typed', () => {
   for (const text of [
     '<environment_context>\n  <cwd>/x</cwd>\n</environment_context>',
-    '<recommended_plugins>\nHere is a list',
+    '<recommended_plugins>\nHere is a list\n</recommended_plugins>',
     '<external_codex_apps_open_page>{"page":1}</external_codex_apps_open_page>',
     '<command-name>/clear</command-name>',
     '# AGENTS.md instructions for /x',
@@ -42,6 +42,7 @@ test('injected context is not what the person typed', () => {
     'What syncs?',
   )
   assert.equal(conversationPrompt('fix the <Button> padding'), 'fix the <Button> padding')
+  assert.equal(conversationPrompt('<div> is misaligned'), '<div> is misaligned')
 })
 
 test('Codex sessions list only what a person typed into', async () => {
@@ -51,7 +52,7 @@ test('Codex sessions list only what a person typed into', async () => {
   process.env.HOME = home
   try {
     writeCodexSession(home, 'typed', 'vscode', [
-      '<recommended_plugins>\nHere is a list',
+      '<recommended_plugins>\nHere is a list\n</recommended_plugins>',
       'Why does the build fail?',
     ])
     writeCodexSession(home, 'reviewer', { subagent: { other: 'guardian' } }, [
