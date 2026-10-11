@@ -23,7 +23,8 @@ export async function discordApi<T>(path: string, init: RequestInit = {}): Promi
     const headers = new Headers(init.headers)
 
     headers.set('Authorization', `Bot ${token}`)
-    headers.set('Content-Type', 'application/json')
+    // A multipart upload carries its own boundary.
+    if (!(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
     const response = await fetch(`${API}${path}`, {
       ...init,
       headers,

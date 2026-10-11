@@ -1,5 +1,7 @@
 import { fenceUntrusted } from '@/lib/agent/untrusted-content'
 
+import type { DiscordAttachment } from './attachments'
+
 export type DiscordMessageCreate = {
   id: string
   guild_id?: string
@@ -9,6 +11,7 @@ export type DiscordMessageCreate = {
   member?: { nick?: string | null }
   webhook_id?: string
   mentions?: { id: string }[]
+  attachments?: DiscordAttachment[]
   /** The message this one replies to; Discord inlines it on the event. */
   referenced_message?: DiscordReferencedMessage | null
 }
@@ -47,4 +50,18 @@ export function quoteDiscordReply(reply: DiscordReferencedMessage, text: string)
   const quote = fenceUntrusted('discord-replied-message', `${author}: ${quoted}`, REPLY_NOTE)
 
   return `${quote}\n\n${text}`
+}
+
+/** What the author said, or what a wordless message stands for. */
+export function discordMessageText(
+  event: DiscordMessageCreate,
+  botUserId: string,
+  joiningThread: boolean,
+): string {
+  const text = (event.content ?? '').replace(new RegExp(`<@!?${botUserId}>`, 'g'), '').trim()
+
+  if (text) return text
+  if (event.attachments?.length) return 'See the attached file(s).'
+
+  return joiningThread ? 'Please join the conversation using the thread context.' : ''
 }

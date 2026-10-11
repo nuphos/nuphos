@@ -81,6 +81,14 @@ Notes:
 - A message carries `author`, `content`, `timestamp`, and when present
   `replyTo`, `thread`, `attachments`, `embeds`, and `reactions`. Alert bots put
   their text in `embeds`, so read those too.
+- Files and images attached to the message that mentioned you arrive with the
+  turn, in the file-transfer store. For an attachment on any other message,
+  `attachments[].url` is a signed link that expires within a day: download it
+  (`curl -sSfo "./uploads/$NAME" "$URL"`) and open the file. Read an image
+  before answering a question about it.
+- To send the user a file or image, push it with the `file-transfer` skill. It
+  is attached to this conversation's Discord thread when the turn ends (up to
+  10 MB per file; larger ones stay downloadable in the Nuphos app).
 - `search` without `channelId` covers every reachable channel. While Discord is
   still indexing the server it answers `{ "indexing": true, "retryAfter": n }`;
   wait that many seconds and retry once, then fall back to reading messages.

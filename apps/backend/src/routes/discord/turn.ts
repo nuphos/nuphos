@@ -15,6 +15,7 @@ import { logError } from '@/lib/observability'
 import { SlackAgentRunSink } from '@/lib/slack/stream-sink'
 
 import { postDiscordToolApproval } from './approval'
+import { postAgentProducedDiscordFiles } from './attachments'
 import { recordDiscordThreadMessage } from './thread-history'
 import { syncDiscordThread } from './transcript'
 
@@ -158,6 +159,7 @@ export async function executeDiscordTurn(args: {
   )
 
   const stopTyping = startDiscordTyping(args.threadChannelId)
+  const turnStartedAt = new Date()
 
   try {
     const outcome = await turnRunner.runAgentForTrigger({
@@ -194,5 +196,13 @@ export async function executeDiscordTurn(args: {
     await sink.say('Nuphos hit an error while handling this request.').catch(() => {})
   } finally {
     stopTyping()
+    // Detached: uploads can take minutes and must not hold the caller's run claim.
+    void postAgentProducedDiscordFiles({
+      channelId: args.threadChannelId,
+      teamId: args.teamId,
+      sessionId: args.sessionId,
+      since: turnStartedAt,
+      isConnected,
+    })
   }
 }

@@ -2,7 +2,8 @@ import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
 import { logError, logEvent } from '@/lib/observability'
 
 import { defaultDependencies } from './message-dependencies'
-import { quoteDiscordReply } from './message'
+import { ingestDiscordAttachments } from './attachments'
+import { discordMessageText, quoteDiscordReply } from './message'
 
 import type { DiscordMessageCreate } from './message'
 
@@ -10,10 +11,6 @@ import type { DiscordMessageDependencies } from './message-dependencies'
 
 export type { DiscordMessageCreate } from './message'
 export type { DiscordMessageDependencies } from './message-dependencies'
-
-function stripBotMention(content: string, botUserId: string): string {
-  return content.replace(new RegExp(`<@!?${botUserId}>`, 'g'), '').trim()
-}
 
 export function isDirectDiscordMention(event: DiscordMessageCreate, botUserId: string): boolean {
   return event.mentions?.some((mention) => mention.id === botUserId) ?? false
@@ -130,10 +127,7 @@ export async function handleDiscordMention(
 
       return
     }
-    let text = stripBotMention(event.content ?? '', botUserId)
-
-    if (!text && mentioned && registeredThread)
-      text = 'Please join the conversation using the thread context.'
+    const text = discordMessageText(event, botUserId, mentioned && registeredThread !== null)
 
     if (!text) {
       if (mentioned)
@@ -219,9 +213,14 @@ export async function handleDiscordMention(
 
       return
     }
-    const renderedText = event.referenced_message
-      ? quoteDiscordReply(event.referenced_message, text)
-      : text
+    const attached = await ingestDiscordAttachments({
+      attachments: event.attachments,
+      teamId: thread.teamId,
+      userId: userMapping.nuphosUserId,
+      sessionId: thread.sessionId,
+    })
+    const said = event.referenced_message ? quoteDiscordReply(event.referenced_message, text) : text
+    const renderedText = attached ? `${said}\n\n${attached}` : said
     const metadata = await createMessageMetadata(userMapping.nuphosUserId, 'discord')
     const claim = await turnRunner.claimAgentRunOrEnqueue({
       userId: thread.agentUserId,
