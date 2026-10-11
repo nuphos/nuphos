@@ -42,16 +42,17 @@ must actually deliver a subscribed event; linking does not alter App subscriptio
 or retroactively replay earlier events.
 
 BullMQ persists deliveries using a per-binding/session/GitHub-delivery job ID,
-with retry on transient delivery errors. Deliveries are debounced per binding:
-each one waits a minute, and a newer delivery for the same binding within that
-minute replaces it and restarts the wait, so several check suites or a review
-with comments become one wake carrying the latest event. Reviews and comments
-debounce separately from pushes and CI, so a CI result never replaces a review.
-Pushes and CI wake a binding at most six times per hour; further wakeups in that
-window are dropped and logged as `agent.resource.rate_limited`, which stops a
-session that keeps waking itself through its own pushes. Reviews and comments
-from people with write access are never capped, and a retried turn does not
-take another slot. The shared conversation runner prevents
+with retry on transient delivery errors. Each App that reports checks sends its
+own check suite, so CI wakes a session once per commit, after every suite with
+check runs on that commit has completed. Empty suites, which Apps with checks
+permission leave queued forever, are ignored. The job identity is the commit and
+its finished suite set, so suites finishing together wake once, and a suite that
+appears later still wakes the session for its result. After ten CI wakes in a
+row with no review or comment from a person, CI stops waking that binding and
+logs `agent.resource.rate_limited`, which stops a session that keeps waking itself
+through its own pushes. The next review or comment from someone with write
+access wakes the session and re-arms CI wakes; people are never capped, and a
+retried turn does not count again. The shared conversation runner prevents
 concurrent turns and checks pending/persisted message IDs before redelivery. A
 busy session receives the event through its pending-message path. Accepted turns
 are not replayed just because model execution subsequently failed; inspect the

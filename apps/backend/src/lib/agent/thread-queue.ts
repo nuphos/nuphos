@@ -28,22 +28,11 @@ export async function closeThreadQueue(): Promise<void> {
   await closing?.close()
 }
 
-// A burst (several check suites, review plus comments) becomes one wake after a quiet minute.
-// People and automation debounce separately so CI never replaces a review.
-const RESOURCE_DEBOUNCE_MS = 60_000
-
 export async function enqueueResourceTurn(data: ResourceTurn): Promise<void> {
   if (!redisEnabled()) throw new Error('Resource event queue requires Redis.')
   queue ??= new Queue(AGENT_TRIGGER_QUEUE, { connection: buildBullMQConnection() })
   await queue.add('resource-session-turn', data, {
     jobId: data.messageId,
-    delay: RESOURCE_DEBOUNCE_MS,
-    deduplication: {
-      id: `resource:${data.sessionId}:${data.resourceId}:${data.fromPerson ? 'person' : 'automation'}`,
-      ttl: RESOURCE_DEBOUNCE_MS,
-      extend: true,
-      replace: true,
-    },
     attempts: 5,
     backoff: { type: 'exponential', delay: 5000 },
     removeOnComplete: { age: 30 * 86400 },

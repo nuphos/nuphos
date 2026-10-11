@@ -1,5 +1,5 @@
 import { executeConversationTurn } from './conversation-turn'
-import { authorizedResourceTurn, takeWakeSlot } from './resource-webhook'
+import { authorizedResourceTurn, resetWakeSlots, takeWakeSlot } from './resource-webhook'
 import { refreshSessionResource } from './session-resources'
 
 import type { ResourceTurn } from './resource-webhook'
@@ -8,8 +8,9 @@ export async function executeResourceTurn(data: ResourceTurn, attemptsMade = 0) 
   const authorized = await authorizedResourceTurn(data)
 
   if (!authorized) return
-  // Only automation (pushes, CI) is capped, and a retry reuses its first attempt's slot.
-  if (!data.fromPerson && attemptsMade === 0 && !(await takeWakeSlot(data))) return
+  // People are never capped and re-arm CI; a retry reuses its first attempt's slot.
+  if (data.fromPerson) await resetWakeSlots(data)
+  else if (attemptsMade === 0 && !(await takeWakeSlot(data))) return
   const { conversation } = authorized
   const resource = await refreshSessionResource(conversation, authorized.resource)
   const renderedText = [

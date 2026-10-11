@@ -42,6 +42,7 @@ describe('GitHub resource routing', () => {
       ...base,
       action: 'completed',
       check_suite: {
+        head_sha: 'a'.repeat(40),
         status: 'completed',
         conclusion: 'failure',
         pull_requests: [{ number: 56 }, { number: 56 }, { number: 57 }],
@@ -60,7 +61,12 @@ describe('GitHub resource routing', () => {
     config.byos.github.appSlug = 'nuphos'
     try {
       const sender = { type: 'Bot', login: 'nuphos[bot]' }
-      const suite = { status: 'completed', conclusion: 'success', pull_requests: [{ number: 56 }] }
+      const suite = {
+        head_sha: 'a'.repeat(40),
+        status: 'completed',
+        conclusion: 'success',
+        pull_requests: [{ number: 56 }],
+      }
 
       expect(
         githubResourceEvents('check_suite', {
@@ -68,8 +74,8 @@ describe('GitHub resource routing', () => {
           action: 'completed',
           sender,
           check_suite: suite,
-        })[0]?.actor,
-      ).toBeUndefined()
+        })[0]?.ci,
+      ).toEqual({ sha: 'a'.repeat(40), repository: 'acme/app' })
       expect(
         githubResourceEvents('pull_request', {
           ...base,
