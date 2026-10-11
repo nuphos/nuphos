@@ -36,7 +36,7 @@ const payloadSchema = z.object({
     .regex(/^[0-9a-f]{40}$/)
     .optional(),
   state: z.string().optional(),
-  context: z.string().max(200).optional(),
+  context: z.string().max(255).optional(),
 })
 
 type Payload = z.infer<typeof payloadSchema>
