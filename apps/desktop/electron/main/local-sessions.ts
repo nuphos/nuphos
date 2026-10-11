@@ -92,7 +92,9 @@ export function isConversationPrompt(value: string | null): value is string {
 
   if (!cleaned) return false
   if (cleaned.startsWith('# AGENTS.md instructions')) return false
-  if (cleaned.startsWith('<environment_context>')) return false
+  // Harness context the agents inject as a user turn comes wrapped in a tag:
+  // <environment_context>, <recommended_plugins>, <command-name>, …
+  if (/^<[a-z][\w-]*>/u.test(cleaned)) return false
   if (cleaned.includes('========= MEMORY_SUMMARY BEGINS =========')) return false
 
   return true
@@ -112,9 +114,10 @@ function compactSessionPath(value: string): string {
   return value.startsWith(home) ? `~${value.slice(home.length)}` : value
 }
 
+/** Null for a session nobody typed into: a sub-agent, or no prompt at all. */
 async function readSessionPreview(
   filePath: string,
-): Promise<{ title: string | null; subtitle: string | null }> {
+): Promise<{ title: string; subtitle: string | null } | null> {
   let handle: fs.FileHandle | null = null
 
   try {
@@ -145,13 +148,15 @@ async function readSessionPreview(
             ? (item.payload as Record<string, unknown>)
             : null
 
+        // Codex records its own sub-agents (reviewers, spawned threads) as sessions.
+        if (payload?.source && typeof payload.source === 'object') return null
         if (typeof payload?.cwd === 'string') cwd ??= compactSessionPath(payload.cwd)
       }
       if (item.type === 'ai-title' && typeof item.aiTitle === 'string') {
         aiTitle = item.aiTitle
         break
       }
-      if (item.type === 'user' && !firstUser) {
+      if (item.type === 'user' && item.isMeta !== true && !firstUser) {
         const message =
           item.message && typeof item.message === 'object'
             ? (item.message as Record<string, unknown>)
@@ -184,7 +189,9 @@ async function readSessionPreview(
       }
     }
 
-    return { title: aiTitle ?? firstUser, subtitle: cwd }
+    const title = aiTitle ?? firstUser
+
+    return title ? { title, subtitle: cwd } : null
   } finally {
     await handle?.close()
   }
@@ -200,18 +207,20 @@ export async function listLocalAgentSessions(
   )
     .flat()
     .sort((a, b) => b.mtimeMs - a.mtimeMs)
-    .slice(0, 8)
+    // Headroom for the sessions the preview drops.
+    .slice(0, 24)
 
   const sessions = await Promise.allSettled(
     files.map(async (file) => {
       const preview = await readSessionPreview(file.path)
-      const fallback = path.basename(file.path, '.jsonl').replace(/^rollout-/, '')
+
+      if (!preview) return null
 
       return {
         id: file.path,
         source,
         path: file.path,
-        title: cleanSessionTitle(preview.title, fallback),
+        title: cleanSessionTitle(preview.title, ''),
         subtitle: preview.subtitle ?? compactSessionPath(path.dirname(file.path)),
         updatedAt: new Date(file.mtimeMs).toISOString(),
       }
@@ -219,9 +228,6 @@ export async function listLocalAgentSessions(
   )
 
   return sessions
-    .filter(
-      (result): result is PromiseFulfilledResult<LocalAgentSessionInfo> =>
-        result.status === 'fulfilled',
-    )
-    .map((result) => result.value)
+    .flatMap((result) => (result.status === 'fulfilled' && result.value ? [result.value] : []))
+    .slice(0, 8)
 }
