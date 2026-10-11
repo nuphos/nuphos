@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { isConversationPrompt, listLocalAgentSessions } from './local-sessions.ts'
+import { conversationPrompt, listLocalAgentSessions } from './local-sessions.ts'
 
 function userTurn(text: string) {
   return {
@@ -27,17 +27,21 @@ function writeCodexSession(home: string, name: string, source: unknown, prompts:
   )
 }
 
-test('harness context wrapped in a tag is not a conversation prompt', () => {
+test('injected context is not what the person typed', () => {
   for (const text of [
-    '<environment_context>\n  <cwd>/x</cwd>',
+    '<environment_context>\n  <cwd>/x</cwd>\n</environment_context>',
     '<recommended_plugins>\nHere is a list',
-    '<external_codex_apps_open_page>{"page":1}',
+    '<external_codex_apps_open_page>{"page":1}</external_codex_apps_open_page>',
     '<command-name>/clear</command-name>',
     '# AGENTS.md instructions for /x',
   ]) {
-    assert.equal(isConversationPrompt(text), false, text)
+    assert.equal(conversationPrompt(text), null, text)
   }
-  assert.equal(isConversationPrompt('fix the <Button> padding'), true)
+  assert.equal(
+    conversationPrompt('<system-reminder>\nNo project folder.\n</system-reminder>\n\nWhat syncs?'),
+    'What syncs?',
+  )
+  assert.equal(conversationPrompt('fix the <Button> padding'), 'fix the <Button> padding')
 })
 
 test('Codex sessions list only what a person typed into', async () => {

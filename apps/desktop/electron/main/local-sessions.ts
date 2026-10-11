@@ -87,18 +87,25 @@ export function textFromMessageContent(content: unknown): string | null {
   return text || null
 }
 
-export function isConversationPrompt(value: string | null): value is string {
-  const cleaned = value?.replace(/\s+/g, ' ').trim()
+/**
+ * What the person typed, without the context an agent injects as a user turn:
+ * AGENTS.md, memory summaries, and tagged blocks such as <environment_context>
+ * or <system-reminder>, which may also be prepended to the real prompt.
+ */
+export function conversationPrompt(value: string | null): string | null {
+  let text = value?.trim() ?? ''
 
-  if (!cleaned) return false
-  if (cleaned.startsWith('# AGENTS.md instructions')) return false
-  // Harness context the agents inject as a user turn comes wrapped in a tag:
-  // <environment_context>, <recommended_plugins>, <command-name>, …
-  if (/^<[a-z][\w-]*>/u.test(cleaned)) return false
-  if (cleaned.includes('========= MEMORY_SUMMARY BEGINS =========')) return false
+  for (let block = LEADING_TAG_BLOCK.exec(text); block; block = LEADING_TAG_BLOCK.exec(text)) {
+    text = text.slice(block[0].length).trim()
+  }
+  if (!text || /^<[a-z][\w-]*>/u.test(text)) return null
+  if (text.startsWith('# AGENTS.md instructions')) return null
+  if (text.includes('========= MEMORY_SUMMARY BEGINS =========')) return null
 
-  return true
+  return text
 }
+
+const LEADING_TAG_BLOCK = /^<([a-z][\w-]*)>[\s\S]*?<\/\1>/u
 
 export function cleanSessionTitle(value: string | null, fallback: string): string {
   const cleaned = value?.replace(/\s+/g, ' ').trim()
@@ -163,7 +170,7 @@ async function readSessionPreview(
             : null
         const candidate = textFromMessageContent(message?.content)
 
-        if (isConversationPrompt(candidate)) firstUser = candidate
+        firstUser = conversationPrompt(candidate)
       }
       if (item.type === 'response_item' && !firstUser) {
         const payload =
@@ -174,7 +181,7 @@ async function readSessionPreview(
         if (payload?.type === 'message' && payload.role === 'user') {
           const candidate = textFromMessageContent(payload.content)
 
-          if (isConversationPrompt(candidate)) firstUser = candidate
+          firstUser = conversationPrompt(candidate)
         }
       }
       if (item.type === 'event_msg' && !firstUser) {
@@ -184,7 +191,7 @@ async function readSessionPreview(
             : null
 
         if (payload?.type === 'user_message' && typeof payload.message === 'string') {
-          if (isConversationPrompt(payload.message)) firstUser = payload.message
+          firstUser = conversationPrompt(payload.message)
         }
       }
     }
