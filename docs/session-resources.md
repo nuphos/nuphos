@@ -30,7 +30,9 @@ routing events. Enable the corresponding events on the installed GitHub App:
 - Pull request review: submitted, dismissed, from people with write access
 - Issue comment: created, on PRs only, from humans with write access
 - Check suite: completed, with associated PR numbers. Per-job check runs and workflow
-  completion events are ignored so one CI suite does not produce N+2 wakeups.
+  completion events are ignored so one CI suite does not produce N+2 wakeups. Each
+  App that reports checks has its own suite, so a push can wake a session once per
+  App; the agent reads the PR's current state on every wake.
 
 The router matches the installation ID, stable repository ID and PR number.
 Events without an associated PR do not wake sessions. Write access is read from
@@ -42,19 +44,7 @@ must actually deliver a subscribed event; linking does not alter App subscriptio
 or retroactively replay earlier events.
 
 BullMQ persists deliveries using a per-binding/session/GitHub-delivery job ID,
-with retry on transient delivery errors. Each App that reports checks sends its
-own check suite, so CI wakes a session once per commit, after every suite with
-check runs on that commit has completed. Empty suites, which Apps with checks
-permission leave queued forever, are ignored. The job identity is the commit and
-its finished suites with their update times, so suites finishing together wake
-once, while a suite that appears later or a re-run that finishes again wakes the
-session for its result. If GitHub cannot list the suites, the delivery itself is
-the identity, so the wake is kept. After ten push or CI wakes in a row with no
-review or comment from a person, they stop waking that binding and log
-`agent.resource.rate_limited`, which stops a session that keeps waking itself
-through its own pushes. The next review or comment from someone with write
-access wakes the session and re-arms them; people are never capped, and a
-retried turn does not count again. The shared conversation runner prevents
+with retry on transient delivery errors. The shared conversation runner prevents
 concurrent turns and checks pending/persisted message IDs before redelivery. A
 busy session receives the event through its pending-message path. Accepted turns
 are not replayed just because model execution subsequently failed; inspect the

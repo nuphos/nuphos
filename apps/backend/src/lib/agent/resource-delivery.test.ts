@@ -6,10 +6,9 @@ import { useByosAccount } from '@/lib/test/doubles/byos-account'
 import { useByosGithub } from '@/lib/test/doubles/byos-github'
 import { useGithubHttp } from '@/lib/test/doubles/github-http'
 import { useIdentity } from '@/lib/test/doubles/identity'
-import { useRedis } from '@/lib/test/doubles/redis'
 import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
 
-import { resetWakeSlots, routeResourceWebhook, takeWakeSlot } from './resource-webhook'
+import { routeResourceWebhook } from './resource-webhook'
 
 import type { ResourceTurn } from './resource-webhook'
 
@@ -17,12 +16,6 @@ let queued: ResourceTurn[] = []
 let fail = false
 let lookups: string[] = []
 let permission: { status: number; permission?: string } = { status: 200, permission: 'write' }
-let wakes: number | null = 1
-let redisOps: string[] = []
-
-type Suite = { id: number; status: string; updated_at?: string; latest_check_runs_count: number }
-let suites: Suite[] = []
-let suitesStatus = 200
 const conversation = {
   sessionId: 'session',
   userId: 'owner',
@@ -43,7 +36,6 @@ const payload = {
 useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) })
 useByosAccount({ findGithubInstallation: async () => ({ installationId: 12 }) })
 useAgentDb({
-  getConversationBySessionId: async () => conversation,
   agentConversations: () => ({
     find: (filter: unknown) => {
       expect(filter).toEqual({
@@ -69,10 +61,6 @@ useByosGithub({ getInstallationToken: async () => ({ token: 'token', expiresAt: 
 useGithubHttp({
   githubFetch: async (url) => {
     lookups.push(url)
-    if (url.includes('/check-suites'))
-      return suitesStatus === 200
-        ? Response.json({ total_count: suites.length, check_suites: suites })
-        : Response.json({}, { status: suitesStatus })
 
     return Response.json({ permission: permission.permission }, { status: permission.status })
   },
@@ -83,20 +71,6 @@ beforeEach(() => {
   lookups = []
   permission = { status: 200, permission: 'write' }
   conversations = [conversation]
-  wakes = 1
-  redisOps = []
-  suites = []
-  suitesStatus = 200
-})
-useRedis({
-  withRedis: async (op) => {
-    const ops: string[] = []
-
-    await op({ del: async () => ops.push('del') } as never).catch(() => {})
-    redisOps.push(...ops)
-
-    return wakes
-  },
 })
 
 test('redelivery has the same durable job identity while a new delivery is distinct', async () => {
@@ -158,91 +132,4 @@ test('pushes and CI results do not need a permission lookup', async () => {
   await routeResourceWebhook('pull_request', payload, 'delivery')
   expect(lookups).toHaveLength(0)
   expect(queued).toHaveLength(1)
-})
-
-const turn = { sessionId: 'session', resourceId: 'binding', messageId: 'm', summary: 's' }
-
-test('pushes and CI stop waking a binding after ten unattended wakes in a row', async () => {
-  for (const count of [1, 10]) {
-    wakes = count
-    expect(await takeWakeSlot(turn)).toBe(true)
-  }
-  wakes = 11
-  expect(await takeWakeSlot(turn)).toBe(false)
-})
-test('an unavailable or unreadable wake counter does not swallow a wakeup', async () => {
-  for (const count of [null, Number.NaN]) {
-    wakes = count
-    expect(await takeWakeSlot(turn)).toBe(true)
-  }
-})
-test('reviews are marked as coming from a person, pushes are not', async () => {
-  await routeResourceWebhook('pull_request_review', review, 'delivery-review')
-  await routeResourceWebhook('pull_request', payload, 'delivery-push')
-  expect(queued.map((queuedTurn) => queuedTurn.fromPerson)).toEqual([true, false])
-})
-test('a person re-arms CI wakes for the binding', async () => {
-  await resetWakeSlots(turn)
-  expect(redisOps).toEqual(['del'])
-})
-
-const ci = {
-  installation: { id: 12 },
-  repository: { id: 34, full_name: 'acme/app' },
-  action: 'completed',
-  sender: { type: 'Bot', login: 'nuphos[bot]' },
-  check_suite: {
-    head_sha: 'a'.repeat(40),
-    status: 'completed',
-    conclusion: 'success',
-    pull_requests: [{ number: 56 }],
-  },
-}
-
-test('CI wakes once per commit, only after every suite with check runs finished', async () => {
-  suites = [
-    { id: 1, status: 'completed', latest_check_runs_count: 1 },
-    { id: 2, status: 'in_progress', latest_check_runs_count: 3 },
-    // An App with checks permission that never reports: queued forever, no runs.
-    { id: 3, status: 'queued', latest_check_runs_count: 0 },
-  ]
-  await routeResourceWebhook('check_suite', ci, 'suite-1')
-  expect(queued).toHaveLength(0)
-  expect(lookups[0]).toBe(
-    `https://api.github.com/repos/acme/app/commits/${'a'.repeat(40)}/check-suites?per_page=100`,
-  )
-
-  suites[1] = { id: 2, status: 'completed', latest_check_runs_count: 3 }
-  // Both suites' completions can observe the finished set; they share one job identity.
-  await routeResourceWebhook('check_suite', ci, 'suite-2')
-  await routeResourceWebhook('check_suite', ci, 'suite-1-retry')
-  expect(queued).toHaveLength(2)
-  expect(queued[0]?.messageId).toBe(queued[1]?.messageId)
-  expect(queued[0]?.fromPerson).toBe(false)
-})
-test('a suite that appears later still wakes the session for its result', async () => {
-  suites = [{ id: 1, status: 'completed', latest_check_runs_count: 1 }]
-  await routeResourceWebhook('check_suite', ci, 'suite-1')
-  suites.push({ id: 4, status: 'completed', latest_check_runs_count: 2 })
-  await routeResourceWebhook('check_suite', ci, 'suite-4')
-  expect(queued[0]?.messageId).not.toBe(queued[1]?.messageId)
-})
-test('a re-run finishing again on the same commit wakes the session again', async () => {
-  suites = [
-    { id: 1, status: 'completed', updated_at: '2026-10-11T01:00:00Z', latest_check_runs_count: 3 },
-  ]
-  await routeResourceWebhook('check_suite', ci, 'first-run')
-  suites = [
-    { id: 1, status: 'completed', updated_at: '2026-10-11T01:20:00Z', latest_check_runs_count: 3 },
-  ]
-  await routeResourceWebhook('check_suite', ci, 're-run')
-  expect(queued).toHaveLength(2)
-  expect(queued[0]?.messageId).not.toBe(queued[1]?.messageId)
-})
-test('a failed check-suites lookup still wakes the session, keyed by delivery', async () => {
-  suitesStatus = 502
-  await routeResourceWebhook('check_suite', ci, 'suite-1')
-  await routeResourceWebhook('check_suite', ci, 'suite-1')
-  expect(queued).toHaveLength(2)
-  expect(queued[0]?.messageId).toBe(queued[1]?.messageId)
 })
