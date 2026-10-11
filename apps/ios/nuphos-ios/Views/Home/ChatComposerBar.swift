@@ -119,7 +119,6 @@ struct ChatComposerBar<Controls: View>: View {
         .onTapGesture { if dictation == nil { focused = true } }
         .gesture(pullDown)
         .accessibilityAction(.escape) { focused = false }
-        .disabled(preparingSubmission)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
         .animation(.snappy(duration: 0.25), value: attachments)
