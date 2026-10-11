@@ -67,8 +67,14 @@ async function canPush(installationId: number, repository: string, login: string
 /**
  * One wake per commit once all of its CI is done, instead of one per reporting App.
  * Returns a key naming that finished set, or null while any suite is still running.
+ * When GitHub cannot say, `fallback` keeps the wake: at worst one extra for the commit.
  */
-async function finishedCi(installationId: number, repository: string, sha: string) {
+async function finishedCi(
+  installationId: number,
+  repository: string,
+  sha: string,
+  fallback: string,
+) {
   const { token } = await getInstallationToken(installationId)
   const response = await githubFetch(
     `${GITHUB_API}/repos/${repository}/commits/${sha}/check-suites?per_page=100`,
@@ -81,20 +87,28 @@ async function finishedCi(installationId: number, repository: string, sha: strin
       status: response.status,
     })
 
-    return null
+    return fallback
   }
-  const { check_suites: suites } = (await response.json()) as {
-    check_suites: { id: number; status: string; latest_check_runs_count: number }[]
+  const { total_count: total, check_suites: suites } = (await response.json()) as {
+    total_count: number
+    check_suites: {
+      id: number
+      status: string
+      updated_at: string
+      latest_check_runs_count: number
+    }[]
   }
+
+  if (total > suites.length) return fallback
   // Apps with checks permission get an empty suite that stays queued forever.
   const running = suites.filter((suite) => suite.latest_check_runs_count > 0)
 
   if (running.some((suite) => suite.status !== 'completed')) return null
 
-  // A suite that shows up later changes the key, so its result still wakes the session.
+  // A suite that shows up later, or a re-run finishing again, changes the key.
   return `ci:${sha}:${running
-    .map((suite) => suite.id)
-    .sort((a, b) => a - b)
+    .map((suite) => `${String(suite.id)}@${suite.updated_at}`)
+    .sort((a, b) => a.localeCompare(b))
     .join(',')}`
 }
 
@@ -186,7 +200,7 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
       }
       // Every suite reports separately; wait for the last and wake once for the commit.
       if (routed.ci) {
-        ciKey ??= finishedCi(routed.installationId, routed.ci.repository, routed.ci.sha)
+        ciKey ??= finishedCi(routed.installationId, routed.ci.repository, routed.ci.sha, deliveryId)
       }
       const dedupe = routed.ci ? await ciKey : deliveryId
 
@@ -207,10 +221,10 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
 }
 
 // Backstop for a session that keeps waking itself (push, CI result, push again): after this
-// many CI wakes in a row with no review or comment from a person, CI stops waking it.
-const UNATTENDED_CI_WAKES = 10
+// many push or CI wakes in a row with no review or comment from a person, they stop.
+const UNATTENDED_WAKES = 10
 
-/** A person's review or comment re-arms CI wakeups for the binding. */
+/** A person's review or comment re-arms push and CI wakeups for the binding. */
 export async function resetWakeSlots(data: ResourceTurn) {
   await withRedis((redis) => redis.del(wakeKey(data)))
 }
@@ -229,7 +243,7 @@ export async function takeWakeSlot(data: ResourceTurn) {
   })
 
   // Redis is required to enqueue at all; a failed count must not swallow a real wakeup.
-  if (count === null || !Number.isFinite(count) || count <= UNATTENDED_CI_WAKES) return true
+  if (count === null || !Number.isFinite(count) || count <= UNATTENDED_WAKES) return true
   logEvent('warn', 'agent.resource.rate_limited', {
     session_id: data.sessionId,
     resource_id: data.resourceId,

@@ -20,8 +20,9 @@ let permission: { status: number; permission?: string } = { status: 200, permiss
 let wakes: number | null = 1
 let redisOps: string[] = []
 
-type Suite = { id: number; status: string; latest_check_runs_count: number }
+type Suite = { id: number; status: string; updated_at?: string; latest_check_runs_count: number }
 let suites: Suite[] = []
+let suitesStatus = 200
 const conversation = {
   sessionId: 'session',
   userId: 'owner',
@@ -68,7 +69,10 @@ useByosGithub({ getInstallationToken: async () => ({ token: 'token', expiresAt: 
 useGithubHttp({
   githubFetch: async (url) => {
     lookups.push(url)
-    if (url.includes('/check-suites')) return Response.json({ check_suites: suites })
+    if (url.includes('/check-suites'))
+      return suitesStatus === 200
+        ? Response.json({ total_count: suites.length, check_suites: suites })
+        : Response.json({}, { status: suitesStatus })
 
     return Response.json({ permission: permission.permission }, { status: permission.status })
   },
@@ -82,6 +86,7 @@ beforeEach(() => {
   wakes = 1
   redisOps = []
   suites = []
+  suitesStatus = 200
 })
 useRedis({
   withRedis: async (op) => {
@@ -157,7 +162,7 @@ test('pushes and CI results do not need a permission lookup', async () => {
 
 const turn = { sessionId: 'session', resourceId: 'binding', messageId: 'm', summary: 's' }
 
-test('CI stops waking a binding after ten unattended wakes in a row', async () => {
+test('pushes and CI stop waking a binding after ten unattended wakes in a row', async () => {
   for (const count of [1, 10]) {
     wakes = count
     expect(await takeWakeSlot(turn)).toBe(true)
@@ -221,4 +226,23 @@ test('a suite that appears later still wakes the session for its result', async 
   suites.push({ id: 4, status: 'completed', latest_check_runs_count: 2 })
   await routeResourceWebhook('check_suite', ci, 'suite-4')
   expect(queued[0]?.messageId).not.toBe(queued[1]?.messageId)
+})
+test('a re-run finishing again on the same commit wakes the session again', async () => {
+  suites = [
+    { id: 1, status: 'completed', updated_at: '2026-10-11T01:00:00Z', latest_check_runs_count: 3 },
+  ]
+  await routeResourceWebhook('check_suite', ci, 'first-run')
+  suites = [
+    { id: 1, status: 'completed', updated_at: '2026-10-11T01:20:00Z', latest_check_runs_count: 3 },
+  ]
+  await routeResourceWebhook('check_suite', ci, 're-run')
+  expect(queued).toHaveLength(2)
+  expect(queued[0]?.messageId).not.toBe(queued[1]?.messageId)
+})
+test('a failed check-suites lookup still wakes the session, keyed by delivery', async () => {
+  suitesStatus = 502
+  await routeResourceWebhook('check_suite', ci, 'suite-1')
+  await routeResourceWebhook('check_suite', ci, 'suite-1')
+  expect(queued).toHaveLength(2)
+  expect(queued[0]?.messageId).toBe(queued[1]?.messageId)
 })

@@ -46,12 +46,14 @@ with retry on transient delivery errors. Each App that reports checks sends its
 own check suite, so CI wakes a session once per commit, after every suite with
 check runs on that commit has completed. Empty suites, which Apps with checks
 permission leave queued forever, are ignored. The job identity is the commit and
-its finished suite set, so suites finishing together wake once, and a suite that
-appears later still wakes the session for its result. After ten CI wakes in a
-row with no review or comment from a person, CI stops waking that binding and
-logs `agent.resource.rate_limited`, which stops a session that keeps waking itself
+its finished suites with their update times, so suites finishing together wake
+once, while a suite that appears later or a re-run that finishes again wakes the
+session for its result. If GitHub cannot list the suites, the delivery itself is
+the identity, so the wake is kept. After ten push or CI wakes in a row with no
+review or comment from a person, they stop waking that binding and log
+`agent.resource.rate_limited`, which stops a session that keeps waking itself
 through its own pushes. The next review or comment from someone with write
-access wakes the session and re-arms CI wakes; people are never capped, and a
+access wakes the session and re-arms them; people are never capped, and a
 retried turn does not count again. The shared conversation runner prevents
 concurrent turns and checks pending/persisted message IDs before redelivery. A
 busy session receives the event through its pending-message path. Accepted turns
