@@ -6,6 +6,7 @@ import { getInstallationToken } from '@/lib/byos/github'
 import { getGithubAppSlug } from '@/lib/byos/github-app-auth'
 import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
 import { logEvent } from '@/lib/observability'
+import { withRedis } from '@/lib/redis'
 
 import { agentConversations, getConversationBySessionId } from './db'
 import { resourceCredentialAllowed } from './session-resources'
@@ -98,7 +99,7 @@ export function githubResourceEvents(event: string, payload: unknown) {
     key: `github/${body.installation.id}/${body.repository.id}/${number}`,
     installationId: body.installation.id,
     actor,
-    summary: `GitHub ${event}.${action}. Inspect the linked PR for current details and continue the existing task.`,
+    summary: `Latest GitHub event: ${event}.${action}. Inspect the linked PR for current details and continue the existing task.`,
   }))
 }
 
@@ -146,6 +147,27 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
   }
 }
 
+// Backstop for a session that keeps waking itself (push, CI result, push again).
+const WAKES_PER_HOUR = 6
+
+async function takeWakeSlot(data: ResourceTurn) {
+  const key = `atlas:resource-wakes:${data.sessionId}:${data.resourceId}`
+  const count = await withRedis(async (redis) => {
+    const results = await redis.multi().set(key, 0, 'EX', 3600, 'NX').incr(key).exec()
+
+    return Number(results?.[1]?.[1])
+  })
+
+  // Redis is required to enqueue at all; a failed count must not swallow a real wakeup.
+  if (count === null || count <= WAKES_PER_HOUR) return true
+  logEvent('warn', 'agent.resource.rate_limited', {
+    session_id: data.sessionId,
+    resource_id: data.resourceId,
+  })
+
+  return false
+}
+
 export async function authorizedResourceTurn(data: ResourceTurn) {
   const conversation = await getConversationBySessionId(data.sessionId)
   const resource: SessionResource | undefined = conversation?.linkedResources?.find(
@@ -156,7 +178,8 @@ export async function authorizedResourceTurn(data: ResourceTurn) {
     !conversation ||
     conversation.archivedAt ||
     !resource ||
-    !(await resourceCredentialAllowed(conversation, resource))
+    !(await resourceCredentialAllowed(conversation, resource)) ||
+    !(await takeWakeSlot(data))
   )
     return null
 

@@ -6,9 +6,10 @@ import { useByosAccount } from '@/lib/test/doubles/byos-account'
 import { useByosGithub } from '@/lib/test/doubles/byos-github'
 import { useGithubHttp } from '@/lib/test/doubles/github-http'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useRedis } from '@/lib/test/doubles/redis'
 import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
 
-import { routeResourceWebhook } from './resource-webhook'
+import { authorizedResourceTurn, routeResourceWebhook } from './resource-webhook'
 
 import type { ResourceTurn } from './resource-webhook'
 
@@ -16,6 +17,7 @@ let queued: ResourceTurn[] = []
 let fail = false
 let lookups: string[] = []
 let permission: { status: number; permission?: string } = { status: 200, permission: 'write' }
+let wakes: number | null = 1
 const conversation = {
   sessionId: 'session',
   userId: 'owner',
@@ -36,6 +38,7 @@ const payload = {
 useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) })
 useByosAccount({ findGithubInstallation: async () => ({ installationId: 12 }) })
 useAgentDb({
+  getConversationBySessionId: async () => conversation as never,
   agentConversations: () => ({
     find: (filter: unknown) => {
       expect(filter).toEqual({
@@ -71,7 +74,9 @@ beforeEach(() => {
   lookups = []
   permission = { status: 200, permission: 'write' }
   conversations = [conversation]
+  wakes = 1
 })
+useRedis({ withRedis: async () => wakes as never })
 
 test('redelivery has the same durable job identity while a new delivery is distinct', async () => {
   await routeResourceWebhook('pull_request', payload, 'delivery-1')
@@ -132,4 +137,19 @@ test('pushes and CI results do not need a permission lookup', async () => {
   await routeResourceWebhook('pull_request', payload, 'delivery')
   expect(lookups).toHaveLength(0)
   expect(queued).toHaveLength(1)
+})
+
+const turn = { sessionId: 'session', resourceId: 'binding', messageId: 'm', summary: 's' }
+
+test('a binding wakes at most six times an hour', async () => {
+  for (const count of [1, 6]) {
+    wakes = count
+    expect(await authorizedResourceTurn(turn)).not.toBeNull()
+  }
+  wakes = 7
+  expect(await authorizedResourceTurn(turn)).toBeNull()
+})
+test('an unavailable wake counter does not swallow a wakeup', async () => {
+  wakes = null
+  expect(await authorizedResourceTurn(turn)).not.toBeNull()
 })
