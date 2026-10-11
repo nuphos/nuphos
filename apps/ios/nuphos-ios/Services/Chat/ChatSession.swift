@@ -49,7 +49,10 @@ final class ChatSession {
     var runtime: RuntimeInstance?
     /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
     private(set) var agentRuntime: String?
+    private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
+    /// Pull requests and issues the agent linked to this conversation.
+    private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
     /// Files the agent sent the user here, read from the transfer store.
@@ -458,6 +461,37 @@ final class ChatSession {
         await applyPendingModelSettings()
     }
 
+    func refreshResources() async {
+        guard !isNew, let list = try? await AgentChatAPI.sessionResources(token: token, teamId: teamId, sessionId: sessionId) else { return }
+        resources = list
+    }
+
+    /// Moves this conversation to another agent. The working files come along
+    /// when the destination can hold them — another Cloud agent of the same
+    /// type — and the move falls back to the transcript alone when they cannot.
+    func move(to target: RuntimeInstance) async throws {
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can move it.") }
+        func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
+            try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
+        }
+        let moved: AgentChatAPI.RuntimeMove
+        if target.tier == .cloud, target.provider.rawValue == agentRuntime {
+            do { moved = try await request(workspace: true) }
+            catch AgentChatAPI.Conflict.other(let code, _, _) where code == "workspace_unavailable" { moved = try await request(workspace: false) }
+        } else {
+            moved = try await request(workspace: false)
+        }
+        runtimeId = moved.runtimeId
+        runtimeLabel = moved.runtimeLabel
+        agentRuntime = moved.agentRuntime
+        // Model settings belonged to the agent it left.
+        sessionConfigRequest = UUID()
+        sessionConfig = nil
+        sessionConfigError = nil
+        pendingModelSettings = [:]
+        await refreshSessionConfig()
+    }
+
     // MARK: - Archive
 
     func rename(_ name: String) async throws {
@@ -797,6 +831,7 @@ final class ChatSession {
         canRespondToRun = detail.canRespondToRun ?? false
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
+        if let id = detail.runtimeId { runtimeId = id }
         if let l = detail.runtimeLabel { runtimeLabel = l }
         timelineEvents = detail.timelineEvents
         isArchived = detail.archivedAt != nil

@@ -128,6 +128,27 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 }
 
+/// A pull request or Linear issue the agent linked to a conversation
+/// (`GET /agent/conversations/:id/resources`).
+struct SessionResource: Decodable, Identifiable, Equatable, Sendable {
+    let id: String
+    /// `github` | `linear`.
+    let provider: String
+    let title: String
+    let url: URL
+    let state: String
+    let repository: String?
+    let number: Int?
+
+    /// `nuphos#165 · Fix the picker` for a pull request; a Linear title
+    /// already starts with its identifier.
+    var label: String {
+        guard let number else { return title }
+        let name = repository?.split(separator: "/").last.map(String.init) ?? ""
+        return "\(name)#\(number) · \(title)"
+    }
+}
+
 struct AgentConversationsPage: Codable, Sendable {
     let conversations: [AgentConversation]
     let nextCursor: String?

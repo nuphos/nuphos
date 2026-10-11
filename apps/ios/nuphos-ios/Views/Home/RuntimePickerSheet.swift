@@ -1,14 +1,20 @@
 import SwiftUI
 
 /// Picks the agent a new conversation starts on: one of the user's own
-/// computers, or a Cloud agent the team has connected.
+/// computers, or a Cloud agent the team has connected. Given an open
+/// conversation, picking one moves that conversation there instead.
 struct RuntimePickerSheet: View {
+    var session: ChatSession?
+    var onMove: (RuntimeInstance) -> Void = { _ in }
+
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var showSetup = false
     @State private var detailRuntime: RuntimeInstance?
     @State private var detent = PresentationDetent.medium
+    /// A move onto one of the user's computers waits for their go-ahead.
+    @State private var pendingLocal: RuntimeInstance?
 
     var body: some View {
         NavigationStack {
@@ -35,12 +41,16 @@ struct RuntimePickerSheet: View {
                                         Button {
                                             if quota?.needsSignIn == true, canManage(runtime) {
                                                 detailRuntime = runtime
+                                            } else if let session {
+                                                if runtime.id == session.runtimeId { dismiss() }
+                                                else if runtime.tier == .myComputers { pendingLocal = runtime }
+                                                else { onMove(runtime); dismiss() }
                                             } else {
                                                 store.selectRuntime(runtime)
                                                 dismiss()
                                             }
                                         } label: {
-                                            RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == store.newConversationRuntime?.id)
+                                            RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == (session == nil ? store.newConversationRuntime?.id : session?.runtimeId))
                                         }
                                         .buttonStyle(.plain)
                                         .disabled(!runtime.isSelectable)
@@ -72,6 +82,12 @@ struct RuntimePickerSheet: View {
             }
             .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
             .navigationDestination(item: $detailRuntime) { runtime in if let team = store.selectedTeam { AgentDetailView(team: team, runtime: runtime) } }
+            .alert("Move to \(pendingLocal?.name ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
+                Button("Move") { onMove(runtime); dismiss() }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("This agent runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.")
+            }
             .task { await store.loadRuntimes() }
             .task { await store.loadQuotas() }
             .refreshable {

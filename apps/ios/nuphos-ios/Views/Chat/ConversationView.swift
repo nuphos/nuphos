@@ -25,6 +25,7 @@ struct ConversationView: View {
     @State private var updating = false
     @State private var showRename = false
     @State private var renamedTitle = ""
+    @State private var showRuntimes = false
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
 
@@ -107,6 +108,20 @@ struct ConversationView: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .principal) { titleBar }
+            if !session.resources.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(session.resources) { resource in
+                            Button { openURL(resource.url) } label: {
+                                Label(resource.label, image: "logo-\(resource.provider)")
+                                Text(resource.state.capitalized)
+                            }
+                        }
+                    } label: {
+                        Label("Links", systemImage: "link")
+                    }
+                }
+            }
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -127,6 +142,8 @@ struct ConversationView: View {
                         }
                         if session.canManage {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
+                            Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
+                                .disabled(session.isStreaming)
                             Button {
                                 Task {
                                     updating = true
@@ -162,6 +179,16 @@ struct ConversationView: View {
             Text(archiveError ?? "")
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
+        .sheet(isPresented: $showRuntimes) {
+            RuntimePickerSheet(session: session) { runtime in
+                Task {
+                    updating = true
+                    defer { updating = false }
+                    do { try await session.move(to: runtime); await store.reload() }
+                    catch { archiveError = error.localizedDescription }
+                }
+            }
+        }
         .sheet(item: $planLink) { target in
             NavigationStack {
                 PlanDetailView(
@@ -209,6 +236,7 @@ struct ConversationView: View {
         .task { await session.pollWhileIdle() }
         // New files land while a turn runs; read them once it settles.
         .task(id: "\(session.isStreaming).\(session.messages.count)") {
+            await session.refreshResources()
             if !session.isStreaming { await session.refreshDownloads() }
         }
         .task {

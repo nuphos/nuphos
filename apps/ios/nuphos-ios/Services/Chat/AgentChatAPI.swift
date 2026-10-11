@@ -147,6 +147,31 @@ enum AgentChatAPI {
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
     }
 
+    struct RuntimeMove: Decodable { let runtimeId: String; let runtimeLabel: String; let agentRuntime: String }
+
+    /// `POST /agent/conversations/:id/runtime` — moves the conversation to
+    /// another agent. `workspace` brings the working files; `history` only
+    /// the transcript.
+    static func moveRuntime(token: String, teamId: String, sessionId: String, runtimeId: String, workspace: Bool) async throws -> RuntimeMove {
+        struct Body: Encodable { var runtimeId: String; var mode: String }
+        let data = try await send(
+            "POST", "agent/conversations/\(sessionId)/runtime",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: Body(runtimeId: runtimeId, mode: workspace ? "workspace" : "history"), timeout: 120
+        )
+        return try JSONDecoder().decode(RuntimeMove.self, from: data)
+    }
+
+    /// `GET /agent/conversations/:id/resources`.
+    static func sessionResources(token: String, teamId: String, sessionId: String) async throws -> [SessionResource] {
+        struct List: Decodable { let resources: [SessionResource] }
+        let data = try await send(
+            "GET", "agent/conversations/\(sessionId)/resources",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none, timeout: 12
+        )
+        return try JSONDecoder().decode(List.self, from: data).resources
+    }
+
     /// `GET /agent/conversations/:id/model-config`.
     static func sessionConfig(token: String, teamId: String, sessionId: String) async throws -> SessionConfigState {
         let data = try await send(
