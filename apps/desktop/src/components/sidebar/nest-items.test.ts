@@ -39,6 +39,10 @@ test('a folded parent hides its whole subtree but still has children', () => {
     ['parent', 'other'],
   )
   assert.equal(rows[0]!.hasChildren, true)
+  assert.deepEqual(
+    rows[0]!.hidden.map((item) => item.key),
+    ['child-b', 'child-a', 'grandchild'],
+  )
 })
 
 test('a row whose parent is not listed is top-level', () => {

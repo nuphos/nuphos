@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { ChevronDown, ChevronRight, Star } from 'lucide-react'
+import { Fragment } from 'react'
 
 import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
@@ -108,13 +109,16 @@ export function SidebarSectionList({
                   <SidebarSectionSkeleton />
                 ) : (
                   nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
-                    ({ item, trail, hasChildren }) => {
+                    ({ item, trail, hasChildren, hidden }) => {
                       const Icon = item.icon
                       const isActive =
                         item.enabled &&
                         (item.key === 'team.agent'
                           ? newChatActive
-                          : item.active || isSidebarItemActive(scope, active, item.key))
+                          : item.active ||
+                            isSidebarItemActive(scope, active, item.key) ||
+                            // A folded parent stands in for the open thread it hides.
+                            hidden.some((row) => row.active))
                       const rowSessionId = item.key.startsWith('agent-session:')
                         ? item.key.slice('agent-session:'.length)
                         : null
@@ -216,6 +220,12 @@ export function SidebarSectionList({
                                 {foldToggle}
                                 {favoriteToggle}
                                 {item.trailing}
+                                {/* One dot for whatever the fold hides; the rest render null. */}
+                                <span className="contents [&>*:not(:first-child)]:hidden">
+                                  {hidden.map((row) => (
+                                    <Fragment key={row.key}>{row.foldedStatus}</Fragment>
+                                  ))}
+                                </span>
                                 {item.actions}
                               </>
                             }

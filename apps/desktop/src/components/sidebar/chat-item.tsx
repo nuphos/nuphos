@@ -57,6 +57,14 @@ export function chatSidebarItem({
     trailing: (
       <ChatRowStatusDot conversation={conversation} runtimeState={runtimeState} unread={unread} />
     ),
+    foldedStatus: (
+      <ChatRowStatusDot
+        conversation={conversation}
+        runtimeState={runtimeState}
+        unread={unread}
+        showTurn
+      />
+    ),
     actions,
   }
 }

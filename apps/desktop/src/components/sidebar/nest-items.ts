@@ -4,6 +4,8 @@ export type NestedItem<T> = {
   /** Per level, whether a later sibling at that level still follows this row. */
   trail: boolean[]
   hasChildren: boolean
+  /** Everything under a folded row, so the row can stand in for it. */
+  hidden: T[]
 }
 
 /**
@@ -25,11 +27,20 @@ export function nestItems<T extends { key: string; parentKey?: string }>(
     }
   }
   const nested: NestedItem<T>[] = []
+  const below = (key: string): T[] =>
+    (children.get(key) ?? []).flatMap((kid) => [kid, ...below(kid.key)])
   const visit = (item: T, trail: boolean[]) => {
     const kids = children.get(item.key) ?? []
+    const folded = kids.length > 0 && isFolded(item.key)
 
-    nested.push({ item, depth: trail.length, trail, hasChildren: kids.length > 0 })
-    if (isFolded(item.key)) return
+    nested.push({
+      item,
+      depth: trail.length,
+      trail,
+      hasChildren: kids.length > 0,
+      hidden: folded ? below(item.key) : [],
+    })
+    if (folded) return
     kids.forEach((kid, index) => visit(kid, [...trail, index < kids.length - 1]))
   }
 
