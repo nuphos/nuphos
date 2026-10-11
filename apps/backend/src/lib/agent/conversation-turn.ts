@@ -6,6 +6,7 @@ import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messag
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
+import type { MessageMetadata } from './message-metadata'
 import type { UIMessage } from 'ai'
 
 type ConversationTurn = {
@@ -22,6 +23,7 @@ export async function executeConversationTurn(
   target: AgentConversation,
   renderedText: string,
   source: 'agent.thread' | 'agent.resource',
+  metadata: MessageMetadata,
 ): Promise<void> {
   // A stalled queue delivery may have reached an active turn before its ACK.
   if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId)) return
@@ -43,6 +45,7 @@ export async function executeConversationTurn(
     message: {
       ...buildPendingUserMessage({
         renderedText,
+        metadata,
         source,
         actorUserId: data.userId,
       }),
@@ -74,7 +77,7 @@ export async function executeConversationTurn(
           metadata: message.metadata,
           parts: [{ type: 'text', text: message.renderedText }],
         }))
-      : [{ id: data.messageId, role: 'user', parts: [{ type: 'text', text: renderedText }] }]
+      : [{ id: data.messageId, role: 'user', metadata, parts: [{ type: 'text', text: renderedText }] }]
 
     const outcome = await turnRunner.runAgentForTrigger({
       userId: data.userId,

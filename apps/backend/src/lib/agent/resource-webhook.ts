@@ -119,7 +119,7 @@ export function githubResourceEvents(event: string, payload: unknown) {
     key: `github/${body.installation.id}/${body.repository.id}/${number}`,
     installationId: body.installation.id,
     actor,
-    summary: `GitHub ${event}.${action}. Inspect the linked PR for current details and continue the existing task.`,
+    summary: `GitHub ${event}.${action}.`,
   }))
 }
 
@@ -180,7 +180,7 @@ async function statusEvents(commit: NonNullable<ReturnType<typeof githubStatusCo
       key: `${prefix}${String(pull.number)}`,
       installationId: commit.installationId,
       actor: undefined,
-      summary: `GitHub status.${commit.state ?? ''} (${commit.context}). Inspect the linked PR for current details and continue the existing task.`,
+      summary: `GitHub status.${commit.state ?? ''} (${commit.context}).`,
     }))
 }
 
