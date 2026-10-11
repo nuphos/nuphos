@@ -3,8 +3,8 @@ import SwiftUI
 
 /// The files in one transfer group: what the agent sent, or what the user
 /// uploaded. One image shows whole; several shrink to a grid of square
-/// thumbnails, and Quick Look swipes through all of them. Videos and other
-/// files are chips. Every file opens in Quick Look (videos play there) from a
+/// thumbnails, and the preview swipes through all of them. Videos and other
+/// files are chips. Those open in Quick Look (videos play there) from a
 /// freshly signed link, with Save and Share.
 struct TransferCard: View {
     let groupId: String
@@ -17,8 +17,10 @@ struct TransferCard: View {
     @State private var files: [TransferDownloadGroup.File] = []
     @State private var opening: String?
     @State private var preview: URL?
-    /// What Quick Look can swipe through: the group's images, or the one file.
+    /// What the preview can swipe through: the group's images, or the one file.
     @State private var previewItems: [URL] = []
+    /// The image the full-screen pager opens on.
+    @State private var pagerStart: URL?
     @State private var failed = false
     @State private var unavailable = false
 
@@ -47,6 +49,11 @@ struct TransferCard: View {
             files = group.readyFiles
         }
         .quickLookPreview($preview, in: previewItems)
+        #if os(iOS)
+        .fullScreenCover(isPresented: Binding(get: { pagerStart != nil }, set: { if !$0 { pagerStart = nil } })) {
+            if let pagerStart { ImagePager(urls: previewItems, current: pagerStart) }
+        }
+        #endif
     }
 
     private var images: [TransferDownloadGroup.File] { files.filter(\.isImage) }
@@ -129,6 +136,12 @@ struct TransferCard: View {
                 }
             }
             previewItems = (file.isImage ? images : [file]).compactMap { locals[$0.id] }
+            #if os(iOS)
+            if file.isImage {
+                pagerStart = locals[file.id]
+                return
+            }
+            #endif
             preview = locals[file.id]
         } catch {
             failed = true
