@@ -112,7 +112,7 @@ test('idle target wakes through the normal runner and keeps transcript, actor an
     },
     parts: [{ type: 'text', text: 'CI passed' }],
   })
-  expect(claims[0]?.message.metadata).toEqual(runs[0]?.messages[1]?.metadata)
+  expect(runs[0]?.messages[1]?.metadata).toEqual(claims[0]?.message.metadata)
   expect(claims[0]?.message.id).toBe('delivery')
   expect(released).toBe(1)
 })

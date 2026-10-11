@@ -92,7 +92,7 @@ test('automatic messages keep routing and control instructions in model metadata
   for (const value of [
     { ...metadata, sender: { type: 'agent', id: 'source', displayName: 'Nuphos agent' }, source: 'agent.thread', sourceSessionId: 'source' },
     { ...metadata, sender: { type: 'system', id: 'github', displayName: 'GitHub' }, source: 'agent.resource', resourceUrl: 'https://github.com/nuphos/nuphos/pull/186' },
-  ]) {
+  ] as const) {
     const parsed = parseMessageMetadata(value)
     const [header, json, close, blank, ...body] = renderAttributedMessage('event', 'CI passed', parsed).split('\n')
 
