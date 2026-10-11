@@ -10,7 +10,6 @@ export function registerBackgroundToolPersistence(): void {
       teamId: context.teamId,
       toolCallId: update.toolCallId,
       state: update.status === 'failed' ? 'output-error' : 'output-available',
-      output: update.rawOutput ?? update.contentText ?? null,
       ...(update.status === 'failed'
         ? {
             errorText:
