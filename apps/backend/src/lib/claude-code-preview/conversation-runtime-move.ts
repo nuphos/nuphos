@@ -11,7 +11,7 @@ import { AppError } from '@/lib/errors'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { placementNamespace } from './runtime-controllers'
-import { assertRuntimeNotDeleting, runtimeDeletions } from './runtime-portability-store'
+import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
 import {
@@ -135,13 +135,6 @@ export async function moveConversationRuntime(
           'No workspace is attached. Choose conversation history only.',
         )
       let archive = await findWorkspaceArchive(teamId, conversation.sessionId, sourceUrl)
-      const deletingSource = await runtimeDeletions().findOne(
-        { teamId, 'placements.url': sourceUrl },
-        { sort: { requestedAt: -1 } },
-      )
-
-      if (archive && deletingSource && archive.createdAt < deletingSource.requestedAt)
-        archive = null
       // An active source must be freshly saved; an old archive may be stale.
       const sourceLive = endpoints.some((entry) => entry.url === sourceUrl)
 

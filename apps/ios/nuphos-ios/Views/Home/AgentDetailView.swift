@@ -68,7 +68,7 @@ struct AgentDetailView: View {
             Button("Remove Agent", role: .destructive) { remove() }
         } message: {
             Text(current.kind == "managed"
-                ? "Nuphos permanently deletes this agent and its disk, including its sign-in. Your conversation history stays in Nuphos."
+                ? "This stops the agent and permanently deletes its files and sign-in. Your conversation history stays in Nuphos."
                 : "This disconnects the agent. Your conversations stay in Nuphos.")
         }
     }

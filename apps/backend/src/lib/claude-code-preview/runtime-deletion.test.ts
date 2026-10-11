@@ -1,13 +1,15 @@
 import { beforeEach, expect, test } from 'bun:test'
 
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
+import { config } from '@/config'
+import { useProvisionerKube } from '@/lib/test/doubles/provisioner-kube'
 import { useDb } from '@/lib/test/doubles/db'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeWorkspace } from '@/lib/test/doubles/runtime-workspace'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { placementNamespace, RUNTIME_CONTROLLER_STALE_MS } from './runtime-controllers'
-import { reconcileRuntimeDeletions } from './runtime-deletion'
+import { reconcileRuntimeDeletions, requestRuntimeDeletion } from './runtime-deletion'
 import { hostedRuntimeName, hostedRuntimeUrl } from './runtime-objects'
 
 import type { KubeClient, KubeResourceState } from './kube-client'
@@ -18,10 +20,12 @@ const actions: string[] = []
 
 useDb({ db: () => memory })
 useRedis({ redisEnabled: () => true })
+// Deletion must work even when turn admission is unavailable.
 useAgentRunStore({
   getActiveAgentRunForSession: async () => null,
   reserveActiveAgentRunForSession: async () => null,
 })
+// A removal must never enter the workspace backup path.
 useRuntimeWorkspace({
   findWorkspaceArchive: async () => {
     throw new Error('Deletion must not read backups')
@@ -31,7 +35,7 @@ useRuntimeWorkspace({
   },
 })
 const teamId = '123456789012345678901234'
-const namespace = 'openab-runtimes'
+const namespace = config.claudeCodeRuntimeProvisioner.namespace
 const runtimeId = 'hosted-runtime'
 const name = hostedRuntimeName(teamId, 'claude-code', runtimeId)
 const elsewhere = (environment: string) => hostedRuntimeUrl(name, environment)
@@ -52,6 +56,8 @@ const kube: KubeClient = {
     resources.delete(key)
   },
 }
+useProvisionerKube({ provisionerKubeClient: () => kube })
+
 const tick = () => reconcileRuntimeDeletions(namespace, 'claude-code', kube)
 
 beforeEach(() => {
@@ -252,4 +258,21 @@ test('deletion does not wait for an active conversation or back up its workspace
   await tick()
   expect(actions).toEqual(['delete:Deployment'])
   expect(job.error).toBeUndefined()
+})
+
+test('the remove request stops the deployment without waiting for the next timer', async () => {
+  await requestRuntimeDeletion(
+    teamId,
+    {
+      id: runtimeId,
+      provider: 'claude-code',
+      label: 'Agent',
+      status: 'active',
+      kind: 'managed',
+      createdAt: new Date().toISOString(),
+    },
+    'owner',
+  )
+  expect(actions).toEqual(['delete:Deployment'])
+  expect(job.completedAt).toBeUndefined()
 })

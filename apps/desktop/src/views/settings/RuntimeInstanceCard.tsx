@@ -198,7 +198,7 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              'Saving conversation workspaces, then deleting the agent and its disk. Conversations stay in Nuphos and can be moved to another agent.'}
+              'Removing the agent and its files. Conversation history stays in Nuphos.'}
           </p>
         ) : editing ? (
           <div className="p-4">

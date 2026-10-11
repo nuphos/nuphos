@@ -1,6 +1,9 @@
+import { config } from '@/config'
+
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
+import { provisionerKubeClient } from './provisioner-kube'
 import { placementNamespace, runtimeControllerGone } from './runtime-controllers'
 import { deleteRuntimeAuthSecret } from './runtime-credential-secret'
 import { inspectClaim, removeClaim } from './runtime-deletion-volumes'
@@ -21,9 +24,6 @@ export async function requestRuntimeDeletion(
   instance: RuntimeInstance,
   userId: string,
 ) {
-  const existing = await runtimeDeletions().findOne({ _id: instance.id, teamId })
-
-  if (existing) return
   const runtime = await runtimes().findOne({ _id: instance.id, teamId, hostedBy: 'nuphos' })
 
   await runtimeDeletions().updateOne(
@@ -41,6 +41,15 @@ export async function requestRuntimeDeletion(
     },
     { upsert: true },
   )
+  const kube = provisionerKubeClient()
+
+  if (kube)
+    await reconcileRuntimeDeletions(
+      config.claudeCodeRuntimeProvisioner.namespace,
+      instance.provider,
+      kube,
+      instance.id,
+    )
 }
 
 type Placement = RuntimeDeletion['placements'][number]
@@ -156,9 +165,10 @@ export async function reconcileRuntimeDeletions(
   namespace: string,
   provider: OpenAbProvider,
   kube: KubeClient,
+  runtimeId?: string,
 ) {
   const jobs = await runtimeDeletions()
-    .find({ provider, completedAt: { $exists: false } })
+    .find({ provider, completedAt: { $exists: false }, ...(runtimeId ? { _id: runtimeId } : {}) })
     .toArray()
 
   for (const job of jobs) {

@@ -243,3 +243,16 @@ test('a manually registered in-cluster source remains movable using history', as
   expect(saved).toBe(false)
   expect(restored).toBe(false)
 })
+
+test('a deleted source keeps its last archive available for workspace moves', async () => {
+  memory.rows('agent_runtime_deletions').push({
+    _id: 'old',
+    teamId: 'team',
+    requestedAt: new Date(Date.now() + 60_000),
+    completedAt: new Date(),
+    placements: [{ url: 'wss://old/acp', state: 'deleted' }],
+  })
+  await moveConversationRuntime({ ...conversation }, 'new', 'workspace', 'owner')
+  expect(saved).toBe(false)
+  expect(restored).toBe(true)
+})
