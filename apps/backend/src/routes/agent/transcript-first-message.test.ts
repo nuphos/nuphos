@@ -80,7 +80,7 @@ test.each(['codex', 'claude-code'])(
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true })
-    expect(stored.map((message) => message.id)).toEqual(['imported-0', 'imported-1'])
+    expect(stored.map((message) => message.messageId)).toEqual(['imported-0', 'imported-1'])
   },
 )
 
