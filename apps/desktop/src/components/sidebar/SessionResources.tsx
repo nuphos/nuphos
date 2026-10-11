@@ -100,7 +100,7 @@ export function SessionResources({
       className={
         titlebar
           ? 't-session-heading titlebar-no-drag flex min-w-0 items-center gap-1 overflow-hidden text-[11px] text-tertiary'
-          : 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-2 pl-8 text-[11px] text-tertiary'
+          : 'flex min-w-0 items-center gap-2 overflow-hidden px-2 pb-2 pl-8 text-[11px] text-tertiary'
       }
       aria-label="Linked resources"
     >
@@ -115,7 +115,7 @@ export function SessionResources({
         return (
           <span
             key={resource.id}
-            className={`inline-flex shrink-0 items-center ${titlebar ? 'session-resource-tag rounded border' : ''} ${color}`}
+            className={`inline-flex items-center ${titlebar ? 'session-resource-tag shrink-0 rounded border' : thread ? 'min-w-0' : 'shrink-0'} ${color}`}
           >
             <ResourceLabel
               onPointerDown={(event) => {
