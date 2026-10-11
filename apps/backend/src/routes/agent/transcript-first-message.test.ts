@@ -65,6 +65,41 @@ test.each(['codex', 'claude-code'])(
   },
 )
 
+test.each(['codex', 'claude-code'])(
+  '%s local-session import creates the conversation',
+  async (agentRuntime) => {
+    const messages: UIMessage[] = [
+      { id: 'imported-0', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+      { id: 'imported-1', role: 'assistant', parts: [{ type: 'text', text: 'hi' }] },
+    ]
+    const response = await agent.request('/conversations/new-session/transcript', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-token' },
+      body: JSON.stringify({ agentRuntime, messages, import: true }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+    expect(stored.map((message) => message.id)).toEqual(['imported-0', 'imported-1'])
+  },
+)
+
+test('an import flag cannot overwrite an existing native transcript', async () => {
+  conversation = {
+    sessionId: 'new-session',
+    userId: OWNER,
+    agentRuntime: 'codex',
+  } as AgentConversation
+  const response = await agent.request('/conversations/new-session/transcript', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-token' },
+    body: JSON.stringify({ messages: [{ id: 'first', role: 'user', parts: [] }], import: true }),
+  })
+
+  expect(await response.json()).toEqual({ ok: true, skipped: 'server_authoritative' })
+  expect(stored).toEqual([])
+})
+
 test('a delayed PUT cannot overwrite a native transcript after chat creates it', async () => {
   conversation = {
     sessionId: 'new-session',

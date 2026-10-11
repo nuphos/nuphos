@@ -201,7 +201,14 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
   // renderer snapshot must never replace it, even after the run has finished.
   // This includes new sessions: a PUT racing ahead of /chat would store the
   // first message without attribution, making /chat treat it as legacy history.
-  if (isServerAuthoritativeTranscript(existing, instance?.provider ?? body.agentRuntime)) {
+  // A local-session import is the one exception: it creates the conversation
+  // with turns that are meant to be exactly that history.
+  const importing = body.import === true && !existing
+
+  if (
+    !importing &&
+    isServerAuthoritativeTranscript(existing, instance?.provider ?? body.agentRuntime)
+  ) {
     return c.json({ ok: true, skipped: 'server_authoritative' })
   }
   if (baseIndex > 0) {
