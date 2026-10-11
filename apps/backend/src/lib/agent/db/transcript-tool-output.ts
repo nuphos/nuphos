@@ -1,6 +1,6 @@
 /**
  * Tools whose result a client reads back out of a stored transcript, to draw
- * the card for a Plan, a chart, or a proposed rule.
+ * the card for a Plan or a chart.
  *
  * Every other result is only a record of what the agent saw while it worked.
  * The runtime keeps its own copy for the model, so ours served nothing but a
@@ -12,7 +12,6 @@ const STORED_OUTPUT_TOOLS = new Set([
   'plan_create',
   'database_change_propose',
   'render_chart',
-  'propose_authorization_rule',
 ])
 
 function toolNameOf(part: Record<string, unknown>): string | null {
