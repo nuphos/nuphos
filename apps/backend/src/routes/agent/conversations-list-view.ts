@@ -69,7 +69,9 @@ export async function serializeConversationList<T extends ListedConversation>(
     ),
     slackThreadsPromise,
     Promise.all(conversations.map(activeRunFor)),
-    sessionThreadResources(sessionIds).catch((err: unknown) => {
+    sessionThreadResources(
+      conversations as unknown as Pick<AgentConversation, 'sessionId' | 'firstMessage'>[],
+    ).catch((err: unknown) => {
       logError('agent.conversations.thread_resources.error', err, { team_id: teamId })
 
       return new Map<string, SessionThreadResource[]>()

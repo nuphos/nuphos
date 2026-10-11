@@ -1,4 +1,4 @@
-import { faDiscord, faSlack } from '@fortawesome/free-brands-svg-icons'
+import { faDiscord } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { GitMerge, GitPullRequest, GitPullRequestClosed, Terminal, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -18,14 +18,14 @@ function resourceStyle(resource: SessionResource): { icon: ReactNode; color: str
       icon: <img src="/linear.svg" alt="Linear" className={iconClass} />,
       color: 'session-resource-linear',
     }
-  if (resource.provider !== 'github')
+  if (resource.provider === 'slack')
     return {
-      icon: (
-        <FontAwesomeIcon
-          icon={resource.provider === 'slack' ? faSlack : faDiscord}
-          className={iconClass}
-        />
-      ),
+      icon: <img src="/slack.svg" alt="Slack" className={iconClass} />,
+      color: 'text-secondary',
+    }
+  if (resource.provider === 'discord')
+    return {
+      icon: <FontAwesomeIcon icon={faDiscord} className={`${iconClass} text-[#5865f2]`} />,
       color: 'text-secondary',
     }
   if (resource.state === 'merged')
@@ -107,10 +107,10 @@ export function SessionResources({
       {visible.map((resource) => {
         const thread = resource.provider === 'slack' || resource.provider === 'discord'
         const { icon, color } = resourceStyle(resource)
-        const label =
-          resource.provider === 'github'
-            ? `#${String(resource.number)}`
-            : resource.title.split(/\s+/, 1)[0]
+        let label = resource.title.split(/\s+/, 1)[0]
+
+        if (resource.provider === 'github') label = `#${String(resource.number)}`
+        else if (thread) label = resource.title
 
         return (
           <span

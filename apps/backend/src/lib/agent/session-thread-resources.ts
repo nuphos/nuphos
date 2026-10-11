@@ -21,22 +21,37 @@ export type SessionThreadResource = {
 
 type SlackThreadRef = Pick<
   SlackAgentThread,
-  'sessionId' | 'slackWorkspaceId' | 'slackChannelId' | 'slackThreadTs' | 'createdAt'
+  | 'sessionId'
+  | 'slackWorkspaceId'
+  | 'slackChannelId'
+  | 'slackThreadTs'
+  | 'recentMessages'
+  | 'createdAt'
 >
 type DiscordThreadRef = Pick<
   DiscordAgentThread,
   'sessionId' | 'guildId' | 'threadChannelId' | 'createdAt'
 >
 
+type ThreadSession = Pick<AgentConversation, 'sessionId' | 'firstMessage'>
+
+/** The first words of a thread: its root message, else the message that started the session. */
+function threadTitle(provider: string, text: string | undefined) {
+  return text?.replace(/\s+/g, ' ').trim().slice(0, 80) || `${provider} thread`
+}
+
 export function slackThreadFallbackUrl(workspaceId: string, channelId: string, threadTs: string) {
   return `https://app.slack.com/client/${encodeURIComponent(workspaceId)}/${encodeURIComponent(channelId)}/thread/${encodeURIComponent(channelId)}-${encodeURIComponent(threadTs)}`
 }
 
-function slackResource(thread: SlackThreadRef): SessionThreadResource {
+function slackResource(thread: SlackThreadRef, firstMessage?: string): SessionThreadResource {
+  // The rolling window keeps the root until the thread outgrows it.
+  const root = thread.recentMessages?.[0]
+
   return {
     id: `slack:${thread.slackChannelId}:${thread.slackThreadTs}`,
     provider: 'slack',
-    title: 'Slack thread',
+    title: threadTitle('Slack', root?.ts === thread.slackThreadTs ? root.text : firstMessage),
     url: slackThreadFallbackUrl(
       thread.slackWorkspaceId,
       thread.slackChannelId,
@@ -47,11 +62,12 @@ function slackResource(thread: SlackThreadRef): SessionThreadResource {
   }
 }
 
-function discordResource(thread: DiscordThreadRef): SessionThreadResource {
+// Nuphos names the Discord threads it opens after the message that started the session.
+function discordResource(thread: DiscordThreadRef, firstMessage?: string): SessionThreadResource {
   return {
     id: `discord:${thread.threadChannelId}`,
     provider: 'discord',
-    title: 'Discord thread',
+    title: threadTitle('Discord', firstMessage),
     url: `https://discord.com/channels/${thread.guildId}/${thread.threadChannelId}`,
     state: 'linked',
     linkedAt: thread.createdAt.toISOString(),
@@ -60,12 +76,15 @@ function discordResource(thread: DiscordThreadRef): SessionThreadResource {
 
 /** Thread tags for a page of sessions: one `$in` query per provider. */
 export async function sessionThreadResources(
-  sessionIds: readonly string[],
+  sessions: readonly ThreadSession[],
 ): Promise<Map<string, SessionThreadResource[]>> {
   const byId = new Map<string, SessionThreadResource[]>()
 
-  if (!sessionIds.length) return byId
-  const filter = { sessionId: { $in: [...new Set(sessionIds)] } }
+  if (!sessions.length) return byId
+  const firstMessages = new Map(
+    sessions.map((session) => [session.sessionId, session.firstMessage]),
+  )
+  const filter = { sessionId: { $in: [...firstMessages.keys()] } }
   const [slack, discord] = await Promise.all([
     slackAgentThreads()
       .find<SlackThreadRef>(filter, {
@@ -75,6 +94,7 @@ export async function sessionThreadResources(
           slackWorkspaceId: 1,
           slackChannelId: 1,
           slackThreadTs: 1,
+          recentMessages: { $slice: 1 },
           createdAt: 1,
         },
       })
@@ -89,15 +109,17 @@ export async function sessionThreadResources(
   const add = (sessionId: string, resource: SessionThreadResource) =>
     byId.set(sessionId, [...(byId.get(sessionId) ?? []), resource])
 
-  for (const thread of slack) add(thread.sessionId, slackResource(thread))
-  for (const thread of discord) add(thread.sessionId, discordResource(thread))
+  for (const thread of slack)
+    add(thread.sessionId, slackResource(thread, firstMessages.get(thread.sessionId)))
+  for (const thread of discord)
+    add(thread.sessionId, discordResource(thread, firstMessages.get(thread.sessionId)))
 
   return byId
 }
 
 /** Stored GitHub/Linear links followed by the session's thread tags. */
 export async function sessionResources(conversation: AgentConversation) {
-  const threads = await sessionThreadResources([conversation.sessionId])
+  const threads = await sessionThreadResources([conversation])
 
   return [...(conversation.linkedResources ?? []), ...(threads.get(conversation.sessionId) ?? [])]
 }

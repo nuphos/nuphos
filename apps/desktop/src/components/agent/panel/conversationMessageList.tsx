@@ -6,7 +6,6 @@ import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
-import { SlackThreadBanner } from './conversationBanners'
 import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
 import { ShellsPanel } from './ShellsPanel'
@@ -99,7 +98,6 @@ export function ConversationMessageList({
           )}
         </div>
       )}
-      {tab.slackThread && <SlackThreadBanner thread={tab.slackThread} />}
       {tab.messages.length === 0 ? (
         <div className="flex min-h-[30vh] items-end">
           <AgentHomeAnimation />

@@ -14,6 +14,7 @@ const rows: Record<string, unknown[]> = {
       slackWorkspaceId: 'T1',
       slackChannelId: 'C1',
       slackThreadTs: '1.2',
+      recentMessages: [{ ts: '1.2', authorName: 'a', text: 'Deploy  failed\non prod' }],
       createdAt,
     },
   ],
@@ -32,12 +33,15 @@ useDb({
 test('session resources append the bound Slack and Discord threads', async () => {
   const resources = await sessionResources({
     sessionId: 's1',
-    linkedResources: [{ id: 'pr', provider: 'github', url: 'https://github.com/o/r/pull/1' }],
+    firstMessage: 'Why is checkout slow?',
+    linkedResources: [
+      { id: 'pr', provider: 'github', url: 'https://github.com/o/r/pull/1', title: 'PR' },
+    ],
   } as unknown as AgentConversation)
 
-  expect(resources.map((resource) => [resource.provider, resource.url])).toEqual([
-    ['github', 'https://github.com/o/r/pull/1'],
-    ['slack', 'https://app.slack.com/client/T1/C1/thread/C1-1.2'],
-    ['discord', 'https://discord.com/channels/G1/D1'],
+  expect(resources.map((resource) => [resource.provider, resource.url, resource.title])).toEqual([
+    ['github', 'https://github.com/o/r/pull/1', 'PR'],
+    ['slack', 'https://app.slack.com/client/T1/C1/thread/C1-1.2', 'Deploy failed on prod'],
+    ['discord', 'https://discord.com/channels/G1/D1', 'Why is checkout slow?'],
   ])
 })

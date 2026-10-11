@@ -25,7 +25,9 @@ A session's Slack or Discord thread appears as a tag too. It is not stored on th
 conversation: the thread routing rows (`slack_agent_threads`,
 `discord_agent_threads`) already are the binding, so resource reads derive the
 tag from them. That covers threads started in Slack or Discord, `slack_post`
-notification threads, and Slack pickups. Thread tags open in the system's Slack
+notification threads, and Slack pickups. The tag shows the thread's first words: the Slack
+root message while the rolling window still holds it, otherwise the message that
+started the session (which is also what Nuphos names a Discord thread after). Thread tags open in the system's Slack
 or Discord app and have no unlink button, since unlinking would cut the thread off
 from the session.
 
