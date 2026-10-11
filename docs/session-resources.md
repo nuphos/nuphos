@@ -27,14 +27,17 @@ The existing `/github-app/webhook` ingress verifies GitHub's signature before
 routing events. Enable the corresponding events on the installed GitHub App:
 
 - Pull request: opened, reopened, closed, synchronize, ready_for_review
-- Pull request review: submitted, dismissed, from owners/members/collaborators
-- Issue comment: created, on PRs only, from human owners/members/collaborators
+- Pull request review: submitted, dismissed, from people with write access
+- Issue comment: created, on PRs only, from humans with write access
 - Check suite: completed, with associated PR numbers. Per-job check runs and workflow
   completion events are ignored so one CI suite does not produce N+2 wakeups.
 
 The router matches the installation ID, stable repository ID and PR number.
-Events without an associated PR do not wake sessions. Events from the configured
-Nuphos App bot and bot issue comments are ignored to avoid reply loops. GitHub
+Events without an associated PR do not wake sessions. Write access is read from
+GitHub's collaborator permission API, because `author_association` reports
+private org members as outside contributors. Events from the configured Nuphos
+App bot and bot issue comments are ignored to avoid reply loops, except check
+suite completions: CI results on the agent's own pushes still wake the session. GitHub
 must actually deliver a subscribed event; linking does not alter App subscriptions
 or retroactively replay earlier events.
 

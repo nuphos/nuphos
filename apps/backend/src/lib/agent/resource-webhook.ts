@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto'
 
 import { z } from 'zod'
 
+import { getInstallationToken } from '@/lib/byos/github'
 import { getGithubAppSlug } from '@/lib/byos/github-app-auth'
+import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
 
 import { agentConversations, getConversationBySessionId } from './db'
 import { resourceCredentialAllowed } from './session-resources'
@@ -13,20 +15,28 @@ import type { SessionResource } from './session-resources'
 const pr = z.object({ number: z.number().int().positive() })
 const payloadSchema = z.object({
   installation: z.object({ id: z.number().int().positive() }),
-  repository: z.object({ id: z.number().int().positive() }),
+  repository: z.object({ id: z.number().int().positive(), full_name: z.string().max(200) }),
   action: z.string().max(100).optional(),
   sender: z.object({ type: z.string(), login: z.string() }).optional(),
   pull_request: pr.optional(),
   issue: pr.extend({ pull_request: z.unknown().optional() }).optional(),
-  comment: z.object({ author_association: z.string() }).optional(),
-  review: z.object({ author_association: z.string() }).optional(),
   check_suite: z
     .object({ pull_requests: z.array(pr), status: z.string(), conclusion: z.string().nullable() })
     .optional(),
 })
 
-function trustedAuthor(association: string | undefined) {
-  return association !== undefined && ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(association)
+// author_association reports private org members as CONTRIBUTOR/NONE, so ask GitHub directly.
+async function canPush(installationId: number, repository: string, login: string) {
+  const { token } = await getInstallationToken(installationId)
+  const response = await githubFetch(
+    `${GITHUB_API}/repos/${repository}/collaborators/${encodeURIComponent(login)}/permission`,
+    { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } },
+  )
+
+  if (!response.ok) return false
+  const { permission } = (await response.json()) as { permission?: string }
+
+  return permission === 'admin' || permission === 'write'
 }
 
 /** Only route PR-related events; ignore edits and intermediate CI churn. */
@@ -37,32 +47,43 @@ export function githubResourceEvents(event: string, payload: unknown) {
   const body = parsed.data
   const appSlug = getGithubAppSlug()
 
-  if (appSlug && body.sender?.login === `${appSlug}[bot]`) return []
+  // CI results are reported against our own pushes, so only they skip the self-event filter.
+  const ownEvent = appSlug !== undefined && body.sender?.login === `${appSlug}[bot]`
   const action = body.action ?? ''
   let numbers: number[] = []
+  let actor: string | undefined
 
   if (
-    event === 'pull_request' &&
-    ['opened', 'reopened', 'closed', 'synchronize', 'ready_for_review'].includes(action)
-  ) {
-    if (body.pull_request) numbers = [body.pull_request.number]
-  } else if (event === 'pull_request_review' && ['submitted', 'dismissed'].includes(action)) {
-    if (body.pull_request && trustedAuthor(body.review?.author_association))
-      numbers = [body.pull_request.number]
-  } else if (event === 'issue_comment' && action === 'created' && body.issue?.pull_request) {
-    // Avoid waking on our own replies; review bots report through review/check events.
-    if (body.sender?.type !== 'Bot' && trustedAuthor(body.comment?.author_association))
-      numbers = [body.issue.number]
-  } else if (
     event === 'check_suite' &&
     action === 'completed' &&
     body.check_suite?.status === 'completed'
   ) {
     numbers = body.check_suite.pull_requests.map((pull) => pull.number)
+  } else if (ownEvent) {
+    return []
+  } else if (
+    event === 'pull_request' &&
+    ['opened', 'reopened', 'closed', 'synchronize', 'ready_for_review'].includes(action)
+  ) {
+    if (body.pull_request) numbers = [body.pull_request.number]
+  } else if (event === 'pull_request_review' && ['submitted', 'dismissed'].includes(action)) {
+    if (body.pull_request && body.sender) {
+      numbers = [body.pull_request.number]
+      actor = body.sender.login
+    }
+  } else if (event === 'issue_comment' && action === 'created' && body.issue?.pull_request) {
+    // Avoid waking on our own replies; review bots report through review/check events.
+    if (body.sender && body.sender.type !== 'Bot') {
+      numbers = [body.issue.number]
+      actor = body.sender.login
+    }
   }
 
   return [...new Set(numbers)].map((number) => ({
     key: `github/${body.installation.id}/${body.repository.id}/${number}`,
+    installationId: body.installation.id,
+    repository: body.repository.full_name,
+    actor,
     summary: `GitHub ${event}.${action}. Inspect the linked PR for current details and continue the existing task.`,
   }))
 }
@@ -80,6 +101,8 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
   if (!events.length) return
   if (!deliveryId || deliveryId.length > 200)
     throw new Error('A bounded GitHub delivery ID is required')
+  let actorAllowed: Promise<boolean> | undefined
+
   for (const routed of events) {
     const conversations = agentConversations().find({
       'linkedResources.key': routed.key,
@@ -90,6 +113,11 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
       const resource = conversation.linkedResources?.find((entry) => entry.key === routed.key)
 
       if (!resource || !(await resourceCredentialAllowed(conversation, resource))) continue
+      // Only people who can push may wake a session; checked once, after a linked PR matches.
+      if (routed.actor) {
+        actorAllowed ??= canPush(routed.installationId, routed.repository, routed.actor)
+        if (!(await actorAllowed)) return
+      }
       const messageId = createHash('sha256')
         .update(JSON.stringify([conversation.sessionId, resource.id, deliveryId]))
         .digest('hex')
