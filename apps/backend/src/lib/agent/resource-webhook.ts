@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getInstallationToken } from '@/lib/byos/github'
 import { getGithubAppSlug } from '@/lib/byos/github-app-auth'
 import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
+import { logEvent } from '@/lib/observability'
 
 import { agentConversations, getConversationBySessionId } from './db'
 import { resourceCredentialAllowed } from './session-resources'
@@ -15,7 +16,13 @@ import type { SessionResource } from './session-resources'
 const pr = z.object({ number: z.number().int().positive() })
 const payloadSchema = z.object({
   installation: z.object({ id: z.number().int().positive() }),
-  repository: z.object({ id: z.number().int().positive(), full_name: z.string().max(200) }),
+  repository: z.object({
+    id: z.number().int().positive(),
+    full_name: z
+      .string()
+      .regex(/^[\w.-]+\/[\w.-]+$/)
+      .optional(),
+  }),
   action: z.string().max(100).optional(),
   sender: z.object({ type: z.string(), login: z.string() }).optional(),
   pull_request: pr.optional(),
@@ -33,7 +40,15 @@ async function canPush(installationId: number, repository: string, login: string
     { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } },
   )
 
-  if (!response.ok) return false
+  if (!response.ok) {
+    logEvent('warn', 'github.resource.permission_lookup_failed', {
+      installation_id: installationId,
+      status: response.status,
+    })
+
+    return false
+  }
+  // Legacy `permission` folds maintain into write and triage into read; role_name would not.
   const { permission } = (await response.json()) as { permission?: string }
 
   return permission === 'admin' || permission === 'write'
@@ -51,7 +66,7 @@ export function githubResourceEvents(event: string, payload: unknown) {
   const ownEvent = appSlug !== undefined && body.sender?.login === `${appSlug}[bot]`
   const action = body.action ?? ''
   let numbers: number[] = []
-  let actor: string | undefined
+  let actor: { login: string; repository: string } | undefined
 
   if (
     event === 'check_suite' &&
@@ -67,22 +82,21 @@ export function githubResourceEvents(event: string, payload: unknown) {
   ) {
     if (body.pull_request) numbers = [body.pull_request.number]
   } else if (event === 'pull_request_review' && ['submitted', 'dismissed'].includes(action)) {
-    if (body.pull_request && body.sender) {
+    if (body.pull_request && body.sender && body.repository.full_name) {
       numbers = [body.pull_request.number]
-      actor = body.sender.login
+      actor = { login: body.sender.login, repository: body.repository.full_name }
     }
   } else if (event === 'issue_comment' && action === 'created' && body.issue?.pull_request) {
     // Avoid waking on our own replies; review bots report through review/check events.
-    if (body.sender && body.sender.type !== 'Bot') {
+    if (body.sender && body.sender.type !== 'Bot' && body.repository.full_name) {
       numbers = [body.issue.number]
-      actor = body.sender.login
+      actor = { login: body.sender.login, repository: body.repository.full_name }
     }
   }
 
   return [...new Set(numbers)].map((number) => ({
     key: `github/${body.installation.id}/${body.repository.id}/${number}`,
     installationId: body.installation.id,
-    repository: body.repository.full_name,
     actor,
     summary: `GitHub ${event}.${action}. Inspect the linked PR for current details and continue the existing task.`,
   }))
@@ -115,7 +129,7 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
       if (!resource || !(await resourceCredentialAllowed(conversation, resource))) continue
       // Only people who can push may wake a session; checked once, after a linked PR matches.
       if (routed.actor) {
-        actorAllowed ??= canPush(routed.installationId, routed.repository, routed.actor)
+        actorAllowed ??= canPush(routed.installationId, routed.actor.repository, routed.actor.login)
         if (!(await actorAllowed)) return
       }
       const messageId = createHash('sha256')

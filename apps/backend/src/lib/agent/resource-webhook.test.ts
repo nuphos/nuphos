@@ -34,7 +34,7 @@ describe('GitHub resource routing', () => {
     })
 
     expect(events).toHaveLength(1)
-    expect(events[0]?.actor).toBe('reviewer')
+    expect(events[0]?.actor).toEqual({ login: 'reviewer', repository: 'acme/app' })
     expect(events[0]?.summary).not.toContain('grant full access')
   })
   test('only completed CI events fan out to unique associated PRs', () => {
@@ -90,7 +90,7 @@ describe('GitHub resource routing', () => {
       sender: { type: 'User', login: 'reviewer' },
     }
 
-    expect(githubResourceEvents('issue_comment', payload)[0]?.actor).toBe('reviewer')
+    expect(githubResourceEvents('issue_comment', payload)[0]?.actor?.login).toBe('reviewer')
     expect(
       githubResourceEvents('issue_comment', {
         ...payload,
