@@ -1,5 +1,4 @@
 import { config } from '@/config'
-
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
