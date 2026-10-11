@@ -30,7 +30,7 @@ useDb({
     }) as unknown as ReturnType<typeof real.db>,
 })
 
-test('session resources append the bound Slack and Discord threads', async () => {
+test('session resources lead with the bound Slack and Discord threads', async () => {
   const resources = await sessionResources({
     sessionId: 's1',
     firstMessage: 'Why is checkout slow?',
@@ -40,8 +40,8 @@ test('session resources append the bound Slack and Discord threads', async () =>
   } as unknown as AgentConversation)
 
   expect(resources.map((resource) => [resource.provider, resource.url, resource.title])).toEqual([
-    ['github', 'https://github.com/o/r/pull/1', 'PR'],
     ['slack', 'https://app.slack.com/client/T1/C1/thread/C1-1.2', 'Deploy failed on prod'],
     ['discord', 'https://discord.com/channels/G1/D1', 'Why is checkout slow?'],
+    ['github', 'https://github.com/o/r/pull/1', 'PR'],
   ])
 })

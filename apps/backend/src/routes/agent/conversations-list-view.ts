@@ -87,8 +87,8 @@ export async function serializeConversationList<T extends ListedConversation>(
       slackThreadBySessionId.get(conversation.sessionId),
     ),
     linkedResources: [
-      ...((conversation.linkedResources as unknown[] | undefined) ?? []),
       ...(threadResources.get(conversation.sessionId) ?? []),
+      ...((conversation.linkedResources as unknown[] | undefined) ?? []),
     ],
     activeRun: activeRuns[index]?.activeRun ?? null,
     runtimeState: activeRuns[index]?.runtimeState ?? { state: 'unknown' },

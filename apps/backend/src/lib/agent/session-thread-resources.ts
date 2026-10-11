@@ -117,9 +117,9 @@ export async function sessionThreadResources(
   return byId
 }
 
-/** Stored GitHub/Linear links followed by the session's thread tags. */
+/** The session's thread tags, where it came from, ahead of its stored GitHub/Linear links. */
 export async function sessionResources(conversation: AgentConversation) {
   const threads = await sessionThreadResources([conversation])
 
-  return [...(conversation.linkedResources ?? []), ...(threads.get(conversation.sessionId) ?? [])]
+  return [...(threads.get(conversation.sessionId) ?? []), ...(conversation.linkedResources ?? [])]
 }

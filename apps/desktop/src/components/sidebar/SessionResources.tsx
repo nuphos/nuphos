@@ -93,7 +93,6 @@ export function SessionResources({
 
   if (!resources.length && !processes.length) return null
   const linked = resources.filter((resource) => !removed.includes(resource.id))
-  const visible = titlebar ? linked : linked.slice(0, 2)
 
   return (
     <div
@@ -104,7 +103,7 @@ export function SessionResources({
       }
       aria-label="Linked resources"
     >
-      {visible.map((resource) => {
+      {linked.map((resource) => {
         const thread = resource.provider === 'slack' || resource.provider === 'discord'
         const { icon, color } = resourceStyle(resource)
         let label = resource.title.split(/\s+/, 1)[0]

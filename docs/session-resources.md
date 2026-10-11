@@ -7,8 +7,9 @@ callers cannot supply a display URL or substitute another session. Re-linking th
 same resource is idempotent. Only owners and managers can change bindings.
 
 Each sidebar session shows compact resource identifiers below its title; both
-lines select the session through one shared hover surface. At most two resource
-identifiers are shown there, without an overflow count. The session titlebar shows
+lines select the session through one shared hover surface. The identifiers stay
+on one line: a Slack or Discord thread comes first and truncates, and anything
+past the sidebar's width is clipped rather than wrapped. The session titlebar shows
 resource tags: the identifier opens the resource in a workspace browser tab, and
 the separate, always-visible unlink button removes only the binding. Provider
 colors, hover feedback, and reduced-motion-aware transitions support both themes.
