@@ -47,7 +47,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
       if (job.name === 'resource-session-turn') {
         const { executeResourceTurn } = await import('./resource-turn')
 
-        await executeResourceTurn(job.data)
+        await executeResourceTurn(job.data, job.attemptsMade)
 
         return
       }

@@ -108,6 +108,8 @@ export type ResourceTurn = {
   resourceId: string
   messageId: string
   summary: string
+  /** A review or comment from someone with push access; never rate limited. */
+  fromPerson?: boolean
 }
 
 export async function routeResourceWebhook(event: string, payload: unknown, deliveryId: string) {
@@ -142,6 +144,7 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
         resourceId: resource.id,
         messageId,
         summary: routed.summary,
+        fromPerson: Boolean(routed.actor),
       })
     }
   }
@@ -150,7 +153,7 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
 // Backstop for a session that keeps waking itself (push, CI result, push again).
 const WAKES_PER_HOUR = 6
 
-async function takeWakeSlot(data: ResourceTurn) {
+export async function takeWakeSlot(data: ResourceTurn) {
   const key = `atlas:resource-wakes:${data.sessionId}:${data.resourceId}`
   const count = await withRedis(async (redis) => {
     const results = await redis.multi().set(key, 0, 'EX', 3600, 'NX').incr(key).exec()
@@ -159,7 +162,7 @@ async function takeWakeSlot(data: ResourceTurn) {
   })
 
   // Redis is required to enqueue at all; a failed count must not swallow a real wakeup.
-  if (count === null || count <= WAKES_PER_HOUR) return true
+  if (count === null || !Number.isFinite(count) || count <= WAKES_PER_HOUR) return true
   logEvent('warn', 'agent.resource.rate_limited', {
     session_id: data.sessionId,
     resource_id: data.resourceId,
@@ -178,8 +181,7 @@ export async function authorizedResourceTurn(data: ResourceTurn) {
     !conversation ||
     conversation.archivedAt ||
     !resource ||
-    !(await resourceCredentialAllowed(conversation, resource)) ||
-    !(await takeWakeSlot(data))
+    !(await resourceCredentialAllowed(conversation, resource))
   )
     return null
 

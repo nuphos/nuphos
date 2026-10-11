@@ -45,10 +45,13 @@ BullMQ persists deliveries using a per-binding/session/GitHub-delivery job ID,
 with retry on transient delivery errors. Deliveries are debounced per binding:
 each one waits a minute, and a newer delivery for the same binding within that
 minute replaces it and restarts the wait, so several check suites or a review
-with comments become one wake carrying the latest event. Each binding wakes at
-most six times per hour; further wakeups in that window are dropped and logged
-as `agent.resource.rate_limited`, which stops a session that keeps waking itself
-through its own pushes. The shared conversation runner prevents
+with comments become one wake carrying the latest event. Reviews and comments
+debounce separately from pushes and CI, so a CI result never replaces a review.
+Pushes and CI wake a binding at most six times per hour; further wakeups in that
+window are dropped and logged as `agent.resource.rate_limited`, which stops a
+session that keeps waking itself through its own pushes. Reviews and comments
+from people with write access are never capped, and a retried turn does not
+take another slot. The shared conversation runner prevents
 concurrent turns and checks pending/persisted message IDs before redelivery. A
 busy session receives the event through its pending-message path. Accepted turns
 are not replayed just because model execution subsequently failed; inspect the

@@ -29,6 +29,7 @@ export async function closeThreadQueue(): Promise<void> {
 }
 
 // A burst (several check suites, review plus comments) becomes one wake after a quiet minute.
+// People and automation debounce separately so CI never replaces a review.
 const RESOURCE_DEBOUNCE_MS = 60_000
 
 export async function enqueueResourceTurn(data: ResourceTurn): Promise<void> {
@@ -38,7 +39,7 @@ export async function enqueueResourceTurn(data: ResourceTurn): Promise<void> {
     jobId: data.messageId,
     delay: RESOURCE_DEBOUNCE_MS,
     deduplication: {
-      id: `resource:${data.sessionId}:${data.resourceId}`,
+      id: `resource:${data.sessionId}:${data.resourceId}:${data.fromPerson ? 'person' : 'automation'}`,
       ttl: RESOURCE_DEBOUNCE_MS,
       extend: true,
       replace: true,

@@ -1,13 +1,15 @@
 import { executeConversationTurn } from './conversation-turn'
-import { authorizedResourceTurn } from './resource-webhook'
+import { authorizedResourceTurn, takeWakeSlot } from './resource-webhook'
 import { refreshSessionResource } from './session-resources'
 
 import type { ResourceTurn } from './resource-webhook'
 
-export async function executeResourceTurn(data: ResourceTurn) {
+export async function executeResourceTurn(data: ResourceTurn, attemptsMade = 0) {
   const authorized = await authorizedResourceTurn(data)
 
   if (!authorized) return
+  // Only automation (pushes, CI) is capped, and a retry reuses its first attempt's slot.
+  if (!data.fromPerson && attemptsMade === 0 && !(await takeWakeSlot(data))) return
   const { conversation } = authorized
   const resource = await refreshSessionResource(conversation, authorized.resource)
   const renderedText = [

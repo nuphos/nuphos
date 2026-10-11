@@ -9,7 +9,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
 
-import { authorizedResourceTurn, routeResourceWebhook } from './resource-webhook'
+import { routeResourceWebhook, takeWakeSlot } from './resource-webhook'
 
 import type { ResourceTurn } from './resource-webhook'
 
@@ -141,15 +141,22 @@ test('pushes and CI results do not need a permission lookup', async () => {
 
 const turn = { sessionId: 'session', resourceId: 'binding', messageId: 'm', summary: 's' }
 
-test('a binding wakes at most six times an hour', async () => {
+test('automation wakes a binding at most six times an hour', async () => {
   for (const count of [1, 6]) {
     wakes = count
-    expect(await authorizedResourceTurn(turn)).not.toBeNull()
+    expect(await takeWakeSlot(turn)).toBe(true)
   }
   wakes = 7
-  expect(await authorizedResourceTurn(turn)).toBeNull()
+  expect(await takeWakeSlot(turn)).toBe(false)
 })
-test('an unavailable wake counter does not swallow a wakeup', async () => {
-  wakes = null
-  expect(await authorizedResourceTurn(turn)).not.toBeNull()
+test('an unavailable or unreadable wake counter does not swallow a wakeup', async () => {
+  for (const count of [null, Number.NaN]) {
+    wakes = count
+    expect(await takeWakeSlot(turn)).toBe(true)
+  }
+})
+test('reviews are marked as coming from a person, pushes are not', async () => {
+  await routeResourceWebhook('pull_request_review', review, 'delivery-review')
+  await routeResourceWebhook('pull_request', payload, 'delivery-push')
+  expect(queued.map((queuedTurn) => queuedTurn.fromPerson)).toEqual([true, false])
 })
