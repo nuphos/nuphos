@@ -6,7 +6,7 @@ import { config } from '@/config'
 import { errorTelemetryProperties, logEvent } from '@/lib/observability'
 import { instrumentRedis } from '@/otel/instrumentation/redis'
 
-import { REDIS_OP_TIMEOUT_MESSAGE, createRedisWedgeDetector } from './redis-wedge'
+import { REDIS_OP_TIMEOUT_MESSAGE, createRedisWedgeDetector, forceReconnect } from './redis-wedge'
 
 import type { RedisOptions } from 'ioredis'
 
@@ -20,8 +20,9 @@ export const replicaId: string =
 let _client: Redis | null = null
 let _subscriber: Redis | null = null
 const wedge = createRedisWedgeDetector(() => {
-  logEvent('warn', 'redis.client.forced_reconnect', { replica_id: replicaId })
-  _client?.disconnect(true)
+  if (_client && forceReconnect(_client)) {
+    logEvent('warn', 'redis.client.forced_reconnect', { replica_id: replicaId })
+  }
 })
 
 function buildOptions(): RedisOptions {

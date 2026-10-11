@@ -1,3 +1,5 @@
+import type Redis from 'ioredis'
+
 // ioredis keeps a half-open socket "connected" indefinitely. Count op timeouts
 // in a row so the caller can drop the socket and let the retry strategy
 // reconnect.
@@ -27,4 +29,17 @@ export function createRedisWedgeDetector(
       onWedge()
     },
   }
+}
+
+/**
+ * Drops the socket so the retry strategy reconnects. Only a ready client is
+ * touched: a burst of timeouts trips the detector several times in a row, and
+ * disconnecting a client that is already reconnecting makes ioredis end it for
+ * good, with every later command failing as "Connection is closed."
+ */
+export function forceReconnect(client: Pick<Redis, 'status' | 'disconnect'>): boolean {
+  if (client.status !== 'ready') return false
+  client.disconnect(true)
+
+  return true
 }
