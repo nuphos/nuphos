@@ -45,6 +45,9 @@ struct ConversationView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.chatCanvas)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 if !session.queued.isEmpty {
@@ -108,20 +111,6 @@ struct ConversationView: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .principal) { titleBar }
-            if !session.resources.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        ForEach(session.resources) { resource in
-                            Button { openURL(resource.url) } label: {
-                                Label(resource.label, image: "logo-\(resource.provider)")
-                                Text(resource.state.capitalized)
-                            }
-                        }
-                    } label: {
-                        Label("Links", systemImage: "link")
-                    }
-                }
-            }
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -579,6 +568,46 @@ struct MemoryRecallPill: View {
                 .padding(.top, 8)
                 .padding(.leading, 4)
             }
+        }
+    }
+}
+
+/// Pull requests and issues linked to the conversation, pinned under its title.
+struct ResourceStrip: View {
+    let resources: [SessionResource]
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(resources) { resource in
+                    Button { openURL(resource.url) } label: {
+                        HStack(spacing: 5) {
+                            BrandLogo(name: "logo-\(resource.provider)", size: 12)
+                            Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
+                            Text(resource.state.capitalized).foregroundStyle(tone(resource))
+                        }
+                        .font(Theme.Text.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Theme.chatSurface, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(resource.title), \(resource.state)")
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 6)
+        .background(Theme.chatCanvas)
+    }
+
+    private func tone(_ resource: SessionResource) -> Color {
+        guard resource.provider == "github" else { return Theme.muted }
+        switch resource.state {
+        case "merged": return Theme.brandText
+        case "closed": return .red
+        default: return .green
         }
     }
 }

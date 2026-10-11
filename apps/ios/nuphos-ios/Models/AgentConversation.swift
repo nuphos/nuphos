@@ -140,12 +140,11 @@ struct SessionResource: Decodable, Identifiable, Equatable, Sendable {
     let repository: String?
     let number: Int?
 
-    /// `nuphos#165 · Fix the picker` for a pull request; a Linear title
-    /// already starts with its identifier.
-    var label: String {
-        guard let number else { return title }
-        let name = repository?.split(separator: "/").last.map(String.init) ?? ""
-        return "\(name)#\(number) · \(title)"
+    /// What a chip has room for: `#165` for a pull request, or the identifier
+    /// a Linear title starts with.
+    var chip: String {
+        if let number { return "#\(number)" }
+        return title.split(separator: " ").first.map(String.init) ?? title
     }
 }
 

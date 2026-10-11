@@ -5,7 +5,7 @@ enum SessionLinkTests {
         buildsTheDesktopSessionURL()
         usesTheConversationsOwnTeam()
         escapesSegmentsAndRefusesEmptyOnes()
-        labelsLinkedResources()
+        chipsLinkedResources()
         print("Session link passed")
     }
 
@@ -33,7 +33,7 @@ enum SessionLinkTests {
         precondition(SessionLink.url(teamId: "team-1", sessionId: "") == nil)
     }
 
-    private static func labelsLinkedResources() {
+    private static func chipsLinkedResources() {
         struct List: Decodable { let resources: [SessionResource] }
         let json = #"""
         {"resources":[
@@ -42,8 +42,6 @@ enum SessionLinkTests {
         ],"canManage":true}
         """#
         let resources = try! JSONDecoder().decode(List.self, from: Data(json.utf8)).resources
-        // A pull request's title says nothing about where it lives; a Linear
-        // title already leads with its identifier.
-        precondition(resources.map(\.label) == ["nuphos#165 · Fix the picker", "NUPS-1022 Switch agents on iOS"])
+        precondition(resources.map(\.chip) == ["#165", "NUPS-1022"])
     }
 }
