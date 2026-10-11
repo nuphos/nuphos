@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
 
-import { githubResourceEvents } from './resource-webhook'
+import { githubResourceEvents, githubStatusCommit } from './resource-webhook'
 
 const base = { installation: { id: 12 }, repository: { id: 34, full_name: 'acme/app' } }
 
@@ -147,6 +147,64 @@ test('comments and reviews without a sender cannot wake a session', () => {
       ...base,
       action: 'submitted',
       pull_request: { number: 56 },
+    }),
+  ).toEqual([])
+})
+
+test('pending, unattributed and own commit statuses do not route', () => {
+  const status = {
+    ...base,
+    sha: 'a'.repeat(40),
+    state: 'success',
+    sender: { type: 'Bot', login: 'ci[bot]' },
+  }
+
+  expect(githubStatusCommit('status', status)).toEqual({
+    installationId: 12,
+    repositoryId: 34,
+    repository: 'acme/app',
+    sha: 'a'.repeat(40),
+    state: 'success',
+  })
+  expect(githubStatusCommit('status', { ...status, state: 'pending' })).toBeNull()
+  expect(githubStatusCommit('status', { ...status, sha: 'not-a-sha' })).toBeNull()
+  expect(githubStatusCommit('push', status)).toBeNull()
+  const previous = config.byos.github.appSlug
+
+  config.byos.github.appSlug = 'nuphos'
+  try {
+    expect(
+      githubStatusCommit('status', { ...status, sender: { type: 'Bot', login: 'nuphos[bot]' } }),
+    ).toBeNull()
+  } finally {
+    config.byos.github.appSlug = previous
+  }
+})
+test('review Apps wake the PR; bot comments still do not', () => {
+  const sender = { type: 'Bot', login: 'opencodezebra[bot]' }
+
+  expect(
+    githubResourceEvents('pull_request_review', {
+      ...base,
+      action: 'submitted',
+      sender,
+      pull_request: { number: 56 },
+    })[0]?.actor,
+  ).toBeUndefined()
+  expect(
+    githubResourceEvents('pull_request_review', {
+      ...base,
+      action: 'submitted',
+      sender,
+      pull_request: { number: 56 },
+    }),
+  ).toHaveLength(1)
+  expect(
+    githubResourceEvents('issue_comment', {
+      ...base,
+      action: 'created',
+      sender,
+      issue: { number: 56, pull_request: {} },
     }),
   ).toEqual([])
 })

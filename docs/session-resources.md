@@ -27,12 +27,16 @@ The existing `/github-app/webhook` ingress verifies GitHub's signature before
 routing events. Enable the corresponding events on the installed GitHub App:
 
 - Pull request: opened, reopened, closed, synchronize, ready_for_review
-- Pull request review: submitted, dismissed, from people with write access
+- Pull request review: submitted, dismissed, from people with write access or from
+  review Apps (bots such as a review council or Copilot)
 - Issue comment: created, on PRs only, from humans with write access
 - Check suite: completed, with associated PR numbers. Per-job check runs and workflow
   completion events are ignored so one CI suite does not produce N+2 wakeups. Each
   App that reports checks has its own suite, so a push can wake a session once per
   App; the agent reads the PR's current state on every wake.
+- Status: success, failure or error. A commit status names a commit, not a PR, so
+  when the repository has a linked PR the router asks GitHub which PRs hold that
+  commit; pending statuses are ignored.
 
 The router matches the installation ID, stable repository ID and PR number.
 Events without an associated PR do not wake sessions. Write access is read from

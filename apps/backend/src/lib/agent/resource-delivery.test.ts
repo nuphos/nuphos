@@ -16,6 +16,11 @@ let queued: ResourceTurn[] = []
 let fail = false
 let lookups: string[] = []
 let permission: { status: number; permission?: string } = { status: 200, permission: 'write' }
+let repoLinked = true
+let commitPulls: { status: number; pulls: { number: number }[] } = {
+  status: 200,
+  pulls: [{ number: 56 }],
+}
 const conversation = {
   sessionId: 'session',
   userId: 'owner',
@@ -37,6 +42,14 @@ useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) })
 useByosAccount({ findGithubInstallation: async () => ({ installationId: 12 }) })
 useAgentDb({
   agentConversations: () => ({
+    findOne: async (filter: unknown) => {
+      expect(filter).toEqual({
+        'linkedResources.key': { $regex: '^github/12/34/' },
+        archivedAt: { $exists: false },
+      })
+
+      return repoLinked ? conversation : null
+    },
     find: (filter: unknown) => {
       expect(filter).toEqual({
         'linkedResources.key': 'github/12/34/56',
@@ -61,6 +74,8 @@ useByosGithub({ getInstallationToken: async () => ({ token: 'token', expiresAt: 
 useGithubHttp({
   githubFetch: async (url) => {
     lookups.push(url)
+    if (url.endsWith('/pulls'))
+      return Response.json(commitPulls.pulls, { status: commitPulls.status })
 
     return Response.json({ permission: permission.permission }, { status: permission.status })
   },
@@ -71,6 +86,8 @@ beforeEach(() => {
   lookups = []
   permission = { status: 200, permission: 'write' }
   conversations = [conversation]
+  repoLinked = true
+  commitPulls = { status: 200, pulls: [{ number: 56 }] }
 })
 
 test('redelivery has the same durable job identity while a new delivery is distinct', async () => {
@@ -130,6 +147,42 @@ test('one delivery looks up the sender once across every linked conversation', a
 })
 test('pushes and CI results do not need a permission lookup', async () => {
   await routeResourceWebhook('pull_request', payload, 'delivery')
+  expect(lookups).toHaveLength(0)
+  expect(queued).toHaveLength(1)
+})
+
+const sha = 'a'.repeat(40)
+const status = {
+  installation: { id: 12 },
+  repository: { id: 34, full_name: 'acme/app' },
+  sha,
+  state: 'failure',
+  sender: { type: 'Bot', login: 'opencodezebra[bot]' },
+}
+
+test('a finished commit status wakes the linked PR that holds the commit', async () => {
+  await routeResourceWebhook('status', status, 'delivery')
+  expect(lookups).toEqual([`https://api.github.com/repos/acme/app/commits/${sha}/pulls`])
+  expect(queued).toHaveLength(1)
+  expect(queued[0]?.summary).toContain('status.failure')
+})
+test('statuses ask GitHub nothing unless the repository has a linked PR', async () => {
+  repoLinked = false
+  await routeResourceWebhook('status', status, 'delivery')
+  expect(lookups).toHaveLength(0)
+  expect(queued).toHaveLength(0)
+})
+test('a failed commit-to-PR lookup wakes nobody', async () => {
+  commitPulls = { status: 502, pulls: [] }
+  await routeResourceWebhook('status', status, 'delivery')
+  expect(queued).toHaveLength(0)
+})
+test('bot reviews wake without a permission lookup', async () => {
+  await routeResourceWebhook(
+    'pull_request_review',
+    { ...review, sender: { type: 'Bot', login: 'opencodezebra[bot]' } },
+    'delivery',
+  )
   expect(lookups).toHaveLength(0)
   expect(queued).toHaveLength(1)
 })

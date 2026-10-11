@@ -30,14 +30,32 @@ const payloadSchema = z.object({
   check_suite: z
     .object({ pull_requests: z.array(pr), status: z.string(), conclusion: z.string().nullable() })
     .optional(),
+  // Commit status events carry the commit, not its PRs.
+  sha: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/)
+    .optional(),
+  state: z.string().optional(),
 })
+
+type Payload = z.infer<typeof payloadSchema>
+
+function ownEvent(body: Payload) {
+  const appSlug = getGithubAppSlug()
+
+  return appSlug !== undefined && body.sender?.login === `${appSlug}[bot]`
+}
+
+function githubHeaders(token: string) {
+  return { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+}
 
 // author_association reports private org members as CONTRIBUTOR/NONE, so ask GitHub directly.
 async function canPush(installationId: number, repository: string, login: string) {
   const { token } = await getInstallationToken(installationId)
   const response = await githubFetch(
     `${GITHUB_API}/repos/${repository}/collaborators/${encodeURIComponent(login)}/permission`,
-    { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } },
+    { headers: githubHeaders(token) },
   )
 
   if (!response.ok) {
@@ -60,10 +78,6 @@ export function githubResourceEvents(event: string, payload: unknown) {
 
   if (!parsed.success) return []
   const body = parsed.data
-  const appSlug = getGithubAppSlug()
-
-  // CI results are reported against our own pushes, so only they skip the self-event filter.
-  const ownEvent = appSlug !== undefined && body.sender?.login === `${appSlug}[bot]`
   const action = body.action ?? ''
   let numbers: number[] = []
   let actor: { login: string; repository: string } | undefined
@@ -73,8 +87,9 @@ export function githubResourceEvents(event: string, payload: unknown) {
     action === 'completed' &&
     body.check_suite?.status === 'completed'
   ) {
+    // CI results are reported against our own pushes, so only they skip the self-event filter.
     numbers = body.check_suite.pull_requests.map((pull) => pull.number)
-  } else if (ownEvent) {
+  } else if (ownEvent(body)) {
     return []
   } else if (
     event === 'pull_request' &&
@@ -82,12 +97,15 @@ export function githubResourceEvents(event: string, payload: unknown) {
   ) {
     if (body.pull_request) numbers = [body.pull_request.number]
   } else if (event === 'pull_request_review' && ['submitted', 'dismissed'].includes(action)) {
-    if (body.pull_request && body.sender && body.repository.full_name) {
+    if (body.pull_request && body.sender?.type === 'Bot') {
+      // Review Apps (council bots, Copilot) have no repository permission to check.
+      numbers = [body.pull_request.number]
+    } else if (body.pull_request && body.sender && body.repository.full_name) {
       numbers = [body.pull_request.number]
       actor = { login: body.sender.login, repository: body.repository.full_name }
     }
   } else if (event === 'issue_comment' && action === 'created' && body.issue?.pull_request) {
-    // Avoid waking on our own replies; review bots report through review/check events.
+    // Bot comments stay out so bots replying to each other cannot loop a session.
     if (body.sender && body.sender.type !== 'Bot' && body.repository.full_name) {
       numbers = [body.issue.number]
       actor = { login: body.sender.login, repository: body.repository.full_name }
@@ -102,6 +120,59 @@ export function githubResourceEvents(event: string, payload: unknown) {
   }))
 }
 
+/** A finished commit status (pending is churn); its PRs are resolved by `statusEvents`. */
+export function githubStatusCommit(event: string, payload: unknown) {
+  if (event !== 'status') return null
+  const parsed = payloadSchema.safeParse(payload)
+
+  if (!parsed.success) return null
+  const body = parsed.data
+
+  if (!body.sha || !body.repository.full_name || ownEvent(body)) return null
+  if (!['success', 'failure', 'error'].includes(body.state ?? '')) return null
+
+  return {
+    installationId: body.installation.id,
+    repositoryId: body.repository.id,
+    repository: body.repository.full_name,
+    sha: body.sha,
+    state: body.state,
+  }
+}
+
+async function statusEvents(commit: NonNullable<ReturnType<typeof githubStatusCommit>>) {
+  const prefix = `github/${String(commit.installationId)}/${String(commit.repositoryId)}/`
+  // Statuses are frequent; only ask GitHub which PRs hold the commit when one is linked here.
+  const linked = await agentConversations().findOne(
+    { 'linkedResources.key': { $regex: `^${prefix}` }, archivedAt: { $exists: false } },
+    { projection: { _id: 1 } },
+  )
+
+  if (!linked) return []
+  const { token } = await getInstallationToken(commit.installationId)
+  const response = await githubFetch(
+    `${GITHUB_API}/repos/${commit.repository}/commits/${commit.sha}/pulls`,
+    { headers: githubHeaders(token) },
+  )
+
+  if (!response.ok) {
+    logEvent('warn', 'github.resource.commit_pulls_lookup_failed', {
+      installation_id: commit.installationId,
+      status: response.status,
+    })
+
+    return []
+  }
+  const pulls = (await response.json()) as { number: number }[]
+
+  return pulls.map((pull) => ({
+    key: `${prefix}${String(pull.number)}`,
+    installationId: commit.installationId,
+    actor: undefined,
+    summary: `GitHub status.${commit.state ?? ''}. Inspect the linked PR for current details and continue the existing task.`,
+  }))
+}
+
 export type ResourceTurn = {
   sessionId: string
   resourceId: string
@@ -110,7 +181,8 @@ export type ResourceTurn = {
 }
 
 export async function routeResourceWebhook(event: string, payload: unknown, deliveryId: string) {
-  const events = githubResourceEvents(event, payload)
+  const commit = githubStatusCommit(event, payload)
+  const events = commit ? await statusEvents(commit) : githubResourceEvents(event, payload)
 
   if (!events.length) return
   if (!deliveryId || deliveryId.length > 200)
