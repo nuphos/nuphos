@@ -9,7 +9,6 @@ import type {
   AgentMemoryPage,
   AgentMemoryScope,
   AgentMemoryScorecard,
-  AutoModeRule,
 } from './agent-audit-types.ts'
 import type {
   AgentTrigger,
@@ -224,24 +223,11 @@ export type WindowAgentApi = {
     reason?: string,
   ): Promise<void>
   agentRestoreMemory(memoryId: string, teamId?: string, scope?: AgentMemoryScope): Promise<void>
-  agentListAutoModeRules(): Promise<{ enabled: boolean; rules: AutoModeRule[] }>
-  agentCreateAutoModeRule(description: string): Promise<{ rule: AutoModeRule }>
-  agentActivateAutoModeRule(ruleId: string): Promise<{ ok: boolean }>
-  agentDeleteAutoModeRule(ruleId: string): Promise<void>
-  agentAddAutoModeSessionApproval(sessionId: string, command: string): Promise<{ ok: boolean }>
   agentGetAutoModeBypass(sessionId: string): Promise<{ enabled: boolean; bypass: boolean }>
   agentSetAutoModeBypass(
     sessionId: string,
     bypass: boolean,
   ): Promise<{ ok: boolean; bypass: boolean }>
-  agentApproveAutoModeCommand(
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ): Promise<{ ok: boolean }>
-  agentDenyAutoModeCommand(sessionId: string, toolCallId: string, teamId?: string): Promise<void>
   agentListPlans(args: {
     teamId?: string
     mine?: boolean

@@ -1,4 +1,3 @@
-import { AutoModeSection } from './AutoModeSection'
 import { GeneralSection } from './GeneralSection'
 import { InstructionsSection } from './InstructionsSection'
 import { LocalExecSection } from './LocalExecSection'
@@ -33,7 +32,6 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (
     <ProfileSection user={user} onSignOut={onSignOut} onUserUpdated={onUserUpdated} />
   ),
-  'account.autoMode': () => <AutoModeSection />,
   'device.appearance': () => <AppearanceSection />,
   'device.localRuntime': ({ team, onOpenConversation }) => (
     <LocalRuntimeSection currentTeamId={team?.id} onOpenConversation={onOpenConversation} />

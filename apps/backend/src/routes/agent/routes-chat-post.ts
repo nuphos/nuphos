@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { isAutoModeApprovalEnabled as isAutoModeEnabled } from '@/lib/agent/auto-mode/approval'
-import { initializeSessionBypass as initializeAutoModeSessionBypass } from '@/lib/agent/auto-mode/store'
+import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
@@ -65,12 +64,8 @@ agent.post('/chat', async (c) => {
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
   // Initialize once even if transcript sync already created the row.
-  if (
-    runOwnerUserId === userId &&
-    shouldInitializePermissionMode(body, conversationForResume) &&
-    isAutoModeEnabled()
-  ) {
-    await initializeAutoModeSessionBypass(id, userId, body.permissionMode === 'bypass')
+  if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {
+    await initializeSessionBypass(id, userId, body.permissionMode === 'bypass')
   }
   const readOnlyResume = body.resume === true && runOwnerUserId !== userId
   // Resolve Slack binding alongside transcript hydration.

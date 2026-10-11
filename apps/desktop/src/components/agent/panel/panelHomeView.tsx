@@ -12,7 +12,6 @@ import type { PanelViewCtx } from './ctx'
 export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   const {
     autoFocusComposer,
-    autoModeAvailable,
     defaultPermissionMode,
     history,
     historyLoading,
@@ -75,9 +74,10 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     <ModelSelector control={modelControl} disabled={false} streaming={false} />
   )
 
-  const bypassControl = autoModeAvailable
-    ? { active: defaultPermissionMode === 'bypass', onSelect: selectDefaultPermissionMode }
-    : undefined
+  const bypassControl = {
+    active: defaultPermissionMode === 'bypass',
+    onSelect: selectDefaultPermissionMode,
+  }
 
   return variant === 'page' ? (
     <>

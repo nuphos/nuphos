@@ -125,8 +125,6 @@ export type PanelCtx = {
   activePendingAuthToolCallId: string | null
   bypassBySession: Record<string, boolean>
   setBypassBySession: Dispatch<SetStateAction<Record<string, boolean>>>
-  autoModeAvailable: boolean
-  setAutoModeAvailable: Dispatch<SetStateAction<boolean>>
   defaultPermissionMode: PermissionMode
   setDefaultPermissionMode: Dispatch<SetStateAction<PermissionMode>>
   applyDefaultPermissionMode: (mode: PermissionMode) => void
@@ -220,18 +218,10 @@ export type PanelCtx = {
     mode: 'revise' | 'delete',
     label: string,
   ) => Promise<void>
-  decideAuthorization: (
-    toolCallId: string,
-    decision: AuthorizationDecisionAction,
-    ruleDescription?: string,
-  ) => void
+  decideAuthorization: (toolCallId: string, decision: AuthorizationDecisionAction) => void
   resumePermissionTurn: (toolCallId: string, output: Record<string, unknown>) => void
   authorizationContextValue: {
-    decide: (
-      toolCallId: string,
-      decision: AuthorizationDecisionAction,
-      ruleDescription?: string,
-    ) => void
+    decide: (toolCallId: string, decision: AuthorizationDecisionAction) => void
     activeToolCallId: string | null
     readOnly: boolean
   }

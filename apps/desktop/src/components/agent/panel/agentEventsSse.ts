@@ -258,7 +258,6 @@ export function handleSseControlFrame(
       layer?: string
       reason?: string
       triggeredBy?: ToolAuthorization['triggeredBy']
-      suggestedRule?: string
     }
 
     if (!auth.toolCallId || !auth.decision) return true
@@ -279,7 +278,6 @@ export function handleSseControlFrame(
                       layer: auth.layer ?? '',
                       reason: auth.reason,
                       triggeredBy: auth.triggeredBy,
-                      suggestedRule: auth.suggestedRule,
                     },
                   }
                 : p,

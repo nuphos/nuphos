@@ -194,25 +194,9 @@ export const agentApi = {
   ) => window.api.agentDeleteMemory(memoryId, teamId, scope, reason),
   agentRestoreMemory: (memoryId: string, teamId?: string, scope?: AgentMemoryScope) =>
     window.api.agentRestoreMemory(memoryId, teamId, scope),
-  agentListAutoModeRules: () => window.api.agentListAutoModeRules(),
-  agentCreateAutoModeRule: (description: string) => window.api.agentCreateAutoModeRule(description),
-  agentActivateAutoModeRule: (ruleId: string) => window.api.agentActivateAutoModeRule(ruleId),
-  agentDeleteAutoModeRule: (ruleId: string) => window.api.agentDeleteAutoModeRule(ruleId),
-  agentAddAutoModeSessionApproval: (sessionId: string, command: string) =>
-    window.api.agentAddAutoModeSessionApproval(sessionId, command),
   agentGetAutoModeBypass: (sessionId: string) => window.api.agentGetAutoModeBypass(sessionId),
   agentSetAutoModeBypass: (sessionId: string, bypass: boolean) =>
     window.api.agentSetAutoModeBypass(sessionId, bypass),
-  agentApproveAutoModeCommand: (
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ) =>
-    window.api.agentApproveAutoModeCommand(sessionId, toolCallId, scope, teamId, ruleDescription),
-  agentDenyAutoModeCommand: (sessionId: string, toolCallId: string, teamId?: string) =>
-    window.api.agentDenyAutoModeCommand(sessionId, toolCallId, teamId),
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     window.api.agentListPlans(args),
   agentGetPlan: (planId: string, teamId?: string) => window.api.agentGetPlan(planId, teamId),

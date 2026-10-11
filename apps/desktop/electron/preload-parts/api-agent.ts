@@ -131,36 +131,10 @@ export const agentApi = {
   ) => ipcRenderer.invoke('agent:deleteMemory', memoryId, teamId, scope, reason),
   agentRestoreMemory: (memoryId: string, teamId?: string, scope?: 'personal' | 'team') =>
     ipcRenderer.invoke('agent:restoreMemory', memoryId, teamId, scope),
-  agentListAutoModeRules: () => ipcRenderer.invoke('agent:listAutoModeRules'),
-  agentCreateAutoModeRule: (description: string) =>
-    ipcRenderer.invoke('agent:createAutoModeRule', description),
-  agentActivateAutoModeRule: (ruleId: string) =>
-    ipcRenderer.invoke('agent:activateAutoModeRule', ruleId),
-  agentDeleteAutoModeRule: (ruleId: string) =>
-    ipcRenderer.invoke('agent:deleteAutoModeRule', ruleId),
-  agentAddAutoModeSessionApproval: (sessionId: string, command: string) =>
-    ipcRenderer.invoke('agent:addAutoModeSessionApproval', sessionId, command),
   agentGetAutoModeBypass: (sessionId: string) =>
     ipcRenderer.invoke('agent:getAutoModeBypass', sessionId),
   agentSetAutoModeBypass: (sessionId: string, bypass: boolean) =>
     ipcRenderer.invoke('agent:setAutoModeBypass', sessionId, bypass),
-  agentApproveAutoModeCommand: (
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ) =>
-    ipcRenderer.invoke(
-      'agent:approveAutoModeCommand',
-      sessionId,
-      toolCallId,
-      scope,
-      teamId,
-      ruleDescription,
-    ),
-  agentDenyAutoModeCommand: (sessionId: string, toolCallId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:denyAutoModeCommand', sessionId, toolCallId, teamId),
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     ipcRenderer.invoke('agent:listPlans', args),
   agentGetPlan: (planId: string, teamId?: string) =>

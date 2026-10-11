@@ -25,7 +25,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     activePlanCanAct,
     activeTab,
     authorizationContextValue,
-    autoModeAvailable,
     bypassBySession,
     conversationDropRef,
     dockCurrentSession,
@@ -64,7 +63,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
-    autoModeAvailable && activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign && !gated
+    activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign && !gated
       ? { active: bypassBySession[activeTab.sessionId] ?? false, onSelect: selectBypassMode }
       : undefined
 

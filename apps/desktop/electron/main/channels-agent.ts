@@ -273,28 +273,7 @@ export const agentChannels = {
     teamId?: string,
   ) => agent.transferAgentTriggerGroupExecutionPrincipal(groupId, userId, teamId),
   'agent:getTriggerSchedulerStatus': () => agent.getTriggerSchedulerStatus(),
-  'agent:listAutoModeRules': () => agent.listAutoModeRules(),
-  'agent:createAutoModeRule': (_e: unknown, description: string) =>
-    agent.createAutoModeRule(description),
-  'agent:activateAutoModeRule': (_e: unknown, ruleId: string) => agent.activateAutoModeRule(ruleId),
-  'agent:deleteAutoModeRule': (_e: unknown, ruleId: string) => agent.deleteAutoModeRule(ruleId),
-  'agent:addAutoModeSessionApproval': (_e: unknown, sessionId: string, command: string) =>
-    agent.addAutoModeSessionApproval(sessionId, command),
   'agent:getAutoModeBypass': (_e: unknown, sessionId: string) => agent.getAutoModeBypass(sessionId),
   'agent:setAutoModeBypass': (_e: unknown, sessionId: string, bypass: boolean) =>
     agent.setAutoModeBypass(sessionId, bypass),
-  'agent:approveAutoModeCommand': (
-    _e: unknown,
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ) => agent.approveAutoModeCommand(sessionId, toolCallId, scope, teamId, ruleDescription),
-  'agent:denyAutoModeCommand': (
-    _e: unknown,
-    sessionId: string,
-    toolCallId: string,
-    teamId?: string,
-  ) => agent.denyAutoModeCommand(sessionId, toolCallId, teamId),
 } as const

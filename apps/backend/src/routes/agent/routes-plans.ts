@@ -246,9 +246,3 @@ agent.post('/plans/:planId/retry', async (c) => {
 
   return c.json(plan)
 })
-
-// ── Auto Mode (per-command authorization) ────────────────────────────────
-// See lib/agent/auto-mode. These endpoints back the desktop approval UI and
-// are equally usable via curl for local testing.
-
-// The user's standing policy — all rules (proposed + active). Powers the

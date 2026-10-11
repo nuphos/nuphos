@@ -6,8 +6,7 @@ import { runtimeRequestStore } from './runtime-request-store'
 
 import { withRedis } from '@/lib/redis'
 
-export type PreviewWaitKind =
-  'permission-grant' | 'authorization-rule' | 'client-tool' | 'agent-permission'
+export type PreviewWaitKind = 'permission-grant' | 'client-tool' | 'agent-permission'
 
 export type PreviewWait = {
   waitId: string

@@ -10,18 +10,11 @@ import type { PermissionMode } from '../../../lib/permissionMode'
 
 type Acc = Pick<
   PanelCtx,
-  | 'activeId'
-  | 'setHistory'
-  | 'setHistoryLoading'
-  | 'setTabs'
-  | 'tabs'
-  | 'tabsRef'
-  | 'teamId'
-  | 'visible'
+  'activeId' | 'setHistory' | 'setHistoryLoading' | 'setTabs' | 'tabs' | 'tabsRef' | 'teamId'
 >
 
 export function usePanelPermissions(acc: Acc) {
-  const { activeId, setHistory, setHistoryLoading, setTabs, tabs, tabsRef, teamId, visible } = acc
+  const { activeId, setHistory, setHistoryLoading, setTabs, tabs, tabsRef, teamId } = acc
 
   const activeTab = useMemo(() => tabs.find((t) => t.id === activeId) ?? null, [tabs, activeId])
   // The toolCallId of the LAST unresolved require_auth in the active tab — only
@@ -42,33 +35,12 @@ export function usePanelPermissions(acc: Acc) {
   }, [activeTab])
   // Full Access (per-conversation): mirrors the backend flag that
   // disarms the authorization gate, keyed by sessionId so tab switches keep
-  // each conversation's state. Hidden entirely when Auto Mode is off globally.
+  // each conversation's state.
   const [bypassBySession, setBypassBySession] = useState<Record<string, boolean>>({})
-  const [autoModeAvailable, setAutoModeAvailable] = useState(false)
   const [defaultPermissionMode, setDefaultPermissionMode] = useState<PermissionMode>(() =>
     readDefaultPermissionMode(localStorage),
   )
 
-  // Whether the authorization gate exists at all. The per-session endpoint
-  // reports it too, but only for a session that exists — the home composer has
-  // none, so ask the session-less rules endpoint.
-  useEffect(() => {
-    if (!visible) return
-    let alive = true
-
-    void api
-      .agentListAutoModeRules()
-      .then(({ enabled }) => {
-        if (alive) setAutoModeAvailable(enabled)
-      })
-      .catch(() => {
-        // Unreachable → the picker stays hidden, which is the safe default.
-      })
-
-    return () => {
-      alive = false
-    }
-  }, [visible])
   const activeSessionId = activeTab?.foreign ? null : (activeTab?.sessionId ?? null)
   // Keep the locally selected mode while the first turn is being prepared.
   // Transcript sync may already have created a row, but /chat has not yet
@@ -92,9 +64,8 @@ export function usePanelPermissions(acc: Acc) {
 
     void api
       .agentGetAutoModeBypass(activeSessionId)
-      .then(({ enabled, bypass }) => {
+      .then(({ bypass }) => {
         if (!alive) return
-        setAutoModeAvailable(enabled)
         setBypassBySession((prev) =>
           prev[activeSessionId] === bypass ? prev : { ...prev, [activeSessionId]: bypass },
         )
@@ -215,8 +186,6 @@ export function usePanelPermissions(acc: Acc) {
     activePendingAuthToolCallId,
     bypassBySession,
     setBypassBySession,
-    autoModeAvailable,
-    setAutoModeAvailable,
     defaultPermissionMode,
     setDefaultPermissionMode,
     applyDefaultPermissionMode,

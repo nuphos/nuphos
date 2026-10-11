@@ -1,22 +1,6 @@
-// Shared vocabulary of the decision tools: which classic tools park the turn,
-// how long one may park it, and what the model is told when nobody answers.
+// Shared vocabulary of the decision tools: how long one may park the turn,
+// and what the model is told when nobody answers.
 import type { PreviewWaitKind } from '../decision-waiter'
-
-export type DecisionSpec = {
-  kind: PreviewWaitKind
-  /** The entity id the decision is about, read from the classic tool's output. */
-  ref?: (output: Record<string, unknown>) => string | undefined
-  /** Hint appended to the result so Claude reads the decision as authoritative. */
-  instruction: string
-}
-
-export const DECISION_SPECS: Record<string, DecisionSpec> = {
-  propose_authorization_rule: {
-    kind: 'authorization-rule',
-    ref: (output) => (typeof output.ruleId === 'string' ? output.ruleId : undefined),
-    instruction: 'The user has now confirmed or dismissed the rule; continue accordingly.',
-  },
-}
 
 export const CLIENT_TOOL_INSTRUCTION =
   "The tool ran on the user's machine; `output` is its real result."
@@ -44,10 +28,6 @@ const UNANSWERED_INSTRUCTION: Record<PreviewWaitKind, string> = {
     'This historical permission proposal can no longer be applied. End your turn and ' +
     'explain the missing access. The user can adjust it in the cloud console or use ' +
     'local_exec on a selected device signed in with the necessary CLI permissions.',
-  'authorization-rule':
-    'The user has not decided yet. The rule card is live in Nuphos and can still ' +
-    'be answered. End your turn now and say so — Nuphos starts a new turn with ' +
-    'the answer once they decide. Do not call this tool again for the same rule.',
   'agent-permission':
     'Nobody answered in time, so the request was not approved. Treat it as ' +
     'denied and tell the user.',

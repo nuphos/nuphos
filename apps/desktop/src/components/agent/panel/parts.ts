@@ -52,20 +52,12 @@ export type ToolAuthorization = {
     | { kind: 'prior_grant' }
     | { kind: 'rule'; ruleId?: string; description: string }
     | { kind: 'judge'; reason: string }
-  // For require_auth: the judge's short generalized rule text, prefilled into
-  // the "Always allow" description input. Absent when nothing is generalizable.
-  suggestedRule?: string
   // Set once the user acts on a require_auth prompt, to hide the buttons.
   resolved?: 'approved' | 'denied'
 }
-export type AuthorizationDecisionAction = 'once' | 'session' | 'always' | 'deny'
+export type AuthorizationDecisionAction = 'once' | 'deny'
 export type AuthorizationActionContextValue = {
-  // ruleDescription is the generalized rule text for the 'always' decision.
-  decide: (
-    toolCallId: string,
-    decision: AuthorizationDecisionAction,
-    ruleDescription?: string,
-  ) => void
+  decide: (toolCallId: string, decision: AuthorizationDecisionAction) => void
   // Only the LAST unresolved require_auth in the conversation shows buttons —
   // earlier blocked calls are stale (superseded by a newer attempt).
   activeToolCallId: string | null

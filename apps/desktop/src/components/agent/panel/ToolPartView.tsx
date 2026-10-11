@@ -4,11 +4,10 @@ import { useState } from 'react'
 
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
-import { AuthorizationApprovalActions, ProposedRuleActions } from './AuthorizationActions'
+import { AuthorizationApprovalActions } from './AuthorizationActions'
 import { CodeSection, CommandTerminalView } from './CommandTerminalView'
 import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
 import { describeAutoAuthorization } from './parts'
-import { proposedRuleFrom } from './proposedRule'
 import { getToolLabel, isCommandTool } from './toolPartUtils'
 
 import type { ToolPart } from './parts'
@@ -136,17 +135,8 @@ export function ToolPartView({
         <AuthorizationApprovalActions
           toolCallId={part.toolCallId}
           reason={part.authorization?.reason}
-          suggestedRule={part.authorization?.suggestedRule}
-          source={part.approval?.source}
         />
       )}
-      {(() => {
-        const proposed = proposedRuleFrom(part)
-
-        return proposed ? (
-          <ProposedRuleActions ruleId={proposed.ruleId} description={proposed.description} />
-        ) : null
-      })()}
     </div>
   )
 }

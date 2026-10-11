@@ -103,34 +103,6 @@ export function agentConfig() {
     // raw updatedAt. 'recency' (default) | 'decay'.
     memoryIndexRanking:
       process.env.MEMORY_INDEX_RANKING === 'decay' ? ('decay' as const) : ('recency' as const),
-    // Auto Mode: per-command authorization for the bash + local_exec tools
-    // (see lib/agent/auto-mode). Always on — read-only commands auto-run,
-    // an LLM judge decides the middle against the user's standing policy, and
-    // the user can Full Access per-conversation. Judge defaults to the
-    // main agent model; set AGENT_AUTO_MODE_JUDGE_MODEL_ID to a stronger model
-    // (e.g. Opus 4.8) for sharper effect classification.
-    autoMode: {
-      // optional() (not ??) so an empty AGENT_AUTO_MODE_JUDGE_MODEL_ID= line —
-      // which .env.example ships — falls through to the model default instead
-      // of passing '' to the judge.
-      judgeModelId:
-        modelId('AGENT_AUTO_MODE_JUDGE_MODEL_ID') ??
-        modelId('AGENT_MODEL_ID') ??
-        SMALL_MODEL_DEFAULT,
-      // 15s, not 8s: the judge defaults to the main agent model (Opus via
-      // AGENT_MODEL_ID), whose first token on a longer command + policy prompt
-      // routinely exceeds 8s — every timeout falls to the require-auth
-      // fail-safe and needlessly prompts the user (AbortError).
-      judgeTimeoutMs: boundedInt('AGENT_AUTO_MODE_JUDGE_TIMEOUT_MS', 15_000, {
-        min: 500,
-        max: 30_000,
-      }),
-      // HMAC secret the AI SDK uses to sign each tool-approval request and
-      // verify it on replay — prevents a client forging a self-approval for a
-      // command the classifier flagged. Falls back to the journal key; unsigned
-      // (undefined) only in a dev env with neither set.
-      approvalSecret: optional('AGENT_AUTO_MODE_APPROVAL_SECRET') ?? optional('JOURNAL_HMAC_KEY'),
-    },
     // 0 preserves all history. Positive values expire both headers and chunks.
     mongoTraceRetentionDays: boundedInt('AGENT_MONGO_TRACE_RETENTION_DAYS', 0, {
       min: 0,
