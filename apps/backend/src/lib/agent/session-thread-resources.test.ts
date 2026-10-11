@@ -32,11 +32,11 @@ useDb({
 test('session resources append the bound Slack and Discord threads', async () => {
   const resources = await sessionResources({
     sessionId: 's1',
-    linkedResources: [{ id: 'pr', provider: 'github' }],
+    linkedResources: [{ id: 'pr', provider: 'github', url: 'https://github.com/o/r/pull/1' }],
   } as unknown as AgentConversation)
 
   expect(resources.map((resource) => [resource.provider, resource.url])).toEqual([
-    ['github', undefined],
+    ['github', 'https://github.com/o/r/pull/1'],
     ['slack', 'https://app.slack.com/client/T1/C1/thread/C1-1.2'],
     ['discord', 'https://discord.com/channels/G1/D1'],
   ])
