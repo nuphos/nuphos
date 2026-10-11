@@ -17,10 +17,10 @@ let fail = false
 let lookups: string[] = []
 let permission: { status: number; permission?: string } = { status: 200, permission: 'write' }
 let repoLinked = true
-let commitPulls: { status: number; pulls: { number: number }[] } = {
-  status: 200,
-  pulls: [{ number: 56 }],
-}
+
+type CommitPull = { number: number; state: string; head: { sha: string } }
+const openPull: CommitPull = { number: 56, state: 'open', head: { sha: 'a'.repeat(40) } }
+let commitPulls: { status: number; pulls: CommitPull[] } = { status: 200, pulls: [openPull] }
 const conversation = {
   sessionId: 'session',
   userId: 'owner',
@@ -87,7 +87,7 @@ beforeEach(() => {
   permission = { status: 200, permission: 'write' }
   conversations = [conversation]
   repoLinked = true
-  commitPulls = { status: 200, pulls: [{ number: 56 }] }
+  commitPulls = { status: 200, pulls: [openPull] }
 })
 
 test('redelivery has the same durable job identity while a new delivery is distinct', async () => {
@@ -157,6 +157,7 @@ const status = {
   repository: { id: 34, full_name: 'acme/app' },
   sha,
   state: 'failure',
+  context: 'openab/council',
   sender: { type: 'Bot', login: 'opencodezebra[bot]' },
 }
 
@@ -164,7 +165,7 @@ test('a finished commit status wakes the linked PR that holds the commit', async
   await routeResourceWebhook('status', status, 'delivery')
   expect(lookups).toEqual([`https://api.github.com/repos/acme/app/commits/${sha}/pulls`])
   expect(queued).toHaveLength(1)
-  expect(queued[0]?.summary).toContain('status.failure')
+  expect(queued[0]?.summary).toContain('status.failure (openab/council)')
 })
 test('statuses ask GitHub nothing unless the repository has a linked PR', async () => {
   repoLinked = false
@@ -185,4 +186,15 @@ test('bot reviews wake without a permission lookup', async () => {
   )
   expect(lookups).toHaveLength(0)
   expect(queued).toHaveLength(1)
+})
+test('statuses do not wake merged PRs or PRs whose head moved past the commit', async () => {
+  commitPulls = {
+    status: 200,
+    pulls: [
+      { number: 56, state: 'closed', head: { sha } },
+      { number: 56, state: 'open', head: { sha: 'b'.repeat(40) } },
+    ],
+  }
+  await routeResourceWebhook('status', status, 'delivery')
+  expect(queued).toHaveLength(0)
 })

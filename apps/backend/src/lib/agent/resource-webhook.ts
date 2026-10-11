@@ -36,6 +36,7 @@ const payloadSchema = z.object({
     .regex(/^[0-9a-f]{40}$/)
     .optional(),
   state: z.string().optional(),
+  context: z.string().max(200).optional(),
 })
 
 type Payload = z.infer<typeof payloadSchema>
@@ -137,6 +138,7 @@ export function githubStatusCommit(event: string, payload: unknown) {
     repository: body.repository.full_name,
     sha: body.sha,
     state: body.state,
+    context: body.context ?? '',
   }
 }
 
@@ -163,14 +165,21 @@ async function statusEvents(commit: NonNullable<ReturnType<typeof githubStatusCo
 
     return []
   }
-  const pulls = (await response.json()) as { number: number }[]
+  const pulls = (await response.json()) as {
+    number: number
+    state: string
+    head: { sha: string }
+  }[]
 
-  return pulls.map((pull) => ({
-    key: `${prefix}${String(pull.number)}`,
-    installationId: commit.installationId,
-    actor: undefined,
-    summary: `GitHub status.${commit.state ?? ''}. Inspect the linked PR for current details and continue the existing task.`,
-  }))
+  // The lookup also returns merged PRs and PRs that moved past this commit; skip them.
+  return pulls
+    .filter((pull) => pull.state === 'open' && pull.head.sha === commit.sha)
+    .map((pull) => ({
+      key: `${prefix}${String(pull.number)}`,
+      installationId: commit.installationId,
+      actor: undefined,
+      summary: `GitHub status.${commit.state ?? ''} (${commit.context}). Inspect the linked PR for current details and continue the existing task.`,
+    }))
 }
 
 export type ResourceTurn = {

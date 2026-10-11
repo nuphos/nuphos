@@ -165,6 +165,7 @@ test('pending, unattributed and own commit statuses do not route', () => {
     repository: 'acme/app',
     sha: 'a'.repeat(40),
     state: 'success',
+    context: '',
   })
   expect(githubStatusCommit('status', { ...status, state: 'pending' })).toBeNull()
   expect(githubStatusCommit('status', { ...status, sha: 'not-a-sha' })).toBeNull()
