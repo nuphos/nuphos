@@ -1081,16 +1081,19 @@ final class ChatSession {
             }
             phaseLabel = nil
             return
-        case "atlas-transcript-snapshot":
-            // The server's authoritative ordering for the whole conversation.
-            guard let raw = frame["messages"]?.arrayValue else { return }
+        case "atlas-transcript-tail":
+            // The server's authoritative copy of this turn, starting at
+            // conversation index `messagesFirstIndex`. Earlier history stays.
+            guard let raw = frame["messages"]?.arrayValue,
+                  let first = frame["messagesFirstIndex"]?.numberValue else { return }
             let decoded = raw.compactMap { value -> ChatMessage? in
                 guard let data = try? JSONEncoder().encode(value) else { return nil }
                 return try? Self.snapshotDecoder.decode(ChatMessage.self, from: data)
             }
-            guard !decoded.isEmpty else { return }
-            messages = decoded
-            baseIndex = 0
+            // A tail that does not meet the loaded history waits for the next refresh.
+            let kept = Int(first) - baseIndex
+            guard !decoded.isEmpty, kept >= 0, kept <= messages.count else { return }
+            messages = Array(messages.prefix(kept)) + decoded
             streamAssistantIndex = messages.lastIndex { $0.role == .assistant }
             streamReducer = streamAssistantIndex.map { UIStreamReducer(message: messages[$0]) }
             lastSyncedSignature = signature()

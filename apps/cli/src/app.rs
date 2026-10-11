@@ -1127,15 +1127,21 @@ impl App {
                 self.phase = None;
                 return;
             }
-            "atlas-transcript-snapshot" => {
-                // The server's ordering for the whole conversation. Whatever
-                // streamed so far is written out first, then output resumes
-                // after the end of the snapshot.
-                if let Some(messages) = frame["messages"].as_array().filter(|m| !m.is_empty()) {
+            "atlas-transcript-tail" => {
+                // The server's copy of this turn, starting at conversation
+                // index `messagesFirstIndex`. Whatever streamed so far is
+                // written out first, then output resumes after the end of it.
+                // A tail that does not meet the loaded history is ignored.
+                let kept = frame["messagesFirstIndex"]
+                    .as_u64()
+                    .and_then(|first| (first as usize).checked_sub(self.base_index))
+                    .filter(|kept| *kept <= self.messages.len());
+                let tail = frame["messages"].as_array().filter(|m| !m.is_empty());
+                if let (Some(messages), Some(kept)) = (tail, kept) {
                     let finished = self.take_finished(true);
                     self.pending_output.extend(finished);
-                    self.messages = messages.clone();
-                    self.base_index = 0;
+                    self.messages.truncate(kept);
+                    self.messages.extend(messages.iter().cloned());
                     self.assistant = self.messages.iter().rposition(|m| role(m) == "assistant");
                     let last = self.messages.len() - 1;
                     self.cursor =
