@@ -22,7 +22,6 @@ struct ChatComposerBar<Controls: View>: View {
 
     @FocusState private var focused: Bool
     @State private var attachments: [ComposerAttachment] = []
-    @State private var collapsedByUser = false
     @State private var showPhotos = false
     @State private var showFiles = false
     @State private var attachmentError: String?
@@ -35,7 +34,7 @@ struct ChatComposerBar<Controls: View>: View {
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
-    private var expanded: Bool { (focused || hasPayload) && !collapsedByUser }
+    private var expanded: Bool { focused || hasPayload }
     private var hasControls: Bool { Controls.self != EmptyView.self }
 
     var body: some View {
@@ -118,14 +117,8 @@ struct ChatComposerBar<Controls: View>: View {
         // the input; the buttons inside still take their own.
         .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onTapGesture { if dictation == nil { focused = true } }
-        // A pull down anywhere on the composer puts the keyboard away. The
-        // keyboard does its own animation, so nothing here follows the finger.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 12)
-                .onChanged { value in
-                    if focused, value.translation.height > abs(value.translation.width) { collapse() }
-                }
-        )
+        .gesture(pullDown)
+        .accessibilityAction(.escape) { focused = false }
         .disabled(preparingSubmission)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
@@ -137,7 +130,6 @@ struct ChatComposerBar<Controls: View>: View {
         .onDisappear(perform: cancelDictation)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-        .onChange(of: focused) { _, isFocused in if isFocused { collapsedByUser = false } }
         // A composer leaving the screen takes its keyboard with it. Each page
         // owns its own composer and focus, so a keyboard left up from a
         // popped chat covers the list's composer, which never asked for it.
@@ -198,9 +190,13 @@ struct ChatComposerBar<Controls: View>: View {
 
     // MARK: Pieces
 
-    private func collapse() {
-        focused = false
-        collapsedByUser = true
+    /// A pull down puts the keyboard away. The keyboard does its own
+    /// animation, so nothing follows the finger.
+    private var pullDown: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                if value.translation.height > abs(value.translation.width) { focused = false }
+            }
     }
 
     private var field: some View {
@@ -210,6 +206,9 @@ struct ChatComposerBar<Controls: View>: View {
             .foregroundStyle(Theme.heading)
             .focused($focused)
             .submitLabel(.send)
+            // The field keeps a drag for itself once there is a draft to
+            // scroll or select in; empty, a pull down on it closes too.
+            .simultaneousGesture(pullDown, isEnabled: !hasText)
             .onSubmit(send)
             .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
                 Button("OK", role: .cancel) { dictationError = nil }
