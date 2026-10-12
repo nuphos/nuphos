@@ -131,10 +131,12 @@ struct ConversationView: View {
                         } label: {
                             Label(store.isPinned(session.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(session.sessionId) ? "pin.slash" : "pin")
                         }
-                        if session.canManage {
-                            Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
+                        if session.canMove {
                             Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
                                 .disabled(session.isStreaming)
+                        }
+                        if session.canManage {
+                            Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
                             Button {
                                 Task {
                                     updating = true

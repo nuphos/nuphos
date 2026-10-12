@@ -33,7 +33,7 @@ struct RuntimePickerSheet: View {
                     ProgressView("Loading agents…").tint(Theme.muted)
                 } else {
                     List {
-                        ForEach(RuntimeInstance.grouped(store.runtimes), id: \.tier) { group in
+                        ForEach(RuntimeInstance.grouped(choices), id: \.tier) { group in
                             Section(group.tier.title) {
                                 ForEach(group.runtimes) { runtime in
                                     let quota = store.quotas[runtime.id]
@@ -100,6 +100,13 @@ struct RuntimePickerSheet: View {
         .presentationDetents([.medium, .large], selection: $detent)
         // An agent's own page needs the whole sheet; the list does not.
         .onChange(of: showSetup || detailRuntime != nil) { _, open in if open { detent = .large } }
+    }
+
+    /// Only the owner puts a session on a local or self-hosted agent; a
+    /// manager moves it between Cloud agents.
+    private var choices: [RuntimeInstance] {
+        guard let session, !session.isOwner else { return store.runtimes }
+        return store.runtimes.filter { $0.kind == "managed" }
     }
 
     /// Only a workspace administrator manages a Cloud agent; a computer's agent
