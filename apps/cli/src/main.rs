@@ -15,6 +15,7 @@ use std::io::{IsTerminal, Read};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
+use serde_json::Value;
 
 use crate::api::Api;
 
@@ -132,8 +133,7 @@ async fn run(args: Args) -> Result<i32> {
         _ => {}
     }
 
-    let api = sign_in(interactive).await?;
-    let me = api.me().await?;
+    let (api, me, teams) = sign_in(interactive).await?;
     let me_id = me["user"]["id"].as_str().or(me["id"].as_str()).unwrap_or_default().to_string();
     let mut prefs = config::read_prefs();
     if let Some(Command::Team { name: Some(name), create: true }) = &args.command {
@@ -145,7 +145,7 @@ async fn run(args: Args) -> Result<i32> {
         }
         return Ok(0);
     }
-    let team = shared::resolve_team(&api, &mut prefs, args.team.as_deref(), interactive).await?;
+    let team = shared::resolve_team(&api, &mut prefs, teams, args.team.as_deref(), interactive).await?;
     let mut ctx = cli::Ctx { api, me_id, team, prefs, json: args.json };
 
     match args.command {
@@ -195,16 +195,17 @@ async fn run(args: Args) -> Result<i32> {
     }
 }
 
-/// The desktop's session, checked with `/auth/me`. The TUI signs in through
+/// The desktop's session, checked with `/auth/me`, with me and my teams
+/// fetched together since every command needs both. The TUI signs in through
 /// the browser when there is none; commands fail instead, since nobody may be
 /// there to finish a browser sign-in.
-async fn sign_in(interactive: bool) -> Result<Api> {
+async fn sign_in(interactive: bool) -> Result<(Api, Value, Vec<Value>)> {
     let api_url = config::api_url();
     let session = config::read_session();
     if let Some(token) = session.token {
         let api = Api::new(api_url.clone(), token);
-        match api.me().await {
-            Ok(_) => return Ok(api),
+        match tokio::try_join!(api.me(), api.teams()) {
+            Ok((me, teams)) => return Ok((api, me, teams)),
             // Expired or signed out elsewhere: cleared, as the desktop does.
             Err(e) if e.is_rejected_token() => config::write_session(&config::Session::default())?,
             Err(e) => return Err(e.into()),
@@ -214,5 +215,7 @@ async fn sign_in(interactive: bool) -> Result<Api> {
         bail!("not signed in; run `nuphos login` (the sign-in is shared with the desktop app)");
     }
     let session = login::login(&api_url).await?;
-    Ok(Api::new(api_url, session.token.unwrap_or_default()))
+    let api = Api::new(api_url, session.token.unwrap_or_default());
+    let (me, teams) = tokio::try_join!(api.me(), api.teams())?;
+    Ok((api, me, teams))
 }

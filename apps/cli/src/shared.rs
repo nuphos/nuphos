@@ -13,8 +13,13 @@ pub const ADD_AGENT_HINT: &str = "Add an agent with `nuphos agents claude-code -
 
 /// `--team` (or `NUPHOS_TEAM`), the team used last time, then the first
 /// team. Asks only when there is no team at all, to name a new one.
-pub async fn resolve_team(api: &Api, prefs: &mut Prefs, wanted: Option<&str>, interactive: bool) -> Result<Value> {
-    let teams = api.teams().await?;
+pub async fn resolve_team(
+    api: &Api,
+    prefs: &mut Prefs,
+    teams: Vec<Value>,
+    wanted: Option<&str>,
+    interactive: bool,
+) -> Result<Value> {
     if teams.is_empty() {
         if !interactive {
             bail!("You are not a member of any Nuphos team yet. Create one with `nuphos team --create NAME`.");
