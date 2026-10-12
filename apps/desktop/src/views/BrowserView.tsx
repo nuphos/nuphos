@@ -147,6 +147,8 @@ export function BrowserView({
     const pick = ++pickRef.current
 
     setPicking(true)
+    // Keyboard focus belongs in the page so Esc reaches the picker.
+    view.focus()
     void view
       .executeJavaScript(PICK_ELEMENT_SCRIPT)
       .then((picked: unknown) => {

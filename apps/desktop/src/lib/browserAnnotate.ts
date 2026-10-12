@@ -87,7 +87,11 @@ export function formatPickedElement(url: string, picked: unknown): string | null
   const longestRun = Math.max(2, ...(html.match(/`+/g) ?? []).map((run) => run.length))
   const fence = '`'.repeat(longestRun + 1)
 
-  return [`Element on ${url}`, `Selector: ${selector}`, `${fence}html`, html, fence, ''].join('\n')
+  // Two trailing newlines: the editor parks the caret before a lone trailing
+  // newline, which would glue the user's note onto the closing fence.
+  return [`Element on ${url}`, `Selector: ${selector}`, `${fence}html`, html, fence, '', ''].join(
+    '\n',
+  )
 }
 
 function truncate(text: string, limit: number): string {
