@@ -103,7 +103,7 @@ active_config_path="$token_dir/active_config"
 
 umask 077
 printf '%s' "$accessToken" > "$token_path"
-printf '%s\n' "$config_name" > "$active_config_path"
+printf '%s' "$config_name" > "$active_config_path"
 
 cat > "$config_path" <<EOF
 [auth]

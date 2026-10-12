@@ -102,7 +102,7 @@ else:
       }
     }
     for (const env of [b, a, legacy]) {
-      const active = readFileSync(join(env.CLOUDSDK_CONFIG, 'active_config'), 'utf8').trim()
+      const active = readFileSync(join(env.CLOUDSDK_CONFIG, 'active_config'), 'utf8')
       const config = readFileSync(
         join(env.CLOUDSDK_CONFIG, 'configurations', `config_${active}`),
         'utf8',
