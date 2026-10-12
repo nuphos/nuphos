@@ -1,5 +1,5 @@
 import { SkeletonReveal } from '../../components/SkeletonReveal'
-import { formatResetsAt, quotaNote } from '../../lib/runtimeQuota'
+import { formatResetsAt, quotaLeftPercent, quotaNote } from '../../lib/runtimeQuota'
 
 import { PanelHeading, PanelStat } from './RuntimePanel'
 import { formatUptime } from './runtimePresentation'
@@ -21,22 +21,23 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
       {quota?.available &&
         quota.windows.map((window) => {
           const reset = formatResetsAt(window.resetsAt, new Date())
+          const left = quotaLeftPercent(window)
 
           return (
             <PanelStat key={window.id} label={window.label} className="col-span-2">
-              {String(Math.round(window.usedPercent))}% used
+              {String(left)}% left
               {reset && <span className="text-tertiary"> · {reset}</span>}
               <div
                 role="progressbar"
-                aria-label={`${window.label} usage`}
+                aria-label={`${window.label} remaining`}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={Math.max(0, Math.min(100, window.usedPercent))}
+                aria-valuenow={left}
                 className="mt-2 h-2 overflow-hidden rounded-full bg-zGray-800"
               >
                 <div
                   className="h-full rounded-full bg-zViolet-500"
-                  style={{ width: `${Math.max(0, Math.min(100, window.usedPercent))}%` }}
+                  style={{ width: `${String(left)}%` }}
                 />
               </div>
             </PanelStat>

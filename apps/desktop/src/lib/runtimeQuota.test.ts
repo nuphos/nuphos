@@ -65,9 +65,9 @@ test('detail lines carry usage and reset timing', () => {
   )
 
   assert.equal(lines.length, 3)
-  assert.match(lines[0] ?? '', /^5-hour: 38% used · resets in 2h 10m \(/u)
-  assert.match(lines[1] ?? '', /^Weekly: 12% used · resets /u)
-  assert.equal(lines[2], 'Other: 5% used')
+  assert.match(lines[0] ?? '', /^5-hour: 62% left · resets in 2h 10m \(/u)
+  assert.match(lines[1] ?? '', /^Weekly: 88% left · resets /u)
+  assert.equal(lines[2], 'Other: 95% left')
 })
 
 test('reset formatting edge cases', () => {

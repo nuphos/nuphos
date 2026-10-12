@@ -28,12 +28,17 @@ export function quotaNote(quota: RuntimeQuota | undefined): string | null {
   return quota.reason ?? null
 }
 
+/** What is still unspent, floored so a nearly empty window never reads as more than it has. */
+export function quotaLeftPercent(window: RuntimeQuotaWindow): number {
+  return Math.max(0, Math.min(100, Math.floor(100 - window.usedPercent)))
+}
+
 export function quotaSummary(quota: RuntimeQuota | undefined): string | null {
   const worst = mostConstrainedWindow(quota)
 
   if (!worst) return null
 
-  return `${String(Math.max(0, Math.floor(100 - worst.usedPercent)))}% left`
+  return `${String(quotaLeftPercent(worst))}% left`
 }
 
 function formatClock(date: Date): string {
@@ -62,9 +67,9 @@ export function formatResetsAt(resetsAt: string | null, now: Date): string | nul
 
 export function quotaWindowLine(window: RuntimeQuotaWindow, now: Date): string {
   const reset = formatResetsAt(window.resetsAt, now)
-  const used = `${window.label}: ${String(Math.round(window.usedPercent))}% used`
+  const left = `${window.label}: ${String(quotaLeftPercent(window))}% left`
 
-  return reset ? `${used} · ${reset}` : used
+  return reset ? `${left} · ${reset}` : left
 }
 
 export function quotaDetailLines(
