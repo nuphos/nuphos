@@ -1,3 +1,5 @@
+import { api } from '../../api'
+import { toast } from '../../components/ui/toast'
 import { DEFAULT_LINEAR_NAV, LINEAR_PAGE_KEY } from '../../lib/linearNav'
 import { buildCloudConnectorRows } from '../../views/cloud/team-home-rows-cloud'
 import { buildDevConnectorRows } from '../../views/cloud/team-home-rows-dev'
@@ -65,6 +67,18 @@ export function connectorInfoActions(
     }
     case 'azure':
       return [secondary('Access settings', () => ctx.onOpenAzureSubscriptionApps(connectorId))]
+    case 'discord':
+      // Linking is the one thing a member must do here before the bot acts for them.
+      if (ctx.accounts?.discordConnection?.linkedDiscordUserId !== null) return []
+
+      return [
+        primary('Link Discord account', () => {
+          void api
+            .atlasStartDiscordLink(scope.teamId)
+            .then(ctx.onAccountsChanged)
+            .catch((err: unknown) => toast.apiError('Could not link Discord account', err))
+        }),
+      ]
     case 'linode':
       return [primary('View resources', () => ctx.onOpenLinodeAccount(connectorId))]
     case 'hetzner':
@@ -143,7 +157,6 @@ export function connectorInfoActions(
     case 'vanta':
     case 'secureframe':
     case 'sonarqube':
-    case 'discord':
     case 'slack':
     case 'lark':
     default:

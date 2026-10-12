@@ -121,7 +121,7 @@ export async function handleDiscordMention(
       if (mentioned)
         await sendDiscordMessage(
           event.channel_id,
-          'Link your Discord account from Nuphos Settings → Discord before asking me to act.',
+          'Link your Discord account first: in Nuphos, open Connectors → Add connector → Discord.',
         ).catch(() => {})
       await markDiscordEvent(event.id, 'completed')
 
