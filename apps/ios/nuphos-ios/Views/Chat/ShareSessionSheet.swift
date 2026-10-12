@@ -58,7 +58,7 @@ struct SessionAccess: Decodable, Equatable {
 
         /// The broader of their own role and the team-wide grant.
         func effectiveRole(_ general: General) -> Role {
-            let own = role.flatMap(Role.init) ?? .reply
+            let own = role.flatMap(Role.init) ?? .view
             guard let floor = Role.floor(general), floor.rank > own.rank else { return own }
             return floor
         }
@@ -81,6 +81,9 @@ struct ShareSessionSheet: View {
 
     @State private var access: SessionAccess?
     @State private var members: [TeamMember]?
+    @State private var membersError: String?
+    /// An invite that would let someone run commands on the owner's computer, awaiting confirmation.
+    @State private var pendingInvite: TeamMember?
     @State private var inviteRole = SessionAccess.Role.reply
     @State private var search = ""
     /// What a request is changing: `access`, or a user id.
@@ -126,12 +129,18 @@ struct ShareSessionSheet: View {
             } message: {
                 Text(error ?? "")
             }
+            .alert("Let \(pendingInvite?.displayName ?? "") use your computer?", isPresented: Binding(get: { pendingInvite != nil }, set: { if !$0 { pendingInvite = nil } }), presenting: pendingInvite) { member in
+                Button("Invite") { invite(member) }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("This session runs on your computer’s Local Agent. They will be able to run commands on your computer.")
+            }
             .task {
                 do { access = try await session.access("GET") } catch { loadError = error.localizedDescription }
             }
             .task {
                 guard canManage else { return }
-                members = try? await session.teamMembers()
+                do { members = try await session.teamMembers() } catch { membersError = error.localizedDescription }
                 await store.loadRuntimes()
             }
         }
@@ -228,7 +237,9 @@ struct ShareSessionSheet: View {
             Picker("Invite as", selection: $inviteRole) {
                 ForEach(SessionAccess.Role.allCases, id: \.self) { Text($0.title).tag($0) }
             }
-            if members == nil {
+            if let membersError {
+                Text(membersError).foregroundStyle(Theme.muted)
+            } else if members == nil {
                 ProgressView().frame(maxWidth: .infinity)
             } else {
                 TextField("Search teammates", text: $search)
@@ -236,8 +247,7 @@ struct ShareSessionSheet: View {
                     .autocorrectionDisabled()
                 ForEach(invitable) { member in
                     Button {
-                        struct Body: Encodable { let userIds: [String]; let role: String }
-                        change(member.id) { try await session.access("POST", body: Body(userIds: [member.id], role: inviteRole.rawValue)) }
+                        if runsOnOwnersComputer, inviteRole != .view { pendingInvite = member } else { invite(member) }
                     } label: {
                         HStack(spacing: 12) {
                             AvatarView(user: member.asUser, size: 28)
@@ -256,6 +266,12 @@ struct ShareSessionSheet: View {
             Text("Add people")
         }
         .listRowBackground(Theme.surface)
+    }
+
+    private func invite(_ member: TeamMember) {
+        struct Body: Encodable { let userIds: [String]; let role: String }
+        let role = inviteRole.rawValue
+        change(member.id) { try await session.access("POST", body: Body(userIds: [member.id], role: role)) }
     }
 
     private func change(_ key: String, _ request: @escaping () async throws -> SessionAccess) {
