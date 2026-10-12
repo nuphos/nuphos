@@ -20,11 +20,10 @@ export type CuaToolResult = { content: unknown[]; isError?: boolean }
 
 export type ServerConfig = { command: string; args: string[]; env: Record<string, string> }
 
-/** Apps the user allowed for a conversation, outliving its idle `cua_repl` process. */
-const sessionApprovals = new Map<string, Set<string>>()
-
-/** The App's REPL drops its bindings and the cursor when idle this long. */
+/** The App's REPL drops its bindings, cursor and approvals when idle this long. */
 export const CUA_IDLE_MS = 60_000
+/** How long the App may take to clean up its turn before its process is stopped. */
+const TURN_END_MS = 2_000
 
 export const failed = (text: string): CuaToolResult => ({
   content: [{ type: 'text', text }],
@@ -58,8 +57,9 @@ export function cuaServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCon
 
 /**
  * One `cua_repl` process per conversation, so the agent's JavaScript bindings
- * survive between calls the way they do under local Codex. It holds no state
- * beyond the process: idle, it ends the App's turn and exits.
+ * survive between calls the way they do under local Codex. Calls run one at a
+ * time. It holds no state beyond the process: idle, it ends the App's turn,
+ * forgets its approvals and exits.
  */
 export class CuaHost {
   private readonly process: ReturnType<typeof spawn>
@@ -69,8 +69,11 @@ export class CuaHost {
   private turn: string | undefined
   private idle: ReturnType<typeof setTimeout> | undefined
   private ready: Promise<unknown> | undefined
+  private queue: Promise<unknown> = Promise.resolve()
   /** Answers the App's approval prompts for the call in flight. */
-  elicit: ((request: CuaElicitation) => Promise<boolean>) | undefined
+  private elicit: ((request: CuaElicitation) => Promise<boolean>) | undefined
+  /** Apps allowed "for this session", which the App leaves to its client to remember. */
+  private readonly approved = new Set<string>()
 
   private readonly session: string
   private readonly onExit: () => void
@@ -94,11 +97,28 @@ export class CuaHost {
     this.process.on('error', () => this.exited())
   }
 
-  async run(call: CuaCall, signal: AbortSignal): Promise<CuaToolResult> {
+  run(
+    call: CuaCall,
+    signal: AbortSignal,
+    elicit: (request: CuaElicitation) => Promise<boolean>,
+  ): Promise<CuaToolResult> {
+    const result = this.queue.then(() => this.runNow(call, signal, elicit))
+
+    this.queue = result.catch(() => {})
+
+    return result
+  }
+
+  private async runNow(
+    call: CuaCall,
+    signal: AbortSignal,
+    elicit: (request: CuaElicitation) => Promise<boolean>,
+  ): Promise<CuaToolResult> {
     clearTimeout(this.idle)
+    this.elicit = elicit
     this.ready ??= this.initialize()
     await this.ready
-    if (this.turn && this.turn !== call.turn) this.endTurn()
+    if (this.turn && this.turn !== call.turn) void this.endTurn()
     this.turn = call.turn
     const id = this.nextId
     const cancel = () =>
@@ -126,23 +146,26 @@ export class CuaHost {
         : (response.result as CuaToolResult)
     } finally {
       signal.removeEventListener('abort', cancel)
-      this.idle = setTimeout(() => this.close(), CUA_IDLE_MS)
+      this.elicit = undefined
+      this.idle = setTimeout(() => void this.close(), CUA_IDLE_MS)
     }
   }
 
-  close(): void {
+  async close(): Promise<void> {
     clearTimeout(this.idle)
-    this.endTurn()
+    // New calls start a fresh host instead of reaching this dying one.
+    this.onExit()
+    await this.endTurn()
     this.process.kill()
   }
 
   /** Clears the App's cursor and per-turn state, as Codex's Stop hook and notify do. */
-  private endTurn(): void {
+  private async endTurn(): Promise<void> {
     const turn = this.turn
 
     if (!turn) return
     this.turn = undefined
-    void this.request('tools/call', {
+    const ended = this.request('tools/call', {
       name: 'turn_ended',
       arguments: { hook_event_name: 'Stop', session_id: this.session, turn_id: turn },
     }).catch(() => {})
@@ -162,6 +185,7 @@ export class CuaHost {
         { env: { ...this.env, CODEX_HOME: codexHome(this.env) } },
         () => {},
       )
+    await Promise.race([ended, new Promise((resolve) => setTimeout(resolve, TURN_END_MS))])
   }
 
   private initialize(): Promise<unknown> {
@@ -223,19 +247,24 @@ export class CuaHost {
   }
 
   private async answer(message: Record<string, unknown>): Promise<void> {
+    if (message.method !== 'elicitation/create') {
+      this.write({
+        jsonrpc: '2.0',
+        id: message.id,
+        error: { code: -32601, message: `${String(message.method)} is not supported` },
+      })
+
+      return
+    }
     const params = (message.params ?? {}) as { message?: string; _meta?: Record<string, unknown> }
     const meta = params._meta ?? {}
-    // The App leaves "for this session" to its client, as Codex does: once per app and conversation.
     const key = JSON.stringify([meta.connector_id, meta.tool_params ?? params.message])
-    const approved = sessionApprovals.get(this.session) ?? new Set<string>()
-    let accepted = approved.has(key)
+    let accepted = this.approved.has(key)
 
-    if (!accepted && message.method === 'elicitation/create' && this.elicit) {
+    if (!accepted && this.elicit) {
       accepted = await this.elicit({ message: params.message ?? '', meta }).catch(() => false)
-      if (accepted && Array.isArray(meta.persist) && meta.persist.includes('session')) {
-        approved.add(key)
-        sessionApprovals.set(this.session, approved)
-      }
+      if (accepted && Array.isArray(meta.persist) && meta.persist.includes('session'))
+        this.approved.add(key)
     }
     this.write({
       jsonrpc: '2.0',

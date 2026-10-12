@@ -3,12 +3,35 @@ import { randomUUID } from 'node:crypto'
 import { CuaHost, cuaServerConfig, failed } from './cua-host.ts'
 import { LocalExecStream } from './exec-stream.ts'
 
-import type { CuaCall, CuaToolResult, ServerConfig } from './cua-host.ts'
+import type { CuaCall, CuaElicitation, CuaToolResult, ServerConfig } from './cua-host.ts'
 import type { SocketEvent, SocketLike } from './tunnel-client.ts'
 
 type Listener = (event: SocketEvent) => void
 
 const hosts = new Map<string, CuaHost>()
+
+/** Below the tunnel's 8 MiB frame payload, leaving room for its JSON escaping. */
+export const CUA_RESULT_MAX_CHARS = 6 * 1024 * 1024
+
+/** A result too large for one frame keeps its text and explains the dropped images. */
+export function fitFrame(result: CuaToolResult): CuaToolResult {
+  if (JSON.stringify(result).length <= CUA_RESULT_MAX_CHARS) return result
+  const text = result.content.filter((part) => (part as { type?: string }).type !== 'image')
+
+  if (JSON.stringify(text).length > CUA_RESULT_MAX_CHARS)
+    return failed('The result was too large to send. Read a smaller part of the UI.')
+
+  return {
+    ...result,
+    content: [
+      ...text,
+      {
+        type: 'text',
+        text: 'The screenshot was too large to send. Take one of a single window or a smaller region instead.',
+      },
+    ],
+  }
+}
 
 /**
  * One `local_cua` call on the device tunnel. The backend sends the call, then
@@ -29,8 +52,13 @@ export class LocalCuaStream implements SocketLike {
   constructor(
     deps = {
       config: () => cuaServerConfig(),
-      host: (session: string, config: ServerConfig): CuaHost =>
-        new CuaHost(session, config, () => hosts.delete(session)),
+      host: (session: string, config: ServerConfig): CuaHost => {
+        const host: CuaHost = new CuaHost(session, config, () => {
+          if (hosts.get(session) === host) hosts.delete(session)
+        })
+
+        return host
+      },
     },
   ) {
     this.deps = deps
@@ -67,7 +95,7 @@ export class LocalCuaStream implements SocketLike {
     this.started = true
     void this.run(message as CuaCall).then((result) => {
       if (this.readyState !== 1) return
-      this.emit('message', { data: JSON.stringify({ t: 'result', result }) })
+      this.emit('message', { data: JSON.stringify({ t: 'result', result: fitFrame(result) }) })
       this.close()
     })
   }
@@ -95,8 +123,8 @@ export class LocalCuaStream implements SocketLike {
       host = this.deps.host(call.session, config)
       hosts.set(call.session, host)
     }
-    host.elicit = (request) =>
-      new Promise((resolve) => {
+    const elicit = (request: CuaElicitation) =>
+      new Promise<boolean>((resolve) => {
         if (this.readyState !== 1) {
           resolve(false)
 
@@ -107,12 +135,11 @@ export class LocalCuaStream implements SocketLike {
         this.replies.set(id, resolve)
         this.emit('message', { data: JSON.stringify({ t: 'elicit', id, ...request }) })
       })
+
     try {
-      return await host.run(call, this.abort.signal)
+      return await host.run(call, this.abort.signal, elicit)
     } catch (error) {
       return failed(error instanceof Error ? error.message : String(error))
-    } finally {
-      host.elicit = undefined
     }
   }
 
