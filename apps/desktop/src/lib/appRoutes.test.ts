@@ -67,6 +67,12 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
     }),
   },
   { name: 'files', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.files') },
+  {
+    name: 'file',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.files', {
+      filter: '/workspace/src/報告 1.md',
+    }),
+  },
   { name: 'terminal', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.terminal') },
   {
     name: 'runtime terminal',

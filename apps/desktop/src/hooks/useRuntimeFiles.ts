@@ -18,10 +18,12 @@ export function useRuntimeFiles(
   conversationId: string | null | undefined,
   isActive: boolean,
   refreshKey: number,
+  filePath = '/workspace/',
 ) {
   const source = useRef<Source | null>(null)
-  const [path, setPath] = useState('/workspace')
-  const [fileName, setFileName] = useState('')
+  const slash = filePath.lastIndexOf('/')
+  const [path, setPath] = useState(filePath.slice(0, slash) || '/')
+  const [fileName, setFileName] = useState(filePath.slice(slash + 1))
   const [retry, setRetry] = useState(0)
   const [result, setResult] = useState<Result>({
     source: null,
