@@ -235,17 +235,12 @@ private struct QuotaLine: View {
 
     var body: some View {
         if let window = quota.tightest {
-            let left = max(0, Int((100 - window.usedPercent).rounded(.down)))
             HStack(spacing: 6) {
-                Gauge(value: min(window.usedPercent, 100), in: 0...100) { EmptyView() }
-                    .gaugeStyle(.accessoryLinearCapacity)
-                    .tint(tone(window.usedPercent))
-                    .frame(width: 44)
-                    .scaleEffect(y: 0.8)
-                Text([left == 0 ? "Limit reached" : "\(left)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                QuotaGauge(window: window).frame(width: 44)
+                Text([window.leftPercent == 0 ? "Limit reached" : "\(window.leftPercent)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
                     .font(.system(size: 12))
                     .monospacedDigit()
-                    .foregroundStyle(window.usedPercent >= 80 ? tone(window.usedPercent) : Theme.muted)
+                    .foregroundStyle(window.labelTint ?? Theme.muted)
             }
             .accessibilityElement(children: .combine)
         } else if quota.needsSignIn {
@@ -255,10 +250,6 @@ private struct QuotaLine: View {
         }
     }
 
-    private func tone(_ used: Double) -> Color {
-        used >= 100 ? .red : used >= 80 ? Theme.warning : Theme.heading
-    }
-
     private func reset(_ date: Date?) -> String? {
         guard let date, date > .now else { return nil }
         let minutes = Int(date.timeIntervalSinceNow / 60)
@@ -266,5 +257,25 @@ private struct QuotaLine: View {
             return minutes < 60 ? "resets in \(max(1, minutes))m" : "resets in \(minutes / 60)h \(minutes % 60)m"
         }
         return "resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    }
+}
+
+/// A usage bar that starts full and drains like a battery.
+struct QuotaGauge: View {
+    let window: RuntimeQuota.Window
+
+    var body: some View {
+        Gauge(value: Double(window.leftPercent), in: 0...100) { EmptyView() }
+            .gaugeStyle(.accessoryLinearCapacity)
+            .tint(window.labelTint ?? Theme.heading)
+            .scaleEffect(y: 0.8)
+    }
+}
+
+extension RuntimeQuota.Window {
+    /// Amber from 80% used and red once spent, as on Desktop. The label
+    /// carries it too, since an empty bar has no fill left to colour.
+    var labelTint: Color? {
+        usedPercent >= 100 ? .red : usedPercent >= 80 ? Theme.warning : nil
     }
 }
