@@ -104,7 +104,6 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
       .localTerminalStart(tabId, terminal.cols, terminal.rows, target)
       .then(async ({ shell }) => {
         if (disposed) return
-        started = true
         setStatus(shell.split(/[\\/]/).at(-1) ?? shell)
         // Only `data` is this view's business: an `exit` closes the whole tab
         // (see useWorkspaceTabSync), so there is no exited state left to render.
@@ -115,6 +114,11 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
         // Subscribe first, then replay: the buffer covers everything emitted
         // before the listener existed, including this shell's first prompt.
         await api.localTerminalReplay(tabId)
+        // The replayed output still carries the shell's old terminal queries
+        // (cursor position, colors, …). Let xterm finish answering them before
+        // input reaches the PTY, or the answers land on the prompt as text.
+        await new Promise<void>((resolve) => terminal.write('', resolve))
+        started = true
         resize()
         if (host.getClientRects().length > 0) terminal.focus()
       })

@@ -59,6 +59,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     if (!host) return
     let disposed = false
     let started = false
+    let replayed = false
     let offEvent: (() => void) | null = null
 
     const fitAddon = new FitAddon()
@@ -82,7 +83,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     setStatus('connecting')
 
     const dataDisposable = terminal.onData((data) => {
-      if (started) void api.podExecInput(sessionKey, data)
+      if (started && replayed) void api.podExecInput(sessionKey, data)
     })
 
     // Defer the start to a macrotask and cancel it on cleanup. Under React
@@ -94,7 +95,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     const startTimer = window.setTimeout(() => {
       startRef
         .current({ cols: terminal.cols, rows: terminal.rows })
-        .then(({ id }) => {
+        .then(async ({ id }) => {
           if (disposed) return
           started = true
           setStatus('connected')
@@ -137,7 +138,12 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
               setStatus('closed')
             }
           })
-          void api.podExecReplay(id)
+          // The replayed output still carries the shell's old terminal queries
+          // (cursor position, colors, …). Let xterm finish answering them before
+          // input reaches the exec session, or the answers land on the prompt.
+          await api.podExecReplay(id)
+          await new Promise<void>((resolve) => terminal.write('', resolve))
+          replayed = true
         })
         .catch((e: unknown) => {
           if (disposed) return
