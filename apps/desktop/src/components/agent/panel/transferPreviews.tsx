@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
@@ -18,10 +19,13 @@ export function TransferPreviews({
   teamId,
   groupId,
   onDownload,
+  alignEnd = false,
   children,
 }: {
   teamId: string
   groupId: string
+  /** Right-align the thumbnails, for files the user sent. */
+  alignEnd?: boolean
   onDownload?: (file: FileTransferFile) => void
   children?: (previewedImages: ReadonlySet<string> | null) => ReactNode
 }) {
@@ -49,7 +53,7 @@ export function TransferPreviews({
   return (
     <>
       {files.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
+        <div className={clsx('mb-2 flex flex-wrap gap-2', alignEnd && 'justify-end')}>
           {files.map((f) =>
             previewKind(f) === 'video' ? (
               <video
