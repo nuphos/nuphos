@@ -5,6 +5,8 @@ export type SessionResource = {
   title: string
   url: string
   state: string
+  /** Linear workflow state type, e.g. `started` or `completed`. */
+  stateType?: string
   repository?: string
   number?: number
   linkedAt: string

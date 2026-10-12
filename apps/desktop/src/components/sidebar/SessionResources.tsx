@@ -1,6 +1,17 @@
 import { faDiscord } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { GitMerge, GitPullRequest, GitPullRequestClosed, Terminal, X } from 'lucide-react'
+import {
+  Circle,
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
+  CircleX,
+  GitMerge,
+  GitPullRequest,
+  GitPullRequestClosed,
+  Terminal,
+  X,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { agentApi } from '../../api/agent-api'
@@ -12,10 +23,24 @@ import type { ReactNode } from 'react'
 
 const iconClass = 'size-3 shrink-0'
 
+/** Linear workflow state types, drawn the way Linear draws them. */
+const linearStateIcons: Record<string, ReactNode> = {
+  triage: <CircleDashed className={`${iconClass} text-tertiary`} />,
+  backlog: <CircleDashed className={`${iconClass} text-tertiary`} />,
+  unstarted: <Circle className={`${iconClass} text-tertiary`} />,
+  started: <CircleDot className={`${iconClass} text-amber-500`} />,
+  completed: <CircleCheck className={iconClass} />,
+  canceled: <CircleX className={`${iconClass} text-tertiary`} />,
+  duplicate: <CircleX className={`${iconClass} text-tertiary`} />,
+}
+
 function resourceStyle(resource: SessionResource): { icon: ReactNode; color: string } {
   if (resource.provider === 'linear')
     return {
-      icon: <img src="/linear.svg" alt="Linear" className={iconClass} />,
+      // Links made before state types were stored keep the logo until Linear reports a change.
+      icon: linearStateIcons[resource.stateType ?? ''] ?? (
+        <img src="/linear.svg" alt="Linear" className={iconClass} />
+      ),
       color: 'session-resource-linear',
     }
   if (resource.provider === 'slack')
