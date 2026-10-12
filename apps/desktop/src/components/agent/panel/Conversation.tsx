@@ -125,8 +125,7 @@ export function Conversation({
     }
   }, [hasRunningTool, statusLabel])
 
-  // Page mode floats corner buttons over the transcript (this cluster plus
-  // App's "All chats" pill); reserve space above the messages for them.
+  // Reserve space above the messages for the floating page-mode controls.
   const hasHeaderOverlay = Boolean(onDockToSidebar)
 
   return (
