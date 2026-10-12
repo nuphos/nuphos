@@ -1,20 +1,30 @@
-import { ArrowLeft, ArrowRight, Globe, RotateCw, X } from 'lucide-react'
+import clsx from 'clsx'
+import { ArrowLeft, ArrowRight, Globe, MousePointerClick, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
 import { BrowserLoadingProgress } from '../components/BrowserLoadingProgress'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import {
+  CANCEL_PICK_SCRIPT,
+  formatPickedElement,
+  PICK_ELEMENT_SCRIPT,
+} from '../lib/browserAnnotate'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
+import type { PickedElement } from '../lib/browserAnnotate'
 import type { WebviewTag } from 'electron'
 
 /** Each mounted dock tab owns its webview and navigation history. */
 export function BrowserView({
   url,
   onNavigate,
+  onAnnotate,
 }: {
   url?: string
   onNavigate?: (url: string) => void
+  /** Receives a picked element, formatted for the agent composer. */
+  onAnnotate?: (text: string) => void
 }) {
   const [initialUrl] = useState(() => normalizeBrowserUrl(url ?? BROWSER_HOME_URL))
   const lastUrl = useRef(initialUrl)
@@ -33,6 +43,7 @@ export function BrowserView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  const [picking, setPicking] = useState(false)
 
   useEffect(() => {
     const host = hostRef.current
@@ -62,6 +73,8 @@ export function BrowserView({
       sync()
     }
     const onStart = () => {
+      // Navigation discards the page, and the pick in progress with it.
+      setPicking(false)
       setLoading(true)
       setError(null)
     }
@@ -116,6 +129,25 @@ export function BrowserView({
     viewRef.current.src = next
   }, [url])
 
+  const annotate = () => {
+    const view = viewRef.current
+
+    if (!view || !onAnnotate) return
+    if (picking) {
+      void view.executeJavaScript(CANCEL_PICK_SCRIPT).catch(() => {})
+
+      return
+    }
+    setPicking(true)
+    void view
+      .executeJavaScript(PICK_ELEMENT_SCRIPT, true)
+      .then((picked: PickedElement | null) => {
+        if (picked) onAnnotate(formatPickedElement(picked))
+      })
+      .catch(() => {})
+      .finally(() => setPicking(false))
+  }
+
   const buttonClass =
     'flex h-7 w-7 shrink-0 items-center justify-center rounded text-secondary hover:bg-zGray-800 hover:text-main disabled:opacity-30'
 
@@ -169,6 +201,19 @@ export function BrowserView({
             className="ml-1 h-7 min-w-0 flex-1 rounded-md bg-zGray-900 px-2.5 text-xs text-main outline-none focus:ring-1 focus:ring-zGray-600"
             placeholder="Search or enter URL"
           />
+          {onAnnotate && (
+            <button
+              type="button"
+              className={clsx(buttonClass, picking && 'bg-zGray-800 text-main')}
+              disabled={!ready}
+              onClick={annotate}
+              aria-pressed={picking}
+              aria-label={picking ? 'Cancel element pick' : 'Pick an element for the agent'}
+              title={picking ? 'Cancel (Esc)' : 'Pick an element for the agent'}
+            >
+              <MousePointerClick className="h-3.5 w-3.5" />
+            </button>
+          )}
           <BrowserLoadingProgress loading={loading} failed={error !== null} />
         </form>
         {error && (
