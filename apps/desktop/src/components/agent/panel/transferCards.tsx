@@ -175,8 +175,8 @@ function formatTransferBytes(bytes: number | null): string {
 
 // User-uploaded files. Bytes already live in the transfer store;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
-// Images and videos preview above it; the card lists only the rest (videos have
-// no Download row to keep here), and is dropped when nothing is left to list.
+// Images and videos preview above it; the card lists only the rest (a previewed
+// video has no Download row to keep here), and is dropped when nothing is left.
 export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
   const previewTeam =
     part.status !== 'uploading' &&
@@ -192,9 +192,9 @@ export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; 
   return (
     <div className="flex max-w-[480px] flex-col items-end self-end">
       <TransferPreviews teamId={previewTeam} groupId={part.groupId} alignEnd>
-        {(previewed) => {
-          const rows = filesBesidePreviews(part.files, previewed).filter(
-            (f) => mediaKind(f.fileName) !== 'video',
+        {(images, videos) => {
+          const rows = filesBesidePreviews(part.files, images).filter(
+            (f) => !videos?.has(f.fileName),
           )
 
           return rows.length > 0 && <UploadedFilesList part={part} rows={rows} />
