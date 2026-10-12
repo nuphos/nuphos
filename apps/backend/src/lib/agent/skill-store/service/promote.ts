@@ -16,7 +16,9 @@ import type { SkillMutationContext, SkillObject } from './types'
 /**
  * Move one skill package between scopes. The source copy is removed once the
  * destination holds it, so a promoted personal skill cannot keep shadowing the
- * team copy it became.
+ * team copy it became. If the copy lands and the removal fails, nothing is
+ * lost: the source stays, and a second attempt stops at the exists check until
+ * the leftover is deleted by hand.
  */
 export async function promoteSkill(
   fromScope: string,
@@ -43,7 +45,7 @@ export async function promoteSkill(
       body: await s3.getObjectBody(object.key),
     })),
   )
-  // Each half is its own mutation, so a retry of the request replays neither twice.
+  // Each half is its own mutation in the history, under an id derived from the request's.
   const step = (suffix: string): SkillMutationContext => ({
     ...context,
     mutationId: context.mutationId ? `${context.mutationId}:${suffix}` : undefined,
