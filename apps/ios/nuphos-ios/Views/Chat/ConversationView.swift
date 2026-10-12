@@ -406,9 +406,11 @@ struct UserBubble: View {
                 }
             }
             if !text.isEmpty {
-                let preview = Self.preview(text)
+                let preview = MessagePreview.head(of: text)
+                let folded = preview != nil && !expanded
                 VStack(alignment: .leading, spacing: 8) {
-                    PlainMessageText(text: expanded ? text : preview ?? text)
+                    // Folded, a selection would copy the preview instead of the message.
+                    PlainMessageText(text: folded ? preview ?? text : text, selectable: !folded)
                     if preview != nil {
                         Button(expanded ? "Show less" : "Show more") {
                             // Like a step disclosure: a reading interaction,
@@ -430,21 +432,6 @@ struct UserBubble: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.leading, 56)
     }
-
-    /// The first lines of a long message, or nil when it fits whole. A pasted
-    /// log otherwise fills screens before the reply.
-    static func preview(_ text: String) -> String? {
-        var head = text.prefix(280)
-            .split(separator: "\n", maxSplits: 6, omittingEmptySubsequences: false)
-            .prefix(6)
-            .joined(separator: "\n")
-        guard head.count < text.count else { return nil }
-        // End on a word, not inside one.
-        if let space = head.lastIndex(where: \.isWhitespace), head.distance(from: space, to: head.endIndex) < 40 {
-            head = String(head[..<space])
-        }
-        return head + "…"
-    }
 }
 
 /// The user's message while its attachments upload: what they sent, how far
@@ -464,7 +451,7 @@ struct SendingBubble: View {
                 }
             }
             if !submission.text.isEmpty {
-                PlainMessageText(text: UserBubble.preview(submission.text) ?? submission.text)
+                PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))

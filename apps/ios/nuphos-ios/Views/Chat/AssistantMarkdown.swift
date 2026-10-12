@@ -26,7 +26,7 @@ struct AssistantMarkdown: View {
     }
 
     var body: some View {
-        MarkdownTextRepresentable(text: rendered, theme: Self.theme, typeSize: typeSize, plain: false, onLink: onLink)
+        MarkdownTextRepresentable(text: rendered, theme: Self.theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
             .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
@@ -56,11 +56,12 @@ struct AssistantMarkdown: View {
 /// out a long paste, and a transcript cell measures again whenever it is reused.
 struct PlainMessageText: View {
     let text: String
+    var selectable = true
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: true, onLink: nil)
+        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: true, selectable: selectable, onLink: nil)
     }
 
     /// Every line break is a paragraph end to the label, so no paragraph gap.
@@ -80,6 +81,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     let typeSize: DynamicTypeSize
     /// The text as typed, sized to fit it rather than the row.
     let plain: Bool
+    let selectable: Bool
     let onLink: ((URL) -> Void)?
 
     func makeUIView(context: Context) -> MarkdownTextView {
@@ -115,6 +117,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     func updateUIView(_ view: MarkdownTextView, context: Context) {
         context.coordinator.onLink = onLink
         context.coordinator.plain = plain
+        view.textLabelView.isSelectable = selectable
         context.coordinator.setTextThrottled(text, theme: theme, on: view)
     }
 
@@ -296,9 +299,10 @@ private struct MarkdownTextRepresentable: View {
     let theme: MarkdownTheme
     let typeSize: DynamicTypeSize
     let plain: Bool
+    let selectable: Bool
     let onLink: ((URL) -> Void)?
     var body: some View {
-        if plain { Text(text).textSelection(.enabled) } else { MarkdownView(text, theme: theme) }
+        if plain { Text(text) } else { MarkdownView(text, theme: theme) }
     }
 }
 #endif
