@@ -121,9 +121,9 @@ struct PlanCard: View {
         if plan.status == "proposed", !session.readOnly {
             HStack(spacing: 8) {
                 Button { Task { await run { try await session.approvePlan(plan.id) } } } label: {
-                    Text("Approve").foregroundStyle(Theme.canvas)
+                    Text("Approve")
                 }
-                .buttonStyle(.borderedProminent)
+                .prominentButton()
                 Button("Request changes") { showRevise = true }
                     .buttonStyle(.bordered)
                 Button("Reject", role: .destructive) { Task { await run { try await session.rejectPlan(plan.id) } } }

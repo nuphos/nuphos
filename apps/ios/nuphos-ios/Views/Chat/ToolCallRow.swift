@@ -149,9 +149,9 @@ struct ApprovalActions: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Button { session.decide(toolCallId: part.toolCallId, .once) } label: {
-                            Text("Approve once").foregroundStyle(Theme.canvas)
+                            Text("Approve once")
                         }
-                        .buttonStyle(.borderedProminent)
+                        .prominentButton()
                         if isOpenAB {
                             Button("Deny", role: .destructive) { session.decide(toolCallId: part.toolCallId, .deny) }
                                 .buttonStyle(.bordered)
