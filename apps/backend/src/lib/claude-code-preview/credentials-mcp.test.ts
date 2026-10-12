@@ -95,7 +95,7 @@ describe('credentialsMcpTools', () => {
     const fetched = await tools.get_credential!({ provider: 'gcp', id: 'sa-1' })
 
     expect(fetched.isError).toBe(true)
-    expect(fetched.content[0]?.text).toContain('notSelected')
+    expect(fetched.content[0]).toMatchObject({ text: expect.stringContaining('notSelected') })
     listing.unselected = []
   })
 
@@ -155,7 +155,7 @@ describe('credentialsMcpTools', () => {
     const fetched = await tools.get_credential!({ provider: 'device', id: 'dev-1' })
 
     expect(fetched.isError).toBe(true)
-    expect(fetched.content[0]?.text).toContain('local_exec')
+    expect(fetched.content[0]).toMatchObject({ text: expect.stringContaining('local_exec') })
   })
 
   test('get_credential surfaces a vending failure as a tool error', async () => {
@@ -166,6 +166,6 @@ describe('credentialsMcpTools', () => {
     const result = await tools.get_credential!({ provider: 'aws', id: 'role-1' })
 
     expect(result.isError).toBe(true)
-    expect(result.content[0]?.text).toContain('403')
+    expect(result.content[0]).toMatchObject({ text: expect.stringContaining('403') })
   })
 })

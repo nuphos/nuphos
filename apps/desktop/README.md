@@ -35,6 +35,12 @@ On macOS the native service socket uses the OS user's home rather than the
 conversation's shell home. Users without a usable CUA installation can continue
 using local Codex normally.
 
+Other runtimes, including cloud ones, reach the same installation through the
+`local_cua` tool. Desktop runs the App's `cua_repl` on the Mac for the
+conversation and relays each call over the device tunnel; the App's per-app
+approval prompts appear as the conversation's approval card, and an app allowed
+once stays allowed for that conversation.
+
 ## Local production build (unsigned)
 
 ```bash
