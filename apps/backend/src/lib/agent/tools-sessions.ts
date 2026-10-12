@@ -17,7 +17,7 @@ const READ_DESCRIPTION =
 
 const RENAME_DESCRIPTION =
   "Set a conversation's title, as if the user renamed it in the sidebar. Defaults to the current conversation. " +
-  'Use it when the user asks to rename a conversation, or to give one a clearer title. ' +
+  'Use it only when the user asks to rename a conversation. ' +
   'Only conversations the user owns in this workspace can be renamed; the new title is kept over any generated one.'
 
 function conversationSummary(
