@@ -102,8 +102,12 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
     setStatus(target ? 'Connecting to runtime…' : 'Starting local shell…')
     api
       .localTerminalStart(tabId, terminal.cols, terminal.rows, target)
-      .then(async ({ shell }) => {
+      .then(async ({ shell, resumed }) => {
         if (disposed) return
+        // A new shell may still be waiting for answers to the queries in its
+        // first output. A resumed one already got them, so hold its input until
+        // the replay below has been parsed (see there).
+        started = !resumed
         setStatus(shell.split(/[\\/]/).at(-1) ?? shell)
         // Only `data` is this view's business: an `exit` closes the whole tab
         // (see useWorkspaceTabSync), so there is no exited state left to render.

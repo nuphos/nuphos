@@ -59,7 +59,10 @@ test('reattaches to one connection, acknowledges bytes, and closes with its owne
   assert.equal(socket.url.searchParams.get('rows'), '43')
   socket.frame({ type: 'ready', label: 'Cloud runtime' })
   assert.equal((await pending).shell, 'Cloud runtime')
-  assert.equal(await manager.start(host.value, 'tab', target), await pending)
+  assert.deepEqual(await manager.start(host.value, 'tab', target), {
+    ...(await pending),
+    resumed: true,
+  })
   socket.frame({ type: 'data', sequence: 1, data: Buffer.from('hello').toString('base64') })
   assert.deepEqual(JSON.parse(socket.sent.at(-1)!), { type: 'ack', sequence: 1 })
   manager.input(host.value, 'tab', '\x00'.repeat(16384))

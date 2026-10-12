@@ -136,6 +136,8 @@ test(
     const again = sessions.start(owner, id, 80, 24)
 
     assert.equal(again.shell, first.shell)
+    assert.equal(first.resumed, undefined)
+    assert.equal(again.resumed, true)
     sessions.replay(owner, id)
     const replayed = events
       .slice(sent)

@@ -33,7 +33,7 @@ export type WindowShellApi = {
     cols: number,
     rows: number,
     target?: TerminalTarget,
-  ): Promise<{ id: string; shell: string }>
+  ): Promise<{ id: string; shell: string; resumed?: boolean }>
   localTerminalReplay(id: string): Promise<void>
   localTerminalInput(id: string, data: string): Promise<void>
   localTerminalResize(id: string, cols: number, rows: number): Promise<void>

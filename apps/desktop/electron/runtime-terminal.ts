@@ -36,7 +36,7 @@ export class RuntimeTerminalSessions {
   start(owner: WebContents, id: string, target: TerminalTarget, cols = 80, rows = 24) {
     const existing = this.get(owner, id)
 
-    if (existing) return existing.ready
+    if (existing) return existing.ready.then((ready) => ({ ...ready, resumed: true }))
     if (this.sessions.size >= 32) throw new Error('Close a terminal before opening another one.')
     const session: Session = {
       owner,

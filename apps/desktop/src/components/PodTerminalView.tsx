@@ -93,8 +93,15 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     // consent dialog fires exactly once for the surviving terminal instead of
     // stacking two. start() itself stays a single dangerous op per consent.
     const startTimer = window.setTimeout(() => {
-      startRef
-        .current({ cols: terminal.cols, rows: terminal.rows })
+      api
+        .podExecHasSession(sessionKey)
+        .then((resumed) => {
+          // Only a reattached shell has already answered the queries in its
+          // replayed output; a new one may still be waiting for the answers.
+          replayed = !resumed
+
+          return startRef.current({ cols: terminal.cols, rows: terminal.rows })
+        })
         .then(async ({ id }) => {
           if (disposed) return
           started = true

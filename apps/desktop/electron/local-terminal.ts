@@ -57,11 +57,11 @@ export class LocalTerminalSessions {
     rows: number,
     cwd = os.homedir(),
     agentScope?: string,
-  ): { id: string; shell: string } {
+  ): { id: string; shell: string; resumed?: boolean } {
     if (typeof id !== 'string' || !id || id.length > 200) {
       throw new Error('Invalid terminal id.')
     }
-    if (this.sessions.has(id)) return { id, shell: this.owned(owner, id).shell }
+    if (this.sessions.has(id)) return { id, shell: this.owned(owner, id).shell, resumed: true }
     if (Array.from(this.sessions.values()).filter((s) => s.owner === owner).length >= 32) {
       throw new Error('Close an existing terminal before opening another one (32 maximum).')
     }
