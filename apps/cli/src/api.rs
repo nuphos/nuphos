@@ -213,8 +213,9 @@ impl Api {
         .await
     }
 
-    /// Full Access: whether the conversation's permission requests are allowed
-    /// without asking. Only its owner may read or change it.
+    /// Full Access: whether your permission requests in the conversation are
+    /// allowed without asking. Each person has their own; the owner and
+    /// managers may read or change theirs.
     pub async fn full_access(&self, session: &str) -> Result<Value, ApiError> {
         self.call(Method::GET, "/agent/auto-mode/bypass", &[("sessionId", session)], None).await
     }

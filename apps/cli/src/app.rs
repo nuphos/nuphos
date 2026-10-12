@@ -1728,9 +1728,9 @@ impl App {
         self.background(false, async move {
             let detail = api.conversation(&team, &id).await;
             let config = api.model_config(&team, &id).await.ok();
-            // Only the owner may read or change the mode of a conversation.
-            let owner = detail.as_ref().is_ok_and(|d| d["isOwner"] == true);
-            let full_access = if owner { Some(api.full_access(&id).await) } else { None };
+            // Only the owner and managers may read or change their mode in a conversation.
+            let manager = detail.as_ref().is_ok_and(|d| d["canManage"] == true);
+            let full_access = if manager { Some(api.full_access(&id).await) } else { None };
             Box::new(move |app: &mut App| {
                 if app.session_id == id {
                     app.loading = false;
