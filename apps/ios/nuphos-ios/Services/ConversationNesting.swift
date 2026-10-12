@@ -3,9 +3,12 @@ struct NestedConversation: Identifiable, Equatable {
     let conversation: AgentConversation
     /// Per level, whether a later sibling at that level still follows this row.
     let trail: [Bool]
-    let hasChildren: Bool
+    /// Every thread under this row, at any depth.
+    let threads: Int
     /// Everything under a folded row, so the row can stand in for it.
     let hidden: [AgentConversation]
+
+    var hasChildren: Bool { threads > 0 }
 
     var id: String { conversation.sessionId }
     var depth: Int { trail.count }
@@ -31,11 +34,9 @@ enum ConversationNesting {
         var nested: [NestedConversation] = []
         func visit(_ row: AgentConversation, _ trail: [Bool]) {
             let kids = children[row.sessionId] ?? []
+            let all = below(row.sessionId)
             let isFolded = !kids.isEmpty && folded.contains(row.sessionId)
-            nested.append(.init(
-                conversation: row, trail: trail, hasChildren: !kids.isEmpty,
-                hidden: isFolded ? below(row.sessionId) : []
-            ))
+            nested.append(.init(conversation: row, trail: trail, threads: all.count, hidden: isFolded ? all : []))
             if isFolded { return }
             for (index, kid) in kids.enumerated() { visit(kid, trail + [index < kids.count - 1]) }
         }

@@ -240,15 +240,24 @@ struct AgentPage: View {
                                 conversation: conversation, pinned: store.isPinned(conversation.sessionId), hidden: item.hidden
                             )
                             if item.hasChildren {
+                                // The thread count, so it never reads as the row's own disclosure chevron.
                                 Button { store.toggleFolded(conversation.sessionId) } label: {
-                                    Image(systemName: folded ? "chevron.right" : "chevron.down")
-                                        .font(Theme.Text.label.weight(.semibold))
-                                        .foregroundStyle(Theme.muted)
-                                        .frame(width: 32, height: 32)
-                                        .contentShape(Rectangle())
+                                    HStack(spacing: 3) {
+                                        Text("\(item.threads)")
+                                        Image(systemName: folded ? "chevron.down" : "chevron.up")
+                                            .font(Theme.Text.caption.weight(.semibold))
+                                    }
+                                    .font(Theme.Text.label.weight(.medium))
+                                    .foregroundStyle(Theme.muted)
+                                    .padding(.horizontal, 8)
+                                    .frame(height: 24)
+                                    .background(Capsule().fill(Theme.muted.opacity(0.12)))
+                                    .padding(.leading, 8)
+                                    .frame(minHeight: 44)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.borderless)
-                                .accessibilityLabel(folded ? "Show threads" : "Hide threads")
+                                .accessibilityLabel(folded ? "Show \(item.threads) threads" : "Hide \(item.threads) threads")
                             }
                         }
                         // Insets live here, not on the row, so the tree lines span the whole row.
