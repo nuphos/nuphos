@@ -42,7 +42,7 @@ export type WindowShellApi = {
   appOpenExternal(url: string): Promise<void>
   appOpenSsh(url: string): Promise<void>
   sshTerminalInput(id: string, data: string): Promise<void>
-  sshTerminalReplay(id: string): Promise<void>
+  sshTerminalReplay(id: string): Promise<boolean>
   sshTerminalClose(id: string): Promise<void>
   onSshTerminalEvent(cb: (payload: SshTerminalEvent) => void): () => void
   podExecStart(

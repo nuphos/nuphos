@@ -26,6 +26,8 @@ type SshSession = {
   child: ChildProcessWithoutNullStreams
   keyDir: string
   events: SshTerminalEvent[]
+  /** A view already replayed (and answered) this output once. */
+  replayed: boolean
   cleanupStarted: boolean
 }
 
@@ -135,7 +137,14 @@ export async function startSshSession(
       },
     )
 
-    const session: SshSession = { id, child, keyDir, events: [], cleanupStarted: false }
+    const session: SshSession = {
+      id,
+      child,
+      keyDir,
+      events: [],
+      replayed: false,
+      cleanupStarted: false,
+    }
 
     sessions.set(id, session)
 
@@ -184,13 +193,19 @@ export function closeSshSession(id: string): void {
   void cleanup(session).finally(() => sessions.delete(id))
 }
 
-export function replaySshSession(target: WebContents, id: string): void {
+/** Returns whether an earlier view already replayed this session. */
+export function replaySshSession(target: WebContents, id: string): boolean {
   const session = sessions.get(id)
 
-  if (!session) return
+  if (!session) return false
+  const resumed = session.replayed
+
+  session.replayed = true
   for (const event of session.events.slice()) {
     if (!target.isDestroyed()) target.send('ssh-terminal:event', { ...event })
   }
+
+  return resumed
 }
 
 export function closeAllSshSessions(): void {

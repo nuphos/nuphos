@@ -55,8 +55,9 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
     terminal.focus()
     terminal.writeln('Connecting…')
 
+    let ready = false
     const dataDisposable = terminal.onData((data) => {
-      void api.sshTerminalInput(sessionId, data)
+      if (ready) void api.sshTerminalInput(sessionId, data)
     })
     const unsubscribe = api.onSshTerminalEvent((event) => {
       if (event.id !== sessionId) return
@@ -86,7 +87,14 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
       }
     })
 
-    void api.sshTerminalReplay(sessionId)
+    // The replayed output still carries the remote shell's terminal queries
+    // (cursor position, colors, …). If an earlier view already answered them,
+    // hold input until xterm has parsed the replay, or the second answers land
+    // on the prompt as text. A first view's answers may still be awaited.
+    void api.sshTerminalReplay(sessionId).then(async (resumed) => {
+      if (resumed) await new Promise<void>((resolve) => terminal.write('', resolve))
+      ready = true
+    })
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit()
     })
