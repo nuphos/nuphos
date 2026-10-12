@@ -82,6 +82,13 @@ export default {
         field: withOpacity('--color-input-surface'),
         agentCanvas: withOpacity('--color-agent-canvas'),
         composer: withOpacity('--color-composer-surface'),
+        heatmap: {
+          0: withOpacity('--color-heatmap-0'),
+          1: withOpacity('--color-heatmap-1'),
+          2: withOpacity('--color-heatmap-2'),
+          3: withOpacity('--color-heatmap-3'),
+          4: withOpacity('--color-heatmap-4'),
+        },
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Inter', 'system-ui', 'sans-serif'],
