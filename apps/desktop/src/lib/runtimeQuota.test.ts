@@ -7,6 +7,7 @@ import {
   quotaNote,
   quotaSummary,
   quotaTone,
+  quotaWindowTone,
 } from './runtimeQuota.ts'
 
 import type { RuntimeQuota } from '../types/runtime.ts'
@@ -46,6 +47,14 @@ test('exhausted and warning tones', () => {
     quotaTone(quota([{ id: 'a', label: 'A', usedPercent: 80, resetsAt: null }])),
     'warning',
   )
+})
+
+test('each window carries its own tone', () => {
+  const tones = [79, 80, 100].map((usedPercent) =>
+    quotaWindowTone({ id: 'a', label: 'A', usedPercent, resetsAt: null }),
+  )
+
+  assert.deepEqual(tones, ['ok', 'warning', 'exhausted'])
 })
 
 test('unavailable quota has no summary or details', () => {

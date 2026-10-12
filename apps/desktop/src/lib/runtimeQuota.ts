@@ -12,13 +12,16 @@ export function mostConstrainedWindow(quota: RuntimeQuota | undefined): RuntimeQ
   return worst
 }
 
+export function quotaWindowTone(window: RuntimeQuotaWindow): QuotaTone {
+  if (window.usedPercent >= 100) return 'exhausted'
+
+  return window.usedPercent >= 80 ? 'warning' : 'ok'
+}
+
 export function quotaTone(quota: RuntimeQuota | undefined): QuotaTone {
   const worst = mostConstrainedWindow(quota)
 
-  if (!worst) return 'ok'
-  if (worst.usedPercent >= 100) return 'exhausted'
-
-  return worst.usedPercent >= 80 ? 'warning' : 'ok'
+  return worst ? quotaWindowTone(worst) : 'ok'
 }
 
 /** With no figure to show, the agent's own reason is the whole answer. */

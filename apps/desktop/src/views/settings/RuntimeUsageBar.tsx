@@ -1,10 +1,13 @@
-import { quotaLeftPercent } from '../../lib/runtimeQuota'
+import { quotaLeftPercent, quotaWindowTone } from '../../lib/runtimeQuota'
+
+import { QUOTA_FILL_CLASS, QUOTA_LABEL_CLASS } from './runtimePresentation'
 
 import type { RuntimeQuotaWindow } from '../../types/runtime'
 
 /** Drains like a battery: full when nothing is spent, empty when the window is used up. */
 export function RuntimeUsageBar({ window }: { window: RuntimeQuotaWindow }) {
   const left = quotaLeftPercent(window)
+  const tone = quotaWindowTone(window)
 
   return (
     <span
@@ -20,11 +23,13 @@ export function RuntimeUsageBar({ window }: { window: RuntimeQuotaWindow }) {
         className="h-1.5 w-16 overflow-hidden rounded-full bg-zGray-800"
       >
         <span
-          className="block h-full rounded-full bg-zViolet-500"
+          className={`block h-full rounded-full ${QUOTA_FILL_CLASS[tone]}`}
           style={{ width: `${String(left)}%` }}
         />
       </span>
-      <span className="text-[11px] text-tertiary">{left}% left</span>
+      <span className={`text-[11px] ${QUOTA_LABEL_CLASS[tone] || 'text-tertiary'}`}>
+        {left}% left
+      </span>
     </span>
   )
 }
