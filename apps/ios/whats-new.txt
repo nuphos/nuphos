@@ -1,5 +1,5 @@
-- New agent: OpenCode joins Claude Code, Codex, Grok Build and Antigravity.
-- Each Cloud agent has its own page: rename it, sign it in again, disable or remove it.
-- Several images in one message show as a compact grid, and the preview steps through them.
-- Pick the model per conversation from what the agent offers.
-- Fixes: taps on the composer edges and toolbar icons now act on the first touch.
+- Switch agents inside a session from the chat menu, and see the pull requests and issues linked to it.
+- Threads an agent opens are nested under the conversation that opened them. Fold them, or unlink one.
+- Image preview: swipe past the last image to reach the first, pinch to zoom, and pull down to close.
+- The keyboard follows your finger when you pull down on the composer or the conversation, and stays with the back swipe.
+- In a shared session, anyone who can reply can steer or stop the running turn.
