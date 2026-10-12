@@ -12,7 +12,6 @@ import {
 } from '../lib/browserAnnotate'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
-import type { PickedElement } from '../lib/browserAnnotate'
 import type { WebviewTag } from 'electron'
 
 /** Each mounted dock tab owns its webview and navigation history. */
@@ -44,6 +43,9 @@ export function BrowserView({
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [picking, setPicking] = useState(false)
+  // Identifies the current pick; a pick left behind by navigation never
+  // resolves into this one's state.
+  const pickRef = useRef(0)
 
   useEffect(() => {
     const host = hostRef.current
@@ -67,14 +69,18 @@ export function BrowserView({
       }
       setNav({ back: view.canGoBack(), forward: view.canGoForward() })
     }
+    const onDocument = () => {
+      // A new document drops any pick running in the old one.
+      pickRef.current += 1
+      setPicking(false)
+      sync()
+    }
     const onReady = () => {
       setReady(true)
       view.setZoomFactor(1)
       sync()
     }
     const onStart = () => {
-      // Navigation discards the page, and the pick in progress with it.
-      setPicking(false)
       setLoading(true)
       setError(null)
     }
@@ -93,7 +99,7 @@ export function BrowserView({
     }
 
     view.addEventListener('dom-ready', onReady)
-    view.addEventListener('did-navigate', sync)
+    view.addEventListener('did-navigate', onDocument)
     view.addEventListener('did-navigate-in-page', sync)
     view.addEventListener('did-start-loading', onStart)
     view.addEventListener('did-stop-loading', onStop)
@@ -104,7 +110,7 @@ export function BrowserView({
 
     return () => {
       view.removeEventListener('dom-ready', onReady)
-      view.removeEventListener('did-navigate', sync)
+      view.removeEventListener('did-navigate', onDocument)
       view.removeEventListener('did-navigate-in-page', sync)
       view.removeEventListener('did-start-loading', onStart)
       view.removeEventListener('did-stop-loading', onStop)
@@ -138,14 +144,20 @@ export function BrowserView({
 
       return
     }
+    const pick = ++pickRef.current
+
     setPicking(true)
     void view
-      .executeJavaScript(PICK_ELEMENT_SCRIPT, true)
-      .then((picked: PickedElement | null) => {
-        if (picked) onAnnotate(formatPickedElement(picked))
+      .executeJavaScript(PICK_ELEMENT_SCRIPT)
+      .then((picked: unknown) => {
+        const text = pick === pickRef.current && formatPickedElement(view.getURL(), picked)
+
+        if (text) onAnnotate(text)
       })
       .catch(() => {})
-      .finally(() => setPicking(false))
+      .finally(() => {
+        if (pick === pickRef.current) setPicking(false)
+      })
   }
 
   const buttonClass =

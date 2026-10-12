@@ -1,14 +1,9 @@
-// Element picking for the in-app browser. The script runs in the page itself
-// (the guest is sandboxed and has no preload), so everything it returns is
-// page-controlled data: it only ever lands in the composer as plain text for
-// the user to review before sending.
+// Element picking for the in-app browser. The script runs in the page's main
+// world (the guest is sandboxed and has no preload), so the page can replace
+// anything it calls and decide the whole result. Treat it as untrusted: the
+// formatter validates and bounds every field before it reaches the composer.
 
-export type PickedElement = {
-  url: string
-  selector: string
-  html: string
-}
-
+const SELECTOR_LIMIT = 300
 const HTML_LIMIT = 600
 
 /** Resolves with the clicked element, or null when the pick is cancelled. */
@@ -51,7 +46,7 @@ export const PICK_ELEMENT_SCRIPT = `new Promise((resolve) => {
   const click = (event) => {
     swallow(event)
     const el = event.target
-    finish({ url: location.href, selector: selectorFor(el), html: el.outerHTML })
+    finish({ selector: selectorFor(el), html: el.outerHTML })
   }
   const key = (event) => {
     if (event.key !== 'Escape') return
@@ -78,12 +73,23 @@ export const PICK_ELEMENT_SCRIPT = `new Promise((resolve) => {
 
 export const CANCEL_PICK_SCRIPT = 'window.__nuphosPick?.(null)'
 
-/** Formats a picked element as composer text; the user's note goes after it. */
-export function formatPickedElement(picked: PickedElement): string {
-  const { url, selector, html: fullHtml } = picked
-  const html = fullHtml.length > HTML_LIMIT ? `${fullHtml.slice(0, HTML_LIMIT)}…` : fullHtml
+/**
+ * Formats a picked element as composer text; the user's note goes after it.
+ * `url` comes from the host. Returns null for a malformed pick result.
+ */
+export function formatPickedElement(url: string, picked: unknown): string | null {
+  if (!picked || typeof picked !== 'object') return null
+  const { selector: rawSelector, html: rawHtml } = picked as Record<string, unknown>
+
+  if (typeof rawSelector !== 'string' || typeof rawHtml !== 'string') return null
+  const selector = truncate(rawSelector.replace(/\s+/g, ' ').trim(), SELECTOR_LIMIT)
+  const html = truncate(rawHtml, HTML_LIMIT)
   const longestRun = Math.max(2, ...(html.match(/`+/g) ?? []).map((run) => run.length))
   const fence = '`'.repeat(longestRun + 1)
 
   return [`Element on ${url}`, `Selector: ${selector}`, `${fence}html`, html, fence, ''].join('\n')
+}
+
+function truncate(text: string, limit: number): string {
+  return text.length > limit ? `${text.slice(0, limit)}…` : text
 }
