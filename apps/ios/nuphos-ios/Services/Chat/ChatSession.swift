@@ -488,6 +488,27 @@ final class ChatSession {
         await refreshSessionConfig()
     }
 
+    // MARK: - Sharing
+
+    /// `agent/conversations/:id/participants` and `…/access`. Every call
+    /// answers with the whole access state; the backend lets only the owner
+    /// change it.
+    func access(_ method: String, _ path: String = "participants") async throws -> SessionAccess {
+        try await access(method, path, body: Optional<Int>.none)
+    }
+
+    func access<B: Encodable>(_ method: String, _ path: String = "participants", body: B?) async throws -> SessionAccess {
+        let data = try await AgentChatAPI.send(
+            method, "agent/conversations/\(sessionId)/\(path)",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: body, timeout: 12
+        )
+        return try JSONDecoder().decode(SessionAccess.self, from: data)
+    }
+
+    func teamMembers() async throws -> [TeamMember] {
+        try await NuphosAPI.teamMembers(token: token, teamId: teamId, includeRemoved: false)
+    }
+
     // MARK: - Archive
 
     func rename(_ name: String) async throws {

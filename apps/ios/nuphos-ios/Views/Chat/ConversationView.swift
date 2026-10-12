@@ -27,6 +27,7 @@ struct ConversationView: View {
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
+    @State private var showShare = false
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
 
@@ -116,11 +117,7 @@ struct ConversationView: View {
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        if let link = SessionLink.url(teamId: session.teamId, sessionId: session.sessionId) {
-                            ShareLink(item: link) {
-                                Label("Share", systemImage: "square.and.arrow.up")
-                            }
-                        }
+                        Button("Share", systemImage: "person.crop.circle.badge.plus") { showShare = true }
                         Button {
                             Task {
                                 updating = true
@@ -170,6 +167,7 @@ struct ConversationView: View {
             Text(archiveError ?? "")
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
+        .sheet(isPresented: $showShare) { ShareSessionSheet(session: session) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
                 Task {
