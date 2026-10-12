@@ -34,6 +34,9 @@ pub struct Prefs {
     /// Last runtime picked for new conversations, per team.
     #[serde(default, rename = "runtimeIds")]
     pub runtime_ids: HashMap<String, String>,
+    /// New conversations start in Full Access: the last pick in /full-access.
+    #[serde(default, rename = "fullAccess")]
+    pub full_access: bool,
 }
 
 fn home() -> PathBuf {
