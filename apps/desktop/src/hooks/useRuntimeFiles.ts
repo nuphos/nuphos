@@ -22,7 +22,7 @@ export function useRuntimeFiles(
 ) {
   const source = useRef<Source | null>(null)
   const slash = filePath.lastIndexOf('/')
-  const [path, setPath] = useState(filePath.slice(0, slash) || '/')
+  const [path, setPath] = useState(filePath.slice(0, slash))
   const [fileName, setFileName] = useState(filePath.slice(slash + 1))
   const [retry, setRetry] = useState(0)
   const [result, setResult] = useState<Result>({
