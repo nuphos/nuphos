@@ -70,9 +70,15 @@ for (const scope of ['mine', 'shared'] as const) {
       }
     }
     const initial = await loadSidebarChats(readPage, () => true, scope)
-    assert.deepEqual(initial?.map((row) => row.sessionId), ['2', '1'])
+    assert.deepEqual(
+      initial?.map((row) => row.sessionId),
+      ['2', '1'],
+    )
     active = true
     const refreshed = await loadSidebarChats(readPage, () => true, scope)
-    assert.deepEqual(refreshed?.map((row) => row.sessionId), ['1', '2'])
+    assert.deepEqual(
+      refreshed?.map((row) => row.sessionId),
+      ['1', '2'],
+    )
   })
 }
