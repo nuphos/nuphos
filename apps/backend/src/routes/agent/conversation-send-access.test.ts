@@ -91,6 +91,9 @@ test('the serializer tells each viewer what they may do', () => {
 
   expect(as('owner')).toMatchObject({ access: 'owner', readOnly: false, isOwner: true })
   expect(as('invited')).toMatchObject({ access: 'reply', readOnly: false, isOwner: false })
+  // iOS v0.8.0 hides steering, approvals and Stop unless both of these are true.
+  expect(as('invited')).toMatchObject({ canCancelRun: true, canRespondToRun: true })
+  expect(as('stranger')).toMatchObject({ canCancelRun: false, canRespondToRun: false })
   // Lists never hand this one over; if a caller did, it must still be read-only.
   expect(as('stranger')).toMatchObject({ access: null, readOnly: true })
   expect(

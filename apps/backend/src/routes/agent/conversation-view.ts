@@ -193,6 +193,11 @@ export function serializeConversationForViewer(
     access,
     generalAccess: generalAccessOf(grants),
     readOnly: !canReply(access),
+    // iOS v0.8.0 and earlier read these two and treat a missing value as
+    // false, which hides steering, approvals and Stop during a turn. Anyone
+    // who can reply may steer or stop, so both follow reply access.
+    canCancelRun: canReply(access),
+    canRespondToRun: canReply(access),
     // May move the session to another runtime and change its credentials.
     canManage: canManage(access),
     ...(isOwner
