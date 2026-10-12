@@ -1728,11 +1728,18 @@ impl App {
         self.background(false, async move {
             let detail = api.conversation(&team, &id).await;
             let config = api.model_config(&team, &id).await.ok();
-            let full_access = api.full_access(&id).await.ok();
+            let full_access = api.full_access(&id).await;
             Box::new(move |app: &mut App| {
                 if app.session_id == id {
                     app.loading = false;
-                    app.full_access = full_access.and_then(|v| v["bypass"].as_bool()).unwrap_or(false);
+                    app.full_access = match full_access {
+                        Ok(v) => v["bypass"].as_bool().unwrap_or(false),
+                        // The border is the only sign of Full Access; never let it be silently wrong.
+                        Err(e) => {
+                            app.notice = Some(format!("Could not read whether Full Access is on: {}", e.message));
+                            false
+                        }
+                    };
                     app.show_conversation(detail, config);
                 }
             }) as Apply
