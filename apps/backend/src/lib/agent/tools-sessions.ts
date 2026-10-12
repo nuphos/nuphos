@@ -1,7 +1,7 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-import { getConversations, getConversationTranscriptForAgent } from './db'
+import { getConversations, getConversationTranscriptForAgent, renameConversation } from './db'
 import { withLabel } from './tools-skilled/labeling'
 
 const LIST_DESCRIPTION =
@@ -14,6 +14,11 @@ const READ_DESCRIPTION =
   'Pages by message index — pass the returned next_index to continue. Read only the window you need. ' +
   'Turn termination records are returned separately in turn_diagnostics, even when transcript text is truncated; timestamps describe backend observations and missing fields were not recorded. ' +
   'Tool inputs/outputs are omitted by default to keep the transcript small; set include_tool_details only when the exact command or result matters.'
+
+const RENAME_DESCRIPTION =
+  "Set a conversation's title, as if the user renamed it in the sidebar. Defaults to the current conversation. " +
+  'Use it when the user asks to rename a conversation, or to give one a clearer title. ' +
+  'Only conversations the user owns in this workspace can be renamed; the new title is kept over any generated one.'
 
 function conversationSummary(
   c: {
@@ -129,5 +134,31 @@ export function createSessionTools(
     readShape,
   )
 
-  return { list_recent_conversations, read_conversation }
+  const renameShape = {
+    title: z.string().trim().min(1).max(120).describe('New title, 1–120 characters.'),
+    session_id: z
+      .string()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe('Conversation to rename (default: the current conversation).'),
+  }
+  const rename_conversation = withLabel(
+    tool({
+      description: RENAME_DESCRIPTION,
+      inputSchema: z.object(renameShape),
+      execute: async ({ title, session_id }) => {
+        const sessionId = session_id ?? conversationId
+
+        if (!(await renameConversation(sessionId, userId, teamId, title))) {
+          return { error: 'Conversation not found or not owned by the user in this workspace.' }
+        }
+
+        return { session_id: sessionId, title }
+      },
+    }),
+    renameShape,
+  )
+
+  return { list_recent_conversations, read_conversation, rename_conversation }
 }
