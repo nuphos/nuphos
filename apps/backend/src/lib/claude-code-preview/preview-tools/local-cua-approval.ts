@@ -14,34 +14,62 @@ import { awaitDecisionOnce } from './decision-wait'
 
 import type { PreviewToolContext } from '../preview-tool-context'
 
+export type AppApprovalDeps = {
+  bypass: typeof getSessionBypass
+  publish: typeof publishPreviewFrame
+  register: typeof registerPreviewWait
+  await: typeof awaitDecisionOnce
+  timeoutMs: number
+}
+
+const defaultDeps: AppApprovalDeps = {
+  bypass: getSessionBypass,
+  publish: publishPreviewFrame,
+  register: registerPreviewWait,
+  await: awaitDecisionOnce,
+  timeoutMs: OPENAB_PERMISSION_DECISION_TIMEOUT_MS,
+}
+
 export async function approveAppForComputerUse(
   ctx: PreviewToolContext,
   request: { message: string; meta: Record<string, unknown> },
+  deps: AppApprovalDeps = defaultDeps,
 ): Promise<boolean> {
-  if (await getSessionBypass(ctx.sessionId, ctx.userId)) return true
   // Its own card: one call can ask for several apps, and each answer resumes the turn.
   const toolCallId = `nuphos-${randomUUID()}`
   const publish = (frame: Record<string, unknown>) =>
-    publishPreviewFrame(ctx, { toolCallId, ...frame }).catch(() => {})
+    deps.publish(ctx, { toolCallId, ...frame }).catch(() => {})
 
   await publish({
     type: 'tool-input-available',
     toolName: 'local_cua',
     input: { approval: request.message, app: request.meta.tool_params },
   })
-  await registerPreviewWait({
+  if (await deps.bypass(ctx.sessionId, ctx.userId)) {
+    // The transcript keeps what the agent was allowed to control without asking.
+    await publish({
+      type: 'authorization-decision',
+      decision: 'allow',
+      layer: 'bypass',
+      reason: 'Full Access is enabled for this conversation.',
+    })
+    await publish({ type: 'tool-output-available', output: { approved: true } })
+
+    return true
+  }
+  await deps.register({
     userId: ctx.userId,
     sessionId: ctx.sessionId,
     waitId: toolCallId,
     kind: 'authorization-rule',
   })
   await publish({ type: 'tool-approval-request', approvalId: toolCallId })
-  const outcome = await awaitDecisionOnce({
+  const outcome = await deps.await({
     userId: ctx.userId,
     sessionId: ctx.sessionId,
     waitId: toolCallId,
     kind: 'authorization-rule',
-    timeoutMs: OPENAB_PERMISSION_DECISION_TIMEOUT_MS,
+    timeoutMs: deps.timeoutMs,
   })
   const approved = outcome.status === 'decided' && outcome.decision.payload.decision === 'approved'
 

@@ -24,6 +24,7 @@ export type ServerConfig = { command: string; args: string[]; env: Record<string
 export const CUA_IDLE_MS = 60_000
 /** How long the App may take to clean up its turn before its process is stopped. */
 const TURN_END_MS = 2_000
+const CANCELLED = 'The call was cancelled before it ran.'
 
 export const failed = (text: string): CuaToolResult => ({
   content: [{ type: 'text', text }],
@@ -114,10 +115,13 @@ export class CuaHost {
     signal: AbortSignal,
     elicit: (request: CuaElicitation) => Promise<boolean>,
   ): Promise<CuaToolResult> {
-    clearTimeout(this.idle)
-    this.elicit = elicit
+    // A call whose stream closed while it was queued must never reach the App.
+    if (signal.aborted) return failed(CANCELLED)
     this.ready ??= this.initialize()
     await this.ready
+    if (signal.aborted) return failed(CANCELLED)
+    clearTimeout(this.idle)
+    this.elicit = elicit
     if (this.turn && this.turn !== call.turn) void this.endTurn()
     this.turn = call.turn
     const id = this.nextId

@@ -21,12 +21,14 @@ const rl = require('node:readline').createInterface({ input: process.stdin })
 const send = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
 const calls = new Map()
 const pings = new Map()
+const seen = []
 rl.on('line', (line) => {
   const m = JSON.parse(line)
   if (m.method === 'initialize') send({ jsonrpc: '2.0', id: m.id, result: {} })
   if (m.method === 'tools/call' && m.params.name === 'turn_ended') send({ jsonrpc: '2.0', id: m.id, result: {} })
   if (m.method === 'tools/call' && m.params.name === 'js') {
     calls.set('e' + m.id, m)
+    seen.push(m.params.arguments.code)
     send({ jsonrpc: '2.0', id: 'p' + m.id, method: 'ping' })
     send({ jsonrpc: '2.0', id: 'e' + m.id, method: 'elicitation/create', params: { message: 'Allow?', _meta: { tool_params: { app: 'finder' }, persist: ['session'] } } })
   }
@@ -34,7 +36,7 @@ rl.on('line', (line) => {
   if (!m.method && calls.has(m.id)) {
     const call = calls.get(m.id)
     calls.delete(m.id)
-    const echo = { action: m.result.action, meta: call.params._meta, code: call.params.arguments.code, ping: pings.get(m.id) }
+    const echo = { action: m.result.action, meta: call.params._meta, code: call.params.arguments.code, ping: pings.get(m.id), seen }
     send({ jsonrpc: '2.0', id: call.id, result: { content: [{ type: 'text', text: JSON.stringify(echo) }] } })
   }
 })
@@ -91,6 +93,7 @@ test('a call carries Codex turn metadata, and only approval requests get an appr
     meta: { 'x-codex-turn-metadata': { session_id: 's1', turn_id: 't1' } },
     code: '1',
     ping: -32601,
+    seen: ['1'],
   })
 })
 
@@ -143,6 +146,30 @@ test('parallel calls run one at a time, each asking its own approver', async () 
       ['b', 'accept'],
     ],
   )
+})
+
+test('a call cancelled while queued never reaches the App', async () => {
+  const cua = host()
+  const cancelled = new AbortController()
+  const first = cua.run({ session: 's1', turn: 't1', code: 'a' }, signal(), () =>
+    Promise.resolve(true),
+  )
+  const second = cua.run({ session: 's1', turn: 't1', code: 'b' }, cancelled.signal, () =>
+    Promise.resolve(true),
+  )
+
+  cancelled.abort()
+  const third = await cua.run({ session: 's1', turn: 't1', code: 'c' }, signal(), () =>
+    Promise.resolve(true),
+  )
+
+  await cua.close()
+  assert.equal(echo(await first).code, 'a')
+  assert.deepEqual(await second, {
+    content: [{ type: 'text', text: 'The call was cancelled before it ran.' }],
+    isError: true,
+  })
+  assert.deepEqual(echo(third).seen, ['a', 'c'])
 })
 
 test('the stream forwards approval prompts and returns one result', async () => {
