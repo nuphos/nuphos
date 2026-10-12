@@ -1,8 +1,9 @@
 // `local_cua` drives Computer Use on the owner's Mac from any runtime. The
 // Codex App's own `cua_repl` runs there; Desktop relays one call per device
 // tunnel stream, the way `local_exec` relays a command. The App asks before it
-// touches each app; those prompts become the conversation's ordinary approval
-// card, so a cloud runtime gets the same consent as a local Codex turn.
+// touches each app; each prompt becomes an approval card that parks the turn
+// like any other decision, so a cloud runtime gets the same consent as a local
+// Codex turn.
 import { randomUUID } from 'node:crypto'
 
 import { recordDeviceExecAudit } from '@/lib/agent/devices/audit'
@@ -12,10 +13,11 @@ import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { describeDevices, pickDevice } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError } from '@/lib/mcp/protocol'
+import { logError } from '@/lib/observability'
 
-import { handleOpenAbPermissionRequest } from '../openab-permission-bridge'
 import { publishPreviewFrame } from '../run-frame-bridge'
 
+import { approveAppForComputerUse } from './local-cua-approval'
 import { resolveAvailableLocalExecDevices } from './local-exec'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
@@ -40,7 +42,6 @@ export type LocalCuaDeps = {
   ) => Pick<DeviceRuntimeSocket, 'addEventListener' | 'send' | 'close' | 'connect'>
   approve: (
     ctx: PreviewToolContext,
-    toolCallId: string,
     request: { message: string; meta: Record<string, unknown> },
   ) => Promise<boolean>
   publish: typeof publishPreviewFrame
@@ -89,28 +90,7 @@ const defaultDeps: LocalCuaDeps = {
       { userId: ctx.userId, deviceId, teamId: ctx.teamId, purpose: 'cua' },
       { bus: tunnelBus(), presence: runtimePresenceStore() },
     ),
-  approve: async (ctx, toolCallId, request) => {
-    const outcome = await handleOpenAbPermissionRequest({
-      userId: ctx.userId,
-      ...(ctx.conversationOwnerUserId
-        ? { conversationOwnerUserId: ctx.conversationOwnerUserId }
-        : {}),
-      conversationId: ctx.sessionId,
-      request: {
-        sessionId: ctx.sessionId,
-        toolCall: { toolCallId, title: request.message, rawInput: request.meta.tool_params },
-        options: [
-          { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
-          { optionId: 'deny', name: 'Deny', kind: 'reject_once' },
-        ],
-      },
-      emit: (frame) => void publishPreviewFrame(ctx, frame).catch(() => {}),
-      // The card is the local_cua tool card this call already published.
-      handleTool: () => {},
-    })
-
-    return outcome.outcome.outcome === 'selected' && outcome.outcome.optionId === 'allow'
-  },
+  approve: approveAppForComputerUse,
   publish: publishPreviewFrame,
   audit: recordDeviceExecAudit,
   timeoutMs: LOCAL_CUA_TIMEOUT_MS,
@@ -126,7 +106,6 @@ function framesOutput(result: ToolResult): unknown {
 function dispatch(
   ctx: PreviewToolContext,
   deviceId: string,
-  toolCallId: string,
   args: Args,
   deps: LocalCuaDeps,
 ): Promise<{ status: DeviceOutcome; result?: ToolResult }> {
@@ -177,15 +156,12 @@ function dispatch(
         return
       }
       void deps
-        .publish(ctx, {
-          type: 'tool-input-available',
-          toolCallId,
-          toolName: 'local_cua',
-          input: { ...args, approval: message.message },
+        .approve(ctx, message)
+        .catch((error: unknown) => {
+          logError('agent.local_cua.approval_failed', error, { session_id: ctx.sessionId })
+
+          return false
         })
-        .catch(() => {})
-        .then(() => deps.approve(ctx, toolCallId, message))
-        .catch(() => false)
         .then((accept) => {
           if (!settled) socket.send(JSON.stringify({ t: 'elicit-reply', id: message.id, accept }))
         })
@@ -244,7 +220,7 @@ export function createLocalCuaHandler(ctx: PreviewToolContext, deps: LocalCuaDep
         input: args,
       })
       .catch(() => {})
-    const { status, result } = await dispatch(ctx, deviceId, toolCallId, args, deps)
+    const { status, result } = await dispatch(ctx, deviceId, args, deps)
 
     await deps.audit({
       ownerUserId: ctx.userId,

@@ -130,7 +130,7 @@ describe('local_cua', () => {
       ctx,
       deps({
         connect: device.connect,
-        approve: async (_ctx, _id, request) => {
+        approve: async (_ctx, request) => {
           asked.push(request.message)
 
           return false
