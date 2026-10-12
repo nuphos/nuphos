@@ -377,6 +377,9 @@ struct UserBubble: View {
     var transfers: [TransferUpload] = []
     var session: ChatSession?
 
+    @State private var expanded = false
+    @Environment(\.transcriptReadingInteraction) private var readingInteraction
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if let sender {
@@ -403,14 +406,44 @@ struct UserBubble: View {
                 }
             }
             if !text.isEmpty {
-                PlainMessageText(text: text)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                let preview = Self.preview(text)
+                VStack(alignment: .leading, spacing: 8) {
+                    PlainMessageText(text: expanded ? text : preview ?? text)
+                    if preview != nil {
+                        Button(expanded ? "Show less" : "Show more") {
+                            // Like a step disclosure: a reading interaction,
+                            // applied in one layout rather than animated.
+                            readingInteraction()
+                            var transaction = Transaction(animation: nil)
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) { expanded.toggle() }
+                        }
+                        .font(Theme.Text.label.weight(.medium))
+                        .foregroundStyle(Theme.muted)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.leading, 56)
+    }
+
+    /// The first lines of a long message, or nil when it fits whole. A pasted
+    /// log otherwise fills screens before the reply.
+    static func preview(_ text: String) -> String? {
+        var head = text.prefix(280)
+            .split(separator: "\n", maxSplits: 6, omittingEmptySubsequences: false)
+            .prefix(6)
+            .joined(separator: "\n")
+        guard head.count < text.count else { return nil }
+        // End on a word, not inside one.
+        if let space = head.lastIndex(where: \.isWhitespace), head.distance(from: space, to: head.endIndex) < 40 {
+            head = String(head[..<space])
+        }
+        return head + "…"
     }
 }
 
@@ -431,7 +464,7 @@ struct SendingBubble: View {
                 }
             }
             if !submission.text.isEmpty {
-                PlainMessageText(text: submission.text)
+                PlainMessageText(text: UserBubble.preview(submission.text) ?? submission.text)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
