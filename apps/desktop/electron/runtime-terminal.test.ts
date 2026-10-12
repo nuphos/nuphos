@@ -59,10 +59,7 @@ test('reattaches to one connection, acknowledges bytes, and closes with its owne
   assert.equal(socket.url.searchParams.get('rows'), '43')
   socket.frame({ type: 'ready', label: 'Cloud runtime' })
   assert.equal((await pending).shell, 'Cloud runtime')
-  assert.deepEqual(await manager.start(host.value, 'tab', target), {
-    ...(await pending),
-    resumed: true,
-  })
+  assert.equal(await manager.start(host.value, 'tab', target), await pending)
   socket.frame({ type: 'data', sequence: 1, data: Buffer.from('hello').toString('base64') })
   assert.deepEqual(JSON.parse(socket.sent.at(-1)!), { type: 'ack', sequence: 1 })
   manager.input(host.value, 'tab', '\x00'.repeat(16384))
@@ -72,7 +69,10 @@ test('reattaches to one connection, acknowledges bytes, and closes with its owne
   manager.input(host.value, 'tab', 'still usable')
   assert.equal(JSON.parse(socket.sent.at(-1)!).data, 'still usable')
   manager.replay(host.value, 'tab')
-  assert.equal(host.events.length, 2)
+  assert.equal(host.events.length, 3)
+  assert.deepEqual(host.events.at(-1), { id: 'tab', type: 'replayed', resumed: false })
+  manager.replay(host.value, 'tab')
+  assert.deepEqual(host.events.at(-1), { id: 'tab', type: 'replayed', resumed: true })
   assert.throws(() => manager.describe(owner().value, 'tab'), /another window/)
   manager.resize(host.value, 'tab', 80, 24)
   manager.resize(host.value, 'tab', 120, 40)

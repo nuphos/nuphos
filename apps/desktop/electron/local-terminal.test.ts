@@ -136,8 +136,6 @@ test(
     const again = sessions.start(owner, id, 80, 24)
 
     assert.equal(again.shell, first.shell)
-    assert.equal(first.resumed, undefined)
-    assert.equal(again.resumed, true)
     sessions.replay(owner, id)
     const replayed = events
       .slice(sent)
@@ -145,6 +143,7 @@ test(
       .join('')
 
     assert.match(replayed, /NUPHOS_MOVED_OK/)
+    assert.deepEqual(events.at(-1), { id, type: 'replayed', resumed: false })
     const stillThere = waitForOutput(emitter, '/usr/lib')
 
     // A shell that had been restarted would answer with the home directory

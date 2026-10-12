@@ -71,6 +71,15 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
           sessionId,
         })
         terminal.writeln(`\r\nConnection error: ${event.message}`)
+      } else if (event.type === 'replayed') {
+        // A resumed shell already answered the queries in its replayed output;
+        // hold input until xterm has parsed it, or its second answers land on
+        // the prompt as text. A new shell may still be waiting for them.
+        if (event.resumed)
+          terminal.write('', () => {
+            ready = true
+          })
+        else ready = true
       } else {
         const detail = event.signal ? `signal ${event.signal}` : `code ${String(event.code ?? 0)}`
 
@@ -87,14 +96,7 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
       }
     })
 
-    // The replayed output still carries the remote shell's terminal queries
-    // (cursor position, colors, …). If an earlier view already answered them,
-    // hold input until xterm has parsed the replay, or the second answers land
-    // on the prompt as text. A first view's answers may still be awaited.
-    void api.sshTerminalReplay(sessionId).then(async (resumed) => {
-      if (resumed) await new Promise<void>((resolve) => terminal.write('', resolve))
-      ready = true
-    })
+    void api.sshTerminalReplay(sessionId)
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit()
     })

@@ -16,6 +16,8 @@ type TerminalSession = {
   /** Output so far, so a view that remounted can replay what it missed. */
   events: LocalTerminalEvent[]
   bufferedBytes: number
+  /** A view already replayed this output, so its terminal queries were answered. */
+  replayed: boolean
   exited: boolean
   agentScope?: string
 }
@@ -57,11 +59,11 @@ export class LocalTerminalSessions {
     rows: number,
     cwd = os.homedir(),
     agentScope?: string,
-  ): { id: string; shell: string; resumed?: boolean } {
+  ): { id: string; shell: string } {
     if (typeof id !== 'string' || !id || id.length > 200) {
       throw new Error('Invalid terminal id.')
     }
-    if (this.sessions.has(id)) return { id, shell: this.owned(owner, id).shell, resumed: true }
+    if (this.sessions.has(id)) return { id, shell: this.owned(owner, id).shell }
     if (Array.from(this.sessions.values()).filter((s) => s.owner === owner).length >= 32) {
       throw new Error('Close an existing terminal before opening another one (32 maximum).')
     }
@@ -87,6 +89,7 @@ export class LocalTerminalSessions {
       shell,
       events: [],
       bufferedBytes: 0,
+      replayed: false,
       exited: false,
       agentScope,
     }
@@ -146,7 +149,13 @@ export class LocalTerminalSessions {
   }
 
   replay(owner: WebContents, id: string): void {
-    for (const event of this.owned(owner, id).events.slice()) {
+    const session = this.owned(owner, id)
+    const end = { id, type: 'replayed', resumed: session.replayed } as const
+
+    session.replayed = true
+    // The end marker shares the event channel so it arrives after the replayed
+    // data; the invoke's own reply can overtake them.
+    for (const event of [...session.events, end]) {
       if (!owner.isDestroyed()) owner.send('local-terminal:event', event)
     }
   }

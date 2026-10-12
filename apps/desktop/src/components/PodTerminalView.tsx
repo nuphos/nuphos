@@ -59,7 +59,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     if (!host) return
     let disposed = false
     let started = false
-    let replayed = false
+    let ready = false
     let offEvent: (() => void) | null = null
 
     const fitAddon = new FitAddon()
@@ -83,7 +83,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     setStatus('connecting')
 
     const dataDisposable = terminal.onData((data) => {
-      if (started && replayed) void api.podExecInput(sessionKey, data)
+      if (ready) void api.podExecInput(sessionKey, data)
     })
 
     // Defer the start to a macrotask and cancel it on cleanup. Under React
@@ -93,16 +93,9 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     // consent dialog fires exactly once for the surviving terminal instead of
     // stacking two. start() itself stays a single dangerous op per consent.
     const startTimer = window.setTimeout(() => {
-      api
-        .podExecHasSession(sessionKey)
-        .then((resumed) => {
-          // Only a reattached shell has already answered the queries in its
-          // replayed output; a new one may still be waiting for the answers.
-          replayed = !resumed
-
-          return startRef.current({ cols: terminal.cols, rows: terminal.rows })
-        })
-        .then(async ({ id }) => {
+      startRef
+        .current({ cols: terminal.cols, rows: terminal.rows })
+        .then(({ id }) => {
           if (disposed) return
           started = true
           setStatus('connected')
@@ -119,6 +112,15 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
               })
               terminal.writeln(`\r\n\x1b[31mError: ${event.message}\x1b[0m`)
               setStatus('error')
+            } else if (event.type === 'replayed') {
+              // A resumed shell already answered the queries in its replayed output;
+              // hold input until xterm has parsed it, or its second answers land on
+              // the prompt as text. A new shell may still be waiting for them.
+              if (event.resumed)
+                terminal.write('', () => {
+                  ready = true
+                })
+              else ready = true
             } else {
               // 127 = the shell binary wasn't found — for a pod, almost always a
               // distroless / minimal image; for a node shell, nsenter or the host
@@ -145,12 +147,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
               setStatus('closed')
             }
           })
-          // The replayed output still carries the shell's old terminal queries
-          // (cursor position, colors, …). Let xterm finish answering them before
-          // input reaches the exec session, or the answers land on the prompt.
-          await api.podExecReplay(id)
-          await new Promise<void>((resolve) => terminal.write('', resolve))
-          replayed = true
+          void api.podExecReplay(id)
         })
         .catch((e: unknown) => {
           if (disposed) return

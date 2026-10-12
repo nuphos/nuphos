@@ -33,7 +33,7 @@ export type WindowShellApi = {
     cols: number,
     rows: number,
     target?: TerminalTarget,
-  ): Promise<{ id: string; shell: string; resumed?: boolean }>
+  ): Promise<{ id: string; shell: string }>
   localTerminalReplay(id: string): Promise<void>
   localTerminalInput(id: string, data: string): Promise<void>
   localTerminalResize(id: string, cols: number, rows: number): Promise<void>
@@ -42,7 +42,7 @@ export type WindowShellApi = {
   appOpenExternal(url: string): Promise<void>
   appOpenSsh(url: string): Promise<void>
   sshTerminalInput(id: string, data: string): Promise<void>
-  sshTerminalReplay(id: string): Promise<boolean>
+  sshTerminalReplay(id: string): Promise<void>
   sshTerminalClose(id: string): Promise<void>
   onSshTerminalEvent(cb: (payload: SshTerminalEvent) => void): () => void
   podExecStart(

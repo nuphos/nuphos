@@ -53,6 +53,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
     const target = teamId && sessionId ? { teamId, sessionId } : undefined
     let disposed = false
     let started = false
+    let ready = false
     let ended = false
     const fit = new FitAddon()
     const terminal = new XtermTerminal({
@@ -83,7 +84,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
         void api.localTerminalResize(tabId, terminal.cols, terminal.rows).catch(reportError)
     }
     const input = terminal.onData((data) => {
-      if (!started || ended) return
+      if (!ready || ended) return
       if (target && new TextEncoder().encode(data).length > 16384) {
         toast.error('Terminal input is too large', 'Paste at most 16 KiB at a time.')
 
@@ -102,27 +103,30 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
     setStatus(target ? 'Connecting to runtime…' : 'Starting local shell…')
     api
       .localTerminalStart(tabId, terminal.cols, terminal.rows, target)
-      .then(async ({ shell, resumed }) => {
+      .then(async ({ shell }) => {
         if (disposed) return
-        // A new shell may still be waiting for answers to the queries in its
-        // first output. A resumed one already got them, so hold its input until
-        // the replay below has been parsed (see there).
-        started = !resumed
+        started = true
         setStatus(shell.split(/[\\/]/).at(-1) ?? shell)
         // Only `data` is this view's business: an `exit` closes the whole tab
         // (see useWorkspaceTabSync), so there is no exited state left to render.
         offEvent = api.onLocalTerminalEvent((event) => {
           if (event.id !== tabId || disposed) return
           if (event.type === 'data') terminal.write(event.data)
+          else if (event.type === 'replayed') {
+            // A resumed shell already answered the queries in its replayed
+            // output; hold input until xterm has parsed it, or its second
+            // answers land on the prompt as text. A new shell may still be
+            // waiting for them.
+            if (event.resumed)
+              terminal.write('', () => {
+                ready = true
+              })
+            else ready = true
+          }
         })
         // Subscribe first, then replay: the buffer covers everything emitted
         // before the listener existed, including this shell's first prompt.
         await api.localTerminalReplay(tabId)
-        // The replayed output still carries the shell's old terminal queries
-        // (cursor position, colors, …). Let xterm finish answering them before
-        // input reaches the PTY, or the answers land on the prompt as text.
-        await new Promise<void>((resolve) => terminal.write('', resolve))
-        started = true
         resize()
         if (host.getClientRects().length > 0) terminal.focus()
       })
