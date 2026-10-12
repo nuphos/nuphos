@@ -403,11 +403,7 @@ struct UserBubble: View {
                 }
             }
             if !text.isEmpty {
-                Text(text)
-                    .font(Theme.Text.body)
-                    .lineSpacing(Theme.Text.leading)
-                    .foregroundStyle(Theme.heading)
-                    .textSelection(.enabled)
+                PlainMessageText(text: text)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -435,10 +431,7 @@ struct SendingBubble: View {
                 }
             }
             if !submission.text.isEmpty {
-                Text(submission.text)
-                    .font(Theme.Text.body)
-                    .lineSpacing(Theme.Text.leading)
-                    .foregroundStyle(Theme.heading)
+                PlainMessageText(text: submission.text)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
