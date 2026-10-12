@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../api'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
-import { CHANGELOG_INDEX_URL } from '../lib/whatsNew'
 
 import { Modal } from './Modal'
 
@@ -115,11 +114,11 @@ export function WhatsNewReader({ entry, onClose }: { entry: ChangelogEntry; onCl
       headerActions={
         <button
           type="button"
-          onClick={() => void api.appOpenExternal(CHANGELOG_INDEX_URL)}
-          title="Open the full changelog in your browser"
+          onClick={openInBrowser}
+          title="Open this changelog entry in your browser"
           className="flex h-7 flex-shrink-0 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-zGray-800 hover:text-main"
         >
-          Full changelog
+          changelog
           <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
       }
