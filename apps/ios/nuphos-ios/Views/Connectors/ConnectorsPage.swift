@@ -67,18 +67,22 @@ struct ConnectorsPage: View {
     @ViewBuilder
     private var list: some View {
         if sections.isEmpty {
-            ContentUnavailableView {
-                Label("No connectors yet", systemImage: "app.connected.to.app.below.fill")
-            } description: {
-                Text(canConnect
-                     ? "Connect a cloud account or an integration to let the agent work in it."
-                     : "A team administrator can connect cloud accounts and integrations.")
-            } actions: {
-                if canConnect {
-                    Button("Add connector") { adding = true }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.brand)
+            // A scroll view, so the empty state can be pulled to refresh.
+            ScrollView {
+                ContentUnavailableView {
+                    Label("No connectors yet", systemImage: "app.connected.to.app.below.fill")
+                } description: {
+                    Text(canConnect
+                         ? "Connect a cloud account or an integration to let the agent work in it."
+                         : "A team administrator can connect cloud accounts and integrations.")
+                } actions: {
+                    if canConnect {
+                        Button("Add connector") { adding = true }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Theme.brand)
+                    }
                 }
+                .containerRelativeFrame(.vertical) { height, _ in height * 0.8 }
             }
         } else {
             List {

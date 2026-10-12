@@ -41,6 +41,10 @@ struct AgentPage: View {
         @Bindable var store = store
 
         content
+            // On the switch, so the empty and error states refresh too.
+            .refreshable {
+                if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
+            }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             #if DEBUG
@@ -316,7 +320,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .refreshable { await store.reload() }
         .onAppear { store.startPolling() }
         .task {
             while !Task.isCancelled {
