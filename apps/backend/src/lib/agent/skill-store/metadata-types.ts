@@ -125,10 +125,9 @@ export const skillEvents = (): Collection<SkillMutationEvent> =>
 export function skillTeamIdFromScope(scope: string): string | null {
   const normalized = normalizeSkillScope(scope)
 
-  if (!normalized.startsWith('teams/')) return null
-  const teamId = normalized.slice('teams/'.length)
+  const [root, teamId] = normalized.split('/')
 
-  return teamId || null
+  return root === 'teams' && teamId ? teamId : null
 }
 
 export function serializeSkillMetadata(record: SkillRecord): SkillMetadataDTO {

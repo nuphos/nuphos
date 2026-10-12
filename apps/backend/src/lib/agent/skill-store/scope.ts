@@ -1,5 +1,5 @@
 // Scope identifies a skills namespace in S3 and on the local cache.
-// Examples: "global", "teams/<teamObjectId>".
+// Examples: "global", "teams/<teamObjectId>", "teams/<teamObjectId>/users/<userId>".
 
 const SCOPE_SEGMENT = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 

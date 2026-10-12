@@ -1,21 +1,21 @@
-import { Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 
-import type { LoadState, MenuState } from './skillsShared'
+import type { LoadState } from './skillsShared'
 import type {
+  SkillScope,
   TeamSkillHistory,
   TeamSkillObject,
   TeamSkillObjectDetail,
   TeamSkillSummary,
 } from '../../api'
-import type { ContextMenuItem } from '../../components/ContextMenu'
 import type { RefObject } from 'react'
 
 type ActionsArgs = {
   teamId: string
+  scope: SkillScope
   filter: string
   state: LoadState
   canEdit: boolean
@@ -29,7 +29,6 @@ type ActionsArgs = {
   uploadKey: string
   setUploadKey: React.Dispatch<React.SetStateAction<string>>
   setUploading: React.Dispatch<React.SetStateAction<boolean>>
-  menu: MenuState | null
   detailRequestRef: RefObject<number>
   fileInputRef: RefObject<HTMLInputElement | null>
   reloadWithSkeleton: () => Promise<void>
@@ -38,6 +37,7 @@ type ActionsArgs = {
 export function useSkillActions(args: ActionsArgs) {
   const {
     teamId,
+    scope,
     filter,
     state,
     canEdit,
@@ -51,7 +51,6 @@ export function useSkillActions(args: ActionsArgs) {
     uploadKey,
     setUploadKey,
     setUploading,
-    menu,
     detailRequestRef,
     fileInputRef,
     reloadWithSkeleton,
@@ -69,8 +68,8 @@ export function useSkillActions(args: ActionsArgs) {
       setDetailLoading(true)
       try {
         const [listing, history] = await Promise.all([
-          api.teamSkillsListObjects(teamId),
-          api.teamSkillsGetHistory(teamId, skill.name).catch((err: unknown) => {
+          api.teamSkillsListObjects(teamId, scope),
+          api.teamSkillsGetHistory(teamId, skill.name, scope).catch((err: unknown) => {
             console.warn('[skills] failed to load skill history', err)
 
             return null
@@ -86,7 +85,7 @@ export function useSkillActions(args: ActionsArgs) {
         const skillMdKey = `${prefix}SKILL.md`
 
         if (files.some((file) => file.key === skillMdKey)) {
-          const detail = await api.teamSkillsGetObject(teamId, skillMdKey)
+          const detail = await api.teamSkillsGetObject(teamId, skillMdKey, scope)
 
           if (detailRequestRef.current === requestId) {
             setSkillMd(detail)
@@ -103,6 +102,7 @@ export function useSkillActions(args: ActionsArgs) {
     },
     [
       teamId,
+      scope,
       detailRequestRef,
       setDetailLoading,
       setSelectedName,
@@ -115,12 +115,12 @@ export function useSkillActions(args: ActionsArgs) {
 
   const reloadDetailForName = useCallback(
     async (name: string) => {
-      const manifest = await api.teamSkillsGetManifest(teamId)
+      const manifest = await api.teamSkillsGetManifest(teamId, scope)
       const skill = manifest.skills.find((item) => item.name === name)
 
       if (skill) void loadSkillDetail(skill)
     },
-    [loadSkillDetail, teamId],
+    [loadSkillDetail, scope, teamId],
   )
 
   const autoSelectedForRef = useRef<string | null>(null)
@@ -155,7 +155,7 @@ export function useSkillActions(args: ActionsArgs) {
         return
       }
       try {
-        await api.teamSkillsDeleteObject(teamId, key)
+        await api.teamSkillsDeleteObject(teamId, key, scope)
         toast.success('Deleted', key)
         await reloadWithSkeleton()
         if (selectedName) await reloadDetailForName(selectedName)
@@ -163,7 +163,7 @@ export function useSkillActions(args: ActionsArgs) {
         toast.apiError('Delete failed', err)
       }
     },
-    [canDelete, reloadDetailForName, reloadWithSkeleton, selectedName, teamId],
+    [canDelete, reloadDetailForName, reloadWithSkeleton, scope, selectedName, teamId],
   )
 
   const deleteSkill = useCallback(
@@ -174,7 +174,7 @@ export function useSkillActions(args: ActionsArgs) {
         return
       }
       try {
-        const result = await api.teamSkillsDeleteSkill(teamId, skill.name)
+        const result = await api.teamSkillsDeleteSkill(teamId, skill.name, scope)
 
         if (selectedName === skill.name) {
           setSelectedName(null)
@@ -194,6 +194,7 @@ export function useSkillActions(args: ActionsArgs) {
     [
       canDelete,
       reloadWithSkeleton,
+      scope,
       selectedName,
       teamId,
       setSelectedName,
@@ -229,11 +230,12 @@ export function useSkillActions(args: ActionsArgs) {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer())
 
-        await api.teamSkillsPutObject(teamId, key, {
-          filename: file.name,
-          bytes,
-          contentType: file.type || undefined,
-        })
+        await api.teamSkillsPutObject(
+          teamId,
+          key,
+          { filename: file.name, bytes, contentType: file.type || undefined },
+          scope,
+        )
         toast.success('Uploaded', key)
         await reloadWithSkeleton()
         if (selectedName) await reloadDetailForName(selectedName)
@@ -248,6 +250,7 @@ export function useSkillActions(args: ActionsArgs) {
       canEdit,
       reloadDetailForName,
       reloadWithSkeleton,
+      scope,
       selectedName,
       teamId,
       uploadKey,
@@ -256,23 +259,5 @@ export function useSkillActions(args: ActionsArgs) {
     ],
   )
 
-  // Built with useMemo, not a helper called from the JSX: a function invoked
-  // during render may not reach a ref, and deleteSkill transitively does.
-  const menuItems = useMemo<ContextMenuItem[]>(() => {
-    if (!menu || !canDelete) return []
-    const skill = menu.skill
-
-    return [
-      {
-        key: 'delete-skill',
-        label: 'Delete skill',
-        icon: Trash2,
-        destructive: true,
-        confirm: `Delete skill "${skill.name}" and all ${String(skill.fileCount)} file(s)? This cannot be undone.`,
-        onSelect: () => void deleteSkill(skill),
-      },
-    ]
-  }, [menu, canDelete, deleteSkill])
-
-  return { loadSkillDetail, deleteObject, deleteSkill, uploadFile, menuItems }
+  return { loadSkillDetail, deleteObject, deleteSkill, uploadFile }
 }

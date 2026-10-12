@@ -242,8 +242,11 @@ export async function invalidateMergedSkillsForScope(scope: string): Promise<voi
 
     return
   }
-  if (normalized.startsWith('teams/')) {
-    await invalidateMergedSkillsCache(normalized.slice('teams/'.length))
+  const [root, teamId, ...nested] = normalized.split('/')
+
+  // A personal scope (teams/<id>/users/<id>) is not part of the shared merged tree.
+  if (root === 'teams' && teamId && nested.length === 0) {
+    await invalidateMergedSkillsCache(teamId)
   }
 }
 

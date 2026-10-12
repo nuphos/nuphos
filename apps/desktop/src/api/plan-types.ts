@@ -138,6 +138,9 @@ export type PlansPage = {
   hasMore: boolean
 }
 
+/** The team store, or the signed-in member's own skills within this team. */
+export type SkillScope = 'team' | 'personal'
+
 export type TeamSkillObject = {
   key: string
   size: number

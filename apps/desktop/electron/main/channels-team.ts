@@ -2,8 +2,7 @@ import * as atlas from '../atlas'
 import * as discordInstall from '../discord-install'
 import * as slackInstall from '../slack-install'
 
-import { importLocalSkill } from './local-skill-import'
-import { listLocalSkills } from './local-skills'
+import { skillChannels } from './channels-skills'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type {
@@ -176,25 +175,7 @@ export const teamChannels = {
   ) => atlas.dashboardsSaveAlert(teamId, dashboardId, panelId, input),
   'dashboards:deleteAlert': (_e: unknown, teamId: string, dashboardId: string, panelId: string) =>
     atlas.dashboardsDeleteAlert(teamId, dashboardId, panelId),
-  'teamSkills:getManifest': (_e: unknown, teamId: string) => atlas.teamSkillsGetManifest(teamId),
-  'teamSkills:listObjects': (_e: unknown, teamId: string) => atlas.teamSkillsListObjects(teamId),
-  'teamSkills:getObject': (_e: unknown, teamId: string, key: string) =>
-    atlas.teamSkillsGetObject(teamId, key),
-  'teamSkills:getHistory': (_e: unknown, teamId: string, name: string) =>
-    atlas.teamSkillsGetHistory(teamId, name),
-  'teamSkills:putObject': (
-    _e: unknown,
-    teamId: string,
-    key: string,
-    file: { filename: string; bytes: Uint8Array; contentType?: string },
-  ) => atlas.teamSkillsPutObject(teamId, key, file),
-  'teamSkills:listLocal': () => listLocalSkills(),
-  'teamSkills:importLocal': (_e: unknown, teamId: string, skillId: string) =>
-    importLocalSkill(teamId, skillId),
-  'teamSkills:deleteObject': (_e: unknown, teamId: string, key: string) =>
-    atlas.teamSkillsDeleteObject(teamId, key),
-  'teamSkills:deleteSkill': (_e: unknown, teamId: string, name: string) =>
-    atlas.teamSkillsDeleteSkill(teamId, name),
+  ...skillChannels,
   'atlas:createTeam': (_e: unknown, name: string) => atlas.createTeam(name),
   'atlas:updateTeam': (_e: unknown, teamId: string, input: { name?: string; avatarUrl?: string }) =>
     atlas.updateTeam(teamId, input),
