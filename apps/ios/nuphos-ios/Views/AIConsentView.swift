@@ -28,7 +28,7 @@ struct AIConsentView: View {
                             busy = false
                         }
                     }
-                    .buttonStyle(.borderedProminent).disabled(busy || session.aiConsentVersion == nil)
+                    .prominentButton().disabled(busy || session.aiConsentVersion == nil)
                     Button("Not now — manage my account") { showAccount = true }.disabled(busy)
                     if session.aiConsentVersion == nil {
                         Button("Retry loading consent") { Task { await session.loadAIConsent() } }

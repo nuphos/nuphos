@@ -78,8 +78,7 @@ struct ConnectorsPage: View {
                 } actions: {
                     if canConnect {
                         Button("Add connector") { adding = true }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Theme.brand)
+                            .prominentButton()
                     }
                 }
                 .containerRelativeFrame(.vertical) { height, _ in height * 0.8 }
