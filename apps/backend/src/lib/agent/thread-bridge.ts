@@ -89,17 +89,28 @@ export async function sendAgentThreadMessage(actor: ThreadActor, threadId: strin
   return receipt(actor, threadId, data.messageId)
 }
 
+export async function executeThreadTurn(data: ThreadTurn): Promise<void> {
+  const target = await authorizeThreadDelivery(data)
+  // Lazy so importing the tools does not pull in the route graph.
+  const { executeConversationTurn } = await import('./conversation-turn')
+
+  await executeConversationTurn(data, target, data.prompt, 'agent.thread', {
+    version: 1,
+    sender: { type: 'agent', id: data.sessionId, displayName: 'Nuphos agent' },
+    source: 'agent.thread',
+    sourceSessionId: data.sessionId,
+    sentAt: new Date().toISOString(),
+  })
+}
+
 // Same path as a message typed into a chat: the turn starts in this process and
-// a busy target takes it through its pending-message queue. Loaded lazily so
-// importing the tools does not pull in the route graph.
+// a busy target takes it through its pending-message queue.
 function startThreadTurn(data: ThreadTurn): void {
-  void import('./thread-turn')
-    .then(({ executeThreadTurn }) => executeThreadTurn(data))
-    .catch((error: unknown) =>
-      logError('agent.thread.turn_failed', error, {
-        session_id: data.targetSessionId,
-        source_session_id: data.sessionId,
-        message_id: data.messageId,
-      }),
-    )
+  void executeThreadTurn(data).catch((error: unknown) => {
+    logError('agent.thread.turn_failed', error, {
+      session_id: data.targetSessionId,
+      source_session_id: data.sessionId,
+      message_id: data.messageId,
+    })
+  })
 }
