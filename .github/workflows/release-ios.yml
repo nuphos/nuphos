@@ -190,6 +190,20 @@ jobs:
           BUILD_ID: ${{ steps.beta.outputs.build_id }}
         run: |
           set -euo pipefail
+          echo "asc $(asc --version)" >> "$GITHUB_STEP_SUMMARY"
+
+          # Everything that can fail without touching App Store Connect runs
+          # before the submission is withdrawn. published.txt lists the
+          # published screenshot set in order, each with its SHA-256; see
+          # app-store/README.md.
+          SHOTS="$RUNNER_TEMP/screenshots"
+          mkdir -p "$SHOTS"
+          while read -r SHA URL; do
+            curl -fsSL --retry 3 -o "$SHOTS/$(basename "$URL")" "$URL"
+            echo "$SHA  $SHOTS/$(basename "$URL")" | shasum -a 256 -c - >/dev/null
+          done < app-store/published.txt
+          asc screenshots validate --path "$SHOTS" --device-type IPHONE_67 >/dev/null
+
           # A version cannot be edited while a submission holds it. Only
           # submissions that carry an App Store version are withdrawn; in-app
           # events and custom product pages in review are left alone.
@@ -199,14 +213,20 @@ jobs:
               --include appStoreVersionForReview --output json \
               | jq -r '(.data // .)[] | select(.relationships.appStoreVersionForReview.data != null) | .id'
           }
-          for SUBMISSION in $(submissions "$PENDING"); do
+          OPEN="$(submissions "$PENDING")"
+          for SUBMISSION in $OPEN; do
             asc review submissions-update --id "$SUBMISSION" --canceled=true --confirm >/dev/null
             echo "Withdrew review submission $SUBMISSION." >> "$GITHUB_STEP_SUMMARY"
           done
           for _ in $(seq 1 30); do
-            if [[ -z "$(submissions "$PENDING,CANCELING")" ]]; then break; fi
+            OPEN="$(submissions "$PENDING,CANCELING")"
+            if [[ -z "$OPEN" ]]; then break; fi
             sleep 10
           done
+          if [[ -n "$OPEN" ]]; then
+            echo "::error::Review submission $OPEN is still open after five minutes; rerun this job once it has cleared."
+            exit 1
+          fi
 
           version_id() {
             asc versions list --app "$APP_ID" --platform IOS "$@" --output json | jq -r '(.data // .)[0].id // ""'
@@ -226,13 +246,8 @@ jobs:
           fi
           asc localizations update --version "$VERSION_ID" --locale en-US --whats-new "$(cat whats-new.txt)" >/dev/null
 
-          # The published screenshot set, in order; see app-store/README.md.
-          mkdir -p "$RUNNER_TEMP/screenshots"
-          while read -r URL; do
-            curl -fsSL --retry 3 -o "$RUNNER_TEMP/screenshots/$(basename "$URL")" "$URL"
-          done < app-store/published.txt
           asc screenshots upload --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US \
-            --path "$RUNNER_TEMP/screenshots" --device-type IPHONE_67 --replace --confirm >/dev/null
+            --path "$SHOTS" --device-type IPHONE_67 --replace --confirm >/dev/null
           {
             echo 'Screenshots on this version:'
             asc screenshots list --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US --output markdown
