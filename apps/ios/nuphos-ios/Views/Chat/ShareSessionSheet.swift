@@ -91,7 +91,7 @@ struct ShareSessionSheet: View {
     @State private var loadError: String?
     @State private var error: String?
 
-    private var canManage: Bool { session.canManage }
+    private var canManage: Bool { session.ownsChat }
 
     /// The owner's own computer runs the turn, so sharing hands out commands on it.
     private var runsOnOwnersComputer: Bool {

@@ -16,7 +16,7 @@ import type { PreviewToolModule } from '../preview-tool-context'
 const label = z.string().trim().min(1).max(200)
 const bind = z.object({ label, resource: sessionResourceInput }).strict()
 const list = z.object({ label }).strict()
-const unlink = z.object({ label, resourceId: z.string().uuid() }).strict()
+const unlink = z.object({ label, resourceId: z.string().trim().min(1).max(300) }).strict()
 
 export function sessionResourceToolModule(): PreviewToolModule {
   return {
@@ -36,7 +36,7 @@ export function sessionResourceToolModule(): PreviewToolModule {
       {
         name: 'unlink_session_resource',
         description:
-          'Remove a resource link from this conversation and stop future event wakeups. Does not change or delete the external resource.',
+          'Remove a resource link from this conversation and stop future event wakeups. Unlinking its Slack or Discord thread also stops the conversation posting there; a new mention in that thread starts a new conversation. Does not change or delete the external resource.',
         inputSchema: toolInputJsonSchema(unlink),
       },
     ],

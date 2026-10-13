@@ -11,6 +11,7 @@ import { logError } from '@/lib/observability'
 import {
   getConversationBySessionId,
   recordAgentEvent,
+  setConversationArchived,
   setConversationParent,
   upsertConversationShell,
 } from './db'
@@ -234,4 +235,21 @@ export async function setAgentThreadParent(
   }
 
   return { threadId, parentThreadId }
+}
+
+/** Archive or restore an owned conversation in the actor's team, including this one. */
+export async function setAgentThreadArchived(
+  actor: ThreadActor,
+  threadId: string,
+  archived: boolean,
+) {
+  await authorizeThreadActor(actor)
+  const target = await getConversationBySessionId(threadId)
+
+  if (!target || target.userId !== actor.userId || target.teamId !== actor.teamId) {
+    throw new Error('Target must be a conversation you own in this team.')
+  }
+  await setConversationArchived(threadId, archived)
+
+  return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
 }

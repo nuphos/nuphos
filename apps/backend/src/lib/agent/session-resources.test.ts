@@ -122,6 +122,13 @@ test('worker rechecks archive, unlink, membership, selection and disconnected in
   conversation.credentialAccess!.githubInstallationIds = []
   expect(await authorizedResourceTurn(delivery)).toBeNull()
 })
+test('reply-only participants cannot unlink the conversation thread', async () => {
+  conversation.participantIds = ['participant']
+  await expect(
+    unlinkSessionResource({ ...actor, userId: 'participant' }, 'slack:C1:1.2'),
+  ).rejects.toThrow('owner or manager')
+  expect(updates).toEqual([])
+})
 test('unlink only updates the authorized conversation', async () => {
   await unlinkSessionResource(actor, resource.id)
   expect(updates).toEqual([

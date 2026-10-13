@@ -134,7 +134,7 @@ final class AgentStore {
     }
 
     func unlinkParent(_ conversation: AgentConversation) async {
-        guard conversation.canManage, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {
             try await AgentChatAPI.unlinkParent(token: token, teamId: teamId, sessionId: conversation.sessionId)
             if let index = conversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {

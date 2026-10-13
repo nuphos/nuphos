@@ -205,7 +205,7 @@ export function SessionResources({
               <span className="inline-flex shrink-0">{icon}</span>
               <span className="truncate">{label}</span>
             </ResourceLabel>
-            {titlebar && canManage && !thread && (
+            {titlebar && canManage && (
               <button
                 type="button"
                 aria-label={`Unlink ${label}`}
