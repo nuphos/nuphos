@@ -1,5 +1,6 @@
 import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
+import { forgetSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -24,9 +25,16 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   const idleDays = config.agent.autoArchiveIdleDays
 
   if (idleDays <= 0) return 0
-  const result = await agentConversations().updateMany(idleConversationFilter(now, idleDays), {
-    $set: { archivedAt: now },
-  })
+  const filter = idleConversationFilter(now, idleDays)
+  const sessionIds = await agentConversations().distinct('sessionId', filter)
+
+  if (sessionIds.length === 0) return 0
+  const result = await agentConversations().updateMany(
+    { ...filter, sessionId: { $in: sessionIds } },
+    { $set: { archivedAt: now } },
+  )
+
+  forgetSessionHomes(sessionIds)
 
   if (result.modifiedCount > 0) {
     logEvent('info', 'agent.conversation_auto_archive.swept', {

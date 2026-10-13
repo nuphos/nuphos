@@ -78,16 +78,16 @@ installs the pinned release the first time it runs and then hands over to it, so
 `aws s3 ls` works as it always did — the first call just takes longer and needs
 network access.
 
-| Tool                                | Commands                                                                    |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| AWS CLI v2                          | `aws`                                                                       |
-| Google Cloud CLI                    | `gcloud`, `gsutil`, `bq`, and `gke-gcloud-auth-plugin`                      |
-| mongosh                             | `mongosh`                                                                   |
-| PostgreSQL 17 client                | `psql`, `pg_dump`, `pg_dumpall`, `pg_restore`, `pg_isready`                 |
-| MariaDB client                      | `mariadb`/`mysql`, `mariadb-dump`/`mysqldump`, `mariadb-admin`/`mysqladmin` |
-| Hetzner, Volcengine, Aliyun, Linode | `hcloud`, `ve`, `aliyun`, `linode-cli`                                      |
-| Helm, Tailscale                     | `helm`, `tailscale`, `tailscaled`                                           |
-| C/C++ toolchain                     | `gcc`, `g++`, `cc`, `c++`, `make`, binutils                                 |
+| Tool                                         | Commands                                                                    |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| AWS CLI v2                                   | `aws`                                                                       |
+| Google Cloud CLI                             | `gcloud`, `gsutil`, `bq`, and `gke-gcloud-auth-plugin`                      |
+| mongosh                                      | `mongosh`                                                                   |
+| PostgreSQL 17 client                         | `psql`, `pg_dump`, `pg_dumpall`, `pg_restore`, `pg_isready`                 |
+| MariaDB client                               | `mariadb`/`mysql`, `mariadb-dump`/`mysqldump`, `mariadb-admin`/`mysqladmin` |
+| Hetzner, Volcengine, Aliyun, Linode, Tencent | `hcloud`, `ve`, `aliyun`, `linode-cli`, `tccli`                             |
+| Helm, Tailscale                              | `helm`, `tailscale`, `tailscaled`                                           |
+| C/C++ toolchain                              | `gcc`, `g++`, `cc`, `c++`, `make`, binutils                                 |
 
 Versions, download URLs and SHA-256 checksums are pinned in
 [`image/tools/manifest.json`](image/tools/manifest.json); a download that does not
