@@ -227,7 +227,7 @@ test('a result too large for one tunnel frame keeps its text and drops the image
   assert.equal((fitted.content[0] as { text: string }).text, 'state')
   assert.match(
     (fitted.content[1] as { text: string }).text,
-    /^1 screenshot\(s\) totalling 6\.0 MB were too large/,
+    /^The result was 6\.0 MB, too large to send, so its 1 screenshot\(s\) were dropped/,
   )
   assert.equal(
     fitted.content.some((part) => (part as { type: string }).type === 'image'),
