@@ -29,6 +29,7 @@ import { config } from '@/config'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
 import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
 import {
+  isRuntimeRefusal,
   previewRuntimeObservability,
   runClaudeCodePreviewPrompt,
 } from '@/lib/claude-code-preview/agent-chat-runtime'
@@ -45,7 +46,6 @@ import {
   steeringReceipt,
 } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
-import { AppError } from '@/lib/errors'
 import { RunHandoff } from '@/lib/lifecycle'
 
 export type { PreviewChatTurnArgs } from './chat-preview-run'
@@ -244,8 +244,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
       return
     }
-    // A refused message never reached the agent: nothing to record; it is sent again.
-    if (!(err instanceof AppError && err.code === 'runtime_not_accepting_message'))
+    // A refused message never reached the agent; record it unless its sender resends it alone.
+    if (!(args.clientResendsRefusal && !prepared.carried.length && isRuntimeRefusal(err)))
       await persistInterrupted(err)
 
     state.unbind()

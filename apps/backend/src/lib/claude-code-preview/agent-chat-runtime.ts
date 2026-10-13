@@ -56,6 +56,9 @@ const cancels = (signal: AbortSignal) => signal.aborted && !(signal.reason insta
  */
 const refusal = (label: string) => new AppError(409, 'runtime_not_accepting_message', label)
 
+export const isRuntimeRefusal = (error: unknown) =>
+  error instanceof AppError && error.code === 'runtime_not_accepting_message'
+
 export {
   SESSION_CONTEXT_REFRESH_MS,
   previewSessionPrincipalChanged,
@@ -138,9 +141,7 @@ export async function runClaudeCodePreviewPrompt(args: {
       throw new Error('The agent could not be reattached to its background work. Try again later.')
     // The same refusal admission gives a busy runtime: the client keeps the
     // message queued and sends it once the continuation finishes.
-    throw new AppError(
-      409,
-      'runtime_not_accepting_message',
+    throw refusal(
       'Reconnected to the agent; it is continuing after a background task. Send again once it finishes.',
     )
   }
