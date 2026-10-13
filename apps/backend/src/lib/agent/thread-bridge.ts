@@ -103,29 +103,71 @@ export async function sendAgentThreadMessage(actor: ThreadActor, threadId: strin
   return receipt(actor, threadId, data.messageId)
 }
 
-/** The parent's own switch for a thread it created; never more access than the parent has. */
-export async function setThreadFullAccess(
+/** The agents the owner can run a thread on, each with its readiness and usage. */
+export async function listThreadRuntimes(actor: ThreadActor) {
+  const source = await authorizeThreadActor(actor)
+  const { listRuntimeInstances, listRuntimeQuotas, withRuntimeReadiness } =
+    await import('@/lib/claude-code-preview/runtime-catalog')
+  const instances = await withRuntimeReadiness(
+    actor.teamId,
+    await listRuntimeInstances(actor.teamId, actor.userId),
+  )
+  const quotas = await listRuntimeQuotas(actor.teamId, instances)
+
+  return {
+    runtimes: instances.map((instance, i) => ({
+      runtimeId: instance.id,
+      label: instance.label,
+      provider: instance.provider,
+      kind: instance.kind,
+      status: instance.status,
+      ready: !instance.notReady,
+      current: instance.id === source.runtimeId,
+      quota: quotas[i],
+    })),
+  }
+}
+
+/**
+ * The parent's own controls for a thread it created: its permission mode, never
+ * more access than the parent has, and the agent it runs on.
+ */
+export async function updateThread(
   actor: ThreadActor,
   threadId: string,
-  fullAccess: boolean,
+  change: { fullAccess?: boolean; runtimeId?: string },
 ) {
   const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
   if (target.parentSessionId !== actor.sessionId) {
     throw new Error('Only a thread this conversation created can be changed.')
   }
-  if (fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
+  if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
     throw new Error('Only a conversation in Full Access can give a thread Full Access.')
   }
-  await setSessionBypass(threadId, actor.userId, fullAccess)
-  recordAgentEvent({
-    conversationId: threadId,
-    userId: actor.userId,
-    event: fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
-    data: { sourceSessionId: actor.sessionId },
-  })
+  const { moveConversationRuntime } =
+    await import('@/lib/claude-code-preview/conversation-runtime-move')
+  const runtime = change.runtimeId
+    ? await moveConversationRuntime(target, change.runtimeId, 'history', actor.userId)
+    : undefined
 
-  return { threadId, mode: fullAccess ? 'full_access' : 'auto' }
+  if (change.fullAccess !== undefined) {
+    await setSessionBypass(threadId, actor.userId, change.fullAccess)
+    recordAgentEvent({
+      conversationId: threadId,
+      userId: actor.userId,
+      event: change.fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
+      data: { sourceSessionId: actor.sessionId },
+    })
+  }
+
+  return {
+    threadId,
+    ...(change.fullAccess === undefined
+      ? {}
+      : { mode: change.fullAccess ? 'full_access' : 'auto' }),
+    ...(runtime ? { runtime } : {}),
+  }
 }
 
 export async function executeThreadTurn(data: ThreadTurn): Promise<void> {

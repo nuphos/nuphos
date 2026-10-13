@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
@@ -10,7 +11,7 @@ import {
   authorizeThreadDelivery,
   createAgentThread,
   sendAgentThreadMessage,
-  setThreadFullAccess,
+  updateThread,
 } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
@@ -52,6 +53,7 @@ beforeEach(() => {
   shells.length = 0
   bypass.clear()
   events.length = 0
+  moves.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -72,6 +74,7 @@ useIdentity({
 })
 const bypass = new Map<string, Record<string, unknown>>()
 const events: { conversationId: string; event: string }[] = []
+const moves: { sessionId: string; runtimeId: string; mode: string; userId: string }[] = []
 
 useDb({
   db: () => ({
@@ -97,6 +100,13 @@ useDb({
       },
     }),
   }),
+})
+useConversationRuntimeMove({
+  moveConversationRuntime: async (conversation, runtimeId, mode, userId) => {
+    moves.push({ sessionId: conversation.sessionId, runtimeId, mode, userId })
+
+    return { runtimeId, runtimeLabel: 'Other', agentRuntime: 'codex', mode }
+  },
 })
 useAgentDb({
   getConversationBySessionId: async (id) =>
@@ -193,9 +203,9 @@ describe('conversation-scoped thread tools', () => {
     await setSessionBypass('source', 'owner', true)
     const { threadId } = await createAgentThread(actor, 'Work', 'Task')
 
-    await setThreadFullAccess(actor, threadId, false)
+    await updateThread(actor, threadId, { fullAccess: false })
     expect(await getSessionBypass(threadId, 'owner')).toBe(false)
-    await setThreadFullAccess(actor, threadId, true)
+    await updateThread(actor, threadId, { fullAccess: true })
     expect(await getSessionBypass(threadId, 'owner')).toBe(true)
     expect(events.map((e) => [e.conversationId, e.event])).toEqual([
       [threadId, 'auth.bypass_disabled'],
@@ -208,18 +218,32 @@ describe('conversation-scoped thread tools', () => {
     const { threadId } = await createAgentThread(actor, 'Work', 'Task')
 
     await setSessionBypass('source', 'owner', false)
-    await expect(setThreadFullAccess(actor, threadId, true)).rejects.toThrow('Full Access')
+    await expect(updateThread(actor, threadId, { fullAccess: true })).rejects.toThrow('Full Access')
     expect(await getSessionBypass(threadId, 'owner')).toBe(true)
-    await setThreadFullAccess(actor, threadId, false)
+    await updateThread(actor, threadId, { fullAccess: false })
     expect(await getSessionBypass(threadId, 'owner')).toBe(false)
   })
 
   test('only a thread this conversation created can be switched', async () => {
     await setSessionBypass('source', 'owner', true)
-    await expect(setThreadFullAccess(actor, 'target', true)).rejects.toThrow('created')
-    await expect(setThreadFullAccess(actor, 'source', true)).rejects.toThrow()
+    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow('created')
+    await expect(updateThread(actor, 'source', { fullAccess: true })).rejects.toThrow()
     expect(await getSessionBypass('target', 'owner')).toBe(false)
     expect(events).toHaveLength(0)
+  })
+
+  test('a parent moves its thread to another agent through the shared move path', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+    const result = await updateThread(actor, threadId, { runtimeId: 'runtime-2' })
+
+    expect(moves).toEqual([
+      { sessionId: threadId, runtimeId: 'runtime-2', mode: 'history', userId: 'owner' },
+    ])
+    expect(result.runtime?.runtimeId).toBe('runtime-2')
+    await expect(updateThread(actor, 'target', { runtimeId: 'runtime-2' })).rejects.toThrow(
+      'created',
+    )
+    expect(moves).toHaveLength(1)
   })
 
   test('send returns the delivered message id', async () => {

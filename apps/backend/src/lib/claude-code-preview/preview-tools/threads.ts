@@ -3,7 +3,8 @@ import { z } from 'zod'
 import {
   createAgentThread,
   sendAgentThreadMessage,
-  setThreadFullAccess,
+  listThreadRuntimes,
+  updateThread,
 } from '@/lib/agent/thread-bridge'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
@@ -27,13 +28,15 @@ const common = {
 }
 const create = z.object({ ...common, title: z.string().trim().min(1).max(160) }).strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
-const mode = z
+const update = z
   .object({
     label: common.label,
     threadId: z.string().uuid(),
-    fullAccess: z.boolean().describe('true for Full Access, false for Auto Mode.'),
+    fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
+    runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
   })
   .strict()
+const list = z.object({ label: common.label }).strict()
 
 export function threadToolModule(): PreviewToolModule {
   return {
@@ -59,13 +62,22 @@ export function threadToolModule(): PreviewToolModule {
         inputSchema: toolInputJsonSchema(send),
       },
       {
-        name: 'set_thread_permission_mode',
+        name: 'list_agent_runtimes',
         description:
-          'Switch a thread this conversation created with create_thread between Full Access ' +
-          '(fullAccess: true) and Auto Mode (false). Full Access is allowed only while this ' +
-          'conversation itself has Full Access; Auto Mode is always allowed. ' +
-          "A new thread already starts in this conversation's mode, so use this only to change it.",
-        inputSchema: toolInputJsonSchema(mode),
+          "List the agents (runtimes) your threads can run on, with each one's readiness and " +
+          'usage quota. Use it to pick a runtimeId for update_thread, for example when a thread ' +
+          "has hit its agent's usage limit.",
+        inputSchema: toolInputJsonSchema(list),
+      },
+      {
+        name: 'update_thread',
+        description:
+          'Change a thread this conversation created with create_thread. fullAccess switches it ' +
+          'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
+          'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
+          'its conversation history, to another agent from list_agent_runtimes; its next turn ' +
+          "runs there. A new thread already starts in this conversation's mode and agent.",
+        inputSchema: toolInputJsonSchema(update),
       },
     ],
     handlers: (ctx) => ({
@@ -85,14 +97,23 @@ export function threadToolModule(): PreviewToolModule {
           await sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
         )
       },
-      set_thread_permission_mode: async (args) => {
-        const parsed = mode.safeParse(args)
+      list_agent_runtimes: async (args) => {
+        const parsed = list.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(
-          await setThreadFullAccess(ctx, parsed.data.threadId, parsed.data.fullAccess),
-        )
+        return toolResult(await listThreadRuntimes(ctx))
+      },
+      update_thread: async (args) => {
+        const parsed = update.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+        const { threadId, ...change } = parsed.data
+
+        if (change.fullAccess === undefined && change.runtimeId === undefined)
+          return toolError('Set fullAccess, runtimeId, or both.')
+
+        return toolResult(await updateThread(ctx, threadId, change))
       },
     }),
   }
