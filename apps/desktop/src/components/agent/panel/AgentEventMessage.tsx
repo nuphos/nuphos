@@ -4,10 +4,9 @@ import { useState } from 'react'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { CloudLogo } from '../../CloudLogo'
-
-import { AgentProviderIcon } from './icons'
 import { MessageResponse } from '../MessageResponse'
 
+import { AgentProviderIcon } from './icons'
 import { Rule } from './TimelineEventLine'
 
 import type { AgentMessageMetadata } from '../../../api/agent-types'
@@ -38,19 +37,19 @@ export function AgentEventMessage({
       ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${metadata.sourceSessionId}`)
       : null
 
+  let icon = <Avatar name={displayName} size={14} className="shrink-0 rounded-full" />
+
+  if (metadata.source === 'agent.thread' && metadata.sender.agentRuntime)
+    icon = (
+      <AgentProviderIcon provider={metadata.sender.agentRuntime} className="h-3.5 w-3.5 shrink-0" />
+    )
+  else if (metadata.source === 'agent.resource' && resourceProvider)
+    icon = <CloudLogo provider={resourceProvider} size={14} />
+
   return (
     <div>
       <Rule title={new Date(metadata.sentAt).toLocaleString()}>
-        {metadata.source === 'agent.thread' && metadata.sender.agentRuntime ? (
-          <AgentProviderIcon
-            provider={metadata.sender.agentRuntime}
-            className="h-3.5 w-3.5 shrink-0"
-          />
-        ) : metadata.source === 'agent.resource' && resourceProvider ? (
-          <CloudLogo provider={resourceProvider} size={14} />
-        ) : (
-          <Avatar name={displayName} size={14} className="shrink-0 rounded-full" />
-        )}
+        {icon}
         {sessionUrl && onOpenNuphosLink ? (
           <button
             type="button"
