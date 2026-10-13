@@ -65,8 +65,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const bypassControl =
     activeTab?.sessionId &&
     !activeTab.readOnly &&
-    (!activeTab.foreign || activeTab.canManage) &&
-    !gated
+    (!activeTab.foreign || activeTab.canManage)
       ? { active: bypassBySession[activeTab.sessionId] ?? false, onSelect: selectBypassMode }
       : undefined
 
