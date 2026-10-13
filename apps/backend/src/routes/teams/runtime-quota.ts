@@ -1,8 +1,6 @@
 import { z } from 'zod'
 
-import { listRuntimeInstances } from '@/lib/claude-code-preview/runtime-catalog'
-import { runtimeLogins } from '@/lib/claude-code-preview/runtime-login-store'
-import { fetchRuntimeQuota } from '@/lib/claude-code-preview/runtime-quota'
+import { listRuntimeInstances, listRuntimeQuotas } from '@/lib/claude-code-preview/runtime-catalog'
 import {
   listRuntimeQuotaHistory,
   QUOTA_HISTORY_RANGES,
@@ -19,18 +17,8 @@ export function registerRuntimeQuotaRoutes(teamScoped: Hono<{ Variables: TeamAut
     const teamId = c.get('teamId')
     // With the user, so their own computers' agents are in the list at all.
     const instances = await listRuntimeInstances(teamId, c.get('userId'))
-    const signIns = await runtimeLogins()
-      .find({ teamId, state: 'connected' }, { projection: { runtimeId: 1, attemptId: 1 } })
-      .toArray()
-    const signIn = new Map(signIns.map((login) => [login.runtimeId, login.attemptId]))
 
-    return c.json({
-      quotas: await Promise.all(
-        instances.map((instance) =>
-          fetchRuntimeQuota(teamId, instance, undefined, undefined, signIn.get(instance.id)),
-        ),
-      ),
-    })
+    return c.json({ quotas: await listRuntimeQuotas(teamId, instances) })
   })
   // Only the agents this caller can list, so the history shows nothing the
   // live readings above would not.

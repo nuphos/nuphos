@@ -126,7 +126,7 @@ async function runtimeFileOperation(
     !conversation.previousRuntimeUrls?.includes(endpoint.url)
   )
     throw new AppError(403, 'runtime_mismatch', 'This agent does not belong to the conversation.')
-  const params = { sessionId, path, action, workspace: '/workspace' }
+  const params = { path, action, workspace: '/workspace' }
   let output: string
 
   try {

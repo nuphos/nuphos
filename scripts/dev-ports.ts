@@ -3,11 +3,11 @@ import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+// Vite binds `localhost`, which macOS resolves to ::1; a listener there leaves 0.0.0.0 free.
 async function isPortFree(port: number): Promise<boolean> {
   try {
-    const s = Bun.listen({ hostname: '0.0.0.0', port, socket: { data() {} } })
-
-    s.stop()
+    for (const hostname of ['0.0.0.0', '::1'])
+      Bun.listen({ hostname, port, socket: { data() {} } }).stop()
 
     return true
   } catch {

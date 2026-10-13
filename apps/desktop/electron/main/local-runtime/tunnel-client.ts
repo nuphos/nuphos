@@ -24,7 +24,7 @@ type BackendFrame =
   | {
       t: 'open'
       s: string
-      purpose: TunnelPurpose | 'exec' | 'file' | 'terminal'
+      purpose: TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua'
       provider?: LocalAgentProvider
     }
   | { t: 'data'; s: string; d: string }
@@ -49,6 +49,8 @@ export type TunnelClientDeps = {
   connectFile?: () => SocketLike | null
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
+  /** Computer Use, only where the Codex App can provide it. */
+  connectCua?: () => SocketLike
   status: () => LocalRuntimeTunnelStatus
   /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
   onChange?: (connected: boolean, superseded: boolean) => void
@@ -123,6 +125,7 @@ export class RuntimeTunnelClient {
         ...this.deps.status(),
         localExec: Boolean(this.deps.connectExec),
         localTerminal: Boolean(this.deps.connectTerminal),
+        localCua: Boolean(this.deps.connectCua),
       },
     })
   }
@@ -232,7 +235,7 @@ export class RuntimeTunnelClient {
 
   private open(
     s: string,
-    purpose: TunnelPurpose | 'exec' | 'file' | 'terminal',
+    purpose: TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua',
     provider: LocalAgentProvider,
   ): void {
     if (this.streams.has(s)) return
@@ -243,7 +246,9 @@ export class RuntimeTunnelClient {
           ? this.deps.connectFile?.()
           : purpose === 'exec'
             ? this.deps.connectExec?.()
-            : this.deps.connectRuntime(purpose, provider)
+            : purpose === 'cua'
+              ? this.deps.connectCua?.()
+              : this.deps.connectRuntime(purpose, provider)
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

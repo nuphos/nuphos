@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import os from 'node:os'
 import { mock, test } from 'node:test'
 
 const services: string[] = []
@@ -13,6 +14,7 @@ mock.module('node:child_process', {
       callback: (error: null, stdout: string, stderr: string) => void,
     ) => {
       assert.equal(file, '/usr/bin/security')
+      assert.equal(args[args.indexOf('-a') + 1], os.userInfo().username)
       services.push(args[args.indexOf('-s') + 1] ?? '')
       callback(null, JSON.stringify({ claudeAiOauth: { accessToken: 'test-only' } }), '')
     },
@@ -21,7 +23,7 @@ mock.module('node:child_process', {
 const { readAgentUsage } = await import('./agent-cli.ts')
 
 test(
-  'usage reads the same default or custom Keychain entry as Claude',
+  'usage reads the same default or custom Keychain entry, for this account, as Claude',
   {
     skip: process.platform !== 'darwin',
   },
