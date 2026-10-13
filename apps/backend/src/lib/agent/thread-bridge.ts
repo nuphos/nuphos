@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
 import { getTeamMembership } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 
-import { agentConversations, getConversationBySessionId, upsertConversationShell } from './db'
-import { enqueueThreadTurn } from './thread-queue'
+import { getConversationBySessionId, upsertConversationShell } from './db'
 
 import type { AgentConversation } from './db'
 
@@ -75,17 +75,7 @@ export async function createAgentThread(actor: ThreadActor, prompt: string, titl
     runtimeLabel: source.runtimeLabel,
     parentSessionId: actor.sessionId,
   })
-  try {
-    await enqueueThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
-  } catch (error) {
-    // This freshly minted shell never ran; do not leave a false queued task.
-    await agentConversations().deleteOne({
-      sessionId: threadId,
-      userId: actor.userId,
-      messageCount: 0,
-    })
-    throw error
-  }
+  startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
 
   return { ...receipt(actor, threadId, messageId), sourceThreadId: actor.sessionId }
 }
@@ -94,7 +84,22 @@ export async function sendAgentThreadMessage(actor: ThreadActor, threadId: strin
   const data = { ...actor, targetSessionId: threadId, messageId: randomUUID(), prompt }
 
   await authorizeThreadDelivery(data)
-  await enqueueThreadTurn(data)
+  startThreadTurn(data)
 
   return receipt(actor, threadId, data.messageId)
+}
+
+// Same path as a message typed into a chat: the turn starts in this process and
+// a busy target takes it through its pending-message queue. Loaded lazily so
+// importing the tools does not pull in the route graph.
+function startThreadTurn(data: ThreadTurn): void {
+  void import('./thread-turn')
+    .then(({ executeThreadTurn }) => executeThreadTurn(data))
+    .catch((error: unknown) =>
+      logError('agent.thread.turn_failed', error, {
+        session_id: data.targetSessionId,
+        source_session_id: data.sessionId,
+        message_id: data.messageId,
+      }),
+    )
 }
