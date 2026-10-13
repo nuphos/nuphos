@@ -5,8 +5,6 @@ import { CRON_TIME_ZONE } from '@/lib/cron'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
-import type { ThreadTurn } from './thread-bridge'
-
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger, RoutedSessionBusyError } from './trigger-executor'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
@@ -44,10 +42,10 @@ export async function initTriggerScheduler(): Promise<boolean> {
   _worker = new Worker(
     AGENT_TRIGGER_QUEUE,
     async (job, token) => {
-      if (job.name === 'agent-thread-turn') {
-        const { executeThreadTurn } = await import('./thread-turn')
+      if (job.name === 'resource-session-turn') {
+        const { executeResourceTurn } = await import('./resource-turn')
 
-        await executeThreadTurn(job.data as ThreadTurn)
+        await executeResourceTurn(job.data)
 
         return
       }

@@ -6,7 +6,8 @@ use std::io::Write;
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use reqwest::{Method, StatusCode};
+pub use reqwest::Method;
+use reqwest::StatusCode;
 use serde_json::{json, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -110,11 +111,40 @@ impl Api {
         Ok(v["teams"].as_array().cloned().unwrap_or_default())
     }
 
-    pub async fn conversations(&self, team: &str) -> Result<Vec<Value>, ApiError> {
+    pub async fn create_team(&self, name: &str) -> Result<Value, ApiError> {
+        let v = self.call(Method::POST, "/teams", &[], Some(&json!({ "name": name }))).await?;
+        Ok(v["team"].clone())
+    }
+
+    /// `scope` is `mine`, or `shared`: others' conversations I take part in.
+    pub async fn conversations(&self, team: &str, scope: &str) -> Result<Vec<Value>, ApiError> {
         let query =
-            [("teamId", team), ("limit", "30"), ("scope", "mine"), ("sort", "activity"), ("archived", "exclude")];
+            [("teamId", team), ("limit", "30"), ("scope", scope), ("sort", "activity"), ("archived", "exclude")];
         let v = self.call(Method::GET, "/agent/conversations", &query, None).await?;
         Ok(v["conversations"].as_array().cloned().unwrap_or_default())
+    }
+
+    /// The sidebar favorites, pinned conversations among them: `{ entries, revision }`.
+    pub async fn favorites(&self, team: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/teams/{team}/favorites"), &[], None).await
+    }
+
+    pub async fn set_favorites(&self, team: &str, entries: &Value, revision: &Value) -> Result<Value, ApiError> {
+        let body = json!({ "entries": entries, "expectedRevision": revision });
+        self.call(Method::PUT, &format!("/teams/{team}/favorites"), &[], Some(&body)).await
+    }
+
+    /// Connects a self-hosted agent with the pairing code its console shows;
+    /// administrators only.
+    pub async fn pair_runtime(&self, team: &str, url: &str, code: &str) -> Result<Value, ApiError> {
+        let body = json!({ "url": url, "code": code });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes/pair"), &[], Some(&body)).await
+    }
+
+    pub async fn archive(&self, team: &str, session: &str) -> Result<Value, ApiError> {
+        let body = json!({ "archived": true, "teamId": team });
+        self.call(Method::PATCH, &format!("/agent/conversations/{session}/archive"), &[("teamId", team)], Some(&body))
+            .await
     }
 
     pub async fn conversation(&self, team: &str, session: &str) -> Result<Value, ApiError> {
@@ -127,17 +157,39 @@ impl Api {
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
     }
 
-    /// `{ models, controls }` — administrators only, unless the runtime is local.
-    pub async fn runtime_models(&self, team: &str, runtime: &str, model: Option<&str>) -> Result<Value, ApiError> {
-        let query: Vec<(&str, &str)> = model.map(|m| vec![("model", m)]).unwrap_or_default();
-        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/models"), &query, None).await
+    /// A Nuphos-managed Cloud agent; administrators only.
+    pub async fn create_runtime(&self, team: &str, provider: &str) -> Result<Value, ApiError> {
+        let body = json!({ "provider": provider });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes"), &[], Some(&body)).await
     }
 
-    /// Replaces the runtime's defaults — what a new conversation's first
-    /// message starts with. For a Cloud agent this is the team's setting.
-    pub async fn set_runtime_defaults(&self, team: &str, runtime: &str, defaults: &Value) -> Result<Value, ApiError> {
-        let body = json!({ "defaults": defaults });
-        self.call(Method::PATCH, &format!("/teams/{team}/agent-runtimes/{runtime}"), &[], Some(&body)).await
+    /// `{ online, … }` — whether the agent answers yet.
+    pub async fn runtime_status(&self, team: &str, runtime: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/status"), &[], None).await
+    }
+
+    /// Starts (POST) or reads (GET) a Cloud agent's sign-in to its provider account.
+    pub async fn runtime_login(&self, method: Method, team: &str, runtime: &str) -> Result<Value, ApiError> {
+        self.call(method, &format!("/teams/{team}/agent-runtimes/{runtime}/login"), &[], None).await
+    }
+
+    pub async fn submit_runtime_login_code(
+        &self,
+        team: &str,
+        runtime: &str,
+        attempt: &str,
+        code: &str,
+    ) -> Result<Value, ApiError> {
+        let body = json!({ "attemptId": attempt, "code": code });
+        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes/{runtime}/login/code"), &[], Some(&body)).await
+    }
+
+    /// The runtime's own model settings for a conversation not started yet,
+    /// shaped like `model_config`; `pick` marks the chosen values.
+    pub async fn runtime_model_config(&self, team: &str, runtime: &str, pick: &Value) -> Result<Value, ApiError> {
+        let query: Vec<(&str, &str)> =
+            pick.as_object().into_iter().flatten().filter_map(|(k, v)| v.as_str().map(|v| (k.as_str(), v))).collect();
+        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/model-config"), &query, None).await
     }
 
     pub async fn model_config(&self, team: &str, session: &str) -> Result<Value, ApiError> {
@@ -159,6 +211,18 @@ impl Api {
             Some(&body),
         )
         .await
+    }
+
+    /// Full Access: whether your permission requests in the conversation are
+    /// allowed without asking. Each person has their own; the owner and
+    /// managers may read or change theirs.
+    pub async fn full_access(&self, session: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, "/agent/auto-mode/bypass", &[("sessionId", session)], None).await
+    }
+
+    pub async fn set_full_access(&self, session: &str, on: bool) -> Result<Value, ApiError> {
+        let body = json!({ "sessionId": session, "bypass": on });
+        self.call(Method::PUT, "/agent/auto-mode/bypass", &[], Some(&body)).await
     }
 
     /// Moves a conversation to another runtime. `history` carries only the

@@ -19,6 +19,7 @@ enum AgentChatAPI {
         var credentialAccess: JSONValue?
         var agentRuntime: String?
         var runtimeId: String?
+        var initialSessionConfig: [String: String]?
         var clientCapabilities: [String: Bool]?
     }
 
@@ -121,6 +122,14 @@ enum AgentChatAPI {
         )
     }
 
+    /// `DELETE /agent/conversations/:id/parent` — stops nesting a thread under its opener.
+    static func unlinkParent(token: String, teamId: String, sessionId: String) async throws {
+        _ = try await send(
+            "DELETE", "agent/conversations/\(sessionId)/parent",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none
+        )
+    }
+
     /// `POST /agent/conversations/:id/read` — the server keeps the larger marker.
     static func markRead(token: String, teamId: String, sessionId: String, seq: Int) async throws -> ConversationUnread.Marker {
         struct Body: Encodable { var seq: Int }
@@ -144,6 +153,31 @@ enum AgentChatAPI {
     static func cancelRuntime(token: String, teamId: String, sessionId: String) async throws {
         _ = try await send("POST", "agent/conversations/\(sessionId)/cancel-runtime",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
+    }
+
+    struct RuntimeMove: Decodable { let runtimeId: String; let runtimeLabel: String; let agentRuntime: String }
+
+    /// `POST /agent/conversations/:id/runtime` — moves the conversation to
+    /// another agent. `workspace` brings the working files; `history` only
+    /// the transcript.
+    static func moveRuntime(token: String, teamId: String, sessionId: String, runtimeId: String, workspace: Bool) async throws -> RuntimeMove {
+        struct Body: Encodable { var runtimeId: String; var mode: String }
+        let data = try await send(
+            "POST", "agent/conversations/\(sessionId)/runtime",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: Body(runtimeId: runtimeId, mode: workspace ? "workspace" : "history"), timeout: 120
+        )
+        return try JSONDecoder().decode(RuntimeMove.self, from: data)
+    }
+
+    /// `GET /agent/conversations/:id/resources`.
+    static func sessionResources(token: String, teamId: String, sessionId: String) async throws -> [SessionResource] {
+        struct List: Decodable { let resources: [SessionResource] }
+        let data = try await send(
+            "GET", "agent/conversations/\(sessionId)/resources",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none, timeout: 12
+        )
+        return try JSONDecoder().decode(List.self, from: data).resources
     }
 
     /// `GET /agent/conversations/:id/model-config`.
@@ -185,26 +219,6 @@ enum AgentChatAPI {
     }
 
     // MARK: Auto Mode
-
-    /// `POST /agent/auto-mode/session-approvals` — "Approve for session".
-    static func approveForSession(token: String, sessionId: String, command: String) async throws {
-        struct Body: Encodable { var sessionId: String; var command: String }
-        _ = try await send("POST", "agent/auto-mode/session-approvals", token: token, body: Body(sessionId: sessionId, command: command))
-    }
-
-    /// `POST /agent/auto-mode/policy/rules` — "Always allow…".
-    static func createPolicyRule(token: String, description: String) async throws {
-        struct Body: Encodable { var description: String }
-        _ = try await send("POST", "agent/auto-mode/policy/rules", token: token, body: Body(description: String(description.prefix(200))))
-    }
-
-    static func activatePolicyRule(token: String, ruleId: String) async throws {
-        _ = try await send("POST", "agent/auto-mode/policy/rules/\(ruleId)/activate", token: token, body: Optional<Int>.none)
-    }
-
-    static func deletePolicyRule(token: String, ruleId: String) async throws {
-        _ = try await send("DELETE", "agent/auto-mode/policy/rules/\(ruleId)", token: token, body: Optional<Int>.none)
-    }
 
     /// `GET /agent/auto-mode/bypass?sessionId=` → whether this conversation
     /// runs every command without asking.
@@ -304,7 +318,7 @@ enum AgentChatAPI {
             case .streamConflict: "That stream belongs to another conversation."
             case .conversationBusy: "This conversation is busy with another reply."
             case .runtimeNotReady: "The agent is not ready for a new message yet. Try again in a moment."
-            case .runtimeLoginRequired: "This agent is not signed in. Sign in to it on the computer running it, or ask an administrator to sign in a Cloud agent from the desktop app's Settings → Agent."
+            case .runtimeLoginRequired: "This agent is not signed in. Sign in to it on the computer running it, or ask an administrator to sign in a Cloud agent from the agent list."
             case .runtimeDisabled: "This conversation's agent is disabled. Start a new chat on another agent."
             case .runtimeNotFound: "This agent is no longer available in this workspace. Start a new chat on another agent."
             case .runtimeOffline: "The computer running this agent is offline. Open Nuphos on it with the local agent turned on, or start a new chat on a Cloud agent."

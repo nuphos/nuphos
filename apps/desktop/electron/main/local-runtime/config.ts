@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
@@ -81,8 +82,12 @@ function providerEnv(launch: AgentCliLaunch): Record<string, string> {
   return {
     CLAUDE_CODE_EXECUTABLE: launch.cliPath,
     CLAUDE_CONFIG_DIR: launch.agentHome,
-    // Pin login independently of the HOME assigned to each conversation's tools.
-    CLAUDE_SECURESTORAGE_CONFIG_DIR: launch.agentHome,
+    // On macOS reuse the terminal's Keychain entry, without loading its settings.
+    // Claude uses the unsuffixed default entry when this value is empty.
+    CLAUDE_SECURESTORAGE_CONFIG_DIR:
+      process.platform === 'darwin'
+        ? (launch.env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? launch.env.CLAUDE_CONFIG_DIR ?? '')
+        : launch.agentHome,
     ENABLE_CLAUDEAI_MCP_SERVERS: 'false',
   }
 }
@@ -110,6 +115,7 @@ export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     MCP_TOOL_TIMEOUT: '1800000',
     MCP_TIMEOUT: '30000',
     NUPHOS_MCP_BRIDGE: launch.adapter.bridge,
+    NUPHOS_CUA_PERMISSION_CLIENT: path.join(launch.bundle.root, 'cua-permission'),
     NUPHOS_RUNTIME_WORKSPACE: launch.workspace,
   }
 }
@@ -150,7 +156,24 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     OPENAB_ADAPTER_VERSION: launch.adapter.version,
     OPENAB_RUNTIME_LABEL: 'Nuphos Desktop',
     ...(launch.bundle.openabCommit ? { OPENAB_BUILD_SHA: launch.bundle.openabCommit } : {}),
+    ...runtimeJobs(launch),
   }
+}
+
+/**
+ * The backend's fixed attachment program, bundled, as this runtime's only job: a turn's
+ * files arrive as a list of signed URLs and no program text crosses the wire. openab
+ * clears a job's environment and splits its command on whitespace, so Electron's
+ * run-as-Node switch rides in through `env`. Where that cannot work the job is left
+ * out, and the backend reports the runtime as unable to take attachments.
+ */
+function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
+  const program = path.join(launch.bundle.root, 'attachment-job.mjs')
+  const argv = ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', launch.nodeExecPath, program]
+
+  return process.platform === 'win32' || argv.some((arg) => /\s/.test(arg)) || !existsSync(program)
+    ? {}
+    : { OPENAB_RUNTIME_JOBS: `attachments=${argv.join(' ')}` }
 }
 
 type Manifest = {
@@ -181,5 +204,24 @@ export function bundleFromManifest(root: string, manifest: Manifest): LocalRunti
     openab: path.join(root, manifest.openab),
     adapters,
     ...(typeof manifest.openabCommit === 'string' ? { openabCommit: manifest.openabCommit } : {}),
+  }
+}
+
+/** The bundle staged at `root`, less any adapter whose files are missing; null without openab. */
+export function readBundle(root: string): LocalRuntimeBundle | null {
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(root, 'manifest.json'), 'utf8')) as Manifest
+    const bundle = bundleFromManifest(root, manifest)
+
+    if (!bundle || !existsSync(bundle.openab)) return null
+    for (const provider of ['claude-code', 'codex'] as const) {
+      const adapter = bundle.adapters[provider]
+
+      if (adapter && !existsSync(adapter.entry)) delete bundle.adapters[provider]
+    }
+
+    return bundle
+  } catch {
+    return null
   }
 }

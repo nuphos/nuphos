@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import { OpenAbAcpClient } from './openab-acp-client'
 
+import type { OpenAbSessionUpdate } from './openab-acp-client'
+
 class FakeSocket {
   static readonly OPEN = 1
   readonly sent: string[] = []
@@ -794,6 +796,36 @@ describe('OpenAbAcpClient', () => {
     h.socket().close()
 
     expect(disconnects).toBe(1)
+  })
+
+  test('resume replay reaches observers before the resume RPC resolves', async () => {
+    const h = harness()
+    const client = await OpenAbAcpClient.connect({
+      url: 'ws://openab/acp',
+      authKey: 'key',
+      socketFactory: h.connect,
+    })
+    const updates: OpenAbSessionUpdate[] = []
+
+    client.onSessionUpdate('resumed', (update) => updates.push(update))
+    const loading = client.loadSession('resumed', '/workspace')
+
+    await nextSent(h.socket(), 0)
+    h.socket().receive({
+      jsonrpc: '2.0',
+      method: 'session/update',
+      params: {
+        sessionId: 'resumed',
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          content: { type: 'text', text: 'Buffered result' },
+        },
+      },
+    })
+    expect(updates).toEqual([{ kind: 'text', text: 'Buffered result' }])
+    h.socket().receive({ jsonrpc: '2.0', id: 1, result: {} })
+    await loading
+    client.close()
   })
 
   test('loadSession reports pool liveness from the resume meta', async () => {
@@ -1595,6 +1627,27 @@ test('steering uses the control method without attaching or prompting a session'
   h.socket().receive({ jsonrpc: '2.0', id: frame.id, result: { outcome: 'injected' } })
   expect(await pending).toEqual({ outcome: 'injected' })
   expect(h.socket().sent).toHaveLength(1)
+  client.close()
+})
+
+test('steering forwards attachments as native resource links', async () => {
+  const h = harness()
+  const client = await OpenAbAcpClient.connect({
+    url: 'ws://runtime.invalid/acp',
+    authKey: 'operator',
+    socketFactory: h.connect,
+  })
+  const link = { type: 'resource_link' as const, uri: 'file:///tmp/shot.png', name: 'shot.png' }
+  const pending = client.steerSession('session', 'Look', 'receipt', [link])
+  const frame = await nextSent(h.socket(), 0)
+
+  expect(frame.params).toEqual({
+    sessionId: 'session',
+    prompt: [{ type: 'text', text: 'Look' }, link],
+    messageId: 'receipt',
+  })
+  h.socket().receive({ jsonrpc: '2.0', id: frame.id, result: { outcome: 'injected' } })
+  expect(await pending).toEqual({ outcome: 'injected' })
   client.close()
 })
 

@@ -25,8 +25,11 @@ export type WorkspaceAction =
       readOnly: boolean
       teamId?: string
       keepMainPage?: boolean
+      resetHomeScroll?: boolean
     }
   | { type: 'openMainPage'; teamId: string }
+  | { type: 'stepSurface'; direction: -1 | 1 }
+  | { type: 'forgetSession'; sessionId: string }
   | { type: 'setSessionReadOnly'; readOnly: boolean }
   | { type: 'switchTeam'; sessionKey: string; teamId: string }
   | { type: 'setDockOpen'; sessionKey: string; open: boolean }

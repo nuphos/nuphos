@@ -12,10 +12,11 @@ import { memo, useState } from 'react'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu'
 import { useReportVisibleError } from '../components/VisibleErrorReporter'
 
+import { panelDisplay } from './panelDisplay'
 import { PanelOutputView } from './PanelOutputView'
 import { ScriptErrorModal } from './ScriptErrorModal'
 
-import type { DashboardPanel, DashboardPanelOutput } from './schema'
+import type { DashboardPanel, DashboardPanelOutput, NuphosDashboard } from './schema'
 import type { HTMLAttributes } from 'react'
 
 // Users' saved column widths and sort are stored under this key; changing it resets them.
@@ -23,6 +24,7 @@ const tableStorageKey = (panelId: string) => `costPanel.${panelId}`
 
 type Props = {
   panel: DashboardPanel
+  viewTimeRange?: NuphosDashboard['timeRange']
   loading?: boolean
   onExecute: (panel: DashboardPanel) => void
   onEdit: (panel: DashboardPanel) => void
@@ -47,26 +49,14 @@ function Body({
 }) {
   const snap = panel.currentSnapshot
 
-  if (snap?.status === 'running') {
-    return lastSuccessfulOutput ? (
-      <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
-    ) : (
-      <div className="h-40" />
-    )
-  }
-  if (!snap) {
-    return (
-      <div className="flex h-40 items-center justify-center text-[12px] text-tertiary">
-        Not run yet.
-      </div>
-    )
-  }
-  if (snap.status === 'failed') {
+  if (!snap || snap.status === 'running' || snap.status === 'failed') {
+    const emptyMessage = snap ? 'No successful data yet.' : 'Not run yet.'
+
     return lastSuccessfulOutput ? (
       <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
     ) : (
       <div className="flex h-40 items-center justify-center text-[12px] text-tertiary">
-        No successful data yet.
+        {snap?.status === 'running' ? null : emptyMessage}
       </div>
     )
   }
@@ -86,6 +76,7 @@ function Body({
 export const PanelCard = memo(
   ({
     panel,
+    viewTimeRange,
     loading = false,
     onExecute,
     onEdit,
@@ -94,9 +85,7 @@ export const PanelCard = memo(
     dragHandleProps,
   }: Props) => {
     const [errorOpen, setErrorOpen] = useState(false)
-    const lastSuccessful =
-      panel.lastSuccessfulSnapshot ??
-      (panel.currentSnapshot?.status === 'complete' ? panel.currentSnapshot : null)
+    const { snapshot: lastSuccessful, rangeLabel } = panelDisplay(panel, viewTimeRange)
     const subtitle = outputSubtitle(lastSuccessful?.output ?? null)
     const snapshotLoading = loading || panel.currentSnapshot?.status === 'running'
     const hasStaleOutput = Boolean(lastSuccessful?.output)
@@ -123,6 +112,7 @@ export const PanelCard = memo(
           )}
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13.5px] font-medium text-main">{panel.title}</div>
+            {rangeLabel && <div className="text-[11px] text-amber-400">{rangeLabel}</div>}
             {subtitle && <div className="truncate text-[11px] text-tertiary">{subtitle}</div>}
           </div>
           <Menu>

@@ -10,7 +10,6 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
-import { RuntimeDefaultsSection } from './RuntimeDefaultsSection'
 import { RuntimeInstanceForm } from './RuntimeInstanceForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
@@ -199,7 +198,7 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              'Saving conversation workspaces, then deleting the agent and its disk. Conversations stay in Nuphos and can be moved to another agent.'}
+              'Removing the agent and its files. Conversation history stays in Nuphos.'}
           </p>
         ) : editing ? (
           <div className="p-4">
@@ -233,9 +232,6 @@ export function RuntimeInstanceCard({
               )
             )}
             <div className="px-5 py-6">
-              <RuntimeDefaultsSection teamId={teamId} instance={instance} isAdmin={isAdmin} />
-            </div>
-            <div className="px-5 py-6">
               <RuntimeUsageSection quota={quota} />
             </div>
             <div className="px-5 py-6">
@@ -258,7 +254,7 @@ export function RuntimeInstanceCard({
           title={`Remove ${instance.label}?`}
           description={
             instance.kind === 'managed'
-              ? 'Nuphos will save conversation workspaces before permanently deleting this agent and its disk, including its sign-in. Your conversation history stays in Nuphos. Move a conversation to another agent to continue with reconstructed context. If a workspace cannot be saved, deletion pauses.'
+              ? 'This permanently deletes the agent, its disks, workspaces, and sign-in, and stops running conversations. Your conversation history stays in Nuphos. Move any workspace you want to keep to another agent before removing this one.'
               : 'This disconnects the external agent. Its files remain on the external machine. Your conversations stay in Nuphos and can be moved using conversation history.'
           }
           destructive

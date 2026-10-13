@@ -1,7 +1,6 @@
 import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
-import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import {
@@ -9,11 +8,6 @@ import {
   requireRuntimeInstance,
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
-import {
-  runtimeDefaultsSchema,
-  setRuntimeDefaults,
-  removeRuntimeDefaults,
-} from '@/lib/claude-code-preview/runtime-defaults'
 import { requestRuntimeDeletion } from '@/lib/claude-code-preview/runtime-deletion'
 import { createManagedRuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
 import { listRuntimeMetricSamples } from '@/lib/claude-code-preview/runtime-metrics-store'
@@ -21,14 +15,14 @@ import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
 import { defaultRuntimeLabel, OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
-import { runtimeLogins } from '@/lib/claude-code-preview/runtime-login-store'
-import { fetchRuntimeQuota } from '@/lib/claude-code-preview/runtime-quota'
 import {
   removeTeamRuntime,
   renameTeamRuntime,
   setTeamRuntimeStatus,
 } from '@/lib/claude-code-preview/runtime-registry'
 import { claudeCodePreviewRuntimeStatus } from '@/lib/claude-code-preview/runtime-status'
+import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
+import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import {
   runtimeTerminalTarget,
   runtimeTerminalEvents,
@@ -42,6 +36,7 @@ import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
 import { registerRuntimeFileRoutes } from './runtime-files'
+import { registerRuntimeQuotaRoutes } from './runtime-quota'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Context, Hono } from 'hono'
@@ -51,13 +46,14 @@ const createSchema = z
   .object({
     label: label.optional(),
     provider: z.enum(OPENAB_PROVIDERS),
-    defaults: runtimeDefaultsSchema.optional(),
+    // Ignored: agents no longer carry model defaults; accepted so older clients still save.
+    defaults: z.unknown().optional(),
   })
   .strict()
 const updateSchema = z
   .object({
     label: label.optional(),
-    defaults: runtimeDefaultsSchema.optional(),
+    defaults: z.unknown().optional(),
     status: z.enum(['active', 'disabled']).optional(),
   })
   .strict()
@@ -68,28 +64,6 @@ export const probeSchema = z
     authKey: z.string().trim().min(1).max(500),
   })
   .strict()
-
-/** Provider usage for every agent in the team, each read by the agent that
- *  holds its own credential. */
-function registerRuntimeQuotaRoute(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
-  teamScoped.get('/agent-runtimes/quota', async (c) => {
-    const teamId = c.get('teamId')
-    // With the user, so their own computers' agents are in the list at all.
-    const instances = await listRuntimeInstances(teamId, c.get('userId'))
-    const signIns = await runtimeLogins()
-      .find({ teamId, state: 'connected' }, { projection: { runtimeId: 1, attemptId: 1 } })
-      .toArray()
-    const signIn = new Map(signIns.map((login) => [login.runtimeId, login.attemptId]))
-
-    return c.json({
-      quotas: await Promise.all(
-        instances.map((instance) =>
-          fetchRuntimeQuota(teamId, instance, undefined, undefined, signIn.get(instance.id)),
-        ),
-      ),
-    })
-  })
-}
 
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   registerRuntimeFileRoutes(teamScoped)
@@ -122,10 +96,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
   teamScoped.get(
     '/agent-runtimes/:runtimeId/models',
     zv('query', z.object({ model: z.string().trim().min(1).max(500).optional() })),
-    async (c, next) => {
-      if (isLocalRuntimeId(c.req.param('runtimeId'))) await next()
-      else await requireTeamRole('ADMINISTRATOR')(c, next)
-    },
     async (c) =>
       c.json(
         await runtimeModelCatalog(
@@ -135,6 +105,20 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
           c.get('userId'),
         ),
       ),
+  )
+  // A conversation that has not started yet picks from the runtime's own choices.
+  teamScoped.get(
+    '/agent-runtimes/:runtimeId/model-config',
+    zv('query', sessionConfigPickSchema),
+    async (c) => {
+      const { options } = await offeredSessionConfig(
+        (model) =>
+          runtimeModelCatalog(c.get('teamId'), c.req.param('runtimeId'), model, c.get('userId')),
+        c.req.valid('query'),
+      )
+
+      return c.json({ status: 'dormant', options })
+    },
   )
   teamScoped.get(
     '/agent-runtimes/:runtimeId/metrics',
@@ -153,7 +137,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       })
     },
   )
-  registerRuntimeQuotaRoute(teamScoped)
+  registerRuntimeQuotaRoutes(teamScoped)
   teamScoped.get('/agent-runtimes/:runtimeId/status', async (c) => {
     const instance = await requireRuntimeInstance(
       c.get('teamId'),
@@ -225,10 +209,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
         userId: c.get('userId'),
       })
 
-      if (input.defaults !== undefined)
-        await setRuntimeDefaults(teamId, instance.id, input.defaults)
-
-      return c.json({ ...instance, defaults: input.defaults ?? {} }, 201)
+      return c.json(instance, 201)
     },
   )
   teamScoped.patch(
@@ -256,9 +237,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
           await setTeamRuntimeStatus(teamId, instance.id, patch.status)
       }
 
-      if (patch.defaults !== undefined)
-        await setRuntimeDefaults(teamId, instance.id, patch.defaults)
-
       return c.json(await requireRuntimeInstance(teamId, instance.id))
     },
   )
@@ -278,8 +256,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       return c.json({ status: 'deleting' }, 202)
     }
     await removeTeamRuntime(teamId, instance.id)
-
-    await removeRuntimeDefaults(teamId, instance.id)
 
     return c.body(null, 204)
   })

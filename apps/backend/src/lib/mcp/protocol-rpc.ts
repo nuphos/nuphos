@@ -38,7 +38,7 @@ export function fail(id: JsonRpcId, code: number, message: string, data?: unknow
 // of re-parsing the text block.
 
 export type ToolResult = {
-  content: { type: 'text'; text: string }[]
+  content: ({ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string })[]
   structuredContent?: unknown
   isError?: boolean
 }

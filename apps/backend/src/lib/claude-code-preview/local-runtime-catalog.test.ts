@@ -13,7 +13,6 @@ const runtimeId = localRuntimeId(ref)
 
 let teams: Set<string>
 let presence: LocalRuntimePresence | null
-const runtimeIdWithModel = localRuntimeId({ ...ref, provider: 'claude-code' })
 
 function device(userId: string, deviceId: string, label: string): AgentDevice {
   return {
@@ -32,7 +31,6 @@ const deps: LocalRuntimeCatalogDeps = {
     userId === 'owner' ? [device('owner', 'mac-1', 'Olivia’s MacBook')] : [],
   isMember: async (userId, teamId) => teams.has(`${userId}:${teamId}`),
   getPresence: async () => presence,
-  getDefaults: async (runtimeId) => (runtimeId === runtimeIdWithModel ? { model: 'opus' } : {}),
 }
 
 function online(loggedIn: boolean | null = true, codex = false): LocalRuntimePresence {
@@ -62,7 +60,6 @@ describe('local runtime catalog', () => {
       kind: 'local',
       label: 'Olivia’s MacBook · Claude Code',
       local: { ownerUserId: 'owner', deviceId: 'mac-1', signedIn: true },
-      defaults: { model: 'opus' },
     })
     expect(await listOwnLocalRuntimes('t2', 'owner', deps)).toEqual([])
   })

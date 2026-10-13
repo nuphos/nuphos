@@ -50,7 +50,7 @@ function InstalledConnector({
     >
       <IntegrationPlatformIcon provider={row.provider} size={20} />
       {rows.length > 1 && (
-        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zGray-200 px-1 text-[9px] font-medium leading-none text-white shadow-sm">
+        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zGray-200 px-1 text-[9px] font-medium leading-none text-zGray-900 shadow-sm">
           {rows.length}
         </span>
       )}

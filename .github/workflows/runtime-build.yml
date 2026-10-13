@@ -34,7 +34,7 @@ on:
       provider:
         description: Runtime provider to build
         type: choice
-        options: [claude, codex, grok, antigravity, all]
+        options: [claude, codex, grok, antigravity, opencode, all]
         default: all
         required: true
       reuse_base:
@@ -142,7 +142,7 @@ jobs:
           # The gitlink, so no submodule checkout is needed to name the revision.
           SHA="$(git rev-parse "${BUILD_SHA}:apps/runtime/third_party/openab")"
           if [[ "$PROVIDER" == "all" ]]; then
-            PROVIDERS='["claude","codex","grok","antigravity"]'
+            PROVIDERS='["claude","codex","grok","antigravity","opencode"]'
           else
             PROVIDERS="[\"${PROVIDER}\"]"
           fi
@@ -203,6 +203,10 @@ jobs:
             LOGIN_COMMAND='node /opt/nuphos-runtime/antigravity-login.mjs'
             AUTH_FILE='/home/node/.gemini/antigravity-acp/acp_token.json'
             LABEL='Antigravity'
+          elif [[ "$VARIANT" == "opencode" ]]; then
+            LOGIN_COMMAND='node /opt/nuphos-runtime/opencode-login.mjs'
+            AUTH_FILE='/home/node/.local/share/opencode/auth.json'
+            LABEL='OpenCode'
           else
             LOGIN_COMMAND='node /opt/nuphos-runtime/claude-login.mjs'
             AUTH_FILE='/home/node/.claude/.credentials.json'

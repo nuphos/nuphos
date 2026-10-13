@@ -86,10 +86,12 @@ export const agentChannels = {
     archived: boolean,
     teamId?: string,
   ) => agent.setConversationArchived(sessionId, archived, teamId),
+  'agent:unlinkConversationParent': (_e: unknown, sessionId: string, teamId?: string) =>
+    agent.unlinkConversationParent(sessionId, teamId),
   'agent:cancelRuntime': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.cancelRuntime(sessionId, teamId),
-  'agent:steerConversation': (_e: unknown, sessionId: string, text: string, teamId?: string) =>
-    agent.steerConversation(sessionId, text, teamId),
+  'agent:steerConversation': (_e: unknown, ...args: Parameters<typeof agent.steerConversation>) =>
+    agent.steerConversation(...args),
   'agent:slackPickup': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.pickUpConversationInSlack(sessionId, teamId),
   'agent:getConversation': (
@@ -273,28 +275,7 @@ export const agentChannels = {
     teamId?: string,
   ) => agent.transferAgentTriggerGroupExecutionPrincipal(groupId, userId, teamId),
   'agent:getTriggerSchedulerStatus': () => agent.getTriggerSchedulerStatus(),
-  'agent:listAutoModeRules': () => agent.listAutoModeRules(),
-  'agent:createAutoModeRule': (_e: unknown, description: string) =>
-    agent.createAutoModeRule(description),
-  'agent:activateAutoModeRule': (_e: unknown, ruleId: string) => agent.activateAutoModeRule(ruleId),
-  'agent:deleteAutoModeRule': (_e: unknown, ruleId: string) => agent.deleteAutoModeRule(ruleId),
-  'agent:addAutoModeSessionApproval': (_e: unknown, sessionId: string, command: string) =>
-    agent.addAutoModeSessionApproval(sessionId, command),
   'agent:getAutoModeBypass': (_e: unknown, sessionId: string) => agent.getAutoModeBypass(sessionId),
   'agent:setAutoModeBypass': (_e: unknown, sessionId: string, bypass: boolean) =>
     agent.setAutoModeBypass(sessionId, bypass),
-  'agent:approveAutoModeCommand': (
-    _e: unknown,
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ) => agent.approveAutoModeCommand(sessionId, toolCallId, scope, teamId, ruleDescription),
-  'agent:denyAutoModeCommand': (
-    _e: unknown,
-    sessionId: string,
-    toolCallId: string,
-    teamId?: string,
-  ) => agent.denyAutoModeCommand(sessionId, toolCallId, teamId),
 } as const

@@ -1,5 +1,13 @@
 import { randomUUID } from 'node:crypto'
 
+import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
+import { regionLabel } from '@/lib/agent/model-provider'
+import { startTraceSpan } from '@/lib/agent/tracing'
+import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
+import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
+import { AppError } from '@/lib/errors'
+import { logEvent } from '@/lib/observability'
+
 import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
@@ -37,15 +45,6 @@ import { appendAgentRunTurnStart } from './turn-start-frame'
 
 import type { AgentChatBody, AgentRunTrace, InternalChatCtx } from './types'
 
-import { isAutoModeApprovalEnabled as isAutoModeEnabled } from '@/lib/agent/auto-mode/approval'
-import { initializeSessionBypass as initializeAutoModeSessionBypass } from '@/lib/agent/auto-mode/store'
-import { startTraceSpan } from '@/lib/agent/braintrust'
-import { regionLabel } from '@/lib/agent/model-provider'
-import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
-import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
-import { AppError } from '@/lib/errors'
-import { logEvent } from '@/lib/observability'
-
 agent.post('/chat', async (c) => {
   const userId = c.get('userId')
   const requestId = c.get('requestId') ?? randomUUID()
@@ -65,12 +64,8 @@ agent.post('/chat', async (c) => {
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
   // Initialize once even if transcript sync already created the row.
-  if (
-    runOwnerUserId === userId &&
-    shouldInitializePermissionMode(body, conversationForResume) &&
-    isAutoModeEnabled()
-  ) {
-    await initializeAutoModeSessionBypass(id, userId, body.permissionMode === 'bypass')
+  if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {
+    await initializeSessionBypass(id, userId, body.permissionMode === 'bypass')
   }
   const readOnlyResume = body.resume === true && runOwnerUserId !== userId
   // Resolve Slack binding alongside transcript hydration.

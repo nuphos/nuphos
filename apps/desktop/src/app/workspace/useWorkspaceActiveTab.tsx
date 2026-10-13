@@ -5,7 +5,6 @@ import { pageLocationForTab } from '../../app/workspaceTabFactory'
 import { setActiveTeam, trackPageview } from '../../lib/analytics'
 import { DEFAULT_GITHUB_NAV, DEFAULT_REPO_PROVIDER } from '../../lib/appRoutes'
 import { externalPageLink } from '../../lib/externalPageLink'
-import { canStepNavigation } from '../../lib/navHistory'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -27,7 +26,7 @@ export function useWorkspaceActiveTab(a: Args) {
   // memo buys no work — what it buys is a *frozen* result. Everything this
   // component derives (`scope`, `active`, `target`, `sshTerminal`, …) hangs off
   // this one value, and the tab it returns is handed to module helpers
-  // (`pageLocationForTab`, `canStepNavigation`, `tabOpenedFrom`, …) from inside
+  // (`pageLocationForTab`, `tabOpenedFrom`, …) from inside
   // callbacks. Those helpers only read, but the React Compiler cannot see
   // across a call, so an unmemoized `find` result is a value that "may be
   // mutated later" — which invalidated every `useCallback`/`useMemo` in
@@ -97,8 +96,6 @@ export function useWorkspaceActiveTab(a: Args) {
     scope?.kind === 'team' && active === 'team.repository' && githubNav.view === 'repo'
       ? { repoName: githubNav.repo.name, tab: githubNav.tab }
       : undefined
-  const canGoBack = activeTab !== null && canStepNavigation(activeTab, -1)
-  const canGoForward = activeTab !== null && canStepNavigation(activeTab, 1)
   const namespaces = activeTab?.namespaces ?? []
   const handleTeamUpdated = useCallback(
     (updated: AtlasTeam) => {
@@ -180,8 +177,6 @@ export function useWorkspaceActiveTab(a: Args) {
     repoProvider,
     sidebarActive,
     sidebarRepositoryNav,
-    canGoBack,
-    canGoForward,
     namespaces,
     handleTeamUpdated,
     switching,

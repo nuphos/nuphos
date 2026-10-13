@@ -7,10 +7,12 @@ import {
   recordAgentEvent,
   renameConversation,
   setConversationArchived,
+  setConversationParent,
   setMessageFeedback,
   syncConversationTranscript,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
+import { conversationAccess, managesConversation } from '@/lib/agent/db/access'
 import { moveConversationRuntime } from '@/lib/claude-code-preview/conversation-runtime-move'
 import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import {
@@ -23,7 +25,7 @@ import { AppError } from '@/lib/errors'
 import { isTranscriptSyncBlockedBySlackBinding } from './chat-slack-bound'
 import { hydrateStoredPrefix } from './chat-validate'
 import { credentialAccessResponse } from './credential-access'
-import { resolveAgentCredentialAccess } from './credential-resolve'
+import { resolveAgentCredentialAccess, resolveManagerCredentialAccess } from './credential-resolve'
 import { agent } from './router'
 import {
   assertConversationWritable,
@@ -31,6 +33,12 @@ import {
   resolveVerifiedTeamId,
 } from './team-scope'
 import { getFirstTranscriptMessage, normalizeTranscriptMessages } from './transcript'
+
+const parentBody = z
+  .object({ parentSessionId: z.string().min(1).nullable(), teamId: z.string().optional() })
+  .strict()
+const INVALID_PARENT =
+  'Parent must be another conversation you own in this team, not nested below it'
 
 agent.post('/conversations/:sessionId/messages/:messageId/feedback', async (c) => {
   const userId = c.get('userId')
@@ -91,13 +99,32 @@ agent.patch('/conversations/:sessionId/credentials', async (c) => {
   const body = await c.req.json()
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
   const stored = await getConversationBySessionId(sessionId)
-  const { access, options } = await resolveAgentCredentialAccess({
+  const manager =
+    stored &&
+    teamId &&
+    stored.userId !== userId &&
+    stored.teamId === teamId &&
+    conversationAccess(stored, userId) === 'manage'
+  const { access, options } = manager
+    ? await resolveManagerCredentialAccess({
+        teamId,
+        managerId: userId,
+        ownerId: stored.userId,
+        selection: body.credentialAccess,
+        stored: stored.credentialAccess,
+      })
+    : await resolveAgentCredentialAccess({
+        teamId,
+        userId,
+        selection: body.credentialAccess,
+        ...(stored?.userId === userId ? { stored: stored.credentialAccess } : {}),
+      })
+  const conversation = await updateConversationCredentialAccess(
+    sessionId,
+    manager ? stored.userId : userId,
     teamId,
-    userId,
-    selection: body.credentialAccess,
-    ...(stored?.userId === userId ? { stored: stored.credentialAccess } : {}),
-  })
-  const conversation = await updateConversationCredentialAccess(sessionId, userId, teamId, access)
+    access,
+  )
 
   if (!conversation) {
     throw new AppError(404, 'not_found', 'Conversation not found')
@@ -134,13 +161,30 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
     throw new AppError(400, 'invalid_request', 'archived must be a boolean')
   }
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  const found = await setConversationArchived(sessionId, userId, teamId, body.archived)
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  if (!found) {
+  // The owner and managers archive; anyone else sees no such conversation. A
+  // verified teamId is membership of the team the conversation was found in.
+  if (!conversation || !managesConversation(conversation, userId, Boolean(teamId))) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
+  await setConversationArchived(sessionId, body.archived)
 
   return c.json({ ok: true, archived: body.archived })
+})
+
+// PUT { parentSessionId } nests the conversation; null or DELETE unlinks it.
+agent.on(['PUT', 'DELETE'], '/conversations/:sessionId/parent', async (c) => {
+  const { parentSessionId = null, teamId: candidate } =
+    c.req.method === 'PUT' ? parentBody.parse(await c.req.json()) : {}
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, candidate))
+  const sessionId = c.req.param('sessionId')
+  const result = await setConversationParent(sessionId, c.get('userId'), teamId, parentSessionId)
+
+  if (result === 'not_found') throw new AppError(404, 'not_found', 'Conversation not found')
+  if (result === 'invalid_parent') throw new AppError(400, 'invalid_parent', INVALID_PARENT)
+
+  return c.json({ ok: true, parentSessionId })
 })
 
 agent.put('/conversations/:sessionId/transcript', async (c) => {
@@ -181,7 +225,14 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
   // renderer snapshot must never replace it, even after the run has finished.
   // This includes new sessions: a PUT racing ahead of /chat would store the
   // first message without attribution, making /chat treat it as legacy history.
-  if (isServerAuthoritativeTranscript(existing, instance?.provider ?? body.agentRuntime)) {
+  // A local-session import is the one exception: it creates the conversation
+  // with turns that are meant to be exactly that history.
+  const importing = body.import === true && !existing
+
+  if (
+    !importing &&
+    isServerAuthoritativeTranscript(existing, instance?.provider ?? body.agentRuntime)
+  ) {
     return c.json({ ok: true, skipped: 'server_authoritative' })
   }
   if (baseIndex > 0) {
@@ -239,7 +290,8 @@ agent.post('/conversations/:sessionId/runtime', async (c) => {
     .parse(await c.req.json())
   const userId = c.get('userId')
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  const conversation = await assertConversationWritable(c.req.param('sessionId'), userId, teamId)
+  // moveConversationRuntime decides who may move it: the owner or a manager.
+  const conversation = await getReadableConversation(c.req.param('sessionId'), userId, teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
 

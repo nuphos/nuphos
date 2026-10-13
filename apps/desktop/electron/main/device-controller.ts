@@ -51,7 +51,3 @@ export function listDeviceAudit(before?: string): Promise<unknown> {
 
   return callJson('GET', `/agent/devices/${encodeURIComponent(deviceId)}/audit?${query.toString()}`)
 }
-
-export async function setLocalAgentDefaults(runtimeId: string, defaults: unknown): Promise<void> {
-  await callJson('PUT', `/agent/local-agents/${encodeURIComponent(runtimeId)}/defaults`, defaults)
-}

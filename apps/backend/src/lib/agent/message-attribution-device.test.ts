@@ -38,3 +38,9 @@ test('only a device registered to the sender is attached, without its id', async
   expect(await createMessageMetadata(sender, 'nuphos', 'unknown')).not.toHaveProperty('device')
   expect((await createMessageMetadata(sender, 'nuphos')).sender.email).toBe('me@example.com')
 })
+
+test('the email stays out of channels people outside the team can read', async () => {
+  expect((await createMessageMetadata(sender, 'slack')).sender.email).toBe('me@example.com')
+  for (const source of ['discord', 'lark'] as const)
+    expect((await createMessageMetadata(sender, source)).sender).not.toHaveProperty('email')
+})

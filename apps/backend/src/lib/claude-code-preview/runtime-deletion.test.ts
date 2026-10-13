@@ -1,39 +1,41 @@
 import { beforeEach, expect, test } from 'bun:test'
 
+import { config } from '@/config'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useDb } from '@/lib/test/doubles/db'
+import { useProvisionerKube } from '@/lib/test/doubles/provisioner-kube'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeWorkspace } from '@/lib/test/doubles/runtime-workspace'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { placementNamespace, RUNTIME_CONTROLLER_STALE_MS } from './runtime-controllers'
-import { reconcileRuntimeDeletions } from './runtime-deletion'
+import { reconcileRuntimeDeletions, requestRuntimeDeletion } from './runtime-deletion'
 import { hostedRuntimeName, hostedRuntimeUrl } from './runtime-objects'
 
 import type { KubeClient, KubeResourceState } from './kube-client'
 import type { RuntimeDeletion } from './runtime-portability-store'
 
 let memory = portabilityDb()
-let failArchive = false
 const actions: string[] = []
 
 useDb({ db: () => memory })
 useRedis({ redisEnabled: () => true })
+// Deletion must work even when turn admission is unavailable.
 useAgentRunStore({
   getActiveAgentRunForSession: async () => null,
-  reserveActiveAgentRunForSession: async () => () => {},
+  reserveActiveAgentRunForSession: async () => null,
 })
+// A removal must never enter the workspace backup path.
 useRuntimeWorkspace({
-  findWorkspaceArchive: async () => null,
+  findWorkspaceArchive: async () => {
+    throw new Error('Deletion must not read backups')
+  },
   saveRuntimeWorkspace: async () => {
-    actions.push('archive')
-    if (failArchive) throw new Error('Snapshot unavailable')
-
-    return {}
+    throw new Error('Deletion must not create backups')
   },
 })
 const teamId = '123456789012345678901234'
-const namespace = 'openab-runtimes'
+const namespace = config.claudeCodeRuntimeProvisioner.namespace
 const runtimeId = 'hosted-runtime'
 const name = hostedRuntimeName(teamId, 'claude-code', runtimeId)
 const elsewhere = (environment: string) => hostedRuntimeUrl(name, environment)
@@ -54,12 +56,14 @@ const kube: KubeClient = {
     resources.delete(key)
   },
 }
+
+useProvisionerKube({ provisionerKubeClient: () => kube })
+
 const tick = () => reconcileRuntimeDeletions(namespace, 'claude-code', kube)
 
 beforeEach(() => {
   memory = portabilityDb()
   actions.length = 0
-  failArchive = false
   job = {
     _id: runtimeId,
     teamId,
@@ -139,9 +143,9 @@ test('a replaced workspace claim stops the deletion', async () => {
   expect(actions).not.toContain('delete:PersistentVolumeClaim')
   expect(job.error).toBeTruthy()
 })
-test('saves before deletion and waits for the PV controller before removing credentials', async () => {
+test('waits for the PV controller before removing credentials', async () => {
   await tick()
-  expect(actions.slice(0, 2)).toEqual(['archive', 'delete:Deployment'])
+  expect(actions.slice(0, 1)).toEqual(['delete:Deployment'])
   await tick()
   expect(actions).toContain('delete:PersistentVolumeClaim')
   await tick()
@@ -155,18 +159,26 @@ test('saves before deletion and waits for the PV controller before removing cred
   await tick()
   expect(job.completedAt).toBeInstanceOf(Date)
   expect(hostedRow()).toHaveLength(0)
-  expect(actions.filter((action) => action === 'archive')).toHaveLength(1)
 })
-test('archive failure leaves the deployment, PVC, and credentials intact for retry', async () => {
-  failArchive = true
+test('both claims and the service start deleting in the same pass after pods terminate', async () => {
   await tick()
-  expect(actions).toEqual(['archive'])
-  expect(job.error).toBeTruthy()
-  expect(resources.has(`PersistentVolumeClaim/${name}-home`)).toBe(true)
-  failArchive = false
+  expect(actions).toEqual(['delete:Deployment'])
   await tick()
-  expect(actions).toContain('delete:Deployment')
+  expect(actions).toEqual([
+    'delete:Deployment',
+    'delete:PersistentVolumeClaim',
+    'delete:PersistentVolumeClaim',
+    'delete:Service',
+  ])
+  expect(job.completedAt).toBeUndefined()
+  resources.delete('PersistentVolume/volume')
+  await tick()
+  expect(job.completedAt).toBeUndefined()
+  resources.delete('PersistentVolume/workspace-volume')
+  await tick()
+  expect(job.completedAt).toBeInstanceOf(Date)
 })
+
 test('Retain policy and replacement claim identities cannot be deleted', async () => {
   resources.get('PersistentVolume/volume')!.spec!.persistentVolumeReclaimPolicy = 'Retain'
   await tick()
@@ -243,11 +255,25 @@ test('placement namespaces are read from the runtime URL', () => {
   expect(placementNamespace('wss://runtime.example.com/acp')).toBeUndefined()
 })
 
-test('moving a conversation first does not orphan its old workspace during deletion', async () => {
-  const conversation = memory.rows('agent_conversations')[0]!
-
-  conversation.previousRuntimeUrls = [job.placements[0]!.url]
-  conversation.claudeCodePreview = { runtimeUrl: 'wss://another-runtime/acp' }
+test('deletion does not wait for an active conversation or back up its workspace', async () => {
   await tick()
-  expect(actions.slice(0, 2)).toEqual(['archive', 'delete:Deployment'])
+  expect(actions).toEqual(['delete:Deployment'])
+  expect(job.error).toBeUndefined()
+})
+
+test('the remove request stops the deployment without waiting for the next timer', async () => {
+  await requestRuntimeDeletion(
+    teamId,
+    {
+      id: runtimeId,
+      provider: 'claude-code',
+      label: 'Agent',
+      status: 'active',
+      kind: 'managed',
+      createdAt: new Date().toISOString(),
+    },
+    'owner',
+  )
+  expect(actions).toEqual(['delete:Deployment'])
+  expect(job.completedAt).toBeUndefined()
 })

@@ -6,8 +6,13 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 const at = (min: number) => new Date(Date.UTC(2026, 9, 7, 0, min))
 
 let scans = 0
-let conversations: { sessionId: string; userId: string; title: string; agentRuntime?: string }[] =
-  []
+let conversations: {
+  sessionId: string
+  userId: string
+  title: string
+  agentRuntime?: string
+  generalAccess?: string
+}[] = []
 let messages: { sessionId: string; role: string; createdAt: Date }[] = []
 
 useAgentDb({
@@ -118,4 +123,18 @@ test('one scan serves a team and range until the next slot starts', async () => 
   await getTeamActivity('team-cache', '7d', t(31))
   await getTeamActivity('team-other', '1d', t(31))
   expect(scans).toBe(4)
+})
+
+test('a private session shows that someone worked, never what on', async () => {
+  conversations = [
+    { sessionId: 's1', userId: 'u-alice', title: 'Rotate prod keys', generalAccess: 'none' },
+    { sessionId: 's2', userId: 'u-bob', title: 'Shared fix', generalAccess: 'view' },
+  ]
+  messages = [msg('s1', 'user', 560), msg('s2', 'user', 561)]
+  const activity = await getTeamActivity('team-private', '1d', now)
+
+  expect(activity.sessions.map((session) => session.title)).toEqual([
+    'Private session',
+    'Shared fix',
+  ])
 })

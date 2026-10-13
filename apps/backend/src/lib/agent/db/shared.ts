@@ -1,13 +1,16 @@
 import { db } from '@/lib/db'
 
+import type { SessionResource } from '../session-resources'
+
+import type { GeneralAccess } from './access'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
-import type { RuntimeDefaults } from '@/lib/claude-code-preview/runtime-defaults'
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
-import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config'
+import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type BackgroundWorkLoss = 'session_lost' | 'unreachable'
@@ -65,6 +68,7 @@ export type AgentConversation = {
   sessionId: string // Frontend-generated UUID
   userId: string // Nuphos user id
   teamId?: string
+  linkedResources?: SessionResource[]
   titleManuallySet?: boolean
   title: string
   firstMessage: string
@@ -72,21 +76,25 @@ export type AgentConversation = {
   transcriptUpdatedAt?: Date
   createdAt: Date
   lastActiveAt: Date
-  // Owner-set archive marker. Archived conversations stay fully intact and
+  // Archive marker, set by the owner or a manager. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
-  // When the owner last un-archived it by hand. The idle sweep counts from
+  // When it was last un-archived by hand. The idle sweep counts from
   // here as well as from lastActiveAt, so a restored conversation is not
   // filed away again an hour later.
   archiveRestoredAt?: Date
   // Teammates who joined this conversation beside its owner. Speaking in a
   // session and being invited from Share are the same fact — "this person is
   // part of this conversation" — so both append here instead of splitting into
-  // an invited/active pair of lists. Access itself is not stored: every member
-  // of the conversation's team can already read and send (see
-  // readableConversationScope / assertConversationSendable), so this list is
-  // about who is involved, never about who is allowed.
+  // an invited/active pair of lists. Being here is also the person's own
+  // access grant: reply, unless they are listed in viewOnlyIds or managerIds.
   participantIds?: string[]
+  /** Participants who may read but not reply. Always a subset of participantIds. */
+  viewOnlyIds?: string[]
+  /** Participants who may also change the runtime and credentials. Disjoint from viewOnlyIds. */
+  managerIds?: string[]
+  /** What the rest of the team may do; see access.ts. Absent = 'reply'. */
+  generalAccess?: GeneralAccess
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
   /** Incremented at every assistant turn boundary. Absent means zero. */
@@ -95,10 +103,10 @@ export type AgentConversation = {
   readSeq?: number
   compactionSummary?: string
   compactionMessageCount?: number
-  // Exported Braintrust parent reference for this conversation. Created lazily
-  // on the first turn that has Braintrust enabled, so every subsequent turn
-  // nests under one "conversation" trace in the Braintrust UI.
-  braintrustParent?: string
+  parentSessionId?: string // Opener via create_thread; the sidebar nests under it until unlinked.
+  createdBySessionId?: string // The create_thread opener. Set once; parentSessionId can change.
+  // Native Mongo parent reference. Legacy vendor fields stay stored but unused.
+  conversationTraceParent?: string
   credentialAccess?: AgentCredentialAccess
   // Execution runtime is chosen once when the conversation is created and is
   // changed only by an explicit move. Team settings are defaults for NEW conversations;
@@ -120,6 +128,9 @@ export type AgentConversation = {
   // conversation, on which runtime endpoint. Durable so any backend replica
   // reattaches to the same inner session instead of forking a new one.
   claudeCodePreview?: ConversationPreviewAttachment
+  /** Model settings picked before a session exists; the runtime applies them
+   *  when it creates one. Cleared by a move, since choices are per agent. */
+  initialSessionConfig?: RuntimeDefaults
   claudeCodePreviewContext?: ConversationPreviewContext
   // What became of whatever the inner agent process left running — background
   // tasks, monitors, watchers. `session_lost` is a resume answering that the
@@ -282,16 +293,6 @@ export function withTeamScope(
     ...base,
     $or: [{ teamId }, { teamId: { $exists: false } }],
   }
-}
-
-export function readableConversationScope(
-  base: Record<string, unknown>,
-  viewerUserId: string,
-  teamId: string | undefined,
-): Record<string, unknown> {
-  if (!teamId) return { ...base, userId: viewerUserId }
-
-  return { ...base, teamId }
 }
 
 export function escapeRegExp(value: string): string {

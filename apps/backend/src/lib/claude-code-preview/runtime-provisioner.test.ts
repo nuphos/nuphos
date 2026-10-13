@@ -13,7 +13,7 @@ import {
   runtimeAuthSecretName,
   runtimeConfigMapObject,
 } from './runtime-objects'
-import { OPENAB_PROVIDERS } from './runtime-provider'
+import { OPENAB_PROVIDERS, runsBehindAcpShim } from './runtime-provider'
 import {
   publishedRuntimeImage,
   runtimeFeedRequests,
@@ -224,7 +224,7 @@ describe('reconcileHostedRuntimes', () => {
       const name = hostedRuntimeName('team-a', provider, agent.id)
 
       // Agents without a patched adapter start behind the ACP shim.
-      if (provider === 'grok' || provider === 'antigravity')
+      if (runsBehindAcpShim(provider))
         expect(
           ofKind<KubeObject & { data: Record<string, string> }>(kube, 'ConfigMap')[0]?.data[
             'config.toml'

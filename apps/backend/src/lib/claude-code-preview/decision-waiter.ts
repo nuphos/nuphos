@@ -7,7 +7,11 @@ import { runtimeRequestStore } from './runtime-request-store'
 import { withRedis } from '@/lib/redis'
 
 export type PreviewWaitKind =
-  'permission-grant' | 'authorization-rule' | 'client-tool' | 'agent-permission'
+  | 'permission-grant'
+  | 'client-tool'
+  | 'agent-permission'
+  /** An approval card a Nuphos tool shows itself, such as an app Computer Use asks to control. */
+  | 'authorization-rule'
 
 export type PreviewWait = {
   waitId: string

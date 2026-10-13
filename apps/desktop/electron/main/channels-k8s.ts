@@ -1,4 +1,4 @@
-import { dangerousManifestReason, requireNativeConsent } from '../consent'
+import { dangerousManifestReason, requireMainProcessConsent } from '../consent'
 import * as k8s from '../k8s'
 import * as k8sWatch from '../k8s-watch'
 
@@ -193,13 +193,13 @@ export const k8sChannels = {
     yamlText: string,
     expected: k8s.ApplyResourceIdentity,
   ) => {
-    // Native consent only for manifests that grant node/cluster-level power
+    // Main-process consent only for manifests that grant node/cluster-level power
     // (privileged pod, host namespace, hostPath, RBAC). Ordinary config edits
     // apply without a prompt. See electron/consent.ts.
     const reason = dangerousManifestReason(yamlText)
 
     if (reason) {
-      const ok = await requireNativeConsent(e.sender, {
+      const ok = await requireMainProcessConsent(e.sender, {
         title: 'Apply privileged resource?',
         message: `Apply ${expected.kind} "${expected.name}" to "${ctx}"?`,
         detail: `This manifest ${reason}. A compromised app window could use this to take over the cluster — only continue if you started this apply.`,

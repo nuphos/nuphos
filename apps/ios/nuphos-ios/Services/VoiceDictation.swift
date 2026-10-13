@@ -1,6 +1,9 @@
 import AVFoundation
 import Foundation
 import Observation
+#if os(iOS)
+import UIKit
+#endif
 
 /// One voice-input take in the composer: record from the microphone while
 /// sampling its level for the waveform, then hand the audio to Whisper.
@@ -32,6 +35,8 @@ final class VoiceDictation {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.record, mode: .default)
         try session.setActive(true)
+        // The recording ends when the screen locks, so it stays on meanwhile.
+        UIApplication.shared.isIdleTimerDisabled = true
         #endif
         let recorder = try AVAudioRecorder(url: file, settings: [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -75,6 +80,7 @@ final class VoiceDictation {
         recorder = nil
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        UIApplication.shared.isIdleTimerDisabled = false
         #endif
     }
 }

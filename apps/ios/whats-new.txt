@@ -1,5 +1,6 @@
-- Voice input: dictate in the composer with Whisper using your own OpenAI API key, stored only on this device.
-- Attachments: images and videos now show inline in the conversation.
-- Redesigned agent setup, plus agent usage at a glance.
-- Pinned and shared chats are now available on iOS.
-- Fixes: sign-in and transcript glitches, and the keyboard now closes when you leave a composer.
+- Share a session from your phone: set who on the team can open it, invite teammates and pick their role.
+- Type @ in the composer to point the agent at one of your other sessions.
+- Agent usage shows what is left, as a bar that drains like a battery.
+- Session managers can switch the agent.
+- Long messages stay fast and are folded; pull to refresh works on empty lists.
+- The approval card no longer offers "For session" and "Always allow", which had stopped working.

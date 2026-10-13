@@ -1,12 +1,4 @@
-import {
-  faBolt,
-  faDatabase,
-  faGlobe,
-  faHardDrive,
-  faKey,
-  faLayerGroup,
-} from '@fortawesome/free-solid-svg-icons'
-
+import { CLOUDFLARE_SCOPE_CATEGORIES } from './cloudflare-scopes'
 import { parseAtlasError } from '../../api'
 
 export type Provider =
@@ -30,54 +22,43 @@ export type Provider =
   | 'huawei'
   | 'azure'
 
-// Common Cloudflare resources the user picks access for before authorizing.
-// `scope` is the Cloudflare OAuth scope base; we append .read or .write per the
-// chosen access level (Cloudflare treats .write as "see and change"). Cloudflare
-// self-managed OAuth clients use dot+hyphen scope strings (e.g. `dns.write`),
-// not the underscore/colon form wrangler uses.
+// Each Cloudflare scope category gets one Off / Read / Write choice. Read
+// requests the category's read-only scopes; Write requests every scope in it.
 export type CloudflareScopeAccess = 'off' | 'read' | 'write'
 
-// Each resource maps to one or more scope bases (zone listing for DNS rides the
-// always-requested zone.read baseline; Workers also needs workers-routes for the
-// account-level custom domains view).
-export const CLOUDFLARE_SCOPE_RESOURCES = [
-  { key: 'dns', label: 'DNS', hint: 'Zones & records', icon: faGlobe, scopes: ['dns'] },
-  {
-    key: 'workers',
-    label: 'Workers',
-    hint: 'Scripts & cron',
-    icon: faBolt,
-    scopes: ['workers-scripts', 'workers-routes'],
-  },
-  {
-    key: 'pages',
-    label: 'Pages',
-    hint: 'Projects & deploys',
-    icon: faLayerGroup,
-    scopes: ['page'],
-  },
-  { key: 'r2', label: 'R2', hint: 'Buckets & objects', icon: faHardDrive, scopes: ['workers-r2'] },
-  { key: 'd1', label: 'D1', hint: 'Databases', icon: faDatabase, scopes: ['d1'] },
-  {
-    key: 'kv',
-    label: 'KV',
-    hint: 'Namespaces & keys',
-    icon: faKey,
-    scopes: ['workers-kv-storage'],
-  },
-] as const
+export type CloudflareScopeKey = (typeof CLOUDFLARE_SCOPE_CATEGORIES)[number]['key']
 
-export type CloudflareScopeKey = (typeof CLOUDFLARE_SCOPE_RESOURCES)[number]['key']
+export const CLOUDFLARE_DEFAULT_SCOPE_ACCESS = Object.fromEntries(
+  CLOUDFLARE_SCOPE_CATEGORIES.map((c) => [
+    c.key,
+    c.key === 'dns_and_zones' || c.key === 'developer_platform' ? 'write' : 'off',
+  ]),
+) as Record<CloudflareScopeKey, CloudflareScopeAccess>
+
+const READ_ONLY_SCOPE = /\.(read|metadata_read)$/
 
 // Always-requested baseline: account/user/memberships for account discovery,
 // zone.read so the DNS view can list zones, plus offline_access (added
 // server-side) for refresh tokens.
-export const CLOUDFLARE_BASELINE_SCOPES = [
+const CLOUDFLARE_BASELINE_SCOPES = [
   'account-settings.read',
   'user-details.read',
   'memberships.read',
   'zone.read',
 ]
+
+export function cloudflareScopesFor(
+  access: Record<CloudflareScopeKey, CloudflareScopeAccess>,
+): string[] {
+  const selected = CLOUDFLARE_SCOPE_CATEGORIES.flatMap((c): readonly string[] => {
+    if (access[c.key] === 'write') return c.scopes
+    if (access[c.key] === 'read') return c.scopes.filter((s) => READ_ONLY_SCOPE.test(s))
+
+    return []
+  })
+
+  return [...new Set([...selected, ...CLOUDFLARE_BASELINE_SCOPES])]
+}
 
 // Volcengine role TRN, e.g. trn:iam::2100000000:role/NuphosConnector.
 export const TRN_PATTERN = /^trn:iam::\d+:role\/.+$/

@@ -52,7 +52,6 @@ export const WorkspaceTabPane = memo(
     onOpenNodeLink,
     onOpenPlanInChat,
     onOpenConversation,
-    railCollapsed,
     onAgentSessionTitle,
     onOpenAuditConversation,
     copyLink,
@@ -91,11 +90,6 @@ export const WorkspaceTabPane = memo(
     // workspace's render is a new identity every time, and the memo would never
     // hold.
     const paneTeamId = tab.scope.kind === 'team' ? tab.scope.teamId : null
-    const onRailCollapsedChange = useCallback(
-      (collapsed: boolean) =>
-        updateTab(tabId, (cur) => ({ ...cur, agentRailCollapsed: collapsed })),
-      [tabId, updateTab],
-    )
     const onConnectGithub = useCallback(() => {
       if (paneTeamId) onRequestBindGithub({ teamId: paneTeamId, tabId })
     }, [paneTeamId, tabId, onRequestBindGithub])
@@ -258,7 +252,6 @@ export const WorkspaceTabPane = memo(
                     tab={tab}
                     user={user}
                     active={active}
-                    railCollapsed={railCollapsed}
                     isTeamAdmin={isTeamAdmin}
                     agentPaid={agentPaid}
                     pageHref={pageHref}
@@ -269,8 +262,6 @@ export const WorkspaceTabPane = memo(
                     onDockAgentToSidebar={onDockAgentToSidebar}
                     updateTab={updateTab}
                     onAgentSessionTitle={onAgentSessionTitle}
-                    onOpenConversation={onOpenConversation}
-                    onRailCollapsedChange={onRailCollapsedChange}
                     onOpenNuphosLink={onOpenNuphosLink}
                     onOpenSettingsSection={onOpenSettingsSection}
                     onStartFirstRunConnect={onStartFirstRunConnect}

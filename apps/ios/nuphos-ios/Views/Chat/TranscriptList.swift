@@ -9,6 +9,9 @@ struct TranscriptList: UIViewControllerRepresentable {
     let rows: [ChatRow]
     let submittedRowID: String?
     let sessionID: String
+    /// What sits between the transcript and the keyboard. Counting it as part
+    /// of the keyboard lets a drag pick both up at the composer's top edge.
+    let composerHeight: CGFloat
     let rowContent: (ChatRow) -> AnyView
 
     func makeUIViewController(context: Context) -> TranscriptController {
@@ -16,6 +19,7 @@ struct TranscriptList: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: TranscriptController, context: Context) {
+        controller.setComposerHeight(composerHeight)
         controller.update(rows: rows, submittedRowID: submittedRowID,
                           sessionID: sessionID, content: rowContent)
     }
@@ -37,6 +41,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var applying = false
     private var pending: (() -> Void)?
     private var previousSize = CGSize.zero
+    private var bottom: NSLayoutConstraint!
     private let latestButton = UIButton(type: .system)
 
     override func viewDidLoad() {
@@ -58,9 +63,12 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         collection.register(TranscriptCell.self, forCellWithReuseIdentifier: "row")
         collection.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collection)
+        // The view keeps its size; only the collection's bottom edge moves, and
+        // it moves inside the keyboard's own animation and interactive drag.
+        bottom = collection.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
         NSLayoutConstraint.activate([
             collection.topAnchor.constraint(equalTo: view.topAnchor),
-            collection.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            bottom,
             collection.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collection.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
@@ -88,7 +96,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         view.addSubview(latestButton)
         NSLayoutConstraint.activate([
             latestButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            latestButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            latestButton.bottomAnchor.constraint(equalTo: collection.bottomAnchor, constant: -12),
         ])
         latestButton.isHidden = true
     }
@@ -148,6 +156,23 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         animatePendingSend()
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        // The keyboard leaves with the page instead of after it has gone.
+        view.window?.endEditing(true)
+    }
+
+    /// The composer sits between the transcript and the keyboard. Counting it
+    /// as part of the keyboard lets a drag pick both up at the composer's top.
+    func setComposerHeight(_ height: CGFloat) {
+        loadViewIfNeeded()
+        guard bottom.constant != -height else { return }
+        view.keyboardLayoutGuide.keyboardDismissPadding = height
+        bottom.constant = -height
+        guard positioned else { return }
+        UIView.animate(withDuration: 0.28) { self.view.layoutIfNeeded() }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         let size = collection.bounds.size
@@ -156,7 +181,12 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         if !positioned, let id = extendedID {
             restore(id: id, edge: .top, offset: 0)
             positioned = true
-        } else if !positioned || following { positionAtEnd() }
+        } else if !positioned {
+            positionAtEnd()
+        } else if following, let last = rows.indices.last {
+            // Inside the keyboard's animation, so the rows travel with it.
+            layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
+        }
         animatePendingSend()
     }
 

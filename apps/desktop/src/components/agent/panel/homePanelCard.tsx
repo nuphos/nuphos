@@ -29,10 +29,12 @@ export function DashboardPanelCard({
   teamId,
   pin,
   onUnpin,
+  onOpenNuphosLink,
 }: {
   teamId: string
   pin: HomePanel
   /** Also the only way out for a pin whose panel was deleted, which Customize no longer lists. */
+  onOpenNuphosLink?: (href: string) => boolean
   onUnpin: () => void
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
@@ -81,7 +83,17 @@ export function DashboardPanelCard({
     <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
       <div className="group home-card-drag cursor-grab active:cursor-grabbing mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <LayoutDashboard className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={1.8} />
-        <span className="truncate">{panel?.title ?? 'Dashboard panel'}</span>
+        <BaseButton
+          onClick={() =>
+            onOpenNuphosLink?.(
+              `/teams/${encodeURIComponent(teamId)}/dashboards/${encodeURIComponent(pin.dashboardId)}`,
+            )
+          }
+          title="Open dashboard in dock"
+          className="min-w-0 truncate text-left hover:text-main focus-visible:outline focus-visible:outline-2"
+        >
+          {panel?.title ?? 'Dashboard panel'}
+        </BaseButton>
         {loaded?.dashboardName && (
           <span className="truncate text-tertiary">· {loaded.dashboardName}</span>
         )}

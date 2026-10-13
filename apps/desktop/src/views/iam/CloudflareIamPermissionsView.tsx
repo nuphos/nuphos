@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { SectionHeader } from '../../components/SectionHeader'
+import { Button } from '../../components/ui/button'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { BindAccountDialog } from '../BindAccountDialog'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { formatExpiry } from './common'
@@ -25,6 +27,7 @@ export function CloudflareIamPermissionsView({
   const [data, setData] = useState<CloudflareIamInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [reauthorizing, setReauthorizing] = useState(false)
   const reqRef = useRef(0)
 
   useReportLoading(loading, onLoading)
@@ -141,11 +144,26 @@ export function CloudflareIamPermissionsView({
                     ))}
                   </div>
                 )}
-                <div className="mt-3 text-[11.5px] text-tertiary">
-                  Scopes are fixed by the Cloudflare OAuth grant. To change them, delete this
-                  connector and reconnect the account.
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex-1 text-[11.5px] text-tertiary">
+                    Scopes are fixed by the Cloudflare OAuth grant. Re-authorize this account to
+                    change them.
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={() => setReauthorizing(true)}>
+                    Update scopes
+                  </Button>
                 </div>
               </section>
+              <BindAccountDialog
+                open={reauthorizing}
+                teamId={teamId}
+                initialProvider="cloudflare"
+                onClose={() => setReauthorizing(false)}
+                onBound={() => {
+                  setReauthorizing(false)
+                  silentReload()
+                }}
+              />
             </>
           )}
         </div>

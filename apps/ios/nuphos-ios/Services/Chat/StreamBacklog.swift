@@ -31,7 +31,7 @@ struct StreamBacklog {
     /// fast the stream is running.
     static let rendersImmediately: Set<String> = [
         "tool-approval-request", "atlas-turn-complete", "atlas-turn-paused",
-        "atlas-stream-done", "atlas-transcript-snapshot", "error",
+        "atlas-stream-done", "atlas-transcript-tail", "error",
     ]
 
     /// A frame stamped (`emittedAt`) this long before it arrives was written

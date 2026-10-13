@@ -1,3 +1,4 @@
+import { RUNTIME_HANDOFFS_KEY } from '@/lib/claude-code-preview/runtime-handoff-store'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled, replicaId, withRedis } from '@/lib/redis'
 
@@ -26,6 +27,7 @@ export function startAgentRunOwnership(
     onCancellationRequested?: () => void
     heartbeatMs?: number
     actorUserId?: string
+    teamId?: string
   } = {},
 ): () => void {
   if (!redisEnabled()) return () => {}
@@ -45,6 +47,7 @@ export function startAgentRunOwnership(
         .set(oKey, replicaId, 'EX', OWNER_TTL_SEC)
         .hset(aKey, 'streamId', streamId)
         .hset(aKey, 'actorUserId', options.actorUserId ?? userId)
+        .hset(aKey, 'teamId', options.teamId ?? '')
         .hsetnx(aKey, 'startedAt', String(Date.now()))
         // The hash rides the heartbeat, so a live run keeps refreshing it; only
         // an unreleased run lets it lapse (self-healing the lock).
@@ -188,23 +191,37 @@ async function sweepAbandonedGuard(
   userId: string,
   sessionId: string,
   streamId: string,
-): Promise<void> {
+): Promise<boolean> {
   const aKey = activeRunKey(userId, sessionId)
 
   try {
     const swept = await withRedis((c) =>
       c.eval(
         `
-          local current = redis.call('HGET', KEYS[1], ARGV[1])
-          if current == ARGV[2] then
-            return redis.call('DEL', KEYS[1])
+          if redis.call('HGET', KEYS[1], 'streamId') ~= ARGV[1] then return 0 end
+          if redis.call('EXISTS', KEYS[2]) == 1 then return 0 end
+          local ttl = redis.call('PTTL', KEYS[1])
+          if ttl < 0 or ttl > tonumber(ARGV[2]) then return 0 end
+          local team = redis.call('HGET', KEYS[1], 'teamId')
+          if team and team ~= '' then
+            local actor = redis.call('HGET', KEYS[1], 'actorUserId')
+            redis.call('HSETNX', KEYS[3], team .. ':' .. ARGV[4], cjson.encode({
+              teamId = team, conversationId = ARGV[4], ownerUserId = ARGV[3],
+              actorUserId = actor or ARGV[3], locale = 'en-US',
+              at = tonumber(ARGV[5]), abandonedStreamId = ARGV[1]
+            }))
           end
-          return 0
+          return redis.call('DEL', KEYS[1])
         `,
-        1,
+        3,
         aKey,
-        'streamId',
+        ownerKey(userId, streamId),
+        RUNTIME_HANDOFFS_KEY,
         streamId,
+        ACTIVE_RUN_TTL_SEC * 1_000 - ABANDONED_GUARD_GRACE_MS,
+        userId,
+        sessionId,
+        Date.now(),
       ),
     )
 
@@ -216,6 +233,8 @@ async function sweepAbandonedGuard(
       swept: swept === 1,
       abandoned_grace_ms: ABANDONED_GUARD_GRACE_MS,
     })
+
+    return swept === 1
   } catch (err) {
     logError('agent.run.busy_guard_sweep_failed', err, {
       user_id: userId,
@@ -223,6 +242,8 @@ async function sweepAbandonedGuard(
       stream_id: streamId,
       redis_active_key: aKey,
     })
+
+    return false
   }
 }
 
@@ -239,10 +260,25 @@ export async function getActiveAgentRunForSession(
 
   if (!streamId) return null
   if (await guardIsAbandoned(userId, sessionId, streamId)) {
-    await sweepAbandonedGuard(userId, sessionId, streamId)
-
-    return null
+    if (await sweepAbandonedGuard(userId, sessionId, streamId)) return null
   }
 
   return { streamId, startedAt: startedAt ?? null, actorUserId: actorUserId ?? null }
+}
+
+/** Bounded scan; recovery must also work while every desktop is disconnected. */
+export async function sweepAbandonedAgentRuns(cursor = '0'): Promise<string> {
+  if (!redisEnabled()) return '0'
+  const page = await withRedis((redis) =>
+    redis.scan(cursor, 'MATCH', 'atlas:agentrun-active:*', 'COUNT', 1_000, 'TYPE', 'hash'),
+  )
+
+  if (!page) return cursor
+  for (const key of page[1]) {
+    const match = /^atlas:agentrun-active:([^:]+):([^:]+)$/.exec(key)
+
+    if (match) await getActiveAgentRunForSession(match[1]!, match[2]!)
+  }
+
+  return page[0]
 }

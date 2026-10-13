@@ -45,9 +45,12 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     let owner: Owner?
     let isOwner: Bool?
     let readOnly: Bool?
+    /// The owner, or a teammate invited to manage it: may switch the mode and
+    /// the agent, and archive it.
+    let canManage: Bool
     let tokenUsage: TokenUsage?
     let activitySource: ActivitySource?
-    /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity`.
+    /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
     let agentRuntime: String?
     let runtimeId: String?
     let runtimeLabel: String?
@@ -56,6 +59,9 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Owner-only read state, shared by all of the owner's devices.
     let activitySeq: Int?
     let readSeq: Int?
+    /// The conversation that opened this one as a thread; the Agent page
+    /// nests it there. Cleared when the owner unlinks it.
+    var parentSessionId: String?
 
     var id: String { sessionId }
 
@@ -70,7 +76,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 
     var isArchived: Bool { archivedAt != nil }
-    var canManage: Bool { isOwner == true && readOnly != true }
+    var ownsChat: Bool { isOwner == true && readOnly != true }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -85,6 +91,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         owner = try c.decodeIfPresent(Owner.self, forKey: .owner)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
+        canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage) ?? (isOwner == true && readOnly != true)
         tokenUsage = try c.decodeIfPresent(TokenUsage.self, forKey: .tokenUsage)
         activitySource = try c.decodeIfPresent(ActivitySource.self, forKey: .activitySource)
         agentRuntime = try c.decodeIfPresent(String.self, forKey: .agentRuntime)
@@ -94,6 +101,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         activitySeq = try? c.decodeIfPresent(Int.self, forKey: .activitySeq)
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
+        parentSessionId = try c.decodeIfPresent(String.self, forKey: .parentSessionId)
     }
 
     init(
@@ -103,7 +111,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         tokenUsage: TokenUsage? = nil, activitySource: ActivitySource? = nil,
         agentRuntime: String? = nil, runtimeId: String? = nil, runtimeLabel: String? = nil,
         activeRun: ActiveRun? = nil, runtimeState: JSONValue? = nil,
-        activitySeq: Int? = nil, readSeq: Int? = nil
+        activitySeq: Int? = nil, readSeq: Int? = nil, parentSessionId: String? = nil
     ) {
         self.sessionId = sessionId
         self.teamId = teamId
@@ -116,6 +124,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.owner = owner
         self.isOwner = isOwner
         self.readOnly = readOnly
+        canManage = isOwner == true && readOnly != true
         self.tokenUsage = tokenUsage
         self.activitySource = activitySource
         self.agentRuntime = agentRuntime
@@ -125,6 +134,27 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.runtimeState = runtimeState
         self.activitySeq = activitySeq
         self.readSeq = readSeq
+        self.parentSessionId = parentSessionId
+    }
+}
+
+/// A pull request or Linear issue the agent linked to a conversation
+/// (`GET /agent/conversations/:id/resources`).
+struct SessionResource: Decodable, Identifiable, Equatable, Sendable {
+    let id: String
+    /// `github` | `linear`.
+    let provider: String
+    let title: String
+    let url: URL
+    let state: String
+    let repository: String?
+    let number: Int?
+
+    /// What a chip has room for: `#165` for a pull request, or the identifier
+    /// a Linear title starts with.
+    var chip: String {
+        if let number { return "#\(number)" }
+        return title.split(separator: " ").first.map(String.init) ?? title
     }
 }
 
@@ -154,8 +184,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     let activeRun: ActiveRun?
     let runtimeState: JSONValue?
     let isOwner: Bool?
-    let canCancelRun: Bool?
-    let canRespondToRun: Bool?
+    let canManage: Bool?
     let readOnly: Bool?
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
@@ -169,7 +198,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     let timelineEvents: [TimelineEvent]
 
     private enum CodingKeys: String, CodingKey {
-        case isOwner, canCancelRun, canRespondToRun, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
+        case isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
     }
 
     init(from decoder: Decoder) throws {
@@ -179,8 +208,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         activeRun = try? c.decodeIfPresent(ActiveRun.self, forKey: .activeRun)
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
-        canCancelRun = try c.decodeIfPresent(Bool.self, forKey: .canCancelRun)
-        canRespondToRun = try c.decodeIfPresent(Bool.self, forKey: .canRespondToRun)
+        canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)

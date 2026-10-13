@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { track } from '../../../lib/analytics'
 import { ONBOARDING_EXTRA_STEPS_ENABLED } from '../../../views/onboarding/onboardingSteps'
@@ -41,10 +41,12 @@ export function AgentHomePage({
   starterSuggestions = [],
   starterSuggestionsLoading = false,
   shown = true,
+  newChatRequest = 0,
   userName,
   onImportSession,
   isTeamAdmin = false,
   onOpenConversation,
+  onOpenNuphosLink,
 }: {
   /** Only used to decide whether the starter suggestions are worth showing:
    *  they are for a team that has not started a conversation yet. */
@@ -73,6 +75,7 @@ export function AgentHomePage({
   onStartConnect?: () => void
   /** Whether the page is in view; each time it comes back, the entrance replays. */
   shown?: boolean
+  newChatRequest?: number
   /** Scopes the connector strip's dismissal. Undefined outside a team. */
   teamId?: string
   // LLM-generated starter questions tailored to the team's connected resources.
@@ -86,8 +89,15 @@ export function AgentHomePage({
   /** Administrators can make their home layout the team default. */
   isTeamAdmin?: boolean
   /** Opens a conversation picked from a home card. */
+  onOpenNuphosLink?: (href: string) => boolean
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (shown && scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [shown, newChatRequest])
+
   const entranceKey = useEntranceCount(shown)
   const firstRun = unbound && ONBOARDING_EXTRA_STEPS_ENABLED
   const handleStartConnect = useCallback(() => onStartConnect?.(), [onStartConnect])
@@ -122,7 +132,10 @@ export function AgentHomePage({
 
   return (
     // A size container, so the block above can measure half of what is visible.
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin selectable [container-type:size]">
+    <div
+      ref={scrollRef}
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin selectable [container-type:size]"
+    >
       <div className="flex min-h-full flex-col px-6 pb-8">
         {/* Exactly half the visible height, bottom-aligned: the composer's
             bottom edge sits on the page's middle, and everything else hangs
@@ -165,6 +178,7 @@ export function AgentHomePage({
                   dropRegisterRef={dropRegisterRef}
                   draftKey={composerDraftKey(teamId)}
                   onImportSession={onImportSession}
+                  mentionScope={teamId ? { teamId } : undefined}
                 />
               </div>
               {firstRun && !stripDismissed && (
@@ -200,6 +214,7 @@ export function AgentHomePage({
               teamId={teamId}
               isTeamAdmin={isTeamAdmin}
               onOpenConversation={onOpenConversation}
+              onOpenNuphosLink={onOpenNuphosLink}
               revealAt={COMPOSER_REVEAL_MS + 300}
               replayKey={entranceKey}
             />

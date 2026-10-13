@@ -9,7 +9,7 @@ import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID, emitFirstRunConvo } from './model'
-import { nextAutoSend, queueAutoSend, runtimeMayAcceptLater } from './queuedAutoSend'
+import { markAutoSend, nextAutoSend, queueAutoSend, runtimeMayAcceptLater } from './queuedAutoSend'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
 import { useSteering } from './useSteering'
@@ -27,6 +27,7 @@ type Acc = Pick<
   | 'kubeContextRef'
   | 'lastCredentialSyncedRef'
   | 'newConversationRuntime'
+  | 'newConversationSessionConfig'
   | 'newConversationCredentialAccess'
   | 'sendableCredentialAccess'
   | 'setActiveId'
@@ -50,6 +51,7 @@ export function useTurnDispatch(acc: Acc) {
     kubeContextRef,
     lastCredentialSyncedRef,
     newConversationRuntime,
+    newConversationSessionConfig,
     newConversationCredentialAccess,
     sendableCredentialAccess,
     setActiveId,
@@ -82,6 +84,7 @@ export function useTurnDispatch(acc: Acc) {
             setBypassBySession,
             defaultPermissionMode,
             newConversationRuntime: runtime,
+            newConversationSessionConfig,
             newConversationCredentialAccess,
             credentialAccessRef,
             lastCredentialSyncedRef,
@@ -119,6 +122,7 @@ export function useTurnDispatch(acc: Acc) {
       setBypassBySession,
       defaultPermissionMode,
       newConversationRuntime,
+      newConversationSessionConfig,
       newConversationCredentialAccess,
       credentialAccessRef,
       credentialOptions,
@@ -224,14 +228,8 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
-      // Steering carries text only; a message with attachments waits in the
-      // queue and sends itself when the turn ends.
-      if (
-        filePaths.length === 0 &&
-        runtimeAllows(tab.runtimeState, 'steer') &&
-        !runtimeAllows(tab.runtimeState, 'reply')
-      ) {
-        await sendSteering(activeId, trimmed)
+      if (runtimeAllows(tab.runtimeState, 'steer') && !runtimeAllows(tab.runtimeState, 'reply')) {
+        await sendSteering(activeId, trimmed, filePaths)
 
         return
       }
@@ -268,22 +266,19 @@ export function useTurnDispatch(acc: Acc) {
       const draft = tab?.queued?.find((candidate) => candidate.id === queuedId)
 
       if (!tab || !draft || draft.steering) return
-      if (draft.filePaths.length === 0 && runtimeAllows(tab.runtimeState, 'steer')) {
-        await sendSteering(tabId, draft.text, queuedId)
+      if (runtimeAllows(tab.runtimeState, 'steer')) {
+        await sendSteering(tabId, draft.text, draft.filePaths, queuedId)
 
         return
       }
-      if (!runtimeAllows(tab.runtimeState, 'send')) return
-      await dispatchTurn(tabId, draft.text, draft.filePaths)
+      // Not steerable right now: let the queue send it once the agent allows.
       setTabs((previous) =>
         previous.map((candidate) =>
-          candidate.id === tabId
-            ? { ...candidate, queued: candidate.queued?.filter((item) => item.id !== queuedId) }
-            : candidate,
+          candidate.id === tabId ? markAutoSend(candidate, queuedId) : candidate,
         ),
       )
     },
-    [dispatchTurn, sendSteering, tabsRef, setTabs],
+    [sendSteering, tabsRef, setTabs],
   )
 
   return { startChatWith, dispatchTurn, sendInActive, steerQueued }

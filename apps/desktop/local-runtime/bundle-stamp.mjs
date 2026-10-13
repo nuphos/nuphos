@@ -5,8 +5,15 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-export const PATCH_SOURCES = ['adapter-patches.mjs', 'skills-sync.mjs', 'claude-session-env.mjs']
-export const STAMP_SOURCES = ['prepare.mjs', ...PATCH_SOURCES]
+export const PATCH_SOURCES = [
+  'adapter-patches.mjs',
+  'skills-sync.mjs',
+  'claude-session-env.mjs',
+  'computer-use-permission.mjs',
+]
+export const STAMP_SOURCES = ['prepare.mjs', 'computer-use-permission.swift', ...PATCH_SOURCES]
+/** The backend's fixed attachment program, which the local runtime runs as its own job. */
+export const ATTACHMENT_JOB = '../../backend/src/lib/claude-code-preview/attachment-job.mjs'
 /** The runtime image's adapters, staged as the image stages them. */
 export const RUNTIME_DIR = join(here, '../../runtime/image')
 export const RUNTIME_SOURCES = [
@@ -14,6 +21,7 @@ export const RUNTIME_SOURCES = [
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'session-home.mjs',
+  ATTACHMENT_JOB,
   ...[
     'package.json',
     'package-lock.json',

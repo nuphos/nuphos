@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
 import { emptyConnectorCredentialOptions } from './credential-options-connectors'
-import { availableCredentialAccess, withOmittedKeysFromStored } from './credential-resolve'
+import {
+  availableCredentialAccess,
+  managerCredentialAccess,
+  withOmittedKeysFromStored,
+} from './credential-resolve'
 import { normalizeCredentialSelection } from './team-scope'
 import { includeBoundOnpremCluster } from './credential-resolve-onprem'
 
@@ -137,5 +141,36 @@ describe('withOmittedKeysFromStored', () => {
 
   test('a missing selection is left for normalization, not filled from storage', () => {
     expect(withOmittedKeysFromStored(undefined, stored)).toBeUndefined()
+  })
+})
+
+describe('managerCredentialAccess', () => {
+  const both = { ...credentialOptions(), azureAccounts: [] }
+  const ownerOnly = credentialOptions()
+  const managerOptions = {
+    ...both,
+    awsRoles: [
+      ...both.awsRoles,
+      { roleId: 'aws-2', accountId: '222222222222', accountAlias: null, roleArn: 'arn:aws:iam::2' },
+    ],
+  }
+
+  test('keeps what the manager cannot see and drops what the owner cannot use', () => {
+    const access = managerCredentialAccess(
+      { awsRoleIds: ['aws-2'], azureAccountIds: [] },
+      {
+        awsRoleIds: ['aws-1'],
+        azureAccountIds: ['az-1'],
+        updatedAt: new Date(),
+        updatedBy: 'owner',
+      } as never,
+      managerOptions,
+      ownerOnly,
+    )
+
+    // aws-1 was cleared by the manager, who sees it; az-1 is the owner's alone;
+    // aws-2 is the manager's, which a turn running as the owner cannot use.
+    expect(access.awsRoleIds).toEqual([])
+    expect(access.azureAccountIds).toEqual(['az-1'])
   })
 })

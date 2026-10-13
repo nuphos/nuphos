@@ -102,8 +102,66 @@ jobs:
           if command -v sha256sum >/dev/null; then sha256sum "$ASSET" > "$ASSET.sha256"; else shasum -a 256 "$ASSET" > "$ASSET.sha256"; fi
           gh release upload "$TAG" "$ASSET" "$ASSET.sha256" --repo "$GITHUB_REPOSITORY" --clobber
 
+  # The runtime `nuphos agent` fetches on first use: the desktop's staged
+  # local runtime (openab and the ACP adapters) plus its host for plain Node.
+  agent:
+    needs: validate
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-26
+            targets: darwin-arm64,darwin-x64
+          # 22.04: the glibc openab links against is the oldest it can run
+          # on, and 22.04 (2.35) covers Debian 12 as well.
+          - runner: ubuntu-22.04
+            targets: linux-x64
+          - runner: ubuntu-22.04-arm
+            targets: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Stage local runtime
+        env:
+          TARGETS: ${{ matrix.targets }}
+        run: node local-runtime/prepare.mjs --targets "$TARGETS" --require
+      - name: Pack and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          TARGETS: ${{ matrix.targets }}
+        run: |
+          set -euo pipefail
+          for target in ${TARGETS//,/ }; do
+            dir="build/local-runtime/$target"
+            bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm --outfile "$dir/host.mjs"
+            ASSET="nuphos-agent-$target.tar.gz"
+            tar -czf "$ASSET" -C "$dir" .
+            if command -v sha256sum >/dev/null; then sha256sum "$ASSET" > "$ASSET.sha256"; else shasum -a 256 "$ASSET" > "$ASSET.sha256"; fi
+            gh release upload "$TAG" "$ASSET" "$ASSET.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+          done
+
   publish:
-    needs: [validate, build]
+    needs: [validate, build, agent]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -74,11 +74,12 @@ export async function steerConversation(
   sessionId: string,
   text: string,
   teamId?: string,
-): Promise<{ ok: boolean; messageId: string }> {
-  return callJson<{ ok: boolean; messageId: string }>(
+  groupId?: string,
+): Promise<{ ok: boolean; messageId: string; text?: string }> {
+  return callJson<{ ok: boolean; messageId: string; text?: string }>(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/steer${teamQuery(teamId)}`,
-    { text },
+    { text, ...(groupId ? { groupId } : {}) },
   )
 }
 
