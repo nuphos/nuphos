@@ -17,6 +17,8 @@ const endpoint = {
 const attachment = { openabSessionId: 'session', runtimeUrl: endpoint.url }
 const calls: string[] = []
 let sendAllowed = true
+// Observations left before another turn releases the runtime.
+let activeFor = 0
 let phase: string | undefined
 let phaseAfterLoad: string | undefined
 let loaded = false
@@ -68,6 +70,11 @@ useSessionExecutionState({
   conversationExecutionState: async (conversation) => {
     expect(conversation.claudeCodePreview).toEqual(attachment)
     calls.push('observe-control')
+    if (activeFor > 0) {
+      activeFor--
+
+      return { schemaVersion: 2, state: 'active', actions: { send: false }, label: 'Responding…' }
+    }
 
     return {
       schemaVersion: 2,
@@ -82,6 +89,7 @@ beforeEach(() => {
   loaded = false
   prompted = undefined
   sendAllowed = true
+  activeFor = 0
   phase = undefined
   phaseAfterLoad = undefined
   workLost = null
@@ -137,6 +145,31 @@ test('a busy runtime is rejected without loading or prompting a replacement sock
   sendAllowed = false
   await expect(run()).rejects.toThrow('Running tools…')
   expect(calls).toEqual(['observe-control'])
+})
+
+test('a message admitted just before another turn took the runtime waits for it, then prompts', async () => {
+  activeFor = 1
+  expect(await run()).toEqual({ stopReason: 'end_turn' })
+  expect(calls).toEqual(['observe-control', 'observe-control', 'load', 'prompt'])
+})
+
+test('stopping a message that waits for another turn prompts nothing', async () => {
+  activeFor = Infinity
+  const controller = new AbortController()
+  const pending = runClaudeCodePreviewPrompt({
+    teamId: 'team',
+    conversationId: 'conversation',
+    userId: 'user',
+    locale: 'en-US',
+    message: 'Continue',
+    endpoint,
+    signal: controller.signal,
+    onTextDelta: noop,
+  })
+
+  controller.abort()
+  expect(await pending).toEqual({ stopReason: 'cancelled' })
+  expect(calls).not.toContain('prompt')
 })
 
 test('re-attaches a continuation parked on a lost output connection instead of leaving it stuck', async () => {
