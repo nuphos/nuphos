@@ -43,7 +43,8 @@ export async function approveAppForComputerUse(
   await publish({
     type: 'tool-input-available',
     toolName: 'local_cua',
-    input: { approval: request.message, app: request.meta.tool_params },
+    // `title` is what the card shows as its heading.
+    input: { title: request.message, app: request.meta.tool_params },
   })
   if (await deps.bypass(ctx.sessionId, ctx.userId)) {
     // The transcript keeps what the agent was allowed to control without asking.

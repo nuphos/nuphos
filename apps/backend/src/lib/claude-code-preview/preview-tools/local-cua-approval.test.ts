@@ -55,7 +55,7 @@ describe('approveAppForComputerUse', () => {
       'tool-approval-request',
       'tool-output-available',
     ])
-    expect(frames[0]).toMatchObject({ input: { approval: request.message } })
+    expect(frames[0]).toMatchObject({ input: { title: request.message } })
     expect(frames[1]).toMatchObject({ toolCallId: card, approvalId: card })
   })
 
