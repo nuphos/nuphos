@@ -1,12 +1,11 @@
-import clsx from 'clsx'
 import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { AppAlertDialog } from '../../ui/alert-dialog'
 
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
-import { MENTION_ATTR, optionChip, optionKey } from './composerMentionChips'
-import { MentionOptionRow } from './composerMentionOptions'
+import { MENTION_ATTR, optionChip } from './composerMentionChips'
+import { MentionPicker } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
 
 import type { MentionOption } from './composerMentionChips'
@@ -49,6 +48,10 @@ export function useComposerMentions(
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [query, setQuery] = useState<string | null>(null)
   const [active, setActive] = useState(0)
+  const [anchor, setAnchor] = useState<{
+    getBoundingClientRect: () => DOMRect
+    contextElement: HTMLElement
+  } | null>(null)
   const [uninvited, setUninvited] = useState<TeamMember[]>([])
   // Tagged with the query they answer, so a list for an earlier keystroke is
   // never shown (or picked) under a later one.
@@ -107,7 +110,12 @@ export function useComposerMentions(
 
     setQuery(next)
     setActive(0)
-    if (next === null) return
+    if (next === null || !el || !caret) return
+    const range = document.createRange()
+
+    range.setStart(caret.node, caret.offset)
+    range.collapse(true)
+    setAnchor({ getBoundingClientRect: () => range.getBoundingClientRect(), contextElement: el })
     loadMembers()
     loadSessions(next)
   }
@@ -192,35 +200,14 @@ export function useComposerMentions(
   const names = uninvited.map((member) => member.name || member.email)
   const ui = (
     <>
-      {matches.length > 0 && (
-        // The menu dropdown transition (t-dropdown) the app's menus use, growing
-        // up from the composer's left edge.
-        <div
-          role="listbox"
-          data-origin="bottom-left"
-          className="t-dropdown is-open absolute bottom-full left-0 z-20 mb-2 w-[280px] overflow-hidden rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]"
-        >
-          {matches.map((option, index) => (
-            <div
-              key={optionKey(option)}
-              role="option"
-              aria-selected={index === active}
-              className={clsx(
-                'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px]',
-                index === active && 'bg-zGray-800/60',
-              )}
-              // Keep focus (and the caret) in the editor.
-              onMouseDown={(e) => {
-                e.preventDefault()
-                select(option)
-              }}
-              onMouseEnter={() => setActive(index)}
-            >
-              <MentionOptionRow option={option} />
-            </div>
-          ))}
-        </div>
-      )}
+      <MentionPicker
+        options={matches}
+        active={active}
+        anchor={anchor}
+        onSelect={select}
+        onActive={setActive}
+        onClose={() => setQuery(null)}
+      />
       <AppAlertDialog
         open={uninvited.length > 0}
         title={
