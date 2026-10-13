@@ -24,7 +24,7 @@ export type ThreadTurn = ThreadActor & {
   prompt: string
 }
 
-export async function authorizeThreadActor(actor: ThreadActor): Promise<{ source: AgentConversation; target: AgentConversation }> {
+export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentConversation> {
   const source = await getConversationBySessionId(actor.sessionId)
 
   if (
@@ -42,7 +42,7 @@ export async function authorizeThreadActor(actor: ThreadActor): Promise<{ source
 
 export async function authorizeThreadDelivery(
   data: ThreadActor & { targetSessionId: string },
-): Promise<AgentConversation> {
+): Promise<{ source: AgentConversation; target: AgentConversation }> {
   const source = await authorizeThreadActor(data)
   const target = await getConversationBySessionId(data.targetSessionId)
 
