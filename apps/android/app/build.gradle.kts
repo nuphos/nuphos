@@ -88,3 +88,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// Coroutine tests replace Dispatchers.Main; isolate test classes from leaked global state.
+tasks.withType<Test>().configureEach {
+    forkEvery = 1
+    maxParallelForks = 1
+}
