@@ -26,6 +26,11 @@ node compose.mjs  # writes build/screenshots/*.png and build/html/*.html
 After re-rendering, upload `build/screenshots/*.png` over the files in the `cdn` R2 bucket under
 `nuphos/app-store/ios/en-US/`, which `cdn.zeabur.com` serves.
 
+[`published.txt`](published.txt) lists the published images in App Store order, one `<sha256>  <url>` per line (`shasum -a 256 <file>`). A release fails if a download does not match its hash, so update the hash whenever an image is replaced. Every iOS release
+(`release-ios.yml`) downloads them and replaces the version's iPhone 6.9" screenshot set before it
+submits for review, so App Store Connect always shows this set. Add, remove or reorder a
+screenshot by editing that file; the next release picks it up.
+
 ## Files
 
 - `ui.js` — the iOS screens as HTML, in native points on a 440×956 canvas (dark appearance).

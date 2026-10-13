@@ -91,12 +91,14 @@ describe('createLocalExecTool execute', () => {
     expect(dispatchCalls).toEqual([])
   })
 
-  test('runs an unknown device id on the sole available device and says so', async () => {
+  test('never runs a requested device id on another device', async () => {
     const tool = createLocalExecTool([{ deviceId: 'd1', label: 'MacBook' }], turn) as ExecTool
-    const result = await tool.execute({ label: 'run', command: 'echo hi', device: 'default' }, {})
+    const result = await tool.execute({ label: 'run', command: 'echo hi', device: 'd2' }, {})
 
-    expect(result).toEqual({ stdout: 'ok', stderr: '', exitCode: 0, ranOn: 'd1 (MacBook)' })
-    expect(dispatchCalls).toEqual([{ userId: 'u1', deviceId: 'd1', command: 'echo hi' }])
+    expect(result).toEqual({
+      error: 'Device d2 is not available; pass device=<deviceId>, one of: d1 (MacBook).',
+    })
+    expect(dispatchCalls).toEqual([])
   })
 
   test('rejects an unknown device id among several and lists the current ones', async () => {
