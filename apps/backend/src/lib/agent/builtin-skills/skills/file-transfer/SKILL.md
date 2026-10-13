@@ -134,8 +134,9 @@ presigned, so the device can PUT the bytes itself — no copying the file into
 the sandbox. Create the group here, PUT from the device, finalize here:
 
 ```bash
-# 1. Sandbox (ft helper from Auth): one entry per file, size in bytes from
-#    `stat -f%z <file>` (macOS) or `stat -c%s <file>` (Linux) on the device.
+# 1. Sandbox (ft helper from Auth): one entry per file. `size` must be the
+#    exact byte count — finalize rejects a mismatch. Read it on the device:
+#    `stat -f%z` (macOS), `stat -c%s` (Linux), `(Get-Item f).Length` (Windows).
 ft POST "" -d '{"direction":"download","files":[{"fileName":"menu.png","relPath":"menu.png","size":48213,"contentType":"image/png"}]}'
 # → { groupId, files: [{ relPath, uploadUrl }] }
 
@@ -145,6 +146,10 @@ curl -fsS -X PUT -H "Content-Type: image/png" --upload-file ~/shots/menu.png '<u
 # 3. Sandbox: the card appears once the group is ready.
 ft POST "/<groupId>/finalize"
 ```
+
+Each `uploadUrl` can overwrite its file until it expires (~15 min), and it is
+in the transcript. Run steps 2 and 3 back to back, and never repeat the URL in
+replies, issues, or logs. The usual limits apply (see Failure handling).
 
 ## Failure handling
 
