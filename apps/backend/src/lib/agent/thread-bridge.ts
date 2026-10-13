@@ -223,9 +223,7 @@ export async function setAgentThreadArchived(
   if (!target || target.userId !== actor.userId || target.teamId !== actor.teamId) {
     throw new Error('Target must be a conversation you own in this team.')
   }
-  if (!(await setConversationArchived(threadId, actor.userId, actor.teamId, archived))) {
-    throw new Error('Target conversation was not found.')
-  }
+  await setConversationArchived(threadId, archived)
 
   return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
 }

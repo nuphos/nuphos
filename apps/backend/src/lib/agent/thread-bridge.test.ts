@@ -29,7 +29,6 @@ const actor = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'z
 let source: AgentConversation
 let target: AgentConversation
 let member = true
-let archiveFound = true
 const archives: unknown[][] = []
 const claims: Parameters<TurnRunner['claimAgentRunOrEnqueue']>[0][] = []
 const shells: Parameters<typeof import('./db').upsertConversationShell>[0][] = []
@@ -53,7 +52,6 @@ beforeEach(() => {
   }
   target = { ...source, sessionId: 'target' }
   member = true
-  archiveFound = true
   archives.length = 0
   claims.length = 0
   shells.length = 0
@@ -143,7 +141,7 @@ useAgentDb({
   setConversationArchived: async (...args) => {
     archives.push(args)
 
-    return archiveFound
+    return undefined
   },
   getConversationBySessionId: async (id) =>
     id === 'source'
@@ -362,9 +360,9 @@ describe('archive thread', () => {
     await setAgentThreadArchived(actor, 'target', false)
     await setAgentThreadArchived(actor, 'source', true)
     expect(archives).toEqual([
-      ['target', 'owner', 'team', true],
-      ['target', 'owner', 'team', false],
-      ['source', 'owner', 'team', true],
+      ['target', true],
+      ['target', false],
+      ['source', true],
     ])
   })
   test('rejects missing, foreign-owner and cross-team targets without a write', async () => {
@@ -380,9 +378,5 @@ describe('archive thread', () => {
     member = false
     await expect(setAgentThreadArchived(actor, 'target', true)).rejects.toThrow('still belong')
     expect(archives).toEqual([])
-  })
-  test('reports a target removed before the database write', async () => {
-    archiveFound = false
-    await expect(setAgentThreadArchived(actor, 'target', true)).rejects.toThrow('not found')
   })
 })
