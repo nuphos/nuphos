@@ -336,7 +336,7 @@ pub async fn exec(
             Some(name) => Some(shared::find(&runtimes, &name, "agent")?),
             None => shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id),
         };
-        body["permissionMode"] = json!("auto");
+        body["permissionMode"] = json!(if ctx.prefs.full_access { "bypass" } else { "auto" });
         if let Some(r) = runtime {
             body["runtimeId"] = r["id"].clone();
             body["agentRuntime"] = r["provider"].clone();

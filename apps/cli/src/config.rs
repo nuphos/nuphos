@@ -27,7 +27,7 @@ pub struct Session {
 
 /// What this client remembers between runs; the desktop keeps the same
 /// choices in its own storage.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Prefs {
     #[serde(default, rename = "teamId", skip_serializing_if = "Option::is_none")]
     pub team_id: Option<String>,
@@ -35,8 +35,18 @@ pub struct Prefs {
     #[serde(default, rename = "runtimeIds")]
     pub runtime_ids: HashMap<String, String>,
     /// New conversations start in Full Access: the last pick in /full-access.
-    #[serde(default, rename = "fullAccess")]
+    #[serde(default = "default_full_access", rename = "fullAccess")]
     pub full_access: bool,
+}
+
+fn default_full_access() -> bool {
+    true
+}
+
+impl Default for Prefs {
+    fn default() -> Self {
+        Self { team_id: None, runtime_ids: HashMap::new(), full_access: default_full_access() }
+    }
 }
 
 fn home() -> PathBuf {
@@ -132,4 +142,16 @@ fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
         fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Prefs;
+
+    #[test]
+    fn full_access_defaults_on_but_keeps_an_explicit_auto_mode_choice() {
+        assert!(Prefs::default().full_access);
+        assert!(serde_json::from_str::<Prefs>("{}").unwrap().full_access);
+        assert!(!serde_json::from_str::<Prefs>(r#"{"fullAccess":false}"#).unwrap().full_access);
+    }
 }
