@@ -3,8 +3,8 @@ import test from 'node:test'
 
 import {
   buildAgentStopNotification,
+  describeStoppedTurn,
   finalAssistantText,
-  pendingApprovalTool,
   stripMarkdown,
 } from './agentStopNotification.ts'
 
@@ -110,8 +110,8 @@ test('an approval gate with no preamble still says why it stopped', () => {
 
 test('a resolved approval is not reported as pending', () => {
   assert.equal(
-    pendingApprovalTool([assistant(tool('bash', 'approval-responded'), text('Restarted.'))]),
-    null,
+    describeStoppedTurn([assistant(tool('bash', 'approval-responded'), text('Restarted.'))]),
+    'Restarted.',
   )
 })
 
