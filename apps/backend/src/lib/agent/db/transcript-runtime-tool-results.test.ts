@@ -16,9 +16,7 @@ test('stale UI persistence cannot resurrect a background tool after runtime comp
     runtimeResult: true,
   }
 
-  expect(preserveRuntimeToolResults([pending], [result])).toEqual([
-    { ...result, output: undefined },
-  ])
+  expect(preserveRuntimeToolResults([pending], [result])).toEqual([result])
   expect(
     preserveRuntimeToolResults([{ ...pending, toolCallId: 'different-turn' }], [result]),
   ).toEqual([{ ...pending, toolCallId: 'different-turn' }])

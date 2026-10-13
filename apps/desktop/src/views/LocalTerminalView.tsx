@@ -13,14 +13,20 @@ import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 
 import type { TerminalTarget } from '../api/local-terminal-types'
 
-export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
+/** Without `runtime` the shell runs on this computer. Its fields are passed as
+ *  primitives so a re-render cannot hand the start effect a new identity. */
+export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
+  const teamId = runtime?.teamId
+  const sessionId = runtime?.sessionId
   const hostRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<XtermTerminal | null>(null)
   const { resolved } = useTheme()
   const themeRef = useRef(resolved)
   const { tabId, isActive } = useWorkspaceTab()
   const [generation, setGeneration] = useState(0)
-  const [status, setStatus] = useState(target ? 'Connecting to runtime…' : 'Starting local shell…')
+  const [status, setStatus] = useState(
+    sessionId ? 'Connecting to runtime…' : 'Starting local shell…',
+  )
   const [closed, setClosed] = useState(false)
   // End the dead shell before asking for a new one — `start` is keyed by tab id
   // and would otherwise hand back the same one. A rejection means it is already
@@ -44,8 +50,10 @@ export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
     const host = hostRef.current
 
     if (!host || !tabId) return
+    const target = teamId && sessionId ? { teamId, sessionId } : undefined
     let disposed = false
     let started = false
+    let ready = false
     let ended = false
     const fit = new FitAddon()
     const terminal = new XtermTerminal({
@@ -76,7 +84,7 @@ export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
         void api.localTerminalResize(tabId, terminal.cols, terminal.rows).catch(reportError)
     }
     const input = terminal.onData((data) => {
-      if (!started || ended) return
+      if (!ready || ended) return
       if (target && new TextEncoder().encode(data).length > 16384) {
         toast.error('Terminal input is too large', 'Paste at most 16 KiB at a time.')
 
@@ -104,6 +112,17 @@ export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
         offEvent = api.onLocalTerminalEvent((event) => {
           if (event.id !== tabId || disposed) return
           if (event.type === 'data') terminal.write(event.data)
+          else if (event.type === 'replayed') {
+            // A resumed shell already answered the queries in its replayed
+            // output; hold input until xterm has parsed it, or its second
+            // answers land on the prompt as text. A new shell may still be
+            // waiting for them.
+            if (event.resumed)
+              terminal.write('', () => {
+                ready = true
+              })
+            else ready = true
+          }
         })
         // Subscribe first, then replay: the buffer covers everything emitted
         // before the listener existed, including this shell's first prompt.
@@ -121,7 +140,7 @@ export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [tabId, generation, target])
+  }, [tabId, generation, teamId, sessionId])
 
   useEffect(() => {
     if (!isActive) return
@@ -133,7 +152,7 @@ export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
   return (
     <PageMeta
       pageKey="team.terminal"
-      title={target ? 'Runtime terminal' : 'Local terminal'}
+      title={sessionId ? 'Runtime terminal' : 'Local terminal'}
       icon={<Terminal className="h-3.5 w-3.5" />}
     >
       <div
@@ -141,7 +160,7 @@ export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
       >
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3 text-xs text-tertiary">
           <Terminal className="h-3.5 w-3.5" />
-          <span>{target ? 'Runtime terminal' : 'Local terminal'}</span>
+          <span>{sessionId ? 'Runtime terminal' : 'Local terminal'}</span>
           <span className="ml-auto" role="status">
             {status}
           </span>
@@ -159,7 +178,7 @@ export function LocalTerminalView({ target }: { target?: TerminalTarget }) {
         <div
           ref={hostRef}
           className="min-h-0 flex-1 overflow-hidden p-3"
-          aria-label={target ? 'Runtime terminal' : 'Local terminal'}
+          aria-label={sessionId ? 'Runtime terminal' : 'Local terminal'}
         />
       </div>
     </PageMeta>

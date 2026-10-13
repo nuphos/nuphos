@@ -19,7 +19,7 @@ export function ExternalRuntimeForm({
   onPair: (input: PairExternalRuntimeInput) => Promise<PairedExternalRuntime>
   onConnected: (runtime: PairedExternalRuntime) => void
   onCancel: () => void
-  onUsePassword: () => void
+  onUsePassword?: () => void
 }) {
   const [url, setUrl] = useState('')
   const [code, setCode] = useState('')
@@ -139,14 +139,16 @@ export function ExternalRuntimeForm({
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={onUsePassword}
-          disabled={saving}
-          className="ml-auto rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
-        >
-          Use a password instead
-        </button>
+        {onUsePassword && (
+          <button
+            type="button"
+            onClick={onUsePassword}
+            disabled={saving}
+            className="ml-auto rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
+          >
+            Use a password instead
+          </button>
+        )}
       </div>
     </form>
   )

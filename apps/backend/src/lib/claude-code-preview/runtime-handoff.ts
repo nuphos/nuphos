@@ -1,26 +1,24 @@
 import { getConversationBySessionId } from '@/lib/agent/db'
+import { liveAttachment } from '@/lib/agent/db/shared'
+import {
+  getActiveAgentRunForSession,
+  sweepAbandonedAgentRuns,
+} from '@/lib/agent/run-store/ownership'
+import { ownerKey } from '@/lib/agent/run-store/shared'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
 
 import { sessionsByConversation } from './agent-chat-registry'
-import { openConversationSession } from './agent-chat-runtime'
+import { openConversationSession } from './open-conversation-session'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { previewSessionAccess } from './credentials-mcp'
+import { RUNTIME_HANDOFFS_KEY as HANDOFFS_KEY } from './runtime-handoff-store'
 
+import type { RuntimeHandoff } from './runtime-handoff-store'
 import type { TeamPreviewClient } from './team-openab-runtime'
 
-export type RuntimeHandoff = {
-  teamId: string
-  conversationId: string
-  ownerUserId: string
-  actorUserId: string
-  locale: string
-  at: number
-  attempts?: number
-}
-
-const HANDOFFS_KEY = 'atlas:agent:runtime-handoffs'
+export type { RuntimeHandoff } from './runtime-handoff-store'
 
 /** The gateway ignores a resume while the old connection still owns the turn's output. */
 export const HANDOFF_SETTLE_MS = 1_000
@@ -92,7 +90,18 @@ export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHan
     const handoff = parse(raw)
 
     if (handoff && now - handoff.at < HANDOFF_SETTLE_MS) continue
-    const removed = await withRedis((redis) => redis.hdel(HANDOFFS_KEY, key))
+    const removed = await withRedis((redis) =>
+      redis.eval(
+        `if redis.call('HGET', KEYS[1], ARGV[1]) == ARGV[2] then
+           return redis.call('HDEL', KEYS[1], ARGV[1])
+         end
+         return 0`,
+        1,
+        HANDOFFS_KEY,
+        key,
+        raw,
+      ),
+    )
 
     if (removed === 1 && handoff && now - handoff.at < HANDOFF_TTL_MS) claimed.push(handoff)
   }
@@ -108,13 +117,20 @@ export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHan
 export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void> {
   const conversation = await getConversationBySessionId(handoff.conversationId)
 
-  if (conversation?.teamId !== handoff.teamId)
+  if (conversation?.teamId !== handoff.teamId || conversation.userId !== handoff.ownerUserId)
     throw new Error('The handed-off conversation is not in this team')
+  if (handoff.abandonedStreamId) {
+    // A new turn or a runtime move supersedes this stale lease. Never create a
+    // replacement runtime session as a side effect of crash recovery.
+    if (!liveAttachment(conversation)) return
+    if (await getActiveAgentRunForSession(handoff.ownerUserId, handoff.conversationId)) return
+  }
   const { endpoint } = await resolveConversationChatRuntime(handoff.teamId, conversation, {
     userId: handoff.actorUserId,
   })
 
   if (!endpoint) throw new Error('The handed-off conversation has no runtime to resume on')
+  if (handoff.abandonedStreamId && liveAttachment(conversation)?.runtimeUrl !== endpoint.url) return
   const access = previewSessionAccess(
     handoff.conversationId,
     handoff.teamId,
@@ -122,15 +138,24 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
     handoff.ownerUserId,
     { external: endpoint.external, backendUrl: endpoint.backendUrl },
   )
+  const abandonedStreamId = handoff.abandonedStreamId
+
+  if (
+    abandonedStreamId &&
+    (await withRedis((redis) => redis.get(ownerKey(handoff.ownerUserId, abandonedStreamId))))
+  )
+    return
   const session = await openConversationSession(
     handoff.teamId,
     handoff.conversationId,
     handoff.actorUserId,
-    handoff.locale,
+    conversation.metadata?.locale ?? handoff.locale,
     endpoint,
     access.mcpServers,
     undefined,
     { provider: endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
+    undefined,
+    handoff.ownerUserId,
   )
 
   session.conversationOwnerUserId = handoff.ownerUserId
@@ -158,7 +183,7 @@ export async function adoptRuntimeHandoffs(
       })
       if (retry)
         await withRedis((redis) =>
-          redis.hset(HANDOFFS_KEY, field(handoff), JSON.stringify({ ...handoff, attempts })),
+          redis.hsetnx(HANDOFFS_KEY, field(handoff), JSON.stringify({ ...handoff, attempts })),
         )
     })
   }
@@ -166,12 +191,20 @@ export async function adoptRuntimeHandoffs(
 
 export function startRuntimeHandoffAdoption(): () => void {
   let running = false
+  let cursor = '0'
   const tick = () => {
     if (running) return
     running = true
-    void adoptRuntimeHandoffs().finally(() => {
-      running = false
-    })
+    void (async () => {
+      cursor = await sweepAbandonedAgentRuns(cursor)
+      await adoptRuntimeHandoffs()
+    })()
+      .catch((error: unknown) => {
+        logError('agent.runtime_handoff.scan_failed', error)
+      })
+      .finally(() => {
+        running = false
+      })
   }
   const timer = setInterval(tick, ADOPT_INTERVAL_MS)
 

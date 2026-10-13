@@ -9,6 +9,7 @@ import { Streamdown } from 'streamdown'
 import 'streamdown/styles.css'
 
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
+import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
 
 type StreamdownComponents = ComponentProps<typeof Streamdown>['components']
 type StreamdownAnimated = ComponentProps<typeof Streamdown>['animated']
@@ -150,7 +151,9 @@ export const MessageResponse = memo(
     return (
       <div
         className={clsx(
-          'message-response min-w-0 text-[14px] text-main [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
+          // break-words: a long unbroken token (an OAuth URL) wraps instead of
+          // overflowing the column.
+          'message-response min-w-0 break-words text-[14px] text-main [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
           // Inline code: subtle pill (the `:not(pre)>code` selector dodges fenced code).
           '[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-zGray-800/70 [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[13.5px] [&_:not(pre)>code]:text-main',
           streaming && 'agent-streaming-response',
@@ -166,6 +169,7 @@ export const MessageResponse = memo(
           // cjk: ends an autolink at CJK punctuation. Without it `https://…/ec2，然後`
           // swallows the rest of the sentence into the href.
           plugins={{ code: codePlugin, cjk: cjkPlugin }}
+          rehypePlugins={messageRehypePlugins}
           components={components}
         >
           {children}

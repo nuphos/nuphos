@@ -17,6 +17,8 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nuphos records your voice only while you dictate a message, then transcribes it with OpenAI Whisper using your API key.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

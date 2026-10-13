@@ -9,13 +9,13 @@ struct SSEEvent: Sendable, Equatable {
 }
 
 /// Minimal SSE reader over a URLSession data task. Yields events as they arrive
-/// and enforces two deadlines the desktop client also uses: a first-byte
-/// deadline and an idle timeout between bytes.
+/// and enforces an idle timeout between bytes once the response has started.
+/// There is no first-byte deadline: the request body may take a while to
+/// upload on a slow network, and URLSession times out a dead connection.
 enum SSEClient {
     enum Failure: LocalizedError {
         case badStatus(Int, body: String?)
         case notEventStream(String?)
-        case firstByteTimeout
         case idleTimeout
         /// Heartbeats kept coming but no event did — a dead run.
         case frameTimeout
@@ -24,7 +24,6 @@ enum SSEClient {
             switch self {
             case .badStatus(let code, let body): body.flatMap(SSEClient.errorMessage) ?? "Nuphos returned status \(code)."
             case .notEventStream(let type): "Expected an event stream, got \(type ?? "nothing")."
-            case .firstByteTimeout: "Nuphos did not start responding in time."
             case .idleTimeout: "The connection went quiet for too long."
             case .frameTimeout: "The runtime went quiet; the reply was closed."
             }
@@ -35,7 +34,6 @@ enum SSEClient {
     /// server closes the connection; cancel the consuming task to abort.
     static func events(
         for request: URLRequest,
-        firstByteTimeout: Duration = .seconds(5),
         idleTimeout: Duration = .seconds(45),
         frameTimeout: Duration = .seconds(40 * 60),
         configuration: URLSessionConfiguration = .default
@@ -116,17 +114,12 @@ enum SSEClient {
                 }
             }
 
-            // Watchdog: first byte within `firstByteTimeout`, then no gap
-            // longer than `idleTimeout` (the backend heartbeats every ~5 s).
+            // Watchdog: once bytes flow, no gap longer than `idleTimeout`
+            // (the backend heartbeats every ~5 s).
             let watchdog = Task {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
                     let (seen, idle) = activity.status()
-                    if !seen, idle > firstByteTimeout {
-                        continuation.finish(throwing: Failure.firstByteTimeout)
-                        reader.cancel()
-                        return
-                    }
                     if seen, idle > idleTimeout {
                         continuation.finish(throwing: Failure.idleTimeout)
                         reader.cancel()

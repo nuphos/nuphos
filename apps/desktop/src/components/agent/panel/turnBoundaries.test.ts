@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { startUserTurn, updateCurrentAssistantParts } from './turnBoundaries.ts'
+import {
+  applyTranscriptTail,
+  startUserTurn,
+  updateCurrentAssistantParts,
+} from './turnBoundaries.ts'
 
 import type { Message, Tab } from './model.ts'
 import type { Part } from './parts.ts'
@@ -221,4 +225,30 @@ test('turn start replaces optimistic attribution with server metadata without lo
 
   assert.deepEqual(result.messages[0]?.metadata, metadata)
   assert.equal(result.messages[0]?.parts, own.parts)
+})
+
+test('a transcript tail replaces the turn and keeps the history before it', () => {
+  const stored: Message = { ...planAnswer, id: 'stored-answer' }
+  const next = applyTranscriptTail(
+    { ...tab([planRequest, planAnswer, approval, planAnswer]), historyBaseIndex: 10 },
+    'run-2',
+    [approval, stored],
+    12,
+  )
+
+  assert.deepEqual(
+    next.messages.map((message) => message.id),
+    ['user-1', 'assistant-1', 'user-2', 'stored-answer'],
+  )
+  assert.equal(next.messages[0], planRequest)
+  assert.equal(next.historyBaseIndex, 10)
+})
+
+test('a transcript tail that does not meet the loaded history is ignored', () => {
+  const current = { ...tab([planRequest, planAnswer]), historyBaseIndex: 10 }
+
+  assert.equal(applyTranscriptTail(current, 'run-2', [approval], 9), current)
+  assert.equal(applyTranscriptTail(current, 'run-2', [approval], 13), current)
+  assert.equal(applyTranscriptTail(current, 'other-run', [approval], 12), current)
+  assert.equal(applyTranscriptTail(current, 'run-2', [approval], 12).messages.length, 3)
 })

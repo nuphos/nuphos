@@ -25,12 +25,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     activePlanCanAct,
     activeTab,
     authorizationContextValue,
-    autoModeAvailable,
     bypassBySession,
     conversationDropRef,
     dockCurrentSession,
     onDockToSidebar,
-    gated,
     handleMessageFeedback,
     handleRejectPlan,
     isSidebarMode,
@@ -58,15 +56,17 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       ? {
           sessionId: activeTab.sessionId,
           teamId,
-          initialModelName:
-            activeTab.initialModel?.runtimeId === activeTab.runtimeId
-              ? activeTab.initialModel?.name
-              : undefined,
         }
       : undefined
+  // Only the owner decides who has access, so only they are offered an invite
+  // for the teammates they mention.
+  const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
-    autoModeAvailable && activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign && !gated
-      ? { active: bypassBySession[activeTab.sessionId] ?? false, onSelect: selectBypassMode }
+    activeTab?.sessionId && !activeTab.readOnly && (!activeTab.foreign || activeTab.canManage)
+      ? {
+          active: bypassBySession[activeTab.sessionId] ?? false,
+          onSelect: selectBypassMode,
+        }
       : undefined
 
   return activeTab && !switchingConversation ? (
@@ -92,7 +92,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 onStop={stopActive}
                 onApprovePlan={(planId) => {
                   if (activeTab.readOnly) return
-                  track('agent_plan_approved', { plan_id: planId, surface: 'inline_card' })
+                  track('agent_plan_approved', {
+                    plan_id: planId,
+                    surface: 'inline_card',
+                  })
                   // Persist approval; the usePlan poll reflects the new status.
                   void api
                     .agentUpdatePlan(planId, { status: 'approved' }, teamId)
@@ -129,10 +132,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.queued && activeTab.queued.length > 0 && (
                 <QueuedStrip
                   items={activeTab.queued}
-                  canSend={
-                    runtimeAllows(activeTab.runtimeState, 'send') ||
-                    runtimeAllows(activeTab.runtimeState, 'steer')
-                  }
+                  canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
                   onRemove={(queuedId) => removeQueued(activeTab.id, queuedId)}
                   onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
                   sidebar={isSidebarMode}
@@ -158,7 +158,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     sidebar={isSidebarMode}
                     dropRegisterRef={conversationDropRef}
                     draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                    mentionScope={teamId ? { teamId, sessionId: activeTab.sessionId } : undefined}
+                    mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
                 </DelayedPanelReveal>
               ) : (
@@ -166,6 +166,12 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                   onStop={stopActive}
                   streaming={false}
+                  promptSuggestion={
+                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                      ? null
+                      : activeTab.promptSuggestion
+                  }
+                  autoFocus
                   runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                   executing={runtimeIsExecuting(activeTab.runtimeState)}
                   readOnly={activeTab.readOnly}
@@ -180,7 +186,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   sidebar={isSidebarMode}
                   dropRegisterRef={conversationDropRef}
                   draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                  mentionScope={teamId ? { teamId, sessionId: activeTab.sessionId } : undefined}
+                  mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                 />
               )}
             </div>

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 
 import { parseAtlasLink } from '../../../lib/atlasLinkMention'
 import { trustedAvatarURL } from '../../../lib/avatarUrl'
@@ -7,7 +7,7 @@ import { MessageResponse } from '../MessageResponse'
 import { PlanCard } from '../PlanTool'
 
 import { CopyMessageButton } from './messageActions'
-import { ImageAttachmentThumb, LocalFileChip } from './messageInline'
+import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInline'
 import { renderAtlasMentionLink } from './messageInlineLinks'
 import { formatMessageTimestamp } from './streamText'
 import { UploadedFilesCard } from './transferCards'
@@ -52,8 +52,11 @@ export const UserMessage = memo(
     onRejectPlan,
     canActOnPlans = false,
     onOpenNuphosLink,
+    teamId,
   }: {
     message: Message
+    /** Lets uploaded images and videos preview inline. */
+    teamId?: string
     onApprovePlan?: (planId: string) => void
     onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
     /** Whether a referenced `proposed` plan can be acted on (not streaming/read-only).
@@ -62,6 +65,7 @@ export const UserMessage = memo(
     onOpenNuphosLink?: (href: string) => boolean
   }) => {
     const sendMotionRef = useSentMessageMotion(message.id)
+    const [preview, setPreview] = useState<number | null>(null)
     const renderLink = useCallback(
       (href: string, children: ReactNode) =>
         renderAtlasMentionLink(href, children, onOpenNuphosLink),
@@ -111,8 +115,10 @@ export const UserMessage = memo(
                     key={`${p.fileName}:${String(i)}`}
                     url={p.url}
                     fileName={p.fileName}
+                    onOpen={() => setPreview(i)}
                   />
                 ))}
+                <ImageLightbox images={images} index={preview} onIndexChange={setPreview} />
               </div>
             )}
             {files.length > 0 && (
@@ -123,7 +129,7 @@ export const UserMessage = memo(
               </div>
             )}
             {uploads.map((p) => (
-              <UploadedFilesCard key={p.groupId} part={p} />
+              <UploadedFilesCard key={p.groupId} part={p} teamId={teamId} />
             ))}
             {textParts.length > 0 && (
               <div className="user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words space-y-2">

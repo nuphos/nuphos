@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { accessSync, constants } from 'node:fs'
+import { accessSync, constants, realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -22,6 +22,8 @@ export type AgentCliStatus =
       /** The signed-in account as the CLI names it: an email, or e.g. "ChatGPT". */
       account?: string
       plan?: string
+      /** Lives inside an app bundle, which updates it, even when reached through a symlink. */
+      bundled?: true
     }
 
 const PROBE_TIMEOUT_MS = 15_000
@@ -41,6 +43,8 @@ function fallbackDirs(home: string): string[] {
     path.join(home, '.claude', 'local'),
     '/opt/homebrew/bin',
     '/usr/local/bin',
+    // The CLI bundled with the ChatGPT (Codex) desktop app, for users without a separate install.
+    '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin',
   ]
 }
 
@@ -163,19 +167,26 @@ async function claudeUsageRequest(
   const dir = env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude')
   let credential = await readJson(path.join(dir, '.credentials.json'))
 
-  // Claude's macOS login uses a Keychain entry scoped to its isolated config directory.
+  // Match Claude's Keychain selection, including the terminal's unsuffixed default entry.
+  // Claude keys the entry by account too; without it a stale entry of the same name can win.
   if (process.platform === 'darwin' && env.CLAUDE_CONFIG_DIR) {
     const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? env.CLAUDE_CONFIG_DIR
-    const suffix = createHash('sha256')
-      .update(storageDir.normalize('NFC'))
-      .digest('hex')
-      .slice(0, 8)
+    const suffix = storageDir
+      ? `-${createHash('sha256').update(storageDir.normalize('NFC')).digest('hex').slice(0, 8)}`
+      : ''
 
     try {
       credential = JSON.parse(
         await run(
           '/usr/bin/security',
-          ['find-generic-password', '-s', `Claude Code-credentials-${suffix}`, '-w'],
+          [
+            'find-generic-password',
+            '-a',
+            os.userInfo().username,
+            '-s',
+            `Claude Code-credentials${suffix}`,
+            '-w',
+          ],
           env,
         ),
       ) as Record<string, unknown>
@@ -260,5 +271,13 @@ export async function probeAgentCli(
 
   // Usage is sampled on its own timer, never here: this probe gates the agent's
   // startup, and a provider that hangs must not hold an agent back.
-  return { installed: true, path: file, ...(version ? { version } : {}), ...auth }
+  const bundled = realpathSync(file).includes('.app/Contents/')
+
+  return {
+    installed: true,
+    path: file,
+    ...(version ? { version } : {}),
+    ...auth,
+    ...(bundled ? { bundled } : {}),
+  }
 }

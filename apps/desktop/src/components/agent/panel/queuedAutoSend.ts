@@ -67,6 +67,16 @@ export function nextAutoSend(tab: Tab): QueuedMessage | undefined {
   return tab.queued?.find((item) => item.autoSend && !item.steering)
 }
 
+/** Send a waiting draft as the next turn once the agent allows it. */
+export function markAutoSend(tab: Tab, queuedId: string): Tab {
+  return {
+    ...tab,
+    queued: tab.queued?.map((item) =>
+      item.id === queuedId ? { ...item, steering: false, autoSend: true } : item,
+    ),
+  }
+}
+
 export function withoutQueued(tab: Tab, queuedId: string): Tab {
   return { ...tab, queued: tab.queued?.filter((item) => item.id !== queuedId) }
 }

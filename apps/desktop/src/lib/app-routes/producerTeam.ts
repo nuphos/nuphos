@@ -153,10 +153,14 @@ export function teamPageLocation(
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/audit`)
   }
   if (active === 'team.files') {
-    return pageLocation(`/teams/${pathSegment(scope.teamId)}/files`)
+    const query = navigation.filter ? `?${new URLSearchParams({ path: navigation.filter })}` : ''
+
+    return pageLocation(`/teams/${pathSegment(scope.teamId)}/files${query}`)
   }
   if (active === 'team.terminal') {
-    return pageLocation(`/teams/${pathSegment(scope.teamId)}/terminal`)
+    const base = `/teams/${pathSegment(scope.teamId)}/terminal`
+
+    return pageLocation(navigation.filter ? `${base}/${pathSegment(navigation.filter)}` : base)
   }
   if (active === 'team.browser') {
     const query = navigation.browserUrl

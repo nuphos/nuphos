@@ -1,8 +1,10 @@
 import { fallbackTitle } from '../title-fallback'
 
+import { readableByFilter } from './access'
 import { upsertConversationShell } from './conversations'
 import { agentConversations, agentMessages, escapeRegExp, withTeamScope } from './shared'
 import { preserveRuntimeToolResults } from './transcript-runtime-tool-results'
+import { withoutToolOutputs } from './transcript-tool-output'
 import { withTranscriptWriteLock } from './transcript-write-lock'
 
 import type { AgentConversation, AgentMessage } from './shared'
@@ -118,11 +120,13 @@ export async function syncConversationTranscriptUnlocked(
                 : {}),
               messageId: message.id,
               role: attribution.get(message.id)?.role ?? message.role,
-              parts: preserveRuntimeToolResults(
-                attribution.get(message.id)?.role === 'user'
-                  ? attribution.get(message.id)!.parts
-                  : message.parts,
-                runtimeToolParts,
+              parts: withoutToolOutputs(
+                preserveRuntimeToolResults(
+                  attribution.get(message.id)?.role === 'user'
+                    ? attribution.get(message.id)!.parts
+                    : message.parts,
+                  runtimeToolParts,
+                ),
               ),
               // Only ever set, never unset: a re-sync that rebuilt history
               // without the bridge context must not erase where the message
@@ -237,7 +241,11 @@ export async function getConversations(
   //              together never repeat a conversation.
   const scope: ConversationsScope = options.scope ?? 'mine'
   const sortField = CONVERSATION_SORT_FIELDS[options.sort ?? 'activity']
-  const query: Record<string, unknown> = { teamId: options.teamId }
+  const query: Record<string, unknown> = {
+    teamId: options.teamId,
+    // Kept apart from the search $or below, which would otherwise replace it.
+    $and: [readableByFilter(viewerUserId)],
+  }
 
   if (scope === 'mine') query.userId = viewerUserId
   if (scope === 'shared') {
@@ -246,7 +254,7 @@ export async function getConversations(
   }
 
   // Narrowing team scope to one member reads the same as 'mine' with someone
-  // else's id — the team ACL already makes every member's chats visible here.
+  // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
   query['metadata.trigger.id'] = options.triggerIds
     ? { $in: options.triggerIds }

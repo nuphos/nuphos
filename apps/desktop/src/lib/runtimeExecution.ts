@@ -31,7 +31,6 @@ export type RuntimeExecution = {
       command?: string
       output?: string
       status: 'running' | 'exited'
-      exit?: { exitCode?: number | null; signal?: string | null }
     }
   }[]
   actions?: { send: boolean; cancel: boolean; steer: boolean; reply?: boolean }

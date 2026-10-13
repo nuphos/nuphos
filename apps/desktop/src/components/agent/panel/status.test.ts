@@ -41,6 +41,13 @@ test('optimistic first message does not imply a lost runtime connection', () => 
   assert.equal(computeStatus(current, message)?.label, 'Connecting…')
 })
 
+test('an opened conversation awaiting its first runtime read shows no status', () => {
+  const current = tab('unused')
+
+  current.runtimeState = undefined
+  assert.equal(computeStatus(current, message), null)
+})
+
 test('idle and dormant runtimes do not add readiness text to the conversation', () => {
   for (const state of ['idle', 'dormant'] as const) {
     const current = tab(state === 'idle' ? 'Ready' : 'Ready to start')

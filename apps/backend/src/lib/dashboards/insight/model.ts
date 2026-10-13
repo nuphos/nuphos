@@ -2,9 +2,9 @@ import { generateText as rawGenerateText, NoObjectGeneratedError, Output } from 
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { aiTelemetry, wrapAI } from '@/lib/agent/braintrust'
 import { getModel } from '@/lib/agent/model-provider'
 import { newModelCallId, recordSideCallTokenUsage } from '@/lib/agent/token-usage-side-call'
+import { aiTelemetry, wrapAI } from '@/lib/agent/tracing'
 import { logError } from '@/lib/observability'
 
 import { embedJson, MAX_OUTPUT_CHARS, MAX_PARAMS_CHARS, MAX_PREVIOUS_OUTPUT_CHARS } from './compact'

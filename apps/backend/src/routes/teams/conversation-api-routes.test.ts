@@ -21,6 +21,25 @@ describe('conversation member reads', () => {
   })
 })
 
+describe('conversation Discord access', () => {
+  test('routes reads, posting and reacting to the canonical handlers', () => {
+    expect(conversationTeamApiRoute('GET', '/discord')).toBe('canonical')
+    expect(conversationTeamApiRoute('GET', '/discord/channels/1/messages')).toBe('canonical')
+    expect(conversationTeamApiRoute('GET', '/discord/search')).toBe('canonical')
+    expect(conversationTeamApiRoute('POST', '/discord/channels/1/messages')).toBe('canonical')
+    expect(
+      conversationTeamApiRoute('PUT', '/discord/channels/1/messages/2/reactions/%E2%9C%85'),
+    ).toBe('canonical')
+  })
+
+  test('denies other writes, installation management and dashboard panels', () => {
+    expect(conversationTeamApiRoute('DELETE', '/discord/channels/1/messages/2')).toBeNull()
+    expect(conversationTeamApiRoute('POST', '/discord/channels/1/messages/2')).toBeNull()
+    expect(conversationTeamApiRoute('PUT', '/discord-installations/channels/1')).toBeNull()
+    expect(dashboardPanelTeamApiRoute('GET', '/discord')).toBeNull()
+  })
+})
+
 describe('dashboardPanelTeamApiRoute', () => {
   test('vends selected credentials through the session handlers', () => {
     expect(dashboardPanelTeamApiRoute('GET', '/aws-accounts/123456789012/credentials')).toBe(

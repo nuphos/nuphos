@@ -17,7 +17,8 @@ bun run dev
 
 The launcher starts the local stack, backend, runtime, and Electron Desktop.
 It configures the backend URL and gives each worktree an isolated Desktop
-profile and single-instance lock, so multiple worktrees can run side by side.
+profile, sign-in, ports and single-instance lock, so multiple worktrees can run
+side by side (see [Parallel instances](../../README.md#parallel-instances)).
 Each profile has its own login state. Do not launch Desktop separately.
 
 ### Computer Use with local Codex
@@ -34,6 +35,12 @@ metadata and routes App access prompts through the existing permission flow.
 On macOS the native service socket uses the OS user's home rather than the
 conversation's shell home. Users without a usable CUA installation can continue
 using local Codex normally.
+
+Other runtimes, including cloud ones, reach the same installation through the
+`local_cua` tool. Desktop runs the App's `cua_repl` on the Mac for the
+conversation and relays each call over the device tunnel; the App's per-app
+approval prompts appear as the conversation's approval card, and an app allowed
+once stays allowed for that conversation.
 
 ## Local production build (unsigned)
 

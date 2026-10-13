@@ -52,3 +52,23 @@ export function startUserTurn(tab: Tab, streamId: string, input: Message[]): Tab
 
   return { ...tab, messages }
 }
+
+/**
+ * Applies a run's transcript-tail frame: the stored copy of the turn, starting
+ * at conversation index `firstIndex`. It replaces whatever the stream built
+ * from there on and leaves earlier history alone. A tail that does not meet
+ * the loaded history is ignored; the catch-up fetch reconciles it.
+ */
+export function applyTranscriptTail(
+  tab: Tab,
+  streamId: string,
+  tail: Message[],
+  firstIndex: number,
+): Tab {
+  if (tab.streamId !== streamId) return tab
+  const kept = firstIndex - (tab.historyBaseIndex ?? 0)
+
+  if (kept < 0 || kept > tab.messages.length) return tab
+
+  return { ...tab, messages: [...tab.messages.slice(0, kept), ...tail] }
+}

@@ -181,6 +181,9 @@ struct ComposerControls: View {
             .accessibilityLabel("Choose agent")
             .sheet(isPresented: $showRuntimes) { RuntimePickerSheet() }
             .task { await store.loadRuntimes() }
+            #if DEBUG
+            .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-runtimes") { showRuntimes = true } }
+            #endif
         }
     }
 

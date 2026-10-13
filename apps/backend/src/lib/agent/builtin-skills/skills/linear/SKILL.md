@@ -147,3 +147,19 @@ JSON
 - `success:false` means the mutation input was rejected. Reuse
   `issue-context.sh` or query the required state, then retry once with corrected
   IDs.
+
+## Link work to the current conversation
+
+After creating or adopting a PR or issue for the current task, use
+`bind_session_resource` when that native tool is available. This registers a
+verified resource link in the session sidebar. For GitHub pass `provider: github`,
+the selected `installationId`, `repository` (`owner/repo`) and PR `number`.
+For Linear pass `provider: linear`, the selected binding's `workspaceId` and
+`issueId` (UUID or identifier). This is separate from Linear's Nuphos session
+attachment; retain that attachment too. Do not bind unrelated search results.
+
+Bound GitHub PR events durably wake this conversation with its existing permissions.
+A receipt means the binding exists, not that an event was delivered or that checks
+passed. Never promise a sandbox watcher will survive the turn. Use
+`unlink_session_resource` when asked to stop following a resource; it does not
+modify the external PR or issue. Archived sessions do not wake.

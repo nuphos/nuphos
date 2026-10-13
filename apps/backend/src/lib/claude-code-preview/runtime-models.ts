@@ -15,7 +15,7 @@ import { createRuntimeModelCatalog } from './runtime-model-cache'
 import { RUNTIME_MODEL_PROBE } from './runtime-model-probe'
 import { resolveTeamRuntimeEndpoints, runtimes } from './runtime-registry'
 import { runtimeServiceName } from './runtime-service-name'
-import { parseSessionConfigOptions } from './session-config'
+import { parseSessionConfigOptions } from './session-config-options'
 
 import type { RuntimeInstance } from './runtime-instances'
 
@@ -248,5 +248,4 @@ async function discoverModels(
 export const runtimeModelCatalog = createRuntimeModelCatalog({
   requireInstance: requireRuntimeInstance,
   discover: discoverModels,
-  now: Date.now,
 })

@@ -92,6 +92,7 @@ beforeEach(() => {
       openabSessionId: 'native-old',
       runtimeDefaults: { effort: 'high' },
     },
+    initialSessionConfig: { model: 'old-agent-model' },
   }
   memory.rows('agent_conversations').push(conversation)
 })
@@ -107,7 +108,7 @@ test('moves the same conversation after restoring files and keeps history and se
     runtimeId: 'new',
   })
   // The session goes with the old placement; the next prompt creates one on the
-  // destination, which is also where its defaults come from.
+  // destination.
   expect(conversation.claudeCodePreview).toBeUndefined()
   expect(conversation.runtimeOperation).toBeUndefined()
 })
@@ -136,6 +137,19 @@ test('failed restore and active turns preserve the original placement and releas
   expect(conversation.runtimeId).toBe('old')
   expect(conversation.runtimeOperation).toBeUndefined()
 })
+test('a manager moves the session for its owner, but only onto a managed agent', async () => {
+  const managed = { ...conversation, participantIds: ['manager'], managerIds: ['manager'] }
+
+  await moveConversationRuntime(managed, 'new', 'history', 'manager')
+  expect(conversation).toMatchObject({ userId: 'owner', runtimeId: 'new' })
+  expect(conversation.timelineEvents).toMatchObject([{ kind: 'runtime_moved', actorId: 'manager' }])
+  for (const kind of ['local', 'external'] as const) {
+    target = { ...target, id: kind, kind }
+    await expect(
+      moveConversationRuntime({ ...managed, runtimeId: 'new' }, kind, 'history', 'manager'),
+    ).rejects.toMatchObject({ status: 403 })
+  }
+})
 test('readers, disabled destinations, and deleting destinations are rejected', async () => {
   await expect(
     moveConversationRuntime(conversation, 'new', 'history', 'reader'),
@@ -156,13 +170,15 @@ test('history moves to the other agent type and leaves no session behind', async
   // The transcript reaches the new inner session as plain text, so the
   // destination's type does not matter. The attachment must go: a session id
   // minted here is not in the destination runtime's namespace, and the first
-  // prompt is what creates the real one — with that runtime's own defaults.
+  // prompt is what creates the real one.
   target.provider = 'codex'
   await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
 
   expect(conversation.agentRuntime).toBe('codex')
   expect(conversation.runtimeId).toBe('new')
   expect(conversation.claudeCodePreview).toBeUndefined()
+  // Picks were the old agent's; the destination's list starts fresh.
+  expect(conversation.initialSessionConfig).toBeUndefined()
 })
 
 test('a workspace cannot move to the other agent type', async () => {
@@ -226,4 +242,17 @@ test('a manually registered in-cluster source remains movable using history', as
   expect(conversation.runtimeId).toBe('new')
   expect(saved).toBe(false)
   expect(restored).toBe(false)
+})
+
+test('a deleted source keeps its last archive available for workspace moves', async () => {
+  memory.rows('agent_runtime_deletions').push({
+    _id: 'old',
+    teamId: 'team',
+    requestedAt: new Date(Date.now() + 60_000),
+    completedAt: new Date(),
+    placements: [{ url: 'wss://old/acp', state: 'deleted' }],
+  })
+  await moveConversationRuntime({ ...conversation }, 'new', 'workspace', 'owner')
+  expect(saved).toBe(false)
+  expect(restored).toBe(true)
 })

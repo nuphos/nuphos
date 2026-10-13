@@ -124,14 +124,6 @@ export const API_ROUTING_MESSAGE = [
   'Always use the `ac` helper from the nuphos-api skill, or build URLs from `${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}`. Local dev injects `NUPHOS_BACKEND_URL` so approved agent commands route back through the developer tunnel to the same backend this chat is using.',
 ].join('\n')
 
-export const AUTO_MODE_MESSAGE = [
-  '## Auto-authorization — command approval gate',
-  '',
-  "Every bash and local_exec command passes an authorization gate before it runs. Read-only commands run automatically; write/mutating and irreversible commands may require the user's approval.",
-  'If a command returns "⛔ Authorization required — this command was NOT executed", the command did NOT run. Do NOT reword it, split it, or switch tools to get around the gate. Instead: tell the user in one short sentence exactly what you want to run and why, then STOP and wait. When they approve, the same command will run on your next attempt. If they decline, respect it and find another approach or ask what they prefer.',
-  'You may batch several related write operations into one clear explanation so the user can approve them together.',
-].join('\n')
-
 export function buildNuphosLinksMessage(
   teamId: string | undefined,
   options?: { nativeClaudeSkills?: boolean },

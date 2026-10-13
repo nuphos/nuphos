@@ -5,11 +5,11 @@ import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { runtimeAllows, runtimeStatusLabel } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
-import { partitionAttachments, readImageParts, makeAttachmentTurn } from './attachments'
+import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID, emitFirstRunConvo } from './model'
-import { nextAutoSend, queueAutoSend, runtimeMayAcceptLater } from './queuedAutoSend'
+import { markAutoSend, nextAutoSend, queueAutoSend, runtimeMayAcceptLater } from './queuedAutoSend'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
 import { useSteering } from './useSteering'
@@ -27,6 +27,7 @@ type Acc = Pick<
   | 'kubeContextRef'
   | 'lastCredentialSyncedRef'
   | 'newConversationRuntime'
+  | 'newConversationSessionConfig'
   | 'newConversationCredentialAccess'
   | 'sendableCredentialAccess'
   | 'setActiveId'
@@ -50,6 +51,7 @@ export function useTurnDispatch(acc: Acc) {
     kubeContextRef,
     lastCredentialSyncedRef,
     newConversationRuntime,
+    newConversationSessionConfig,
     newConversationCredentialAccess,
     sendableCredentialAccess,
     setActiveId,
@@ -82,6 +84,7 @@ export function useTurnDispatch(acc: Acc) {
             setBypassBySession,
             defaultPermissionMode,
             newConversationRuntime: runtime,
+            newConversationSessionConfig,
             newConversationCredentialAccess,
             credentialAccessRef,
             lastCredentialSyncedRef,
@@ -119,6 +122,7 @@ export function useTurnDispatch(acc: Acc) {
       setBypassBySession,
       defaultPermissionMode,
       newConversationRuntime,
+      newConversationSessionConfig,
       newConversationCredentialAccess,
       credentialAccessRef,
       credentialOptions,
@@ -194,24 +198,19 @@ export function useTurnDispatch(acc: Acc) {
       const trimmed = text.trim()
 
       if (!trimmed && filePaths.length === 0) return
-      const { imagePaths, otherPaths } = partitionAttachments(filePaths)
-
-      if (otherPaths.length > 0 && !teamId) {
+      if (filePaths.length > 0 && !teamId) {
         toast.error('No team selected', 'Select a team before attaching files.')
 
         return
       }
       if (activeId === HOME_TAB_ID) {
         const title = trimmed || filePaths.map(fileNameFromPath).join(', ')
-        // First message: images go straight to the model as vision; only
-        // non-image files use the deferred upload. The backend
+        // First message: attachments use the deferred upload. The backend
         // session doesn't exist until startChatWith runs agentStart, so that
         // upload is team-scoped (see startChatWith).
-        const imageParts = await readImageParts(imagePaths)
         const { messageId, optimisticPart, buildUserMsg, runUpload } = makeAttachmentTurn(
           text,
-          imageParts,
-          otherPaths,
+          filePaths,
           teamId!,
           { turnKind, currentUser },
         )
@@ -219,8 +218,8 @@ export function useTurnDispatch(acc: Acc) {
         emitFirstRunConvo('asked')
         startChatWith(
           title,
-          buildUserMsg(otherPaths.length > 0 ? optimisticPart() : null),
-          otherPaths.length > 0 ? { messageId, run: runUpload } : undefined,
+          buildUserMsg(filePaths.length > 0 ? optimisticPart() : null),
+          filePaths.length > 0 ? { messageId, run: runUpload } : undefined,
         )
 
         return
@@ -272,17 +271,14 @@ export function useTurnDispatch(acc: Acc) {
 
         return
       }
-      if (!runtimeAllows(tab.runtimeState, 'send')) return
-      await dispatchTurn(tabId, draft.text, draft.filePaths)
+      // Not steerable right now: let the queue send it once the agent allows.
       setTabs((previous) =>
         previous.map((candidate) =>
-          candidate.id === tabId
-            ? { ...candidate, queued: candidate.queued?.filter((item) => item.id !== queuedId) }
-            : candidate,
+          candidate.id === tabId ? markAutoSend(candidate, queuedId) : candidate,
         ),
       )
     },
-    [dispatchTurn, sendSteering, tabsRef, setTabs],
+    [sendSteering, tabsRef, setTabs],
   )
 
   return { startChatWith, dispatchTurn, sendInActive, steerQueued }
