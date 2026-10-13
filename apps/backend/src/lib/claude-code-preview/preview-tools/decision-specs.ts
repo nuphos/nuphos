@@ -31,6 +31,9 @@ const UNANSWERED_INSTRUCTION: Record<PreviewWaitKind, string> = {
   'agent-permission':
     'Nobody answered in time, so the request was not approved. Treat it as ' +
     'denied and tell the user.',
+  'authorization-rule':
+    'Nobody answered in time, so the request was not approved. Treat it as ' +
+    'denied and tell the user.',
 }
 
 export function unansweredInstruction(kind: PreviewWaitKind): string {

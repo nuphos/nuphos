@@ -111,13 +111,16 @@ export function createLocalTools(localToolsEnabled: boolean): Record<string, unk
 }
 
 /** The requested device when available, else the only available one. */
-function pickDevice(devices: LocalExecDevice[], requested: string | undefined): string | undefined {
+export function pickDevice(
+  devices: LocalExecDevice[],
+  requested: string | undefined,
+): string | undefined {
   if (requested && devices.some((d) => d.deviceId === requested)) return requested
 
   return devices.length === 1 ? devices[0]?.deviceId : undefined
 }
 
-function describeDevices(devices: LocalExecDevice[]): string {
+export function describeDevices(devices: LocalExecDevice[]): string {
   return devices.map((d) => `${d.deviceId} (${d.label})`).join(', ')
 }
 

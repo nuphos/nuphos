@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { partitionLaunchers } from './dev-launchers.ts'
+import { liveLaunchers } from './dev-instance.ts'
 import { OPEN_MENU, menuKey, quitPlan, quitSummary, treesToStop } from './dev-quit.ts'
 
 import type { QuitMenu } from './dev-quit.ts'
@@ -77,10 +77,25 @@ test('every tree that was started is stopped, even when its leader already exite
   )
 })
 
-test('other launchers are the live pids besides this one; dead ones are pruned', () => {
-  assert.deepEqual(
-    partitionLaunchers(['10', '11', '12', 'junk'], 10, (pid) => pid === 11),
-    { others: [11], stale: [12] },
+const record = (key: string, pid: number | null) => ({
+  key,
+  root: `/wt/${key}`,
+  pid,
+  backend: null,
+  vite: null,
+  cdp: null,
+  appData: '',
+  cliConfig: '',
+  logDir: '',
+  groups: [],
+})
+
+test('other launchers are the live instance pids besides this one', () => {
+  const records = [record('a', 10), record('b', 11), record('c', 12), record('d', null)]
+
+  assert.equal(
+    liveLaunchers(records, 10, (pid) => pid === 11),
+    1,
   )
 })
 

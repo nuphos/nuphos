@@ -261,7 +261,6 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                         onOpenNodeLink={stableOpenNodeLink}
                         onOpenPlanInChat={stableOpenPlanInChat}
                         onOpenConversation={stableOpenConversationHere}
-                        railCollapsed={tab.agentRailCollapsed ?? true}
                         onAgentSessionTitle={setAgentSessionTitle}
                         onOpenAuditConversation={openAuditConversation}
                         copyLink={copyLink}

@@ -48,7 +48,7 @@ export function ConversationActivityBadgeView({ badge }: { badge: ConversationAc
       className={clsx(
         'inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium leading-none',
         isSlack
-          ? 'border-[#b36ab9]/35 bg-[#611f69]/15 text-[#d79add]'
+          ? 'border-[#b36ab9]/35 bg-[#611f69]/15 text-slack'
           : 'border-zViolet-500/30 bg-zViolet-500/10 text-zViolet-accent',
       )}
     >

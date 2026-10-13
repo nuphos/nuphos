@@ -81,7 +81,9 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
     )
   }
 
-  if (active === 'team.files') return <RuntimeFilesView teamId={scope.teamId} />
+  if (active === 'team.files') {
+    return <RuntimeFilesView key={filter} teamId={scope.teamId} filePath={filter} />
+  }
 
   if (active === 'team.terminal') return <TerminalView teamId={scope.teamId} filter={filter} />
 

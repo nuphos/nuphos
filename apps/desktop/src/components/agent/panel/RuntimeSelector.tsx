@@ -37,9 +37,7 @@ export type RuntimeControl = {
     status?: RuntimeInstance['status']
   } | null
   options?: RuntimeInstance[]
-  /** Provider usage of the agent this conversation is bound to. */
-  quota?: RuntimeQuota
-  /** Provider usage per runtime id, for the list. */
+  /** Provider usage per runtime id, for the trigger and the list. */
   quotas?: ReadonlyMap<string, RuntimeQuota>
   /** Picks the agent: the one a new conversation starts on, or — for an open
    *  conversation — the one it moves to. */
@@ -110,7 +108,6 @@ export function RuntimeSelector({
   canUpdateTeamAgents,
   value,
   options = [],
-  quota,
   quotas,
   onSelect,
   selectDisabled,
@@ -132,7 +129,7 @@ export function RuntimeSelector({
       : 'Choose agent'
   const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
   const selectedUpdate = value?.id ? updates.get(value.id) : undefined
-  const selectedQuota = quota ?? (value?.id ? quotas?.get(value.id) : undefined)
+  const selectedQuota = value?.id ? quotas?.get(value.id) : undefined
   const [usageWaitExpired, setUsageWaitExpired] = useState<string | undefined>()
 
   useEffect(() => {
