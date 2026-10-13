@@ -8,7 +8,7 @@ import { join } from 'node:path'
 
 import { pushEvent } from './dev-event-log.ts'
 import { signalGroup } from './dev-shutdown.ts'
-import { LOG_DIR } from './dev-workspace.ts'
+import { LOG_ROOT } from './dev-workspace.ts'
 
 import type { ChildProcess } from 'node:child_process'
 
@@ -69,7 +69,7 @@ function namedTunnelStale(): boolean {
 // The named tunnel serves every worktree, so it is spawned detached + unref'd.
 // --protocol http2: the default QUIC dies silently under proxies/VPNs while
 // the pid stays alive.
-const NAMED_TUNNEL_LOG = join(LOG_DIR, 'named-tunnel.log')
+const NAMED_TUNNEL_LOG = join(LOG_ROOT, 'named-tunnel.log')
 const NAMED_TUNNEL_CONFIG = join(homedir(), '.cloudflared/config.yml')
 
 let ownNamedTunnel: ChildProcess | null = null
@@ -77,7 +77,7 @@ let spawnedNamedTunnel = false
 
 function spawnNamedTunnel() {
   try {
-    mkdirSync(LOG_DIR, { recursive: true })
+    mkdirSync(LOG_ROOT, { recursive: true })
   } catch {
     /* exists */
   }

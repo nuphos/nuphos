@@ -8,6 +8,7 @@ import {
   conversationExecutionState,
   steerConversationRuntime,
 } from '@/lib/claude-code-preview/session-execution-state'
+import { steeringMessageId, steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
@@ -51,8 +52,13 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
 
   if (!runtime.actions?.steer)
     throw new AppError(409, 'runtime_steering_unavailable', 'This agent cannot accept steering')
-  const messageId = crypto.randomUUID()
+  const messageId = steeringMessageId(groupId)
   const sent = await steerConversationRuntime(conversation, { text, groupId, userId }, messageId)
 
-  return c.json({ ok: true, messageId, text: sent })
+  return c.json({
+    ok: true,
+    messageId,
+    text: sent,
+    upload: steeringReceipt(messageId, sent).upload,
+  })
 })
