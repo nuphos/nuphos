@@ -1,5 +1,6 @@
-- Switch agents inside a session from the chat menu, and see the pull requests and issues linked to it.
-- Threads an agent opens are nested under the conversation that opened them. Fold them, or unlink one.
-- Image preview: swipe past the last image to reach the first, pinch to zoom, and pull down to close.
-- The keyboard follows your finger when you pull down on the composer or the conversation, and stays with the back swipe.
-- In a shared session, anyone who can reply can steer or stop the running turn.
+- Share a session from your phone: set who on the team can open it, invite teammates and pick their role.
+- Type @ in the composer to point the agent at one of your other sessions.
+- Agent usage shows what is left, as a bar that drains like a battery.
+- Session managers can switch the agent.
+- Long messages stay fast and are folded; pull to refresh works on empty lists.
+- The approval card no longer offers "For session" and "Always allow", which had stopped working.
