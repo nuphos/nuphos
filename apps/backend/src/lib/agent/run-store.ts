@@ -3,6 +3,7 @@
 // owning replica appends each frame to a capped Redis Stream and refreshes
 // a short-lived ownership lease while the run is active.
 
+export { readAgentRunFrames } from './run-store/frames'
 export { flushGuardWrites } from './run-store/guards'
 export { dropAgentRunMirror, mirrorAgentRunFrame } from './run-store/mirror'
 export {

@@ -4,7 +4,14 @@
 import { existsSync } from 'node:fs'
 
 import { stripAnsi } from './dev-child-output.ts'
-import { COMPOSE, COMPOSE_DIR, COMPOSE_ENV, RESET_ARGS, clearDevSignIn } from './dev-compose.ts'
+import {
+  COMPOSE,
+  COMPOSE_DIR,
+  COMPOSE_ENV,
+  RESET_ARGS,
+  clearDevSignIn,
+  createStackEnv,
+} from './dev-compose.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
 import { readLocalStack } from './dev-local-stack-env.ts'
 import { cleanupManagedAgents } from './dev-managed-cleanup.ts'
@@ -21,6 +28,7 @@ import {
 import { looksStale, waitingNote } from './dev-store-health.ts'
 import { setDownstreamNote, watchStores } from './dev-store-watch.ts'
 
+import type { S3Keys } from './dev-compose.ts'
 import type { LocalStack } from './dev-local-stack-env.ts'
 import type { Service } from './dev-services.ts'
 
@@ -140,16 +148,38 @@ async function readImages(): Promise<Images | null> {
   }
 }
 
-async function ensureComposeEnv(): Promise<boolean> {
-  if (existsSync(COMPOSE_ENV)) return true
-  pushEvent(compose, 'no deploy/compose/.env — generating it with init-env.sh')
-  const result = await runDevCommand('sh', ['init-env.sh'], {
-    cwd: COMPOSE_DIR,
-    timeoutMs: 30_000,
-  })
+/** The S3 keys the running rustfs container was created with; null when none runs. */
+async function runningS3Keys(): Promise<S3Keys | null> {
+  const env: Record<string, string> = {}
+  const result = await runDevCommand(
+    'docker',
+    ['inspect', '-f', '{{range .Config.Env}}{{println .}}{{end}}', 'nuphos-dev-rustfs-1'],
+    {
+      timeoutMs: 20_000,
+      onStdout: (line) => {
+        const eq = line.indexOf('=')
 
-  if (result.exitCode !== 0) return false
-  if (clearDevSignIn()) pushEvent(compose, 'new secrets — cleared the old dev Desktop sign-in')
+        if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1)
+      },
+    },
+  )
+  const { RUSTFS_ACCESS_KEY: access, RUSTFS_SECRET_KEY: secret } = env
+
+  return result.exitCode === 0 && access && secret ? { access, secret } : null
+}
+
+function ensureComposeEnv(running: S3Keys | null): boolean {
+  if (existsSync(COMPOSE_ENV)) return true
+  try {
+    createStackEnv(running)
+    pushEvent(compose, `wrote the shared stack secrets to ${COMPOSE_ENV}`)
+  } catch (error) {
+    if (!existsSync(COMPOSE_ENV)) {
+      pushEvent(compose, `could not write ${COMPOSE_ENV}: ${String(error)}`)
+
+      return false
+    }
+  }
 
   return true
 }
@@ -159,15 +189,27 @@ let images: Images = {}
 const startDataStores = singleFlight(async (): Promise<LocalStack | null> => {
   const rows = [mongo, rustfs]
 
-  if (!(await ensureComposeEnv())) {
-    failRows(rows, 'init-env.sh failed', '')
+  const running = await runningS3Keys()
+
+  if (!ensureComposeEnv(running)) {
+    failRows(rows, 'could not create the shared stack secrets', '')
 
     return null
   }
   const local = readLocalStack(COMPOSE_ENV)
 
   if (!local) {
-    failRows(rows, 'deploy/compose/.env lacks generated secrets; delete it and rerun', '')
+    failRows(rows, `${COMPOSE_ENV} lacks generated secrets; delete it and rerun`, '')
+
+    return null
+  }
+  // `up` would recreate rustfs with these keys under every other running backend.
+  if (running && (running.access !== local.s3AccessKey || running.secret !== local.s3SecretKey)) {
+    failRows(
+      rows,
+      `the running stack has other S3 keys than ${COMPOSE_ENV}; copy its keys there, or wipe it with bun run dev:reset`,
+      '',
+    )
 
     return null
   }

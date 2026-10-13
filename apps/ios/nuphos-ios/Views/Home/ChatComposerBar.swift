@@ -15,6 +15,8 @@ struct ChatComposerBar<Controls: View>: View {
     var canSteer = false
     var allowsAttachments = true
     var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
+    /// Where an `@` finds the viewer's other sessions; nil offers none.
+    var sessionMentions: SessionMentionSource? = nil
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -31,11 +33,13 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
     @State private var askingForKey = false
+    @State private var mentionResults: [AgentConversation] = []
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
     private var expanded: Bool { focused || hasPayload }
     private var hasControls: Bool { Controls.self != EmptyView.self }
+    private var mentionQuery: String? { sessionMentions == nil ? nil : SessionMention.query(in: text) }
 
     var body: some View {
         // One TextField, always in the same place in the hierarchy: moving
@@ -67,6 +71,11 @@ struct ChatComposerBar<Controls: View>: View {
                 .opacity(expanded ? 1 : 0)
                 .allowsHitTesting(expanded)
                 .accessibilityHidden(!expanded)
+            }
+
+            if expanded, !mentionResults.isEmpty {
+                mentionList
+                    .transition(.opacity)
             }
 
             HStack(spacing: 8) {
@@ -125,6 +134,15 @@ struct ChatComposerBar<Controls: View>: View {
         .animation(.easeOut(duration: 0.15), value: hasText)
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
+        .animation(.snappy(duration: 0.25), value: mentionResults)
+        .task(id: mentionQuery) {
+            guard let query = mentionQuery, let sessionMentions else { mentionResults = []; return }
+            // Typing on cancels this task, so only a pause asks the backend.
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            let found = await sessionMentions.search(query)
+            if !Task.isCancelled { mentionResults = found }
+        }
         .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
         .onDisappear(perform: cancelDictation)
         .padding(.horizontal, 16)
@@ -214,6 +232,39 @@ struct ChatComposerBar<Controls: View>: View {
             } message: {
                 Text(dictationError ?? "")
             }
+    }
+
+    // MARK: Session mentions
+
+    private var mentionList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(mentionResults) { conversation in
+                Button { pickMention(conversation) } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bubble.left")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.muted)
+                        Text(conversation.displayTitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.heading)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func pickMention(_ conversation: AgentConversation) {
+        guard let source = sessionMentions,
+              let link = SessionLink.url(teamId: conversation.teamId ?? source.teamId, sessionId: conversation.sessionId)
+        else { return }
+        text = SessionMention.insert(link, into: text)
+        mentionResults = []
     }
 
     // MARK: Voice input
