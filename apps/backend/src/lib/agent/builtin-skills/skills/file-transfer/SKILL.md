@@ -16,7 +16,10 @@ Two directions:
   into the sandbox to work on them.
 - **Push** — you produced or fetched a file (e.g. `kubectl cp` from a pod,
   or a report you generated). Push it out as a `download` group; a download
-  card then appears in the user's conversation.
+  card then appears in the user's conversation. Images and videos in it show
+  inline, so pushing is also how you **show** the user a screenshot,
+  recording, or chart image. Never leave such a file at a local path for the
+  user to open, or describe it via OCR instead of sending it.
 
 ## Critical cost rule
 
@@ -123,6 +126,25 @@ need to know how the transfer works.
   per-file download and a local "download all as zip", so the user chooses.
 - **A large directory / many files** → `zip` it here first and push the
   single archive. This avoids hundreds of separate objects and is faster.
+
+### Files on the user's device (`local_exec`)
+
+`transfer-push.sh` only runs in the sandbox, but the upload URLs it gets are
+presigned, so the device can PUT the bytes itself — no copying the file into
+the sandbox. Create the group here, PUT from the device, finalize here:
+
+```bash
+# 1. Sandbox (ft helper from Auth): one entry per file, size in bytes from
+#    `stat -f%z <file>` (macOS) or `stat -c%s <file>` (Linux) on the device.
+ft POST "" -d '{"direction":"download","files":[{"fileName":"menu.png","relPath":"menu.png","size":48213,"contentType":"image/png"}]}'
+# → { groupId, files: [{ relPath, uploadUrl }] }
+
+# 2. Device, via local_exec, for each file:
+curl -fsS -X PUT -H "Content-Type: image/png" --upload-file ~/shots/menu.png '<uploadUrl>'
+
+# 3. Sandbox: the card appears once the group is ready.
+ft POST "/<groupId>/finalize"
+```
 
 ## Failure handling
 
