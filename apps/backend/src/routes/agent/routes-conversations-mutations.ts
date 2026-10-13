@@ -20,7 +20,7 @@ import {
   validateRequestedAgentRuntime,
   validateRequestedRuntimeId,
 } from '@/lib/claude-code-preview/runtime-routing'
-import { forgetSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
+import { forgetArchivedSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { AppError } from '@/lib/errors'
 
 import { isTranscriptSyncBlockedBySlackBinding } from './chat-slack-bound'
@@ -167,7 +167,7 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   if (!found) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  if (body.archived) forgetSessionHomes([sessionId])
+  if (body.archived) forgetArchivedSessionHomes([sessionId])
 
   return c.json({ ok: true, archived: body.archived })
 })

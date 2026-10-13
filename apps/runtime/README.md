@@ -311,17 +311,22 @@ it only to teams that may share them.
 Nuphos conversations have separate CLI homes under
 `~/.nuphos/session-homes/<sha256-conversation-id>`. Both adapters give shell tools
 that conversation's `HOME`, XDG directories, and explicit config paths for gcloud,
-gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly four caches stay in
+gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly six caches stay in
 the runtime home and are shared by every conversation: `GOCACHE`, `GOMODCACHE`,
-`BUN_INSTALL_CACHE_DIR` and `PLAYWRIGHT_BROWSERS_PATH`. `XDG_CACHE_HOME` remains
+`BUN_INSTALL_CACHE_DIR`, `PLAYWRIGHT_BROWSERS_PATH`, `PIP_CACHE_DIR` and
+`UV_CACHE_DIR`. `XDG_CACHE_HOME` remains
 per conversation because some tools keep login state there. On the OpenCode
 runtime, `$XDG_DATA_HOME/opencode` (OpenCode's login and sessions) links to the
 runtime home; the rest of `XDG_DATA_HOME` stays per conversation. Go does not
 re-authenticate cached modules, so a private module fetched with one
 conversation's Git credentials is readable by every conversation on the runtime.
+The same holds for packages pip and uv fetch from a private index, and both reuse
+wheels built locally without checking them again.
 The home persists across
 new/load/resume and token refresh; existing runtime-global credentials are never
-copied into it. Re-run credential setup inside the conversation after upgrading.
+copied into it. Archiving a conversation empties its home on the runtime that
+runs it, logins included, so a turn after unarchiving starts like a new
+conversation. Re-run credential setup inside the conversation after upgrading.
 The agent provider's own login remains runtime-owned so this does not require a
 new Claude/Codex login. Desktop bundles use the same adapter behavior.
 

@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 
-import { forgetSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { signNuphosToken } from '@/lib/identity'
 import { SLACK_INCIDENT_BUSY_POSTS_PER_HOUR } from '@/lib/slack/incident-notifications'
 import { runAgentForTrigger } from '@/routes/agent'
@@ -172,8 +171,6 @@ export async function executeTrigger(
     return sessionId
   } finally {
     release?.()
-    // A fresh run is one turn; only a routed session expects later turns.
-    if (!options.sessionId) forgetSessionHomes([sessionId])
   }
 }
 

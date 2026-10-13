@@ -1,6 +1,6 @@
 import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
-import { forgetSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
+import { forgetArchivedSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -34,7 +34,7 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
     { $set: { archivedAt: now } },
   )
 
-  forgetSessionHomes(sessionIds)
+  forgetArchivedSessionHomes(sessionIds)
 
   if (result.modifiedCount > 0) {
     logEvent('info', 'agent.conversation_auto_archive.swept', {
@@ -55,8 +55,9 @@ function runSweep() {
   })
 }
 
-/** Plain hourly interval on every replica: the sweep is one idempotent
- *  updateMany, so concurrent runs only repeat a no-op. */
+/** Plain hourly interval on every replica: archiving is one idempotent
+ *  updateMany, and emptying a home again is harmless, so concurrent runs only
+ *  repeat a no-op. */
 export const conversationAutoArchive = {
   init(): void {
     if (config.agent.autoArchiveIdleDays <= 0) return
