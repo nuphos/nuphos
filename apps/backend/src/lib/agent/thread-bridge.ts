@@ -8,7 +8,12 @@ import {
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId, recordAgentEvent, upsertConversationShell } from './db'
+import {
+  getConversationBySessionId,
+  recordAgentEvent,
+  setConversationParent,
+  upsertConversationShell,
+} from './db'
 
 import type { AgentConversation } from './db'
 
@@ -54,9 +59,14 @@ export async function authorizeThreadDelivery(
   return target
 }
 
-function receipt(actor: ThreadActor, threadId: string, messageId: string) {
+function receipt(
+  actor: ThreadActor,
+  threadId: string,
+  messageId: string,
+  status: 'started' | 'delivered',
+) {
   return {
-    status: 'queued',
+    status,
     threadId,
     messageId,
     _links: { web: `/teams/${actor.teamId}/agent/${threadId}` },
@@ -89,18 +99,20 @@ export async function createAgentThread(actor: ThreadActor, prompt: string, titl
     actor.userId,
     await getSessionBypass(actor.sessionId, actor.userId),
   )
-  startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
+  const { status } = await startThreadTurn({
+    ...actor,
+    targetSessionId: threadId,
+    messageId,
+    prompt,
+  })
 
-  return { ...receipt(actor, threadId, messageId), sourceThreadId: actor.sessionId }
+  return { ...receipt(actor, threadId, messageId, status), sourceThreadId: actor.sessionId }
 }
 
 export async function sendAgentThreadMessage(actor: ThreadActor, threadId: string, prompt: string) {
   const data = { ...actor, targetSessionId: threadId, messageId: randomUUID(), prompt }
 
-  await authorizeThreadDelivery(data)
-  startThreadTurn(data)
-
-  return receipt(actor, threadId, data.messageId)
+  return receipt(actor, threadId, data.messageId, (await startThreadTurn(data)).status)
 }
 
 /** The agents the owner can run a thread on, each with its readiness and usage. */
@@ -180,28 +192,46 @@ export async function updateThread(
   }
 }
 
-export async function executeThreadTurn(data: ThreadTurn): Promise<void> {
+// Same path as a message typed into a chat: an idle target starts its turn in this
+// process, a busy one takes the message into its active turn. Returns which
+// happened; `run` settles with the turn, whose failure is logged here.
+export async function startThreadTurn(data: ThreadTurn) {
   const target = await authorizeThreadDelivery(data)
   // Lazy so importing the tools does not pull in the route graph.
-  const { executeConversationTurn } = await import('./conversation-turn')
-
-  await executeConversationTurn(data, target, data.prompt, 'agent.thread', {
+  const { startConversationTurn } = await import('./conversation-turn')
+  const { status, run } = await startConversationTurn(data, target, data.prompt, 'agent.thread', {
     version: 1,
     sender: { type: 'agent', id: data.sessionId, displayName: 'Nuphos agent' },
     source: 'agent.thread',
     sourceSessionId: data.sessionId,
     sentAt: new Date().toISOString(),
   })
-}
 
-// Same path as a message typed into a chat: the turn starts in this process and
-// a busy target takes it through its pending-message queue.
-function startThreadTurn(data: ThreadTurn): void {
-  void executeThreadTurn(data).catch((error: unknown) => {
+  run.catch((error: unknown) => {
     logError('agent.thread.turn_failed', error, {
       session_id: data.targetSessionId,
       source_session_id: data.sessionId,
       message_id: data.messageId,
     })
   })
+
+  return { status, run }
+}
+
+export async function setAgentThreadParent(
+  actor: ThreadActor,
+  threadId: string,
+  parentThreadId: string | null,
+) {
+  await authorizeThreadActor(actor)
+  const result = await setConversationParent(threadId, actor.userId, actor.teamId, parentThreadId)
+
+  if (result === 'not_found') throw new Error('Thread must be a conversation you own in this team.')
+  if (result === 'invalid_parent') {
+    throw new Error(
+      'Parent must be another conversation you own in this team, and not one nested below the thread.',
+    )
+  }
+
+  return { threadId, parentThreadId }
 }

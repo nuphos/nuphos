@@ -177,9 +177,10 @@ jobs:
           echo "Build $BUILD_NUMBER added to $GROUP and submitted for Beta App Review." >> "$GITHUB_STEP_SUMMARY"
           echo "build_id=$(jq -r .id <<<"$BUILD")" >> "$GITHUB_OUTPUT"
 
-      # A new App Store version starts from the live version's metadata, so only
-      # What's New comes from the repository. AFTER_APPROVAL matches how earlier
-      # versions were released: the app goes live once review approves it.
+      # One App Store version is prepared at a time. A release cut while the
+      # previous one is still in review withdraws that submission and reuses its
+      # version record. A new record starts from the live version's metadata.
+      # What's New and the screenshots always come from the repository.
       - name: Submit the version for App Store review
         if: steps.beta.outputs.build_id != ''
         working-directory: apps/ios
@@ -189,16 +190,69 @@ jobs:
           BUILD_ID: ${{ steps.beta.outputs.build_id }}
         run: |
           set -euo pipefail
-          VERSION_ID="$(asc versions list --app "$APP_ID" --platform IOS --version "$VERSION" --output json \
-            | jq -r '(.data // .)[0].id // ""')"
+          echo "asc $(asc --version)" >> "$GITHUB_STEP_SUMMARY"
+
+          # Everything that can fail without touching App Store Connect runs
+          # before the submission is withdrawn. published.txt lists the
+          # published screenshot set in order, each with its SHA-256; see
+          # app-store/README.md.
+          SHOTS="$RUNNER_TEMP/screenshots"
+          mkdir -p "$SHOTS"
+          while read -r SHA URL; do
+            curl -fsSL --retry 3 -o "$SHOTS/$(basename "$URL")" "$URL"
+            echo "$SHA  $SHOTS/$(basename "$URL")" | shasum -a 256 -c - >/dev/null
+          done < app-store/published.txt
+          asc screenshots validate --path "$SHOTS" --device-type IPHONE_67 >/dev/null
+
+          # A version cannot be edited while a submission holds it. Only
+          # submissions that carry an App Store version are withdrawn; in-app
+          # events and custom product pages in review are left alone.
+          PENDING='READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES'
+          submissions() {
+            asc review submissions-list --app "$APP_ID" --platform IOS --state "$1" \
+              --include appStoreVersionForReview --output json \
+              | jq -r '(.data // .)[] | select(.relationships.appStoreVersionForReview.data != null) | .id'
+          }
+          OPEN="$(submissions "$PENDING")"
+          for SUBMISSION in $OPEN; do
+            asc review submissions-update --id "$SUBMISSION" --canceled=true --confirm >/dev/null
+            echo "Withdrew review submission $SUBMISSION." >> "$GITHUB_STEP_SUMMARY"
+          done
+          for _ in $(seq 1 30); do
+            OPEN="$(submissions "$PENDING,CANCELING")"
+            if [[ -z "$OPEN" ]]; then break; fi
+            sleep 10
+          done
+          if [[ -n "$OPEN" ]]; then
+            echo "::error::Review submission $OPEN is still open after five minutes; rerun this job once it has cleared."
+            exit 1
+          fi
+
+          version_id() {
+            asc versions list --app "$APP_ID" --platform IOS "$@" --output json | jq -r '(.data // .)[0].id // ""'
+          }
+          VERSION_ID="$(version_id --version "$VERSION")"
           if [[ -z "$VERSION_ID" ]]; then
-            LIVE="$(asc versions list --app "$APP_ID" --platform IOS --state READY_FOR_SALE --output json \
-              | jq -r '(.data // .)[0].attributes.versionString')"
-            VERSION_ID="$(asc versions create --app "$APP_ID" --platform IOS --version "$VERSION" \
-              --copy-metadata-from "$LIVE" --exclude-fields whatsNew --release-type AFTER_APPROVAL --output json \
-              | jq -r '(.data // .).id')"
+            VERSION_ID="$(version_id --state PREPARE_FOR_SUBMISSION,READY_FOR_REVIEW,DEVELOPER_REJECTED,REJECTED,METADATA_REJECTED,INVALID_BINARY)"
+            if [[ -n "$VERSION_ID" ]]; then
+              asc versions update --version-id "$VERSION_ID" --version "$VERSION" >/dev/null
+            else
+              LIVE="$(asc versions list --app "$APP_ID" --platform IOS --state READY_FOR_SALE --output json \
+                | jq -r '(.data // .)[0].attributes.versionString')"
+              VERSION_ID="$(asc versions create --app "$APP_ID" --platform IOS --version "$VERSION" \
+                --copy-metadata-from "$LIVE" --exclude-fields whatsNew --release-type AFTER_APPROVAL --output json \
+                | jq -r '(.data // .).id')"
+            fi
           fi
           asc localizations update --version "$VERSION_ID" --locale en-US --whats-new "$(cat whats-new.txt)" >/dev/null
+
+          asc screenshots upload --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US \
+            --path "$SHOTS" --device-type IPHONE_67 --replace --confirm >/dev/null
+          {
+            echo 'Screenshots on this version:'
+            asc screenshots list --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US --output markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+
           asc review submit --app "$APP_ID" --version-id "$VERSION_ID" --build-id "$BUILD_ID" --confirm
           echo "Version $VERSION submitted for App Store review." >> "$GITHUB_STEP_SUMMARY"
 
