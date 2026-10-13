@@ -98,11 +98,13 @@ final class AgentStore {
 
     /// Drops a chat that left this list (archived or restored). The poller
     /// keeps rows its first page misses, so it would not drop it; reads
-    /// already in flight are discarded so they cannot bring it back.
+    /// already in flight are discarded so they cannot bring it back. Before
+    /// the list has loaded, the discarded read is the load itself, so start
+    /// it again.
     func removeFromList(_ sessionId: String) {
-        loadGeneration += 1
         conversations.removeAll { $0.sessionId == sessionId }
         sharedConversations.removeAll { $0.sessionId == sessionId }
+        if phase == .loaded { loadGeneration += 1 } else { Task { await reload() } }
     }
 
     // MARK: - Threads
