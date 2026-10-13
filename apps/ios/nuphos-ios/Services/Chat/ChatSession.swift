@@ -919,7 +919,7 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false]
+                clientCapabilities: ["localTools": false, "resendsRefusal": true]
             )
 
             var needsFreshRetry = false

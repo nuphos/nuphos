@@ -1,5 +1,4 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
-import { AppError } from '@/lib/errors'
 import { RunHandoff } from '@/lib/lifecycle'
 
 import { registry } from './agent-chat-registry'
@@ -11,6 +10,7 @@ import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { openConversationSession } from './open-conversation-session'
+import { refusal } from './runtime-refusal'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
   assertConversationRuntimeAvailable,
@@ -48,16 +48,6 @@ export type { ConversationChatRuntime } from './conversation-chat-route'
 
 // A handoff lets go of the stream only; the runtime keeps running the turn.
 const cancels = (signal: AbortSignal) => signal.aborted && !(signal.reason instanceof RunHandoff)
-
-/**
- * Another turn (a delegated thread, a background-task continuation) can take
- * the runtime after route admission. Refuse as admission does, so the client
- * keeps the message and sends it again instead of losing it.
- */
-const refusal = (label: string) => new AppError(409, 'runtime_not_accepting_message', label)
-
-export const isRuntimeRefusal = (error: unknown) =>
-  error instanceof AppError && error.code === 'runtime_not_accepting_message'
 
 export {
   SESSION_CONTEXT_REFRESH_MS,

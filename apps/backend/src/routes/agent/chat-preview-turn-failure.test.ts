@@ -213,17 +213,25 @@ test('a refused turn is still recorded when nobody resends it', async () => {
   expect(persisted.at(-1)!.messages.at(-1)!.parts).toContainEqual(
     expect.objectContaining({ type: 'turn-interrupted' }),
   )
+})
 
-  // Queued messages this turn drained have no sender left to resend them either.
+test('an app refusal puts the queued messages it drained back for the resent turn', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
+
+  cause = new AppError(409, 'runtime_not_accepting_message', 'Responding…')
   carried = [
     { id: 'queued', renderedText: 'also this', source: 'app', receivedAt: '2026-10-13T00:00:00Z' },
   ]
   const before = persisted.length
-  const app = createAgentRun('user-failure', 'session-failure', 'run-refused-carried')
+  const run = createAgentRun('user-failure', 'session-failure', 'run-refused-carried')
 
   await expect(
-    runClaudeCodePreviewChatTurn({ ...turnArgs(app), clientResendsRefusal: true }),
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), clientResendsRefusal: true }),
   ).rejects.toThrow('Responding…')
   carried = []
-  expect(persisted).toHaveLength(before + 1)
+  expect(persisted).toHaveLength(before)
+  expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
+    expect.objectContaining({ id: 'queued', renderedText: 'also this' }),
+  ])
 })
