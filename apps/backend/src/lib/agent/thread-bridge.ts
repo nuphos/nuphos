@@ -11,10 +11,11 @@ import { logError } from '@/lib/observability'
 import {
   getConversationBySessionId,
   recordAgentEvent,
-  setConversationArchived,
   setConversationParent,
   upsertConversationShell,
 } from './db'
+
+import { setConversationArchived } from './db'
 
 import type { AgentConversation } from './db'
 
