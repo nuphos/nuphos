@@ -24,8 +24,8 @@ describe('FORGET_SESSION_HOME_PROGRAM', () => {
       mkdirSync(runDir)
       writeFileSync(join(runDir, 'runner.mjs'), FORGET_SESSION_HOME_PROGRAM)
       writeFileSync(join(runDir, 'params.json'), JSON.stringify({ sessionId: 'archived' }))
-      const run = Bun.spawnSync(['node', join(runDir, 'runner.mjs'), runDir], {
-        env: { PATH: process.env.PATH, HOME: join(root, 'home') },
+      const run = Bun.spawnSync([process.execPath, join(runDir, 'runner.mjs'), runDir], {
+        env: { HOME: join(root, 'home') },
       })
 
       expect(run.exitCode).toBe(0)

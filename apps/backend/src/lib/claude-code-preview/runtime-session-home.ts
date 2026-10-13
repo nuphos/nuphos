@@ -18,7 +18,7 @@ const { createHash } = await import('node:crypto');
 const { sessionId } = JSON.parse(await fs.readFile(path.join(process.argv[2], 'params.json'), 'utf8'));
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2);
 const id = createHash('sha256').update(sessionId).digest('hex');
-await fs.rm(path.join(process.env.HOME || os.homedir(), '.nuphos', 'session-homes', id), { recursive: true, force: true });
+await fs.rm(path.join(os.homedir(), '.nuphos', 'session-homes', id), { recursive: true, force: true });
 `
 
 /**
