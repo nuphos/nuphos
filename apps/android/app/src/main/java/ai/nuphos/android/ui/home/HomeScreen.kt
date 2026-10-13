@@ -3,6 +3,7 @@ package ai.nuphos.android.ui.home
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Search
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.MonitorHeart
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -61,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -250,7 +254,26 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    TextButton(onClick = { showWorkspaces = true }) { Text(store.selectedTeam?.name ?: "Choose workspace", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
+                    // A tonal pill with a chevron, so the workspace name reads as a
+                    // switcher rather than a static title.
+                    TextButton(
+                        onClick = { showWorkspaces = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        contentPadding = PaddingValues(start = 14.dp, end = 8.dp),
+                    ) {
+                        Text(
+                            store.selectedTeam?.name ?: "Choose workspace",
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Icon(Icons.Outlined.ExpandMore, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
                     DropdownMenu(showWorkspaces, onDismissRequest = { showWorkspaces = false }) {
                         store.teams.forEach { team ->
                             DropdownMenuItem(text = { Text(team.name) }, onClick = {

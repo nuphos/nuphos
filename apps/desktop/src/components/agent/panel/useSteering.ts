@@ -5,6 +5,7 @@ import { toast } from '../../ui/toast'
 
 import { optimisticSenderMetadata } from './optimisticSender'
 import { normalizeTransferUploadPart } from './parts'
+import { markAutoSend } from './queuedAutoSend'
 import { appendSteering } from './steering'
 
 import type { PanelCtx } from './ctx'
@@ -77,14 +78,12 @@ export function useSteering({
         setTabs((tabs) =>
           tabs.map((t) =>
             t.id === tabId
-              ? {
-                  ...t,
-                  queued: t.queued?.map((q) => (q.id === queuedId ? { ...q, steering: false } : q)),
-                }
+              ? // The turn is usually over by now: send it as the next one.
+                markAutoSend(t, queuedId)
               : t,
           ),
         )
-        toast.apiError('Could not steer the current turn', error)
+        toast.apiError('Could not steer the current turn; it will be sent next', error)
       }
     },
     [tabsRef, setTabs, teamId, currentUser],

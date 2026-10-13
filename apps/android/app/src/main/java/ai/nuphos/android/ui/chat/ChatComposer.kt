@@ -16,6 +16,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -57,6 +59,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -529,8 +532,50 @@ private fun TrailingButton(
     }
 }
 
+/**
+ * Mirrors iOS `ComposerAttachment`: a 64dp thumbnail with an 18dp remove disc
+ * nudged past its top-end corner. The disc is a plain clickable rather than an
+ * [IconButton], whose 48dp minimum touch target drew a ripple over a quarter of
+ * the thumbnail; the invisible hit area is widened to 34dp instead. The tile
+ * pads by the hit box's full overhang, because touches outside a parent's
+ * bounds are not delivered and would otherwise shave 8dp off two sides.
+ */
 @Composable
 private fun AttachmentTile(attachment: ComposerAttachment, onRemove: () -> Unit) {
+    Box(Modifier.padding(top = RemoveBadgeHitOverhang, end = RemoveBadgeHitOverhang)) {
+        AttachmentThumbnail(attachment)
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = RemoveBadgeHitOverhang, y = -RemoveBadgeHitOverhang)
+                .size(RemoveBadgeHitSize)
+                .clickable(
+                    interactionSource = null,
+                    indication = ripple(bounded = false, radius = RemoveBadgeHitSize / 2),
+                    role = Role.Button,
+                    onClick = onRemove,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier.size(RemoveBadgeSize).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(10.dp))
+            }
+        }
+    }
+}
+
+private val RemoveBadgeSize = 18.dp
+private val RemoveBadgeHitSize = 34.dp
+/** How far the badge pokes out past the thumbnail corner. */
+private val RemoveBadgeOverhang = 5.dp
+/** Offset of the hit box so its centered badge lands at [RemoveBadgeOverhang]. */
+private val RemoveBadgeHitOverhang = (RemoveBadgeHitSize - RemoveBadgeSize) / 2 + RemoveBadgeOverhang
+
+@Composable
+private fun AttachmentThumbnail(attachment: ComposerAttachment) {
     Box(Modifier.size(64.dp)) {
         when (val kind = attachment.kind) {
             is ComposerAttachment.Kind.Image -> {
@@ -552,9 +597,6 @@ private fun AttachmentTile(attachment: ComposerAttachment, onRemove: () -> Unit)
                     Text(attachment.fileExtension, style = MaterialTheme.typography.labelSmall)
                 }
             }
-        }
-        IconButton(onClick = onRemove, modifier = Modifier.align(Alignment.TopEnd).size(20.dp).background(MaterialTheme.colorScheme.onSurface, CircleShape)) {
-            Icon(Icons.Outlined.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(12.dp))
         }
     }
 }
