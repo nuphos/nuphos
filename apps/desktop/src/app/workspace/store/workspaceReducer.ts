@@ -6,6 +6,12 @@ import {
   teamScopeOf,
 } from './workspaceState.ts'
 import {
+  forgetSession,
+  recordSurface,
+  retainSurfaces,
+  stepSurface,
+} from './workspaceSurfaceHistory.ts'
+import {
   activateTabIn,
   closeOtherTabsIn,
   closeTabIn,
@@ -19,7 +25,7 @@ import {
 } from './workspaceTabOps.ts'
 
 import type { WorkspaceAction, WorkspaceStoreDeps } from './workspaceActions'
-import type { TabBucket, WorkspaceState, WorkspaceSurface } from './workspaceState'
+import type { TabBucket, WorkspaceState } from './workspaceState'
 
 function writeBucket(
   state: WorkspaceState,
@@ -84,41 +90,6 @@ function selectSession(
   }
 }
 
-const SURFACE_HISTORY_LIMIT = 50
-
-function surfaceOf(state: WorkspaceState): WorkspaceSurface {
-  const { sessionId, sessionReadOnly, teamScope, mainPageOpen } = state
-
-  return { sessionId, sessionReadOnly, teamScope, mainPageOpen }
-}
-
-/**
- * Every change of what the main pane shows is recorded here, whichever action
- * made it, so a sidebar click and a link in a message are undone the same way.
- * A new chat or main-page state is a move; a change of read-only or team on the
- * same one rewrites its entry instead.
- */
-function recordSurface(prev: WorkspaceState, next: WorkspaceState): WorkspaceState {
-  const current = next.surfaceHistory[next.surfaceHistoryIndex] ?? surfaceOf(prev)
-  const to = surfaceOf(next)
-
-  if (
-    current.sessionId === to.sessionId &&
-    current.mainPageOpen === to.mainPageOpen &&
-    current.sessionReadOnly === to.sessionReadOnly &&
-    current.teamScope?.teamId === to.teamScope?.teamId
-  ) {
-    return next
-  }
-  const moved = current.sessionId !== to.sessionId || current.mainPageOpen !== to.mainPageOpen
-  const behind = [...next.surfaceHistory.slice(0, next.surfaceHistoryIndex), current]
-  const surfaceHistory = (moved ? [...behind, to] : [...behind.slice(0, -1), to]).slice(
-    -SURFACE_HISTORY_LIMIT,
-  )
-
-  return { ...next, surfaceHistory, surfaceHistoryIndex: surfaceHistory.length - 1 }
-}
-
 /** The main page keeps its tab (and history) while it stays on the team being opened. */
 function openMainPage(
   state: WorkspaceState,
@@ -146,7 +117,10 @@ function retainTeams(
   const retained = writeEveryBucket(state, (bucket) =>
     retainTeamsIn(bucket, (teamId) => known.has(teamId)),
   )
-  const next = retained.teamsKnown ? retained : { ...retained, teamsKnown: true }
+  const next = retainSurfaces(
+    retained.teamsKnown ? retained : { ...retained, teamsKnown: true },
+    (surface) => !surface.teamScope || known.has(surface.teamScope.teamId),
+  )
 
   if (next.teamScope && known.has(next.teamScope.teamId)) return next
 
@@ -154,7 +128,10 @@ function retainTeams(
 }
 
 function removeTeam(state: WorkspaceState, teamId: string): WorkspaceState {
-  const next = writeEveryBucket(state, (bucket) => retainTeamsIn(bucket, (id) => id !== teamId))
+  const next = retainSurfaces(
+    writeEveryBucket(state, (bucket) => retainTeamsIn(bucket, (id) => id !== teamId)),
+    (surface) => surface.teamScope?.teamId !== teamId,
+  )
 
   return next.teamScope?.teamId === teamId ? { ...next, teamScope: null } : next
 }
@@ -163,6 +140,7 @@ const WORKSPACE_LEVEL_ACTIONS = new Set<WorkspaceAction['type']>([
   'selectSession',
   'openMainPage',
   'stepSurface',
+  'forgetSession',
   'setSessionReadOnly',
   'switchTeam',
   'retainTeams',
@@ -176,6 +154,7 @@ type WorkspaceLevelAction = Extract<
       | 'selectSession'
       | 'openMainPage'
       | 'stepSurface'
+      | 'forgetSession'
       | 'setSessionReadOnly'
       | 'switchTeam'
       | 'retainTeams'
@@ -254,12 +233,10 @@ function applyAction(
       return selectSession(state, action)
     case 'openMainPage':
       return openMainPage(state, action.teamId, deps)
-    case 'stepSurface': {
-      const index = state.surfaceHistoryIndex + action.direction
-      const surface = index >= 0 ? state.surfaceHistory[index] : undefined
-
-      return surface ? { ...state, ...surface, surfaceHistoryIndex: index } : state
-    }
+    case 'forgetSession':
+      return forgetSession(state, action.sessionId)
+    case 'stepSurface':
+      return stepSurface(state, action.direction)
     case 'setSessionReadOnly':
       return action.readOnly === state.sessionReadOnly
         ? state
@@ -292,7 +269,7 @@ export function workspaceReducer(
 
   return finalizeWorkspaceState(
     state,
-    action.type === 'stepSurface' ? next : recordSurface(state, next),
+    action.type === 'stepSurface' ? next : recordSurface(next),
     deps,
   )
 }

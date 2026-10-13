@@ -72,6 +72,9 @@ export function usePanelSessionBridge(acc: Acc) {
   }, [onSessionChange])
 
   const lastSyncedSessionIdRef = useRef<string | null | undefined>(undefined)
+  // The last conversation the panel actually showed, to tell leaving a chat
+  // from giving up on one that never appeared.
+  const lastShownSessionIdRef = useRef<string | null>(null)
   // Last (sessionId) the audit read-only context targeted, or null when not
   // in an audit context. An audit open must supersede ANY in-flight
   // open/fork — even when it lands on an existing (possibly already
@@ -80,6 +83,7 @@ export function usePanelSessionBridge(acc: Acc) {
 
   useEffect(() => {
     if (sessionIdProp === undefined) return
+    if (activeTab?.sessionId) lastShownSessionIdRef.current = activeTab.sessionId
     const auditTarget = sessionReadOnly && sessionIdProp ? sessionIdProp : null
 
     if (auditTarget !== lastAuditTargetRef.current) {
@@ -122,11 +126,20 @@ export function usePanelSessionBridge(acc: Acc) {
       // Home — into its history — mid-open. Wait; the load re-runs this.
       case 'awaiting-open':
         return
-      case 'publish':
+      case 'publish': {
+        // Back home from a chat the panel never got to show — its open failed,
+        // or was dismissed before it landed — is not leaving a place.
+        const left = lastSyncedSessionIdRef.current
+        const unshown =
+          action.sessionId === null && left && left !== lastShownSessionIdRef.current
+            ? left
+            : undefined
+
         lastSyncedSessionIdRef.current = action.sessionId
-        onSessionChangeRef.current?.(action.sessionId)
+        onSessionChangeRef.current?.(action.sessionId, unshown)
 
         return
+      }
       case 'clear':
         lastSyncedSessionIdRef.current = sessionIdProp
         // Supersede any open still in flight: without this its response lands

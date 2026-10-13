@@ -360,3 +360,49 @@ test('an open dock tab steps its own history before the conversation does', () =
   actions.setDockOpen(false)
   assert.equal(selectHistoryStep(store.getState(), -1), 'surface')
 })
+
+test('Back from a chat started on New chat returns to where the user was before', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession(null)
+  actions.selectSession('session-new')
+
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
+  actions.stepSurface(1)
+  assert.equal(store.getState().sessionId, 'session-new')
+})
+
+test('a chat that could not be shown leaves Back and Forward', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession('gone')
+  actions.selectSession(null)
+  actions.stepSurface(-1)
+  actions.forgetSession('gone')
+
+  assert.equal(store.getState().sessionId, null)
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
+  assert.equal(selectHistoryStep(store.getState(), -1), null)
+  actions.stepSurface(1)
+  assert.equal(store.getState().sessionId, null)
+  assert.equal(selectHistoryStep(store.getState(), 1), null)
+})
+
+test('leaving a team drops its chats from Back and Forward', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A, TEAM_B], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession('session-b', { teamId: TEAM_B })
+  actions.selectSession('session-a2', { teamId: TEAM_A })
+  actions.removeTeam(TEAM_B)
+
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
+})

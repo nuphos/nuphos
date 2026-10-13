@@ -137,20 +137,30 @@ export function teamScopeOf(teamId: string): TeamScope {
   return { kind: 'team', teamId }
 }
 
+export function surfaceOf(state: WorkspaceSurface): WorkspaceSurface {
+  const { sessionId, sessionReadOnly, teamScope, mainPageOpen } = state
+
+  return { sessionId, sessionReadOnly, teamScope, mainPageOpen }
+}
+
 export function createWorkspaceState(
   buckets: Readonly<Record<string, TabBucket>> = {},
 ): WorkspaceState {
-  return {
+  const surface: WorkspaceSurface = {
     sessionId: null,
     mainPageOpen: false,
     sessionReadOnly: false,
-    newChatRequest: 0,
     teamScope: null,
+  }
+
+  return {
+    ...surface,
+    newChatRequest: 0,
     teamsKnown: false,
     buckets,
     recentSessionKeys: Object.keys(buckets),
-    surfaceHistory: [],
-    surfaceHistoryIndex: -1,
+    surfaceHistory: [surface],
+    surfaceHistoryIndex: 0,
   }
 }
 
