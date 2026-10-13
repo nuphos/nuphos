@@ -19,7 +19,7 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 object NuphosApi {
-    const val BASE_URL = "https://api.nuphos.ai"
+    const val BASE_URL = ai.nuphos.android.BuildConfig.API_BASE_URL
 
     sealed class Failure : Exception() {
         data object Unauthorized : Failure() {

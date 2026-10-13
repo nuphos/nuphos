@@ -135,6 +135,18 @@ all other APIs retain the production endpoint. Release builds always use the pro
 endpoint. The local test service must verify the signed-in account and keep tokens out of logs.
 This tests the push transport independently; it does not make the entire app use a local backend.
 
+For the full isolated backend path, debug builds accept
+`-PnuphosDebugApiBaseUrl=http://127.0.0.1:18768` and `adb reverse tcp:18768 tcp:18768`.
+The push endpoint defaults to this API origin. Release builds cannot use this override.
+Use a clean dedicated test installation and a local fixture account; do not restore a cloud
+login into this build. The browser sign-in page still targets Nuphos Cloud, so local acceptance
+must bootstrap a local account through the isolated backend's authentication APIs.
+`LocalPushBootstrapDeviceTest` is disabled unless `localPushBootstrap=true`, requires a loopback
+debug build and an `@example.test` account, verifies `/auth/me`, and refuses a different saved
+login. Its input is the app-private `files/local-fcm-bootstrap.json`; transfer it through stdin,
+never through adb arguments. The test deletes the input file and retains the verified fixture
+login. Accept AI sharing interactively before issuing real Agent requests.
+
 Verify on a physical device: allow notification permission, sign in and accept consent, background
 the app, complete an agent turn or request an approval, check phone receipt and tap routing. Also
 check denied permissions, process recreation, token refresh and account switching. A successful

@@ -12,7 +12,8 @@ class ConsentInterceptor : Interceptor {
         val bearer = request.header("Authorization")?.takeIf { it.startsWith("Bearer ") }
             ?.removePrefix("Bearer ") ?: return chain.proceed(request)
         val debugPush = isDebugPushRequest(request, ai.nuphos.android.BuildConfig.DEBUG, ai.nuphos.android.BuildConfig.PUSH_BASE_URL)
-        if (!debugPush && (request.url.scheme != "https" || request.url.host != "api.nuphos.ai"))
+        val localApi = ai.nuphos.android.BuildConfig.DEBUG && isLocalApiRequest(request, ai.nuphos.android.BuildConfig.API_BASE_URL)
+        if (!debugPush && !localApi && (request.url.scheme != "https" || request.url.host != "api.nuphos.ai"))
             throw IOException("Nuphos credentials cannot be sent to this address.")
         if (request.url.encodedPath.startsWith("/auth/") || isPushDeviceAccountRequest(request.method, request.url.pathSegments)) return chain.proceed(request)
         val revision = AiAccess.revision
@@ -25,6 +26,10 @@ class ConsentInterceptor : Interceptor {
         return response
     }
 }
+
+internal fun isLocalApiRequest(request: okhttp3.Request, endpoint: String): Boolean =
+    endpoint.startsWith("http://127.0.0.1:") && request.url.scheme == "http" &&
+        request.url.host == "127.0.0.1" && request.url.port == endpoint.substringAfterLast(':').toIntOrNull()
 
 internal fun isDebugPushRequest(request: okhttp3.Request, debug: Boolean, endpoint: String): Boolean =
     debug && endpoint.startsWith("http://127.0.0.1:") &&

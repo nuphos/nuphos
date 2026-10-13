@@ -10,7 +10,10 @@ if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google
 
 val releaseVersionCode = providers.gradleProperty("nuphosVersionCode").orElse("1").get()
 val releaseVersionName = providers.gradleProperty("nuphosVersionName").orElse("1.0").get()
-val debugPushBaseUrl = providers.gradleProperty("nuphosDebugPushBaseUrl").orElse("https://api.nuphos.ai").get()
+val debugApiBaseUrl = providers.gradleProperty("nuphosDebugApiBaseUrl").orElse("https://api.nuphos.ai").get()
+require(debugApiBaseUrl == "https://api.nuphos.ai" || debugApiBaseUrl.matches(Regex("http://127\\.0\\.0\\.1:[0-9]{1,5}")))
+require(debugApiBaseUrl == "https://api.nuphos.ai" || debugApiBaseUrl.substringAfterLast(':').toInt() in 1..65535)
+val debugPushBaseUrl = providers.gradleProperty("nuphosDebugPushBaseUrl").orElse(debugApiBaseUrl).get()
 require(debugPushBaseUrl == "https://api.nuphos.ai" || debugPushBaseUrl.matches(Regex("http://127\\.0\\.0\\.1:[0-9]{1,5}"))) {
     "Debug push endpoint must be the production API or an adb-reversed loopback address"
 }
@@ -36,11 +39,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "PUSH_BASE_URL", "\"https://api.nuphos.ai\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://api.nuphos.ai\"")
     }
 
     buildTypes {
         debug {
             buildConfigField("String", "PUSH_BASE_URL", "\"$debugPushBaseUrl\"")
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
         release {
             isMinifyEnabled = false
