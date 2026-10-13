@@ -2,8 +2,9 @@ import { z } from 'zod'
 
 import {
   createAgentThread,
-  sendAgentThreadMessage,
   listThreadRuntimes,
+  sendAgentThreadMessage,
+  setAgentThreadParent,
   updateThread,
 } from '@/lib/agent/thread-bridge'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -28,6 +29,17 @@ const common = {
 }
 const create = z.object({ ...common, title: z.string().trim().min(1).max(160) }).strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
+const setParent = z
+  .object({
+    label: common.label,
+    threadId: z.string().uuid(),
+    parentThreadId: z
+      .string()
+      .uuid()
+      .nullable()
+      .describe('Conversation to nest the thread under; null stops nesting it.'),
+  })
+  .strict()
 const update = z
   .object({
     label: common.label,
@@ -88,6 +100,15 @@ export function threadToolModule(): PreviewToolModule {
           "runs there. A new thread already starts in this conversation's mode and agent.",
         inputSchema: toolInputJsonSchema(update),
       },
+      {
+        name: 'set_thread_parent',
+        description:
+          'Nest an existing Nuphos thread under another conversation in the sidebar, e.g. your own ' +
+          'session_id to group threads you manage, or pass parentThreadId null to stop nesting it. ' +
+          'Both must be conversations you own in this team, and the parent must not already be nested ' +
+          'below the thread. Changes only the sidebar grouping, not runtime, credentials or messages.',
+        inputSchema: toolInputJsonSchema(setParent),
+      },
     ],
     handlers: (ctx) => ({
       create_thread: async (args) => {
@@ -121,6 +142,13 @@ export function threadToolModule(): PreviewToolModule {
           return toolError('Set fullAccess, runtimeId, or both.')
 
         return answer(updateThread(ctx, threadId, change))
+      },
+      set_thread_parent: async (args) => {
+        const parsed = setParent.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId))
       },
     }),
   }
