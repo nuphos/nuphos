@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentConversations } from '@/lib/agent/db/shared'
+import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { logError, logEvent } from '@/lib/observability'
 
 import { controlRegistry } from './agent-chat-registry'
@@ -19,20 +20,30 @@ export const RECLAIM_SESSION_HOME_PROGRAM = String.raw`
 const fs = await import('node:fs/promises');
 const path = await import('node:path');
 const os = await import('node:os');
-const { createHash } = await import('node:crypto');
+const { createHash, randomUUID } = await import('node:crypto');
 const { sessionId } = JSON.parse(await fs.readFile(path.join(process.argv[2], 'params.json'), 'utf8'));
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2);
 const id = createHash('sha256').update(sessionId).digest('hex');
 const home = path.join(os.homedir(), '.nuphos', 'session-homes', id);
 const done = (result) => { process.stdout.write(JSON.stringify({ result })); process.exit(0); };
+// HOME is matched by path; a working directory follows the directory itself.
+const inUse = async (dir) => {
+  for (const pid of await fs.readdir('/proc')) {
+    if (!/^\d+$/.test(pid)) continue;
+    const env = (await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => '')).split('\0');
+    const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch(() => '');
+    if (env.includes('HOME=' + home) || cwd === dir || cwd.startsWith(dir + '/')) return true;
+  }
+  return false;
+};
 if (!(await fs.lstat(home).catch(() => null))) done('absent');
-for (const pid of await fs.readdir('/proc')) {
-  if (!/^\d+$/.test(pid)) continue;
-  const env = (await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => '')).split('\0');
-  const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch(() => '');
-  if (env.includes('HOME=' + home) || cwd === home || cwd.startsWith(home + '/')) done('in_use');
-}
-await fs.rm(home, { recursive: true, force: true });
+if (await inUse(home)) done('in_use');
+// Set aside first: a session that starts now gets a fresh home, and one that
+// started during the scan is caught by the second scan and keeps this one.
+const aside = home + '.reclaim-' + randomUUID();
+await fs.rename(home, aside);
+if (await inUse(aside)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
+await fs.rm(aside, { recursive: true, force: true });
 done('removed');
 `
 
@@ -50,15 +61,34 @@ type ReclaimCandidate = Pick<
   | 'archivedAt'
 > & { sessionHomeReclaimedAt?: Date } // Set once this archive's home is gone.
 
+const RECLAIM_PROJECTION = {
+  teamId: 1,
+  sessionId: 1,
+  userId: 1,
+  agentRuntime: 1,
+  runtimeId: 1,
+  claudeCodePreview: 1,
+  runtimeMigration: 1,
+  archivedAt: 1,
+}
+
 /**
  * Removes an archived conversation's CLI home once the runtime reports no live
- * session for it. Returns false when the home is still in use, so a later sweep
- * retries. Agents on someone's own computer are not reached; their disk is theirs.
+ * session for it. Returns false to have a later sweep retry: still archived but
+ * in use, or the runtime is unreachable right now. Agents on someone's own
+ * computer are not reached; their disk is theirs.
  */
-export async function reclaimSessionHome(conversation: ReclaimCandidate): Promise<boolean> {
+export async function reclaimSessionHome(sessionId: string): Promise<boolean> {
+  // Re-read now: the sweep can run long, and a restored conversation keeps its home.
+  const conversation = (await agentConversations().findOne(
+    { sessionId, archivedAt: { $exists: true } },
+    { projection: RECLAIM_PROJECTION },
+  )) as ReclaimCandidate | null
+
+  if (!conversation) return false
   const { teamId, runtimeId, agentRuntime: provider = 'claude-code' } = conversation
 
-  if (!teamId || !runtimeId) return true
+  if (!teamId || !runtimeId || isLocalRuntimeId(runtimeId)) return true
   const endpoint =
     runtimeId === `development-${provider}`
       ? developmentRuntimeEndpoint(provider, 'control')
@@ -66,13 +96,12 @@ export async function reclaimSessionHome(conversation: ReclaimCandidate): Promis
           (item) => item.runtimeId === runtimeId,
         )
 
-  // The runtime is gone, or it is someone's own computer: nothing to reclaim.
-  if (!endpoint) return true
+  if (!endpoint) return false
   // Only the runtime knows whether its inner session (and any async task) is live.
   if ((await conversationExecutionState(conversation)).state !== 'dormant') return false
   const client = await controlRegistry.acquire(teamId, endpoint)
 
-  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel')) return true
+  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel')) return false
   const result = await client.runJob(
     {
       jobId: randomUUID(),
@@ -81,7 +110,7 @@ export async function reclaimSessionHome(conversation: ReclaimCandidate): Promis
       stdin: JSON.stringify({
         runner: RECLAIM_SESSION_HOME_PROGRAM,
         script: '',
-        params: { sessionId: conversation.sessionId },
+        params: { sessionId },
       }),
       timeoutMs: 60_000,
       maxStdoutBytes: 1024,
@@ -100,27 +129,15 @@ export async function reclaimSessionHome(conversation: ReclaimCandidate): Promis
  * archived. One that is still running is retried on the next sweep.
  */
 export async function reclaimArchivedSessionHomes(now = new Date()): Promise<number> {
-  const candidates = await agentConversations()
+  const candidates = (await agentConversations()
     .find(
       { archivedAt: { $gt: new Date(now.getTime() - RETRY_WINDOW_MS) } },
-      {
-        projection: {
-          teamId: 1,
-          sessionId: 1,
-          userId: 1,
-          agentRuntime: 1,
-          runtimeId: 1,
-          claudeCodePreview: 1,
-          runtimeMigration: 1,
-          archivedAt: 1,
-          sessionHomeReclaimedAt: 1,
-        },
-      },
+      { projection: { sessionId: 1, archivedAt: 1, sessionHomeReclaimedAt: 1 } },
     )
-    .toArray()
+    .toArray()) as ReclaimCandidate[]
   let reclaimed = 0
 
-  for (const conversation of candidates as ReclaimCandidate[]) {
+  for (const conversation of candidates) {
     if (
       conversation.sessionHomeReclaimedAt &&
       conversation.archivedAt &&
@@ -128,7 +145,7 @@ export async function reclaimArchivedSessionHomes(now = new Date()): Promise<num
     )
       continue
     try {
-      if (!(await reclaimSessionHome(conversation))) continue
+      if (!(await reclaimSessionHome(conversation.sessionId))) continue
       await agentConversations().updateOne(
         { sessionId: conversation.sessionId, archivedAt: conversation.archivedAt },
         { $set: { sessionHomeReclaimedAt: now } },

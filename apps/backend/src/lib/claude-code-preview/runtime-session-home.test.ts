@@ -6,13 +6,15 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
+import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { RECLAIM_SESSION_HOME_PROGRAM, reclaimArchivedSessionHomes } from './runtime-session-home'
 
-describe('RECLAIM_SESSION_HOME_PROGRAM', () => {
+// The program reads /proc, which only Linux runtimes have.
+describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () => {
   let root = ''
   const home = (id: string) =>
     join(root, 'home', '.nuphos', 'session-homes', createHash('sha256').update(id).digest('hex'))
@@ -81,57 +83,97 @@ describe('RECLAIM_SESSION_HOME_PROGRAM', () => {
 describe('reclaimArchivedSessionHomes', () => {
   const now = new Date('2026-10-13T20:00:00Z')
   const archivedAt = new Date('2026-10-13T19:00:00Z')
+  // A computer's own agent is never reached, so it counts as reclaimed at once.
+  const LOCAL = 'local_owner_device'
   let memory = portabilityDb()
   let state = 'dormant'
-  let lookups = 0
+  let onProbe = () => {}
 
   useDb({ db: () => memory })
-  useSessionExecutionState({ conversationExecutionState: async () => ({ state }) })
-  // The runtime answers nothing, so a reached runtime counts as already gone.
-  useRuntimeRegistry({
-    resolveTeamRuntimeEndpoints: async () => {
-      lookups += 1
+  useSessionExecutionState({
+    conversationExecutionState: async () => {
+      onProbe()
 
-      return []
+      return { state }
     },
   })
-  const conversation = (fields: Record<string, unknown>) =>
-    memory.rows('agent_conversations').push({
+  useRuntimeRegistry({ resolveTeamRuntimeEndpoints: async () => [] })
+  useRuntimeCatalog({
+    developmentRuntimeEndpoint: () => ({
+      url: 'ws://127.0.0.1:1/acp',
+      authKey: 'key',
+      provider: 'claude-code',
+      runtimeId: 'development-claude-code',
+    }),
+  })
+  const conversation = (fields: Record<string, unknown>) => {
+    const row: Record<string, unknown> = {
       sessionId: 'conversation',
       userId: 'owner',
       teamId: 'team',
-      runtimeId: 'runtime',
+      runtimeId: LOCAL,
       agentRuntime: 'claude-code',
       archivedAt,
       ...fields,
-    })
+    }
+
+    memory.rows('agent_conversations').push(row)
+
+    return row
+  }
 
   beforeEach(() => {
     memory = portabilityDb()
     state = 'dormant'
-    lookups = 0
+    onProbe = () => {}
   })
 
-  test('marks an archived conversation once its runtime is gone', async () => {
-    conversation({})
+  test('marks an archive that has nothing to reclaim', async () => {
+    const row = conversation({})
+
     expect(await reclaimArchivedSessionHomes(now)).toBe(1)
-    expect(memory.rows('agent_conversations')[0]!.sessionHomeReclaimedAt).toEqual(now)
+    expect(row.sessionHomeReclaimedAt).toEqual(now)
   })
 
   test('skips one already reclaimed since it was archived', async () => {
     conversation({ sessionHomeReclaimedAt: now })
     expect(await reclaimArchivedSessionHomes(now)).toBe(0)
-    expect(lookups).toBe(0)
   })
 
-  test('retries one archived again after an earlier reclaim', async () => {
+  test('reclaims again after a later archive', async () => {
     conversation({ sessionHomeReclaimedAt: new Date('2026-10-01T00:00:00Z') })
     expect(await reclaimArchivedSessionHomes(now)).toBe(1)
+  })
+
+  test('retries while the runtime still runs the session', async () => {
+    state = 'idle'
+    const row = conversation({ runtimeId: 'development-claude-code' })
+
+    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    expect(row.sessionHomeReclaimedAt).toBeUndefined()
+  })
+
+  test('retries while the runtime cannot be resolved', async () => {
+    const row = conversation({ runtimeId: 'gone' })
+
+    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    expect(row.sessionHomeReclaimedAt).toBeUndefined()
+  })
+
+  test('keeps the home of a conversation restored while the sweep ran', async () => {
+    state = 'idle'
+    conversation({ sessionId: 'first', runtimeId: 'development-claude-code' })
+    const restored = conversation({ sessionId: 'second' })
+
+    onProbe = () => {
+      delete restored.archivedAt
+    }
+    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    expect(restored.sessionHomeReclaimedAt).toBeUndefined()
   })
 
   test('ignores conversations that are not archived', async () => {
     conversation({ archivedAt: undefined })
     expect(await reclaimArchivedSessionHomes(now)).toBe(0)
-    expect(lookups).toBe(0)
   })
 })
