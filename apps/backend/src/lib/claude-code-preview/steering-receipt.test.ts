@@ -115,7 +115,8 @@ test('a steer sent with an upload group shows its files again', () => {
   expect(steeringReceipt(id, steeringText('', ['a.png'])).upload?.files).toHaveLength(1)
   // Text-only steers, and text that merely looks like a receipt, carry no files.
   expect(steeringReceipt(id, 'Look')).toEqual({ id, text: 'Look' })
-  expect(steeringReceipt(steeringMessageId(), text).upload).toBeUndefined()
+  for (let i = 0; i < 200; i++)
+    expect(steeringReceipt(steeringMessageId(), text).upload).toBeUndefined()
 })
 
 test('steers reusing one upload group keep separate receipts', () => {
@@ -124,5 +125,8 @@ test('steers reusing one upload group keep separate receipts', () => {
   const second = steeringMessageId(groupId)
 
   expect(first).not.toBe(second)
+  // The runtime rejects steering ids that are not UUIDs.
+  for (const id of [first, second, steeringMessageId()])
+    expect(id).toMatch(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/)
   expect(steeringReceipt(second, steeringText('Again', ['a.png'])).upload?.groupId).toBe(groupId)
 })

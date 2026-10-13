@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
@@ -69,16 +69,36 @@ export function attributeReceipt(
 
 const ATTACHED = (name: string) => `[Attached: ${name}]`
 const ATTACHED_LINE = /^\[Attached: (.+)\]$/
-const UPLOAD_ID = /^([a-f\d]{24})\./i
+const GROUP_ID = /^[a-f\d]{24}$/
+// A UUIDv8: the runtime accepts only UUIDs as steering ids, and version 8 never
+// collides with the v4 ids text-only steers get from `randomUUID()`.
+const UPLOAD_ID = /^([a-f\d]{12})8([a-f\d]{3})[89ab]([a-f\d]{9})[a-f\d]{6}$/
 
 /** The receipt names attached files, one per line, so the transcript records what was sent. */
 export function steeringText(typed: string, fileNames: string[]): string {
   return [typed, fileNames.map(ATTACHED).join('\n')].filter(Boolean).join('\n\n')
 }
 
-/** Every steer gets its own id; one with files carries its upload group's id in front. */
+/** Every steer gets its own UUID; one with files carries its upload group's 24 hex digits. */
 export function steeringMessageId(groupId?: string): string {
-  return groupId ? `${groupId}.${randomUUID()}` : randomUUID()
+  if (!groupId || !GROUP_ID.test(groupId)) return randomUUID()
+  const random = randomBytes(4).toString('hex')
+  const variant = (8 | (parseInt(random[0] ?? '0', 16) & 3)).toString(16)
+  const hex = `${groupId.slice(0, 12)}8${groupId.slice(12, 15)}${variant}${groupId.slice(15)}${random.slice(1, 7)}`
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join('-')
+}
+
+function uploadGroupId(id: string): string | undefined {
+  const parts = UPLOAD_ID.exec(id.replaceAll('-', ''))
+
+  return parts ? parts.slice(1).join('') : undefined
 }
 
 /**
@@ -92,7 +112,7 @@ export function steeringReceipt(
   metadata?: MessageMetadata,
 ): SteeringReceipt {
   const receipt = { id, text, ...(metadata ? { metadata } : {}) }
-  const groupId = UPLOAD_ID.exec(id)?.[1]
+  const groupId = uploadGroupId(id)
   const names = (text.split('\n\n').at(-1) ?? '')
     .split('\n')
     .map((line) => ATTACHED_LINE.exec(line)?.[1])
