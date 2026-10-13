@@ -68,6 +68,21 @@ export function canManage(access: ConversationAccess | null) {
   return access === 'owner' || access === 'manage'
 }
 
+/**
+ * Switching Full Access and the runtime, and archiving: the owner, or a
+ * participant invited to manage who is still a member of the conversation's
+ * team. General access never reaches this; it grants reply at most.
+ */
+export function managesConversation(
+  conversation: AccessFields,
+  viewerId: string,
+  isTeamMember: boolean,
+) {
+  if (conversation.userId === viewerId) return true
+
+  return isTeamMember && canManage(conversationAccess(conversation, viewerId))
+}
+
 /** The Mongo form of "conversationAccess is not null", for list and read queries. */
 export function readableByFilter(viewerId: string) {
   return {

@@ -1,21 +1,13 @@
-import { agentConversations, withTeamScope } from './shared'
+import { agentConversations } from './shared'
 
-// Owner-only by construction: the query matches userId, so another member's
-// (team-visible) conversation simply doesn't match. Returns false → 404.
-export async function setConversationArchived(
-  sessionId: string,
-  userId: string,
-  teamId: string | undefined,
-  archived: boolean,
-): Promise<boolean> {
-  const result = await agentConversations().updateOne(
-    withTeamScope({ sessionId, userId }, teamId),
+/** Who may archive is the route's to check. */
+export async function setConversationArchived(sessionId: string, archived: boolean): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId },
     archived
       ? { $set: { archivedAt: new Date() } }
       : { $unset: { archivedAt: '' }, $set: { archiveRestoredAt: new Date() } },
   )
-
-  return result.matchedCount > 0
 }
 
 /** Any new human turn brings an archived conversation back, whoever sends it. */
