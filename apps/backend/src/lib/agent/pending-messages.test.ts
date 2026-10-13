@@ -96,35 +96,41 @@ describe('pending user messages', () => {
     expect(PENDING_TTL_SEC * 1_000).toBeGreaterThan(OPENAB_PERMISSION_DECISION_TIMEOUT_MS)
   })
 
-  test('a newer wake-up for the same resource replaces the parked one', async () => {
-    const wake = (url: string, text: string) =>
-      enqueuePendingUserMessage(
-        USER,
-        SESSION,
-        buildPendingUserMessage({
-          renderedText: text,
+  test('an identical wake-up takes no slot; distinct events and resources keep one each', async () => {
+    const wake = (pr: number, text: string) => {
+      const message = buildPendingUserMessage({
+        renderedText: text,
+        source: 'agent.resource',
+        metadata: {
+          version: 1,
+          sender: { type: 'system', id: 'github', displayName: 'GitHub' },
           source: 'agent.resource',
-          metadata: {
-            version: 1,
-            sender: { type: 'system', id: 'github', displayName: 'GitHub' },
-            source: 'agent.resource',
-            resourceUrl: url,
-            sentAt: new Date().toISOString(),
-          },
-        }),
-      )
+          resourceUrl: `https://github.com/o/r/pull/${String(pr)}`,
+          sentAt: new Date().toISOString(),
+        },
+      })
 
-    for (let i = 0; i < 9; i++) await enqueue(`message ${String(i)}`)
+      return { message, queued: enqueuePendingUserMessage(USER, SESSION, message) }
+    }
+    const first = wake(1, 'GitHub check_suite.completed.')
+
+    expect(await first.queued).toBe(true)
+    await enqueue('from a person')
     for (let i = 0; i < 30; i++)
-      expect(await wake('https://github.com/o/r/pull/1', `ci ${String(i)}`)).toBe(true)
-    // The queue is now full; another resource and another person are refused.
-    expect(await wake('https://github.com/o/r/pull/2', 'other pr')).toBe(false)
-    expect(await enqueue('message 9')).toBe(false)
+      expect(await wake(1, 'GitHub check_suite.completed.').queued).toBe(true)
+    expect(await wake(1, 'GitHub pull_request_review.submitted.').queued).toBe(true)
+    expect(await wake(2, 'GitHub check_suite.completed.').queued).toBe(true)
 
     const drained = await drainPendingUserMessages(USER, SESSION)
 
-    expect(drained).toHaveLength(10)
-    expect(drained.at(-1)!.renderedText).toBe('ci 29')
+    expect(drained.map((m) => m.renderedText)).toEqual([
+      'GitHub check_suite.completed.',
+      'from a person',
+      'GitHub pull_request_review.submitted.',
+      'GitHub check_suite.completed.',
+    ])
+    // The parked wake-up keeps the id that was already acknowledged.
+    expect(drained[0]!.id).toBe(first.message.id)
   })
 
   test('a full queue refuses the newest message instead of evicting an acknowledged one', async () => {

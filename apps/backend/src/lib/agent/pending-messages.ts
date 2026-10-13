@@ -9,6 +9,8 @@ import { config } from '@/config'
 import { logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
 
+import { wakeUpKey } from './pending-message-types'
+
 export { renderInjectedUserMessages } from './pending-message-render'
 
 export type { PendingUserMessage } from './pending-message-types'
@@ -71,20 +73,17 @@ export async function enqueuePendingUserMessage(
   message: PendingUserMessage,
 ): Promise<boolean> {
   const key = pendingKey(userId, sessionId)
-  // A resource wake-up only says "look at this PR again"; the session reads its
-  // state itself, so a newer one replaces the parked one instead of taking a slot.
-  const resource = message.metadata?.resourceUrl ?? ''
+  const wakeUp = wakeUpKey(message)
 
   // Read from config rather than lib/redis's helper: that helper is mocked
   // process-wide by another suite, and this decision must not depend on which
   // test file ran first.
   if (!config.redis.enabled) {
     const queue = localQueues.get(key) ?? []
-    const parked = queue.findIndex((m) => resource && m.metadata?.resourceUrl === resource)
 
-    if (parked >= 0) queue[parked] = message
-    else if (queue.length >= PENDING_MAX) return false
-    else queue.push(message)
+    if (wakeUp && queue.some((parked) => wakeUpKey(parked) === wakeUp)) return true
+    if (queue.length >= PENDING_MAX) return false
+    queue.push(message)
     localQueues.set(key, queue)
 
     return true
@@ -92,10 +91,11 @@ export async function enqueuePendingUserMessage(
   const stored = await tryRedis((c) =>
     c.eval(
       `
-        for i, raw in ipairs(ARGV[4] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
+        for _, raw in ipairs(ARGV[4] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
           local ok, item = pcall(cjson.decode, raw)
-          if ok and type(item.metadata) == 'table' and item.metadata.resourceUrl == ARGV[4] then
-            redis.call('LSET', KEYS[1], i - 1, ARGV[1])
+          if ok and type(item) == 'table' and item.source == 'agent.resource'
+            and type(item.metadata) == 'table'
+            and tostring(item.metadata.resourceUrl) .. ' ' .. tostring(item.renderedText) == ARGV[4] then
             return redis.call('EXPIRE', KEYS[1], ARGV[3])
           end
         end
@@ -111,7 +111,7 @@ export async function enqueuePendingUserMessage(
       JSON.stringify(message),
       PENDING_MAX,
       PENDING_TTL_SEC,
-      resource,
+      wakeUp,
     ),
   )
 
