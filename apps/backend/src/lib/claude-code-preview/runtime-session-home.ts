@@ -28,12 +28,12 @@ const homes = path.join(os.homedir(), '.nuphos', 'session-homes');
 const home = path.join(homes, id);
 let unreadable;
 const done = (result) => { process.stdout.write(JSON.stringify({ result, unreadable })); process.exit(0); };
-// Sessions are processes of the runtime: descendants of the topmost ancestor of
-// this job that runs as the same user (tini in the image, which also adopts
-// orphaned background shells), running as that user themselves. The parent pid
-// in /proc/<pid>/stat is readable for every process, so the set is known even
-// where environ is not.
-const runtimeProcesses = async () => {
+// Processes of this user, each marked whether it is inside the runtime's tree:
+// descendants of the topmost ancestor of this job that runs as the same user
+// (tini in the image). The parent pid in /proc/<pid>/stat is readable for every
+// process, so the tree is known even where environ is not. A session process
+// can also sit outside it: an orphan adopted by a root pid 1 (Railway).
+const userProcesses = async () => {
   const parent = new Map();
   for (const pid of await fs.readdir('/proc')) {
     const stat = /^\d+$/.test(pid) && (await fs.readFile('/proc/' + pid + '/stat', 'utf8').catch(() => ''));
@@ -46,21 +46,23 @@ const runtimeProcesses = async () => {
     for (let at = pid; at && at !== '0'; at = parent.get(at)) if (at === root) return true;
     return false;
   };
-  const own = [];
-  for (const pid of parent.keys()) if (descends(pid) && (await sameUser(pid))) own.push(pid);
-  return own;
+  const found = [];
+  for (const pid of parent.keys()) if (await sameUser(pid)) found.push([pid, descends(pid)]);
+  return found;
 };
 // HOME is matched by the original path; a working directory follows the
 // directory itself.
 const inUse = async (dir, byHome) => {
-  for (const pid of await runtimeProcesses()) {
+  for (const [pid, inTree] of await userProcesses()) {
     // No working directory: the process has exited, possibly an unreaped
-    // zombie whose environ is unreadable. Any other unreadable runtime process
-    // counts as a user, since keeping a home is always safe.
+    // zombie whose environ is unreadable. An unreadable process in the
+    // runtime's tree counts as a user, since keeping a home is always safe;
+    // one outside it (a host's systemd --user) is not a session.
     const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch((err) => (err.code === 'ENOENT' || err.code === 'ESRCH' ? null : ''));
     if (cwd === null) continue;
     const env = await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => null);
     if (env === null || cwd === '') {
+      if (!inTree) continue;
       const comm = await fs.readFile('/proc/' + pid + '/comm', 'utf8').catch(() => '?');
       unreadable = pid + ' ' + comm.trim();
       return true;

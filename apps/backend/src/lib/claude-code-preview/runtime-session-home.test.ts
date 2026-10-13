@@ -108,6 +108,38 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     }
   })
 
+  // Starts a process whose parent exits at once, so pid 1 (or a subreaper)
+  // adopts it, as a background shell left by a finished turn is.
+  const orphan = (options: { home?: string; cwd?: string }) => {
+    const run = Bun.spawnSync(['sh', '-c', 'setsid sleep 30 >/dev/null 2>&1 & echo $!'], {
+      cwd: options.cwd,
+      env: { HOME: options.home ?? '/nonexistent', PATH: '/bin:/usr/bin' },
+    })
+
+    return Number(run.stdout.toString().trim())
+  }
+
+  test('keeps a home an orphaned process uses as HOME', () => {
+    const pid = orphan({ home: home('archived') })
+
+    try {
+      expect(reclaim('archived')).toBe('in_use')
+      expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
+    } finally {
+      process.kill(pid)
+    }
+  })
+
+  test('keeps a home an orphaned process works inside', () => {
+    const pid = orphan({ cwd: join(home('archived'), '.local') })
+
+    try {
+      expect(reclaim('archived')).toBe('in_use')
+    } finally {
+      process.kill(pid)
+    }
+  })
+
   test('ignores an exited process that is not yet reaped', () => {
     const shell = Bun.spawn(['sleep', '30'], {
       env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
