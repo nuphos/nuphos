@@ -86,7 +86,10 @@ export function WorkspaceAgentPane({
     runtimeKubeContextRef.current = activeKubeContext
   }, [activeKubeContext, activePageUrl])
   const handleSessionChange = useCallback(
-    (sessionId: string | null) => workspaceActions.selectSession(sessionId, { keepMainPage: true }),
+    (sessionId: string | null, unshown?: string) => {
+      if (unshown) workspaceActions.forgetSession(unshown)
+      else workspaceActions.selectSession(sessionId, { keepMainPage: true })
+    },
     [workspaceActions],
   )
   const openDockTab = useCallback(

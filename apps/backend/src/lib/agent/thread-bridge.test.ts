@@ -33,11 +33,6 @@ const archives: unknown[][] = []
 const claims: Parameters<TurnRunner['claimAgentRunOrEnqueue']>[0][] = []
 const shells: Parameters<typeof import('./db').upsertConversationShell>[0][] = []
 
-// The turn starts in the background; wait for it to reach the runner.
-async function started(count: number) {
-  for (let i = 0; i < 200 && claims.length < count; i++) await Bun.sleep(5)
-}
-
 beforeEach(() => {
   source = {
     ...actor,
@@ -175,7 +170,7 @@ describe('conversation-scoped thread tools', () => {
   test('creates a visible conversation with the same principal, runtime and credentials, then starts it', async () => {
     const result = await createAgentThread(actor, 'Wait for CI', 'CI watcher')
 
-    expect(result.status).toBe('queued')
+    expect(result.status).toBe('delivered')
     expect(result.sourceThreadId).toBe('source')
     expect(shells[0]).toMatchObject({
       userId: 'owner',
@@ -187,7 +182,6 @@ describe('conversation-scoped thread tools', () => {
       parentSessionId: 'source',
     })
     expect(shells[0]).not.toHaveProperty('claudeCodePreview')
-    await started(1)
     expect(claims[0]).toMatchObject({
       userId: 'owner',
       sessionId: result.threadId,
@@ -219,7 +213,7 @@ describe('conversation-scoped thread tools', () => {
       Array.from({ length: 12 }, (_, i) => createAgentThread(actor, `Task ${i}`, `Thread ${i}`)),
     )
 
-    await started(12)
+    expect(results.map((result) => result.status)).toEqual(Array(12).fill('started'))
     for (let i = 0; i < 200 && runs.length < 12; i++) await Bun.sleep(5)
     expect(runs).toHaveLength(12)
     expect(new Set(claims.map((claim) => claim.sessionId))).toEqual(
@@ -305,7 +299,6 @@ describe('conversation-scoped thread tools', () => {
   test('send returns the delivered message id', async () => {
     const result = await sendAgentThreadMessage(actor, 'target', 'CI passed')
 
-    await started(1)
     expect(claims).toHaveLength(1)
     expect(result.messageId).toBe(claims[0]!.message.id)
   })
@@ -328,7 +321,6 @@ describe('conversation-scoped thread tools', () => {
       credentialAccess: { ...access, awsRoleIds: ['role-1', 'role-2'] },
     })
     await sendAgentThreadMessage(actor, 'target', 'Do work')
-    await started(1)
     expect(claims).toHaveLength(1)
   })
 

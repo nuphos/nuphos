@@ -2,8 +2,9 @@ import { z } from 'zod'
 
 import {
   createAgentThread,
-  sendAgentThreadMessage,
   listThreadRuntimes,
+  sendAgentThreadMessage,
+  setAgentThreadParent,
   updateThread,
   setAgentThreadArchived,
 } from '@/lib/agent/thread-bridge'
@@ -29,6 +30,17 @@ const common = {
 }
 const create = z.object({ ...common, title: z.string().trim().min(1).max(160) }).strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
+const setParent = z
+  .object({
+    label: common.label,
+    threadId: z.string().uuid(),
+    parentThreadId: z
+      .string()
+      .uuid()
+      .nullable()
+      .describe('Conversation to nest the thread under; null stops nesting it.'),
+  })
+  .strict()
 const update = z
   .object({
     label: common.label,
@@ -71,10 +83,11 @@ export function threadToolModule(): PreviewToolModule {
         name: 'send_message_to_thread',
         description:
           'Send work or a completion report to another Nuphos thread you own in this team. ' +
-          'The target keeps its own runtime and credential selection. An idle thread starts a turn; ' +
-          'a busy thread receives the message through its pending-message queue. ' +
+          'The target keeps its own runtime and credential selection. status is "started" when an ' +
+          'idle thread started a turn now, "delivered" when a busy thread received the message into ' +
+          'its active turn; neither means the task is done. ' +
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +
-          'A queued receipt is not proof of task completion. Do not send acknowledgement loops.',
+          'Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
       },
       {
@@ -105,6 +118,15 @@ export function threadToolModule(): PreviewToolModule {
           "(never to someone's computer); its next turn " +
           "runs there. A new thread already starts in this conversation's mode and agent.",
         inputSchema: toolInputJsonSchema(update),
+      },
+      {
+        name: 'set_thread_parent',
+        description:
+          'Nest an existing Nuphos thread under another conversation in the sidebar, e.g. your own ' +
+          'session_id to group threads you manage, or pass parentThreadId null to stop nesting it. ' +
+          'Both must be conversations you own in this team, and the parent must not already be nested ' +
+          'below the thread. Changes only the sidebar grouping, not runtime, credentials or messages.',
+        inputSchema: toolInputJsonSchema(setParent),
       },
     ],
     handlers: (ctx) => ({
@@ -146,6 +168,13 @@ export function threadToolModule(): PreviewToolModule {
           return toolError('Set fullAccess, runtimeId, or both.')
 
         return answer(updateThread(ctx, threadId, change))
+      },
+      set_thread_parent: async (args) => {
+        const parsed = setParent.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId))
       },
     }),
   }
