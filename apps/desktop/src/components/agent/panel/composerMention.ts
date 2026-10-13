@@ -1,3 +1,5 @@
+import { ATLAS_WEB_BASE_URL } from '../../../lib/webBaseUrl.ts'
+
 import type { TeamMember } from '../../../types'
 
 /** The `@query` being typed right before the caret, or null when there is none.
@@ -26,4 +28,10 @@ export function matchMembers(
         ),
     )
     .slice(0, limit)
+}
+
+/** The canonical link to a session — what a session mention sends, so the
+ *  agent can read it with `read_conversation` and the chip resolves its title. */
+export function sessionMentionUrl(teamId: string, sessionId: string): string {
+  return `${ATLAS_WEB_BASE_URL}/teams/${encodeURIComponent(teamId)}/agent/${encodeURIComponent(sessionId)}`
 }

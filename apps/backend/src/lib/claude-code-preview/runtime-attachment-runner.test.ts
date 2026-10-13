@@ -6,15 +6,17 @@ import { expect, test } from 'bun:test'
 
 import { ATTACHMENT_RUNNER } from './runtime-attachment-runner'
 
-async function run(files: unknown[]) {
+async function run(files: unknown[], viaStdin = false) {
   const dir = await mkdtemp(join(tmpdir(), 'attachment-test-'))
 
   try {
     await writeFile(join(dir, 'runner.mjs'), ATTACHMENT_RUNNER)
     await writeFile(join(dir, 'params.json'), JSON.stringify({ files }))
     // Like an OpenAB runtime job: TMPDIR is the job directory, removed on exit.
-    const child = Bun.spawn(['node', join(dir, 'runner.mjs'), dir], {
+    // As a Desktop `attachments` job the program takes the file list on stdin instead.
+    const child = Bun.spawn(['node', join(dir, 'runner.mjs'), ...(viaStdin ? [] : [dir])], {
       env: { ...process.env, TMPDIR: dir },
+      stdin: new TextEncoder().encode(viaStdin ? JSON.stringify({ files }) : ''),
       stdout: 'pipe',
       stderr: 'pipe',
     })
@@ -76,6 +78,23 @@ test('bridge downloads files itself and refuses incomplete or oversized bodies',
       expect(bad.output.paths).toBeUndefined()
       expect(bad.output.error).not.toContain(server.url.toString())
     }
+  } finally {
+    await server.stop()
+  }
+})
+
+test('the bundled attachments job takes its file list on stdin', async () => {
+  const server = Bun.serve({ port: 0, fetch: () => new Response('zip!') })
+
+  try {
+    const { code, output } = await run(
+      [{ name: 'demo.zip', url: `http://127.0.0.1:${String(server.port)}/z`, size: 4 }],
+      true,
+    )
+
+    expect(code).toBe(0)
+    expect(await readFile(output.paths![0]!, 'utf8')).toBe('zip!')
+    await rm(dirname(dirname(output.paths![0]!)), { recursive: true, force: true })
   } finally {
     await server.stop()
   }

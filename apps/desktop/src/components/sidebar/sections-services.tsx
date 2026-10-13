@@ -120,45 +120,6 @@ export function complianceSections(provider: 'secureframe' | 'vanta'): Section[]
   ]
 }
 
-/**
- * Sessions the viewer joined but does not own. Its own function because the
- * favorites resolver needs the same section to look a pinned row up among the
- * live ones — a pin that cannot find itself there renders a static icon instead
- * of the live runtime one.
- */
-export function sharedChatSection(sharedChatItems: Item[]): Section[] {
-  return sharedChatItems.length > 0 ? [{ title: 'Shared', items: sharedChatItems }] : []
-}
-
-/**
- * The chat groups in team view: what the viewer pinned, then the sessions they
- * joined, both above their own Chats — which drops the pinned rows so no chat
- * is listed twice. An empty group contributes no section at all.
- */
-export function withChatSections(
-  sections: Section[],
-  pinnedChatItems: Item[],
-  sharedChatItems: Item[],
-  isPinned: (item: Item) => unknown,
-): Section[] {
-  const result = sections.flatMap((section) => {
-    if (section.title !== 'Chats') return [section]
-    const items = section.items.filter((item) => !isPinned(item))
-
-    return items.length > 0 ? [{ ...section, items }] : []
-  })
-  const chatsIndex = result.findIndex((section) => section.title === 'Chats')
-
-  result.splice(
-    chatsIndex === -1 ? 1 : chatsIndex,
-    0,
-    ...(pinnedChatItems.length > 0 ? [{ title: 'Pinned', items: pinnedChatItems }] : []),
-    ...sharedChatSection(sharedChatItems),
-  )
-
-  return result
-}
-
 export function teamSections(
   rootIntegrations: Item[] = [],
   rootIntegrationsLoading = false,

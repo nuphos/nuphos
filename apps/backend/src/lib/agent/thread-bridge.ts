@@ -8,7 +8,13 @@ import {
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId, recordAgentEvent, upsertConversationShell } from './db'
+import {
+  getConversationBySessionId,
+  recordAgentEvent,
+  setConversationArchived,
+  setConversationParent,
+  upsertConversationShell,
+} from './db'
 
 import type { AgentConversation } from './db'
 
@@ -37,7 +43,7 @@ export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentCon
 
 export async function authorizeThreadDelivery(
   data: ThreadActor & { targetSessionId: string },
-): Promise<AgentConversation> {
+): Promise<{ source: AgentConversation; target: AgentConversation }> {
   const source = await authorizeThreadActor(data)
   const target = await getConversationBySessionId(data.targetSessionId)
 
@@ -51,12 +57,17 @@ export async function authorizeThreadDelivery(
     throw new Error('Target must be another unarchived conversation you own in this team.')
   }
 
-  return target
+  return { source, target }
 }
 
-function receipt(actor: ThreadActor, threadId: string, messageId: string) {
+function receipt(
+  actor: ThreadActor,
+  threadId: string,
+  messageId: string,
+  status: 'started' | 'delivered',
+) {
   return {
-    status: 'queued',
+    status,
     threadId,
     messageId,
     _links: { web: `/teams/${actor.teamId}/agent/${threadId}` },
@@ -89,18 +100,20 @@ export async function createAgentThread(actor: ThreadActor, prompt: string, titl
     actor.userId,
     await getSessionBypass(actor.sessionId, actor.userId),
   )
-  startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
+  const { status } = await startThreadTurn({
+    ...actor,
+    targetSessionId: threadId,
+    messageId,
+    prompt,
+  })
 
-  return { ...receipt(actor, threadId, messageId), sourceThreadId: actor.sessionId }
+  return { ...receipt(actor, threadId, messageId, status), sourceThreadId: actor.sessionId }
 }
 
 export async function sendAgentThreadMessage(actor: ThreadActor, threadId: string, prompt: string) {
   const data = { ...actor, targetSessionId: threadId, messageId: randomUUID(), prompt }
 
-  await authorizeThreadDelivery(data)
-  startThreadTurn(data)
-
-  return receipt(actor, threadId, data.messageId)
+  return receipt(actor, threadId, data.messageId, (await startThreadTurn(data)).status)
 }
 
 /** The agents the owner can run a thread on, each with its readiness and usage. */
@@ -139,7 +152,7 @@ export async function updateThread(
   threadId: string,
   change: { fullAccess?: boolean; runtimeId?: string },
 ) {
-  const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
+  const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
   // Who opened it, not who it is nested under now: adopting a conversation must
   // not hand over control of it.
@@ -180,28 +193,68 @@ export async function updateThread(
   }
 }
 
-export async function executeThreadTurn(data: ThreadTurn): Promise<void> {
-  const target = await authorizeThreadDelivery(data)
+// Same path as a message typed into a chat: an idle target starts its turn in this
+// process, a busy one takes the message into its active turn. Returns which
+// happened; `run` settles with the turn, whose failure is logged here.
+export async function startThreadTurn(data: ThreadTurn) {
+  const { source, target } = await authorizeThreadDelivery(data)
   // Lazy so importing the tools does not pull in the route graph.
-  const { executeConversationTurn } = await import('./conversation-turn')
-
-  await executeConversationTurn(data, target, data.prompt, 'agent.thread', {
+  const { startConversationTurn } = await import('./conversation-turn')
+  const { status, run } = await startConversationTurn(data, target, data.prompt, 'agent.thread', {
     version: 1,
-    sender: { type: 'agent', id: data.sessionId, displayName: 'Nuphos agent' },
+    sender: {
+      type: 'agent',
+      id: data.sessionId,
+      displayName: source.title || 'Nuphos agent',
+      ...(source.agentRuntime ? { agentRuntime: source.agentRuntime } : {}),
+    },
     source: 'agent.thread',
     sourceSessionId: data.sessionId,
     sentAt: new Date().toISOString(),
   })
-}
 
-// Same path as a message typed into a chat: the turn starts in this process and
-// a busy target takes it through its pending-message queue.
-function startThreadTurn(data: ThreadTurn): void {
-  void executeThreadTurn(data).catch((error: unknown) => {
+  run.catch((error: unknown) => {
     logError('agent.thread.turn_failed', error, {
       session_id: data.targetSessionId,
       source_session_id: data.sessionId,
       message_id: data.messageId,
     })
   })
+
+  return { status, run }
+}
+
+export async function setAgentThreadParent(
+  actor: ThreadActor,
+  threadId: string,
+  parentThreadId: string | null,
+) {
+  await authorizeThreadActor(actor)
+  const result = await setConversationParent(threadId, actor.userId, actor.teamId, parentThreadId)
+
+  if (result === 'not_found') throw new Error('Thread must be a conversation you own in this team.')
+  if (result === 'invalid_parent') {
+    throw new Error(
+      'Parent must be another conversation you own in this team, and not one nested below the thread.',
+    )
+  }
+
+  return { threadId, parentThreadId }
+}
+
+/** Archive or restore an owned conversation in the actor's team, including this one. */
+export async function setAgentThreadArchived(
+  actor: ThreadActor,
+  threadId: string,
+  archived: boolean,
+) {
+  await authorizeThreadActor(actor)
+  const target = await getConversationBySessionId(threadId)
+
+  if (!target || target.userId !== actor.userId || target.teamId !== actor.teamId) {
+    throw new Error('Target must be a conversation you own in this team.')
+  }
+  await setConversationArchived(threadId, archived)
+
+  return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
 }

@@ -29,8 +29,14 @@ tag from them. That covers threads started in Slack or Discord, `slack_post`
 notification threads, and Slack pickups. The tag shows the thread's first words: the Slack
 root message while the rolling window still holds it, otherwise the message that
 started the session (which is also what Nuphos names a Discord thread after). Thread tags open in the system's Slack
-or Discord app and have no unlink button, since unlinking would cut the thread off
-from the session.
+or Discord app. Their unlink button, like `unlink_session_resource`, deletes the
+routing row, so the thread is treated like one Nuphos never joined: the session
+stops posting there and a new mention starts a new session. Other replies are
+ignored, except under a root the bot posted, where Nuphos says once that the
+thread is not attached to a conversation. A turn already running when the thread
+is unlinked may still post its reply. A Slack thread Nuphos posted as a
+notification cannot be unlinked (409 `notification_thread`): its trigger keeps
+posting incident updates into it.
 
 ## GitHub wakeups
 

@@ -90,10 +90,21 @@ final class AgentStore {
         guard conversation.canManage, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: conversation.sessionId, archived: archived)
-            conversations.removeAll { $0.sessionId == conversation.sessionId }
+            removeFromList(conversation.sessionId)
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// Drops a chat that left this list (archived or restored). The poller
+    /// keeps rows its first page misses, so it would not drop it; reads
+    /// already in flight are discarded so they cannot bring it back. Before
+    /// the list has loaded, the discarded read is the load itself, so start
+    /// it again.
+    func removeFromList(_ sessionId: String) {
+        conversations.removeAll { $0.sessionId == sessionId }
+        sharedConversations.removeAll { $0.sessionId == sessionId }
+        if phase == .loaded { loadGeneration += 1 } else { Task { await reload() } }
     }
 
     // MARK: - Threads
@@ -123,7 +134,7 @@ final class AgentStore {
     }
 
     func unlinkParent(_ conversation: AgentConversation) async {
-        guard conversation.canManage, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {
             try await AgentChatAPI.unlinkParent(token: token, teamId: teamId, sessionId: conversation.sessionId)
             if let index = conversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {
@@ -256,6 +267,13 @@ final class AgentStore {
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
     private var refreshPageIndex = 0
+
+    /// The viewer's own sessions whose title or first message contains
+    /// `query`, newest first, other than `excluded` — what an `@` offers.
+    func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {
+        guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, limit: 6, scope: .mine, search: query) else { return [] }
+        return Array(page.conversations.filter { $0.sessionId != excluded }.prefix(5))
+    }
 
     // MARK: - Composer settings (IAM + permission mode)
 
@@ -496,8 +514,7 @@ final class AgentStore {
             archived: showArchived ? .only : .exclude, sort: sort
         ), generation == loadGeneration, !Task.isCancelled else { return }
         await loadShared(team: team, generation: generation)
-        let firstPageIds = Set(page.conversations.map(\.sessionId))
-        conversations = page.conversations + conversations.filter { !firstPageIds.contains($0.sessionId) }
+        conversations = conversations.refreshed(firstPage: page.conversations)
         if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= Self.pageSize {
             nextCursor = page.nextCursor
             hasMore = page.hasMore

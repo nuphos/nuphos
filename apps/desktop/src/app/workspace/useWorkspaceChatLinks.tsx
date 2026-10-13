@@ -93,6 +93,19 @@ export function useWorkspaceChatLinks(a: Args) {
     })
   }, [])
 
+  const openBrowserLink = useCallback(
+    (url: string): boolean => {
+      if (!teamId || !/^https?:\/\//i.test(url)) return false
+
+      return openNuphosLinkInNewTab(
+        pageLocationForNavigation(
+          emptyNavigation({ kind: 'team', teamId }, 'team.browser', { browserUrl: url }),
+        ).href,
+      )
+    },
+    [openNuphosLinkInNewTab, teamId],
+  )
+
   // A provider link carries the provider's own ids, not Nuphos's: the bound
   // installation / instance / account the URL points into is what names the
   // in-app page. Anything not bound stays in the browser.
@@ -132,7 +145,7 @@ export function useWorkspaceChatLinks(a: Args) {
         } catch {
           // Resolution is best-effort. The original URL remains usable.
         }
-        openExternalLink(href)
+        if (!openBrowserLink(href)) openExternalLink(href)
       })()
 
       // Claim the click immediately while resolution runs so the anchor's
@@ -141,6 +154,7 @@ export function useWorkspaceChatLinks(a: Args) {
     },
     [
       boundResources,
+      openBrowserLink,
       openExternalLink,
       openNuphosLinkInNewTab,
       setAccountsByTeam,
@@ -178,7 +192,7 @@ export function useWorkspaceChatLinks(a: Args) {
   // Chat-link policy: an app URL on our own web origin NEVER bounces to the external
   // browser. Exact navigation when the resolver knows the path; otherwise the
   // deep-link fallback (team tab / seed into chat) still keeps it in-app. A bare
-  // file path is on the conversation's runtime, so it opens in Files.
+  // file path opens in Files; other web links open in the built-in browser.
   const openNuphosLinkFromChat = useCallback(
     (href: string): boolean => {
       if (openNuphosLinkInNewTab(href)) return true
@@ -194,7 +208,7 @@ export function useWorkspaceChatLinks(a: Args) {
       }
       const parsed = isAppWebUrl(href.trim())
 
-      if (!parsed?.pathname.startsWith('/teams/')) return false
+      if (!parsed || !parsed.pathname.startsWith('/teams/')) return openBrowserLink(href.trim())
       openAppOpenDeepLink({
         path: `${parsed.pathname}${parsed.search}`,
         url: parsed.toString(),
@@ -202,7 +216,13 @@ export function useWorkspaceChatLinks(a: Args) {
 
       return true
     },
-    [openAppOpenDeepLink, openBoundProviderLinkFromChat, openNuphosLinkInNewTab, teamId],
+    [
+      openAppOpenDeepLink,
+      openBoundProviderLinkFromChat,
+      openBrowserLink,
+      openNuphosLinkInNewTab,
+      teamId,
+    ],
   )
 
   // A session resource is linked through a bound integration, so its provider

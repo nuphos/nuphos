@@ -65,6 +65,9 @@ struct ConversationView: View {
                     canSteer: session.canSteer,
                     allowsAttachments: !session.canSteer,
                     failedSubmission: $session.failedSubmission,
+                    sessionMentions: SessionMentionSource(teamId: session.teamId) { query in
+                        await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                    },
                     onSend: { session.send($0) },
                     onStop: { session.stop() }
                 ) {
@@ -126,18 +129,19 @@ struct ConversationView: View {
                         } label: {
                             Label(store.isPinned(session.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(session.sessionId) ? "pin.slash" : "pin")
                         }
-                        if session.canMove {
-                            Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
-                                .disabled(session.isStreaming)
+                        if session.ownsChat {
+                            Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
                         }
                         if session.canManage {
-                            Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
+                            Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
+                                .disabled(session.isStreaming)
                             Button {
                                 Task {
                                     updating = true
                                     defer { updating = false }
                                     do {
                                         try await session.setArchived(!session.isArchived)
+                                        store.removeFromList(session.sessionId)
                                         // Either direction takes the chat out
                                         // of the list it was opened from, so
                                         // stay there rather than on a chat

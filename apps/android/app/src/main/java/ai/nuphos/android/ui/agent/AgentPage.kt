@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,10 +107,11 @@ fun AgentPage(
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(horizontal = 16.dp)) {
-            AgentSelectionButton(selection, enabled = setup != null && auth.aiAllowed, onClick = { setupVisible = true })
+        // The notice opens the picker itself, since the chip it refers to
+        // sits in the composer at the bottom of the page.
+        if (selection?.reselectionRequired == true) TextButton(onClick = { setupVisible = true }, enabled = setup != null && auth.aiAllowed, modifier = Modifier.padding(horizontal = 4.dp)) {
+            Text("Select an available Agent before starting a new chat.")
         }
-        if (selection?.reselectionRequired == true) Text("Select an available Agent before starting a new chat.", Modifier.padding(horizontal = 16.dp))
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = !store.archivedOnly, onClick = { store.updateArchivedOnly(false) }, label = { Text("Active") })
             FilterChip(selected = store.archivedOnly, onClick = { store.updateArchivedOnly(true) }, label = { Text("Archived") })
@@ -219,6 +221,11 @@ fun AgentPage(
                 true
             },
             showControls = true,
+            // The Agent for the next chat lives in the composer control row,
+            // where Desktop keeps its runtime selector.
+            agent = selection,
+            agentEnabled = setup != null && auth.aiAllowed,
+            onChooseAgent = { setupVisible = true },
         )
     }
 }

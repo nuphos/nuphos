@@ -2,6 +2,12 @@
 // Older adapters wait for an unkeyed idle instead, which can be swallowed by
 // trailing-idle debt from earlier cycles. Keep that fallback only for results
 // without a matching identity; an interrupted/pre-steer result is never enough.
+//
+// That unkeyed idle is shared: a task-notification followup the CLI runs right
+// after the steered cycle, with no idle between them, owes a trailer for the
+// same single idle. Settle a steered turn whose answer is in before paying debt,
+// as upstream 0.89.1 does, or the debt swallows the only idle and the prompt
+// never completes. An answer only counts once it follows the steer's echo.
 export function patchClaudeTurnCompletion(source) {
   const patches = [
     [
@@ -24,6 +30,29 @@ export function patchClaudeTurnCompletion(source) {
                                     answeredTurn.steeredSettle = undefined;
                                     answeredTurn.nuphosLatestSteerUuid = undefined;
                                 }`,
+    ],
+    [
+      '                                    session.activeTurn.steeredEchoes.delete(message.uuid);',
+      `                                    if (session.activeTurn.steeredEchoes.delete(message.uuid))
+                                        session.activeTurn.nuphosSteerAwaitingResult = true;`,
+    ],
+    [
+      '                session.activeTurn.steeredSettle = outcome;',
+      '                session.activeTurn.steeredSettle = outcome;\n                session.activeTurn.nuphosSteerAwaitingResult = false;',
+    ],
+    [
+      '                                    else if (session.owedTrailingIdles > 0) {',
+      `                                    else if (isSteering(session.activeTurn) &&
+                                        session.activeTurn.steeredEchoes.size === 0 &&
+                                        session.activeTurn.steeredSettle !== undefined &&
+                                        !session.activeTurn.nuphosSteerAwaitingResult) {
+                                        const steered = session.activeTurn;
+                                        steered.deferredSettle = steered.steeredSettle;
+                                        steered.steeredEchoes = undefined;
+                                        steered.steeredSettle = undefined;
+                                        settleDeferredIfDrained();
+                                    }
+                                    else if (session.owedTrailingIdles > 0) {`,
     ],
   ]
   for (const [anchor, replacement] of patches) {

@@ -161,3 +161,15 @@ test('history restores automatic metadata and body from the server, never the cl
   })
   expect(parseMessageMetadata(messages[1]?.metadata)).toBeUndefined()
 })
+
+test('thread runtime attribution survives storage parsing', () => {
+  const message = {
+    version: 1,
+    sender: { type: 'agent', id: 'source', displayName: 'Review', agentRuntime: 'claude-code' },
+    source: 'agent.thread',
+    sourceSessionId: 'source',
+    sentAt: '2026-10-13T00:00:00Z',
+  }
+
+  expect(parseMessageMetadata(message)?.sender.agentRuntime).toBe('claude-code')
+})
