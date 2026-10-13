@@ -1,6 +1,6 @@
 import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
-import { forgetArchivedSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
+import { reclaimArchivedSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -25,16 +25,9 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   const idleDays = config.agent.autoArchiveIdleDays
 
   if (idleDays <= 0) return 0
-  const filter = idleConversationFilter(now, idleDays)
-  const sessionIds = await agentConversations().distinct('sessionId', filter)
-
-  if (sessionIds.length === 0) return 0
-  const result = await agentConversations().updateMany(
-    { ...filter, sessionId: { $in: sessionIds } },
-    { $set: { archivedAt: now } },
-  )
-
-  forgetArchivedSessionHomes(sessionIds)
+  const result = await agentConversations().updateMany(idleConversationFilter(now, idleDays), {
+    $set: { archivedAt: now },
+  })
 
   if (result.modifiedCount > 0) {
     logEvent('info', 'agent.conversation_auto_archive.swept', {
@@ -50,14 +43,19 @@ let warmupTimer: ReturnType<typeof setTimeout> | undefined
 let sweepTimer: ReturnType<typeof setInterval> | undefined
 
 function runSweep() {
-  void archiveIdleConversations().catch((err: unknown) => {
-    logError('agent.conversation_auto_archive.failed', err)
-  })
+  void archiveIdleConversations()
+    .catch((err: unknown) => {
+      logError('agent.conversation_auto_archive.failed', err)
+    })
+    .then(() => reclaimArchivedSessionHomes())
+    .catch((err: unknown) => {
+      logError('agent.session_home_reclaim.failed', err)
+    })
 }
 
 /** Plain hourly interval on every replica: archiving is one idempotent
- *  updateMany, and emptying a home again is harmless, so concurrent runs only
- *  repeat a no-op. */
+ *  updateMany, and reclaiming a home twice only finds it absent, so concurrent
+ *  runs only repeat a no-op. */
 export const conversationAutoArchive = {
   init(): void {
     if (config.agent.autoArchiveIdleDays <= 0) return

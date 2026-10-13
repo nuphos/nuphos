@@ -1,76 +1,93 @@
 import { createHash } from 'node:crypto'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useDb } from '@/lib/test/doubles/db'
-import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
+import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { FORGET_SESSION_HOME_PROGRAM, forgetRuntimeSessionHome } from './runtime-session-home'
+import { RECLAIM_SESSION_HOME_PROGRAM, reclaimArchivedSessionHomes } from './runtime-session-home'
 
-describe('FORGET_SESSION_HOME_PROGRAM', () => {
-  test('empties only the archived conversation home, as the panel job runs it', () => {
-    const root = mkdtempSync(join(tmpdir(), 'forget-home-'))
+describe('RECLAIM_SESSION_HOME_PROGRAM', () => {
+  let root = ''
+  const home = (id: string) =>
+    join(root, 'home', '.nuphos', 'session-homes', createHash('sha256').update(id).digest('hex'))
+  // Runs the program the way the panel job does: `node runner.mjs <dir>`.
+  const reclaim = (sessionId: string) => {
+    const runDir = mkdtempSync(join(root, 'run-'))
+
+    writeFileSync(join(runDir, 'runner.mjs'), RECLAIM_SESSION_HOME_PROGRAM)
+    writeFileSync(join(runDir, 'params.json'), JSON.stringify({ sessionId }))
+    const run = Bun.spawnSync([process.execPath, join(runDir, 'runner.mjs'), runDir], {
+      env: { HOME: join(root, 'home') },
+    })
+
+    expect(run.exitCode).toBe(0)
+
+    return (JSON.parse(run.stdout.toString()) as { result: string }).result
+  }
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'reclaim-home-'))
+    for (const id of ['archived', 'other']) {
+      mkdirSync(join(home(id), '.local', 'bin'), { recursive: true })
+      writeFileSync(join(home(id), '.local', 'bin', 'tccli'), '')
+    }
+  })
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  test('removes only the archived home, keeping a symlink target', () => {
+    mkdirSync(join(root, 'outside'))
+    writeFileSync(join(root, 'outside', 'kept'), '')
+    symlinkSync(join(root, 'outside'), join(home('archived'), 'link'))
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(home('archived'))).toBe(false)
+    expect(existsSync(join(home('other'), '.local', 'bin', 'tccli'))).toBe(true)
+    expect(existsSync(join(root, 'outside', 'kept'))).toBe(true)
+    expect(reclaim('archived')).toBe('absent')
+  })
+
+  test('removes a home that is itself a symlink without following it', () => {
+    mkdirSync(join(root, 'target'))
+    writeFileSync(join(root, 'target', 'kept'), '')
+    rmSync(home('archived'), { recursive: true })
+    symlinkSync(join(root, 'target'), home('archived'))
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(join(root, 'target', 'kept'))).toBe(true)
+  })
+
+  test('keeps a home that a running process uses as HOME', () => {
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
+    })
 
     try {
-      const homes = join(root, 'home', '.nuphos', 'session-homes')
-      const home = (id: string) => join(homes, createHash('sha256').update(id).digest('hex'))
-      const outside = join(root, 'outside')
-
-      for (const id of ['archived', 'other']) {
-        mkdirSync(join(home(id), '.local', 'bin'), { recursive: true })
-        writeFileSync(join(home(id), '.local', 'bin', 'tccli'), '')
-      }
-      mkdirSync(outside)
-      writeFileSync(join(outside, 'kept'), '')
-      symlinkSync(outside, join(home('archived'), 'link'))
-      const runDir = join(root, 'run')
-
-      mkdirSync(runDir)
-      writeFileSync(join(runDir, 'runner.mjs'), FORGET_SESSION_HOME_PROGRAM)
-      writeFileSync(join(runDir, 'params.json'), JSON.stringify({ sessionId: 'archived' }))
-      const run = Bun.spawnSync([process.execPath, join(runDir, 'runner.mjs'), runDir], {
-        env: { HOME: join(root, 'home') },
-      })
-
-      expect(run.exitCode).toBe(0)
-      // A live inner session keeps a usable, empty HOME.
-      expect(readdirSync(home('archived'))).toEqual([])
-      expect(statSync(home('archived')).mode & 0o777).toBe(0o700)
-      expect(existsSync(join(home('other'), '.local', 'bin', 'tccli'))).toBe(true)
-      expect(existsSync(join(outside, 'kept'))).toBe(true)
+      expect(reclaim('archived')).toBe('in_use')
+      expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      shell.kill()
     }
   })
 })
 
-describe('forgetRuntimeSessionHome', () => {
+describe('reclaimArchivedSessionHomes', () => {
+  const now = new Date('2026-10-13T20:00:00Z')
+  const archivedAt = new Date('2026-10-13T19:00:00Z')
   let memory = portabilityDb()
-  let busy = false
+  let state = 'dormant'
   let lookups = 0
 
   useDb({ db: () => memory })
-  useRedis({ redisEnabled: () => true })
-  useAgentRunStore({
-    getActiveAgentRunForSession: async () => (busy ? { streamId: 'active' } : null),
-    reserveActiveAgentRunForSession: async () => () => {},
-  })
-  // Reaching the runtime lookup means every guard passed; no runtime answers.
+  useSessionExecutionState({ conversationExecutionState: async () => ({ state }) })
+  // The runtime answers nothing, so a reached runtime counts as already gone.
   useRuntimeRegistry({
     resolveTeamRuntimeEndpoints: async () => {
       lookups += 1
@@ -78,34 +95,43 @@ describe('forgetRuntimeSessionHome', () => {
       return []
     },
   })
-  beforeEach(() => {
-    memory = portabilityDb()
-    busy = false
-    lookups = 0
+  const conversation = (fields: Record<string, unknown>) =>
     memory.rows('agent_conversations').push({
       sessionId: 'conversation',
       userId: 'owner',
       teamId: 'team',
       runtimeId: 'runtime',
       agentRuntime: 'claude-code',
-      archivedAt: new Date(),
+      archivedAt,
+      ...fields,
     })
+
+  beforeEach(() => {
+    memory = portabilityDb()
+    state = 'dormant'
+    lookups = 0
   })
 
-  test('reaches the runtime for an archived, idle conversation', async () => {
-    await forgetRuntimeSessionHome('conversation')
-    expect(lookups).toBe(1)
+  test('marks an archived conversation once its runtime is gone', async () => {
+    conversation({})
+    expect(await reclaimArchivedSessionHomes(now)).toBe(1)
+    expect(memory.rows('agent_conversations')[0]!.sessionHomeReclaimedAt).toEqual(now)
   })
 
-  test('keeps the home of a conversation restored before the job ran', async () => {
-    delete memory.rows('agent_conversations')[0]!.archivedAt
-    await forgetRuntimeSessionHome('conversation')
+  test('skips one already reclaimed since it was archived', async () => {
+    conversation({ sessionHomeReclaimedAt: now })
+    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
     expect(lookups).toBe(0)
   })
 
-  test('keeps the home while a turn is running', async () => {
-    busy = true
-    await forgetRuntimeSessionHome('conversation')
+  test('retries one archived again after an earlier reclaim', async () => {
+    conversation({ sessionHomeReclaimedAt: new Date('2026-10-01T00:00:00Z') })
+    expect(await reclaimArchivedSessionHomes(now)).toBe(1)
+  })
+
+  test('ignores conversations that are not archived', async () => {
+    conversation({ archivedAt: undefined })
+    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
     expect(lookups).toBe(0)
   })
 })

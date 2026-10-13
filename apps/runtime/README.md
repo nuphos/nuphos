@@ -324,9 +324,10 @@ The same holds for packages pip and uv fetch from a private index, and both reus
 wheels built locally without checking them again.
 The home persists across
 new/load/resume and token refresh; existing runtime-global credentials are never
-copied into it. Archiving a conversation empties its home on the runtime that
-runs it, logins included, so a turn after unarchiving starts like a new
-conversation. Re-run credential setup inside the conversation after upgrading.
+copied into it. Once a conversation is archived and the runtime reports no live
+session for it, the backend's hourly sweep removes its home, logins included,
+unless a process still runs with that HOME. A turn after unarchiving starts like
+a new conversation. Re-run credential setup inside the conversation after upgrading.
 The agent provider's own login remains runtime-owned so this does not require a
 new Claude/Codex login. Desktop bundles use the same adapter behavior.
 
