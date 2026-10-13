@@ -28,16 +28,32 @@ const homes = path.join(os.homedir(), '.nuphos', 'session-homes');
 const home = path.join(homes, id);
 let unreadable;
 const done = (result) => { process.stdout.write(JSON.stringify({ result, unreadable })); process.exit(0); };
+// Sessions are processes of the runtime: descendants of the topmost ancestor of
+// this job that runs as the same user (tini in the image, which also adopts
+// orphaned background shells). The parent pid in /proc/<pid>/stat is readable
+// for every process, so the set is known even where environ is not.
+const runtimeProcesses = async () => {
+  const parent = new Map();
+  for (const pid of await fs.readdir('/proc')) {
+    const stat = /^\d+$/.test(pid) && (await fs.readFile('/proc/' + pid + '/stat', 'utf8').catch(() => ''));
+    if (stat) parent.set(pid, stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]);
+  }
+  const sameUser = async (pid) => (await fs.stat('/proc/' + pid).catch(() => null))?.uid === process.getuid();
+  let root = String(process.pid);
+  for (let pid = parent.get(root); pid && pid !== '0' && (await sameUser(pid)); pid = parent.get(pid)) root = pid;
+  const descends = (pid) => {
+    for (let at = pid; at && at !== '0'; at = parent.get(at)) if (at === root) return true;
+    return false;
+  };
+  return [...parent.keys()].filter(descends);
+};
 // HOME is matched by the original path; a working directory follows the
 // directory itself.
 const inUse = async (dir, byHome) => {
-  for (const pid of await fs.readdir('/proc')) {
-    if (!/^\d+$/.test(pid)) continue;
-    // Every session runs as this user, so other users' processes are not ours.
+  for (const pid of await runtimeProcesses()) {
     // No working directory: the process has exited, possibly an unreaped
-    // zombie whose environ is unreadable. Any other unreadable process counts
-    // as a user, since keeping a home is always safe.
-    if ((await fs.stat('/proc/' + pid).catch(() => null))?.uid !== process.getuid()) continue;
+    // zombie whose environ is unreadable. Any other unreadable runtime process
+    // counts as a user, since keeping a home is always safe.
     const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch((err) => (err.code === 'ENOENT' || err.code === 'ESRCH' ? null : ''));
     if (cwd === null) continue;
     const env = await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => null);

@@ -5,10 +5,8 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   readdirSync,
   rmSync,
-  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -25,193 +23,173 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { RECLAIM_SESSION_HOME_PROGRAM, reclaimArchivedSessionHomes } from './runtime-session-home'
 
-// The program reads /proc, which only Linux runtimes have. It keeps every home
-// while a live process of this user cannot be inspected, which the runtime
-// container never has but a CI host can (GitHub's runner has `systemd --user`).
-const uninspectable = () =>
-  readdirSync('/proc')
-    .filter((pid) => /^\d+$/.test(pid))
-    .find((pid) => {
-      try {
-        if (statSync(`/proc/${pid}`).uid !== process.getuid?.()) return false
-        readlinkSync(`/proc/${pid}/cwd`)
-        readFileSync(`/proc/${pid}/environ`)
+// The program reads /proc, which only Linux runtimes have.
+describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () => {
+  let root = ''
+  const home = (id: string) =>
+    join(root, 'home', '.nuphos', 'session-homes', createHash('sha256').update(id).digest('hex'))
+  // Runs the program the way the panel job does: `node runner.mjs <dir>`.
+  const reclaim = (sessionId: string) => {
+    const runDir = mkdtempSync(join(root, 'run-'))
 
-        return false
-      } catch (err) {
-        return !['ENOENT', 'ESRCH'].includes((err as NodeJS.ErrnoException).code ?? '')
-      }
+    writeFileSync(join(runDir, 'runner.mjs'), RECLAIM_SESSION_HOME_PROGRAM)
+    writeFileSync(join(runDir, 'params.json'), JSON.stringify({ sessionId }))
+    const run = Bun.spawnSync([process.execPath, join(runDir, 'runner.mjs'), runDir], {
+      env: { HOME: join(root, 'home') },
     })
 
-describe.skipIf(!existsSync('/proc/self') || uninspectable() !== undefined)(
-  'RECLAIM_SESSION_HOME_PROGRAM',
-  () => {
-    let root = ''
-    const home = (id: string) =>
-      join(root, 'home', '.nuphos', 'session-homes', createHash('sha256').update(id).digest('hex'))
-    // Runs the program the way the panel job does: `node runner.mjs <dir>`.
-    const reclaim = (sessionId: string) => {
-      const runDir = mkdtempSync(join(root, 'run-'))
+    expect(run.exitCode).toBe(0)
 
-      writeFileSync(join(runDir, 'runner.mjs'), RECLAIM_SESSION_HOME_PROGRAM)
-      writeFileSync(join(runDir, 'params.json'), JSON.stringify({ sessionId }))
-      const run = Bun.spawnSync([process.execPath, join(runDir, 'runner.mjs'), runDir], {
-        env: { HOME: join(root, 'home') },
-      })
+    const outcome = JSON.parse(run.stdout.toString()) as { result: string; unreadable?: string }
 
-      expect(run.exitCode).toBe(0)
+    // A host process the scan cannot read keeps every home; name it.
+    if (outcome.unreadable) console.error('unreadable process:', outcome.unreadable)
 
-      const outcome = JSON.parse(run.stdout.toString()) as { result: string; unreadable?: string }
+    return outcome.result
+  }
 
-      // A host process the scan cannot read keeps every home; name it.
-      if (outcome.unreadable) console.error('unreadable process:', outcome.unreadable)
-
-      return outcome.result
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'reclaim-home-'))
+    for (const id of ['archived', 'other']) {
+      mkdirSync(join(home(id), '.local', 'bin'), { recursive: true })
+      writeFileSync(join(home(id), '.local', 'bin', 'tccli'), '')
     }
+  })
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
 
-    beforeEach(() => {
-      root = mkdtempSync(join(tmpdir(), 'reclaim-home-'))
-      for (const id of ['archived', 'other']) {
-        mkdirSync(join(home(id), '.local', 'bin'), { recursive: true })
-        writeFileSync(join(home(id), '.local', 'bin', 'tccli'), '')
-      }
-    })
-    afterEach(() => {
-      rmSync(root, { recursive: true, force: true })
-    })
+  test('removes only the archived home, keeping a symlink target', () => {
+    mkdirSync(join(root, 'outside'))
+    writeFileSync(join(root, 'outside', 'kept'), '')
+    symlinkSync(join(root, 'outside'), join(home('archived'), 'link'))
 
-    test('removes only the archived home, keeping a symlink target', () => {
-      mkdirSync(join(root, 'outside'))
-      writeFileSync(join(root, 'outside', 'kept'), '')
-      symlinkSync(join(root, 'outside'), join(home('archived'), 'link'))
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(home('archived'))).toBe(false)
+    expect(existsSync(join(home('other'), '.local', 'bin', 'tccli'))).toBe(true)
+    expect(existsSync(join(root, 'outside', 'kept'))).toBe(true)
+    expect(reclaim('archived')).toBe('absent')
+  })
 
-      expect(reclaim('archived')).toBe('removed')
-      expect(existsSync(home('archived'))).toBe(false)
-      expect(existsSync(join(home('other'), '.local', 'bin', 'tccli'))).toBe(true)
-      expect(existsSync(join(root, 'outside', 'kept'))).toBe(true)
-      expect(reclaim('archived')).toBe('absent')
-    })
+  test('removes a home that is itself a symlink without following it', () => {
+    mkdirSync(join(root, 'target'))
+    writeFileSync(join(root, 'target', 'kept'), '')
+    rmSync(home('archived'), { recursive: true })
+    symlinkSync(join(root, 'target'), home('archived'))
 
-    test('removes a home that is itself a symlink without following it', () => {
-      mkdirSync(join(root, 'target'))
-      writeFileSync(join(root, 'target', 'kept'), '')
-      rmSync(home('archived'), { recursive: true })
-      symlinkSync(join(root, 'target'), home('archived'))
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(join(root, 'target', 'kept'))).toBe(true)
+  })
 
-      expect(reclaim('archived')).toBe('removed')
-      expect(existsSync(join(root, 'target', 'kept'))).toBe(true)
+  test('keeps a home that a running process uses as HOME', () => {
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
     })
 
-    test('keeps a home that a running process uses as HOME', () => {
-      const shell = Bun.spawn(['sleep', '30'], {
-        env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
-      })
-
-      try {
-        expect(reclaim('archived')).toBe('in_use')
-        expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
-      } finally {
-        shell.kill()
-      }
-    })
-
-    test('keeps a home that a running process works inside, without leaving it set aside', () => {
-      const shell = Bun.spawn(['sleep', '30'], { cwd: join(home('archived'), '.local') })
-
-      try {
-        expect(reclaim('archived')).toBe('in_use')
-        expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
-        expect(
-          readdirSync(dirname(home('archived'))).filter((name) => name.includes('.reclaim-')),
-        ).toEqual([])
-      } finally {
-        shell.kill()
-      }
-    })
-
-    test('ignores an exited process that is not yet reaped', () => {
-      const shell = Bun.spawn(['sleep', '30'], {
-        env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
-      })
-
+    try {
+      expect(reclaim('archived')).toBe('in_use')
+      expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
+    } finally {
       shell.kill()
-      // A zombie's environ is unreadable; it must not count as a user.
-      while (!readFileSync(`/proc/${shell.pid}/stat`, 'utf8').includes(') Z ')) Bun.sleepSync(5)
-
-      expect(reclaim('archived')).toBe('removed')
-    })
-
-    // A set-aside home left by a run ten minutes ago or earlier.
-    const leftover = (id: string, setAt = Date.now() - 11 * 60_000) => {
-      const left = `${home(id)}.reclaim-${setAt}-left`
-
-      mkdirSync(join(left, '.local'), { recursive: true })
-
-      return left
     }
+  })
 
-    test('removes a set-aside home a killed run of the same conversation left behind', () => {
-      const left = leftover('archived')
+  test('keeps a home that a running process works inside, without leaving it set aside', () => {
+    const shell = Bun.spawn(['sleep', '30'], { cwd: join(home('archived'), '.local') })
 
-      expect(reclaim('archived')).toBe('removed')
-      expect(existsSync(left)).toBe(false)
+    try {
+      expect(reclaim('archived')).toBe('in_use')
+      expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
+      expect(
+        readdirSync(dirname(home('archived'))).filter((name) => name.includes('.reclaim-')),
+      ).toEqual([])
+    } finally {
+      shell.kill()
+    }
+  })
+
+  test('ignores an exited process that is not yet reaped', () => {
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
     })
 
-    test("keeps another conversation's set-aside home", () => {
-      const left = leftover('other')
+    shell.kill()
+    // A zombie's environ is unreadable; it must not count as a user.
+    while (!readFileSync(`/proc/${shell.pid}/stat`, 'utf8').includes(') Z ')) Bun.sleepSync(5)
 
+    expect(reclaim('archived')).toBe('removed')
+  })
+
+  // A set-aside home left by a run ten minutes ago or earlier.
+  const leftover = (id: string, setAt = Date.now() - 11 * 60_000) => {
+    const left = `${home(id)}.reclaim-${setAt}-left`
+
+    mkdirSync(join(left, '.local'), { recursive: true })
+
+    return left
+  }
+
+  test('removes a set-aside home a killed run of the same conversation left behind', () => {
+    const left = leftover('archived')
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(left)).toBe(false)
+  })
+
+  test("keeps another conversation's set-aside home", () => {
+    const left = leftover('other')
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(left)).toBe(true)
+  })
+
+  test('keeps a set-aside home a running job may still hold', () => {
+    const left = leftover('archived', Date.now())
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(left)).toBe(true)
+  })
+
+  test('keeps a set-aside home still used by its original HOME path', () => {
+    const left = leftover('archived')
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
+    })
+
+    rmSync(home('archived'), { recursive: true })
+
+    try {
+      expect(reclaim('archived')).toBe('absent')
+      expect(existsSync(left)).toBe(true)
+    } finally {
+      shell.kill()
+    }
+  })
+
+  test('keeps a set-aside home a running process works inside', () => {
+    const left = leftover('archived')
+    const shell = Bun.spawn(['sleep', '30'], { cwd: join(left, '.local') })
+
+    try {
       expect(reclaim('archived')).toBe('removed')
       expect(existsSync(left)).toBe(true)
-    })
+    } finally {
+      shell.kill()
+    }
+  })
 
-    test('keeps a set-aside home a running job may still hold', () => {
-      const left = leftover('archived', Date.now())
+  test('still reclaims the home when a leftover cannot be removed', () => {
+    const left = leftover('archived')
 
+    chmodSync(left, 0o555)
+
+    try {
       expect(reclaim('archived')).toBe('removed')
-      expect(existsSync(left)).toBe(true)
-    })
-
-    test('keeps a set-aside home still used by its original HOME path', () => {
-      const left = leftover('archived')
-      const shell = Bun.spawn(['sleep', '30'], {
-        env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
-      })
-
-      rmSync(home('archived'), { recursive: true })
-
-      try {
-        expect(reclaim('archived')).toBe('absent')
-        expect(existsSync(left)).toBe(true)
-      } finally {
-        shell.kill()
-      }
-    })
-
-    test('keeps a set-aside home a running process works inside', () => {
-      const left = leftover('archived')
-      const shell = Bun.spawn(['sleep', '30'], { cwd: join(left, '.local') })
-
-      try {
-        expect(reclaim('archived')).toBe('removed')
-        expect(existsSync(left)).toBe(true)
-      } finally {
-        shell.kill()
-      }
-    })
-
-    test('still reclaims the home when a leftover cannot be removed', () => {
-      const left = leftover('archived')
-
-      chmodSync(left, 0o555)
-
-      try {
-        expect(reclaim('archived')).toBe('removed')
-      } finally {
-        chmodSync(left, 0o755)
-      }
-    })
-  },
-)
+    } finally {
+      chmodSync(left, 0o755)
+    }
+  })
+})
 
 describe('reclaimArchivedSessionHomes', () => {
   const now = new Date('2026-10-13T20:00:00Z')
