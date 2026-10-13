@@ -3,11 +3,18 @@ import { expect, spyOn, test } from 'bun:test'
 import * as transfers from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
+import * as chatRoute from './conversation-chat-route'
 import { attachmentPrompt } from './openab-acp-lifecycle'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 
 const scope = { teamId: '69e989027ab63e8d6a0ffcb6', userId: 'sender', sessionId: 'chat' }
-const endpoint = { url: 'wss://runtime.example/acp', authKey: 'test' }
+const endpoint = { url: 'wss://runtime.example/acp', authKey: 'transport', runtimeId: 'rt' }
+const control = { ...endpoint, authKey: 'control' }
+const controlRoute = () =>
+  spyOn(chatRoute, 'resolveConversationChatRuntime').mockResolvedValue({
+    runtime: 'claude-code',
+    endpoint: control,
+  })
 
 test('current-turn transfers use the sender and conversation scope, including restored parts', async () => {
   const resolve = spyOn(transfers, 'resolveDownloads').mockResolvedValue({
@@ -37,7 +44,7 @@ test('current-turn transfers use the sender and conversation scope, including re
 })
 
 test('materialization is a no-op for text turns and exposes only paths to the model', async () => {
-  expect(await materializeRuntimeAttachments('team', endpoint, [])).toEqual([])
+  expect(await materializeRuntimeAttachments('team', 'owner', endpoint, [])).toEqual([])
   const runJob = async (request: { stdin: string }) => {
     expect(JSON.parse(request.stdin).params.files).toEqual([
       { name: 'image.png', url: 'https://store.example/signed', size: 5 },
@@ -48,11 +55,12 @@ test('materialization is a no-op for text turns and exposes only paths to the mo
       stdout: JSON.stringify({ paths: ['/runtime/nuphos-attachments-test/0/image.png'] }),
     }
   }
+  const route = controlRoute()
   const acquire = spyOn(controlRegistry, 'acquire').mockResolvedValue({ runJob } as never)
   const jobs = spyOn(controlRegistry, 'runtimeJobs').mockReturnValue(['panel'])
 
   try {
-    const text = await materializeRuntimeAttachments('team', endpoint, [
+    const text = await materializeRuntimeAttachments('team', 'owner', endpoint, [
       { name: 'image.png', url: 'https://store.example/signed', size: 5 },
     ])
 
@@ -65,13 +73,59 @@ test('materialization is a no-op for text turns and exposes only paths to the mo
     ])
     expect(JSON.stringify(text)).not.toContain('https://store.example/signed')
     expect(JSON.stringify(text)).not.toContain('upload_attachment')
+    // Runtime jobs need the operator credential; a turn only carries its transport endpoint.
+    expect(route.mock.calls[0]).toEqual([
+      'team',
+      null,
+      { userId: 'owner', runtimeId: 'rt', purpose: 'control' },
+    ])
+    expect(acquire.mock.calls[0]).toEqual(['team', control])
+    route.mockResolvedValueOnce({
+      runtime: 'claude-code',
+      endpoint: { ...control, url: 'wss://other.example/acp' },
+    })
+    await expect(
+      materializeRuntimeAttachments('team', 'owner', endpoint, [
+        { name: 'a', url: 'https://store.example/signed', size: 1 },
+      ]),
+    ).rejects.toThrow('Conversation runtime changed')
     jobs.mockReturnValue([])
     await expect(
-      materializeRuntimeAttachments('team', endpoint, [
+      materializeRuntimeAttachments('team', 'owner', endpoint, [
         { name: 'a', url: 'https://store.example/signed', size: 1 },
       ]),
     ).rejects.toThrow('Update this agent')
   } finally {
+    route.mockRestore()
+    acquire.mockRestore()
+    jobs.mockRestore()
+  }
+})
+
+test('a local runtime gets only the file list for its bundled attachments job', async () => {
+  const requests: { job: string; stdin: string }[] = []
+  const route = controlRoute()
+  const acquire = spyOn(controlRegistry, 'acquire').mockResolvedValue({
+    runJob: async (request: { job: string; stdin: string }) => {
+      requests.push(request)
+
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify({ paths: ['/runtime/attachments/0/a.zip'] }),
+      }
+    },
+  } as never)
+  const jobs = spyOn(controlRegistry, 'runtimeJobs').mockReturnValue(['attachments'])
+  const files = [{ name: 'a.zip', url: 'https://store.example/signed', size: 3 }]
+
+  try {
+    expect(await materializeRuntimeAttachments('team', 'owner', endpoint, files)).toEqual([
+      { type: 'resource_link', name: 'a.zip', uri: 'file:///runtime/attachments/0/a.zip' },
+    ])
+    expect(requests[0]!.job).toBe('attachments')
+    expect(JSON.parse(requests[0]!.stdin)).toEqual({ files })
+  } finally {
+    route.mockRestore()
     acquire.mockRestore()
     jobs.mockRestore()
   }
@@ -95,6 +149,7 @@ test('folder archives retain extraction instructions through the ACP text bounda
     }),
   } as never)
   const jobs = spyOn(controlRegistry, 'runtimeJobs').mockReturnValue(['panel'])
+  const route = controlRoute()
 
   try {
     const files = await runtimeAttachments(
@@ -109,7 +164,7 @@ test('folder archives retain extraction instructions through the ACP text bounda
     )
 
     expect(files[0]!.archive).toBe(true)
-    const links = await materializeRuntimeAttachments('team', endpoint, files)
+    const links = await materializeRuntimeAttachments('team', 'owner', endpoint, files)
     const prompt = attachmentPrompt('chat', 'Inspect this folder', links, {})
 
     expect(prompt.prompt).toContainEqual({
@@ -123,6 +178,7 @@ test('folder archives retain extraction instructions through the ACP text bounda
     expect(JSON.stringify(prompt.prompt)).not.toContain('https://store.example/signed')
   } finally {
     resolve.mockRestore()
+    route.mockRestore()
     acquire.mockRestore()
     jobs.mockRestore()
   }

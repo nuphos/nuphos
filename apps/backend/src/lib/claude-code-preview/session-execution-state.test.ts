@@ -62,6 +62,53 @@ test('legacy conversation state follows its OpenAB placement and permits a follo
   }
 })
 
+test('a continuation parked on a lost output connection accepts the prompt that reattaches it', async () => {
+  // The runtime reports send:false, and only a prompt reattaches the session;
+  // a client waiting for send:true would wait forever.
+  const server = Bun.serve({
+    port: 0,
+    fetch(request, server) {
+      if (server.upgrade(request)) return
+
+      return new Response('upgrade required', { status: 400 })
+    },
+    websocket: {
+      message(ws, data) {
+        const frame = JSON.parse(String(data))
+        const result =
+          frame.method === 'initialize'
+            ? { protocolVersion: 1 }
+            : {
+                schemaVersion: 2,
+                epoch: 'runtime',
+                revision: 4,
+                state: 'active',
+                phase: 'resume_disconnected',
+                label: 'Automatic continuation paused: output connection lost',
+                tools: [],
+                actions: { send: false, cancel: true, steer: false },
+              }
+
+        ws.send(JSON.stringify({ jsonrpc: '2.0', id: frame.id, result }))
+      },
+    },
+  })
+
+  endpoint = `ws://127.0.0.1:${server.port}/acp`
+  try {
+    const snapshot = await conversationExecutionState({
+      sessionId: 'parked',
+      teamId: 'team',
+      agentRuntime: 'claude-code',
+    } as AgentConversation)
+
+    expect(snapshot.phase).toBe('resume_disconnected')
+    expect(snapshot.actions).toEqual({ send: true, cancel: true, steer: false })
+  } finally {
+    await server.stop(true)
+  }
+})
+
 test('a moved conversation reports a startable agent, not a lost connection', async () => {
   // The move clears the attachment, so there is no session to probe: probing
   // anyway reported 'disconnected', which parks a queued message on "waiting for

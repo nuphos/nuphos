@@ -142,9 +142,17 @@ export type AgentActiveRun = {
 
 export type AgentMessageMetadata = {
   version: 1
-  sender: { type: 'user' | 'agent' | 'system'; id: string; displayName: string; avatarURL?: string }
+  sender: {
+    type: 'user' | 'agent' | 'system'
+    id: string
+    displayName: string
+    avatarURL?: string
+    agentRuntime?: AgentProvider
+  }
   source: 'nuphos' | 'slack' | 'discord' | 'lark' | 'agent.thread' | 'agent.resource'
   sentAt: string
+  /** The session an agent.thread message came from. */
+  sourceSessionId?: string
 }
 
 export type AgentPersistedMessage = {

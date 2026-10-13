@@ -5,6 +5,7 @@ import { agentMessages } from './shared'
 import { transcriptTurnDiagnostics } from './transcript-diagnostics'
 
 import type { AgentMessage } from './shared'
+import type { LiveTurn } from '../live-turn'
 
 const TRANSCRIPT_MESSAGE_MAX_CHARS = 4_000
 
@@ -80,6 +81,27 @@ export function compactTranscriptLine(
   return `#${String(message.index)} ${message.role}: ${renderAttributedMessage(message.messageId ?? String(message.index), body || '(no text)', message.metadata)}`
 }
 
+/** The running turn as the transcript's next line, in arrival order. Clipped
+ *  from the front: the latest narration is what a reader needs. */
+export function liveTurnTranscriptLine(
+  index: number,
+  turn: LiveTurn,
+  options: { includeToolDetails?: boolean } = {},
+) {
+  const body = turn.parts
+    .map((part) =>
+      part.type === 'tool' ? toolLine(part, options.includeToolDetails ?? false) : part.text.trim(),
+    )
+    .filter(Boolean)
+    .join('\n')
+  const clipped =
+    body.length > TRANSCRIPT_MESSAGE_MAX_CHARS
+      ? `[earlier output truncated] …${body.slice(-TRANSCRIPT_MESSAGE_MAX_CHARS)}`
+      : body
+
+  return `#${String(index)} assistant (in progress, started ${turn.startedAt ?? 'unknown'}, last update ${turn.updatedAt ?? 'unknown'}): ${clipped || '(no output yet)'}`
+}
+
 export async function getConversationTranscriptForAgent(
   viewerUserId: string,
   options: {
@@ -90,10 +112,18 @@ export async function getConversationTranscriptForAgent(
     includeToolDetails?: boolean
   },
 ): Promise<{
-  conversation: { sessionId: string; title: string; createdAt: Date; messageCount: number }
+  conversation: {
+    sessionId: string
+    userId: string
+    title: string
+    createdAt: Date
+    messageCount: number
+  }
   lines: string[]
   turnDiagnostics: ReturnType<typeof transcriptTurnDiagnostics>
   nextIndex: number | null
+  /** When the page's last message was first stored, if it is an assistant's. */
+  lastAssistantAt: Date | null
 } | null> {
   const conversation = await getReadableConversation(
     options.sessionId,
@@ -111,7 +141,7 @@ export async function getConversationTranscriptForAgent(
         userId: conversation.userId,
         index: { $gte: fromIndex, $lt: fromIndex + limit + 1 },
       },
-      { projection: { index: 1, role: 1, parts: 1, messageId: 1, metadata: 1 } },
+      { projection: { index: 1, role: 1, parts: 1, messageId: 1, metadata: 1, createdAt: 1 } },
     )
     .sort({ index: 1 })
     .toArray()
@@ -121,6 +151,7 @@ export async function getConversationTranscriptForAgent(
   return {
     conversation: {
       sessionId: conversation.sessionId,
+      userId: conversation.userId,
       title: conversation.title,
       createdAt: conversation.createdAt,
       messageCount: conversation.messageCount,
@@ -130,5 +161,6 @@ export async function getConversationTranscriptForAgent(
     ),
     turnDiagnostics: page.flatMap(transcriptTurnDiagnostics),
     nextIndex: messages.length > limit && last ? last.index + 1 : null,
+    lastAssistantAt: last?.role === 'assistant' ? last.createdAt : null,
   }
 }
