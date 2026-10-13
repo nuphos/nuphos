@@ -1,3 +1,4 @@
+import { setConversationArchived } from './db'
 import { randomUUID } from 'node:crypto'
 
 import {
@@ -14,8 +15,6 @@ import {
   setConversationParent,
   upsertConversationShell,
 } from './db'
-
-import { setConversationArchived } from './db'
 
 import type { AgentConversation } from './db'
 
