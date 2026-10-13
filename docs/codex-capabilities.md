@@ -21,8 +21,9 @@ MCP surface for either agent runtime, without patching another upstream bundle.
    `list_agent_runtimes`, for example when it hits that agent's usage limit.
 2. Continue chatting in the source conversation while the worker runs.
 3. The worker calls `send_message_to_thread` with the source ID and its result.
-   The existing run claim starts an idle conversation or enqueues a message for
-   an active one. Agent-generated input is explicitly identified as such.
+   The existing run claim starts an idle conversation (`status: "started"`) or
+   delivers the message to an active one's turn (`status: "delivered"`).
+   Agent-generated input is explicitly identified as such.
 
 Both threads must belong to the acting user in the same team. The target runs
 with its own runtime and credential selection, which the same owner chose.

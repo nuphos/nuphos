@@ -75,10 +75,11 @@ export function threadToolModule(): PreviewToolModule {
         name: 'send_message_to_thread',
         description:
           'Send work or a completion report to another Nuphos thread you own in this team. ' +
-          'The target keeps its own runtime and credential selection. An idle thread starts a turn; ' +
-          'a busy thread receives the message through its pending-message queue. ' +
+          'The target keeps its own runtime and credential selection. status is "started" when an ' +
+          'idle thread started a turn now, "delivered" when a busy thread received the message into ' +
+          'its active turn; neither means the task is done. ' +
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +
-          'A queued receipt is not proof of task completion. Do not send acknowledgement loops.',
+          'Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
       },
       {
