@@ -3,12 +3,15 @@ import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { runtimeLogins } from './runtime-login-store'
 import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
+import { fetchRuntimeQuota } from './runtime-quota'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
+import type { RuntimeQuota } from './runtime-quota'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 
 export function developmentRuntimeEndpoint(
@@ -147,4 +150,21 @@ export async function requireRuntimeInstance(
     )
 
   return instance
+}
+
+/** Usage for each instance, read by the agent that holds its own credential. */
+export async function listRuntimeQuotas(
+  teamId: string,
+  instances: RuntimeInstance[],
+): Promise<RuntimeQuota[]> {
+  const signIns = await runtimeLogins()
+    .find({ teamId, state: 'connected' }, { projection: { runtimeId: 1, attemptId: 1 } })
+    .toArray()
+  const signIn = new Map(signIns.map((login) => [login.runtimeId, login.attemptId]))
+
+  return Promise.all(
+    instances.map((instance) =>
+      fetchRuntimeQuota(teamId, instance, undefined, undefined, signIn.get(instance.id)),
+    ),
+  )
 }

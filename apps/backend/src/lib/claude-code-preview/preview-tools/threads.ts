@@ -2,8 +2,10 @@ import { z } from 'zod'
 
 import {
   createAgentThread,
+  listThreadRuntimes,
   sendAgentThreadMessage,
   setAgentThreadParent,
+  updateThread,
 } from '@/lib/agent/thread-bridge'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
@@ -38,6 +40,23 @@ const setParent = z
       .describe('Conversation to nest the thread under; null stops nesting it.'),
   })
   .strict()
+const update = z
+  .object({
+    label: common.label,
+    threadId: z.string().uuid(),
+    fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
+    runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
+  })
+  .strict()
+const list = z.object({ label: common.label }).strict()
+
+// A refusal is the answer the agent needs, so it gets the reason, as tools served
+// through ai-sdk-adapter do, instead of the dispatcher's bare "Internal error".
+function answer(work: Promise<unknown>) {
+  return work.then(toolResult, (error: unknown) =>
+    toolError(error instanceof Error ? error.message : String(error)),
+  )
+}
 
 export function threadToolModule(): PreviewToolModule {
   return {
@@ -46,7 +65,7 @@ export function threadToolModule(): PreviewToolModule {
         name: 'create_thread',
         description:
           'Create and start a separate Nuphos conversation only when asked to delegate/background work. ' +
-          'Inherits your current runtime and selected credentials, not transcript or approval bypass. ' +
+          'Inherits your current runtime, selected credentials and permission mode, not your transcript. ' +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
           'Only available for conversations owned by the current actor.',
@@ -61,6 +80,25 @@ export function threadToolModule(): PreviewToolModule {
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +
           'A queued receipt is not proof of task completion. Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
+      },
+      {
+        name: 'list_agent_runtimes',
+        description:
+          "List the team's agents (runtimes) your threads can run on, with each one's readiness and " +
+          'usage quota. Use it to pick a runtimeId for update_thread, for example when a thread ' +
+          "has hit its agent's usage limit.",
+        inputSchema: toolInputJsonSchema(list),
+      },
+      {
+        name: 'update_thread',
+        description:
+          'Change a thread this conversation created with create_thread. fullAccess switches it ' +
+          'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
+          'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
+          "its conversation history, to another of the team's agents from list_agent_runtimes " +
+          "(never to someone's computer); its next turn " +
+          "runs there. A new thread already starts in this conversation's mode and agent.",
+        inputSchema: toolInputJsonSchema(update),
       },
       {
         name: 'set_thread_parent',
@@ -78,25 +116,39 @@ export function threadToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(await createAgentThread(ctx, parsed.data.prompt, parsed.data.title))
+        return answer(createAgentThread(ctx, parsed.data.prompt, parsed.data.title))
       },
       send_message_to_thread: async (args) => {
         const parsed = send.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(
-          await sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
-        )
+        return answer(sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt))
+      },
+      list_agent_runtimes: async (args) => {
+        const parsed = list.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(listThreadRuntimes(ctx))
+      },
+      update_thread: async (args) => {
+        const parsed = update.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+        const { threadId, ...change } = parsed.data
+
+        if (change.fullAccess === undefined && change.runtimeId === undefined)
+          return toolError('Set fullAccess, runtimeId, or both.')
+
+        return answer(updateThread(ctx, threadId, change))
       },
       set_thread_parent: async (args) => {
         const parsed = setParent.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(
-          await setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId),
-        )
+        return answer(setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId))
       },
     }),
   }

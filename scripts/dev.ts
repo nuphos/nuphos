@@ -4,10 +4,14 @@
 // `--managed` adds managed agents on local k8s.
 import { ensureBackendEnv, resetBackendRetries, startBackend } from './dev-backend.ts'
 import { BOLD, DIM, GREEN, RESET, enterAltScreen, leaveAltScreen, render } from './dev-dashboard.ts'
-import { startDesktop } from './dev-desktop.ts'
+import { claimDesktopPorts, desktopPorts, startDesktop } from './dev-desktop.ts'
 import { consumeDirty, markDirty, pushEvent, TTY } from './dev-event-log.ts'
-import { acquireDevInstance } from './dev-instance.ts'
-import { otherLaunchers, registerLauncher } from './dev-launchers.ts'
+import {
+  acquireDevInstance,
+  electronAppData,
+  otherLaunchers,
+  writeInstance,
+} from './dev-instance.ts'
 import { startLocalAgent } from './dev-local-agent.ts'
 import { isLocalContextName } from './dev-managed-env.ts'
 import { startManagedAgents } from './dev-managed.ts'
@@ -21,12 +25,28 @@ import { isQuitting, markQuitting, stopAllTrees, stopTree } from './dev-shutdown
 import { compose, startStack, stopStack } from './dev-stack.ts'
 import { checkStalls } from './dev-stall-watchdog.ts'
 import { stopOwnNamedTunnel, stopTunnel, tunnel, tunnelOwnership } from './dev-tunnel.ts'
-import { ROOT, WT_ID } from './dev-workspace.ts'
+import { DESKTOP_SUFFIX, DEV_CLI_CONFIG, INSTANCE, LOG_DIR, ROOT } from './dev-workspace.ts'
 
 import type { QuitChoice } from './dev-quit.ts'
 
-let releaseInstance = () => {}
-let unregisterLauncher = () => {}
+let releaseInstance: (() => void) | null = null
+
+/** What `bun run dev:instances` shows and what its `rm` may stop or delete. Only the lease holder writes it. */
+function recordInstance(live = true) {
+  if (!releaseInstance) return
+  writeInstance({
+    key: INSTANCE,
+    root: ROOT,
+    pid: live ? process.pid : null,
+    backend: backend.port,
+    vite: desktopPorts.vite,
+    cdp: desktopPorts.cdp,
+    appData: electronAppData(`Nuphos Dev (${DESKTOP_SUFFIX})`),
+    cliConfig: DEV_CLI_CONFIG,
+    logDir: LOG_DIR,
+    groups: live ? services.flatMap((s) => (s.proc?.pid ? [s.proc.pid] : [])) : [],
+  })
+}
 
 async function quit(code = 0, choice: QuitChoice = 'processes'): Promise<void> {
   if (isQuitting()) return
@@ -36,7 +56,7 @@ async function quit(code = 0, choice: QuitChoice = 'processes'): Promise<void> {
   // Leave the alt screen first so the teardown progress prints on the real
   // terminal (and survives after exit) instead of vanishing with the TUI.
   leaveAltScreen()
-  unregisterLauncher()
+  recordInstance(false)
   const facts = { otherLaunchers: otherLaunchers(), tunnel: tunnelOwnership() }
   let plan = quitPlan(choice, facts)
 
@@ -106,6 +126,7 @@ async function startAll() {
   if (!local) return
   await startBackend(local, managed && (await managedReady) ? managed : null)
   void startLocalRuntime(local)
+  await claimDesktopPorts()
   await startDesktop()
 }
 
@@ -152,8 +173,8 @@ process.on('uncaughtException', (e) => {
 // hard-kill every group that was ever started — a group outlives its leader,
 // and an already-empty one just makes kill throw.
 process.on('exit', () => {
-  releaseInstance()
-  unregisterLauncher()
+  recordInstance(false)
+  releaseInstance?.()
   for (const s of services) {
     const pid = s.proc?.pid
 
@@ -187,8 +208,8 @@ async function main() {
     process.exit(2)
   }
   try {
-    releaseInstance = await acquireDevInstance(ROOT)
-    unregisterLauncher = registerLauncher()
+    releaseInstance = await acquireDevInstance(INSTANCE)
+    recordInstance()
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(1)
@@ -198,7 +219,7 @@ async function main() {
   bindKeys()
   const mode = DEV_OPTIONS.managed ? ' --managed' : ''
 
-  if (!TTY) process.stdout.write(`▲ nuphos dev${mode}  (${WT_ID})\n`)
+  if (!TTY) process.stdout.write(`▲ nuphos dev${mode}  (${INSTANCE})\n`)
   render()
   setInterval(() => {
     if (consumeDirty()) render()
@@ -206,6 +227,10 @@ async function main() {
   // Independent of `dirty`: a hung service produces no output, so nothing would
   // ever mark the frame dirty and the stall would go unreported.
   setInterval(checkStalls, 2_000)
+  // Restarts and port retries replace processes; the record follows them.
+  setInterval(() => {
+    if (!isQuitting()) recordInstance()
+  }, 1_000)
   ensureBackendEnv()
   if (DEV_OPTIONS.reset) await resetStack()
   await startAll()
