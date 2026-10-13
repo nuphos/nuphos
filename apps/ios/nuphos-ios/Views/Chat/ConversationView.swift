@@ -65,9 +65,19 @@ struct ConversationView: View {
                     canSteer: session.canSteer,
                     allowsAttachments: !session.canSteer,
                     failedSubmission: $session.failedSubmission,
-                    sessionMentions: SessionMentionSource(teamId: session.teamId) { query in
-                        await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
-                    },
+                    mentions: MentionSource(
+                        teamId: session.teamId,
+                        // Only someone who may change the session's devices can bring one in.
+                        devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
+                        pickDevice: { device in
+                            var selection = session.credentialAccess ?? CredentialSelection()
+                            if !selection.contains(device) { selection.toggle(device); session.credentialAccess = selection }
+                        },
+                        search: { query in
+                            await store.loadCredentialOptions()
+                            return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                        }
+                    ),
                     onSend: { session.send($0) },
                     onStop: { session.stop() }
                 ) {

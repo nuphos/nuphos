@@ -1,20 +1,19 @@
 import clsx from 'clsx'
-import { MessageSquare } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
-import { renderMentionChip } from '../../../lib/atlasLinkMention'
-import { Avatar } from '../../Avatar'
 import { AppAlertDialog } from '../../ui/alert-dialog'
 
-import { matchMembers, mentionQuery, sessionMentionUrl } from './composerMention'
+import { matchDevices, matchMembers, mentionQuery } from './composerMention'
+import { MENTION_ATTR, optionChip, optionKey } from './composerMentionChips'
+import { MentionOptionRow } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
 
+import type { MentionOption } from './composerMentionChips'
+import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { TeamMember } from '../../../types'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-
-const MENTION_ATTR = 'data-mention-user-id'
 
 /** The text node the caret sits in and the text before it, when inside `el`. */
 function caretText(el: HTMLElement): { node: Text; offset: number } | null {
@@ -26,25 +25,11 @@ function caretText(el: HTMLElement): { node: Text; offset: number } | null {
   return { node: node as Text, offset: sel.anchorOffset }
 }
 
-function memberChip(member: TeamMember): HTMLElement {
-  const chip = document.createElement('span')
-
-  chip.contentEditable = 'false'
-  chip.setAttribute(MENTION_ATTR, member.id)
-  chip.className = 'rounded px-0.5 font-medium text-zViolet-accent bg-zViolet-accent/10'
-  chip.textContent = `@${member.name || member.email}`
-
-  return chip
-}
-
 function mentionedUserIds(el: HTMLElement | null): string[] {
   const chips = el?.querySelectorAll<HTMLElement>(`[${MENTION_ATTR}]`) ?? []
 
   return Array.from(new Set(Array.from(chips, (chip) => chip.dataset.mentionUserId ?? '')))
 }
-
-type MentionOption =
-  { kind: 'member'; member: TeamMember } | { kind: 'session'; session: AgentConversation }
 
 /**
  * `@` mentions in the composer: an autocomplete while typing over teammates
@@ -52,12 +37,14 @@ type MentionOption =
  * `@Name` and — like Slack — an offer to invite anyone mentioned who is not in
  * the session yet, asked after the message is sent so the message itself never
  * waits on it. A session becomes the same link chip a pasted session URL does,
- * so the agent receives its canonical link and can read it.
+ * so the agent receives its canonical link and can read it. A device sends as
+ * `@Label` and is turned on for the session, so the agent may run on it.
  */
 export function useComposerMentions(
   editorRef: RefObject<HTMLDivElement | null>,
   onEdited: () => void,
   scope?: { teamId: string; sessionId?: string },
+  credentials?: Pick<CredentialSelectorControl, 'options' | 'value' | 'onChange'>,
 ) {
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [query, setQuery] = useState<string | null>(null)
@@ -77,6 +64,9 @@ export function useComposerMentions(
             kind: 'member',
             member,
           })),
+          ...matchDevices(credentials?.options.devices ?? [], query).map(
+            (device): MentionOption => ({ kind: 'device', device }),
+          ),
           ...(sessions?.query === query ? sessions.list : []).map((session): MentionOption => ({
             kind: 'session',
             session,
@@ -132,10 +122,18 @@ export function useComposerMentions(
     range.setStart(caret.node, caret.offset - query.length - 1)
     range.setEnd(caret.node, caret.offset)
     range.deleteContents()
-    const chip =
-      option.kind === 'session'
-        ? renderMentionChip(sessionMentionUrl(scope.teamId, option.session.sessionId))
-        : memberChip(option.member)
+    const chip = optionChip(option, scope.teamId)
+
+    if (
+      option.kind === 'device' &&
+      credentials &&
+      !credentials.value.deviceIds.includes(option.device.deviceId)
+    ) {
+      credentials.onChange({
+        ...credentials.value,
+        deviceIds: [...credentials.value.deviceIds, option.device.deviceId],
+      })
+    }
 
     range.insertNode(chip)
     const trailing = document.createTextNode(' ')
@@ -204,7 +202,7 @@ export function useComposerMentions(
         >
           {matches.map((option, index) => (
             <div
-              key={option.kind === 'member' ? option.member.id : option.session.sessionId}
+              key={optionKey(option)}
               role="option"
               aria-selected={index === active}
               className={clsx(
@@ -218,30 +216,7 @@ export function useComposerMentions(
               }}
               onMouseEnter={() => setActive(index)}
             >
-              {option.kind === 'member' ? (
-                <>
-                  <Avatar
-                    src={option.member.avatarURL}
-                    name={option.member.name}
-                    size={18}
-                    className="rounded-full"
-                  />
-                  <span className="truncate text-main">
-                    {option.member.name || option.member.email}
-                  </span>
-                  <span className="ml-auto truncate text-[11.5px] text-tertiary">
-                    {option.member.email}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <MessageSquare size={16} className="shrink-0 text-tertiary" />
-                  <span className="truncate text-main">
-                    {option.session.title || option.session.firstMessage || 'Untitled session'}
-                  </span>
-                  <span className="ml-auto shrink-0 text-[11.5px] text-tertiary">Session</span>
-                </>
-              )}
+              <MentionOptionRow option={option} />
             </div>
           ))}
         </div>

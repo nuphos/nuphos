@@ -15,8 +15,8 @@ struct ChatComposerBar<Controls: View>: View {
     var canSteer = false
     var allowsAttachments = true
     var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
-    /// Where an `@` finds the viewer's other sessions; nil offers none.
-    var sessionMentions: SessionMentionSource? = nil
+    /// What an `@` offers: the viewer's devices and other sessions; nil offers none.
+    var mentions: MentionSource? = nil
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -39,7 +39,11 @@ struct ChatComposerBar<Controls: View>: View {
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
     private var expanded: Bool { focused || hasPayload }
     private var hasControls: Bool { Controls.self != EmptyView.self }
-    private var mentionQuery: String? { sessionMentions == nil ? nil : SessionMention.query(in: text) }
+    private var mentionQuery: String? { mentions == nil ? nil : SessionMention.query(in: text) }
+    private var mentionDevices: [CredentialCatalog.Item] {
+        guard let query = mentionQuery, let mentions else { return [] }
+        return Array(mentions.devices.filter { SessionMention.matches($0.label, query) }.prefix(3))
+    }
 
     var body: some View {
         // One TextField, always in the same place in the hierarchy: moving
@@ -73,7 +77,7 @@ struct ChatComposerBar<Controls: View>: View {
                 .accessibilityHidden(!expanded)
             }
 
-            if expanded, !mentionResults.isEmpty {
+            if expanded, !mentionResults.isEmpty || !mentionDevices.isEmpty {
                 mentionList
                     .transition(.opacity)
             }
@@ -136,11 +140,11 @@ struct ChatComposerBar<Controls: View>: View {
         .animation(.snappy(duration: 0.25), value: dictation == nil)
         .animation(.snappy(duration: 0.25), value: mentionResults)
         .task(id: mentionQuery) {
-            guard let query = mentionQuery, let sessionMentions else { mentionResults = []; return }
+            guard let query = mentionQuery, let mentions else { mentionResults = []; return }
             // Typing on cancels this task, so only a pause asks the backend.
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
-            let found = await sessionMentions.search(query)
+            let found = await mentions.search(query)
             if !Task.isCancelled { mentionResults = found }
         }
         .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
@@ -234,36 +238,46 @@ struct ChatComposerBar<Controls: View>: View {
             }
     }
 
-    // MARK: Session mentions
+    // MARK: Mentions
 
     private var mentionList: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(mentionResults) { conversation in
-                Button { pickMention(conversation) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bubble.left")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Theme.muted)
-                        Text(conversation.displayTitle)
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.heading)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .contentShape(Rectangle())
+            ForEach(mentionDevices) { device in
+                mentionRow(symbol: "laptopcomputer", title: device.label) {
+                    text = SessionMention.insert("@" + device.label, into: text)
+                    mentions?.pickDevice(device)
                 }
-                .buttonStyle(.plain)
+            }
+            ForEach(mentionResults) { conversation in
+                mentionRow(symbol: "bubble.left", title: conversation.displayTitle) { pickMention(conversation) }
             }
         }
     }
 
+    private func mentionRow(symbol: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.muted)
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.heading)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     private func pickMention(_ conversation: AgentConversation) {
-        guard let source = sessionMentions,
+        guard let source = mentions,
               let link = SessionLink.url(teamId: conversation.teamId ?? source.teamId, sessionId: conversation.sessionId)
         else { return }
-        text = SessionMention.insert(link, into: text)
+        text = SessionMention.insert(link.absoluteString, into: text)
         mentionResults = []
     }
 

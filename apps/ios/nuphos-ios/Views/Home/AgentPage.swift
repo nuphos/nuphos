@@ -69,9 +69,17 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, sessionMentions: draftTeam.isEmpty ? nil : SessionMentionSource(teamId: draftTeam) { query in
-                    await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
-                }, onSend: { submission in
+                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, mentions: draftTeam.isEmpty ? nil : MentionSource(
+                    teamId: draftTeam,
+                    devices: store.credentialCatalog?.scoped(to: .devices).allItems ?? [],
+                    pickDevice: { device in
+                        if !store.credentialSelection.contains(device) { store.credentialSelection.toggle(device) }
+                    },
+                    search: { query in
+                        await store.loadCredentialOptions()
+                        return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
+                    }
+                ), onSend: { submission in
                     if let session = store.newSession() { newChat = NewChat(session: session, prompt: submission) }
                 }) {
                     ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)

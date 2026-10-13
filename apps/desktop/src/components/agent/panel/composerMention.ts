@@ -1,5 +1,6 @@
 import { ATLAS_WEB_BASE_URL } from '../../../lib/webBaseUrl.ts'
 
+import type { AgentCredentialOptions } from '../../../api/agent-credential-types.ts'
 import type { TeamMember } from '../../../types'
 
 /** The `@query` being typed right before the caret, or null when there is none.
@@ -34,4 +35,15 @@ export function matchMembers(
  *  agent can read it with `read_conversation` and the chip resolves its title. */
 export function sessionMentionUrl(teamId: string, sessionId: string): string {
   return `${ATLAS_WEB_BASE_URL}/teams/${encodeURIComponent(teamId)}/agent/${encodeURIComponent(sessionId)}`
+}
+
+/** The viewer's devices whose label contains the query. */
+export function matchDevices(
+  devices: AgentCredentialOptions['devices'],
+  query: string,
+  limit = 3,
+): AgentCredentialOptions['devices'] {
+  const needle = query.toLowerCase()
+
+  return devices.filter((device) => device.label.toLowerCase().includes(needle)).slice(0, limit)
 }
