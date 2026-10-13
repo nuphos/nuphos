@@ -4,7 +4,7 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { pushDeviceStore } from './devices'
-import { fcmProjectId, sendFcm } from './fcm'
+import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
 import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
@@ -30,6 +30,7 @@ export type PushConversation = { title?: string; firstMessage?: string; teamId?:
 export type TurnNotifierDeps = {
   fcmProject?: () => string | null
   sendFcm?: (projectId: string, request: FcmRequest) => Promise<FcmResponse>
+  sendFcmBadge?: typeof sendFcmBadge
   credentials: () => ApnsCredentials | null
   devices: PushDeviceStore
   send: (credentials: ApnsCredentials, request: ApnsRequest) => Promise<ApnsResponse>
@@ -163,6 +164,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
                   teamId,
                   sessionId: run.sessionId,
                   ...alert,
+                  badge,
                 })
 
                 if (result.deadToken) await deps.devices.removeToken(device.token)
@@ -191,7 +193,24 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     const devices = await deps.devices.listForUser(userId)
 
     if (devices.length === 0) return
-    await send(devices, { aps: { badge: await deps.unreadCount(userId) } }, 'badge')
+    const badge = await deps.unreadCount(userId)
+    const project = deps.fcmProject?.()
+    if (project && deps.sendFcmBadge)
+      await Promise.all(
+        devices
+          .filter((device) => device.platform === 'android' && device.projectId === project)
+          .map(async (device) => {
+            try {
+              const response = await deps.sendFcmBadge!(project, device.token, userId, badge)
+              if (response.deadToken) await deps.devices.removeToken(device.token)
+              else if (response.status !== 200)
+                logEvent('warn', 'push.fcm.rejected', { status: response.status })
+            } catch {
+              logEvent('warn', 'push.fcm.send_failed', { kind: 'badge' })
+            }
+          }),
+      )
+    await send(devices, { aps: { badge } }, 'badge')
   }
 
   async function planNumber(run: NotifiableRun, conversation: PushConversation | null) {
@@ -237,7 +256,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     },
     /** Reading on one device clears the badge on the others. Debounced per user. */
     badgeChanged(userId: string): void {
-      if (!deps.credentials() || badgePending.has(userId)) return
+      if ((!deps.credentials() && !deps.fcmProject?.()) || badgePending.has(userId)) return
       badgePending.add(userId)
       deps.schedule(() => {
         void refreshBadge(userId).catch((error: unknown) => {
@@ -255,6 +274,7 @@ function defaultNotifier() {
     credentials: apnsCredentials,
     fcmProject: fcmProjectId,
     sendFcm,
+    sendFcmBadge,
     devices: pushDeviceStore,
     send: sendApns,
     conversation: getConversationBySessionId,
@@ -285,5 +305,5 @@ export function notifyApprovalRequested(run: NotifiableRun): void {
 }
 
 export function notifyBadgeChanged(userId: string): void {
-  if (apnsCredentials()) defaultNotifier().badgeChanged(userId)
+  if (apnsCredentials() || fcmProjectId()) defaultNotifier().badgeChanged(userId)
 }

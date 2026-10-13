@@ -5,6 +5,7 @@ import { config } from '@/config'
 export type FcmRequest = {
   token: string
   userId: string
+  badge?: number
   teamId: string
   sessionId: string
   title: string
@@ -27,13 +28,33 @@ export function fcmMessage(request: FcmRequest) {
         sessionId: request.sessionId,
         title: request.title,
         body: request.body,
+        ...(request.badge !== undefined ? { badge: String(request.badge) } : {}),
       },
       android: { priority: 'HIGH', ttl: '3600s', collapse_key: request.sessionId },
     },
   }
 }
 
+export async function sendFcmBadge(
+  projectId: string,
+  token: string,
+  userId: string,
+  badge: number,
+): Promise<FcmResponse> {
+  return sendMessage(projectId, {
+    message: {
+      token,
+      data: { accountId: userId, kind: 'badge', badge: String(badge) },
+      android: { priority: 'NORMAL', ttl: '3600s', collapse_key: 'badge' },
+    },
+  })
+}
+
 export async function sendFcm(projectId: string, request: FcmRequest): Promise<FcmResponse> {
+  return sendMessage(projectId, fcmMessage(request))
+}
+
+async function sendMessage(projectId: string, message: unknown): Promise<FcmResponse> {
   const token = await auth.getAccessToken()
 
   if (!token) throw new Error('FCM ADC authentication unavailable')
@@ -42,7 +63,7 @@ export async function sendFcm(projectId: string, request: FcmRequest): Promise<F
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(fcmMessage(request)),
+      body: JSON.stringify(message),
       signal: AbortSignal.timeout(10_000),
     },
   )

@@ -129,6 +129,12 @@ fun ConversationScreen(
         if (visible) reads.visible(readTarget) else reads.hidden()
         onDispose { reads.hidden() }
     }
+    val push = (androidx.compose.ui.platform.LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).pushNotifications
+    val notificationTarget = ai.nuphos.android.notifications.LocalNotificationTarget.from(auth.user?.id, session.teamId, session.sessionId)
+    DisposableEffect(push, visible, notificationTarget) {
+        if (visible && notificationTarget != null) push.reading(notificationTarget)
+        onDispose { if (notificationTarget != null) push.hidden(notificationTarget) }
+    }
     val transcript = session.readTranscript
     LaunchedEffect(session, transcript, session.messages, visible, readTarget) {
         if (!visible || transcript == null || !session.readAllowed || transcript.messages != session.messages) return@LaunchedEffect

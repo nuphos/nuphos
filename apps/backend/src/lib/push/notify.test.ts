@@ -343,3 +343,29 @@ describe('FCM dispatch', () => {
     expect(removed).toEqual(['dead'])
   })
 })
+
+test('Android-only badge changes are debounced and isolated to the configured project', async () => {
+  configured = false
+  devices = [
+    { ...device('android'), platform: 'android', projectId: 'project' },
+    { ...device('other'), platform: 'android', projectId: 'other' },
+  ]
+  const badges: number[] = []
+  const n = notifier({
+    fcmProject: () => 'project',
+    sendFcmBadge: async (_project, token, user, badge) => {
+      expect(token).toBe('android')
+      expect(user).toBe('user-1')
+      badges.push(badge)
+      return { status: 200, deadToken: false }
+    },
+  })
+  n.badgeChanged('user-1')
+  n.badgeChanged('user-1')
+  expect(scheduled).toHaveLength(1)
+  unread = 0
+  scheduled[0]!.work()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(badges).toEqual([0])
+  expect(sent).toHaveLength(0)
+})

@@ -31,6 +31,16 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     @Volatile private var login: Pair<String, String>? = null
     @Volatile private var registration: Pair<String, String>? = null
     @Volatile private var started = 0
+    @Volatile private var reading: LocalNotificationTarget? = null
+
+    fun reading(target: LocalNotificationTarget) {
+        reading = target
+        app.localNotifications.dismiss(target)
+    }
+
+    fun hidden(target: LocalNotificationTarget) {
+        if (reading == target) reading = null
+    }
     private fun fingerprint(token: String) = MessageDigest.getInstance("SHA-256")
         .digest(token.toByteArray()).joinToString("") { "%02x".format(it) }
 
@@ -39,6 +49,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
         val oldRegistration = registration
         synchronized(bindingLock) {
             login = null
+            reading = null
             registration = null
             prefs.edit().remove("account").remove("login_hash").remove("consent_granted").commit()
         }
@@ -125,11 +136,20 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             val savedToken = app.tokenStore.read() ?: return
             val account = prefs.getString("account", null) ?: return
             if (!PushBindingPolicy.accepts(account, prefs.getString("login_hash", null),
-                    fingerprint(savedToken), data["accountId"], started > 0)) return
+                    fingerprint(savedToken), data["accountId"], false)) return
+            val badge = data["badge"]?.toIntOrNull()?.takeIf { it >= 0 }
+            if (data["kind"] == "badge") {
+                if (badge != null) app.localNotifications.updateBadge(badge)
+                return
+            }
             val target = LocalNotificationTarget.from(account, data["teamId"], data["sessionId"]) ?: return
+            if (PushBindingPolicy.isReading(started > 0, reading, target)) {
+                if (badge != null) app.localNotifications.updateBadge(badge)
+                return
+            }
             // Tap routing re-checks current account, team and consent as well.
             LocalNotifications(app, { account }, { prefs.getBoolean("consent_granted", false) }).post(
-                target, "Nuphos", data["body"]?.take(200) ?: "Open Nuphos to view the update")
+                target, "Nuphos", data["body"]?.take(200) ?: "Open Nuphos to view the update", badge)
         }
     }
 

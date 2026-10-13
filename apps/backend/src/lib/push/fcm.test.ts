@@ -10,6 +10,7 @@ test('FCM data payload preserves guarded routing and lets the app control displa
     sessionId: 'session',
     title: 'Chat',
     body: 'Done',
+    badge: 3,
   })
 
   expect(payload.message.data).toEqual({
@@ -18,6 +19,7 @@ test('FCM data payload preserves guarded routing and lets the app control displa
     sessionId: 'session',
     title: 'Chat',
     body: 'Done',
+    badge: '3',
   })
   expect(payload.message).not.toHaveProperty('notification')
   expect(payload.message.android.ttl).toBe('3600s')

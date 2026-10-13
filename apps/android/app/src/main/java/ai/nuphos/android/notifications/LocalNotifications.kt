@@ -27,6 +27,15 @@ class LocalNotifications(
         previousAccount = current
     }
 
+    fun updateBadge(count: Int) {
+        if (count == 0) { clear(clearPending = false); return }
+        manager.activeNotifications.filter { it.tag == TAG }.forEach {
+            manager.notify(TAG, it.id, android.app.Notification.Builder.recoverBuilder(context, it.notification).setNumber(count).setOnlyAlertOnce(true).build())
+        }
+    }
+
+    fun dismiss(target: LocalNotificationTarget) { manager.cancel(TAG, target.hashCode()) }
+
     fun clear(clearPending: Boolean = true) {
         if (clearPending) pending.clear()
         manager.activeNotifications.filter { it.tag == TAG }.forEach { manager.cancel(TAG, it.id) }
@@ -41,7 +50,7 @@ class LocalNotifications(
         return true
     }
 
-    fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String = "Open conversation history"): Boolean {
+    fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String = "Open conversation history", badge: Int? = null): Boolean {
         if (LocalNotificationTarget.from(target.accountId, target.teamId, target.sessionId) != target ||
             account() != target.accountId || !aiAllowed() ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
@@ -58,7 +67,7 @@ class LocalNotifications(
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
-            .setContentIntent(tap).setAutoCancel(true)
+            .setNumber(badge ?: 0).setContentIntent(tap).setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build()
         manager.notify(TAG, target.hashCode(), notification)
         return true

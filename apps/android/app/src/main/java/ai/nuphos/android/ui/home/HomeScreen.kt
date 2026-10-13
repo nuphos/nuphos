@@ -155,7 +155,7 @@ fun HomeRoute(
         val notificationAiAllowed = notificationAuth.aiAllowed
         LaunchedEffect(pendingNotification, user.id, agentStore.selectedTeam?.id, notificationAiAllowed) {
             val target = notifications.pending.take(notificationAuth.user?.id, agentStore.selectedTeam?.id, notificationAuth.aiAllowed)
-            if (target != null) nav.navigate("trigger-run/${android.net.Uri.encode(target.sessionId)}?teamId=${android.net.Uri.encode(target.teamId)}") { launchSingleTop = true }
+            if (target != null) nav.navigate("conversation/${android.net.Uri.encode(target.sessionId)}") { launchSingleTop = true }
         }
         NavHost(nav, startDestination = "home") {
             composable("home") { HomeScreen(user, nav, monitoring, triggers, triggerRuns) }

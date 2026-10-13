@@ -120,9 +120,9 @@ Backend: set `FCM_PROJECT_ID` to the matching Firebase project and provide Appli
 Credentials using `GOOGLE_APPLICATION_CREDENTIALS` when running outside the default ADC location.
 Never put sender credentials in this app. FCM uses data messages so the client can reject stale
 account bindings before display. Notifications require permission, an enabled channel, and a
-registered signed-in account that accepted AI consent. Foreground app activity suppresses system
-notifications. Sign-out clears local binding and attempts server unregister; notifications carry
-account/team/session IDs and still use guarded history navigation on tap. Consent revocation
+registered signed-in account that accepted AI consent. Only the conversation actively being read suppresses system notifications; other conversations
+can notify while the app is in the foreground. Sign-out clears local binding and attempts server unregister; notifications carry
+account/team/session IDs and still use guarded interactive conversation navigation on tap. Consent revocation
 synchronously clears the persisted push opt-in before any later background display.
 
 After sign-in and AI consent, the app asks once for notification permission. A denied permission
@@ -152,3 +152,11 @@ the app, complete an agent turn or request an approval, check phone receipt and 
 check denied permissions, process recreation, token refresh and account switching. A successful
 FCM send response does not prove phone delivery; force-stopped apps require a subsequent manual
 launch before Android permits delivery again.
+
+Android receives the shared unread conversation count with alerts and debounced, account-bound
+badge-only FCM updates after reads. Existing notifications update without another sound; zero
+clears conversation notifications. Launcher dots/counts depend on the launcher and require an
+active notification; Android does not offer APNs-style independent numeric app badges.
+`PushParityDeviceTest` is opt-in (`localPushParity=true`) and requires the loopback debug build
+and its existing fixture binding. It checks same-conversation suppression, other-conversation
+foreground display, badge updates, zero-count clearing and rejection of another account's update.
