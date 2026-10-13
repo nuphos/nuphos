@@ -211,9 +211,9 @@ impl App {
     pub fn new(api: Api, prefs: Prefs) -> Self {
         let (tx, rx) = unbounded_channel();
         let (apply_tx, apply_rx) = unbounded_channel();
+        let full_access = prefs.full_access;
         App {
             api,
-            full_access: prefs.full_access,
             failure: None,
             prefs,
             me_id: String::new(),
@@ -224,6 +224,7 @@ impl App {
             new_pick: json!({}),
             session_id: String::new(),
             is_new: true,
+            full_access,
             messages: Vec::new(),
             base_index: 0,
             assistant: None,
