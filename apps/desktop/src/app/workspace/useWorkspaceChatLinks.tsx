@@ -10,6 +10,7 @@ import {
   isBindableLinearLink,
 } from '../../lib/external-link'
 import { mergeIfChanged } from '../../lib/mergeIfChanged'
+import { runtimeFilePathFromHref } from '../../lib/runtimeFileLink'
 import { isAppWebUrl } from '../../lib/webBaseUrl'
 
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -174,11 +175,21 @@ export function useWorkspaceChatLinks(a: Args) {
 
   // Chat-link policy: an app URL on our own web origin NEVER bounces to the external
   // browser. Exact navigation when the resolver knows the path; otherwise the
-  // deep-link fallback (team tab / seed into chat) still keeps it in-app.
+  // deep-link fallback (team tab / seed into chat) still keeps it in-app. A bare
+  // file path is on the conversation's runtime, so it opens in Files.
   const openNuphosLinkFromChat = useCallback(
     (href: string): boolean => {
       if (openNuphosLinkInNewTab(href)) return true
       if (openBoundProviderLinkFromChat(href)) return true
+      const filePath = runtimeFilePathFromHref(href)
+
+      if (filePath && teamId) {
+        return openNuphosLinkInNewTab(
+          pageLocationForNavigation(
+            emptyNavigation({ kind: 'team', teamId }, 'team.files', { filter: filePath }),
+          ).href,
+        )
+      }
       const parsed = isAppWebUrl(href.trim())
 
       if (!parsed || !parsed.pathname.startsWith('/teams/')) return false
@@ -189,7 +200,7 @@ export function useWorkspaceChatLinks(a: Args) {
 
       return true
     },
-    [openAppOpenDeepLink, openBoundProviderLinkFromChat, openNuphosLinkInNewTab],
+    [openAppOpenDeepLink, openBoundProviderLinkFromChat, openNuphosLinkInNewTab, teamId],
   )
 
   // A session resource is linked through a bound integration, so its provider

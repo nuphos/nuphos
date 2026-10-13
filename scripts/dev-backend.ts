@@ -1,8 +1,8 @@
 // The backend supervisor: parse its log stream into dashboard state, and spawn
 // it (detached → own process group) on the local docker compose stack.
-import { execSync, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { existsSync, symlinkSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 
 import { backendEnv } from './dev-backend-env.ts'
 import { ANSI_COLOR, pipeLines, stripAnsi } from './dev-child-output.ts'
@@ -13,7 +13,7 @@ import { findFreePort, releasePort } from './dev-ports.ts'
 import { backend, ensureDeps, openLog, startTiming, writeRaw } from './dev-services.ts'
 import { isQuitting } from './dev-shutdown.ts'
 import { setupTunnel } from './dev-tunnel.ts'
-import { BACKEND_DIR, BASE_BACKEND_PORT, ROOT } from './dev-workspace.ts'
+import { BACKEND_DIR, BASE_BACKEND_PORT, MAIN_ROOT } from './dev-workspace.ts'
 
 import type { LocalStack } from './dev-local-stack-env.ts'
 
@@ -137,21 +137,7 @@ export function ensureBackendEnv(): void {
   const envPath = join(BACKEND_DIR, '.env')
 
   if (existsSync(envPath)) return
-  // In a linked worktree, --git-common-dir points at the main checkout's .git.
-  let mainRoot = ROOT
-
-  try {
-    const common = execSync('git rev-parse --path-format=absolute --git-common-dir', {
-      cwd: ROOT,
-    })
-      .toString()
-      .trim()
-
-    mainRoot = dirname(common)
-  } catch {
-    /* not a git checkout — fall back to ROOT */
-  }
-  const shared = join(mainRoot, '.env')
+  const shared = join(MAIN_ROOT, '.env')
 
   if (!existsSync(shared)) {
     pushEvent(backend, `no shared .env at ${shared} — create apps/backend/.env by hand`)
