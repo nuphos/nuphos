@@ -10,6 +10,7 @@ import {
   isBindableLinearLink,
 } from '../../lib/external-link'
 import { mergeIfChanged } from '../../lib/mergeIfChanged'
+import { runtimeFilePathFromHref } from '../../lib/runtimeFileLink'
 import { isAppWebUrl } from '../../lib/webBaseUrl'
 
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -172,40 +173,55 @@ export function useWorkspaceChatLinks(a: Args) {
     [openAppOpenDeepLink, openBoundProviderLinkFromChat, openExternalLink],
   )
 
-  // Ordinary web links from a session open next to the conversation so the
-  // page can be annotated. Nuphos resource links retain their native views.
+  // Chat-link policy: an app URL on our own web origin NEVER bounces to the external
+  // browser. Exact navigation when the resolver knows the path; otherwise the
+  // deep-link fallback (team tab / seed into chat) still keeps it in-app. A bare
+  // file path is on the conversation's runtime, so it opens in Files.
   const openNuphosLinkFromChat = useCallback(
     (href: string): boolean => {
       if (openNuphosLinkInNewTab(href)) return true
-      const trimmed = href.trim()
-      const parsed = isAppWebUrl(trimmed)
+      if (openBoundProviderLinkFromChat(href)) return true
+      const filePath = runtimeFilePathFromHref(href)
 
-      if (parsed?.pathname.startsWith('/teams/')) {
-        openAppOpenDeepLink({
-          path: `${parsed.pathname}${parsed.search}`,
-          url: parsed.toString(),
-        })
-
-        return true
+      if (filePath && teamId) {
+        return openNuphosLinkInNewTab(
+          pageLocationForNavigation(
+            emptyNavigation({ kind: 'team', teamId }, 'team.files', { filter: filePath }),
+          ).href,
+        )
       }
-      if (!teamId || !/^https?:\/\//i.test(trimmed)) return false
+      const parsed = isAppWebUrl(href.trim())
 
-      return openNuphosLinkInNewTab(
-        pageLocationForNavigation(
-          emptyNavigation({ kind: 'team', teamId }, 'team.browser', { browserUrl: trimmed }),
-        ).href,
-      )
+      if (!parsed || !parsed.pathname.startsWith('/teams/')) return false
+      openAppOpenDeepLink({
+        path: `${parsed.pathname}${parsed.search}`,
+        url: parsed.toString(),
+      })
+
+      return true
     },
-    [openAppOpenDeepLink, openNuphosLinkInNewTab, teamId],
+    [openAppOpenDeepLink, openBoundProviderLinkFromChat, openNuphosLinkInNewTab, teamId],
   )
 
-  // Resource cards follow the same policy as message links; modified clicks
-  // remain an explicit way to use the system browser.
+  // A session resource is linked through a bound integration, so its provider
+  // page normally resolves in-app; the browser tab only covers a binding removed
+  // since. ⌘-click is the system-browser escape hatch.
   const openSessionResource = useCallback(
     (url: string, external: boolean) => {
-      if (external || !openNuphosLinkFromChat(url)) openExternalLink(url)
+      if (external || !teamId) {
+        openExternalLink(url)
+
+        return
+      }
+      const path =
+        appPathForExternalLink(url, teamId, boundResources) ??
+        pageLocationForNavigation(
+          emptyNavigation({ kind: 'team', teamId }, 'team.browser', { browserUrl: url }),
+        ).href
+
+      openNuphosLinkInNewTab(path)
     },
-    [openExternalLink, openNuphosLinkFromChat],
+    [boundResources, openExternalLink, openNuphosLinkInNewTab, teamId],
   )
 
   // Pane props whose dependency chains root in `tabs`/`activeTab` — they churn
