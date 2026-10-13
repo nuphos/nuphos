@@ -9,6 +9,7 @@ import { steeringText } from './steering-receipt'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { AppError } from '@/lib/errors'
 
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -167,7 +168,11 @@ export async function steerConversationRuntime(
     )
 
     if (result.outcome !== 'injected')
-      throw new Error('The turn already ended. Your message was not sent; send it as a new turn.')
+      throw new AppError(
+        409,
+        'runtime_steering_unavailable',
+        'The turn already ended. Your message was not sent; send it as a new turn.',
+      )
 
     return text
   } finally {
