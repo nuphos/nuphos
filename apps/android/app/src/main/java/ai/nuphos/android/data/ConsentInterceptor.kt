@@ -13,7 +13,7 @@ class ConsentInterceptor : Interceptor {
             ?.removePrefix("Bearer ") ?: return chain.proceed(request)
         if (request.url.scheme != "https" || request.url.host != "api.nuphos.ai")
             throw IOException("Nuphos credentials cannot be sent to this address.")
-        if (request.url.encodedPath.startsWith("/auth/") || request.url.encodedPath.startsWith("/push/devices")) return chain.proceed(request)
+        if (request.url.encodedPath.startsWith("/auth/") || isPushDeviceAccountRequest(request.method, request.url.pathSegments)) return chain.proceed(request)
         val revision = AiAccess.revision
         if (!AiAccess.allows(bearer)) throw IOException("Confirm your AI sharing choice before using agents.")
         val response = chain.proceed(request.newBuilder()
@@ -24,3 +24,9 @@ class ConsentInterceptor : Interceptor {
         return response
     }
 }
+
+/** Only registration/unregistration are account operations; neighboring routes stay consent-gated. */
+internal fun isPushDeviceAccountRequest(method: String, segments: List<String>): Boolean =
+    (method == "PUT" && segments == listOf("push", "devices")) ||
+        (method == "DELETE" && segments.size == 3 && segments.take(2) == listOf("push", "devices") &&
+            segments[2].length in 1..4096 && Regex("[A-Za-z0-9_:.-]+").matches(segments[2]))
