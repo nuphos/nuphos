@@ -11,9 +11,12 @@ import { useChatPreviewPrepare } from '@/lib/test/doubles/chat-preview-prepare'
 import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
 import { useRedis } from '@/lib/test/doubles/redis'
 
+import type { PendingUserMessage } from '@/lib/agent/pending-messages'
+
 const persisted: { messages: { role: string; parts: unknown[] }[] }[] = []
 let cause: string | Error = ''
 let cleared = 0
+let carried: PendingUserMessage[] = []
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 useAgentDb({
@@ -29,7 +32,7 @@ useChatPreviewPrepare({
     systemPrompt: undefined,
     message: 'fix it',
     freshSessionMessage: () => 'fix it',
-    carried: [],
+    carried,
     openPromptSuggestion: () => Promise.resolve(),
     clearActiveTurn: async () => {
       cleared++
@@ -183,4 +186,52 @@ test('a typed backend deadline reaches persisted interruption diagnostics', asyn
       }),
     }),
   )
+})
+
+test('an app message refused by the runtime records nothing, so the app sends it again', async () => {
+  const { AppError } = await import('@/lib/errors')
+
+  cause = new AppError(409, 'runtime_not_accepting_message', 'Responding…')
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-refused')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), clientResendsRefusal: true }),
+  ).rejects.toMatchObject({ code: 'runtime_not_accepting_message' })
+  expect(persisted).toHaveLength(before)
+  expect(run.frames.join('')).not.toContain('turn-interrupted')
+})
+
+test('a refused turn is still recorded when nobody resends it', async () => {
+  const { AppError } = await import('@/lib/errors')
+
+  cause = new AppError(409, 'runtime_not_accepting_message', 'Responding…')
+  // A thread, trigger or channel message has no sender that resends it.
+  const headless = createAgentRun('user-failure', 'session-failure', 'run-refused-headless')
+
+  await expect(runClaudeCodePreviewChatTurn(turnArgs(headless))).rejects.toThrow('Responding…')
+  expect(persisted.at(-1)!.messages.at(-1)!.parts).toContainEqual(
+    expect.objectContaining({ type: 'turn-interrupted' }),
+  )
+})
+
+test('an app refusal puts the queued messages it drained back for the resent turn', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
+
+  cause = new AppError(409, 'runtime_not_accepting_message', 'Responding…')
+  carried = [
+    { id: 'queued', renderedText: 'also this', source: 'app', receivedAt: '2026-10-13T00:00:00Z' },
+  ]
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-refused-carried')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), clientResendsRefusal: true }),
+  ).rejects.toThrow('Responding…')
+  carried = []
+  expect(persisted).toHaveLength(before)
+  expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
+    expect.objectContaining({ id: 'queued', renderedText: 'also this' }),
+  ])
 })

@@ -176,6 +176,7 @@ export function launchAcceptedChatTurn(args: {
           if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
+        clientResendsRefusal: body.clientCapabilities?.resendsRefusal === true,
         ...(body.continueAfterInterruption
           ? { resume: { ...(body.resumeReason ? { reason: body.resumeReason } : {}) } }
           : {}),
