@@ -101,30 +101,6 @@ async function isValidParent(
   return true
 }
 
-// One-time backfill for threads opened before createdBySessionId existed. Only
-// create_thread sets parentSessionId so far, so it still names the opener.
-// Idempotent: a thread that already has a creator is never touched.
-export async function backfillThreadCreators(): Promise<number> {
-  const threads = await agentConversations()
-    .find(
-      {
-        'metadata.source': 'agent.thread',
-        parentSessionId: { $exists: true },
-        createdBySessionId: { $exists: false },
-      },
-      { projection: { sessionId: 1, parentSessionId: 1 } },
-    )
-    .toArray()
-
-  for (const { sessionId, parentSessionId } of threads)
-    await agentConversations().updateOne(
-      { sessionId, createdBySessionId: { $exists: false } },
-      { $set: { createdBySessionId: parentSessionId } },
-    )
-
-  return threads.length
-}
-
 // Prefix marking an in-flight claim — see `ensureConversationTraceParent`. Stored
 // values starting with this prefix are not valid native parent references
 // and must not be returned to callers.
