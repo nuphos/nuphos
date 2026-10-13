@@ -32,9 +32,11 @@ const done = (result) => { process.stdout.write(JSON.stringify({ result })); pro
 const inUse = async (dir, byHome) => {
   for (const pid of await fs.readdir('/proc')) {
     if (!/^\d+$/.test(pid)) continue;
+    // Every session runs as this user, so other users' processes are not ours.
     // No working directory: the process has exited, possibly an unreaped
     // zombie whose environ is unreadable. Any other unreadable process counts
     // as a user, since keeping a home is always safe.
+    if ((await fs.stat('/proc/' + pid).catch(() => null))?.uid !== process.getuid()) continue;
     const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch((err) => (err.code === 'ENOENT' || err.code === 'ESRCH' ? null : ''));
     if (cwd === null) continue;
     const env = await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => null);
