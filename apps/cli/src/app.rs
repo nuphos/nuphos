@@ -349,6 +349,14 @@ impl App {
         self.team.is_null()
     }
 
+    fn team_label(&self) -> String {
+        if self.booting() {
+            String::new()
+        } else {
+            shared::label(&self.team)
+        }
+    }
+
     fn take_update_check(&mut self) {
         if !self.update_check.as_ref().is_some_and(|h| h.is_finished()) {
             return;
@@ -638,9 +646,7 @@ impl App {
         let box_height = (text.len() as u16).max(mark) + 4;
 
         let [top, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
-        if !self.booting() {
-            f.render_widget(Span::styled(shared::label(&self.team), dim()), top);
-        }
+        f.render_widget(Span::styled(self.team_label(), dim()), top);
         let below = 1 + 1 + 3 + 1 + 1 + 1;
         // Too short for the box: the composer matters more.
         if box_height + below <= rest.height {
@@ -689,7 +695,7 @@ impl App {
     /// The conversation's title on the left, the team on the right.
     fn draw_top_bar(&self, f: &mut Frame, area: Rect) {
         let title = self.title.as_deref().unwrap_or("New conversation");
-        let team = shared::label(&self.team);
+        let team = self.team_label();
         let room = (area.width as usize).saturating_sub(team.width() + 2);
         let title: String = render::clean(title).chars().take(room).collect();
         let gap = (area.width as usize).saturating_sub(title.width() + team.width());
@@ -778,6 +784,8 @@ impl App {
             &[("↑↓", "choose"), ("enter", "open"), ("p", "pin"), ("esc", "close")]
         } else if matches!(self.picker, Some(Picker { action: PickAction::Runtime, .. })) {
             &[("↑↓", "choose"), ("enter", "use or add"), ("l", "sign in"), ("esc", "close")]
+        } else if self.ask.is_some() && self.booting() {
+            &[("enter", "answer"), ("ctrl+c", "quit")]
         } else if self.ask.is_some() {
             &[("enter", "answer"), ("esc", "cancel")]
         } else if self.picker.is_some() {
