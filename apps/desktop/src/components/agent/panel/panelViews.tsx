@@ -29,7 +29,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     conversationDropRef,
     dockCurrentSession,
     onDockToSidebar,
-    gated,
     handleMessageFeedback,
     handleRejectPlan,
     isSidebarMode,
