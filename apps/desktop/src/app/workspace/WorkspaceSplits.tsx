@@ -112,6 +112,7 @@ export function WorkspaceSplits({
       else pane = split('row', source, { sessionId, teamId })
       if (!pane) return false
       focusSurfaces.set(pane, 'session')
+      setActiveId(pane)
       beside.current = { pane, sessionId }
 
       return true
