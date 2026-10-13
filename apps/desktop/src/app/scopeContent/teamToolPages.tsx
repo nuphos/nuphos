@@ -90,7 +90,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
       <BrowserView
         url={ctx.browserUrl}
         onNavigate={ctx.onBrowserNavigate}
-        onAnnotate={(text) => ctx.openInChat(text, { mode: 'text' })}
+        onComment={(text, filePaths) => ctx.openInChat(text, { mode: 'text', filePaths })}
       />
     )
   }

@@ -159,7 +159,10 @@ export function useWorkspaceScopeActions(a: Args) {
   }, [setPendingChatPromptQueue])
 
   const openInChat = useCallback(
-    (href: string, options?: { forceOpen?: boolean; mode?: 'mention' | 'text' }) => {
+    (
+      href: string,
+      options?: { forceOpen?: boolean; mode?: 'mention' | 'text'; filePaths?: string[] },
+    ) => {
       if (!href) return
       // Bump the ref-backed monotonic counter so each push gets a strictly
       // larger nonce than any previously consumed one — even after the
@@ -171,6 +174,7 @@ export function useWorkspaceScopeActions(a: Args) {
       enqueueChatPrompt({
         text: href,
         mode: options?.mode ?? 'mention',
+        filePaths: options?.filePaths,
         nonce: chatPromptNonceRef.current,
       })
     },
