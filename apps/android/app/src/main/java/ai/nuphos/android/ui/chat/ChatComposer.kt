@@ -19,6 +19,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -94,7 +96,9 @@ import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.CredentialSelection
 import ai.nuphos.android.model.PermissionMode
+import ai.nuphos.android.session.RuntimeSelections
 import ai.nuphos.android.ui.LocalAgentStore
+import ai.nuphos.android.ui.agent.AgentChip
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -129,6 +133,9 @@ fun ChatComposer(
     onSelectionChange: ((CredentialSelection) -> Unit)? = null,
     mode: PermissionMode? = null,
     onModeChange: ((PermissionMode) -> Unit)? = null,
+    agent: RuntimeSelections.Selection? = null,
+    agentEnabled: Boolean = true,
+    onChooseAgent: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val store = LocalAgentStore.current
@@ -254,15 +261,24 @@ fun ChatComposer(
             }
 
             if (showControls) {
+                // The row normally shows with the expanded composer, but while
+                // no Agent is chosen the chip is the only way to pick one, so
+                // it stays on screen even when the composer is collapsed.
+                val agentUnresolved = onChooseAgent != null && agent?.selected == null
                 AnimatedVisibility(
-                    visible = expanded,
+                    visible = expanded || agentUnresolved,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
+                    // Scrolls sideways: an Agent label plus IAM and mode will not
+                    // always fit one phone width.
                     Row(
-                        Modifier.padding(horizontal = 12.dp),
+                        Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        if (onChooseAgent != null) AgentChip(agent, enabled = agentEnabled, onClick = onChooseAgent)
                         FilterChip(
                             selected = !resolvedSelection.isEmpty,
                             onClick = { showIam = true },
