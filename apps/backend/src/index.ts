@@ -10,7 +10,6 @@ import { existsSync } from 'node:fs'
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
-import { backfillThreadCreators } from '@/lib/agent/db'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
   initMemoryRetentionRollup,
@@ -98,13 +97,6 @@ const removedTencent = await migrateLegacyTencentBindings()
 
 if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
-}
-
-// Threads opened before their creator was recorded; see backfillThreadCreators.
-const threadCreators = await backfillThreadCreators()
-
-if (threadCreators > 0) {
-  logEvent('info', 'backend.migration.thread_creators_backfilled', { threads: threadCreators })
 }
 
 await dashboardRefreshScheduler.init()
