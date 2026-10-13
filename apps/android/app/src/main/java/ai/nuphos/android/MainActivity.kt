@@ -16,7 +16,13 @@ import okhttp3.OkHttpClient
 class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
 
-    fun requestNotificationPermission() { notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+    fun requestNotificationPermission() {
+        val prefs = getPreferences(MODE_PRIVATE)
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            prefs.getBoolean("notification_permission_asked", false)) return
+        prefs.edit().putBoolean("notification_permission_asked", true).apply()
+        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
 
     private val auth by lazy { (application as NuphosApplication).authSession }
 

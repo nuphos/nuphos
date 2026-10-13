@@ -11,7 +11,8 @@ class ConsentInterceptor : Interceptor {
         val request = chain.request()
         val bearer = request.header("Authorization")?.takeIf { it.startsWith("Bearer ") }
             ?.removePrefix("Bearer ") ?: return chain.proceed(request)
-        if (request.url.scheme != "https" || request.url.host != "api.nuphos.ai")
+        val debugPush = isDebugPushRequest(request, ai.nuphos.android.BuildConfig.DEBUG, ai.nuphos.android.BuildConfig.PUSH_BASE_URL)
+        if (!debugPush && (request.url.scheme != "https" || request.url.host != "api.nuphos.ai"))
             throw IOException("Nuphos credentials cannot be sent to this address.")
         if (request.url.encodedPath.startsWith("/auth/") || isPushDeviceAccountRequest(request.method, request.url.pathSegments)) return chain.proceed(request)
         val revision = AiAccess.revision
@@ -24,6 +25,12 @@ class ConsentInterceptor : Interceptor {
         return response
     }
 }
+
+internal fun isDebugPushRequest(request: okhttp3.Request, debug: Boolean, endpoint: String): Boolean =
+    debug && endpoint.startsWith("http://127.0.0.1:") &&
+        request.url.scheme == "http" && request.url.host == "127.0.0.1" &&
+        request.url.port == endpoint.substringAfterLast(':').toIntOrNull() &&
+        isPushDeviceAccountRequest(request.method, request.url.pathSegments)
 
 /** Only registration/unregistration are account operations; neighboring routes stay consent-gated. */
 internal fun isPushDeviceAccountRequest(method: String, segments: List<String>): Boolean =

@@ -5,7 +5,6 @@ import android.app.Application
 import android.os.Bundle
 import ai.nuphos.android.NuphosApplication
 import ai.nuphos.android.data.Http
-import ai.nuphos.android.data.NuphosApi
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
@@ -89,7 +88,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
                             put("bundleId", "ai.nuphos.android"); put("projectId", project)
                             put("deviceId", device); put("token", fcmToken)
                         }
-                        val request = Http.authorizedGet("${NuphosApi.BASE_URL}/push/devices", expected.second)
+                        val request = Http.authorizedGet("${ai.nuphos.android.BuildConfig.PUSH_BASE_URL}/push/devices", expected.second)
                             .newBuilder().put(json.toString().toRequestBody(Http.jsonMedia)).build()
                         Http.client.newCall(request).execute().use { it.isSuccessful }
                     }.getOrDefault(false)
@@ -113,7 +112,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     }
 
     private fun unregister(auth: String, token: String) {
-        val url = "${NuphosApi.BASE_URL}/push/devices".toHttpUrl().newBuilder()
+        val url = "${ai.nuphos.android.BuildConfig.PUSH_BASE_URL}/push/devices".toHttpUrl().newBuilder()
             .addPathSegment(token).addQueryParameter("platform", "android").build()
         val request = Request.Builder().url(url).delete().header("Authorization", "Bearer $auth")
             .header("x-atlas-client", Http.clientHeader()).build()

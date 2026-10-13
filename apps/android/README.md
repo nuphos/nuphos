@@ -125,6 +125,16 @@ notifications. Sign-out clears local binding and attempts server unregister; not
 account/team/session IDs and still use guarded history navigation on tap. Consent revocation
 synchronously clears the persisted push opt-in before any later background display.
 
+After sign-in and AI consent, the app asks once for notification permission. A denied permission
+can be changed in Android's app notification settings; the app does not repeatedly prompt.
+
+For local push acceptance, a debug build can use
+`-PnuphosDebugPushBaseUrl=http://127.0.0.1:18767` with `adb reverse tcp:18767 tcp:18767`.
+Only the exact registration/unregistration routes can carry credentials to that loopback port;
+all other APIs retain the production endpoint. Release builds always use the production push
+endpoint. The local test service must verify the signed-in account and keep tokens out of logs.
+This tests the push transport independently; it does not make the entire app use a local backend.
+
 Verify on a physical device: allow notification permission, sign in and accept consent, background
 the app, complete an agent turn or request an approval, check phone receipt and tap routing. Also
 check denied permissions, process recreation, token refresh and account switching. A successful

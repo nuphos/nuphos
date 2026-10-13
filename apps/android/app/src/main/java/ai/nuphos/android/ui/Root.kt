@@ -30,10 +30,12 @@ fun NuphosRoot(auth: AuthSession) {
     LaunchedEffect(Unit) { auth.restore() }
     val app = LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication
     val notifications = app.localNotifications
+    val host = androidx.activity.compose.LocalActivity.current as? ai.nuphos.android.MainActivity
     LaunchedEffect(auth.state, auth.aiAllowed) {
         if (auth.state !is AuthSession.State.Restoring)
             app.pushNotifications.sync(auth.user?.id, auth.token, auth.aiAllowed)
         notifications.onIdentity(auth.user?.id, auth.state is AuthSession.State.SignedOut)
+        if (auth.state is AuthSession.State.SignedIn && auth.aiAllowed) host?.requestNotificationPermission()
     }
     CompositionLocalProvider(LocalAuthSession provides auth) {
         Surface(Modifier.fillMaxSize()) {
