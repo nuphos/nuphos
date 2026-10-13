@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -114,26 +115,46 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     expect(reclaim('archived')).toBe('removed')
   })
 
-  test('removes a set-aside home a killed run left behind', () => {
-    const left = `${home('archived')}.reclaim-left`
+  // A set-aside home left by a run ten minutes ago or earlier.
+  const leftover = (id: string, setAt = Date.now() - 11 * 60_000) => {
+    const left = `${home(id)}.reclaim-${setAt}-left`
 
     mkdirSync(join(left, '.local'), { recursive: true })
 
-    expect(reclaim('other')).toBe('removed')
+    return left
+  }
+
+  test('removes a set-aside home a killed run of the same conversation left behind', () => {
+    const left = leftover('archived')
+
+    expect(reclaim('archived')).toBe('removed')
     expect(existsSync(left)).toBe(false)
   })
 
+  test("keeps another conversation's set-aside home", () => {
+    const left = leftover('other')
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(left)).toBe(true)
+  })
+
+  test('keeps a set-aside home a running job may still hold', () => {
+    const left = leftover('archived', Date.now())
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(left)).toBe(true)
+  })
+
   test('keeps a set-aside home still used by its original HOME path', () => {
-    const left = `${home('archived')}.reclaim-left`
+    const left = leftover('archived')
     const shell = Bun.spawn(['sleep', '30'], {
       env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
     })
 
     rmSync(home('archived'), { recursive: true })
-    mkdirSync(join(left, '.local'), { recursive: true })
 
     try {
-      expect(reclaim('other')).toBe('removed')
+      expect(reclaim('archived')).toBe('absent')
       expect(existsSync(left)).toBe(true)
     } finally {
       shell.kill()
@@ -141,16 +162,26 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
   })
 
   test('keeps a set-aside home a running process works inside', () => {
-    const left = `${home('archived')}.reclaim-left`
-
-    mkdirSync(join(left, '.local'), { recursive: true })
+    const left = leftover('archived')
     const shell = Bun.spawn(['sleep', '30'], { cwd: join(left, '.local') })
 
     try {
-      expect(reclaim('other')).toBe('removed')
+      expect(reclaim('archived')).toBe('removed')
       expect(existsSync(left)).toBe(true)
     } finally {
       shell.kill()
+    }
+  })
+
+  test('still reclaims the home when a leftover cannot be removed', () => {
+    const left = leftover('archived')
+
+    chmodSync(left, 0o555)
+
+    try {
+      expect(reclaim('archived')).toBe('removed')
+    } finally {
+      chmodSync(left, 0o755)
     }
   })
 })

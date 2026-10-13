@@ -45,18 +45,20 @@ const inUse = async (dir, byHome) => {
   }
   return false;
 };
-// A job killed during the rm, or a failed rename back, leaves
-// <id>.reclaim-* behind; remove any that nothing uses.
+// A job killed during the rm, or a failed rename back, leaves this home's
+// <id>.reclaim-<ms>-* behind; its next reclaim removes it once nothing uses it.
+// One younger than any job may still belong to a running job, so it waits.
 for (const name of await fs.readdir(homes).catch(() => [])) {
-  if (!/^[0-9a-f]{64}\.reclaim-/.test(name)) continue;
+  const setAt = Number(/^[0-9]+/.exec(name.startsWith(id + '.reclaim-') ? name.slice(id.length + 9) : '')?.[0]);
+  if (!(Date.now() - setAt > 10 * 60_000)) continue;
   const left = path.join(homes, name);
-  if (!(await inUse(left, path.join(homes, name.slice(0, 64))))) await fs.rm(left, { recursive: true, force: true });
+  if (!(await inUse(left, home))) await fs.rm(left, { recursive: true, force: true }).catch(() => {});
 }
 if (!(await fs.lstat(home).catch(() => null))) done('absent');
 if (await inUse(home, home)) done('in_use');
 // Set aside first: a session that starts now gets a fresh home, and one that
 // started during the scan is caught by the second scan and keeps this one.
-const aside = home + '.reclaim-' + randomUUID();
+const aside = home + '.reclaim-' + Date.now() + '-' + randomUUID();
 await fs.rename(home, aside);
 if (await inUse(aside, home)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
 await fs.rm(aside, { recursive: true, force: true });
