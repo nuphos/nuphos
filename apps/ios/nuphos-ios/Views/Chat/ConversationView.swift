@@ -141,6 +141,7 @@ struct ConversationView: View {
                                     defer { updating = false }
                                     do {
                                         try await session.setArchived(!session.isArchived)
+                                        store.removeFromList(session.sessionId)
                                         // Either direction takes the chat out
                                         // of the list it was opened from, so
                                         // stay there rather than on a chat
