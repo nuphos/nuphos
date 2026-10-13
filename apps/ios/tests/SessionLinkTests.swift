@@ -6,6 +6,7 @@ enum SessionLinkTests {
         usesTheConversationsOwnTeam()
         escapesSegmentsAndRefusesEmptyOnes()
         chipsLinkedResources()
+        readsSessionLinksBack()
         print("Session link passed")
     }
 
@@ -31,6 +32,21 @@ enum SessionLinkTests {
         precondition(url("team/with space", "a b") == "https://nuphos.ai/teams/team%2Fwith%20space/agent/a%20b")
         precondition(SessionLink.url(teamId: "", sessionId: "ses_abc") == nil)
         precondition(SessionLink.url(teamId: "team-1", sessionId: "") == nil)
+    }
+
+    private static func readsSessionLinksBack() {
+        func target(_ link: String) -> String? {
+            SessionLink.target(in: URL(string: link)!).map { "\($0.teamId)|\($0.sessionId)" }
+        }
+        precondition(target("https://nuphos.ai/teams/team-1/agent/ses_abc") == "team-1|ses_abc")
+        precondition(target("https://app.nuphos.ai/teams/team-1/agent/ses_abc?x=1#y") == "team-1|ses_abc")
+        precondition(target("/teams/team-1/agent/ses_abc") == "team-1|ses_abc")
+        precondition(target(SessionLink.url(teamId: "team/with space", sessionId: "a b")!.absoluteString) == "team/with space|a b")
+        // Not a session link: those still leave the app.
+        precondition(target("https://example.com/teams/team-1/agent/ses_abc") == nil)
+        precondition(target("https://nuphos.ai/teams/team-1/plans/7") == nil)
+        precondition(target("https://nuphos.ai/teams/team-1/agent") == nil)
+        precondition(target("mailto:a@nuphos.ai") == nil)
     }
 
     private static func chipsLinkedResources() {
