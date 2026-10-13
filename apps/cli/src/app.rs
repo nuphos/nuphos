@@ -930,7 +930,8 @@ impl App {
                 }
             }
             KeyCode::Char('d') if ctrl && self.input.is_empty() => self.quit = true,
-            KeyCode::Esc if self.ask.is_some() => {
+            // Without a team there is nothing to go back to: the team name stays asked.
+            KeyCode::Esc if self.ask.is_some() && !self.booting() => {
                 self.ask = None;
                 self.signing = None;
                 self.set_input(String::new());
@@ -1012,12 +1013,7 @@ impl App {
             return self.answer(ask, text);
         }
         if self.booting() && text != "/quit" {
-            // Signed in but still without a team: the team name is asked again.
-            if !self.me_id.is_empty() {
-                self.ask = Some(("Name a team to create it".into(), Ask::TeamName));
-            } else {
-                self.notice = Some("Still connecting to Nuphos…".into());
-            }
+            self.notice = Some("Still connecting to Nuphos…".into());
             return;
         }
         if text.starts_with('/') {
