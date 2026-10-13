@@ -156,7 +156,28 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     OPENAB_ADAPTER_VERSION: launch.adapter.version,
     OPENAB_RUNTIME_LABEL: 'Nuphos Desktop',
     ...(launch.bundle.openabCommit ? { OPENAB_BUILD_SHA: launch.bundle.openabCommit } : {}),
+    ...runtimeJobs(launch),
   }
+}
+
+/**
+ * The runtime image's `panel` job, which also writes a turn's attachments to disk.
+ * openab clears a job's environment and splits its command on whitespace, so
+ * Electron's run-as-Node switch rides in through `env`. Where that cannot work, the
+ * job is left out and the backend reports the runtime as unable to take attachments.
+ */
+function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
+  const argv = [
+    '/usr/bin/env',
+    'ELECTRON_RUN_AS_NODE=1',
+    launch.nodeExecPath,
+    '--max-old-space-size=512',
+    path.join(launch.bundle.root, 'panel-job.mjs'),
+  ]
+
+  return process.platform === 'win32' || argv.some((arg) => /\s/.test(arg))
+    ? {}
+    : { OPENAB_RUNTIME_JOBS: `panel=${argv.join(' ')}` }
 }
 
 type Manifest = {

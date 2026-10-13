@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
+import path from 'node:path'
 import { test } from 'node:test'
 
 import { agentEnv, deriveControlKey, openabConfigToml, openabEnv } from './config.ts'
@@ -73,6 +74,21 @@ test('openab listens on loopback only, with a control key it cannot confuse with
     createHmac('sha256', transportKey).update('nuphos-runtime-control-v1').digest('hex'),
   )
   assert.equal(env.HOME, launch.openabHome)
+})
+
+test('the runtime offers the image’s panel job, which puts attachments on disk', () => {
+  const jobs = openabEnv(launch).OPENAB_RUNTIME_JOBS
+
+  if (process.platform === 'win32') return assert.equal(jobs, undefined)
+  assert.equal(
+    jobs,
+    `panel=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} --max-old-space-size=512 ${path.join(launch.bundle.root, 'panel-job.mjs')}`,
+  )
+  // openab splits the command on whitespace, so a spaced path cannot run.
+  assert.equal(
+    openabEnv({ ...launch, nodeExecPath: '/Apps/Nuphos 2.app/Nuphos' }).OPENAB_RUNTIME_JOBS,
+    undefined,
+  )
 })
 
 test('the config quotes paths as TOML strings', () => {

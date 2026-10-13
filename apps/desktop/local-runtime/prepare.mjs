@@ -167,6 +167,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         verbatimSymlinks: true,
         filter: (path) => !path.endsWith('.complete'),
       })
+    cpSync(join(RUNTIME_DIR, 'panel-job.mjs'), join(out, 'panel-job.mjs'))
     if (target.startsWith('darwin')) {
       const arch = target.endsWith('arm64') ? 'arm64' : 'x86_64'
 

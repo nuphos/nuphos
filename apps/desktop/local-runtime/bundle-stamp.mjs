@@ -18,6 +18,7 @@ export const RUNTIME_SOURCES = [
   'runtime-defaults.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
+  'panel-job.mjs',
   'session-home.mjs',
   ...[
     'package.json',
