@@ -108,9 +108,11 @@ export async function listThreadRuntimes(actor: ThreadActor) {
   const source = await authorizeThreadActor(actor)
   const { listRuntimeInstances, listRuntimeQuotas, withRuntimeReadiness } =
     await import('@/lib/claude-code-preview/runtime-catalog')
+  // The team's agents only. A local agent runs on the owner's own computer, which
+  // only the owner can choose, with the consent the Desktop asks for.
   const instances = await withRuntimeReadiness(
     actor.teamId,
-    await listRuntimeInstances(actor.teamId, actor.userId),
+    await listRuntimeInstances(actor.teamId),
   )
   const quotas = await listRuntimeQuotas(actor.teamId, instances)
 
@@ -139,11 +141,19 @@ export async function updateThread(
 ) {
   const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
-  if (target.parentSessionId !== actor.sessionId) {
+  // Who opened it, not who it is nested under now: adopting a conversation must
+  // not hand over control of it.
+  if (target.createdBySessionId !== actor.sessionId) {
     throw new Error('Only a thread this conversation created can be changed.')
   }
   if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
     throw new Error('Only a conversation in Full Access can give a thread Full Access.')
+  }
+  if (change.runtimeId) {
+    const { listRuntimeInstances } = await import('@/lib/claude-code-preview/runtime-catalog')
+
+    if (!(await listRuntimeInstances(actor.teamId)).some(({ id }) => id === change.runtimeId))
+      throw new Error("A thread can only move to one of the team's agents, not to a computer.")
   }
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')

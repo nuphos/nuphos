@@ -64,7 +64,7 @@ export function threadToolModule(): PreviewToolModule {
       {
         name: 'list_agent_runtimes',
         description:
-          "List the agents (runtimes) your threads can run on, with each one's readiness and " +
+          "List the team's agents (runtimes) your threads can run on, with each one's readiness and " +
           'usage quota. Use it to pick a runtimeId for update_thread, for example when a thread ' +
           "has hit its agent's usage limit.",
         inputSchema: toolInputJsonSchema(list),
@@ -75,7 +75,8 @@ export function threadToolModule(): PreviewToolModule {
           'Change a thread this conversation created with create_thread. fullAccess switches it ' +
           'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
           'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
-          'its conversation history, to another agent from list_agent_runtimes; its next turn ' +
+          "its conversation history, to another of the team's agents from list_agent_runtimes " +
+          "(never to someone's computer); its next turn " +
           "runs there. A new thread already starts in this conversation's mode and agent.",
         inputSchema: toolInputJsonSchema(update),
       },
