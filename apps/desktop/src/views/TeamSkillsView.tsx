@@ -23,7 +23,8 @@ const SCOPES: { scope: SkillScope; label: string; title: string }[] = [
   {
     scope: 'personal',
     label: 'Personal',
-    title: 'Your own skills in this team. Claude Code agents load them on the turns you send.',
+    title:
+      'Your own skills in this team. Claude Code agents load them on your turns in your own conversations.',
   },
 ]
 
@@ -81,6 +82,7 @@ export function TeamSkillsView({
     canEdit,
     canDelete,
     canPromote,
+    teamNames,
     reloadWithSkeleton,
     rows,
     selectedSkill,
@@ -196,10 +198,10 @@ export function TeamSkillsView({
             description={
               scope === 'personal' ? (
                 <>
-                  Personal skills are yours in this team. Claude Code agents load them on the turns
-                  you send, in any conversation you take part in, and not on other members&apos;
-                  turns. They are copied to the runtime that conversation runs on. Move one to the
-                  team when everyone should have it.
+                  Personal skills are yours in this team. Claude Code agents load them on your turns
+                  in conversations you own, and never on another member&apos;s turn. A team skill
+                  with the same name is used instead. Move a skill to the team when everyone should
+                  have it.
                 </>
               ) : (
                 <>
@@ -233,7 +235,7 @@ export function TeamSkillsView({
             }
             storageKey="team-skills"
             empty="No skills match your search."
-            columns={buildSkillColumns()}
+            columns={buildSkillColumns(scope === 'personal' ? teamNames : undefined)}
           />
         )}
       </div>

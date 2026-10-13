@@ -37,6 +37,7 @@ export function useTeamSkills({
 }: ListArgs) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [members, setMembers] = useState<TeamMember[]>([])
+  const [teamNames, setTeamNames] = useState<ReadonlySet<string>>(new Set())
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [skillMd, setSkillMd] = useState<TeamSkillObjectDetail | null>(null)
   const [skillFiles, setSkillFiles] = useState<TeamSkillObject[]>([])
@@ -74,6 +75,26 @@ export function useTeamSkills({
       alive = false
     }
   }, [teamId])
+
+  // On a name clash the agent uses the team skill, so the Personal tab needs the
+  // team's names to say which personal skills that affects.
+  useEffect(() => {
+    if (scope !== 'personal') return
+    let alive = true
+
+    api
+      .teamSkillsGetManifest(teamId)
+      .then((manifest) => {
+        if (alive) setTeamNames(new Set(manifest.skills.map((skill) => skill.name)))
+      })
+      .catch(() => {
+        if (alive) setTeamNames(new Set())
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [teamId, scope, refreshKey])
 
   const reload = useCallback(() => {
     const requestId = listRequestRef.current + 1
@@ -193,6 +214,7 @@ export function useTeamSkills({
     canEdit,
     canDelete,
     canPromote,
+    teamNames,
     reload,
     reloadWithSkeleton,
     rows,

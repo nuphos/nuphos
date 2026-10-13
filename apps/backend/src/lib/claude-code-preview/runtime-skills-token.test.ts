@@ -49,15 +49,15 @@ describe('skill bundle delivery over the session', () => {
     expect(external.runtimeEnv?.NUPHOS_RUNTIME_SKILLS_URL).toBe(
       'https://unit-test.invalid/internal/claude-code-runtime-skills/team-1',
     )
-    // The credential names the turn's actor, never the conversation owner.
+    // An owner's own turn may load their personal skills.
     expect(
       verifyRuntimeSkillsToken(external.runtimeEnv?.NUPHOS_RUNTIME_SKILLS_TOKEN ?? ''),
     ).toEqual({ teamId: 'team-1', userId: 'user-1' })
+    // A guest's turn names nobody: neither the guest's skills nor the owner's.
     const guest = previewSessionAccess('conv-1', 'team-1', 'user-2', 'user-1', { external: true })
 
     expect(verifyRuntimeSkillsToken(guest.runtimeEnv?.NUPHOS_RUNTIME_SKILLS_TOKEN ?? '')).toEqual({
       teamId: 'team-1',
-      userId: 'user-2',
     })
   })
 })

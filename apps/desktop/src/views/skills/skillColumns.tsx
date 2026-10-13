@@ -6,7 +6,8 @@ import { formatBytes } from '../../grafana/format'
 import type { TeamSkillSummary } from '../../api'
 import type { Column } from '../../components/Table'
 
-export function buildSkillColumns(): Column<TeamSkillSummary>[] {
+/** `shadowed` names personal skills the agent skips because a team skill has the name. */
+export function buildSkillColumns(shadowed?: ReadonlySet<string>): Column<TeamSkillSummary>[] {
   return [
     {
       key: 'name',
@@ -27,6 +28,15 @@ export function buildSkillColumns(): Column<TeamSkillSummary>[] {
               <span className="inline-flex items-center gap-0.5 text-red-400" title="No SKILL.md">
                 <AlertTriangle className="w-3 h-3" strokeWidth={1.8} />
                 no SKILL.md
+              </span>
+            )}
+            {shadowed?.has(row.name) && (
+              <span
+                className="inline-flex items-center gap-0.5 text-amber-400"
+                title="A team skill has this name, and the agent uses the team skill. Rename this one to use it."
+              >
+                <AlertTriangle className="w-3 h-3" strokeWidth={1.8} />
+                team skill used instead
               </span>
             )}
           </div>

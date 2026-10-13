@@ -347,12 +347,13 @@ team's skills arrive the same way: for a runtime it did not provision, the backe
 hands each session a short-lived bundle address, and the runtime fetches the bundle
 itself.
 
-The same address also serves the personal skills of the member who sent the turn.
-The Claude adapter installs those in `personal-skills/` under the conversation's
-session home and adds that directory to the session, so no other conversation on
-the runtime loads them. It syncs them again before each prompt, because the sender
-can change between the turns of one conversation. When a team skill has the same name, Claude Code uses the
-team skill. Like the session home, this is not a filesystem boundary.
+The same address also serves the conversation owner's personal skills, on the owner's
+own turns only; a guest's turn gets none. The Claude adapter installs them in
+`personal-skills/` under the conversation's session home and adds that directory to
+the session, so no other conversation on the runtime loads them. It syncs them again
+before each prompt, because the sender can change between the turns of one
+conversation, and rebuilds the session when they changed. When a team skill has the
+same name, Claude Code uses the team skill. Like the session home, this is not a filesystem boundary.
 
 `GATEWAY_ALLOWED_USERS` is baked as the gateway-wide trusted-sender list, not an ACP
 switch. If you also enable Discord, Slack or LINE on the same container, **add**
