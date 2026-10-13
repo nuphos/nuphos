@@ -27,6 +27,12 @@ human user's full workspace-wide conversation capabilities. Shared conversations
 owned by another actor are not delegation sources. Existing list/read tools
 remain the discovery path.
 
+`set_thread_parent` regroups an existing thread under another conversation in
+the sidebar, such as a manager session collecting the threads it coordinates;
+a null parent unlinks it. It is the same operation as
+`PUT /agent/conversations/:sessionId/parent`, with the same ownership and team
+checks, and refuses a parent nested below the thread.
+
 The Redis trigger scheduler must be running: there is no detached-process
 fallback. Queue acceptance means **queued**, not completed. A stalled job that
 already persisted its input is not blindly replayed, because the task may have

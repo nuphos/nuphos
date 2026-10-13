@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId, upsertConversationShell } from './db'
+import { getConversationBySessionId, setConversationParent, upsertConversationShell } from './db'
 
 import type { AgentConversation } from './db'
 
@@ -101,6 +101,24 @@ export async function executeThreadTurn(data: ThreadTurn): Promise<void> {
     sourceSessionId: data.sessionId,
     sentAt: new Date().toISOString(),
   })
+}
+
+export async function setAgentThreadParent(
+  actor: ThreadActor,
+  threadId: string,
+  parentThreadId: string | null,
+) {
+  await authorizeThreadActor(actor)
+  const result = await setConversationParent(threadId, actor.userId, actor.teamId, parentThreadId)
+
+  if (result === 'not_found') throw new Error('Thread must be a conversation you own in this team.')
+  if (result === 'invalid_parent') {
+    throw new Error(
+      'Parent must be another conversation you own in this team, and not one nested below the thread.',
+    )
+  }
+
+  return { threadId, parentThreadId }
 }
 
 // Same path as a message typed into a chat: the turn starts in this process and

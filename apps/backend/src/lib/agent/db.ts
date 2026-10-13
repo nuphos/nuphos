@@ -48,7 +48,7 @@ export {
   updateCompactionSummary,
   updateConversationTitle,
   renameConversation,
-  unlinkConversationParent,
+  setConversationParent,
 } from './db/maintenance'
 export {
   bumpConversationActivity,

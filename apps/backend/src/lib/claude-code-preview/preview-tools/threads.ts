@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-import { createAgentThread, sendAgentThreadMessage } from '@/lib/agent/thread-bridge'
+import {
+  createAgentThread,
+  sendAgentThreadMessage,
+  setAgentThreadParent,
+} from '@/lib/agent/thread-bridge'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
@@ -23,6 +27,17 @@ const common = {
 }
 const create = z.object({ ...common, title: z.string().trim().min(1).max(160) }).strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
+const setParent = z
+  .object({
+    label: common.label,
+    threadId: z.string().uuid(),
+    parentThreadId: z
+      .string()
+      .uuid()
+      .nullable()
+      .describe('Conversation to nest the thread under; null stops nesting it.'),
+  })
+  .strict()
 
 export function threadToolModule(): PreviewToolModule {
   return {
@@ -47,6 +62,15 @@ export function threadToolModule(): PreviewToolModule {
           'A queued receipt is not proof of task completion. Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
       },
+      {
+        name: 'set_thread_parent',
+        description:
+          'Nest an existing Nuphos thread under another conversation in the sidebar, e.g. your own ' +
+          'session_id to group threads you manage, or pass parentThreadId null to stop nesting it. ' +
+          'Both must be conversations you own in this team, and the parent must not already be nested ' +
+          'below the thread. Changes only the sidebar grouping, not runtime, credentials or messages.',
+        inputSchema: toolInputJsonSchema(setParent),
+      },
     ],
     handlers: (ctx) => ({
       create_thread: async (args) => {
@@ -63,6 +87,15 @@ export function threadToolModule(): PreviewToolModule {
 
         return toolResult(
           await sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
+        )
+      },
+      set_thread_parent: async (args) => {
+        const parsed = setParent.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return toolResult(
+          await setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId),
         )
       },
     }),
