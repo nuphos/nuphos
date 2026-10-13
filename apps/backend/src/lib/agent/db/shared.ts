@@ -104,10 +104,8 @@ export type AgentConversation = {
   compactionSummary?: string
   compactionMessageCount?: number
   parentSessionId?: string // Opener via create_thread; the sidebar nests under it until unlinked.
-  /** The conversation whose create_thread opened this one. Set once; parentSessionId can change. */
-  createdBySessionId?: string
-  // Native Mongo parent reference. Legacy vendor fields remain untouched in
-  // stored documents but are not read or reused by the native tracer.
+  createdBySessionId?: string // The create_thread opener. Set once; parentSessionId can change.
+  // Native Mongo parent reference. Legacy vendor fields stay stored but unused.
   conversationTraceParent?: string
   credentialAccess?: AgentCredentialAccess
   // Execution runtime is chosen once when the conversation is created and is
