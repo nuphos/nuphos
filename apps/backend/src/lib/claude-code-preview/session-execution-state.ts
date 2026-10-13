@@ -133,7 +133,12 @@ export async function steerConversationRuntime(
         [],
       )
     : []
-  const attachments = await materializeRuntimeAttachments(conversation.teamId, endpoint, files)
+  const attachments = await materializeRuntimeAttachments(
+    conversation.teamId,
+    conversation.userId,
+    endpoint,
+    files,
+  )
   const text = steeringText(
     steer.text,
     files.map((file) => file.name),

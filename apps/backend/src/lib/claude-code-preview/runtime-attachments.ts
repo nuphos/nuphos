@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb'
 import { resolveDownloads } from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
+import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { ATTACHMENT_RUNNER } from './runtime-attachment-runner'
 import { uploadPromptImages } from './upload-prompt-images'
 
@@ -85,10 +86,20 @@ export async function runtimeAttachments(
 /** Runs before the prompt: the model receives real local paths, never download instructions. */
 export async function materializeRuntimeAttachments(
   teamId: string,
-  endpoint: TeamRuntimeEndpoint,
+  ownerUserId: string,
+  runtime: TeamRuntimeEndpoint,
   files: RuntimeAttachment[],
 ): Promise<PromptAttachment[]> {
   if (!files.length) return []
+  // A runtime job needs the operator credential, which a turn's transport endpoint lacks.
+  const { endpoint } = await resolveConversationChatRuntime(teamId, null, {
+    userId: ownerUserId,
+    ...(runtime.runtimeId ? { runtimeId: runtime.runtimeId } : {}),
+    purpose: 'control',
+  })
+
+  if (endpoint.url !== runtime.url)
+    throw new Error('Conversation runtime changed. Retry this message.')
   const client = await controlRegistry.acquire(teamId, endpoint)
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel'))
