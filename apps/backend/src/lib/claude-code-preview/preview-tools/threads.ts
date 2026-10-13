@@ -30,17 +30,17 @@ export function threadToolModule(): PreviewToolModule {
       {
         name: 'create_thread',
         description:
-          'Create and queue a separate Nuphos conversation only when asked to delegate/background work. ' +
+          'Create and start a separate Nuphos conversation only when asked to delegate/background work. ' +
           'Inherits your current runtime and selected credentials, not transcript or approval bypass. ' +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
-          'Only available for conversations owned by the current actor; requires the background queue.',
+          'Only available for conversations owned by the current actor.',
         inputSchema: toolInputJsonSchema(create),
       },
       {
         name: 'send_message_to_thread',
         description:
-          'Queue work or a completion report to another Nuphos thread you own in this team. ' +
+          'Send work or a completion report to another Nuphos thread you own in this team. ' +
           'The target keeps its own runtime and credential selection. An idle thread starts a turn; ' +
           'a busy thread receives the message through its pending-message queue. ' +
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +

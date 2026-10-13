@@ -9,7 +9,7 @@ import {
   clearPendingUserMessages,
   enqueuePendingUserMessage,
 } from './pending-messages'
-import { executeThreadTurn } from './thread-turn'
+import { executeThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'

@@ -102,6 +102,9 @@ struct RuntimeQuota: Decodable, Sendable {
         let label: String
         let usedPercent: Double
         let resetsAt: Date?
+
+        /// What is left of the window, floored so it never promises more than there is.
+        var leftPercent: Int { min(100, max(0, Int((100 - usedPercent).rounded(.down)))) }
     }
 
     let runtimeId: String

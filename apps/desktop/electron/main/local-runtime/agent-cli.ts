@@ -168,6 +168,7 @@ async function claudeUsageRequest(
   let credential = await readJson(path.join(dir, '.credentials.json'))
 
   // Match Claude's Keychain selection, including the terminal's unsuffixed default entry.
+  // Claude keys the entry by account too; without it a stale entry of the same name can win.
   if (process.platform === 'darwin' && env.CLAUDE_CONFIG_DIR) {
     const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? env.CLAUDE_CONFIG_DIR
     const suffix = storageDir
@@ -178,7 +179,14 @@ async function claudeUsageRequest(
       credential = JSON.parse(
         await run(
           '/usr/bin/security',
-          ['find-generic-password', '-s', `Claude Code-credentials${suffix}`, '-w'],
+          [
+            'find-generic-password',
+            '-a',
+            os.userInfo().username,
+            '-s',
+            `Claude Code-credentials${suffix}`,
+            '-w',
+          ],
           env,
         ),
       ) as Record<string, unknown>
