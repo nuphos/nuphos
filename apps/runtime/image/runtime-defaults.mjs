@@ -117,13 +117,36 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     return (await revision()) !== before
   }
 
-  // Claude Code notices a changed skills directory a moment after the write. A prompt
-  // sent before that still carries the previous sender's skill list, so when the tree
-  // changed, give the running session time to reload it.
-  globalThis.nuphosRefreshPersonalSkills = async () => {
+  // A running Claude Code session reads its skills when it starts, and its file watcher
+  // can lag a change by half a minute once the session is idle. So when the tree
+  // changed, the session is rebuilt the way the adapter itself rebuilds one whose
+  // parameters changed: torn down and resumed, keeping the transcript and the settings
+  // the session had.
+  globalThis.nuphosRefreshPersonalSkills = async (agent, prompt) => {
     const changed = await syncPersonal(5_000).catch(() => false)
+    const id = prompt?.sessionId
+    const live = agent?.sessions?.[id]
 
-    if (changed) await new Promise((resolve) => setTimeout(resolve, run?.reloadMs ?? 2_000))
+    if (!changed || !live) return
+    const kept = (live.configOptions ?? []).map((option) => [option.id, option.currentValue])
+
+    await agent.teardownSession(id)
+    const rebuilt = await agent.createSession(
+      {
+        cwd: params.cwd,
+        mcpServers: params.mcpServers ?? [],
+        additionalDirectories: params.additionalDirectories,
+        _meta: params._meta,
+      },
+      { resume: id },
+    )
+
+    for (const [configId, value] of kept) {
+      const now = rebuilt.configOptions?.find((option) => option.id === configId)
+
+      if (now && now.currentValue !== value)
+        await agent.setSessionConfigOption({ sessionId: id, configId, value }).catch(() => {})
+    }
   }
   const [team] = await Promise.all([sync(), syncPersonal()])
 
@@ -206,7 +229,8 @@ export function patchRuntimeDefaults(source) {
 }
 
 // Claude only. The sender of a turn may differ from the last one's, so their personal
-// skills are re-synced before every prompt of a live session. Strict on purpose: losing
+// skills are re-synced before every prompt of a live session, which is rebuilt when
+// they changed. Strict on purpose: losing
 // this silently would leave one member's skills in place for the next.
 export function patchPersonalSkillsRefresh(source) {
   const anchor = 'async prompt(params) {'
@@ -216,6 +240,6 @@ export function patchPersonalSkillsRefresh(source) {
 
   return source.replace(
     anchor,
-    `${anchor}\n        await globalThis.nuphosRefreshPersonalSkills?.();`,
+    `${anchor}\n        await globalThis.nuphosRefreshPersonalSkills?.(this, params);`,
   )
 }

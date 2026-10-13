@@ -129,10 +129,7 @@ test('the sender’s personal skills go to the conversation home, not the worksp
   )
   const owner = structuredClone(params)
 
-  assert.equal(
-    await nuphosLocalSyncSkills(owner, { workspace, sessionHome, credentialsDir, reloadMs: 0 }),
-    true,
-  )
+  assert.equal(await nuphosLocalSyncSkills(owner, { workspace, sessionHome, credentialsDir }), true)
   assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner-notes'])
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['team'])
   // In place, so a running session keeps watching it; and no agent settings from it.

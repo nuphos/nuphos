@@ -106,12 +106,12 @@ test('a Claude session also syncs the sender’s personal skills into its own ho
       NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
       NUPHOS_RUNTIME_SKILLS_TOKEN: 'owner',
     })
+    params.cwd = '/workspace'
     const run = {
       script,
       sessionHome: directory,
       credentialsDir,
       env: { NUPHOS_TEST_RECORD: record },
-      reloadMs: 0,
     }
 
     assert.equal(await nuphosSyncRuntimeSkills(params, run), true)
@@ -121,13 +121,36 @@ test('a Claude session also syncs the sender’s personal skills into its own ho
     // Before the next prompt the sender is whoever OpenAB's credential file names.
     await mkdir(credentialsDir)
     await writeFile(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'teammate\n')
-    await globalThis.nuphosRefreshPersonalSkills()
-    assert.deepEqual((await readFile(record, 'utf8')).trim().split('\n'), ['owner', 'teammate'])
+    // The fake leaves the revision alone, so nothing changed and the session is kept.
+    const calls = []
+    const agent = {
+      sessions: { s1: { configOptions: [{ id: 'model', currentValue: 'picked' }] } },
+      teardownSession: async (id) => calls.push(['teardown', id]),
+      createSession: async (created, opts) => {
+        calls.push(['create', created.cwd, opts.resume])
 
-    // If that sender's sync fails, the previous sender's skills must not stay. The
-    // directory does: the running session watches it.
+        return { configOptions: [{ id: 'model', currentValue: 'default' }] }
+      },
+      setSessionConfigOption: async (option) =>
+        calls.push(['config', option.configId, option.value]),
+    }
+
+    await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
+    assert.deepEqual((await readFile(record, 'utf8')).trim().split('\n'), ['owner', 'teammate'])
+    assert.deepEqual(calls, [])
+
+    // A changed tree rebuilds the session by resuming it, with the settings it had.
+    await writeFile(join(personal, '.claude/.skills-revision'), 'previous')
     await writeFile(`${record}.fail`, '')
-    await globalThis.nuphosRefreshPersonalSkills()
+    await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
+    assert.deepEqual(calls, [
+      ['teardown', 's1'],
+      ['create', '/workspace', 's1'],
+      ['config', 'model', 'picked'],
+    ])
+
+    // That sender's sync failed: the previous sender's skills did not stay, the
+    // directory did.
     assert.deepEqual(await readdir(join(personal, '.claude/skills')), [])
   })
   delete globalThis.nuphosRefreshPersonalSkills
@@ -138,7 +161,7 @@ test('only the Claude adapter re-syncs personal skills before a prompt', () => {
 
   assert.match(
     patched,
-    /async prompt\(params\) \{\n\s+await globalThis\.nuphosRefreshPersonalSkills\?\.\(\);/u,
+    /async prompt\(params\) \{\n\s+await globalThis\.nuphosRefreshPersonalSkills\?\.\(this, params\);/u,
   )
   assert.throws(() => patchPersonalSkillsRefresh('class A {}'), /exactly one/u)
 })
