@@ -106,9 +106,6 @@ fun AgentPage(
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(horizontal = 16.dp)) {
-            AgentSelectionButton(selection, enabled = setup != null && auth.aiAllowed, onClick = { setupVisible = true })
-        }
         if (selection?.reselectionRequired == true) Text("Select an available Agent before starting a new chat.", Modifier.padding(horizontal = 16.dp))
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = !store.archivedOnly, onClick = { store.updateArchivedOnly(false) }, label = { Text("Active") })
@@ -219,6 +216,11 @@ fun AgentPage(
                 true
             },
             showControls = true,
+            // The Agent for the next chat lives in the composer control row,
+            // where Desktop keeps its runtime selector.
+            agent = selection,
+            agentEnabled = setup != null && auth.aiAllowed,
+            onChooseAgent = { setupVisible = true },
         )
     }
 }
