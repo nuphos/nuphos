@@ -28,7 +28,7 @@ useAgentDb({
 test('a refused change reaches the agent as its reason, not an internal error', async () => {
   const ctx = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'en' }
   const tools = threadToolModule().handlers(ctx as PreviewToolContext)
-  const result = await tools.update_thread({
+  const result = await tools.update_thread?.({
     label: 'x',
     threadId: '00000000-0000-4000-8000-000000000000',
     fullAccess: false,
