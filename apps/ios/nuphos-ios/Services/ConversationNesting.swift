@@ -18,13 +18,16 @@ struct NestedConversation: Identifiable, Equatable {
 /// conversation that opened them, one level deeper, siblings in list order.
 enum ConversationNesting {
     /// A row is top-level when its parent is not listed, or when it is pinned
-    /// (it stays with the pins). Rows under a folded parent are left out.
+    /// and its parent is not (it stays with the pins). Rows under a folded
+    /// parent are left out.
     static func nest(
         _ rows: [AgentConversation], folded: Set<String> = [], pinned: Set<String> = []
     ) -> [NestedConversation] {
         let listed = Set(rows.map(\.sessionId))
         let parent: (AgentConversation) -> String? = { row in
-            row.parentSessionId.flatMap { listed.contains($0) && !pinned.contains(row.sessionId) ? $0 : nil }
+            row.parentSessionId.flatMap {
+                listed.contains($0) && (!pinned.contains(row.sessionId) || pinned.contains($0)) ? $0 : nil
+            }
         }
         var children: [String: [AgentConversation]] = [:]
         for row in rows { if let id = parent(row) { children[id, default: []].append(row) } }
