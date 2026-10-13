@@ -200,6 +200,7 @@ export async function runClaudeCodePreviewPrompt(args: {
     }
     const attachments = await materializeRuntimeAttachments(
       args.teamId,
+      args.conversationOwnerUserId ?? args.userId,
       args.endpoint,
       args.attachments ?? [],
     )
