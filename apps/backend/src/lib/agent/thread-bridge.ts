@@ -1,4 +1,3 @@
-import { setConversationArchived } from './db'
 import { randomUUID } from 'node:crypto'
 
 import {
@@ -12,6 +11,7 @@ import { logError } from '@/lib/observability'
 import {
   getConversationBySessionId,
   recordAgentEvent,
+  setConversationArchived,
   setConversationParent,
   upsertConversationShell,
 } from './db'
