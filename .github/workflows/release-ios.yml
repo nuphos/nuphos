@@ -190,10 +190,14 @@ jobs:
           BUILD_ID: ${{ steps.beta.outputs.build_id }}
         run: |
           set -euo pipefail
-          # A version cannot be edited while a submission holds it.
+          # A version cannot be edited while a submission holds it. Only
+          # submissions that carry an App Store version are withdrawn; in-app
+          # events and custom product pages in review are left alone.
           PENDING='READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES'
           submissions() {
-            asc review submissions-list --app "$APP_ID" --platform IOS --state "$1" --output json | jq -r '(.data // .)[].id'
+            asc review submissions-list --app "$APP_ID" --platform IOS --state "$1" \
+              --include appStoreVersionForReview --output json \
+              | jq -r '(.data // .)[] | select(.relationships.appStoreVersionForReview.data != null) | .id'
           }
           for SUBMISSION in $(submissions "$PENDING"); do
             asc review submissions-update --id "$SUBMISSION" --canceled=true --confirm >/dev/null
