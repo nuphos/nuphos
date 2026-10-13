@@ -133,7 +133,7 @@ export async function runClaudeCodePreviewPrompt(args: {
     throw new AppError(
       409,
       'runtime_not_accepting_message',
-      'Reconnected to the agent; it is continuing after a background task. Your message is queued until it finishes.',
+      'Reconnected to the agent; it is continuing after a background task. Send again once it finishes.',
     )
   }
   if (observed.schemaVersion !== 2 || !(observed.actions as { send?: boolean } | undefined)?.send)
