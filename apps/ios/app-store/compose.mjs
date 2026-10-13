@@ -1,6 +1,7 @@
-// Composes the App Store screenshots (1320×2868): headline, landing-page hero frame, the ported
-// screen in a phone, and app elements lifted out of it. Runs on macOS with system Chrome, which
-// provides SF Pro and Georgia.
+// Composes the App Store screenshots: headline, landing-page hero frame, the ported screen in a
+// device, and app elements lifted out of it. `node compose.mjs` renders the iPhone 6.9" set
+// (1320×2868), `node compose.mjs ipad` the iPad 13" set (2064×2752). Runs on macOS with system
+// Chrome, which provides SF Pro and Georgia.
 import { createRequire } from 'module'; import fs from 'fs';
 import { chromium } from 'playwright-core';
 const require = createRequire(import.meta.url);
@@ -69,18 +70,69 @@ const shots = {
       <div style="position:absolute;left:330px;top:1490px;width:660px;height:76px;border-radius:38px;background:#fff;color:#18181B;display:grid;place-items:center;font-size:32px;font-weight:600;letter-spacing:-.4px;box-shadow:0 20px 60px rgba(0,0,0,.5)">No extra model charge from Nuphos</div>` },
 };
 
-const OUT = 'build/screenshots'
+// iPad 13": the same headlines and lifted elements around the iPad port (ui.ipad()), whose screen
+// is drawn at Z canvas px per point. A lifted message keeps the iPhone line breaks and is placed
+// over the hidden one it replaces.
+const PAD = process.argv[2] === 'ipad';
+const Z = 1.4, PT = 700, PL = 288, BZ = 22; // screen zoom, device top/left, bezel
+const PX = (pt) => PL + BZ + pt * Z, PY = (pt) => PT + BZ + pt * Z;
+const PAD_CSS = CSS.replace('width: 1320px; height: 2868px;', 'width: 2064px; height: 2752px;') + `
+.copy h1 { font-size: 140px; } .copy p { margin-top: 40px; max-width: 1640px; font-size: 54px; }
+.ipad { position: absolute; left: ${PL}px; top: ${PT}px; padding: ${BZ}px; border-radius: 64px; background: #050506;
+  box-shadow: 0 0 0 2px #3A3A40, 0 0 0 5px #17171A, 0 60px 140px rgba(0,0,0,.6); }
+.ipad .screen { width: auto; height: auto; border-radius: 42px; }
+.ipad .screen .ios { zoom: ${Z}; }
+`;
+const ipadFrame = (screen) => `<div class="ipad"><div class="screen">${screen}</div></div>`;
+const lifted = (n, dx, deg, text, who, name) => `<div data-over="${n}" data-dx="${dx}" style="position:absolute;left:0;top:0">${popBubble(0, 0, deg, text, who, name, 2.1)}</div>`;
+const tile = (left, top, deg, logo, title) => `<div class="tile" style="left:${left}px;top:${top}px;width:780px;height:220px;transform:rotate(${deg}deg)"></div>
+  <div style="position:absolute;left:${left}px;top:${top}px;width:780px;height:220px;transform:rotate(${deg}deg);display:flex;align-items:center;gap:34px;padding:0 48px">
+    ${logo}<div style="flex:1"><div style="font-size:48px;font-weight:600;letter-spacing:-.7px">${title}</div><div style="font-size:34px;color:rgba(255,255,255,.62);margin-top:8px">Signed in as you</div></div>${sym('checkmark.circle.fill', 'regular', 56, '#34C759')}</div>`;
+const ipadShots = () => {
+  ui.ipad();
+  const sso = shots['02-keep-going'], room = shots['03-room'];
+  return {
+    '01-workspace': { ...shots['01-workspace'], body: `${ipadFrame(ui.home([...data.convs, ...data.more]))}
+      ${popRow(1010, PY(123.7) - 110, -1.4, data.convs[0])}
+      ${popRow(70, PY(198.7) - 40, 1.2, data.convs[1])}` },
+    '02-keep-going': { ...sso, body: `${ipadFrame(ui.chatSSO(true))}
+      ${lifted(0, 40, 1.8, 'Add SSO to the admin dashboard. I’m<br>heading out, so keep going and I’ll check<br>in from my phone.', 'BW', 'Bruce')}
+      ${popCard(120, PY(700), -2, sym('laptopcomputer', 'regular', 26, '#8E8E93'), 'MacBook Pro', 'Lid closed', `<span style="margin-left:14px">${sym('moon.zzz.fill', 'regular', 20, '#8E8E93')}</span>`)}
+      ${popCard(1080, PY(560), 1.6, sym('cloud.fill', 'regular', 26, '#A469FF'), 'Still running in the cloud', 'Running tests…', `<span style="margin-left:18px;display:flex">${SPIN}</span>`)}` },
+    '03-room': { ...room, body: `${ipadFrame(ui.chatBilling(true))}
+      ${lifted(0, 40, 1.6, 'Move the nightly invoice job onto the new<br>queue, and keep the cron as a fallback for<br>now.', 'MC', 'Maya')}
+      ${lifted(1, -60, -1.4, 'Make the tasks idempotent. A retry must<br>never invoice an account twice.', 'BW', 'Bruce')}
+      ${lifted(2, 40, 1.2, 'Looks good. Open the PR and I’ll review it.', 'LP', 'Leo')}` },
+    '04-agents': { ...shots['04-agents'], body: `${ipadFrame(ui.runtimes())}
+      ${tile(130, PY(470), -3, mark.claude(104), 'Your Claude plan')}
+      ${tile(1150, PY(760), 2.5, mark.codex(104, '#fff'), 'Your ChatGPT plan')}
+      <div style="position:absolute;left:592px;top:${PY(1010)}px;width:880px;height:96px;border-radius:48px;background:#fff;color:#18181B;display:grid;place-items:center;font-size:42px;font-weight:600;letter-spacing:-.5px;box-shadow:0 20px 60px rgba(0,0,0,.5)">No extra model charge from Nuphos</div>` },
+  };
+};
+// Lines each lifted message up with the right edge and middle of the hidden one it replaces,
+// moved `data-dx` px to the side.
+const place = () => document.querySelectorAll('[data-over]').forEach((pop) => {
+  const r = document.querySelector(`[data-lift="${pop.dataset.over}"] > *`).getBoundingClientRect(), box = pop.firstElementChild;
+  pop.style.left = `${r.right - box.offsetWidth + Number(pop.dataset.dx)}px`;
+  pop.style.top = `${r.top + r.height / 2 - box.offsetHeight / 2}px`;
+});
+
+const [W, H, STYLE, SHOTS, OUT, HERO] = PAD
+  ? [2064, 2752, PAD_CSS, ipadShots(), 'build/screenshots/ipad', 'hero-ipad']
+  : [1320, 2868, CSS, shots, 'build/screenshots', 'hero'];
 fs.mkdirSync('build/html', { recursive: true });
 fs.mkdirSync(OUT, { recursive: true });
 const b = await chromium.launch({ channel: 'chrome', headless: true });
-const p = await b.newPage({ viewport: { width: 1320, height: 2868 }, deviceScaleFactor: 1 });
-for (const [name, s] of Object.entries(shots)) {
-  const html = `<!doctype html><meta charset="utf-8"><style>${CSS}</style><div class="bg" style="background-image:url('file://${ui.BUILD}/hero-${s.bg}.png')"></div>
+const p = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+for (const [name, s] of Object.entries(SHOTS)) {
+  const html = `<!doctype html><meta charset="utf-8"><style>${STYLE}</style><div class="bg" style="background-image:url('file://${ui.BUILD}/${HERO}-${s.bg}.png')"></div>
     <div class="copy"><h1>${s.h1}</h1><p>${s.p}</p></div>${s.body}`;
-  fs.writeFileSync(`build/html/${name}.html`, html);
-  await p.goto(`file://${process.cwd()}/build/html/${name}.html`);
+  const file = `build/html/${PAD ? 'ipad-' : ''}${name}.html`;
+  fs.writeFileSync(file, html);
+  await p.goto(`file://${process.cwd()}/${file}`);
   // The first page can be captured before fonts and images settle, which changes the pixels.
   await p.evaluate(() => Promise.all([document.fonts.ready, ...[...document.images].map((i) => i.decode().catch(() => {}))]));
+  await p.evaluate(place);
   await p.waitForTimeout(300);
   await p.screenshot({ path: `${OUT}/${name}.png` });
   console.log(name);
