@@ -165,11 +165,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
           return
         }
         if (update.kind === 'steering') {
-          const metadata = steeringAttribution()
-          const receipt = {
-            ...steeringReceipt(update.id, update.text),
-            ...(metadata ? { metadata } : {}),
-          }
+          const receipt = steeringReceipt(update.id, update.text, steeringAttribution())
 
           orderedParts.appendSteering(receipt)
           state.emit({ type: 'data-steering', data: receipt })

@@ -1,4 +1,4 @@
-import { ObjectId } from 'mongodb'
+import { randomUUID } from 'node:crypto'
 
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
@@ -67,26 +67,43 @@ export function attributeReceipt(
   return { type: 'data-steering', data: { ...entry.data, ...(metadata ? { metadata } : {}) } }
 }
 
+const ATTACHED = (name: string) => `[Attached: ${name}]`
 const ATTACHED_LINE = /^\[Attached: (.+)\]$/
+const UPLOAD_ID = /^([a-f\d]{24})\./i
+
+/** The receipt names attached files, one per line, so the transcript records what was sent. */
+export function steeringText(typed: string, fileNames: string[]): string {
+  return [typed, fileNames.map(ATTACHED).join('\n')].filter(Boolean).join('\n\n')
+}
+
+/** Every steer gets its own id; one with files carries its upload group's id in front. */
+export function steeringMessageId(groupId?: string): string {
+  return groupId ? `${groupId}.${randomUUID()}` : randomUUID()
+}
 
 /**
- * The runtime echoes a receipt as id and text only. A steer with files is sent
- * under its upload group's id, and `steeringText` names each file on a line of
- * the last paragraph, so the receipt can show them again.
+ * The runtime echoes a receipt as id and text only. A steer with files names
+ * its upload group in its id (`steeringMessageId`) and each file on a line of
+ * the text's last paragraph (`steeringText`), so the receipt can show them again.
  */
-export function steeringReceipt(id: string, text: string): SteeringReceipt {
+export function steeringReceipt(
+  id: string,
+  text: string,
+  metadata?: MessageMetadata,
+): SteeringReceipt {
+  const receipt = { id, text, ...(metadata ? { metadata } : {}) }
+  const groupId = UPLOAD_ID.exec(id)?.[1]
   const names = (text.split('\n\n').at(-1) ?? '')
     .split('\n')
     .map((line) => ATTACHED_LINE.exec(line)?.[1])
 
-  if (!ObjectId.isValid(id) || names.some((name) => name === undefined)) return { id, text }
+  if (!groupId || names.some((name) => name === undefined)) return receipt
 
   return {
-    id,
-    text,
+    ...receipt,
     upload: {
       type: 'transfer-upload',
-      groupId: id,
+      groupId,
       status: 'ready',
       files: (names as string[]).map((fileName) => ({ fileName, size: null, status: 'ready' })),
     },

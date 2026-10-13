@@ -8,7 +8,7 @@ import {
   conversationExecutionState,
   steerConversationRuntime,
 } from '@/lib/claude-code-preview/session-execution-state'
-import { steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
+import { steeringMessageId, steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
@@ -52,8 +52,7 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
 
   if (!runtime.actions?.steer)
     throw new AppError(409, 'runtime_steering_unavailable', 'This agent cannot accept steering')
-  // A steer with files goes out under its upload group's id; see `steeringReceipt`.
-  const messageId = groupId || crypto.randomUUID()
+  const messageId = steeringMessageId(groupId)
   const sent = await steerConversationRuntime(conversation, { text, groupId, userId }, messageId)
 
   return c.json({

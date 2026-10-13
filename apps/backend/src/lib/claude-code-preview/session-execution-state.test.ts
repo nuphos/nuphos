@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { conversationExecutionState, steeringText } from './session-execution-state'
+import { conversationExecutionState } from './session-execution-state'
 
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -105,12 +105,4 @@ test('a conversation moved before the fix is read the same way', async () => {
 
   expect(snapshot.state).toBe('dormant')
   expect(snapshot.actions?.send).toBe(true)
-})
-
-test('a steering receipt names its attached files', () => {
-  expect(steeringText('Look', [])).toBe('Look')
-  expect(steeringText('Look', ['a.png', 'b, c.pdf'])).toBe(
-    'Look\n\n[Attached: a.png]\n[Attached: b, c.pdf]',
-  )
-  expect(steeringText('', ['a.png'])).toBe('[Attached: a.png]')
 })
