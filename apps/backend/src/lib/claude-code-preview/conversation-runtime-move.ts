@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { config } from '@/config'
+import { canManage, conversationAccess } from '@/lib/agent/db/access'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { isLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
@@ -10,7 +11,8 @@ import { AppError } from '@/lib/errors'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { placementNamespace } from './runtime-controllers'
-import { assertRuntimeNotDeleting, runtimeDeletions } from './runtime-portability-store'
+import { assertRuntimeNotDeleting } from './runtime-portability-store'
+import { runtimeProvider } from './runtime-provider'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
 import {
   findWorkspaceArchive,
@@ -27,10 +29,15 @@ export async function moveConversationRuntime(
   userId: string,
 ) {
   const teamId = conversation.teamId
+  const ownerId = conversation.userId
 
-  if (!teamId || conversation.userId !== userId)
-    throw new AppError(403, 'conversation_read_only', 'Only the conversation owner can move it.')
-  const provider = conversation.agentRuntime === 'codex' ? 'codex' : 'claude-code'
+  if (!teamId || !canManage(conversationAccess(conversation, userId)))
+    throw new AppError(
+      403,
+      'conversation_read_only',
+      'Only the conversation owner or a manager can move it.',
+    )
+  const provider = runtimeProvider(conversation.agentRuntime)
   const sourceUrl = conversation.claudeCodePreview?.runtimeUrl
   const sourceHosted = sourceUrl ? await findHostedRuntime(teamId, sourceUrl) : null
 
@@ -46,6 +53,15 @@ export async function moveConversationRuntime(
       'This conversation belongs to another environment. Open it there to move it to another agent. Nothing has been changed.',
     )
   const target = await requireRuntimeInstance(teamId, targetId, userId)
+
+  // Local and self-hosted agents run on someone's own machine, with the owner's
+  // credentials; only the owner puts a session there.
+  if (userId !== ownerId && target.kind !== 'managed')
+    throw new AppError(
+      403,
+      'conversation_read_only',
+      'Only the conversation owner can move it to a local or self-hosted agent.',
+    )
 
   if (target.status !== 'active')
     throw new AppError(409, 'runtime_unavailable', 'Choose an agent that is enabled.')
@@ -85,7 +101,7 @@ export async function moveConversationRuntime(
     {
       sessionId: conversation.sessionId,
       teamId,
-      userId,
+      userId: ownerId,
       runtimeId: conversation.runtimeId ?? { $exists: false },
       $or: [
         { runtimeOperation: { $exists: false } },
@@ -104,7 +120,7 @@ export async function moveConversationRuntime(
   let release: (() => void) | null = null
 
   try {
-    release = await claimAgentRunForSession(userId, conversation.sessionId, true)
+    release = await claimAgentRunForSession(ownerId, conversation.sessionId, true)
     if (!release)
       throw new AppError(
         409,
@@ -119,13 +135,6 @@ export async function moveConversationRuntime(
           'No workspace is attached. Choose conversation history only.',
         )
       let archive = await findWorkspaceArchive(teamId, conversation.sessionId, sourceUrl)
-      const deletingSource = await runtimeDeletions().findOne(
-        { teamId, 'placements.url': sourceUrl },
-        { sort: { requestedAt: -1 } },
-      )
-
-      if (archive && deletingSource && archive.createdAt < deletingSource.requestedAt)
-        archive = null
       // An active source must be freshly saved; an old archive may be stale.
       const sourceLive = endpoints.some((entry) => entry.url === sourceUrl)
 
@@ -146,7 +155,7 @@ export async function moveConversationRuntime(
       {
         sessionId: conversation.sessionId,
         teamId,
-        userId,
+        userId: ownerId,
         'runtimeOperation.token': token,
         'runtimeOperation.expiresAt': { $gt: new Date() },
       },
@@ -179,11 +188,12 @@ export async function moveConversationRuntime(
         // every path that reads the attachment before the next prompt handed it
         // to the runtime and got "Invalid sessionId" — a 500 on /agent/chat and
         // on model-config. Clearing it means the first prompt creates the
-        // session, and takes the destination's own defaults while doing so.
+        // session; model choices belong to the old agent, so they go too.
         $unset: {
           runtimeOperation: '',
           claudeCodePreviewContext: '',
           claudeCodePreview: '',
+          initialSessionConfig: '',
         },
       },
     )

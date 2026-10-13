@@ -7,7 +7,38 @@ enum LocalAgentTests {
         groupsOwnComputersApartFromCloud()
         namesAComputersAgentOnce()
         defaultsToAUsableCloudAgent()
+        namesCloudOnlyProviders()
+        modelSettingsRemainAvailable()
+        measuresWhatIsLeft()
         print("Local agents passed")
+    }
+
+    private static func modelSettingsRemainAvailable() {
+        let model = SessionConfigState.Option(id: "model", name: "Model", kind: .model, description: nil, currentValue: "a",
+            options: [.init(value: "a", name: "Alpha", description: nil), .init(value: "b", name: "Beta", description: nil)])
+        let effort = SessionConfigState.Option(id: "effort", name: "Effort", kind: .effort, description: nil, currentValue: "medium",
+            options: [.init(value: "medium", name: "Medium", description: nil)])
+        let ready = SessionConfigState(status: .ready, options: [model, effort])
+        for status in [SessionConfigState.Status.busy, .dormant, .offline] {
+            let retained = SessionConfigState(status: status, options: []).retainingOptions(from: ready)
+            precondition(retained.modelTitle == "Alpha")
+            precondition(retained.isEditable == (status != .offline))
+        }
+        precondition(SessionConfigState(status: .unsupported, options: []).retainingOptions(from: ready).options.isEmpty)
+        precondition(SessionConfigState(status: .ready, options: []).retainingOptions(from: ready).options.isEmpty)
+        var pending = ["model": "a", "effort": "high"]
+        pending["model"] = "b"
+        precondition(ready.nextSelection(in: &pending, streaming: true) == nil && pending.count == 2)
+        let busy = SessionConfigState(status: .busy, options: ready.options)
+        precondition(busy.nextSelection(in: &pending, streaming: false) == nil && pending.count == 2)
+        let next = ready.nextSelection(in: &pending, streaming: false)
+        precondition(next?.id == "model" && next?.value == "b")
+        precondition(ready.nextSelection(in: &pending, streaming: false) == nil && pending.isEmpty, "Drop effort choices unsupported by the new model")
+        // Before a session exists, the runtime's own choices arrive as session options.
+        let config = try! JSONDecoder().decode(SessionConfigState.self, from: Data(#"{"status":"dormant","options":[{"id":"model","name":"Model","kind":"model","currentValue":"default","options":[{"value":"default","name":"Default","description":"Alpha"},{"value":"a","name":"Alpha"},{"value":"b","name":"Beta"}]},{"id":"effort","name":"Effort","kind":"effort","currentValue":"high","options":[{"value":"high","name":"High"}]},{"id":"fast","name":"Fast","kind":"fast","currentValue":"on","options":[{"value":"on","name":"On"},{"value":"off","name":"Off"}]}]}"#.utf8))
+        precondition(config.modelTitle == "Alpha" && config.isEditable && config.isFast)
+        precondition(config.hint == nil)
+        print("Model discovery, retained settings, and queued selection transitions passed")
     }
 
     private static func keepsKeysThisBuildDoesNotKnow() {
@@ -48,6 +79,11 @@ enum LocalAgentTests {
         precondition(selection.json["deviceIds"] == .array([.string("mac")]))
     }
 
+    private static func measuresWhatIsLeft() {
+        let left = [-5, 0, 37.4, 99.6, 120].map { RuntimeQuota.Window(label: "5-hour", usedPercent: $0, resetsAt: nil).leftPercent }
+        precondition(left == [100, 100, 62, 0, 0])
+    }
+
     private static func agent(_ json: String) -> RuntimeInstance {
         try! JSONDecoder().decode(RuntimeInstance.self, from: json.data(using: .utf8)!)
     }
@@ -76,5 +112,14 @@ enum LocalAgentTests {
         precondition(RuntimeInstance.defaultPick([macbook, cloud])?.id == cloud.id)
         precondition(RuntimeInstance.defaultPick([signedOut, macbook])?.id == macbook.id)
         precondition(RuntimeInstance.defaultPick([signedOut]) == nil)
+    }
+
+    private static func namesCloudOnlyProviders() {
+        let grok = agent(#"{"id":"rt_2","provider":"grok","label":"Team Grok","status":"active","kind":"managed"}"#)
+        let antigravity = agent(#"{"id":"rt_3","provider":"antigravity","label":"Team Antigravity","status":"active","kind":"managed"}"#)
+        precondition(grok.providerName == "Grok Build" && RuntimeInstance.Provider.logo("grok") == "logo-grok")
+        precondition(antigravity.providerName == "Antigravity" && RuntimeInstance.Provider.logo("antigravity") == "logo-antigravity")
+        let opencode = agent(#"{"id":"rt_4","provider":"opencode","label":"Team OpenCode","status":"active","kind":"managed"}"#)
+        precondition(opencode.providerName == "OpenCode" && RuntimeInstance.Provider.logo("opencode") == "logo-opencode")
     }
 }

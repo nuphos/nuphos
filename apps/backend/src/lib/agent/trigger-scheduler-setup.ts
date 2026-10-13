@@ -1,5 +1,7 @@
 import { config } from '@/config'
 
+export const AGENT_TRIGGER_QUEUE = 'atlas-agent-triggers'
+
 export function buildBullMQConnection() {
   // Mirror lib/redis.ts buildOptions() and fail loudly when Redis is enabled
   // but sentinels are missing, so the misconfiguration shows up at startup

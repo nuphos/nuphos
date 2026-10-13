@@ -24,6 +24,7 @@ type SidebarNavItemProps = {
   icon: ReactNode
   label: string
   active: boolean
+  sharedBackground?: boolean
   /** Receives the event so callers can honour cmd/ctrl-click (open in a new tab). */
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
   disabled?: boolean
@@ -44,6 +45,7 @@ export function SidebarNavItem({
   icon,
   label,
   active,
+  sharedBackground = false,
   onClick,
   disabled = false,
   badge,
@@ -65,12 +67,17 @@ export function SidebarNavItem({
       }}
       className={clsx(
         SIDEBAR_ROW_CLASS,
-        'group w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:bg-[var(--sidebar-overlay-focus)]',
+        'group w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
+        !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
-          ? 'bg-[var(--sidebar-overlay-active)] text-main'
+          ? sharedBackground
+            ? 'text-main'
+            : 'bg-[var(--sidebar-overlay-active)] text-main'
           : disabled
             ? 'text-tertiary opacity-40 cursor-not-allowed'
-            : 'text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
+            : sharedBackground
+              ? 'text-secondary'
+              : 'text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
       )}
     >
       <span

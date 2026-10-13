@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 
@@ -6,6 +7,7 @@ import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron'
 import * as agentChatSkill from '../agent-chat-skill'
 import { resetAnalyticsUser, setAnalyticsTeam, setAnalyticsUser } from '../analytics'
 import { setApiUrl } from '../api-endpoint'
+import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
 import { updateProfile } from '../auth/profile'
@@ -58,6 +60,7 @@ export const appChannels = {
   'app:getVersion': () => app.getVersion(),
   'app:setApiEndpoint': (_e: unknown, url: string | null) => setApiUrl(url),
   'app:getPlatform': () => process.platform,
+  'app:selectAsciiInputSource': () => selectAsciiInputSource(),
   'app:setNativeTheme': (_e: unknown, source: ThemeSource) => {
     if (source !== 'system' && source !== 'light' && source !== 'dark') {
       throw new Error(`Invalid theme source: ${String(source)}`)
@@ -122,7 +125,7 @@ export const appChannels = {
       id: string
       teamId: string
       runtimeId: string
-      agentRuntime: 'claude-code' | 'codex'
+      agentRuntime: AgentProvider
     },
   ) => importLocalSession(args),
   'dialog:listLocalAgentSessions': async (_e: IpcMainInvokeEvent, rawSource: string) => {

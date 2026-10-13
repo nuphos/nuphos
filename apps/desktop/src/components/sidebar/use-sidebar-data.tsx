@@ -238,6 +238,18 @@ export function useSidebarChats({
     [teamId, refreshSessions, onArchived],
   )
 
+  const unlinkChat = useCallback(
+    async (sessionId: string) => {
+      try {
+        await api.agentUnlinkConversationParent(sessionId, teamId)
+        void refreshSessions()
+      } catch (err) {
+        toast.apiError('Could not unlink chat', err)
+      }
+    },
+    [teamId, refreshSessions],
+  )
+
   useEffect(
     () =>
       onChatTitleChanged((change) => {
@@ -279,5 +291,5 @@ export function useSidebarChats({
   )
   const newChatActive = chatShown && !agentSessionId
 
-  return { chatItems, newChatActive, archiveChat, archivingIds }
+  return { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
 }

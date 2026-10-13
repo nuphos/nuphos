@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/errors'
 
 import { isAllowedRemoteOpenAbUrl } from './runtime-backend-url'
+import { isOpenAbProvider } from './runtime-provider'
 import { storedAuthKey } from './runtime-registry-credentials'
 
 import type { OpenAbProvider } from './runtime-provider'
@@ -143,7 +144,7 @@ function parseExchange(body: unknown): PairingExchange | null {
     transportKey,
     controlKey,
     runtimeInstanceId,
-    ...(provider === 'claude-code' || provider === 'codex' ? { provider } : {}),
+    ...(isOpenAbProvider(provider) ? { provider } : {}),
     ...(pendingUntil ? { pendingUntil } : {}),
   }
 }

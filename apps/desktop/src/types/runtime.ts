@@ -1,7 +1,15 @@
-export type RuntimeDefaults = {
-  model?: string
-  fast?: 'on' | 'off'
-  effort?: string
+/** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
+export const AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'] as const
+
+export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
+
+/** Each agent's name, and the account its sign-in uses. */
+export const AGENT_PROVIDER: Record<AgentProvider, { label: string; account: string }> = {
+  'claude-code': { label: 'Claude Code', account: 'Claude' },
+  codex: { label: 'Codex', account: 'ChatGPT' },
+  grok: { label: 'Grok Build', account: 'xAI' },
+  antigravity: { label: 'Antigravity', account: 'Google' },
+  opencode: { label: 'OpenCode', account: 'a model provider' },
 }
 
 export type LocalRuntimeSummary = {
@@ -20,7 +28,7 @@ export type RuntimeInstance = {
   /** Registered but not reachable yet, so nothing can move onto it. */
   notReady?: boolean
   id: string
-  provider: 'claude-code' | 'codex'
+  provider: AgentProvider
   label: string
   /** The image a managed runtime runs. */
   image?: string
@@ -33,7 +41,6 @@ export type RuntimeInstance = {
   deletion?: { state: 'deleting'; error?: string }
   /** This computer's agent, known locally before the team catalog lists it. */
   starting?: boolean
-  defaults?: RuntimeDefaults
   createdAt: string
 }
 
@@ -41,7 +48,6 @@ export type CreateRuntimeInput = {
   /** Defaults to the agent type's name, made unique in the team. */
   label?: string
   provider: RuntimeInstance['provider']
-  defaults?: RuntimeDefaults
 }
 
 /** A runtime the operator runs themselves: Nuphos only learns where it is and
@@ -78,7 +84,6 @@ export type PairedExternalRuntime = {
 export type UpdateRuntimeInput = {
   label?: string
   status?: RuntimeInstance['status']
-  defaults?: RuntimeDefaults
 }
 
 export type RuntimeQuotaWindow = {
@@ -112,25 +117,30 @@ export type RuntimeMetricSample = {
 
 export type RuntimeMetrics = { samples: RuntimeMetricSample[] }
 
+export type RuntimeQuotaHistoryRange = '1d' | '7d' | '30d'
+
+/** One usage window of one agent over time, the highest use in each bucket. */
+export type RuntimeQuotaHistorySeries = {
+  runtimeId: string
+  windowId: string
+  label: string
+  points: { at: string; usedPercent: number }[]
+}
+
+/** One step of a sign-in that asks before it authorizes (OpenCode). */
+export type RuntimeLoginStep =
+  | { kind: 'choose'; message: string; options: { value: string; label: string; hint?: string }[] }
+  | { kind: 'input'; message: string; placeholder?: string; secret?: boolean }
+  | { kind: 'browser'; url: string; instructions?: string; paste?: 'code' | 'address' }
+
 export type RuntimeLoginStatus = {
   attemptId: string
   state: 'starting' | 'awaiting_authorization' | 'connected' | 'failed' | 'cancelled'
   verificationUri?: string
   userCode?: string
   authorizationUrl?: string
+  step?: RuntimeLoginStep
   codeSubmitted?: boolean
   error?: string
   expiresAt: string
-}
-
-export type RuntimeModelCatalog = {
-  models: { id: string; name: string; description?: string }[]
-  controls?: {
-    modelId: string
-    effort: { value: string; name: string }[]
-    fast: boolean
-    defaultFast?: 'on' | 'off'
-    defaultEffort?: string
-  }
-  message?: string
 }

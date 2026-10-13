@@ -6,7 +6,7 @@
 import type { AgentCredentialSelection } from '../api/agent-credential-types'
 import type { DashboardCadence } from './view/cadence'
 
-// Opens the right-side "Ask your infrastructure." agent rail with a seed
+// Opens the right-side agent rail with a seed
 // prompt. Mirrors the callback threaded through the desktop views.
 export type OpenAgentChat = (
   prompt: string,

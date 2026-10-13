@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron'
 
+import type { AgentProvider } from '../../src/types/runtime'
+
 export const agentApi = {
   agentMoveConversationRuntime: (
     sessionId: string,
@@ -9,26 +11,23 @@ export const agentApi = {
   ) => ipcRenderer.invoke('agent:moveConversationRuntime', sessionId, teamId, runtimeId, mode),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:getSessionConfig', sessionId, teamId),
-  agentGetConversationParticipants: (sessionId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:getConversationParticipants', sessionId, teamId),
-  agentInviteConversationParticipants: (sessionId: string, teamId: string, userIds: string[]) =>
-    ipcRenderer.invoke('agent:inviteConversationParticipants', sessionId, teamId, userIds),
-  agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
-    ipcRenderer.invoke('agent:removeConversationParticipant', sessionId, teamId, userId),
   agentImportLocalSession: (args: {
     source: 'claude-code' | 'codex'
     id: string
     teamId: string
     runtimeId: string
-    agentRuntime: 'claude-code' | 'codex'
+    agentRuntime: AgentProvider
   }) => ipcRenderer.invoke('agent:importLocalSession', args),
   agentSetSessionConfig: (
     sessionId: string,
     teamId: string,
     selection: { configId: string; value: string },
   ) => ipcRenderer.invoke('agent:setSessionConfig', sessionId, teamId, selection),
-  agentGetConversation: (sessionId: string, teamId?: string, options?: { tail?: number }) =>
-    ipcRenderer.invoke('agent:getConversation', sessionId, teamId, options),
+  agentGetConversation: (
+    sessionId: string,
+    teamId?: string,
+    options?: { tail?: number; runtimeState?: 'omit' },
+  ) => ipcRenderer.invoke('agent:getConversation', sessionId, teamId, options),
   agentGetConversationMessages: (
     sessionId: string,
     args: { before: number; limit?: number },
@@ -84,7 +83,7 @@ export const agentApi = {
     }
   }) => ipcRenderer.invoke('agent:updateConversationCredentials', args),
   agentSyncConversationTranscript: (args: {
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
     baseIndex?: number
     sessionId: string
@@ -132,36 +131,10 @@ export const agentApi = {
   ) => ipcRenderer.invoke('agent:deleteMemory', memoryId, teamId, scope, reason),
   agentRestoreMemory: (memoryId: string, teamId?: string, scope?: 'personal' | 'team') =>
     ipcRenderer.invoke('agent:restoreMemory', memoryId, teamId, scope),
-  agentListAutoModeRules: () => ipcRenderer.invoke('agent:listAutoModeRules'),
-  agentCreateAutoModeRule: (description: string) =>
-    ipcRenderer.invoke('agent:createAutoModeRule', description),
-  agentActivateAutoModeRule: (ruleId: string) =>
-    ipcRenderer.invoke('agent:activateAutoModeRule', ruleId),
-  agentDeleteAutoModeRule: (ruleId: string) =>
-    ipcRenderer.invoke('agent:deleteAutoModeRule', ruleId),
-  agentAddAutoModeSessionApproval: (sessionId: string, command: string) =>
-    ipcRenderer.invoke('agent:addAutoModeSessionApproval', sessionId, command),
   agentGetAutoModeBypass: (sessionId: string) =>
     ipcRenderer.invoke('agent:getAutoModeBypass', sessionId),
   agentSetAutoModeBypass: (sessionId: string, bypass: boolean) =>
     ipcRenderer.invoke('agent:setAutoModeBypass', sessionId, bypass),
-  agentApproveAutoModeCommand: (
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ) =>
-    ipcRenderer.invoke(
-      'agent:approveAutoModeCommand',
-      sessionId,
-      toolCallId,
-      scope,
-      teamId,
-      ruleDescription,
-    ),
-  agentDenyAutoModeCommand: (sessionId: string, toolCallId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:denyAutoModeCommand', sessionId, toolCallId, teamId),
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     ipcRenderer.invoke('agent:listPlans', args),
   agentGetPlan: (planId: string, teamId?: string) =>

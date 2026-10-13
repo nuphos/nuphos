@@ -150,3 +150,40 @@ describe('conversation agent runtime stamp', () => {
     expect(convs.docs[0]!.agentRuntime).toBe('claude-code')
   })
 })
+
+describe('conversation general access stamp', () => {
+  beforeEach(() => {
+    convs.docs = []
+  })
+
+  const shell = (source?: string) => ({
+    sessionId: 's1',
+    userId: 'u1',
+    title: 'T',
+    firstMessage: 'hi',
+    ...(source ? { source } : {}),
+  })
+
+  test('a session started from the app, MCP or a sourceless transcript sync is private', async () => {
+    for (const source of ['app', 'mcp', undefined]) {
+      convs.docs = []
+      await upsertConversationShell(shell(source))
+      expect(convs.docs[0]!.generalAccess).toBe('none')
+    }
+  })
+
+  test('channel and trigger sessions keep the team-wide default', async () => {
+    for (const source of ['slack.agent', 'discord.agent', 'lark.agent', 'agent.trigger']) {
+      convs.docs = []
+      await upsertConversationShell(shell(source))
+      expect('generalAccess' in convs.docs[0]!).toBe(false)
+    }
+  })
+
+  test('the first insert decides; a later turn never re-privatizes a shared session', async () => {
+    await upsertConversationShell(shell('app'))
+    convs.docs[0]!.generalAccess = 'reply' // the owner opened it to the team
+    await upsertConversationShell(shell('app'))
+    expect(convs.docs[0]!.generalAccess).toBe('reply')
+  })
+})

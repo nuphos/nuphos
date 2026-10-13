@@ -7,7 +7,7 @@ import { LAST_TEAM_STORAGE_KEY } from '../../app/workspaceTabState'
 import { toast } from '../../components/ui/toast'
 import { stepNavigation } from '../../lib/navHistory'
 
-import { selectScope } from './store/workspaceState'
+import { selectHistoryStep, selectScope } from './store/workspaceState'
 
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
 import type { WorkspaceShellStateResult } from './useWorkspaceShellState'
@@ -37,6 +37,10 @@ export function useWorkspaceTeams(a: Args) {
 
   const navigateHistory = useCallback(
     (direction: -1 | 1) => {
+      const target = selectHistoryStep(workspaceStore.getState(), direction)
+
+      if (target === 'surface') workspaceActions.stepSurface(direction)
+      if (target !== 'tab') return
       updateActiveTab(
         (tab) => {
           const step = stepNavigation(tab, direction)
@@ -48,7 +52,7 @@ export function useWorkspaceTeams(a: Args) {
         { history: 'restore' },
       )
     },
-    [updateActiveTab],
+    [updateActiveTab, workspaceActions, workspaceStore],
   )
 
   // Restored tabs whose team this account no longer belongs to are dropped

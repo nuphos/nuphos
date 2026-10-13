@@ -65,11 +65,9 @@ test('GitHub release publication waits for all images and requires an existing t
   assert.match(build, /if: inputs\.release_tag != ''/)
   assert.match(build, /gh release create .*--verify-tag --latest=false/)
   assert.match(build, /gh release view "\$RELEASE_TAG"/)
-  for (const name of ['release', 'update-claude-sdk', 'update-codex-cli']) {
-    const caller = readFileSync(
-      new URL(`../../../.github/workflows/runtime-${name}.yml`, import.meta.url),
-      'utf8',
-    )
-    assert.match(caller, /contents: write\n      packages: write/)
-  }
+  const release = readFileSync(
+    new URL('../../../.github/workflows/runtime-release.yml', import.meta.url),
+    'utf8',
+  )
+  assert.match(release, /contents: write\n      packages: write/)
 })

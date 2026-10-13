@@ -6,7 +6,6 @@ import {
   NotebookPen,
   ScrollText,
   Settings,
-  ShieldCheck,
   SquareTerminal,
   SunMedium,
   Users,
@@ -51,10 +50,7 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
 const USER_GROUPS: SettingsNavGroup[] = [
   {
     title: 'Account',
-    items: [
-      { key: 'account.profile', label: 'Profile', icon: CircleUserRound },
-      { key: 'account.autoMode', label: 'Auto-authorization', icon: ShieldCheck },
-    ],
+    items: [{ key: 'account.profile', label: 'Profile', icon: CircleUserRound }],
   },
   {
     title: 'This computer',

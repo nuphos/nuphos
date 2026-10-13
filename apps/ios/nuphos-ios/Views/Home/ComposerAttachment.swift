@@ -29,6 +29,13 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
         return "data:image/jpeg;base64," + data.base64EncodedString()
     }
 
+    /// Photos are stored as JPEG whatever they were picked as.
+    var uploadName: String {
+        guard isImage else { return name }
+        let base = (name as NSString).deletingPathExtension
+        return (base.isEmpty ? "Photo" : base) + ".jpg"
+    }
+
     var fileExtension: String {
         if case .file(let url) = kind { return url.pathExtension.uppercased() }
         return "JPG"
@@ -39,6 +46,11 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
     /// Loads a full-resolution, high-quality JPEG. Compression is decided
     /// later from the whole message budget, not an arbitrary per-photo cap.
     static func load(_ item: PhotosPickerItem) async -> ComposerAttachment? {
+        // Videos go up as files through the transfer store, like Files picks.
+        if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+            guard let movie = try? await item.loadTransferable(type: PickedMovie.self) else { return nil }
+            return ComposerAttachment(name: "Video." + movie.url.pathExtension.lowercased(), kind: .file(movie.url))
+        }
         guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
         guard let jpeg = ImageAttachment.jpeg(from: data) else { return nil }
         return ComposerAttachment(name: "Photo", kind: .image(jpeg))
@@ -71,41 +83,20 @@ struct ComposerSubmission: Sendable {
     var attachments: [ComposerAttachment]
 }
 
-/// A 64pt square preview with a remove button in its corner.
-struct AttachmentTile: View {
+/// A photo's thumbnail, or a file's extension on a plain card.
+struct AttachmentPreview: View {
     let attachment: ComposerAttachment
-    var onRemove: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Group {
-                #if canImport(UIKit)
-                if let image = attachment.thumbnail {
-                    Image(uiImage: image).resizable().scaledToFill()
-                } else {
-                    filePlaceholder
-                }
-                #else
-                filePlaceholder
-                #endif
-            }
-            .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
-
-            Button(action: onRemove) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Theme.canvas)
-                    .frame(width: 18, height: 18)
-                    .background(Theme.heading, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .offset(x: 5, y: -5)
-            .accessibilityLabel("Remove \(attachment.name)")
+        #if canImport(UIKit)
+        if let image = attachment.thumbnail {
+            Image(uiImage: image).resizable().scaledToFill()
+        } else {
+            filePlaceholder
         }
-        .padding(.top, 5)
-        .padding(.trailing, 5)
+        #else
+        filePlaceholder
+        #endif
     }
 
     private var filePlaceholder: some View {
@@ -116,5 +107,48 @@ struct AttachmentTile: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bubble)
+    }
+}
+
+/// A 64pt square preview with a remove button in its corner.
+struct AttachmentTile: View {
+    let attachment: ComposerAttachment
+    var onRemove: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            AttachmentPreview(attachment: attachment)
+            .frame(width: 64, height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
+
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Theme.canvas)
+                    .frame(width: 18, height: 18)
+                    .background(Theme.heading, in: Circle())
+                    .contentShape(Circle().inset(by: -8))
+            }
+            .buttonStyle(.plain)
+            .offset(x: 5, y: -5)
+            .accessibilityLabel("Remove \(attachment.name)")
+        }
+        .padding(.top, 5)
+        .padding(.trailing, 5)
+    }
+}
+
+/// A Photos video, copied out of the picker's short-lived file.
+private struct PickedMovie: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { SentTransferredFile($0.url) } importing: { received in
+            let dest = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(received.file.pathExtension)
+            try FileManager.default.copyItem(at: received.file, to: dest)
+            return PickedMovie(url: dest)
+        }
     }
 }

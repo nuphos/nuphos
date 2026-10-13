@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { test } from 'node:test'
 
 import { agentEnv, deriveControlKey, openabConfigToml, openabEnv } from './config.ts'
@@ -25,23 +28,29 @@ const launch: LocalRuntimeLaunch = {
   env: { HOME: '/Users/me', PATH: '/usr/bin', AWS_SECRET_ACCESS_KEY: 'secret' },
 }
 
-test('Claude Code runs from a config dir of Nuphos’s own, with its own login', () => {
+test('Claude Code runs from a config dir of Nuphos’s own, with the platform credential store', () => {
   const env = agentEnv(launch)
 
   assert.equal(env.CLAUDE_CONFIG_DIR, '/data/users/u1/claude-home')
-  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, launch.agentHome)
+  assert.equal(
+    env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    process.platform === 'darwin' ? '' : launch.agentHome,
+  )
   assert.equal(env.ENABLE_CLAUDEAI_MCP_SERVERS, 'false')
   assert.match(openabConfigToml(launch), /^CLAUDE_CONFIG_DIR = "\/data\/users\/u1\/claude-home"$/mu)
 })
 
-test('the owner’s Claude config never selects the Nuphos credential store', () => {
+test('a custom terminal credential store does not load personal settings', () => {
   const env = agentEnv({
     ...launch,
     env: { ...launch.env, CLAUDE_CONFIG_DIR: '/Users/me/.claude-work' },
   })
 
   assert.equal(env.CLAUDE_CONFIG_DIR, '/data/users/u1/claude-home')
-  assert.equal(env.CLAUDE_SECURESTORAGE_CONFIG_DIR, launch.agentHome)
+  assert.equal(
+    env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    process.platform === 'darwin' ? '/Users/me/.claude-work' : launch.agentHome,
+  )
 })
 
 test('Claude keeps the host home for Keychain access and filters the owner’s environment', () => {
@@ -69,6 +78,30 @@ test('openab listens on loopback only, with a control key it cannot confuse with
   assert.equal(env.HOME, launch.openabHome)
 })
 
+test('the runtime offers only its bundled attachment program as a job', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'bundle-'))
+  const bundled = { ...launch, bundle: { ...launch.bundle, root } }
+
+  try {
+    assert.equal(openabEnv(bundled).OPENAB_RUNTIME_JOBS, undefined)
+    writeFileSync(path.join(root, 'attachment-job.mjs'), '')
+    const jobs = openabEnv(bundled).OPENAB_RUNTIME_JOBS
+
+    if (process.platform === 'win32') return assert.equal(jobs, undefined)
+    assert.equal(
+      jobs,
+      `attachments=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} ${path.join(root, 'attachment-job.mjs')}`,
+    )
+    // openab splits the command on whitespace, so a spaced path cannot run.
+    assert.equal(
+      openabEnv({ ...bundled, nodeExecPath: '/Apps/Nuphos 2.app/Nuphos' }).OPENAB_RUNTIME_JOBS,
+      undefined,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('the config quotes paths as TOML strings', () => {
   const toml = openabConfigToml({ ...launch, workspace: 'C:\\Users\\me "x"' })
 
@@ -89,4 +122,17 @@ test('Codex keeps an isolated home, never the owner’s CODEX_HOME', () => {
   assert.equal(env.CODEX_HOME, '/data/users/u1/codex-home')
   assert.equal(env.CLAUDE_CODE_EXECUTABLE, undefined)
   assert.equal(env.CLAUDE_CONFIG_DIR, undefined)
+})
+
+test('an explicit default Keychain override wins over a custom terminal config', () => {
+  const env = agentEnv({
+    ...launch,
+    env: { ...launch.env, CLAUDE_CONFIG_DIR: '/personal', CLAUDE_SECURESTORAGE_CONFIG_DIR: '' },
+  })
+
+  assert.equal(env.CLAUDE_CONFIG_DIR, launch.agentHome)
+  assert.equal(
+    env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    process.platform === 'darwin' ? '' : launch.agentHome,
+  )
 })

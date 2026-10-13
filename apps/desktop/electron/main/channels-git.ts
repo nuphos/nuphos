@@ -1,11 +1,19 @@
 import * as asanaInstall from '../asana-install'
 import * as atlas from '../atlas'
 import * as cloudflareInstall from '../cloudflare-install'
+import * as githubCli from '../github-cli'
 import * as githubInstall from '../github-install'
 import * as gitlabInstall from '../gitlab-install'
 import * as jiraInstall from '../jira-install'
 import * as linearInstall from '../linear-install'
 import * as sentryInstall from '../sentry-install'
+
+import type {
+  GithubMergeMethod,
+  GithubPullRef,
+  GithubReviewEvent,
+} from '../../src/types/github-pr-detail.ts'
+import type { IpcMainInvokeEvent } from 'electron'
 
 export const gitChannels = {
   'atlas:listOnpremClusters': (_e: unknown, teamId: string) => atlas.listOnpremClusters(teamId),
@@ -66,6 +74,13 @@ export const gitChannels = {
     repo: string,
     pullNumber: number,
   ) => atlas.getGithubPull(teamId, installationId, owner, repo, pullNumber),
+  'github-cli:viewer': () => githubCli.githubCliViewer(),
+  'github-cli:comment': (_e: unknown, pull: GithubPullRef, body: string) =>
+    githubCli.githubCliComment(pull, body),
+  'github-cli:review': (_e: unknown, pull: GithubPullRef, event: GithubReviewEvent, body: string) =>
+    githubCli.githubCliReview(pull, event, body),
+  'github-cli:merge': (e: IpcMainInvokeEvent, pull: GithubPullRef, method: GithubMergeMethod) =>
+    githubCli.githubCliMerge(e.sender, pull, method),
   'atlas:listGithubActionRuns': (
     _e: unknown,
     teamId: string,

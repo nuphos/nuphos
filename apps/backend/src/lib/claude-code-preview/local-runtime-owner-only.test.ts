@@ -10,7 +10,6 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { moveConversationRuntime } from './conversation-runtime-move'
-import { setLocalAgentDefaults } from './local-agent-defaults'
 import { listRuntimeInstances, requireRuntimeInstance } from './runtime-catalog'
 import { runtimeModelCatalog } from './runtime-models'
 
@@ -91,14 +90,14 @@ describe('a local agent is listed only for its owner', () => {
     expect(await listRuntimeInstances(TEAM)).toEqual([])
   })
 
-  test('a teammate, or a team-scoped call such as runtime defaults, cannot address it', async () => {
+  test('a teammate, or a team-scoped call, cannot address it', async () => {
     expect(await requireRuntimeInstance(TEAM, localId, 'owner')).toMatchObject({ kind: 'local' })
     await expect(requireRuntimeInstance(TEAM, localId, 'teammate')).rejects.toMatchObject(notFound)
     await expect(requireRuntimeInstance(TEAM, localId)).rejects.toMatchObject(notFound)
   })
 })
 
-describe('only the owner can run a session on their local agent', () => {
+describe('only the owner can put a session on their local agent', () => {
   test('the owner’s own turn resolves to their computer', async () => {
     const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
       userId: 'owner',
@@ -121,9 +120,21 @@ describe('only the owner can run a session on their local agent', () => {
     ).rejects.toMatchObject(notFound)
   })
 
-  test('a teammate cannot continue the owner’s conversation from a trigger or channel', async () => {
+  test('a teammate continues the owner’s conversation on the owner’s computer', async () => {
+    const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
+      userId: 'teammate',
+    })
+
+    expect(parseLocalRuntimeUrl(endpoint.url)).toMatchObject({ userId: 'owner', teamId: TEAM })
+  })
+
+  test('a teammate cannot put the owner’s unpinned conversation on it', async () => {
     await expect(
-      resolveConversationChatRuntime(TEAM, conversation('owner'), { userId: 'teammate' }),
+      resolveConversationChatRuntime(
+        TEAM,
+        { ...conversation('owner'), agentRuntime: undefined, runtimeId: undefined },
+        { userId: 'teammate', runtimeId: localId },
+      ),
     ).rejects.toMatchObject(notFound)
   })
 
@@ -155,14 +166,5 @@ describe('an owner’s choices for their local agent', () => {
     await expect(runtimeModelCatalog(TEAM, localId, undefined, 'teammate')).rejects.toMatchObject(
       notFound,
     )
-  })
-
-  test('its model choice is the owner’s own and never a team runtime default', async () => {
-    await setLocalAgentDefaults(localId, { model: 'opus' })
-
-    expect(memory.rows('agent_runtime_defaults')).toEqual([])
-    expect((await requireRuntimeInstance(TEAM, localId, 'owner')).defaults).toEqual({
-      model: 'opus',
-    })
   })
 })

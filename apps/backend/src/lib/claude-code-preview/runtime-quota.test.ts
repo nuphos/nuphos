@@ -110,12 +110,15 @@ test('the probe prints on the sentinel the backend reads', () => {
 
 test('the probe claims the provider answered only once it has a response', () => {
   const fetchAt = RUNTIME_QUOTA_PROBE.indexOf('await fetch(')
-  const askedAt = RUNTIME_QUOTA_PROBE.indexOf('asked = true;')
+  const billingAt = RUNTIME_QUOTA_PROBE.indexOf("'_x.ai/billing'")
 
   expect(fetchAt).toBeGreaterThan(0)
+  expect(billingAt).toBeGreaterThan(0)
   // A fetch that throws is a network failure, not a refusal. Setting the flag
   // before the response exists would earn that failure the ten-minute hold.
-  expect(askedAt).toBeGreaterThan(fetchAt)
+  expect(RUNTIME_QUOTA_PROBE.indexOf('asked = true;', fetchAt)).toBeGreaterThan(fetchAt)
+  expect(RUNTIME_QUOTA_PROBE.indexOf('asked = true;', billingAt)).toBeGreaterThan(billingAt)
+  expect(RUNTIME_QUOTA_PROBE.indexOf('asked = true;')).toBeGreaterThan(billingAt)
 })
 
 test('reads the sentinel line the agent printed, ignoring anything around it', () => {
@@ -150,6 +153,44 @@ test("the agent's own reason is what the user sees", async () => {
   expect(await fetchRuntimeQuota('t', claude, Date.now, deps)).toMatchObject({
     available: false,
     reason: 'Sign in required',
+  })
+})
+
+test('an agent without a usage API is never probed', async () => {
+  const { deps, calls } = probing({ error: 'Sign in required' })
+  const antigravity: RuntimeInstance = {
+    ...claude,
+    id: 'agy-1',
+    provider: 'antigravity',
+    label: 'Antigravity',
+  }
+
+  expect(await fetchRuntimeQuota('t', antigravity, Date.now, deps)).toMatchObject({
+    available: false,
+    reason: 'Antigravity does not report usage',
+  })
+  expect(calls()).toBe(0)
+})
+
+test("normalizes Grok's billing period", async () => {
+  const grok: RuntimeInstance = { ...claude, id: 'grok-1', provider: 'grok', label: 'Grok' }
+  const { deps } = probing({
+    usage: {
+      config: {
+        creditUsagePercent: 12.34,
+        currentPeriod: { type: 'USAGE_PERIOD_TYPE_WEEKLY', end: '2026-10-06T06:37:43Z' },
+      },
+      subscription_tier: 'SuperGrok',
+    },
+    plan: 'SuperGrok',
+  })
+
+  expect(await fetchRuntimeQuota('t', grok, frozen, deps)).toMatchObject({
+    available: true,
+    plan: 'SuperGrok',
+    windows: [
+      { id: 'period', label: 'Weekly', usedPercent: 12.3, resetsAt: '2026-10-06T06:37:43Z' },
+    ],
   })
 })
 
@@ -296,4 +337,31 @@ test('a transport exception is reported generically, never echoed', async () => 
 
   expect(quota.available).toBe(false)
   expect(quota.reason).toBe('Usage lookup failed')
+})
+
+test('a completed sign-in is not answered with the "Sign in required" held before it', async () => {
+  let reading: RuntimeQuotaReading = { error: 'Sign in required', asked: true }
+  const { deps, calls } = probing(() => Promise.resolve(reading))
+
+  expect((await fetchRuntimeQuota('t', claude, frozen, deps, 'attempt-1')).reason).toBe(
+    'Sign in required',
+  )
+  reading = { usage: { five_hour: { utilization: 10, resets_at: null } } }
+  expect((await fetchRuntimeQuota('t', claude, frozen, deps, 'attempt-1')).available).toBe(false)
+  expect((await fetchRuntimeQuota('t', claude, frozen, deps, 'attempt-2')).available).toBe(true)
+  expect(calls()).toBe(2)
+})
+
+test('each answer the provider gives is recorded once, not once per poll', async () => {
+  const { deps } = probing({ usage: { five_hour: { utilization: 5, resets_at: null } } })
+  const recorded: string[] = []
+  const record = (quota: { runtimeId: string }) => {
+    recorded.push(quota.runtimeId)
+
+    return Promise.resolve()
+  }
+
+  await fetchRuntimeQuota('t', claude, frozen, { ...deps, record })
+  await fetchRuntimeQuota('t', claude, frozen, { ...deps, record })
+  expect(recorded).toEqual(['claude-1'])
 })

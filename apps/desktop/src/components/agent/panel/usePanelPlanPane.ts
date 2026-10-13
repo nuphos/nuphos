@@ -181,6 +181,7 @@ export function usePanelPlanPane(acc: Acc) {
       activeTab?.claudeCodeRuntimeAttached === true,
       activeTab?.agentRuntime,
       Boolean(activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign),
+      activeTab?.runtimeId,
     )
   }, [
     activeTab?.readOnly,
@@ -189,6 +190,7 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.sessionId,
     activeTab?.claudeCodeRuntimeAttached,
     activeTab?.agentRuntime,
+    activeTab?.runtimeId,
     sessionIdProp,
   ])
 

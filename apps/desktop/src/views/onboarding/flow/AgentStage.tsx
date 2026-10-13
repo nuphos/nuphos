@@ -153,8 +153,9 @@ export function AgentStage({
             transition={{ delay: 0.6, duration: 0.4 }}
             className="mb-8 max-w-[440px] text-[14.5px] leading-relaxed text-secondary"
           >
-            Nuphos is an AI agent for your cloud. Describe what you want in plain language and it
-            deploys, debugs, and manages your infrastructure for you — watch it work on the right.
+            Nuphos is the agent workspace for your team. Describe what you want in plain language
+            and the agent does the work in a session your teammates can join — watch it work on the
+            right.
           </motion.p>
 
           <motion.div

@@ -165,6 +165,31 @@ export type UserTeamSidebarFavorites = {
   updatedAt: Date
 }
 
+/**
+ * Which cards a team's home page shows. A document with a `userId` is that
+ * person's layout, synced across their machines; the one with `userId: null`
+ * is the team default, shown to anyone who has not customized theirs.
+ */
+export type TeamHomeLayout = {
+  _id: ObjectId
+  teamId: ObjectId
+  userId: string | null
+  layout: HomeLayout
+  updatedAt: Date
+}
+
+export type HomeLayout = {
+  team: boolean
+  github: {
+    id: string
+    kind: 'pulls' | 'ci'
+    repos: { installationId: number; fullName: string }[]
+    statuses: string[]
+  }[]
+  panels: { dashboardId: string; panelId: string }[]
+  grid?: { i: string; x: number; y: number; w: number; h: number }[]
+}
+
 export const teamByosBindings = (): Collection<TeamByosBindings> =>
   db().collection<TeamByosBindings>('team_byos_bindings')
 
@@ -173,6 +198,9 @@ export const teamInvitations = (): Collection<TeamInvitation> =>
 
 export const userTeamSidebarFavorites = (): Collection<UserTeamSidebarFavorites> =>
   db().collection<UserTeamSidebarFavorites>('user_team_sidebar_favorites')
+
+export const teamHomeLayouts = (): Collection<TeamHomeLayout> =>
+  db().collection<TeamHomeLayout>('team_home_layouts')
 
 /**
  * One-time backfill for the Aliyun AccessKey → RAM-role-OIDC migration. Legacy

@@ -1,7 +1,9 @@
 // Wire-level types for the OpenAB ACP client and the session-creation
 // options it forwards to the runtime's inner claude-agent-acp session.
+import { runsBehindAcpShim } from './runtime-provider'
+
 import type { PreviewAgentUpdate } from './preview-agent-update'
-import type { RuntimeDefaults } from './runtime-defaults'
+import type { OpenAbProvider } from './runtime-provider'
 
 export const ACP_INITIALIZE_PARAMS = {
   protocolVersion: 1,
@@ -63,9 +65,12 @@ export type OpenAbAcpClientOptions = {
   retireGraceMs?: number
 }
 
+/** Model settings the runtime applies when it creates the session. */
+export type RuntimeDefaults = { model?: string; fast?: 'on' | 'off'; effort?: string }
+
 export type OpenAbSessionRuntime = {
   defaults?: RuntimeDefaults
-  provider?: 'claude-code' | 'codex'
+  provider?: OpenAbProvider
   env?: Record<string, string>
 }
 
@@ -148,6 +153,22 @@ export function sessionMeta(
         ...(runtime.defaults ? { 'ai.nuphos/runtimeDefaults': runtime.defaults } : {}),
         'ai.nuphos/codex': {
           ...(systemPrompt ? { developerInstructions: systemPrompt } : {}),
+          ...(runtime.env ? { env: runtime.env } : {}),
+        },
+      },
+    }
+  }
+  // Agents behind the runtime's ACP shim get one shape, which the shim turns into
+  // whatever each agent accepts (apps/runtime/image/acp-shim.mjs).
+  if (runtime?.provider && runsBehindAcpShim(runtime.provider)) {
+    return {
+      _meta: {
+        'dev.openab/permissionPolicy': 'relay',
+        'ai.nuphos/runtimeAuthority': 2,
+        ...runtimeCredentials(runtime.env),
+        ...(runtime.defaults ? { 'ai.nuphos/runtimeDefaults': runtime.defaults } : {}),
+        'ai.nuphos/session': {
+          ...(systemPrompt ? { systemPrompt } : {}),
           ...(runtime.env ? { env: runtime.env } : {}),
         },
       },

@@ -58,6 +58,15 @@ enum Theme {
     }
 }
 
+extension View {
+    /// The filled call-to-action. The app tints with `Theme.heading`, which
+    /// is white in the dark — the color `.borderedProminent` draws its label
+    /// in — so the fill takes the brand instead.
+    func prominentButton() -> some View {
+        buttonStyle(.borderedProminent).tint(Theme.brand)
+    }
+}
+
 extension Theme {
     /// Chat typography. Semantic text styles, so the whole scale follows
     /// Dynamic Type; sizes in the comments are the default (Large) ones.

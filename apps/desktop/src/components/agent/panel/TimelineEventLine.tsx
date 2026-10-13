@@ -1,7 +1,7 @@
 import { Avatar } from '../../Avatar'
 import { PlanRevealSection } from '../plan-tool/reveal'
 
-import { ClaudeCodeIcon, CodexIcon } from './icons'
+import { AgentProviderIcon } from './icons'
 import { LoadingText } from './partChrome'
 
 import type {
@@ -26,11 +26,9 @@ function Person({ person }: { person: AgentTimelinePerson }) {
 }
 
 function Runtime({ runtime }: { runtime: AgentTimelineRuntime }) {
-  const Icon = runtime.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
-
   return (
     <span className="inline-flex min-w-0 items-center gap-1 text-secondary">
-      <Icon className="h-3 w-3 shrink-0" />
+      <AgentProviderIcon provider={runtime.provider} className="h-3 w-3 shrink-0" />
       <span className="truncate font-medium">{runtime.label}</span>
     </span>
   )

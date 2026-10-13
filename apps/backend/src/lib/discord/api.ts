@@ -23,7 +23,8 @@ export async function discordApi<T>(path: string, init: RequestInit = {}): Promi
     const headers = new Headers(init.headers)
 
     headers.set('Authorization', `Bot ${token}`)
-    headers.set('Content-Type', 'application/json')
+    // A multipart upload carries its own boundary.
+    if (!(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
     const response = await fetch(`${API}${path}`, {
       ...init,
       headers,
@@ -41,7 +42,14 @@ export async function discordApi<T>(path: string, init: RequestInit = {}): Promi
   throw new Error('Discord API retry budget exhausted')
 }
 
-export type DiscordChannel = { id: string; type: number; guild_id?: string; parent_id?: string }
+export type DiscordChannel = {
+  id: string
+  type: number
+  guild_id?: string
+  parent_id?: string
+  name?: string
+  topic?: string | null
+}
 export type DiscordGuild = { id: string; name: string }
 
 export const NUPHOS_DISCORD_COMMAND = {

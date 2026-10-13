@@ -331,7 +331,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "nuphos-ios/nuphos-ios.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
-				PROVISIONING_PROFILE_SPECIFIER = "Nuphos iOS App Store CI";
+				PROVISIONING_PROFILE_SPECIFIER = "Nuphos iOS App Store CI 2026-10";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T873K59LQ;
 				ENABLE_APP_SANDBOX = YES;

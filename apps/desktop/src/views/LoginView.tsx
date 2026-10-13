@@ -89,7 +89,7 @@ export function LoginView({ onLogin }: Props) {
           </div>
           <h1 className="text-[20px] font-semibold text-main mb-1.5">Welcome to Nuphos</h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
-            Manage your cloud infrastructure with Agent
+            The agent workspace for your team
           </p>
 
           {step === 'start' ? (

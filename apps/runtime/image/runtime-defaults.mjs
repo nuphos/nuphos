@@ -10,7 +10,10 @@
 // timeout here is the real budget and the kill is what enforces it.
 export async function nuphosSyncRuntimeSkills(params, run) {
   const env =
-    params?._meta?.claudeCode?.options?.env ?? params?._meta?.['ai.nuphos/codex']?.env ?? {}
+    params?._meta?.claudeCode?.options?.env ??
+    params?._meta?.['ai.nuphos/codex']?.env ??
+    params?._meta?.['ai.nuphos/session']?.env ??
+    {}
   const url = env.NUPHOS_RUNTIME_SKILLS_URL
   const token = env.NUPHOS_RUNTIME_SKILLS_TOKEN
 

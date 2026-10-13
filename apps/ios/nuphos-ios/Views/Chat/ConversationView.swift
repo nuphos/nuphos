@@ -11,19 +11,21 @@ struct ConversationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var readerID = UUID()
     @State private var onScreen = false
+    @State private var composerHeight: CGFloat = 0
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
     @State private var planLink: PlanLink.Target?
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
-    @State private var alwaysAllowTarget: ChatPart.ToolPart?
-    @State private var alwaysAllowRule = ""
     @State private var didSendInitial = false
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
+    @State private var updating = false
     @State private var showRename = false
     @State private var renamedTitle = ""
+    @State private var showRuntimes = false
+    @State private var showShare = false
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
 
@@ -43,6 +45,9 @@ struct ConversationView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.chatCanvas)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 if !session.queued.isEmpty {
@@ -60,6 +65,9 @@ struct ConversationView: View {
                     canSteer: session.canSteer,
                     allowsAttachments: !session.canSteer,
                     failedSubmission: $session.failedSubmission,
+                    sessionMentions: SessionMentionSource(teamId: session.teamId) { query in
+                        await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                    },
                     onSend: { session.send($0) },
                     onStop: { session.stop() }
                 ) {
@@ -73,6 +81,7 @@ struct ConversationView: View {
                     ) }
                 }
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
         }
         .onAppear {
             UIEventLog.pageTransition(from: sourcePage, to: "chat")
@@ -109,20 +118,27 @@ struct ConversationView: View {
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        if let link = SessionLink.url(teamId: session.teamId, sessionId: session.sessionId) {
-                            ShareLink(item: link) {
-                                Label("Share", systemImage: "square.and.arrow.up")
-                            }
-                        }
+                        Button("Share", systemImage: "person.crop.circle.badge.plus") { showShare = true }
                         Button {
-                            Task { await store.setPinned(!store.isPinned(session.sessionId), sessionId: session.sessionId, title: session.title) }
+                            Task {
+                                updating = true
+                                defer { updating = false }
+                                do { try await store.setPinned(!store.isPinned(session.sessionId), sessionId: session.sessionId, title: session.title) }
+                                catch { archiveError = error.localizedDescription }
+                            }
                         } label: {
                             Label(store.isPinned(session.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(session.sessionId) ? "pin.slash" : "pin")
                         }
-                        if session.canManage {
+                        if session.ownsChat {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
+                        }
+                        if session.canManage {
+                            Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
+                                .disabled(session.isStreaming)
                             Button {
                                 Task {
+                                    updating = true
+                                    defer { updating = false }
                                     do {
                                         try await session.setArchived(!session.isArchived)
                                         // Either direction takes the chat out
@@ -137,8 +153,13 @@ struct ConversationView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        // The menu has closed by the time the request runs;
+                        // this is what shows it was taken. A Label, not a bare
+                        // Image: the bar takes it as a native item, so the
+                        // whole glass answers, not just the glyph.
+                        if updating { ProgressView() } else { Label("Chat options", systemImage: "ellipsis") }
                     }
+                    .disabled(updating)
                     .accessibilityLabel("Chat options")
                 }
             }
@@ -149,6 +170,17 @@ struct ConversationView: View {
             Text(archiveError ?? "")
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
+        .sheet(isPresented: $showShare) { ShareSessionSheet(session: session) }
+        .sheet(isPresented: $showRuntimes) {
+            RuntimePickerSheet(session: session) { runtime in
+                Task {
+                    updating = true
+                    defer { updating = false }
+                    do { try await session.move(to: runtime); await store.reload() }
+                    catch { archiveError = error.localizedDescription }
+                }
+            }
+        }
         .sheet(item: $planLink) { target in
             NavigationStack {
                 PlanDetailView(
@@ -164,19 +196,6 @@ struct ConversationView: View {
                 }
             }
             .presentationDetents([.large])
-        }
-        .alert("Always allow", isPresented: Binding(get: { alwaysAllowTarget != nil }, set: { if !$0 { alwaysAllowTarget = nil } })) {
-            TextField("Describe the rule", text: $alwaysAllowRule)
-            Button("Allow") {
-                if let target = alwaysAllowTarget {
-                    session.decide(toolCallId: target.toolCallId, .always(rule: alwaysAllowRule))
-                }
-                alwaysAllowTarget = nil
-            }
-            .disabled(alwaysAllowRule.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button("Cancel", role: .cancel) { alwaysAllowTarget = nil }
-        } message: {
-            Text("Commands matching this description will run without asking.")
         }
         .task {
             if session.isNew, let initialPrompt, !didSendInitial {
@@ -194,6 +213,11 @@ struct ConversationView: View {
             #endif
         }
         .task { await session.pollWhileIdle() }
+        // New files land while a turn runs; read them once it settles.
+        .task(id: "\(session.isStreaming).\(session.messages.count)") {
+            await session.refreshResources()
+            if !session.isStreaming { await session.refreshDownloads() }
+        }
         .task {
             while !Task.isCancelled {
                 session.tickRuntimeClock()
@@ -243,11 +267,12 @@ struct ConversationView: View {
     @ViewBuilder
     private var transcript: some View {
         #if os(iOS)
-        TranscriptList(rows: rows, submittedRowID: session.lastSubmittedRowID, sessionID: session.sessionId) { row in
+        TranscriptList(rows: rows, submittedRowID: session.lastSubmittedRowID, sessionID: session.sessionId, composerHeight: composerHeight) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
                 .padding(.bottom, rowSpacing(row)))
         }
+        .ignoresSafeArea(.all, edges: .bottom)
         #else
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -274,9 +299,9 @@ struct ConversationView: View {
     private func rowSpacing(_ row: ChatRow) -> CGFloat {
         switch row {
         case .assistantText: 28
-        case .user: 22
+        case .user, .sending: 22
         case .timestamp: 14
-        case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall: 14
+        case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint: 18
         }
     }
@@ -286,8 +311,8 @@ struct ConversationView: View {
         switch row {
         case .timestamp(_, let date):
             TimestampLabel(date: date)
-        case .user(_, _, let text, let images, let sender):
-            UserBubble(text: text, images: images, sender: sender)
+        case .user(_, _, let text, let images, let sender, let transfers):
+            UserBubble(text: text, images: images, sender: sender, transfers: transfers, session: session)
         case .assistantText(_, _, let text, let streaming):
             AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:))
         case .reasoning(_, let part):
@@ -297,17 +322,10 @@ struct ConversationView: View {
                 part: part,
                 canDecide: canDecide,
                 session: session,
-                onOpen: { toolDetail = part },
-                onAlwaysAllow: {
-                    alwaysAllowRule = part.authorization?["suggestedRule"]?.stringValue ?? ""
-                    alwaysAllowTarget = part
-                }
+                onOpen: { toolDetail = part }
             )
         case .toolRun(_, _, let items, let live):
-            ToolRunView(items: items, live: live, session: session, onOpen: { toolDetail = $0 }, onAlwaysAllow: { part in
-                alwaysAllowRule = part.authorization?["suggestedRule"]?.stringValue ?? ""
-                alwaysAllowTarget = part
-            })
+            ToolRunView(items: items, live: live, session: session, onOpen: { toolDetail = $0 })
         case .work(_, let inner, let duration):
             WorkGroup(rows: inner, duration: duration) { innerRow in
                 AnyView(rowView(innerRow))
@@ -316,8 +334,15 @@ struct ConversationView: View {
             MemoryPill(created: created, updated: updated)
         case .memoryRecall(_, let entries, let fetched):
             MemoryRecallPill(entries: entries, fetched: fetched)
+        case .downloads(_, let groupId):
+            TransferCard(groupId: groupId, fromUser: false, session: session)
+                .frame(maxWidth: .infinity, alignment: .leading)
         case .activity(let text):
             ActivityRow(text: text)
+        case .sending:
+            if let sending = session.sending {
+                SendingBubble(submission: sending.submission, progress: sending.progress, onCancel: session.cancelSending)
+            }
         case .hint(_, let text, let isError):
             HintRow(text: text, isError: isError)
         }
@@ -330,6 +355,11 @@ struct UserBubble: View {
     let text: String
     var images: [String] = []
     var sender: ChatMessage.Sender?
+    var transfers: [TransferUpload] = []
+    var session: ChatSession?
+
+    @State private var expanded = false
+    @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
@@ -351,19 +381,78 @@ struct UserBubble: View {
                     }
                 }
             }
+            if let session {
+                ForEach(transfers, id: \.groupId) { transfer in
+                    TransferCard(groupId: transfer.groupId, fromUser: true, session: session, names: transfer.files.map(\.fileName))
+                }
+            }
             if !text.isEmpty {
-                Text(text)
-                    .font(Theme.Text.body)
-                    .lineSpacing(Theme.Text.leading)
-                    .foregroundStyle(Theme.heading)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                let preview = MessagePreview.head(of: text)
+                let folded = preview != nil && !expanded
+                VStack(alignment: .leading, spacing: 8) {
+                    // Folded, a selection would copy the preview instead of the message.
+                    PlainMessageText(text: folded ? preview ?? text : text, selectable: !folded)
+                    if preview != nil {
+                        Button(expanded ? "Show less" : "Show more") {
+                            // Like a step disclosure: a reading interaction,
+                            // applied in one layout rather than animated.
+                            readingInteraction()
+                            var transaction = Transaction(animation: nil)
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) { expanded.toggle() }
+                        }
+                        .font(Theme.Text.label.weight(.medium))
+                        .foregroundStyle(Theme.muted)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.leading, 56)
+    }
+}
+
+/// The user's message while its attachments upload: what they sent, how far
+/// the upload is, and a way to take it back.
+struct SendingBubble: View {
+    let submission: ComposerSubmission
+    let progress: Progress
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            HStack(spacing: 6) {
+                ForEach(submission.attachments.prefix(4)) { attachment in
+                    AttachmentPreview(attachment: attachment)
+                        .frame(width: 96, height: 96)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+            if !submission.text.isEmpty {
+                PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            HStack(spacing: 10) {
+                // Progress is read, not stored: the bubble re-reads it twice a second.
+                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                    Text(label).font(Theme.Text.label).foregroundStyle(Theme.muted).monospacedDigit()
+                }
+                Button("Cancel", action: onCancel).font(Theme.Text.label)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.leading, 56)
+    }
+
+    private var label: String {
+        // Nothing to upload, or every byte is out and the server is answering.
+        guard progress.totalUnitCount > 0, progress.completedUnitCount < progress.totalUnitCount else { return "Sending…" }
+        return "Uploading \(progress.completedUnitCount.formatted(.byteCount(style: .file))) of \(progress.totalUnitCount.formatted(.byteCount(style: .file)))"
     }
 }
 
@@ -480,6 +569,46 @@ struct MemoryRecallPill: View {
     }
 }
 
+/// Pull requests and issues linked to the conversation, pinned under its title.
+struct ResourceStrip: View {
+    let resources: [SessionResource]
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(resources) { resource in
+                    Button { openURL(resource.url) } label: {
+                        HStack(spacing: 5) {
+                            BrandLogo(name: "logo-\(resource.provider)", size: 12)
+                            Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
+                            Text(resource.state.capitalized).foregroundStyle(tone(resource))
+                        }
+                        .font(Theme.Text.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Theme.chatSurface, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(resource.title), \(resource.state)")
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 6)
+        .background(Theme.chatCanvas)
+    }
+
+    private func tone(_ resource: SessionResource) -> Color {
+        guard resource.provider == "github" else { return Theme.muted }
+        switch resource.state {
+        case "merged": return Theme.brandText
+        case "closed": return .red
+        default: return .green
+        }
+    }
+}
+
 /// Queued messages waiting for the current reply to finish.
 struct QueuedStrip: View {
     let items: [String]
@@ -494,6 +623,7 @@ struct QueuedStrip: View {
                         Text(item).lineLimit(1).font(Theme.Text.label)
                         Button { onRemove(index) } label: {
                             Image(systemName: "xmark").font(Theme.Text.micro.weight(.bold))
+                                .contentShape(Rectangle().inset(by: -10))
                         }
                         .buttonStyle(.plain)
                     }

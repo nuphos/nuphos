@@ -1,6 +1,12 @@
 import { AppError } from '@/lib/errors'
 
-import { runtimeErrorPrefix, runtimeLabel } from './runtime-provider'
+import {
+  OPENAB_PROVIDERS,
+  isOpenAbProvider,
+  runtimeErrorPrefix,
+  runtimeLabel,
+  runtimeProvider,
+} from './runtime-provider'
 
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
@@ -17,15 +23,19 @@ export function assertClaudeCodeSetupConfigured(
   throw new AppError(
     409,
     `${runtimeErrorPrefix(provider)}_setup_required`,
-    `${provider === 'codex' ? 'Codex' : 'Claude Code'} is not set up in this workspace yet. A workspace administrator must add an agent in Settings → Agent and sign it in before using Agent.`,
+    `${runtimeLabel(provider)} is not set up in this workspace yet. A workspace administrator must add an agent in Settings → Agent and sign it in before using Agent.`,
   )
 }
 
 export function validateRequestedAgentRuntime(
   value: unknown,
 ): asserts value is OpenAbProvider | undefined {
-  if (value !== undefined && value !== 'claude-code' && value !== 'codex') {
-    throw new AppError(400, 'invalid_request', 'agentRuntime must be claude-code or codex')
+  if (value !== undefined && !isOpenAbProvider(value)) {
+    throw new AppError(
+      400,
+      'invalid_request',
+      `agentRuntime must be one of ${OPENAB_PROVIDERS.join(', ')}`,
+    )
   }
 }
 
@@ -49,13 +59,13 @@ export function resolveConversationRuntimeId(
   )
 }
 
-/** Existing native transcripts belong to the server, including pre-runtime-stamp documents. */
+/** Native transcripts belong to the server, from the first message onward. */
 export function isServerAuthoritativeTranscript(
   conversation: Pick<AgentConversation, 'agentRuntime' | 'claudeCodePreview'> | null,
+  requestedRuntime?: OpenAbProvider,
 ): boolean {
   return Boolean(
-    conversation?.agentRuntime === 'claude-code' ||
-    conversation?.agentRuntime === 'codex' ||
+    isOpenAbProvider(conversation ? conversation.agentRuntime : requestedRuntime) ||
     conversation?.claudeCodePreview,
   )
 }
@@ -66,10 +76,10 @@ export function resolveConversationAgentRuntime(
   teamDefault: ConversationAgentRuntime,
   requestedRuntime?: OpenAbProvider,
 ): ConversationAgentRuntime {
-  if (conversation?.agentRuntime === 'codex') return 'codex'
-  if (conversation?.agentRuntime || conversation?.claudeCodePreview) return 'claude-code'
+  if (conversation?.agentRuntime || conversation?.claudeCodePreview)
+    return runtimeProvider(conversation.agentRuntime)
 
-  return requestedRuntime ?? (teamDefault === 'codex' ? 'codex' : 'claude-code')
+  return requestedRuntime ?? runtimeProvider(teamDefault)
 }
 
 /** Keep the conversation's runtime and concrete ACP placement authoritative. */

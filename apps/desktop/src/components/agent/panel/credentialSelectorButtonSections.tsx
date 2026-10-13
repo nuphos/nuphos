@@ -77,12 +77,6 @@ export function CredentialSelectorSectionList({
         onChangeIds={(ids) => onChange({ ...value, onpremClusterIds: ids })}
       />
       <CredentialSectionGroup
-        sections={sections.deviceSections}
-        selectedIds={value.deviceIds}
-        newIds={unseen?.deviceIds}
-        onChangeIds={(ids) => onChange({ ...value, deviceIds: ids })}
-      />
-      <CredentialSectionGroup
         sections={sections.vantaSections}
         selectedIds={value.vantaIntegrationIds}
         newIds={unseen?.vantaIntegrationIds}

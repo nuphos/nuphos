@@ -4,16 +4,26 @@ import { controlRegistry } from './agent-chat-registry'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { loginFrameReader } from './runtime-login-exec'
+import { runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
-import type { RuntimeLoginFrame } from './runtime-login-exec'
+import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc } from './runtime-login-store'
+import type { OpenAbProvider } from './runtime-provider'
 import type { TeamPreviewClient } from './team-openab-runtime'
 
 const CODEX_LOGIN_FAILED =
   'Sign-in did not complete. Retry and check device-code login in ChatGPT security settings.'
 const CLAUDE_LOGIN_FAILED =
   'Sign-in did not complete. Start again and paste the whole code Claude shows you.'
+const LOGIN_FAILED: Record<OpenAbProvider, string> = {
+  'claude-code': CLAUDE_LOGIN_FAILED,
+  codex: CODEX_LOGIN_FAILED,
+  grok: 'Sign-in did not complete. Start again and confirm the code on the xAI page.',
+  antigravity:
+    'Sign-in did not complete. Start again and paste the whole address your browser ended on after Google sign-in.',
+  opencode: 'Sign-in did not complete. Start again and check the details you entered.',
+}
 
 async function controlEndpoint(teamId: string, runtimeId: string) {
   const { provider } = await requireRuntimeInstance(teamId, runtimeId)
@@ -72,11 +82,12 @@ export async function driveControlRuntimeLogin(
   signal: AbortSignal,
   doc: RuntimeLoginDoc,
   failure = CODEX_LOGIN_FAILED,
+  steps = false,
 ): Promise<void> {
-  const read = loginFrameReader(onFrame)
+  const read = loginFrameReader(onFrame, failure, steps)
   const exited = Promise.withResolvers<number>()
 
-  exited.promise.catch(() => undefined)
+  exited.promise.catch(() => {})
 
   const stopReading = client.onRuntimeLoginFrame(doc.attemptId, (frame) => {
     // This channel is shared, so a frame from an abandoned attempt has to be dropped
@@ -129,13 +140,15 @@ async function execControlRuntimeLogin(
   doc: RuntimeLoginDoc,
 ): Promise<void> {
   const client = await controlRegistry.acquire(doc.teamId, endpoint)
+  const provider = runtimeProvider(endpoint.provider)
 
   await driveControlRuntimeLogin(
     client,
     onFrame,
     signal,
     doc,
-    endpoint.provider === 'codex' ? CODEX_LOGIN_FAILED : CLAUDE_LOGIN_FAILED,
+    LOGIN_FAILED[provider],
+    provider === 'opencode',
   )
 }
 

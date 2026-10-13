@@ -3,7 +3,7 @@ import {
   runtimeHomeClaimName,
   runtimeWorkspaceClaimName,
   runtimeLabels as labels,
-  RUNTIME_CONFIG_MAP,
+  runtimeConfigMapName,
 } from './runtime-objects'
 
 import type { KubeObject } from './runtime-objects'
@@ -141,7 +141,7 @@ export function hostedRuntimeDeploymentObject(args: {
             {
               name: 'config',
               configMap: {
-                name: args.provider === 'codex' ? 'openab-codex-config' : RUNTIME_CONFIG_MAP,
+                name: runtimeConfigMapName(args.provider),
               },
             },
           ],

@@ -9,7 +9,6 @@ import type {
   AgentMemoryPage,
   AgentMemoryScope,
   AgentMemoryScorecard,
-  AutoModeRule,
 } from './agent-audit-types.ts'
 import type {
   AgentTrigger,
@@ -26,7 +25,6 @@ import type {
   AgentConversationCredentialsResponse,
   AgentConversationDetail,
   AgentConversationMessagesPage,
-  AgentConversationParticipant,
   AgentConversationsPage,
   AgentCredentialOptions,
   AgentCredentialSelection,
@@ -36,8 +34,13 @@ import type {
 } from './agent-types.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
-import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
+import type {
+  SessionConfigPick,
+  SessionConfigSelection,
+  SessionConfigState,
+} from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
+import type { AgentProvider } from '../types/runtime.ts'
 
 export type WindowAgentApi = {
   cloudProbeCliVersion(provider: CloudCliProvider, probeId?: string): Promise<string | null>
@@ -50,7 +53,7 @@ export type WindowAgentApi = {
   ): Promise<{
     runtimeId: string
     runtimeLabel: string
-    agentRuntime: 'claude-code' | 'codex'
+    agentRuntime: AgentProvider
     mode: 'history' | 'workspace'
   }>
   agentImportLocalSession(args: {
@@ -58,23 +61,9 @@ export type WindowAgentApi = {
     id: string
     teamId: string
     runtimeId: string
-    agentRuntime: 'claude-code' | 'codex'
+    agentRuntime: AgentProvider
   }): Promise<LocalSessionImportResult>
   agentGetSessionConfig(sessionId: string, teamId: string): Promise<SessionConfigState>
-  agentGetConversationParticipants(
-    sessionId: string,
-    teamId?: string,
-  ): Promise<{ participants: AgentConversationParticipant[] }>
-  agentInviteConversationParticipants(
-    sessionId: string,
-    teamId: string,
-    userIds: string[],
-  ): Promise<{ participants: AgentConversationParticipant[] }>
-  agentRemoveConversationParticipant(
-    sessionId: string,
-    teamId: string,
-    userId: string,
-  ): Promise<{ participants: AgentConversationParticipant[] }>
   agentSetSessionConfig(
     sessionId: string,
     teamId: string,
@@ -97,8 +86,10 @@ export type WindowAgentApi = {
     credentialAccess?: AgentCredentialSelection
     /** Authorization mode for a conversation being created by this call. */
     permissionMode?: 'auto' | 'bypass'
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
+    /** Model settings picked before this conversation existed. */
+    initialSessionConfig?: SessionConfigPick
   }): Promise<void>
   agentNotifyStopped(args: {
     title: string
@@ -141,6 +132,7 @@ export type WindowAgentApi = {
     archived: boolean,
     teamId?: string,
   ): Promise<{ ok: boolean; archived: boolean }>
+  agentUnlinkConversationParent(sessionId: string, teamId?: string): Promise<{ ok: boolean }>
   agentMarkConversationRead(
     sessionId: string,
     seq: number,
@@ -151,7 +143,8 @@ export type WindowAgentApi = {
     sessionId: string,
     text: string,
     teamId?: string,
-  ): Promise<{ ok: boolean; messageId: string }>
+    groupId?: string,
+  ): Promise<{ ok: boolean; messageId: string; text?: string; upload?: Record<string, unknown> }>
   agentSlackPickup(
     sessionId: string,
     teamId?: string,
@@ -159,7 +152,7 @@ export type WindowAgentApi = {
   agentGetConversation(
     sessionId: string,
     teamId?: string,
-    options?: { tail?: number },
+    options?: { tail?: number; runtimeState?: 'omit' },
   ): Promise<AgentConversationDetail>
   agentGetConversationMessages(
     sessionId: string,
@@ -183,7 +176,7 @@ export type WindowAgentApi = {
   }): Promise<AgentConversationCredentialsResponse>
   agentSyncConversationTranscript(args: {
     sessionId: string
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
     teamId?: string
     title: string
@@ -231,24 +224,11 @@ export type WindowAgentApi = {
     reason?: string,
   ): Promise<void>
   agentRestoreMemory(memoryId: string, teamId?: string, scope?: AgentMemoryScope): Promise<void>
-  agentListAutoModeRules(): Promise<{ enabled: boolean; rules: AutoModeRule[] }>
-  agentCreateAutoModeRule(description: string): Promise<{ rule: AutoModeRule }>
-  agentActivateAutoModeRule(ruleId: string): Promise<{ ok: boolean }>
-  agentDeleteAutoModeRule(ruleId: string): Promise<void>
-  agentAddAutoModeSessionApproval(sessionId: string, command: string): Promise<{ ok: boolean }>
   agentGetAutoModeBypass(sessionId: string): Promise<{ enabled: boolean; bypass: boolean }>
   agentSetAutoModeBypass(
     sessionId: string,
     bypass: boolean,
   ): Promise<{ ok: boolean; bypass: boolean }>
-  agentApproveAutoModeCommand(
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ): Promise<{ ok: boolean }>
-  agentDenyAutoModeCommand(sessionId: string, toolCallId: string, teamId?: string): Promise<void>
   agentListPlans(args: {
     teamId?: string
     mine?: boolean

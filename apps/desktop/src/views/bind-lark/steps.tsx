@@ -86,7 +86,7 @@ export function CreateAppStep({ domain }: { domain: LarkDomain }) {
         </li>
         <li>
           Set the app name to <WizardCopyableValue value="Nuphos" /> and the description to{' '}
-          <WizardCopyableValue value="The AI-Native DevOps workspace." />.
+          <WizardCopyableValue value="The agent workspace for your team." />.
         </li>
         <li>
           Use the Nuphos logo as its icon:

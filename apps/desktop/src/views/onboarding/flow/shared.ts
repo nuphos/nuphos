@@ -180,24 +180,24 @@ export const VALUE_PROP_POINTS: ValuePropPoint[][] = [
     {
       icon: UserCheck,
       title: 'Every change needs your approval',
-      body: 'Any action that would touch your cloud — deploys, restarts, config edits — is held until you explicitly approve it.',
+      body: 'Any action that would change your systems — deploys, restarts, config edits — is held until you explicitly approve it.',
     },
     {
       icon: KeyRound,
       title: 'You stay in control',
-      body: 'Credentials are encrypted, used only for what you grant, and you can revoke them anytime from your cloud console.',
+      body: 'Credentials are encrypted, used only for what you grant, and you can revoke them anytime.',
     },
   ],
   [
     {
       icon: Search,
       title: 'It looks before it answers',
-      body: 'Resources, dashboards, and logs are read from your cloud directly, so what it tells you is what is actually there.',
+      body: 'Resources, dashboards, and logs are read from the source directly, so what it tells you is what is actually there.',
     },
     {
       icon: ClipboardList,
       title: 'Changes arrive as a plan',
-      body: 'Anything that would alter your infrastructure is written out for you to read first — never applied and explained afterwards.',
+      body: 'Anything that would alter your systems is written out for you to read first — never applied and explained afterwards.',
     },
     {
       icon: ShieldCheck,
@@ -209,7 +209,7 @@ export const VALUE_PROP_POINTS: ValuePropPoint[][] = [
     {
       icon: Folder,
       title: 'Your services, not generic ones',
-      body: 'What runs where, what talks to what, and what your names mean — learned from your infrastructure, not assumed.',
+      body: 'What runs where, what talks to what, and what your names mean — learned from your own systems, not assumed.',
     },
     {
       icon: History,
@@ -226,7 +226,7 @@ export const VALUE_PROP_POINTS: ValuePropPoint[][] = [
     {
       icon: LayoutGrid,
       title: 'One workspace, both of you',
-      body: 'Engineers and agents work on the same infrastructure in the same place, against the same context.',
+      body: 'Engineers and agents work in the same place, against the same context.',
     },
     {
       icon: Globe,

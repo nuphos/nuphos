@@ -1,16 +1,13 @@
 // Decision tools for the Claude Code runtime: the classic tools that park a
-// turn on a human (permission grants, Auto Mode rules, an explicit user
-// choice, client-side local tools) become BLOCKING MCP calls.
+// turn on a human (an explicit user choice, client-side local tools) become
+// BLOCKING MCP calls.
 // Each publishes the classic card frames, registers a wait, and returns once
 // the decision lands — so Claude continues in the same turn and context — or,
 // if nobody answers within DECISION_WAIT_MS, returns saying so. One call, one
 // bounded wait: the turn never parks on an answer that is not coming.
 import { randomUUID } from 'node:crypto'
 
-import {
-  createAutoModeTools,
-  createUserDecisionTools,
-} from '@/lib/agent/tools-skilled/decision-tools'
+import { createUserDecisionTools } from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { logEvent } from '@/lib/observability'
@@ -19,11 +16,7 @@ import { registerPreviewWait } from '../decision-waiter'
 import { previewRunStreamId, publishPreviewFrame } from '../run-frame-bridge'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
-import {
-  CLIENT_TOOL_INSTRUCTION,
-  CLIENT_TOOL_UNREACHABLE_INSTRUCTION,
-  DECISION_SPECS,
-} from './decision-specs'
+import { CLIENT_TOOL_INSTRUCTION, CLIENT_TOOL_UNREACHABLE_INSTRUCTION } from './decision-specs'
 import { awaitDecisionOnce } from './decision-wait'
 
 import type { PreviewClientToolCall, PreviewWaitKind } from '../decision-waiter'
@@ -33,20 +26,12 @@ import type {
   PublishPreviewFrame,
 } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
-import type { DecisionSpec } from './decision-specs'
 import type { ToolHandler } from '@/lib/mcp/protocol'
 
 type ClassicTools = Record<string, unknown>
 
-function classicDecisionTools(ctx: PreviewToolContext): ClassicTools {
-  return {
-    ...createAutoModeTools({
-      userId: ctx.userId,
-      conversationId: ctx.sessionId,
-      onAwaitUserDecision: () => {},
-    }),
-    ...createUserDecisionTools({ agentOrigin: 'user', onExplicitUserDecision: () => {} }),
-  }
+function classicDecisionTools(): ClassicTools {
+  return createUserDecisionTools({ agentOrigin: 'user', onExplicitUserDecision: () => {} })
 }
 
 function isToolLike(value: unknown): value is AiSdkToolLike {
@@ -176,30 +161,6 @@ function passthroughHandler(
   }
 }
 
-function blockingHandler(
-  name: string,
-  tool: AiSdkToolLike,
-  spec: DecisionSpec,
-  ctx: PreviewToolContext,
-  options: BlockOptions,
-): ToolHandler {
-  return async (args) => {
-    const outcome = await runClassicTool(name, tool, args, ctx, options)
-
-    if ('error' in outcome) return toolError(outcome.error)
-    const { toolCallId, output } = outcome
-
-    if (typeof output.error === 'string') return toolResult(output)
-
-    return blockForDecision(
-      ctx,
-      { toolCallId, kind: spec.kind, ref: spec.ref?.(output), instruction: spec.instruction },
-      output,
-      options,
-    )
-  }
-}
-
 function clientToolHandler(
   name: string,
   ctx: PreviewToolContext,
@@ -243,26 +204,17 @@ export function decisionToolModule(options: Partial<BlockOptions> = {}): Preview
     publish: options.publish ?? publishPreviewFrame,
     runStreamId: options.runStreamId ?? previewRunStreamId,
   }
-  const sample = classicDecisionTools({
-    userId: '',
-    teamId: '',
-    sessionId: '',
-    locale: 'en',
-  })
+  const classic = classicDecisionTools()
   const localTools = createLocalTools(true)
 
   return {
-    definitions: [...definitionsOf(sample), ...definitionsOf(localTools)],
+    definitions: [...definitionsOf(classic), ...definitionsOf(localTools)],
     handlers: (ctx) => {
       const handlers: Record<string, ToolHandler> = {}
 
-      for (const [name, tool] of Object.entries(classicDecisionTools(ctx))) {
+      for (const [name, tool] of Object.entries(classic)) {
         if (!isToolLike(tool) || typeof tool.execute !== 'function') continue
-        const spec = DECISION_SPECS[name]
-
-        handlers[name] = spec
-          ? blockingHandler(name, tool, spec, ctx, block)
-          : passthroughHandler(name, tool, ctx, block)
+        handlers[name] = passthroughHandler(name, tool, ctx, block)
       }
       for (const name of Object.keys(localTools))
         handlers[name] = clientToolHandler(name, ctx, block)

@@ -30,8 +30,7 @@ export function countSelectedCredentials(value: CredentialSelectorControl['value
     value.sonarqubeIntegrationIds.length +
     value.notionIntegrationIds.length +
     value.upstashAccountIds.length +
-    value.cloudflareAccountIds.length +
-    value.deviceIds.length
+    value.cloudflareAccountIds.length
   )
 }
 
@@ -64,7 +63,6 @@ export function countTotalCredentials(options: CredentialSelectorControl['option
     options.sonarqubeIntegrations.length +
     options.notionIntegrations.length +
     options.upstashAccounts.length +
-    options.cloudflareAccounts.length +
-    options.devices.length
+    options.cloudflareAccounts.length
   )
 }

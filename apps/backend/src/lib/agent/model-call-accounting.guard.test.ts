@@ -110,7 +110,6 @@ describe('every production model call accounts for its tokens', () => {
       .filter((operation): operation is string => operation !== undefined)
 
     expect(operations.toSorted(byCodeUnit)).toEqual([
-      'auto_mode.judge',
       'cost_insight',
       'memory.attribution_judge',
       'memory.conflict',
@@ -129,7 +128,6 @@ describe('every production model call accounts for its tokens', () => {
     }).map(relative)
 
     expect(accounted.toSorted(byCodeUnit)).toEqual([
-      'lib/agent/auto-mode/judge.ts',
       'lib/agent/memory-native/conflict.ts',
       'lib/agent/memory-native/distill.ts',
       'lib/agent/memory-native/rerank.ts',

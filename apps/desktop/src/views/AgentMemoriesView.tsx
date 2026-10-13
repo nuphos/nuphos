@@ -226,11 +226,11 @@ export function AgentMemoriesView({
           <EmptyState
             icon={Brain}
             title="Memories"
-            description="Memories are facts the agent saves about your team and infrastructure as you work together. Chat with the agent and useful context accumulates here."
+            description="Memories are facts the agent saves about your team and its work as you work together. Chat with the agent and useful context accumulates here."
             agentAction={{
               label: 'Teach the agent something',
               prompt:
-                'I want to teach you something about our team or infrastructure so you remember it — ask me what to remember.',
+                'I want to teach you something about our team or systems so you remember it — ask me what to remember.',
             }}
             onOpenAgentChat={onOpenAgentChat}
           />

@@ -8,7 +8,6 @@ export async function updateBackgroundToolResult(args: {
   teamId: string
   toolCallId: string
   state: 'output-available' | 'output-error'
-  output?: unknown
   errorText?: string
 }): Promise<void> {
   await withTranscriptWriteLock(args.sessionId, args.userId, async () => {
@@ -19,7 +18,6 @@ export async function updateBackgroundToolResult(args: {
       'parts.$[tool].state': args.state,
       'parts.$[tool].completedAt': Date.now(),
       'parts.$[tool].runtimeResult': true,
-      ...(args.output === undefined ? {} : { 'parts.$[tool].output': args.output }),
       ...(args.errorText === undefined ? {} : { 'parts.$[tool].errorText': args.errorText }),
     }
     const result = await agentMessages().updateMany(

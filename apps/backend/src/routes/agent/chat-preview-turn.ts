@@ -2,20 +2,6 @@
 import { randomUUID } from 'node:crypto'
 
 import './chat-preview-autonomous-runs'
-import { config } from '@/config'
-import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
-import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
-import { runClaudeCodePreviewPrompt } from '@/lib/claude-code-preview/agent-chat-runtime'
-import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/codex-turn-failure'
-import { previewSessionAccess } from '@/lib/claude-code-preview/credentials-mcp'
-import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
-import {
-  createPreviewAssistantPartAccumulator,
-  interruptToolSteps,
-} from '@/lib/claude-code-preview/preview-transcript'
-import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
-
-import { createSteeringAttribution } from '@/lib/claude-code-preview/steering-receipt'
 import {
   finishPreviewTurn,
   persistHandedOffPreviewTurn,
@@ -34,36 +20,34 @@ import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
 import { handlePreviewToolUpdate } from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
 
-import type { AgentChatBody, AgentRun } from './types'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { PreviewChatTurnArgs } from './chat-preview-run'
 import type { PreviewDecision } from '@/lib/claude-code-preview/decision-waiter'
 import type { OpenAbPermissionHandler } from '@/lib/claude-code-preview/openab-acp-session'
-import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 import type { UIMessage } from 'ai'
 
+import { config } from '@/config'
+import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
+import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
+import {
+  previewRuntimeObservability,
+  runClaudeCodePreviewPrompt,
+} from '@/lib/claude-code-preview/agent-chat-runtime'
+import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/codex-turn-failure'
+import { previewSessionAccess } from '@/lib/claude-code-preview/credentials-mcp'
+import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
+import {
+  createPreviewAssistantPartAccumulator,
+  interruptToolSteps,
+} from '@/lib/claude-code-preview/preview-transcript'
+import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
+import {
+  createSteeringAttribution,
+  steeringReceipt,
+} from '@/lib/claude-code-preview/steering-receipt'
+import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
 
-export type PreviewChatTurnArgs = {
-  run: AgentRun
-  sessionId: string
-  teamId: string
-  userId: string
-  actorUserId?: string
-  origin: AgentSessionOrigin
-  messages: UIMessage[]
-  firstMessage: string
-  locale: string
-  endpoint: TeamRuntimeEndpoint
-  kubeContext?: string
-  /** The client driving this turn can run port forwards and other client-side local tools. */
-  localToolsEnabled?: boolean
-  /** Set when the client is resuming a turn rather than sending a new message. */
-  resume?: { reason?: NonNullable<AgentChatBody['resumeReason']> }
-  diagramId?: string
-  currentUrl?: string | null
-  slackThread?: { teamId: string; channelId: string; threadTs: string }
-  onRunHandoff?: (next: AgentRun) => void
-}
+export type { PreviewChatTurnArgs } from './chat-preview-run'
 
 export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): Promise<void> {
   const { run, sessionId, teamId, userId } = args
@@ -76,6 +60,18 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const answers: string[] = []
   const toolLog = createPreviewToolLog()
   const state = createPreviewRunState({ run, userId, sessionId })
+  const diagnostic = createTurnDiagnostics(
+    {
+      streamId: run.streamId,
+      startedAt,
+      runtimeId: args.endpoint.runtimeId,
+    },
+    () => ({
+      ...previewRuntimeObservability(teamId, args.endpoint.provider, [args.endpoint.url]),
+      toolSteps: () => toolLog.list(),
+      aborted: state.signal.aborted,
+    }),
+  )
   const pauses = new AbortController()
   // Mid-turn assistant/user segments persisted before the final assistant.
   const steered: UIMessage[] = []
@@ -156,25 +152,27 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta) => {
+        diagnostic.progress()
         acc.text += delta
         orderedParts.appendText(delta)
         state.emit({ type: 'text-delta', delta })
       },
       onAgentUpdate: (update) => {
         if (update.kind === 'runtime-state') {
+          diagnostic.observe()
           state.emit({ type: 'runtime-state', snapshot: update.snapshot })
 
           return
         }
         if (update.kind === 'steering') {
-          const metadata = steeringAttribution()
-          const receipt = { id: update.id, text: update.text, ...(metadata ? { metadata } : {}) }
+          const receipt = steeringReceipt(update.id, update.text, steeringAttribution())
 
           orderedParts.appendSteering(receipt)
           state.emit({ type: 'data-steering', data: receipt })
 
           return
         }
+        diagnostic.progress()
         if (update.kind === 'thought') {
           acc.reasoning += update.text
           orderedParts.appendReasoning(update.text)
@@ -203,6 +201,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       finalStepStart: segmentStepStart,
       steered,
       error,
+      diagnostics: diagnostic.finish(error),
       emit: state.emit,
       provider: config.agent.modelProvider,
     })
@@ -271,6 +270,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   // Runtime completion is authoritative; partial/late tool cards cannot cause
   // backend cancellation or another prompt after completion.
   if (acc.text) answers.push(acc.text)
+
+  await prepared.openPromptSuggestion()
 
   try {
     await finishPreviewTurn({

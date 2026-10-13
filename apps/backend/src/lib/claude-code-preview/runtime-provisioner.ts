@@ -4,6 +4,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { provisionerKubeClient } from './provisioner-kube'
 import { clearProvisionerTimers, setProvisionerTimers } from './provisioner-timers'
 import { initRuntimeMetricsSampler, shutdownRuntimeMetricsSampler } from './runtime-metrics-sampler'
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import { reconcileHostedRuntimes } from './runtime-reconcile'
 
 export { reconcileHostedRuntimes } from './runtime-reconcile'
@@ -27,7 +28,7 @@ export function initClaudeCodeRuntimeProvisioner(): boolean {
     if (running) return
     running = true
     try {
-      for (const provider of ['claude-code', 'codex'] as const) {
+      for (const provider of OPENAB_PROVIDERS) {
         await reconcileHostedRuntimes({
           kube,
           namespace: provisionerConfig.namespace,

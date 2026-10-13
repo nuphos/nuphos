@@ -27,6 +27,7 @@ export const appApi = {
   appGetVersion: () => window.api.appGetVersion(),
   appSetApiEndpoint: (url: string | null) => window.api.appSetApiEndpoint(url),
   appGetPlatform: () => window.api.appGetPlatform(),
+  appSelectAsciiInputSource: () => window.api.appSelectAsciiInputSource(),
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') => window.api.appSetNativeTheme(source),
   onNativeThemeUpdated: (cb: (payload: { shouldUseDarkColors: boolean }) => void) =>
     window.api.onNativeThemeUpdated?.(cb) ?? (() => {}),

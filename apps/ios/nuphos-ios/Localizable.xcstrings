@@ -115,15 +115,6 @@
     "Agent" : {
 
     },
-    "Allow" : {
-
-    },
-    "Always allow" : {
-
-    },
-    "Always allow…" : {
-
-    },
     "Approval" : {
 
     },
@@ -163,7 +154,7 @@
     "Changing the policy invalidates approvals on open plans — they must be reviewed again." : {
 
     },
-    "Choose IAM" : {
+    "Choose Credentials" : {
 
     },
     "Clear" : {
@@ -172,13 +163,7 @@
     "Clear search" : {
 
     },
-    "Collapse composer" : {
-
-    },
     "Coming soon to the Nuphos app." : {
-
-    },
-    "Commands matching this description will run without asking." : {
 
     },
     "Configure" : {
@@ -199,7 +184,7 @@
     "Couldn't load chats" : {
 
     },
-    "Couldn't load IAM" : {
+    "Couldn't load Credentials" : {
 
     },
     "Couldn't load plan" : {
@@ -220,9 +205,6 @@
     "Deny" : {
 
     },
-    "Describe the rule" : {
-
-    },
     "Dismissed plans are hidden." : {
 
     },
@@ -238,10 +220,7 @@
     "Filter plans" : {
 
     },
-    "For session" : {
-
-    },
-    "IAM" : {
+    "Credentials" : {
 
     },
     "just now" : {
@@ -261,7 +240,7 @@
     "Loading chats…" : {
 
     },
-    "Loading IAM…" : {
+    "Loading Credentials…" : {
 
     },
     "Loading plan…" : {
@@ -303,7 +282,7 @@
     "No conversations match your search." : {
 
     },
-    "No IAM connected" : {
+    "No Credentials connected" : {
 
     },
     "No matches" : {

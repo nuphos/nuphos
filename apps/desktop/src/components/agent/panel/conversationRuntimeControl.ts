@@ -1,7 +1,9 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
+import { localAgentMoveWarning } from '../../../lib/localAgentSharing'
+import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
 import type { PanelViewCtx } from './ctx'
@@ -26,6 +28,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   const {
     activeTab: tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,
@@ -34,7 +37,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   } = c
   const sessionId = tab?.sessionId
   const tabId = tab?.id
-  const provider = tab?.agentRuntime === 'codex' ? 'codex' : 'claude-code'
+  const provider = tab?.agentRuntime ?? 'claude-code'
   const moving = Boolean(tab?.movingTo)
   const { setTabs, refreshHistory } = c
   const setTab = useCallback(
@@ -121,35 +124,68 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
+  // A move onto a Local Agent opens this computer to the whole team, so it
+  // waits for the user's go-ahead.
+  const [pendingLocal, setPendingLocal] = useState<{
+    target: RuntimeInstance
+    warning: string
+  } | null>(null)
+
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
-    if (!sessionId || !teamId || tab?.readOnly || tab?.foreign) return
+    if (!sessionId || !teamId || tab?.readOnly || (tab?.foreign && !tab.canManage)) return
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
 
     return {
+      teamId,
+      canUpdateTeamAgents: isTeamAdmin,
       value: {
         id: tab?.runtimeId,
         provider,
-        label:
-          current?.label ?? tab?.runtimeLabel ?? (provider === 'codex' ? 'Codex' : 'Claude Code'),
+        label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
         status: current?.status,
       },
-      options: runtimeInstances,
-      onSelect: (runtimeId: string) => void move(runtimeId),
+      // Only the owner puts a session on a local or self-hosted agent.
+      options: tab?.foreign
+        ? runtimeInstances.filter((instance) => instance.kind === 'managed')
+        : runtimeInstances,
+      onSelect: (runtimeId: string) => {
+        const target = runtimeInstances.find((instance) => instance.id === runtimeId)
+        const warning = target && localAgentMoveWarning(target)
+
+        if (target && warning) setPendingLocal({ target, warning })
+        else void move(runtimeId)
+      },
       selectDisabled: tab?.streaming || moving,
-      quota: tab?.runtimeId ? runtimeQuotas.get(tab.runtimeId) : undefined,
+      quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',
       loading: runtimeInstancesLoading,
       error: runtimeInstancesError,
       onSettings: onOpenAgentSettings,
+      ...(pendingLocal
+        ? {
+            confirm: {
+              title: `Move to ${pendingLocal.target.label}?`,
+              description: pendingLocal.warning,
+              confirmLabel: 'Move',
+              onConfirm: () => {
+                setPendingLocal(null)
+                void move(pendingLocal.target.id)
+              },
+              onCancel: () => setPendingLocal(null),
+            },
+          }
+        : {}),
     }
   }, [
+    pendingLocal,
     move,
     moving,
     provider,
     sessionId,
     tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,

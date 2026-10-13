@@ -1,10 +1,13 @@
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
-import { LocalClaudeSignIn } from '../../../views/settings/LocalClaudeSignIn'
+import { AGENT_PROVIDER } from '../../../types/runtime'
+import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
+import { ConfirmDialog } from '../../ConfirmDialog'
 import {
   Menu,
   MenuContent,
@@ -16,12 +19,17 @@ import {
 } from '../../ui/menu'
 import { Tooltip } from '../../ui/tooltip'
 
-import { ClaudeCodeIcon, CodexIcon } from './icons'
+import { AgentUpdateBadge } from './AgentUpdateBadge'
+import { AgentProviderIcon } from './icons'
 
 import type { QuotaTone } from '../../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
+  /** Lets the selector ask each agent whether an update is available. */
+  teamId?: string
+  /** A team agent's update can be started from the list. */
+  canUpdateTeamAgents?: boolean
   value: {
     id?: string
     provider: RuntimeInstance['provider']
@@ -29,9 +37,7 @@ export type RuntimeControl = {
     status?: RuntimeInstance['status']
   } | null
   options?: RuntimeInstance[]
-  /** Provider usage of the agent this conversation is bound to. */
-  quota?: RuntimeQuota
-  /** Provider usage per runtime id, for the list. */
+  /** Provider usage per runtime id, for the trigger and the list. */
   quotas?: ReadonlyMap<string, RuntimeQuota>
   /** Picks the agent: the one a new conversation starts on, or — for an open
    *  conversation — the one it moves to. */
@@ -45,6 +51,14 @@ export type RuntimeControl = {
   onSettings?: () => void
   /** New conversation: add a team agent in place, without leaving the conversation. */
   onAddAgent?: () => void
+  /** A pick that needs the user's go-ahead before it takes effect. */
+  confirm?: {
+    title: string
+    description: string
+    confirmLabel: string
+    onConfirm: () => void
+    onCancel: () => void
+  }
 }
 
 const QUOTA_TONE_CLASS: Record<QuotaTone, string> = {
@@ -69,17 +83,13 @@ export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefi
         </span>
       }
     >
-      <span className={`shrink-0 ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
+      {/* `whitespace-pre` keeps the prefix's leading space inside the inline-flex trigger. */}
+      <span className={`shrink-0 whitespace-pre ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
         {prefix}
         {summary}
       </span>
     </Tooltip>
   )
-}
-
-const PROVIDER_NAME: Record<RuntimeInstance['provider'], string> = {
-  'claude-code': 'Claude Code',
-  codex: 'Codex',
 }
 
 function runtimeOptionNote(instance: RuntimeInstance): string {
@@ -88,15 +98,16 @@ function runtimeOptionNote(instance: RuntimeInstance): string {
   if (instance.starting) return ' · Starting…'
   if (instance.notReady) return ' · Not ready yet'
   if (instance.local?.signedIn === false)
-    return ` · Sign in to ${PROVIDER_NAME[instance.provider]} on that computer`
+    return ` · Sign in to ${AGENT_PROVIDER[instance.provider].label} on that computer`
 
   return ''
 }
 
 export function RuntimeSelector({
+  teamId,
+  canUpdateTeamAgents,
   value,
   options = [],
-  quota,
   quotas,
   onSelect,
   selectDisabled,
@@ -105,10 +116,10 @@ export function RuntimeSelector({
   error,
   onSettings,
   onAddAgent,
+  confirm,
 }: RuntimeControl) {
   const [signingIn, setSigningIn] = useState<string | null>(null)
-  const Icon = value?.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
-  const providerName = value?.provider === 'codex' ? 'Codex' : 'Claude Code'
+  const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
   const label = value
@@ -116,7 +127,9 @@ export function RuntimeSelector({
     : loading
       ? 'Loading agents…'
       : 'Choose agent'
-  const selectedQuota = quota ?? (value?.id ? quotas?.get(value.id) : undefined)
+  const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
+  const selectedUpdate = value?.id ? updates.get(value.id) : undefined
+  const selectedQuota = value?.id ? quotas?.get(value.id) : undefined
   const [usageWaitExpired, setUsageWaitExpired] = useState<string | undefined>()
 
   useEffect(() => {
@@ -134,7 +147,7 @@ export function RuntimeSelector({
   )
   const content = (
     <>
-      <Icon className="h-3.5 w-3.5 shrink-0" />
+      <AgentProviderIcon provider={value?.provider} className="h-3.5 w-3.5 shrink-0" />
       {loading && !value ? (
         <span
           aria-label="Loading agent"
@@ -144,6 +157,7 @@ export function RuntimeSelector({
       ) : (
         <span className="max-w-40 truncate">{label}</span>
       )}
+      {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
       {usageLoading ? (
         <span
@@ -168,8 +182,19 @@ export function RuntimeSelector({
 
   return (
     <>
+      {confirm && (
+        <ConfirmDialog
+          open
+          title={confirm.title}
+          description={confirm.description}
+          confirmLabel={confirm.confirmLabel}
+          onConfirm={confirm.onConfirm}
+          onClose={confirm.onCancel}
+        />
+      )}
       {signingIn && (
-        <LocalClaudeSignIn
+        <LocalAgentSignIn
+          provider={signingIn.endsWith('_codex') ? 'codex' : 'claude-code'}
           initiallyOpen
           onClosed={(connected) => {
             if (connected) onSelect(signingIn)
@@ -198,11 +223,11 @@ export function RuntimeSelector({
                 {index > 0 && <MenuSeparator />}
                 <MenuGroupLabel>{group.title}</MenuGroupLabel>
                 {group.agents.map((instance) => {
+                  const update = updates.get(instance.id)
                   const needsLocalLogin =
-                    instance.provider === 'claude-code' &&
+                    (instance.provider === 'claude-code' || instance.provider === 'codex') &&
                     agentTier(instance, owner) === 'local' &&
                     instance.local?.signedIn !== true
-                  const InstanceIcon = instance.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
 
                   return (
                     <MenuItem
@@ -215,16 +240,21 @@ export function RuntimeSelector({
                         (instance.notReady === true && instance.id !== value?.id) ||
                         (instance.local?.signedIn === false && !needsLocalLogin)
                       }
-                      icon={<InstanceIcon className="h-3.5 w-3.5" />}
+                      icon={
+                        <AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />
+                      }
                       onClick={() => {
                         if (needsLocalLogin) setSigningIn(instance.id)
                         else onSelect(instance.id)
                       }}
                     >
                       <span className="flex min-w-0 flex-col">
-                        <span className="truncate">{agentName(instance, owner)}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate">{agentName(instance, owner)}</span>
+                          {update && <AgentUpdateBadge update={update} actionable />}
+                        </span>
                         <span className="text-[11px] text-tertiary">
-                          {PROVIDER_NAME[instance.provider]}
+                          {AGENT_PROVIDER[instance.provider].label}
                           {runtimeOptionNote(instance)}
                           <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
                         </span>

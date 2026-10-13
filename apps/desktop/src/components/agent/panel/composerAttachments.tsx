@@ -2,9 +2,10 @@ import { faFolder, faFile } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
+import { useState } from 'react'
 
 import { isImageAttachmentPath } from './attachments'
-import { ImageAttachmentThumb } from './messageInline'
+import { ImageAttachmentThumb, ImageLightbox } from './messageInline'
 import { fileNameFromPath } from './textUtils'
 
 export function AttachmentChips({
@@ -18,6 +19,9 @@ export function AttachmentChips({
   imageThumbs: Record<string, string>
   onRemove: (filePath: string) => void
 }) {
+  const [preview, setPreview] = useState<number | null>(null)
+  const previewable = filePaths.filter((p) => isImageAttachmentPath(p) && imageThumbs[p])
+
   return (
     // Attachments sit on their own row above the input so they
     // lay out cleanly instead of crowding the bottom toolbar.
@@ -34,6 +38,7 @@ export function AttachmentChips({
               url={imageThumbs[filePath]}
               fileName={fileNameFromPath(filePath)}
               onRemove={removeAttachment}
+              onOpen={() => setPreview(previewable.indexOf(filePath))}
             />
           )
         }
@@ -78,6 +83,11 @@ export function AttachmentChips({
           </div>
         )
       })}
+      <ImageLightbox
+        images={previewable.map((p) => ({ url: imageThumbs[p], fileName: fileNameFromPath(p) }))}
+        index={preview}
+        onIndexChange={setPreview}
+      />
     </div>
   )
 }

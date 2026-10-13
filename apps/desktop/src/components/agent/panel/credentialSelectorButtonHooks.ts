@@ -3,7 +3,6 @@ import { useMemo } from 'react'
 import {
   buildAliyunCredentialSections,
   buildAwsCredentialSections,
-  buildDeviceCredentialSections,
   buildGcpCredentialSections,
   buildHetznerCredentialSections,
   buildHuaweiCredentialSections,
@@ -83,10 +82,6 @@ export function useCredentialSections(options: CredentialSelectorControl['option
   const onpremSections = useMemo(
     () => buildOnpremCredentialSections(options.onpremClusters),
     [options.onpremClusters],
-  )
-  const deviceSections = useMemo(
-    () => buildDeviceCredentialSections(options.devices),
-    [options.devices],
   )
   const vantaSections = useMemo(
     () => buildVantaCredentialSections(options.vantaIntegrations),
@@ -173,7 +168,6 @@ export function useCredentialSections(options: CredentialSelectorControl['option
     huaweiSections,
     azureSections,
     onpremSections,
-    deviceSections,
     vantaSections,
     secureframeSections,
     resendSections,

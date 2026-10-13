@@ -8,10 +8,15 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
 step 'gateway and agent'
 openab --version
-command -v "$OPENAB_AGENT_COMMAND"
+command -v "${OPENAB_AGENT_COMMAND%% *}"
 case "$OPENAB_AGENT_COMMAND" in
   claude-agent-acp) claude --version ;;
   codex-acp) codex --version ;;
+  # Installs on first use, which also checks the pinned checksum.
+  'node /opt/acp-shim.mjs grok') grok --version ;;
+  # A 320 MB download on first use; the shim on PATH is enough here.
+  'node /opt/acp-shim.mjs antigravity') command -v agy-acp-server ;;
+  'node /opt/acp-shim.mjs opencode') opencode --version ;;
   *) fail "unexpected agent command $OPENAB_AGENT_COMMAND" ;;
 esac
 [ -z "$(ls /usr/local/lib/node_modules | grep -v -x -e npm -e corepack)" ] \

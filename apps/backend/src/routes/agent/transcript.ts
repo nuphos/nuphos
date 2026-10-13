@@ -6,6 +6,7 @@ import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
 import { withCostUsd } from '@/lib/agent/model-pricing'
 import { withCachePoint } from '@/lib/agent/model-provider'
+import { isOpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
@@ -252,10 +253,7 @@ export async function persistAcceptedConversationTurn(args: {
     firstMessage: getFirstTranscriptMessage(transcriptMessages, args.firstMessage || 'New chat'),
     messages: transcriptMessages,
     locale: args.locale,
-    provider:
-      args.agentRuntime === 'codex' || args.agentRuntime === 'claude-code'
-        ? args.agentRuntime
-        : config.agent.modelProvider,
+    provider: isOpenAbProvider(args.agentRuntime) ? args.agentRuntime : config.agent.modelProvider,
     source: args.source,
     trigger: args.trigger,
     client: args.client,

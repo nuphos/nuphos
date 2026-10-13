@@ -41,6 +41,7 @@ const DOMAIN_COLLECTIONS = new Set([
   'knowledge',
   'instructions',
   'database-connections',
+  'discord',
 ])
 const MUTATIONS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 const METHODS = new Set(['GET', 'HEAD', 'OPTIONS', ...MUTATIONS])

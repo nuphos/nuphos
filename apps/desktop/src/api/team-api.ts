@@ -1,16 +1,26 @@
+import type { SessionConfigPick } from './session-config-types.ts'
 import type { LarkBindInput } from '../types/messaging.ts'
 import type {
+  AgentProvider,
   CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
+  RuntimeQuotaHistoryRange,
   UpdateRuntimeInput,
 } from '../types/runtime'
-import type { SidebarFavoriteCloudEntry, TeamRole } from '../types/team.ts'
+import type {
+  HomeLayout,
+  SidebarFavoriteCloudEntry,
+  TeamActivityRange,
+  TeamRole,
+} from '../types/team.ts'
 
 export const teamApi = {
   atlasReadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     window.api.atlasReadRuntimeFile(teamId, runtimeId, sessionId, path),
+  atlasReadLinkedFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    window.api.atlasReadLinkedFile(teamId, runtimeId, sessionId, path),
   atlasListRuntimeFiles: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     window.api.atlasListRuntimeFiles(teamId, runtimeId, sessionId, path),
   atlasStartRuntimeLogin: (teamId: string, runtimeId: string) =>
@@ -27,6 +37,8 @@ export const teamApi = {
   ) => window.api.atlasSubmitRuntimeLoginCode(teamId, runtimeId, attemptId, code),
   atlasListRuntimeInstances: (teamId: string) => window.api.atlasListRuntimeInstances(teamId),
   atlasListRuntimeQuotas: (teamId: string) => window.api.atlasListRuntimeQuotas(teamId),
+  atlasGetRuntimeQuotaHistory: (teamId: string, range: RuntimeQuotaHistoryRange) =>
+    window.api.atlasGetRuntimeQuotaHistory(teamId, range),
   atlasCreateRuntimeInstance: (teamId: string, input: CreateRuntimeInput) =>
     window.api.atlasCreateRuntimeInstance(teamId, input),
   atlasProbeExternalRuntimeProvider: (
@@ -43,8 +55,8 @@ export const teamApi = {
     window.api.atlasUpdateRuntimeInstance(teamId, runtimeId, input),
   atlasRemoveRuntimeInstance: (teamId: string, runtimeId: string) =>
     window.api.atlasRemoveRuntimeInstance(teamId, runtimeId),
-  atlasGetRuntimeModels: (teamId: string, runtimeId: string, model?: string) =>
-    window.api.atlasGetRuntimeModels(teamId, runtimeId, model),
+  atlasGetRuntimeModelConfig: (teamId: string, runtimeId: string, pick: SessionConfigPick) =>
+    window.api.atlasGetRuntimeModelConfig(teamId, runtimeId, pick),
   atlasRequestRuntimeUpdate: (teamId: string, runtimeId: string) =>
     window.api.atlasRequestRuntimeUpdate(teamId, runtimeId),
   atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string) =>
@@ -58,12 +70,17 @@ export const teamApi = {
     entries: SidebarFavoriteCloudEntry[],
     expectedRevision: number,
   ) => window.api.atlasPutSidebarFavorites(teamId, entries, expectedRevision),
+  atlasGetHomeLayout: (teamId: string) => window.api.atlasGetHomeLayout(teamId),
+  atlasGetTeamActivity: (teamId: string, range: TeamActivityRange) =>
+    window.api.atlasGetTeamActivity(teamId, range),
+  atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: HomeLayout | null) =>
+    window.api.atlasPutHomeLayout(teamId, scope, layout),
   atlasCreateTeam: (name: string) => window.api.atlasCreateTeam(name),
   atlasUpdateTeam: (teamId: string, input: { name?: string; avatarUrl?: string }) =>
     window.api.atlasUpdateTeam(teamId, input),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
     window.api.atlasSetTeamEmailDomainDiscovery(teamId, enabled),
-  atlasSetTeamAgentRuntime: (teamId: string, runtime: 'claude-code' | 'codex') =>
+  atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>
     window.api.atlasSetTeamAgentRuntime(teamId, runtime),
   atlasListDiscoverableTeams: () => window.api.atlasListDiscoverableTeams(),
   atlasJoinDiscoverableTeam: (teamId: string) => window.api.atlasJoinDiscoverableTeam(teamId),

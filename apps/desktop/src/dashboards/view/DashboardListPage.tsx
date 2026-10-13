@@ -43,7 +43,7 @@ export function DashboardListPage({
       <EmptyState
         icon={LayoutGrid}
         title="Dashboards"
-        description="Dashboards chart what matters to your team — cloud spend, AI usage, infrastructure health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have the agent build it."
+        description="Dashboards chart what matters to your team — cloud spend, AI usage, delivery, and system health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have the agent build it."
         primaryAction={{
           label: 'Create dashboard',
           icon: Plus,

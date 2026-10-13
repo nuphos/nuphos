@@ -10,6 +10,7 @@ import {
 } from '@/lib/claude-code-preview/runtime-backend-url'
 import { pairTeamRuntime } from '@/lib/claude-code-preview/runtime-pairing'
 import { PAIRING_CODE_PATTERN } from '@/lib/claude-code-preview/runtime-pairing-client'
+import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
 import {
   listTeamRuntimes,
@@ -41,7 +42,7 @@ export const registerRuntimeSchema = z
   .strict()
 
 export const registerExternalRuntimeSchema = registerRuntimeSchema.extend({
-  provider: z.enum(['claude-code', 'codex']).optional(),
+  provider: z.enum(OPENAB_PROVIDERS).optional(),
 })
 
 export const pairRuntimeSchema = z

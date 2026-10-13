@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { OPENAB_PROVIDERS } from './runtime-provider'
 import {
   assertClaudeCodeSetupConfigured,
   isServerAuthoritativeTranscript,
@@ -233,6 +234,17 @@ describe('isServerAuthoritativeTranscript', () => {
     ).toBe(true)
   })
 
+  test('blocks first-message sync before a native conversation exists', () => {
+    for (const provider of OPENAB_PROVIDERS) {
+      expect(isServerAuthoritativeTranscript(null, provider)).toBe(true)
+    }
+  })
+
+  test('creation hints do not change authority for an existing legacy transcript', () => {
+    expect(isServerAuthoritativeTranscript(LEGACY_NUPHOS_CONVERSATION, 'codex')).toBe(false)
+    expect(isServerAuthoritativeTranscript({}, 'codex')).toBe(false)
+  })
+
   test('protects both native providers without applying a creation-time runtime default', () => {
     expect(isServerAuthoritativeTranscript({ agentRuntime: 'claude-code' })).toBe(true)
     expect(isServerAuthoritativeTranscript({ agentRuntime: 'codex' })).toBe(true)
@@ -256,4 +268,23 @@ describe('a conversation left stamped with the retired runtime', () => {
   test('is treated as pinned, so no creation-time runtime id can move it', () => {
     expect(resolveConversationRuntimeId(LEGACY_NUPHOS_CONVERSATION, 'runtime-b')).toBeUndefined()
   })
+})
+
+test('Agents behind the ACP shim get one shim-facing shape with the instructions and env', async () => {
+  const { sessionMeta } = await import('./openab-acp-session')
+
+  for (const provider of ['grok', 'antigravity', 'opencode'] as const)
+    expect(
+      sessionMeta('Nuphos context', { provider, env: { NUPHOS_TOKEN: 'actor-token' } }),
+    ).toEqual({
+      _meta: {
+        'ai.nuphos/runtimeAuthority': 2,
+        'dev.openab/permissionPolicy': 'relay',
+        'dev.openab/credentials': { NUPHOS_TOKEN: 'actor-token' },
+        'ai.nuphos/session': {
+          systemPrompt: 'Nuphos context',
+          env: { NUPHOS_TOKEN: 'actor-token' },
+        },
+      },
+    })
 })

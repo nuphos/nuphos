@@ -1,3 +1,5 @@
+import { AGENT_PROVIDER } from '../types/runtime.ts'
+
 import type { LocalAgentProvider, LocalRuntimeState } from '../api/device-types.ts'
 import type { RuntimeInstance } from '../types/runtime.ts'
 
@@ -9,11 +11,6 @@ export function localAgentReady(state: LocalRuntimeState | null): boolean | null
   if (agents.some((agent) => agent.cli === null)) return null
 
   return agents.some((agent) => agent.cli?.installed && agent.cli.loggedIn === true)
-}
-
-const PROVIDER_LABEL: Record<LocalAgentProvider, string> = {
-  'claude-code': 'Claude Code',
-  codex: 'Codex',
 }
 
 /** Must match `localRuntimeId` in the backend. */
@@ -57,7 +54,7 @@ export function pendingLocalAgents(
       {
         id,
         provider,
-        label: `This computer · ${PROVIDER_LABEL[provider]}`,
+        label: `This computer · ${AGENT_PROVIDER[provider].label}`,
         status: 'active' as const,
         kind: 'local' as const,
         createdAt: '',

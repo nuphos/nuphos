@@ -147,7 +147,7 @@ export function SlackSection({
           reduce={reduce}
           startDelay={350}
           segments={[
-            "@Nuphos in any channel to deploy, debug, or ask anything — same agent, same context as here. And when something looks wrong in your cloud, I'll come to you there before your users notice.",
+            "@Nuphos in any channel to deploy, debug, or ask anything — same agent, same context as here. And when a trigger fires, I'll come to you there before your users notice.",
           ]}
           onDone={advanceSlack2}
         />

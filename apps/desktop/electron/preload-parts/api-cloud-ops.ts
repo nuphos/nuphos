@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
 
 export const cloudOpsApi = {
@@ -220,7 +221,7 @@ export const cloudOpsApi = {
   atlasUnbindSentry: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindSentry', teamId, bindingId),
   agentStart: (args: {
-    agentRuntime?: 'claude-code' | 'codex'
+    agentRuntime?: AgentProvider
     runtimeId?: string
     streamId: string
     sessionId: string
@@ -278,12 +279,14 @@ export const cloudOpsApi = {
     ipcRenderer.invoke('agent:renameConversation', sessionId, title, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     ipcRenderer.invoke('agent:setConversationArchived', sessionId, archived, teamId),
+  agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:unlinkConversationParent', sessionId, teamId),
   agentMarkConversationRead: (sessionId: string, seq: number, teamId?: string) =>
     ipcRenderer.invoke('agent:markConversationRead', sessionId, seq, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:cancelRuntime', sessionId, teamId),
-  agentSteerConversation: (sessionId: string, text: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:steerConversation', sessionId, text, teamId),
+  agentSteerConversation: (sessionId: string, text: string, teamId?: string, groupId?: string) =>
+    ipcRenderer.invoke('agent:steerConversation', sessionId, text, teamId, groupId),
   agentSlackPickup: (sessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:slackPickup', sessionId, teamId),
 }

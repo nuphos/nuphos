@@ -1,3 +1,6 @@
+import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
+import { db } from '@/lib/db'
+
 import type {
   NuphosTeam,
   NuphosTeamRole,
@@ -6,8 +9,6 @@ import type {
   TeamBillingSummary,
 } from '@/lib/identity/types'
 import type { Collection, ObjectId } from 'mongodb'
-
-import { db } from '@/lib/db'
 
 export type NuphosUserDoc = {
   _id: ObjectId
@@ -77,7 +78,7 @@ export function mapTeam(team: NuphosTeamDoc): NuphosTeam {
     ownerID: team.ownerID.toHexString(),
     contactEmails: team.contactEmails,
     allowedEmailDomains: team.allowedEmailDomains ?? [],
-    agentRuntime: team.agentRuntime === 'codex' ? 'codex' : 'claude-code',
+    agentRuntime: runtimeProvider(team.agentRuntime),
     createdAt: team.createdAt.toISOString(),
     billing: summarizeBilling(),
   }

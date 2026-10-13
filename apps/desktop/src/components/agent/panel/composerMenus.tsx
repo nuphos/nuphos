@@ -1,15 +1,7 @@
 import { faFolder, faPaperclip } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import {
-  ChevronDown,
-  ChevronRight,
-  FileSearch,
-  Loader2,
-  Plus,
-  ShieldCheck,
-  ShieldOff,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, FileSearch, Loader2, Plus } from 'lucide-react'
 
 import {
   Menu,
@@ -224,32 +216,19 @@ export function BypassControlMenu({
         )}
         title="Choose how commands in this conversation are authorized"
       >
-        {bypassControl.active ? (
-          <ShieldOff className="w-3.5 h-3.5" strokeWidth={2} />
-        ) : (
-          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={2} />
-        )}
         <span className="text-[12.5px] font-medium">
           {bypassControl.active ? 'Full Access' : 'Auto Mode'}
         </span>
         <ChevronDown className="w-3 h-3 opacity-60" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent side="top" align="start" className="w-64">
-        <MenuItem
-          icon={<ShieldCheck className="w-3.5 h-3.5" strokeWidth={2} />}
-          selected={!bypassControl.active}
-          onClick={() => bypassControl.onSelect(false)}
-        >
+        <MenuItem selected={!bypassControl.active} onClick={() => bypassControl.onSelect(false)}>
           <div className="flex flex-col">
             <span>Auto Mode</span>
             <span className="text-[11px] text-tertiary">Risky commands ask for your approval</span>
           </div>
         </MenuItem>
-        <MenuItem
-          icon={<ShieldOff className="w-3.5 h-3.5" strokeWidth={2} />}
-          selected={bypassControl.active}
-          onClick={() => bypassControl.onSelect(true)}
-        >
+        <MenuItem selected={bypassControl.active} onClick={() => bypassControl.onSelect(true)}>
           <div className="flex flex-col">
             <span>Full Access</span>
             <span className="text-[11px] text-tertiary">Run every command without asking</span>

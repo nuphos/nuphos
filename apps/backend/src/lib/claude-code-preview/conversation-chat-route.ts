@@ -1,5 +1,11 @@
+import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
+import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { AppError } from '@/lib/errors'
+import { getTeamAgentRuntime } from '@/lib/identity'
+
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
+import { runtimeLabel as providerLabel } from './runtime-provider'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 import {
   assertClaudeCodeSetupConfigured,
@@ -12,10 +18,6 @@ import type { OpenAbProvider } from './runtime-provider'
 import type { ConversationAgentRuntime } from './runtime-routing'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
-
-import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
-import { AppError } from '@/lib/errors'
-import { getTeamAgentRuntime } from '@/lib/identity'
 
 export type ConversationChatRuntime = {
   runtime: ConversationAgentRuntime
@@ -32,6 +34,20 @@ export type ConversationChatRequest = {
   purpose?: 'transport' | 'control'
 }
 
+/**
+ * Who a local agent acts for. Only its owner may put a conversation on it;
+ * once there, any teammate who may reply drives it as that owner.
+ */
+function localAgentUserFor(
+  conversation: Pick<AgentConversation, 'userId' | 'runtimeId'> | null,
+  actor: string | undefined,
+): string | undefined {
+  if (conversation?.runtimeId && isLocalRuntimeId(conversation.runtimeId))
+    return conversation.userId
+
+  return conversation && conversation.userId !== actor ? undefined : actor
+}
+
 /** Resolve every conversation onto the supported OpenAB runtime and placement. */
 export async function resolveConversationChatRuntime(
   teamId: string | undefined,
@@ -45,8 +61,7 @@ export async function resolveConversationChatRuntime(
   const pinned = Boolean(conversation?.agentRuntime || conversation?.claudeCodePreview)
   const selectedId = resolveConversationRuntimeId(conversation, request.runtimeId)
   const actor = request.userId ?? conversation?.userId
-  // A local agent runs only its owner's own conversations, acted on by that owner.
-  const localAgentUser = conversation && conversation.userId !== actor ? undefined : actor
+  const localAgentUser = localAgentUserFor(conversation, actor)
 
   if (selectedId && !teamId)
     throw new AppError(400, 'invalid_request', 'An agent requires a workspace')
@@ -89,8 +104,7 @@ export async function resolveConversationChatRuntime(
         conversation.claudeCodePreview.runtimeUrl === developmentEndpoint.url)
   ) {
     const runtimeId = developmentEndpoint.runtimeId
-    const runtimeLabel =
-      instance?.label ?? `${runtime === 'codex' ? 'Codex' : 'Claude Code'} (local development)`
+    const runtimeLabel = instance?.label ?? `${providerLabel(runtime)} (local development)`
     const endpoint = selectClaudeCodeChatEndpoint(
       runtime,
       [developmentEndpoint],

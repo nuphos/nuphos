@@ -61,6 +61,9 @@ const BYPASS_ALLOWLIST = new Set([
   // runtime's environment, never the backend's config. The protocol tests
   // verify that transport/skills secrets are stripped from the adapter env.
   'src/lib/claude-code-preview/runtime-model-probe.ts',
+  // Same shape: the usage probe runs inside the agent's container as a runtime
+  // `panel` job, and its process.env is that job's cleared environment.
+  'src/lib/claude-code-preview/runtime-quota-probe.ts',
 ])
 
 // `scripts/` is also scanned (the Dockerfile does `COPY apps/backend/scripts

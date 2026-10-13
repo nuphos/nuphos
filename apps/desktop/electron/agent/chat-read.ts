@@ -7,7 +7,7 @@ import {
   CHAT_STREAM_NO_CONTENT_TIMEOUT_MS,
 } from './chat-shared.ts'
 import {
-  agentReauthenticationEvent,
+  agentHttpProductEvent,
   formatAgentLocalError,
   formatAgentSseError,
   parseSseEvent,
@@ -24,6 +24,8 @@ export type ChatReadResult =
        *  producer behind this stream is gone rather than slow. */
       contentStalled: boolean
       needsFreshRetry: boolean
+      /** The failure is one a retry cannot fix, such as a provider out of usage. */
+      retryForbidden?: boolean
       freshRetryReason: string | null
       interruptionFrame?: Record<string, unknown>
     }
@@ -66,6 +68,7 @@ export async function consumeChatStream(
   // errored, etc.). After the read loop we drop the partial assistant
   // turn and reissue the request from scratch with a small backoff.
   let needsFreshRetry = false
+  let retryForbidden = false
   let freshRetryReason: string | null = null
   let interruptionFrame: Record<string, unknown> | undefined
 
@@ -106,10 +109,13 @@ export async function consumeChatStream(
           state.terminalEventDetected = true
         }
         if (data.type === 'error') {
-          const reauthentication = agentReauthenticationEvent(data)
+          // A refusal the backend could only make after the stream opened
+          // (e.g. it reattached a parked continuation first) is the same
+          // product event as the HTTP refusal.
+          const productEvent = agentHttpProductEvent(data)
 
-          if (reauthentication) {
-            emit(reauthentication)
+          if (productEvent) {
+            emit(productEvent)
 
             return 'stop'
           }
@@ -127,6 +133,8 @@ export async function consumeChatStream(
             return
           }
           needsFreshRetry = true
+          // Only credits or a reset bring the provider back; resending would fail the same way.
+          if (data.errorCode === 'runtime_usage_exhausted') retryForbidden = true
           freshRetryReason = formatAgentSseError(data, {
             phase: 'sse_error_frame',
             streamId,
@@ -230,6 +238,7 @@ export async function consumeChatStream(
     idleTimedOut,
     contentStalled,
     needsFreshRetry,
+    retryForbidden,
     freshRetryReason,
     ...(needsFreshRetry && interruptionFrame ? { interruptionFrame } : {}),
   }

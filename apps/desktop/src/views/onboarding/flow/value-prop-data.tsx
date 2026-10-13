@@ -41,12 +41,12 @@ export const VALUE_PROP_META: {
   {
     icon: Brain,
     title: 'Memory',
-    body: "Every company's infrastructure is different. Nuphos helps agents learn your services, environments, workflows, and operational history.",
+    body: 'Every team works differently. Nuphos helps agents learn your services, environments, workflows, and history.',
   },
   {
     icon: LayoutGrid,
     title: 'Experience',
-    body: 'Engineers and agents work in the same DevOps workspace instead of jumping between terminals, cloud consoles, dashboards, and docs.',
+    body: 'Engineers and agents work in the same workspace instead of jumping between terminals, consoles, dashboards, and docs.',
   },
 ]
 

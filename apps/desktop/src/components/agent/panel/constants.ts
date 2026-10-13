@@ -5,14 +5,13 @@ export const MAX_WIDTH_VW = 50
 export const DEFAULT_WIDTH_VW = 36
 export const AGENT_WIDTH_KEY = 'nuphos.agentWidthVw'
 export const AGENT_PLACEHOLDER_PROMPTS = [
-  'Create an EKS cluster in my AWS account.',
-  'Set up a Grafana dashboard for my EC2 instances.',
-  'Deploy a repo from GitHub to Cloud Run using a GitHub Action.',
-  'Connect my ECS service to an S3 bucket.',
+  'Review the open pull requests in our main repo.',
+  'Triage the newest Linear issues and draft fixes.',
   'Analyze a 500 error trace from today.',
+  'Deploy a repo from GitHub to Cloud Run using a GitHub Action.',
+  'Set up a Grafana dashboard for my EC2 instances.',
   'Update a DNS record in Cloudflare.',
-  'Plan a migration from AWS to Linode.',
-  'Generate a security report for my Cloud SQL database.',
+  'Summarize what the team shipped this week.',
   'Investigate an ongoing incident.',
 ] as const
 // Static placeholder for the in-conversation composer. The rotating example

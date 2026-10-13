@@ -36,15 +36,15 @@ export function useWorkspaceTeamResources(a: Args) {
 
   useEffect(() => {
     if (!teamId) return
+    // The spinner belongs to the active dock tab; the load does not. The agent
+    // home reads these accounts too (first-run vs bound), with no tab open.
     const tabId = activeTabId
-
-    if (!tabId) return
     let cancelled = false
     let loadDone = false
     let spinnerFrame: number | null = null
     let spinnerTimer: number | null = null
 
-    if (scope?.kind === 'team') {
+    if (tabId && scope?.kind === 'team') {
       // Deferred past the frame: a spinner is not worth an extra App commit
       // between the click and the switch becoming visible — and when the load
       // wins the race it never shows at all.
@@ -113,7 +113,7 @@ export function useWorkspaceTeamResources(a: Args) {
       })
       .finally(() => {
         loadDone = true
-        if (!cancelled && scope?.kind === 'team') {
+        if (tabId && !cancelled && scope?.kind === 'team') {
           updateTab(tabId, (tab) => (tab.viewLoading ? { ...tab, viewLoading: false } : tab))
         }
       })

@@ -5,7 +5,7 @@ import Foundation
 /// rows in place instead of replacing them; the content is what changes.
 enum ChatRow: Identifiable, Equatable {
     case timestamp(id: String, date: Date)
-    case user(id: String, messageId: String, text: String, images: [String], sender: ChatMessage.Sender? = nil)
+    case user(id: String, messageId: String, text: String, images: [String], sender: ChatMessage.Sender? = nil, transfers: [TransferUpload] = [])
     case assistantText(id: String, messageId: String, text: String, streaming: Bool)
     case reasoning(id: String, part: ChatPart.ReasoningPart)
     case tool(id: String, messageId: String, part: ChatPart.ToolPart, canDecide: Bool)
@@ -16,6 +16,8 @@ enum ChatRow: Identifiable, Equatable {
     case work(id: String, rows: [ChatRow], duration: TimeInterval?)
     case memory(id: String, created: Int, updated: Int)
     case memoryRecall(id: String, entries: [MemoryEntry], fetched: Int)
+    /// Files the agent sent the user during that reply's turn.
+    case downloads(id: String, groupId: String)
 
     enum ToolRunItem: Equatable, Identifiable {
         case tool(ChatPart.ToolPart, canDecide: Bool)
@@ -37,15 +39,18 @@ enum ChatRow: Identifiable, Equatable {
         let scope: String
     }
     case activity(text: String)
+    /// The message being uploaded, before the server has it.
+    case sending
     case hint(id: String, text: String, isError: Bool)
 
     var id: String {
         switch self {
-        case .timestamp(let id, _), .user(let id, _, _, _, _), .assistantText(let id, _, _, _),
+        case .timestamp(let id, _), .user(let id, _, _, _, _, _), .assistantText(let id, _, _, _),
              .reasoning(let id, _), .tool(let id, _, _, _), .toolRun(let id, _, _, _), .work(let id, _, _),
-             .memory(let id, _, _), .memoryRecall(let id, _, _), .hint(let id, _, _):
+             .memory(let id, _, _), .memoryRecall(let id, _, _), .downloads(let id, _), .hint(let id, _, _):
             return id
         case .activity: return "activity"
+        case .sending: return "sending"
         }
     }
 }

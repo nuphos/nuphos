@@ -106,7 +106,7 @@ struct PlansPage: View {
                 Text(message)
             } actions: {
                 Button("Try again") { Task { await store.loadTeams() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
             }
         } else {
             phaseStatus
@@ -127,7 +127,7 @@ struct PlansPage: View {
                 Text(message)
             } actions: {
                 Button("Try again") { Task { await plans.reload() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
             }
         case .loaded where !plans.search.trimmingCharacters(in: .whitespaces).isEmpty:
             ContentUnavailableView.search(text: plans.search)
@@ -140,12 +140,12 @@ struct PlansPage: View {
                 Button("Ask the agent to plan a change") {
                     if let session = store.newSession() {
                         newChat = AgentPage.NewChat(session: session, prompt: ComposerSubmission(
-                            text: "Help me plan an infrastructure change — ask me what I want to do, then draft a plan for the team to review.",
+                            text: "Help me plan a change — ask me what I want to do, then draft a plan for the team to review.",
                             attachments: []
                         ))
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .prominentButton()
             }
         case .loaded:
             // Everything loaded is dismissed and hidden.

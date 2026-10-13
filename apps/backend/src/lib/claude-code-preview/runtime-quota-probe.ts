@@ -32,6 +32,35 @@ async function lookup() {
   let url;
   let headers;
   let plan;
+  if (params && params.provider === 'grok') {
+    // Grok reports its own billing over ACP, so its credential stays inside Grok.
+    const { spawn } = await import('node:child_process');
+    const billing = await new Promise((resolve, reject) => {
+      const child = spawn('grok', ['agent', '--no-leader', 'stdio'], {
+        env: { ...process.env, GROK_DISABLE_AUTOUPDATER: '1' },
+        stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      const send = message => child.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n');
+      const done = (error, result) => { clearTimeout(timer); child.kill(); error ? reject(error) : resolve(result); };
+      const timer = setTimeout(() => done(new Error('Grok did not answer')), 10000);
+      let buffer = '';
+      child.on('error', error => done(error));
+      child.stdout.on('data', chunk => {
+        buffer += chunk;
+        for (let end; (end = buffer.indexOf('\n')) >= 0; buffer = buffer.slice(end + 1)) {
+          let message;
+          try { message = JSON.parse(buffer.slice(0, end)); } catch { continue; }
+          if (message.id === 1) send({ id: 2, method: '_x.ai/billing', params: {} });
+          if (message.id === 2) done(message.error && new Error(message.error.message), message.result);
+        }
+      });
+      send({ id: 1, method: 'initialize', params: { protocolVersion: 1, clientCapabilities: {} } });
+    }).catch(error => ({ error: String(error.message) }));
+    if (billing.error)
+      return /Authentication required/.test(billing.error) ? { error: 'Sign in required' } : { error: billing.error.slice(0, 200) };
+    asked = true;
+    return { usage: billing, ...(typeof billing.subscription_tier === 'string' ? { plan: billing.subscription_tier } : {}) };
+  }
   if (params && params.provider === 'codex') {
     const auth = await read(join(homedir(), '.codex', 'auth.json'));
     const tokens = auth && auth.tokens;

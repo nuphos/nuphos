@@ -1,8 +1,7 @@
 import { MessageSquare } from 'lucide-react'
 
 import { AgentPanel } from '../../components/agent/AgentPanel'
-import { ClaudeIcon, CodexIcon } from '../../components/agent/panel/icons'
-import { ConversationRail } from '../../views/ConversationRail'
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
 import type { UserInfo } from '../../types'
@@ -14,7 +13,6 @@ type PaneAgentPageProps = {
   tab: WorkspaceTabState
   user: UserInfo
   active: boolean
-  railCollapsed: boolean
   isTeamAdmin: boolean
   agentPaid: boolean
   pageHref: string
@@ -25,8 +23,6 @@ type PaneAgentPageProps = {
   onDockAgentToSidebar: (snapshot: AgentSessionSnapshot | null) => void
   updateTab: UpdateWorkspaceTab
   onAgentSessionTitle: (tabId: string, title: string) => void
-  onOpenConversation: (sessionId: string) => void
-  onRailCollapsedChange: (collapsed: boolean) => void
   onOpenNuphosLink: (href: string) => boolean
   onOpenSettingsSection: (section: string) => void
   onStartFirstRunConnect: () => void
@@ -39,7 +35,6 @@ export function PaneAgentPage({
   tab,
   user,
   active,
-  railCollapsed,
   isTeamAdmin,
   agentPaid,
   pageHref,
@@ -50,8 +45,6 @@ export function PaneAgentPage({
   onDockAgentToSidebar,
   updateTab,
   onAgentSessionTitle,
-  onOpenConversation,
-  onRailCollapsedChange,
   onOpenNuphosLink,
   onOpenSettingsSection,
   onStartFirstRunConnect,
@@ -63,22 +56,6 @@ export function PaneAgentPage({
 
   return (
     <>
-      {tab.scope.kind === 'team' && tab.active === 'team.agent' && (
-        <ConversationRail
-          collapsed={railCollapsed}
-          teamId={tab.scope.teamId}
-          currentUserId={user.id}
-          refreshKey={tab.refreshKey}
-          selectedSessionId={tab.agentSessionId}
-          onOpenConversation={(sessionId, title) => {
-            onAgentSessionTitle(tabId, title)
-            updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sessionId }))
-          }}
-          onOpenConversationInNewTab={(sessionId) => onOpenConversation(sessionId)}
-          onExpand={() => onRailCollapsedChange(false)}
-          onCollapse={() => onRailCollapsedChange(true)}
-        />
-      )}
       {tab.scope.kind === 'team' && tab.active === 'team.agent' && (
         <AgentPanel
           key={`agent-page-${tab.id}`}
@@ -116,11 +93,7 @@ export function PaneAgentPage({
               title: title || 'Agent',
               iconKey: claudeCodeRuntimeAttached ? (agentRuntime ?? 'claude-code') : 'agent',
               icon: claudeCodeRuntimeAttached ? (
-                agentRuntime === 'codex' ? (
-                  <CodexIcon className="h-3.5 w-3.5" />
-                ) : (
-                  <ClaudeIcon className="h-3.5 w-3.5" />
-                )
+                <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />
               ) : (
                 <MessageSquare className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
               ),

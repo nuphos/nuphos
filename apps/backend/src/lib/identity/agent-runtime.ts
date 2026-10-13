@@ -1,11 +1,13 @@
 import { ObjectId as MongoObjectId } from 'mongodb'
 
 import { upsertCachedTeam } from '@/lib/agent/directory'
+import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { mapTeam, teams } from '@/lib/identity/shared'
 
+import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { NuphosTeam } from '@/lib/identity/types'
 
-export type TeamAgentRuntime = 'claude-code' | 'codex'
+export type TeamAgentRuntime = OpenAbProvider
 
 export const DEFAULT_TEAM_AGENT_RUNTIME: TeamAgentRuntime = 'claude-code'
 
@@ -35,5 +37,5 @@ export async function getTeamAgentRuntime(teamId: string): Promise<TeamAgentRunt
     { projection: { agentRuntime: 1 } },
   )
 
-  return team?.agentRuntime === 'codex' ? 'codex' : DEFAULT_TEAM_AGENT_RUNTIME
+  return runtimeProvider(team?.agentRuntime)
 }

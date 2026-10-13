@@ -65,6 +65,17 @@ type RawComment = {
   diff_hunk?: string
 }
 
+type RawCommit = {
+  sha: string
+  html_url: string
+  author: User | null
+  commit: {
+    message: string
+    author: { name: string } | null
+    committer: { date: string } | null
+  }
+}
+
 type RawFile = {
   filename: string
   status: string
@@ -136,15 +147,15 @@ export function registerGithubPullDetailRoute(
           }
           throw error
         })
-        const [rawReviews, rawComments, rawReviewComments, rawFiles, rawChecks] = await Promise.all(
-          [
+        const [rawReviews, rawComments, rawReviewComments, rawCommits, rawFiles, rawChecks] =
+          await Promise.all([
             githubJson<RawReview[]>(`/pulls/${String(pullNumber)}/reviews?per_page=100`),
             githubJson<RawComment[]>(`/issues/${String(pullNumber)}/comments?per_page=100`),
             githubJson<RawComment[]>(`/pulls/${String(pullNumber)}/comments?per_page=100`),
+            githubJson<RawCommit[]>(`/pulls/${String(pullNumber)}/commits?per_page=100`),
             githubJson<RawFile[]>(`/pulls/${String(pullNumber)}/files?per_page=100`),
             checks,
-          ],
-        )
+          ])
         const conversation = [...rawComments, ...rawReviewComments].sort((a, b) =>
           a.created_at.localeCompare(b.created_at),
         )
@@ -203,6 +214,14 @@ export function registerGithubPullDetailRoute(
             path: comment.path,
             line: comment.line ?? comment.original_line,
             diffHunk: comment.diff_hunk,
+          })),
+          commitHistory: rawCommits.map((commit) => ({
+            sha: commit.sha,
+            headline: commit.commit.message.split('\n')[0],
+            author: commit.author?.login ?? commit.commit.author?.name ?? 'ghost',
+            authorAvatarUrl: commit.author?.avatar_url ?? '',
+            committedAt: commit.commit.committer?.date ?? pr.created_at,
+            htmlUrl: commit.html_url,
           })),
           checks: rawChecks.check_runs.map((check) => ({
             id: check.id,

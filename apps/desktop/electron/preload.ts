@@ -9,11 +9,13 @@ import { cloudflareApi } from './preload-parts/api-cloudflare'
 import { connectApi } from './preload-parts/api-connect'
 import { databasesApi } from './preload-parts/api-databases'
 import { deviceApi } from './preload-parts/api-device'
+import { githubCliApi } from './preload-parts/api-github-cli'
 import { instructionsApi } from './preload-parts/api-instructions'
 import { integrationsApi } from './preload-parts/api-integrations'
 import { k8sAppApi } from './preload-parts/api-k8s-app'
 import { localTerminalApi } from './preload-parts/api-local-terminal'
 import { posthogApi } from './preload-parts/api-posthog'
+import { sessionAccessApi } from './preload-parts/api-session-access'
 import { teamApi } from './preload-parts/api-team'
 
 const api = {
@@ -27,9 +29,11 @@ const api = {
   ...deviceApi,
   ...awsApi,
   ...cloudOpsApi,
+  ...githubCliApi,
   ...agentApi,
   ...integrationsApi,
   ...posthogApi,
+  ...sessionAccessApi,
   ...connectApi,
   ...instructionsApi,
 }

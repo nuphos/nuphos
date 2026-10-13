@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useState } from 'react'
 
 import { toast } from '../../components/ui/toast'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { MIN_RUNTIME_PASSWORD as MIN_PASSWORD, runtimePasswordProblem } from './runtimePassword'
 import { Field } from './shared'
@@ -67,7 +68,7 @@ export function ExternalRuntimePasswordForm({
       <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
         Start the agent container with one variable, its admin password, and serve it over wss:// —
         most hosts provide TLS for you. Then paste its address and that same password here. Nuphos
-        detects whether it is running Claude Code or Codex on its own.
+        detects which agent it runs on its own.
       </p>
       <Field
         label="Address"
@@ -110,16 +111,11 @@ export function ExternalRuntimePasswordForm({
           Detecting the agent…
         </p>
       )}
-      {detectedProvider === 'codex' && (
+      {detectedProvider && (
         <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
-          Codex detected. Once it is connected, sign it in to ChatGPT with Sign in on its card. That
-          needs agent image 0.0.7 or newer.
-        </p>
-      )}
-      {detectedProvider === 'claude-code' && (
-        <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
-          Claude Code detected. Once it is connected, add its Claude Code account from the agent
-          card.
+          {AGENT_PROVIDER[detectedProvider].label} detected. Once it is connected, sign it in to{' '}
+          {AGENT_PROVIDER[detectedProvider].account} with Sign in on its card.
+          {detectedProvider === 'codex' && ' That needs agent image 0.0.7 or newer.'}
         </p>
       )}
       <div className="flex items-center gap-2">

@@ -2,14 +2,14 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { ClaudeCodeIcon, CodexIcon } from '../../components/agent/panel/icons'
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { RuntimeUsageBar } from './RuntimeUsageBar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
-import { RuntimeDefaultsSection } from './RuntimeDefaultsSection'
 import { RuntimeInstanceForm } from './RuntimeInstanceForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
@@ -85,7 +85,6 @@ export function RuntimeInstanceCard({
       setBusy(false)
     }
   }
-  const Icon = instance.provider === 'codex' ? CodexIcon : ClaudeCodeIcon
   const canEdit = isAdmin && instance.kind !== 'development' && !instance.deletion
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
@@ -97,7 +96,7 @@ export function RuntimeInstanceCard({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-5">
         <div className="flex min-w-0 flex-1 basis-52 items-center gap-3.5">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zGray-800/70 bg-main shadow-sm">
-            <Icon className="h-5 w-5 text-secondary" />
+            <AgentProviderIcon provider={instance.provider} className="h-5 w-5 text-secondary" />
           </div>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -130,7 +129,7 @@ export function RuntimeInstanceCard({
               )}
             </div>
             <p className="mt-0.5 truncate text-xs text-tertiary">
-              {instance.provider === 'codex' ? 'Codex' : 'Claude Code'}
+              {AGENT_PROVIDER[instance.provider].label}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
           </div>
@@ -199,7 +198,7 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              'Saving conversation workspaces, then deleting the agent and its disk. Conversations stay in Nuphos and can be moved to another agent.'}
+              'Removing the agent and its files. Conversation history stays in Nuphos.'}
           </p>
         ) : editing ? (
           <div className="p-4">
@@ -233,9 +232,6 @@ export function RuntimeInstanceCard({
               )
             )}
             <div className="px-5 py-6">
-              <RuntimeDefaultsSection teamId={teamId} instance={instance} isAdmin={isAdmin} />
-            </div>
-            <div className="px-5 py-6">
               <RuntimeUsageSection quota={quota} />
             </div>
             <div className="px-5 py-6">
@@ -258,7 +254,7 @@ export function RuntimeInstanceCard({
           title={`Remove ${instance.label}?`}
           description={
             instance.kind === 'managed'
-              ? 'Nuphos will save conversation workspaces before permanently deleting this agent and its disk, including its sign-in. Your conversation history stays in Nuphos. Move a conversation to another agent to continue with reconstructed context. If a workspace cannot be saved, deletion pauses.'
+              ? 'This permanently deletes the agent, its disks, workspaces, and sign-in, and stops running conversations. Your conversation history stays in Nuphos. Move any workspace you want to keep to another agent before removing this one.'
               : 'This disconnects the external agent. Its files remain on the external machine. Your conversations stay in Nuphos and can be moved using conversation history.'
           }
           destructive

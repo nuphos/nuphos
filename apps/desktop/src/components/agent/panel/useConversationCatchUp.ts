@@ -91,6 +91,7 @@ export function useConversationCatchUp(acc: Acc): void {
                   ...tab,
                   runtimeState: acceptRuntimeSnapshot(tab.runtimeState, runtimeState),
                   timelineEvents: probe.timelineEvents,
+                  promptSuggestion: probe.promptSuggestion,
                 }
               : tab,
           ),

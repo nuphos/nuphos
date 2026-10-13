@@ -1,4 +1,6 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
+import type { SessionResource } from './session-resource-types'
+import type { AgentProvider } from '../types/runtime.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -12,10 +14,25 @@ export type AgentConversationPerson = {
 }
 
 /** Owner first, then whoever spoke here or was invited from Share. */
-export type AgentConversationParticipant = AgentConversationPerson & { isOwner: boolean }
+/** Who in the team may open a session without an invite. */
+export type GeneralAccess = 'none' | 'view' | 'reply'
+/** `manage` also moves the session to another runtime and changes its credentials. */
+export type ParticipantRole = 'view' | 'reply' | 'manage'
+export type ConversationAccess = 'owner' | ParticipantRole
+
+export type AgentConversationParticipant = AgentConversationPerson & {
+  isOwner: boolean
+  role: ConversationAccess | null
+}
+
+export type ConversationAccessState = {
+  generalAccess: GeneralAccess
+  participants: AgentConversationParticipant[]
+}
 
 export type AgentConversation = {
   runtimeState?: import('../lib/runtimeExecution').RuntimeExecution
+  linkedResources?: SessionResource[]
   sessionId: string
   teamId?: string
   title: string
@@ -29,6 +46,8 @@ export type AgentConversation = {
   triggerRun?: AgentConversationTriggerRun
   isOwner?: boolean
   readOnly?: boolean
+  /** The owner or a manager: may change the runtime and credentials. */
+  canManage?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
   transcriptUpdatedAt?: string
@@ -36,9 +55,11 @@ export type AgentConversation = {
   lastActiveAt: string
   /** Owner-set archive marker; conversation stays intact and listable. */
   archivedAt?: string
+  /** The conversation that opened this one as a thread; the sidebar nests it there. */
+  parentSessionId?: string
   /** This conversation is backed by a long-lived Claude Code runtime session. */
   claudeCodeRuntimeAttached?: boolean
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   runtimeId?: string
   runtimeLabel?: string
   /** A reply running right now, on any client. */
@@ -121,8 +142,8 @@ export type AgentActiveRun = {
 
 export type AgentMessageMetadata = {
   version: 1
-  sender: { type: 'user'; id: string; displayName: string; avatarURL?: string }
-  source: 'nuphos' | 'slack'
+  sender: { type: 'user' | 'agent' | 'system'; id: string; displayName: string; avatarURL?: string }
+  source: 'nuphos' | 'slack' | 'discord' | 'lark' | 'agent.thread' | 'agent.resource'
   sentAt: string
 }
 
@@ -142,7 +163,7 @@ export type AgentPersistedMessage = {
 }
 
 export type AgentTimelinePerson = { id: string; name: string; avatarURL: string }
-export type AgentTimelineRuntime = { label: string; provider?: 'claude-code' | 'codex' }
+export type AgentTimelineRuntime = { label: string; provider?: AgentProvider }
 
 /** Who joined, left or moved the session; `text` is the whole line, plain. */
 export type AgentTimelineEvent = {
@@ -166,6 +187,8 @@ export type AgentConversationDetail = AgentConversation & {
   activeRun?: AgentActiveRun | null
   slackThread?: AgentSlackThread | null
   timelineEvents?: AgentTimelineEvent[]
+  /** The runtime's guess at the next prompt, offered in the composer. */
+  promptSuggestion?: string | null
 }
 
 export type AgentConversationMessagesPage = {

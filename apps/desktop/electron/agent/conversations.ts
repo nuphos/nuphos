@@ -1,3 +1,4 @@
+import type { AgentProvider } from '../../src/types/runtime'
 import { AtlasHttpError, callJson, callJsonForRenderer, teamQuery } from './http'
 import { storedMessageCountFromDetails, windowTranscript } from './transcript-window'
 
@@ -16,9 +17,7 @@ export type ConversationsSort = 'activity' | 'created' | 'archived'
 
 /**
  * teamId leads and is required — the backend rejects a listing without one, so
- * a caller that can't name the team has no question to ask. It used to trail a
- * pair of optional arguments, which is how a call site came to pass something
- * else entirely in its place.
+ * a caller that can't name the team has no question to ask.
  */
 export async function listConversations(
   teamId: string,
@@ -30,10 +29,9 @@ export async function listConversations(
     /** Narrow team scope to one member's conversations. */
     ownerId?: string
     /**
-     * A Trigger's run history. Omitted lists Chats, which excludes trigger
-     * runs entirely — the two are opposite listings, so this is never a
-     * refinement of the default. Several ids list a Watch group's partition
-     * triggers together.
+     * A Trigger's run history. Omitted lists Chats, which excludes trigger runs entirely — the two
+     * are opposite listings, so this is never a refinement of the default. Several ids list a
+     * Watch group's partition triggers together.
      */
     triggerIds?: string[]
     search?: string
@@ -55,7 +53,9 @@ export async function listConversations(
   if (options?.archived) params.set('archived', options.archived)
   if (options?.sort) params.set('sort', options.sort)
 
-  return callJson<ConversationsPage>('GET', `/agent/conversations?${String(params)}`)
+  const route = `/agent/conversations?${String(params)}`
+
+  return callJson<ConversationsPage>('GET', route, undefined, 12_000)
 }
 
 export async function setConversationArchived(
@@ -74,11 +74,12 @@ export async function steerConversation(
   sessionId: string,
   text: string,
   teamId?: string,
-): Promise<{ ok: boolean; messageId: string }> {
-  return callJson<{ ok: boolean; messageId: string }>(
+  groupId?: string,
+): Promise<{ ok: boolean; messageId: string; text?: string }> {
+  return callJson<{ ok: boolean; messageId: string; text?: string }>(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/steer${teamQuery(teamId)}`,
-    { text },
+    { text, ...(groupId ? { groupId } : {}) },
   )
 }
 
@@ -109,12 +110,13 @@ export async function pickUpConversationInSlack(
 export async function getConversation(
   sessionId: string,
   teamId?: string,
-  options?: { tail?: number },
+  options?: { tail?: number; runtimeState?: 'omit' },
 ): Promise<ConversationDetail> {
   const params = new URLSearchParams()
 
   if (teamId) params.set('teamId', teamId)
   if (options?.tail) params.set('tail', String(options.tail))
+  if (options?.runtimeState) params.set('runtimeState', options.runtimeState)
   const q = params.toString() ? `?${String(params)}` : ''
 
   return callJson<ConversationDetail>(
@@ -166,16 +168,13 @@ export async function updateConversationCredentials(args: {
   return callJson<AgentConversationCredentialsResponse>(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(args.sessionId)}/credentials${teamQuery(args.teamId)}`,
-    {
-      teamId: args.teamId,
-      credentialAccess: args.credentialAccess,
-    },
+    { teamId: args.teamId, credentialAccess: args.credentialAccess },
   )
 }
 
 export async function syncConversationTranscript(args: {
   sessionId: string
-  agentRuntime?: 'claude-code' | 'codex'
+  agentRuntime?: AgentProvider
   runtimeId?: string
   teamId?: string
   title: string
@@ -276,7 +275,7 @@ export async function moveConversationRuntime(
 ): Promise<{
   runtimeId: string
   runtimeLabel: string
-  agentRuntime: 'claude-code' | 'codex'
+  agentRuntime: AgentProvider
   mode: 'history' | 'workspace'
 }> {
   return callJsonForRenderer(

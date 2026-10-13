@@ -42,7 +42,7 @@ struct LoginView: View {
                 else if case .signedOut(let message) = session.state, let message { Text(message).foregroundStyle(.red) }
                 Button(busy ? "Please wait…" : usePassword || codeSent ? "Sign in" : "Send verification code") {
                     Task { await submit() }
-                }.buttonStyle(.borderedProminent).disabled(busy || email.trimmingCharacters(in: .whitespaces).isEmpty)
+                }.prominentButton().disabled(busy || email.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button(usePassword ? "Use an email code / reset password" : "Use a password") {
                     usePassword.toggle(); codeSent = false; credential = ""; error = nil; setPassword = false
                 }.disabled(busy)

@@ -8,20 +8,24 @@ import type { RuntimeInstance } from './runtime-instances'
 
 useRuntimeRegistry({
   resolveTeamRuntimeEndpoints: async (_teamId: string, _kube: unknown, provider = 'claude-code') =>
-    provider === 'claude-code'
-      ? [{ runtimeId: 'ready', url: 'wss://ready/acp', authKey: 'k' }]
-      : [],
+    provider === 'codex'
+      ? []
+      : [{ runtimeId: `ready-${provider}`, url: 'wss://ready/acp', authKey: 'k' }],
 })
 
 const agent = (
   id: string,
   kind: RuntimeInstance['kind'],
   status: RuntimeInstance['status'] = 'active',
-) => ({ id, kind, status, provider: 'claude-code', label: id, createdAt: '' }) as RuntimeInstance
+  provider: RuntimeInstance['provider'] = 'claude-code',
+) => ({ id, kind, status, provider, label: id, createdAt: '' }) as RuntimeInstance
 
 test('only an enabled registered agent without a reachable endpoint is flagged', async () => {
   const flagged = await withRuntimeReadiness('team', [
-    agent('ready', 'managed'),
+    agent('ready-claude-code', 'managed'),
+    // Each provider's agents are looked up among that provider's endpoints.
+    agent('ready-grok', 'managed', 'active', 'grok'),
+    agent('ready-antigravity', 'external', 'active', 'antigravity'),
     agent('starting', 'managed'),
     agent('elsewhere', 'external'),
     agent('off', 'managed', 'disabled'),

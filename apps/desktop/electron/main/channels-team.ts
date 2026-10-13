@@ -7,9 +7,11 @@ import { listLocalSkills } from './local-skills'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type {
+  AgentProvider,
   CreateRuntimeInput,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
+  RuntimeQuotaHistoryRange,
   UpdateRuntimeInput,
 } from '../../src/types/runtime'
 
@@ -29,6 +31,8 @@ export const teamChannels = {
   ) => atlas.submitRuntimeLoginCode(teamId, runtimeId, attemptId, code),
   'atlas:listRuntimeInstances': (_e: unknown, teamId: string) => atlas.listRuntimeInstances(teamId),
   'atlas:listRuntimeQuotas': (_e: unknown, teamId: string) => atlas.listRuntimeQuotas(teamId),
+  'atlas:getRuntimeQuotaHistory': (_e: unknown, teamId: string, range: RuntimeQuotaHistoryRange) =>
+    atlas.getRuntimeQuotaHistory(teamId, range),
   'atlas:createRuntimeInstance': (_e: unknown, teamId: string, input: CreateRuntimeInput) =>
     atlas.createRuntimeInstance(teamId, input),
   'atlas:probeExternalRuntimeProvider': (
@@ -66,8 +70,8 @@ export const teamChannels = {
     sessionId: string,
     path: string,
   ) => atlas.listRuntimeFiles(teamId, runtimeId, sessionId, path),
-  'atlas:getRuntimeModels': (_e: unknown, teamId: string, runtimeId: string, model?: string) =>
-    atlas.getRuntimeModels(teamId, runtimeId, model),
+  'atlas:getRuntimeModelConfig': (_e: unknown, ...args: [string, string, Record<string, string>]) =>
+    atlas.getRuntimeModelConfig(...args),
   'atlas:requestRuntimeUpdate': (_e: unknown, teamId: string, runtimeId: string) =>
     atlas.requestRuntimeUpdate(teamId, runtimeId),
   'atlas:getRuntimeInstanceStatus': (_e: unknown, teamId: string, runtimeId: string) =>
@@ -87,6 +91,15 @@ export const teamChannels = {
     entries: atlas.SidebarFavoriteEntry[],
     expectedRevision: number,
   ) => atlas.putSidebarFavorites(teamId, entries, expectedRevision),
+  'atlas:getHomeLayout': (_e: unknown, teamId: string) => atlas.getHomeLayout(teamId),
+  'atlas:getTeamActivity': (_e: unknown, teamId: string, range: string) =>
+    atlas.getTeamActivity(teamId, range),
+  'atlas:putHomeLayout': (
+    _e: unknown,
+    teamId: string,
+    scope: 'personal' | 'team',
+    layout: unknown,
+  ) => atlas.putHomeLayout(teamId, scope, layout),
   'arch:listDiagrams': (_e: unknown, teamId: string) => atlas.archListDiagrams(teamId),
   'arch:getDiagram': (_e: unknown, teamId: string, diagramId: string) =>
     atlas.archGetDiagram(teamId, diagramId),
@@ -187,7 +200,7 @@ export const teamChannels = {
     atlas.updateTeam(teamId, input),
   'atlas:setTeamEmailDomainDiscovery': (_e: unknown, teamId: string, enabled: boolean) =>
     atlas.setTeamEmailDomainDiscovery(teamId, enabled),
-  'atlas:setTeamAgentRuntime': (_e: unknown, teamId: string, runtime: 'claude-code' | 'codex') =>
+  'atlas:setTeamAgentRuntime': (_e: unknown, teamId: string, runtime: AgentProvider) =>
     atlas.setTeamAgentRuntime(teamId, runtime),
   'atlas:listDiscoverableTeams': () => atlas.listDiscoverableTeams(),
   'atlas:joinDiscoverableTeam': (_e: unknown, teamId: string) => atlas.joinDiscoverableTeam(teamId),

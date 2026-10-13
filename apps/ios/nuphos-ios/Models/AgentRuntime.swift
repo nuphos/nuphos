@@ -4,14 +4,8 @@ import Foundation
 /// (`GET /teams/:id/agent-runtimes`): a Cloud runtime, or one of the
 /// signed-in user's own computers (`kind == "local"`).
 struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
-    enum Provider: String, Codable, Sendable { case claudeCode = "claude-code", codex }
+    enum Provider: String, Codable, Sendable { case claudeCode = "claude-code", codex, grok, antigravity, opencode }
     enum Status: String, Codable, Sendable { case active, disabled }
-
-    struct Defaults: Codable, Equatable, Hashable, Sendable {
-        let model: String?
-        let fast: String?
-        let effort: String?
-    }
 
     struct Local: Codable, Equatable, Hashable, Sendable {
         let ownerUserId: String
@@ -38,7 +32,6 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
     let status: Status
     let kind: String?
     let local: Local?
-    let defaults: Defaults?
 
     /// iOS never runs an agent itself, so every local agent is on another computer.
     var tier: Tier { kind == "local" || local != nil ? .myComputers : .cloud }
@@ -81,17 +74,49 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
 extension RuntimeInstance.Provider {
     /// Asset catalog mark: Claude's for Claude Code, OpenAI's for Codex.
     static func logo(_ raw: String?) -> String {
-        raw == "codex" ? "logo-openai" : "logo-claude"
+        switch raw {
+        case "codex": "logo-openai"
+        case "grok": "logo-grok"
+        case "antigravity": "logo-antigravity"
+        case "opencode": "logo-opencode"
+        default: "logo-claude"
+        }
     }
 
     static func name(_ raw: String?) -> String {
         switch raw {
         case "codex": "Codex"
         case "claude-code": "Claude Code"
+        case "grok": "Grok Build"
+        case "antigravity": "Antigravity"
+        case "opencode": "OpenCode"
         case "nuphos": "Nuphos"
         default: raw?.capitalized ?? "Runtime"
         }
     }
+}
+
+/// Provider usage for one agent (`GET /teams/:id/agent-runtimes/quota`).
+struct RuntimeQuota: Decodable, Sendable {
+    struct Window: Decodable, Sendable {
+        let label: String
+        let usedPercent: Double
+        let resetsAt: Date?
+
+        /// What is left of the window, floored so it never promises more than there is.
+        var leftPercent: Int { min(100, max(0, Int((100 - usedPercent).rounded(.down)))) }
+    }
+
+    let runtimeId: String
+    let available: Bool
+    /// Why there are no figures, in the agent's own words.
+    let reason: String?
+    let windows: [Window]
+
+    var needsSignIn: Bool { !available && reason == "Sign in required" }
+
+    /// The window closest to running out decides what the row says.
+    var tightest: Window? { available ? windows.max { $0.usedPercent < $1.usedPercent } : nil }
 }
 
 /// Model / effort / fast controls the runtime exposes for one conversation
@@ -130,21 +155,39 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     let status: Status
     let options: [Option]
 
+    func retainingOptions(from previous: SessionConfigState?) -> SessionConfigState {
+        options.isEmpty && ![.ready, .unsupported].contains(status)
+            ? .init(status: status, options: previous?.options ?? []) : self
+    }
+
+    /// Latest selection per control; apply model first, then only still-valid controls.
+    func nextSelection(in pending: inout [String: String], streaming: Bool) -> (id: String, value: String)? {
+        guard !streaming, [.ready, .dormant].contains(status) else { return nil }
+        let ids = [model?.id].compactMap { $0 } + pending.keys.sorted().filter { $0 != model?.id }
+        for id in ids {
+            guard let value = pending.removeValue(forKey: id) else { continue }
+            if options.contains(where: { $0.id == id && $0.options.contains(where: { $0.value == value }) }) {
+                return (id, value)
+            }
+        }
+        return nil
+    }
+
     var model: Option? { options.first { $0.kind == .model } }
     var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue == "on" } }
 
     /// Writes restore a dormant session, so its remembered settings stay editable.
-    var isEditable: Bool { status == .ready || (status == .dormant && !options.isEmpty) }
+    var isEditable: Bool { [.ready, .busy, .dormant].contains(status) && !options.isEmpty }
 
     /// Show the model whenever one is known; "unavailable" means the agent is offline.
     var modelTitle: String {
-        if let model { return model.currentLabel }
+        if let model, !model.currentValue.isEmpty { return model.currentLabel }
         return status == .offline ? "Model unavailable" : "Model"
     }
 
     var hint: String? {
         switch status {
-        case .busy: "You can change model settings after this reply."
+        case .busy: "Changes apply after this reply."
         case .dormant: options.isEmpty ? "Send a message to start this session before changing model settings." : nil
         case .offline: "This agent is offline. Model settings return when it reconnects."
         case .ready, .unsupported: nil
@@ -162,10 +205,19 @@ struct SidebarFavorites: Codable, Equatable, Sendable {
 
         static let sessionPrefix = "agent-session:"
 
+        /// The pinned chat, whichever identity it was pinned under: an
+        /// `agent-session:` key, or the `/teams/<team>/agent/<session>` href
+        /// Desktop pins a chat row by.
         var sessionId: String? {
-            guard let key, key.hasPrefix(Self.sessionPrefix) else { return nil }
-            let id = String(key.dropFirst(Self.sessionPrefix.count))
-            return id.isEmpty ? nil : id
+            if let key, key.hasPrefix(Self.sessionPrefix) {
+                let id = String(key.dropFirst(Self.sessionPrefix.count))
+                return id.isEmpty ? nil : id
+            }
+            guard let href, let path = URLComponents(string: href)?.percentEncodedPath else { return nil }
+            let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+            guard parts.count == 5, parts[0].isEmpty, parts[1] == "teams", !parts[2].isEmpty, parts[3] == "agent",
+                  let id = parts[4].removingPercentEncoding, !id.isEmpty else { return nil }
+            return id
         }
 
         static func chat(sessionId: String, label: String) -> Entry {
@@ -178,3 +230,4 @@ struct SidebarFavorites: Codable, Equatable, Sendable {
 
     var pinnedSessionIds: Set<String> { Set(entries.compactMap(\.sessionId)) }
 }
+

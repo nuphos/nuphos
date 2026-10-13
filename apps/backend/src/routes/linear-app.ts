@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
+import { applyLinearIssueWebhook } from '@/lib/agent/linear-issue-webhook'
 import {
   exchangeCodeForTokens,
   getDefaultClientCredentials,
@@ -180,11 +181,8 @@ type LinearWebhookPayload = {
   action?: string
 }
 
-// Reverse-sync (Linear → agent) is intentionally NOT implemented yet — the
-// closed loop is human-chat-driven for now. This handler verifies the signature
-// and acknowledges so the webhook can be wired up in the Linear app ahead of
-// that work (mirrors the GitLab /gitlab-app/webhook ack stub). When reverse-sync
-// lands, dispatch off `payload.type`/`payload.action` here.
+// Issue events refresh linked session tags; agent wakeups from Linear are not
+// implemented, so every other event is only acknowledged.
 linearAppRoutes.post('/webhook', async (c) => {
   if (!config.byos.linear.webhookSecret) {
     throw new AppError(503, 'webhook_not_configured', 'LINEAR_WEBHOOK_SECRET is not set')
@@ -205,6 +203,7 @@ linearAppRoutes.post('/webhook', async (c) => {
     throw new AppError(400, 'invalid_payload', 'Webhook body is not valid JSON')
   }
 
+  await applyLinearIssueWebhook(payload)
   logEvent('info', 'linear.webhook.acknowledged', {
     type: payload.type ?? 'unknown',
     action: payload.action ?? 'unknown',

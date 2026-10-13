@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { loginFrameReader, readRuntimeLoginSocket } from './runtime-login-exec'
 
-import type { RuntimeLoginFrame } from './runtime-login-exec'
+import type { RuntimeLoginFrame } from './runtime-login-step'
 
 function socketFixture(exit: 'Success' | 'Failure' | 'Disconnected') {
   const requests: { authorization: string | null; protocol: string | null }[] = []
@@ -141,4 +141,94 @@ test("only Claude's own authorize page reaches the UI, and a runtime's error is 
   // Anything the reader does not know gets the fixed message, never the runtime's words.
   expect(messages[2]).toBe(messages[3])
   expect(messages.join()).not.toContain('runtime words')
+})
+
+test("a failed sign-in gives the provider's own advice", () => {
+  const messages: string[] = []
+  const read = loginFrameReader(
+    (frame) => frame.type === 'error' && messages.push(frame.message),
+    'Start again and confirm the code on the xAI page.',
+  )
+
+  read(`${JSON.stringify({ type: 'error', reason: 'failed' })}\n`)
+  read(`${JSON.stringify({ type: 'error', reason: 'input_unavailable' })}\n`)
+  expect(messages[0]).toBe('Start again and confirm the code on the xAI page.')
+  expect(messages[1]).toContain('cannot receive the sign-in code')
+})
+
+test('Grok Build and Antigravity sign in through their own pages only', () => {
+  const frames: RuntimeLoginFrame[] = []
+  const read = loginFrameReader((frame) => frames.push(frame))
+  const google = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=c&redirect_uri=x'
+  const device = { verificationUri: 'https://accounts.x.ai/oauth2/device', userCode: '26CT-7C8A' }
+
+  read(`${JSON.stringify({ type: 'device', ...device })}\n`)
+  read(`${JSON.stringify({ type: 'authorize', url: google })}\n`)
+  for (const lookalike of [
+    'https://accounts.google.com.evil.example/o/oauth2/v2/auth',
+    'https://accounts.google.com/signin',
+  ])
+    expect(() => read(`${JSON.stringify({ type: 'authorize', url: lookalike })}\n`)).toThrow(
+      'Invalid login response',
+    )
+  expect(() =>
+    read(
+      `${JSON.stringify({ type: 'device', verificationUri: 'https://x.ai.evil.example/device', userCode: 'AAAA' })}\n`,
+    ),
+  ).toThrow('Invalid login response')
+
+  expect(frames).toEqual([
+    { type: 'device', ...device },
+    { type: 'authorize', url: google },
+  ])
+})
+
+test('only a runtime that signs in by steps may ask, and only within bounds', async () => {
+  const { loginFrameReader } = await import('./runtime-login-exec')
+  const frames: unknown[] = []
+  const choose = {
+    type: 'choose',
+    message: 'Choose a model provider',
+    options: [{ value: 'openai', label: 'OpenAI', hint: 'Signed in', extra: 'dropped' }],
+  }
+
+  expect(() => loginFrameReader(() => {})(`${JSON.stringify(choose)}\n`)).toThrow()
+  const read = loginFrameReader((frame) => frames.push(frame), undefined, true)
+
+  read(`${JSON.stringify(choose)}\n`)
+  read(`${JSON.stringify({ type: 'input', message: 'API key', secret: true })}\n`)
+  read(
+    `${JSON.stringify({ type: 'browser', url: 'https://github.com/login/device', instructions: 'Enter code: AB-12' })}\n`,
+  )
+  read(`${JSON.stringify({ type: 'browser', url: '', instructions: 'Run az login first.' })}\n`)
+  expect(frames).toEqual([
+    {
+      type: 'step',
+      step: {
+        kind: 'choose',
+        message: 'Choose a model provider',
+        options: [{ value: 'openai', label: 'OpenAI', hint: 'Signed in' }],
+      },
+    },
+    { type: 'step', step: { kind: 'input', message: 'API key', secret: true } },
+    {
+      type: 'step',
+      step: {
+        kind: 'browser',
+        url: 'https://github.com/login/device',
+        instructions: 'Enter code: AB-12',
+      },
+    },
+    { type: 'step', step: { kind: 'browser', url: '', instructions: 'Run az login first.' } },
+  ])
+  for (const bad of [
+    { type: 'browser', url: 'http://example.com/' },
+    { type: 'browser', url: 'https://' },
+    { type: 'browser', url: 'https://user:pass@example.com/' },
+    { type: 'browser', url: 'https://example.com/', paste: 'anything' },
+    { type: 'choose', message: 'x', options: [] },
+    { type: 'choose', message: 'x', options: [{ value: '', label: 'x' }] },
+    { type: 'input', message: 'x'.repeat(501) },
+  ])
+    expect(() => read(`${JSON.stringify(bad)}\n`)).toThrow()
 })

@@ -1,5 +1,13 @@
 import Foundation
 
+enum CredentialScope {
+    case credentials, devices
+
+    func includes(_ selectionKey: String) -> Bool {
+        (selectionKey == "deviceIds") == (self == .devices)
+    }
+}
+
 /// The credentials (IAM) a conversation may use — `GET /agent/credential-options`
 /// on the way in, `credentialAccess` (`AgentCredentialSelection`) on the way
 /// out. One table drives both, so a new provider is one row.
@@ -81,6 +89,14 @@ struct CredentialCatalog: Equatable, Sendable {
         }
     }
 
+    private init(sections: [(provider: Provider, items: [Item])]) {
+        self.sections = sections
+    }
+
+    func scoped(to scope: CredentialScope) -> CredentialCatalog {
+        CredentialCatalog(sections: sections.filter { scope.includes($0.provider.selectionKey) })
+    }
+
     static func platformName(_ platform: String) -> String {
         switch platform {
         case "darwin": "macOS"
@@ -107,6 +123,11 @@ struct CredentialSelection: Equatable, Codable, Sendable {
     var isBlank: Bool { isEmpty && (unknown ?? [:]).isEmpty }
     var count: Int { ids.values.reduce(0) { $0 + $1.count } }
 
+    func count(in scope: CredentialScope) -> Int {
+        let devices = ids["deviceIds"]?.count ?? 0
+        return scope == .devices ? devices : count - devices
+    }
+
     func contains(_ item: CredentialCatalog.Item) -> Bool {
         ids[item.provider.selectionKey]?.contains(item.id) ?? false
     }
@@ -117,11 +138,15 @@ struct CredentialSelection: Equatable, Codable, Sendable {
         ids[item.provider.selectionKey] = set
     }
 
-    /// Empties every list, including ones this build cannot show, so the
-    /// server receives an explicit revoke rather than an omission it keeps.
-    mutating func clearAll() {
-        ids = Dictionary(uniqueKeysWithValues: CredentialCatalog.providers.map { ($0.selectionKey, []) })
-        unknown = unknown?.mapValues { $0.arrayValue == nil ? $0 : .array([]) }
+    /// Clears only the requested scope (or everything when omitted).
+    /// Send explicit empty arrays so the server revokes rather than preserves access.
+    mutating func clearAll(scope: CredentialScope? = nil) {
+        for provider in CredentialCatalog.providers where scope?.includes(provider.selectionKey) ?? true {
+            ids[provider.selectionKey] = []
+        }
+        if scope != .devices {
+            unknown = unknown?.mapValues { $0.arrayValue == nil ? $0 : .array([]) }
+        }
     }
 
     mutating func selectAll(in catalog: CredentialCatalog) {

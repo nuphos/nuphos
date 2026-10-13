@@ -212,7 +212,7 @@ export const HOME_INTRO_BLOCKS: unknown[] = [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: 'Nuphos is your AI DevOps engineer. Ask about cluster health, alerts, deployments, and troubleshooting — it investigates with live thinking steps, proposes plans, and acts once you approve.',
+      text: "Nuphos is your team's agent workspace, right here in Slack. Ask it to review code, triage issues, debug a service, or dig into an alert — it investigates with live thinking steps, proposes plans, and acts once you approve.",
     },
   },
 ]

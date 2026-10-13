@@ -1,13 +1,20 @@
 import SwiftUI
 
 /// Picks the agent a new conversation starts on: one of the user's own
-/// computers, or a Cloud agent the team has connected.
+/// computers, or a Cloud agent the team has connected. Given an open
+/// conversation, picking one moves that conversation there instead.
 struct RuntimePickerSheet: View {
+    var session: ChatSession?
+    var onMove: (RuntimeInstance) -> Void = { _ in }
+
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var showSetup = false
-    @State private var loginRuntime: RuntimeInstance?
+    @State private var detailRuntime: RuntimeInstance?
+    @State private var detent = PresentationDetent.medium
+    /// A move onto one of the user's computers waits for their go-ahead.
+    @State private var pendingLocal: RuntimeInstance?
 
     var body: some View {
         NavigationStack {
@@ -26,24 +33,32 @@ struct RuntimePickerSheet: View {
                     ProgressView("Loading agents…").tint(Theme.muted)
                 } else {
                     List {
-                        if store.selectedRuntimeUnavailable {
-                            Text("Your last agent is offline or signed out. Choose another one.")
-                                .font(.system(size: 13)).foregroundStyle(Theme.muted)
-                                .listRowBackground(Color.clear)
-                        }
-                        ForEach(RuntimeInstance.grouped(store.runtimes), id: \.tier) { group in
+                        ForEach(RuntimeInstance.grouped(choices), id: \.tier) { group in
                             Section(group.tier.title) {
                                 ForEach(group.runtimes) { runtime in
-                                    Button {
-                                        store.selectRuntime(runtime)
-                                        dismiss()
-                                    } label: {
-                                        RuntimeRow(runtime: runtime, selected: runtime.id == store.newConversationRuntime?.id)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(!runtime.isSelectable)
-                                    if store.selectedTeam?.isAdministrator == true, runtime.tier == .cloud {
-                                        Button("Sign in to \(runtime.label)") { loginRuntime = runtime }
+                                    let quota = store.quotas[runtime.id]
+                                    HStack(spacing: 12) {
+                                        Button {
+                                            if quota?.needsSignIn == true, canManage(runtime) {
+                                                detailRuntime = runtime
+                                            } else if let session {
+                                                if runtime.id == session.runtimeId { dismiss() }
+                                                else if runtime.tier == .myComputers { pendingLocal = runtime }
+                                                else { onMove(runtime); dismiss() }
+                                            } else {
+                                                store.selectRuntime(runtime)
+                                                dismiss()
+                                            }
+                                        } label: {
+                                            RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == (session == nil ? store.newConversationRuntime?.id : session?.runtimeId))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(!runtime.isSelectable)
+                                        if canManage(runtime) {
+                                            Button("Agent details", systemImage: "info.circle") { detailRuntime = runtime }
+                                                .labelStyle(.iconOnly)
+                                                .buttonStyle(.borderless)
+                                        }
                                     }
                                 }
                             }
@@ -65,18 +80,45 @@ struct RuntimePickerSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .sheet(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
-            .sheet(item: $loginRuntime) { runtime in if let team = store.selectedTeam { AgentSetupSheet(team: team, runtime: runtime) } }
+            .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
+            .navigationDestination(item: $detailRuntime) { runtime in if let team = store.selectedTeam { AgentDetailView(team: team, runtime: runtime) } }
+            .alert("Move to \(pendingLocal?.name ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
+                Button("Move") { onMove(runtime); dismiss() }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("This agent runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.")
+            }
             .task { await store.loadRuntimes() }
-            .refreshable { await store.loadRuntimes(force: true) }
+            .task { await store.loadQuotas() }
+            .refreshable {
+                async let runtimes: Void = store.loadRuntimes(force: true)
+                async let quotas: Void = store.loadQuotas()
+                _ = await (runtimes, quotas)
+            }
         }
         .tint(Theme.heading)
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
+        // An agent's own page needs the whole sheet; the list does not.
+        .onChange(of: showSetup || detailRuntime != nil) { _, open in if open { detent = .large } }
+    }
+
+    /// Only the owner puts a session on a local or self-hosted agent; a
+    /// manager moves it between Cloud agents.
+    private var choices: [RuntimeInstance] {
+        guard let session, !session.isOwner else { return store.runtimes }
+        return store.runtimes.filter { $0.kind == "managed" }
+    }
+
+    /// Only a workspace administrator manages a Cloud agent; a computer's agent
+    /// is managed on that computer.
+    private func canManage(_ runtime: RuntimeInstance) -> Bool {
+        store.selectedTeam?.isAdministrator == true && runtime.tier == .cloud
     }
 }
 
 private struct RuntimeRow: View {
     let runtime: RuntimeInstance
+    let quota: RuntimeQuota?
     let selected: Bool
 
     var body: some View {
@@ -90,6 +132,7 @@ private struct RuntimeRow: View {
                 if let subtitle = runtime.subtitle {
                     Text(subtitle).font(.system(size: 13)).foregroundStyle(Theme.muted).lineLimit(2)
                 }
+                if let quota { QuotaLine(quota: quota) }
             }
             Spacer()
             if selected {
@@ -97,30 +140,47 @@ private struct RuntimeRow: View {
             }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }
 
 /// Model, effort and fast-mode controls for one conversation.
 struct ModelSettingsSheet: View {
-    @Bindable var session: ChatSession
+    var session: ChatSession?
+    @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+
+    private var config: SessionConfigState? { if let session { session.sessionConfig } else { store.newModelConfig } }
+    private var error: String? { if let session { session.sessionConfigError } else { store.newModelError } }
+    private var saving: Bool { session?.sessionConfigSaving ?? store.newModelSaving }
+
+    private func refresh() async {
+        if let session { await session.refreshSessionConfig() }
+        else { await store.loadNewModelConfig() }
+    }
+
+    private func select(_ id: String, _ value: String) async {
+        if let session { await session.setSessionConfig(configId: id, value: value) }
+        else { await store.setNewModelConfig(configId: id, value: value) }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let config = session.sessionConfig, !config.options.isEmpty {
+                if let config, !config.options.isEmpty {
                     List {
-                        if let hint = config.hint ?? (session.isStreaming ? "You can change model settings after this reply." : nil) {
+                        if let hint = session?.pendingModelSettings.isEmpty == false ? "Changes apply after this reply." : config.hint {
                             Text(hint).font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
                         }
-                        if let error = session.sessionConfigError {
+                        if let error {
                             Text(error).font(.system(size: 13)).foregroundStyle(.red).listRowBackground(Color.clear)
+                            Button("Try again") { Task { await refresh() } }.disabled(saving)
                         }
                         ForEach(config.options) { option in
                             Section(option.name) {
                                 ForEach(option.options.filter { option.kind == .fast || ($0.value.lowercased() != "default" && !["default", "default model", "agent default", "runtime default"].contains($0.name.lowercased())) }) { choice in
                                     Button {
-                                        Task { await session.setSessionConfig(configId: option.id, value: choice.value) }
+                                        Task { await select(option.id, choice.value) }
                                     } label: {
                                         HStack {
                                             VStack(alignment: .leading, spacing: 2) {
@@ -130,29 +190,30 @@ struct ModelSettingsSheet: View {
                                                 }
                                             }
                                             Spacer()
-                                            if choice.value == option.currentValue {
+                                            if choice.value == (session?.pendingModelSettings[option.id] ?? option.currentValue) {
                                                 Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
                                             }
                                         }
+                                        .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
+                                    .disabled(!config.isEditable || saving || (session != nil && (session?.ownsChat != true || error != nil)))
                                 }
                             }
                             .listRowBackground(Theme.surface)
                         }
                     }
                     .scrollContentBackground(.hidden)
-                    .disabled(!config.isEditable || session.isStreaming || session.sessionConfigSaving)
-                } else if let error = session.sessionConfigError {
+                } else if let error {
                     ContentUnavailableView {
                         Label("Couldn't load model settings", systemImage: "wifi.exclamationmark")
                     } description: {
                         Text(error)
                     } actions: {
-                        Button("Try again") { Task { await session.refreshSessionConfig() } }.buttonStyle(.bordered)
+                        Button("Try again") { Task { await refresh() } }.buttonStyle(.bordered)
                     }
-                } else if let config = session.sessionConfig {
-                    ContentUnavailableView(config.modelTitle, systemImage: "slider.horizontal.3", description: Text(config.hint ?? (session.isStreaming ? "You can change model settings after this reply." : "")))
+                } else if let config {
+                    ContentUnavailableView(config.modelTitle, systemImage: "slider.horizontal.3", description: Text(config.hint ?? ""))
                 } else {
                     ProgressView("Getting model settings…").tint(Theme.muted)
                 }
@@ -166,10 +227,62 @@ struct ModelSettingsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .task { if session.sessionConfig == nil { await session.refreshSessionConfig() } }
-            .refreshable { await session.refreshSessionConfig() }
+            .task { await refresh() }
+            .refreshable { await refresh() }
         }
         .tint(Theme.heading)
         .presentationDetents([.medium, .large])
+    }
+}
+
+/// "62% left · resets in 2 hr" for the window closest to its limit,
+/// or the reason there's nothing to show.
+private struct QuotaLine: View {
+    let quota: RuntimeQuota
+
+    var body: some View {
+        if let window = quota.tightest {
+            HStack(spacing: 6) {
+                QuotaGauge(window: window).frame(width: 44)
+                Text([window.leftPercent == 0 ? "Limit reached" : "\(window.leftPercent)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(window.labelTint ?? Theme.muted)
+            }
+            .accessibilityElement(children: .combine)
+        } else if quota.needsSignIn {
+            Text("\(Image(systemName: "exclamationmark.circle.fill")) Sign in required")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.warning)
+        }
+    }
+
+    private func reset(_ date: Date?) -> String? {
+        guard let date, date > .now else { return nil }
+        let minutes = Int(date.timeIntervalSinceNow / 60)
+        if minutes < 24 * 60 {
+            return minutes < 60 ? "resets in \(max(1, minutes))m" : "resets in \(minutes / 60)h \(minutes % 60)m"
+        }
+        return "resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    }
+}
+
+/// A usage bar that starts full and drains like a battery.
+struct QuotaGauge: View {
+    let window: RuntimeQuota.Window
+
+    var body: some View {
+        Gauge(value: Double(window.leftPercent), in: 0...100) { EmptyView() }
+            .gaugeStyle(.accessoryLinearCapacity)
+            .tint(window.labelTint ?? Theme.heading)
+            .scaleEffect(y: 0.8)
+    }
+}
+
+extension RuntimeQuota.Window {
+    /// Amber from 80% used and red once spent, as on Desktop. The label
+    /// carries it too, since an empty bar has no fill left to colour.
+    var labelTint: Color? {
+        usedPercent >= 100 ? .red : usedPercent >= 80 ? Theme.warning : nil
     }
 }

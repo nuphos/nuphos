@@ -22,6 +22,7 @@ export function useComposerState({
   readOnlyPlaceholder,
   streaming,
   autoFocus,
+  promptSuggestion,
 }: {
   hero: boolean
   firstRun: boolean
@@ -29,6 +30,7 @@ export function useComposerState({
   readOnlyPlaceholder?: string
   streaming: boolean
   autoFocus: boolean
+  promptSuggestion?: string | null
 }) {
   // One suggestion per composer mount, picked at random. Rotating it moved the
   // sentence out from under whoever was reading it; pinning it to the first
@@ -37,8 +39,11 @@ export function useComposerState({
   const [placeholderIndex] = useState(
     () => crypto.getRandomValues(new Uint32Array(1))[0] % placeholderPool.length,
   )
-  const suggestedPrompt = placeholderPool[placeholderIndex % placeholderPool.length]
-  const idlePlaceholder = hero ? suggestedPrompt : AGENT_COMPACT_PLACEHOLDER
+  const suggestedPrompt =
+    promptSuggestion || placeholderPool[placeholderIndex % placeholderPool.length]
+  // A conversation offers the runtime's own guess; the hero offers an example.
+  const offersSuggestion = hero || Boolean(promptSuggestion)
+  const idlePlaceholder = offersSuggestion ? suggestedPrompt : AGENT_COMPACT_PLACEHOLDER
   const [filePaths, setFilePaths] = useState<string[]>([])
   // Paths picked as directories (vs single files). Tracked alongside `filePaths`
   // purely so the attachment chip can show a folder icon — the underlying send
@@ -83,7 +88,7 @@ export function useComposerState({
   const [hasEditorContent, setHasEditorContent] = useState(false)
   const [isEmpty, setIsEmpty] = useState(true)
 
-  const canCompleteSuggestion = hero && !hasEditorContent && !readOnly && !streaming
+  const canCompleteSuggestion = offersSuggestion && !hasEditorContent && !readOnly && !streaming
   const ref = useRef<HTMLDivElement>(null)
   const composingRef = useRef(false)
   const editListenerRef = useRef<(() => void) | null>(null)

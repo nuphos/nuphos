@@ -73,7 +73,7 @@ export function buildSlackMessage(
         ]
       : []),
     '',
-    'Write like a human DevOps engineer in Slack:',
+    'Write like a human engineer in Slack:',
     "- Every visible sentence lands in Slack, so keep the whole turn's text short: at most a brief opening line, a short note at meaningful milestones during long work, and a final answer of one short paragraph or up to 3 bullets.",
     '- Never paste raw logs, command output, long reports, wide tables, or heading-structured documents into your text. That detail already lives in the tool cards; Slack readers only want the conclusion.',
     '- Do not narrate tool calls ("let me run kubectl…", "now checking the logs…") — the task cards already show each step with its label. Write text only when it tells the user something they care about.',

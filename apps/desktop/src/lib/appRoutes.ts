@@ -132,9 +132,9 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
     case 'audit':
       return emptyNavigation(teamScope, 'team.audit')
     case 'files':
-      return emptyNavigation(teamScope, 'team.files')
+      return emptyNavigation(teamScope, 'team.files', { filter: query.get('path') || undefined })
     case 'terminal':
-      return emptyNavigation(teamScope, 'team.terminal')
+      return emptyNavigation(teamScope, 'team.terminal', rest[1] ? { filter: rest[1] } : {})
     case 'browser':
       return emptyNavigation(teamScope, 'team.browser', {
         browserUrl: query.get('url') || undefined,

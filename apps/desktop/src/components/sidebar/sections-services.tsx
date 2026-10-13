@@ -120,29 +120,6 @@ export function complianceSections(provider: 'secureframe' | 'vanta'): Section[]
   ]
 }
 
-/**
- * Sessions the viewer joined but does not own. Its own function because the
- * favorites resolver needs the same section to look a pinned row up among the
- * live ones — a pin that cannot find itself there renders a static icon instead
- * of the live runtime one.
- */
-export function sharedChatSection(sharedChatItems: Item[]): Section[] {
-  return sharedChatItems.length > 0 ? [{ title: 'Shared', items: sharedChatItems }] : []
-}
-
-/**
- * What sits between the top nav and the viewer's own Chats: first what they
- * pinned, then the sessions they joined. Built as one ordered list so both land
- * in the right order from a single splice, and an empty group contributes no
- * section at all.
- */
-export function sectionsAboveChats(pinnedChatItems: Item[], sharedChatItems: Item[]): Section[] {
-  return [
-    ...(pinnedChatItems.length > 0 ? [{ title: 'Pinned', items: pinnedChatItems }] : []),
-    ...sharedChatSection(sharedChatItems),
-  ]
-}
-
 export function teamSections(
   rootIntegrations: Item[] = [],
   rootIntegrationsLoading = false,

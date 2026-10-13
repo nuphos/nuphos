@@ -32,6 +32,7 @@ import { useTextStreaming } from './panel/useTextStreaming'
 import { useTurnDispatch } from './panel/useTurnDispatch'
 
 import type { JournalChatTarget } from './JournalPanel'
+import type { AgentProvider } from '../../types/runtime'
 import type { PanelViewCtx } from './panel/ctx'
 import type { AgentPromptSeed, Tab } from './panel/model'
 import type { MutableRefObject } from 'react'
@@ -81,8 +82,9 @@ type Props = {
     title: string,
     sessionId: string | null,
     claudeCodeRuntimeAttached: boolean,
-    agentRuntime?: 'claude-code' | 'codex',
+    agentRuntime?: AgentProvider,
     canRename?: boolean,
+    runtimeId?: string,
   ) => void
   /** Externally-controlled session id (drives which chat is displayed). */
   sessionId?: string | null
@@ -90,12 +92,14 @@ type Props = {
    *  audit views must never expose approve/composer/fork. */
   sessionReadOnly?: boolean
   /** Called when AgentPanel changes which session it is showing. */
-  onSessionChange?: (sessionId: string | null) => void
+  /** `unshown`: the chat the panel left without ever showing it (it could not be opened). */
+  onSessionChange?: (sessionId: string | null, unshown?: string) => void
   /** Opens Nuphos markdown links from assistant messages inside the desktop workspace. */
   onOpenNuphosLink?: (href: string) => boolean
   /** Opens workspace Settings at the Claude Code/OpenAB setup section. */
   onOpenAgentSettings?: () => void
   /** Focus the blank composer when this page-mode panel becomes active. */
+  newChatRequest?: number
   autoFocusComposer?: boolean
   /**
    * The workspace tab's currently-bound kubeconfig context, if any. Forwarded
@@ -155,6 +159,7 @@ export const AgentPanel = memo(function AgentPanel({
   onSessionChange,
   onOpenNuphosLink,
   onOpenAgentSettings,
+  newChatRequest = 0,
   autoFocusComposer = false,
   kubeContext,
   runtimeKubeContextRef,
@@ -188,6 +193,7 @@ export const AgentPanel = memo(function AgentPanel({
     onSessionChange,
     onOpenNuphosLink,
     onOpenAgentSettings,
+    newChatRequest,
     autoFocusComposer,
     kubeContext,
     runtimeKubeContextRef,

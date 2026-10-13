@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
 import {
-  AUTHORIZATION_CODE,
   cancelRuntimeLogin,
   requireLoginInstance,
   startRuntimeLogin,
@@ -58,7 +57,13 @@ export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAut
       z
         .object({
           attemptId: z.string().uuid(),
-          code: z.string().trim().regex(AUTHORIZATION_CODE, 'Paste the whole code Claude shows'),
+          // A code, an address, a choice or a typed value; checked against the step.
+          code: z
+            .string()
+            .trim()
+            .min(1)
+            .max(4096)
+            .regex(/^[^\r\n]+$/u),
         })
         .strict(),
     ),

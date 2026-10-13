@@ -225,6 +225,8 @@ final class AuthSession {
         webSession = nil
         clearToken()
         ComposerDrafts.clear()
+        // The OpenAI key is billed to whoever entered it, not the next user.
+        Keychain.delete(Whisper.keychainKey)
         state = .signedOut(error: error)
     }
 

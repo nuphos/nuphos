@@ -11,7 +11,7 @@
 # No default: a baked-in default would publish the operator's registry path in
 # the image config, and every caller already knows which base it is taking from.
 ARG BASE_IMAGE
-# Selects the final stage below: claude-code or codex.
+# Selects the final stage below: claude-code, codex, grok, antigravity or opencode.
 ARG RUNTIME_PROVIDER=claude-code
 
 FROM ${BASE_IMAGE:?BASE_IMAGE-build-arg-is-required-see-the-README} AS openab
@@ -45,22 +45,24 @@ RUN chmod -R a+rX /opt/nuphos-runtime \
 
 COPY --chmod=755 sync-skills.sh /usr/local/bin/nuphos-sync-skills
 COPY --chmod=755 seed-codex-auth.sh /usr/local/bin/nuphos-seed-codex-auth
-COPY runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs /opt/
+COPY runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs acp-shim.mjs /opt/
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
+COPY grok-login.mjs antigravity-login.mjs opencode-login.mjs /opt/nuphos-runtime/
 # COPY --chmod also affects newly created destination directories.
 # Runtime helpers must be traversable by the non-root init and agent containers.
 RUN chmod 755 /opt/nuphos-runtime \
  && chmod 644 /opt/nuphos-runtime/runtime-guard.sh /opt/nuphos-runtime/codex-login.mjs \
-      /opt/nuphos-runtime/claude-login.mjs \
+      /opt/nuphos-runtime/claude-login.mjs /opt/nuphos-runtime/grok-login.mjs \
+      /opt/nuphos-runtime/antigravity-login.mjs /opt/nuphos-runtime/opencode-login.mjs \
       /opt/nuphos-runtime/mcp-http-bridge.mjs /opt/nuphos-runtime/panel-job.mjs
 
 FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.289
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.296
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs \
@@ -92,6 +94,27 @@ ENV PATH="/opt/nuphos-codex-acp/node_modules/.bin:${PATH}" \
     OPENAB_AGENT_COMMAND="codex-acp" \
     OPENAB_AGENT_AUTH_COMMAND="codex login --device-auth" \
     OPENAB_ADAPTER_VERSION="codex-acp@1.1.4"
+
+# Grok Build, Antigravity and OpenCode speak ACP themselves, so they take no adapter:
+# the shim adds the Nuphos layer in front of the agent. None is in this image (the
+# first two are proprietary); tools/manifest.json installs the pinned build on first
+# use, into the home volume.
+FROM common AS grok
+ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs grok" \
+    OPENAB_AGENT_AUTH_COMMAND="grok login --device-auth" \
+    OPENAB_ADAPTER_VERSION="grok@1.0.46" \
+    NUPHOS_RUNTIME_PREINSTALL=grok
+
+FROM common AS antigravity
+ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs antigravity" \
+    OPENAB_ADAPTER_VERSION="antigravity-acp@1.3.0" \
+    NUPHOS_RUNTIME_PREINSTALL=antigravity-acp
+
+FROM common AS opencode
+ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
+    OPENAB_AGENT_AUTH_COMMAND="opencode providers login" \
+    OPENAB_ADAPTER_VERSION="opencode@1.18.35" \
+    NUPHOS_RUNTIME_PREINSTALL=opencode
 
 FROM ${RUNTIME_PROVIDER}
 ARG RUNTIME_PROVIDER
@@ -154,7 +177,8 @@ ENV OPENAB_RUNTIME_LABEL="${RUNTIME_LABEL}" \
 # openab exits when the file its CMD names is missing, so the image carries one
 # and a bare `docker run` needs no volume. A mount at /etc/openab/config.toml
 # replaces this file; openab reads that single path and merges nothing.
-COPY openab-config.claude-code.toml openab-config.codex.toml /tmp/nuphos-config/
+COPY openab-config.claude-code.toml openab-config.codex.toml openab-config.grok.toml \
+     openab-config.antigravity.toml openab-config.opencode.toml /tmp/nuphos-config/
 RUN install -d -m 755 /etc/openab \
  && install -m 644 "/tmp/nuphos-config/openab-config.${RUNTIME_PROVIDER}.toml" \
       /etc/openab/config.toml \
@@ -178,9 +202,12 @@ RUN test -x /opt/nuphos-runtime \
  && test -r /opt/nuphos-runtime/runtime-guard.sh \
  && test -r /opt/nuphos-runtime/codex-login.mjs \
  && test -r /opt/nuphos-runtime/claude-login.mjs \
+ && test -r /opt/nuphos-runtime/grok-login.mjs \
+ && test -r /opt/nuphos-runtime/antigravity-login.mjs \
+ && test -r /opt/nuphos-runtime/opencode-login.mjs \
  && test -r /opt/nuphos-runtime/panel-job.mjs \
  && test -r /etc/openab/config.toml \
  && test -x /usr/local/bin/nuphos-runtime-start \
  && test -w /workspace \
  && openab --version \
- && command -v "${OPENAB_AGENT_COMMAND}"
+ && command -v "${OPENAB_AGENT_COMMAND%% *}"

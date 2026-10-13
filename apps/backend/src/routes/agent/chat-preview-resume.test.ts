@@ -198,7 +198,7 @@ describe('resolvePreviewWaitFromChat', () => {
     const wait = await registerPreviewWait({
       userId: 'u1',
       sessionId: 'conv-1',
-      kind: 'authorization-rule',
+      kind: 'agent-permission',
     })
 
     await resolvePreviewWaitFromChat({

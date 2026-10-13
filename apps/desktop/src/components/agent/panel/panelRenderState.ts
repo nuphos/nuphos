@@ -107,7 +107,7 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
     : undefined
   const visibleConversationCredentialSelector =
     activeTab &&
-    !activeTab.foreign &&
+    (!activeTab.foreign || activeTab.canManage) &&
     credentialSelectorControl &&
     (!activeTab.readOnly || activeTab.slackThread)
       ? {

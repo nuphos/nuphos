@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.74.0",
+  "version": "0.79.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -43,6 +43,7 @@
     "posthog-node": "^5.35.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-grid-layout": "2.2.4",
     "recharts": "^2.15.0",
     "shiki": "^3.23.0",
     "streamdown": "^2.5.0",
@@ -124,7 +125,13 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": true
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Nuphos uses automation to notify Computer Use when an agent turn ends."
+      },
+      "notarize": true,
+      "binaries": [
+        "Contents/Resources/local-runtime/cua-permission"
+      ]
     },
     "win": {
       "target": [

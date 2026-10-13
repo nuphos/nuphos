@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
 import { AppError } from '@/lib/errors'
 import {
@@ -43,7 +44,7 @@ const updateEmailDomainDiscoverySchema = z
 
 const updateAgentRuntimeSchema = z
   .object({
-    runtime: z.enum(['claude-code', 'codex']),
+    runtime: z.enum(OPENAB_PROVIDERS),
   })
   .strict()
 

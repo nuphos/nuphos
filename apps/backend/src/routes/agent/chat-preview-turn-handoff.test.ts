@@ -38,6 +38,7 @@ useChatPreviewPrepare({
       message: 'first prompt',
       freshSessionMessage: () => 'first prompt',
       carried: [],
+      openPromptSuggestion: () => Promise.resolve(),
       clearActiveTurn: () => Promise.resolve(),
     }),
   carriedUserMessages: () => [],

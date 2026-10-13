@@ -31,7 +31,6 @@ beforeEach(() => {
     runJob: async (request: { stdin: string }) => {
       calls++
       expect(JSON.parse(request.stdin).params).toEqual({
-        sessionId: 's',
         path: 'report.md',
         workspace: '/workspace',
         action: 'read',

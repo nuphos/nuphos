@@ -43,6 +43,37 @@ export type TransferUploadPart = {
   archiveEntryCount?: number
   files: { fileName: string; size: number | null; status: string }[]
 }
+export function normalizeTransferUploadPart(
+  value: Record<string, unknown>,
+): TransferUploadPart | null {
+  if (
+    value.type !== 'transfer-upload' ||
+    typeof value.groupId !== 'string' ||
+    !Array.isArray(value.files)
+  )
+    return null
+
+  return {
+    type: 'transfer-upload',
+    groupId: value.groupId,
+    // Persisted uploads have always finished; default a missing/unknown status
+    // to 'ready' rather than leaving the card stuck in a loading spinner.
+    status: value.status === 'uploading' || value.status === 'error' ? value.status : 'ready',
+    ...(value.archive === true ? { archive: true } : {}),
+    ...(typeof value.archiveEntryCount === 'number'
+      ? { archiveEntryCount: value.archiveEntryCount }
+      : {}),
+    files: (value.files as unknown[]).map((f) => {
+      const o = (f ?? {}) as Record<string, unknown>
+
+      return {
+        fileName: typeof o.fileName === 'string' ? o.fileName : '',
+        size: typeof o.size === 'number' ? o.size : null,
+        status: typeof o.status === 'string' ? o.status : 'ready',
+      }
+    }),
+  }
+}
 export type ToolAuthorization = {
   decision: 'allow' | 'require_auth'
   layer: string
@@ -52,20 +83,12 @@ export type ToolAuthorization = {
     | { kind: 'prior_grant' }
     | { kind: 'rule'; ruleId?: string; description: string }
     | { kind: 'judge'; reason: string }
-  // For require_auth: the judge's short generalized rule text, prefilled into
-  // the "Always allow" description input. Absent when nothing is generalizable.
-  suggestedRule?: string
   // Set once the user acts on a require_auth prompt, to hide the buttons.
   resolved?: 'approved' | 'denied'
 }
-export type AuthorizationDecisionAction = 'once' | 'session' | 'always' | 'deny'
+export type AuthorizationDecisionAction = 'once' | 'deny'
 export type AuthorizationActionContextValue = {
-  // ruleDescription is the generalized rule text for the 'always' decision.
-  decide: (
-    toolCallId: string,
-    decision: AuthorizationDecisionAction,
-    ruleDescription?: string,
-  ) => void
+  decide: (toolCallId: string, decision: AuthorizationDecisionAction) => void
   // Only the LAST unresolved require_auth in the conversation shows buttons —
   // earlier blocked calls are stale (superseded by a newer attempt).
   activeToolCallId: string | null
@@ -176,7 +199,7 @@ export type TurnInterruptedPart = {
 }
 export type SteeringPart = {
   type: 'data-steering'
-  data: { id: string; text: string; metadata?: AgentMessageMetadata }
+  data: { id: string; text: string; upload?: TransferUploadPart; metadata?: AgentMessageMetadata }
 }
 export type Part =
   | SteeringPart

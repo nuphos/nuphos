@@ -3,7 +3,9 @@ import { abandonPendingPreviewWaits } from './decision-waiter'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
+import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
+import { steeringText } from './steering-receipt'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 import { liveAttachment } from '@/lib/agent/db/shared'
@@ -55,12 +57,20 @@ export async function conversationExecutionState(
       callTimeoutMs: 3_000,
     })
     await client.initialize()
-
-    return parseSessionExecutionState(
+    const state = parseSessionExecutionState(
       await client.getSessionExecutionState(
         attachment?.openabSessionId ?? 'sess_00000000-0000-0000-0000-000000000000',
       ),
     )
+
+    // A continuation parked on a lost output connection moves again only when
+    // a prompt reattaches it (runClaudeCodePreviewPrompt). The runtime says
+    // send:false; the clients wait for send:true before prompting; so nothing
+    // ever reattached it. Say what the backend will do: accept the prompt.
+    if (state.schemaVersion === 2 && state.phase === 'resume_disconnected' && state.actions)
+      return { ...state, actions: { ...state.actions, send: true } }
+
+    return state
   } catch (error) {
     return {
       state:
@@ -105,12 +115,15 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
   }).catch(() => undefined)
 }
 
-/** Deliver to the existing native turn. No queue, resume, or prompt fallback. */
+/**
+ * Deliver to the existing native turn. No queue, resume, or prompt fallback.
+ * Returns the text the runtime received, which is also the steering receipt.
+ */
 export async function steerConversationRuntime(
   conversation: AgentConversation,
-  text: string,
+  steer: { text: string; groupId?: string; userId: string },
   messageId: string,
-): Promise<void> {
+): Promise<string> {
   const attachment = liveAttachment(conversation)
 
   if (!attachment || !conversation.teamId) throw new Error('Conversation has no runtime session')
@@ -120,6 +133,24 @@ export async function steerConversationRuntime(
 
   if (!endpoint || endpoint.url !== attachment.runtimeUrl)
     throw new Error('Conversation runtime changed')
+  // Same delivery as a normal turn: files land on the runtime as local paths.
+  const files = steer.groupId
+    ? await runtimeAttachments(
+        [{ type: 'transfer-upload', groupId: steer.groupId }],
+        { teamId: conversation.teamId, userId: steer.userId, sessionId: conversation.sessionId },
+        [],
+      )
+    : []
+  const attachments = await materializeRuntimeAttachments(
+    conversation.teamId,
+    conversation.userId,
+    endpoint,
+    files,
+  )
+  const text = steeringText(
+    steer.text,
+    files.map((file) => file.name),
+  )
   const client = await OpenAbAcpClient.connect({
     ...(await reachableRuntimeEndpoint(endpoint)),
     connectTimeoutMs: 3_000,
@@ -128,10 +159,17 @@ export async function steerConversationRuntime(
 
   try {
     await client.initialize()
-    const result = await client.steerSession(attachment.openabSessionId, text, messageId)
+    const result = await client.steerSession(
+      attachment.openabSessionId,
+      text,
+      messageId,
+      attachments,
+    )
 
     if (result.outcome !== 'injected')
       throw new Error('The turn already ended. Your message was not sent; send it as a new turn.')
+
+    return text
   } finally {
     client.close()
   }
