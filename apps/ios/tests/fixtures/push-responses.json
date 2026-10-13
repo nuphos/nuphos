@@ -160,8 +160,7 @@
           ]
         }
       ],
-      "messagesFirstIndex": 0,
-      "canCancelRun": true
+      "messagesFirstIndex": 0
     }
   },
   "GET /agent/conversations/push-b": {
@@ -222,8 +221,7 @@
           ]
         }
       ],
-      "messagesFirstIndex": 0,
-      "canCancelRun": true
+      "messagesFirstIndex": 0
     }
   },
   "GET /agent/credential-options": {

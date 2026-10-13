@@ -2,26 +2,15 @@ import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
 import { logError, logEvent } from '@/lib/observability'
 
 import { defaultDependencies } from './message-dependencies'
-import { composeDiscordCarriedText } from './transcript'
+import { ingestDiscordAttachments } from './attachments'
+import { discordMessageText, quoteDiscordReply } from './message'
+
+import type { DiscordMessageCreate } from './message'
 
 import type { DiscordMessageDependencies } from './message-dependencies'
 
+export type { DiscordMessageCreate } from './message'
 export type { DiscordMessageDependencies } from './message-dependencies'
-
-export type DiscordMessageCreate = {
-  id: string
-  guild_id?: string
-  channel_id: string
-  content?: string
-  author?: { id: string; username?: string; global_name?: string | null; bot?: boolean }
-  member?: { nick?: string | null }
-  webhook_id?: string
-  mentions?: { id: string }[]
-}
-
-function stripBotMention(content: string, botUserId: string): string {
-  return content.replace(new RegExp(`<@!?${botUserId}>`, 'g'), '').trim()
-}
 
 export function isDirectDiscordMention(event: DiscordMessageCreate, botUserId: string): boolean {
   return event.mentions?.some((mention) => mention.id === botUserId) ?? false
@@ -35,7 +24,6 @@ export async function handleDiscordMention(
 ): Promise<void> {
   const {
     recordDiscordSessionMessage,
-    withDiscordSessionContext,
     discordDecisions,
     claimDiscordEvent,
     discordAgentThreads,
@@ -54,6 +42,8 @@ export async function handleDiscordMention(
     recordDiscordThreadMessage,
     judgeThreadAddressing,
     buildMessagesForDiscordTurn,
+    syncDiscordThread,
+    createMessageMetadata,
     executeDiscordTurn,
     turnRunner,
   } = dependencies
@@ -137,10 +127,7 @@ export async function handleDiscordMention(
 
       return
     }
-    let text = stripBotMention(event.content ?? '', botUserId)
-
-    if (!text && mentioned && registeredThread)
-      text = 'Please join the conversation using the thread context.'
+    const text = discordMessageText(event, botUserId, mentioned && registeredThread !== null)
 
     if (!text) {
       if (mentioned)
@@ -226,25 +213,29 @@ export async function handleDiscordMention(
 
       return
     }
-    const renderedText = await withDiscordSessionContext(
-      {
-        sessionId: thread.sessionId,
-        teamId: thread.teamId,
-        guildId: thread.guildId,
-        generation: thread.generation,
-      },
-      event.id,
-      `${senderName} wrote over Discord:\n\n${text}`,
-    )
+    const attached = await ingestDiscordAttachments({
+      attachments: event.attachments,
+      teamId: thread.teamId,
+      userId: userMapping.nuphosUserId,
+      sessionId: thread.sessionId,
+    })
+    const said = event.referenced_message ? quoteDiscordReply(event.referenced_message, text) : text
+    const renderedText = attached ? `${said}\n\n${attached}` : said
+    const metadata = await createMessageMetadata(userMapping.nuphosUserId, 'discord')
     const claim = await turnRunner.claimAgentRunOrEnqueue({
       userId: thread.agentUserId,
       sessionId: thread.sessionId,
       actorUserId: userMapping.nuphosUserId,
-      message: buildPendingUserMessage({
-        renderedText,
-        source: 'discord',
-        actorUserId: userMapping.nuphosUserId,
-      }),
+      message: {
+        ...buildPendingUserMessage({
+          renderedText,
+          source: 'discord',
+          metadata,
+          actorUserId: userMapping.nuphosUserId,
+        }),
+        // The Discord id is how the transcript knows this message has arrived.
+        id: `discord-${event.id}`,
+      },
     })
 
     if (claim.mode === 'dropped') {
@@ -263,11 +254,13 @@ export async function handleDiscordMention(
     }
 
     try {
-      const messages = await buildMessagesForDiscordTurn({
-        sessionId: thread.sessionId,
+      const { messages, turnContext } = await buildMessagesForDiscordTurn({
+        scope: thread,
         ownerUserId: thread.agentUserId,
-        teamId: thread.teamId,
-        renderedText: composeDiscordCarriedText(claim.carried, renderedText),
+        messageId: event.id,
+        renderedText,
+        metadata,
+        carried: claim.carried,
       })
 
       await executeDiscordTurn({
@@ -283,6 +276,7 @@ export async function handleDiscordMention(
         nuphosToken: signNuphosToken(userMapping.nuphosUserId, 60 * 60 * 8),
         messages,
         firstMessage: text,
+        turnContext,
       })
     } finally {
       claim.release()
@@ -296,5 +290,10 @@ export async function handleDiscordMention(
     await markDiscordEvent(event.id, 'failed', err instanceof Error ? err.message : String(err))
   } finally {
     clearInterval(refreshTimer)
+    // Whatever this message was, the session should now hold it.
+    if (registeredThread)
+      await syncDiscordThread(registeredThread, registeredThread.agentUserId).catch(
+        (err: unknown) => logError('discord.agent.thread_sync.error', err, { event_id: event.id }),
+      )
   }
 }

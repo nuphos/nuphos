@@ -1,7 +1,8 @@
 import clsx from 'clsx'
-import { RotateCw } from 'lucide-react'
+import { Loader2, RotateCw } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
+import { useLocalAgentUpdate } from '../../hooks/useAgentUpdates'
 import { useTextSwap } from '../../hooks/useTextSwap'
 
 import { unbundledStatus } from './localAgentBundle'
@@ -45,6 +46,26 @@ function Code({ children }: { children: string }) {
   )
 }
 
+/** Shown only when a newer release exists; the update itself is shared with every agent selector. */
+function UpdateButton({ provider }: { provider: LocalAgentProvider }) {
+  const { version, updating, start } = useLocalAgentUpdate(provider)
+
+  if (!version && !updating) return null
+
+  return (
+    <Button size="sm" variant="secondary" disabled={updating} onClick={start}>
+      {updating ? (
+        <>
+          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+          Updating…
+        </>
+      ) : (
+        `Update to v${version ?? ''}`
+      )}
+    </Button>
+  )
+}
+
 function CliStatus({
   provider,
   cli,
@@ -75,11 +96,15 @@ function CliStatus({
             : `Connect ${agent.name} to use this computer as your agent.`}
         {cli.loggedIn && cli.account && <span> {cli.account}</span>}
         {cli.plan && <span> · {cli.plan}</span>}
+        {cli.version && <span> · v{cli.version}</span>}
       </p>
-      <LocalAgentSignIn
-        provider={provider}
-        label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
-      />
+      <div className="flex items-center gap-2">
+        <LocalAgentSignIn
+          provider={provider}
+          label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
+        />
+        <UpdateButton provider={provider} />
+      </div>
     </div>
   )
 }

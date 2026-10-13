@@ -3,15 +3,15 @@ import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
 import { Welcome } from './homeAnimation'
 import { useLocalSessionImport } from './importLocalSession'
-import { NewConversationModelSelector } from './NewConversationModelSelector'
+import { ModelSelector } from './ModelSelector'
 import { useAddAgent } from './useAddAgent'
+import { useRuntimeModelConfig } from './useRuntimeModelConfig'
 
 import type { PanelViewCtx } from './ctx'
 
 export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   const {
     autoFocusComposer,
-    autoModeAvailable,
     defaultPermissionMode,
     history,
     historyLoading,
@@ -19,6 +19,8 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     homeStarterSuggestions,
     isTeamAdmin,
     newConversationRuntime,
+    newConversationSessionConfig,
+    pickNewConversationSessionConfig,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,
@@ -46,6 +48,8 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   })
 
   const runtimeControl = {
+    teamId,
+    canUpdateTeamAgents: isTeamAdmin,
     value: newConversationRuntime,
     options: runtimeInstances,
     quotas: runtimeQuotas,
@@ -55,17 +59,25 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     onSettings: onOpenAgentSettings,
     ...addAgent.control,
   }
-  const newConversationModelControl = (
-    <NewConversationModelSelector
-      teamId={teamId}
-      runtime={newConversationRuntime}
-      isTeamAdmin={isTeamAdmin}
-    />
+  // A local agent still starting has no models to report yet.
+  const modelRuntimeId =
+    newConversationRuntime?.status === 'active' && !newConversationRuntime.starting
+      ? newConversationRuntime.id
+      : undefined
+  const modelControl = useRuntimeModelConfig(
+    teamId,
+    modelRuntimeId,
+    newConversationSessionConfig,
+    pickNewConversationSessionConfig,
+  )
+  const newConversationModelControl = modelRuntimeId && (
+    <ModelSelector control={modelControl} disabled={false} streaming={false} />
   )
 
-  const bypassControl = autoModeAvailable
-    ? { active: defaultPermissionMode === 'bypass', onSelect: selectDefaultPermissionMode }
-    : undefined
+  const bypassControl = {
+    active: defaultPermissionMode === 'bypass',
+    onSelect: selectDefaultPermissionMode,
+  }
 
   return variant === 'page' ? (
     <>
@@ -75,6 +87,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         onImportSession={importSession}
         isTeamAdmin={isTeamAdmin}
         onOpenConversation={(sessionId, title) => void c.openConversation(sessionId, title)}
+        newChatRequest={c.newChatRequest}
         shown={c.homeShown}
         userName={c.userName}
         conversations={history}
@@ -115,6 +128,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         dropRegisterRef={homeDropRef}
         draftKey={composerDraftKey(teamId)}
         onImportSession={importSession}
+        mentionScope={teamId ? { teamId } : undefined}
       />
     </>
   )

@@ -19,6 +19,10 @@ import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
 export const agentApi = {
+  agentGetSessionResources: (sessionId: string, teamId: string) =>
+    window.api.agentGetSessionResources(sessionId, teamId),
+  agentUnlinkSessionResource: (sessionId: string, teamId: string, resourceId: string) =>
+    window.api.agentUnlinkSessionResource(sessionId, teamId, resourceId),
   cloudProbeCliVersion: (provider: CloudCliProvider, probeId?: string) =>
     window.api.cloudProbeCliVersion(provider, probeId),
   cloudProbeCli: (provider: CloudCliProvider) => window.api.cloudProbeCli(provider),
@@ -107,6 +111,8 @@ export const agentApi = {
     window.api.agentRenameConversation(sessionId, title, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     window.api.agentSetConversationArchived(sessionId, archived, teamId),
+  agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
+    window.api.agentUnlinkConversationParent(sessionId, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
     window.api.agentCancelRuntime(sessionId, teamId),
   agentSteerConversation: (sessionId: string, text: string, teamId?: string, groupId?: string) =>
@@ -190,25 +196,9 @@ export const agentApi = {
   ) => window.api.agentDeleteMemory(memoryId, teamId, scope, reason),
   agentRestoreMemory: (memoryId: string, teamId?: string, scope?: AgentMemoryScope) =>
     window.api.agentRestoreMemory(memoryId, teamId, scope),
-  agentListAutoModeRules: () => window.api.agentListAutoModeRules(),
-  agentCreateAutoModeRule: (description: string) => window.api.agentCreateAutoModeRule(description),
-  agentActivateAutoModeRule: (ruleId: string) => window.api.agentActivateAutoModeRule(ruleId),
-  agentDeleteAutoModeRule: (ruleId: string) => window.api.agentDeleteAutoModeRule(ruleId),
-  agentAddAutoModeSessionApproval: (sessionId: string, command: string) =>
-    window.api.agentAddAutoModeSessionApproval(sessionId, command),
   agentGetAutoModeBypass: (sessionId: string) => window.api.agentGetAutoModeBypass(sessionId),
   agentSetAutoModeBypass: (sessionId: string, bypass: boolean) =>
     window.api.agentSetAutoModeBypass(sessionId, bypass),
-  agentApproveAutoModeCommand: (
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ) =>
-    window.api.agentApproveAutoModeCommand(sessionId, toolCallId, scope, teamId, ruleDescription),
-  agentDenyAutoModeCommand: (sessionId: string, toolCallId: string, teamId?: string) =>
-    window.api.agentDenyAutoModeCommand(sessionId, toolCallId, teamId),
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     window.api.agentListPlans(args),
   agentGetPlan: (planId: string, teamId?: string) => window.api.agentGetPlan(planId, teamId),

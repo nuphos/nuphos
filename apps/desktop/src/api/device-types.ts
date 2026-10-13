@@ -45,6 +45,8 @@ export type AgentCliStatus =
       loggedIn: boolean | null
       account?: string
       plan?: string
+      /** Lives inside an app bundle, which updates it. */
+      bundled?: true
     }
 
 export type LocalAgentState = {

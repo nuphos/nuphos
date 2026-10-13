@@ -11,6 +11,7 @@ export type PodExecEvent =
   | { id: string; type: 'data'; data: string }
   | { id: string; type: 'error'; message: string }
   | { id: string; type: 'exit'; code: number | null; reason: string | null }
+  | { id: string; type: 'replayed'; resumed: boolean }
 
 export type PodExecSession = {
   id: string
@@ -26,6 +27,8 @@ export type PodExecSession = {
   // Detaching on unmount is what makes that hold a second time around: the
   // session outlives the view, so attach/detach happens more than once.
   attached: boolean
+  /** A view already replayed this output, so its terminal queries were answered. */
+  replayed: boolean
   // Runs once on teardown. Node-shell sessions use it to delete the ephemeral
   // privileged pod they created, so closing the terminal never leaks one.
   onCleanup?: () => void
@@ -123,6 +126,7 @@ export function createSession(
     closed: false,
     exited: false,
     attached: false,
+    replayed: false,
   }
 
   sessions.set(id, session)
@@ -212,7 +216,10 @@ export function replayPodExecSession(target: WebContents, id: string): void {
 
   if (!session) return
   session.attached = true
-  for (const event of session.events.slice()) {
+  const end = { id, type: 'replayed', resumed: session.replayed } as const
+
+  session.replayed = true
+  for (const event of [...session.events, end]) {
     if (!target.isDestroyed()) target.send('pod-exec:event', event)
   }
 }

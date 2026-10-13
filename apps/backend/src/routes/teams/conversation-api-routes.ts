@@ -58,6 +58,13 @@ const CANONICAL_ROUTES: { method: string; path: RegExp }[] = [
   { method: '*', path: /^\/agent-triggers(?:\/|$)/u },
   { method: '*', path: /^\/knowledge(?:\/|$)/u },
   { method: '*', path: /^\/instructions(?:\/|$)/u },
+  // Reads, plus the two writes an agent has in the team's Discord server.
+  { method: 'GET', path: /^\/discord(?:\/|$)/u },
+  { method: 'POST', path: /^\/discord\/channels\/[^/]+\/messages$/u },
+  {
+    method: 'PUT',
+    path: /^\/discord\/channels\/[^/]+\/messages\/[^/]+\/reactions\/[^/]+$/u,
+  },
   { method: 'GET', path: /^\/database-connections\/?$/u },
   {
     method: 'GET',

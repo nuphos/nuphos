@@ -10,6 +10,7 @@ import { HistoryConversationRow } from './historyRows'
 import { pickUpConversationInSlack } from './slackPickup'
 
 import type { AgentConversation } from '../../../api'
+import type { ContextMenuItem } from '../../ContextMenu'
 import type { MouseEvent, RefObject } from 'react'
 
 type RowMenuState = {
@@ -76,11 +77,12 @@ export function HistoryPageList({
   const [rowMenu, setRowMenu] = useState<RowMenuState | null>(null)
   const unreadSessions = useAgentUnreadSessions()
 
-  // Row actions are owner-only: Slack pick-up binds the thread to the
-  // owner's DM, and the backend archives only for the owner — so a teammate's
-  // row gets neither.
+  // Rename and Slack pick-up are the owner's (pick-up binds the thread to the
+  // owner's DM); a manager may also archive.
   const isOwn = (conversation: AgentConversation) =>
     historyScope === 'mine' || conversation.isOwner === true
+  const canArchive = (conversation: AgentConversation) =>
+    isOwn(conversation) || conversation.canManage === true
 
   const openRowMenu = (event: MouseEvent, conversation: AgentConversation) => {
     event.preventDefault()
@@ -123,10 +125,10 @@ export function HistoryPageList({
             onOpenConversation(sessionId, conversation.title || conversation.firstMessage)
           }
           onContextMenu={
-            isOwn(conversation) ? (event) => openRowMenu(event, conversation) : undefined
+            canArchive(conversation) ? (event) => openRowMenu(event, conversation) : undefined
           }
           trailing={
-            isOwn(conversation) ? (
+            canArchive(conversation) ? (
               <ArchiveButton onClick={() => void onArchive(conversation)} />
             ) : undefined
           }
@@ -146,22 +148,27 @@ export function HistoryPageList({
           x={rowMenu.x}
           y={rowMenu.y}
           items={[
-            {
-              key: 'rename',
-              label: 'Rename chat',
-              icon: Pencil,
-              disabled: !teamId,
-              onSelect: () => setRenameTarget(rowMenu.conversation),
-            },
-            {
-              key: 'slack-pickup',
-              label: rowMenu.conversation.activitySource?.linkedSlackThread
-                ? 'Open Slack thread'
-                : 'Pick up in Slack',
-              icon: faSlack,
-              onSelect: () => pickUpConversationInSlack(rowMenu.conversation.sessionId, teamId),
-            },
-            { key: 'sep', separator: true },
+            ...(isOwn(rowMenu.conversation)
+              ? ([
+                  {
+                    key: 'rename',
+                    label: 'Rename chat',
+                    icon: Pencil,
+                    disabled: !teamId,
+                    onSelect: () => setRenameTarget(rowMenu.conversation),
+                  },
+                  {
+                    key: 'slack-pickup',
+                    label: rowMenu.conversation.activitySource?.linkedSlackThread
+                      ? 'Open Slack thread'
+                      : 'Pick up in Slack',
+                    icon: faSlack,
+                    onSelect: () =>
+                      pickUpConversationInSlack(rowMenu.conversation.sessionId, teamId),
+                  },
+                  { key: 'sep', separator: true },
+                ] satisfies ContextMenuItem[])
+              : []),
             {
               key: 'archive',
               label: 'Archive chat',

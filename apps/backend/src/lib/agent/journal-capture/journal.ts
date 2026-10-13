@@ -237,32 +237,4 @@ export class AgentJournal {
   }): Promise<void> {
     await captureToolResult(this.context(), result)
   }
-
-  /**
-   * Records an Auto Mode authorization decision on the tamper-evident chain
-   * (see lib/agent/auto-mode). Fail-open — a decision record must never block
-   * the gate; the gate itself is what enforces. The `decision` is part of the
-   * event qualifier so an require-auth-then-approved-then-run sequence lands
-   * as distinct chain events rather than deduping.
-   */
-  async authDecision(d: {
-    toolName: string
-    toolCallId: string
-    decision: 'allow' | 'require_auth'
-    layer: string
-    reason: string
-    commandHash: string
-  }): Promise<void> {
-    await this.appendOpen(
-      'auth_decision',
-      {
-        toolName: d.toolName,
-        decision: d.decision,
-        layer: d.layer,
-        reason: d.reason,
-        commandHash: d.commandHash,
-      },
-      { toolCallId: d.toolCallId, qualifier: d.decision },
-    )
-  }
 }

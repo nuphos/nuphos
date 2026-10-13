@@ -200,7 +200,7 @@ spec:
       template: PREBUILT_V2
       spec:
         source:
-          image: ghcr.io/nuphos/backend:v0.85.0
+          image: ghcr.io/nuphos/backend:v0.89.0
         ports:
           - id: web
             port: 3000
@@ -228,8 +228,6 @@ spec:
           NUPHOS_PUBLIC_BACKEND_URL:
             default: ${ZEABUR_WEB_URL}
           ATLAS_REDIS_ENABLED:
-            default: 'false'
-          BRAINTRUST_TRACING_ENABLED:
             default: 'false'
           CLAUDE_CODE_RUNTIME_KUBECTL:
             default: 'false'

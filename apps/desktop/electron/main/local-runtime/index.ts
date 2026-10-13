@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
+import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
 import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl } from '../../api-endpoint.ts'
@@ -18,8 +19,8 @@ import { prepareAgentHome } from './agent-home.ts'
 import { LocalAgentLogin } from './agent-login.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
+import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
-import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
@@ -47,7 +48,7 @@ function bundleRoot(): string {
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 
-async function userEnv(): Promise<NodeJS.ProcessEnv> {
+export async function userEnv(): Promise<NodeJS.ProcessEnv> {
   return { ...process.env, ...((await resolveShellEnv()) ?? {}) }
 }
 
@@ -144,7 +145,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 
         return workspace ? new LocalFileStream(workspace) : null
       },
-      connectExec: () => new LocalExecStream(),
+      ...localToolStreams,
+      connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider) => {
         const running = runtime(provider)
 
@@ -229,9 +231,7 @@ export function initLocalRuntime(): void {
     void controller.setUser(userId)
   }
 
-  authSession.subscribe((next) => {
-    follow(next)
-  })
+  authSession.subscribe(follow)
   follow(authSession.current())
   if (devBuild())
     watchDevBundle(bundleRoot(), {

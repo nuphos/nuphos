@@ -6,7 +6,7 @@ import { OpenAbRpcError } from './openab-acp-errors'
 import { OpenAbAcpLifecycle } from './openab-acp-lifecycle'
 import { driveControlRuntimeLogin } from './runtime-login-control'
 
-import type { RuntimeLoginFrame } from './runtime-login-exec'
+import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc } from './runtime-login-store'
 
 const doc = { attemptId: 'attempt-1', teamId: 'team', runtimeId: 'runtime' } as RuntimeLoginDoc

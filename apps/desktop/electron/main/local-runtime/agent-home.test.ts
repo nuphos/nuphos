@@ -21,6 +21,16 @@ import {
 } from './agent-home.ts'
 
 const CUA_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
+const CUA_CLIENT = path.join(
+  'computer-use',
+  'Codex Computer Use.app',
+  'Contents',
+  'SharedSupport',
+  'SkyComputerUseClient.app',
+  'Contents',
+  'MacOS',
+  'SkyComputerUseClient',
+)
 
 function codexFixture(t: { after: (fn: () => void) => void }) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'codex-home-'))
@@ -72,6 +82,47 @@ test('Codex’s home refuses to replace a non-link login and needs the owner’s
   rmSync(path.join(f.owner, 'auth.json'))
   rmSync(path.join(home, 'auth.json'))
   assert.equal(prepareCodexHome(f.dir, f.env), undefined)
+})
+
+test('an existing isolated home gains native macOS cleanup without importing personal commands', (t) => {
+  const f = codexFixture(t)
+  const home = prepareCodexHome(f.dir, f.env)!
+  const config = path.join(home, 'config.toml')
+  const client = path.join(f.owner, CUA_CLIENT)
+
+  mkdirSync(path.dirname(client), { recursive: true })
+  writeFileSync(client, '')
+  writeFileSync(path.join(f.owner, 'config.toml'), 'notify = ["private-command"]\n')
+  const original = `${readFileSync(config, 'utf8')}\n[projects."/w"]\ntrust_level = "trusted"\n`
+
+  writeFileSync(config, original)
+  prepareCodexHome(f.dir, f.env)
+  const prepared = readFileSync(config, 'utf8')
+
+  const notify = ['/usr/bin/env', `CODEX_HOME=${f.owner}`, client, 'turn-ended']
+
+  assert.equal(prepared, `notify = ${JSON.stringify(notify)}\n${original}`)
+  // Migrate the earlier generated command; it inherited the isolated home.
+  writeFileSync(config, `notify = ${JSON.stringify([client, 'turn-ended'])}\n${original}`)
+  prepareCodexHome(f.dir, f.env)
+  assert.equal(readFileSync(config, 'utf8'), prepared)
+})
+
+test('native cleanup preserves an existing root notify and is absent without the App client', (t) => {
+  const f = codexFixture(t)
+  const home = prepareCodexHome(f.dir, f.env)!
+  const config = path.join(home, 'config.toml')
+
+  assert.doesNotMatch(readFileSync(config, 'utf8'), /notify/u)
+  const client = path.join(f.owner, CUA_CLIENT)
+
+  mkdirSync(path.dirname(client), { recursive: true })
+  writeFileSync(client, '')
+  const original = `notify = ["existing"]\n${readFileSync(config, 'utf8')}`
+
+  writeFileSync(config, original)
+  prepareCodexHome(f.dir, f.env)
+  assert.equal(readFileSync(config, 'utf8'), original)
 })
 
 test('Claude Code’s home keeps the owner’s CLAUDE.md files above the workspace out', () => {

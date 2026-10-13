@@ -66,8 +66,8 @@ describe('localExecToolModule', () => {
     const module = await localExecToolModule(ctx)
     const names = module.definitions.map((definition) => (definition as { name: string }).name)
 
-    expect(names).toEqual(['local_exec'])
-    expect(Object.keys(module.handlers(ctx))).toEqual(['local_exec'])
+    expect(names).toEqual(['local_terminal', 'local_exec'])
+    expect(Object.keys(module.handlers(ctx))).toEqual(['local_terminal', 'local_exec'])
   })
 
   test('offers only devices that are both selected and available', async () => {

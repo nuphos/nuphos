@@ -279,6 +279,8 @@ export const cloudOpsApi = {
     ipcRenderer.invoke('agent:renameConversation', sessionId, title, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     ipcRenderer.invoke('agent:setConversationArchived', sessionId, archived, teamId),
+  agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:unlinkConversationParent', sessionId, teamId),
   agentMarkConversationRead: (sessionId: string, seq: number, teamId?: string) =>
     ipcRenderer.invoke('agent:markConversationRead', sessionId, seq, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>

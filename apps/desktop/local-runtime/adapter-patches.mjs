@@ -1,3 +1,4 @@
+import { nuphosAuthorizeComputerUse } from './computer-use-permission.mjs'
 import { nuphosDesktopClaudeEnv } from './claude-session-env.mjs'
 import { nuphosLocalSyncSkills } from './skills-sync.mjs'
 
@@ -43,6 +44,13 @@ export function patchDesktopAdapter(source, provider) {
       '...nuphosDesktopClaudeEnv(nuphosSessionHomeEnv(userProvidedOptions?.env)),',
     )
   }
+  if (provider === 'codex') {
+    patched = replaceOnce(
+      patched,
+      'async handleElicitation(params) {\n    try {',
+      'async handleElicitation(params) {\n    try {\n      await nuphosAuthorizeComputerUse(params, this.cancellationSignal);',
+    )
+  }
   const shebang = /^#![^\n]*\n/u.exec(patched)?.[0] ?? ''
 
   const claudeEnv =
@@ -50,5 +58,7 @@ export function patchDesktopAdapter(source, provider) {
       ? `import { constants as nuphosDesktopFs, mkdirSync as nuphosDesktopMkdir, writeFileSync as nuphosDesktopWrite } from 'node:fs';\nimport { join as nuphosDesktopJoin } from 'node:path';\n${nuphosDesktopClaudeEnv.toString()}\n`
       : ''
 
-  return `${shebang}${claudeEnv}${nuphosLocalSyncSkills.toString()}\n${patched.slice(shebang.length)}`
+  const computerUse = provider === 'codex' ? `${nuphosAuthorizeComputerUse.toString()}\n` : ''
+
+  return `${shebang}${computerUse}${claudeEnv}${nuphosLocalSyncSkills.toString()}\n${patched.slice(shebang.length)}`
 }

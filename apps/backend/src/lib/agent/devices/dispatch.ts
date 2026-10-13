@@ -24,10 +24,15 @@ export function dispatchLocalExec(
   userId: string,
   deviceId: string,
   command: string,
-  options: { teamId: string; timeoutMs?: number; deps?: DeviceRuntimeSocketDeps },
+  options: {
+    teamId: string
+    timeoutMs?: number
+    deps?: DeviceRuntimeSocketDeps
+    purpose?: 'exec' | 'terminal'
+  },
 ): Promise<LocalExecDispatchOutcome> {
   const socket = new DeviceRuntimeSocket(
-    { userId, deviceId, teamId: options.teamId, purpose: 'exec' },
+    { userId, deviceId, teamId: options.teamId, purpose: options.purpose ?? 'exec' },
     options.deps ?? { bus: tunnelBus(), presence: runtimePresenceStore() },
   )
 

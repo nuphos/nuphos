@@ -66,3 +66,21 @@ export function mediaKind(fileName: string, contentType?: string | null): 'image
 
   return null
 }
+
+/**
+ * The files a card still lists as rows beside its previews. While previews
+ * resolve (`previewedImages` null) only images that should become thumbnails
+ * are held back; once resolved, every file that did not become one is listed —
+ * a failed or unresolved image included. Videos keep their row (and its
+ * Download button): the lightbox only steps through images.
+ */
+export function filesBesidePreviews<T extends { fileName: string; status: string }>(
+  files: readonly T[],
+  previewedImages: ReadonlySet<string> | null,
+): T[] {
+  return files.filter((f) =>
+    previewedImages
+      ? !previewedImages.has(f.fileName)
+      : !(f.status === 'ready' && mediaKind(f.fileName) === 'image'),
+  )
+}

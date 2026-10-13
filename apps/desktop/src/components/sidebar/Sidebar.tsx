@@ -1,10 +1,11 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 
-import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
+import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
+import { sharedChatSection, withChatSections } from './chat-sections'
 import {
   SidebarHeaderBar,
   SidebarTeamSwitcher,
@@ -14,8 +15,9 @@ import {
 import { SidebarHelpMenu } from './help-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
-import { SidebarItemContextMenu, SidebarSectionList } from './sections-list'
-import { sharedChatSection, teamSections, withChatSections } from './sections-services'
+import { SidebarItemContextMenu } from './item-context-menu'
+import { SidebarSectionList } from './sections-list'
+import { teamSections } from './sections-services'
 import { settingsBackTarget } from './types'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
@@ -70,7 +72,7 @@ export function Sidebar({
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { chatItems, newChatActive, archiveChat, archivingIds } = useSidebarChats({
+  const { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } = useSidebarChats({
     teamId,
     agentSessionId,
     chatShown,
@@ -287,6 +289,7 @@ export function Sidebar({
           favoriteMatch={favoriteMatch}
           toggleFavorite={toggleFavorite}
           archiveChat={archiveChat}
+          unlinkChat={unlinkChat}
           renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
         />
       )}

@@ -28,7 +28,7 @@ import { parseArgs } from 'node:util'
 
 import { patchDesktopAdapter } from './adapter-patches.mjs'
 import { findBrokenLinks } from './bundle-check.mjs'
-import { bundleStamp, RUNTIME_DIR, RUNTIME_SOURCES } from './bundle-stamp.mjs'
+import { ATTACHMENT_JOB, bundleStamp, RUNTIME_DIR, RUNTIME_SOURCES } from './bundle-stamp.mjs'
 
 export const OPENAB_COMMIT = 'e73676eed5551d2364bc4575bdcf50827c80c226'
 
@@ -167,6 +167,24 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         verbatimSymlinks: true,
         filter: (path) => !path.endsWith('.complete'),
       })
+    cpSync(join(RUNTIME_DIR, ATTACHMENT_JOB), join(out, 'attachment-job.mjs'))
+    if (target.startsWith('darwin')) {
+      const arch = target.endsWith('arm64') ? 'arm64' : 'x86_64'
+
+      run(
+        'xcrun',
+        [
+          'swiftc',
+          '-O',
+          '-target',
+          `${arch}-apple-macosx12.0`,
+          join(desktopDir, 'local-runtime', 'computer-use-permission.swift'),
+          '-o',
+          join(out, 'cua-permission'),
+        ],
+        desktopDir,
+      )
+    }
     const binary = skipOpenab ? null : (openab ?? buildOpenab(target))
 
     if (binary) {

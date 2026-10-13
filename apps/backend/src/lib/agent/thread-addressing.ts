@@ -10,7 +10,6 @@
 import { generateText } from 'ai'
 
 import { config } from '@/config'
-import { traced } from '@/lib/agent/braintrust'
 import {
   buildThreadAddressingPrompt,
   collaborativeThreadAddressingSystemPrompt,
@@ -18,6 +17,7 @@ import {
   threadAddressingSystemPrompt,
 } from '@/lib/agent/thread-addressing-core'
 import { newModelCallId, recordSideCallTokenUsage } from '@/lib/agent/token-usage-side-call'
+import { traced } from '@/lib/agent/tracing'
 import { logError } from '@/lib/observability'
 
 import { getModel } from './model-provider'

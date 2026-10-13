@@ -50,6 +50,7 @@ export async function upsertConversationShell(data: {
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
   runtimeId?: string
   runtimeLabel?: string
+  parentSessionId?: string
 }): Promise<{ isNew: boolean }> {
   const now = new Date()
   const generalAccess = initialGeneralAccess(data.source)
@@ -70,6 +71,10 @@ export async function upsertConversationShell(data: {
     ...(generalAccess ? { generalAccess } : {}),
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
+    // The opener is also the first parent. Only parentSessionId may change later.
+    ...(data.parentSessionId
+      ? { parentSessionId: data.parentSessionId, createdBySessionId: data.parentSessionId }
+      : {}),
     metadata: {
       locale: data.locale,
       provider: data.provider,

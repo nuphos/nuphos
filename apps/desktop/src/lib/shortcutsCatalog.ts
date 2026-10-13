@@ -49,6 +49,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Accept suggested prompt', combos: ['tab'] },
       { label: 'Previous / next conversation', combos: ['up', 'down'] },
       { label: 'Stop response', combos: ['esc'] },
+      { label: 'Find in conversation', combos: ['mod+f'] },
     ],
   },
   {
