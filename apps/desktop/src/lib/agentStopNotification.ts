@@ -133,10 +133,6 @@ function pendingApproval(
   return null
 }
 
-export function pendingApprovalTool(messages: readonly StopNotificationMessage[]): string | null {
-  return pendingApproval(messages)?.toolName ?? null
-}
-
 function truncate(text: string): string {
   const chars = toGraphemes(text)
 
@@ -196,17 +192,4 @@ function stopNotificationBody(
   }
 
   return describeStoppedTurn(messages) ?? 'The agent finished without a text response.'
-}
-
-/** OS-visible status without conversation titles, answers, tool names or errors. */
-export function buildAgentStatusNotification(args: {
-  failed: boolean
-  messages: readonly StopNotificationMessage[]
-}): { title: string; body: string } {
-  let body = 'Agent finished. Open Nuphos to view the response.'
-
-  if (args.failed) body = 'Agent stopped before finishing. Open Nuphos for details.'
-  else if (pendingApprovalTool(args.messages)) body = 'Agent needs your approval.'
-
-  return { title: 'Nuphos', body }
 }

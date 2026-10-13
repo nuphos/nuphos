@@ -4,6 +4,7 @@ import { api } from '../../../api'
 import { toast } from '../../ui/toast'
 
 import { optimisticSenderMetadata } from './optimisticSender'
+import { normalizeTransferUploadPart } from './parts'
 import { appendSteering } from './steering'
 
 import type { PanelCtx } from './ctx'
@@ -40,7 +41,7 @@ export function useSteering({
       )
       try {
         // Attachments take the normal upload path; the backend places them on
-        // the runtime and names them in the receipt text it returns.
+        // the runtime and returns them with the receipt.
         const groupId =
           filePaths.length > 0 && teamId
             ? (await api.fileTransferUpload({ teamId, sessionId: tab.sessionId, filePaths }))
@@ -48,9 +49,15 @@ export function useSteering({
             : undefined
         const sent = await api.agentSteerConversation(tab.sessionId, text, teamId, groupId)
         const metadata = optimisticSenderMetadata(currentUser, Date.now())
+        const upload = sent.upload ? normalizeTransferUploadPart(sent.upload) : null
         const receipt = {
           type: 'data-steering' as const,
-          data: { id: sent.messageId, text: sent.text ?? text, ...(metadata ? { metadata } : {}) },
+          data: {
+            id: sent.messageId,
+            text: sent.text ?? text,
+            ...(upload ? { upload } : {}),
+            ...(metadata ? { metadata } : {}),
+          },
         }
 
         setTabs((tabs) =>

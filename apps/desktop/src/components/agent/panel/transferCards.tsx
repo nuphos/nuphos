@@ -175,8 +175,8 @@ function formatTransferBytes(bytes: number | null): string {
 
 // User-uploaded files. Bytes already live in the transfer store;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
-// Images show as thumbnails above it; when nothing else is left to list, the
-// card itself is dropped so a photo message reads as photos.
+// Images and videos preview above it; the card lists only the rest (a previewed
+// video has no Download row to keep here), and is dropped when nothing is left.
 export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
   const previewTeam =
     part.status !== 'uploading' &&
@@ -190,10 +190,12 @@ export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; 
   if (!previewTeam) return <UploadedFilesList part={part} rows={part.files} />
 
   return (
-    <div className="flex w-full max-w-[min(85%,480px)] flex-col items-end self-end">
-      <TransferPreviews teamId={previewTeam} groupId={part.groupId}>
-        {(previewed) => {
-          const rows = filesBesidePreviews(part.files, previewed)
+    <div className="flex max-w-[480px] flex-col items-end self-end">
+      <TransferPreviews teamId={previewTeam} groupId={part.groupId} alignEnd>
+        {(images, videos) => {
+          const rows = filesBesidePreviews(part.files, images).filter(
+            (f) => !videos?.has(f.fileName),
+          )
 
           return rows.length > 0 && <UploadedFilesList part={part} rows={rows} />
         }}
@@ -221,7 +223,7 @@ function UploadedFilesList({
   const readySuffix = ready < total ? ` · ${String(ready)}/${String(total)} ready` : ''
 
   return (
-    <div className="w-full max-w-[min(85%,480px)] self-end rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2">
+    <div className="w-full max-w-[480px] self-end rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2">
       <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] text-tertiary">
         {uploading ? (
           <FontAwesomeIcon icon={faSpinner} spin className="h-3 w-3" />

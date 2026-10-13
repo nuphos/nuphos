@@ -101,7 +101,7 @@ describe('toolModuleFromAiSdkTools', () => {
     const result = await module.handlers(ctx).arch_add_node!({ label: '新增節點' })
 
     expect(result.isError).toBe(true)
-    expect(result.content[0]?.text).toBe('diagram is locked')
+    expect(result.content[0]).toMatchObject({ text: 'diagram is locked' })
     expect(frames.at(-1)).toMatchObject({
       type: 'tool-output-error',
       errorText: 'diagram is locked',

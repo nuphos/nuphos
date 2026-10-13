@@ -1,9 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
+import {
+  getSessionBypass,
+  initializeSessionBypass,
+  setSessionBypass,
+} from '@/lib/agent/auto-mode/store'
 import { getTeamMembership } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 
-import { agentConversations, getConversationBySessionId, upsertConversationShell } from './db'
-import { enqueueThreadTurn } from './thread-queue'
+import { getConversationBySessionId, recordAgentEvent, upsertConversationShell } from './db'
 
 import type { AgentConversation } from './db'
 
@@ -30,7 +35,9 @@ export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentCon
   return source
 }
 
-export async function authorizeThreadDelivery(data: ThreadTurn): Promise<AgentConversation> {
+export async function authorizeThreadDelivery(
+  data: ThreadActor & { targetSessionId: string },
+): Promise<AgentConversation> {
   const source = await authorizeThreadActor(data)
   const target = await getConversationBySessionId(data.targetSessionId)
 
@@ -75,17 +82,14 @@ export async function createAgentThread(actor: ThreadActor, prompt: string, titl
     runtimeLabel: source.runtimeLabel,
     parentSessionId: actor.sessionId,
   })
-  try {
-    await enqueueThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
-  } catch (error) {
-    // This freshly minted shell never ran; do not leave a false queued task.
-    await agentConversations().deleteOne({
-      sessionId: threadId,
-      userId: actor.userId,
-      messageCount: 0,
-    })
-    throw error
-  }
+  // A thread runs in its parent's permission mode, as a chat opened by hand
+  // starts in the mode the user picked.
+  await initializeSessionBypass(
+    threadId,
+    actor.userId,
+    await getSessionBypass(actor.sessionId, actor.userId),
+  )
+  startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
 
   return { ...receipt(actor, threadId, messageId), sourceThreadId: actor.sessionId }
 }
@@ -94,7 +98,110 @@ export async function sendAgentThreadMessage(actor: ThreadActor, threadId: strin
   const data = { ...actor, targetSessionId: threadId, messageId: randomUUID(), prompt }
 
   await authorizeThreadDelivery(data)
-  await enqueueThreadTurn(data)
+  startThreadTurn(data)
 
   return receipt(actor, threadId, data.messageId)
+}
+
+/** The agents the owner can run a thread on, each with its readiness and usage. */
+export async function listThreadRuntimes(actor: ThreadActor) {
+  const source = await authorizeThreadActor(actor)
+  const { listRuntimeInstances, listRuntimeQuotas, withRuntimeReadiness } =
+    await import('@/lib/claude-code-preview/runtime-catalog')
+  // The team's agents only. A local agent runs on the owner's own computer, which
+  // only the owner can choose, with the consent the Desktop asks for.
+  const instances = await withRuntimeReadiness(
+    actor.teamId,
+    await listRuntimeInstances(actor.teamId),
+  )
+  const quotas = await listRuntimeQuotas(actor.teamId, instances)
+
+  return {
+    runtimes: instances.map((instance, i) => ({
+      runtimeId: instance.id,
+      label: instance.label,
+      provider: instance.provider,
+      kind: instance.kind,
+      status: instance.status,
+      ready: !instance.notReady,
+      current: instance.id === source.runtimeId,
+      quota: quotas[i],
+    })),
+  }
+}
+
+/**
+ * The parent's own controls for a thread it created: its permission mode, never
+ * more access than the parent has, and the agent it runs on.
+ */
+export async function updateThread(
+  actor: ThreadActor,
+  threadId: string,
+  change: { fullAccess?: boolean; runtimeId?: string },
+) {
+  const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
+
+  // Who opened it, not who it is nested under now: adopting a conversation must
+  // not hand over control of it.
+  if (target.createdBySessionId !== actor.sessionId) {
+    throw new Error('Only a thread this conversation created can be changed.')
+  }
+  if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
+    throw new Error('Only a conversation in Full Access can give a thread Full Access.')
+  }
+  if (change.runtimeId) {
+    const { listRuntimeInstances } = await import('@/lib/claude-code-preview/runtime-catalog')
+
+    if (!(await listRuntimeInstances(actor.teamId)).some(({ id }) => id === change.runtimeId))
+      throw new Error("A thread can only move to one of the team's agents, not to a computer.")
+  }
+  const { moveConversationRuntime } =
+    await import('@/lib/claude-code-preview/conversation-runtime-move')
+  const runtime = change.runtimeId
+    ? await moveConversationRuntime(target, change.runtimeId, 'history', actor.userId)
+    : undefined
+
+  if (change.fullAccess !== undefined) {
+    await setSessionBypass(threadId, actor.userId, change.fullAccess)
+    recordAgentEvent({
+      conversationId: threadId,
+      userId: actor.userId,
+      event: change.fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
+      data: { sourceSessionId: actor.sessionId },
+    })
+  }
+
+  return {
+    threadId,
+    ...(change.fullAccess === undefined
+      ? {}
+      : { mode: change.fullAccess ? 'full_access' : 'auto' }),
+    ...(runtime ? { runtime } : {}),
+  }
+}
+
+export async function executeThreadTurn(data: ThreadTurn): Promise<void> {
+  const target = await authorizeThreadDelivery(data)
+  // Lazy so importing the tools does not pull in the route graph.
+  const { executeConversationTurn } = await import('./conversation-turn')
+
+  await executeConversationTurn(data, target, data.prompt, 'agent.thread', {
+    version: 1,
+    sender: { type: 'agent', id: data.sessionId, displayName: 'Nuphos agent' },
+    source: 'agent.thread',
+    sourceSessionId: data.sessionId,
+    sentAt: new Date().toISOString(),
+  })
+}
+
+// Same path as a message typed into a chat: the turn starts in this process and
+// a busy target takes it through its pending-message queue.
+function startThreadTurn(data: ThreadTurn): void {
+  void executeThreadTurn(data).catch((error: unknown) => {
+    logError('agent.thread.turn_failed', error, {
+      session_id: data.targetSessionId,
+      source_session_id: data.sessionId,
+      message_id: data.messageId,
+    })
+  })
 }

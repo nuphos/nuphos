@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import { pipeLines, selectCrashDiagnostic } from './dev-child-output.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
 import { DEV_OPTIONS } from './dev-options.ts'
-import { LOG_DIR, WT_ID } from './dev-workspace.ts'
+import { LOG_DIR, INSTANCE } from './dev-workspace.ts'
 
 import type { ChildProcess } from 'node:child_process'
 import type { WriteStream } from 'node:fs'
@@ -61,7 +61,7 @@ function makeService(name: Service['name'], color: string): Service {
     // Two launchers may run from the same worktree. Keep their streams separate
     // instead of letting the later createWriteStream({ flags: 'w' }) truncate
     // and interleave the first launcher's diagnostics.
-    logPath: join(LOG_DIR, `${WT_ID}-${String(process.pid)}-${name}.log`),
+    logPath: join(LOG_DIR, `${INSTANCE}-${String(process.pid)}-${name}.log`),
     logStream: null,
     lastRaw: null,
     stallNoticed: 0,
@@ -153,7 +153,7 @@ export function openLog(svc: Service) {
   }
   pruneStaleLauncherLogs({
     logDir: LOG_DIR,
-    worktreeId: WT_ID,
+    worktreeId: INSTANCE,
     serviceName: svc.name,
     currentPid: process.pid,
   })

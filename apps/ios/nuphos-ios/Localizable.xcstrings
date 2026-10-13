@@ -115,15 +115,6 @@
     "Agent" : {
 
     },
-    "Allow" : {
-
-    },
-    "Always allow" : {
-
-    },
-    "Always allow…" : {
-
-    },
     "Approval" : {
 
     },
@@ -175,9 +166,6 @@
     "Coming soon to the Nuphos app." : {
 
     },
-    "Commands matching this description will run without asking." : {
-
-    },
     "Configure" : {
 
     },
@@ -217,9 +205,6 @@
     "Deny" : {
 
     },
-    "Describe the rule" : {
-
-    },
     "Dismissed plans are hidden." : {
 
     },
@@ -233,9 +218,6 @@
 
     },
     "Filter plans" : {
-
-    },
-    "For session" : {
 
     },
     "Credentials" : {
