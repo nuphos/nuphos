@@ -177,6 +177,18 @@ mod tests {
     }
 
     #[test]
+    fn picks_the_team() {
+        let teams =
+            vec![serde_json::json!({ "id": "a", "name": "Alpha" }), serde_json::json!({ "id": "b", "name": "Beta" })];
+        let prefs = |id: Option<&str>| Prefs { team_id: id.map(String::from), ..Default::default() };
+        let pick = |p: &Prefs, wanted| pick_team(&teams, p, wanted).ok().map(|t| t["id"].clone());
+        assert_eq!(pick(&prefs(Some("a")), Some("beta")), Some("b".into()));
+        assert_eq!(pick(&prefs(Some("b")), None), Some("b".into()));
+        assert_eq!(pick(&prefs(Some("gone")), None), Some("a".into()));
+        assert!(pick_team(&[], &prefs(None), None).is_err());
+    }
+
+    #[test]
     fn parses_iso_times() {
         assert_eq!(unix_seconds("1970-01-01T00:00:00Z"), Some(0));
         assert_eq!(unix_seconds("2026-10-08T09:41:05.869Z"), Some(1_791_452_465));

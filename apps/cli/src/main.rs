@@ -148,7 +148,9 @@ async fn run(args: Args) -> Result<i32> {
         return Ok(0);
     }
     let team = shared::pick_team(&teams, &prefs, args.team.as_deref())?;
-    shared::remember_team(&mut prefs, &team);
+    if args.team.is_none() {
+        shared::remember_team(&mut prefs, &team);
+    }
     let mut ctx = cli::Ctx { api, me_id, team, prefs, json: args.json };
 
     match args.command {

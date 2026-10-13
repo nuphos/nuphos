@@ -322,7 +322,13 @@ impl App {
                     return;
                 }
                 match shared::pick_team(&teams, &app.prefs, wanted.as_deref()) {
-                    Ok(team) => app.choose_team(team),
+                    Ok(team) => {
+                        // A team asked for by name is for this run only.
+                        if wanted.is_none() {
+                            shared::remember_team(&mut app.prefs, &team);
+                        }
+                        app.choose_team(team);
+                    }
                     Err(e) => {
                         app.failure = Some(e.to_string());
                         app.quit = true;
@@ -1006,7 +1012,12 @@ impl App {
             return self.answer(ask, text);
         }
         if self.booting() && text != "/quit" {
-            self.notice = Some("Still connecting to Nuphos…".into());
+            // Signed in but still without a team: the team name is asked again.
+            if !self.me_id.is_empty() {
+                self.ask = Some(("Name a team to create it".into(), Ask::TeamName));
+            } else {
+                self.notice = Some("Still connecting to Nuphos…".into());
+            }
             return;
         }
         if text.starts_with('/') {
@@ -1381,6 +1392,7 @@ impl App {
                     Ok(team) => {
                         app.notice =
                             Some(format!("Created team {}. Use /agents to add an agent.", shared::label(&team)));
+                        shared::remember_team(&mut app.prefs, &team);
                         app.choose_team(team);
                     }
                     Err(e) => {
@@ -1626,7 +1638,6 @@ impl App {
         if team["id"] == self.team["id"] {
             return;
         }
-        shared::remember_team(&mut self.prefs, &team);
         self.team = team;
         self.sessions.clear();
         self.shared_sessions.clear();
@@ -1901,7 +1912,10 @@ impl App {
                 let Some(picker) = self.picker.take() else { return };
                 let Some((_, _, value)) = picker.items.into_iter().nth(picker.selected) else { return };
                 match picker.action {
-                    PickAction::Team => self.choose_team(value),
+                    PickAction::Team => {
+                        shared::remember_team(&mut self.prefs, &value);
+                        self.choose_team(value);
+                    }
                     PickAction::Runtime => match value["add"].as_str() {
                         Some(kind) => self.add_agent(kind),
                         None => self.choose_runtime(value),
