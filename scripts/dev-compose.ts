@@ -23,21 +23,35 @@ export const COMPOSE = [
 
 const hex = () => randomBytes(32).toString('hex')
 
-/** Adopts the main checkout's existing secrets, which the running stack most likely uses, else generates them. */
-export function createStackEnv(): 'adopted' | 'generated' {
+export type S3Keys = { access: string; secret: string }
+
+/** The main checkout's secrets, else fresh ones; a running stack's S3 keys win over both. */
+export function stackEnvText(example: string, existing: string | null, running: S3Keys | null) {
+  const text =
+    existing ??
+    example
+      .replace(/^NUPHOS_JWT_SECRET=.*$/m, `NUPHOS_JWT_SECRET=${hex()}`)
+      .replace(/^S3_SECRET_KEY=.*$/m, `S3_SECRET_KEY=${hex()}`)
+
+  return running
+    ? text
+        .replace(/^S3_ACCESS_KEY=.*$/m, `S3_ACCESS_KEY=${running.access}`)
+        .replace(/^S3_SECRET_KEY=.*$/m, `S3_SECRET_KEY=${running.secret}`)
+    : text
+}
+
+export function createStackEnv(running: S3Keys | null): void {
   const existing = join(MAIN_ROOT, 'deploy/compose/.env')
-  const adopt = existsSync(existing)
-  const text = adopt
-    ? readFileSync(existing, 'utf8')
-    : readFileSync(join(COMPOSE_DIR, '.env.example'), 'utf8')
-        .replace(/^NUPHOS_JWT_SECRET=.*$/m, `NUPHOS_JWT_SECRET=${hex()}`)
-        .replace(/^S3_SECRET_KEY=.*$/m, `S3_SECRET_KEY=${hex()}`)
+  const example = readFileSync(join(COMPOSE_DIR, '.env.example'), 'utf8')
+  const text = stackEnvText(
+    example,
+    existsSync(existing) ? readFileSync(existing, 'utf8') : null,
+    running,
+  )
 
   mkdirSync(CLI_CONFIG_DIR, { recursive: true })
   // `wx`: when two launchers race, the first file wins and the other throws.
   writeFileSync(COMPOSE_ENV, text, { mode: 0o600, flag: 'wx' })
-
-  return adopt ? 'adopted' : 'generated'
 }
 
 export const RUNTIME_PASSWORD_ARGS = [

@@ -179,8 +179,11 @@ as the default dev loop.
 
 Every worktree or clone can run `bun run dev` at the same time. All of them
 share one Mongo / RustFS / runtime stack, whose secrets live in
-`~/.config/nuphos/dev-stack.env`; the first run copies them from the main
-checkout's `deploy/compose/.env`. Everything else derives from the instance
+`~/.config/nuphos/dev-stack.env`. The first run copies the main checkout's
+`deploy/compose/.env`, and takes the S3 keys from the running stack when there
+is one. If that file and the running stack ever disagree, `bun run dev` stops
+before recreating the stack under the other instances; copy the stack's keys
+into the file, or wipe the stack with `bun run dev:reset`. Everything else derives from the instance
 name, which is the checkout's directory name or `NUPHOS_DEV_INSTANCE`:
 
 - the backend, Vite and DevTools (CDP) ports, each claimed free at start;
