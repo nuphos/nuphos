@@ -182,6 +182,44 @@ test('legacy unstamped results still await the replayed steer echo and idle', as
   await until(() => h.settled.length === 1)
 })
 
+test('a steered turn settles when a followup cycle shares its only idle', async (t) => {
+  const h = harness(t),
+    id = await h.steer()
+
+  await h.emit({
+    type: 'user',
+    uuid: id,
+    isReplay: true,
+    message: { role: 'user', content: [] },
+    parent_tool_use_id: null,
+  })
+  await h.emit(result('original'))
+  await h.emit(result(undefined, { origin: { kind: 'task-notification' } }))
+  assert.equal(h.settled.length, 0)
+  await h.emit(idle)
+  await until(() => h.settled.length === 1)
+  assert.equal(h.settled[0].stopReason, 'end_turn')
+})
+
+test('owed idle debt cannot settle a steer before its answer arrives', async (t) => {
+  const h = harness(t, 1),
+    id = await h.steer()
+
+  await h.emit(result('original', { stop_reason: 'tool_use' }))
+  await h.emit({
+    type: 'user',
+    uuid: id,
+    isReplay: true,
+    message: { role: 'user', content: [] },
+    parent_tool_use_id: null,
+  })
+  await h.emit(idle)
+  assert.equal(h.settled.length, 0)
+  await h.emit(result('original'))
+  await h.emit(idle)
+  await until(() => h.settled.length === 1)
+})
+
 test('matching results retain the native background-subagent hold', async (t) => {
   const h = harness(t),
     id = await h.steer()

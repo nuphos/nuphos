@@ -10,12 +10,10 @@ import {
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
-import { setLocalAgentDefaults } from '@/lib/claude-code-preview/local-agent-defaults'
-import { runtimeDefaultsSchema } from '@/lib/claude-code-preview/runtime-defaults'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 import { zv } from '@/lib/validate'
 
 import { agent } from './router'
@@ -23,7 +21,6 @@ import { agent } from './router'
 import type { LocalRuntimeActivityPage } from '@/lib/agent/devices/local-runtime/activity'
 import type { RuntimeTunnel, TunnelHolderDeps } from '@/lib/agent/devices/local-runtime/holder'
 import type { AgentDevice } from '@/lib/agent/devices/store'
-import type { RuntimeDefaults } from '@/lib/claude-code-preview/runtime-defaults'
 import type { NuphosTeamMember } from '@/lib/identity'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
@@ -39,7 +36,6 @@ export type DeviceRuntimeRouteDependencies = {
   ) => Promise<LocalRuntimeActivityPage>
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
   getTeamMembers: (teamId: string) => Promise<NuphosTeamMember[]>
-  setLocalAgentDefaults: (runtimeId: string, defaults: RuntimeDefaults) => Promise<void>
 }
 
 function defaultDependencies(): DeviceRuntimeRouteDependencies {
@@ -53,7 +49,6 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
     listActivity: listLocalRuntimeActivity,
     conversationTitlesFor,
     getTeamMembers: (teamId) => getTeamMembers(teamId),
-    setLocalAgentDefaults,
   }
 }
 
@@ -67,8 +62,8 @@ const activityQuery = z.object({
     .optional(),
 })
 
-function tunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) {
-  let tunnel: Promise<RuntimeTunnel> | undefined
+export function runtimeTunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) {
+  let tunnel: Promise<RuntimeTunnel | undefined> | undefined
 
   return {
     onOpen: (_event: Event, ws: WSContext) => {
@@ -84,8 +79,11 @@ function tunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) 
           },
         },
         deps,
-      )
-      tunnel.catch(() => {
+      ).catch((error: unknown): undefined => {
+        logError('agent.local_runtime.tunnel_open_failed', error, {
+          user_id: userId,
+          device_id: deviceId,
+        })
         ws.close(1011, 'Could not open the runtime tunnel')
       })
     },
@@ -94,12 +92,12 @@ function tunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) 
       const data = event.data
 
       void tunnel?.then((attached) => {
-        attached.receive(data)
+        attached?.receive(data)
       })
     },
     onClose: () => {
       void tunnel?.then((attached) => {
-        attached.closed()
+        attached?.closed()
       })
     },
   }
@@ -124,7 +122,10 @@ export function createDeviceRuntimeRoutes(
     if (c.req.header('upgrade')?.toLowerCase() !== 'websocket')
       throw new AppError(426, 'upgrade_required', 'Connect with a WebSocket')
 
-    return upgradeWebSocket(c as unknown as Context, tunnelEvents(userId, deviceId, deps.holder))
+    return upgradeWebSocket(
+      c as unknown as Context,
+      runtimeTunnelEvents(userId, deviceId, deps.holder),
+    )
   })
 
   routes.get(
@@ -164,21 +165,6 @@ export function createDeviceRuntimeRoutes(
         })),
         nextCursor: page.nextCursor,
       })
-    },
-  )
-
-  routes.put(
-    '/local-agents/:runtimeId/defaults',
-    zv('param', z.object({ runtimeId: z.string().trim().min(1).max(300) })),
-    zv('json', runtimeDefaultsSchema),
-    async (c) => {
-      const { runtimeId } = c.req.valid('param')
-
-      if (parseLocalRuntimeId(runtimeId)?.userId !== c.get('userId'))
-        throw new AppError(404, 'runtime_not_found', 'This agent is not one of yours')
-      await deps.setLocalAgentDefaults(runtimeId, c.req.valid('json'))
-
-      return c.json({ ok: true })
     },
   )
 

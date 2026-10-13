@@ -4,14 +4,8 @@ import Foundation
 /// (`GET /teams/:id/agent-runtimes`): a Cloud runtime, or one of the
 /// signed-in user's own computers (`kind == "local"`).
 struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
-    enum Provider: String, Codable, Sendable { case claudeCode = "claude-code", codex, grok, antigravity }
+    enum Provider: String, Codable, Sendable { case claudeCode = "claude-code", codex, grok, antigravity, opencode }
     enum Status: String, Codable, Sendable { case active, disabled }
-
-    struct Defaults: Codable, Equatable, Hashable, Sendable {
-        let model: String?
-        let fast: String?
-        let effort: String?
-    }
 
     struct Local: Codable, Equatable, Hashable, Sendable {
         let ownerUserId: String
@@ -38,7 +32,6 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
     let status: Status
     let kind: String?
     let local: Local?
-    var defaults: Defaults?
 
     /// iOS never runs an agent itself, so every local agent is on another computer.
     var tier: Tier { kind == "local" || local != nil ? .myComputers : .cloud }
@@ -85,6 +78,7 @@ extension RuntimeInstance.Provider {
         case "codex": "logo-openai"
         case "grok": "logo-grok"
         case "antigravity": "logo-antigravity"
+        case "opencode": "logo-opencode"
         default: "logo-claude"
         }
     }
@@ -95,6 +89,7 @@ extension RuntimeInstance.Provider {
         case "claude-code": "Claude Code"
         case "grok": "Grok Build"
         case "antigravity": "Antigravity"
+        case "opencode": "OpenCode"
         case "nuphos": "Nuphos"
         default: raw?.capitalized ?? "Runtime"
         }
@@ -107,6 +102,9 @@ struct RuntimeQuota: Decodable, Sendable {
         let label: String
         let usedPercent: Double
         let resetsAt: Date?
+
+        /// What is left of the window, floored so it never promises more than there is.
+        var leftPercent: Int { min(100, max(0, Int((100 - usedPercent).rounded(.down)))) }
     }
 
     let runtimeId: String
@@ -233,59 +231,3 @@ struct SidebarFavorites: Codable, Equatable, Sendable {
     var pinnedSessionIds: Set<String> { Set(entries.compactMap(\.sessionId)) }
 }
 
-
-/// Discovery before a conversation exists, shared with Desktop.
-struct RuntimeModelCatalog: Decodable {
-    struct Model: Decodable {
-        let id: String
-        let name: String
-        let description: String?
-    }
-    struct Controls: Decodable {
-        struct Effort: Decodable { let value: String; let name: String }
-        let modelId: String
-        let effort: [Effort]
-        let fast: Bool
-        let defaultFast: String?
-        let defaultEffort: String?
-    }
-    let models: [Model]
-    let controls: Controls?
-    let message: String?
-
-    func config(defaults: RuntimeInstance.Defaults?) -> SessionConfigState {
-        let concrete = models.filter {
-            $0.id.lowercased() != "default" &&
-            !["default", "default model", "agent default", "runtime default"].contains($0.name.lowercased())
-        }
-        let requested = defaults?.model ?? controls?.modelId
-        let alias = models.first { $0.id == requested }
-        let current: String
-        if let requested, requested.lowercased() != "default",
-           !["default", "default model", "agent default", "runtime default"].contains(alias?.name.lowercased() ?? "") {
-            current = requested
-        } else {
-            current = concrete.first {
-                alias?.description?.localizedCaseInsensitiveContains($0.name) == true ||
-                alias?.description?.lowercased() == $0.id.lowercased()
-            }?.id ?? ""
-        }
-        var options: [SessionConfigState.Option] = [
-            .init(id: "model", name: "Model", kind: .model, description: nil, currentValue: current,
-                  options: concrete.map { .init(value: $0.id, name: $0.name, description: nil) })
-        ]
-        let efforts = controls?.effort.filter { $0.value != "default" } ?? []
-        if !efforts.isEmpty {
-            let inherited = defaults?.effort ?? controls?.defaultEffort
-            let effort = efforts.first { $0.value == inherited }?.value ?? ""
-            options.append(.init(id: "effort", name: "Effort", kind: .effort, description: nil,
-                                 currentValue: effort, options: efforts.map { .init(value: $0.value, name: $0.name, description: nil) }))
-        }
-        if controls?.fast == true {
-            options.append(.init(id: "fast", name: "Fast mode", kind: .fast, description: nil,
-                                 currentValue: defaults?.fast ?? controls?.defaultFast ?? "",
-                                 options: [.init(value: "on", name: "On", description: nil), .init(value: "off", name: "Off", description: nil)]))
-        }
-        return .init(status: .ready, options: options)
-    }
-}

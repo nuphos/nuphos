@@ -259,9 +259,7 @@ export function deliverOpenAbSessionUpdate(args: {
 
     return
   }
-  // Both are turn boundaries, not content: a prompt that is still streaming has
-  // its own deadline and must not be handed an end-of-turn marker for the
-  // agent-initiated turn that ran beside it.
+  // A streaming prompt owns its deadline; autonomous turn boundaries do not end it.
   if (update.kind === 'complete' || update.kind === 'interrupted') return
   for (const target of args.pending) {
     if (update.kind === 'text') target.onTextDelta?.(update.text)
@@ -287,6 +285,7 @@ export function routeOpenAbSessionUpdate(args: {
         ? args.pending.filter(
             (call) =>
               call.sessionId === sessionId &&
+              Boolean(call.onTextDelta ?? call.onAgentUpdate) &&
               (call.accepted !== false ||
                 (args.params as { update?: { sessionUpdate?: string } }).update?.sessionUpdate ===
                   'runtime_state'),

@@ -16,6 +16,7 @@ import { cloudflareAccountsRoutes } from '@/routes/cloudflare-accounts'
 import { teamClusters } from '@/routes/clusters'
 import { nuphosDashboardsRoutes } from '@/routes/dashboards'
 import { databaseConnectionsRoutes } from '@/routes/database-connections'
+import { discordAgentRoutes } from '@/routes/discord-agent'
 import { discordInstallationsRoutes } from '@/routes/discord-installations'
 import { fileTransfersRoutes } from '@/routes/file-transfers'
 import { gcpProjectsRoutes } from '@/routes/gcp-projects'
@@ -133,6 +134,7 @@ teamScoped.route('/asana-accounts', asanaAccountsRoutes)
 teamScoped.route('/sentry-accounts', sentryAccountsRoutes)
 teamScoped.route('/slack-installations', slackInstallationsRoutes)
 teamScoped.route('/discord-installations', discordInstallationsRoutes)
+teamScoped.route('/discord', discordAgentRoutes)
 teamScoped.route('/lark-installations', larkInstallationsRoutes)
 teamScoped.route('/tailscale-clients', tailscaleClientsRoutes)
 teamScoped.route('/zeabur-providers', zeaburProvidersRoutes)

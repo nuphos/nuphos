@@ -50,7 +50,7 @@ struct PlanDetailView: View {
                 } description: {
                     Text(loadError)
                 } actions: {
-                    Button("Try again") { Task { await refresh() } }.buttonStyle(.borderedProminent)
+                    Button("Try again") { Task { await refresh() } }.prominentButton()
                 }
             } else {
                 ProgressView("Loading plan…").tint(Theme.muted)
@@ -76,9 +76,8 @@ struct PlanDetailView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Label("Plan actions", systemImage: "ellipsis")
                     }
-                    .accessibilityLabel("Plan actions")
                 }
             }
         }
@@ -280,8 +279,7 @@ struct PlanDetailView: View {
                         Label("Approve", systemImage: "checkmark")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.brand)
+                    .prominentButton()
                     .disabled(busy)
                 }
                 if let chat {

@@ -45,6 +45,8 @@ export type AgentCliStatus =
       loggedIn: boolean | null
       account?: string
       plan?: string
+      /** Lives inside an app bundle, which updates it. */
+      bundled?: true
     }
 
 export type LocalAgentState = {
@@ -58,14 +60,16 @@ export type LocalAgentState = {
 export type DevBundleHint =
   { state: 'preparing' } | { state: 'failed'; reason: string } | { state: 'missing' }
 
-export type ClaudeLoginState = {
+export type LocalAgentLoginState = {
   state: 'idle' | 'waiting' | 'checking' | 'connected' | 'failed' | 'cancelled'
   url?: string
+  userCode?: string
   error?: string
 }
 
 export type LocalRuntimeState = {
-  claudeLogin?: ClaudeLoginState
+  claudeLogin?: LocalAgentLoginState
+  codexLogin?: LocalAgentLoginState
   agents: Record<LocalAgentProvider, LocalAgentState>
   workspace: string | null
   userId: string | null

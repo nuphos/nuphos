@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { matchMembers, mentionQuery } from './composerMention.ts'
+import { matchMembers, mentionQuery, sessionMentionUrl } from './composerMention.ts'
 
 import type { TeamMember } from '../../../types'
 
@@ -44,4 +44,8 @@ test('members match by name or email, case-insensitively, skipping removed ones'
     matchMembers(members, '').map((m) => m.id),
     ['a', 'b'],
   )
+})
+
+test("a session mention is the session's canonical link", () => {
+  assert.equal(sessionMentionUrl('t1', 's/1'), 'https://nuphos.ai/teams/t1/agent/s%2F1')
 })

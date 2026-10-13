@@ -13,14 +13,16 @@ import type {
   SlackUserMapping,
   DiscordConnection,
 } from '../types/messaging.ts'
+import type { SessionConfigPick, SessionConfigState } from './session-config-types.ts'
 import type { AtlasClustersResponse, AwsAccount, GcpProject } from '../types/provider-accounts.ts'
 import type {
   AgentProvider,
   RuntimeInstance,
-  RuntimeModelCatalog,
   RuntimeLoginStatus,
   RuntimeMetrics,
   RuntimeQuota,
+  RuntimeQuotaHistoryRange,
+  RuntimeQuotaHistorySeries,
   CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
@@ -55,6 +57,10 @@ export type WindowTeamApi = {
   ): Promise<RuntimeLoginStatus>
   atlasListRuntimeInstances(teamId: string): Promise<RuntimeInstance[]>
   atlasListRuntimeQuotas(teamId: string): Promise<RuntimeQuota[]>
+  atlasGetRuntimeQuotaHistory(
+    teamId: string,
+    range: RuntimeQuotaHistoryRange,
+  ): Promise<RuntimeQuotaHistorySeries[]>
   atlasCreateRuntimeInstance(teamId: string, input: CreateRuntimeInput): Promise<RuntimeInstance>
   atlasProbeExternalRuntimeProvider(
     teamId: string,
@@ -81,17 +87,23 @@ export type WindowTeamApi = {
     sessionId: string,
     path: string,
   ): Promise<{ name: string; size: number; data: string }>
+  atlasReadLinkedFile(
+    teamId: string,
+    runtimeId: string,
+    sessionId: string,
+    path: string,
+  ): Promise<{ name: string; size: number; data: string; origin: 'this-computer' | 'agent' }>
   atlasListRuntimeFiles(
     teamId: string,
     runtimeId: string,
     sessionId: string,
     path: string,
   ): Promise<{ entries: { name: string; kind: 'directory' | 'file' }[]; truncated: boolean }>
-  atlasGetRuntimeModels(
+  atlasGetRuntimeModelConfig(
     teamId: string,
     runtimeId: string,
-    model?: string,
-  ): Promise<RuntimeModelCatalog>
+    pick: SessionConfigPick,
+  ): Promise<SessionConfigState>
   atlasRequestRuntimeUpdate(teamId: string, runtimeId: string): Promise<{ version: string }>
   atlasGetRuntimeInstanceStatus(teamId: string, runtimeId: string): Promise<OpenAbRuntimeStatus>
   atlasGetRuntimeInstanceMetrics(

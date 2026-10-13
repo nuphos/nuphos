@@ -1,4 +1,3 @@
-import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
 import { trackError } from '../../../lib/analytics'
 import { CLIENT_SIDE_LOCAL_TOOLS } from '../../../lib/clientToolPhase'
@@ -11,15 +10,13 @@ import { getAgentLocale } from './textUtils'
 import { toUiMessages } from './toUiMessages'
 
 import type { PanelCtx } from './ctx'
-import type { Message } from './model'
 import type { AuthorizationDecisionAction, ToolPart } from './parts'
 // Native AI SDK HITL: the user approves/denies a bash command the SDK paused
 // with a tool-approval-request. We stamp the approval RESPONSE onto the same
 // tool card (approval-responded) and resubmit the transcript — the backend's
 // convertToModelMessages turns it into a ToolApprovalResponse, and the SDK
 // executes (approved) or denies the tool IN PLACE, with no model re-issue and
-// no synthetic user turn. "Always allow" additionally creates a standing rule
-// so future commands of that class skip approval entirely.
+// no synthetic user turn.
 export type DecideAuthorizationCtx = Pick<
   PanelCtx,
   | 'activeId'
@@ -32,42 +29,10 @@ export type DecideAuthorizationCtx = Pick<
   | 'urlRef'
 >
 
-/**
- * Persists a session-scoped grant so the backend stops re-prompting for this
- * command (and same-effect retries) within the conversation. Returns false when
- * the command text could not be read: the approval itself still proceeds, but
- * only as a one-shot, and the user is told so rather than being silently
- * re-prompted later.
- */
-async function persistSessionGrant(args: {
-  messages: Message[]
-  toolCallId: string
-  sessionId: string
-}): Promise<boolean> {
-  const { messages, sessionId, toolCallId } = args
-  const grantedPart = messages
-    .flatMap((m) => m.parts)
-    .find((p): p is ToolPart => p.type === 'tool' && p.toolCallId === toolCallId)
-  const command = (grantedPart?.input as { command?: unknown } | undefined)?.command
-
-  if (typeof command !== 'string' || !command.trim()) {
-    toast.error(
-      'Approved once only',
-      'Could not read the command text, so this approval was not saved for the session.',
-    )
-
-    return false
-  }
-  await api.agentAddAutoModeSessionApproval(sessionId, command)
-
-  return true
-}
-
 export function runDecideAuthorization(
   ctx: DecideAuthorizationCtx,
   toolCallId: string,
   decision: AuthorizationDecisionAction,
-  ruleDescription?: string,
 ) {
   const {
     activeId,
@@ -106,37 +71,12 @@ export function runDecideAuthorization(
   setTabs((prev) => prev.map((t) => (t.id === tab.id ? { ...t, messages: respondedMessages } : t)))
   void (async () => {
     try {
-      // What actually took effect. Both branches can silently fall back to a
-      // one-shot approval, and the gradient has to report the effect, not the
-      // request — see trackAuthorizationDecision.
-      let effectiveDecision = decision
-
-      if (approved && decision === 'always') {
-        if (ruleDescription?.trim()) {
-          await api.agentCreateAutoModeRule(ruleDescription.trim())
-        } else {
-          effectiveDecision = 'once'
-        }
-      }
-      if (approved && decision === 'session') {
-        const persisted = await persistSessionGrant({
-          messages: tab.messages,
-          toolCallId,
-          sessionId: tab.sessionId,
-        })
-
-        if (!persisted) effectiveDecision = 'once'
-      }
-      // Emitted only now that the standing rule / session grant landed — see
-      // trackAuthorizationDecision for why an earlier emit double-counts.
       trackAuthorizationDecision({
         messages: tab.messages,
         toolCallId,
         sessionId: tab.sessionId,
         decision,
-        effectiveDecision,
         approved,
-        ruleDescription,
       })
 
       // Client tools (port-forwards, attachment upload) have no server execute:

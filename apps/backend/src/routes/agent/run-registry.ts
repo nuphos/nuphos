@@ -60,6 +60,7 @@ export function createAgentRun(
     lastFrameAt: now,
     releaseOwnership: startAgentRunOwnership(userId, sessionId, streamId, {
       actorUserId: trace?.userId ?? userId,
+      teamId: trace?.teamId,
       onCancellationRequested: () => {
         abortController.abort()
       },

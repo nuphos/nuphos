@@ -5,6 +5,7 @@ enum SessionLinkTests {
         buildsTheDesktopSessionURL()
         usesTheConversationsOwnTeam()
         escapesSegmentsAndRefusesEmptyOnes()
+        chipsLinkedResources()
         print("Session link passed")
     }
 
@@ -30,5 +31,17 @@ enum SessionLinkTests {
         precondition(url("team/with space", "a b") == "https://nuphos.ai/teams/team%2Fwith%20space/agent/a%20b")
         precondition(SessionLink.url(teamId: "", sessionId: "ses_abc") == nil)
         precondition(SessionLink.url(teamId: "team-1", sessionId: "") == nil)
+    }
+
+    private static func chipsLinkedResources() {
+        struct List: Decodable { let resources: [SessionResource] }
+        let json = #"""
+        {"resources":[
+          {"id":"r1","provider":"github","title":"Fix the picker","url":"https://github.com/nuphos/nuphos/pull/165","state":"merged","repository":"nuphos/nuphos","number":165,"linkedAt":"2026-10-11T05:57:37.006Z"},
+          {"id":"r2","provider":"linear","title":"NUPS-1022 Switch agents on iOS","url":"https://linear.app/zeabur/issue/NUPS-1022","state":"In Progress","linkedAt":"2026-10-11T05:57:37.006Z"}
+        ],"canManage":true}
+        """#
+        let resources = try! JSONDecoder().decode(List.self, from: Data(json.utf8)).resources
+        precondition(resources.map(\.chip) == ["#165", "NUPS-1022"])
     }
 }

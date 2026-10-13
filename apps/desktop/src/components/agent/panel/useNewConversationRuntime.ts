@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
@@ -7,9 +7,15 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { defaultAgent } from '../../../lib/agentName'
 import { pendingLocalAgents } from '../../../lib/localAgentReady'
 
+import type { SessionConfigPick } from '../../../api/session-config-types'
+
+const NO_PICK: SessionConfigPick = {}
+
 export function useNewConversationRuntime(teamId?: string) {
   const key = `nuphos.agent.runtimeInstance.${teamId ?? 'personal'}`
   const [choices, setChoices] = useState<Record<string, string>>({})
+  // Model settings picked for the next new conversation, per agent.
+  const [picks, setPicks] = useState<Record<string, SessionConfigPick>>({})
   const catalog = useRuntimeInstances(teamId)
   const runtimeQuotas = useRuntimeQuotas(teamId, catalog.instances)
   const owner = useThisComputer()
@@ -40,8 +46,18 @@ export function useNewConversationRuntime(teamId?: string) {
     }
   }
 
+  const selectedRuntimeId = selected?.id
+  const pickNewConversationSessionConfig = useCallback(
+    (pick: SessionConfigPick) => {
+      if (selectedRuntimeId) setPicks((previous) => ({ ...previous, [selectedRuntimeId]: pick }))
+    },
+    [selectedRuntimeId],
+  )
+
   return {
     newConversationRuntime: selected ?? null,
+    newConversationSessionConfig: (selected && picks[selected.id]) ?? NO_PICK,
+    pickNewConversationSessionConfig,
     runtimeInstances: instances,
     runtimeInstancesLoading: catalog.loading && instances.length === 0,
     runtimeInstancesError: catalog.error,

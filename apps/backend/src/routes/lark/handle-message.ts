@@ -1,3 +1,4 @@
+import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
 import { turnRunner } from '@/lib/agent/turn-runner'
 import { signNuphosToken } from '@/lib/identity'
@@ -16,7 +17,7 @@ import { getLarkGroup } from '@/lib/lark/destinations'
 import { logError, logEvent } from '@/lib/observability'
 
 import { ingestLarkAttachments, parseLarkAttachments, parseLarkText } from './attachments'
-import { buildMessagesForLarkTurn, composeCarriedText, renderLarkUserMessage } from './transcript'
+import { buildMessagesForLarkTurn } from './transcript'
 import { executeLarkAgentTurn, replyNotice, resolveLarkUser } from './turn'
 
 import type { ResolvedLarkApp } from '@/lib/lark/installations'
@@ -205,8 +206,9 @@ export async function handleLarkMessage(
       sessionId: thread.sessionId,
     })
     const renderedText = attachments.note
-      ? `${renderLarkUserMessage(senderName, text || '(shared a file)')}\n\n${attachments.note}`
-      : renderLarkUserMessage(senderName, text)
+      ? `${text || '(shared a file)'}\n\n${attachments.note}`
+      : text
+    const metadata = await createMessageMetadata(thread.agentUserId, 'lark')
     // A message that arrives mid-turn is handed to the turn in flight rather
     // than refused: the agent sees it at its next step and decides whether to
     // ignore it, finish first, or change course.
@@ -216,6 +218,7 @@ export async function handleLarkMessage(
       message: buildPendingUserMessage({
         renderedText,
         source: 'lark',
+        metadata,
         actorUserId: thread.agentUserId,
       }),
     })
@@ -242,7 +245,9 @@ export async function handleLarkMessage(
         sessionId: thread.sessionId,
         userId: thread.agentUserId,
         teamId: thread.teamId,
-        renderedText: composeCarriedText(claim.carried, renderedText),
+        renderedText,
+        metadata,
+        carried: claim.carried,
         attachmentParts: attachments.parts,
       })
 

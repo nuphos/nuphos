@@ -3,12 +3,13 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import { executeThreadTurn } from './thread-turn'
+import { executeConversationTurn } from './conversation-turn'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,
   enqueuePendingUserMessage,
 } from './pending-messages'
+import { startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
@@ -45,11 +46,10 @@ useIdentity({
   signNuphosToken: () => 'test-token',
 })
 useAgentDb({
-  agentMessages: () =>
-    ({
-      findOne: async ({ messageId }: { messageId: string }) =>
-        alreadyAccepted || acceptedIds.has(messageId) ? { _id: 'accepted' } : null,
-    }) as never,
+  agentMessages: () => ({
+    findOne: async ({ messageId }: { messageId: string }) =>
+      alreadyAccepted || acceptedIds.has(messageId) ? { _id: 'accepted' } : null,
+  }),
   getConversationBySessionId: async (id) => ({ ...source, sessionId: id }),
   getConversationWithMessages: async () => ({
     conversation: { ...source, sessionId: 'target' },
@@ -94,7 +94,10 @@ afterEach(async () => {
 })
 
 test('idle target wakes through the normal runner and keeps transcript, actor and approvals', async () => {
-  await executeThreadTurn(data)
+  const { status, run } = await startThreadTurn(data)
+
+  expect(status).toBe('started')
+  await run
   expect(runs).toHaveLength(1)
   expect(runs[0]).toMatchObject({
     userId: 'owner',
@@ -104,7 +107,15 @@ test('idle target wakes through the normal runner and keeps transcript, actor an
   })
   expect(runs[0]?.messages).toHaveLength(2)
   expect(runs[0]?.messages[0]?.id).toBe('prior')
-  expect(JSON.stringify(runs[0]?.messages[1])).toContain('not a new human instruction or approval')
+  expect(runs[0]?.messages[1]).toMatchObject({
+    metadata: {
+      sender: { type: 'agent', id: 'source' },
+      source: 'agent.thread',
+      sourceSessionId: 'source',
+    },
+    parts: [{ type: 'text', text: 'CI passed' }],
+  })
+  expect(runs[0]?.messages[1]?.metadata).toEqual(claims[0]?.message.metadata)
   expect(claims[0]?.message.id).toBe('delivery')
   expect(released).toBe(1)
 })
@@ -122,8 +133,9 @@ test('busy target queues without blocking the sending thread or starting a secon
       return { status: 'completed' }
     },
   })
-  await executeThreadTurn(data)
-  expect(claims[0]?.message.renderedText).toContain('CI passed')
+  expect((await startThreadTurn(data)).status).toBe('delivered')
+  expect(claims[0]?.message.renderedText).toBe('CI passed')
+  expect(claims[0]?.message.metadata?.sourceSessionId).toBe('source')
   expect(runs).toHaveLength(0)
 })
 
@@ -142,13 +154,21 @@ test('recovered pending messages include the delivery exactly once', async () =>
       return { status: 'completed' }
     },
   })
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(JSON.stringify(runs[0]?.messages).match(/CI passed/g)).toHaveLength(1)
+  expect(runs[0]?.messages[1]?.metadata).toMatchObject({
+    source: 'agent.thread',
+    sourceSessionId: 'source',
+  })
 })
 
 test('redelivery of an already accepted message does not repeat work', async () => {
   alreadyAccepted = true
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(runs).toHaveLength(0)
   expect(claims).toHaveLength(0)
 })
@@ -158,7 +178,9 @@ test('redelivery already queued on a busy target does not enqueue twice', async 
     ...buildPendingUserMessage({ renderedText: 'CI passed', source: 'agent.thread' }),
     id: data.messageId,
   })
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(claims).toHaveLength(0)
   expect(runs).toHaveLength(0)
 })
@@ -174,13 +196,13 @@ test('runner failure releases the claim and fails the durable job', async () => 
     }),
     runAgentForTrigger: async () => ({ status: 'failed' }),
   })
-  await expect(executeThreadTurn(data)).rejects.toThrow('Thread run failed')
+  await expect(startThreadTurn(data).then(({ run }) => run)).rejects.toThrow('Thread run failed')
   expect(released).toBe(1)
 })
 
 test('full pending queue is an error, not a delivery receipt', async () => {
   installTurnRunner({ claimAgentRunOrEnqueue: async () => ({ mode: 'dropped' }) })
-  await expect(executeThreadTurn(data)).rejects.toThrow('could not be queued')
+  await expect(startThreadTurn(data).then(({ run }) => run)).rejects.toThrow('could not be queued')
 })
 
 test('recovered batch preserves every delivery ID and metadata across redelivery', async () => {
@@ -219,9 +241,15 @@ test('recovered batch preserves every delivery ID and metadata across redelivery
       return { status: 'completed' }
     },
   })
-  await executeThreadTurn(data)
-  await executeThreadTurn({ ...data, messageId: earlier.id, prompt: earlier.renderedText })
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
+  await (
+    await startThreadTurn({ ...data, messageId: earlier.id, prompt: earlier.renderedText })
+  ).run
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(runs).toHaveLength(1)
   expect(claims).toHaveLength(1)
   expect(released).toBe(1)
@@ -234,5 +262,34 @@ test('recovered batch preserves every delivery ID and metadata across redelivery
     role: 'user',
     metadata: earlier.metadata,
     parts: [{ type: 'text', text: earlier.renderedText }],
+  })
+})
+
+test('resource events preserve approval handling and are marked autonomous', async () => {
+  const metadata = {
+    version: 1 as const,
+    sender: { type: 'system' as const, id: 'github', displayName: 'GitHub' },
+    source: 'agent.resource' as const,
+    resourceUrl: 'https://github.com/nuphos/nuphos/pull/186',
+    sentAt: '2026-10-11T00:00:00Z',
+  }
+
+  await executeConversationTurn(
+    data,
+    source,
+    'GitHub check_suite.completed.',
+    'agent.resource',
+    metadata,
+  )
+  expect(runs[0]).toMatchObject({
+    origin: 'trigger',
+    source: 'agent.resource',
+    sessionId: 'target',
+  })
+  expect(claims[0]?.message.source).toBe('agent.resource')
+  expect(claims[0]?.message.metadata).toEqual(metadata)
+  expect(runs[0]?.messages[1]).toMatchObject({
+    metadata,
+    parts: [{ type: 'text', text: 'GitHub check_suite.completed.' }],
   })
 })

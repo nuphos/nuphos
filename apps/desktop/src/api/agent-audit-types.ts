@@ -179,15 +179,6 @@ export type AgentMemoryItem = {
 
 export type AgentMemoryScope = 'personal' | 'team'
 
-export type AutoModeRule = {
-  id: string
-  description: string
-  status: 'proposed' | 'active'
-  createdAt: string
-  createdBy: string
-  proposedFromConversationId?: string
-}
-
 export type AgentMemoryIngestEventItem = {
   id: string
   type: 'fact' | 'artifact' | 'episode'

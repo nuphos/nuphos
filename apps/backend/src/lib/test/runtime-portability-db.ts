@@ -40,9 +40,11 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     parent[parts[0]!] = value
   }
   for (const key of Object.keys(mutation.$unset ?? {})) delete doc[key]
-  for (const [key, value] of Object.entries(mutation.$addToSet ?? {})) {
+  for (const [key, value] of Object.entries<Doc>(mutation.$addToSet ?? {})) {
     doc[key] ??= []
-    if (!doc[key].includes(value)) doc[key].push(value)
+    const values = value && typeof value === 'object' && '$each' in value ? value.$each : [value]
+
+    for (const entry of values) if (!doc[key].includes(entry)) doc[key].push(entry)
   }
   for (const [key, value] of Object.entries<Doc>(mutation.$push ?? {})) {
     doc[key] ??= []
@@ -52,8 +54,14 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
       if (value.$slice !== undefined) doc[key] = doc[key].slice(value.$slice)
     }
   }
-  for (const [key, value] of Object.entries(mutation.$pull ?? {}))
-    doc[key] = (doc[key] ?? []).filter((entry: unknown) => entry !== value)
+  for (const [key, value] of Object.entries<Doc>(mutation.$pull ?? {})) {
+    const drop = (entry: unknown) =>
+      value && typeof value === 'object' && '$in' in value
+        ? value.$in.includes(entry)
+        : entry === value
+
+    doc[key] = (doc[key] ?? []).filter((entry: unknown) => !drop(entry))
+  }
 }
 export function portabilityDb() {
   const stores = new Map<string, Doc[]>()

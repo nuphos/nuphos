@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { nuphosSteerCodex } from '../image/codex-acp/steering.mjs'
+import { nuphosSteerCodex as steer } from '../image/codex-acp/steering.mjs'
+
+const toInput = (prompt) => prompt.map(({ text }) => ({ type: 'text', text, text_elements: [] }))
+const nuphosSteerCodex = (agent, params) => steer(agent, params, toInput)
 
 test('steering targets the existing native turn and preserves its identity', async () => {
   const session = { currentTurnId: 'native-turn' }
@@ -56,7 +59,10 @@ test('idle and raced native turns never fall back to a new prompt', async () => 
 })
 
 test('invalid inputs and invalid acknowledgements are not reported as delivered', async () => {
-  await assert.rejects(nuphosSteerCodex({}, { sessionId: 'thread', prompt: [] }), /non-empty text/)
+  await assert.rejects(
+    nuphosSteerCodex({}, { sessionId: 'thread', prompt: [] }),
+    /non-empty prompt/,
+  )
   await assert.rejects(
     nuphosSteerCodex(
       {

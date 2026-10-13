@@ -72,6 +72,9 @@ export function usePanelSessionBridge(acc: Acc) {
   }, [onSessionChange])
 
   const lastSyncedSessionIdRef = useRef<string | null | undefined>(undefined)
+  // The requested conversation once the panel has shown it, to tell leaving a
+  // chat from giving up on one whose open never landed (it no longer exists).
+  const lastShownSessionIdRef = useRef<string | null>(null)
   // Last (sessionId) the audit read-only context targeted, or null when not
   // in an audit context. An audit open must supersede ANY in-flight
   // open/fork — even when it lands on an existing (possibly already
@@ -80,6 +83,9 @@ export function usePanelSessionBridge(acc: Acc) {
 
   useEffect(() => {
     if (sessionIdProp === undefined) return
+    if (sessionIdProp && activeTab?.sessionId === sessionIdProp) {
+      lastShownSessionIdRef.current = sessionIdProp
+    }
     const auditTarget = sessionReadOnly && sessionIdProp ? sessionIdProp : null
 
     if (auditTarget !== lastAuditTargetRef.current) {
@@ -122,11 +128,20 @@ export function usePanelSessionBridge(acc: Acc) {
       // Home — into its history — mid-open. Wait; the load re-runs this.
       case 'awaiting-open':
         return
-      case 'publish':
+      case 'publish': {
+        // Back home from a chat whose open never landed — it failed, or was
+        // dismissed first — is not leaving a place.
+        const left = lastSyncedSessionIdRef.current
+        const unshown =
+          action.sessionId === null && left && left !== lastShownSessionIdRef.current
+            ? left
+            : undefined
+
         lastSyncedSessionIdRef.current = action.sessionId
-        onSessionChangeRef.current?.(action.sessionId)
+        onSessionChangeRef.current?.(action.sessionId, unshown)
 
         return
+      }
       case 'clear':
         lastSyncedSessionIdRef.current = sessionIdProp
         // Supersede any open still in flight: without this its response lands
@@ -158,6 +173,7 @@ export function usePanelSessionBridge(acc: Acc) {
       }
       case 'open':
         lastSyncedSessionIdRef.current = sessionIdProp
+        lastShownSessionIdRef.current = null
         // Marks the open in flight synchronously — see `pendingOpenRef`.
         void openConversation(action.sessionId, undefined, { forceReadOnly: sessionReadOnly })
 

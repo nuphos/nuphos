@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
 
+import type { SessionConfigPick } from '../../src/api/session-config-types'
 import type {
   CreateRuntimeInput,
   PairExternalRuntimeInput,
@@ -10,6 +11,8 @@ import type {
 export const runtimeApi = {
   atlasReadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     ipcRenderer.invoke('atlas:readRuntimeFile', teamId, runtimeId, sessionId, path),
+  atlasReadLinkedFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    ipcRenderer.invoke('atlas:readLinkedFile', teamId, runtimeId, sessionId, path),
   atlasListRuntimeFiles: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     ipcRenderer.invoke('atlas:listRuntimeFiles', teamId, runtimeId, sessionId, path),
   atlasStartRuntimeLogin: (teamId: string, runtimeId: string) =>
@@ -27,6 +30,8 @@ export const runtimeApi = {
   atlasListRuntimeInstances: (teamId: string) =>
     ipcRenderer.invoke('atlas:listRuntimeInstances', teamId),
   atlasListRuntimeQuotas: (teamId: string) => ipcRenderer.invoke('atlas:listRuntimeQuotas', teamId),
+  atlasGetRuntimeQuotaHistory: (teamId: string, range: string) =>
+    ipcRenderer.invoke('atlas:getRuntimeQuotaHistory', teamId, range),
   atlasCreateRuntimeInstance: (teamId: string, input: CreateRuntimeInput) =>
     ipcRenderer.invoke('atlas:createRuntimeInstance', teamId, input),
   atlasProbeExternalRuntimeProvider: (teamId: string, url: string, password: string) =>
@@ -39,8 +44,8 @@ export const runtimeApi = {
     ipcRenderer.invoke('atlas:updateRuntimeInstance', teamId, runtimeId, input),
   atlasRemoveRuntimeInstance: (teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('atlas:removeRuntimeInstance', teamId, runtimeId),
-  atlasGetRuntimeModels: (teamId: string, runtimeId: string, model?: string) =>
-    ipcRenderer.invoke('atlas:getRuntimeModels', teamId, runtimeId, model),
+  atlasGetRuntimeModelConfig: (teamId: string, runtimeId: string, pick: SessionConfigPick) =>
+    ipcRenderer.invoke('atlas:getRuntimeModelConfig', teamId, runtimeId, pick),
   atlasRequestRuntimeUpdate: (teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('atlas:requestRuntimeUpdate', teamId, runtimeId),
   atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string) =>

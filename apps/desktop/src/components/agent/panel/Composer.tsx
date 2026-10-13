@@ -66,9 +66,7 @@ export function Composer({
   credentialSelector?: CredentialSelectorControl
   runtimeControl?: RuntimeControl
   modelSession?: ModelSession
-  /** No session yet to read a live model list from — reads/writes the
-   *  runtime's saved default model instead. Only rendered without a
-   *  `modelSession`, since once a session exists `ModelSelector` takes over. */
+  /** Model settings for a conversation that does not exist yet. */
   newConversationModelControl?: ReactNode
   /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
    *  Permissions) — absent when the conversation has no session yet. */
@@ -275,10 +273,11 @@ export function Composer({
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && <RuntimeSelector {...runtimeControl} />}
-              {!modelSession && newConversationModelControl}
             </div>
-            {modelSession && (
+            {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />
+            ) : (
+              newConversationModelControl
             )}
             <ComposerSendControls
               runtimeCanCancel={runtimeCanCancel}

@@ -11,6 +11,7 @@ import type {
   CreateRuntimeInput,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
+  RuntimeQuotaHistoryRange,
   UpdateRuntimeInput,
 } from '../../src/types/runtime'
 
@@ -30,6 +31,8 @@ export const teamChannels = {
   ) => atlas.submitRuntimeLoginCode(teamId, runtimeId, attemptId, code),
   'atlas:listRuntimeInstances': (_e: unknown, teamId: string) => atlas.listRuntimeInstances(teamId),
   'atlas:listRuntimeQuotas': (_e: unknown, teamId: string) => atlas.listRuntimeQuotas(teamId),
+  'atlas:getRuntimeQuotaHistory': (_e: unknown, teamId: string, range: RuntimeQuotaHistoryRange) =>
+    atlas.getRuntimeQuotaHistory(teamId, range),
   'atlas:createRuntimeInstance': (_e: unknown, teamId: string, input: CreateRuntimeInput) =>
     atlas.createRuntimeInstance(teamId, input),
   'atlas:probeExternalRuntimeProvider': (
@@ -67,8 +70,8 @@ export const teamChannels = {
     sessionId: string,
     path: string,
   ) => atlas.listRuntimeFiles(teamId, runtimeId, sessionId, path),
-  'atlas:getRuntimeModels': (_e: unknown, teamId: string, runtimeId: string, model?: string) =>
-    atlas.getRuntimeModels(teamId, runtimeId, model),
+  'atlas:getRuntimeModelConfig': (_e: unknown, ...args: [string, string, Record<string, string>]) =>
+    atlas.getRuntimeModelConfig(...args),
   'atlas:requestRuntimeUpdate': (_e: unknown, teamId: string, runtimeId: string) =>
     atlas.requestRuntimeUpdate(teamId, runtimeId),
   'atlas:getRuntimeInstanceStatus': (_e: unknown, teamId: string, runtimeId: string) =>

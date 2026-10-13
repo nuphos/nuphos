@@ -48,10 +48,10 @@ export abstract class OpenAbAcpLifecycle {
     sessionId: string,
     text: string,
     messageId: string,
+    attachments: PromptAttachment[] = [],
   ): Promise<Record<string, unknown>> {
     return this.call('_openab/session/steer', {
-      sessionId,
-      prompt: [{ type: 'text', text }],
+      ...attachmentPrompt(sessionId, text, attachments, {}),
       messageId,
     })
   }

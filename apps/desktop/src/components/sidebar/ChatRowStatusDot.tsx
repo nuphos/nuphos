@@ -6,6 +6,7 @@ import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
 const DOTS = {
+  turn: { label: 'Thread running', color: 'bg-success' },
   background: { label: 'Background task running', color: 'bg-warning' },
   unread: { label: 'Unread reply', color: 'bg-zViolet-500' },
 } as const
@@ -14,14 +15,17 @@ export function ChatRowStatusDot({
   conversation,
   runtimeState,
   unread,
+  showTurn = false,
 }: {
   conversation: AgentConversation
   runtimeState: RuntimeExecution | undefined
   unread: boolean
+  /** A running turn is normally the row's spinner icon; a folded parent has to show it here. */
+  showTurn?: boolean
 }) {
   const indicator = chatRowIndicator(useRuntimeObservation(conversation, runtimeState), unread)
 
-  if (indicator !== 'background' && indicator !== 'unread') return null
+  if (indicator === 'none' || (indicator === 'turn' && !showTurn)) return null
   const { label, color } = DOTS[indicator]
 
   return (

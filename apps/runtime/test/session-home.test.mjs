@@ -40,6 +40,19 @@ test('concurrent sessions keep HOME state separate, resume it, and never copy th
     put(a[key], 'session-a')
     assert.equal(readFileSync(b[key], 'utf8'), 'session-b')
   }
+  for (const key of [
+    'GOCACHE',
+    'GOMODCACHE',
+    'BUN_INSTALL_CACHE_DIR',
+    'PLAYWRIGHT_BROWSERS_PATH',
+    'PIP_CACHE_DIR',
+    'UV_CACHE_DIR',
+  ]) {
+    assert.equal(a[key], b[key])
+    assert.equal(relative(host.HOME, a[key]).startsWith('.nuphos'), false)
+  }
+  // Tools keep login state under XDG_CACHE_HOME (e.g. Hugging Face tokens).
+  assert.notEqual(a.XDG_CACHE_HOME, b.XDG_CACHE_HOME)
   const resumed = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b', NUPHOS_TOKEN: 'refreshed' }, host)
   assert.deepEqual(resumed, b)
   assert.equal(readFileSync(resumed.AWS_SHARED_CREDENTIALS_FILE, 'utf8'), 'session-b')

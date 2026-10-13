@@ -4,10 +4,12 @@ import { AppError } from '@/lib/errors'
 
 import { OpenAbRpcError } from './openab-acp-errors'
 import {
+  catalogSessionConfig,
   controlSessionConfig,
-  parseSessionConfigOptions,
+  offeredSessionConfig,
   restoreSessionConfigForWrite,
 } from './session-config'
+import { parseSessionConfigOptions } from './session-config-options'
 
 const model = (currentValue = 'a') => ({
   id: 'model',
@@ -254,4 +256,60 @@ test('reading dormant model settings never restores the runtime', async () => {
 
   expect(state).toEqual({ status: 'dormant', options: [] })
   expect(calls).toEqual([['stored']])
+})
+
+test('a runtime catalog becomes session options; picks it no longer offers fall back to its own', () => {
+  const catalog = {
+    models: [
+      { id: 'default', name: 'Default' },
+      { id: 'opus', name: 'Opus' },
+    ],
+    controls: {
+      modelId: 'default',
+      effort: [{ value: 'high', name: 'High' }],
+      fast: true,
+      defaultEffort: 'high',
+    },
+  }
+
+  expect(
+    catalogSessionConfig(catalog, { effort: 'gone' }).map((option) => option.currentValue),
+  ).toEqual(['default', 'high', 'off'])
+  expect(catalogSessionConfig(catalog, { model: 'opus', fast: 'on' })).toMatchObject([
+    {
+      id: 'model',
+      kind: 'model',
+      currentValue: 'opus',
+      options: [{ value: 'default' }, { value: 'opus' }],
+    },
+    { id: 'effort', kind: 'effort' },
+    { id: 'fast', kind: 'fast', currentValue: 'on' },
+  ])
+  expect(catalogSessionConfig({ models: [] }, {})).toEqual([])
+})
+
+test('picks the runtime no longer offers are dropped, and a stale model is read again without it', async () => {
+  const requested: (string | undefined)[] = []
+  const catalogFor = async (model?: string) => {
+    requested.push(model)
+    if (model === 'retired') throw new Error('Model discovery failed')
+
+    return {
+      models: [{ id: 'opus', name: 'Opus' }],
+      controls: { modelId: 'opus', effort: [{ value: 'high', name: 'High' }], fast: false },
+    }
+  }
+
+  const { options, kept } = await offeredSessionConfig(catalogFor, {
+    model: 'retired',
+    effort: 'high',
+    fast: 'on',
+  })
+
+  expect(requested).toEqual(['retired', undefined])
+  expect(kept).toEqual({ effort: 'high' })
+  expect(options.map((option) => [option.id, option.currentValue])).toEqual([
+    ['model', 'opus'],
+    ['effort', 'high'],
+  ])
 })

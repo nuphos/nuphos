@@ -1,13 +1,24 @@
 /** Every agent a runtime image can carry; the identifier is also the image variant. */
-export const OPENAB_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity'] as const
+export const OPENAB_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'] as const
 
 export type OpenAbProvider = (typeof OPENAB_PROVIDERS)[number]
 
-const PROVIDERS: Record<OpenAbProvider, { label: string; errorPrefix: string; short: string }> = {
-  'claude-code': { label: 'Claude Code', errorPrefix: 'claude_code', short: 'claude' },
-  codex: { label: 'Codex', errorPrefix: 'codex', short: 'codex' },
-  grok: { label: 'Grok Build', errorPrefix: 'grok', short: 'grok' },
-  antigravity: { label: 'Antigravity', errorPrefix: 'antigravity', short: 'antigravity' },
+// `shim`: the agent speaks ACP itself and the image's ACP shim adds the Nuphos layer
+// in front of it (apps/runtime/image/acp-shim.mjs) instead of a patched adapter.
+const PROVIDERS: Record<
+  OpenAbProvider,
+  { label: string; errorPrefix: string; short: string; shim: boolean }
+> = {
+  'claude-code': { label: 'Claude Code', errorPrefix: 'claude_code', short: 'claude', shim: false },
+  codex: { label: 'Codex', errorPrefix: 'codex', short: 'codex', shim: false },
+  grok: { label: 'Grok Build', errorPrefix: 'grok', short: 'grok', shim: true },
+  antigravity: {
+    label: 'Antigravity',
+    errorPrefix: 'antigravity',
+    short: 'antigravity',
+    shim: true,
+  },
+  opencode: { label: 'OpenCode', errorPrefix: 'opencode', short: 'opencode', shim: true },
 }
 
 export function isOpenAbProvider(value: unknown): value is OpenAbProvider {
@@ -37,6 +48,10 @@ export function defaultRuntimeLabel(provider: OpenAbProvider, taken: readonly st
   while (used.has(n === 1 ? base : `${base} ${String(n)}`)) n += 1
 
   return n === 1 ? base : `${base} ${String(n)}`
+}
+
+export function runsBehindAcpShim(provider: OpenAbProvider): boolean {
+  return PROVIDERS[provider].shim
 }
 
 export function runtimeErrorPrefix(provider: OpenAbProvider): string {

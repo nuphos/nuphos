@@ -30,6 +30,7 @@ const MAKER: Record<AgentProvider, string> = {
   codex: 'OpenAI’s',
   grok: 'xAI’s',
   antigravity: 'Google’s',
+  opencode: 'The open source',
 }
 
 function Choice({
@@ -185,7 +186,7 @@ export function AddAgentDialog({
                 <Choice
                   icon={<Cloud className="h-4 w-4" />}
                   title="Nuphos Managed Cloud Agent"
-                  description="Nuphos runs and updates the agent for your team. Pick Claude Code, Codex, Grok Build or Antigravity."
+                  description="Nuphos runs and updates the agent for your team. Pick Claude Code, Codex, Grok Build, Antigravity or OpenCode."
                   onClick={() => go('managed')}
                 />
               </div>

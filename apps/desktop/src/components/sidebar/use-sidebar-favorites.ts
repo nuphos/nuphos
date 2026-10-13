@@ -136,11 +136,19 @@ export function useSidebarFavorites({
       const label = chip ? `${chip.label} · ${liveLabel}` : liveLabel
 
       return {
-        key: identity,
+        // A pinned chat keeps its chat row identity, so its threads nest and
+        // fold under it in Pinned exactly as they do in Chats.
+        key: sessionId ? `${AGENT_SESSION_KEY_PREFIX}${sessionId}` : identity,
+        href,
+        parentKey: live?.parentKey,
+        foldedStatus: live?.foldedStatus,
+        readOnlyChat: live?.readOnlyChat,
         label,
         icon:
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),
         iconNode: chip?.icon ?? live?.iconNode,
+        trailing: live?.trailing,
+        description: live?.description,
         enabled: true,
         active: sessionId
           ? sessionId === activeSessionId
@@ -164,7 +172,7 @@ export function useSidebarFavorites({
     // No trailing archive control on favorite rows — a favorite is an explicit
     // pin, and archiving from here while the pin stays would look like a no-op.
     return live
-      ? { ...live, trailing: undefined, onActivate }
+      ? { ...live, actions: undefined, onActivate }
       : {
           onActivate,
           key: identity,

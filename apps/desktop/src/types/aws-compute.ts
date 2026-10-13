@@ -39,11 +39,13 @@ export type SshTerminalEvent =
   | { id: string; type: 'data'; data: string }
   | { id: string; type: 'exit'; code: number | null; signal: string | null }
   | { id: string; type: 'error'; message: string }
+  | { id: string; type: 'replayed'; resumed: boolean }
 
 export type PodExecEvent =
   | { id: string; type: 'data'; data: string }
   | { id: string; type: 'exit'; code: number | null; reason: string | null }
   | { id: string; type: 'error'; message: string }
+  | { id: string; type: 'replayed'; resumed: boolean }
 
 export type AwsEcsCluster = {
   clusterArn: string

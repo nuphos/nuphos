@@ -41,6 +41,10 @@ struct AgentPage: View {
         @Bindable var store = store
 
         content
+            // On the switch, so the empty and error states refresh too.
+            .refreshable {
+                if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
+            }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             #if DEBUG
@@ -48,7 +52,7 @@ struct AgentPage: View {
                 if let team = store.selectedTeam {
                     AgentSetupSheet(
                         team: team,
-                        runtime: RuntimeInstance(id: "preview", provider: .claudeCode, label: "Claude Code", status: .active, kind: "managed", local: nil, defaults: nil),
+                        runtime: RuntimeInstance(id: "preview", provider: .claudeCode, label: "Claude Code", status: .active, kind: "managed", local: nil),
                         login: WorkspaceAPI.Login(attemptId: "preview", state: "awaiting_authorization", authorizationUrl: "https://claude.ai/oauth/authorize", verificationUri: nil, userCode: nil, error: nil, codeSubmitted: false)
                     )
                 }
@@ -65,7 +69,9 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, onSend: { submission in
+                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, sessionMentions: draftTeam.isEmpty ? nil : SessionMentionSource(teamId: draftTeam) { query in
+                    await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
+                }, onSend: { submission in
                     if let session = store.newSession() { newChat = NewChat(session: session, prompt: submission) }
                 }) {
                     ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
@@ -190,7 +196,7 @@ struct AgentPage: View {
             } description: {
                 Text("Create or join a workspace to start chatting with an agent.")
             } actions: {
-                Button("Set up workspace") { showWorkspaceSetup = true }.buttonStyle(.borderedProminent)
+                Button("Set up workspace") { showWorkspaceSetup = true }.prominentButton()
             }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
             ContentUnavailableView {
@@ -199,7 +205,7 @@ struct AgentPage: View {
                 Text(store.selectedTeam?.isAdministrator == true ? "Create a cloud agent and sign in with your AI provider." : "Ask a workspace administrator to connect a cloud agent, or open Nuphos on your computer to connect your own local agent.")
             } actions: {
                 if store.selectedTeam?.isAdministrator == true {
-                    Button("Set up agent") { showAgentSetup = true }.buttonStyle(.borderedProminent)
+                    Button("Set up agent") { showAgentSetup = true }.prominentButton()
                 }
             }
         case .idle, .loading:
@@ -213,7 +219,7 @@ struct AgentPage: View {
                 Text(message)
             } actions: {
                 Button("Try again") { Task { await store.loadTeams() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
             }
         case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
@@ -231,13 +237,47 @@ struct AgentPage: View {
     private var list: some View {
         List {
             Section {
-                ForEach(store.listedConversations) { conversation in
+                ForEach(store.nestedConversations) { item in
+                    let conversation = item.conversation
+                    let folded = item.hasChildren && store.isFolded(conversation.sessionId)
                     NavigationLink(value: conversation) {
-                        ConversationRow(conversation: conversation, pinned: store.isPinned(conversation.sessionId))
+                        HStack(spacing: 0) {
+                            ConversationRow(
+                                conversation: conversation, pinned: store.isPinned(conversation.sessionId), hidden: item.hidden
+                            )
+                            if item.hasChildren {
+                                // The thread count, so it never reads as the row's own disclosure chevron.
+                                Button { store.toggleFolded(conversation.sessionId) } label: {
+                                    HStack(spacing: 3) {
+                                        Text("\(item.threads)")
+                                        Image(systemName: folded ? "chevron.down" : "chevron.up")
+                                            .font(Theme.Text.caption.weight(.semibold))
+                                    }
+                                    .font(Theme.Text.label.weight(.medium))
+                                    .foregroundStyle(Theme.muted)
+                                    .padding(.horizontal, 8)
+                                    .frame(height: 24)
+                                    .background(Capsule().fill(Theme.muted.opacity(0.12)))
+                                    .padding(.leading, 8)
+                                    .frame(minHeight: 44)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel(folded ? "Show \(item.threads) threads" : "Hide \(item.threads) threads")
+                            }
+                        }
+                        // Insets live here, not on the row, so the tree lines span the whole row.
+                        .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
+                        .padding(.vertical, 12)
+                        .background(alignment: .leading) {
+                            ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
+                        }
                     }
                     .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                     .listSectionSeparator(.hidden, edges: .top)
+                    // A separator would cut through the lines of an open tree.
+                    .listRowSeparator(item.depth > 0 || (item.hasChildren && !folded) ? .hidden : .automatic)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if conversation.canManage { Button {
                             Task { await store.setArchived(!conversation.isArchived, conversation: conversation) }
@@ -246,11 +286,19 @@ struct AgentPage: View {
                         }
                         .tint(conversation.isArchived ? .blue : .orange) }
                         Button {
-                            Task { await store.setPinned(!store.isPinned(conversation.sessionId), sessionId: conversation.sessionId, title: conversation.displayTitle) }
+                            Task { try? await store.setPinned(!store.isPinned(conversation.sessionId), sessionId: conversation.sessionId, title: conversation.displayTitle) }
                         } label: {
                             Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
                         }
                         .tint(.indigo)
+                        if conversation.ownsChat, conversation.parentSessionId != nil {
+                            Button {
+                                Task { await store.unlinkParent(conversation) }
+                            } label: {
+                                Label("Unlink", systemImage: "link.badge.minus")
+                            }
+                            .tint(.gray)
+                        }
                     }
                 }
 
@@ -274,7 +322,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .refreshable { await store.reload() }
         .onAppear { store.startPolling() }
         .task {
             while !Task.isCancelled {
@@ -315,6 +362,8 @@ struct SearchBar: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
+            .contentShape(Capsule())
+            .onTapGesture { focused = true }
             .glassEffect(.regular, in: Capsule())
 
             Button("Cancel", action: onCancel)

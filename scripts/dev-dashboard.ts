@@ -9,7 +9,7 @@ import { QUIT_OPTIONS, quitMenuView } from './dev-quit.ts'
 import { services } from './dev-services.ts'
 import { isQuitting } from './dev-shutdown.ts'
 import { tunnel } from './dev-tunnel.ts'
-import { LOG_DIR, WT_ID } from './dev-workspace.ts'
+import { LOG_DIR, INSTANCE } from './dev-workspace.ts'
 
 import type { Service, Status } from './dev-services.ts'
 
@@ -101,7 +101,7 @@ export function render() {
 
   out.push(
     '',
-    `  ${BOLD}▲ nuphos dev${mode}${RESET}   ${DIM}${WT_ID}  ·  r restart   q quit${RESET}`,
+    `  ${BOLD}▲ nuphos dev${mode}${RESET}   ${DIM}${INSTANCE}  ·  r restart   q quit${RESET}`,
     `  ${rule(cols)}`,
   )
   for (const s of services) out.push(...serviceRow(s))
@@ -114,7 +114,7 @@ export function render() {
     out.push(`  ${DIM}${ev.at}${RESET} ${ev.svc.color}${ev.svc.name.padEnd(8)}${RESET} ${ev.msg}`)
   }
   out.push('')
-  const rawLogGlob = join(LOG_DIR, `${WT_ID}-${String(process.pid)}-*.log`)
+  const rawLogGlob = join(LOG_DIR, `${INSTANCE}-${String(process.pid)}-*.log`)
 
   out.push(`  ${DIM}raw logs → ${rawLogGlob}${RESET}`)
   process.stdout.write(`\x1b[H\x1b[2J${out.join('\r\n')}`)
