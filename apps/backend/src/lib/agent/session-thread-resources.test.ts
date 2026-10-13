@@ -27,7 +27,11 @@ useDb({
     ({
       collection: (name: string) => ({
         find: () => ({ toArray: () => Promise.resolve(rows[name] ?? []) }),
-        deleteOne: (filter: unknown) => Promise.resolve(void deleted.push([name, filter])),
+        deleteOne: (filter: unknown) => {
+          deleted.push([name, filter])
+
+          return Promise.resolve({ deletedCount: 1 })
+        },
       }),
     }) as unknown as ReturnType<typeof real.db>,
 })
