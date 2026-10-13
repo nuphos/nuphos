@@ -110,7 +110,8 @@ export class DeviceRuntimeSocket {
       if (
         !presence ||
         (purpose === 'exec' && presence.status?.localExec !== true) ||
-        (purpose === 'terminal' && presence.status?.localTerminal !== true)
+        (purpose === 'terminal' && presence.status?.localTerminal !== true) ||
+        (purpose === 'cua' && presence.status?.localCua !== true)
       ) {
         throw new Error(OFFLINE_REASON)
       }

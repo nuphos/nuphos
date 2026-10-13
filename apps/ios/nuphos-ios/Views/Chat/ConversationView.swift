@@ -65,6 +65,9 @@ struct ConversationView: View {
                     canSteer: session.canSteer,
                     allowsAttachments: !session.canSteer,
                     failedSubmission: $session.failedSubmission,
+                    sessionMentions: SessionMentionSource(teamId: session.teamId) { query in
+                        await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                    },
                     onSend: { session.send($0) },
                     onStop: { session.stop() }
                 ) {
