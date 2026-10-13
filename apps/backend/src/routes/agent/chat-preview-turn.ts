@@ -45,6 +45,7 @@ import {
   steeringReceipt,
 } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
+import { AppError } from '@/lib/errors'
 import { RunHandoff } from '@/lib/lifecycle'
 
 export type { PreviewChatTurnArgs } from './chat-preview-run'
@@ -243,7 +244,9 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
       return
     }
-    await persistInterrupted(err)
+    // A refused message never reached the agent: nothing to record; it is sent again.
+    if (!(err instanceof AppError && err.code === 'runtime_not_accepting_message'))
+      await persistInterrupted(err)
 
     state.unbind()
     await clearActiveTurn()

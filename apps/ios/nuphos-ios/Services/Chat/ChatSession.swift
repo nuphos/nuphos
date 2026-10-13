@@ -923,6 +923,7 @@ final class ChatSession {
             )
 
             var needsFreshRetry = false
+            var refused = false
             var terminal = false
 
             do {
@@ -950,6 +951,9 @@ final class ChatSession {
                         if code == "runtime_auth_required" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
+                        // Another turn took the runtime after admission; nothing was
+                        // recorded, so send the message again like the HTTP refusal.
+                        if code == "runtime_not_accepting_message" { refused = true; break }
                         needsFreshRetry = true
                         continue
                     }
@@ -1026,6 +1030,20 @@ final class ChatSession {
             }
 
             if Task.isCancelled { return .aborted }
+
+            if refused {
+                guard notReadyRetries < 30 else { return .failed(lastErrorText ?? "The agent hit an error.") }
+                notReadyRetries += 1
+                phaseLabel = "Waiting for the agent to be ready…"
+                if let i = streamAssistantIndex, messages.indices.contains(i) { messages.remove(at: i) }
+                streamAssistantIndex = nil
+                streamReducer = nil
+                accepted = false
+                forceFresh = true
+                resumeFrom = 0
+                try? await Task.sleep(for: backoff(notReadyRetries, base: 0.5, max: 3))
+                continue
+            }
 
             if needsFreshRetry {
                 if isNativeRuntime || options.explicitResume || toolExecutionMayHaveStarted {

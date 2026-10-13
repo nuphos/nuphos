@@ -9,6 +9,7 @@ import {
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
+import { OpenAbRpcError } from './openab-acp-errors'
 import { openConversationSession } from './open-conversation-session'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
@@ -27,7 +28,6 @@ import {
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeAttachment } from './runtime-attachments'
-import type { SessionExecutionState } from './runtime-execution-snapshot'
 import type { TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
 
 export {
@@ -49,28 +49,12 @@ export type { ConversationChatRuntime } from './conversation-chat-route'
 // A handoff lets go of the stream only; the runtime keeps running the turn.
 const cancels = (signal: AbortSignal) => signal.aborted && !(signal.reason instanceof RunHandoff)
 
-const ACTIVE_TURN_POLL_MS = 1_000
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
 /**
  * Another turn (a delegated thread, a background-task continuation) can take
- * the runtime after this message was admitted. Wait for it to finish, as a
- * queued message would, instead of failing this one. Null when stopped.
+ * the runtime after route admission. Refuse as admission does, so the client
+ * keeps the message and sends it again instead of losing it.
  */
-async function afterOtherTurn(
-  observe: () => Promise<SessionExecutionState>,
-  signal: AbortSignal,
-): Promise<SessionExecutionState | null> {
-  let observed = await observe()
-
-  while (observed.schemaVersion === 2 && observed.state === 'active' && !observed.actions?.send) {
-    await sleep(ACTIVE_TURN_POLL_MS)
-    if (cancels(signal)) return null
-    observed = await observe()
-  }
-
-  return observed
-}
+const refusal = (label: string) => new AppError(409, 'runtime_not_accepting_message', label)
 
 export {
   SESSION_CONTEXT_REFRESH_MS,
@@ -143,9 +127,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         openabSessionId: session.openabSessionId,
       },
     })
-  const observed = await afterOtherTurn(observe, args.signal)
-
-  if (!observed) return { stopReason: 'cancelled' }
+  const observed = await observe()
 
   if (observed.schemaVersion === 2 && observed.phase === 'resume_disconnected') {
     await resumeSessionOn(session, await registry.acquire(session.teamId, session.endpoint))
@@ -162,10 +144,12 @@ export async function runClaudeCodePreviewPrompt(args: {
       'Reconnected to the agent; it is continuing after a background task. Send again once it finishes.',
     )
   }
-  if (observed.schemaVersion !== 2 || !observed.actions?.send)
+  if (observed.schemaVersion !== 2)
     throw new Error(
       typeof observed.label === 'string' ? observed.label : 'Agent is not accepting messages',
     )
+  if (!observed.actions?.send)
+    throw refusal(observed.label ?? 'The agent cannot accept a message yet')
 
   const principalChanged = previewSessionPrincipalChanged(session, args.userId)
 
@@ -240,22 +224,29 @@ export async function runClaudeCodePreviewPrompt(args: {
     const text = lastTextChunkTracker(args.onTextDelta)
     // A refusal or transport failure does not grant authority to cancel or
     // replace the runtime session. Its snapshot remains the lifecycle source.
-    const result = await client.prompt(
-      session.openabSessionId,
-      message,
-      text.onTextDelta,
-      args.onAgentUpdate,
-      args.onPermissionRequest,
-      () => {
-        // Runtime admission, not a backend flag, selects the command whose
-        // principal and cancellation route own subsequent output.
-        Object.assign(session, nextContext)
-        session.activeTurn = activeTurn
-        if (activeTurn.cancelled) client.cancel(session.openabSessionId)
-      },
-      nextContext,
-      attachments,
-    )
+    const result = await client
+      .prompt(
+        session.openabSessionId,
+        message,
+        text.onTextDelta,
+        args.onAgentUpdate,
+        args.onPermissionRequest,
+        () => {
+          // Runtime admission, not a backend flag, selects the command whose
+          // principal and cancellation route own subsequent output.
+          Object.assign(session, nextContext)
+          session.activeTurn = activeTurn
+          if (activeTurn.cancelled) client.cancel(session.openabSessionId)
+        },
+        nextContext,
+        attachments,
+      )
+      .catch((error: unknown) => {
+        // The runtime's own busy rejection: another turn won the race since the check above.
+        throw error instanceof OpenAbRpcError && error.code === -32001
+          ? refusal(error.message)
+          : error
+      })
 
     return { stopReason: await settledCodexStopReason(session, result, text.last()) }
   } finally {

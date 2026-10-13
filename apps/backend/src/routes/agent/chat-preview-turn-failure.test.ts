@@ -184,3 +184,17 @@ test('a typed backend deadline reaches persisted interruption diagnostics', asyn
     }),
   )
 })
+
+test('a runtime refusal records nothing, so the sender can send the message again', async () => {
+  const { AppError } = await import('@/lib/errors')
+
+  cause = new AppError(409, 'runtime_not_accepting_message', 'Responding…')
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-refused')
+
+  await expect(runClaudeCodePreviewChatTurn(turnArgs(run))).rejects.toMatchObject({
+    code: 'runtime_not_accepting_message',
+  })
+  expect(persisted).toHaveLength(before)
+  expect(run.frames.join('')).not.toContain('turn-interrupted')
+})
