@@ -9,6 +9,7 @@ export type MessageMetadata = {
     displayName: string
     email?: string
     avatarURL?: string
+    agentRuntime?: string
   }
   /** Self-reported by the sender's registered Desktop; never proof of anything. */
   device?: MessageDevice
@@ -59,6 +60,9 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
       type: senderType,
       id: m.sender.id,
       displayName: m.sender.displayName,
+      ...(m.source === 'agent.thread' && nonEmpty(m.sender.agentRuntime)
+        ? { agentRuntime: m.sender.agentRuntime }
+        : {}),
       ...(nonEmpty(m.sender.email) ? { email: m.sender.email } : {}),
       ...(trustedAvatarURL(m.sender.avatarURL) ? { avatarURL: m.sender.avatarURL } : {}),
     },
