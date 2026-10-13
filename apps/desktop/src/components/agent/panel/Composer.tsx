@@ -28,7 +28,6 @@ export function Composer({
   variant = 'compact',
   onSend,
   onStop,
-  streaming: _transportStreaming,
   runtimeState,
   executing = false,
   readOnly = false,
@@ -49,6 +48,7 @@ export function Composer({
   draftKey,
   onImportSession,
   mentionScope,
+  promptSuggestion,
 }: {
   variant?: 'compact' | 'hero'
   onSend: (text: string, filePaths: string[]) => void
@@ -66,17 +66,13 @@ export function Composer({
   credentialSelector?: CredentialSelectorControl
   runtimeControl?: RuntimeControl
   modelSession?: ModelSession
-  /** No session yet to read a live model list from — reads/writes the
-   *  runtime's saved default model instead. Only rendered without a
-   *  `modelSession`, since once a session exists `ModelSelector` takes over. */
+  /** Model settings for a conversation that does not exist yet. */
   newConversationModelControl?: ReactNode
   /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
    *  Permissions) — absent when the conversation has no session yet. */
   bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void
-  /** Fires when the editor crosses between empty and not. The hero uses it to
-   *  drop back to its categories once the user clears what it started. */
   /** No cloud connected — the example prompts must stay answerable read-only. */
   firstRun?: boolean
   autoFocus?: boolean
@@ -95,6 +91,7 @@ export function Composer({
   /** Turns on @teammate mentions; with a session, mentioned outsiders get an
    *  invite prompt after sending. */
   mentionScope?: { teamId: string; sessionId?: string }
+  promptSuggestion?: string | null
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -126,6 +123,7 @@ export function Composer({
     readOnlyPlaceholder,
     streaming,
     autoFocus,
+    promptSuggestion,
   })
 
   useComposerDraft(state, readOnly ? undefined : draftKey)
@@ -275,10 +273,11 @@ export function Composer({
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && <RuntimeSelector {...runtimeControl} />}
-              {!modelSession && newConversationModelControl}
             </div>
-            {modelSession && (
+            {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />
+            ) : (
+              newConversationModelControl
             )}
             <ComposerSendControls
               runtimeCanCancel={runtimeCanCancel}

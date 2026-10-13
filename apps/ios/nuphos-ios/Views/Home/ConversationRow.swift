@@ -5,20 +5,39 @@ import SwiftUI
 struct ConversationRow: View {
     let conversation: AgentConversation
     var pinned = false
+    /// Threads a folded parent hides; the row shows the most pressing of their states.
+    var hidden: [AgentConversation] = []
     @Environment(AgentStore.self) private var store
     private let observations = RuntimeObservations.shared
     private var team: String { conversation.teamId ?? store.selectedTeam?.id ?? "" }
     private var observation: RuntimeObservation? { observations.value(team: team, session: conversation.sessionId) }
-    private var indicator: ConversationIndicator {
-        let unread = ConversationUnread.shared.contains(team: team, session: conversation.sessionId)
-        guard conversation.isNativeRuntime else { return conversation.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observation, at: observations.now, unread: unread)
+    private var indicator: ConversationIndicator { indicator(for: conversation) }
+    private var shownIndicator: ConversationIndicator {
+        ([conversation] + hidden).map(indicator(for:)).max { $0.urgency < $1.urgency } ?? .none
+    }
+
+    private func indicator(for row: AgentConversation) -> ConversationIndicator {
+        let unread = ConversationUnread.shared.contains(team: team, session: row.sessionId)
+        guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), at: observations.now, unread: unread)
     }
 
     var body: some View {
         HStack(spacing: 12) {
             OwnerAvatar(owner: conversation.owner, size: 36)
                 .opacity(conversation.owner?.deactivated == true ? 0.5 : 1)
+                .overlay(alignment: .bottomTrailing) {
+                    if pinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 15, height: 15)
+                            .background(Circle().fill(Theme.muted))
+                            .overlay(Circle().stroke(Theme.canvas, lineWidth: 1.5))
+                            .offset(x: 3, y: 3)
+                            .accessibilityLabel("Pinned")
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(conversation.displayTitle)
@@ -37,7 +56,7 @@ struct ConversationRow: View {
 
             Spacer(minLength: 0)
 
-            switch indicator {
+            switch shownIndicator {
             case .turn:
                 ProgressView()
                     .controlSize(.small)
@@ -58,12 +77,6 @@ struct ConversationRow: View {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
                     .accessibilityLabel(observation?.status(at: observations.now) ?? "Automatic continuation paused")
-            }
-            if pinned {
-                Image(systemName: "pin.fill")
-                    .font(Theme.Text.micro)
-                    .foregroundStyle(Theme.muted)
-                    .accessibilityLabel("Pinned")
             }
             if conversation.isArchived {
                 Image(systemName: "archivebox")

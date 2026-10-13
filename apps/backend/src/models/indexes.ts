@@ -18,6 +18,7 @@ import { setupTriggerGroupIndexes } from '@/lib/agent/trigger-group-db'
 import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime-image-audit'
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
+import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
 import { setupDiscordIndexes } from '@/lib/discord/store'
 import { setupDownloadLinkEmailIndexes } from '@/lib/download-link-email'
 import { setupEmailOtpIndexes } from '@/lib/email-otp'
@@ -32,7 +33,7 @@ import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-noti
 import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
-import { teamInvitations, userTeamSidebarFavorites } from '@/models/team'
+import { teamHomeLayouts, teamInvitations, userTeamSidebarFavorites } from '@/models/team'
 
 // Mongo 85/86 = an index with this name already exists under a different spec
 // — typically another branch's backend upgraded it on the shared replica set.
@@ -66,6 +67,7 @@ export async function setupIndexes(): Promise<void> {
     ['native-auth', setupNativeAuthIndexes],
     ['runtime-login', setupRuntimeLoginIndexes],
     ['runtime-metrics', setupRuntimeMetricIndexes],
+    ['runtime-quota-history', setupRuntimeQuotaHistoryIndexes],
     ['runtime-image-audit', setupRuntimeImageAuditIndexes],
     ['invitations', setupInvitationIndexes],
     ['agent', setupAgentIndexes],
@@ -90,6 +92,7 @@ export async function setupIndexes(): Promise<void> {
     ['memory-ingest-events', setupMemoryIngestEventIndexes],
     ['preview-memory-activity', setupPreviewMemoryActivityIndexes],
     ['sidebar-favorites', setupSidebarFavoritesIndexes],
+    ['home-layouts', setupHomeLayoutIndexes],
     ['push-devices', setupPushDeviceIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
@@ -116,6 +119,13 @@ async function setupSidebarFavoritesIndexes(): Promise<void> {
   await userTeamSidebarFavorites().createIndex(
     { teamId: 1, userId: 1 },
     { unique: true, name: 'user_team_sidebar_favorites_scope_unique' },
+  )
+}
+
+async function setupHomeLayoutIndexes(): Promise<void> {
+  await teamHomeLayouts().createIndex(
+    { teamId: 1, userId: 1 },
+    { unique: true, name: 'team_home_layouts_scope_unique' },
   )
 }
 

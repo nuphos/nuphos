@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
-import { startTraceSpan } from '@/lib/agent/braintrust'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { regionLabel } from '@/lib/agent/model-provider'
+import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
@@ -46,6 +46,8 @@ export type TriggerRunParams = {
   sessionId: string
   messages: UIMessage[]
   firstMessage: string
+  /** Background shown to the model beside this turn's message, never stored in it. */
+  turnContext?: string
   credentialAccess?: AgentCredentialAccess
   source?: string
   /** Trigger-created conversations list under their Trigger; channel bridges remain chats. */
@@ -73,7 +75,8 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const conversationOwnerUserId = params.conversationOwnerUserId ?? userId
   const source = params.source ?? 'agent.trigger'
   const channelDefaults = source === 'discord.agent' || source === 'slack.agent'
-  const fullAccessDefault = channelDefaults || (params.origin ?? 'user') !== 'user'
+  const fullAccessDefault =
+    source !== 'agent.resource' && (channelDefaults || (params.origin ?? 'user') !== 'user')
   const locale = params.locale ?? 'en-US'
   const requestId = randomUUID()
   const streamId = randomUUID()
@@ -201,6 +204,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       locale,
       endpoint: chatRuntime.endpoint,
       onRunHandoff: attachFrameSink,
+      ...(params.turnContext ? { turnContext: params.turnContext } : {}),
       ...(slackThread
         ? {
             slackThread: {

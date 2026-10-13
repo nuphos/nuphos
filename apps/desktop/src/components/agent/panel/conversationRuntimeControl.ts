@@ -28,6 +28,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   const {
     activeTab: tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,
@@ -131,17 +132,22 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   } | null>(null)
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
-    if (!sessionId || !teamId || tab?.readOnly || tab?.foreign) return
+    if (!sessionId || !teamId || tab?.readOnly || (tab?.foreign && !tab.canManage)) return
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
 
     return {
+      teamId,
+      canUpdateTeamAgents: isTeamAdmin,
       value: {
         id: tab?.runtimeId,
         provider,
         label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
         status: current?.status,
       },
-      options: runtimeInstances,
+      // Only the owner puts a session on a local or self-hosted agent.
+      options: tab?.foreign
+        ? runtimeInstances.filter((instance) => instance.kind === 'managed')
+        : runtimeInstances,
       onSelect: (runtimeId: string) => {
         const target = runtimeInstances.find((instance) => instance.id === runtimeId)
         const warning = target && localAgentMoveWarning(target)
@@ -150,7 +156,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         else void move(runtimeId)
       },
       selectDisabled: tab?.streaming || moving,
-      quota: tab?.runtimeId ? runtimeQuotas.get(tab.runtimeId) : undefined,
+      quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',
       loading: runtimeInstancesLoading,
@@ -179,6 +185,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     sessionId,
     tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,

@@ -33,11 +33,15 @@ async function mapWithLimit<T, R>(
 
 let uploadTmpSeq = 0
 
-// Upload local files/directories as a transfer group. Hybrid model:
-//  - a single picked file uploads as-is (1 object, agent reads it directly);
-//  - a folder or multi-file selection is packed into ONE .zip object and the
-//    agent extracts it after pull. The zip avoids N presigned PUTs, the maxFiles
-//    cap, and OS junk, and mirrors the cross-platform download archive.
+// The backend's per-transfer file cap (config.fileTransfer.maxFiles).
+const MAX_FILES_PER_TRANSFER = 20
+
+// Upload local files/directories as a transfer group:
+//  - picked files upload as-is, one object each, so the agent reads them
+//    directly and the chat can preview images and videos;
+//  - a folder, more files than one transfer allows, or picks that share a
+//    file name are packed into ONE .zip object that the agent extracts after
+//    pull (structure kept, no OS junk, mirrors the download archive).
 // Bytes go Electron-main → S3 directly; the backend only signs URLs.
 export async function uploadFiles(args: {
   teamId: string
@@ -49,11 +53,13 @@ export async function uploadFiles(args: {
   const entries = await collectEntries(filePaths)
 
   if (entries.length === 0) throw new Error('No files to upload')
-
   const stats = await Promise.all(filePaths.map((p) => fs.stat(p)))
-  const isSingleFile = filePaths.length === 1 && stats[0].isFile()
 
-  if (isSingleFile) {
+  // Created items are matched back by relPath, so same-named picks from
+  // different folders go in the archive.
+  const distinctNames = new Set(entries.map((e) => e.relPath)).size === entries.length
+
+  if (stats.every((s) => s.isFile()) && entries.length <= MAX_FILES_PER_TRANSFER && distinctNames) {
     return uploadEntriesIndividually(teamId, sessionId, entries, label)
   }
   const singleDir = filePaths.length === 1 && stats[0].isDirectory()

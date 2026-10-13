@@ -14,7 +14,7 @@ export type RuntimeDeletion = {
   placements: {
     id: string
     url: string
-    state: 'pending' | 'saved' | 'deleting' | 'deleted' | 'abandoned'
+    state: 'pending' | 'deleting' | 'deleted' | 'abandoned'
     volumeName?: string
     volumeUid?: string
     claimUid?: string

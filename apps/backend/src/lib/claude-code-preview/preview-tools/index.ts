@@ -17,9 +17,11 @@ import { toolModuleFromAiSdkTools } from './ai-sdk-adapter'
 import { connectorToolModule } from './connectors'
 import { decisionToolModule } from './decisions'
 import { kubeconfigToolModule } from './kubeconfig'
+import { localCuaToolModule } from './local-cua'
 import { localExecToolModule } from './local-exec'
 import { skillToolSet } from './skills'
 import { slackPreviewToolModule } from './slack'
+import { sessionResourceToolModule } from './session-resources'
 import { threadToolModule } from './threads'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
@@ -158,12 +160,14 @@ type ModuleFactory = (ctx: PreviewToolContext) => Promise<PreviewToolModule>
 // Modules with their own blocking/side-channel semantics, beyond the plain
 // AI SDK adaptation above.
 const EXTRA_MODULES: ModuleFactory[] = [
+  () => Promise.resolve(sessionResourceToolModule()),
   () => Promise.resolve(threadToolModule()),
   (ctx) => Promise.resolve(connectorToolModule(ctx)),
   () => Promise.resolve(decisionToolModule()),
   () => Promise.resolve(kubeconfigToolModule()),
   slackPreviewToolModule,
   localExecToolModule,
+  () => Promise.resolve(localCuaToolModule),
 ]
 
 export async function previewToolModules(ctx: PreviewToolContext): Promise<PreviewToolModule[]> {

@@ -8,6 +8,7 @@ import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
 
 import { AddAgentDialog } from './AddAgentDialog'
 import { RuntimeInstanceCard } from './RuntimeInstanceCard'
+import { RuntimeQuotaHistory } from './RuntimeQuotaHistory'
 
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
@@ -154,13 +155,15 @@ export function AgentSection({
                       isAdmin={isAdmin}
                     />
                   ) : (
-                    <div className="flex h-full min-h-64 flex-col items-center justify-center px-6 pb-12 text-center">
-                      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-zGray-800/70 bg-surface shadow-sm">
-                        <Bot className="h-6 w-6 text-tertiary" strokeWidth={1.5} />
-                      </div>
-                      <p className="text-sm font-medium text-secondary">Select an agent</p>
-                      <p className="mt-2 max-w-64 text-xs leading-5 text-tertiary">
-                        View usage, model settings, and runtime details.
+                    <div className="mx-auto w-full max-w-5xl">
+                      <RuntimeQuotaHistory
+                        teamId={teamId}
+                        instances={instances}
+                        onSelect={setSelectedId}
+                      />
+                      <p className="flex items-center gap-2 text-xs text-tertiary">
+                        <Bot className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                        Select an agent to see its models, sign-in and runtime details.
                       </p>
                     </div>
                   )}

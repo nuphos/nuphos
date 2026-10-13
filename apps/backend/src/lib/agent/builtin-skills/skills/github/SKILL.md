@@ -227,3 +227,19 @@ A few rules:
 - `403 Resource not accessible by integration` — the App lacks that permission for this repo/installation. Don't retry; tell the user the missing permission and suggest the org admin re-install the App with broader scope.
 - `404 Not Found` on a repo path — either the repo doesn't exist or it's outside the App's `selected` repository scope. Confirm with the user which repo they meant.
 - `429` / secondary rate limits — slow down (don't retry tightly). Installation tokens get their own rate limit pool, but heavy fan-out can still hit it.
+
+## Link work to the current conversation
+
+After creating or adopting a PR or issue for the current task, use
+`bind_session_resource` when that native tool is available. This registers a
+verified resource link in the session sidebar. For GitHub pass `provider: github`,
+the selected `installationId`, `repository` (`owner/repo`) and PR `number`.
+For Linear pass `provider: linear`, the selected binding's `workspaceId` and
+`issueId` (UUID or identifier). This is separate from Linear's Nuphos session
+attachment; retain that attachment too. Do not bind unrelated search results.
+
+Bound GitHub PR events durably wake this conversation with its existing permissions.
+A receipt means the binding exists, not that an event was delivered or that checks
+passed. Never promise a sandbox watcher will survive the turn. Use
+`unlink_session_resource` when asked to stop following a resource; it does not
+modify the external PR or issue. Archived sessions do not wake.

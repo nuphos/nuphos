@@ -24,9 +24,12 @@ final class ChatSession {
     private(set) var error: String?
     private(set) var queued: [String] = []
     private(set) var isOwner = false
-    private var canCancelRun = false
-    private var canRespondToRun = false
-    var canManage: Bool { loaded && isOwner && !readOnly }
+    /// The owner, or a teammate invited to manage: may switch the mode and the
+    /// agent, change credentials, and archive.
+    private(set) var manages = false
+    var canManage: Bool { loaded && manages && !readOnly }
+    /// Renaming, model settings and feedback stay with the owner.
+    var ownsChat: Bool { loaded && isOwner && !readOnly }
     private(set) var readOnly = false
     private(set) var loaded = false
     private(set) var loadError: String?
@@ -47,11 +50,16 @@ final class ChatSession {
     /// New conversation: the runtime it starts on (nil lets the team default
     /// decide). Sent on the first PUT/POST only.
     var runtime: RuntimeInstance?
-    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity`.
+    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
     private(set) var agentRuntime: String?
+    private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
+    /// Pull requests and issues the agent linked to this conversation.
+    private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// Files the agent sent the user here, read from the transfer store.
+    private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
     /// Model / effort / fast controls, for conversations on a native runtime.
     private(set) var sessionConfig: SessionConfigState?
@@ -62,7 +70,12 @@ final class ChatSession {
     private var sessionConfigReading = false
 
     private(set) var initialModelTitle: String?
-    func presetSessionConfig(_ config: SessionConfigState?) { initialModelTitle = config?.modelTitle }
+    /// Settings picked before this conversation existed; the first message carries them.
+    private var initialSessionConfig: [String: String]?
+    func presetSessionConfig(_ config: SessionConfigState?, pick: [String: String]) {
+        initialModelTitle = config?.modelTitle
+        initialSessionConfig = pick.isEmpty ? nil : pick
+    }
 
     /// Conversations on Claude Code / Codex, where the runtime holds the
     /// transcript and can take a message mid-turn.
@@ -84,13 +97,22 @@ final class ChatSession {
         guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
         return runtimeObservation.status(at: observations.now)
     }
-    private(set) var submitting = false
+    /// What the user just sent, shown as their bubble until the request is
+    /// admitted; it goes back to the composer if the upload fails or is cancelled.
+    struct Sending {
+        let submission: ComposerSubmission
+        let progress = Progress()
+        fileprivate var task: Task<Void, Never>?
+    }
+    private(set) var sending: Sending?
+    var submitting: Bool { sending != nil }
+    func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
     /// Prevent double submission until this request has a runtime admission or terminal response.
     private var awaitingAdmission = false
-    var canSteer: Bool { canRespondToRun && !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
-    var canReply: Bool { !readOnly && (!isNativeRuntime || (canRespondToRun && allows("reply"))) }
-    var canCancel: Bool { (isOwner || canCancelRun) && !readOnly && !isStopping && (isNativeRuntime ? allows("cancel") : transportStreaming) }
+    var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
+    var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
+    var canCancel: Bool { !readOnly && !isStopping && (isNativeRuntime ? allows("cancel") : transportStreaming) }
     var canSubmit: Bool { loaded && loadError == nil && !readOnly && failedSubmission == nil && !submitting && !awaitingAdmission && !steeringPending && (!isNativeRuntime || isNew || allows("send") || canReply || canSteer) }
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action, at: observations.now) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
@@ -121,6 +143,22 @@ final class ChatSession {
     func presetPermissionMode(_ mode: PermissionMode) { permissionMode = mode }
 
     var isNew: Bool { messages.isEmpty && loaded }
+
+    /// Re-reads the files the agent sent. The list is owner-only, as on the desktop.
+    func refreshDownloads() async {
+        guard isOwner, messages.contains(where: { $0.role == .assistant }) else { return }
+        struct List: Decodable { let groups: [TransferDownloadGroup] }
+        guard let list: List = try? await WorkspaceAPI.request(transferPath + "/downloads", token: token) else { return }
+        downloads = list.groups.filter { $0.expiresAt > .now && !$0.readyFiles.isEmpty }
+    }
+
+    /// A transfer group's files with fresh presigned URLs. Team-scoped, so it
+    /// resolves both what the agent sent and what the user uploaded.
+    func transferGroup(_ groupId: String) async throws -> TransferDownloadGroup {
+        try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
+    }
+
+    private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }
 
     // MARK: - Private
 
@@ -215,6 +253,7 @@ final class ChatSession {
         let s = ChatSession(token: token, teamId: teamId)
         s.loaded = true
         s.isOwner = true
+        s.manages = true
         return s
     }
 
@@ -238,8 +277,7 @@ final class ChatSession {
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
-            canCancelRun = detail.canCancelRun ?? false
-        canRespondToRun = detail.canRespondToRun ?? false
+            manages = detail.canManage ?? isOwner
             if let t = detail.title, !t.isEmpty { title = t }
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
@@ -290,8 +328,9 @@ final class ChatSession {
         send(ComposerSubmission(text: text, attachments: []))
     }
 
-    /// Sends text plus attachments. Photos ride along as `file` parts (data
-    /// URLs, for vision); other files must finish uploading before dispatch.
+    /// Sends text plus attachments. Runtime agents get every attachment from
+    /// the transfer store, so the chat request stays small. The built-in agent
+    /// still reads photos inline for vision; its files upload first.
     func send(_ submission: ComposerSubmission) {
         let trimmed = submission.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = submission.attachments
@@ -312,26 +351,30 @@ final class ChatSession {
         }
         var parts: [ChatPart] = []
         if !trimmed.isEmpty { parts.append(.text(.init(text: trimmed, state: .done))) }
-        for a in attachments {
-            if let url = a.dataURL {
-                parts.append(.file(.init(mediaType: "image/jpeg", filename: a.name, url: url)))
+        let uploads = isNativeRuntime ? attachments : attachments.filter { !$0.isImage }
+        if !isNativeRuntime {
+            for a in attachments {
+                if let url = a.dataURL {
+                    parts.append(.file(.init(mediaType: "image/jpeg", filename: a.name, url: url)))
+                }
             }
         }
-        let files = attachments.filter { !$0.isImage }
-        submitting = true
         failedSubmission = nil
         error = nil
-        Task {
-            defer { submitting = false }
+        sending = Sending(submission: submission)
+        let progress = sending!.progress
+        sending?.task = Task {
             do {
-                if !files.isEmpty {
-                    let instruction = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: files)
-                    parts.append(.text(.init(text: instruction, state: .done)))
+                if !uploads.isEmpty {
+                    let upload = try await WorkspaceAPI.upload(token: token, team: teamId, attachments: uploads, progress: progress)
+                    parts.append(isNativeRuntime ? upload.part : .text(.init(text: upload.instruction, state: .done)))
                 }
+                sending = nil
                 let message = ChatMessage(role: .user, parts: parts)
                 await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed, submission: submission)
             } catch {
-                self.error = error.localizedDescription
+                sending = nil
+                if !Task.isCancelled { self.error = error.localizedDescription }
                 failedSubmission = submission
             }
         }
@@ -395,7 +438,7 @@ final class ChatSession {
     }
 
     private func applyPendingModelSettings() async {
-        guard canManage, !isStreaming, !sessionConfigSaving, sessionConfigError == nil,
+        guard ownsChat, !isStreaming, !sessionConfigSaving, sessionConfigError == nil,
               let config = sessionConfig, [.ready, .dormant].contains(config.status),
               !pendingModelSettings.isEmpty else { return }
         guard let next = config.nextSelection(in: &pendingModelSettings, streaming: isStreaming) else { return }
@@ -403,7 +446,7 @@ final class ChatSession {
     }
 
     func setSessionConfig(configId: String, value: String) async {
-        guard canManage, !sessionConfigSaving, sessionConfigError == nil, sessionConfig?.isEditable == true else { return }
+        guard ownsChat, !sessionConfigSaving, sessionConfigError == nil, sessionConfig?.isEditable == true else { return }
         if isStreaming || sessionConfig?.status == .busy {
             pendingModelSettings[configId] = value
             return
@@ -421,17 +464,69 @@ final class ChatSession {
         await applyPendingModelSettings()
     }
 
+    func refreshResources() async {
+        guard !isNew, let list = try? await AgentChatAPI.sessionResources(token: token, teamId: teamId, sessionId: sessionId) else { return }
+        resources = list
+    }
+
+    /// Moves this conversation to another agent. The working files come along
+    /// when the destination can hold them — another Cloud agent of the same
+    /// type — and the move falls back to the transcript alone when they cannot.
+    func move(to target: RuntimeInstance) async throws {
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can move it.") }
+        func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
+            try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
+        }
+        let moved: AgentChatAPI.RuntimeMove
+        if target.tier == .cloud, target.provider.rawValue == agentRuntime {
+            do { moved = try await request(workspace: true) }
+            catch AgentChatAPI.Conflict.other(let code, _, _) where code == "workspace_unavailable" { moved = try await request(workspace: false) }
+        } else {
+            moved = try await request(workspace: false)
+        }
+        runtimeId = moved.runtimeId
+        runtimeLabel = moved.runtimeLabel
+        agentRuntime = moved.agentRuntime
+        // Model settings belonged to the agent it left.
+        sessionConfigRequest = UUID()
+        sessionConfig = nil
+        sessionConfigError = nil
+        pendingModelSettings = [:]
+        await refreshSessionConfig()
+    }
+
+    // MARK: - Sharing
+
+    /// `agent/conversations/:id/participants` and `…/access`. Every call
+    /// answers with the whole access state; the backend lets only the owner
+    /// change it.
+    func access(_ method: String, _ path: String = "participants") async throws -> SessionAccess {
+        try await access(method, path, body: Optional<Int>.none)
+    }
+
+    func access<B: Encodable>(_ method: String, _ path: String = "participants", body: B?) async throws -> SessionAccess {
+        let data = try await AgentChatAPI.send(
+            method, "agent/conversations/\(sessionId)/\(path)",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: body, timeout: 12
+        )
+        return try JSONDecoder().decode(SessionAccess.self, from: data)
+    }
+
+    func teamMembers() async throws -> [TeamMember] {
+        try await NuphosAPI.teamMembers(token: token, teamId: teamId, includeRemoved: false)
+    }
+
     // MARK: - Archive
 
     func rename(_ name: String) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can rename it.") }
+        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can rename it.") }
         struct Body: Encodable { let title: String }
         _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
         title = name
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -473,7 +568,8 @@ final class ChatSession {
             submission: submission.map { (message.id, $0) },
             permissionMode: wasEmpty ? permissionMode.rawValue : nil,
             agentRuntime: wasEmpty ? runtime?.provider.rawValue : nil,
-            runtimeId: wasEmpty ? runtime?.id : nil
+            runtimeId: wasEmpty ? runtime?.id : nil,
+            initialSessionConfig: wasEmpty ? initialSessionConfig : nil
         ))
     }
 
@@ -481,8 +577,6 @@ final class ChatSession {
 
     enum ApprovalDecision: Equatable {
         case once
-        case session
-        case always(rule: String)
         case deny
     }
 
@@ -496,28 +590,7 @@ final class ChatSession {
         messages[mi].parts[pi] = .tool(updated)
         error = nil
 
-        Task {
-            switch decision {
-            case .session:
-                if let command = part.input?["command"]?.stringValue {
-                    try? await AgentChatAPI.approveForSession(token: token, sessionId: sessionId, command: command)
-                }
-            case .always(let rule):
-                try? await AgentChatAPI.createPolicyRule(token: token, description: rule)
-            case .once, .deny:
-                break
-            }
-            startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
-        }
-    }
-
-    /// `propose_authorization_rule` follow-ups.
-    func confirmProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.activatePolicyRule(token: token, ruleId: ruleId)) != nil
-    }
-
-    func dismissProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.deletePolicyRule(token: token, ruleId: ruleId)) != nil
+        startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
     }
 
     // MARK: - Plans
@@ -550,7 +623,7 @@ final class ChatSession {
     // MARK: - Feedback
 
     func rate(messageId: String, rating: String?) async {
-        guard canManage else { return }
+        guard ownsChat else { return }
         try? await AgentChatAPI.feedback(token: token, teamId: teamId, sessionId: sessionId, messageId: messageId, rating: rating)
         if let i = messages.firstIndex(where: { $0.id == messageId }) { messages[i].feedback = rating }
     }
@@ -623,6 +696,7 @@ final class ChatSession {
         var permissionMode: String?
         var agentRuntime: String?
         var runtimeId: String?
+        var initialSessionConfig: [String: String]?
     }
 
     private enum TurnResult {
@@ -754,10 +828,10 @@ final class ChatSession {
 
     private func adoptRuntime(from detail: AgentConversationDetail) {
         isOwner = detail.isOwner ?? false
-        canCancelRun = detail.canCancelRun ?? false
-        canRespondToRun = detail.canRespondToRun ?? false
+        manages = detail.canManage ?? isOwner
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
+        if let id = detail.runtimeId { runtimeId = id }
         if let l = detail.runtimeLabel { runtimeLabel = l }
         timelineEvents = detail.timelineEvents
         isArchived = detail.archivedAt != nil
@@ -844,6 +918,7 @@ final class ChatSession {
                 credentialAccess: credentialAccess?.json,
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
+                initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
                 clientCapabilities: ["localTools": false]
             )
 
@@ -1006,16 +1081,19 @@ final class ChatSession {
             }
             phaseLabel = nil
             return
-        case "atlas-transcript-snapshot":
-            // The server's authoritative ordering for the whole conversation.
-            guard let raw = frame["messages"]?.arrayValue else { return }
+        case "atlas-transcript-tail":
+            // The server's authoritative copy of this turn, starting at
+            // conversation index `messagesFirstIndex`. Earlier history stays.
+            guard let raw = frame["messages"]?.arrayValue,
+                  let first = frame["messagesFirstIndex"]?.numberValue else { return }
             let decoded = raw.compactMap { value -> ChatMessage? in
                 guard let data = try? JSONEncoder().encode(value) else { return nil }
                 return try? Self.snapshotDecoder.decode(ChatMessage.self, from: data)
             }
-            guard !decoded.isEmpty else { return }
-            messages = decoded
-            baseIndex = 0
+            // A tail that does not meet the loaded history waits for the next refresh.
+            let kept = Int(first) - baseIndex
+            guard !decoded.isEmpty, kept >= 0, kept <= messages.count else { return }
+            messages = Array(messages.prefix(kept)) + decoded
             streamAssistantIndex = messages.lastIndex { $0.role == .assistant }
             streamReducer = streamAssistantIndex.map { UIStreamReducer(message: messages[$0]) }
             lastSyncedSignature = signature()
@@ -1178,7 +1256,7 @@ final class ChatSession {
     }
 
     func syncTranscriptNow() async {
-        guard canManage, !messages.isEmpty, !transcriptOwnedByServer else { return }
+        guard ownsChat, !messages.isEmpty, !transcriptOwnedByServer else { return }
         let sig = signature()
         guard sig != lastSyncedSignature else { return }
         let wire = messages.map(\.forWire)

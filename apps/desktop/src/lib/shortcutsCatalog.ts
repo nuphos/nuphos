@@ -35,6 +35,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'User settings', combos: ['mod+,'] },
       { label: 'Team settings', combos: ['mod+shift+,'] },
       { label: 'Toggle sidebar', combos: ['mod+b'] },
+      { label: 'Expand / restore workspace panel', combos: ['mod+shift+enter'] },
       { label: 'Keyboard shortcuts', combos: ['mod+/'] },
       { label: 'Zoom in / out', combos: ['mod+plus', 'mod+minus'] },
       { label: 'Reset zoom', combos: ['mod+0'] },
@@ -48,6 +49,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Accept suggested prompt', combos: ['tab'] },
       { label: 'Previous / next conversation', combos: ['up', 'down'] },
       { label: 'Stop response', combos: ['esc'] },
+      { label: 'Find in conversation', combos: ['mod+f'] },
     ],
   },
   {

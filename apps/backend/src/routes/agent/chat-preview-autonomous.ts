@@ -111,7 +111,7 @@ export function createClaudeCodeAutonomousUpdateHandler(deps: AutonomousTurnDeps
   return {
     update: (update: ClaudeCodeAutonomousUpdate): void | Promise<void> => {
       if (update.update.kind === 'agent' && update.update.update.kind === 'runtime-state') return
-      if (update.update.kind === 'async-task') return
+      if (update.update.kind === 'async-task' || update.update.kind === 'prompt-suggestion') return
       if (update.update.kind === 'status') {
         if (update.update.status === 'active') {
           // Snapshots are broadcast to all observers, including connections

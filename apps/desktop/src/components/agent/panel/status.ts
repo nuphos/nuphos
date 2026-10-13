@@ -102,6 +102,9 @@ export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStat
 
   if (!tab.claudeCodeRuntimeAttached && !tab.runtimeState)
     return { label: 'Connecting…', startedAt: null }
+  // Opened without a runtime read: the catch-up poll is about to take one.
+  // Unobserved is not lost — only a stale or failed read says that.
+  if (!tab.runtimeState) return null
 
   const snapshot = tab.runtimeState
 

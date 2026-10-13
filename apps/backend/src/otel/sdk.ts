@@ -30,11 +30,7 @@ import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http'
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs'
-import {
-  AggregationTemporality,
-  MeterProvider,
-  PeriodicExportingMetricReader,
-} from '@opentelemetry/sdk-metrics'
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
 import {
   BasicTracerProvider,
   BatchSpanProcessor,
@@ -187,10 +183,6 @@ function startTelemetryInner(): { shutdown: TelemetryShutdown } {
     const exporter = new OTLPMetricExporter({
       url: o.exporter.metricsEndpoint,
       headers: o.exporter.metricsHeaders,
-      // Delta temporality matches what Prometheus/Tempo/Grafana cloud expect
-      // for OTLP push; backends that want cumulative will configure it on
-      // their side (otelcol convert).
-      temporalityPreference: AggregationTemporality.DELTA,
     })
 
     meterProvider = new MeterProvider({

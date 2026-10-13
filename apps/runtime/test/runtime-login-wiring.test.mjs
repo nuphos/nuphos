@@ -18,6 +18,8 @@ const GROK_LOGIN_COMMAND = 'node /opt/nuphos-runtime/grok-login.mjs'
 const GROK_AUTH_FILE = '/home/node/.grok/auth.json'
 const ANTIGRAVITY_LOGIN_COMMAND = 'node /opt/nuphos-runtime/antigravity-login.mjs'
 const ANTIGRAVITY_AUTH_FILE = '/home/node/.gemini/antigravity-acp/acp_token.json'
+const OPENCODE_LOGIN_COMMAND = 'node /opt/nuphos-runtime/opencode-login.mjs'
+const OPENCODE_AUTH_FILE = '/home/node/.local/share/opencode/auth.json'
 
 test('the image hands OpenAB the sign-in command and the credential path', () => {
   assert.match(dockerfile, /^ARG RUNTIME_LOGIN_COMMAND$/mu)
@@ -35,6 +37,8 @@ test('each published image signs itself in and reports its own credential file',
   assert.ok(build.includes(`AUTH_FILE='${GROK_AUTH_FILE}'`))
   assert.ok(build.includes(`LOGIN_COMMAND='${ANTIGRAVITY_LOGIN_COMMAND}'`))
   assert.ok(build.includes(`AUTH_FILE='${ANTIGRAVITY_AUTH_FILE}'`))
+  assert.ok(build.includes(`LOGIN_COMMAND='${OPENCODE_LOGIN_COMMAND}'`))
+  assert.ok(build.includes(`AUTH_FILE='${OPENCODE_AUTH_FILE}'`))
   assert.ok(!build.includes("AUTH_FILE=''"))
   assert.ok(build.includes('RUNTIME_LOGIN_COMMAND=${{ steps.tags.outputs.login_command }}'))
   assert.ok(build.includes('RUNTIME_AUTH_FILE=${{ steps.tags.outputs.auth_file }}'))
@@ -56,7 +60,7 @@ test('every agent runs in the workspace the image creates, never one without the
   // defaults to $HOME — where no skill ever lands. The two halves are coupled: a
   // `working_dir` the image does not create fails every spawn with ENOENT, so a
   // runtime that sets one without the other cannot start an agent at all.
-  for (const provider of ['claude-code', 'codex', 'grok', 'antigravity']) {
+  for (const provider of ['claude-code', 'codex', 'grok', 'antigravity', 'opencode']) {
     const config = readFileSync(
       new URL(`../image/openab-config.${provider}.toml`, import.meta.url),
       'utf8',

@@ -1,14 +1,17 @@
 import { config } from '@/config'
 import { normalizeConversationActivitySource } from '@/lib/agent/conversation-activity-source'
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
+import { canManage, canReply, conversationAccess, generalAccessOf } from '@/lib/agent/db/access'
 import { conversationReadState } from '@/lib/agent/db/read-state'
 import { fetchCachedUsers } from '@/lib/agent/directory'
+import { slackThreadFallbackUrl } from '@/lib/agent/session-thread-resources'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
 
 import { serializeConversationDoc } from './transcript'
 
+import type { AgentConversation } from '@/lib/agent/db'
 import type { NuphosUser } from '@/lib/identity'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
 
@@ -71,14 +74,6 @@ async function getSlackPermalink(channelId: string, threadTs: string): Promise<s
   }
 }
 
-function buildSlackThreadFallbackUrl(
-  workspaceId: string,
-  channelId: string,
-  threadTs: string,
-): string {
-  return `https://app.slack.com/client/${encodeURIComponent(workspaceId)}/${encodeURIComponent(channelId)}/thread/${encodeURIComponent(channelId)}-${encodeURIComponent(threadTs)}`
-}
-
 export async function buildSlackThreadLink(
   thread: SlackAgentThread | null,
 ): Promise<SlackThreadLink | null> {
@@ -91,11 +86,7 @@ export async function buildSlackThreadLink(
     threadTs: thread.slackThreadTs,
     url:
       permalink ??
-      buildSlackThreadFallbackUrl(
-        thread.slackWorkspaceId,
-        thread.slackChannelId,
-        thread.slackThreadTs,
-      ),
+      slackThreadFallbackUrl(thread.slackWorkspaceId, thread.slackChannelId, thread.slackThreadTs),
   }
 }
 
@@ -160,6 +151,8 @@ export function serializeConversationForViewer(
   slackThread?: Pick<SlackAgentThread, 'origin'> | null,
 ) {
   const isOwner = conversation.userId === viewer.id
+  const grants = conversation as unknown as AgentConversation
+  const access = conversationAccess(grants, viewer.id)
   const owner =
     ownerById.get(conversation.userId) ??
     (isOwner
@@ -195,7 +188,18 @@ export function serializeConversationForViewer(
     ...(triggerRun ? { triggerRun } : {}),
     owner,
     isOwner,
-    readOnly: !isOwner && !conversation.teamId,
+    // What this viewer may do; the list and detail routes only return what
+    // they may at least read, so null here means a personal conversation.
+    access,
+    generalAccess: generalAccessOf(grants),
+    readOnly: !canReply(access),
+    // iOS v0.8.0 and earlier read these two and treat a missing value as
+    // false, which hides steering, approvals and Stop during a turn. Anyone
+    // who can reply may steer or stop, so both follow reply access.
+    canCancelRun: canReply(access),
+    canRespondToRun: canReply(access),
+    // May move the session to another runtime and change its credentials.
+    canManage: canManage(access),
     ...(isOwner
       ? conversationReadState(conversation)
       : { activitySeq: undefined, readSeq: undefined, unread: false }),

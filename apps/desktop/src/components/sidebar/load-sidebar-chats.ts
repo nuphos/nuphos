@@ -10,7 +10,7 @@ export async function loadSidebarChats(
     cursor?: string
     scope: SidebarChatScope
     archived: 'exclude'
-    sort: 'created'
+    sort: 'activity'
   }) => Promise<AgentConversationsPage>,
   isCurrent: () => boolean,
   scope: SidebarChatScope = 'mine',
@@ -24,7 +24,7 @@ export async function loadSidebarChats(
       limit: 100,
       scope,
       archived: 'exclude',
-      sort: 'created',
+      sort: 'activity',
       ...(cursor ? { cursor } : {}),
     })
 

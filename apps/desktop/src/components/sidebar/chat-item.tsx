@@ -2,6 +2,7 @@ import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatusDot } from './ChatRowStatusDot'
+import { SessionResources } from './SessionResources'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
@@ -11,8 +12,8 @@ import type { ReactNode } from 'react'
 /**
  * One chat row, shared by the Chats section and the Shared section so both read
  * and behave identically. The difference between them is ownership, expressed
- * through `readOnly` (no rename/archive — those are the owner's, and the
- * backend scopes them to the owner) and whatever `actions` the caller adds.
+ * through `readOnly` (no rename — that is the owner's; archive only for a
+ * chat the viewer manages) and whatever `actions` the caller adds.
  */
 export function chatSidebarItem({
   conversation,
@@ -35,19 +36,36 @@ export function chatSidebarItem({
     key: `agent-session:${conversation.sessionId}`,
     label: conversation.title || conversation.firstMessage || 'Untitled chat',
     ...chatRowIcon(conversation, runtimeState),
+    description: (
+      <SessionResources
+        sessionId={conversation.sessionId}
+        teamId={teamId}
+        resources={conversation.linkedResources ?? []}
+      />
+    ),
     enabled: true,
     active,
     ...(readOnly ? { readOnlyChat: true } : {}),
+    ...(readOnly && conversation.canManage ? { managedChat: true } : {}),
+    ...(conversation.parentSessionId
+      ? { parentKey: `agent-session:${conversation.parentSessionId}` }
+      : {}),
     href: pageLocationForNavigation(
       emptyNavigation({ kind: 'team', teamId }, 'team.agent', {
         agentSessionId: conversation.sessionId,
       }),
     ).href,
     trailing: (
-      <>
-        <ChatRowStatusDot conversation={conversation} runtimeState={runtimeState} unread={unread} />
-        {actions}
-      </>
+      <ChatRowStatusDot conversation={conversation} runtimeState={runtimeState} unread={unread} />
     ),
+    foldedStatus: (
+      <ChatRowStatusDot
+        conversation={conversation}
+        runtimeState={runtimeState}
+        unread={unread}
+        showTurn
+      />
+    ),
+    actions,
   }
 }

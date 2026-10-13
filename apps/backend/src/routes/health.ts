@@ -2,11 +2,17 @@ import { Hono } from 'hono'
 
 import { db } from '@/lib/db'
 import { isShuttingDown } from '@/lib/lifecycle'
-import { pingRedis, redisEnabled } from '@/lib/redis'
+import { pingRedis, redisClientEnded, redisEnabled } from '@/lib/redis'
 
 export const health = new Hono()
 
+// Liveness probe. A Redis client that reached `end` fails every later command
+// while the pod still serves traffic, so restarting is the only recovery.
 health.get('/', (c) => {
+  if (redisClientEnded()) {
+    return c.json({ status: 'redis_client_ended' }, 503)
+  }
+
   return c.json({
     status: 'ok',
     uptime: process.uptime(),

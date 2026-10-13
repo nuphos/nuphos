@@ -4,7 +4,17 @@
 // memory ingest chain.
 import { randomUUID } from 'node:crypto'
 
-import { syncConversationTranscript } from '@/lib/agent/db'
+import { transcriptTailFrame } from './errors'
+import { traceAgentChatError } from './trace'
+import { getFirstTranscriptMessage, uiMessagesToTranscript } from './transcript'
+
+import type { AgentRun } from './types'
+import type { PreviewTurnMemory } from '@/lib/claude-code-preview/preview-recall'
+import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
+import type { TurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
+import type { UIMessage } from 'ai'
+
+import { getConversationMessagesHead, syncConversationTranscript } from '@/lib/agent/db'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
@@ -16,14 +26,6 @@ import {
   previewAssistantMessageParts,
   turnInterruptedPart,
 } from '@/lib/claude-code-preview/preview-transcript'
-
-import { traceAgentChatError } from './trace'
-import { getFirstTranscriptMessage, uiMessagesToTranscript } from './transcript'
-
-import type { AgentRun } from './types'
-import type { PreviewTurnMemory } from '@/lib/claude-code-preview/preview-recall'
-import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
-import type { UIMessage } from 'ai'
 
 function insertBeforeFinalText(
   parts: UIMessage['parts'],
@@ -103,6 +105,7 @@ export async function finishPreviewTurn(args: {
   // immediately before the final answer instead of moving the answer's
   // interleaved commentary and tools around them.
   const parts = insertBeforeFinalText(orderedParts, nativePlanParts)
+
   const tail = [
     ...args.steered,
     ...(parts.length > 0 ? [{ id: randomUUID(), role: 'assistant' as const, parts }] : []),
@@ -121,7 +124,11 @@ export async function finishPreviewTurn(args: {
       provider: args.provider,
       preserveTitle: true,
     })
-    args.emit({ type: 'atlas-transcript-snapshot', messages: transcriptMessages })
+    // Emit the stored timestamps too: download cards use them to stay with
+    // their original turn instead of briefly piling onto the latest reply.
+    const stored = await getConversationMessagesHead(sessionId, userId, transcriptMessages.length)
+
+    args.emit(transcriptTailFrame(stored, transcriptMessages.length - tail.length))
   } catch (err) {
     traceAgentChatError('agent.chat.preview_transcript_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,
@@ -173,6 +180,7 @@ export async function finishPreviewTurn(args: {
  */
 export async function persistInterruptedPreviewTurn(args: {
   run: AgentRun
+  diagnostics?: TurnDiagnostics
   sessionId: string
   teamId: string
   userId: string
@@ -192,7 +200,10 @@ export async function persistInterruptedPreviewTurn(args: {
 }): Promise<void> {
   const { run, sessionId, teamId, userId } = args
   const interruption = classifyPreviewInterruption(args.error, run.abortController.signal.aborted)
-  const part = turnInterruptedPart(`${run.streamId}:interrupted`, interruption)
+  const part = {
+    ...turnInterruptedPart(`${run.streamId}:interrupted`, interruption),
+    ...(args.diagnostics ? { diagnostics: args.diagnostics } : {}),
+  }
 
   args.emit(part)
   const parts = [
@@ -225,7 +236,11 @@ export async function persistInterruptedPreviewTurn(args: {
       provider: args.provider,
       preserveTitle: true,
     })
-    args.emit({ type: 'atlas-transcript-snapshot', messages: transcriptMessages })
+    // Emit the stored timestamps too: download cards use them to stay with
+    // their original turn instead of briefly piling onto the latest reply.
+    const stored = await getConversationMessagesHead(sessionId, userId, transcriptMessages.length)
+
+    args.emit(transcriptTailFrame(stored, transcriptMessages.length - args.steered.length - 1))
   } catch (err) {
     traceAgentChatError('agent.chat.preview_interrupted_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,

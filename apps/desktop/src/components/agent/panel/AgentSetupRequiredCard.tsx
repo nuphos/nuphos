@@ -2,7 +2,7 @@ import { KeyRound } from 'lucide-react'
 
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentTier } from '../../../lib/agentName'
-import { LocalClaudeSignIn } from '../../../views/settings/LocalClaudeSignIn'
+import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
 import { Button } from '../../ui/button'
 
 export function AgentSetupRequiredCard({
@@ -20,10 +20,8 @@ export function AgentSetupRequiredCard({
 }) {
   const owner = useThisComputer()
   const personalAgent = runtimeId?.startsWith('local_') === true
-  const localClaude =
-    runtimeId &&
-    !runtimeId.endsWith('_codex') &&
-    agentTier({ id: runtimeId, label: '' }, owner) === 'local'
+  const localAgent =
+    runtimeId && personalAgent && agentTier({ id: runtimeId, label: '' }, owner) === 'local'
 
   return (
     <div className="rounded-md border border-zViolet-500/30 bg-zViolet-500/[0.07] px-3.5 py-3 flex flex-col gap-2">
@@ -36,8 +34,13 @@ export function AgentSetupRequiredCard({
         </span>
       </div>
       <p className="text-[13px] leading-relaxed text-secondary">{message}</p>
-      {localClaude && <LocalClaudeSignIn label="Sign in again with Claude" />}
-      {personalAgent && !localClaude && (
+      {localAgent && (
+        <LocalAgentSignIn
+          provider={runtimeId?.endsWith('_codex') ? 'codex' : 'claude-code'}
+          label="Sign in again"
+        />
+      )}
+      {personalAgent && !localAgent && (
         <p className="text-[13px] leading-relaxed text-secondary">
           Sign in on the computer hosting this agent, in User settings → Local agent, then retry
           your message.
@@ -48,7 +51,7 @@ export function AgentSetupRequiredCard({
           Ask a workspace administrator to reconnect this agent.
         </p>
       )}
-      {!localClaude && isTeamAdmin && onOpenAgentSettings && (
+      {!localAgent && isTeamAdmin && onOpenAgentSettings && (
         <div>
           <Button size="sm" variant="primary" onClick={onOpenAgentSettings}>
             Open Agent settings

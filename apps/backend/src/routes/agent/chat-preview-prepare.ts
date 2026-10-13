@@ -5,6 +5,7 @@
 import {
   clearConversationPreviewLocalTools,
   clearConversationPreviewTurn,
+  openConversationPromptSuggestion,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
@@ -125,6 +126,7 @@ export type PreparedPreviewTurn = {
   /** Queued-while-idle messages folded into the first prompt; persisted too. */
   carried: PendingUserMessage[]
   clearActiveTurn: () => Promise<void>
+  openPromptSuggestion: () => Promise<void>
 }
 
 export async function preparePreviewTurn(
@@ -136,7 +138,7 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
-  const [memory, systemPrompt, compactionSummary, carried] = await Promise.all([
+  const [memory, systemPrompt, compactionSummary, drained] = await Promise.all([
     recallForPreviewTurn({
       sessionId,
       userId: actorUserId,
@@ -168,6 +170,8 @@ export async function preparePreviewTurn(
     previewCompactionSummary(sessionId, userId),
     drainPendingUserMessages(userId, sessionId, actorUserId),
   ])
+  // A channel that syncs its thread into the transcript may already hold a queued message.
+  const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
   const messages = turnPromptMessages(args.messages, args.resume)
   const inputs = turnInputMessages(messages)
   const images = args.resume ? [] : inputs.flatMap((m) => promptImages(m.parts))
@@ -179,7 +183,8 @@ export async function preparePreviewTurn(
         images,
       )
   const lastUserText =
-    resumeMessage(args.resume) ?? inputs.map((m) => lastUserMessageText([m])).join('\n\n')
+    resumeMessage(args.resume) ??
+    [args.turnContext, ...inputs.map((m) => lastUserMessageText([m]))].filter(Boolean).join('\n\n')
 
   if (memory) emitRecallStartFrame(args.run, sessionId, requestId, memory.recall)
   const carriedBlock = carried.length > 0 ? `\n\n${renderInjectedUserMessages(carried)}` : ''
@@ -205,6 +210,10 @@ export async function preparePreviewTurn(
     clearActiveTurn: () =>
       clearConversationPreviewTurn(sessionId, teamId, requestId).catch((err: unknown) => {
         traceAgentChatError('agent.chat.preview_active_turn_clear.error', err, args.run.trace, {})
+      }),
+    openPromptSuggestion: () =>
+      openConversationPromptSuggestion(sessionId, teamId, requestId).catch((err: unknown) => {
+        traceAgentChatError('agent.chat.prompt_suggestion_open.error', err, args.run.trace, {})
       }),
   }
 }

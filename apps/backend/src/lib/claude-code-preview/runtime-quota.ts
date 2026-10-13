@@ -4,6 +4,7 @@ import { logError } from '@/lib/observability'
 
 import { runtimeLabel } from './runtime-provider'
 import { normalizeGrokUsage } from './runtime-quota-grok'
+import { recordRuntimeQuotaSample } from './runtime-quota-history'
 import { probeRuntimeQuota } from './runtime-quota-probe'
 import { clampPercent, unavailable } from './runtime-quota-shape'
 import { RuntimeCapabilityError } from './team-openab-runtime'
@@ -157,8 +158,14 @@ const NORMALIZE = {
   grok: normalizeGrokUsage,
 } as const
 
-export type RuntimeQuotaDeps = { probe: typeof probeRuntimeQuota }
-const defaultDeps: RuntimeQuotaDeps = { probe: probeRuntimeQuota }
+export type RuntimeQuotaDeps = {
+  probe: typeof probeRuntimeQuota
+  record?: (quota: RuntimeQuota) => Promise<void>
+}
+const defaultDeps: RuntimeQuotaDeps = {
+  probe: probeRuntimeQuota,
+  record: recordRuntimeQuotaSample,
+}
 
 type Held = { quota: RuntimeQuota; holdMs: number }
 
@@ -198,6 +205,14 @@ async function fetchUncached(
     fetchedAt,
   )
 
+  // The history is a by-product of this read; losing a row must not cost the answer.
+  void deps.record?.(quota).catch((error: unknown) => {
+    logError('agent.runtime_quota.record_failed', error, {
+      team_id: teamId,
+      runtime_id: instance.id,
+    })
+  })
+
   return {
     quota: reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota,
     holdMs: PROVIDER_HOLD_MS,
@@ -229,11 +244,15 @@ function localQuota(instance: RuntimeInstance): RuntimeQuota {
 
 const cache = new Map<string, { expires: number; result: Promise<RuntimeQuota> }>()
 
+/** `signIn` names the agent's latest completed sign-in. A new one changes what the
+ *  agent can read, so it starts a fresh entry on every replica instead of serving a
+ *  "Sign in required" held from before it. */
 export function fetchRuntimeQuota(
   teamId: string,
   instance: RuntimeInstance,
   now: () => number = Date.now,
   deps: RuntimeQuotaDeps = defaultDeps,
+  signIn = '',
 ): Promise<RuntimeQuota> {
   // Answered from the instance alone, so there is nothing to ask and nothing to
   // hold: an agent re-enabled a moment ago must not read as disabled for the
@@ -250,7 +269,7 @@ export function fetchRuntimeQuota(
   if (instance.kind === 'local') return Promise.resolve(localQuota(instance))
   if (instance.status === 'disabled')
     return Promise.resolve(unavailable(instance, new Date().toISOString(), 'Agent is disabled'))
-  const key = `${teamId}:${instance.id}`
+  const key = `${teamId}:${instance.id}:${signIn}`
   const previous = cache.get(key)
 
   if (previous && previous.expires > now()) return previous.result

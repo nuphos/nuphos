@@ -1,7 +1,7 @@
-import { track } from '../../../lib/analytics'
+import { track } from '../../../lib/analytics.ts'
 
-import { decideEndOfStream, emptyEndDecision } from './endEventDecision'
-import { runEndEventEffects } from './endEventEffects'
+import { decideEndOfStream, emptyEndDecision } from './endEventDecision.ts'
+import { runEndEventEffects } from './endEventEffects.ts'
 
 import type { PanelCtx } from './ctx'
 
@@ -80,6 +80,15 @@ export function runEndEvent(ctx: EndEventCtx, streamId: string) {
   let effectsApplied = false
   const applyEndEventEffects = () => {
     if (effectsApplied) return
+    // A commit does not prove the updater ran: React flushes the previous
+    // commit's passive effects (and so the drain) before rendering this
+    // update. Applying now would read an empty decision and drop the stop
+    // notification, so wait for the next drain.
+    if (!decision.updaterRan) {
+      pendingEndEffectsRef.current.push(applyEndEventEffects)
+
+      return
+    }
     effectsApplied = true
     runEndEventEffects(ctx, { streamId, sawTurnComplete, sawTurnPaused, streamOwner, decision })
   }

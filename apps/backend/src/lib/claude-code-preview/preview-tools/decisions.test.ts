@@ -15,7 +15,7 @@ const { decisionToolModule: createDecisionToolModule } = await import('./decisio
 
 const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>[0]) =>
   createDecisionToolModule({ runStreamId: async () => undefined, ...options })
-const { DECISION_SPECS, unansweredInstruction } = await import('./decision-specs')
+const { unansweredInstruction } = await import('./decision-specs')
 const { awaitDecisionOnce } = await import('./decision-wait')
 
 const ctx = { userId: 'u1', teamId: 't1', sessionId: 'conv-1', locale: 'zh-TW', localTools: true }
@@ -216,10 +216,6 @@ describe('decision tool module', () => {
     expect(instruction).toContain('End your turn')
     // The card stays live in the app; only the turn stops holding itself open.
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
-  })
-
-  test('a decision the model can still read keeps its kind-specific instruction', () => {
-    expect(DECISION_SPECS.propose_permission_grant).toBeUndefined()
   })
 })
 

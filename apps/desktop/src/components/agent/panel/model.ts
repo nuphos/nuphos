@@ -89,6 +89,8 @@ export type AgentSetupRequiredInfo = {
 export type Tab = {
   /** Invites, removals and runtime moves, refreshed with every detail read. */
   timelineEvents?: import('../../../api/agent-types').AgentTimelineEvent[]
+  /** The runtime's guess at the next prompt; Tab accepts it. */
+  promptSuggestion?: string | null
   /** When this tab loaded the session; timeline events after it animate in. */
   openedAt?: number
   /** Label of the agent this session is being moved to, until the move lands. */
@@ -139,6 +141,8 @@ export type Tab = {
   auditForcedReadOnly?: boolean
   /** A teammate's conversation: owner-only endpoints answer 403, so never call them. */
   foreign?: boolean
+  /** A teammate's conversation this viewer may still move and re-credential. */
+  canManage?: boolean
   /** Every credential option that existed when this conversation's selection was last saved. */
   credentialOptionsSeen?: AgentCredentialSelection
   slackThread?: AgentSlackThread | null
@@ -148,7 +152,6 @@ export type Tab = {
   agentRuntime?: AgentProvider
   runtimeId?: string
   runtimeLabel?: string
-  initialModel?: { runtimeId: string; name: string }
   // Follow-up messages the user submitted while this tab was still streaming.
   // They are dispatched one at a time, in order, once the current turn ends
   // cleanly (no error). Optional so older persisted snapshots keep loading;
@@ -190,11 +193,12 @@ export function emitFirstRunConvo(phase: FirstRunConvoPhase) {
 }
 
 export const AUTO_SCROLL_BOTTOM_THRESHOLD = 48
-// Opening a conversation fetches only this many trailing messages; earlier
-// pages stream in as the user scrolls up (see loadEarlierMessages). Long
-// sessions used to ship the entire multi-MB transcript before first paint.
-export const CONVERSATION_TAIL_LIMIT = 100
-export const EARLIER_MESSAGES_PAGE_SIZE = 100
+// Opening a conversation fetches only this many trailing messages — about a
+// screenful of turns; earlier pages stream in as the user scrolls up (see
+// loadEarlierMessages). A turn can carry megabytes of tool output, so every
+// extra message here is paid for before first paint.
+export const CONVERSATION_TAIL_LIMIT = 30
+export const EARLIER_MESSAGES_PAGE_SIZE = 30
 // Distance from the top of the transcript (px) at which the next earlier page
 // starts loading.
 export const EARLIER_MESSAGES_SCROLL_THRESHOLD = 300

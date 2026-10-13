@@ -28,7 +28,9 @@ export {
   consumeConversationWorkLost,
   getConversationPreviewAttachment,
   markConversationWorkLost,
+  openConversationPromptSuggestion,
   setConversationPreviewAttachment,
+  setConversationPromptSuggestion,
   stampConversationAgentRuntime,
   stampConversationRuntimeInstance,
 } from './db/conversations-runtime'
@@ -41,11 +43,12 @@ export {
 } from './db/events'
 export {
   deleteConversation,
-  ensureBraintrustParent,
+  ensureConversationTraceParent,
   getCompactionSummary,
   updateCompactionSummary,
   updateConversationTitle,
   renameConversation,
+  setConversationParent,
 } from './db/maintenance'
 export {
   bumpConversationActivity,
@@ -54,8 +57,11 @@ export {
   markConversationRead,
 } from './db/read-state'
 export { agentConversations, agentEvents, agentMessages } from './db/shared'
-export { appendAutonomousConversationTurn } from './db/transcript-autonomous'
-export { getConversationTranscriptForAgent } from './db/transcript-read'
+export {
+  appendAutonomousConversationTurn,
+  appendConversationMessages,
+} from './db/transcript-autonomous'
+export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
 export {
   getConversationMessagesHead,
   getConversations,

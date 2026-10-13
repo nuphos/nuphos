@@ -85,7 +85,7 @@ export function useAuthorizationFlows(acc: Acc) {
     [activeTab, teamId, sendInActive],
   )
   const decideAuthorization = useCallback(
-    (toolCallId: string, decision: AuthorizationDecisionAction, ruleDescription?: string) =>
+    (toolCallId: string, decision: AuthorizationDecisionAction) =>
       runDecideAuthorization(
         {
           tabsRef,
@@ -99,7 +99,6 @@ export function useAuthorizationFlows(acc: Acc) {
         },
         toolCallId,
         decision,
-        ruleDescription,
       ),
     [
       tabsRef,

@@ -5,11 +5,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import {
-  cleanSessionTitle,
-  isConversationPrompt,
-  textFromMessageContent,
-} from './local-sessions.ts'
+import { cleanSessionTitle, conversationPrompt, textFromMessageContent } from './local-sessions.ts'
 
 import type { LocalSessionSource } from './local-sessions.ts'
 
@@ -142,8 +138,10 @@ export async function readLocalSessionTranscript(
     if (!turn) continue
     // Harness preambles (AGENTS.md, environment context, memory summaries) are
     // re-supplied by the runtime this conversation moves to.
-    if (turn.role === 'user' && !isConversationPrompt(turn.text)) continue
-    appendTurn(turns, { role: turn.role, text: turn.text.trim() })
+    const text = turn.role === 'user' ? conversationPrompt(turn.text) : turn.text.trim()
+
+    if (!text) continue
+    appendTurn(turns, { role: turn.role, text })
   }
 
   const { kept, dropped } = withinBudget(turns)

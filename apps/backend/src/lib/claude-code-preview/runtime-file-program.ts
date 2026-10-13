@@ -17,17 +17,13 @@ try {
         process.stdin.on('end', () => resolve(text));
         process.stdin.on('error', reject);
       }));
-  if (!/^[A-Za-z0-9_-]{1,200}$/.test(input.sessionId) || typeof input.path !== 'string' || input.path.length > 4096 || input.path.includes('\0')) throw Error('invalid_path');
+  if (typeof input.path !== 'string' || input.path.length > 4096 || input.path.includes('\0')) throw Error('invalid_path');
   const workspace = input.workspace;
   if (typeof workspace !== 'string' || !path.isAbsolute(workspace)) throw Error('invalid_path');
   if ((await fs.lstat(workspace)).isSymbolicLink()) throw Error('forbidden_path');
-  const workspaceRoot = await fs.realpath(workspace);
-  // Desktop supplies its account-owned workspace; managed runtimes share a volume.
-  const conversationRoot = input.workspaceScope === 'local-user'
-    ? workspaceRoot : path.join(workspaceRoot, 'conv-' + input.sessionId);
-  if ((await fs.lstat(conversationRoot)).isSymbolicLink()) throw Error('forbidden_path');
-  const root = await fs.realpath(conversationRoot);
-  if (root !== conversationRoot) throw Error('forbidden_path');
+  // The agent runs in this workspace (openab ignores a per-conversation cwd),
+  // so its paths are read here as-is.
+  const root = await fs.realpath(workspace);
   // Accept both the adapter's virtual /workspace path and the real local path.
   const virtual = '/workspace';
   const requested = input.path === virtual ? root : input.path.startsWith(virtual + '/') ? path.join(root, input.path.slice(virtual.length + 1)) : path.resolve(root, input.path);

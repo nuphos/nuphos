@@ -1,4 +1,5 @@
 import os from 'node:os'
+import { basename } from 'node:path'
 
 import { spawn } from 'node-pty'
 
@@ -15,7 +16,25 @@ type TerminalSession = {
   /** Output so far, so a view that remounted can replay what it missed. */
   events: LocalTerminalEvent[]
   bufferedBytes: number
+  /** A view already replayed this output, so its terminal queries were answered. */
+  replayed: boolean
   exited: boolean
+  agentScope?: string
+}
+
+export function isIdleShell(name: string, shell: string): boolean {
+  const processName = basename(name)
+    .replace(/^-/, '')
+    .replace(/\.exe$/i, '')
+    .toLowerCase()
+
+  return (
+    processName ===
+      basename(shell)
+        .replace(/\.exe$/i, '')
+        .toLowerCase() ||
+    ['sh', 'bash', 'zsh', 'fish', 'dash', 'powershell', 'pwsh', 'cmd'].includes(processName)
+  )
 }
 
 export function terminalSize(value: number, fallback: number): number {
@@ -27,17 +46,20 @@ export class LocalTerminalSessions {
   private sessions = new Map<string, TerminalSession>()
   private owners = new WeakSet<WebContents>()
 
-  has(owner: WebContents, id: string): boolean {
-    return this.sessions.get(id)?.owner === owner
-  }
-
   /**
    * Opens the shell for `id` — the dock tab that owns it — or returns the one
    * already running under that id. Idempotent on purpose: the view is unmounted
    * and remounted whenever its session leaves and re-enters the main pane, and
    * re-mounting must find the same shell rather than spawn another.
    */
-  start(owner: WebContents, id: string, cols: number, rows: number): { id: string; shell: string } {
+  start(
+    owner: WebContents,
+    id: string,
+    cols: number,
+    rows: number,
+    cwd = os.homedir(),
+    agentScope?: string,
+  ): { id: string; shell: string } {
     if (typeof id !== 'string' || !id || id.length > 200) {
       throw new Error('Invalid terminal id.')
     }
@@ -58,7 +80,7 @@ export class LocalTerminalSessions {
       name: 'xterm-256color',
       cols: terminalSize(cols, 80),
       rows: terminalSize(rows, 24),
-      cwd: os.homedir(),
+      cwd,
       env: { ...env, TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'Nuphos' },
     })
     const session: TerminalSession = {
@@ -67,7 +89,9 @@ export class LocalTerminalSessions {
       shell,
       events: [],
       bufferedBytes: 0,
+      replayed: false,
       exited: false,
+      agentScope,
     }
 
     this.sessions.set(id, session)
@@ -108,8 +132,30 @@ export class LocalTerminalSessions {
     return session
   }
 
+  /** Query live PTYs, including ones whose dock view is currently unmounted. */
+  processes(owner: WebContents): { id: string; name: string }[] {
+    const result: { id: string; name: string }[] = []
+
+    for (const [id, session] of this.sessions) {
+      if (session.owner !== owner || session.exited) continue
+      // node-pty reports no name while the foreground process is changing.
+      const name = (session.pty.process as string | undefined)?.trim()
+
+      if (!name || isIdleShell(name, session.shell)) continue
+      result.push({ id, name: name.slice(0, 120) })
+    }
+
+    return result
+  }
+
   replay(owner: WebContents, id: string): void {
-    for (const event of this.owned(owner, id).events.slice()) {
+    const session = this.owned(owner, id)
+    const end = { id, type: 'replayed', resumed: session.replayed } as const
+
+    session.replayed = true
+    // The end marker shares the event channel so it arrives after the replayed
+    // data; the invoke's own reply can overtake them.
+    for (const event of [...session.events, end]) {
       if (!owner.isDestroyed()) owner.send('local-terminal:event', event)
     }
   }
@@ -120,6 +166,31 @@ export class LocalTerminalSessions {
     if (typeof data !== 'string' || data.length > 1024 * 1024)
       throw new Error('Invalid terminal input.')
     if (!session.exited) session.pty.write(data)
+  }
+
+  agentRequest(id: string, scope: string, data?: string) {
+    const session = this.sessions.get(id)
+
+    if (!session) throw new Error('Terminal is no longer available.')
+
+    if (session.agentScope !== scope) throw new Error('Terminal belongs to another conversation.')
+    if (data !== undefined) {
+      if (session.exited) throw new Error('Terminal has exited.')
+      if (data.length > 65536) throw new Error('Terminal input is too large.')
+      session.pty.write(data)
+    }
+
+    const output = session.events
+      .filter((e) => e.type === 'data')
+      .map((e) => e.data)
+      .join('')
+
+    return {
+      terminalId: id,
+      output: output.slice(-65536),
+      outputIsRecentSnapshot: true,
+      exited: session.exited,
+    }
   }
 
   resize(owner: WebContents, id: string, cols: number, rows: number): void {

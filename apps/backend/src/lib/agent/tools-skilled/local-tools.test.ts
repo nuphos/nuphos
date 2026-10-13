@@ -33,6 +33,7 @@ useAgentDeviceAudit({
 })
 
 const { createLocalExecTool } = await import('./local-tools')
+const { createLocalTerminalTool } = await import('./local-terminal')
 
 const turn = {
   userId: 'u1',
@@ -90,12 +91,14 @@ describe('createLocalExecTool execute', () => {
     expect(dispatchCalls).toEqual([])
   })
 
-  test('runs an unknown device id on the sole available device and says so', async () => {
+  test('never runs a requested device id on another device', async () => {
     const tool = createLocalExecTool([{ deviceId: 'd1', label: 'MacBook' }], turn) as ExecTool
-    const result = await tool.execute({ label: 'run', command: 'echo hi', device: 'default' }, {})
+    const result = await tool.execute({ label: 'run', command: 'echo hi', device: 'd2' }, {})
 
-    expect(result).toEqual({ stdout: 'ok', stderr: '', exitCode: 0, ranOn: 'd1 (MacBook)' })
-    expect(dispatchCalls).toEqual([{ userId: 'u1', deviceId: 'd1', command: 'echo hi' }])
+    expect(result).toEqual({
+      error: 'Device d2 is not available; pass device=<deviceId>, one of: d1 (MacBook).',
+    })
+    expect(dispatchCalls).toEqual([])
   })
 
   test('rejects an unknown device id among several and lists the current ones', async () => {
@@ -246,5 +249,44 @@ describe('createLocalExecTool audit', () => {
 
     expect(thrown).toBeInstanceOf(Error)
     expect(audits.map((a) => [a.outcome, a.reason])).toEqual([['error', 'dispatch_failed']])
+  })
+})
+
+describe('shared dock terminal authorization', () => {
+  test('binds requests to the server conversation and records an audit', async () => {
+    dispatchOutcome = {
+      status: 'ok',
+      result: { stdout: '{"terminalId":"tab-1"}', stderr: '', exitCode: 0 },
+    }
+    const tool = createLocalTerminalTool(twoDevices, turn) as ExecTool
+    const result = await tool.execute(
+      { label: 'open', action: 'open', device: 'd1', sessionId: 'forged' },
+      {},
+    )
+
+    expect(result).toEqual({ terminalId: 'tab-1' })
+    expect(JSON.parse(dispatchCalls[0]!.command)).toMatchObject({
+      sessionId: 's1',
+      teamId: 't1',
+      action: 'open',
+    })
+    expect(audits[0]).toMatchObject({ deviceId: 'd1', sessionId: 's1', outcome: 'ok' })
+  })
+
+  test('rejects another participant and an unavailable device without dispatch', async () => {
+    const other = createLocalTerminalTool(twoDevices, {
+      ...turn,
+      conversationOwnerUserId: 'u2',
+    }) as ExecTool
+
+    expect(await other.execute({ label: 'open', action: 'open', device: 'd1' }, {})).toHaveProperty(
+      'error',
+    )
+    const single = createLocalTerminalTool([twoDevices[0]!], turn) as ExecTool
+
+    expect(
+      await single.execute({ label: 'open', action: 'open', device: 'missing' }, {}),
+    ).toHaveProperty('error')
+    expect(dispatchCalls).toEqual([])
   })
 })

@@ -1,4 +1,5 @@
 import type { AgentProvider } from '../../src/types/runtime.ts'
+import type { SessionConfigPick } from '../../src/api/session-config-types.ts'
 import { captureMain } from '../analytics.ts'
 import { apiUrl } from '../api-endpoint.ts'
 
@@ -85,6 +86,7 @@ export type StartChatArgs = {
   permissionMode?: 'auto' | 'bypass'
   agentRuntime?: AgentProvider
   runtimeId?: string
+  initialSessionConfig?: SessionConfigPick
 }
 
 export type ChatStreamState = {
@@ -155,7 +157,7 @@ export function createChatStreamState(resumeFrom: number): ChatStreamState {
 }
 
 // Beacon a terminal client-side failure (auto-resume exhausted, etc.) to the
-// backend so the give-up is recorded server-side (stdout + OTel + Braintrust).
+// backend so the give-up is recorded server-side (stdout + OTel + MongoDB).
 // Best-effort and fire-and-forget — telemetry must never block the UI.
 export function reportFailure(streamId: string, payload: Record<string, unknown>): void {
   void (async () => {

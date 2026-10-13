@@ -338,3 +338,30 @@ test('a transport exception is reported generically, never echoed', async () => 
   expect(quota.available).toBe(false)
   expect(quota.reason).toBe('Usage lookup failed')
 })
+
+test('a completed sign-in is not answered with the "Sign in required" held before it', async () => {
+  let reading: RuntimeQuotaReading = { error: 'Sign in required', asked: true }
+  const { deps, calls } = probing(() => Promise.resolve(reading))
+
+  expect((await fetchRuntimeQuota('t', claude, frozen, deps, 'attempt-1')).reason).toBe(
+    'Sign in required',
+  )
+  reading = { usage: { five_hour: { utilization: 10, resets_at: null } } }
+  expect((await fetchRuntimeQuota('t', claude, frozen, deps, 'attempt-1')).available).toBe(false)
+  expect((await fetchRuntimeQuota('t', claude, frozen, deps, 'attempt-2')).available).toBe(true)
+  expect(calls()).toBe(2)
+})
+
+test('each answer the provider gives is recorded once, not once per poll', async () => {
+  const { deps } = probing({ usage: { five_hour: { utilization: 5, resets_at: null } } })
+  const recorded: string[] = []
+  const record = (quota: { runtimeId: string }) => {
+    recorded.push(quota.runtimeId)
+
+    return Promise.resolve()
+  }
+
+  await fetchRuntimeQuota('t', claude, frozen, { ...deps, record })
+  await fetchRuntimeQuota('t', claude, frozen, { ...deps, record })
+  expect(recorded).toEqual(['claude-1'])
+})

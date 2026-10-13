@@ -67,7 +67,17 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
     }),
   },
   { name: 'files', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.files') },
+  {
+    name: 'file',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.files', {
+      filter: '/workspace/src/報告 1.md',
+    }),
+  },
   { name: 'terminal', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.terminal') },
+  {
+    name: 'runtime terminal',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.terminal', { filter: 'runtime' }),
+  },
   { name: 'browser', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.browser') },
   { name: 'monitoring', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.monitoring') },
   { name: 'schedule', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.schedule') },

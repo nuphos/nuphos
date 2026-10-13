@@ -1,4 +1,8 @@
-import type { LocalTerminalEvent, TerminalTarget } from './local-terminal-types'
+import type {
+  DockTerminalRequest,
+  LocalTerminalEvent,
+  TerminalTarget,
+} from './local-terminal-types'
 import type { Plan } from './plan-types.ts'
 import type { K8sWatchEvent, K8sWatchKind, K8sWatchSubscribeResult } from './watch-types.ts'
 import type { PodExecEvent, SshTerminalEvent } from '../types/aws-compute.ts'
@@ -15,12 +19,15 @@ export type AppShortcutAction =
   | 'open-settings'
   | 'open-team-settings'
   | 'toggle-sidebar'
+  | 'toggle-dock-expanded'
   | 'shortcuts-help'
   | 'reopen-closed-tab'
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
 
 export type WindowShellApi = {
-  localTerminalDescribe(id: string): Promise<TerminalTarget | 'local' | null>
+  acceptDockTerminal(id: string): Promise<boolean>
+  onDockTerminalRequest(callback: (request: DockTerminalRequest) => void): () => void
+  localTerminalProcesses(): Promise<{ id: string; name: string }[]>
   localTerminalStart(
     id: string,
     cols: number,

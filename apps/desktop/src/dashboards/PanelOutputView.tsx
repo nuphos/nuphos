@@ -54,7 +54,15 @@ function cellText(v: string | number | null | undefined): string {
 // That is also what fixes the width: Table sizes each column to its own content
 // and scrolls the pane sideways when the total overflows, instead of squeezing
 // every column into the card and wrapping the text.
-function TableView({ output, storageKey }: { output: TableOutput; storageKey?: string }) {
+function TableView({
+  output,
+  storageKey,
+  fill,
+}: {
+  output: TableOutput
+  storageKey?: string
+  fill: boolean
+}) {
   const columns = useMemo<Column<TableRow>[]>(
     () =>
       output.columns.map((col) => ({
@@ -76,7 +84,7 @@ function TableView({ output, storageKey }: { output: TableOutput; storageKey?: s
   return (
     // Table's root is `flex-1 overflow-auto`, so it needs a bounded flex parent
     // to scroll against rather than growing the card to the row count.
-    <div className="flex max-h-72 flex-col">
+    <div className={fill ? 'flex h-full flex-col' : 'flex max-h-72 flex-col'}>
       <Table
         columns={columns}
         rows={rows}
@@ -91,9 +99,19 @@ function TableView({ output, storageKey }: { output: TableOutput; storageKey?: s
 /** Render one panel's validated output. Chart output is ChartPayload-shaped so
  *  it can share the chart plot without inheriting the Agent card chrome. */
 export const PanelOutputView = memo(
-  ({ output, storageKey }: { output: DashboardPanelOutput; storageKey?: string }) => {
+  ({
+    output,
+    storageKey,
+    fill = false,
+  }: {
+    output: DashboardPanelOutput
+    storageKey?: string
+    /** Fill the parent's height, as a resizable home card does. */
+    fill?: boolean
+  }) => {
     if (output.kind === 'scalar') return <ScalarView output={output} />
-    if (output.kind === 'table') return <TableView output={output} storageKey={storageKey} />
+    if (output.kind === 'table')
+      return <TableView output={output} storageKey={storageKey} fill={fill} />
     // chart
     const payload = tryParseChartPayload(output)
 
@@ -102,7 +120,7 @@ export const PanelOutputView = memo(
         <div className="p-3 text-[12px] text-tertiary">Chart output could not be rendered.</div>
       )
 
-    return <DashboardPanelChart payload={payload} />
+    return <DashboardPanelChart payload={payload} fill={fill} />
   },
 )
 

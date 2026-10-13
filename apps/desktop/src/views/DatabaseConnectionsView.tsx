@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { isDatabaseEngineReleased } from '../lib/databaseRelease'
 
 import { ConnectionAccessSection } from './database-connection/ConnectionAccessSection'
@@ -63,6 +64,7 @@ function DatabaseDetail({
   const [busy, setBusy] = useState(false)
   const [removeOpen, setRemoveOpen] = useState(false)
   const [removeName, setRemoveName] = useState('')
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const fetchConnection = useCallback(
     () =>
       api
@@ -141,12 +143,6 @@ function DatabaseDetail({
   }
   async function remove() {
     if (removeName !== connection?.name) return
-    if (
-      !confirm(
-        `Final confirmation: remove “${connection.name}” from Nuphos? This removes ${connection.providerOrigin ? 'the provider binding reference' : 'the encrypted credential'} and resource metadata, but does not delete or modify the database itself.`,
-      )
-    )
-      return
     setBusy(true)
     setError(null)
     try {
@@ -236,6 +232,15 @@ function DatabaseDetail({
           />
         )}
       </div>
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Remove database from Nuphos?"
+        description={`Remove “${connection.name}” and its ${connection.providerOrigin ? 'provider binding reference' : 'encrypted credential'} and resource metadata? This does not delete or modify the database itself.`}
+        confirmLabel="Remove from Nuphos"
+        destructive
+        onConfirm={remove}
+        onClose={() => setConfirmRemove(false)}
+      />
       <RemoveConnectionModal
         connection={connection}
         open={removeOpen}
@@ -246,7 +251,10 @@ function DatabaseDetail({
           setRemoveOpen(false)
           setRemoveName('')
         }}
-        onRemove={() => void remove()}
+        onRemove={() => {
+          setRemoveOpen(false)
+          setConfirmRemove(true)
+        }}
       />
     </div>
   )

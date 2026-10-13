@@ -1,18 +1,23 @@
-import { clsx } from 'clsx'
-import { ChevronRight, Plus, Search, Star } from 'lucide-react'
+import { Plus, Search, Server } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { api } from '../../api'
 import { PageMeta } from '../../app/pageMeta'
 import { useSidebarFavorites } from '../../components/sidebar/use-sidebar-favorites'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
-import { useBrowserHistory } from '../../hooks/useBrowserHistory'
-import { searchBrowserHistory } from '../../lib/browserHistory'
+import { useDockHistory } from '../../hooks/useDockHistory'
+import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { groupByConnectorCategory } from '../../lib/connectorCategories'
+import { frecency, searchDockHistory } from '../../lib/dockHistory'
+import { newTabOptionDomId, rankNewTabOptions } from '../../lib/launcherMatch'
 import { TEAM_WORKSPACE_NAV_ITEMS } from '../../lib/teamOverviewNav'
+import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 
-import { BrowserHistoryResults } from './BrowserHistoryResults'
+import { HistoryIcon, LauncherIcon, NewTabGroupSection, NewTabOptionRow } from './NewTabOptions'
 
 import type { Item, Section } from '../../components/sidebar/types'
+import type { DockHistoryEntry } from '../../lib/dockHistory'
+import type { NewTabOption } from '../../lib/launcherMatch'
 import type { ReactNode } from 'react'
 
 type Props = {
@@ -27,78 +32,11 @@ type Props = {
   onOpenKey: (key: string, favoriteLabel: string | null, newTab: boolean) => void
 }
 
-const WORKSPACE_ITEMS: Item[] = TEAM_WORKSPACE_NAV_ITEMS.map((item) => ({ ...item, enabled: true }))
+type OptionGroup = { title: string; favorites?: boolean; options: NewTabOption[] }
 
-function LauncherSection({
-  title,
-  items,
-  onOpen,
-}: {
-  title: string
-  items: Item[]
-  onOpen: (item: Item, newTab: boolean) => void
-}) {
-  return (
-    <section className="mb-8">
-      <h2 className="mb-2 px-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-tertiary">
-        {title}
-      </h2>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-x-3 gap-y-0.5">
-        {items.map((item) => (
-          <LauncherCard key={item.key} item={item} onOpen={onOpen} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function LauncherIcon({ item }: { item: Item }) {
-  const Icon = item.icon
-
-  return (
-    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-zGray-800/45 text-secondary ring-1 ring-inset ring-zGray-700/20 transition-colors group-hover:bg-zGray-800/75 group-hover:text-main">
-      {item.iconNode ?? (Icon ? <Icon className="h-[15px] w-[15px]" strokeWidth={1.7} /> : null)}
-    </span>
-  )
-}
-
-function LauncherCard({
-  item,
-  onOpen,
-  onRemoveFavorite,
-}: {
-  item: Item
-  onOpen: (item: Item, newTab: boolean) => void
-  onRemoveFavorite?: (item: Item) => void
-}) {
-  return (
-    <div className="group flex min-w-0 items-center rounded-lg transition-colors hover:bg-zGray-800/45">
-      <button
-        type="button"
-        disabled={!item.enabled}
-        onClick={(event) => onOpen(item, event.metaKey || event.ctrlKey)}
-        className="flex min-w-0 flex-1 items-center gap-3 px-2.5 py-2 text-left outline-none disabled:opacity-45 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-zViolet-accent/45"
-      >
-        <LauncherIcon item={item} />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">
-          {item.label}
-        </span>
-        <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 translate-x-[-2px] text-tertiary opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-      </button>
-      {onRemoveFavorite && (
-        <button
-          type="button"
-          onClick={() => onRemoveFavorite(item)}
-          className="mr-1.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-warning/80 opacity-0 transition-all hover:bg-zGray-700/45 hover:text-warning group-hover:opacity-100 focus:opacity-100"
-          title={`Remove ${item.label} from Favorites`}
-          aria-label={`Remove ${item.label} from Favorites`}
-        >
-          <Star className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.7} />
-        </button>
-      )}
-    </div>
-  )
-}
+const RECENT_LIMIT = 6
+const sameTitle = (a: NewTabOption, b: NewTabOption) =>
+  a.label.toLocaleLowerCase() === b.label.toLocaleLowerCase()
 
 export function WorkspaceNewTabPage({
   focusSearch,
@@ -112,10 +50,12 @@ export function WorkspaceNewTabPage({
   onOpenKey,
 }: Props) {
   const [query, setQuery] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  // Frecency decays over days, so the time this New Tab opened is precise enough.
+  const [now] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
-  const firstHistoryResultRef = useRef<HTMLButtonElement>(null)
-  const history = useBrowserHistory(userId, teamId)
-  const historyResults = useMemo(() => searchBrowserHistory(history, query), [history, query])
+  const { conversationId } = useWorkspaceTab()
+  const history = useDockHistory(userId, teamId)
 
   useEffect(() => {
     if (!focusSearch) return
@@ -127,11 +67,6 @@ export function WorkspaceNewTabPage({
     return () => window.cancelAnimationFrame(frame)
   }, [focusSearch])
 
-  const openHistory = (url: string, title: string, newTab: boolean) => {
-    const params = new URLSearchParams({ url })
-
-    onOpenPath?.(`/teams/${encodeURIComponent(teamId)}/browser?${params}`, title, newTab)
-  }
   const liveSections = useMemo<Section[]>(
     () =>
       groupByConnectorCategory(rootIntegrations).map(({ category, items }) => ({
@@ -150,27 +85,97 @@ export function WorkspaceNewTabPage({
     onOpenPath,
     onOpenKey,
   })
-  const normalizedQuery = query.trim().toLocaleLowerCase()
-  const filterItems = (items: Item[]) =>
-    normalizedQuery
-      ? items.filter((item) => item.label.toLocaleLowerCase().includes(normalizedQuery))
-      : items
-  const visibleFavorites = filterItems(favoriteItems)
-  const visibleWorkspaceItems = filterItems(WORKSPACE_ITEMS)
-  const visibleSections = liveSections
-    .map((section) => ({ ...section, items: filterItems(section.items) }))
-    .filter((section) => section.items.length > 0)
-  const hasResults =
-    historyResults.length > 0 ||
-    visibleFavorites.length > 0 ||
-    visibleWorkspaceItems.length > 0 ||
-    visibleSections.length > 0
-  const noConnectors = !normalizedQuery && liveSections.length === 0
-  const openItem = (item: Item, newTab: boolean) => {
-    if (!item.enabled) return
-    if (item.onActivate) item.onActivate(newTab)
-    else onOpenKey(item.key, null, newTab)
-  }
+  // Terminal is two destinations here, so picking one opens the shell directly
+  // instead of landing on a chooser.
+  const workspaceItems = TEAM_WORKSPACE_NAV_ITEMS.flatMap((item): Item[] =>
+    item.key === 'team.terminal'
+      ? [
+          { ...item, label: 'Local terminal', enabled: true },
+          {
+            ...item,
+            key: 'team.terminal.runtime',
+            label: 'Runtime terminal',
+            icon: Server,
+            enabled: Boolean(conversationId && onOpenPath),
+            onActivate: (newTab) =>
+              onOpenPath?.(
+                `/teams/${encodeURIComponent(teamId)}/terminal/${RUNTIME_TERMINAL_FILTER}`,
+                'Runtime terminal',
+                newTab,
+              ),
+          },
+        ]
+      : [{ ...item, enabled: true }],
+  )
+  const itemOption = (item: Item): NewTabOption => ({
+    id: item.key,
+    label: item.label,
+    icon: <LauncherIcon item={item} />,
+    item,
+    open: (newTab) =>
+      item.onActivate ? item.onActivate(newTab) : onOpenKey(item.key, null, newTab),
+  })
+  const itemOptions = (items: Item[]) => items.filter((item) => item.enabled).map(itemOption)
+  // Every page this dock has shown, most frecent first. A page that is also a
+  // launcher entry (same title) lends that entry its frecency instead.
+  const historyOption = (entry: DockHistoryEntry): NewTabOption => ({
+    id: `history:${entry.href}`,
+    label: entry.title,
+    detail: new URLSearchParams(entry.href.split('?')[1]).get('url') ?? 'Recent',
+    icon: <HistoryIcon />,
+    fallbackMatch: true,
+    frecency: frecency(entry, now),
+    open: (newTab) => onOpenPath?.(entry.href, entry.title, newTab),
+  })
+  const recent = searchDockHistory(history, '', now).map(historyOption)
+  const groups: OptionGroup[] = [
+    { title: 'Recent', options: recent.slice(0, RECENT_LIMIT) },
+    { title: 'Favorites', favorites: true, options: itemOptions(favoriteItems) },
+    { title: 'Workspace', options: itemOptions(workspaceItems) },
+    ...liveSections.map((section) => ({
+      title: section.title ?? '',
+      options: itemOptions(section.items),
+    })),
+  ]
+  const searching = query.trim() !== ''
+  const launcherOptions = groups
+    .slice(1)
+    .flatMap((group) => group.options.map((option) => ({ ...option, detail: group.title })))
+  // While typing, every group collapses into one list ranked by match, then
+  // frecency. With an empty query the grouped launcher stays, Recent first.
+  const options: NewTabOption[] = searching
+    ? rankNewTabOptions(
+        [
+          ...launcherOptions.map((option) => ({
+            ...option,
+            frecency: recent.find((entry) => sameTitle(entry, option))?.frecency,
+          })),
+          ...searchDockHistory(history, query, now)
+            .map(historyOption)
+            .filter((entry) => !launcherOptions.some((option) => sameTitle(entry, option))),
+        ],
+        query,
+      )
+    : groups.flatMap((group) => group.options)
+  const active = Math.min(activeIndex, options.length - 1)
+  const visibleGroups = groups.filter((group) => group.options.length > 0)
+  const noConnectors = !searching && liveSections.length === 0
+
+  useEffect(() => {
+    document.getElementById(newTabOptionDomId(active))?.scrollIntoView({ block: 'nearest' })
+  }, [active])
+
+  const renderRow = (option: NewTabOption, index: number, favorites?: boolean) => (
+    <NewTabOptionRow
+      key={option.id}
+      option={option}
+      index={index}
+      active={index === active}
+      onHover={setActiveIndex}
+      onRemoveFavorite={favorites ? toggleFavorite : undefined}
+    />
+  )
+  let groupStart = 0
 
   return (
     <PageMeta
@@ -178,110 +183,93 @@ export function WorkspaceNewTabPage({
       title="New Tab"
       icon={<Plus className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />}
     >
-      <div className="relative h-full overflow-y-auto scrollbar-thin">
-        <div className="pointer-events-none absolute left-1/2 top-0 h-48 w-80 -translate-x-1/2 rounded-full bg-zViolet-500/[0.045] blur-3xl" />
-        <div className="relative mx-auto w-full max-w-[780px] px-7 pb-14 pt-12">
-          <div className="mb-11 text-center">
-            <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl border border-zGray-800/65 bg-main/70 text-secondary shadow-[0_6px_18px_-8px_rgba(0,0,0,0.45)]">
-              <Plus className="h-4 w-4" strokeWidth={1.65} />
-            </span>
-            <h1 className="mt-4 text-[20px] font-semibold tracking-[-0.025em] text-main">
-              Open a workspace
-            </h1>
-            <p className="mt-1.5 text-[12.5px] text-tertiary">
-              Pick up where you left off or explore a connected service.
-            </p>
+      <div className="h-full overflow-y-auto scrollbar-thin">
+        <div className="mx-auto w-full max-w-[640px] px-5 pb-10 pt-6">
+          <div className="mb-5">
             <InputGroup
               render={<label />}
-              className="mx-auto mt-6 flex h-11 max-w-[560px] items-center gap-3 rounded-xl border border-zGray-800/70 bg-main/75 px-3.5 shadow-[0_8px_28px_-16px_rgba(0,0,0,0.5)] transition-all focus-within:bg-main focus-within:shadow-[0_10px_32px_-14px_rgba(0,0,0,0.55)]"
+              className="flex h-9 items-center gap-2.5 rounded-lg border border-zGray-800/70 bg-main/75 px-3 transition-colors focus-within:bg-main"
             >
-              <Search className="h-[15px] w-[15px] flex-shrink-0 text-tertiary" strokeWidth={1.7} />
+              <Search className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={1.7} />
               <InputGroupInput
                 ref={searchRef}
+                role="combobox"
+                aria-expanded={options.length > 0}
+                aria-controls="new-tab-options"
+                aria-activedescendant={options[active] ? newTabOptionDomId(active) : undefined}
                 aria-label="Search destinations and browsing history"
+                onFocus={() => void api.appSelectAsciiInputSource().catch(() => {})}
                 onKeyDown={(event) => {
-                  if (event.nativeEvent.isComposing || !historyResults[0]) return
-                  if (event.key === 'ArrowDown') {
+                  if (event.nativeEvent.isComposing) return
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                     event.preventDefault()
-                    firstHistoryResultRef.current?.focus()
-                  } else if (event.key === 'Enter') {
-                    event.preventDefault()
-                    const first = historyResults[0]
+                    const step = event.key === 'ArrowDown' ? 1 : -1
 
-                    openHistory(first.url, first.title, event.metaKey || event.ctrlKey)
+                    setActiveIndex(Math.max(0, Math.min(options.length - 1, active + step)))
+                  } else if (event.key === 'Enter' && options[active]) {
+                    event.preventDefault()
+                    options[active].open(event.metaKey || event.ctrlKey)
+                  } else if (event.key === 'Escape' && query) {
+                    event.preventDefault()
+                    setQuery('')
+                    setActiveIndex(0)
                   }
                 }}
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search destinations or browsing history"
-                className="text-[13px] text-main placeholder:text-tertiary"
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setActiveIndex(0)
+                }}
+                placeholder="Search destinations or history"
+                className="text-[12.5px] text-main placeholder:text-tertiary"
               />
             </InputGroup>
           </div>
 
-          <BrowserHistoryResults
-            entries={historyResults}
-            firstResultRef={firstHistoryResultRef}
-            onOpen={openHistory}
-          />
-
-          {visibleFavorites.length > 0 && (
-            <section className="mb-10">
-              <div className="mb-2.5 flex items-center gap-2 px-1">
-                <Star className="h-3 w-3 text-warning/80" fill="currentColor" strokeWidth={1.7} />
-                <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-tertiary">
-                  Favorites
-                </h2>
+          <div id="new-tab-options" role="listbox" aria-label="Destinations">
+            {searching ? (
+              <div className="space-y-0.5">
+                {options.map((option, index) => renderRow(option, index))}
               </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-x-3 gap-y-0.5 rounded-xl border border-zGray-800/55 bg-elevated/20 p-1.5 shadow-[0_4px_18px_-14px_rgba(0,0,0,0.45)]">
-                {visibleFavorites.map((item) => (
-                  <LauncherCard
-                    key={item.key}
-                    item={item}
-                    onOpen={openItem}
-                    onRemoveFavorite={toggleFavorite}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+            ) : (
+              visibleGroups.map((group) => {
+                const start = groupStart
 
-          {visibleWorkspaceItems.length > 0 && (
-            <LauncherSection title="Workspace" items={visibleWorkspaceItems} onOpen={openItem} />
-          )}
+                groupStart += group.options.length
 
-          {loading && rootIntegrations.length === 0 ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3">
+                return (
+                  <NewTabGroupSection
+                    key={group.title}
+                    title={group.title}
+                    favorites={group.favorites}
+                  >
+                    {group.options.map((option, offset) =>
+                      renderRow(option, start + offset, group.favorites),
+                    )}
+                  </NewTabGroupSection>
+                )
+              })
+            )}
+          </div>
+
+          {loading && rootIntegrations.length === 0 && (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-1">
               {Array.from({ length: 6 }, (_, index) => (
-                <div key={index} className="h-12 animate-pulse rounded-lg bg-zGray-800/25" />
+                <div key={index} className="h-9 animate-pulse rounded-md bg-zGray-800/25" />
               ))}
             </div>
-          ) : (
-            visibleSections.map((section) => (
-              <LauncherSection
-                key={section.title}
-                title={section.title ?? ''}
-                items={section.items}
-                onOpen={openItem}
-              />
-            ))
           )}
 
-          {!loading && (noConnectors || !hasResults) && (
-            <div
-              className={clsx(
-                'flex flex-col items-center rounded-xl border border-zGray-800/55 bg-elevated/20 px-6 py-10 text-center',
-                normalizedQuery && 'py-8',
-              )}
-            >
-              <p className="text-[13px] font-medium text-secondary">
-                {normalizedQuery ? 'No matching destinations' : 'No connected resources yet'}
+          {!loading && (noConnectors || options.length === 0) && (
+            <div className="flex flex-col items-center rounded-lg px-6 py-6 text-center">
+              <p className="text-[12.5px] text-tertiary">
+                {searching ? 'No matching destinations' : 'No connected resources yet'}
               </p>
-              {!normalizedQuery && (
+              {!searching && (
                 <button
                   type="button"
                   onClick={() => onOpenKey('team.integrations', null, false)}
-                  className="mt-4 rounded-lg bg-zGray-800 px-3 py-1.5 text-[12px] font-medium text-main transition-colors hover:bg-zGray-700"
+                  className="mt-3 rounded-md bg-zGray-800 px-2.5 py-1 text-[12px] font-medium text-main transition-colors hover:bg-zGray-700"
                 >
                   Add a connector
                 </button>

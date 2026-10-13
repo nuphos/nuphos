@@ -50,17 +50,9 @@ export function presetWindow(
   }
 }
 
-/** If the dashboard's range is a rolling preset, recompute its window to today
- *  and persist when it moved, then return the dashboard with the current window.
- *  Called before every refresh (scheduled or manual) so a preset dashboard
- *  advances instead of querying the window stored when the preset was chosen. A
- *  fixed custom range (no preset) is returned untouched.
- *
- *  The write is an optimistic compare-and-set matching the preset + window we
- *  computed from, so a concurrent preset / custom-range / granularity edit can't
- *  be half-overwritten (new rangePreset with a stale timeRange). On a lost race
- *  it reloads the authoritative document and retries against it; the returned
- *  dashboard is always the DB's current state, never a locally-spread stale one. */
+/** Advance a saved rolling default before refresh. Compare-and-set prevents
+ * concurrent preset, custom-range or granularity edits from being overwritten;
+ * reload and retry when another writer wins. */
 export async function advanceRelativeWindow(dashboard: NuphosDashboard): Promise<NuphosDashboard> {
   let current = dashboard
 
@@ -106,10 +98,6 @@ export async function advanceRelativeWindow(dashboard: NuphosDashboard): Promise
 
   return (await nuphosDashboards().findOne({ _id: current._id, teamId: current.teamId })) ?? current
 }
-
-// ---------------------------------------------------------------------------
-// Params resolution
-// ---------------------------------------------------------------------------
 
 /** Merge the dashboard's authoritative timeRange with the panel's staticParams
  *  into a canonical, JSON-safe object plus a stable hash. The time window ALWAYS
@@ -229,14 +217,36 @@ export async function resolvePanelSnapshots(
   return out
 }
 
-/** Resolve the newest successful output for each panel's current script,
- * independently of its current params. A failed refresh or range change is
- * execution state, not a replacement for the last known-good visualization;
- * an edited script must not inherit output produced by different code. */
+/** Older windows of the selected rolling preset that still overlap the view.
+ * Hash the complete params so changes to static params or granularity never
+ * inherit unrelated output. Month views never fall back across a month boundary.
+ * At most 30 hashes, all served by the existing panel/script/params index. */
+export function rollingSnapshotHashes(
+  dashboard: NuphosDashboard,
+  panel: DashboardPanel,
+  preset?: DashboardRangePreset,
+): string[] {
+  if (!preset || preset === 'prevMonth') return []
+  const { periodStart, periodEnd } = dashboard.timeRange
+  const hashes: string[] = []
+
+  for (let end = periodEnd.getTime() - DAY_MS; end >= periodStart.getTime(); end -= DAY_MS) {
+    const timeRange = { ...dashboard.timeRange, ...presetWindow(preset, new Date(end)) }
+
+    hashes.push(resolveParams({ ...dashboard, timeRange }, panel).paramsHash)
+  }
+
+  return hashes
+}
+
+/** Prefer an exact successful match. Rolling views may retain an earlier
+ * overlapping window of the same preset, script and non-date params. Explicit
+ * historical ranges stay exact; callers without a view retain legacy behavior. */
 export async function resolveLastSuccessfulPanelSnapshots(
   teamId: ObjectId,
   panels: DashboardPanel[],
   dashboard?: NuphosDashboard,
+  preset?: DashboardRangePreset,
 ): Promise<Map<string, DashboardPanelSnapshot>> {
   const out = new Map<string, DashboardPanelSnapshot>()
 
@@ -245,7 +255,7 @@ export async function resolveLastSuccessfulPanelSnapshots(
     panels.map(async (panel) => {
       try {
         const { codeHash } = headCode(panel)
-        const row = await dashboardPanelSnapshots()
+        let row = await dashboardPanelSnapshots()
           .find({
             teamId,
             panelId: panel._id,
@@ -258,6 +268,24 @@ export async function resolveLastSuccessfulPanelSnapshots(
           .limit(1)
           .next()
 
+        if (!row && dashboard) {
+          const hashes = rollingSnapshotHashes(dashboard, panel, preset)
+
+          if (hashes.length) {
+            row = await dashboardPanelSnapshots()
+              .find({
+                teamId,
+                panelId: panel._id,
+                codeHash,
+                paramsHash: { $in: hashes },
+                status: 'complete',
+                output: { $exists: true },
+              })
+              .sort({ 'params.periodEnd': -1, requestedAt: -1 })
+              .limit(1)
+              .next()
+          }
+        }
         if (row) out.set(panel._id.toHexString(), row)
       } catch {
         // Panel with no script version yet — nothing to preserve.

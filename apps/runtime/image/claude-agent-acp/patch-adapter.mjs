@@ -43,6 +43,28 @@ patched = patched
         }`,
     ),
   )
+// Claude Code predicts the next user prompt a few seconds after each turn ends.
+// The adapter drops it; forward it so the composer can offer it as ghost text.
+const suggestionCase =
+  '                    case "tool_use_summary":\n                    case "prompt_suggestion":\n                        break;'
+const optionsAnchor = '            settingSources: ["user", "project", "local"],\n'
+if (patched.split(suggestionCase).length !== 2 || patched.split(optionsAnchor).length !== 2)
+  throw new Error('Expected one Claude prompt suggestion handoff.')
+patched = patched
+  .replace(optionsAnchor, `${optionsAnchor}            promptSuggestions: true,\n`)
+  .replace(
+    suggestionCase,
+    `                    case "prompt_suggestion":
+                        void this.client.sessionUpdate({
+                            sessionId: params.sessionId,
+                            update: { sessionUpdate: "session_info_update", _meta: {
+                                "ai.nuphos/promptSuggestion": { suggestion: message.suggestion }
+                            }}
+                        }).catch((error) => this.logger.error("Could not publish prompt suggestion", error));
+                        break;
+                    case "tool_use_summary":
+                        break;`,
+  )
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
 writeFileSync(target, patchRuntimeDefaults(`${sessionHome}\n${helper}\n${patched}`))

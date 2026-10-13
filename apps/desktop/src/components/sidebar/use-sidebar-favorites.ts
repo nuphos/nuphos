@@ -8,7 +8,7 @@ import {
   subscribeSidebarFavorites,
   syncSidebarFavorites,
 } from '../../lib/sidebarFavorites'
-import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
+import { AGENT_SESSION_KEY_PREFIX, favoriteSessionId } from '../../lib/sidebarPinnedChats'
 import {
   renamedTeamNavKey,
   renamedTeamPagePath,
@@ -132,19 +132,33 @@ export function useSidebarFavorites({
       // and two instances would produce two identical rows. Qualify with the
       // scope, and take its logo as the row icon.
       const chip = scopeChipForPath?.(href) ?? null
-      const label = chip ? `${chip.label} · ${entry.label}` : entry.label
+      const liveLabel = live?.label ?? entry.label
+      const label = chip ? `${chip.label} · ${liveLabel}` : liveLabel
 
       return {
-        key: identity,
+        // A pinned chat keeps its chat row identity, so its threads nest and
+        // fold under it in Pinned exactly as they do in Chats.
+        key: sessionId ? `${AGENT_SESSION_KEY_PREFIX}${sessionId}` : identity,
+        href,
+        parentKey: live?.parentKey,
+        foldedStatus: live?.foldedStatus,
+        readOnlyChat: live?.readOnlyChat,
         label,
         icon:
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),
         iconNode: chip?.icon ?? live?.iconNode,
+        trailing: live?.trailing,
+        description: live?.description,
         enabled: true,
         active: sessionId
           ? sessionId === activeSessionId
           : currentHref != null && currentHref === href,
-        onActivate: onOpenPath ? (newTab) => onOpenPath(href, label, newTab) : undefined,
+        // A pinned chat opens like any chat row — in the main pane, not by
+        // retargeting the dock tab.
+        onActivate: sessionId
+          ? onOpenKey &&
+            ((newTab) => onOpenKey(`${AGENT_SESSION_KEY_PREFIX}${sessionId}`, label, newTab))
+          : onOpenPath && ((newTab) => onOpenPath(href, label, newTab)),
       }
     }
     const key = entry.key && renamedTeamNavKey(entry.key)
@@ -158,7 +172,7 @@ export function useSidebarFavorites({
     // No trailing archive control on favorite rows — a favorite is an explicit
     // pin, and archiving from here while the pin stays would look like a no-op.
     return live
-      ? { ...live, trailing: undefined, onActivate }
+      ? { ...live, actions: undefined, onActivate }
       : {
           onActivate,
           key: identity,

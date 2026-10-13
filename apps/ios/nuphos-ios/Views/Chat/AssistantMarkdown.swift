@@ -26,7 +26,7 @@ struct AssistantMarkdown: View {
     }
 
     var body: some View {
-        MarkdownTextRepresentable(text: rendered, theme: Self.theme, typeSize: typeSize, onLink: onLink)
+        MarkdownTextRepresentable(text: rendered, theme: Self.theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
             .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
@@ -51,6 +51,27 @@ struct AssistantMarkdown: View {
     }
 }
 
+/// The user's own words in the same label, as typed: no Markdown, every line
+/// break kept, only as wide as the text. SwiftUI `Text` takes seconds to lay
+/// out a long paste, and a transcript cell measures again whenever it is reused.
+struct PlainMessageText: View {
+    let text: String
+    var selectable = true
+
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: true, selectable: selectable, onLink: nil)
+    }
+
+    /// Every line break is a paragraph end to the label, so no paragraph gap.
+    static var theme: MarkdownTheme {
+        var theme = AssistantMarkdown.theme
+        theme.spacings.paragraph = 0
+        return theme
+    }
+}
+
 #if canImport(UIKit)
 private struct MarkdownTextRepresentable: UIViewRepresentable {
     let text: String
@@ -58,6 +79,9 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     /// The theme's fonts are resolved from this; it is stored so that a new
     /// text size reaches `updateUIView`.
     let typeSize: DynamicTypeSize
+    /// The text as typed, sized to fit it rather than the row.
+    let plain: Bool
+    let selectable: Bool
     let onLink: ((URL) -> Void)?
 
     func makeUIView(context: Context) -> MarkdownTextView {
@@ -92,6 +116,8 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
 
     func updateUIView(_ view: MarkdownTextView, context: Context) {
         context.coordinator.onLink = onLink
+        context.coordinator.plain = plain
+        view.textLabelView.isSelectable = selectable
         context.coordinator.setTextThrottled(text, theme: theme, on: view)
     }
 
@@ -110,6 +136,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
         static let throttleInterval: TimeInterval = 1 / 20
 
         var onLink: ((URL) -> Void)?
+        var plain = false
 
         private var lastText = ""
         private var lastTheme: MarkdownTheme = .default
@@ -171,7 +198,8 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             } else {
                 return nil
             }
-            return CGSize(width: fittingWidth, height: ceil(view.boundingSize(for: fittingWidth).height))
+            let size = view.boundingSize(for: fittingWidth)
+            return CGSize(width: plain ? min(fittingWidth, ceil(size.width)) : fittingWidth, height: ceil(size.height))
         }
 
         private func apply(text: String, theme: MarkdownTheme, to view: MarkdownTextView) {
@@ -189,7 +217,10 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
                 fade.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 1, 0.3, 1)
                 view.layer.add(fade, forKey: "streamFadeIn")
             }
-            view.setContentImmediately(MarkdownContent(markdown: text, theme: theme), theme: theme)
+            let content = plain
+                ? MarkdownContent(blocks: [.paragraph(content: [.text(text)])], rendered: [:], highlightMaps: [:])
+                : MarkdownContent(markdown: text, theme: theme)
+            view.setContentImmediately(content, theme: theme)
             view.invalidateIntrinsicContentSize()
             lastText = text
             lastTheme = theme
@@ -267,7 +298,11 @@ private struct MarkdownTextRepresentable: View {
     let text: String
     let theme: MarkdownTheme
     let typeSize: DynamicTypeSize
+    let plain: Bool
+    let selectable: Bool
     let onLink: ((URL) -> Void)?
-    var body: some View { MarkdownView(text, theme: theme) }
+    var body: some View {
+        if plain { Text(text) } else { MarkdownView(text, theme: theme) }
+    }
 }
 #endif

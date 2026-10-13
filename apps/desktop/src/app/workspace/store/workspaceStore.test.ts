@@ -12,6 +12,7 @@ import {
   selectActiveTab,
   selectBucket,
   selectCurrentBucket,
+  selectHistoryStep,
   selectScope,
 } from './workspaceState.ts'
 import { createWorkspaceStore } from './workspaceStore.ts'
@@ -278,7 +279,130 @@ test('a no-op action does not notify subscribers', () => {
     notified += 1
   })
   actions.setDockOpen(false)
-  actions.selectSession(null)
+  actions.selectSession(null, { keepMainPage: true })
   actions.updateActiveTab((tab) => tab)
   assert.equal(notified, 0)
+})
+
+test('each explicit New chat request resets home scroll without resetting its dock', () => {
+  const { store, actions } = setup()
+
+  actions.selectSession('chat-1')
+  actions.selectSession(null)
+  const first = store.getState()
+
+  actions.selectSession(null)
+  assert.equal(store.getState().newChatRequest, first.newChatRequest + 1)
+  assert.equal(selectCurrentBucket(store.getState()), selectCurrentBucket(first))
+
+  const request = store.getState().newChatRequest
+
+  actions.selectSession(null, { keepMainPage: true })
+  actions.openTab(createWorkspaceTab(TEAM_A))
+  assert.equal(store.getState().newChatRequest, request)
+  actions.selectSession('chat-1')
+  assert.equal(store.getState().newChatRequest, request)
+})
+
+test('Back and Forward return across a conversation switch, however it was made', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession('session-b')
+
+  assert.equal(selectHistoryStep(store.getState(), -1), 'surface')
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
+  assert.equal(selectHistoryStep(store.getState(), 1), 'surface')
+  actions.stepSurface(1)
+  assert.equal(store.getState().sessionId, 'session-b')
+  assert.equal(selectHistoryStep(store.getState(), 1), null)
+})
+
+test('a new conversation after Back drops the forward entries', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession('session-b')
+  actions.stepSurface(-1)
+  actions.selectSession('session-c')
+
+  assert.equal(selectHistoryStep(store.getState(), 1), null)
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
+})
+
+test('Back restores the read-only flag and team the conversation was opened with', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A, TEAM_B], TEAM_A)
+  actions.selectSession('audited', { readOnly: true })
+  actions.selectSession('session-b', { teamId: TEAM_B })
+  actions.stepSurface(-1)
+
+  assert.equal(store.getState().sessionReadOnly, true)
+  assert.deepEqual(selectScope(store.getState()), { kind: 'team', teamId: TEAM_A })
+})
+
+test('an open dock tab steps its own history before the conversation does', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession('session-b')
+  actions.openTeamTab(TEAM_A)
+  actions.setDockOpen(true)
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+
+  assert.equal(selectHistoryStep(store.getState(), -1), 'tab')
+  actions.setDockOpen(false)
+  assert.equal(selectHistoryStep(store.getState(), -1), 'surface')
+})
+
+test('Back from a chat started on New chat returns to where the user was before', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession(null)
+  actions.selectSession('session-new')
+
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
+  actions.stepSurface(1)
+  assert.equal(store.getState().sessionId, 'session-new')
+})
+
+test('a chat that could not be shown leaves Back and Forward', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession('gone')
+  actions.selectSession(null)
+  actions.stepSurface(-1)
+  actions.forgetSession('gone')
+
+  assert.equal(store.getState().sessionId, null)
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
+  assert.equal(selectHistoryStep(store.getState(), -1), null)
+  actions.stepSurface(1)
+  assert.equal(store.getState().sessionId, null)
+  assert.equal(selectHistoryStep(store.getState(), 1), null)
+})
+
+test('leaving a team drops its chats from Back and Forward', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A, TEAM_B], TEAM_A)
+  actions.selectSession('session-a')
+  actions.selectSession('session-b', { teamId: TEAM_B })
+  actions.selectSession('session-a2', { teamId: TEAM_A })
+  actions.removeTeam(TEAM_B)
+
+  actions.stepSurface(-1)
+  assert.equal(store.getState().sessionId, 'session-a')
 })

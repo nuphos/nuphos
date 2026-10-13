@@ -28,10 +28,7 @@ import {
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
-import {
-  conversationExecutionState,
-  steerConversationRuntime,
-} from '@/lib/claude-code-preview/session-execution-state'
+import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
@@ -130,10 +127,9 @@ agent.get('/conversations/:sessionId', async (c) => {
   const userId = c.get('userId')
   const sessionId = c.req.param('sessionId')
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  // Opt-in transcript truncation: `?tail=N` returns only the last N messages
-  // (plus `messagesFirstIndex` so the client can page backwards). Omitting it
-  // keeps the full-transcript response for existing consumers (fork, old
-  // clients).
+  // Opt-in transcript truncation: `?tail=N` returns only the last N messages, plus
+  // `messagesFirstIndex` so the client can page backwards. Omitting it keeps the
+  // full transcript for existing consumers (fork, old clients).
   const tailRaw = c.req.query('tail')
   const tail = tailRaw !== undefined ? Number.parseInt(tailRaw, 10) : undefined
 
@@ -145,11 +141,13 @@ agent.get('/conversations/:sessionId', async (c) => {
   if (!result) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  const runtimeState = await conversationExecutionState(result.conversation)
   const transportRun =
     getLocalActiveAgentRun(result.conversation.userId, sessionId) ??
     (await getActiveAgentRunForSession(result.conversation.userId, sessionId))
-  const activeRun = runtimeState.state === 'active' ? transportRun : null
+  // Opening a chat (`runtimeState=omit`) probes the runtime only to confirm a run.
+  const probe = transportRun || c.req.query('runtimeState') !== 'omit'
+  const runtimeState = probe ? await conversationExecutionState(result.conversation) : undefined
+  const activeRun = runtimeState?.state === 'active' ? transportRun : null
   const startedAtMs = activeRun?.startedAt ? Number(activeRun.startedAt) : NaN
   const viewer = c.get('user')
   const ownerById = await buildConversationOwnerMap(teamId, [
@@ -211,13 +209,12 @@ agent.get('/conversations/:sessionId', async (c) => {
     // invisible to the thread — a transient read-only view is the cheaper
     // failure.
     readOnly: slackThreadLookupFailed ? true : conversationForViewer.readOnly,
-    canCancelRun: conversationForViewer.isOwner || activeRun?.actorUserId === userId,
-    canRespondToRun: activeRun?.actorUserId === userId,
     slackThread,
     messages: result.messages.map(serializeMessageDoc),
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,
     timelineEvents: serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
     runtimeState,
+    promptSuggestion: result.conversation.claudeCodePreviewContext?.promptSuggestion || null,
     // Absolute index of messages[0] in the stored transcript. 0 unless a
     // `tail` cut off earlier messages; then it doubles as the "there are
     // earlier messages" signal and the `before` cursor for the messages route.
@@ -231,37 +228,6 @@ agent.get('/conversations/:sessionId', async (c) => {
         }
       : null,
   })
-})
-
-agent.post('/conversations/:sessionId/steer', async (c) => {
-  const userId = c.get('userId')
-  const sessionId = c.req.param('sessionId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  const conversation = await getReadableConversation(sessionId, userId, teamId)
-
-  if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  const body = await c.req.json<{ text?: unknown }>()
-  const text = typeof body.text === 'string' ? body.text.trim() : ''
-
-  if (!text) throw new AppError(400, 'invalid_request', 'text is required')
-  const runtime = await conversationExecutionState(conversation)
-
-  if (!runtime.actions?.steer)
-    throw new AppError(409, 'runtime_steering_unavailable', 'This agent cannot accept steering')
-  const active = await getActiveAgentRunForSession(conversation.userId, sessionId)
-
-  // This guard protects the actor's credential scope, not runtime activity.
-  if (!active?.actorUserId || active.actorUserId !== userId)
-    throw new AppError(
-      409,
-      'conversation_actor_unavailable',
-      'The running turn is not owned by your current credential context',
-    )
-  const messageId = crypto.randomUUID()
-
-  await steerConversationRuntime(conversation, text, messageId)
-
-  return c.json({ ok: true, messageId })
 })
 
 // Page backwards through transcript messages before the absolute `before`

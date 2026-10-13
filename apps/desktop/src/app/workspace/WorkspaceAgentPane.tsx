@@ -1,24 +1,22 @@
-import type { AgentProvider } from '../../types/runtime'
 import { clsx } from 'clsx'
-import { Check, Copy } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { connectedResourceLabels } from '../../app/accountScopes'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { EditableConversationTitle } from '../../components/agent/panel/ConversationTitleEditor'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
+import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { teamCanUseAgent } from '../../lib/agentAccess'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
-import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
-import { ConversationRail } from '../../views/ConversationRail'
 
+import { SessionFindBar } from './SessionFindBar'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
+import type { AgentProvider } from '../../types/runtime'
 
 export function WorkspaceAgentPane({
   ws,
@@ -55,6 +53,7 @@ export function WorkspaceAgentPane({
     workspaceActions,
     startFirstRunConnect,
     stableOpenNuphosLinkFromChat,
+    stableOpenSessionResource,
   } = ws
   const [heading, setHeading] = useState<{
     sessionId: string | null
@@ -63,9 +62,6 @@ export function WorkspaceAgentPane({
     runtime: AgentProvider | null
     runtimeId?: string
   }>({ sessionId: null, title: 'Agent', runtime: null })
-  const [conversationRailCollapsed, setConversationRailCollapsed] = useState(true)
-  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null)
-  const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const teamId = scope?.teamId
   const connectedResources = useMemo(
     () =>
@@ -89,13 +85,18 @@ export function WorkspaceAgentPane({
     runtimeUrlRef.current = activePageUrl
     runtimeKubeContextRef.current = activeKubeContext
   }, [activeKubeContext, activePageUrl])
-  useEffect(() => {
-    return () => {
-      if (copyResetRef.current) clearTimeout(copyResetRef.current)
-    }
-  }, [])
   const handleSessionChange = useCallback(
-    (sessionId: string | null) => workspaceActions.selectSession(sessionId, { keepMainPage: true }),
+    (sessionId: string | null, unshown?: string) => {
+      if (unshown) workspaceActions.forgetSession(unshown)
+      else workspaceActions.selectSession(sessionId, { keepMainPage: true })
+    },
+    [workspaceActions],
+  )
+  const openDockTab = useCallback(
+    (tabId: string) => {
+      workspaceActions.activateTab(tabId)
+      workspaceActions.setDockOpen(true)
+    },
     [workspaceActions],
   )
   const handleOpenAgentSettings = useCallback(
@@ -126,26 +127,40 @@ export function WorkspaceAgentPane({
     },
     [],
   )
-  const copySessionUrl = useCallback(async () => {
-    if (!teamId || !selectedSessionId) return
-    const location = pageLocationForNavigation(
-      emptyNavigation({ kind: 'team', teamId }, 'team.agent', {
-        agentSessionId: selectedSessionId,
-      }),
-    )
 
-    try {
-      await navigator.clipboard.writeText(toAbsoluteAtlasUrl(location.href))
-      setCopiedSessionId(selectedSessionId)
-      if (copyResetRef.current) clearTimeout(copyResetRef.current)
-      copyResetRef.current = setTimeout(() => setCopiedSessionId(null), 1200)
-    } catch {
-      setCopiedSessionId(null)
+  // The dock covers this column instead of reflowing it: while expanded the
+  // content keeps the width it had and the shrinking column clips it, until
+  // the dock has finished its width transition back.
+  const contentRef = useRef<HTMLDivElement>(null)
+  const transcriptRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const content = contentRef.current
+
+    if (!content) return
+    if (workspaceExpanded) {
+      content.style.minWidth = `${String(content.offsetWidth)}px`
+
+      return
     }
-  }, [selectedSessionId, teamId])
+    const release = (event: TransitionEvent) => {
+      const target = event.target
+
+      if (
+        event.propertyName === 'width' &&
+        target instanceof HTMLElement &&
+        target.dataset.workspaceFocusSurface === 'tab'
+      ) {
+        content.style.minWidth = ''
+      }
+    }
+
+    document.addEventListener('transitionend', release)
+
+    return () => document.removeEventListener('transitionend', release)
+  }, [workspaceExpanded])
 
   if (!teamId) return null
-  const copiedSessionUrl = copiedSessionId === selectedSessionId
   const currentHeading =
     heading.sessionId === selectedSessionId
       ? heading
@@ -154,106 +169,104 @@ export function WorkspaceAgentPane({
   return (
     <main
       data-workspace-focus-surface="session"
+      // An expanded dock shrinks this column to zero width rather than removing
+      // it, so the dock's width transition slides over it.
+      inert={workspaceExpanded}
       className={clsx(
-        'min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-agentCanvas',
-        workspaceExpanded ? 'hidden' : 'flex',
+        'relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden workspace-content-surface',
+        ws.mainPageOpen ? 'hidden' : 'flex',
       )}
     >
-      <div
-        className={clsx(
-          'workspace-agent-titlebar flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
-          // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
-          // sits over this header only while the dock is closed; once it is
-          // open the toggle rides the dock's own tab strip instead.
-          dockOpen ? 'pr-3' : 'pr-12',
-        )}
-      >
-        {/* Keep the native drag rectangle beside the copy action so hit testing
-            never relies on a no-drag hole inside its draggable ancestor. */}
-        <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary">
-          {currentHeading.runtime && (
-            <AgentProviderIcon
-              provider={currentHeading.runtime}
-              className="h-3.5 w-3.5 flex-shrink-0"
-            />
+      <div ref={contentRef} className="flex min-h-0 w-full flex-1 flex-col">
+        <div
+          className={clsx(
+            'workspace-agent-titlebar flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
+            // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
+            // sits over this header only while the dock is closed; once it is
+            // open the toggle rides the dock's own tab strip instead.
+            dockOpen ? 'pr-3' : 'pr-12',
           )}
-          <EditableConversationTitle
-            key={selectedSessionId ?? 'home'}
-            sessionId={selectedSessionId}
-            teamId={teamId}
-            title={currentHeading.title}
-            canRename={currentHeading.canRename === true}
-          />
-        </div>
-        {selectedSessionId && (
-          <>
+        >
+          {/* Keep the native drag rectangle beside the Share action so hit testing
+            never relies on a no-drag hole inside its draggable ancestor. */}
+          <div
+            key={`heading-${selectedSessionId ?? 'home'}`}
+            className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary"
+          >
+            {currentHeading.runtime && (
+              <AgentProviderIcon
+                provider={currentHeading.runtime}
+                className="h-3.5 w-3.5 flex-shrink-0"
+              />
+            )}
+            <EditableConversationTitle
+              key={`title-${selectedSessionId ?? 'home'}`}
+              sessionId={selectedSessionId}
+              teamId={teamId}
+              title={currentHeading.title}
+              canRename={currentHeading.canRename === true}
+            />
+            {selectedSessionId && (
+              <SessionTitlebarResources
+                key={`resources-${selectedSessionId}`}
+                sessionId={selectedSessionId}
+                teamId={teamId}
+                onOpen={stableOpenSessionResource}
+                onOpenTab={openDockTab}
+              />
+            )}
+          </div>
+          {selectedSessionId && (
             <SessionParticipants
               key={selectedSessionId}
               sessionId={selectedSessionId}
               teamId={teamId}
+              title={currentHeading.title}
               currentUserId={user.id}
+              canManage={currentHeading.canRename === true}
               warnLocalAgent={
                 currentHeading.canRename === true && isLocalAgentRuntime(currentHeading.runtimeId)
               }
-              onCopyLink={() => void copySessionUrl()}
-              copied={copiedSessionUrl}
             />
-            <button
-              type="button"
-              onClick={() => void copySessionUrl()}
-              className="titlebar-no-drag flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main"
-              title={copiedSessionUrl ? 'Copied' : 'Copy session URL'}
-              aria-label={copiedSessionUrl ? 'Copied session URL' : 'Copy session URL'}
-            >
-              {copiedSessionUrl ? (
-                <Check className="h-3.5 w-3.5 text-zViolet-accent" strokeWidth={2} />
-              ) : (
-                <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-              )}
-            </button>
-          </>
-        )}
-      </div>
-      <div className="flex min-h-0 min-w-0 flex-1">
-        <ConversationRail
-          collapsed={conversationRailCollapsed}
-          teamId={teamId}
-          currentUserId={user.id}
-          selectedSessionId={selectedSessionId}
-          onOpenConversation={(sessionId) => handleSessionChange(sessionId)}
-          onOpenConversationInNewTab={(sessionId) => handleSessionChange(sessionId)}
-          onExpand={() => setConversationRailCollapsed(false)}
-          onCollapse={() => setConversationRailCollapsed(true)}
+          )}
+        </div>
+        <SessionFindBar
+          key={selectedSessionId ?? 'home'}
+          rootRef={transcriptRef}
+          active={paneActive && !ws.mainPageOpen && !workspaceExpanded}
         />
-        <AgentPanel
-          key={`agent-main-${teamId}`}
-          variant="page"
-          open={!workspaceExpanded}
-          userName={user.name}
-          runtimeUrlRef={runtimeUrlRef}
-          teamId={teamId}
-          paid={teamCanUseAgent(currentTeam)}
-          isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
-          runtimeKubeContextRef={runtimeKubeContextRef}
-          unbound={unbound}
-          connectedResources={connectedResources}
-          onStartConnect={startFirstRunConnect}
-          autoFocusComposer={paneActive && !dockOpen}
-          sessionId={selectedSessionId}
-          sessionReadOnly={selectedSessionReadOnly}
-          onSessionChange={handleSessionChange}
-          onOpenNuphosLink={stableOpenNuphosLinkFromChat}
-          onOpenAgentSettings={handleOpenAgentSettings}
-          pendingImport={agentSidebarPendingImport}
-          onImportConsumed={handleImportConsumed}
-          pendingForkSessionId={agentSidebarPendingFork}
-          onForkConsumed={clearAgentSidebarPendingFork}
-          pendingLocate={auditChatLocate}
-          onLocateConsumed={handleLocateConsumed}
-          pendingPrompt={pendingChatPrompt}
-          onPromptConsumed={consumeChatPrompt}
-          onTitleChange={handleTitleChange}
-        />
+        <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
+          <AgentPanel
+            key={`agent-main-${teamId}`}
+            variant="page"
+            open={!workspaceExpanded}
+            userName={user.name}
+            runtimeUrlRef={runtimeUrlRef}
+            teamId={teamId}
+            paid={teamCanUseAgent(currentTeam)}
+            isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
+            runtimeKubeContextRef={runtimeKubeContextRef}
+            unbound={unbound}
+            connectedResources={connectedResources}
+            onStartConnect={startFirstRunConnect}
+            autoFocusComposer={paneActive && !dockOpen}
+            newChatRequest={ws.newChatRequest}
+            sessionId={selectedSessionId}
+            sessionReadOnly={selectedSessionReadOnly}
+            onSessionChange={handleSessionChange}
+            onOpenNuphosLink={stableOpenNuphosLinkFromChat}
+            onOpenAgentSettings={handleOpenAgentSettings}
+            pendingImport={agentSidebarPendingImport}
+            onImportConsumed={handleImportConsumed}
+            pendingForkSessionId={agentSidebarPendingFork}
+            onForkConsumed={clearAgentSidebarPendingFork}
+            pendingLocate={auditChatLocate}
+            onLocateConsumed={handleLocateConsumed}
+            pendingPrompt={pendingChatPrompt}
+            onPromptConsumed={consumeChatPrompt}
+            onTitleChange={handleTitleChange}
+          />
+        </div>
       </div>
     </main>
   )

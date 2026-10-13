@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
 
 import { captureMain, captureMainException } from '../analytics'
+import { showAppDialog } from '../app-dialog'
 
 import { isDev } from './env'
 import { configureStableUpdateChannel } from './updater-channel'
@@ -67,13 +68,13 @@ async function runInteractiveCheck(): Promise<InteractiveCheckOutcome> {
   }
 }
 
-/** The app-menu "Check for Updates…" path: one check, one native dialog. */
+/** The app-menu "Check for Updates…" path: one check, one Nuphos dialog. */
 export async function checkForUpdatesInteractive(): Promise<void> {
   const outcome = await runInteractiveCheck()
   const box = describeCheckOutcome(outcome)
 
-  await dialog.showMessageBox({
-    type: box.type,
+  await showAppDialog(BrowserWindow.getFocusedWindow(), {
+    title: 'Check for Updates',
     message: box.message,
     ...(box.detail ? { detail: box.detail } : {}),
   })

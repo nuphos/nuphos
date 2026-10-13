@@ -7,15 +7,18 @@ import { createLocalTunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { openLocalRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { errorHandler } from '@/lib/errors'
-import { createDeviceRuntimeRoutes } from '@/routes/agent/routes-device-runtime'
+import {
+  createDeviceRuntimeRoutes,
+  runtimeTunnelEvents,
+} from '@/routes/agent/routes-device-runtime'
 
 import type { AuthVariables } from '@/middleware/auth'
 import type { DeviceRuntimeRouteDependencies } from '@/routes/agent/routes-device-runtime'
 import type { Server } from 'bun'
+import type { WSContext } from 'hono/ws'
 
 const bus = createLocalTunnelBus()
 const presence = createMemoryPresenceStore()
-const savedDefaults = new Map<string, unknown>()
 let server: Server<unknown> | undefined
 
 afterEach(async () => {
@@ -43,9 +46,6 @@ function deps(
     listActivity: async () => ({ entries: [], nextCursor: null }),
     conversationTitlesFor: async () => new Map(),
     getTeamMembers: async () => [],
-    setLocalAgentDefaults: async (runtimeId, defaults) => {
-      savedDefaults.set(runtimeId, defaults)
-    },
     ...overrides,
   }
 }
@@ -82,6 +82,36 @@ function waitFor<T>(register: (resolve: (value: T) => void) => void): Promise<T>
 }
 
 describe('device runtime tunnel route', () => {
+  test('a failed presence claim handles queued message and close callbacks without rejecting', async () => {
+    let failClaim!: (error: Error) => void
+    const closed: unknown[][] = []
+    const events = runtimeTunnelEvents('owner', 'd1', {
+      ...deps().holder,
+      presence: {
+        ...presence,
+        claim: () =>
+          new Promise((_resolve, reject) => {
+            failClaim = reject
+          }),
+      },
+    })
+
+    events.onOpen(new Event('open'), {
+      send: () => {},
+      close: (...args: unknown[]) => {
+        closed.push(args)
+      },
+    } as unknown as WSContext)
+    events.onMessage(new MessageEvent('message', { data: JSON.stringify({ t: 'pong' }) }))
+    events.onClose()
+    await Bun.sleep(0)
+    failClaim(new Error('Device presence unavailable'))
+    // Bun fails this test on an unhandled child rejection, even when onOpen
+    // catches the original rejected initialization promise.
+    await Bun.sleep(10)
+    expect(closed).toEqual([[1011, 'Could not open the runtime tunnel']])
+  })
+
   test('the owner computer holds a tunnel that carries a stream end to end', async () => {
     const host = serve('owner')
     const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`)
@@ -190,35 +220,5 @@ describe('device runtime tunnel route', () => {
     )
 
     expect(intruder.status).toBe(404)
-  })
-})
-
-describe('local agent defaults', () => {
-  const own = 'local_owner_d1_codex'
-
-  async function put(userId: string, runtimeId: string) {
-    const host = serve(userId)
-
-    return fetch(`http://${host}/agent/local-agents/${runtimeId}/defaults`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-5' }),
-    })
-  }
-
-  test('the owner sets the model for their own local agent', async () => {
-    savedDefaults.clear()
-    const res = await put('owner', own)
-
-    expect(res.status).toBe(200)
-    expect(savedDefaults.get(own)).toEqual({ model: 'gpt-5' })
-  })
-
-  test('nobody else can set defaults for it', async () => {
-    savedDefaults.clear()
-    const res = await put('teammate', own)
-
-    expect(res.status).toBe(404)
-    expect(savedDefaults.size).toBe(0)
   })
 })

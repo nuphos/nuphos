@@ -26,6 +26,7 @@ type AppShortcut =
   | 'open-settings'
   | 'open-team-settings'
   | 'toggle-sidebar'
+  | 'toggle-dock-expanded'
   | 'shortcuts-help'
   | 'reopen-closed-tab'
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
@@ -257,6 +258,8 @@ export function createWindow(): BrowserWindow {
       sendShortcut('open-settings')
     } else if (!input.shift && key === 'b') {
       sendShortcut('toggle-sidebar')
+    } else if (input.shift && key === 'enter') {
+      sendShortcut('toggle-dock-expanded')
     } else if (!input.shift && (key === '/' || code === 'Slash')) {
       sendShortcut('shortcuts-help')
     } else if (input.shift && key === 't') {

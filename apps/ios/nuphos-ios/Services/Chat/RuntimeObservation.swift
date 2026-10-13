@@ -51,6 +51,16 @@ enum ConversationIndicator: Equatable {
         else if observation?.backgroundRunning(at: now) == true { self = .background }
         else { self = unread ? .unread : .none }
     }
+
+    /// Which state wins when one row shows several (a folded thread parent).
+    var urgency: Int {
+        switch self {
+        case .turn: 3
+        case .background: 2
+        case .unread: 1
+        case .none: 0
+        }
+    }
 }
 
 /// Shared read-only observations for the chat and conversation list.

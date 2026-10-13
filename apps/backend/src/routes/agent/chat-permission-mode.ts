@@ -1,16 +1,26 @@
 import type { AgentChatBody } from './types'
 import type { AgentConversation } from '@/lib/agent/db'
 
+/** The turn that starts a conversation, including a row transcript sync created first. */
+export function isFirstTurn(
+  body: Pick<AgentChatBody, 'resume' | 'messages' | 'baseIndex'>,
+  conversation: Pick<AgentConversation, 'messageCount'> | null,
+): boolean {
+  return (
+    !body.resume &&
+    !body.baseIndex &&
+    body.messages.length === 1 &&
+    body.messages[0]?.role === 'user' &&
+    (!conversation || conversation.messageCount <= 1)
+  )
+}
+
 export function shouldInitializePermissionMode(
   body: Pick<AgentChatBody, 'resume' | 'permissionMode' | 'messages' | 'baseIndex'>,
   conversation: Pick<AgentConversation, 'messageCount'> | null,
 ): boolean {
   return (
-    !body.resume &&
     (body.permissionMode === 'auto' || body.permissionMode === 'bypass') &&
-    !body.baseIndex &&
-    body.messages.length === 1 &&
-    body.messages[0]?.role === 'user' &&
-    (!conversation || conversation.messageCount <= 1)
+    isFirstTurn(body, conversation)
   )
 }

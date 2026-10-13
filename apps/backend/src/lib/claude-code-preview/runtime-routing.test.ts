@@ -270,10 +270,10 @@ describe('a conversation left stamped with the retired runtime', () => {
   })
 })
 
-test('Grok Build and Antigravity get one shim-facing shape with the instructions and env', async () => {
+test('Agents behind the ACP shim get one shim-facing shape with the instructions and env', async () => {
   const { sessionMeta } = await import('./openab-acp-session')
 
-  for (const provider of ['grok', 'antigravity'] as const)
+  for (const provider of ['grok', 'antigravity', 'opencode'] as const)
     expect(
       sessionMeta('Nuphos context', { provider, env: { NUPHOS_TOKEN: 'actor-token' } }),
     ).toEqual({

@@ -4,6 +4,13 @@
 // routes-chat-post.ts so the route reads as request orchestration and stays
 // within the file-size budget.
 
+import { agentConversations } from '@/lib/agent/db'
+import { trackAgentProducer } from '@/lib/agent/producer-drain'
+import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
+import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
+import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
+
+import { isFirstTurn } from './chat-permission-mode'
 import { runClaudeCodePreviewChatTurn } from './chat-preview-turn'
 import { beginSlackBoundTurnDelivery } from './chat-slack-bound'
 import {
@@ -20,13 +27,11 @@ import { restoreArchivedSession } from './turn-unarchive'
 import type { SlackMirrorPayload } from './chat-slack-bound'
 import type { AgentRunFrameSink } from './run-registry'
 import type { AgentChatBody, AgentRun, InternalChatCtx } from './types'
-import type { SpanLike } from '@/lib/agent/braintrust'
 import type { AgentCredentialAccess } from '@/lib/agent/db'
+import type { SpanLike } from '@/lib/agent/tracing'
 import type { ConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
 import type { UIMessage } from 'ai'
-
-import { trackAgentProducer } from '@/lib/agent/producer-drain'
 
 export type SlackBoundTurn = {
   thread: SlackAgentThread
@@ -82,6 +87,7 @@ export function launchAcceptedChatTurn(args: {
       : Promise.resolve(null)
 
     let slackDelivery: Awaited<typeof slackDeliveryPromise> = null
+    let discordSink: Awaited<ReturnType<typeof mirrorAppTurnToDiscord>> = null
     let pumpError: unknown
 
     try {
@@ -116,10 +122,44 @@ export function launchAcceptedChatTurn(args: {
         })
 
       if (!teamId) throw new Error('An agent conversation is missing its Team scope.')
+      // Settings picked before the conversation existed: keep only what the
+      // runtime offers, so session creation never meets a value it refuses.
+      // Only the owner's first turn chooses them.
+      const { runtimeId } = chatRuntime
+      const initialPick =
+        body.initialSessionConfig &&
+        runtimeId &&
+        chatCtx.userId === run.userId &&
+        isFirstTurn(body, null)
+          ? offeredSessionConfig(
+              (model) => runtimeModelCatalog(teamId, runtimeId, model, run.userId),
+              body.initialSessionConfig,
+            ).then(
+              ({ kept }) => kept,
+              () => {},
+            )
+          : undefined
+
       // The sink must be attached before frames flow; the claim release and
       // finalize in `finally` then close the Slack turn.
       slackDelivery = await slackDeliveryPromise
+      // A session bound to a Discord thread mirrors what is said in the app.
+      discordSink = await mirrorAppTurnToDiscord({
+        sessionId,
+        teamId,
+        ...(body.continueAfterInterruption
+          ? {}
+          : { message: messages.findLast((message) => message.role === 'user') }),
+      }).catch(() => null)
+      if (discordSink) attachFrameSink(run, discordSink.frameSink)
       await isNewConversationPromise
+      const kept = await initialPick
+
+      if (kept && Object.keys(kept).length)
+        await agentConversations().updateOne(
+          { sessionId, teamId, claudeCodePreview: { $exists: false } },
+          { $set: { initialSessionConfig: kept } },
+        )
       await runClaudeCodePreviewChatTurn({
         run,
         sessionId,
@@ -133,6 +173,7 @@ export function launchAcceptedChatTurn(args: {
         endpoint: chatRuntime.endpoint,
         onRunHandoff: (next) => {
           if (slackDelivery) attachFrameSink(next, slackDelivery.frameSink)
+          if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
         ...(body.continueAfterInterruption
@@ -173,6 +214,7 @@ export function launchAcceptedChatTurn(args: {
       // card/transcript tail would 409 the desktop's machine-speed
       // continuations (client-tool re-POSTs, stall auto-resume).
       args.releaseClaim?.()
+      await discordSink?.finish().catch(() => {})
       if (slackDelivery) {
         await slackDelivery
           .finalize({ stopped: run.abortController.signal.aborted, error: pumpError })

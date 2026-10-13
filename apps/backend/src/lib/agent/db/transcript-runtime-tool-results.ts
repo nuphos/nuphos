@@ -21,7 +21,6 @@ export function preserveRuntimeToolResults(incoming: unknown[], stored: unknown[
     return {
       ...value,
       state: result.state,
-      output: result.output,
       errorText: result.errorText,
       completedAt: result.completedAt,
       runtimeResult: true,
