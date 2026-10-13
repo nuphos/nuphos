@@ -357,9 +357,11 @@ test('Android-only badge changes are debounced and isolated to the configured pr
       expect(token).toBe('android')
       expect(user).toBe('user-1')
       badges.push(badge)
+
       return { status: 200, deadToken: false }
     },
   })
+
   n.badgeChanged('user-1')
   n.badgeChanged('user-1')
   expect(scheduled).toHaveLength(1)

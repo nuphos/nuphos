@@ -3,6 +3,7 @@ import { findProposedPlanNumberForConversation } from '@/lib/agent/plans'
 import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
+import { sendAndroidBadge } from './badge'
 import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
 import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
@@ -195,20 +196,10 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     if (devices.length === 0) return
     const badge = await deps.unreadCount(userId)
     const project = deps.fcmProject?.()
+
     if (project && deps.sendFcmBadge)
-      await Promise.all(
-        devices
-          .filter((device) => device.platform === 'android' && device.projectId === project)
-          .map(async (device) => {
-            try {
-              const response = await deps.sendFcmBadge!(project, device.token, userId, badge)
-              if (response.deadToken) await deps.devices.removeToken(device.token)
-              else if (response.status !== 200)
-                logEvent('warn', 'push.fcm.rejected', { status: response.status })
-            } catch {
-              logEvent('warn', 'push.fcm.send_failed', { kind: 'badge' })
-            }
-          }),
+      await sendAndroidBadge(devices, project, userId, badge, deps.sendFcmBadge, (token) =>
+        deps.devices.removeToken(token),
       )
     await send(devices, { aps: { badge } }, 'badge')
   }
