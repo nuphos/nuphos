@@ -16,13 +16,7 @@ export function assertRuntimeChatAdmission(
     )
   if (attached && snapshot?.schemaVersion !== 2)
     throw new AppError(503, 'runtime_status_unavailable', 'Cannot reach authoritative agent status')
-  // A continuation parked on a lost output connection only moves again when a
-  // prompt reattaches it (agent-chat-runtime), so refusing here is a dead end.
-  if (
-    snapshot?.schemaVersion === 2 &&
-    !snapshot.actions?.send &&
-    snapshot.phase !== 'resume_disconnected'
-  )
+  if (snapshot?.schemaVersion === 2 && !snapshot.actions?.send)
     throw new AppError(
       409,
       'runtime_not_accepting_message',

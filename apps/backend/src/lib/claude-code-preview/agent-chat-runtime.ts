@@ -107,20 +107,27 @@ export async function runClaudeCodePreviewPrompt(args: {
   )
 
   // Query runtime admission without attaching a replacement prompt socket.
-  const observed = await conversationExecutionState({
-    teamId: session.teamId,
-    sessionId: session.conversationId,
-    userId: session.conversationOwnerUserId ?? session.userId,
-    agentRuntime: session.endpoint.provider ?? 'claude-code',
-    runtimeId: session.endpoint.runtimeId,
-    claudeCodePreview: {
-      runtimeUrl: session.endpoint.url,
-      openabSessionId: session.openabSessionId,
-    },
-  })
+  const observe = () =>
+    conversationExecutionState({
+      teamId: session.teamId,
+      sessionId: session.conversationId,
+      userId: session.conversationOwnerUserId ?? session.userId,
+      agentRuntime: session.endpoint.provider ?? 'claude-code',
+      runtimeId: session.endpoint.runtimeId,
+      claudeCodePreview: {
+        runtimeUrl: session.endpoint.url,
+        openabSessionId: session.openabSessionId,
+      },
+    })
+  const observed = await observe()
 
   if (observed.schemaVersion === 2 && observed.phase === 'resume_disconnected') {
     await resumeSessionOn(session, await registry.acquire(session.teamId, session.endpoint))
+    const reattached = await observe()
+
+    // Still parked: the next prompt would only land here again. Fail this one.
+    if (reattached.schemaVersion === 2 && reattached.phase === 'resume_disconnected')
+      throw new Error('The agent could not be reattached to its background work. Try again later.')
     // The same refusal admission gives a busy runtime: the client keeps the
     // message queued and sends it once the continuation finishes.
     throw new AppError(
