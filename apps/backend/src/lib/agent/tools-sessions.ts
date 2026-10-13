@@ -1,7 +1,13 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-import { getConversations, getConversationTranscriptForAgent, renameConversation } from './db'
+import {
+  getConversations,
+  getConversationTranscriptForAgent,
+  liveTurnTranscriptLine,
+  renameConversation,
+} from './db'
+import { getLiveTurn } from './live-turn'
 import { withLabel } from './tools-skilled/labeling'
 
 const LIST_DESCRIPTION =
@@ -13,6 +19,7 @@ const READ_DESCRIPTION =
   "Read one conversation's transcript in compact form: one line per message (`#index role: text`), tool calls summarized as `[tool: name]`. " +
   'A Nuphos session link (`/teams/<team>/agent/<session_id>`) in a message names a conversation; pass its last segment as session_id. ' +
   'Pages by message index — pass the returned next_index to continue. Read only the window you need. ' +
+  'A turn still running is the last line of the last page, marked in progress with its start and last update times, and returned in in_progress; once it ends it is replaced by the stored message. ' +
   'Turn termination records are returned separately in turn_diagnostics, even when transcript text is truncated; timestamps describe backend observations and missing fields were not recorded. ' +
   'Tool inputs/outputs are omitted by default to keep the transcript small; set include_tool_details only when the exact command or result matters.'
 
@@ -119,6 +126,20 @@ export function createSessionTools(
         })
 
         if (!page) return { error: 'Conversation not found or not readable in this workspace.' }
+        // Read after the stored page: a turn that settles in between then
+        // shows in neither, rather than in both.
+        const live =
+          page.nextIndex === null
+            ? await getLiveTurn(page.conversation.userId, page.conversation.sessionId)
+            : null
+        const lines = live
+          ? [
+              ...page.lines,
+              liveTurnTranscriptLine(page.conversation.messageCount, live, {
+                includeToolDetails: include_tool_details,
+              }),
+            ]
+          : page.lines
 
         return {
           session_id: page.conversation.sessionId,
@@ -127,7 +148,16 @@ export function createSessionTools(
           message_count: page.conversation.messageCount,
           ...(session_id === conversationId ? { is_current_conversation: true } : {}),
           turn_diagnostics: page.turnDiagnostics,
-          transcript: page.lines.join('\n'),
+          ...(live
+            ? {
+                in_progress: {
+                  index: page.conversation.messageCount,
+                  started_at: live.startedAt,
+                  last_update_at: live.updatedAt,
+                },
+              }
+            : {}),
+          transcript: lines.join('\n'),
           next_index: page.nextIndex,
         }
       },

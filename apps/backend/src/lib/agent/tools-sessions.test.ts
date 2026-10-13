@@ -1,9 +1,14 @@
 import { expect, test } from 'bun:test'
 
-import { createSessionTools } from './tools-sessions'
 
+
+import { agentRuns } from '@/lib/agent/run-admission'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+
+import { createSessionTools } from './tools-sessions'
+
+import type { AgentRun } from '@/routes/agent/types'
 
 test('exposes the past-conversation tools in a team', () => {
   expect(Object.keys(createSessionTools('u', 'c', 'team')).sort(byCodeUnit)).toEqual([
@@ -24,11 +29,26 @@ useAgentDb({
     sessionId === 'c' && userId === 'u' && teamId === 'team' && title === 'Incident review',
   getConversationTranscriptForAgent: async (viewer, options) => {
     expect(viewer).toBe('u')
+    if (options.sessionId === 'running') {
+      return {
+        conversation: {
+          sessionId: 'running',
+          userId: 'owner',
+          title: 'Running turn',
+          createdAt: new Date(0),
+          messageCount: 32,
+        },
+        lines: ['#31 user: deploy it'],
+        turnDiagnostics: [],
+        nextIndex: null,
+      }
+    }
     expect(options).toMatchObject({ teamId: 'team', sessionId: 'other', fromIndex: 7, limit: 1 })
 
     return {
       conversation: {
         sessionId: 'other',
+        userId: 'owner',
         title: 'Long turn',
         createdAt: new Date(0),
         messageCount: 9,
@@ -48,6 +68,55 @@ test('read_conversation returns termination records outside the clipped transcri
   )
 
   expect(result).toMatchObject({ turn_diagnostics: diagnostics, next_index: 8 })
+})
+
+function frame(event: Record<string, unknown>) {
+  return `data: ${JSON.stringify(event)}\n\n`
+}
+
+test('read_conversation ends with the turn still running', async () => {
+  const run = {
+    key: 'owner:s1',
+    streamId: 's1',
+    sessionId: 'running',
+    userId: 'owner',
+    done: false,
+    createdAt: Date.parse('2026-10-13T08:00:00Z'),
+    lastFrameAt: Date.parse('2026-10-13T08:20:00Z'),
+    frames: [
+      frame({ type: 'text-delta', delta: 'Checking the cluster.' }),
+      frame({ type: 'tool-input-available', toolCallId: 't1', toolName: 'Bash', input: {} }),
+    ],
+  } as unknown as AgentRun
+
+  agentRuns.set(run.key, run)
+  try {
+    const tool = createSessionTools('u', 'c', 'team').read_conversation!
+    const result = (await tool.execute!(
+      { label: 'Read', session_id: 'running' },
+      { toolCallId: 'read', messages: [] },
+    )) as { transcript: string; in_progress: unknown }
+
+    expect(result.in_progress).toEqual({
+      index: 32,
+      started_at: '2026-10-13T08:00:00.000Z',
+      last_update_at: '2026-10-13T08:20:00.000Z',
+    })
+    expect(result.transcript).toBe(
+      '#31 user: deploy it\n#32 assistant (in progress, started 2026-10-13T08:00:00.000Z, last update 2026-10-13T08:20:00.000Z): Checking the cluster.\n[tool: Bash]',
+    )
+
+    run.frames.push(frame({ type: 'atlas-transcript-tail', messages: [] }))
+    const settled = (await tool.execute!(
+      { label: 'Read', session_id: 'running' },
+      { toolCallId: 'read', messages: [] },
+    )) as { transcript: string }
+
+    expect(settled).not.toHaveProperty('in_progress')
+    expect(settled.transcript).toBe('#31 user: deploy it')
+  } finally {
+    agentRuns.delete(run.key)
+  }
 })
 
 test('rename_conversation renames the current conversation by default', async () => {
