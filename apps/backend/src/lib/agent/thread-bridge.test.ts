@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { clearPendingUserMessages } from './pending-messages'
+import { getSessionBypass, setSessionBypass } from './auto-mode/store'
 import { authorizeThreadDelivery, createAgentThread, sendAgentThreadMessage } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
@@ -43,6 +45,7 @@ beforeEach(() => {
   member = true
   claims.length = 0
   shells.length = 0
+  bypass.clear()
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -60,6 +63,33 @@ afterEach(async () => {
 useIdentity({
   getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
   signNuphosToken: () => 'test-token',
+})
+const bypass = new Map<string, Record<string, unknown>>()
+
+useDb({
+  db: () => ({
+    collection: () => ({
+      updateOne(
+        filter: { conversationId: string; userId: string },
+        update: { $setOnInsert?: Record<string, unknown>; $set?: Record<string, unknown> },
+        options: { upsert?: boolean },
+      ) {
+        const key = `${filter.userId}:${filter.conversationId}`
+        let doc = bypass.get(key)
+
+        if (!doc && options.upsert) {
+          doc = { ...filter, ...update.$setOnInsert }
+          bypass.set(key, doc)
+        }
+        if (doc) Object.assign(doc, update.$set)
+
+        return Promise.resolve()
+      },
+      findOne(filter: { conversationId: string; userId: string }) {
+        return Promise.resolve(bypass.get(`${filter.userId}:${filter.conversationId}`) ?? null)
+      },
+    }),
+  }),
 })
 useAgentDb({
   getConversationBySessionId: async (id) =>
@@ -136,6 +166,13 @@ describe('conversation-scoped thread tools', () => {
     expect(new Set(claims.map((claim) => claim.sessionId))).toEqual(
       new Set(results.map((result) => result.threadId)),
     )
+  })
+
+  test.each([true, false])('a thread starts in its parent\'s mode (Full Access %p)', async (on) => {
+    await setSessionBypass('source', 'owner', on)
+    const result = await createAgentThread(actor, 'Work', 'Task')
+
+    expect(await getSessionBypass(result.threadId, 'owner')).toBe(on)
   })
 
   test('send returns the delivered message id', async () => {

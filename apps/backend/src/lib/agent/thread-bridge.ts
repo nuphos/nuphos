@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { getSessionBypass, initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
@@ -75,6 +76,13 @@ export async function createAgentThread(actor: ThreadActor, prompt: string, titl
     runtimeLabel: source.runtimeLabel,
     parentSessionId: actor.sessionId,
   })
+  // A thread runs in its parent's permission mode, as a chat opened by hand
+  // starts in the mode the user picked.
+  await initializeSessionBypass(
+    threadId,
+    actor.userId,
+    await getSessionBypass(actor.sessionId, actor.userId),
+  )
   startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
 
   return { ...receipt(actor, threadId, messageId), sourceThreadId: actor.sessionId }
