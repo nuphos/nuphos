@@ -305,7 +305,9 @@ pub async fn stop(ctx: &Ctx, session: &str) -> Result<()> {
 
 /// `nuphos exec PROMPT`: sends one message and prints the reply. The reply
 /// text goes to stdout and tool activity to stderr; `--json` prints every
-/// stream event instead. A command that needs approval is denied unless
+/// stream event instead. New conversations use the mode last picked in
+/// /full-access (Full Access by default); Full Access never asks for approval.
+/// In Auto Mode, a command that needs approval is denied unless
 /// `--approve` is given. Exit status: 0, 1 on error, 2 when an approval was
 /// denied.
 pub async fn exec(
@@ -336,7 +338,7 @@ pub async fn exec(
             Some(name) => Some(shared::find(&runtimes, &name, "agent")?),
             None => shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id),
         };
-        body["permissionMode"] = json!("auto");
+        body["permissionMode"] = json!(if ctx.prefs.full_access { "bypass" } else { "auto" });
         if let Some(r) = runtime {
             body["runtimeId"] = r["id"].clone();
             body["agentRuntime"] = r["provider"].clone();

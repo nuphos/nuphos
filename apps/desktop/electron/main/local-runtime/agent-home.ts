@@ -15,8 +15,14 @@ import path from 'node:path'
 import type { LocalAgentProvider } from './agent-cli.ts'
 
 const CUA_PLUGIN = 'unified-computer-use@openai-bundled'
-const CUA_PLUGIN_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
-const CUA_CLIENT = path.join(
+
+export const CUA_PLUGIN_CACHE = path.join(
+  'plugins',
+  'cache',
+  'openai-bundled',
+  'unified-computer-use',
+)
+export const CUA_CLIENT = path.join(
   'computer-use',
   'Codex Computer Use.app',
   'Contents',

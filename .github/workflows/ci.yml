@@ -2,24 +2,6 @@ name: CI
 
 on:
   pull_request:
-    paths:
-      - 'apps/**'
-      - 'scripts/dev*.ts'
-      - 'scripts/check-lint-config-integrity.mjs'
-      - 'scripts/check-lint-config-integrity.test.mjs'
-      - 'scripts/check-import-cycles.mjs'
-      - 'scripts/check-import-cycles.test.mjs'
-      - 'scripts/import-cycles.baseline.json'
-      - '.github/workflows/**'
-      # Root tooling. Without these, a change to the Prettier config or the
-      # root lockfile would trigger no CI at all.
-      - 'package.json'
-      - 'bun.lock'
-      - '.prettierrc.json'
-      - '.prettierignore'
-      - 'eslint.config.mjs'
-      - 'eslint-rules/**'
-      - '.claude/hooks/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}

@@ -25,6 +25,10 @@ final class ChatSession {
     private(set) var queued: [String] = []
     private(set) var isOwner = false
     var canManage: Bool { loaded && isOwner && !readOnly }
+    /// A participant granted manage access may move the session too, onto a
+    /// Cloud agent only.
+    private(set) var isManager = false
+    var canMove: Bool { loaded && !readOnly && (isOwner || isManager) }
     private(set) var readOnly = false
     private(set) var loaded = false
     private(set) var loadError: String?
@@ -271,6 +275,7 @@ final class ChatSession {
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
+            isManager = detail.access == "manage"
             if let t = detail.title, !t.isEmpty { title = t }
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
@@ -466,7 +471,7 @@ final class ChatSession {
     /// when the destination can hold them — another Cloud agent of the same
     /// type — and the move falls back to the transcript alone when they cannot.
     func move(to target: RuntimeInstance) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can move it.") }
+        guard canMove else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can move it.") }
         func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
             try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
         }
@@ -570,8 +575,6 @@ final class ChatSession {
 
     enum ApprovalDecision: Equatable {
         case once
-        case session
-        case always(rule: String)
         case deny
     }
 
@@ -585,28 +588,7 @@ final class ChatSession {
         messages[mi].parts[pi] = .tool(updated)
         error = nil
 
-        Task {
-            switch decision {
-            case .session:
-                if let command = part.input?["command"]?.stringValue {
-                    try? await AgentChatAPI.approveForSession(token: token, sessionId: sessionId, command: command)
-                }
-            case .always(let rule):
-                try? await AgentChatAPI.createPolicyRule(token: token, description: rule)
-            case .once, .deny:
-                break
-            }
-            startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
-        }
-    }
-
-    /// `propose_authorization_rule` follow-ups.
-    func confirmProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.activatePolicyRule(token: token, ruleId: ruleId)) != nil
-    }
-
-    func dismissProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.deletePolicyRule(token: token, ruleId: ruleId)) != nil
+        startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
     }
 
     // MARK: - Plans
@@ -844,6 +826,7 @@ final class ChatSession {
 
     private func adoptRuntime(from detail: AgentConversationDetail) {
         isOwner = detail.isOwner ?? false
+        isManager = detail.access == "manage"
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
         if let id = detail.runtimeId { runtimeId = id }
