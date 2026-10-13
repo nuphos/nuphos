@@ -1,7 +1,16 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
@@ -74,6 +83,72 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     try {
       expect(reclaim('archived')).toBe('in_use')
       expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
+    } finally {
+      shell.kill()
+    }
+  })
+
+  test('keeps a home that a running process works inside, without leaving it set aside', () => {
+    const shell = Bun.spawn(['sleep', '30'], { cwd: join(home('archived'), '.local') })
+
+    try {
+      expect(reclaim('archived')).toBe('in_use')
+      expect(existsSync(join(home('archived'), '.local', 'bin', 'tccli'))).toBe(true)
+      expect(
+        readdirSync(dirname(home('archived'))).filter((name) => name.includes('.reclaim-')),
+      ).toEqual([])
+    } finally {
+      shell.kill()
+    }
+  })
+
+  test('ignores an exited process that is not yet reaped', () => {
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
+    })
+
+    shell.kill()
+    // A zombie's environ is unreadable; it must not count as a user.
+    while (!readFileSync(`/proc/${shell.pid}/stat`, 'utf8').includes(') Z ')) Bun.sleepSync(5)
+
+    expect(reclaim('archived')).toBe('removed')
+  })
+
+  test('removes a set-aside home a killed run left behind', () => {
+    const left = `${home('archived')}.reclaim-left`
+
+    mkdirSync(join(left, '.local'), { recursive: true })
+
+    expect(reclaim('other')).toBe('removed')
+    expect(existsSync(left)).toBe(false)
+  })
+
+  test('keeps a set-aside home still used by its original HOME path', () => {
+    const left = `${home('archived')}.reclaim-left`
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
+    })
+
+    rmSync(home('archived'), { recursive: true })
+    mkdirSync(join(left, '.local'), { recursive: true })
+
+    try {
+      expect(reclaim('other')).toBe('removed')
+      expect(existsSync(left)).toBe(true)
+    } finally {
+      shell.kill()
+    }
+  })
+
+  test('keeps a set-aside home a running process works inside', () => {
+    const left = `${home('archived')}.reclaim-left`
+
+    mkdirSync(join(left, '.local'), { recursive: true })
+    const shell = Bun.spawn(['sleep', '30'], { cwd: join(left, '.local') })
+
+    try {
+      expect(reclaim('other')).toBe('removed')
+      expect(existsSync(left)).toBe(true)
     } finally {
       shell.kill()
     }

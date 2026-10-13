@@ -24,25 +24,39 @@ const { createHash, randomUUID } = await import('node:crypto');
 const { sessionId } = JSON.parse(await fs.readFile(path.join(process.argv[2], 'params.json'), 'utf8'));
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2);
 const id = createHash('sha256').update(sessionId).digest('hex');
-const home = path.join(os.homedir(), '.nuphos', 'session-homes', id);
+const homes = path.join(os.homedir(), '.nuphos', 'session-homes');
+const home = path.join(homes, id);
 const done = (result) => { process.stdout.write(JSON.stringify({ result })); process.exit(0); };
-// HOME is matched by path; a working directory follows the directory itself.
-const inUse = async (dir) => {
+// HOME is matched by the original path; a working directory follows the
+// directory itself.
+const inUse = async (dir, byHome) => {
   for (const pid of await fs.readdir('/proc')) {
     if (!/^\d+$/.test(pid)) continue;
-    const env = (await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => '')).split('\0');
-    const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch(() => '');
-    if (env.includes('HOME=' + home) || cwd === dir || cwd.startsWith(dir + '/')) return true;
+    // No working directory: the process has exited, possibly an unreaped
+    // zombie whose environ is unreadable. Any other unreadable process counts
+    // as a user, since keeping a home is always safe.
+    const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch((err) => (err.code === 'ENOENT' || err.code === 'ESRCH' ? null : ''));
+    if (cwd === null) continue;
+    const env = await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => null);
+    if (env === null || cwd === '') return true;
+    if (env.split('\0').includes('HOME=' + byHome) || cwd === dir || cwd.startsWith(dir + '/')) return true;
   }
   return false;
 };
+// A job killed during the rm, or a failed rename back, leaves
+// <id>.reclaim-* behind; remove any that nothing uses.
+for (const name of await fs.readdir(homes).catch(() => [])) {
+  if (!/^[0-9a-f]{64}\.reclaim-/.test(name)) continue;
+  const left = path.join(homes, name);
+  if (!(await inUse(left, path.join(homes, name.slice(0, 64))))) await fs.rm(left, { recursive: true, force: true });
+}
 if (!(await fs.lstat(home).catch(() => null))) done('absent');
-if (await inUse(home)) done('in_use');
+if (await inUse(home, home)) done('in_use');
 // Set aside first: a session that starts now gets a fresh home, and one that
 // started during the scan is caught by the second scan and keeps this one.
 const aside = home + '.reclaim-' + randomUUID();
 await fs.rename(home, aside);
-if (await inUse(aside)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
+if (await inUse(aside, home)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
 await fs.rm(aside, { recursive: true, force: true });
 done('removed');
 `
