@@ -102,6 +102,35 @@ test('materialization is a no-op for text turns and exposes only paths to the mo
   }
 })
 
+test('a local runtime gets only the file list for its bundled attachments job', async () => {
+  const requests: { job: string; stdin: string }[] = []
+  const route = controlRoute()
+  const acquire = spyOn(controlRegistry, 'acquire').mockResolvedValue({
+    runJob: async (request: { job: string; stdin: string }) => {
+      requests.push(request)
+
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify({ paths: ['/tmp/nuphos-attachments-x/0/a.zip'] }),
+      }
+    },
+  } as never)
+  const jobs = spyOn(controlRegistry, 'runtimeJobs').mockReturnValue(['attachments'])
+  const files = [{ name: 'a.zip', url: 'https://store.example/signed', size: 3 }]
+
+  try {
+    expect(await materializeRuntimeAttachments('team', 'owner', endpoint, files)).toEqual([
+      { type: 'resource_link', name: 'a.zip', uri: 'file:///tmp/nuphos-attachments-x/0/a.zip' },
+    ])
+    expect(requests[0]!.job).toBe('attachments')
+    expect(JSON.parse(requests[0]!.stdin)).toEqual({ files })
+  } finally {
+    route.mockRestore()
+    acquire.mockRestore()
+    jobs.mockRestore()
+  }
+})
+
 test('folder archives retain extraction instructions through the ACP text boundary', async () => {
   const resolve = spyOn(transfers, 'resolveDownloads').mockResolvedValue({
     files: [

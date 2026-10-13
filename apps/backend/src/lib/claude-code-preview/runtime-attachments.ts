@@ -102,13 +102,21 @@ export async function materializeRuntimeAttachments(
     throw new Error('Conversation runtime changed. Retry this message.')
   const client = await controlRegistry.acquire(teamId, endpoint)
 
-  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel'))
-    throw new Error('Update this agent to support native file attachments')
+  const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
+  // A Desktop local runtime runs only its bundled copy of the program, so just the file
+  // list crosses; the image's general `panel` job takes the program as its runner.
+  const job = jobs.includes('attachments') ? 'attachments' : jobs.includes('panel') ? 'panel' : null
+
+  if (!job) throw new Error('Update this agent to support native file attachments')
   const result = await client.runJob(
     {
       jobId: randomUUID(),
-      job: 'panel',
-      stdin: JSON.stringify({ runner: ATTACHMENT_RUNNER, script: '', params: { files } }),
+      job,
+      stdin: JSON.stringify(
+        job === 'attachments'
+          ? { files }
+          : { runner: ATTACHMENT_RUNNER, script: '', params: { files } },
+      ),
       env: {},
       timeoutMs: 120_000,
       maxStdoutBytes: 64 * 1024,
