@@ -291,7 +291,7 @@ struct AgentPage: View {
                             Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
                         }
                         .tint(.indigo)
-                        if conversation.canManage, conversation.parentSessionId != nil {
+                        if conversation.ownsChat, conversation.parentSessionId != nil {
                             Button {
                                 Task { await store.unlinkParent(conversation) }
                             } label: {
