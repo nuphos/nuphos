@@ -38,6 +38,14 @@ const update = z
   .strict()
 const list = z.object({ label: common.label }).strict()
 
+// A refusal is the answer the agent needs, so it gets the reason, as tools served
+// through ai-sdk-adapter do, instead of the dispatcher's bare "Internal error".
+function answer(work: Promise<unknown>) {
+  return work.then(toolResult, (error: unknown) =>
+    toolError(error instanceof Error ? error.message : String(error)),
+  )
+}
+
 export function threadToolModule(): PreviewToolModule {
   return {
     definitions: [
@@ -87,23 +95,21 @@ export function threadToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(await createAgentThread(ctx, parsed.data.prompt, parsed.data.title))
+        return answer(createAgentThread(ctx, parsed.data.prompt, parsed.data.title))
       },
       send_message_to_thread: async (args) => {
         const parsed = send.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(
-          await sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
-        )
+        return answer(sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt))
       },
       list_agent_runtimes: async (args) => {
         const parsed = list.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(await listThreadRuntimes(ctx))
+        return answer(listThreadRuntimes(ctx))
       },
       update_thread: async (args) => {
         const parsed = update.safeParse(args)
@@ -114,7 +120,7 @@ export function threadToolModule(): PreviewToolModule {
         if (change.fullAccess === undefined && change.runtimeId === undefined)
           return toolError('Set fullAccess, runtimeId, or both.')
 
-        return toolResult(await updateThread(ctx, threadId, change))
+        return answer(updateThread(ctx, threadId, change))
       },
     }),
   }
