@@ -28,6 +28,7 @@ export type WorkspaceAction =
       resetHomeScroll?: boolean
     }
   | { type: 'openMainPage'; teamId: string }
+  | { type: 'stepSurface'; direction: -1 | 1 }
   | { type: 'setSessionReadOnly'; readOnly: boolean }
   | { type: 'switchTeam'; sessionKey: string; teamId: string }
   | { type: 'setDockOpen'; sessionKey: string; open: boolean }

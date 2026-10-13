@@ -1,3 +1,4 @@
+import { canStepNavigation } from '../../../lib/navHistory.ts'
 import { isTeamManagementKey } from '../../../lib/teamOverviewNav.ts'
 import { NO_SESSION_TAB_BUCKET_KEY } from '../../workspaceTabState.ts'
 
@@ -30,7 +31,17 @@ export type WorkspaceState = {
   buckets: Readonly<Record<string, TabBucket>>
   /** Session keys, least- to most-recently touched, for the resident cap. */
   recentSessionKeys: readonly string[]
+  /** Back/forward across what the main pane showed: chats and the main page.
+   *  Runtime-only; a dock tab keeps its own history for moves inside it. */
+  surfaceHistory: readonly WorkspaceSurface[]
+  surfaceHistoryIndex: number
 }
+
+/** What the main pane shows, as one entry of `surfaceHistory`. */
+export type WorkspaceSurface = Pick<
+  WorkspaceState,
+  'sessionId' | 'sessionReadOnly' | 'teamScope' | 'mainPageOpen'
+>
 
 export const EMPTY_BUCKET: TabBucket = {
   tabs: [],
@@ -138,7 +149,28 @@ export function createWorkspaceState(
     teamsKnown: false,
     buckets,
     recentSessionKeys: Object.keys(buckets),
+    surfaceHistory: [],
+    surfaceHistoryIndex: -1,
   }
+}
+
+/**
+ * What Back/Forward moves: the page in front of the user while it has
+ * somewhere to go — the main page, or an open dock's tab — and otherwise the
+ * chats and main page the pane showed before, so leaving a chat by any route
+ * (the sidebar, a link in a message) can be undone.
+ */
+export function selectHistoryStep(
+  state: WorkspaceState,
+  direction: -1 | 1,
+): 'tab' | 'surface' | null {
+  const tab = selectActiveTab(state)
+  const tabVisible = state.mainPageOpen || selectCurrentBucket(state).dockOpen
+
+  if (tabVisible && tab && canStepNavigation(tab, direction)) return 'tab'
+  const index = state.surfaceHistoryIndex + direction
+
+  return index >= 0 && index < state.surfaceHistory.length ? 'surface' : null
 }
 
 /** The sidebar follows the page it navigates: the main page, or the dock's

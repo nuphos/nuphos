@@ -19,7 +19,7 @@ import {
 } from './workspaceTabOps.ts'
 
 import type { WorkspaceAction, WorkspaceStoreDeps } from './workspaceActions'
-import type { TabBucket, WorkspaceState } from './workspaceState'
+import type { TabBucket, WorkspaceState, WorkspaceSurface } from './workspaceState'
 
 function writeBucket(
   state: WorkspaceState,
@@ -84,6 +84,41 @@ function selectSession(
   }
 }
 
+const SURFACE_HISTORY_LIMIT = 50
+
+function surfaceOf(state: WorkspaceState): WorkspaceSurface {
+  const { sessionId, sessionReadOnly, teamScope, mainPageOpen } = state
+
+  return { sessionId, sessionReadOnly, teamScope, mainPageOpen }
+}
+
+/**
+ * Every change of what the main pane shows is recorded here, whichever action
+ * made it, so a sidebar click and a link in a message are undone the same way.
+ * A new chat or main-page state is a move; a change of read-only or team on the
+ * same one rewrites its entry instead.
+ */
+function recordSurface(prev: WorkspaceState, next: WorkspaceState): WorkspaceState {
+  const current = next.surfaceHistory[next.surfaceHistoryIndex] ?? surfaceOf(prev)
+  const to = surfaceOf(next)
+
+  if (
+    current.sessionId === to.sessionId &&
+    current.mainPageOpen === to.mainPageOpen &&
+    current.sessionReadOnly === to.sessionReadOnly &&
+    current.teamScope?.teamId === to.teamScope?.teamId
+  ) {
+    return next
+  }
+  const moved = current.sessionId !== to.sessionId || current.mainPageOpen !== to.mainPageOpen
+  const behind = [...next.surfaceHistory.slice(0, next.surfaceHistoryIndex), current]
+  const surfaceHistory = (moved ? [...behind, to] : [...behind.slice(0, -1), to]).slice(
+    -SURFACE_HISTORY_LIMIT,
+  )
+
+  return { ...next, surfaceHistory, surfaceHistoryIndex: surfaceHistory.length - 1 }
+}
+
 /** The main page keeps its tab (and history) while it stays on the team being opened. */
 function openMainPage(
   state: WorkspaceState,
@@ -127,6 +162,7 @@ function removeTeam(state: WorkspaceState, teamId: string): WorkspaceState {
 const WORKSPACE_LEVEL_ACTIONS = new Set<WorkspaceAction['type']>([
   'selectSession',
   'openMainPage',
+  'stepSurface',
   'setSessionReadOnly',
   'switchTeam',
   'retainTeams',
@@ -139,6 +175,7 @@ type WorkspaceLevelAction = Extract<
     type:
       | 'selectSession'
       | 'openMainPage'
+      | 'stepSurface'
       | 'setSessionReadOnly'
       | 'switchTeam'
       | 'retainTeams'
@@ -217,6 +254,12 @@ function applyAction(
       return selectSession(state, action)
     case 'openMainPage':
       return openMainPage(state, action.teamId, deps)
+    case 'stepSurface': {
+      const index = state.surfaceHistoryIndex + action.direction
+      const surface = index >= 0 ? state.surfaceHistory[index] : undefined
+
+      return surface ? { ...state, ...surface, surfaceHistoryIndex: index } : state
+    }
     case 'setSessionReadOnly':
       return action.readOnly === state.sessionReadOnly
         ? state
@@ -245,5 +288,11 @@ export function workspaceReducer(
 ): WorkspaceState {
   const next = applyAction(state, action, deps)
 
-  return next === state ? state : finalizeWorkspaceState(state, next, deps)
+  if (next === state) return state
+
+  return finalizeWorkspaceState(
+    state,
+    action.type === 'stepSurface' ? next : recordSurface(state, next),
+    deps,
+  )
 }
