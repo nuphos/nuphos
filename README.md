@@ -175,6 +175,37 @@ It starts the local stack, backend, runtime and Electron Desktop with isolated
 configuration. Do not start Desktop on its own or use the web-only Vite server
 as the default dev loop.
 
+### Parallel instances
+
+Every worktree or clone can run `bun run dev` at the same time. All of them
+share one Mongo / RustFS / runtime stack, whose secrets live in
+`~/.config/nuphos/dev-stack.env`. The first run copies the main checkout's
+`deploy/compose/.env`, and takes the S3 keys from the running stack when there
+is one. If that file and the running stack ever disagree, `bun run dev` stops
+before recreating the stack under the other instances; copy the stack's keys
+into the file, or wipe the stack with `bun run dev:reset`. Everything else derives from the instance
+name, which is the checkout's directory name or `NUPHOS_DEV_INSTANCE`:
+
+- the backend, Vite and DevTools (CDP) ports, each claimed free at start;
+- the Desktop profile, `Nuphos Dev (<name> local)`;
+- the Desktop sign-in, `~/.config/nuphos/cli.dev.<name>.yaml`;
+- the logs, `$TMPDIR/nuphos-dev-logs/<name>/`.
+
+Two checkouts with the same directory name, or two instances from one
+checkout, need different `NUPHOS_DEV_INSTANCE` values. Sign-ins from the old
+shared `cli.dev.yaml` are not carried over, so each instance signs in once; the
+backend prints the email code in the dashboard.
+
+```bash
+bun run dev:instances           # name, state, ports, disk usage and worktree of each instance
+bun run dev:instances rm <name> # stop it, then delete its profile, sign-in, logs and clean worktree
+```
+
+`rm` stops only that instance's own launcher and processes, and leaves the
+shared stack and the main checkout alone. It does not remove a worktree that has
+uncommitted changes. An e2e harness should attach to the `CDP` port that
+`dev:instances` lists, never to a fixed port.
+
 ## Working Guidelines
 
 `AGENTS.md` and `CLAUDE.md` point coding agents here, so this section is the

@@ -42,6 +42,7 @@ export {
   setupAgentIndexes,
 } from './db/events'
 export {
+  backfillThreadCreators,
   deleteConversation,
   ensureConversationTraceParent,
   getCompactionSummary,

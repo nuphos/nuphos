@@ -4,21 +4,25 @@ import { spawn } from 'node:child_process'
 
 import { pipeLines, selectCrashDiagnostic, stripAnsi } from './dev-child-output.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
+import { findFreePort } from './dev-ports.ts'
 import { backend, desktop, ensureDeps, openLog, startTiming, writeRaw } from './dev-services.ts'
 import { isQuitting, stopTree } from './dev-shutdown.ts'
-import { BASE_BACKEND_PORT, DESKTOP_DIR, DEV_CLI_CONFIG, WT_ID } from './dev-workspace.ts'
+import { DESKTOP_DIR, DESKTOP_SUFFIX, DEV_CLI_CONFIG, INSTANCE } from './dev-workspace.ts'
 
 const SELF_HEAL_FAILURE_THRESHOLD = 3
 let selfHealInFlight = false
 let selfHealAttempted = false
 
-/** A profile of its own for the local stack, so tabs and teams saved against
- * another backend never load here; every additional backend port gets its own
- * Electron userData directory and single-instance lock on top. */
-export function desktopInstanceSuffix(worktreeId: string, backendPort: number): string {
-  const local = `${worktreeId} local`
+/** Vite and DevTools ports, claimed once per launcher and kept across restarts. */
+export const desktopPorts = { vite: null as number | null, cdp: null as number | null }
 
-  return backendPort === BASE_BACKEND_PORT ? local : `${local}-${String(backendPort)}`
+// Claimed like the backend's port, so a parallel instance can neither take
+// them nor be attached to by this one's e2e harness.
+export async function claimDesktopPorts(): Promise<void> {
+  const vite = desktopPorts.vite ?? (await findFreePort(5173))
+  const cdp = desktopPorts.cdp ?? (await findFreePort(9222))
+
+  Object.assign(desktopPorts, { vite, cdp })
 }
 
 type ElectronBackendHealth = {
@@ -154,19 +158,32 @@ export async function startDesktop() {
   desktop.stallNoticed = 0
   desktop.lastRaw = null
   openLog(desktop)
+  // Never fall back to another instance's backend: its tokens are not ours.
+  const apiUrl = backend.url
+
+  if (!apiUrl) {
+    desktop.status = 'crashed'
+    pushEvent(desktop, 'backend has no port yet — press r once it starts')
+
+    return
+  }
   if (!(await ensureDeps(desktop, DESKTOP_DIR, 'pnpm', 'vite'))) return
   startTiming(desktop)
   pushEvent(desktop, 'starting vite + electron …')
-  const backendPort = backend.port ?? BASE_BACKEND_PORT
-  const child = spawn('pnpm', ['exec', 'vite'], {
+  const { vite, cdp } = desktopPorts
+
+  if (!vite || !cdp) throw new Error('claimDesktopPorts() must run before startDesktop()')
+  desktop.health.cdp = String(cdp)
+  const child = spawn('pnpm', ['exec', 'vite', '--port', String(vite), '--strictPort'], {
     cwd: DESKTOP_DIR,
     env: {
       ...process.env,
-      NUPHOS_API_URL: backend.url ?? `http://localhost:${BASE_BACKEND_PORT}`,
+      NUPHOS_API_URL: apiUrl,
       NUPHOS_LAUNCHER_HEALTH: '1',
       NUPHOS_CLI_CONFIG: DEV_CLI_CONFIG,
-      ATLAS_WT_BADGE: WT_ID,
-      ATLAS_DEV_SUFFIX: desktopInstanceSuffix(WT_ID, backendPort),
+      ATLAS_WT_BADGE: INSTANCE,
+      ATLAS_DEV_SUFFIX: DESKTOP_SUFFIX,
+      ATLAS_DEV_CDP_PORT: String(cdp),
       FORCE_COLOR: '1',
     },
     detached: true,
