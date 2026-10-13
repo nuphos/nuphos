@@ -42,14 +42,13 @@ export {
   setupAgentIndexes,
 } from './db/events'
 export {
-  backfillThreadCreators,
   deleteConversation,
   ensureConversationTraceParent,
   getCompactionSummary,
   updateCompactionSummary,
   updateConversationTitle,
   renameConversation,
-  unlinkConversationParent,
+  setConversationParent,
 } from './db/maintenance'
 export {
   bumpConversationActivity,
