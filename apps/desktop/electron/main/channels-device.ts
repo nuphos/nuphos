@@ -1,4 +1,7 @@
+import * as atlas from '../atlas'
+
 import { getDeviceIdentity, listDeviceAudit, updateDeviceLabel } from './device-controller.ts'
+import { readThisComputerFile } from './linked-file.ts'
 import {
   getLocalRuntimeState,
   startLocalClaudeLogin,
@@ -23,6 +26,9 @@ export const deviceChannels = {
   'localRuntime:startClaudeLogin': () => startLocalClaudeLogin(),
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:getState': () => getLocalRuntimeState(),
+  'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) =>
+    (await readThisComputerFile(args[3], getLocalRuntimeState().workspace)) ??
+    atlas.readRuntimeFile(...args),
   'localRuntime:refresh': () => refreshLocalRuntime(),
   // Running agents keep their version; the next one started picks up the update.
   'localRuntime:updateAgent': async (_e: unknown, provider: LocalAgentProvider) => {

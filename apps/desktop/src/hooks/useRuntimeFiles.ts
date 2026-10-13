@@ -64,7 +64,11 @@ export function useRuntimeFiles(
         if (!target) return
         // Exactly one request owns the visible pane. Refresh reloads that same target.
         if (fileName) {
-          const file = await api.atlasReadRuntimeFile(
+          // The file a chat link named may be on this computer or the agent's;
+          // anything browsed from here on is the agent's workspace.
+          const read =
+            `${path}/${fileName}` === filePath ? api.atlasReadLinkedFile : api.atlasReadRuntimeFile
+          const file = await read(
             target.teamId,
             target.runtimeId,
             target.sessionId,
@@ -98,7 +102,7 @@ export function useRuntimeFiles(
     return () => {
       cancelled = true
     }
-  }, [teamId, conversationId, isActive, path, fileName, refreshKey, retry])
+  }, [teamId, conversationId, isActive, path, fileName, filePath, refreshKey, retry])
 
   function navigate(nextPath: string) {
     setFileName('')
