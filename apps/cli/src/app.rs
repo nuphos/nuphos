@@ -210,8 +210,8 @@ impl App {
     /// welcome screen.
     pub fn new(api: Api, prefs: Prefs) -> Self {
         let (tx, rx) = unbounded_channel();
-        let (apply_tx, apply_rx) = unbounded_channel();
         let full_access = prefs.full_access;
+        let (apply_tx, apply_rx) = unbounded_channel();
         App {
             api,
             failure: None,
