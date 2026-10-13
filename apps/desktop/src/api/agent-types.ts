@@ -147,6 +147,7 @@ export type AgentMessageMetadata = {
     id: string
     displayName: string
     avatarURL?: string
+    agentRuntime?: AgentProvider
   }
   source: 'nuphos' | 'slack' | 'discord' | 'lark' | 'agent.thread' | 'agent.resource'
   sentAt: string

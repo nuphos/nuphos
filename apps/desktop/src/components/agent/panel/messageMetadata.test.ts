@@ -44,3 +44,19 @@ test('agent.thread keeps the session it came from', () => {
 
   assert.equal(parseMessageMetadata(metadata)?.sourceSessionId, 'source')
 })
+
+test('agent.thread keeps known runtime icons and drops unknown providers', () => {
+  const metadata = {
+    version: 1,
+    sender: { type: 'agent', id: 'source', displayName: 'Review', agentRuntime: 'codex' },
+    source: 'agent.thread',
+    sourceSessionId: 'source',
+    sentAt: '2026-10-11T00:00:00Z',
+  }
+  assert.equal(parseMessageMetadata(metadata)?.sender.agentRuntime, 'codex')
+  assert.equal(
+    parseMessageMetadata({ ...metadata, sender: { ...metadata.sender, agentRuntime: 'unknown' } })
+      ?.sender.agentRuntime,
+    undefined,
+  )
+})

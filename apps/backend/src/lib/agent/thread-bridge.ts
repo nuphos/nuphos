@@ -201,7 +201,12 @@ export async function startThreadTurn(data: ThreadTurn) {
   const { startConversationTurn } = await import('./conversation-turn')
   const { status, run } = await startConversationTurn(data, target, data.prompt, 'agent.thread', {
     version: 1,
-    sender: { type: 'agent', id: data.sessionId, displayName: source.title || 'Nuphos agent' },
+    sender: {
+      type: 'agent',
+      id: data.sessionId,
+      displayName: source.title || 'Nuphos agent',
+      ...(source.agentRuntime ? { agentRuntime: source.agentRuntime } : {}),
+    },
     source: 'agent.thread',
     sourceSessionId: data.sessionId,
     sentAt: new Date().toISOString(),

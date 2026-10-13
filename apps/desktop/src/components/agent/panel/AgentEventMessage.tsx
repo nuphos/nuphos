@@ -3,6 +3,9 @@ import { useState } from 'react'
 
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
+import { CloudLogo } from '../../CloudLogo'
+
+import { AgentProviderIcon } from './icons'
 import { MessageResponse } from '../MessageResponse'
 
 import { Rule } from './TimelineEventLine'
@@ -27,6 +30,9 @@ export function AgentEventMessage({
 }) {
   const [open, setOpen] = useState(false)
   const { displayName } = metadata.sender
+  const resourceProvider = (['github', 'linear', 'slack', 'discord'] as const).find(
+    (provider) => provider === metadata.sender.id.toLowerCase(),
+  )
   const sessionUrl =
     teamId && metadata.sourceSessionId
       ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${metadata.sourceSessionId}`)
@@ -35,7 +41,16 @@ export function AgentEventMessage({
   return (
     <div>
       <Rule title={new Date(metadata.sentAt).toLocaleString()}>
-        <Avatar name={displayName} size={14} className="shrink-0 rounded-full" />
+        {metadata.source === 'agent.thread' && metadata.sender.agentRuntime ? (
+          <AgentProviderIcon
+            provider={metadata.sender.agentRuntime}
+            className="h-3.5 w-3.5 shrink-0"
+          />
+        ) : metadata.source === 'agent.resource' && resourceProvider ? (
+          <CloudLogo provider={resourceProvider} size={14} />
+        ) : (
+          <Avatar name={displayName} size={14} className="shrink-0 rounded-full" />
+        )}
         {sessionUrl && onOpenNuphosLink ? (
           <button
             type="button"
