@@ -5,6 +5,7 @@ import {
   sendAgentThreadMessage,
   listThreadRuntimes,
   updateThread,
+  setAgentThreadArchived,
 } from '@/lib/agent/thread-bridge'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
@@ -34,6 +35,13 @@ const update = z
     threadId: z.string().uuid(),
     fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
     runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
+  })
+  .strict()
+const archive = z
+  .object({
+    label: common.label,
+    threadId: z.string().uuid(),
+    archived: z.boolean().default(true).describe('false restores an archived conversation.'),
   })
   .strict()
 const list = z.object({ label: common.label }).strict()
@@ -70,6 +78,16 @@ export function threadToolModule(): PreviewToolModule {
         inputSchema: toolInputJsonSchema(send),
       },
       {
+        name: 'archive_thread',
+        description:
+          'Archive a Nuphos conversation you own in this team, or restore it with archived=false. ' +
+          'Use when its work is done or the user asks; the current conversation counts too. ' +
+          'Archiving hides it and stops resource-event wakeups, but does not stop a running turn. ' +
+          'A new human message restores it. Use threadId from create_thread or session_id from ' +
+          'list_recent_conversations.',
+        inputSchema: toolInputJsonSchema(archive),
+      },
+      {
         name: 'list_agent_runtimes',
         description:
           "List the team's agents (runtimes) your threads can run on, with each one's readiness and " +
@@ -103,6 +121,13 @@ export function threadToolModule(): PreviewToolModule {
         if (!parsed.success) return toolError(parsed.error.message)
 
         return answer(sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt))
+      },
+      archive_thread: async (args) => {
+        const parsed = archive.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
       },
       list_agent_runtimes: async (args) => {
         const parsed = list.safeParse(args)

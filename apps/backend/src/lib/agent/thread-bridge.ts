@@ -8,7 +8,12 @@ import {
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId, recordAgentEvent, upsertConversationShell } from './db'
+import {
+  getConversationBySessionId,
+  recordAgentEvent,
+  setConversationArchived,
+  upsertConversationShell,
+} from './db'
 
 import type { AgentConversation } from './db'
 
@@ -204,4 +209,23 @@ function startThreadTurn(data: ThreadTurn): void {
       message_id: data.messageId,
     })
   })
+}
+
+/** Archive or restore an owned conversation in the actor's team, including this one. */
+export async function setAgentThreadArchived(
+  actor: ThreadActor,
+  threadId: string,
+  archived: boolean,
+) {
+  await authorizeThreadActor(actor)
+  const target = await getConversationBySessionId(threadId)
+
+  if (!target || target.userId !== actor.userId || target.teamId !== actor.teamId) {
+    throw new Error('Target must be a conversation you own in this team.')
+  }
+  if (!(await setConversationArchived(threadId, actor.userId, actor.teamId, archived))) {
+    throw new Error('Target conversation was not found.')
+  }
+
+  return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
 }
