@@ -52,13 +52,11 @@ export type WorkspaceTabPaneProps = {
   onOpenNodeLink: (url: string) => void
   onOpenPlanInChat: (planId: string) => void
   onOpenConversation: (sessionId: string) => void
-  /** Whether the Agent page hides its conversation rail. */
-  railCollapsed: boolean
   /** Publishes the open conversation's title for the breadcrumb. */
   onAgentSessionTitle: (tabId: string, title: string) => void
   onOpenAuditConversation: (sessionId: string, locate?: JournalChatTarget) => void
   copyLink: (href: string) => Promise<void>
-  openInChat: (href: string) => void
+  openInChat: (href: string, options?: { mode?: 'mention' | 'text'; filePaths?: string[] }) => void
   /** Open a fresh agent chat and auto-send the given prompt. */
   onOpenAgentChat: (prompt: string, options?: { send?: boolean }) => void
   /** Opens the first-run connect walkthrough in the right-hand dock. */

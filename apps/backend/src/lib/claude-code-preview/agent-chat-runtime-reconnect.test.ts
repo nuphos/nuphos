@@ -18,6 +18,7 @@ const attachment = { openabSessionId: 'session', runtimeUrl: endpoint.url }
 const calls: string[] = []
 let sendAllowed = true
 let phase: string | undefined
+let phaseAfterLoad: string | undefined
 let loaded = false
 let loadedPrompt: string | undefined
 let prompted: string | undefined
@@ -68,7 +69,12 @@ useSessionExecutionState({
     expect(conversation.claudeCodePreview).toEqual(attachment)
     calls.push('observe-control')
 
-    return { schemaVersion: 2, phase, actions: { send: sendAllowed }, label: 'Running tools…' }
+    return {
+      schemaVersion: 2,
+      phase: loaded ? phaseAfterLoad : phase,
+      actions: { send: sendAllowed },
+      label: 'Running tools…',
+    }
   },
 })
 beforeEach(() => {
@@ -77,6 +83,7 @@ beforeEach(() => {
   prompted = undefined
   sendAllowed = true
   phase = undefined
+  phaseAfterLoad = undefined
   workLost = null
   sessionsByConversation.set('team:conversation', {
     teamId: 'team',
@@ -135,9 +142,23 @@ test('a busy runtime is rejected without loading or prompting a replacement sock
 test('re-attaches a continuation parked on a lost output connection instead of leaving it stuck', async () => {
   sendAllowed = false
   phase = 'resume_disconnected'
-  await expect(run()).rejects.toThrow('continuing after a background task')
-  expect(calls).toEqual(['observe-control', 'load'])
+  // Refused like any busy runtime, so the client parks the message instead of failing the turn.
+  await expect(run()).rejects.toMatchObject({
+    status: 409,
+    code: 'runtime_not_accepting_message',
+    message: expect.stringContaining('continuing after a background task'),
+  })
+  expect(calls).toEqual(['observe-control', 'load', 'observe-control'])
   expect(sessionsByConversation.get('team:conversation')?.client).toBe(replacement)
+})
+
+test('a reattach that leaves the continuation parked fails the turn instead of inviting another', async () => {
+  // A 409 here would have the client prompt again on its next probe, forever.
+  sendAllowed = false
+  phase = 'resume_disconnected'
+  phaseAfterLoad = 'resume_disconnected'
+  await expect(run()).rejects.toThrow('could not be reattached')
+  expect(calls).toEqual(['observe-control', 'load', 'observe-control'])
 })
 
 test('a reattach that lost the inner agent reports it on the very next prompt', async () => {

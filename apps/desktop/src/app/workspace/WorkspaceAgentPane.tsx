@@ -10,7 +10,6 @@ import { SessionTitlebarResources } from '../../components/agent/SessionTitlebar
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
-import { ConversationRail } from '../../views/ConversationRail'
 
 import { SessionFindBar } from './SessionFindBar'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -63,7 +62,6 @@ export function WorkspaceAgentPane({
     runtime: AgentProvider | null
     runtimeId?: string
   }>({ sessionId: null, title: 'Agent', runtime: null })
-  const [conversationRailCollapsed, setConversationRailCollapsed] = useState(true)
   const teamId = scope?.teamId
   const connectedResources = useMemo(
     () =>
@@ -88,7 +86,10 @@ export function WorkspaceAgentPane({
     runtimeKubeContextRef.current = activeKubeContext
   }, [activeKubeContext, activePageUrl])
   const handleSessionChange = useCallback(
-    (sessionId: string | null) => workspaceActions.selectSession(sessionId, { keepMainPage: true }),
+    (sessionId: string | null, unshown?: string) => {
+      if (unshown) workspaceActions.forgetSession(unshown)
+      else workspaceActions.selectSession(sessionId, { keepMainPage: true })
+    },
     [workspaceActions],
   )
   const openDockTab = useCallback(
@@ -235,16 +236,6 @@ export function WorkspaceAgentPane({
           active={paneActive && !ws.mainPageOpen && !workspaceExpanded}
         />
         <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
-          <ConversationRail
-            collapsed={conversationRailCollapsed}
-            teamId={teamId}
-            currentUserId={user.id}
-            selectedSessionId={selectedSessionId}
-            onOpenConversation={(sessionId) => handleSessionChange(sessionId)}
-            onOpenConversationInNewTab={(sessionId) => handleSessionChange(sessionId)}
-            onExpand={() => setConversationRailCollapsed(false)}
-            onCollapse={() => setConversationRailCollapsed(true)}
-          />
           <AgentPanel
             key={`agent-main-${teamId}`}
             variant="page"

@@ -72,10 +72,10 @@ if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('scroll-bounce')
 }
 
-// Dev-only: expose a CDP remote-debugging port so an e2e harness (chrome-devtools
-// MCP) can attach to the renderer. Gated behind ATLAS_DEV_CDP_PORT so prod is
-// unaffected. Runs before app.whenReady() below; appendSwitch is a no-op after
-// ready. NOTE: dev affordance — do NOT commit (git checkout this file to drop it).
+// Dev-only: expose a CDP remote-debugging port so an e2e harness can attach to
+// the renderer. `bun run dev` claims a free one per instance and records it in
+// `bun run dev:instances`. Gated behind ATLAS_DEV_CDP_PORT so prod is
+// unaffected. Runs before app.whenReady() below; appendSwitch is a no-op after ready.
 if (process.env.ATLAS_DEV_CDP_PORT) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.ATLAS_DEV_CDP_PORT)
 }

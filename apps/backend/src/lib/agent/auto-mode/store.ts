@@ -12,11 +12,13 @@ export async function setupAutoModeIndexes(): Promise<void> {
       { conversationId: 1, userId: 1 },
       { unique: true, background: true },
     )
-    // The switch is per conversation — expire the doc a week after last touch.
-    await authorizations().createIndex(
-      { updatedAt: 1 },
-      { expireAfterSeconds: 7 * 24 * 3600, background: true },
-    )
+    // The switch lives as long as its conversation. A TTL on updatedAt used to
+    // delete it a week after it was set, however active the conversation was.
+    try {
+      await authorizations().dropIndex('updatedAt_1')
+    } catch (err) {
+      if ((err as { codeName?: string }).codeName !== 'IndexNotFound') throw err
+    }
   } catch (err) {
     logError('agent.auto_mode.indexes_create_failed', err)
   }

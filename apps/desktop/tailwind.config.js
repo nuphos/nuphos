@@ -70,6 +70,7 @@ export default {
         main: withOpacity('--color-text-base'),
         secondary: withOpacity('--color-text-secondary'),
         tertiary: withOpacity('--color-text-tertiary'),
+        slack: withOpacity('--color-slack-text'),
       },
       borderColor: {
         main: withOpacity('--color-border'),

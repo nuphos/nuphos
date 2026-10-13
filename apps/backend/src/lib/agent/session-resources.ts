@@ -15,6 +15,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { agentConversations, getConversationBySessionId } from './db'
 import { canManage, conversationAccess } from './db/access'
 import { githubReviewScope } from './github-review-scope'
+import { unlinkSessionThread } from './session-thread-resources'
 
 import type { AgentConversation } from './db'
 
@@ -48,6 +49,8 @@ export type SessionResource = {
   title: string
   url: string
   state: string
+  /** Linear workflow state type (backlog, unstarted, started, completed, canceled, triage). */
+  stateType?: string
   repository?: string
   number?: number
   linkedAt: string
@@ -176,9 +179,9 @@ async function resolveResource(
         identifier: string
         title: string
         url: string
-        state: { name: string }
+        state: { name: string; type: string }
       } | null
-    }>(token, 'query($id:String!){issue(id:$id){id identifier title url state{name}}}', {
+    }>(token, 'query($id:String!){issue(id:$id){id identifier title url state{name type}}}', {
       id: input.issueId,
     }),
   )
@@ -194,6 +197,7 @@ async function resolveResource(
     title: `${issue.identifier} ${issue.title}`.slice(0, 300),
     url: issue.url,
     state: issue.state.name,
+    stateType: issue.state.type,
   }
 }
 
@@ -237,10 +241,13 @@ export async function bindSessionResource(
 
 export async function unlinkSessionResource(actor: ResourceActor, id: string) {
   await resourceConversation(actor, true)
-  await agentConversations().updateOne(
-    { sessionId: actor.sessionId, teamId: actor.teamId },
-    { $pull: { linkedResources: { id } } },
-  )
+  await Promise.all([
+    agentConversations().updateOne(
+      { sessionId: actor.sessionId, teamId: actor.teamId },
+      { $pull: { linkedResources: { id } } },
+    ),
+    unlinkSessionThread(actor.sessionId, id),
+  ])
 
   return { ok: true }
 }
@@ -273,6 +280,7 @@ export async function refreshSessionResource(
         'linkedResources.$.title': fresh.title,
         'linkedResources.$.state': fresh.state,
         'linkedResources.$.url': fresh.url,
+        ...(fresh.stateType ? { 'linkedResources.$.stateType': fresh.stateType } : {}),
       },
     },
   )

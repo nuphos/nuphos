@@ -58,6 +58,10 @@
     --color-success: 34, 209, 128;
     --color-error: 239, 98, 82;
     --color-warning: 245, 166, 35;
+    /* Slack badge text — the brand's light aubergine reads on the dark canvas. */
+    --color-slack-text: 215, 154, 221;
+    /* Composer mention chip. Brand violet keeps the accent text above 4.5:1 here. */
+    --mention-chip-bg: rgba(var(--color-zViolet-500), 0.18);
 
     /* transitions-dev: Text states swap */
     --text-swap-dur: 150ms;
@@ -285,6 +289,11 @@
     --color-success: 18, 112, 53;
     --color-error: 185, 28, 28;
     --color-warning: 160, 70, 6;
+    /* The dark-mode Slack pink is 1.7:1 on its own light tint; use the brand
+       aubergine instead. */
+    --color-slack-text: 97, 31, 105;
+    /* Brand violet at 18% is a saturated block on white; match the @member chip. */
+    --mention-chip-bg: rgba(var(--color-zViolet-accent), 0.1);
 
     /*
      * A handful of zViolet/zOrangered shades are used as text (log levels,
@@ -550,7 +559,7 @@
     padding: 0.05rem 0.55rem 0.05rem 0.4rem;
     margin: 0 1px;
     border-radius: 0.375rem;
-    background-color: rgba(var(--color-zViolet-500), 0.18);
+    background-color: var(--mention-chip-bg);
     color: rgba(var(--color-zViolet-accent), 1);
     font-size: 12.5px;
     line-height: 1.35;
@@ -2152,18 +2161,28 @@ html.platform-darwin:not(.window-fullscreen)
 /* Small resource labels need theme-specific contrast, including hover fills. */
 :root {
   --resource-linear: #a4adff;
+  --resource-started: #f2c94c;
+  --resource-triage: #fc7840;
   --resource-open: #66d98c;
   --resource-merged: #c4a2ff;
   --resource-closed: #ff9aa3;
 }
 html.light {
   --resource-linear: #505fc4;
+  --resource-started: #9a6700;
+  --resource-triage: #c2410c;
   --resource-open: #16713a;
   --resource-merged: #7541b1;
   --resource-closed: #b42332;
 }
 .session-resource-linear {
   color: var(--resource-linear);
+}
+.session-resource-triage {
+  color: var(--resource-triage);
+}
+.session-resource-started {
+  color: var(--resource-started);
 }
 .session-resource-open {
   color: var(--resource-open);

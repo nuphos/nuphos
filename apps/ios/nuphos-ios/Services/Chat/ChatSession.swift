@@ -24,7 +24,12 @@ final class ChatSession {
     private(set) var error: String?
     private(set) var queued: [String] = []
     private(set) var isOwner = false
-    var canManage: Bool { loaded && isOwner && !readOnly }
+    /// The owner, or a teammate invited to manage: may switch the mode and the
+    /// agent, change credentials, and archive.
+    private(set) var manages = false
+    var canManage: Bool { loaded && manages && !readOnly }
+    /// Renaming, model settings and feedback stay with the owner.
+    var ownsChat: Bool { loaded && isOwner && !readOnly }
     private(set) var readOnly = false
     private(set) var loaded = false
     private(set) var loadError: String?
@@ -248,6 +253,7 @@ final class ChatSession {
         let s = ChatSession(token: token, teamId: teamId)
         s.loaded = true
         s.isOwner = true
+        s.manages = true
         return s
     }
 
@@ -271,6 +277,7 @@ final class ChatSession {
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
+            manages = detail.canManage ?? isOwner
             if let t = detail.title, !t.isEmpty { title = t }
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
@@ -431,7 +438,7 @@ final class ChatSession {
     }
 
     private func applyPendingModelSettings() async {
-        guard canManage, !isStreaming, !sessionConfigSaving, sessionConfigError == nil,
+        guard ownsChat, !isStreaming, !sessionConfigSaving, sessionConfigError == nil,
               let config = sessionConfig, [.ready, .dormant].contains(config.status),
               !pendingModelSettings.isEmpty else { return }
         guard let next = config.nextSelection(in: &pendingModelSettings, streaming: isStreaming) else { return }
@@ -439,7 +446,7 @@ final class ChatSession {
     }
 
     func setSessionConfig(configId: String, value: String) async {
-        guard canManage, !sessionConfigSaving, sessionConfigError == nil, sessionConfig?.isEditable == true else { return }
+        guard ownsChat, !sessionConfigSaving, sessionConfigError == nil, sessionConfig?.isEditable == true else { return }
         if isStreaming || sessionConfig?.status == .busy {
             pendingModelSettings[configId] = value
             return
@@ -466,7 +473,7 @@ final class ChatSession {
     /// when the destination can hold them — another Cloud agent of the same
     /// type — and the move falls back to the transcript alone when they cannot.
     func move(to target: RuntimeInstance) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can move it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can move it.") }
         func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
             try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
         }
@@ -488,17 +495,38 @@ final class ChatSession {
         await refreshSessionConfig()
     }
 
+    // MARK: - Sharing
+
+    /// `agent/conversations/:id/participants` and `…/access`. Every call
+    /// answers with the whole access state; the backend lets only the owner
+    /// change it.
+    func access(_ method: String, _ path: String = "participants") async throws -> SessionAccess {
+        try await access(method, path, body: Optional<Int>.none)
+    }
+
+    func access<B: Encodable>(_ method: String, _ path: String = "participants", body: B?) async throws -> SessionAccess {
+        let data = try await AgentChatAPI.send(
+            method, "agent/conversations/\(sessionId)/\(path)",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: body, timeout: 12
+        )
+        return try JSONDecoder().decode(SessionAccess.self, from: data)
+    }
+
+    func teamMembers() async throws -> [TeamMember] {
+        try await NuphosAPI.teamMembers(token: token, teamId: teamId, includeRemoved: false)
+    }
+
     // MARK: - Archive
 
     func rename(_ name: String) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can rename it.") }
+        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can rename it.") }
         struct Body: Encodable { let title: String }
         _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
         title = name
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -549,8 +577,6 @@ final class ChatSession {
 
     enum ApprovalDecision: Equatable {
         case once
-        case session
-        case always(rule: String)
         case deny
     }
 
@@ -564,28 +590,7 @@ final class ChatSession {
         messages[mi].parts[pi] = .tool(updated)
         error = nil
 
-        Task {
-            switch decision {
-            case .session:
-                if let command = part.input?["command"]?.stringValue {
-                    try? await AgentChatAPI.approveForSession(token: token, sessionId: sessionId, command: command)
-                }
-            case .always(let rule):
-                try? await AgentChatAPI.createPolicyRule(token: token, description: rule)
-            case .once, .deny:
-                break
-            }
-            startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
-        }
-    }
-
-    /// `propose_authorization_rule` follow-ups.
-    func confirmProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.activatePolicyRule(token: token, ruleId: ruleId)) != nil
-    }
-
-    func dismissProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.deletePolicyRule(token: token, ruleId: ruleId)) != nil
+        startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
     }
 
     // MARK: - Plans
@@ -618,7 +623,7 @@ final class ChatSession {
     // MARK: - Feedback
 
     func rate(messageId: String, rating: String?) async {
-        guard canManage else { return }
+        guard ownsChat else { return }
         try? await AgentChatAPI.feedback(token: token, teamId: teamId, sessionId: sessionId, messageId: messageId, rating: rating)
         if let i = messages.firstIndex(where: { $0.id == messageId }) { messages[i].feedback = rating }
     }
@@ -823,6 +828,7 @@ final class ChatSession {
 
     private func adoptRuntime(from detail: AgentConversationDetail) {
         isOwner = detail.isOwner ?? false
+        manages = detail.canManage ?? isOwner
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
         if let id = detail.runtimeId { runtimeId = id }
@@ -1250,7 +1256,7 @@ final class ChatSession {
     }
 
     func syncTranscriptNow() async {
-        guard canManage, !messages.isEmpty, !transcriptOwnedByServer else { return }
+        guard ownsChat, !messages.isEmpty, !transcriptOwnedByServer else { return }
         let sig = signature()
         guard sig != lastSyncedSignature else { return }
         let wire = messages.map(\.forWire)

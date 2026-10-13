@@ -19,8 +19,8 @@ import { prepareAgentHome } from './agent-home.ts'
 import { LocalAgentLogin } from './agent-login.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
+import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
-import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
@@ -145,7 +145,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 
         return workspace ? new LocalFileStream(workspace) : null
       },
-      connectExec: () => new LocalExecStream(),
+      ...localToolStreams,
       connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider) => {
         const running = runtime(provider)

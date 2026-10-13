@@ -69,7 +69,9 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, onSend: { submission in
+                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, sessionMentions: draftTeam.isEmpty ? nil : SessionMentionSource(teamId: draftTeam) { query in
+                    await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
+                }, onSend: { submission in
                     if let session = store.newSession() { newChat = NewChat(session: session, prompt: submission) }
                 }) {
                     ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
@@ -289,7 +291,7 @@ struct AgentPage: View {
                             Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
                         }
                         .tint(.indigo)
-                        if conversation.canManage, conversation.parentSessionId != nil {
+                        if conversation.ownsChat, conversation.parentSessionId != nil {
                             Button {
                                 Task { await store.unlinkParent(conversation) }
                             } label: {

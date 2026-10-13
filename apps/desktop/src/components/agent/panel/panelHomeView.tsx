@@ -128,6 +128,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         dropRegisterRef={homeDropRef}
         draftKey={composerDraftKey(teamId)}
         onImportSession={importSession}
+        mentionScope={teamId ? { teamId } : undefined}
       />
     </>
   )
