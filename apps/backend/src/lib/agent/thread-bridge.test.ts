@@ -6,7 +6,12 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { clearPendingUserMessages } from './pending-messages'
 import { getSessionBypass, setSessionBypass } from './auto-mode/store'
-import { authorizeThreadDelivery, createAgentThread, sendAgentThreadMessage } from './thread-bridge'
+import {
+  authorizeThreadDelivery,
+  createAgentThread,
+  sendAgentThreadMessage,
+  setThreadFullAccess,
+} from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
@@ -46,6 +51,7 @@ beforeEach(() => {
   claims.length = 0
   shells.length = 0
   bypass.clear()
+  events.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -65,6 +71,7 @@ useIdentity({
   signNuphosToken: () => 'test-token',
 })
 const bypass = new Map<string, Record<string, unknown>>()
+const events: { conversationId: string; event: string }[] = []
 
 useDb({
   db: () => ({
@@ -98,7 +105,11 @@ useAgentDb({
       : id === 'target'
         ? target
         : shells.some((shell) => shell.sessionId === id)
-          ? { ...source, sessionId: id }
+          ? {
+              ...source,
+              sessionId: id,
+              parentSessionId: shells.find((shell) => shell.sessionId === id)?.parentSessionId,
+            }
           : null,
   upsertConversationShell: async (data) => {
     shells.push(data)
@@ -106,6 +117,9 @@ useAgentDb({
     return { isNew: true }
   },
   agentMessages: () => ({ findOne: async () => null }),
+  recordAgentEvent: (event) => {
+    events.push(event)
+  },
   getConversationWithMessages: async (sessionId) => ({
     conversation: { ...source, sessionId },
     messages: [],
@@ -168,11 +182,44 @@ describe('conversation-scoped thread tools', () => {
     )
   })
 
-  test.each([true, false])('a thread starts in its parent\'s mode (Full Access %p)', async (on) => {
+  test.each([true, false])("a thread starts in its parent's mode (Full Access %p)", async (on) => {
     await setSessionBypass('source', 'owner', on)
     const result = await createAgentThread(actor, 'Work', 'Task')
 
     expect(await getSessionBypass(result.threadId, 'owner')).toBe(on)
+  })
+
+  test('a Full Access parent switches its thread to Auto Mode and back', async () => {
+    await setSessionBypass('source', 'owner', true)
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await setThreadFullAccess(actor, threadId, false)
+    expect(await getSessionBypass(threadId, 'owner')).toBe(false)
+    await setThreadFullAccess(actor, threadId, true)
+    expect(await getSessionBypass(threadId, 'owner')).toBe(true)
+    expect(events.map((e) => [e.conversationId, e.event])).toEqual([
+      [threadId, 'auth.bypass_disabled'],
+      [threadId, 'auth.bypass_enabled'],
+    ])
+  })
+
+  test('an Auto Mode parent cannot give its thread Full Access, but can still lower it', async () => {
+    await setSessionBypass('source', 'owner', true)
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await setSessionBypass('source', 'owner', false)
+    await expect(setThreadFullAccess(actor, threadId, true)).rejects.toThrow('Full Access')
+    expect(await getSessionBypass(threadId, 'owner')).toBe(true)
+    await setThreadFullAccess(actor, threadId, false)
+    expect(await getSessionBypass(threadId, 'owner')).toBe(false)
+  })
+
+  test('only a thread this conversation created can be switched', async () => {
+    await setSessionBypass('source', 'owner', true)
+    await expect(setThreadFullAccess(actor, 'target', true)).rejects.toThrow('created')
+    await expect(setThreadFullAccess(actor, 'source', true)).rejects.toThrow()
+    expect(await getSessionBypass('target', 'owner')).toBe(false)
+    expect(events).toHaveLength(0)
   })
 
   test('send returns the delivered message id', async () => {

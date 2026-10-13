@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-import { createAgentThread, sendAgentThreadMessage } from '@/lib/agent/thread-bridge'
+import {
+  createAgentThread,
+  sendAgentThreadMessage,
+  setThreadFullAccess,
+} from '@/lib/agent/thread-bridge'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
@@ -23,6 +27,13 @@ const common = {
 }
 const create = z.object({ ...common, title: z.string().trim().min(1).max(160) }).strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
+const mode = z
+  .object({
+    label: common.label,
+    threadId: z.string().uuid(),
+    fullAccess: z.boolean().describe('true for Full Access, false for Auto Mode.'),
+  })
+  .strict()
 
 export function threadToolModule(): PreviewToolModule {
   return {
@@ -31,7 +42,7 @@ export function threadToolModule(): PreviewToolModule {
         name: 'create_thread',
         description:
           'Create and start a separate Nuphos conversation only when asked to delegate/background work. ' +
-          'Inherits your current runtime and selected credentials, not transcript or approval bypass. ' +
+          'Inherits your current runtime, selected credentials and permission mode, not your transcript. ' +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
           'Only available for conversations owned by the current actor.',
@@ -46,6 +57,15 @@ export function threadToolModule(): PreviewToolModule {
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +
           'A queued receipt is not proof of task completion. Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
+      },
+      {
+        name: 'set_thread_permission_mode',
+        description:
+          'Switch a thread this conversation created with create_thread between Full Access ' +
+          '(fullAccess: true) and Auto Mode (false). Full Access is allowed only while this ' +
+          'conversation itself has Full Access; Auto Mode is always allowed. ' +
+          "A new thread already starts in this conversation's mode, so use this only to change it.",
+        inputSchema: toolInputJsonSchema(mode),
       },
     ],
     handlers: (ctx) => ({
@@ -63,6 +83,15 @@ export function threadToolModule(): PreviewToolModule {
 
         return toolResult(
           await sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
+        )
+      },
+      set_thread_permission_mode: async (args) => {
+        const parsed = mode.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return toolResult(
+          await setThreadFullAccess(ctx, parsed.data.threadId, parsed.data.fullAccess),
         )
       },
     }),

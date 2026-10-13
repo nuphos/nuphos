@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
-import { getSessionBypass, initializeSessionBypass } from '@/lib/agent/auto-mode/store'
+import {
+  getSessionBypass,
+  initializeSessionBypass,
+  setSessionBypass,
+} from '@/lib/agent/auto-mode/store'
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId, upsertConversationShell } from './db'
+import { getConversationBySessionId, recordAgentEvent, upsertConversationShell } from './db'
 
 import type { AgentConversation } from './db'
 
@@ -31,7 +35,9 @@ export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentCon
   return source
 }
 
-export async function authorizeThreadDelivery(data: ThreadTurn): Promise<AgentConversation> {
+export async function authorizeThreadDelivery(
+  data: ThreadActor & { targetSessionId: string },
+): Promise<AgentConversation> {
   const source = await authorizeThreadActor(data)
   const target = await getConversationBySessionId(data.targetSessionId)
 
@@ -95,6 +101,31 @@ export async function sendAgentThreadMessage(actor: ThreadActor, threadId: strin
   startThreadTurn(data)
 
   return receipt(actor, threadId, data.messageId)
+}
+
+/** The parent's own switch for a thread it created; never more access than the parent has. */
+export async function setThreadFullAccess(
+  actor: ThreadActor,
+  threadId: string,
+  fullAccess: boolean,
+) {
+  const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
+
+  if (target.parentSessionId !== actor.sessionId) {
+    throw new Error('Only a thread this conversation created can be changed.')
+  }
+  if (fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
+    throw new Error('Only a conversation in Full Access can give a thread Full Access.')
+  }
+  await setSessionBypass(threadId, actor.userId, fullAccess)
+  recordAgentEvent({
+    conversationId: threadId,
+    userId: actor.userId,
+    event: fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
+    data: { sourceSessionId: actor.sessionId },
+  })
+
+  return { threadId, mode: fullAccess ? 'full_access' : 'auto' }
 }
 
 export async function executeThreadTurn(data: ThreadTurn): Promise<void> {

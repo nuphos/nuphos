@@ -13,8 +13,11 @@ MCP surface for either agent runtime, without patching another upstream bundle.
 
 1. Create a thread with a bounded task, completion condition, and a request to
    report back. The tool creates a visible conversation with the same owner,
-   team, runtime, and credential selection, then starts its first turn the same
-   way a message typed into a new chat does.
+   team, runtime, credential selection, and permission mode (Full Access or Auto
+   Mode), then starts its first turn the same way a message typed into a new chat
+   does. The source can later switch the thread between the two modes with
+   `set_thread_permission_mode`; Full Access requires the source itself to be in
+   Full Access.
 2. Continue chatting in the source conversation while the worker runs.
 3. The worker calls `send_message_to_thread` with the source ID and its result.
    The existing run claim starts an idle conversation or enqueues a message for
