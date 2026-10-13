@@ -27,8 +27,8 @@ class LocalNotifications(
         previousAccount = current
     }
 
-    fun clear() {
-        pending.clear()
+    fun clear(clearPending: Boolean = true) {
+        if (clearPending) pending.clear()
         manager.activeNotifications.filter { it.tag == TAG }.forEach { manager.cancel(TAG, it.id) }
     }
 
@@ -41,7 +41,7 @@ class LocalNotifications(
         return true
     }
 
-    fun post(target: LocalNotificationTarget): Boolean {
+    fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String = "Open conversation history"): Boolean {
         if (LocalNotificationTarget.from(target.accountId, target.teamId, target.sessionId) != target ||
             account() != target.accountId || !aiAllowed() ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
@@ -56,8 +56,8 @@ class LocalNotifications(
         val tap = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Nuphos")
-            .setContentText("Open conversation history")
+            .setContentTitle(title)
+            .setContentText(body)
             .setContentIntent(tap).setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build()
         manager.notify(TAG, target.hashCode(), notification)

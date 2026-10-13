@@ -4,10 +4,12 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { pushDeviceStore } from './devices'
+import { fcmProjectId, sendFcm } from './fcm'
 import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
 import type { PushDevice, PushDeviceStore } from './devices'
+import type { FcmRequest, FcmResponse } from './fcm'
 import type { TurnOutcome } from './turn-outcome'
 
 export type NotifiableRun = {
@@ -26,6 +28,8 @@ export type NotifiableRun = {
 export type PushConversation = { title?: string; firstMessage?: string; teamId?: string }
 
 export type TurnNotifierDeps = {
+  fcmProject?: () => string | null
+  sendFcm?: (projectId: string, request: FcmRequest) => Promise<FcmResponse>
   credentials: () => ApnsCredentials | null
   devices: PushDeviceStore
   send: (credentials: ApnsCredentials, request: ApnsRequest) => Promise<ApnsResponse>
@@ -100,34 +104,41 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
 
     if (!credentials) return
     await Promise.all(
-      devices.map(async (device) => {
-        try {
-          const response = await deps.send(credentials, {
-            deviceToken: device.token,
-            environment: device.environment,
-            payload,
-            collapseId,
-          })
-
-          if (isDeadToken(response)) {
-            await deps.devices.removeToken(device.token)
-          } else if (response.status !== 200) {
-            logEvent('warn', 'push.apns.rejected', {
-              status: response.status,
-              reason: response.reason ?? null,
+      devices
+        .filter((device) => device.platform === 'ios')
+        .map(async (device) => {
+          try {
+            const response = await deps.send(credentials, {
+              deviceToken: device.token,
+              environment: device.environment,
+              payload,
+              collapseId,
             })
+
+            if (isDeadToken(response)) {
+              await deps.devices.removeToken(device.token)
+            } else if (response.status !== 200) {
+              logEvent('warn', 'push.apns.rejected', {
+                status: response.status,
+                reason: response.reason ?? null,
+              })
+            }
+          } catch (error) {
+            logError('push.apns.send_failed', error, { collapse_id: collapseId })
           }
-        } catch (error) {
-          logError('push.apns.send_failed', error, { collapse_id: collapseId })
-        }
-      }),
+        }),
     )
   }
 
   async function deliver({ run, body }: Delivery): Promise<void> {
-    if (!deps.credentials() || run.trace?.method === 'TRIGGER') return
+    if ((!deps.credentials() && !deps.fcmProject?.()) || run.trace?.method === 'TRIGGER') return
     const userId = run.trace?.userId ?? run.userId
-    const devices = await deps.devices.listForUser(userId)
+    const projectId = deps.fcmProject?.()
+    const devices = (await deps.devices.listForUser(userId)).filter((device) =>
+      device.platform === 'ios'
+        ? Boolean(deps.credentials())
+        : Boolean(deps.sendFcm) && Boolean(projectId) && device.projectId === projectId,
+    )
 
     if (devices.length === 0 || !admit(userId, run.sessionId)) return
     const conversation = await deps.conversation(run.sessionId)
@@ -137,6 +148,33 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     await run.activityRecorded
     const badge = await deps.unreadCount(userId)
 
+    if (teamId && deps.sendFcm) {
+      const projectId = deps.fcmProject?.()
+
+      if (projectId)
+        await Promise.all(
+          devices
+            .filter((device) => device.platform === 'android')
+            .map(async (device) => {
+              try {
+                const result = await deps.sendFcm!(projectId, {
+                  token: device.token,
+                  userId,
+                  teamId,
+                  sessionId: run.sessionId,
+                  ...alert,
+                })
+
+                if (result.deadToken) await deps.devices.removeToken(device.token)
+                else if (result.status !== 200)
+                  logEvent('warn', 'push.fcm.rejected', { status: result.status })
+              } catch {
+                // Authentication/transport errors can contain credentials: never log raw provider errors.
+                logEvent('warn', 'push.fcm.send_failed', { session_id: run.sessionId })
+              }
+            }),
+        )
+    }
     await send(
       devices,
       {
@@ -215,6 +253,8 @@ let notifier: ReturnType<typeof createTurnNotifier> | null = null
 function defaultNotifier() {
   notifier ??= createTurnNotifier({
     credentials: apnsCredentials,
+    fcmProject: fcmProjectId,
+    sendFcm,
     devices: pushDeviceStore,
     send: sendApns,
     conversation: getConversationBySessionId,
@@ -230,7 +270,7 @@ function defaultNotifier() {
 }
 
 function background(event: string, work: () => Promise<void>): void {
-  if (!apnsCredentials()) return
+  if (!apnsCredentials() && !fcmProjectId()) return
   void work().catch((error: unknown) => {
     logError(event, error)
   })

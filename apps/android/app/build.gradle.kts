@@ -1,8 +1,12 @@
 plugins {
+    id("com.google.gms.google-services") version "4.5.0" apply false
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
+
+// Firebase is optional for contributor/fixture builds. Release builds must supply configuration.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
 
 val releaseVersionCode = providers.gradleProperty("nuphosVersionCode").orElse("1").get()
 val releaseVersionName = providers.gradleProperty("nuphosVersionName").orElse("1.0").get()
@@ -55,6 +59,10 @@ android {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    // Firebase Play Services transitively includes an old Fragment; ActivityResult requires >=1.3.
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

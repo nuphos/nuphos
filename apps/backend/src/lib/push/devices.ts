@@ -7,16 +7,17 @@ export type PushDevice = {
   userId: string
   token: string
   deviceId: string
-  platform: 'ios'
+  platform: 'ios' | 'android'
   environment: ApnsEnvironment
   bundleId?: string
+  projectId?: string
   createdAt: Date
   updatedAt: Date
 }
 
 export type PushDeviceRegistration = Pick<
   PushDevice,
-  'token' | 'deviceId' | 'platform' | 'environment' | 'bundleId'
+  'token' | 'deviceId' | 'platform' | 'environment' | 'bundleId' | 'projectId'
 >
 
 export type PushDeviceStore = {

@@ -66,7 +66,10 @@ class AuthSession(
         private set
     private var consentRequest = 0L
 
+    var onIdentityReset: () -> Unit = {}
+
     private fun beginIdentity(): Long {
+        if (state !is State.Restoring) onIdentityReset()
         composerDrafts.onIdentity(null)
         runtimeSelections.clear()
         workspaceWriteReview = WorkspaceWriteReview()

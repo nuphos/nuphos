@@ -12,10 +12,16 @@ class NuphosApplication : Application() {
     lateinit var authSession: AuthSession
         private set
 
+    lateinit var pushNotifications: ai.nuphos.android.notifications.PushNotifications
+        private set
+
     override fun onCreate() {
         super.onCreate()
         tokenStore = TokenStore(this)
         authSession = AuthSession(this, tokenStore)
         localNotifications = ai.nuphos.android.notifications.LocalNotifications(this, { authSession.user?.id }, { authSession.aiAllowed })
+        pushNotifications = ai.nuphos.android.notifications.PushNotifications(this)
+        authSession.onIdentityReset = { pushNotifications.reset() }
+        registerActivityLifecycleCallbacks(pushNotifications)
     }
 }

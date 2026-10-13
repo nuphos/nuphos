@@ -13,7 +13,7 @@ class ConsentInterceptor : Interceptor {
             ?.removePrefix("Bearer ") ?: return chain.proceed(request)
         if (request.url.scheme != "https" || request.url.host != "api.nuphos.ai")
             throw IOException("Nuphos credentials cannot be sent to this address.")
-        if (request.url.encodedPath.startsWith("/auth/")) return chain.proceed(request)
+        if (request.url.encodedPath.startsWith("/auth/") || request.url.encodedPath.startsWith("/push/devices")) return chain.proceed(request)
         val revision = AiAccess.revision
         if (!AiAccess.allows(bearer)) throw IOException("Confirm your AI sharing choice before using agents.")
         val response = chain.proceed(request.newBuilder()

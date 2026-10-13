@@ -19,7 +19,7 @@ const store: PushDeviceStore = {
     unregistered.push({ userId, token })
   },
   listForUser: async () => [],
-  removeToken: async () => undefined,
+  removeToken: async () => {},
 }
 
 const app = new Hono<{ Variables: AuthVariables }>()
@@ -80,5 +80,48 @@ describe('push device routes', () => {
 
     expect(response.status).toBe(200)
     expect(unregistered).toEqual([{ userId: 'user-1', token: TOKEN.toLowerCase() }])
+  })
+})
+
+describe('Android FCM device registration', () => {
+  const token = 'AbC:Mixed_Case-token.123'
+
+  test('preserves the opaque FCM token and project binding', async () => {
+    const response = await put({
+      token,
+      deviceId: 'android-1',
+      platform: 'android',
+      environment: 'production',
+      bundleId: 'ai.nuphos.android',
+      projectId: 'nuphos-android',
+    })
+
+    expect(response.status).toBe(200)
+    expect(registered[0]?.device.token).toBe(token)
+    expect(registered[0]?.device.projectId).toBe('nuphos-android')
+  })
+  test('unregisters Android tokens without changing their case', async () => {
+    const response = await app.request(
+      `/push/devices/${encodeURIComponent(token)}?platform=android`,
+      { method: 'DELETE' },
+    )
+
+    expect(response.status).toBe(200)
+    expect(unregistered[0]?.token).toBe(token)
+  })
+  test('rejects incomplete or invalid Android registration', async () => {
+    expect((await put({ token, deviceId: 'd', platform: 'android' })).status).toBe(400)
+    expect(
+      (
+        await put({
+          token: 'bad token',
+          deviceId: 'd',
+          platform: 'android',
+          environment: 'production',
+          bundleId: 'ai.nuphos.android',
+          projectId: 'nuphos-android',
+        })
+      ).status,
+    ).toBe(400)
   })
 })

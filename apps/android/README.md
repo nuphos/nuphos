@@ -109,3 +109,23 @@ personal phone or run data-changing tests against a personal account.
 
 For signed AAB artifact CI, version inputs and administrator prerequisites, see
 [Android release artifacts](RELEASE.md).
+
+### Android push development
+
+Place your Firebase Android client configuration at `app/google-services.json` (ignored by Git).
+The package must be `ai.nuphos.android`. Without this file contributor and fixture builds remain
+available with push disabled. Only Firebase Messaging is included; Analytics is not enabled.
+
+Backend: set `FCM_PROJECT_ID` to the matching Firebase project and provide Application Default
+Credentials using `GOOGLE_APPLICATION_CREDENTIALS` when running outside the default ADC location.
+Never put sender credentials in this app. FCM uses data messages so the client can reject stale
+account bindings before display. Notifications require permission, an enabled channel, and a
+registered signed-in account that accepted AI consent. Foreground app activity suppresses system
+notifications. Sign-out clears local binding and attempts server unregister; notifications carry
+account/team/session IDs and still use guarded history navigation on tap.
+
+Verify on a physical device: allow notification permission, sign in and accept consent, background
+the app, complete an agent turn or request an approval, check phone receipt and tap routing. Also
+check denied permissions, process recreation, token refresh and account switching. A successful
+FCM send response does not prove phone delivery; force-stopped apps require a subsequent manual
+launch before Android permits delivery again.
