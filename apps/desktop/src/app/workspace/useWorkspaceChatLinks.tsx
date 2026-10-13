@@ -13,6 +13,7 @@ import { mergeIfChanged } from '../../lib/mergeIfChanged'
 import { runtimeFilePathFromHref } from '../../lib/runtimeFileLink'
 import { isAppWebUrl } from '../../lib/webBaseUrl'
 
+import { useChatLinkMenuActions } from './useChatLinkMenuActions'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceAccountsResult } from './useWorkspaceAccounts'
@@ -63,6 +64,7 @@ export function useWorkspaceChatLinks(a: Args) {
     openConversationHere,
     openNuphosLinkInNewTab,
     openAppOpenDeepLink,
+    copyLink,
     teamId,
     accountsByTeam,
     setAccountsByTeam,
@@ -192,7 +194,7 @@ export function useWorkspaceChatLinks(a: Args) {
       }
       const parsed = isAppWebUrl(href.trim())
 
-      if (!parsed || !parsed.pathname.startsWith('/teams/')) return false
+      if (!parsed?.pathname.startsWith('/teams/')) return false
       openAppOpenDeepLink({
         path: `${parsed.pathname}${parsed.search}`,
         url: parsed.toString(),
@@ -224,6 +226,14 @@ export function useWorkspaceChatLinks(a: Args) {
     [boundResources, openExternalLink, openNuphosLinkInNewTab, teamId],
   )
 
+  const chatLinkMenuActions = useChatLinkMenuActions({
+    teamId,
+    copyLink,
+    openExternalLink,
+    openNuphosLinkFromChat,
+    openNuphosLinkInNewTab,
+  })
+
   // Pane props whose dependency chains root in `tabs`/`activeTab` — they churn
   // on every poll tick and switch, and one unstable prop re-renders every
   // mounted pane: the memoized pane is only as good as its least stable prop.
@@ -247,6 +257,7 @@ export function useWorkspaceChatLinks(a: Args) {
   }, [paneActive, openAppOpenDeepLink])
 
   return {
+    chatLinkMenuActions,
     openNuphosLinkFromChat,
     stableDockAgentToSidebar,
     stableOpenNuphosLinkFromChat,
