@@ -1,27 +1,24 @@
-import { Loader2 } from "lucide-react";
+import { Loader2 } from 'lucide-react'
 
-import { api } from "../../../api";
-import { track } from "../../../lib/analytics";
-import {
-  runtimeIsExecuting,
-  runtimeAllows,
-} from "../../../lib/runtimeExecution";
-import { toast } from "../../ui/toast";
-import { PermissionResumeContext } from "../permissionResumeContext";
+import { api } from '../../../api'
+import { track } from '../../../lib/analytics'
+import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
+import { toast } from '../../ui/toast'
+import { PermissionResumeContext } from '../permissionResumeContext'
 
-import { Composer } from "./Composer";
-import { composerDraftKey } from "./composerDrafts";
-import { Conversation } from "./Conversation";
-import { ConversationReveal } from "./ConversationReveal";
-import { useConversationRuntimeControl } from "./conversationRuntimeControl";
-import { DelayedPanelReveal } from "./homeAnimation";
-import { AuthorizationActionContext } from "./parts";
-import { QueuedStrip } from "./QueuedStrip";
+import { Composer } from './Composer'
+import { composerDraftKey } from './composerDrafts'
+import { Conversation } from './Conversation'
+import { ConversationReveal } from './ConversationReveal'
+import { useConversationRuntimeControl } from './conversationRuntimeControl'
+import { DelayedPanelReveal } from './homeAnimation'
+import { AuthorizationActionContext } from './parts'
+import { QueuedStrip } from './QueuedStrip'
 
-import type { PanelViewCtx } from "./ctx";
+import type { PanelViewCtx } from './ctx'
 
 // The home page lives next door; re-exported so call sites keep one import.
-export { PanelHomePage } from "./panelHomeView";
+export { PanelHomePage } from './panelHomeView'
 
 export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const {
@@ -53,27 +50,25 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     url,
     variant,
     visibleConversationCredentialSelector,
-  } = c;
-  const { runtimeControl } = useConversationRuntimeControl(c);
+  } = c
+  const { runtimeControl } = useConversationRuntimeControl(c)
   const modelSession =
     activeTab?.sessionId && !activeTab.foreign && teamId
       ? {
           sessionId: activeTab.sessionId,
           teamId,
         }
-      : undefined;
+      : undefined
   // Only the owner decides who has access, so only they are offered an invite
   // for the teammates they mention.
-  const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId;
+  const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
-    activeTab?.sessionId &&
-    !activeTab.readOnly &&
-    (!activeTab.foreign || activeTab.canManage)
+    activeTab?.sessionId && !activeTab.readOnly && (!activeTab.foreign || activeTab.canManage)
       ? {
           active: bypassBySession[activeTab.sessionId] ?? false,
           onSelect: selectBypassMode,
         }
-      : undefined;
+      : undefined
 
   return activeTab && !switchingConversation ? (
     <ConversationReveal sessionId={activeTab.sessionId}>
@@ -93,47 +88,41 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 onMessageFeedback={handleMessageFeedback}
                 // Only show docking where a sidebar host exists.
                 onDockToSidebar={
-                  variant === "page" && onDockToSidebar
-                    ? dockCurrentSession
-                    : undefined
+                  variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
                 }
                 onStop={stopActive}
                 onApprovePlan={(planId) => {
-                  if (activeTab.readOnly) return;
-                  track("agent_plan_approved", {
+                  if (activeTab.readOnly) return
+                  track('agent_plan_approved', {
                     plan_id: planId,
-                    surface: "inline_card",
-                  });
+                    surface: 'inline_card',
+                  })
                   // Persist approval; the usePlan poll reflects the new status.
                   void api
-                    .agentUpdatePlan(planId, { status: "approved" }, teamId)
+                    .agentUpdatePlan(planId, { status: 'approved' }, teamId)
                     .then((updated) => {
                       // A vote may leave the plan proposed under a team quorum. Only
                       // the request that completes the gate resumes Agent execution.
                       // Slack-bound conversations execute through the backend's plan
                       // resume in the bound thread — sending a proceed turn here too
                       // would race it and could run the plan twice.
-                      if (
-                        updated.status === "approved" &&
-                        !activeTab.slackThread
-                      ) {
+                      if (updated.status === 'approved' && !activeTab.slackThread) {
                         void sendInActive(
                           `Approved plan #${planId} — please proceed with plan #${planId}.`,
                           [],
-                          "plan-approval",
-                        );
+                          'plan-approval',
+                        )
                       }
                     })
                     .catch((err: unknown) => {
-                      console.warn("[plan] failed to mark approved", err);
-                      toast.apiError("Could not approve plan", err, {
-                        fallback:
-                          "The plan was not approved. Please try again.",
-                      });
-                    });
+                      console.warn('[plan] failed to mark approved', err)
+                      toast.apiError('Could not approve plan', err, {
+                        fallback: 'The plan was not approved. Please try again.',
+                      })
+                    })
                 }}
                 onRejectPlan={(planId, reason, mode) => {
-                  void handleRejectPlan(planId, reason, mode, "the plan");
+                  void handleRejectPlan(planId, reason, mode, 'the plan')
                 }}
                 activePlanCanAct={activePlanCanAct}
                 onOpenNuphosLink={onOpenNuphosLink}
@@ -144,26 +133,20 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.queued && activeTab.queued.length > 0 && (
                 <QueuedStrip
                   items={activeTab.queued}
-                  canSend={runtimeAllows(activeTab.runtimeState, "send")}
-                  canSteer={runtimeAllows(activeTab.runtimeState, "steer")}
+                  canSend={runtimeAllows(activeTab.runtimeState, 'send')}
+                  canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
                   onRemove={(queuedId) => removeQueued(activeTab.id, queuedId)}
-                  onSteer={(queuedId) =>
-                    void steerQueued(activeTab.id, queuedId)
-                  }
+                  onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
                   sidebar={isSidebarMode}
                 />
               )}
               {activeTab.messages.length === 0 ? (
                 <DelayedPanelReveal>
                   <Composer
-                    onSend={(text, filePaths) =>
-                      void sendInActive(text, filePaths)
-                    }
+                    onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                     onStop={stopActive}
                     streaming={false}
-                    runtimeState={
-                      activeTab.runtimeState ?? { state: "unknown" }
-                    }
+                    runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}
                     activitySource={activeTab.activitySource}
@@ -177,28 +160,21 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     sidebar={isSidebarMode}
                     dropRegisterRef={conversationDropRef}
                     draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                    mentionScope={
-                      teamId
-                        ? { teamId, sessionId: inviteSessionId }
-                        : undefined
-                    }
+                    mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
                 </DelayedPanelReveal>
               ) : (
                 <Composer
-                  onSend={(text, filePaths) =>
-                    void sendInActive(text, filePaths)
-                  }
+                  onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                   onStop={stopActive}
                   streaming={false}
                   promptSuggestion={
-                    activeTab.streaming ||
-                    runtimeIsExecuting(activeTab.runtimeState)
+                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
                       ? null
                       : activeTab.promptSuggestion
                   }
                   autoFocus
-                  runtimeState={activeTab.runtimeState ?? { state: "unknown" }}
+                  runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                   executing={runtimeIsExecuting(activeTab.runtimeState)}
                   readOnly={activeTab.readOnly}
                   activitySource={activeTab.activitySource}
@@ -212,9 +188,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   sidebar={isSidebarMode}
                   dropRegisterRef={conversationDropRef}
                   draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                  mentionScope={
-                    teamId ? { teamId, sessionId: inviteSessionId } : undefined
-                  }
+                  mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                 />
               )}
             </div>
@@ -223,10 +197,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       </PermissionResumeContext.Provider>
     </ConversationReveal>
   ) : (
-    <div
-      className="flex min-h-0 flex-1 items-center justify-center"
-      aria-busy="true"
-    >
+    <div className="flex min-h-0 flex-1 items-center justify-center" aria-busy="true">
       <Loader2
         className="h-4 w-4 animate-spin text-tertiary/70"
         strokeWidth={1.7}
@@ -234,5 +205,5 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       />
       <span className="sr-only">Opening chat</span>
     </div>
-  );
+  )
 }
