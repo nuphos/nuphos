@@ -47,8 +47,6 @@ test('concurrent sessions keep HOME state separate, resume it, and never copy th
     'PLAYWRIGHT_BROWSERS_PATH',
     'PIP_CACHE_DIR',
     'UV_CACHE_DIR',
-    'npm_config_store_dir',
-    'pnpm_config_store_dir',
   ]) {
     assert.equal(a[key], b[key])
     assert.equal(relative(host.HOME, a[key]).startsWith('.nuphos'), false)

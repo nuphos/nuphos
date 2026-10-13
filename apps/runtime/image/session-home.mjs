@@ -38,9 +38,6 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     PLAYWRIGHT_BROWSERS_PATH: nuphosJoin(runtimeHome, '.cache', 'ms-playwright', 'browsers'),
     PIP_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'pip'),
     UV_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'uv'),
-    // pnpm 10 reads the npm_ prefix and pnpm 11 its own.
-    npm_config_store_dir: nuphosJoin(runtimeHome, '.local', 'share', 'pnpm', 'store'),
-    pnpm_config_store_dir: nuphosJoin(runtimeHome, '.local', 'share', 'pnpm', 'store'),
     XDG_DATA_HOME: nuphosJoin(home, '.local', 'share'),
     XDG_STATE_HOME: nuphosJoin(home, '.local', 'state'),
     CLOUDSDK_CONFIG: nuphosJoin(config, 'gcloud'),
