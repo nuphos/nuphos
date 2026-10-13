@@ -2,9 +2,9 @@ import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
 import { Laptop, MessageSquare } from 'lucide-react'
 
-import { optionKey } from './composerMentionChips'
-
 import { Avatar } from '../../Avatar'
+
+import { optionKey } from './composerMentionChips'
 
 import type { MentionOption } from './composerMentionChips'
 import type { ReactNode } from 'react'
