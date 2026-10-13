@@ -90,10 +90,19 @@ final class AgentStore {
         guard conversation.canManage, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: conversation.sessionId, archived: archived)
-            conversations.removeAll { $0.sessionId == conversation.sessionId }
+            removeFromList(conversation.sessionId)
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// Drops a chat that left this list (archived or restored). The poller
+    /// keeps rows its first page misses, so it would not drop it; reads
+    /// already in flight are discarded so they cannot bring it back.
+    func removeFromList(_ sessionId: String) {
+        loadGeneration += 1
+        conversations.removeAll { $0.sessionId == sessionId }
+        sharedConversations.removeAll { $0.sessionId == sessionId }
     }
 
     // MARK: - Threads
@@ -503,8 +512,7 @@ final class AgentStore {
             archived: showArchived ? .only : .exclude, sort: sort
         ), generation == loadGeneration, !Task.isCancelled else { return }
         await loadShared(team: team, generation: generation)
-        let firstPageIds = Set(page.conversations.map(\.sessionId))
-        conversations = page.conversations + conversations.filter { !firstPageIds.contains($0.sessionId) }
+        conversations = conversations.refreshed(firstPage: page.conversations)
         if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= Self.pageSize {
             nextCursor = page.nextCursor
             hasMore = page.hasMore
