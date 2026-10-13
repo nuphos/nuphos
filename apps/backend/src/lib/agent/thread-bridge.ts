@@ -43,7 +43,7 @@ export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentCon
 
 export async function authorizeThreadDelivery(
   data: ThreadActor & { targetSessionId: string },
-): Promise<AgentConversation> {
+): Promise<{ source: AgentConversation; target: AgentConversation }> {
   const source = await authorizeThreadActor(data)
   const target = await getConversationBySessionId(data.targetSessionId)
 
@@ -57,7 +57,7 @@ export async function authorizeThreadDelivery(
     throw new Error('Target must be another unarchived conversation you own in this team.')
   }
 
-  return target
+  return { source, target }
 }
 
 function receipt(
@@ -152,7 +152,7 @@ export async function updateThread(
   threadId: string,
   change: { fullAccess?: boolean; runtimeId?: string },
 ) {
-  const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
+  const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
   // Who opened it, not who it is nested under now: adopting a conversation must
   // not hand over control of it.
@@ -197,12 +197,17 @@ export async function updateThread(
 // process, a busy one takes the message into its active turn. Returns which
 // happened; `run` settles with the turn, whose failure is logged here.
 export async function startThreadTurn(data: ThreadTurn) {
-  const target = await authorizeThreadDelivery(data)
+  const { source, target } = await authorizeThreadDelivery(data)
   // Lazy so importing the tools does not pull in the route graph.
   const { startConversationTurn } = await import('./conversation-turn')
   const { status, run } = await startConversationTurn(data, target, data.prompt, 'agent.thread', {
     version: 1,
-    sender: { type: 'agent', id: data.sessionId, displayName: 'Nuphos agent' },
+    sender: {
+      type: 'agent',
+      id: data.sessionId,
+      displayName: source.title || 'Nuphos agent',
+      ...(source.agentRuntime ? { agentRuntime: source.agentRuntime } : {}),
+    },
     source: 'agent.thread',
     sourceSessionId: data.sessionId,
     sentAt: new Date().toISOString(),
