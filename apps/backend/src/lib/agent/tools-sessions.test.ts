@@ -1,7 +1,5 @@
 import { expect, test } from 'bun:test'
 
-
-
 import { agentRuns } from '@/lib/agent/run-admission'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
