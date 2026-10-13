@@ -40,7 +40,12 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
 
     expect(run.exitCode).toBe(0)
 
-    return (JSON.parse(run.stdout.toString()) as { result: string }).result
+    const outcome = JSON.parse(run.stdout.toString()) as { result: string; unreadable?: string }
+
+    // A host process the scan cannot read keeps every home; name it.
+    if (outcome.unreadable) console.error('unreadable process:', outcome.unreadable)
+
+    return outcome.result
   }
 
   beforeEach(() => {

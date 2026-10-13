@@ -26,7 +26,8 @@ if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2);
 const id = createHash('sha256').update(sessionId).digest('hex');
 const homes = path.join(os.homedir(), '.nuphos', 'session-homes');
 const home = path.join(homes, id);
-const done = (result) => { process.stdout.write(JSON.stringify({ result })); process.exit(0); };
+let unreadable;
+const done = (result) => { process.stdout.write(JSON.stringify({ result, unreadable })); process.exit(0); };
 // HOME is matched by the original path; a working directory follows the
 // directory itself.
 const inUse = async (dir, byHome) => {
@@ -40,7 +41,11 @@ const inUse = async (dir, byHome) => {
     const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch((err) => (err.code === 'ENOENT' || err.code === 'ESRCH' ? null : ''));
     if (cwd === null) continue;
     const env = await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => null);
-    if (env === null || cwd === '') return true;
+    if (env === null || cwd === '') {
+      const comm = await fs.readFile('/proc/' + pid + '/comm', 'utf8').catch(() => '?');
+      unreadable = pid + ' ' + comm.trim();
+      return true;
+    }
     if (env.split('\0').includes('HOME=' + byHome) || cwd === dir || cwd.startsWith(dir + '/')) return true;
   }
   return false;
@@ -139,7 +144,17 @@ export async function reclaimSessionHome(sessionId: string): Promise<boolean> {
   if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
     throw new Error(`Reclaiming the session home failed: ${JSON.stringify(result)}`)
 
-  return (JSON.parse(result.stdout) as { result?: string }).result !== 'in_use'
+  const outcome = JSON.parse(result.stdout) as { result?: string; unreadable?: string }
+
+  // Kept because a process could not be inspected; a host where this repeats
+  // never reclaims anything.
+  if (outcome.unreadable)
+    logEvent('warn', 'agent.session_home_reclaim.unreadable_process', {
+      session_id: sessionId,
+      process: outcome.unreadable,
+    })
+
+  return outcome.result !== 'in_use'
 }
 
 /**
