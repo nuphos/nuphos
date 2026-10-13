@@ -126,12 +126,18 @@ export function createSessionTools(
         })
 
         if (!page) return { error: 'Conversation not found or not readable in this workspace.' }
-        // Read after the stored page: a turn that settles in between then
-        // shows in neither, rather than in both.
-        const live =
+        const running =
           page.nextIndex === null
             ? await getLiveTurn(page.conversation.userId, page.conversation.sessionId)
             : null
+        // The final message is stored a moment before the run's frames say
+        // so; an assistant message stored since the turn began is that one.
+        const live =
+          running?.startedAt &&
+          page.lastAssistantAt &&
+          page.lastAssistantAt.getTime() >= Date.parse(running.startedAt)
+            ? null
+            : running
         const lines = live
           ? [
               ...page.lines,

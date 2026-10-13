@@ -20,6 +20,7 @@ test('offers nothing outside a team scope', () => {
   expect(createSessionTools('u', 'c', null)).toEqual({})
 })
 
+let runningLastAssistantAt: Date | null = null
 const diagnostics = [{ message_index: 7, outcome: 'interrupted', reason: 'timeout' }]
 
 useAgentDb({
@@ -39,6 +40,7 @@ useAgentDb({
         lines: ['#31 user: deploy it'],
         turnDiagnostics: [],
         nextIndex: null,
+        lastAssistantAt: runningLastAssistantAt,
       }
     }
     expect(options).toMatchObject({ teamId: 'team', sessionId: 'other', fromIndex: 7, limit: 1 })
@@ -54,6 +56,7 @@ useAgentDb({
       lines: ['#7 assistant: … [truncated]'],
       turnDiagnostics: diagnostics,
       nextIndex: 8,
+      lastAssistantAt: null,
     }
   },
 })
@@ -103,6 +106,16 @@ test('read_conversation ends with the turn still running', async () => {
     expect(result.transcript).toBe(
       '#31 user: deploy it\n#32 assistant (in progress, started 2026-10-13T08:00:00.000Z, last update 2026-10-13T08:20:00.000Z): Checking the cluster.\n[tool: Bash]',
     )
+
+    // Stored, but the run has not said so yet.
+    runningLastAssistantAt = new Date('2026-10-13T08:20:01Z')
+    const persisted = (await tool.execute!(
+      { label: 'Read', session_id: 'running' },
+      { toolCallId: 'read', messages: [] },
+    )) as { transcript: string }
+
+    expect(persisted).not.toHaveProperty('in_progress')
+    runningLastAssistantAt = null
 
     run.frames.push(frame({ type: 'atlas-transcript-tail', messages: [] }))
     const settled = (await tool.execute!(

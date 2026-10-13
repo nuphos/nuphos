@@ -14,6 +14,10 @@ export type LiveTurn = {
   parts: LivePart[]
 }
 
+// The line is clipped to its last few thousand characters, so the newest
+// frames are all a reader needs; a long turn's mirror holds tens of thousands.
+const FRAME_WINDOW = 2_000
+
 // Any of these means the turn's final message is persisted or about to be,
 // so the transcript itself is the answer and a live entry would duplicate it.
 const SETTLED_FRAME_TYPES = new Set([
@@ -96,7 +100,7 @@ export async function getLiveTurn(
     if (!local || run.createdAt > local.createdAt) local = run
   }
   if (local) {
-    const parts = liveTurnParts(local.frames)
+    const parts = liveTurnParts(local.frames.slice(-FRAME_WINDOW))
 
     return parts
       ? { startedAt: toIso(local.createdAt), updatedAt: toIso(local.lastFrameAt), parts }
@@ -105,7 +109,7 @@ export async function getLiveTurn(
   const active = await getActiveAgentRunForSession(ownerUserId, sessionId)
 
   if (!active) return null
-  const mirrored = await readAgentRunFrames(ownerUserId, active.streamId)
+  const mirrored = await readAgentRunFrames(ownerUserId, active.streamId, FRAME_WINDOW)
   const parts = liveTurnParts(mirrored?.frames ?? [])
 
   return parts

@@ -122,6 +122,8 @@ export async function getConversationTranscriptForAgent(
   lines: string[]
   turnDiagnostics: ReturnType<typeof transcriptTurnDiagnostics>
   nextIndex: number | null
+  /** When the page's last message was first stored, if it is an assistant's. */
+  lastAssistantAt: Date | null
 } | null> {
   const conversation = await getReadableConversation(
     options.sessionId,
@@ -139,7 +141,7 @@ export async function getConversationTranscriptForAgent(
         userId: conversation.userId,
         index: { $gte: fromIndex, $lt: fromIndex + limit + 1 },
       },
-      { projection: { index: 1, role: 1, parts: 1, messageId: 1, metadata: 1 } },
+      { projection: { index: 1, role: 1, parts: 1, messageId: 1, metadata: 1, createdAt: 1 } },
     )
     .sort({ index: 1 })
     .toArray()
@@ -159,5 +161,6 @@ export async function getConversationTranscriptForAgent(
     ),
     turnDiagnostics: page.flatMap(transcriptTurnDiagnostics),
     nextIndex: messages.length > limit && last ? last.index + 1 : null,
+    lastAssistantAt: last?.role === 'assistant' ? last.createdAt : null,
   }
 }
