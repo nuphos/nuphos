@@ -95,7 +95,7 @@ export async function executeConversationTurn(
       firstMessage: target.firstMessage,
       source,
       locale: data.locale,
-      // Keep ordinary permission handling; delegation must not turn on Full Access.
+      // 'user' adds no Full Access default: a thread took its parent's mode at creation.
       origin: source === 'agent.resource' ? 'trigger' : 'user',
     })
 

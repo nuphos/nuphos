@@ -5,6 +5,7 @@ import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
+import { steeringText } from './steering-receipt'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 import { liveAttachment } from '@/lib/agent/db/shared'
@@ -104,13 +105,6 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
     sessionId: conversation.sessionId,
     reason: 'turn_cancelled',
   }).catch(() => undefined)
-}
-
-/** The receipt names attached files, so the transcript records what was sent. */
-export function steeringText(typed: string, fileNames: string[]): string {
-  return [typed, fileNames.length ? `[Attached: ${fileNames.join(', ')}]` : '']
-    .filter(Boolean)
-    .join('\n\n')
 }
 
 /**

@@ -9,6 +9,7 @@ import { Streamdown } from 'streamdown'
 import 'streamdown/styles.css'
 
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
+import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
 
 type StreamdownComponents = ComponentProps<typeof Streamdown>['components']
 type StreamdownAnimated = ComponentProps<typeof Streamdown>['animated']
@@ -166,6 +167,7 @@ export const MessageResponse = memo(
           // cjk: ends an autolink at CJK punctuation. Without it `https://…/ec2，然後`
           // swallows the rest of the sentence into the href.
           plugins={{ code: codePlugin, cjk: cjkPlugin }}
+          rehypePlugins={messageRehypePlugins}
           components={components}
         >
           {children}
