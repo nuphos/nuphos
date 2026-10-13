@@ -10,7 +10,11 @@ import {
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
 import { renderAttributedMessage } from '@/lib/agent/message-metadata'
-import { drainPendingUserMessages, renderInjectedUserMessages } from '@/lib/agent/pending-messages'
+import {
+  drainPendingUserMessages,
+  enqueuePendingUserMessage,
+  renderInjectedUserMessages,
+} from '@/lib/agent/pending-messages'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
 import { prefixUserMessage, recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
@@ -226,4 +230,16 @@ export function carriedUserMessages(carried: PendingUserMessage[]): UIMessage[] 
     metadata: entry.metadata,
     parts: [{ type: 'text', text: entry.renderedText }],
   }))
+}
+
+/**
+ * A refused turn never reached the agent. When its client resends the message, the
+ * queued messages it drained go back on the queue for that resent turn.
+ */
+export async function requeueCarried(
+  userId: string,
+  sessionId: string,
+  carried: PendingUserMessage[],
+) {
+  for (const entry of carried) await enqueuePendingUserMessage(userId, sessionId, entry)
 }
