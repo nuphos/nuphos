@@ -21,6 +21,7 @@ class NuphosApplication : Application() {
         authSession = AuthSession(this, tokenStore)
         localNotifications = ai.nuphos.android.notifications.LocalNotifications(this, { authSession.user?.id }, { authSession.aiAllowed })
         pushNotifications = ai.nuphos.android.notifications.PushNotifications(this)
+        ai.nuphos.android.session.AiAccess.onRevoked = { pushNotifications.reset(clearPending = false) }
         authSession.onIdentityReset = { pushNotifications.reset() }
         registerActivityLifecycleCallbacks(pushNotifications)
     }

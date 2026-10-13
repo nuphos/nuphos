@@ -122,7 +122,8 @@ Never put sender credentials in this app. FCM uses data messages so the client c
 account bindings before display. Notifications require permission, an enabled channel, and a
 registered signed-in account that accepted AI consent. Foreground app activity suppresses system
 notifications. Sign-out clears local binding and attempts server unregister; notifications carry
-account/team/session IDs and still use guarded history navigation on tap.
+account/team/session IDs and still use guarded history navigation on tap. Consent revocation
+synchronously clears the persisted push opt-in before any later background display.
 
 Verify on a physical device: allow notification permission, sign in and accept consent, background
 the app, complete an agent turn or request an approval, check phone receipt and tap routing. Also

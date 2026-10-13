@@ -28,6 +28,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     private val prefs = app.getSharedPreferences("push_binding", Application.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
+    private val bindingLock = Any()
     @Volatile private var login: Pair<String, String>? = null
     @Volatile private var registration: Pair<String, String>? = null
     @Volatile private var started = 0
@@ -37,9 +38,11 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     fun reset(clearPending: Boolean = true) {
         val oldLogin = login
         val oldRegistration = registration
-        login = null
-        registration = null
-        prefs.edit().remove("account").remove("login_hash").commit()
+        synchronized(bindingLock) {
+            login = null
+            registration = null
+            prefs.edit().remove("account").remove("login_hash").remove("consent_granted").commit()
+        }
         app.localNotifications.clear(clearPending)
         if (FirebaseApp.getApps(app).isNotEmpty()) FirebaseMessaging.getInstance().isAutoInitEnabled = false
         if (oldLogin != null && oldRegistration != null) scope.launch {
@@ -54,7 +57,10 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
         val next = account to token
         if (login == next) return
         reset(clearPending = app.localNotifications.pending.value.value?.accountId != account)
-        login = next
+        synchronized(bindingLock) {
+            if (!ai.nuphos.android.session.AiAccess.allows(token)) return
+            login = next
+        }
         if (FirebaseApp.getApps(app).isEmpty()) return
         FirebaseMessaging.getInstance().isAutoInitEnabled = true
         requestToken()
@@ -88,11 +94,16 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
                         Http.client.newCall(request).execute().use { it.isSuccessful }
                     }.getOrDefault(false)
                     if (ok) {
-                        if (login == expected) {
-                            registration = expected.first to fcmToken
-                            prefs.edit().putString("account", expected.first)
-                                .putString("login_hash", fingerprint(expected.second)).commit()
-                        } else runCatching { unregister(expected.second, fcmToken) }
+                        val accepted = synchronized(bindingLock) {
+                            if (login != expected || !ai.nuphos.android.session.AiAccess.allows(expected.second)) false
+                            else {
+                                registration = expected.first to fcmToken
+                                prefs.edit().putString("account", expected.first)
+                                    .putString("login_hash", fingerprint(expected.second)).putBoolean("consent_granted", true).commit()
+                                true
+                            }
+                        }
+                        if (!accepted) runCatching { unregister(expected.second, fcmToken) }
                         return@withLock
                     }
                     delay(1000L shl attempt)
@@ -110,19 +121,28 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     }
 
     fun receive(data: Map<String, String>) {
-        val savedToken = app.tokenStore.read() ?: return
-        val account = prefs.getString("account", null) ?: return
-        if (!PushBindingPolicy.accepts(account, prefs.getString("login_hash", null), fingerprint(savedToken), data["accountId"], started > 0)) return
-        val target = LocalNotificationTarget.from(account, data["teamId"], data["sessionId"]) ?: return
-        // The app's normal guarded tap routing still checks current account, team and consent.
-        LocalNotifications(app, { account }, { true }).post(target,
-            "Nuphos", data["body"]?.take(200) ?: "Open Nuphos to view the update")
+        synchronized(bindingLock) {
+            if (!prefs.getBoolean("consent_granted", false)) return
+            val savedToken = app.tokenStore.read() ?: return
+            val account = prefs.getString("account", null) ?: return
+            if (!PushBindingPolicy.accepts(account, prefs.getString("login_hash", null),
+                    fingerprint(savedToken), data["accountId"], started > 0)) return
+            val target = LocalNotificationTarget.from(account, data["teamId"], data["sessionId"]) ?: return
+            // Tap routing re-checks current account, team and consent as well.
+            LocalNotifications(app, { account }, { prefs.getBoolean("consent_granted", false) }).post(
+                target, "Nuphos", data["body"]?.take(200) ?: "Open Nuphos to view the update")
+        }
     }
 
     override fun onActivityStarted(activity: Activity) { started++ }
     override fun onActivityStopped(activity: Activity) { started-- }
     override fun onActivityCreated(activity: Activity, state: Bundle?) = Unit
-    override fun onActivityResumed(activity: Activity) { requestToken() }
+    override fun onActivityResumed(activity: Activity) {
+        val auth = app.authSession
+        if (auth.state !is ai.nuphos.android.session.AuthSession.State.Restoring)
+            sync(auth.user?.id, auth.token, auth.aiAllowed)
+        requestToken()
+    }
     override fun onActivityPaused(activity: Activity) = Unit
     override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) = Unit
     override fun onActivityDestroyed(activity: Activity) = Unit
