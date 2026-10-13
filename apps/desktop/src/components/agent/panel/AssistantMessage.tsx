@@ -21,6 +21,7 @@ import { ToolPartView } from './ToolPartView'
 import { DownloadFilesCard } from './transferCards'
 import { turnFoldSplitIndex } from './turnFold'
 import { TurnInterruptedPartView } from './TurnInterruptedPartView'
+import { steeringMessage } from './steering'
 import { UserMessage } from './UserMessage'
 
 import type { Message, MessageRating } from './model'
@@ -151,12 +152,8 @@ export const AssistantMessage = memo(
         return (
           <UserMessage
             key={partKey}
-            message={{
-              id: p.data.id,
-              role: 'user',
-              parts: [{ type: 'text', text: p.data.text }],
-              ...(p.data.metadata ? { metadata: p.data.metadata } : {}),
-            }}
+            message={steeringMessage(p.data)}
+            teamId={teamId}
             onOpenNuphosLink={onOpenNuphosLink}
           />
         )

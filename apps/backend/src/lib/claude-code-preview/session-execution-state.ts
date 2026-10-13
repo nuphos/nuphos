@@ -106,9 +106,9 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
   }).catch(() => undefined)
 }
 
-/** The receipt names attached files, so the transcript records what was sent. */
+/** The receipt names attached files, one per line, so the transcript records what was sent. */
 export function steeringText(typed: string, fileNames: string[]): string {
-  return [typed, fileNames.length ? `[Attached: ${fileNames.join(', ')}]` : '']
+  return [typed, fileNames.map((name) => `[Attached: ${name}]`).join('\n')]
     .filter(Boolean)
     .join('\n\n')
 }

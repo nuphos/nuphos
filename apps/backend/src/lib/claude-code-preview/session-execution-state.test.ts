@@ -109,6 +109,8 @@ test('a conversation moved before the fix is read the same way', async () => {
 
 test('a steering receipt names its attached files', () => {
   expect(steeringText('Look', [])).toBe('Look')
-  expect(steeringText('Look', ['a.png', 'b.pdf'])).toBe('Look\n\n[Attached: a.png, b.pdf]')
+  expect(steeringText('Look', ['a.png', 'b, c.pdf'])).toBe(
+    'Look\n\n[Attached: a.png]\n[Attached: b, c.pdf]',
+  )
   expect(steeringText('', ['a.png'])).toBe('[Attached: a.png]')
 })

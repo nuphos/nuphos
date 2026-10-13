@@ -1,11 +1,26 @@
+import { ObjectId } from 'mongodb'
+
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { logError } from '@/lib/observability'
 
+/** The desktop's `transfer-upload` part, so a receipt shows its files like any user message. */
+type SteeringUpload = {
+  type: 'transfer-upload'
+  groupId: string
+  status: 'ready'
+  files: { fileName: string; size: null; status: 'ready' }[]
+}
+
 /** A mid-turn user instruction the runtime accepted, as stored in the transcript. */
-export type SteeringReceipt = { id: string; text: string; metadata?: MessageMetadata }
+export type SteeringReceipt = {
+  id: string
+  text: string
+  upload?: SteeringUpload
+  metadata?: MessageMetadata
+}
 export type SteeringEntry = { type: 'data-steering'; data: SteeringReceipt; receivedAt: string }
 export type SteeringAttribution = (sentAt?: string) => MessageMetadata | undefined
 
@@ -50,6 +65,32 @@ export function attributeReceipt(
   const metadata = entry.data.metadata ?? attribute?.(entry.receivedAt)
 
   return { type: 'data-steering', data: { ...entry.data, ...(metadata ? { metadata } : {}) } }
+}
+
+const ATTACHED_LINE = /^\[Attached: (.+)\]$/
+
+/**
+ * The runtime echoes a receipt as id and text only. A steer with files is sent
+ * under its upload group's id, and `steeringText` names each file on a line of
+ * the last paragraph, so the receipt can show them again.
+ */
+export function steeringReceipt(id: string, text: string): SteeringReceipt {
+  const names = (text.split('\n\n').at(-1) ?? '')
+    .split('\n')
+    .map((line) => ATTACHED_LINE.exec(line)?.[1])
+
+  if (!ObjectId.isValid(id) || names.some((name) => name === undefined)) return { id, text }
+
+  return {
+    id,
+    text,
+    upload: {
+      type: 'transfer-upload',
+      groupId: id,
+      status: 'ready',
+      files: (names as string[]).map((fileName) => ({ fileName, size: null, status: 'ready' })),
+    },
+  }
 }
 
 /** How a persisted receipt reads in the history preamble of a re-created session. */

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 
-import { attributeReceipt, createSteeringAttribution } from './steering-receipt'
+import { steeringText } from './session-execution-state'
+import { attributeReceipt, createSteeringAttribution, steeringReceipt } from './steering-receipt'
 
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
@@ -82,4 +83,23 @@ test('a receipt that arrived before the lookup resolved is backfilled at its rec
   const own = { ...entry, data: { ...entry.data, metadata: ADA } }
 
   expect(attributeReceipt(own, () => ({ ...ADA, sentAt: 'later' })).data.metadata).toBe(ADA)
+})
+
+test('a steer sent under its upload group shows its files again', () => {
+  const groupId = '0123456789abcdef01234567'
+  const text = steeringText('Look', ['a.png', 'b, c.pdf'])
+
+  expect(steeringReceipt(groupId, text).upload).toEqual({
+    type: 'transfer-upload',
+    groupId,
+    status: 'ready',
+    files: [
+      { fileName: 'a.png', size: null, status: 'ready' },
+      { fileName: 'b, c.pdf', size: null, status: 'ready' },
+    ],
+  })
+  expect(steeringReceipt(groupId, steeringText('', ['a.png'])).upload?.files).toHaveLength(1)
+  // Text-only steers, and text that merely looks like a receipt, carry no files.
+  expect(steeringReceipt(groupId, 'Look')).toEqual({ id: groupId, text: 'Look' })
+  expect(steeringReceipt(crypto.randomUUID(), text).upload).toBeUndefined()
 })
