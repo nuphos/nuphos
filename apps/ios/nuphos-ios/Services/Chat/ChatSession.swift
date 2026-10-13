@@ -118,6 +118,12 @@ final class ChatSession {
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
         if runtimeObservation?.executing(at: observations.now) == true { awaitingAdmission = false }
+        // A message the turn could not take goes out once the agent accepts a new one.
+        if isNativeRuntime, !queued.isEmpty, canSubmit, allows("send") {
+            let next = queued.removeFirst()
+            awaitingAdmission = true
+            Task { await dispatch(next) }
+        }
     }
     func tickRuntimeClock() { observations.tick() }
 
@@ -397,9 +403,8 @@ final class ChatSession {
     /// Hands a message to the running turn (`POST …/steer`). The runtime
     /// picks it up at its next prompt boundary; the transcript snapshot at
     /// the end of the turn shows it in place. The status that offered
-    /// steering can be seconds old, so a turn that ended meanwhile rejects
-    /// it — the message then goes back to the composer instead of waiting
-    /// for a turn that will never take it.
+    /// steering can be seconds old; the server decides from the live state,
+    /// and a message it cannot steer waits in the queue for the next turn.
     private func steer(_ submission: ComposerSubmission, text: String) async {
         let streamId = currentStreamId
         let assistantId = messages.last?.id
@@ -411,6 +416,9 @@ final class ChatSession {
                 appendSteering(id: id, text: text)
                 lastSubmittedRowID = "steering.\(id)"
             }
+        } catch AgentChatAPI.Conflict.other(let code, _, _) where code == "runtime_steering_unavailable" {
+            queued.append(text)
+            Analytics.shared.track("agent_message_queued", teamID: teamId)
         } catch {
             self.error = error.localizedDescription
             failedSubmission = submission
@@ -919,10 +927,11 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false]
+                clientCapabilities: ["localTools": false, "resendsRefusal": true]
             )
 
             var needsFreshRetry = false
+            var refused = false
             var terminal = false
 
             do {
@@ -950,6 +959,9 @@ final class ChatSession {
                         if code == "runtime_auth_required" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
+                        // Another turn took the runtime after admission; nothing was
+                        // recorded, so send the message again like the HTTP refusal.
+                        if code == "runtime_not_accepting_message" { refused = true; break }
                         needsFreshRetry = true
                         continue
                     }
@@ -1026,6 +1038,20 @@ final class ChatSession {
             }
 
             if Task.isCancelled { return .aborted }
+
+            if refused {
+                guard notReadyRetries < 30 else { return .failed(lastErrorText ?? "The agent hit an error.") }
+                notReadyRetries += 1
+                phaseLabel = "Waiting for the agent to be ready…"
+                if let i = streamAssistantIndex, messages.indices.contains(i) { messages.remove(at: i) }
+                streamAssistantIndex = nil
+                streamReducer = nil
+                accepted = false
+                forceFresh = true
+                resumeFrom = 0
+                try? await Task.sleep(for: backoff(notReadyRetries, base: 0.5, max: 3))
+                continue
+            }
 
             if needsFreshRetry {
                 if isNativeRuntime || options.explicitResume || toolExecutionMayHaveStarted {

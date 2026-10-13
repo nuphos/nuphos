@@ -15,7 +15,7 @@ import {
   handedOff,
   lostToReattach,
 } from './chat-preview-handoff'
-import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
+import { carriedUserMessages, preparePreviewTurn, requeueCarried } from './chat-preview-prepare'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
 import { handlePreviewToolUpdate } from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
@@ -40,6 +40,7 @@ import {
   interruptToolSteps,
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
+import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import {
   createSteeringAttribution,
   steeringReceipt,
@@ -243,7 +244,9 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
       return
     }
-    await persistInterrupted(err)
+    if (args.clientResendsRefusal && isRuntimeRefusal(err))
+      await requeueCarried(userId, sessionId, prepared.carried)
+    else await persistInterrupted(err)
 
     state.unbind()
     await clearActiveTurn()
