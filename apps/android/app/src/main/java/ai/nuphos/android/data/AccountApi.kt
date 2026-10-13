@@ -15,6 +15,16 @@ class AccountApi internal constructor(private val token: String, private val cli
         const val AI_CONSENT_VERSION = "2026-09-28"
     }
 
+    /** Uses the same existing-account endpoint as iOS; never stores credentials. */
+    suspend fun passwordSignIn(email: String, password: String): String {
+        require(email.trim().isNotBlank() && email.trim().length <= 254 && password.length in 12..128)
+        val result: JsonObject = execute("password/sign-in", "POST", buildJsonObject {
+            put("email", email.trim()); put("password", password)
+        }, authenticated = false, allowRedirects = false)
+        return (result["token"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+            ?.takeIf { it.isNotBlank() } ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
     suspend fun consent(): AIConsent = execute("ai-consent", "GET")
 
     suspend fun setConsent(accepted: Boolean): AIConsent = execute("ai-consent", "PUT", buildJsonObject {
@@ -46,14 +56,15 @@ class AccountApi internal constructor(private val token: String, private val cli
     }
 
     private suspend inline fun <reified T> execute(
-        path: String, method: String, body: JsonObject? = null, authenticated: Boolean = true,
+        path: String, method: String, body: JsonObject? = null, authenticated: Boolean = true, allowRedirects: Boolean = true,
     ): T = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("${NuphosApi.BASE_URL}/auth/$path")
             .header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader())
             .apply { if (authenticated) header("Authorization", "Bearer $token") }
             .method(method, body?.toString()?.toRequestBody(Http.jsonMedia)).build()
-        client.newCall(request).execute().use { response ->
+        val transport = if (allowRedirects) client else client.newBuilder().followRedirects(false).followSslRedirects(false).build()
+        transport.newCall(request).execute().use { response ->
             val text = response.body.string()
             if (response.code == 401) throw NuphosApi.Failure.Unauthorized
             if (!response.isSuccessful) {

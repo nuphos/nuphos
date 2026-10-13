@@ -3,6 +3,9 @@ package ai.nuphos.android.ui.login
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +47,10 @@ import ai.nuphos.android.ui.LocalAuthSession
 fun LoginScreen(modifier: Modifier = Modifier) {
     val auth = LocalAuthSession.current
     val activity = LocalActivity.current
+    var passwordMode by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var email by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    // Deliberately not saveable: credentials must not survive recreation or navigation.
+    var password by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     val busy = auth.state is AuthSession.State.SigningIn
     val error = (auth.state as? AuthSession.State.SignedOut)?.error
 
@@ -67,10 +76,12 @@ fun LoginScreen(modifier: Modifier = Modifier) {
             Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
+                .imePadding()
+                .then(if (passwordMode) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                 .padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.weight(1f))
+            Spacer(if (passwordMode) Modifier.height(16.dp) else Modifier.weight(1f))
             Surface(
                 modifier = Modifier.size(112.dp),
                 shape = RoundedCornerShape(36.dp),
@@ -100,7 +111,7 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(if (passwordMode) Modifier.height(16.dp) else Modifier.weight(1f))
             AnimatedVisibility(visible = !error.isNullOrEmpty()) {
                 Surface(
                     modifier = Modifier
@@ -119,9 +130,34 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                     }
                 }
             }
+            if (passwordMode) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = email, onValueChange = { email = it.take(254) },
+                    label = { Text("Email") }, singleLine = true, enabled = !busy,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = password, onValueChange = { password = it.take(128) },
+                    label = { Text("Password (12–128 characters)") }, singleLine = true, enabled = !busy,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+            }
             Button(
-                onClick = { activity?.let(auth::signIn) },
-                enabled = !busy,
+                onClick = {
+                    if (passwordMode) {
+                        val credential = password
+                        password = ""
+                        auth.passwordSignIn(email, credential)
+                    } else activity?.let(auth::signIn)
+                },
+                enabled = !busy && (!passwordMode || (email.isNotBlank() && password.length in 12..128)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -133,10 +169,13 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                     Spacer(Modifier.size(10.dp))
                 }
                 Text(
-                    if (busy) stringResource(R.string.signing_in) else stringResource(R.string.sign_in),
+                    if (busy) stringResource(R.string.signing_in) else if (passwordMode) "Sign in with password" else stringResource(R.string.sign_in),
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
+            androidx.compose.material3.TextButton(
+                onClick = { passwordMode = !passwordMode; password = "" }, enabled = !busy,
+            ) { Text(if (passwordMode) "Continue with Google" else "Use a password") }
             Text(
                 stringResource(R.string.sign_in_hint),
                 modifier = Modifier.padding(top = 14.dp, bottom = 8.dp),

@@ -278,6 +278,34 @@ class AuthSession(
         }
     }
 
+    fun passwordSignIn(email: String, password: String) {
+        if (state !is State.SignedOut) return
+        val expected = beginIdentity()
+        state = State.SigningIn
+        loginJob = scope.launch {
+            try {
+                val received = AccountApi("").passwordSignIn(email, password)
+                val user = NuphosApi.currentUser(received)
+                ensureActive()
+                if (generation != expected || state !is State.SigningIn) return@launch
+                tokenStore.write(received)
+                token = received
+                AiAccess.activate(received)
+                composerDrafts.onIdentity(user.id)
+                state = State.SignedIn(user)
+                loadAIConsent()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: NuphosApi.Failure.Unauthorized) {
+                if (generation == expected) state = State.SignedOut("The email or password is incorrect.")
+            } catch (_: Exception) {
+                if (generation == expected) state = State.SignedOut("Password sign-in did not complete. Check your details and connection, then try again.")
+            } finally {
+                if (generation == expected) loginJob = null
+            }
+        }
+    }
+
     /** A browser return only changes focus. An intent can never supply identity. */
     fun handleCallback(uri: Uri): Boolean = NuphosWeb.isReturnIntent(uri)
 

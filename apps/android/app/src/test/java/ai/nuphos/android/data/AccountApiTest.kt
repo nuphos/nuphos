@@ -21,6 +21,31 @@ class AccountApiTest {
     }.build())
     private fun body() = Buffer().also { requests.last().body!!.writeTo(it) }.readUtf8()
 
+    @Test fun passwordLoginUsesIosContractWithoutBearerAndPreservesPassword() = runTest {
+        response = """{"token":"fixture-session"}"""
+        assertEquals("fixture-session", api.passwordSignIn(" fixture@example.com ", " password with spaces "))
+        assertEquals("POST", requests.last().method)
+        assertEquals("https://api.nuphos.ai/auth/password/sign-in", requests.last().url.toString())
+        assertNull(requests.last().header("Authorization"))
+        assertEquals("""{"email":"fixture@example.com","password":" password with spaces "}""", body())
+    }
+    @Test fun passwordLoginRejectsInvalidTokenAndUnauthorized() = runTest {
+        for (value in listOf("{}", "{\"token\":3}", "{\"token\":\" \"}")) {
+            response = value
+            try { api.passwordSignIn("fixture@example.com", "fixture-password"); fail() }
+            catch (_: NuphosApi.Failure.InvalidResponse) { }
+        }
+        status = 401
+        try { api.passwordSignIn("fixture@example.com", "fixture-password"); fail() }
+        catch (_: NuphosApi.Failure.Unauthorized) { }
+    }
+    @Test fun passwordLoginInvalidInputDoesNotSendCredentials() = runTest {
+        for ((email, password) in listOf("" to "password", "a@b.com" to "", "a@b.com" to "p".repeat(129))) {
+            try { api.passwordSignIn(email, password); fail() } catch (_: IllegalArgumentException) { }
+        }
+        assertTrue(requests.isEmpty())
+    }
+
     @Test fun consentHasFixedHostAndAccountHeadersWithoutAiGate() = runTest {
         assertFalse(api.consent().accepted)
         api.setConsent(true)
