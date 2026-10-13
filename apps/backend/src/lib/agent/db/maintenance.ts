@@ -45,42 +45,60 @@ export async function renameConversation(
   return result.matchedCount > 0
 }
 
-// Stops nesting a thread under the conversation that opened it.
-export async function unlinkConversationParent(
+// Nests a conversation under another one, or stops nesting it when
+// `parentSessionId` is null.
+export async function setConversationParent(
   sessionId: string,
   userId: string,
   teamId: string | undefined,
-): Promise<boolean> {
-  const result = await agentConversations().updateOne(
-    withTeamScope({ sessionId, userId }, teamId),
-    { $unset: { parentSessionId: '' } },
-  )
+  parentSessionId: string | null,
+): Promise<'ok' | 'not_found' | 'invalid_parent'> {
+  const filter = withTeamScope({ sessionId, userId }, teamId)
 
-  return result.matchedCount > 0
+  if (parentSessionId === null) {
+    const result = await agentConversations().updateOne(filter, {
+      $unset: { parentSessionId: '' },
+    })
+
+    return result.matchedCount > 0 ? 'ok' : 'not_found'
+  }
+  const conversation = await agentConversations().findOne(filter, { projection: { teamId: 1 } })
+
+  if (!conversation) return 'not_found'
+  if (!(await isValidParent(sessionId, userId, conversation.teamId, parentSessionId))) {
+    return 'invalid_parent'
+  }
+  await agentConversations().updateOne(filter, { $set: { parentSessionId } })
+
+  return 'ok'
 }
 
-// One-time backfill for threads opened before createdBySessionId existed. Only
-// create_thread sets parentSessionId so far, so it still names the opener.
-// Idempotent: a thread that already has a creator is never touched.
-export async function backfillThreadCreators(): Promise<number> {
-  const threads = await agentConversations()
-    .find(
-      {
-        'metadata.source': 'agent.thread',
-        parentSessionId: { $exists: true },
-        createdBySessionId: { $exists: false },
-      },
-      { projection: { sessionId: 1, parentSessionId: 1 } },
-    )
-    .toArray()
+// The parent must be the same owner's conversation in the same team, and must
+// not sit below this one: the sidebars drop every row of a loop.
+async function isValidParent(
+  sessionId: string,
+  userId: string,
+  teamId: string | undefined,
+  parentSessionId: string,
+): Promise<boolean> {
+  const projection = { sessionId: 1, parentSessionId: 1, teamId: 1 }
+  let next = await agentConversations().findOne(
+    { sessionId: parentSessionId, userId },
+    { projection },
+  )
 
-  for (const { sessionId, parentSessionId } of threads)
-    await agentConversations().updateOne(
-      { sessionId, createdBySessionId: { $exists: false } },
-      { $set: { createdBySessionId: parentSessionId } },
-    )
+  if (!teamId || next?.teamId !== teamId) return false
+  const seen = new Set([sessionId])
 
-  return threads.length
+  while (next) {
+    if (seen.has(next.sessionId)) return false
+    seen.add(next.sessionId)
+    next = next.parentSessionId
+      ? await agentConversations().findOne({ sessionId: next.parentSessionId }, { projection })
+      : null
+  }
+
+  return true
 }
 
 // Prefix marking an in-flight claim — see `ensureConversationTraceParent`. Stored
