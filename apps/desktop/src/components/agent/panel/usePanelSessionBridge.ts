@@ -72,8 +72,8 @@ export function usePanelSessionBridge(acc: Acc) {
   }, [onSessionChange])
 
   const lastSyncedSessionIdRef = useRef<string | null | undefined>(undefined)
-  // The last conversation the panel actually showed, to tell leaving a chat
-  // from giving up on one that never appeared.
+  // The requested conversation once the panel has shown it, to tell leaving a
+  // chat from giving up on one whose open never landed (it no longer exists).
   const lastShownSessionIdRef = useRef<string | null>(null)
   // Last (sessionId) the audit read-only context targeted, or null when not
   // in an audit context. An audit open must supersede ANY in-flight
@@ -83,7 +83,9 @@ export function usePanelSessionBridge(acc: Acc) {
 
   useEffect(() => {
     if (sessionIdProp === undefined) return
-    if (activeTab?.sessionId) lastShownSessionIdRef.current = activeTab.sessionId
+    if (sessionIdProp && activeTab?.sessionId === sessionIdProp) {
+      lastShownSessionIdRef.current = sessionIdProp
+    }
     const auditTarget = sessionReadOnly && sessionIdProp ? sessionIdProp : null
 
     if (auditTarget !== lastAuditTargetRef.current) {
@@ -127,8 +129,8 @@ export function usePanelSessionBridge(acc: Acc) {
       case 'awaiting-open':
         return
       case 'publish': {
-        // Back home from a chat the panel never got to show — its open failed,
-        // or was dismissed before it landed — is not leaving a place.
+        // Back home from a chat whose open never landed — it failed, or was
+        // dismissed first — is not leaving a place.
         const left = lastSyncedSessionIdRef.current
         const unshown =
           action.sessionId === null && left && left !== lastShownSessionIdRef.current
@@ -171,6 +173,7 @@ export function usePanelSessionBridge(acc: Acc) {
       }
       case 'open':
         lastSyncedSessionIdRef.current = sessionIdProp
+        lastShownSessionIdRef.current = null
         // Marks the open in flight synchronously — see `pendingOpenRef`.
         void openConversation(action.sessionId, undefined, { forceReadOnly: sessionReadOnly })
 
