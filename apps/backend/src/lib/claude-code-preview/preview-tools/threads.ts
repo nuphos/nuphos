@@ -4,9 +4,9 @@ import {
   createAgentThread,
   listThreadRuntimes,
   sendAgentThreadMessage,
+  setAgentThreadArchived,
   setAgentThreadParent,
   updateThread,
-  setAgentThreadArchived,
 } from '@/lib/agent/thread-bridge'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 

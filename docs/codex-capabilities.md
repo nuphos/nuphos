@@ -38,6 +38,12 @@ a null parent unlinks it. It is the same operation as
 `PUT /agent/conversations/:sessionId/parent`, with the same ownership and team
 checks, and refuses a parent nested below the thread.
 
+`archive_thread` archives a conversation the actor owns in the current team,
+or restores it with `archived=false`. The current conversation is supported.
+The tool verifies source ownership, current membership, and target ownership
+and team. Archiving does not cancel an active turn; a new human message restores
+the conversation.
+
 The Redis trigger scheduler must be running: there is no detached-process
 fallback. Queue acceptance means **queued**, not completed. A stalled job that
 already persisted its input is not blindly replayed, because the task may have
