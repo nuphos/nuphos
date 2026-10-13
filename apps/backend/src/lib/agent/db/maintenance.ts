@@ -45,18 +45,60 @@ export async function renameConversation(
   return result.matchedCount > 0
 }
 
-// Stops nesting a thread under the conversation that opened it.
-export async function unlinkConversationParent(
+// Nests a conversation under another one, or stops nesting it when
+// `parentSessionId` is null.
+export async function setConversationParent(
   sessionId: string,
   userId: string,
   teamId: string | undefined,
+  parentSessionId: string | null,
+): Promise<'ok' | 'not_found' | 'invalid_parent'> {
+  const filter = withTeamScope({ sessionId, userId }, teamId)
+
+  if (parentSessionId === null) {
+    const result = await agentConversations().updateOne(filter, {
+      $unset: { parentSessionId: '' },
+    })
+
+    return result.matchedCount > 0 ? 'ok' : 'not_found'
+  }
+  const conversation = await agentConversations().findOne(filter, { projection: { teamId: 1 } })
+
+  if (!conversation) return 'not_found'
+  if (!(await isValidParent(sessionId, userId, conversation.teamId, parentSessionId))) {
+    return 'invalid_parent'
+  }
+  await agentConversations().updateOne(filter, { $set: { parentSessionId } })
+
+  return 'ok'
+}
+
+// The parent must be the same owner's conversation in the same team, and must
+// not sit below this one: the sidebars drop every row of a loop.
+async function isValidParent(
+  sessionId: string,
+  userId: string,
+  teamId: string | undefined,
+  parentSessionId: string,
 ): Promise<boolean> {
-  const result = await agentConversations().updateOne(
-    withTeamScope({ sessionId, userId }, teamId),
-    { $unset: { parentSessionId: '' } },
+  const projection = { sessionId: 1, parentSessionId: 1, teamId: 1 }
+  let next = await agentConversations().findOne(
+    { sessionId: parentSessionId, userId },
+    { projection },
   )
 
-  return result.matchedCount > 0
+  if (!teamId || next?.teamId !== teamId) return false
+  const seen = new Set([sessionId])
+
+  while (next) {
+    if (seen.has(next.sessionId)) return false
+    seen.add(next.sessionId)
+    next = next.parentSessionId
+      ? await agentConversations().findOne({ sessionId: next.parentSessionId }, { projection })
+      : null
+  }
+
+  return true
 }
 
 // Prefix marking an in-flight claim — see `ensureConversationTraceParent`. Stored

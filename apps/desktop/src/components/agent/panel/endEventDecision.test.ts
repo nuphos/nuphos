@@ -46,16 +46,13 @@ function run(overrides: Record<string, unknown> = {}, tabOverrides: Partial<Tab>
 
 test('confirmed runtime turn completion produces a native notification', () => {
   assert.deepEqual(run({ sawTurnComplete: true }), {
-    title: 'Nuphos',
-    body: 'Agent finished. Open Nuphos to view the response.',
+    title: 'Review',
+    body: 'All done.',
     sessionId: 'session',
   })
 })
 test('a failure notifies, while transport EOF and explicit user stop stay silent', () => {
-  assert.equal(
-    run({}, { error: 'Provider failed: secret-token' })?.body,
-    'Agent stopped before finishing. Open Nuphos for details.',
-  )
+  assert.equal(run({}, { error: 'Provider failed.\ncontext=phase=x' })?.body, 'Provider failed.')
   assert.equal(run(), null)
   assert.equal(run({ sawTurnComplete: true, stopRequested: true }), null)
   assert.equal(run({ sawTurnPaused: { reason: 'shutdown' } }), null)
@@ -75,8 +72,8 @@ test('approval completion tells the user what it is waiting for', () => {
   )
 
   assert.deepEqual(notification, {
-    title: 'Nuphos',
-    body: 'Agent needs your approval.',
+    title: 'Review',
+    body: 'Waiting for your approval: delete_file',
     sessionId: 'session',
   })
 })

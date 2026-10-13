@@ -13,15 +13,32 @@ type Result = {
   loading: boolean
 }
 
+// The file a chat link named may be on this computer or the agent's, and the
+// pane says which: a local copy can differ from the agent's. Anything browsed
+// from there on is the agent's workspace.
+async function readFile(target: Source, path: string, linkedPath: string) {
+  const args = [target.teamId, target.runtimeId, target.sessionId, path] as const
+
+  if (path !== linkedPath) return { file: await api.atlasReadRuntimeFile(...args), shown: target }
+  const file = await api.atlasReadLinkedFile(...args)
+
+  return {
+    file,
+    shown: file.origin === 'this-computer' ? { ...target, label: 'This computer' } : target,
+  }
+}
+
 export function useRuntimeFiles(
   teamId: string,
   conversationId: string | null | undefined,
   isActive: boolean,
   refreshKey: number,
+  filePath = '/workspace/',
 ) {
   const source = useRef<Source | null>(null)
-  const [path, setPath] = useState('/workspace')
-  const [fileName, setFileName] = useState('')
+  const slash = filePath.lastIndexOf('/')
+  const [path, setPath] = useState(filePath.slice(0, slash))
+  const [fileName, setFileName] = useState(filePath.slice(slash + 1))
   const [retry, setRetry] = useState(0)
   const [result, setResult] = useState<Result>({
     source: null,
@@ -62,18 +79,13 @@ export function useRuntimeFiles(
         if (!target) return
         // Exactly one request owns the visible pane. Refresh reloads that same target.
         if (fileName) {
-          const file = await api.atlasReadRuntimeFile(
-            target.teamId,
-            target.runtimeId,
-            target.sessionId,
-            `${path}/${fileName}`,
-          )
+          const { file, shown } = await readFile(target, `${path}/${fileName}`, filePath)
 
           if (cancelled) return
           const preview = runtimeFilePreview(file)
 
           if (!preview) toast.error('Preview unavailable', 'This file format cannot be previewed.')
-          setResult({ source: target, directory: null, preview, loading: false })
+          setResult({ source: shown, directory: null, preview, loading: false })
         } else {
           const directory = await api.atlasListRuntimeFiles(
             target.teamId,
@@ -96,7 +108,7 @@ export function useRuntimeFiles(
     return () => {
       cancelled = true
     }
-  }, [teamId, conversationId, isActive, path, fileName, refreshKey, retry])
+  }, [teamId, conversationId, isActive, path, fileName, filePath, refreshKey, retry])
 
   function navigate(nextPath: string) {
     setFileName('')

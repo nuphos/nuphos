@@ -13,6 +13,8 @@ type Session = {
   socket?: WebSocket
   events: LocalTerminalEvent[]
   bytes: number
+  /** A view already replayed this output, so its terminal queries were answered. */
+  replayed: boolean
   label: string
   ready: Promise<{ id: string; shell: string }>
   closed: boolean
@@ -43,6 +45,7 @@ export class RuntimeTerminalSessions {
       target,
       events: [],
       bytes: 0,
+      replayed: false,
       label: 'Runtime',
       closed: false,
       ready: Promise.resolve({ id, shell: 'Runtime' }),
@@ -148,7 +151,13 @@ export class RuntimeTerminalSessions {
     if (!session.owner.isDestroyed()) session.owner.send('local-terminal:event', event)
   }
   replay(owner: WebContents, id: string) {
-    for (const event of this.get(owner, id)?.events ?? []) owner.send('local-terminal:event', event)
+    const session = this.get(owner, id)
+
+    if (!session) return
+    const end = { id, type: 'replayed', resumed: session.replayed } as const
+
+    session.replayed = true
+    for (const event of [...session.events, end]) owner.send('local-terminal:event', event)
   }
   input(owner: WebContents, id: string, data: string) {
     if (Buffer.byteLength(data, 'utf8') > 16384) throw new Error('Terminal input is too large')

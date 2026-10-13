@@ -12,8 +12,8 @@ import type { ReactNode } from 'react'
 /**
  * One chat row, shared by the Chats section and the Shared section so both read
  * and behave identically. The difference between them is ownership, expressed
- * through `readOnly` (no rename/archive — those are the owner's, and the
- * backend scopes them to the owner) and whatever `actions` the caller adds.
+ * through `readOnly` (no rename — that is the owner's; archive only for a
+ * chat the viewer manages) and whatever `actions` the caller adds.
  */
 export function chatSidebarItem({
   conversation,
@@ -46,6 +46,7 @@ export function chatSidebarItem({
     enabled: true,
     active,
     ...(readOnly ? { readOnlyChat: true } : {}),
+    ...(readOnly && conversation.canManage ? { managedChat: true } : {}),
     ...(conversation.parentSessionId
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }
       : {}),
