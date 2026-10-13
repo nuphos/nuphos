@@ -130,11 +130,13 @@ async fn run(args: Args) -> Result<i32> {
             println!("Signed in as {}.", render::clean(session.user.as_deref().unwrap_or("you")));
             return Ok(0);
         }
+        Some(Command::Resume { session }) => return tui(app::Start::Resume(session.clone()), args.team).await,
+        None => return tui(app::Start::New, args.team).await,
         _ => {}
     }
 
-    let (api, me, teams) = sign_in(interactive).await?;
-    let me_id = me["user"]["id"].as_str().or(me["id"].as_str()).unwrap_or_default().to_string();
+    let (api, me, teams) = sign_in(false).await?;
+    let me_id = shared::user_id(&me);
     let mut prefs = config::read_prefs();
     if let Some(Command::Team { name: Some(name), create: true }) = &args.command {
         let team = shared::create_team(&api, &mut prefs, name).await?;
@@ -145,25 +147,11 @@ async fn run(args: Args) -> Result<i32> {
         }
         return Ok(0);
     }
-    let team = shared::resolve_team(&api, &mut prefs, teams, args.team.as_deref(), interactive).await?;
+    let team = shared::pick_team(&teams, &prefs, args.team.as_deref())?;
+    shared::remember_team(&mut prefs, &team);
     let mut ctx = cli::Ctx { api, me_id, team, prefs, json: args.json };
 
     match args.command {
-        None | Some(Command::Resume { .. }) => {
-            let start = match args.command {
-                Some(Command::Resume { session }) => app::Start::Resume(session),
-                _ => app::Start::New,
-            };
-            let team_id = ctx.team["id"].as_str().unwrap_or_default().to_string();
-            let app = app::App::new(ctx.api, ctx.me_id, ctx.team, ctx.prefs).await?;
-            if let Some(session_id) = app.run(start).await? {
-                let web = std::env::var("NUPHOS_WEB_URL").unwrap_or_else(|_| "https://nuphos.ai".into());
-                let path = render::clean(&format!("/teams/{team_id}/agent/{session_id}"));
-                println!("Conversation: {}{path}", web.trim_end_matches('/'));
-                println!("Continue with: nuphos resume {}", render::clean(&session_id));
-            }
-            Ok(0)
-        }
         Some(Command::Exec { prompt, session, runtime, approve }) => {
             let prompt = match prompt.filter(|p| p != "-") {
                 Some(p) => p,
@@ -191,8 +179,28 @@ async fn run(args: Args) -> Result<i32> {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }
         Some(Command::Stop { session }) => cli::stop(&ctx, &session).await.map(|_| 0),
-        Some(Command::Agent | Command::Login | Command::Logout | Command::Update) => Ok(0),
+        Some(Command::Agent | Command::Login | Command::Logout | Command::Update | Command::Resume { .. }) | None => {
+            Ok(0)
+        }
     }
+}
+
+/// Opens the TUI at once; it signs in and picks the team behind a loading
+/// state. Only a missing session waits, for the browser sign-in.
+async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
+    let api_url = config::api_url();
+    let token = match config::read_session().token {
+        Some(token) => token,
+        None => login::login(&api_url).await?.token.unwrap_or_default(),
+    };
+    let app = app::App::new(Api::new(api_url, token), config::read_prefs());
+    if let Some((team_id, session_id)) = app.run(start, team).await? {
+        let web = std::env::var("NUPHOS_WEB_URL").unwrap_or_else(|_| "https://nuphos.ai".into());
+        let path = render::clean(&format!("/teams/{team_id}/agent/{session_id}"));
+        println!("Conversation: {}{path}", web.trim_end_matches('/'));
+        println!("Continue with: nuphos resume {}", render::clean(&session_id));
+    }
+    Ok(0)
 }
 
 /// The desktop's session, checked with `/auth/me`, with me and my teams
