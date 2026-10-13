@@ -111,7 +111,7 @@ test('a local runtime gets only the file list for its bundled attachments job', 
 
       return {
         exitCode: 0,
-        stdout: JSON.stringify({ paths: ['/tmp/nuphos-attachments-x/0/a.zip'] }),
+        stdout: JSON.stringify({ paths: ['/runtime/attachments/0/a.zip'] }),
       }
     },
   } as never)
@@ -120,7 +120,7 @@ test('a local runtime gets only the file list for its bundled attachments job', 
 
   try {
     expect(await materializeRuntimeAttachments('team', 'owner', endpoint, files)).toEqual([
-      { type: 'resource_link', name: 'a.zip', uri: 'file:///tmp/nuphos-attachments-x/0/a.zip' },
+      { type: 'resource_link', name: 'a.zip', uri: 'file:///runtime/attachments/0/a.zip' },
     ])
     expect(requests[0]!.job).toBe('attachments')
     expect(JSON.parse(requests[0]!.stdin)).toEqual({ files })
