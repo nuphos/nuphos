@@ -14,7 +14,12 @@ export const cloudLoaders: ConnectorInfoLoaders = {
       fields: [
         { label: 'Server', value: installation.guildName },
         { label: 'Server ID', value: installation.guildId, mono: true },
-        { label: 'Your account', value: connection.linkedDiscordUserId ?? 'Not linked' },
+        {
+          label: 'Your account',
+          value: connection.linkedDiscordUsername
+            ? `@${connection.linkedDiscordUsername}`
+            : (connection.linkedDiscordUserId ?? 'Not linked'),
+        },
         { label: 'Enabled channels', value: String(connection.channels.length) },
         { label: 'Channel access', value: 'Use /nuphos enable or /nuphos disable in Discord.' },
       ],

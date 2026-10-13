@@ -79,6 +79,9 @@ export const getDiscordChannel = (channelId: string) =>
 export const getDiscordGuild = (guildId: string) =>
   discordApi<DiscordGuild>(`/guilds/${encodeURIComponent(guildId)}`)
 
+export const getDiscordUser = (userId: string) =>
+  discordApi<{ username: string }>(`/users/${encodeURIComponent(userId)}`)
+
 export async function registerDiscordCommands(): Promise<void> {
   const clientId = config.discord.clientId
 

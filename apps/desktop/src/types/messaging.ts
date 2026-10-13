@@ -29,6 +29,8 @@ export type DiscordConnection = {
   installation: { guildId: string; guildName: string } | null
   channels: { channelId: string }[]
   linkedDiscordUserId: string | null
+  /** Only on the single-connection read; absent from the connector inventory. */
+  linkedDiscordUsername?: string | null
 }
 
 export type SlackUserMapping = {

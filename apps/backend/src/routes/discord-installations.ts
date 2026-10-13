@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 
 import { mongo } from '@/lib/db'
-import { getDiscordChannel } from '@/lib/discord/api'
+import { getDiscordChannel, getDiscordUser } from '@/lib/discord/api'
 import { getDiscordConnection } from '@/lib/discord/connection'
 import { buildDiscordAuthorizeUrl, isDiscordConfigured } from '@/lib/discord/oauth'
 import {
@@ -27,7 +27,13 @@ import type { Context } from 'hono'
 export const discordInstallationsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
 
 discordInstallationsRoutes.get('/', async (c) => {
-  return c.json(await getDiscordConnection(c.get('teamId'), c.get('userId')))
+  const connection = await getDiscordConnection(c.get('teamId'), c.get('userId'))
+  // Looked up live so existing links get a name too; a failed lookup leaves the id.
+  const user = connection.linkedDiscordUserId
+    ? await getDiscordUser(connection.linkedDiscordUserId).catch(() => null)
+    : null
+
+  return c.json({ ...connection, linkedDiscordUsername: user?.username ?? null })
 })
 
 async function startOAuth(
