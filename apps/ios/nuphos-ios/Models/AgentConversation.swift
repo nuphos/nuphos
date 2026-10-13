@@ -158,6 +158,17 @@ struct SessionResource: Decodable, Identifiable, Equatable, Sendable {
     }
 }
 
+extension Array where Element == AgentConversation {
+    /// A fresh first page over the rows already listed: page one as the
+    /// server returns it, then the later rows it no longer covers. Nothing a
+    /// refresh misses is dropped, so a chat that leaves the list has to be
+    /// removed by whoever took it out.
+    func refreshed(firstPage: [AgentConversation]) -> [AgentConversation] {
+        let ids = Set(firstPage.map(\.sessionId))
+        return firstPage + filter { !ids.contains($0.sessionId) }
+    }
+}
+
 struct AgentConversationsPage: Codable, Sendable {
     let conversations: [AgentConversation]
     let nextCursor: String?

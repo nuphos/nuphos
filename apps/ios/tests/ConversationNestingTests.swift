@@ -5,6 +5,7 @@ enum ConversationNestingTests {
         nestsThreadsUnderTheirParent()
         foldingHidesTheSubtree()
         anUnlistedOrPinnedParentLeavesTheRowTopLevel()
+        aRefreshKeepsLaterRowsInPlace()
         print("Conversation nesting passed")
     }
 
@@ -43,5 +44,16 @@ enum ConversationNestingTests {
         precondition(bothPinned.map(\.id) == ["parent", "pinned"] && bothPinned.map(\.depth) == [0, 1])
         let pinnedParent = ConversationNesting.nest([row("thread", parent: "parent"), row("parent")], pinned: ["parent"])
         precondition(pinnedParent.map(\.id) == ["parent", "thread"] && pinnedParent.map(\.depth) == [0, 1])
+    }
+
+    /// Returning from a chat refreshes the list by merge, not by reload: page
+    /// one updates in place, older and pinned rows stay where they were, and
+    /// a chat removed from the list (archived from its menu) stays out.
+    private static func aRefreshKeepsLaterRowsInPlace() {
+        let listed = [row("new"), row("recent"), row("old-pinned"), row("older", parent: "recent")]
+        let refreshed = listed.refreshed(firstPage: [row("recent"), row("new")])
+        precondition(refreshed.map(\.sessionId) == ["recent", "new", "old-pinned", "older"])
+        let archived = refreshed.filter { $0.sessionId != "old-pinned" }
+        precondition(archived.refreshed(firstPage: [row("recent"), row("new")]).map(\.sessionId) == ["recent", "new", "older"])
     }
 }
