@@ -24,9 +24,16 @@ test('FCM data payload preserves guarded routing and lets the app control displa
 })
 
 test('only the FCM UNREGISTERED error invalidates the registration', () => {
-  const error = (errorCode: string) => ({ error: { details: [{
-    '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError', errorCode,
-  }] } })
+  const error = (errorCode: string) => ({
+    error: {
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+          errorCode,
+        },
+      ],
+    },
+  })
 
   expect(isDeadFcmToken(error('UNREGISTERED'))).toBe(true)
   expect(isDeadFcmToken(error('INVALID_ARGUMENT'))).toBe(false)

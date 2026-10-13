@@ -55,10 +55,16 @@ export async function sendFcm(projectId: string, request: FcmRequest): Promise<F
 }
 
 /** Payload/permission errors must not destroy a valid registration. */
-export function isDeadFcmToken(body: {
-  error?: { details?: { '@type'?: string; errorCode?: string }[] }
-} | null): boolean {
-  return body?.error?.details?.some((detail) =>
-    detail['@type'] === 'type.googleapis.com/google.firebase.fcm.v1.FcmError' &&
-    detail.errorCode === 'UNREGISTERED') ?? false
+export function isDeadFcmToken(
+  body: {
+    error?: { details?: { '@type'?: string; errorCode?: string }[] }
+  } | null,
+): boolean {
+  return (
+    body?.error?.details?.some(
+      (detail) =>
+        detail['@type'] === 'type.googleapis.com/google.firebase.fcm.v1.FcmError' &&
+        detail.errorCode === 'UNREGISTERED',
+    ) ?? false
+  )
 }
