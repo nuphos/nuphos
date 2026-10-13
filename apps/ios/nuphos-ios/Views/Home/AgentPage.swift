@@ -91,7 +91,6 @@ struct AgentPage: View {
             }
             .navigationDestination(item: $newChat) { chat in
                 ConversationView(session: chat.session, initialPrompt: chat.prompt)
-                    .onDisappear { Task { await store.reload() } }
             }
             .navigationDestination(item: $autoOpened) { conversation in
                 ExistingConversationView(conversation: conversation)
@@ -102,6 +101,10 @@ struct AgentPage: View {
             .onChange(of: store.teamsPhase) { _, phase in if phase == .loaded { openPushTarget() } }
             .onChange(of: PushNotifications.shared.pendingTarget) { _, _ in openPushTarget() }
             .task {
+                // The poller is what keeps the list fresh while a chat is on
+                // top, so coming back needs no reload. Started here so a first
+                // chat from an empty list shows up too.
+                store.startPolling()
                 await store.loadTeams()
                 openPushTarget()
                 #if DEBUG
@@ -322,7 +325,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .onAppear { store.startPolling() }
         .task {
             while !Task.isCancelled {
                 RuntimeObservations.shared.tick()
@@ -401,7 +403,6 @@ private struct PushedConversationView: View {
             }
         }
         .onAppear { if session == nil { session = store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId) } }
-        .onDisappear { Task { await store.reload() } }
     }
 }
 
@@ -421,6 +422,5 @@ private struct ExistingConversationView: View {
             }
         }
         .onAppear { if session == nil { session = store.session(for: conversation) } }
-        .onDisappear { Task { await store.reload() } }
     }
 }
