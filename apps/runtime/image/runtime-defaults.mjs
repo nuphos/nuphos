@@ -21,7 +21,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // Both or nothing: a managed pod carries neither and must not be touched.
   if (typeof url !== 'string' || typeof token !== 'string' || !url || !token) return false
   const { spawn } = await import('node:child_process')
-  const sync = (extra) =>
+  const sync = (extra, timeoutMs = run?.timeoutMs ?? 20_000) =>
     new Promise((resolve) => {
       const child = spawn(run?.script ?? '/usr/local/bin/nuphos-sync-skills', {
         // The bundle credential is the only thing this child needs from us; it must not
@@ -54,7 +54,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
           /* Already gone. */
         }
       }
-      const timer = setTimeout(stop, (run?.timeoutMs ?? 20_000) | 0)
+      const timer = setTimeout(stop, timeoutMs | 0)
 
       child.once('error', () => {
         clearTimeout(timer)
@@ -79,28 +79,48 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   const path = await import('node:path')
   const fs = await import('node:fs/promises')
   const personal = path.join(home, 'personal-skills')
-  const [team, mine] = await Promise.all([
-    sync(),
-    sync({ NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR: personal }),
-  ])
   const skills = path.join(personal, '.claude', 'skills')
+  // The sender can change between turns of a live session. OpenAB keeps the current
+  // sender's credential in its per-session directory, so this runs again before every
+  // prompt (see patchRuntimeDefaults) and leaves that sender's skills, or none.
+  const syncPersonal = async (timeoutMs) => {
+    const credentials = run?.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
+    const current = !credentials
+      ? ''
+      : await fs.readFile(path.join(credentials, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'utf8').then(
+          (value) => value.trim(),
+          () => '',
+        )
+    const mine = await sync(
+      {
+        NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR: personal,
+        ...(current && !/[\u0000-\u001f"\\]/u.test(current)
+          ? { NUPHOS_RUNTIME_SKILLS_TOKEN: current }
+          : {}),
+      },
+      timeoutMs,
+    )
 
-  // The sender can change between turns. A sync that failed must not leave the
-  // previous sender's skills in place for this one.
-  if (!mine) {
-    await fs.rm(skills, { recursive: true, force: true }).catch(() => {})
-    await fs.rm(path.join(personal, '.claude', '.skills-revision'), { force: true }).catch(() => {})
+    // A sync that failed must not leave the previous sender's skills in place. The
+    // directory itself stays: the running session watches it.
+    if (!mine) {
+      for (const entry of await fs.readdir(skills).catch(() => []))
+        await fs.rm(path.join(skills, entry), { recursive: true, force: true }).catch(() => {})
+      await fs
+        .rm(path.join(personal, '.claude', '.skills-revision'), { force: true })
+        .catch(() => {})
+    }
   }
-  const installed = await fs.stat(skills).then(
-    () => true,
-    () => false,
-  )
 
-  if (installed)
-    options.additionalDirectories = [
-      ...(options.additionalDirectories ?? []).filter((dir) => dir !== personal),
-      personal,
-    ]
+  globalThis.nuphosRefreshPersonalSkills = () => syncPersonal(5_000).catch(() => {})
+  const [team] = await Promise.all([sync(), syncPersonal()])
+
+  // Present even when empty, so a skill synced for a later turn is picked up.
+  await fs.mkdir(skills, { recursive: true })
+  options.additionalDirectories = [
+    ...(options.additionalDirectories ?? []).filter((dir) => dir !== personal),
+    personal,
+  ]
 
   return team
 }
@@ -171,4 +191,19 @@ export function patchRuntimeDefaults(source) {
   for (const handler of reopenAnchors)
     body = body.replace(handler, `${handler}\n        await nuphosSyncRuntimeSkills(params);`)
   return `${shebang}${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${body}`
+}
+
+// Claude only. The sender of a turn may differ from the last one's, so their personal
+// skills are re-synced before every prompt of a live session. Strict on purpose: losing
+// this silently would leave one member's skills in place for the next.
+export function patchPersonalSkillsRefresh(source) {
+  const anchor = 'async prompt(params) {'
+
+  if (source.split(anchor).length !== 2)
+    throw new Error(`Expected exactly one native ACP \`${anchor}\` handler.`)
+
+  return source.replace(
+    anchor,
+    `${anchor}\n        await globalThis.nuphosRefreshPersonalSkills?.();`,
+  )
 }

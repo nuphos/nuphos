@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile, chmod } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { nuphosSyncRuntimeSkills, patchRuntimeDefaults } from '../image/runtime-defaults.mjs'
+import {
+  nuphosSyncRuntimeSkills,
+  patchPersonalSkillsRefresh,
+  patchRuntimeDefaults,
+} from '../image/runtime-defaults.mjs'
 
 /** Stand in for /usr/local/bin/nuphos-sync-skills by recording what it was handed. */
 async function withFakeScript(body, run) {
@@ -88,35 +92,54 @@ test('a session cannot choose the workspace the sync writes to', async () => {
 })
 
 test('a Claude session also syncs the sender’s personal skills into its own home', async () => {
-  // The fake installs a skills tree wherever a personal run points it.
+  // The fake records the credential each personal run used and installs one skill.
   const install =
-    'if [ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ]; then [ -z "$NUPHOS_TEST_FAIL" ] || exit 1; ' +
-    'mkdir -p "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR/.claude/skills"; fi'
+    'if [ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ]; then ' +
+    'printf "%s\\n" "$NUPHOS_RUNTIME_SKILLS_TOKEN" >> "$NUPHOS_TEST_RECORD"; ' +
+    '[ ! -e "$NUPHOS_TEST_RECORD.fail" ] || exit 1; ' +
+    'mkdir -p "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR/.claude/skills/mine"; fi'
 
-  await withFakeScript(install, async ({ script, directory }) => {
-    const carrying = () =>
-      meta({ NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle', NUPHOS_RUNTIME_SKILLS_TOKEN: 'tok' })
+  await withFakeScript(install, async ({ script, directory, record }) => {
     const personal = join(directory, 'personal-skills')
-    const params = carrying()
+    const credentialsDir = join(directory, 'credentials')
+    const params = meta({
+      NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
+      NUPHOS_RUNTIME_SKILLS_TOKEN: 'owner',
+    })
+    const run = {
+      script,
+      sessionHome: directory,
+      credentialsDir,
+      env: { NUPHOS_TEST_RECORD: record },
+    }
 
-    assert.equal(await nuphosSyncRuntimeSkills(params, { script, sessionHome: directory }), true)
+    assert.equal(await nuphosSyncRuntimeSkills(params, run), true)
     assert.deepEqual(params._meta.claudeCode.options.additionalDirectories, [personal])
+    assert.deepEqual(await readdir(join(personal, '.claude/skills')), ['mine'])
 
-    // The sender may have changed. If their sync fails, the previous sender's skills
-    // must not stay behind for this turn.
-    const next = carrying()
+    // Before the next prompt the sender is whoever OpenAB's credential file names.
+    await mkdir(credentialsDir)
+    await writeFile(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'teammate\n')
+    await globalThis.nuphosRefreshPersonalSkills()
+    assert.deepEqual((await readFile(record, 'utf8')).trim().split('\n'), ['owner', 'teammate'])
 
-    assert.equal(
-      await nuphosSyncRuntimeSkills(next, {
-        script,
-        sessionHome: directory,
-        env: { NUPHOS_TEST_FAIL: '1' },
-      }),
-      true,
-    )
-    assert.equal(next._meta.claudeCode.options.additionalDirectories, undefined)
-    await assert.rejects(readFile(join(personal, '.claude/skills')), { code: 'ENOENT' })
+    // If that sender's sync fails, the previous sender's skills must not stay. The
+    // directory does: the running session watches it.
+    await writeFile(`${record}.fail`, '')
+    await globalThis.nuphosRefreshPersonalSkills()
+    assert.deepEqual(await readdir(join(personal, '.claude/skills')), [])
   })
+  delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('only the Claude adapter re-syncs personal skills before a prompt', () => {
+  const patched = patchPersonalSkillsRefresh('class A {\n    async prompt(params) {\n    }\n}')
+
+  assert.match(
+    patched,
+    /async prompt\(params\) \{\n\s+await globalThis\.nuphosRefreshPersonalSkills\?\.\(\);/u,
+  )
+  assert.throws(() => patchPersonalSkillsRefresh('class A {}'), /exactly one/u)
 })
 
 test('the Codex session shape is read too', async () => {

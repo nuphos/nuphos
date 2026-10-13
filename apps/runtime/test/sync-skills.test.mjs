@@ -554,6 +554,8 @@ test('a personal run installs in the conversation directory and leaves the works
     assert.equal(stderr, '')
     assert.equal(observed.url, '/skills?scope=personal')
     assert.equal(readFileSync(join(personal, '.claude/skills/my-notes/SKILL.md'), 'utf8'), '# Mine')
+    // In place, not a swapped symlink: a running session watches this directory.
+    assert.equal(lstatSync(join(personal, '.claude/skills')).isSymbolicLink(), false)
     assert.equal(existsSync(join(personal, '.claude/settings.json')), false)
     assert.equal(existsSync(join(env.NUPHOS_RUNTIME_WORKSPACE, '.claude/skills')), false)
   } finally {

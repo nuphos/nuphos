@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs'
+import { lstatSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -105,46 +105,51 @@ test('the adapter patch points the bridge and skills sync at the desktop bundle'
 test('the sender’s personal skills go to the conversation home, not the workspace', async (t) => {
   const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
   const sessionHome = mkdtempSync(join(tmpdir(), 'skills-home-'))
+  const credentialsDir = mkdtempSync(join(tmpdir(), 'skills-credentials-'))
   const personal = join(sessionHome, 'personal-skills')
-  const fresh = () => structuredClone(params)
-  let mine = () =>
+  const skills = join(personal, '.claude', 'skills')
+  const personalBundle = (revision, name) =>
     new Response(
       JSON.stringify({
         scope: 'personal',
-        revision: 'p1',
-        files: [file('my-notes/SKILL.md', '# Mine'), file('_runtime/settings.json', '{"x":1}')],
+        revision,
+        files: [file(`${name}/SKILL.md`, name), file('_runtime/settings.json', '{"x":1}')],
       }),
     )
+  // Each sender is recognised by the bearer the request carries.
+  let answer = (bearer) =>
+    bearer === 'Bearer token' ? personalBundle('p1', 'owner-notes') : personalBundle('p2', 'mate')
 
-  t.mock.method(globalThis, 'fetch', (url) =>
+  t.mock.method(globalThis, 'fetch', (url, init) =>
     Promise.resolve(
-      String(url).endsWith('?scope=personal') ? mine() : bundle('r1', [file('team/SKILL.md', 'T')]),
+      String(url).endsWith('?scope=personal')
+        ? answer(init.headers.authorization)
+        : bundle('r1', [file('team/SKILL.md', 'T')]),
     ),
   )
-  const owner = fresh()
+  const owner = structuredClone(params)
 
-  assert.equal(await nuphosLocalSyncSkills(owner, { workspace, sessionHome }), true)
-  assert.equal(
-    readFileSync(join(personal, '.claude', 'skills', 'my-notes', 'SKILL.md'), 'utf8'),
-    '# Mine',
-  )
+  assert.equal(await nuphosLocalSyncSkills(owner, { workspace, sessionHome, credentialsDir }), true)
+  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner-notes'])
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['team'])
-  // A personal skill cannot plant agent settings.
-  assert.deepEqual(readdirSync(join(personal, '.claude')).includes('settings.json'), false)
+  // In place, so a running session keeps watching it; and no agent settings from it.
+  assert.equal(lstatSync(skills).isSymbolicLink(), false)
+  assert.equal(readdirSync(join(personal, '.claude')).includes('settings.json'), false)
   assert.deepEqual(owner._meta.claudeCode.options.additionalDirectories, [personal])
 
-  // The next sender's sync fails: the previous sender's skills must not stay.
-  mine = () => new Response(null, { status: 500 })
-  const teammate = fresh()
+  // Before the next prompt the sender is whoever OpenAB's credential file names.
+  writeFileSync(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'teammate\n')
+  await globalThis.nuphosRefreshPersonalSkills()
+  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'mate'])
 
-  assert.equal(await nuphosLocalSyncSkills(teammate, { workspace, sessionHome }), true)
-  assert.equal(teammate._meta.claudeCode.options.additionalDirectories, undefined)
-  assert.equal(readdirSync(join(personal, '.claude')).includes('skills'), false)
+  // That sender's sync fails: nobody's skills stay, the watched directory does.
+  answer = () => new Response(null, { status: 500 })
+  await globalThis.nuphosRefreshPersonalSkills()
+  assert.deepEqual(readdirSync(skills), [])
 
   // An older backend answers the personal request with the team bundle: install nothing.
-  mine = () => bundle('r1', [file('team/SKILL.md', 'T')])
-  const legacy = fresh()
-
-  await nuphosLocalSyncSkills(legacy, { workspace, sessionHome })
-  assert.equal(legacy._meta.claudeCode.options.additionalDirectories, undefined)
+  answer = () => bundle('r1', [file('team/SKILL.md', 'T')])
+  await globalThis.nuphosRefreshPersonalSkills()
+  assert.deepEqual(readdirSync(skills), [])
+  delete globalThis.nuphosRefreshPersonalSkills
 })

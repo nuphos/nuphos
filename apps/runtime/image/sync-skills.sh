@@ -177,6 +177,19 @@ done
 # The destination carries the pid as well as the revision so that it can never
 # be the directory `skills` currently points at: nothing live is removed to
 # make room, whatever state the marker above is in.
+# Personal skills are replaced in place instead. A running Claude Code session watches
+# the directory it resolved at start and never follows a swapped symlink, and this
+# tree has one reader, between whose turns the run happens.
+if [[ -n $personal_dir ]]; then
+  [[ -L $claude_dir/skills ]] && rm -f "$claude_dir/skills"
+  mkdir -p "$claude_dir/skills"
+  find "$claude_dir/skills" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -R "$staging"/. "$claude_dir/skills"/
+  printf '%s' "$revision" >"$revision_file.incoming"
+  mv -f "$revision_file.incoming" "$revision_file"
+  exit 0
+fi
+
 installed="$claude_dir/skills.$revision.$$"
 mv "$staging" "$installed"
 ln -sfn "$(basename "$installed")" "$tmp_dir/skills.link"
@@ -184,8 +197,8 @@ mv -T "$tmp_dir/skills.link" "$claude_dir/skills"
 
 # settings.json is the agent's, not a skill: it sits beside the tree rather
 # than inside it. Copied rather than linked so it survives the swap above.
-# Only the team bundle may carry it: a personal skill must not become agent settings.
-if [[ -z $personal_dir && -r $installed/_runtime/settings.json ]]; then
+# Only the team bundle reaches this point, so a personal skill cannot become agent settings.
+if [[ -r $installed/_runtime/settings.json ]]; then
   cp "$installed/_runtime/settings.json" "$claude_dir/.settings.json.incoming"
   mv -f "$claude_dir/.settings.json.incoming" "$claude_dir/settings.json"
 fi

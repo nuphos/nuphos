@@ -21,7 +21,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     : (options.sessionHome ??
       (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
   const personal = sessionHome && path.join(sessionHome, 'personal-skills')
-  const install = async (claudeDir, bundleUrl, shared) => {
+  const install = async (claudeDir, bundleUrl, shared, bearer = token, timeoutMs) => {
     const skillsDir = path.join(claudeDir, 'skills')
     const revisionFile = path.join(claudeDir, '.skills-revision')
     const lockDir = path.join(claudeDir, '.skills-sync.lock')
@@ -40,13 +40,13 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     try {
       await fs.mkdir(claudeDir, { recursive: true })
       const installed = await readRevision()
-      const headers = { authorization: `Bearer ${token}` }
+      const headers = { authorization: `Bearer ${bearer}` }
 
       if ((await exists(skillsDir)) && safeRevision.test(installed))
         headers['if-none-match'] = `"${installed}"`
       const response = await fetch(bundleUrl, {
         headers,
-        signal: AbortSignal.timeout(options.timeoutMs ?? 20_000),
+        signal: AbortSignal.timeout(timeoutMs ?? options.timeoutMs ?? 20_000),
       })
 
       if (response.status === 304) return true
@@ -99,6 +99,20 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
         }
         try {
           if ((await exists(skillsDir)) && (await readRevision()) === bundle.revision) return true
+          // Personal skills are replaced in place: a running Claude Code session watches
+          // the directory it resolved at start and never follows a swapped symlink.
+          if (!shared) {
+            if ((await fs.lstat(skillsDir).catch(() => null))?.isSymbolicLink())
+              await fs.rm(skillsDir, { force: true })
+            await fs.mkdir(skillsDir, { recursive: true })
+            for (const entry of await fs.readdir(skillsDir))
+              await fs.rm(path.join(skillsDir, entry), { recursive: true, force: true })
+            await fs.cp(staging, skillsDir, { recursive: true })
+            await fs.writeFile(`${revisionFile}.incoming`, bundle.revision)
+            await fs.rename(`${revisionFile}.incoming`, revisionFile)
+
+            return true
+          }
           const tree = path.join(claudeDir, `skills.${bundle.revision}.${randomUUID().slice(0, 8)}`)
 
           await fs.rename(staging, tree)
@@ -114,7 +128,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
             await fs.symlink(path.basename(tree), link)
             await fs.rename(link, skillsDir)
           }
-          if (shared && process.platform !== 'win32') {
+          if (process.platform !== 'win32') {
             const agentsDir = path.join(workspace, '.agents')
 
             await fs.mkdir(agentsDir, { recursive: true })
@@ -123,8 +137,9 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
           }
           const settings = path.join(skillsDir, '_runtime', 'settings.json')
 
-          // Only the team bundle may carry agent settings.
-          if (shared && (await exists(settings))) {
+          // Only the team bundle reaches this point, so a personal skill cannot
+          // become agent settings.
+          if (await exists(settings)) {
             const incoming = path.join(claudeDir, '.settings.json.incoming')
 
             await fs.copyFile(settings, incoming)
@@ -151,23 +166,44 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
 
   if (!personal) return install(path.join(workspace, '.claude'), url, true)
   const personalClaude = path.join(personal, '.claude')
-  const [team, mine] = await Promise.all([
-    install(path.join(workspace, '.claude'), url, true),
-    install(personalClaude, `${url}?scope=personal`, false),
-  ])
   const personalSkills = path.join(personalClaude, 'skills')
+  // The sender can change between turns of a live session. OpenAB keeps the current
+  // sender's credential in its per-session directory, so this runs again before every
+  // prompt and leaves that sender's skills, or none.
+  const syncPersonal = async (timeoutMs) => {
+    const credentials = options.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
+    const current = !credentials
+      ? ''
+      : await fs.readFile(path.join(credentials, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'utf8').then(
+          (value) => value.trim(),
+          () => '',
+        )
+    const bearer = current && !/[\u0000-\u001f"\\]/u.test(current) ? current : token
+    const mine = await install(personalClaude, `${url}?scope=personal`, false, bearer, timeoutMs)
 
-  // The sender can change between turns. A sync that failed must not leave the
-  // previous sender's skills in place for this one.
-  if (!mine) {
-    await fs.rm(personalSkills, { recursive: true, force: true }).catch(() => {})
-    await fs.rm(path.join(personalClaude, '.skills-revision'), { force: true }).catch(() => {})
+    // A sync that failed must not leave the previous sender's skills in place. The
+    // directory itself stays: the running session watches it.
+    if (!mine) {
+      for (const entry of await fs.readdir(personalSkills).catch(() => []))
+        await fs
+          .rm(path.join(personalSkills, entry), { recursive: true, force: true })
+          .catch(() => {})
+      await fs.rm(path.join(personalClaude, '.skills-revision'), { force: true }).catch(() => {})
+    }
   }
-  if (await fs.lstat(personalSkills).catch(() => null))
-    claudeOptions.additionalDirectories = [
-      ...(claudeOptions.additionalDirectories ?? []).filter((dir) => dir !== personal),
-      personal,
-    ]
+
+  globalThis.nuphosRefreshPersonalSkills = () => syncPersonal(5_000).catch(() => {})
+  const [team] = await Promise.all([
+    install(path.join(workspace, '.claude'), url, true),
+    syncPersonal(),
+  ])
+
+  // Present even when empty, so a skill synced for a later turn is picked up.
+  await fs.mkdir(personalSkills, { recursive: true })
+  claudeOptions.additionalDirectories = [
+    ...(claudeOptions.additionalDirectories ?? []).filter((dir) => dir !== personal),
+    personal,
+  ]
 
   return team
 }

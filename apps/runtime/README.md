@@ -350,7 +350,8 @@ itself.
 The same address also serves the personal skills of the member who sent the turn.
 The Claude adapter installs those in `personal-skills/` under the conversation's
 session home and adds that directory to the session, so no other conversation on
-the runtime loads them. When a team skill has the same name, Claude Code uses the
+the runtime loads them. It syncs them again before each prompt, because the sender
+can change between the turns of one conversation. When a team skill has the same name, Claude Code uses the
 team skill. Like the session home, this is not a filesystem boundary.
 
 `GATEWAY_ALLOWED_USERS` is baked as the gateway-wide trusted-sender list, not an ACP

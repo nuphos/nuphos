@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 
-import { patchRuntimeDefaults } from '../runtime-defaults.mjs'
+import { patchPersonalSkillsRefresh, patchRuntimeDefaults } from '../runtime-defaults.mjs'
 import { patchClaudeSessionState } from './session-state.mjs'
 import { patchClaudeTurnCompletion } from './turn-completion.mjs'
 
@@ -67,4 +67,7 @@ patched = patched
   )
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
-writeFileSync(target, patchRuntimeDefaults(`${sessionHome}\n${helper}\n${patched}`))
+writeFileSync(
+  target,
+  patchPersonalSkillsRefresh(patchRuntimeDefaults(`${sessionHome}\n${helper}\n${patched}`)),
+)
