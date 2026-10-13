@@ -258,8 +258,12 @@ fun ChatComposer(
             }
 
             if (showControls) {
+                // The row normally shows with the expanded composer, but while
+                // no Agent is chosen the chip is the only way to pick one, so
+                // it stays on screen even when the composer is collapsed.
+                val agentUnresolved = onChooseAgent != null && agent?.selected == null
                 AnimatedVisibility(
-                    visible = expanded,
+                    visible = expanded || agentUnresolved,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {

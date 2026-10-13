@@ -1,6 +1,7 @@
 package ai.nuphos.android.ui.agent
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.FilterChip
@@ -29,7 +30,9 @@ fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick
         selected = selected != null,
         enabled = enabled,
         onClick = onClick,
-        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        // Capped so a long Agent name truncates instead of pushing the IAM and
+        // mode chips off screen in the scrolling row.
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp)) },
         leadingIcon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = "Agent for new chats", modifier = Modifier.size(16.dp)) },
     )
 }
