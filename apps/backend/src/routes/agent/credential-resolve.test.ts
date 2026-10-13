@@ -90,13 +90,26 @@ describe('availableCredentialAccess', () => {
     ).toEqual([])
   })
 
-  test('a device that went offline (or was never available) silently drops out of the selection', () => {
+  test('a device never available to the caller cannot be selected', () => {
     const access = availableCredentialAccess(
-      { deviceIds: ['device-1', 'now-offline-device'] },
+      { deviceIds: ['device-1', 'someone-elses-device'] },
       credentialOptions(),
     )
 
     expect(access.deviceIds).toEqual(['device-1'])
+  })
+
+  test('a stored device that is offline stays selected until it is back and deselected', () => {
+    const stored = { deviceIds: ['device-1', 'offline-device'] }
+
+    // A client cannot show the offline device, so its omission is not a choice.
+    expect(
+      availableCredentialAccess({ deviceIds: [] }, credentialOptions(), undefined, stored),
+    ).toMatchObject({ deviceIds: ['offline-device'] })
+    expect(
+      availableCredentialAccess({ deviceIds: ['device-1'] }, credentialOptions(), undefined, stored)
+        .deviceIds,
+    ).toEqual(['device-1', 'offline-device'])
   })
 })
 
@@ -172,5 +185,19 @@ describe('managerCredentialAccess', () => {
     // aws-2 is the manager's, which a turn running as the owner cannot use.
     expect(access.awsRoleIds).toEqual([])
     expect(access.azureAccountIds).toEqual(['az-1'])
+  })
+
+  test("a manager's edit neither drops the owner's offline device nor adds the manager's", () => {
+    const access = managerCredentialAccess(
+      { deviceIds: ['managers-device'] },
+      { deviceIds: ['owners-offline-mac'], updatedAt: new Date(), updatedBy: 'owner' } as never,
+      {
+        ...managerOptions,
+        devices: [{ deviceId: 'managers-device', label: 'M', platform: 'darwin' }],
+      },
+      ownerOnly,
+    )
+
+    expect(access.deviceIds).toEqual(['owners-offline-mac'])
   })
 })

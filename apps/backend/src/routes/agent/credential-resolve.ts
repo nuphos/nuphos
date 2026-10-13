@@ -15,6 +15,24 @@ function keep<T>(selected: string[] | undefined, available: T[], idOf: (item: T)
   return selected?.filter((id) => allowed.has(id)) ?? []
 }
 
+// `options.devices` lists only the devices online right now, and going offline is
+// not a choice to deselect: a stored device that cannot be seen or picked now
+// stays selected for when it is back. Using one still requires it to be online.
+function selectedDevices(
+  selected: string[] | undefined,
+  stored: string[] | undefined,
+  online: AgentCredentialOptions['devices'],
+) {
+  const onlineIds = new Set(online.map((device) => device.deviceId))
+
+  return [
+    ...new Set([
+      ...(selected ?? []).filter((id) => onlineIds.has(id)),
+      ...(stored ?? []).filter((id) => !onlineIds.has(id)),
+    ]),
+  ]
+}
+
 export async function resolveAgentCredentialAccess(params: {
   teamId: string | undefined
   userId: string
@@ -31,6 +49,7 @@ export async function resolveAgentCredentialAccess(params: {
         normalizeCredentialSelection(withOmittedKeysFromStored(params.selection, params.stored)),
         options,
         params.kubeContext,
+        params.stored,
       ),
       updatedAt: new Date(),
       updatedBy: params.userId,
@@ -90,7 +109,7 @@ export function managerCredentialAccess(
     if (hidden.length) merged[key] = [...new Set([...(merged[key] ?? []), ...hidden])]
   }
 
-  return availableCredentialAccess(merged, ownerOptions)
+  return availableCredentialAccess(merged, ownerOptions, undefined, stored)
 }
 
 // A client that predates a selection key omits it; keep the stored value for
@@ -115,6 +134,7 @@ export function availableCredentialAccess(
   selection: AgentCredentialSelection,
   options: AgentCredentialOptions,
   kubeContext?: string,
+  stored?: AgentCredentialSelection,
 ): Omit<AgentCredentialAccess, 'updatedAt' | 'updatedBy'> {
   const onpremClusterIds = includeBoundOnpremCluster(
     keep(selection.onpremClusterIds, options.onpremClusters, (cluster) => cluster.clusterId),
@@ -185,11 +205,7 @@ export function availableCredentialAccess(
       options.posthogIntegrations,
       byIntegrationId,
     ),
-    // A device drops out of availability the moment it goes offline or its
-    // owner flips the local toggle off — no error, it just silently stops
-    // being selectable for this turn (the tool's own execute() is the second
-    // line of defense if the model targets it anyway).
-    deviceIds: keep(selection.deviceIds, options.devices, (device) => device.deviceId),
+    deviceIds: selectedDevices(selection.deviceIds, stored?.deviceIds, options.devices),
     ...resolveConnectorCredentialAccess(selection, options),
   }
 }

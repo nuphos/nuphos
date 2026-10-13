@@ -46,6 +46,11 @@ const update = z
     threadId: z.string().uuid(),
     fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
     runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
+    deviceIds: z
+      .array(z.string().trim().min(1))
+      .max(20)
+      .optional()
+      .describe('Local devices the thread may use; [] removes them all.'),
   })
   .strict()
 const list = z.object({ label: common.label }).strict()
@@ -98,7 +103,9 @@ export function threadToolModule(): PreviewToolModule {
           'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
           "its conversation history, to another of the team's agents from list_agent_runtimes " +
           "(never to someone's computer); its next turn " +
-          "runs there. A new thread already starts in this conversation's mode and agent.",
+          'runs there. deviceIds sets which local devices it may use, only ones this conversation ' +
+          'can use right now (see list_credentials). A new thread already starts in this ' +
+          "conversation's mode, agent and devices.",
         inputSchema: toolInputJsonSchema(update),
       },
       {
@@ -139,8 +146,12 @@ export function threadToolModule(): PreviewToolModule {
         if (!parsed.success) return toolError(parsed.error.message)
         const { threadId, ...change } = parsed.data
 
-        if (change.fullAccess === undefined && change.runtimeId === undefined)
-          return toolError('Set fullAccess, runtimeId, or both.')
+        if (
+          change.fullAccess === undefined &&
+          change.runtimeId === undefined &&
+          change.deviceIds === undefined
+        )
+          return toolError('Set fullAccess, runtimeId, deviceIds, or a combination.')
 
         return answer(updateThread(ctx, threadId, change))
       },
