@@ -65,7 +65,8 @@ test('the stamp follows the pins and patches in the staging sources', () => {
 
 test('the stamp follows the runtime image adapters it stages', () => {
   const dir = mkdtempSync(join(tmpdir(), 'stamp-'))
-  const runtimeDir = mkdtempSync(join(tmpdir(), 'runtime-'))
+  // Two levels deep, like apps/runtime/image: the attachment program sits in the backend.
+  const runtimeDir = join(mkdtempSync(join(tmpdir(), 'runtime-')), 'runtime', 'image')
 
   for (const file of STAMP_SOURCES) writeFileSync(join(dir, file), `// ${file}`)
   for (const file of RUNTIME_SOURCES) {

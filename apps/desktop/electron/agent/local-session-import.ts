@@ -52,6 +52,7 @@ export async function importLocalSession(args: {
       agentRuntime: args.agentRuntime,
       runtimeId: args.runtimeId,
       messages: transcript.messages,
+      import: true,
     },
   )
 

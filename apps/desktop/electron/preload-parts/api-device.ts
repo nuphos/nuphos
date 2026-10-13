@@ -16,8 +16,6 @@ export const deviceApi = {
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
   localRuntimeCancelCodexLogin: () => ipcRenderer.invoke('localRuntime:cancelCodexLogin'),
   localRuntimeGetState: () => ipcRenderer.invoke('localRuntime:getState'),
-  localAgentSetDefaults: (runtimeId: string, defaults: unknown) =>
-    ipcRenderer.invoke('localAgent:setDefaults', runtimeId, defaults),
   onLocalRuntimeState: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)
 
@@ -26,6 +24,9 @@ export const deviceApi = {
     return () => ipcRenderer.off('localRuntime:state', handler)
   },
   localRuntimeRefresh: () => ipcRenderer.invoke('localRuntime:refresh'),
+  localRuntimeUpdateAgent: (provider: string) =>
+    ipcRenderer.invoke('localRuntime:updateAgent', provider),
+  localRuntimeLatestAgentVersions: () => ipcRenderer.invoke('localRuntime:latestAgentVersions'),
   localRuntimeOpenWorkspace: () => ipcRenderer.invoke('localRuntime:openWorkspace'),
   localRuntimeListActivity: (before?: string) =>
     ipcRenderer.invoke('localRuntime:listActivity', before),

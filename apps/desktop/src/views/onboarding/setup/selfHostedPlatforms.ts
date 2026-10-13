@@ -8,7 +8,7 @@ export const SELF_HOSTED_PLATFORMS = {
   railway: {
     name: 'Railway',
     tag: 'Template',
-    url: 'https://github.com/nuphos/nuphos/tree/main/deploy/railway',
+    url: 'https://railway.com/deploy/nuphos-agent-runtime',
   },
   compose: {
     name: 'Docker Compose',

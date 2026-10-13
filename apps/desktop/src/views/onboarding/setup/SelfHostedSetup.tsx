@@ -88,7 +88,8 @@ function DeployAndConnect({
           </a>
         </DeployStep>
         <DeployStep n={2} title="Open your agent’s console">
-          Set a password, then sign in to Claude or ChatGPT there.
+          Sign in with the password your deployment generated, then sign in to Claude or ChatGPT
+          there.
         </DeployStep>
         <DeployStep n={3} title="Press Connect to Nuphos">
           Nuphos picks it up here automatically.

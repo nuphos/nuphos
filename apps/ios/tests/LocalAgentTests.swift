@@ -9,6 +9,7 @@ enum LocalAgentTests {
         defaultsToAUsableCloudAgent()
         namesCloudOnlyProviders()
         modelSettingsRemainAvailable()
+        measuresWhatIsLeft()
         print("Local agents passed")
     }
 
@@ -33,11 +34,10 @@ enum LocalAgentTests {
         let next = ready.nextSelection(in: &pending, streaming: false)
         precondition(next?.id == "model" && next?.value == "b")
         precondition(ready.nextSelection(in: &pending, streaming: false) == nil && pending.isEmpty, "Drop effort choices unsupported by the new model")
-        let catalog = try! JSONDecoder().decode(RuntimeModelCatalog.self, from: Data(#"{"models":[{"id":"default","name":"Default","description":"Alpha"},{"id":"a","name":"Alpha"},{"id":"b","name":"Beta"}],"controls":{"modelId":"default","effort":[{"value":"default","name":"Default"},{"value":"medium","name":"Medium"},{"value":"high","name":"High"}],"fast":true,"defaultFast":"on","defaultEffort":"high"}}"#.utf8))
-        let config = catalog.config(defaults: nil)
-        precondition(config.modelTitle == "Alpha" && config.model?.options.count == 2)
-        precondition(config.isFast && config.options.first { $0.kind == .effort }?.currentValue == "high")
-        precondition(catalog.config(defaults: .init(model: "b", fast: "off", effort: "medium")).modelTitle == "Beta")
+        // Before a session exists, the runtime's own choices arrive as session options.
+        let config = try! JSONDecoder().decode(SessionConfigState.self, from: Data(#"{"status":"dormant","options":[{"id":"model","name":"Model","kind":"model","currentValue":"default","options":[{"value":"default","name":"Default","description":"Alpha"},{"value":"a","name":"Alpha"},{"value":"b","name":"Beta"}]},{"id":"effort","name":"Effort","kind":"effort","currentValue":"high","options":[{"value":"high","name":"High"}]},{"id":"fast","name":"Fast","kind":"fast","currentValue":"on","options":[{"value":"on","name":"On"},{"value":"off","name":"Off"}]}]}"#.utf8))
+        precondition(config.modelTitle == "Alpha" && config.isEditable && config.isFast)
+        precondition(config.hint == nil)
         print("Model discovery, retained settings, and queued selection transitions passed")
     }
 
@@ -79,6 +79,11 @@ enum LocalAgentTests {
         precondition(selection.json["deviceIds"] == .array([.string("mac")]))
     }
 
+    private static func measuresWhatIsLeft() {
+        let left = [-5, 0, 37.4, 99.6, 120].map { RuntimeQuota.Window(label: "5-hour", usedPercent: $0, resetsAt: nil).leftPercent }
+        precondition(left == [100, 100, 62, 0, 0])
+    }
+
     private static func agent(_ json: String) -> RuntimeInstance {
         try! JSONDecoder().decode(RuntimeInstance.self, from: json.data(using: .utf8)!)
     }
@@ -114,5 +119,7 @@ enum LocalAgentTests {
         let antigravity = agent(#"{"id":"rt_3","provider":"antigravity","label":"Team Antigravity","status":"active","kind":"managed"}"#)
         precondition(grok.providerName == "Grok Build" && RuntimeInstance.Provider.logo("grok") == "logo-grok")
         precondition(antigravity.providerName == "Antigravity" && RuntimeInstance.Provider.logo("antigravity") == "logo-antigravity")
+        let opencode = agent(#"{"id":"rt_4","provider":"opencode","label":"Team OpenCode","status":"active","kind":"managed"}"#)
+        precondition(opencode.providerName == "OpenCode" && RuntimeInstance.Provider.logo("opencode") == "logo-opencode")
     }
 }

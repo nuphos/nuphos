@@ -59,6 +59,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     if (!host) return
     let disposed = false
     let started = false
+    let ready = false
     let offEvent: (() => void) | null = null
 
     const fitAddon = new FitAddon()
@@ -82,7 +83,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     setStatus('connecting')
 
     const dataDisposable = terminal.onData((data) => {
-      if (started) void api.podExecInput(sessionKey, data)
+      if (ready) void api.podExecInput(sessionKey, data)
     })
 
     // Defer the start to a macrotask and cancel it on cleanup. Under React
@@ -111,6 +112,15 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
               })
               terminal.writeln(`\r\n\x1b[31mError: ${event.message}\x1b[0m`)
               setStatus('error')
+            } else if (event.type === 'replayed') {
+              // A resumed shell already answered the queries in its replayed output;
+              // hold input until xterm has parsed it, or its second answers land on
+              // the prompt as text. A new shell may still be waiting for them.
+              if (event.resumed)
+                terminal.write('', () => {
+                  ready = true
+                })
+              else ready = true
             } else {
               // 127 = the shell binary wasn't found — for a pod, almost always a
               // distroless / minimal image; for a node shell, nsenter or the host

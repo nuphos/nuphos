@@ -6,6 +6,7 @@ import {
   conversationAccess,
   generalAccessOf,
   initialGeneralAccess,
+  managesConversation,
   readableByFilter,
   readableConversationScope,
 } from './access'
@@ -178,4 +179,39 @@ test('readableByFilter admits exactly the viewers conversationAccess admits', ()
         checked++
       }
   expect(checked).toBe(40)
+})
+
+describe('managesConversation', () => {
+  // No generalAccess: the whole team may reply, as in sessions from before access.
+  const invited = {
+    ...base,
+    participantIds: ['manager', 'replier'],
+    managerIds: ['manager'],
+  }
+
+  test('the owner manages, whatever the team says', () => {
+    expect(managesConversation(invited, 'owner', false)).toBe(true)
+  })
+
+  test('a manager who is a team member manages', () => {
+    expect(managesConversation(invited, 'manager', true)).toBe(true)
+  })
+
+  test('a manager who left the team does not', () => {
+    expect(managesConversation(invited, 'manager', false)).toBe(false)
+  })
+
+  test('a reply participant does not', () => {
+    expect(managesConversation(invited, 'replier', true)).toBe(false)
+  })
+
+  test('general access alone does not', () => {
+    expect(managesConversation(invited, 'teammate', true)).toBe(false)
+  })
+
+  test('a stranger does not', () => {
+    expect(managesConversation({ ...invited, generalAccess: 'none' }, 'stranger', false)).toBe(
+      false,
+    )
+  })
 })

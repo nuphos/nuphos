@@ -35,6 +35,28 @@ export function serializeMessageDoc(message: {
   }
 }
 
+/**
+ * The stored copy of this turn: everything from its prompt on, with the index
+ * the first message holds in the conversation. Earlier messages are left out
+ * because the client already holds them, and a long conversation would make
+ * this one frame tens of megabytes.
+ */
+export function transcriptTailFrame(
+  stored: Parameters<typeof serializeMessageDoc>[0][],
+  promptCount: number,
+): Record<string, unknown> {
+  const messagesFirstIndex = Math.max(
+    0,
+    stored.slice(0, promptCount).findLastIndex((message) => message.role === 'user'),
+  )
+
+  return {
+    type: 'atlas-transcript-tail',
+    messages: stored.slice(messagesFirstIndex).map(serializeMessageDoc),
+    messagesFirstIndex,
+  }
+}
+
 function getErrorMessage(error: unknown): string {
   if (error == null) return 'Unknown error'
   if (typeof error === 'string') return error

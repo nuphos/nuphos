@@ -122,6 +122,7 @@ for (const [theme, tokens] of [
       '--color-error',
       '--color-warning',
       '--color-zViolet-accent',
+      '--color-slack-text',
     ]
 
     for (const name of foregrounds) {
@@ -146,6 +147,15 @@ for (const [theme, tokens] of [
 
       assert.ok(ratio >= 4.5, `${name} is only ${ratio.toFixed(2)}:1 on its ${theme} tint`)
     }
+  })
+
+  test(`${theme} theme Slack badge text is AA on the badge tint`, () => {
+    const background = resolveColor(tokens, '--color-background-base')
+    // conversationBadges: bg-[#611f69]/15
+    const badge = tint([97, 31, 105], background, 0.15)
+    const ratio = contrast(resolveColor(tokens, '--color-slack-text'), badge)
+
+    assert.ok(ratio >= 4.5, `Slack badge text is only ${ratio.toFixed(2)}:1 on ${theme}`)
   })
 }
 

@@ -28,6 +28,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   const {
     activeTab: tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,
@@ -135,6 +136,8 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
 
     return {
+      teamId,
+      canUpdateTeamAgents: isTeamAdmin,
       value: {
         id: tab?.runtimeId,
         provider,
@@ -153,7 +156,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         else void move(runtimeId)
       },
       selectDisabled: tab?.streaming || moving,
-      quota: tab?.runtimeId ? runtimeQuotas.get(tab.runtimeId) : undefined,
+      quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',
       loading: runtimeInstancesLoading,
@@ -182,6 +185,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     sessionId,
     tab,
     teamId,
+    isTeamAdmin,
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,

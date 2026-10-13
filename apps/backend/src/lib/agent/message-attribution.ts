@@ -28,7 +28,8 @@ export async function createMessageMetadata(
       type: 'user',
       id: userId,
       displayName: user?.name || user?.username || userId,
-      ...(user?.email ? { email: user.email } : {}),
+      // Discord and Lark threads can be read by people outside the team.
+      ...(user?.email && (source === 'nuphos' || source === 'slack') ? { email: user.email } : {}),
       ...(trustedAvatarURL(user?.avatarURL)
         ? { avatarURL: trustedAvatarURL(user?.avatarURL) }
         : {}),

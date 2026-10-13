@@ -106,7 +106,7 @@ struct PlansPage: View {
                 Text(message)
             } actions: {
                 Button("Try again") { Task { await store.loadTeams() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
             }
         } else {
             phaseStatus
@@ -127,7 +127,7 @@ struct PlansPage: View {
                 Text(message)
             } actions: {
                 Button("Try again") { Task { await plans.reload() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
             }
         case .loaded where !plans.search.trimmingCharacters(in: .whitespaces).isEmpty:
             ContentUnavailableView.search(text: plans.search)
@@ -145,7 +145,7 @@ struct PlansPage: View {
                         ))
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .prominentButton()
             }
         case .loaded:
             // Everything loaded is dismissed and hidden.

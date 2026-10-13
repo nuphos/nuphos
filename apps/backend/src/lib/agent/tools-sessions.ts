@@ -1,7 +1,13 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-import { getConversations, getConversationTranscriptForAgent } from './db'
+import {
+  getConversations,
+  getConversationTranscriptForAgent,
+  liveTurnTranscriptLine,
+  renameConversation,
+} from './db'
+import { getLiveTurn } from './live-turn'
 import { withLabel } from './tools-skilled/labeling'
 
 const LIST_DESCRIPTION =
@@ -11,8 +17,16 @@ const LIST_DESCRIPTION =
 
 const READ_DESCRIPTION =
   "Read one conversation's transcript in compact form: one line per message (`#index role: text`), tool calls summarized as `[tool: name]`. " +
+  'A Nuphos session link (`/teams/<team>/agent/<session_id>`) in a message names a conversation; pass its last segment as session_id. ' +
   'Pages by message index — pass the returned next_index to continue. Read only the window you need. ' +
+  'A turn still running is the last line of the last page, marked in progress with its start and last update times, and returned in in_progress; once it ends it is replaced by the stored message. ' +
+  'Turn termination records are returned separately in turn_diagnostics, even when transcript text is truncated; timestamps describe backend observations and missing fields were not recorded. ' +
   'Tool inputs/outputs are omitted by default to keep the transcript small; set include_tool_details only when the exact command or result matters.'
+
+const RENAME_DESCRIPTION =
+  "Set a conversation's title, as if the user renamed it in the sidebar. Defaults to the current conversation. " +
+  'Use it only when the user asks to rename a conversation. ' +
+  'Only conversations the user owns in this workspace can be renamed; the new title is kept over any generated one.'
 
 function conversationSummary(
   c: {
@@ -112,6 +126,26 @@ export function createSessionTools(
         })
 
         if (!page) return { error: 'Conversation not found or not readable in this workspace.' }
+        const running =
+          page.nextIndex === null
+            ? await getLiveTurn(page.conversation.userId, page.conversation.sessionId)
+            : null
+        // The final message is stored a moment before the run's frames say
+        // so; an assistant message stored since the turn began is that one.
+        const live =
+          running?.startedAt &&
+          page.lastAssistantAt &&
+          page.lastAssistantAt.getTime() >= Date.parse(running.startedAt)
+            ? null
+            : running
+        const lines = live
+          ? [
+              ...page.lines,
+              liveTurnTranscriptLine(page.conversation.messageCount, live, {
+                includeToolDetails: include_tool_details,
+              }),
+            ]
+          : page.lines
 
         return {
           session_id: page.conversation.sessionId,
@@ -119,7 +153,17 @@ export function createSessionTools(
           created_at: page.conversation.createdAt.toISOString(),
           message_count: page.conversation.messageCount,
           ...(session_id === conversationId ? { is_current_conversation: true } : {}),
-          transcript: page.lines.join('\n'),
+          turn_diagnostics: page.turnDiagnostics,
+          ...(live
+            ? {
+                in_progress: {
+                  index: page.conversation.messageCount,
+                  started_at: live.startedAt,
+                  last_update_at: live.updatedAt,
+                },
+              }
+            : {}),
+          transcript: lines.join('\n'),
           next_index: page.nextIndex,
         }
       },
@@ -127,5 +171,31 @@ export function createSessionTools(
     readShape,
   )
 
-  return { list_recent_conversations, read_conversation }
+  const renameShape = {
+    title: z.string().trim().min(1).max(120).describe('New title, 1–120 characters.'),
+    session_id: z
+      .string()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe('Conversation to rename (default: the current conversation).'),
+  }
+  const rename_conversation = withLabel(
+    tool({
+      description: RENAME_DESCRIPTION,
+      inputSchema: z.object(renameShape),
+      execute: async ({ title, session_id }) => {
+        const sessionId = session_id ?? conversationId
+
+        if (!(await renameConversation(sessionId, userId, teamId, title))) {
+          return { error: 'Conversation not found or not owned by the user in this workspace.' }
+        }
+
+        return { session_id: sessionId, title }
+      },
+    }),
+    renameShape,
+  )
+
+  return { list_recent_conversations, read_conversation, rename_conversation }
 }

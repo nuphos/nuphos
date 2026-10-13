@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 
 import { parseAtlasLink } from '../../../lib/atlasLinkMention'
 import { trustedAvatarURL } from '../../../lib/avatarUrl'
@@ -7,7 +7,7 @@ import { MessageResponse } from '../MessageResponse'
 import { PlanCard } from '../PlanTool'
 
 import { CopyMessageButton } from './messageActions'
-import { ImageAttachmentThumb, LocalFileChip } from './messageInline'
+import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInline'
 import { renderAtlasMentionLink } from './messageInlineLinks'
 import { formatMessageTimestamp } from './streamText'
 import { UploadedFilesCard } from './transferCards'
@@ -65,6 +65,7 @@ export const UserMessage = memo(
     onOpenNuphosLink?: (href: string) => boolean
   }) => {
     const sendMotionRef = useSentMessageMotion(message.id)
+    const [preview, setPreview] = useState<number | null>(null)
     const renderLink = useCallback(
       (href: string, children: ReactNode) =>
         renderAtlasMentionLink(href, children, onOpenNuphosLink),
@@ -114,8 +115,10 @@ export const UserMessage = memo(
                     key={`${p.fileName}:${String(i)}`}
                     url={p.url}
                     fileName={p.fileName}
+                    onOpen={() => setPreview(i)}
                   />
                 ))}
+                <ImageLightbox images={images} index={preview} onIndexChange={setPreview} />
               </div>
             )}
             {files.length > 0 && (

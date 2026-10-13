@@ -23,6 +23,7 @@ export type StartChatCtx = Pick<
   | 'kubeContextRef'
   | 'lastCredentialSyncedRef'
   | 'newConversationRuntime'
+  | 'newConversationSessionConfig'
   | 'newConversationCredentialAccess'
   | 'setActiveId'
   | 'setBypassBySession'
@@ -52,6 +53,7 @@ export function runStartChatWith(
     kubeContextRef,
     lastCredentialSyncedRef,
     newConversationRuntime,
+    newConversationSessionConfig,
     newConversationCredentialAccess,
     setActiveId,
     setBypassBySession,
@@ -106,15 +108,6 @@ export function runStartChatWith(
     agentRuntime: newConversationRuntime.provider,
     runtimeId: newConversationRuntime.id,
     runtimeLabel: newConversationRuntime.label,
-    ...(newConversationRuntime.defaults?.model &&
-    newConversationRuntime.defaults.model !== 'default'
-      ? {
-          initialModel: {
-            runtimeId: newConversationRuntime.id,
-            name: newConversationRuntime.defaults.model,
-          },
-        }
-      : {}),
     title,
     messages: [userMsg],
     // While the attachment uploads the turn isn't streaming yet — the loading
@@ -159,6 +152,9 @@ export function runStartChatWith(
         permissionMode: defaultPermissionMode,
         agentRuntime: newConversationRuntime.provider,
         runtimeId: newConversationRuntime.id,
+        ...(Object.keys(newConversationSessionConfig).length
+          ? { initialSessionConfig: newConversationSessionConfig }
+          : {}),
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err)

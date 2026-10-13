@@ -102,16 +102,17 @@ export function Toolbar({
     }
   }
 
-  const showNs = !!namespaces && !!onSelectNamespace && !!onLoadNamespaces
+  const showNs =
+    namespaces !== undefined && onSelectNamespace !== undefined && onLoadNamespaces !== undefined
   const showControlsRow = showNs || showFilter || hasControls
-  const showHeaderRow = segments.length > 0 || !!onToggleAgentSidebar
+  const showHeaderRow = segments.length > 0 || Boolean(onToggleAgentSidebar)
 
   if (!showHeaderRow && !showControlsRow) return null
 
   return (
     <div
       className={clsx(
-        'titlebar-drag flex flex-col border-b border-zGray-800/60 bg-main',
+        'workspace-page-toolbar titlebar-drag flex flex-col border-b border-zGray-800/60 bg-main',
         showHeaderRow && showControlsRow ? 'h-[84px]' : 'h-[42px]',
       )}
     >

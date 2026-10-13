@@ -55,9 +55,11 @@ their lid.
 | `apps/desktop` | Electron/Vite/React client — the workspace itself                       |
 | `apps/runtime` | Claude Code / Codex container images, adapters and independent releases |
 | `apps/ios`     | SwiftUI client: pick a session back up away from your desk              |
+| `apps/android` | Jetpack Compose client for Nuphos Cloud                                 |
 
-There is an Android client too; it is not open source yet. The iOS app is the
-one in here.
+See [`apps/android/README.md`](apps/android/README.md) for Android build and test
+instructions. The Android client currently uses Nuphos Cloud sign-in; custom
+self-hosted endpoints are not yet supported.
 
 The agent runtime lives in [`apps/runtime`](apps/runtime) (Apache-2.0).
 Its image executes a turn, and a self-hosted deployment registers its own.
@@ -173,6 +175,37 @@ It starts the local stack, backend, runtime and Electron Desktop with isolated
 configuration. Do not start Desktop on its own or use the web-only Vite server
 as the default dev loop.
 
+### Parallel instances
+
+Every worktree or clone can run `bun run dev` at the same time. All of them
+share one Mongo / RustFS / runtime stack, whose secrets live in
+`~/.config/nuphos/dev-stack.env`. The first run copies the main checkout's
+`deploy/compose/.env`, and takes the S3 keys from the running stack when there
+is one. If that file and the running stack ever disagree, `bun run dev` stops
+before recreating the stack under the other instances; copy the stack's keys
+into the file, or wipe the stack with `bun run dev:reset`. Everything else derives from the instance
+name, which is the checkout's directory name or `NUPHOS_DEV_INSTANCE`:
+
+- the backend, Vite and DevTools (CDP) ports, each claimed free at start;
+- the Desktop profile, `Nuphos Dev (<name> local)`;
+- the Desktop sign-in, `~/.config/nuphos/cli.dev.<name>.yaml`;
+- the logs, `$TMPDIR/nuphos-dev-logs/<name>/`.
+
+Two checkouts with the same directory name, or two instances from one
+checkout, need different `NUPHOS_DEV_INSTANCE` values. Sign-ins from the old
+shared `cli.dev.yaml` are not carried over, so each instance signs in once; the
+backend prints the email code in the dashboard.
+
+```bash
+bun run dev:instances           # name, state, ports, disk usage and worktree of each instance
+bun run dev:instances rm <name> # stop it, then delete its profile, sign-in, logs and clean worktree
+```
+
+`rm` stops only that instance's own launcher and processes, and leaves the
+shared stack and the main checkout alone. It does not remove a worktree that has
+uncommitted changes. An e2e harness should attach to the `CDP` port that
+`dev:instances` lists, never to a fixed port.
+
 ## Working Guidelines
 
 `AGENTS.md` and `CLAUDE.md` point coding agents here, so this section is the
@@ -183,7 +216,7 @@ single source of repository rules for people and agents alike.
 - Open PRs ready for review. Use a draft only when the change is genuinely
   unfinished or a draft was asked for.
 - Titles follow Semantic Commit Messages, e.g.
-  `fix(agent): improve Braintrust chat traces`, with no tool prefix such as
+  `fix(agent): improve agent chat traces`, with no tool prefix such as
   `[codex]`.
 - Develop and check backend-only changes from `apps/backend` and desktop-only
   changes from `apps/desktop`. A contract change that affects both lands in one

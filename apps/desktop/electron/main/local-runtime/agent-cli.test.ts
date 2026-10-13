@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
+import { updateAgentCli } from './agent-cli-update.ts'
 import { probeAgentCli } from './agent-cli.ts'
 
 // Real child processes make sure the status command sees the runtime environment,
@@ -78,5 +79,29 @@ NUPHOS_TEST_JS
     const unavailable = await probeAgentCli('claude-code', env, undefined)
 
     assert.equal(unavailable.installed && unavailable.loggedIn, null)
+  },
+)
+
+test(
+  'update runs the CLI on PATH with its own update command',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-update-'))
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    writeFileSync(
+      path.join(dir, 'codex'),
+      `#!/bin/sh\necho "$@" > ${JSON.stringify(path.join(dir, 'args'))}\n`,
+      {
+        mode: 0o700,
+      },
+    )
+    writeFileSync(path.join(dir, 'claude'), '#!/bin/sh\nexit 1\n', { mode: 0o700 })
+    const env = { PATH: dir, HOME: dir }
+
+    await updateAgentCli('codex', env)
+    assert.equal(readFileSync(path.join(dir, 'args'), 'utf8').trim(), 'update')
+    await assert.rejects(updateAgentCli('claude-code', env))
+    await assert.rejects(updateAgentCli('opencode' as never, env), /Install the agent/u)
   },
 )

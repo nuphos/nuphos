@@ -109,7 +109,6 @@ services:
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true'
       NUPHOS_LOCAL_STACK: 'true'
       ATLAS_REDIS_ENABLED: 'false'
-      BRAINTRUST_TRACING_ENABLED: 'false'
       NUPHOS_BACKEND_URL: http://backend:3000
       NUPHOS_FILE_TRANSFER_S3_BUCKET: nuphos-file-transfers
       NUPHOS_FILE_TRANSFER_S3_ENDPOINT: http://rustfs:9000
@@ -134,7 +133,7 @@ services:
     restart: unless-stopped
 
   runtime:
-    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.18-claude-code}
+    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.19-claude-code}
     # Published for amd64 only; Apple Silicon runs it under emulation.
     platform: linux/amd64
     environment:

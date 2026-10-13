@@ -8,11 +8,23 @@ import {
   validateRequestedAgentRuntime,
   validateRequestedRuntimeId,
 } from '@/lib/claude-code-preview/runtime-routing'
+import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
 
 export function validateChatBody(body: AgentChatBody): void {
   validateRequestedAgentRuntime(body.agentRuntime)
   validateRequestedRuntimeId(body.runtimeId)
+  if (body.initialSessionConfig !== undefined) {
+    const pick = sessionConfigPickSchema.safeParse(body.initialSessionConfig)
+
+    if (!pick.success)
+      throw new AppError(
+        400,
+        'invalid_request',
+        'initialSessionConfig holds only model, effort, fast',
+      )
+    body.initialSessionConfig = pick.data
+  }
   const baseIndex = body.baseIndex ?? 0
 
   if (!Number.isInteger(baseIndex) || baseIndex < 0) {

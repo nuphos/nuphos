@@ -9,7 +9,6 @@ import type {
   AgentMemoryPage,
   AgentMemoryScope,
   AgentMemoryScorecard,
-  AutoModeRule,
 } from './agent-audit-types.ts'
 import type {
   AgentTrigger,
@@ -35,7 +34,11 @@ import type {
 } from './agent-types.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
-import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
+import type {
+  SessionConfigPick,
+  SessionConfigSelection,
+  SessionConfigState,
+} from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
@@ -85,6 +88,8 @@ export type WindowAgentApi = {
     permissionMode?: 'auto' | 'bypass'
     agentRuntime?: AgentProvider
     runtimeId?: string
+    /** Model settings picked before this conversation existed. */
+    initialSessionConfig?: SessionConfigPick
   }): Promise<void>
   agentNotifyStopped(args: {
     title: string
@@ -127,6 +132,7 @@ export type WindowAgentApi = {
     archived: boolean,
     teamId?: string,
   ): Promise<{ ok: boolean; archived: boolean }>
+  agentUnlinkConversationParent(sessionId: string, teamId?: string): Promise<{ ok: boolean }>
   agentMarkConversationRead(
     sessionId: string,
     seq: number,
@@ -138,7 +144,7 @@ export type WindowAgentApi = {
     text: string,
     teamId?: string,
     groupId?: string,
-  ): Promise<{ ok: boolean; messageId: string; text?: string }>
+  ): Promise<{ ok: boolean; messageId: string; text?: string; upload?: Record<string, unknown> }>
   agentSlackPickup(
     sessionId: string,
     teamId?: string,
@@ -218,24 +224,11 @@ export type WindowAgentApi = {
     reason?: string,
   ): Promise<void>
   agentRestoreMemory(memoryId: string, teamId?: string, scope?: AgentMemoryScope): Promise<void>
-  agentListAutoModeRules(): Promise<{ enabled: boolean; rules: AutoModeRule[] }>
-  agentCreateAutoModeRule(description: string): Promise<{ rule: AutoModeRule }>
-  agentActivateAutoModeRule(ruleId: string): Promise<{ ok: boolean }>
-  agentDeleteAutoModeRule(ruleId: string): Promise<void>
-  agentAddAutoModeSessionApproval(sessionId: string, command: string): Promise<{ ok: boolean }>
   agentGetAutoModeBypass(sessionId: string): Promise<{ enabled: boolean; bypass: boolean }>
   agentSetAutoModeBypass(
     sessionId: string,
     bypass: boolean,
   ): Promise<{ ok: boolean; bypass: boolean }>
-  agentApproveAutoModeCommand(
-    sessionId: string,
-    toolCallId: string,
-    scope: 'once' | 'session' | 'always',
-    teamId?: string,
-    ruleDescription?: string,
-  ): Promise<{ ok: boolean }>
-  agentDenyAutoModeCommand(sessionId: string, toolCallId: string, teamId?: string): Promise<void>
   agentListPlans(args: {
     teamId?: string
     mine?: boolean

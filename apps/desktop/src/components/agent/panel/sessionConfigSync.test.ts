@@ -181,20 +181,17 @@ test('lost write acknowledgement is never an optimistic model and triggers readb
   assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'actual')
 })
 
-test('busy or dormant reads without options retain the confirmed model', async (t) => {
+test('a dormant read after moving agents drops the previous agent’s options', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
-  let response = ready('actual-model')
+  let response = ready('old-agent-model')
   const sync = new SessionConfigSync({ read: async () => response, write: async () => response })
   const stop = sync.start()
 
   t.after(stop)
   await flush()
-  for (const status of ['busy', 'dormant'] as const) {
-    response = { status, options: [] }
-    await sync.refresh()
-    assert.equal(sync.getSnapshot().data?.options[0]?.currentValue, 'actual-model')
-    assert.equal(sync.getSnapshot().data?.status, status)
-  }
+  response = { status: 'dormant', options: [] }
+  await sync.refresh()
+  assert.deepEqual(sync.getSnapshot().data, response)
 })
 
 test('streaming model selection applies the latest choice once the reply is idle', async (t) => {
@@ -273,4 +270,30 @@ test('a failed queued model write does not apply effort to the previous model', 
   await flush()
   assert.deepEqual(writes, ['model'])
   assert.equal(sync.getSnapshot().queued, undefined)
+})
+
+test('a dormant session that listed its choices is not polled; one that listed none is', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let reads = 0
+  let response: SessionConfigState = { status: 'dormant', options: ready('model').options }
+  const sync = new SessionConfigSync({
+    read: async () => {
+      reads++
+
+      return response
+    },
+    write: async () => response,
+  })
+  const stop = sync.start()
+
+  t.after(stop)
+  await flush()
+  t.mock.timers.tick(60_000)
+  await flush()
+  assert.equal(reads, 1)
+  response = { status: 'dormant', options: [] }
+  await sync.refresh()
+  t.mock.timers.tick(10_000)
+  await flush()
+  assert.equal(reads, 3)
 })

@@ -112,6 +112,40 @@ test('revoked credentials stop fresh and resumed streams immediately, preserving
   }
 })
 
+test('a runtime refusal in an error frame parks the message like the HTTP refusal does', async () => {
+  // The backend reattaches a continuation parked on a lost connection before
+  // it can refuse the prompt, so the refusal arrives as a frame. Retrying or
+  // failing the turn here would drop the message; the renderer re-queues it.
+  const emitted: unknown[] = []
+  const state = createChatStreamState(0)
+  const result = await consumeChatStream(
+    {
+      streamId: 'stream-1',
+      sessionId: 'session-1',
+      explicitResume: false,
+      signal: new AbortController().signal,
+      state,
+      emit: (event) => emitted.push(event),
+      noteFirstFrame: () => {},
+    },
+    sse({
+      type: 'error',
+      errorCode: 'runtime_not_accepting_message',
+      errorText: 'Reconnected to the agent; it is continuing after a background task.',
+    }),
+    false,
+  )
+
+  assert.deepEqual(result, { kind: 'stop' })
+  assert.equal(state.freshRetryAttempts, 0)
+  assert.deepEqual(emitted, [
+    {
+      type: 'runtime-not-ready',
+      message: 'Reconnected to the agent; it is continuing after a background task.',
+    },
+  ])
+})
+
 test('ordinary internal errors remain eligible for the existing fresh-retry policy', async () => {
   const result = await consumeChatStream(
     {

@@ -19,7 +19,6 @@ import type { WSContext } from 'hono/ws'
 
 const bus = createLocalTunnelBus()
 const presence = createMemoryPresenceStore()
-const savedDefaults = new Map<string, unknown>()
 let server: Server<unknown> | undefined
 
 afterEach(async () => {
@@ -47,9 +46,6 @@ function deps(
     listActivity: async () => ({ entries: [], nextCursor: null }),
     conversationTitlesFor: async () => new Map(),
     getTeamMembers: async () => [],
-    setLocalAgentDefaults: async (runtimeId, defaults) => {
-      savedDefaults.set(runtimeId, defaults)
-    },
     ...overrides,
   }
 }
@@ -224,35 +220,5 @@ describe('device runtime tunnel route', () => {
     )
 
     expect(intruder.status).toBe(404)
-  })
-})
-
-describe('local agent defaults', () => {
-  const own = 'local_owner_d1_codex'
-
-  async function put(userId: string, runtimeId: string) {
-    const host = serve(userId)
-
-    return fetch(`http://${host}/agent/local-agents/${runtimeId}/defaults`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-5' }),
-    })
-  }
-
-  test('the owner sets the model for their own local agent', async () => {
-    savedDefaults.clear()
-    const res = await put('owner', own)
-
-    expect(res.status).toBe(200)
-    expect(savedDefaults.get(own)).toEqual({ model: 'gpt-5' })
-  })
-
-  test('nobody else can set defaults for it', async () => {
-    savedDefaults.clear()
-    const res = await put('teammate', own)
-
-    expect(res.status).toBe(404)
-    expect(savedDefaults.size).toBe(0)
   })
 })

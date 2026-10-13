@@ -21,9 +21,7 @@ async function read(root: string, path: string, workspace?: string, action?: 'li
   const stream = new LocalFileStream(root)
 
   return await new Promise<Record<string, unknown>>((resolve, reject) => {
-    stream.addEventListener('open', () =>
-      stream.send(JSON.stringify({ sessionId: 'session', path, workspace, action })),
-    )
+    stream.addEventListener('open', () => stream.send(JSON.stringify({ path, workspace, action })))
     stream.addEventListener('message', ({ data }) => resolve(JSON.parse(String(data))))
     stream.addEventListener('close', () => reject(new Error('closed without a result')))
   })

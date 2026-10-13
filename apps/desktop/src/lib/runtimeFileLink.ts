@@ -1,27 +1,19 @@
-export type RuntimeFileReference = {
-  teamId: string
-  runtimeId: string
-  sessionId: string
-  path: string
-}
+// Agents cite files they touched as plain markdown links — an absolute
+// runtime path, or one relative to the workspace, optionally with a `:line`
+// suffix. Those paths live on the conversation's runtime, so a click opens
+// them in Files instead of resolving against the app's own origin.
+export function runtimeFilePathFromHref(href: string): string | null {
+  const raw = href
+    .trim()
+    .split(/[?#]/, 1)[0]
+    .replace(/:\d+(:\d+)?$/, '')
 
-export function parseRuntimeFileLink(href: string): RuntimeFileReference | null {
+  if (!raw || raw.startsWith('//') || raw.startsWith('/teams/')) return null
+  if (/^[a-z][a-z\d+.-]*:/i.test(raw)) return null
   try {
-    const url = new URL(href)
+    const path = decodeURIComponent(new URL(raw, 'file:///workspace/').pathname)
 
-    if (url.origin !== 'https://nuphos.ai' || url.username || url.password) return null
-    const match = /^\/teams\/([^/]+)\/agent-runtimes\/([^/]+)\/files\/content$/.exec(url.pathname)
-    const sessionId = url.searchParams.get('sessionId')
-    const path = url.searchParams.get('path')
-
-    if (!match || !sessionId || !path || path.length > 4096 || path.includes('\0')) return null
-
-    return {
-      teamId: decodeURIComponent(match[1]),
-      runtimeId: decodeURIComponent(match[2]),
-      sessionId,
-      path,
-    }
+    return path === '/' || path.includes('\0') ? null : path
   } catch {
     return null
   }

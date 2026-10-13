@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="nuphos_brand">#7D36EC</color>
+    <color name="nuphos_canvas">#F7F7F7</color>
+    <color name="nuphos_canvas_dark">#141414</color>
+    <color name="nuphos_violet_500">#6300FF</color>
+    <color name="nuphos_violet_700">#3E14A2</color>
+    <color name="ic_launcher_background">#131313</color>
+</resources>

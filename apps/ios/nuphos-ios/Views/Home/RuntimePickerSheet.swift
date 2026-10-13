@@ -1,14 +1,20 @@
 import SwiftUI
 
 /// Picks the agent a new conversation starts on: one of the user's own
-/// computers, or a Cloud agent the team has connected.
+/// computers, or a Cloud agent the team has connected. Given an open
+/// conversation, picking one moves that conversation there instead.
 struct RuntimePickerSheet: View {
+    var session: ChatSession?
+    var onMove: (RuntimeInstance) -> Void = { _ in }
+
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var showSetup = false
-    @State private var loginRuntime: RuntimeInstance?
+    @State private var detailRuntime: RuntimeInstance?
     @State private var detent = PresentationDetent.medium
+    /// A move onto one of the user's computers waits for their go-ahead.
+    @State private var pendingLocal: RuntimeInstance?
 
     var body: some View {
         NavigationStack {
@@ -27,32 +33,31 @@ struct RuntimePickerSheet: View {
                     ProgressView("Loading agents…").tint(Theme.muted)
                 } else {
                     List {
-                        if store.selectedRuntimeUnavailable {
-                            Text("Your last agent is offline or signed out. Choose another one.")
-                                .font(.system(size: 13)).foregroundStyle(Theme.muted)
-                                .listRowBackground(Color.clear)
-                        }
-                        ForEach(RuntimeInstance.grouped(store.runtimes), id: \.tier) { group in
+                        ForEach(RuntimeInstance.grouped(choices), id: \.tier) { group in
                             Section(group.tier.title) {
                                 ForEach(group.runtimes) { runtime in
                                     let quota = store.quotas[runtime.id]
-                                    Button {
-                                        if quota?.needsSignIn == true, canSignIn(runtime) {
-                                            loginRuntime = runtime
-                                        } else {
-                                            store.selectRuntime(runtime)
-                                            dismiss()
+                                    HStack(spacing: 12) {
+                                        Button {
+                                            if quota?.needsSignIn == true, canManage(runtime) {
+                                                detailRuntime = runtime
+                                            } else if let session {
+                                                if runtime.id == session.runtimeId { dismiss() }
+                                                else if runtime.tier == .myComputers { pendingLocal = runtime }
+                                                else { onMove(runtime); dismiss() }
+                                            } else {
+                                                store.selectRuntime(runtime)
+                                                dismiss()
+                                            }
+                                        } label: {
+                                            RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == (session == nil ? store.newConversationRuntime?.id : session?.runtimeId))
                                         }
-                                    } label: {
-                                        RuntimeRow(runtime: runtime, quota: quota, selected: runtime.id == store.newConversationRuntime?.id)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(!runtime.isSelectable)
-                                    // A signed-out agent says so in its row; this covers the ones
-                                    // whose provider can't report it.
-                                    .contextMenu {
-                                        if canSignIn(runtime) {
-                                            Button("Sign In Again", systemImage: "person.badge.key") { loginRuntime = runtime }
+                                        .buttonStyle(.plain)
+                                        .disabled(!runtime.isSelectable)
+                                        if canManage(runtime) {
+                                            Button("Agent details", systemImage: "info.circle") { detailRuntime = runtime }
+                                                .labelStyle(.iconOnly)
+                                                .buttonStyle(.borderless)
                                         }
                                     }
                                 }
@@ -76,7 +81,13 @@ struct RuntimePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
-            .navigationDestination(item: $loginRuntime) { runtime in if let team = store.selectedTeam { AgentSetupView(team: team, runtime: runtime) } }
+            .navigationDestination(item: $detailRuntime) { runtime in if let team = store.selectedTeam { AgentDetailView(team: team, runtime: runtime) } }
+            .alert("Move to \(pendingLocal?.name ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
+                Button("Move") { onMove(runtime); dismiss() }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("This agent runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.")
+            }
             .task { await store.loadRuntimes() }
             .task { await store.loadQuotas() }
             .refreshable {
@@ -87,11 +98,20 @@ struct RuntimePickerSheet: View {
         }
         .tint(Theme.heading)
         .presentationDetents([.medium, .large], selection: $detent)
-        // Setting an agent up needs the whole sheet; the list does not.
-        .onChange(of: showSetup || loginRuntime != nil) { _, open in if open { detent = .large } }
+        // An agent's own page needs the whole sheet; the list does not.
+        .onChange(of: showSetup || detailRuntime != nil) { _, open in if open { detent = .large } }
     }
 
-    private func canSignIn(_ runtime: RuntimeInstance) -> Bool {
+    /// Only the owner puts a session on a local or self-hosted agent; a
+    /// manager moves it between Cloud agents.
+    private var choices: [RuntimeInstance] {
+        guard let session, !session.isOwner else { return store.runtimes }
+        return store.runtimes.filter { $0.kind == "managed" }
+    }
+
+    /// Only a workspace administrator manages a Cloud agent; a computer's agent
+    /// is managed on that computer.
+    private func canManage(_ runtime: RuntimeInstance) -> Bool {
         store.selectedTeam?.isAdministrator == true && runtime.tier == .cloud
     }
 }
@@ -177,7 +197,7 @@ struct ModelSettingsSheet: View {
                                         .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
-                                    .disabled(!config.isEditable || saving || (session != nil && (session?.canManage != true || error != nil)))
+                                    .disabled(!config.isEditable || saving || (session != nil && (session?.ownsChat != true || error != nil)))
                                 }
                             }
                             .listRowBackground(Theme.surface)
@@ -222,17 +242,12 @@ private struct QuotaLine: View {
 
     var body: some View {
         if let window = quota.tightest {
-            let left = max(0, Int((100 - window.usedPercent).rounded(.down)))
             HStack(spacing: 6) {
-                Gauge(value: min(window.usedPercent, 100), in: 0...100) { EmptyView() }
-                    .gaugeStyle(.accessoryLinearCapacity)
-                    .tint(tone(window.usedPercent))
-                    .frame(width: 44)
-                    .scaleEffect(y: 0.8)
-                Text([left == 0 ? "Limit reached" : "\(left)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                QuotaGauge(window: window).frame(width: 44)
+                Text([window.leftPercent == 0 ? "Limit reached" : "\(window.leftPercent)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
                     .font(.system(size: 12))
                     .monospacedDigit()
-                    .foregroundStyle(window.usedPercent >= 80 ? tone(window.usedPercent) : Theme.muted)
+                    .foregroundStyle(window.labelTint ?? Theme.muted)
             }
             .accessibilityElement(children: .combine)
         } else if quota.needsSignIn {
@@ -242,10 +257,6 @@ private struct QuotaLine: View {
         }
     }
 
-    private func tone(_ used: Double) -> Color {
-        used >= 100 ? .red : used >= 80 ? Theme.warning : Theme.heading
-    }
-
     private func reset(_ date: Date?) -> String? {
         guard let date, date > .now else { return nil }
         let minutes = Int(date.timeIntervalSinceNow / 60)
@@ -253,5 +264,25 @@ private struct QuotaLine: View {
             return minutes < 60 ? "resets in \(max(1, minutes))m" : "resets in \(minutes / 60)h \(minutes % 60)m"
         }
         return "resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    }
+}
+
+/// A usage bar that starts full and drains like a battery.
+struct QuotaGauge: View {
+    let window: RuntimeQuota.Window
+
+    var body: some View {
+        Gauge(value: Double(window.leftPercent), in: 0...100) { EmptyView() }
+            .gaugeStyle(.accessoryLinearCapacity)
+            .tint(window.labelTint ?? Theme.heading)
+            .scaleEffect(y: 0.8)
+    }
+}
+
+extension RuntimeQuota.Window {
+    /// Amber from 80% used and red once spent, as on Desktop. The label
+    /// carries it too, since an empty bar has no fill left to colour.
+    var labelTint: Color? {
+        usedPercent >= 100 ? .red : usedPercent >= 80 ? Theme.warning : nil
     }
 }

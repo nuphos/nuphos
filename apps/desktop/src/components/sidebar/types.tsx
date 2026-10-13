@@ -12,6 +12,7 @@ import type { ReactNode } from 'react'
 export type Item = {
   key: string
   label: string
+  description?: ReactNode
   icon?: LucideIcon
   iconNode?: ReactNode
   enabled: boolean
@@ -32,11 +33,17 @@ export type Item = {
    */
   href?: string
   /**
-   * A chat row the viewer does not own (the Shared section). Renaming and
-   * archiving belong to the owner — the backend scopes both to them — so the
-   * row's menu offers neither. Pinning still works: that is the viewer's own.
+   * A chat row the viewer does not own (the Shared section). Renaming belongs
+   * to the owner, and archiving to the owner and managers (see `managedChat`).
+   * Pinning still works: that is the viewer's own.
    */
   readOnlyChat?: boolean
+  /** A shared chat the viewer manages: they may archive it, not rename it. */
+  managedChat?: boolean
+  /** The row this one nests under when both are in the same section. */
+  parentKey?: string
+  /** This row's activity, shown on its parent while the parent is folded. */
+  foldedStatus?: ReactNode
 }
 
 export type Section = {

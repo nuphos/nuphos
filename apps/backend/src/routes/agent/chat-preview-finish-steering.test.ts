@@ -6,12 +6,12 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
+import type { AgentRun } from './types'
+import type { UIMessage } from 'ai'
+
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentPlans } from '@/lib/test/doubles/agent-plans'
 import { useTitleGenerator } from '@/lib/test/doubles/title-generator'
-
-import type { AgentRun } from './types'
-import type { UIMessage } from 'ai'
 
 const persisted: { messages: { id: string; role: string; parts: unknown[] }[] }[] = []
 const storedAt = new Date('2026-10-09T04:00:00.000Z')
@@ -20,27 +20,27 @@ let titleGate: Promise<void> = Promise.resolve()
 
 useAgentDb({
   syncConversationTranscript: (args) => {
-    persisted.push({ messages: args.messages as never })
+    persisted.push({ messages: args.messages })
 
-    return Promise.resolve(null) as never
+    return Promise.resolve(null)
   },
   getConversationMessagesHead: async () =>
     persisted.at(-1)!.messages.map((message) => ({
       ...message,
       messageId: message.id,
       createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
-    })) as never,
+    })),
   getConversation: async () => {
     await titleGate
 
-    return { title: 'kept' } as never
+    return { title: 'kept' }
   },
 })
 useTitleGenerator({
   generateConversationTitle: () => Promise.resolve('t'),
 })
 useAgentPlans({
-  listPlansCreatedForConversation: async () => createdPlans as never,
+  listPlansCreatedForConversation: async () => createdPlans,
 })
 
 const { finishPreviewTurn, persistInterruptedPreviewTurn } = await import('./chat-preview-finish')
@@ -80,12 +80,14 @@ describe('finishPreviewTurn with steering segments', () => {
     const roles = persisted[0]!.messages.map((message) => message.role)
 
     expect(roles).toEqual(['user', 'assistant', 'user', 'assistant'])
-    expect(frames.find((frame) => frame.type === 'atlas-transcript-snapshot')?.messages).toEqual(
-      persisted[0]!.messages.map((message) => ({
+    expect(frames.find((frame) => frame.type === 'atlas-transcript-tail')).toEqual({
+      type: 'atlas-transcript-tail',
+      messages: persisted[0]!.messages.map((message) => ({
         ...message,
         createdAt: storedAt.toISOString(),
       })),
-    )
+      messagesFirstIndex: 0,
+    })
     expect(JSON.stringify(persisted[0]!.messages.at(-1))).toContain('answer 2')
     expect(JSON.stringify(persisted[0]!.messages[2])).toContain('改查 staging')
   })
@@ -166,7 +168,7 @@ test('title enrichment cannot keep a completed runtime turn open', async () => {
     finished = true
   })
   await Bun.sleep(0)
-  expect(events).toEqual(['atlas-transcript-snapshot', 'runtime-complete'])
+  expect(events).toEqual(['atlas-transcript-tail', 'runtime-complete'])
   expect(finished).toBe(false)
   release()
   await finishing
@@ -174,7 +176,7 @@ test('title enrichment cannot keep a completed runtime turn open', async () => {
 })
 
 for (const interrupted of [false, true]) {
-  test(`snapshot keeps stored timestamps for historical and ${interrupted ? 'interrupted' : 'completed'} replies`, async () => {
+  test(`tail keeps stored timestamps for historical and ${interrupted ? 'interrupted' : 'completed'} replies`, async () => {
     createdPlans = []
     const frames: Record<string, unknown>[] = []
     const args = {
@@ -214,11 +216,93 @@ for (const interrupted of [false, true]) {
     if (interrupted) await persistInterruptedPreviewTurn(args)
     else await finishPreviewTurn(args)
 
-    const snapshot = frames.find((frame) => frame.type === 'atlas-transcript-snapshot')
-      ?.messages as { id: string; createdAt: string }[]
+    const tail = frames.find((frame) => frame.type === 'atlas-transcript-tail')?.messages as {
+      id: string
+      createdAt: string
+    }[]
 
-    expect(snapshot).toHaveLength(2)
-    expect(snapshot[0]).toMatchObject({ id: 'old-answer', createdAt: '2026-10-08T04:00:00.000Z' })
-    expect(snapshot[1]!.createdAt).toBe(storedAt.toISOString())
+    expect(tail).toHaveLength(2)
+    expect(tail[0]).toMatchObject({ id: 'old-answer', createdAt: '2026-10-08T04:00:00.000Z' })
+    expect(tail[1]!.createdAt).toBe(storedAt.toISOString())
+  })
+
+  test(`tail of ${interrupted ? 'an interrupted' : 'a completed'} turn starts at its prompt, leaving earlier history out`, async () => {
+    createdPlans = []
+    const frames: Record<string, unknown>[] = []
+    const text = (value: string) => [{ type: 'text' as const, text: value }]
+    const args = {
+      run: {
+        trace: undefined,
+        streamId: 'stream',
+        abortController: new AbortController(),
+      } as unknown as AgentRun,
+      sessionId: 'long',
+      teamId: 'team',
+      userId: 'owner',
+      messages: [
+        { id: 'u1', role: 'user' as const, parts: text('first question') },
+        { id: 'a1', role: 'assistant' as const, parts: text('first answer') },
+        { id: 'u2', role: 'user' as const, parts: text('second question') },
+      ],
+      firstMessage: 'first question',
+      locale: 'en-US',
+      provider: 'test',
+      requestId: 'request',
+      startedAt: 0,
+      text: 'partial answer',
+      answer: 'partial answer',
+      reasoning: '',
+      toolSteps: [],
+      finalStepStart: 0,
+      steered: [
+        { id: 'a2', role: 'assistant' as const, parts: text('working') },
+        { id: 'u3', role: 'user' as const, parts: text('steer') },
+      ],
+      memory: null,
+      error: new Error('interrupted'),
+      emit: (frame: Record<string, unknown>) => {
+        frames.push(frame)
+      },
+    }
+
+    if (interrupted) await persistInterruptedPreviewTurn(args)
+    else await finishPreviewTurn(args)
+
+    const frame = frames.find((entry) => entry.type === 'atlas-transcript-tail') as {
+      messages: { id: string }[]
+      messagesFirstIndex: number
+    }
+
+    expect(frame.messagesFirstIndex).toBe(2)
+    expect(frame.messages.map((message) => message.id).slice(0, 3)).toEqual(['u2', 'a2', 'u3'])
+    expect(frame.messages).toHaveLength(4)
   })
 }
+
+test('a completed turn without text or tools persists no assistant message', async () => {
+  createdPlans = []
+  await finishPreviewTurn({
+    run: { trace: undefined } as unknown as AgentRun,
+    sessionId: 'empty',
+    teamId: 'team',
+    userId: 'owner',
+    messages: [{ id: 'question', role: 'user', parts: [{ type: 'text', text: 'start' }] }],
+    firstMessage: 'start',
+    locale: 'en-US',
+    provider: 'test',
+    requestId: 'empty-run',
+    startedAt: 0,
+    text: '',
+    answer: '',
+    reasoning: '',
+    orderedParts: [],
+    toolSteps: [],
+    finalStepStart: 0,
+    steered: [],
+    memory: null,
+    emit: () => {},
+  })
+  expect(persisted.at(-1)!.messages).toEqual([
+    { id: 'question', role: 'user', parts: [{ type: 'text', text: 'start' }] },
+  ])
+})

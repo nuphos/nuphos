@@ -1,3 +1,4 @@
+import type { QuotaTone } from '../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeMetricSample } from '../../types/runtime'
 import type { OpenAbRuntimeStatus } from '../../types/team'
 
@@ -65,4 +66,18 @@ export function reportedSeries<Series extends { key: RuntimeMetricKey }>(
   series: readonly Series[],
 ): Series[] {
   return series.filter(({ key }) => samples.some((sample) => sample[key] !== null))
+}
+
+/** A draining usage bar turns amber when it runs low and red once it is spent. */
+export const QUOTA_FILL_CLASS: Record<QuotaTone, string> = {
+  ok: 'bg-zViolet-500',
+  warning: 'bg-warning',
+  exhausted: 'bg-error',
+}
+
+/** An empty bar has no fill left to colour, so its label carries the tone too. */
+export const QUOTA_LABEL_CLASS: Record<QuotaTone, string> = {
+  ok: '',
+  warning: 'text-warning',
+  exhausted: 'text-error',
 }

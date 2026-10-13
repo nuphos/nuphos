@@ -17,7 +17,7 @@ import {
   formatMemoryIngestFeedback,
 } from './status'
 import { appendSteering, parseSteeringPart } from './steering'
-import { startUserTurn } from './turnBoundaries'
+import { applyTranscriptTail, startUserTurn } from './turnBoundaries'
 import { appendTurnInterruptedPart, normalizeTurnInterruptedReason } from './turnInterrupted'
 
 import type { PanelCtx } from './ctx'
@@ -48,15 +48,16 @@ export function handleSseControlFrame(
   const { setTabs, turnCompleteRef, turnPausedRef, enqueueTextDelta, queueTranscriptSync } = ctx
 
   if (handleRuntimeStateFrame(ctx, streamId, sse)) return true
-  if (sse.type === 'atlas-transcript-snapshot' && Array.isArray(sse.messages)) {
+  if (
+    sse.type === 'atlas-transcript-tail' &&
+    Array.isArray(sse.messages) &&
+    typeof sse.messagesFirstIndex === 'number'
+  ) {
     ctx.flushTextBuffer(streamId)
-    const messages = fromPersistedMessages(sse.messages)
+    const tail = fromPersistedMessages(sse.messages)
+    const firstIndex = sse.messagesFirstIndex
 
-    setTabs((prev) =>
-      prev.map((tab) =>
-        tab.streamId === streamId ? { ...tab, messages, historyBaseIndex: 0 } : tab,
-      ),
-    )
+    setTabs((prev) => prev.map((tab) => applyTranscriptTail(tab, streamId, tail, firstIndex)))
 
     return true
   }
@@ -258,7 +259,6 @@ export function handleSseControlFrame(
       layer?: string
       reason?: string
       triggeredBy?: ToolAuthorization['triggeredBy']
-      suggestedRule?: string
     }
 
     if (!auth.toolCallId || !auth.decision) return true
@@ -279,7 +279,6 @@ export function handleSseControlFrame(
                       layer: auth.layer ?? '',
                       reason: auth.reason,
                       triggeredBy: auth.triggeredBy,
-                      suggestedRule: auth.suggestedRule,
                     },
                   }
                 : p,

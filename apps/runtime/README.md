@@ -30,6 +30,13 @@ Three things, in layers:
    front of them instead (see below). Both are proprietary and are not in the
    image: the pinned build installs on first use, and the container starts that
    install in the background as it boots.
+   OpenCode (`opencode acp`) is open source and also speaks ACP; it runs behind
+   the same shim and installs the same way. It answers on OpenCode Zen's free
+   models without a sign-in, and signs in to any provider OpenCode supports, by
+   any method it offers for it (API key, device page or browser sign-in).
+   Amazon Bedrock takes a Bedrock API key or AWS access keys plus a region,
+   which the sign-in keeps in OpenCode's own config rather than in environment
+   variables every shell command would inherit.
 3. **The Nuphos toolset layer**, built from [`image/`](image) in this
    repository: a set of patches to the adapters, a handful of helper programs,
    and the command-line tools an agent is expected to be able to reach for.
@@ -40,23 +47,24 @@ The adapters are patched at build time rather than forked. Each patch pins the
 SHA-256 of the upstream bundle it edits, so an adapter upgrade fails the build
 until someone re-reviews the patch.
 
-| Path in the image                           | What it does                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.293), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                    |
-| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.161.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                      |
-| `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                   |
-| `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                |
-| `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                       |
-| `/opt/nuphos-runtime/mcp-http-bridge.mjs`   | Relays a stdio MCP server to a bearer-authenticated HTTP endpoint, re-reading the token per request                                                                                                                                                                                            |
-| `/opt/nuphos-runtime/runtime-guard.sh`      | Sourced via `BASH_ENV`; refreshes per-turn credentials into the shell environment and sets a memory ceiling                                                                                                                                                                                    |
-| `/opt/nuphos-runtime/panel-job.mjs`         | The `panel` job OpenAB runs for `_openab/runtime/job`: writes the panel runner, script and params into a fresh directory and runs `node runner.mjs <dir>`, passing stdout and the exit code through                                                                                            |
-| `/opt/nuphos-runtime/codex-login.mjs`       | Drives Codex's device-code login in an isolated `CODEX_HOME`                                                                                                                                                                                                                                   |
-| `/opt/acp-shim.mjs`                         | The Nuphos layer for Grok Build and Antigravity: respawns the agent with the conversation's environment and CLI home, syncs skills, applies runtime defaults, bridges MCP credentials, and hands over Nuphos's instructions (Grok's `_meta.rules`; for Antigravity, ahead of the first prompt) |
-| `/opt/nuphos-runtime/grok-login.mjs`        | Drives `grok login --device-auth` and reports the xAI device code                                                                                                                                                                                                                              |
-| `/opt/nuphos-runtime/antigravity-login.mjs` | Drives Antigravity's Google sign-in: reports the authorize URL and delivers the loopback address the user pastes back to the listener in the container                                                                                                                                         |
-| `/opt/nuphos-runtime/claude-login.mjs`      | Drives `claude auth login`: reports the authorize URL, passes back the code the user pastes, and leaves the credential in `~/.claude`                                                                                                                                                          |
-| `/usr/local/bin/nuphos-sync-skills`         | Fetches the workspace's skill bundle and swaps it in atomically — pushed by the provisioner for a managed pod, run per session by `runtime-defaults.mjs` for a self-hosted one                                                                                                                 |
-| `/usr/local/bin/nuphos-seed-codex-auth`     | Seeds Codex credentials from a mounted secret, once per credential revision                                                                                                                                                                                                                    |
+| Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.296), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                    |
+| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.162.1), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                      |
+| `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                   |
+| `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                |
+| `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                                                       |
+| `/opt/nuphos-runtime/mcp-http-bridge.mjs`   | Relays a stdio MCP server to a bearer-authenticated HTTP endpoint, re-reading the token per request                                                                                                                                                                                                                            |
+| `/opt/nuphos-runtime/runtime-guard.sh`      | Sourced via `BASH_ENV`; refreshes per-turn credentials into the shell environment and sets a memory ceiling                                                                                                                                                                                                                    |
+| `/opt/nuphos-runtime/panel-job.mjs`         | The `panel` job OpenAB runs for `_openab/runtime/job`: writes the panel runner, script and params into a fresh directory and runs `node runner.mjs <dir>`, passing stdout and the exit code through                                                                                                                            |
+| `/opt/nuphos-runtime/codex-login.mjs`       | Drives Codex's device-code login in an isolated `CODEX_HOME`                                                                                                                                                                                                                                                                   |
+| `/opt/acp-shim.mjs`                         | The Nuphos layer for Grok Build, Antigravity and OpenCode: respawns the agent with the conversation's environment and CLI home, syncs skills, applies runtime defaults, bridges MCP credentials, and hands over Nuphos's instructions (Grok's `_meta.rules`; otherwise ahead of the first prompt after each session is opened) |
+| `/opt/nuphos-runtime/grok-login.mjs`        | Drives `grok login --device-auth` and reports the xAI device code                                                                                                                                                                                                                                                              |
+| `/opt/nuphos-runtime/opencode-login.mjs`    | Drives OpenCode's own server through every sign-in it offers: reports the provider, method and field choices, then an API key prompt or the provider's page, and passes back what the user picks, types or pastes                                                                                                              |
+| `/opt/nuphos-runtime/antigravity-login.mjs` | Drives Antigravity's Google sign-in: reports the authorize URL and delivers the loopback address the user pastes back to the listener in the container                                                                                                                                                                         |
+| `/opt/nuphos-runtime/claude-login.mjs`      | Drives `claude auth login`: reports the authorize URL, passes back the code the user pastes, and leaves the credential in `~/.claude`                                                                                                                                                                                          |
+| `/usr/local/bin/nuphos-sync-skills`         | Fetches the workspace's skill bundle and swaps it in atomically — pushed by the provisioner for a managed pod, run per session by `runtime-defaults.mjs` for a self-hosted one                                                                                                                                                 |
+| `/usr/local/bin/nuphos-seed-codex-auth`     | Seeds Codex credentials from a mounted secret, once per credential revision                                                                                                                                                                                                                                                    |
 
 `OPENAB_AGENT_COMMAND` names the patched adapter, and `claude` on `PATH` is the
 same native CLI the Claude adapter runs.
@@ -70,16 +78,16 @@ installs the pinned release the first time it runs and then hands over to it, so
 `aws s3 ls` works as it always did — the first call just takes longer and needs
 network access.
 
-| Tool                                | Commands                                                                    |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| AWS CLI v2                          | `aws`                                                                       |
-| Google Cloud CLI                    | `gcloud`, `gsutil`, `bq`, and `gke-gcloud-auth-plugin`                      |
-| mongosh                             | `mongosh`                                                                   |
-| PostgreSQL 17 client                | `psql`, `pg_dump`, `pg_dumpall`, `pg_restore`, `pg_isready`                 |
-| MariaDB client                      | `mariadb`/`mysql`, `mariadb-dump`/`mysqldump`, `mariadb-admin`/`mysqladmin` |
-| Hetzner, Volcengine, Aliyun, Linode | `hcloud`, `ve`, `aliyun`, `linode-cli`                                      |
-| Helm, Tailscale                     | `helm`, `tailscale`, `tailscaled`                                           |
-| C/C++ toolchain                     | `gcc`, `g++`, `cc`, `c++`, `make`, binutils                                 |
+| Tool                                         | Commands                                                                    |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| AWS CLI v2                                   | `aws`                                                                       |
+| Google Cloud CLI                             | `gcloud`, `gsutil`, `bq`, and `gke-gcloud-auth-plugin`                      |
+| mongosh                                      | `mongosh`                                                                   |
+| PostgreSQL 17 client                         | `psql`, `pg_dump`, `pg_dumpall`, `pg_restore`, `pg_isready`                 |
+| MariaDB client                               | `mariadb`/`mysql`, `mariadb-dump`/`mysqldump`, `mariadb-admin`/`mysqladmin` |
+| Hetzner, Volcengine, Aliyun, Linode, Tencent | `hcloud`, `ve`, `aliyun`, `linode-cli`, `tccli`                             |
+| Helm, Tailscale                              | `helm`, `tailscale`, `tailscaled`                                           |
+| C/C++ toolchain                              | `gcc`, `g++`, `cc`, `c++`, `make`, binutils                                 |
 
 Versions, download URLs and SHA-256 checksums are pinned in
 [`image/tools/manifest.json`](image/tools/manifest.json); a download that does not
@@ -132,7 +140,7 @@ docker build -f image/Dockerfile \
   -t nuphos-runtime-codex:local image
 ```
 
-For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok` or `antigravity`. Any image built
+For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok`, `antigravity` or `opencode`. Any image built
 from `Dockerfile.unified` works as `BASE_IMAGE`, including a published
 `X.Y.Z-base-<provider>` tag.
 
@@ -255,6 +263,7 @@ one to a runtime it did not provision; it only shows what the runtime reports.
 | `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                            | `/home/node/.codex/auth.json`                       |
 | `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                             | `/home/node/.grok/auth.json`                        |
 | `antigravity` | Sign in from the app (below)                                                          | `/home/node/.gemini/antigravity-acp/acp_token.json` |
+| `opencode`    | `docker exec -it nuphos-runtime opencode providers login`                             | `/home/node/.local/share/opencode/auth.json`        |
 
 You can also sign in from the app once the runtime is connected (see below). Either
 way the credential is written inside the container, so mount the `/home/node` volume
@@ -302,15 +311,23 @@ it only to teams that may share them.
 Nuphos conversations have separate CLI homes under
 `~/.nuphos/session-homes/<sha256-conversation-id>`. Both adapters give shell tools
 that conversation's `HOME`, XDG directories, and explicit config paths for gcloud,
-gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly four caches stay in
+gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly six caches stay in
 the runtime home and are shared by every conversation: `GOCACHE`, `GOMODCACHE`,
-`BUN_INSTALL_CACHE_DIR` and `PLAYWRIGHT_BROWSERS_PATH`. `XDG_CACHE_HOME` remains
-per conversation because some tools keep login state there. Go does not
+`BUN_INSTALL_CACHE_DIR`, `PLAYWRIGHT_BROWSERS_PATH`, `PIP_CACHE_DIR` and
+`UV_CACHE_DIR`. `XDG_CACHE_HOME` remains
+per conversation because some tools keep login state there. On the OpenCode
+runtime, `$XDG_DATA_HOME/opencode` (OpenCode's login and sessions) links to the
+runtime home; the rest of `XDG_DATA_HOME` stays per conversation. Go does not
 re-authenticate cached modules, so a private module fetched with one
 conversation's Git credentials is readable by every conversation on the runtime.
+The same holds for packages pip and uv fetch from a private index, and both reuse
+wheels built locally without checking them again.
 The home persists across
 new/load/resume and token refresh; existing runtime-global credentials are never
-copied into it. Re-run credential setup inside the conversation after upgrading.
+copied into it. Once a conversation is archived and the runtime reports no live
+session for it, the backend's hourly sweep removes its home, logins included,
+unless a process still runs with that HOME. A turn after unarchiving starts like
+a new conversation. Re-run credential setup inside the conversation after upgrading.
 The agent provider's own login remains runtime-owned so this does not require a
 new Claude/Codex login. Desktop bundles use the same adapter behavior.
 
@@ -414,6 +431,9 @@ and the credential path. A hand-built image has to pass them itself:
 # Antigravity
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/antigravity-login.mjs' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.gemini/antigravity-acp/acp_token.json
+# OpenCode
+--build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/opencode-login.mjs' \
+--build-arg RUNTIME_AUTH_FILE=/home/node/.local/share/opencode/auth.json
 ```
 
 Self-hosting the rest of Nuphos is in progress and not documented here.
@@ -434,6 +454,7 @@ Each release publishes four tags per provider:
 | Runtime             | `X.Y.Z-codex`            | `commit-<runtime-sha>-codex`       |
 | Runtime             | `X.Y.Z-grok`             | `commit-<runtime-sha>-grok`        |
 | Runtime             | `X.Y.Z-antigravity`      | `commit-<runtime-sha>-antigravity` |
+| Runtime             | `X.Y.Z-opencode`         | `commit-<runtime-sha>-opencode`    |
 | Base (gateway only) | `X.Y.Z-base-claude-code` | `<openab-sha12>-base-claude-code`  |
 | Base (gateway only) | `X.Y.Z-base-codex`       | `<openab-sha12>-base-codex`        |
 

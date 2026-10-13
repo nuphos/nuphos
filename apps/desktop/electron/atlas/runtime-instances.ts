@@ -1,10 +1,10 @@
 import { call } from './client'
 
 import type { OpenAbRuntimeStatus } from './claude-code'
+import type { SessionConfigPick, SessionConfigState } from '../../src/api/session-config-types'
 import type {
   CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
-  RuntimeModelCatalog,
   RuntimeInstance,
   RuntimeLoginStatus,
   RuntimeMetrics,
@@ -132,14 +132,17 @@ export function submitRuntimeLoginCode(
   )
 }
 
-export function getRuntimeModels(
+export function getRuntimeModelConfig(
   teamId: string,
   runtimeId: string,
-  model?: string,
-): Promise<RuntimeModelCatalog> {
-  const query = model ? `?model=${encodeURIComponent(model)}` : ''
+  pick: SessionConfigPick,
+): Promise<SessionConfigState> {
+  const query = new URLSearchParams(
+    Object.entries(pick).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ).toString()
+  const suffix = query ? `?${query}` : ''
 
-  return call('GET', `${path(teamId, runtimeId)}/models${query}`, undefined, {
+  return call('GET', `${path(teamId, runtimeId)}/model-config${suffix}`, undefined, {
     retry: false,
     timeoutMs: 60_000,
   })

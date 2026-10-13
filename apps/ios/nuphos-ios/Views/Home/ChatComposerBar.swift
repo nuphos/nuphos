@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The composer. Collapsed it is a single capsule; once focused (or holding
-/// text/attachments) it opens into rows: a drag handle, optional controls,
+/// text/attachments) it opens into rows: optional controls,
 /// the input on its own line, attachment tiles, then `+` and send/stop.
 struct ChatComposerBar<Controls: View>: View {
     @Binding var text: String
@@ -15,6 +15,8 @@ struct ChatComposerBar<Controls: View>: View {
     var canSteer = false
     var allowsAttachments = true
     var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
+    /// Where an `@` finds the viewer's other sessions; nil offers none.
+    var sessionMentions: SessionMentionSource? = nil
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -22,22 +24,22 @@ struct ChatComposerBar<Controls: View>: View {
 
     @FocusState private var focused: Bool
     @State private var attachments: [ComposerAttachment] = []
-    @State private var collapsedByUser = false
     @State private var showPhotos = false
     @State private var showFiles = false
     @State private var attachmentError: String?
     @State private var preparingSubmission = false
     @State private var photoItems: [PhotosPickerItem] = []
-    @State private var handleDrag: CGFloat = 0
     @State private var dictation: VoiceDictation?
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
     @State private var askingForKey = false
+    @State private var mentionResults: [AgentConversation] = []
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
-    private var expanded: Bool { (focused || hasPayload) && !collapsedByUser }
+    private var expanded: Bool { focused || hasPayload }
     private var hasControls: Bool { Controls.self != EmptyView.self }
+    private var mentionQuery: String? { sessionMentions == nil ? nil : SessionMention.query(in: text) }
 
     var body: some View {
         // One TextField, always in the same place in the hierarchy: moving
@@ -56,11 +58,6 @@ struct ChatComposerBar<Controls: View>: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
             }
-            if expanded {
-                dragHandle
-                    .transition(.opacity)
-            }
-
             // The controls own the sheets they present (agent setup, pickers).
             // A text field in one of those sheets takes focus from the
             // composer, so the row stays mounted while collapsed; removing it
@@ -71,10 +68,14 @@ struct ChatComposerBar<Controls: View>: View {
                         .padding(.horizontal, 12)
                 }
                 .frame(height: expanded ? nil : 0)
-                .padding(.top, expanded ? -4 : 0)
                 .opacity(expanded ? 1 : 0)
                 .allowsHitTesting(expanded)
                 .accessibilityHidden(!expanded)
+            }
+
+            if expanded, !mentionResults.isEmpty {
+                mentionList
+                    .transition(.opacity)
             }
 
             HStack(spacing: 8) {
@@ -120,23 +121,32 @@ struct ChatComposerBar<Controls: View>: View {
                 .transition(.opacity)
             }
         }
+        .padding(.top, expanded ? 12 : 0)
         // The glass answers a touch anywhere on it, so anywhere on it opens
-        // the input; the buttons and the handle inside still take their own.
+        // the input; the buttons inside still take their own.
         .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onTapGesture { if dictation == nil { focused = true } }
-        .disabled(preparingSubmission)
+        .gesture(pullDown)
+        .accessibilityAction(.escape) { focused = false }
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
         .animation(.snappy(duration: 0.25), value: attachments)
         .animation(.easeOut(duration: 0.15), value: hasText)
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
+        .animation(.snappy(duration: 0.25), value: mentionResults)
+        .task(id: mentionQuery) {
+            guard let query = mentionQuery, let sessionMentions else { mentionResults = []; return }
+            // Typing on cancels this task, so only a pause asks the backend.
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            let found = await sessionMentions.search(query)
+            if !Task.isCancelled { mentionResults = found }
+        }
         .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
         .onDisappear(perform: cancelDictation)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-        .offset(y: handleDrag)
-        .onChange(of: focused) { _, isFocused in if isFocused { collapsedByUser = false } }
         // A composer leaving the screen takes its keyboard with it. Each page
         // owns its own composer and focus, so a keyboard left up from a
         // popped chat covers the list's composer, which never asked for it.
@@ -197,35 +207,13 @@ struct ChatComposerBar<Controls: View>: View {
 
     // MARK: Pieces
 
-    /// Tap or pull down to put the keyboard away and fold the composer.
-    /// The drag is free-form: nothing changes until the finger lifts.
-    private var dragHandle: some View {
-        Capsule()
-            .fill(Theme.muted.opacity(0.6))
-            .frame(width: 36, height: 5)
-            .frame(maxWidth: .infinity, minHeight: 28)
-            .contentShape(Rectangle())
-            .onTapGesture { collapse() }
-            .gesture(
-                // Global space: the composer itself moves with the finger,
-                // so a local-space translation would jitter.
-                DragGesture(minimumDistance: 4, coordinateSpace: .global)
-                    .onChanged { value in
-                        handleDrag = max(0, value.translation.height)
-                    }
-                    .onEnded { value in
-                        let shouldClose = value.translation.height > 40 || value.predictedEndTranslation.height > 120
-                        withAnimation(.snappy(duration: 0.25)) { handleDrag = 0 }
-                        if shouldClose { collapse() }
-                    }
-            )
-            .accessibilityLabel("Collapse composer")
-            .accessibilityAddTraits(.isButton)
-    }
-
-    private func collapse() {
-        focused = false
-        collapsedByUser = true
+    /// A pull down puts the keyboard away. The keyboard does its own
+    /// animation, so nothing follows the finger.
+    private var pullDown: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                if value.translation.height > abs(value.translation.width) { focused = false }
+            }
     }
 
     private var field: some View {
@@ -235,12 +223,48 @@ struct ChatComposerBar<Controls: View>: View {
             .foregroundStyle(Theme.heading)
             .focused($focused)
             .submitLabel(.send)
+            // The field keeps a drag for itself once there is a draft to
+            // scroll or select in; empty, a pull down on it closes too.
+            .simultaneousGesture(pullDown, isEnabled: !hasText)
             .onSubmit(send)
             .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
                 Button("OK", role: .cancel) { dictationError = nil }
             } message: {
                 Text(dictationError ?? "")
             }
+    }
+
+    // MARK: Session mentions
+
+    private var mentionList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(mentionResults) { conversation in
+                Button { pickMention(conversation) } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bubble.left")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.muted)
+                        Text(conversation.displayTitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.heading)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func pickMention(_ conversation: AgentConversation) {
+        guard let source = sessionMentions,
+              let link = SessionLink.url(teamId: conversation.teamId ?? source.teamId, sessionId: conversation.sessionId)
+        else { return }
+        text = SessionMention.insert(link, into: text)
+        mentionResults = []
     }
 
     // MARK: Voice input

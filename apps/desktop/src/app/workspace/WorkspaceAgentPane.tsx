@@ -6,11 +6,12 @@ import { AgentPanel } from '../../components/agent/AgentPanel'
 import { EditableConversationTitle } from '../../components/agent/panel/ConversationTitleEditor'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
+import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
-import { ConversationRail } from '../../views/ConversationRail'
 
+import { SessionFindBar } from './SessionFindBar'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
@@ -52,6 +53,7 @@ export function WorkspaceAgentPane({
     workspaceActions,
     startFirstRunConnect,
     stableOpenNuphosLinkFromChat,
+    stableOpenSessionResource,
   } = ws
   const [heading, setHeading] = useState<{
     sessionId: string | null
@@ -60,7 +62,6 @@ export function WorkspaceAgentPane({
     runtime: AgentProvider | null
     runtimeId?: string
   }>({ sessionId: null, title: 'Agent', runtime: null })
-  const [conversationRailCollapsed, setConversationRailCollapsed] = useState(true)
   const teamId = scope?.teamId
   const connectedResources = useMemo(
     () =>
@@ -85,7 +86,17 @@ export function WorkspaceAgentPane({
     runtimeKubeContextRef.current = activeKubeContext
   }, [activeKubeContext, activePageUrl])
   const handleSessionChange = useCallback(
-    (sessionId: string | null) => workspaceActions.selectSession(sessionId, { keepMainPage: true }),
+    (sessionId: string | null, unshown?: string) => {
+      if (unshown) workspaceActions.forgetSession(unshown)
+      else workspaceActions.selectSession(sessionId, { keepMainPage: true })
+    },
+    [workspaceActions],
+  )
+  const openDockTab = useCallback(
+    (tabId: string) => {
+      workspaceActions.activateTab(tabId)
+      workspaceActions.setDockOpen(true)
+    },
     [workspaceActions],
   )
   const handleOpenAgentSettings = useCallback(
@@ -121,6 +132,7 @@ export function WorkspaceAgentPane({
   // content keeps the width it had and the shrinking column clips it, until
   // the dock has finished its width transition back.
   const contentRef = useRef<HTMLDivElement>(null)
+  const transcriptRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const content = contentRef.current
@@ -161,7 +173,7 @@ export function WorkspaceAgentPane({
       // it, so the dock's width transition slides over it.
       inert={workspaceExpanded}
       className={clsx(
-        'min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-agentCanvas',
+        'relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden workspace-content-surface',
         ws.mainPageOpen ? 'hidden' : 'flex',
       )}
     >
@@ -177,7 +189,10 @@ export function WorkspaceAgentPane({
         >
           {/* Keep the native drag rectangle beside the Share action so hit testing
             never relies on a no-drag hole inside its draggable ancestor. */}
-          <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary">
+          <div
+            key={`heading-${selectedSessionId ?? 'home'}`}
+            className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary"
+          >
             {currentHeading.runtime && (
               <AgentProviderIcon
                 provider={currentHeading.runtime}
@@ -185,12 +200,21 @@ export function WorkspaceAgentPane({
               />
             )}
             <EditableConversationTitle
-              key={selectedSessionId ?? 'home'}
+              key={`title-${selectedSessionId ?? 'home'}`}
               sessionId={selectedSessionId}
               teamId={teamId}
               title={currentHeading.title}
               canRename={currentHeading.canRename === true}
             />
+            {selectedSessionId && (
+              <SessionTitlebarResources
+                key={`resources-${selectedSessionId}`}
+                sessionId={selectedSessionId}
+                teamId={teamId}
+                onOpen={stableOpenSessionResource}
+                onOpenTab={openDockTab}
+              />
+            )}
           </div>
           {selectedSessionId && (
             <SessionParticipants
@@ -206,17 +230,12 @@ export function WorkspaceAgentPane({
             />
           )}
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1">
-          <ConversationRail
-            collapsed={conversationRailCollapsed}
-            teamId={teamId}
-            currentUserId={user.id}
-            selectedSessionId={selectedSessionId}
-            onOpenConversation={(sessionId) => handleSessionChange(sessionId)}
-            onOpenConversationInNewTab={(sessionId) => handleSessionChange(sessionId)}
-            onExpand={() => setConversationRailCollapsed(false)}
-            onCollapse={() => setConversationRailCollapsed(true)}
-          />
+        <SessionFindBar
+          key={selectedSessionId ?? 'home'}
+          rootRef={transcriptRef}
+          active={paneActive && !ws.mainPageOpen && !workspaceExpanded}
+        />
+        <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
           <AgentPanel
             key={`agent-main-${teamId}`}
             variant="page"

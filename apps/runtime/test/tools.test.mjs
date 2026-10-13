@@ -58,14 +58,15 @@ test('each command belongs to exactly one tool, and only plain binaries are bake
   for (const core of ['kubectl', 'zeabur']) assert.ok(manifest[seen.get(core)].baked)
 })
 
-test('the pip lock pins every requirement by hash', () => {
-  const tool = manifest['linode-cli']
-  const lock = readFileSync(new URL(`../image/tools/${tool.pip}`, import.meta.url), 'utf8')
-  assert.ok(lock.includes(`linode-cli==${tool.version} \\`))
-  const requirements = lock.split('\n').filter((line) => /^[a-z0-9]/iu.test(line))
-  assert.ok(requirements.length > 1)
-  for (const requirement of requirements) assert.match(requirement, /==\S+ \\$/u)
-  assert.equal(lock.split('--hash=sha256:').length - 1 >= requirements.length, true)
+test('every pip lock pins every requirement by hash', () => {
+  for (const [name, tool] of Object.entries(manifest).filter(([, tool]) => tool.kind === 'pip')) {
+    const lock = readFileSync(new URL(`../image/tools/${tool.pip}`, import.meta.url), 'utf8')
+    assert.ok(lock.includes(`${name}==${tool.version} \\`))
+    const requirements = lock.split('\n').filter((line) => /^[a-z0-9]/iu.test(line))
+    assert.ok(requirements.length > 1)
+    for (const requirement of requirements) assert.match(requirement, /==\S+ \\$/u)
+    assert.equal(lock.split('--hash=sha256:').length - 1 >= requirements.length, true)
+  }
 })
 
 test('a shim runs the installed launcher directly once the tool is present', () => {

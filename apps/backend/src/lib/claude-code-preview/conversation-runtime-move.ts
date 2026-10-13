@@ -11,7 +11,7 @@ import { AppError } from '@/lib/errors'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { placementNamespace } from './runtime-controllers'
-import { assertRuntimeNotDeleting, runtimeDeletions } from './runtime-portability-store'
+import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
 import {
@@ -135,13 +135,6 @@ export async function moveConversationRuntime(
           'No workspace is attached. Choose conversation history only.',
         )
       let archive = await findWorkspaceArchive(teamId, conversation.sessionId, sourceUrl)
-      const deletingSource = await runtimeDeletions().findOne(
-        { teamId, 'placements.url': sourceUrl },
-        { sort: { requestedAt: -1 } },
-      )
-
-      if (archive && deletingSource && archive.createdAt < deletingSource.requestedAt)
-        archive = null
       // An active source must be freshly saved; an old archive may be stale.
       const sourceLive = endpoints.some((entry) => entry.url === sourceUrl)
 
@@ -195,11 +188,12 @@ export async function moveConversationRuntime(
         // every path that reads the attachment before the next prompt handed it
         // to the runtime and got "Invalid sessionId" — a 500 on /agent/chat and
         // on model-config. Clearing it means the first prompt creates the
-        // session, and takes the destination's own defaults while doing so.
+        // session; model choices belong to the old agent, so they go too.
         $unset: {
           runtimeOperation: '',
           claudeCodePreviewContext: '',
           claudeCodePreview: '',
+          initialSessionConfig: '',
         },
       },
     )

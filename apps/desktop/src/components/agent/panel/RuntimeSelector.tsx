@@ -1,6 +1,7 @@
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
@@ -18,12 +19,17 @@ import {
 } from '../../ui/menu'
 import { Tooltip } from '../../ui/tooltip'
 
+import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
 
 import type { QuotaTone } from '../../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
+  /** Lets the selector ask each agent whether an update is available. */
+  teamId?: string
+  /** A team agent's update can be started from the list. */
+  canUpdateTeamAgents?: boolean
   value: {
     id?: string
     provider: RuntimeInstance['provider']
@@ -31,9 +37,7 @@ export type RuntimeControl = {
     status?: RuntimeInstance['status']
   } | null
   options?: RuntimeInstance[]
-  /** Provider usage of the agent this conversation is bound to. */
-  quota?: RuntimeQuota
-  /** Provider usage per runtime id, for the list. */
+  /** Provider usage per runtime id, for the trigger and the list. */
   quotas?: ReadonlyMap<string, RuntimeQuota>
   /** Picks the agent: the one a new conversation starts on, or — for an open
    *  conversation — the one it moves to. */
@@ -79,7 +83,8 @@ export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefi
         </span>
       }
     >
-      <span className={`shrink-0 ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
+      {/* `whitespace-pre` keeps the prefix's leading space inside the inline-flex trigger. */}
+      <span className={`shrink-0 whitespace-pre ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
         {prefix}
         {summary}
       </span>
@@ -99,9 +104,10 @@ function runtimeOptionNote(instance: RuntimeInstance): string {
 }
 
 export function RuntimeSelector({
+  teamId,
+  canUpdateTeamAgents,
   value,
   options = [],
-  quota,
   quotas,
   onSelect,
   selectDisabled,
@@ -121,7 +127,9 @@ export function RuntimeSelector({
     : loading
       ? 'Loading agents…'
       : 'Choose agent'
-  const selectedQuota = quota ?? (value?.id ? quotas?.get(value.id) : undefined)
+  const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
+  const selectedUpdate = value?.id ? updates.get(value.id) : undefined
+  const selectedQuota = value?.id ? quotas?.get(value.id) : undefined
   const [usageWaitExpired, setUsageWaitExpired] = useState<string | undefined>()
 
   useEffect(() => {
@@ -149,6 +157,7 @@ export function RuntimeSelector({
       ) : (
         <span className="max-w-40 truncate">{label}</span>
       )}
+      {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
       {usageLoading ? (
         <span
@@ -214,6 +223,7 @@ export function RuntimeSelector({
                 {index > 0 && <MenuSeparator />}
                 <MenuGroupLabel>{group.title}</MenuGroupLabel>
                 {group.agents.map((instance) => {
+                  const update = updates.get(instance.id)
                   const needsLocalLogin =
                     (instance.provider === 'claude-code' || instance.provider === 'codex') &&
                     agentTier(instance, owner) === 'local' &&
@@ -239,7 +249,10 @@ export function RuntimeSelector({
                       }}
                     >
                       <span className="flex min-w-0 flex-col">
-                        <span className="truncate">{agentName(instance, owner)}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate">{agentName(instance, owner)}</span>
+                          {update && <AgentUpdateBadge update={update} actionable />}
+                        </span>
                         <span className="text-[11px] text-tertiary">
                           {AGENT_PROVIDER[instance.provider].label}
                           {runtimeOptionNote(instance)}

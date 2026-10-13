@@ -6,7 +6,7 @@ import { observeSession } from './session-reattach'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
 import type { OpenAbSessionRuntime } from './openab-acp-session'
-import type { RuntimeDefaults } from './runtime-defaults'
+import type { RuntimeDefaults } from './openab-acp-session'
 import type { TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
 
 export async function openConversationSession(

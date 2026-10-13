@@ -96,14 +96,14 @@ enum ChatRowTests {
 
     private static func decodesSharedConversationPermissions() {
         let decoder = JSONDecoder()
-        let member = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[],"isOwner":false,"readOnly":false,"canCancelRun":true,"canRespondToRun":true}"#.utf8))
-        precondition(member.isOwner == false && member.readOnly == false && member.canCancelRun == true && member.canRespondToRun == true)
+        let member = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[],"isOwner":false,"readOnly":false}"#.utf8))
+        precondition(member.isOwner == false && member.readOnly == false)
         let shared = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"shared","isOwner":false,"readOnly":false}"#.utf8))
         precondition(!shared.canManage)
         let owner = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"owned","isOwner":true,"readOnly":false}"#.utf8))
         precondition(owner.canManage)
         let missing = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
-        precondition(missing.isOwner == nil && missing.canCancelRun == nil && missing.canRespondToRun == nil)
+        precondition(missing.isOwner == nil)
     }
 
     private static func tool(_ id: String, state: ChatPart.ToolPart.State = .outputAvailable) -> ChatPart {

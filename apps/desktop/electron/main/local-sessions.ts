@@ -87,16 +87,26 @@ export function textFromMessageContent(content: unknown): string | null {
   return text || null
 }
 
-export function isConversationPrompt(value: string | null): value is string {
-  const cleaned = value?.replace(/\s+/g, ' ').trim()
+/**
+ * What the person typed, without the context an agent injects as a user turn:
+ * AGENTS.md, memory summaries, and tagged blocks such as <environment_context>
+ * or <system-reminder>, which may also be prepended to the real prompt.
+ */
+export function conversationPrompt(value: string | null): string | null {
+  let text = value?.trim() ?? ''
 
-  if (!cleaned) return false
-  if (cleaned.startsWith('# AGENTS.md instructions')) return false
-  if (cleaned.startsWith('<environment_context>')) return false
-  if (cleaned.includes('========= MEMORY_SUMMARY BEGINS =========')) return false
+  for (let block = LEADING_TAG_BLOCK.exec(text); block; block = LEADING_TAG_BLOCK.exec(text)) {
+    text = text.slice(block[0].length).trim()
+  }
+  if (!text) return null
+  if (text.startsWith('# AGENTS.md instructions')) return null
+  if (text.includes('========= MEMORY_SUMMARY BEGINS =========')) return null
 
-  return true
+  return text
 }
+
+// Harness tags are snake_case or kebab-case; plain HTML a person pastes is not.
+const LEADING_TAG_BLOCK = /^<([a-z]+[_-][\w-]*)>[\s\S]*?<\/\1>/u
 
 export function cleanSessionTitle(value: string | null, fallback: string): string {
   const cleaned = value?.replace(/\s+/g, ' ').trim()
@@ -112,9 +122,10 @@ function compactSessionPath(value: string): string {
   return value.startsWith(home) ? `~${value.slice(home.length)}` : value
 }
 
+/** Null for a session nobody typed into: a sub-agent, or no prompt at all. */
 async function readSessionPreview(
   filePath: string,
-): Promise<{ title: string | null; subtitle: string | null }> {
+): Promise<{ title: string; subtitle: string | null } | null> {
   let handle: fs.FileHandle | null = null
 
   try {
@@ -125,6 +136,7 @@ async function readSessionPreview(
     let aiTitle: string | null = null
     let firstUser: string | null = null
     let cwd: string | null = null
+    let sidechain: boolean | null = null
 
     for (const line of text.split('\n')) {
       if (!line.trim()) continue
@@ -138,6 +150,10 @@ async function readSessionPreview(
       if (!record || typeof record !== 'object') continue
       const item = record as Record<string, unknown>
 
+      // A Claude Code sub-agent's own transcript is a side chain from its first
+      // record; a main session may still carry its sub-agents' records.
+      if (typeof item.isSidechain === 'boolean') sidechain ??= item.isSidechain
+      if (sidechain) return null
       if (typeof item.cwd === 'string') cwd ??= compactSessionPath(item.cwd)
       if (item.type === 'session_meta') {
         const payload =
@@ -145,20 +161,22 @@ async function readSessionPreview(
             ? (item.payload as Record<string, unknown>)
             : null
 
+        // Codex records its own sub-agents (reviewers, spawned threads) as sessions.
+        if (payload?.source && typeof payload.source === 'object') return null
         if (typeof payload?.cwd === 'string') cwd ??= compactSessionPath(payload.cwd)
       }
       if (item.type === 'ai-title' && typeof item.aiTitle === 'string') {
         aiTitle = item.aiTitle
         break
       }
-      if (item.type === 'user' && !firstUser) {
+      if (item.type === 'user' && item.isMeta !== true && !firstUser) {
         const message =
           item.message && typeof item.message === 'object'
             ? (item.message as Record<string, unknown>)
             : null
         const candidate = textFromMessageContent(message?.content)
 
-        if (isConversationPrompt(candidate)) firstUser = candidate
+        firstUser = conversationPrompt(candidate)
       }
       if (item.type === 'response_item' && !firstUser) {
         const payload =
@@ -169,7 +187,7 @@ async function readSessionPreview(
         if (payload?.type === 'message' && payload.role === 'user') {
           const candidate = textFromMessageContent(payload.content)
 
-          if (isConversationPrompt(candidate)) firstUser = candidate
+          firstUser = conversationPrompt(candidate)
         }
       }
       if (item.type === 'event_msg' && !firstUser) {
@@ -179,12 +197,14 @@ async function readSessionPreview(
             : null
 
         if (payload?.type === 'user_message' && typeof payload.message === 'string') {
-          if (isConversationPrompt(payload.message)) firstUser = payload.message
+          firstUser = conversationPrompt(payload.message)
         }
       }
     }
 
-    return { title: aiTitle ?? firstUser, subtitle: cwd }
+    const title = (aiTitle ?? firstUser)?.trim()
+
+    return title ? { title, subtitle: cwd } : null
   } finally {
     await handle?.close()
   }
@@ -200,18 +220,20 @@ export async function listLocalAgentSessions(
   )
     .flat()
     .sort((a, b) => b.mtimeMs - a.mtimeMs)
-    .slice(0, 8)
+    // Headroom for the sessions the preview drops.
+    .slice(0, 24)
 
   const sessions = await Promise.allSettled(
     files.map(async (file) => {
       const preview = await readSessionPreview(file.path)
-      const fallback = path.basename(file.path, '.jsonl').replace(/^rollout-/, '')
+
+      if (!preview) return null
 
       return {
         id: file.path,
         source,
         path: file.path,
-        title: cleanSessionTitle(preview.title, fallback),
+        title: cleanSessionTitle(preview.title, ''),
         subtitle: preview.subtitle ?? compactSessionPath(path.dirname(file.path)),
         updatedAt: new Date(file.mtimeMs).toISOString(),
       }
@@ -219,9 +241,6 @@ export async function listLocalAgentSessions(
   )
 
   return sessions
-    .filter(
-      (result): result is PromiseFulfilledResult<LocalAgentSessionInfo> =>
-        result.status === 'fulfilled',
-    )
-    .map((result) => result.value)
+    .flatMap((result) => (result.status === 'fulfilled' && result.value ? [result.value] : []))
+    .slice(0, 8)
 }

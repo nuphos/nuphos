@@ -3,11 +3,11 @@ import { createHash } from 'node:crypto'
 import { generateText as rawGenerateText } from 'ai'
 
 import { config } from '@/config'
-import { aiTelemetry, wrapAI } from '@/lib/agent/braintrust'
 import {
   makeTokenUsageRecordsForModelCall,
   recordAgentTokenUsageRecords,
 } from '@/lib/agent/token-usage'
+import { aiTelemetry, wrapAI } from '@/lib/agent/tracing'
 import { logError } from '@/lib/observability'
 
 import { getModel, regionLabel, tokenUsageProvider, vertexBillingProject } from './model-provider'
@@ -47,6 +47,7 @@ export async function generateConversationTitle(
       experimental_telemetry: aiTelemetry({
         userId: context?.userId,
         sessionId: context?.sessionId,
+        teamId: context?.teamId,
         locale,
         phase: 'title-gen',
         provider: config.agent.modelProvider,

@@ -24,7 +24,7 @@ export function PanelPageLayout({ c, content }: { c: PanelViewCtx; content: Reac
       ref={setPanelRoot}
       tabIndex={-1}
       className={clsx(
-        'flex min-h-0 min-w-0 flex-1 outline-none',
+        'flex min-h-0 min-w-0 flex-1 outline-none agent-page-layout',
         unbound ? 'bg-main' : 'bg-agentCanvas',
       )}
     >

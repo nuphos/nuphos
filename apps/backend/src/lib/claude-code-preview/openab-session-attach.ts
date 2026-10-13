@@ -1,12 +1,11 @@
 import {
+  agentConversations,
   getConversationPreviewAttachment,
   markConversationWorkLost,
   setConversationPreviewAttachment,
 } from '@/lib/agent/db'
 import { logEvent } from '@/lib/observability'
 
-import { getLocalAgentDefaults } from './local-agent-defaults'
-import { getRuntimeDefaults } from './runtime-defaults'
 import {
   assertConversationRuntimeAvailable,
   assertRuntimeNotDeleting,
@@ -14,8 +13,7 @@ import {
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
-import type { OpenAbSessionRuntime } from './openab-acp-session'
-import type { RuntimeDefaults } from './runtime-defaults'
+import type { OpenAbSessionRuntime, RuntimeDefaults } from './openab-acp-session'
 import type { TeamPreviewClient, TeamRuntimeEndpoint } from './team-openab-runtime'
 
 /**
@@ -40,14 +38,17 @@ export async function attachOpenAbSession(
   const cwd = previewRuntimeCwd(conversationId)
   const stored = await getConversationPreviewAttachment(conversationId, teamId)
 
-  // Snapshot defaults once. Later edits to runtime settings do not change
-  // this conversation, including when it reconnects to a different backend.
-  let defaults = stored?.runtimeDefaults ?? {}
-
-  if (!stored && endpoint.runtimeId)
-    defaults = endpoint.local
-      ? await getLocalAgentDefaults(endpoint.runtimeId)
-      : await getRuntimeDefaults(teamId, endpoint.runtimeId)
+  // The settings a session starts with are fixed with its attachment, so any
+  // backend replica recreating it later applies the same ones.
+  const defaults =
+    (stored
+      ? stored.runtimeDefaults
+      : (
+          await agentConversations().findOne(
+            { sessionId: conversationId, teamId },
+            { projection: { initialSessionConfig: 1 } },
+          )
+        )?.initialSessionConfig) ?? {}
   const sessionRuntime = { ...runtime, defaults }
 
   if (stored?.runtimeUrl === endpoint.url) {

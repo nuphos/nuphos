@@ -1,11 +1,11 @@
 import type {
   DeviceExecAuditPage,
   LocalAgentLoginState,
+  LocalAgentProvider,
   DeviceIdentity,
   LocalRuntimeActivityPage,
   LocalRuntimeState,
 } from './device-types.ts'
-import type { RuntimeDefaults } from '../types/runtime.ts'
 
 export type WindowDeviceApi = {
   onWindowFullScreenChanged?: (cb: (fullScreen: boolean) => void) => () => void
@@ -17,9 +17,10 @@ export type WindowDeviceApi = {
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>
   localRuntimeGetState(): Promise<LocalRuntimeState>
-  localAgentSetDefaults(runtimeId: string, defaults: RuntimeDefaults): Promise<void>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
+  localRuntimeUpdateAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
+  localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
   localRuntimeOpenWorkspace(): Promise<void>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
 }

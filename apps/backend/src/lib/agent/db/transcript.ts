@@ -4,6 +4,7 @@ import { readableByFilter } from './access'
 import { upsertConversationShell } from './conversations'
 import { agentConversations, agentMessages, escapeRegExp, withTeamScope } from './shared'
 import { preserveRuntimeToolResults } from './transcript-runtime-tool-results'
+import { withoutToolOutputs } from './transcript-tool-output'
 import { withTranscriptWriteLock } from './transcript-write-lock'
 
 import type { AgentConversation, AgentMessage } from './shared'
@@ -119,11 +120,13 @@ export async function syncConversationTranscriptUnlocked(
                 : {}),
               messageId: message.id,
               role: attribution.get(message.id)?.role ?? message.role,
-              parts: preserveRuntimeToolResults(
-                attribution.get(message.id)?.role === 'user'
-                  ? attribution.get(message.id)!.parts
-                  : message.parts,
-                runtimeToolParts,
+              parts: withoutToolOutputs(
+                preserveRuntimeToolResults(
+                  attribution.get(message.id)?.role === 'user'
+                    ? attribution.get(message.id)!.parts
+                    : message.parts,
+                  runtimeToolParts,
+                ),
               ),
               // Only ever set, never unset: a re-sync that rebuilt history
               // without the bridge context must not erase where the message
