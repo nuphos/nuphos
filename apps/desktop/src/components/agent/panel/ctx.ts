@@ -56,7 +56,8 @@ export type PanelCtx = {
     canRename?: boolean,
     runtimeId?: string,
   ) => void
-  onSessionChange?: (sessionId: string | null) => void
+  /** `unshown`: the chat the panel left without ever showing it (it could not be opened). */
+  onSessionChange?: (sessionId: string | null, unshown?: string) => void
   onOpenNuphosLink?: (href: string) => boolean
   onOpenAgentSettings?: () => void
   newChatRequest: number

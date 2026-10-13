@@ -21,7 +21,7 @@ export type LocalExecTurn = {
 }
 
 export type LocalExecToolResult =
-  { stdout: string; stderr: string; exitCode: number; ranOn?: string } | { error: string }
+  { stdout: string; stderr: string; exitCode: number } | { error: string }
 
 /**
  * Client tools that still run in the Electron renderer via the classic
@@ -115,7 +115,7 @@ export function pickDevice(
   devices: LocalExecDevice[],
   requested: string | undefined,
 ): string | undefined {
-  if (requested && devices.some((d) => d.deviceId === requested)) return requested
+  if (requested) return devices.some((d) => d.deviceId === requested) ? requested : undefined
 
   return devices.length === 1 ? devices[0]?.deviceId : undefined
 }
@@ -191,10 +191,7 @@ export function createLocalExecTool(
               "No local devices are available for this conversation. Ask the user to select their device in this conversation's credential selector (the shield button in the composer); they must have Nuphos Desktop open and signed in on that device.",
           }
         }
-        const deviceId =
-          purpose === 'terminal' && device && !devices.some((d) => d.deviceId === device)
-            ? undefined
-            : pickDevice(devices, device)
+        const deviceId = pickDevice(devices, device)
 
         if (!deviceId) {
           const choices = `pass device=<deviceId>, one of: ${describeDevices(devices)}.`
@@ -239,9 +236,7 @@ export function createLocalExecTool(
             exitCode: outcome.result.exitCode,
           })
 
-          return device && device !== deviceId
-            ? { ...outcome.result, ranOn: describeDevices(devices) }
-            : outcome.result
+          return outcome.result
         }
         if (outcome.status === 'device_disconnected') {
           await audit(deviceId, command, requestedAt, { outcome: 'device_offline', dispatchedAt })
