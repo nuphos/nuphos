@@ -1,4 +1,4 @@
-import { buildAgentStatusNotification } from '../../../lib/agentStopNotification.ts'
+import { buildAgentStopNotification } from '../../../lib/agentStopNotification.ts'
 import { runBelongsToThisClient } from '../../../lib/clientToolPhase.ts'
 
 import { findPendingClientSideLocalTools } from './clientTools.ts'
@@ -156,9 +156,13 @@ export function decideEndOfStream(
     (args.sawTurnComplete || tabSnapshot.error || failedPause)
   ) {
     decision.stopNotification = {
-      ...buildAgentStatusNotification({
+      ...buildAgentStopNotification({
+        outcome:
+          tabSnapshot.error || failedPause
+            ? { kind: 'failed', cause: tabSnapshot.error ?? '' }
+            : { kind: 'finished' },
+        title: tabSnapshot.title,
         messages: tabSnapshot.messages,
-        failed: Boolean(tabSnapshot.error || failedPause),
       }),
       sessionId: tabSnapshot.sessionId,
     }
