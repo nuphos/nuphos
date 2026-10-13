@@ -528,3 +528,55 @@ test('swaps a new bundle in without ever exposing a missing tree', async () => {
     await server.close()
   }
 })
+
+test('a personal run installs in the conversation directory and leaves the workspace alone', async () => {
+  const observed = { url: null }
+  const server = await serveBundles((request) => {
+    observed.url = request.url
+
+    return {
+      scope: 'personal',
+      revision: 'mine-1',
+      files: [
+        { path: 'my-notes/SKILL.md', contentBase64: encode('# Mine'), executable: false },
+        // Agent settings ride only the team bundle; a personal skill cannot plant them.
+        { path: '_runtime/settings.json', contentBase64: encode('{}'), executable: false },
+      ],
+    }
+  })
+
+  try {
+    const env = workspaceEnv(server.url)
+    const personal = mkdtempSync(join(tmpdir(), 'nuphos-personal-skills-'))
+    const { code, stderr } = await sync({ ...env, NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR: personal })
+
+    assert.equal(code, 0)
+    assert.equal(stderr, '')
+    assert.equal(observed.url, '/skills?scope=personal')
+    assert.equal(readFileSync(join(personal, '.claude/skills/my-notes/SKILL.md'), 'utf8'), '# Mine')
+    assert.equal(existsSync(join(personal, '.claude/settings.json')), false)
+    assert.equal(existsSync(join(env.NUPHOS_RUNTIME_WORKSPACE, '.claude/skills')), false)
+  } finally {
+    await server.close()
+  }
+})
+
+test('a backend that answers a personal run with the team bundle installs nothing', async () => {
+  const server = await serveBundles(() => ({
+    revision: 'team-1',
+    files: [{ path: 'team-skill/SKILL.md', contentBase64: encode('# Team'), executable: false }],
+  }))
+
+  try {
+    const personal = mkdtempSync(join(tmpdir(), 'nuphos-personal-skills-'))
+    const { code } = await sync({
+      ...workspaceEnv(server.url),
+      NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR: personal,
+    })
+
+    assert.equal(code, 0)
+    assert.equal(existsSync(join(personal, '.claude/skills')), false)
+  } finally {
+    await server.close()
+  }
+})

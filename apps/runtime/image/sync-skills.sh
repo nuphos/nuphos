@@ -26,6 +26,15 @@ fi
 umask 077
 runtime_workspace=${NUPHOS_RUNTIME_WORKSPACE:-/workspace}
 claude_dir="$runtime_workspace/.claude"
+# A second run per session installs the personal skills of the member the credential
+# names. They go to a directory of that one conversation, never into the workspace
+# tree every conversation on this runtime reads. The adapter derives the directory
+# from the conversation id; nothing a session sends chooses it.
+personal_dir=${NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR:-}
+if [[ -n $personal_dir ]]; then
+  claude_dir="$personal_dir/.claude"
+  NUPHOS_RUNTIME_SKILLS_URL="$NUPHOS_RUNTIME_SKILLS_URL?scope=personal"
+fi
 mkdir -p "$claude_dir"
 
 # The EXIT trap below cannot run when a caller's timeout SIGKILLs this process group,
@@ -102,6 +111,11 @@ if [[ $status == 304 ]]; then
 fi
 
 jq -e '.revision | type == "string"' "$bundle" >/dev/null
+# A backend that predates personal skills ignores the scope and answers with the team
+# bundle, which must not be installed a second time as somebody's personal skills.
+if [[ -n $personal_dir ]] && ! jq -e '.scope == "personal"' "$bundle" >/dev/null; then
+  exit 0
+fi
 revision=$(jq -er '.revision' "$bundle")
 
 # From here to the end is one critical section. A self-hosted runtime runs this per
@@ -170,7 +184,8 @@ mv -T "$tmp_dir/skills.link" "$claude_dir/skills"
 
 # settings.json is the agent's, not a skill: it sits beside the tree rather
 # than inside it. Copied rather than linked so it survives the swap above.
-if [[ -r $installed/_runtime/settings.json ]]; then
+# Only the team bundle may carry it: a personal skill must not become agent settings.
+if [[ -z $personal_dir && -r $installed/_runtime/settings.json ]]; then
   cp "$installed/_runtime/settings.json" "$claude_dir/.settings.json.incoming"
   mv -f "$claude_dir/.settings.json.incoming" "$claude_dir/settings.json"
 fi

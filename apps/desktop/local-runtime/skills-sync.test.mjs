@@ -101,3 +101,50 @@ test('the adapter patch points the bridge and skills sync at the desktop bundle'
   assert.match(patched, /await nuphosLocalSyncSkills\(params\);/u)
   assert.throws(() => patchDesktopAdapter('nothing to patch'))
 })
+
+test('the sender’s personal skills go to the conversation home, not the workspace', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'skills-home-'))
+  const personal = join(sessionHome, 'personal-skills')
+  const fresh = () => structuredClone(params)
+  let mine = () =>
+    new Response(
+      JSON.stringify({
+        scope: 'personal',
+        revision: 'p1',
+        files: [file('my-notes/SKILL.md', '# Mine'), file('_runtime/settings.json', '{"x":1}')],
+      }),
+    )
+
+  t.mock.method(globalThis, 'fetch', (url) =>
+    Promise.resolve(
+      String(url).endsWith('?scope=personal') ? mine() : bundle('r1', [file('team/SKILL.md', 'T')]),
+    ),
+  )
+  const owner = fresh()
+
+  assert.equal(await nuphosLocalSyncSkills(owner, { workspace, sessionHome }), true)
+  assert.equal(
+    readFileSync(join(personal, '.claude', 'skills', 'my-notes', 'SKILL.md'), 'utf8'),
+    '# Mine',
+  )
+  assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['team'])
+  // A personal skill cannot plant agent settings.
+  assert.deepEqual(readdirSync(join(personal, '.claude')).includes('settings.json'), false)
+  assert.deepEqual(owner._meta.claudeCode.options.additionalDirectories, [personal])
+
+  // The next sender's sync fails: the previous sender's skills must not stay.
+  mine = () => new Response(null, { status: 500 })
+  const teammate = fresh()
+
+  assert.equal(await nuphosLocalSyncSkills(teammate, { workspace, sessionHome }), true)
+  assert.equal(teammate._meta.claudeCode.options.additionalDirectories, undefined)
+  assert.equal(readdirSync(join(personal, '.claude')).includes('skills'), false)
+
+  // An older backend answers the personal request with the team bundle: install nothing.
+  mine = () => bundle('r1', [file('team/SKILL.md', 'T')])
+  const legacy = fresh()
+
+  await nuphosLocalSyncSkills(legacy, { workspace, sessionHome })
+  assert.equal(legacy._meta.claudeCode.options.additionalDirectories, undefined)
+})

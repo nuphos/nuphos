@@ -23,7 +23,7 @@ const SCOPES: { scope: SkillScope; label: string; title: string }[] = [
   {
     scope: 'personal',
     label: 'Personal',
-    title: 'Skills only you see in this team. Agents do not use them yet.',
+    title: 'Skills only you see in this team. The agent uses them in the turns you start.',
   },
 ]
 
@@ -189,12 +189,6 @@ export function TeamSkillsView({
           selectedSkill ? 'flex-1 min-w-0 border-r border-zGray-800/60' : 'flex-1 min-w-0',
         )}
       >
-        {scope === 'personal' && rows.length > 0 && (
-          <div className="px-4 py-2 text-[12px] text-tertiary border-b border-zGray-800/60">
-            Personal skills are stored only for you. Agents do not use them yet: move a skill to the
-            team to put it to use.
-          </div>
-        )}
         {state.kind === 'ready' && rows.length === 0 && !filter.trim() ? (
           <EmptyState
             icon={Sparkles}
@@ -202,8 +196,9 @@ export function TeamSkillsView({
             description={
               scope === 'personal' ? (
                 <>
-                  Personal skills are stored only for you in this team. Agents do not use them yet:
-                  a skill takes effect once you move it to the team.
+                  Personal skills are only for you in this team. The agent uses them in the turns
+                  you start, and no one else&apos;s turns see them. Import one from this computer,
+                  and move it to the team when everyone should have it.
                 </>
               ) : (
                 <>

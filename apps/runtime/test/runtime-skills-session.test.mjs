@@ -87,6 +87,38 @@ test('a session cannot choose the workspace the sync writes to', async () => {
   )
 })
 
+test('a Claude session also syncs the sender’s personal skills into its own home', async () => {
+  // The fake installs a skills tree wherever a personal run points it.
+  const install =
+    'if [ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ]; then [ -z "$NUPHOS_TEST_FAIL" ] || exit 1; ' +
+    'mkdir -p "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR/.claude/skills"; fi'
+
+  await withFakeScript(install, async ({ script, directory }) => {
+    const carrying = () =>
+      meta({ NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle', NUPHOS_RUNTIME_SKILLS_TOKEN: 'tok' })
+    const personal = join(directory, 'personal-skills')
+    const params = carrying()
+
+    assert.equal(await nuphosSyncRuntimeSkills(params, { script, sessionHome: directory }), true)
+    assert.deepEqual(params._meta.claudeCode.options.additionalDirectories, [personal])
+
+    // The sender may have changed. If their sync fails, the previous sender's skills
+    // must not stay behind for this turn.
+    const next = carrying()
+
+    assert.equal(
+      await nuphosSyncRuntimeSkills(next, {
+        script,
+        sessionHome: directory,
+        env: { NUPHOS_TEST_FAIL: '1' },
+      }),
+      true,
+    )
+    assert.equal(next._meta.claudeCode.options.additionalDirectories, undefined)
+    await assert.rejects(readFile(join(personal, '.claude/skills')), { code: 'ENOENT' })
+  })
+})
+
 test('the Codex session shape is read too', async () => {
   await withFakeScript('printenv > "$NUPHOS_TEST_RECORD"', async ({ record, script }) => {
     assert.equal(

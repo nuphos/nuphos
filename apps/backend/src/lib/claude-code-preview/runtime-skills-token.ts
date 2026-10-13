@@ -27,34 +27,42 @@ function secret(): string {
 // holds one long enough for the lifetime to be felt.
 const LIFETIME_MS = 24 * 60 * 60 * 1000
 
-function signature(encodedTeamId: string, expiresAt: string): string {
+function signature(encodedSubject: string, expiresAt: string): string {
   return createHmac('sha256', secret())
-    .update(`${PREFIX}.${encodedTeamId}.${expiresAt}`)
+    .update(`${PREFIX}.${encodedSubject}.${expiresAt}`)
     .digest('base64url')
 }
 
-/** Narrow, team-scoped, expiring credential for a runtime's skill sync. */
-export function mintRuntimeSkillsToken(teamId: string, now = Date.now()): string {
-  const encodedTeamId = Buffer.from(teamId, 'utf8').toString('base64url')
+export type RuntimeSkillsClaims = { teamId: string; userId?: string }
+
+/**
+ * Narrow, expiring credential for a runtime's skill sync. It always names the
+ * team; naming the turn's actor as well lets it fetch that member's personal
+ * skills, and nobody else's.
+ */
+export function mintRuntimeSkillsToken(teamId: string, userId?: string, now = Date.now()): string {
+  const subject = userId ? `${teamId}:${userId}` : teamId
+  const encodedSubject = Buffer.from(subject, 'utf8').toString('base64url')
   const expiresAt = String(now + LIFETIME_MS)
 
-  return `${PREFIX}.${encodedTeamId}.${expiresAt}.${signature(encodedTeamId, expiresAt)}`
+  return `${PREFIX}.${encodedSubject}.${expiresAt}.${signature(encodedSubject, expiresAt)}`
 }
 
-export function verifyRuntimeSkillsToken(token: string, now = Date.now()): string | null {
-  const [prefix, encodedTeamId, expiresAt, supplied] = token.split('.')
+export function verifyRuntimeSkillsToken(
+  token: string,
+  now = Date.now(),
+): RuntimeSkillsClaims | null {
+  const [prefix, encodedSubject, expiresAt, supplied] = token.split('.')
 
-  if (prefix !== PREFIX || !encodedTeamId || !expiresAt || !supplied) return null
-  const expected = Buffer.from(signature(encodedTeamId, expiresAt))
+  if (prefix !== PREFIX || !encodedSubject || !expiresAt || !supplied) return null
+  const expected = Buffer.from(signature(encodedSubject, expiresAt))
   const actual = Buffer.from(supplied)
 
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null
   if (!/^\d+$/u.test(expiresAt) || Number(expiresAt) <= now) return null
-  try {
-    const teamId = Buffer.from(encodedTeamId, 'base64url').toString('utf8')
+  const [teamId, userId] = Buffer.from(encodedSubject, 'base64url').toString('utf8').split(':')
 
-    return teamId || null
-  } catch {
-    return null
-  }
+  if (!teamId) return null
+
+  return userId ? { teamId, userId } : { teamId }
 }

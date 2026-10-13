@@ -35,6 +35,7 @@ describe('credentialsMcpTools', () => {
         token: 'scoped',
         conversationId: 'conv-1',
         teamId: 'team-1',
+        userId: 'user-1',
       }),
     ).toEqual({
       NUPHOS_RUNTIME_SKILLS_URL:

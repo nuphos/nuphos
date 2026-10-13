@@ -48,4 +48,18 @@ describe('Claude runtime skills route', () => {
     expect(again.status).toBe(304)
     expect(await again.text()).toBe('')
   })
+
+  test('personal scope answers only for the member the credential names', async () => {
+    const userId = '64f1a2b3c4d5e6f7a8b9c0d2'
+    const personal = await app.request('/skills/team-1?scope=personal', {
+      headers: { Authorization: `Bearer ${mintRuntimeSkillsToken('team-1', userId)}` },
+    })
+    const anonymous = await app.request('/skills/team-1?scope=personal', {
+      headers: { Authorization: `Bearer ${mintRuntimeSkillsToken('team-1')}` },
+    })
+
+    // No store in the suite, so the member simply has none: never the team bundle.
+    expect(await personal.json()).toMatchObject({ scope: 'personal', files: [] })
+    expect(await anonymous.json()).toEqual({ scope: 'personal', revision: 'none', files: [] })
+  })
 })

@@ -1,4 +1,5 @@
-// Pull the team's skill bundle into the workspace before the session is handed back.
+// Pull the team's skill bundle into the workspace before the session is handed back,
+// and the sender's personal skills into the conversation's own home.
 //
 // A provisioned pod gets its skills pushed by the reconciler, which nothing can do for
 // a container Nuphos never created. The backend instead delivers a one-conversation URL
@@ -20,49 +21,88 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // Both or nothing: a managed pod carries neither and must not be touched.
   if (typeof url !== 'string' || typeof token !== 'string' || !url || !token) return false
   const { spawn } = await import('node:child_process')
-
-  return new Promise((resolve) => {
-    const child = spawn(run?.script ?? '/usr/local/bin/nuphos-sync-skills', {
-      // The bundle credential is the only thing this child needs from us; it must not
-      // inherit the agent's account or the runtime's transport keys.
-      // Deliberately not NUPHOS_RUNTIME_WORKSPACE. The script mkdirs under it,
-      // replaces files in it and recursively removes trees beneath it, so a path
-      // chosen per session would be a write primitive pointed wherever the caller
-      // liked. The image's own workspace is the script's default and the only one
-      // a session can reach; an operator relocating it does so in the container's
-      // environment, which this child does not inherit.
-      env: {
-        PATH: '/usr/local/bin:/usr/bin:/bin',
-        HOME: '/home/node',
-        NUPHOS_RUNTIME_SKILLS_URL: url,
-        NUPHOS_RUNTIME_SKILLS_TOKEN: token,
-        ...(run?.env ?? {}),
-      },
-      stdio: ['ignore', 'ignore', 'ignore'],
-      detached: process.platform !== 'win32',
-    })
-    const stop = () => {
-      if (!child.pid) return
-      try {
-        // curl and jq are children of the script, so only the group going away
-        // actually ends a fetch that has stopped making progress.
-        if (process.platform === 'win32') child.kill('SIGKILL')
-        else process.kill(-child.pid, 'SIGKILL')
-      } catch {
-        /* Already gone. */
+  const sync = (extra) =>
+    new Promise((resolve) => {
+      const child = spawn(run?.script ?? '/usr/local/bin/nuphos-sync-skills', {
+        // The bundle credential is the only thing this child needs from us; it must not
+        // inherit the agent's account or the runtime's transport keys.
+        // Deliberately not NUPHOS_RUNTIME_WORKSPACE. The script mkdirs under it,
+        // replaces files in it and recursively removes trees beneath it, so a path
+        // chosen per session would be a write primitive pointed wherever the caller
+        // liked. The image's own workspace is the script's default and the only one
+        // a session can reach; an operator relocating it does so in the container's
+        // environment, which this child does not inherit.
+        env: {
+          PATH: '/usr/local/bin:/usr/bin:/bin',
+          HOME: '/home/node',
+          NUPHOS_RUNTIME_SKILLS_URL: url,
+          NUPHOS_RUNTIME_SKILLS_TOKEN: token,
+          ...extra,
+          ...(run?.env ?? {}),
+        },
+        stdio: ['ignore', 'ignore', 'ignore'],
+        detached: process.platform !== 'win32',
+      })
+      const stop = () => {
+        if (!child.pid) return
+        try {
+          // curl and jq are children of the script, so only the group going away
+          // actually ends a fetch that has stopped making progress.
+          if (process.platform === 'win32') child.kill('SIGKILL')
+          else process.kill(-child.pid, 'SIGKILL')
+        } catch {
+          /* Already gone. */
+        }
       }
-    }
-    const timer = setTimeout(stop, (run?.timeoutMs ?? 20_000) | 0)
+      const timer = setTimeout(stop, (run?.timeoutMs ?? 20_000) | 0)
 
-    child.once('error', () => {
-      clearTimeout(timer)
-      resolve(false)
+      child.once('error', () => {
+        clearTimeout(timer)
+        resolve(false)
+      })
+      child.once('close', (code) => {
+        clearTimeout(timer)
+        resolve(code === 0)
+      })
     })
-    child.once('close', (code) => {
-      clearTimeout(timer)
-      resolve(code === 0)
-    })
-  })
+  // The sender's personal skills go to this conversation's own home and are offered to
+  // Claude Code as an additional directory, so no other conversation on the runtime
+  // loads them. The home is derived from the conversation id, never taken from the
+  // session. Only the Claude adapter carries `nuphosSessionHomeEnv` and the option.
+  const options = params?._meta?.claudeCode?.options
+  const home = !options
+    ? undefined
+    : (run?.sessionHome ??
+      (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
+
+  if (!home) return sync()
+  const path = await import('node:path')
+  const fs = await import('node:fs/promises')
+  const personal = path.join(home, 'personal-skills')
+  const [team, mine] = await Promise.all([
+    sync(),
+    sync({ NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR: personal }),
+  ])
+  const skills = path.join(personal, '.claude', 'skills')
+
+  // The sender can change between turns. A sync that failed must not leave the
+  // previous sender's skills in place for this one.
+  if (!mine) {
+    await fs.rm(skills, { recursive: true, force: true }).catch(() => {})
+    await fs.rm(path.join(personal, '.claude', '.skills-revision'), { force: true }).catch(() => {})
+  }
+  const installed = await fs.stat(skills).then(
+    () => true,
+    () => false,
+  )
+
+  if (installed)
+    options.additionalDirectories = [
+      ...(options.additionalDirectories ?? []).filter((dir) => dir !== personal),
+      personal,
+    ]
+
+  return team
 }
 
 // Run inside the native adapter after session/new has discovered its controls,
