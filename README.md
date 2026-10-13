@@ -177,18 +177,21 @@ as the default dev loop.
 
 ### Parallel instances
 
-Every worktree can run `bun run dev` at the same time. All of them share one
-Mongo / RustFS / runtime stack, whose secrets live in the main checkout's
-`deploy/compose/.env`. Everything else derives from the instance name, which is
-the worktree's directory name or `NUPHOS_DEV_INSTANCE`:
+Every worktree or clone can run `bun run dev` at the same time. All of them
+share one Mongo / RustFS / runtime stack, whose secrets live in
+`~/.config/nuphos/dev-stack.env`; the first run copies them from the main
+checkout's `deploy/compose/.env`. Everything else derives from the instance
+name, which is the checkout's directory name or `NUPHOS_DEV_INSTANCE`:
 
 - the backend, Vite and DevTools (CDP) ports, each claimed free at start;
 - the Desktop profile, `Nuphos Dev (<name> local)`;
 - the Desktop sign-in, `~/.config/nuphos/cli.dev.<name>.yaml`;
-- the logs, `$TMPDIR/nuphos-dev-logs/<name>-*.log`.
+- the logs, `$TMPDIR/nuphos-dev-logs/<name>/`.
 
-To run a second instance from the same worktree, set a different
-`NUPHOS_DEV_INSTANCE`.
+Two checkouts with the same directory name, or two instances from one
+checkout, need different `NUPHOS_DEV_INSTANCE` values. Sign-ins from the old
+shared `cli.dev.yaml` are not carried over, so each instance signs in once; the
+backend prints the email code in the dashboard.
 
 ```bash
 bun run dev:instances           # name, state, ports, disk usage and worktree of each instance

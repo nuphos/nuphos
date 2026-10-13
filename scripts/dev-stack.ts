@@ -2,10 +2,16 @@
 // and runtime with the dev override, one dashboard row each. Shared by all
 // worktrees, so it is left running on quit; `bun run dev:reset` wipes it.
 import { existsSync } from 'node:fs'
-import { dirname } from 'node:path'
 
 import { stripAnsi } from './dev-child-output.ts'
-import { COMPOSE, COMPOSE_DIR, COMPOSE_ENV, RESET_ARGS, clearDevSignIn } from './dev-compose.ts'
+import {
+  COMPOSE,
+  COMPOSE_DIR,
+  COMPOSE_ENV,
+  RESET_ARGS,
+  clearDevSignIn,
+  createStackEnv,
+} from './dev-compose.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
 import { readLocalStack } from './dev-local-stack-env.ts'
 import { cleanupManagedAgents } from './dev-managed-cleanup.ts'
@@ -141,16 +147,21 @@ async function readImages(): Promise<Images | null> {
   }
 }
 
-async function ensureComposeEnv(): Promise<boolean> {
+function ensureComposeEnv(): boolean {
   if (existsSync(COMPOSE_ENV)) return true
-  pushEvent(compose, `no ${COMPOSE_ENV} — generating it with init-env.sh`)
-  const result = await runDevCommand('sh', ['init-env.sh'], {
-    cwd: dirname(COMPOSE_ENV),
-    timeoutMs: 30_000,
-  })
+  try {
+    const how = createStackEnv()
 
-  if (result.exitCode !== 0) return false
-  if (clearDevSignIn()) pushEvent(compose, 'new secrets — cleared the old dev Desktop sign-in')
+    pushEvent(compose, `${how} the shared stack secrets in ${COMPOSE_ENV}`)
+    if (how === 'generated' && clearDevSignIn())
+      pushEvent(compose, 'new secrets — cleared the old dev Desktop sign-in')
+  } catch (error) {
+    if (!existsSync(COMPOSE_ENV)) {
+      pushEvent(compose, `could not write ${COMPOSE_ENV}: ${String(error)}`)
+
+      return false
+    }
+  }
 
   return true
 }
@@ -160,8 +171,8 @@ let images: Images = {}
 const startDataStores = singleFlight(async (): Promise<LocalStack | null> => {
   const rows = [mongo, rustfs]
 
-  if (!(await ensureComposeEnv())) {
-    failRows(rows, 'init-env.sh failed', '')
+  if (!ensureComposeEnv()) {
+    failRows(rows, 'could not create the shared stack secrets', '')
 
     return null
   }

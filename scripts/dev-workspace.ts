@@ -23,7 +23,8 @@ export const DESKTOP_SUFFIX = `${INSTANCE} local`
 // Start at 3718 so ports line up with the named-tunnel hostnames (3718→api-dev-example-1
 // … 3722→api-dev-example-5); worktrees beyond those fall back to a quick tunnel.
 export const BASE_BACKEND_PORT = 3718
-export const LOG_DIR = join(tmpdir(), 'nuphos-dev-logs')
+export const LOG_ROOT = join(tmpdir(), 'nuphos-dev-logs')
+export const LOG_DIR = join(LOG_ROOT, INSTANCE)
 
 /** The main checkout: linked worktrees share its .env files and compose secrets. */
 export function mainRoot(root: string): string {

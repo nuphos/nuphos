@@ -1,15 +1,16 @@
 // The one place that names the dev stack's compose project and files, for the
 // launcher and for `bun run dev:stop | dev:reset | dev:logs | dev:ps | dev:runtime-password`.
-import { readdirSync, rmSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { CLI_CONFIG_DIR, MAIN_ROOT, ROOT } from './dev-workspace.ts'
 
 export const COMPOSE_DIR = join(ROOT, 'deploy/compose')
-// Every worktree runs the one shared stack with the main checkout's secrets. A
-// worktree generating its own would recreate rustfs with a new S3 key under
-// the other backends, and sign tokens nobody else accepts.
-export const COMPOSE_ENV = join(MAIN_ROOT, 'deploy/compose/.env')
+// Every checkout runs the one shared stack with these secrets. A checkout
+// generating its own would recreate rustfs with a new S3 key under the other
+// backends, and sign tokens nobody else accepts.
+export const COMPOSE_ENV = join(CLI_CONFIG_DIR, 'dev-stack.env')
 export const COMPOSE = [
   'compose',
   '--env-file',
@@ -19,6 +20,25 @@ export const COMPOSE = [
   '-f',
   'docker-compose.dev.yml',
 ]
+
+const hex = () => randomBytes(32).toString('hex')
+
+/** Adopts the main checkout's existing secrets, which the running stack most likely uses, else generates them. */
+export function createStackEnv(): 'adopted' | 'generated' {
+  const existing = join(MAIN_ROOT, 'deploy/compose/.env')
+  const adopt = existsSync(existing)
+  const text = adopt
+    ? readFileSync(existing, 'utf8')
+    : readFileSync(join(COMPOSE_DIR, '.env.example'), 'utf8')
+        .replace(/^NUPHOS_JWT_SECRET=.*$/m, `NUPHOS_JWT_SECRET=${hex()}`)
+        .replace(/^S3_SECRET_KEY=.*$/m, `S3_SECRET_KEY=${hex()}`)
+
+  mkdirSync(CLI_CONFIG_DIR, { recursive: true })
+  // `wx`: when two launchers race, the first file wins and the other throws.
+  writeFileSync(COMPOSE_ENV, text, { mode: 0o600, flag: 'wx' })
+
+  return adopt ? 'adopted' : 'generated'
+}
 
 export const RUNTIME_PASSWORD_ARGS = [
   'exec',

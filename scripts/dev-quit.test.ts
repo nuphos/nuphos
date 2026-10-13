@@ -86,6 +86,7 @@ const record = (key: string, pid: number | null) => ({
   cdp: null,
   appData: '',
   cliConfig: '',
+  logDir: '',
   groups: [],
 })
 

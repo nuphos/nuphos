@@ -17,7 +17,7 @@ import { connect, createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 
-import { LOG_DIR, mainRoot } from './dev-workspace.ts'
+import { mainRoot } from './dev-workspace.ts'
 
 export type InstanceRecord = {
   key: string
@@ -29,6 +29,7 @@ export type InstanceRecord = {
   cdp: number | null
   appData: string
   cliConfig: string
+  logDir: string
   /** Process groups the launcher spawned, reaped by `rm` if it died without doing so. */
   groups: number[]
 }
@@ -228,15 +229,7 @@ async function stopLauncher(record: InstanceRecord, log: (line: string) => void)
   throw new Error(`launcher ${String(record.pid)} did not stop; quit it with q and retry`)
 }
 
-/** Stops the instance's own launcher, then deletes its profile, sign-in, logs and worktree. */
-export async function removeInstance(key: string, log: (line: string) => void): Promise<void> {
-  const record = readInstances().find((r) => r.key === key)
-
-  if (!record) throw new Error(`no dev instance "${key}"; see bun run dev:instances`)
-  await stopLauncher(record, log)
-  // A launcher killed with SIGKILL leaves its children behind. Reap only
-  // groups whose leader still runs inside this instance's worktree, so a
-  // reused pid can never take down someone else's process.
+function reapLeftovers(record: InstanceRecord, log: (line: string) => void): void {
   for (const group of record.groups) {
     const cwd = processIsAlive(group) ? processCwd(group) : null
 
@@ -249,18 +242,26 @@ export async function removeInstance(key: string, log: (line: string) => void): 
       }
     }
   }
-  rmSync(record.appData, { recursive: true, force: true })
-  rmSync(record.cliConfig, { force: true })
-  try {
-    for (const name of readdirSync(LOG_DIR))
-      if (name.startsWith(`${key}-`)) rmSync(join(LOG_DIR, name), { force: true })
-  } catch {
-    /* no logs */
-  }
-  log(`removed Desktop profile, sign-in and logs of "${key}"`)
+}
+
+/** Stops the instance's own launcher, then deletes its profile, sign-in, logs and worktree. */
+export async function removeInstance(key: string, log: (line: string) => void): Promise<void> {
+  const record = readInstances().find((r) => r.key === key)
+
+  if (!record) throw new Error(`no dev instance "${key}"; see bun run dev:instances`)
+  await stopLauncher(record, log)
   const sharedRoot = readInstances().some(
     (r) => r.key !== key && r.root === record.root && r.pid !== null && processIsAlive(r.pid),
   )
+
+  // A launcher killed with SIGKILL leaves its children behind. Reap only groups
+  // whose leader still runs inside this worktree, and not while another live
+  // instance runs there too, since a reused pid could then be one of its own.
+  if (!sharedRoot) reapLeftovers(record, log)
+  rmSync(record.appData, { recursive: true, force: true })
+  rmSync(record.cliConfig, { force: true })
+  rmSync(record.logDir, { recursive: true, force: true })
+  log(`removed Desktop profile, sign-in and logs of "${key}"`)
 
   if (isLinkedWorktree(record.root) && !sharedRoot) {
     // No --force: git refuses when the worktree has uncommitted changes.

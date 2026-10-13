@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { acquireDevInstance, instanceRunning } from './dev-instance.ts'
@@ -29,4 +33,48 @@ test('stopping a launcher releases its lease for the next invocation', async (t)
 
   assert.equal(typeof next, 'function')
   t.after(next)
+})
+
+test('rm deletes only the named instance, never one whose name extends it', async (t) => {
+  const home = await mkdtemp(join(tmpdir(), 'nuphos-instances-'))
+
+  t.after(() => rm(home, { recursive: true, force: true }))
+  process.env.HOME = home
+  const { readInstances, removeInstance, writeInstance } = await import(
+    `./dev-instance.ts?home=${home}`
+  )
+  const make = async (key: string) => {
+    const dir = join(home, key)
+    const record = {
+      key,
+      root: home,
+      pid: null,
+      backend: null,
+      vite: null,
+      cdp: null,
+      appData: join(dir, 'profile'),
+      cliConfig: join(dir, 'cli.yaml'),
+      logDir: join(dir, 'logs'),
+      groups: [],
+    }
+
+    await mkdir(record.logDir, { recursive: true })
+    await mkdir(record.appData)
+    await writeFile(join(record.logDir, `${key}-1-backend.log`), '')
+    await writeFile(record.cliConfig, '')
+    writeInstance(record)
+
+    return record
+  }
+  const gone = await make('pr237')
+  const kept = await make('pr237-e2e')
+
+  await removeInstance('pr237', () => {})
+  assert.deepEqual(
+    readInstances().map((r: { key: string }) => r.key),
+    ['pr237-e2e'],
+  )
+  assert.equal(existsSync(gone.logDir) || existsSync(gone.appData), false)
+  assert.equal(existsSync(kept.logDir) && existsSync(kept.appData), true)
+  assert.equal(existsSync(kept.cliConfig), true)
 })

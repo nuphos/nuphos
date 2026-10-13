@@ -25,7 +25,7 @@ import { isQuitting, markQuitting, stopAllTrees, stopTree } from './dev-shutdown
 import { compose, startStack, stopStack } from './dev-stack.ts'
 import { checkStalls } from './dev-stall-watchdog.ts'
 import { stopOwnNamedTunnel, stopTunnel, tunnel, tunnelOwnership } from './dev-tunnel.ts'
-import { DESKTOP_SUFFIX, DEV_CLI_CONFIG, INSTANCE, ROOT } from './dev-workspace.ts'
+import { DESKTOP_SUFFIX, DEV_CLI_CONFIG, INSTANCE, LOG_DIR, ROOT } from './dev-workspace.ts'
 
 import type { QuitChoice } from './dev-quit.ts'
 
@@ -43,6 +43,7 @@ function recordInstance(live = true) {
     cdp: desktopPorts.cdp,
     appData: electronAppData(`Nuphos Dev (${DESKTOP_SUFFIX})`),
     cliConfig: DEV_CLI_CONFIG,
+    logDir: LOG_DIR,
     groups: live ? services.flatMap((s) => (s.proc?.pid ? [s.proc.pid] : [])) : [],
   })
 }
