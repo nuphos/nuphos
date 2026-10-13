@@ -92,7 +92,7 @@ export type WindowTeamApi = {
     runtimeId: string,
     sessionId: string,
     path: string,
-  ): Promise<{ name: string; size: number; data: string }>
+  ): Promise<{ name: string; size: number; data: string; origin: 'this-computer' | 'agent' }>
   atlasListRuntimeFiles(
     teamId: string,
     runtimeId: string,

@@ -13,6 +13,21 @@ type Result = {
   loading: boolean
 }
 
+// The file a chat link named may be on this computer or the agent's, and the
+// pane says which: a local copy can differ from the agent's. Anything browsed
+// from there on is the agent's workspace.
+async function readFile(target: Source, path: string, linkedPath: string) {
+  const args = [target.teamId, target.runtimeId, target.sessionId, path] as const
+
+  if (path !== linkedPath) return { file: await api.atlasReadRuntimeFile(...args), shown: target }
+  const file = await api.atlasReadLinkedFile(...args)
+
+  return {
+    file,
+    shown: file.origin === 'this-computer' ? { ...target, label: 'This computer' } : target,
+  }
+}
+
 export function useRuntimeFiles(
   teamId: string,
   conversationId: string | null | undefined,
@@ -64,22 +79,13 @@ export function useRuntimeFiles(
         if (!target) return
         // Exactly one request owns the visible pane. Refresh reloads that same target.
         if (fileName) {
-          // The file a chat link named may be on this computer or the agent's;
-          // anything browsed from here on is the agent's workspace.
-          const read =
-            `${path}/${fileName}` === filePath ? api.atlasReadLinkedFile : api.atlasReadRuntimeFile
-          const file = await read(
-            target.teamId,
-            target.runtimeId,
-            target.sessionId,
-            `${path}/${fileName}`,
-          )
+          const { file, shown } = await readFile(target, `${path}/${fileName}`, filePath)
 
           if (cancelled) return
           const preview = runtimeFilePreview(file)
 
           if (!preview) toast.error('Preview unavailable', 'This file format cannot be previewed.')
-          setResult({ source: target, directory: null, preview, loading: false })
+          setResult({ source: shown, directory: null, preview, loading: false })
         } else {
           const directory = await api.atlasListRuntimeFiles(
             target.teamId,
