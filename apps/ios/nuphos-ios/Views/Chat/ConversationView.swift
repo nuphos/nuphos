@@ -261,6 +261,7 @@ struct ConversationView: View {
         if let target = PlanLink.target(in: url) {
             planLink = target
         } else if let link = SessionLink.target(in: url) {
+            guard link.sessionId != session.sessionId else { return }
             PushNotifications.shared.pendingTarget = PushTarget(teamId: link.teamId, sessionId: link.sessionId)
         } else {
             openURL(url)
