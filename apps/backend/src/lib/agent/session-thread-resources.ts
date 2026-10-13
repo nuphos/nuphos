@@ -117,6 +117,24 @@ export async function sessionThreadResources(
   return byId
 }
 
+/**
+ * Unbinding deletes the routing row, so the thread is treated like one Nuphos
+ * never joined: the session stops posting there, plain replies are ignored and
+ * a new mention starts a new session.
+ */
+export async function unlinkSessionThread(sessionId: string, id: string) {
+  const [provider, channelId, threadTs] = id.split(':')
+
+  if (provider === 'slack')
+    await slackAgentThreads().deleteOne({
+      sessionId,
+      slackChannelId: channelId,
+      slackThreadTs: threadTs,
+    })
+  else if (provider === 'discord')
+    await discordAgentThreads().deleteOne({ sessionId, threadChannelId: channelId })
+}
+
 /** The session's thread tags, where it came from, ahead of its stored GitHub/Linear links. */
 export async function sessionResources(conversation: AgentConversation) {
   const threads = await sessionThreadResources([conversation])
