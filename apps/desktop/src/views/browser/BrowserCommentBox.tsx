@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
+import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
+
 import type { PickedElement } from '../../lib/browserAnnotate'
 
 const GAP = 8
@@ -39,8 +41,8 @@ export function BrowserCommentBox({
   }
 
   return (
-    <form
-      ref={ref}
+    <InputGroup
+      render={<form ref={ref} />}
       className="absolute z-10 w-72 rounded-lg border border-zGray-700 bg-zGray-900 p-2 shadow-lg"
       style={position}
       onSubmit={(event) => {
@@ -48,9 +50,9 @@ export function BrowserCommentBox({
         submit()
       }}
     >
-      <textarea
+      <InputGroupInput
+        render={<textarea rows={2} />}
         autoFocus
-        rows={2}
         value={note}
         onChange={(event) => setNote(event.target.value)}
         onKeyDown={(event) => {
@@ -62,7 +64,7 @@ export function BrowserCommentBox({
         }}
         placeholder="What should change here?"
         aria-label="Comment"
-        className="w-full resize-none bg-transparent text-xs text-main outline-none placeholder:text-tertiary"
+        className="w-full resize-none text-xs text-main placeholder:text-tertiary"
       />
       <div className="mt-1 flex justify-end gap-1">
         <button
@@ -80,6 +82,6 @@ export function BrowserCommentBox({
           Comment
         </button>
       </div>
-    </form>
+    </InputGroup>
   )
 }

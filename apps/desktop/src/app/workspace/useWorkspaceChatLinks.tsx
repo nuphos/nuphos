@@ -172,45 +172,40 @@ export function useWorkspaceChatLinks(a: Args) {
     [openAppOpenDeepLink, openBoundProviderLinkFromChat, openExternalLink],
   )
 
-  // Chat-link policy: an app URL on our own web origin NEVER bounces to the external
-  // browser. Exact navigation when the resolver knows the path; otherwise the
-  // deep-link fallback (team tab / seed into chat) still keeps it in-app.
+  // Ordinary web links from a session open next to the conversation so the
+  // page can be annotated. Nuphos resource links retain their native views.
   const openNuphosLinkFromChat = useCallback(
     (href: string): boolean => {
       if (openNuphosLinkInNewTab(href)) return true
-      if (openBoundProviderLinkFromChat(href)) return true
-      const parsed = isAppWebUrl(href.trim())
+      const trimmed = href.trim()
+      const parsed = isAppWebUrl(trimmed)
 
-      if (!parsed || !parsed.pathname.startsWith('/teams/')) return false
-      openAppOpenDeepLink({
-        path: `${parsed.pathname}${parsed.search}`,
-        url: parsed.toString(),
-      })
+      if (parsed?.pathname.startsWith('/teams/')) {
+        openAppOpenDeepLink({
+          path: `${parsed.pathname}${parsed.search}`,
+          url: parsed.toString(),
+        })
 
-      return true
+        return true
+      }
+      if (!teamId || !/^https?:\/\//i.test(trimmed)) return false
+
+      return openNuphosLinkInNewTab(
+        pageLocationForNavigation(
+          emptyNavigation({ kind: 'team', teamId }, 'team.browser', { browserUrl: trimmed }),
+        ).href,
+      )
     },
-    [openAppOpenDeepLink, openBoundProviderLinkFromChat, openNuphosLinkInNewTab],
+    [openAppOpenDeepLink, openNuphosLinkInNewTab, teamId],
   )
 
-  // A session resource is linked through a bound integration, so its provider
-  // page normally resolves in-app; the browser tab only covers a binding removed
-  // since. ⌘-click is the system-browser escape hatch.
+  // Resource cards follow the same policy as message links; modified clicks
+  // remain an explicit way to use the system browser.
   const openSessionResource = useCallback(
     (url: string, external: boolean) => {
-      if (external || !teamId) {
-        openExternalLink(url)
-
-        return
-      }
-      const path =
-        appPathForExternalLink(url, teamId, boundResources) ??
-        pageLocationForNavigation(
-          emptyNavigation({ kind: 'team', teamId }, 'team.browser', { browserUrl: url }),
-        ).href
-
-      openNuphosLinkInNewTab(path)
+      if (external || !openNuphosLinkFromChat(url)) openExternalLink(url)
     },
-    [boundResources, openExternalLink, openNuphosLinkInNewTab, teamId],
+    [openExternalLink, openNuphosLinkFromChat],
   )
 
   // Pane props whose dependency chains root in `tabs`/`activeTab` — they churn
