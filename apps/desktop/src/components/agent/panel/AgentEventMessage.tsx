@@ -40,12 +40,12 @@ export function AgentEventMessage({
           <button
             type="button"
             onClick={() => onOpenNuphosLink(sessionUrl)}
-            className="max-w-[40%] truncate font-medium text-secondary hover:underline"
+            className="max-w-[16rem] truncate font-medium text-secondary hover:underline"
           >
             {displayName}
           </button>
         ) : (
-          <span className="max-w-[40%] truncate font-medium text-secondary">{displayName}</span>
+          <span className="max-w-[16rem] truncate font-medium text-secondary">{displayName}</span>
         )}
         <button
           type="button"
