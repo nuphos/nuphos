@@ -1,4 +1,5 @@
 import { discordAgentThreads } from '@/lib/discord/store'
+import { AppError } from '@/lib/errors'
 import { slackAgentThreads } from '@/lib/slack/agent-bot/collections'
 
 import type { AgentConversation } from './db'
@@ -119,20 +120,31 @@ export async function sessionThreadResources(
 
 /**
  * Unbinding deletes the routing row, so the thread is treated like one Nuphos
- * never joined: the session stops posting there, plain replies are ignored and
- * a new mention starts a new session.
+ * never joined: the session stops posting there and a new mention starts a new
+ * session. A thread Nuphos posted itself stays bound: its trigger's incident
+ * record keeps posting updates into it.
  */
 export async function unlinkSessionThread(sessionId: string, id: string) {
   const [provider, channelId, threadTs] = id.split(':')
 
-  if (provider === 'slack')
-    await slackAgentThreads().deleteOne({
-      sessionId,
-      slackChannelId: channelId,
-      slackThreadTs: threadTs,
-    })
-  else if (provider === 'discord')
+  if (provider === 'discord') {
     await discordAgentThreads().deleteOne({ sessionId, threadChannelId: channelId })
+
+    return
+  }
+  if (provider !== 'slack') return
+  const thread = { sessionId, slackChannelId: channelId, slackThreadTs: threadTs }
+  const { deletedCount } = await slackAgentThreads().deleteOne({
+    ...thread,
+    origin: { $ne: 'agent_notification' },
+  })
+
+  if (!deletedCount && (await slackAgentThreads().countDocuments(thread)))
+    throw new AppError(
+      409,
+      'notification_thread',
+      'Nuphos posted this Slack thread as a notification and keeps sending updates to it, so it cannot be unlinked.',
+    )
 }
 
 /** The session's thread tags, where it came from, ahead of its stored GitHub/Linear links. */

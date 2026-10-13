@@ -21,17 +21,19 @@ const rows: Record<string, unknown[]> = {
   discord_agent_threads: [{ sessionId: 's1', guildId: 'G1', threadChannelId: 'D1', createdAt }],
 }
 const deleted: unknown[] = []
+let notification = false
 
 useDb({
   db: () =>
     ({
       collection: (name: string) => ({
         find: () => ({ toArray: () => Promise.resolve(rows[name] ?? []) }),
-        deleteOne: (filter: unknown) => {
+        deleteOne: (filter: { origin?: unknown }) => {
           deleted.push([name, filter])
 
-          return Promise.resolve({ deletedCount: 1 })
+          return Promise.resolve({ deletedCount: notification ? 0 : 1 })
         },
+        countDocuments: () => Promise.resolve(1),
       }),
     }) as unknown as ReturnType<typeof real.db>,
 })
@@ -58,7 +60,27 @@ test('unlinking a thread tag deletes its routing row and nothing else', async ()
   await unlinkSessionThread('s1', '5f1c0f5e-1b5d-4c55-9a4e-2b1f3c4d5e6f')
 
   expect(deleted).toEqual([
-    ['slack_agent_threads', { sessionId: 's1', slackChannelId: 'C1', slackThreadTs: '1.2' }],
+    [
+      'slack_agent_threads',
+      {
+        sessionId: 's1',
+        slackChannelId: 'C1',
+        slackThreadTs: '1.2',
+        origin: { $ne: 'agent_notification' },
+      },
+    ],
     ['discord_agent_threads', { sessionId: 's1', threadChannelId: 'D1' }],
   ])
+})
+
+test('a thread Nuphos posted as a notification cannot be unlinked', async () => {
+  notification = true
+  try {
+    await expect(unlinkSessionThread('s1', 'slack:C1:1.2')).rejects.toMatchObject({
+      status: 409,
+      code: 'notification_thread',
+    })
+  } finally {
+    notification = false
+  }
 })
