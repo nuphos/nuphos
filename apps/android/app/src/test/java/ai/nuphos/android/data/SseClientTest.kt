@@ -43,7 +43,11 @@ class SseClientTest {
                     val input = socket.getInputStream().bufferedReader()
                     while (input.readLine()?.isNotEmpty() == true) { }
                     val body = (0 until 1_000).joinToString("") { "data: event-$it\n\n" }
-                    socket.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: ${body.toByteArray().size}\r\n\r\n" + body).toByteArray())
+                    // Leave the stream open: cancellation must close an active response, not a reusable completed one.
+                    val chunk = body.toByteArray()
+                    socket.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n" + chunk.size.toString(16) + "\r\n").toByteArray())
+                    socket.getOutputStream().write(chunk)
+                    socket.getOutputStream().write("\r\n".toByteArray())
                     socket.getOutputStream().flush()
                     try { input.read() == -1 } catch (_: java.net.SocketException) { true }
                 }
