@@ -5,7 +5,7 @@ import { isValidElement, memo, useMemo } from 'react'
 
 import type { ComponentProps, MouseEvent, ReactNode } from 'react'
 
-import { Streamdown } from 'streamdown'
+import { defaultRehypePlugins, Streamdown } from 'streamdown'
 import 'streamdown/styles.css'
 
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
@@ -129,6 +129,11 @@ function createComponents(
 
 const codePlugin = createCodePlugin({ themes: ['github-light', 'night-owl'] })
 
+// Without `harden`: sanitize already drops unsafe protocols, and with every
+// prefix allowed harden only rewrote `./a` to `/a` and blocked bare `a`, which
+// is how agents cite files relative to their workspace.
+const rehypePlugins = [defaultRehypePlugins.raw, defaultRehypePlugins.sanitize]
+
 type Props = {
   children: string
   className?: string
@@ -166,6 +171,7 @@ export const MessageResponse = memo(
           // cjk: ends an autolink at CJK punctuation. Without it `https://…/ec2，然後`
           // swallows the rest of the sentence into the href.
           plugins={{ code: codePlugin, cjk: cjkPlugin }}
+          rehypePlugins={rehypePlugins}
           components={components}
         >
           {children}
