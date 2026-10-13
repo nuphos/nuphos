@@ -575,8 +575,6 @@ final class ChatSession {
 
     enum ApprovalDecision: Equatable {
         case once
-        case session
-        case always(rule: String)
         case deny
     }
 
@@ -590,28 +588,7 @@ final class ChatSession {
         messages[mi].parts[pi] = .tool(updated)
         error = nil
 
-        Task {
-            switch decision {
-            case .session:
-                if let command = part.input?["command"]?.stringValue {
-                    try? await AgentChatAPI.approveForSession(token: token, sessionId: sessionId, command: command)
-                }
-            case .always(let rule):
-                try? await AgentChatAPI.createPolicyRule(token: token, description: rule)
-            case .once, .deny:
-                break
-            }
-            startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
-        }
-    }
-
-    /// `propose_authorization_rule` follow-ups.
-    func confirmProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.activatePolicyRule(token: token, ruleId: ruleId)) != nil
-    }
-
-    func dismissProposedRule(ruleId: String) async -> Bool {
-        (try? await AgentChatAPI.deletePolicyRule(token: token, ruleId: ruleId)) != nil
+        startTurn(TurnOptions(streamId: newId(), continueAfterInterruption: true, resumeReason: "approval-decision"))
     }
 
     // MARK: - Plans

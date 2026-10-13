@@ -18,8 +18,6 @@ struct ConversationView: View {
     @State private var planLink: PlanLink.Target?
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
-    @State private var alwaysAllowTarget: ChatPart.ToolPart?
-    @State private var alwaysAllowRule = ""
     @State private var didSendInitial = false
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
@@ -196,19 +194,6 @@ struct ConversationView: View {
             }
             .presentationDetents([.large])
         }
-        .alert("Always allow", isPresented: Binding(get: { alwaysAllowTarget != nil }, set: { if !$0 { alwaysAllowTarget = nil } })) {
-            TextField("Describe the rule", text: $alwaysAllowRule)
-            Button("Allow") {
-                if let target = alwaysAllowTarget {
-                    session.decide(toolCallId: target.toolCallId, .always(rule: alwaysAllowRule))
-                }
-                alwaysAllowTarget = nil
-            }
-            .disabled(alwaysAllowRule.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button("Cancel", role: .cancel) { alwaysAllowTarget = nil }
-        } message: {
-            Text("Commands matching this description will run without asking.")
-        }
         .task {
             if session.isNew, let initialPrompt, !didSendInitial {
                 didSendInitial = true
@@ -334,17 +319,10 @@ struct ConversationView: View {
                 part: part,
                 canDecide: canDecide,
                 session: session,
-                onOpen: { toolDetail = part },
-                onAlwaysAllow: {
-                    alwaysAllowRule = part.authorization?["suggestedRule"]?.stringValue ?? ""
-                    alwaysAllowTarget = part
-                }
+                onOpen: { toolDetail = part }
             )
         case .toolRun(_, _, let items, let live):
-            ToolRunView(items: items, live: live, session: session, onOpen: { toolDetail = $0 }, onAlwaysAllow: { part in
-                alwaysAllowRule = part.authorization?["suggestedRule"]?.stringValue ?? ""
-                alwaysAllowTarget = part
-            })
+            ToolRunView(items: items, live: live, session: session, onOpen: { toolDetail = $0 })
         case .work(_, let inner, let duration):
             WorkGroup(rows: inner, duration: duration) { innerRow in
                 AnyView(rowView(innerRow))
