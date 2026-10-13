@@ -63,7 +63,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
-    activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign && !gated
+    activeTab?.sessionId &&
+    !activeTab.readOnly &&
+    (!activeTab.foreign || activeTab.canManage) &&
+    !gated
       ? { active: bypassBySession[activeTab.sessionId] ?? false, onSelect: selectBypassMode }
       : undefined
 

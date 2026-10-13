@@ -76,10 +76,10 @@ export type AgentConversation = {
   transcriptUpdatedAt?: Date
   createdAt: Date
   lastActiveAt: Date
-  // Owner-set archive marker. Archived conversations stay fully intact and
+  // Archive marker, set by the owner or a manager. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
-  // When the owner last un-archived it by hand. The idle sweep counts from
+  // When it was last un-archived by hand. The idle sweep counts from
   // here as well as from lastActiveAt, so a restored conversation is not
   // filed away again an hour later.
   archiveRestoredAt?: Date

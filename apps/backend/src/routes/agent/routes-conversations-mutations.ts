@@ -12,7 +12,7 @@ import {
   unlinkConversationParent,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
-import { conversationAccess } from '@/lib/agent/db/access'
+import { conversationAccess, managesConversation } from '@/lib/agent/db/access'
 import { moveConversationRuntime } from '@/lib/claude-code-preview/conversation-runtime-move'
 import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import {
@@ -155,11 +155,14 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
     throw new AppError(400, 'invalid_request', 'archived must be a boolean')
   }
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  const found = await setConversationArchived(sessionId, userId, teamId, body.archived)
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  if (!found) {
+  // The owner and managers archive; anyone else sees no such conversation. A
+  // verified teamId is membership of the team the conversation was found in.
+  if (!conversation || !managesConversation(conversation, userId, Boolean(teamId))) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
+  await setConversationArchived(sessionId, body.archived)
 
   return c.json({ ok: true, archived: body.archived })
 })
