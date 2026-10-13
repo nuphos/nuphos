@@ -79,8 +79,9 @@ runs as its own device, so the desktop app on the same computer is unaffected;
 `NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
-the session id. A command that needs approval is denied unless `--approve` is
-given; the exit status is 0, 1 on error, or 2 when an approval was denied.
+the session id. New conversations use the mode last picked in `/full-access`
+(Full Access by default). In Full Access nothing asks for approval. In Auto Mode,
+a command that needs approval is denied unless `--approve` is given; the exit status is 0, 1 on error, or 2 when an approval was denied.
 
 Sign-in is shared with the desktop app: both read and write
 `~/.config/nuphos/cli.yaml` (`NUPHOS_CLI_CONFIG` overrides it), and the API

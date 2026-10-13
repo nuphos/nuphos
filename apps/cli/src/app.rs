@@ -107,6 +107,7 @@ enum PickAction {
 enum Ask {
     PairUrl,
     PairCode { url: String },
+    TeamName,
     LoginCode { runtime: Value, attempt: String, deadline: Instant, url: String },
 }
 
@@ -126,6 +127,8 @@ pub enum Start {
 
 pub struct App {
     api: Api,
+    /// Why the TUI could not start, printed once it has closed.
+    failure: Option<String>,
     prefs: Prefs,
     me_id: String,
     team: Value,
@@ -203,15 +206,18 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(api: Api, me_id: String, team: Value, prefs: Prefs) -> Result<Self> {
+    /// Me and the team are not known yet: `run` loads them behind the
+    /// welcome screen.
+    pub fn new(api: Api, prefs: Prefs) -> Self {
         let (tx, rx) = unbounded_channel();
         let (apply_tx, apply_rx) = unbounded_channel();
-        let mut app = App {
+        App {
             api,
             full_access: prefs.full_access,
+            failure: None,
             prefs,
-            me_id,
-            team,
+            me_id: String::new(),
+            team: Value::Null,
             runtimes: Vec::new(),
             runtime: None,
             model_label: None,
@@ -257,13 +263,7 @@ impl App {
             title: None,
             tx,
             rx,
-        };
-        match app.api.runtimes(&app.team_id()).await {
-            Ok(list) => app.runtimes = shared::active_runtimes(list),
-            Err(e) => app.notice = Some(format!("Could not load agents: {e}")),
         }
-        app.new_conversation();
-        Ok(app)
     }
 
     fn team_id(&self) -> String {
@@ -272,7 +272,8 @@ impl App {
 
     // MARK: - Run loop
 
-    pub async fn run(mut self, start: Start) -> Result<Option<String>> {
+    /// Returns the team and conversation to continue, if one was started.
+    pub async fn run(mut self, start: Start, team: Option<String>) -> Result<Option<(String, String)>> {
         enable_raw_mode()?;
         execute!(stdout(), EnterAlternateScreen, EnableBracketedPaste, crossterm::style::Print(ALTERNATE_SCROLL_ON))?;
         let hook = std::panic::take_hook();
@@ -282,14 +283,10 @@ impl App {
         }));
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
-        self.fetch_sessions();
+        self.new_conversation();
+        self.boot(start, team);
         if crate::update::check_enabled() {
             self.update_check = Some(tokio::spawn(crate::update::latest()));
-        }
-        match start {
-            Start::New => {}
-            Start::Resume(Some(id)) => self.resume(json!({ "sessionId": id })),
-            Start::Resume(None) => self.open_conversation_picker(),
         }
 
         let result = self.event_loop(&mut terminal).await;
@@ -297,7 +294,71 @@ impl App {
         drop(terminal);
         restore_terminal();
         result?;
-        Ok((!self.is_new).then(|| self.session_id.clone()))
+        if let Some(failure) = self.failure {
+            anyhow::bail!(failure);
+        }
+        Ok((!self.is_new).then(|| (self.team_id(), self.session_id.clone())))
+    }
+
+    /// Checks the session and picks the team while the screen is already up.
+    fn boot(&mut self, start: Start, wanted: Option<String>) {
+        let api = self.api.clone();
+        self.background(true, async move {
+            let result = tokio::try_join!(api.me(), api.teams());
+            Box::new(move |app: &mut App| {
+                let (me, teams) = match result {
+                    Ok(pair) => pair,
+                    Err(e) => {
+                        app.failure = Some(if e.is_rejected_token() {
+                            // Expired or signed out elsewhere: cleared, as the desktop does.
+                            let _ = config::write_session(&config::Session::default());
+                            "your sign-in has expired; run `nuphos` again to sign in".into()
+                        } else {
+                            e.message
+                        });
+                        app.quit = true;
+                        return;
+                    }
+                };
+                app.me_id = shared::user_id(&me);
+                if teams.is_empty() && wanted.is_none() {
+                    app.ask = Some(("You are not in a Nuphos team yet. Name one to create it".into(), Ask::TeamName));
+                    return;
+                }
+                match shared::pick_team(&teams, &app.prefs, wanted.as_deref()) {
+                    Ok(team) => {
+                        // A team asked for by name is for this run only.
+                        if wanted.is_none() {
+                            shared::remember_team(&mut app.prefs, &team);
+                        }
+                        app.choose_team(team);
+                    }
+                    Err(e) => {
+                        app.failure = Some(e.to_string());
+                        app.quit = true;
+                        return;
+                    }
+                }
+                match start {
+                    Start::New => {}
+                    Start::Resume(Some(id)) => app.resume(json!({ "sessionId": id })),
+                    Start::Resume(None) => app.open_conversation_picker(),
+                }
+            }) as Apply
+        });
+    }
+
+    /// Sign-in and the team are still loading.
+    fn booting(&self) -> bool {
+        self.team.is_null()
+    }
+
+    fn team_label(&self) -> String {
+        if self.booting() {
+            String::new()
+        } else {
+            shared::label(&self.team)
+        }
     }
 
     fn take_update_check(&mut self) {
@@ -566,6 +627,7 @@ impl App {
                 update.clone(),
                 Style::default().fg(Color::Rgb(255, 199, 119)).add_modifier(Modifier::BOLD),
             ),
+            None if self.booting() => Span::raw(""),
             None => Span::styled(format!("{} · {}", shared::label(&self.team), self.agent_label()), dim()),
         };
         let mut text = vec![
@@ -588,7 +650,7 @@ impl App {
         let box_height = (text.len() as u16).max(mark) + 4;
 
         let [top, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
-        f.render_widget(Span::styled(shared::label(&self.team), dim()), top);
+        f.render_widget(Span::styled(self.team_label(), dim()), top);
         let below = 1 + 1 + 3 + 1 + 1 + 1;
         // Too short for the box: the composer matters more.
         if box_height + below <= rest.height {
@@ -637,7 +699,7 @@ impl App {
     /// The conversation's title on the left, the team on the right.
     fn draw_top_bar(&self, f: &mut Frame, area: Rect) {
         let title = self.title.as_deref().unwrap_or("New conversation");
-        let team = shared::label(&self.team);
+        let team = self.team_label();
         let room = (area.width as usize).saturating_sub(team.width() + 2);
         let title: String = render::clean(title).chars().take(room).collect();
         let gap = (area.width as usize).saturating_sub(title.width() + team.width());
@@ -728,6 +790,8 @@ impl App {
             &[("↑↓", "choose"), ("enter", "open"), ("p", "pin"), ("esc", "close")]
         } else if matches!(self.picker, Some(Picker { action: PickAction::Runtime, .. })) {
             &[("↑↓", "choose"), ("enter", "use or add"), ("l", "sign in"), ("esc", "close")]
+        } else if self.ask.is_some() && self.booting() {
+            &[("enter", "answer"), ("ctrl+c", "quit")]
         } else if self.ask.is_some() {
             &[("enter", "answer"), ("esc", "cancel")]
         } else if self.picker.is_some() {
@@ -857,6 +921,9 @@ impl App {
     async fn on_key(&mut self, key: KeyEvent) {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && matches!(key.code, KeyCode::Char('\\') | KeyCode::Char('4')) {
+            if self.booting() {
+                return;
+            }
             return if matches!(self.picker, Some(Picker { action: PickAction::Conversation, .. })) {
                 self.picker = None;
             } else {
@@ -877,7 +944,8 @@ impl App {
                 }
             }
             KeyCode::Char('d') if ctrl && self.input.is_empty() => self.quit = true,
-            KeyCode::Esc if self.ask.is_some() => {
+            // Without a team there is nothing to go back to: the team name stays asked.
+            KeyCode::Esc if self.ask.is_some() && !self.booting() => {
                 self.ask = None;
                 self.signing = None;
                 self.set_input(String::new());
@@ -957,6 +1025,10 @@ impl App {
         if let Some((_, ask)) = self.ask.take() {
             self.set_input(String::new());
             return self.answer(ask, text);
+        }
+        if self.booting() && text != "/quit" {
+            self.notice = Some("Still connecting to Nuphos…".into());
+            return;
         }
         if text.starts_with('/') {
             let name = text.split_whitespace().next().unwrap_or_default();
@@ -1351,6 +1423,21 @@ impl App {
             Ask::PairUrl => {
                 self.ask = Some(("The pairing code from the agent's console".into(), Ask::PairCode { url: text }))
             }
+            Ask::TeamName => self.background(true, async move {
+                let result = api.create_team(&text).await;
+                Box::new(move |app: &mut App| match result {
+                    Ok(team) => {
+                        app.notice =
+                            Some(format!("Created team {}. Use /agents to add an agent.", shared::label(&team)));
+                        shared::remember_team(&mut app.prefs, &team);
+                        app.choose_team(team);
+                    }
+                    Err(e) => {
+                        app.notice = Some(e.message);
+                        app.ask = Some(("Name a team to create it".into(), Ask::TeamName));
+                    }
+                }) as Apply
+            }),
             Ask::PairCode { url } => self.background(true, async move {
                 let result = api.pair_runtime(&team, &url, &text).await;
                 Box::new(move |app: &mut App| match result {
@@ -1588,7 +1675,6 @@ impl App {
         if team["id"] == self.team["id"] {
             return;
         }
-        shared::remember_team(&mut self.prefs, &team);
         self.team = team;
         self.sessions.clear();
         self.shared_sessions.clear();
@@ -1875,7 +1961,10 @@ impl App {
                 let Some(picker) = self.picker.take() else { return };
                 let Some((_, _, value)) = picker.items.into_iter().nth(picker.selected) else { return };
                 match picker.action {
-                    PickAction::Team => self.choose_team(value),
+                    PickAction::Team => {
+                        shared::remember_team(&mut self.prefs, &value);
+                        self.choose_team(value);
+                    }
                     PickAction::Runtime => match value["add"].as_str() {
                         Some(kind) => self.add_agent(kind),
                         None => self.choose_runtime(value),
