@@ -23,7 +23,7 @@ type PaneAgentPageProps = {
   onDockAgentToSidebar: (snapshot: AgentSessionSnapshot | null) => void
   updateTab: UpdateWorkspaceTab
   onAgentSessionTitle: (tabId: string, title: string) => void
-  onOpenNuphosLink: (href: string) => boolean
+  onOpenNuphosLink: (href: string, beside?: boolean) => boolean
   onOpenSettingsSection: (section: string) => void
   onStartFirstRunConnect: () => void
   onPagePendingImportConsumed: () => void

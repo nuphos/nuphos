@@ -9,6 +9,7 @@ import { Streamdown } from 'streamdown'
 import 'streamdown/styles.css'
 
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
+import { isMac } from '../../lib/platform'
 import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
 
 type StreamdownComponents = ComponentProps<typeof Streamdown>['components']
@@ -36,7 +37,7 @@ function extractText(node: ReactNode): string {
 }
 
 function createComponents(
-  onLinkClick?: (href: string) => boolean,
+  onLinkClick?: (href: string, beside: boolean) => boolean,
   renderLink?: (href: string, children: ReactNode) => ReactNode | null,
 ): StreamdownComponents {
   return {
@@ -72,16 +73,13 @@ function createComponents(
       }
       const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
         if (!link || !onLinkClick) return
-        if (
-          event.button !== 0 ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.altKey
-        ) {
-          return
-        }
-        if (onLinkClick(link)) {
+        if (event.button !== 0 || event.shiftKey || event.altKey) return
+        // ⌘-click (Ctrl elsewhere) asks to open the link beside this pane; a
+        // handler that declines leaves the browser default.
+        const beside = isMac ? event.metaKey : event.ctrlKey
+
+        if (!beside && (event.metaKey || event.ctrlKey)) return
+        if (onLinkClick(link, beside)) {
           event.preventDefault()
           event.stopPropagation()
         }
@@ -136,7 +134,7 @@ type Props = {
   streaming?: boolean
   teamId?: string
   currentUrl?: string
-  onLinkClick?: (href: string) => boolean
+  onLinkClick?: (href: string, beside: boolean) => boolean
   /** Render a link as a custom node instead of the default anchor (return null to fall through). */
   renderLink?: (href: string, children: ReactNode) => ReactNode | null
 }
