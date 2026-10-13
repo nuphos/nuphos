@@ -10,10 +10,10 @@ import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
 
-export function RuntimeFilesView({ teamId }: { teamId: string }) {
+export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
   const { conversationId, refreshKey, isActive } = useWorkspaceTab()
   const { source, path, directory, preview, fileName, loading, navigate, openFile, refresh } =
-    useRuntimeFiles(teamId, conversationId, isActive, refreshKey)
+    useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
 

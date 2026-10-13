@@ -41,6 +41,10 @@ struct AgentPage: View {
         @Bindable var store = store
 
         content
+            // On the switch, so the empty and error states refresh too.
+            .refreshable {
+                if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
+            }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             #if DEBUG
@@ -65,7 +69,9 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, onSend: { submission in
+                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, sessionMentions: draftTeam.isEmpty ? nil : SessionMentionSource(teamId: draftTeam) { query in
+                    await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
+                }, onSend: { submission in
                     if let session = store.newSession() { newChat = NewChat(session: session, prompt: submission) }
                 }) {
                     ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
@@ -85,7 +91,6 @@ struct AgentPage: View {
             }
             .navigationDestination(item: $newChat) { chat in
                 ConversationView(session: chat.session, initialPrompt: chat.prompt)
-                    .onDisappear { Task { await store.reload() } }
             }
             .navigationDestination(item: $autoOpened) { conversation in
                 ExistingConversationView(conversation: conversation)
@@ -96,6 +101,10 @@ struct AgentPage: View {
             .onChange(of: store.teamsPhase) { _, phase in if phase == .loaded { openPushTarget() } }
             .onChange(of: PushNotifications.shared.pendingTarget) { _, _ in openPushTarget() }
             .task {
+                // The poller is what keeps the list fresh while a chat is on
+                // top, so coming back needs no reload. Started here so a first
+                // chat from an empty list shows up too.
+                store.startPolling()
                 await store.loadTeams()
                 openPushTarget()
                 #if DEBUG
@@ -190,7 +199,7 @@ struct AgentPage: View {
             } description: {
                 Text("Create or join a workspace to start chatting with an agent.")
             } actions: {
-                Button("Set up workspace") { showWorkspaceSetup = true }.buttonStyle(.borderedProminent)
+                Button("Set up workspace") { showWorkspaceSetup = true }.prominentButton()
             }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
             ContentUnavailableView {
@@ -199,7 +208,7 @@ struct AgentPage: View {
                 Text(store.selectedTeam?.isAdministrator == true ? "Create a cloud agent and sign in with your AI provider." : "Ask a workspace administrator to connect a cloud agent, or open Nuphos on your computer to connect your own local agent.")
             } actions: {
                 if store.selectedTeam?.isAdministrator == true {
-                    Button("Set up agent") { showAgentSetup = true }.buttonStyle(.borderedProminent)
+                    Button("Set up agent") { showAgentSetup = true }.prominentButton()
                 }
             }
         case .idle, .loading:
@@ -213,7 +222,7 @@ struct AgentPage: View {
                 Text(message)
             } actions: {
                 Button("Try again") { Task { await store.loadTeams() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
             }
         case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
@@ -285,7 +294,7 @@ struct AgentPage: View {
                             Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
                         }
                         .tint(.indigo)
-                        if conversation.canManage, conversation.parentSessionId != nil {
+                        if conversation.ownsChat, conversation.parentSessionId != nil {
                             Button {
                                 Task { await store.unlinkParent(conversation) }
                             } label: {
@@ -316,8 +325,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .refreshable { await store.reload() }
-        .onAppear { store.startPolling() }
         .task {
             while !Task.isCancelled {
                 RuntimeObservations.shared.tick()
@@ -396,7 +403,6 @@ private struct PushedConversationView: View {
             }
         }
         .onAppear { if session == nil { session = store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId) } }
-        .onDisappear { Task { await store.reload() } }
     }
 }
 
@@ -416,6 +422,5 @@ private struct ExistingConversationView: View {
             }
         }
         .onAppear { if session == nil { session = store.session(for: conversation) } }
-        .onDisappear { Task { await store.reload() } }
     }
 }

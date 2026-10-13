@@ -57,7 +57,7 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
       size="sm"
       onClick={openThread}
       disabled={opening}
-      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-[#b36ab9]/35 bg-[#611f69]/15 px-2.5 text-[11px] font-medium text-[#d79add] transition-colors hover:bg-[#611f69]/25 disabled:cursor-wait disabled:opacity-60"
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium disabled:cursor-wait disabled:opacity-60"
       title="Open the linked Slack thread"
       aria-label="Open the linked Slack thread"
     >

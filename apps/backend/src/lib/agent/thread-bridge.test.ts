@@ -1,13 +1,24 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
+import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
-import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
+import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 
-import { authorizeThreadDelivery, createAgentThread, sendAgentThreadMessage } from './thread-bridge'
+import { clearPendingUserMessages } from './pending-messages'
+import { getSessionBypass, setSessionBypass } from './auto-mode/store'
+import {
+  authorizeThreadDelivery,
+  createAgentThread,
+  sendAgentThreadMessage,
+  updateThread,
+  setAgentThreadArchived,
+} from './thread-bridge'
+import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
-import type { ThreadTurn } from './thread-bridge'
+import type { TurnRunner } from './turn-runner'
 
 const access = {
   awsRoleIds: ['role-1'],
@@ -18,10 +29,9 @@ const actor = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'z
 let source: AgentConversation
 let target: AgentConversation
 let member = true
-let queueFailure = false
-const jobs: ThreadTurn[] = []
+const archives: unknown[][] = []
+const claims: Parameters<TurnRunner['claimAgentRunOrEnqueue']>[0][] = []
 const shells: Parameters<typeof import('./db').upsertConversationShell>[0][] = []
-const deleted: unknown[] = []
 
 beforeEach(() => {
   source = {
@@ -37,39 +47,130 @@ beforeEach(() => {
   }
   target = { ...source, sessionId: 'target' }
   member = true
-  queueFailure = false
-  jobs.length = 0
+  archives.length = 0
+  claims.length = 0
   shells.length = 0
-  deleted.length = 0
+  bypass.clear()
+  events.length = 0
+  moves.length = 0
+  installTurnRunner({
+    claimAgentRunOrEnqueue: async (args) => {
+      claims.push(args)
+
+      return { mode: 'queued' }
+    },
+  })
+})
+afterEach(async () => {
+  resetTurnRunner()
+  for (const id of ['target', ...shells.map((shell) => shell.sessionId)])
+    await clearPendingUserMessages('owner', id)
 })
 
-useIdentity({ getTeamMembership: async () => (member ? { role: 'MEMBER' } : null) })
+useIdentity({
+  getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
+  signNuphosToken: () => 'test-token',
+})
+const bypass = new Map<string, Record<string, unknown>>()
+const events: { conversationId: string; event: string }[] = []
+const moves: { sessionId: string; runtimeId: string; mode: string; userId: string }[] = []
+
+useDb({
+  db: () => ({
+    collection: () => ({
+      updateOne(
+        filter: { conversationId: string; userId: string },
+        update: { $setOnInsert?: Record<string, unknown>; $set?: Record<string, unknown> },
+        options: { upsert?: boolean },
+      ) {
+        const key = `${filter.userId}:${filter.conversationId}`
+        let doc = bypass.get(key)
+
+        if (!doc && options.upsert) {
+          doc = { ...filter, ...update.$setOnInsert }
+          bypass.set(key, doc)
+        }
+        if (doc) Object.assign(doc, update.$set)
+
+        return Promise.resolve()
+      },
+      findOne(filter: { conversationId: string; userId: string }) {
+        return Promise.resolve(bypass.get(`${filter.userId}:${filter.conversationId}`) ?? null)
+      },
+    }),
+  }),
+})
+useConversationRuntimeMove({
+  moveConversationRuntime: async (conversation, runtimeId, mode, userId) => {
+    moves.push({ sessionId: conversation.sessionId, runtimeId, mode, userId })
+
+    return { runtimeId, runtimeLabel: 'Other', agentRuntime: 'codex', mode }
+  },
+})
+useRuntimeCatalog({
+  // Without a user only the team's agents are listed; a local one would need the owner.
+  listRuntimeInstances: async (_teamId, userId) => [
+    {
+      id: 'runtime-2',
+      provider: 'codex',
+      label: 'Other',
+      status: 'active',
+      kind: 'managed',
+      createdAt: '',
+    },
+    ...(userId
+      ? [
+          {
+            id: 'local-1',
+            provider: 'codex' as const,
+            label: 'Mac',
+            status: 'active' as const,
+            kind: 'local' as const,
+            createdAt: '',
+          },
+        ]
+      : []),
+  ],
+})
 useAgentDb({
+  setConversationArchived: async (...args) => {
+    archives.push(args)
+
+    return undefined
+  },
   getConversationBySessionId: async (id) =>
-    id === 'source' ? source : id === 'target' ? target : null,
+    id === 'source'
+      ? source
+      : id === 'target'
+        ? target
+        : shells.some((shell) => shell.sessionId === id)
+          ? {
+              ...source,
+              sessionId: id,
+              parentSessionId: shells.find((shell) => shell.sessionId === id)?.parentSessionId,
+              createdBySessionId: shells.find((shell) => shell.sessionId === id)?.parentSessionId,
+            }
+          : null,
   upsertConversationShell: async (data) => {
     shells.push(data)
 
     return { isNew: true }
   },
-  agentConversations: () => ({
-    deleteOne: async (filter: unknown) => {
-      deleted.push(filter)
-    },
-  }),
-})
-useThreadQueue({
-  enqueueThreadTurn: async (data) => {
-    if (queueFailure) throw new Error('queue offline')
-    jobs.push(data)
+  agentMessages: () => ({ findOne: async () => null }),
+  recordAgentEvent: (event) => {
+    events.push(event)
   },
+  getConversationWithMessages: async (sessionId) => ({
+    conversation: { ...source, sessionId },
+    messages: [],
+  }),
 })
 
 describe('conversation-scoped thread tools', () => {
-  test('creates a visible conversation with the same principal, runtime and credentials before enqueue', async () => {
+  test('creates a visible conversation with the same principal, runtime and credentials, then starts it', async () => {
     const result = await createAgentThread(actor, 'Wait for CI', 'CI watcher')
 
-    expect(result.status).toBe('queued')
+    expect(result.status).toBe('delivered')
     expect(result.sourceThreadId).toBe('source')
     expect(shells[0]).toMatchObject({
       userId: 'owner',
@@ -80,27 +181,126 @@ describe('conversation-scoped thread tools', () => {
       sessionId: result.threadId,
       parentSessionId: 'source',
     })
-    expect(jobs[0]).toMatchObject({
-      ...actor,
-      targetSessionId: result.threadId,
-      prompt: 'Wait for CI',
-    })
     expect(shells[0]).not.toHaveProperty('claudeCodePreview')
+    expect(claims[0]).toMatchObject({
+      userId: 'owner',
+      sessionId: result.threadId,
+      message: { id: result.messageId, renderedText: 'Wait for CI' },
+    })
+    expect(claims[0]?.message.metadata).toMatchObject({
+      source: 'agent.thread',
+      sourceSessionId: 'source',
+    })
   })
 
-  test('returns only after the background job was accepted', async () => {
+  test('returns without waiting for the turn, like a message typed into a chat', async () => {
+    const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        claims.push(args)
+
+        return { mode: 'run', carried: [], release: () => {} }
+      },
+      runAgentForTrigger: (args) => {
+        runs.push(args)
+
+        // A long turn that never finishes must not hold back other threads.
+        return new Promise(() => {})
+      },
+    })
+    const results = await Promise.all(
+      Array.from({ length: 12 }, (_, i) => createAgentThread(actor, `Task ${i}`, `Thread ${i}`)),
+    )
+
+    expect(results.map((result) => result.status)).toEqual(Array(12).fill('started'))
+    for (let i = 0; i < 200 && runs.length < 12; i++) await Bun.sleep(5)
+    expect(runs).toHaveLength(12)
+    expect(new Set(claims.map((claim) => claim.sessionId))).toEqual(
+      new Set(results.map((result) => result.threadId)),
+    )
+  })
+
+  test.each([true, false])("a thread starts in its parent's mode (Full Access %p)", async (on) => {
+    await setSessionBypass('source', 'owner', on)
+    const result = await createAgentThread(actor, 'Work', 'Task')
+
+    expect(await getSessionBypass(result.threadId, 'owner')).toBe(on)
+  })
+
+  test('a Full Access parent switches its thread to Auto Mode and back', async () => {
+    await setSessionBypass('source', 'owner', true)
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await updateThread(actor, threadId, { fullAccess: false })
+    expect(await getSessionBypass(threadId, 'owner')).toBe(false)
+    await updateThread(actor, threadId, { fullAccess: true })
+    expect(await getSessionBypass(threadId, 'owner')).toBe(true)
+    expect(events.map((e) => [e.conversationId, e.event])).toEqual([
+      [threadId, 'auth.bypass_disabled'],
+      [threadId, 'auth.bypass_enabled'],
+    ])
+  })
+
+  test('an Auto Mode parent cannot give its thread Full Access, but can still lower it', async () => {
+    await setSessionBypass('source', 'owner', true)
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await setSessionBypass('source', 'owner', false)
+    await expect(updateThread(actor, threadId, { fullAccess: true })).rejects.toThrow('Full Access')
+    expect(await getSessionBypass(threadId, 'owner')).toBe(true)
+    await updateThread(actor, threadId, { fullAccess: false })
+    expect(await getSessionBypass(threadId, 'owner')).toBe(false)
+  })
+
+  test('only a thread this conversation created can be switched', async () => {
+    await setSessionBypass('source', 'owner', true)
+    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow('created')
+    await expect(updateThread(actor, 'source', { fullAccess: true })).rejects.toThrow()
+    expect(await getSessionBypass('target', 'owner')).toBe(false)
+    expect(events).toHaveLength(0)
+  })
+
+  test("a conversation adopted as a child is not the caller's to change", async () => {
+    await setSessionBypass('source', 'owner', true)
+    target = { ...target, parentSessionId: 'source' }
+    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow('created')
+    await expect(updateThread(actor, 'target', { runtimeId: 'runtime-2' })).rejects.toThrow(
+      'created',
+    )
+    expect(await getSessionBypass('target', 'owner')).toBe(false)
+    expect(moves).toHaveLength(0)
+  })
+
+  test("a thread never moves onto the owner's computer", async () => {
+    await setSessionBypass('source', 'owner', true)
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await expect(updateThread(actor, threadId, { runtimeId: 'local-1' })).rejects.toThrow(
+      'computer',
+    )
+    expect(moves).toHaveLength(0)
+  })
+
+  test('a parent moves its thread to another agent through the shared move path', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+    const result = await updateThread(actor, threadId, { runtimeId: 'runtime-2' })
+
+    expect(moves).toEqual([
+      { sessionId: threadId, runtimeId: 'runtime-2', mode: 'history', userId: 'owner' },
+    ])
+    expect(result.runtime?.runtimeId).toBe('runtime-2')
+    await expect(updateThread(actor, 'target', { runtimeId: 'runtime-2' })).rejects.toThrow(
+      'created',
+    )
+    expect(moves).toHaveLength(1)
+  })
+
+  test('send returns the delivered message id', async () => {
     const result = await sendAgentThreadMessage(actor, 'target', 'CI passed')
 
-    expect(jobs).toHaveLength(1)
-    expect(result.messageId).toBe(jobs[0]!.messageId)
-  })
-
-  test('queue failure is not reported as success and removes only the new empty shell', async () => {
-    queueFailure = true
-    await expect(createAgentThread(actor, 'Wait', 'Watcher')).rejects.toThrow('queue offline')
-    expect(deleted[0]).toMatchObject({ messageCount: 0, userId: 'owner' })
-    await expect(sendAgentThreadMessage(actor, 'target', 'Result')).rejects.toThrow('queue offline')
-    expect(jobs).toHaveLength(0)
+    expect(claims).toHaveLength(1)
+    expect(result.messageId).toBe(claims[0]!.message.id)
   })
 
   test.each([
@@ -110,7 +310,8 @@ describe('conversation-scoped thread tools', () => {
   ])('refuses %s', async (_, change) => {
     Object.assign(target, change)
     await expect(sendAgentThreadMessage(actor, 'target', 'Do work')).rejects.toThrow()
-    expect(jobs).toHaveLength(0)
+    await Bun.sleep(20)
+    expect(claims).toHaveLength(0)
   })
 
   test('delivers to an own thread with another runtime or credential selection', async () => {
@@ -120,7 +321,7 @@ describe('conversation-scoped thread tools', () => {
       credentialAccess: { ...access, awsRoleIds: ['role-1', 'role-2'] },
     })
     await sendAgentThreadMessage(actor, 'target', 'Do work')
-    expect(jobs).toHaveLength(1)
+    expect(claims).toHaveLength(1)
   })
 
   test('refuses self-delivery, unknown targets and non-owner source sessions', async () => {
@@ -130,12 +331,44 @@ describe('conversation-scoped thread tools', () => {
     await expect(createAgentThread(actor, 'Work', 'Task')).rejects.toThrow()
   })
 
-  test('rechecks membership and ownership before a queued job executes', async () => {
-    await sendAgentThreadMessage(actor, 'target', 'Work')
+  test('rechecks membership and ownership when the turn starts', async () => {
+    const data = { ...actor, targetSessionId: 'target', messageId: 'delivery', prompt: 'Work' }
+
     member = false
-    await expect(authorizeThreadDelivery(jobs[0]!)).rejects.toThrow()
+    await expect(authorizeThreadDelivery(data)).rejects.toThrow()
     member = true
     target.userId = 'teammate'
-    await expect(authorizeThreadDelivery(jobs[0]!)).rejects.toThrow()
+    await expect(authorizeThreadDelivery(data)).rejects.toThrow()
+  })
+})
+
+describe('archive thread', () => {
+  test('archives and restores an owned thread, including the current one', async () => {
+    expect(await setAgentThreadArchived(actor, 'target', true)).toMatchObject({
+      threadId: 'target',
+      archived: true,
+    })
+    target.archivedAt = new Date()
+    await setAgentThreadArchived(actor, 'target', false)
+    await setAgentThreadArchived(actor, 'source', true)
+    expect(archives).toEqual([
+      ['target', true],
+      ['target', false],
+      ['source', true],
+    ])
+  })
+  test('rejects missing, foreign-owner and cross-team targets without a write', async () => {
+    await expect(setAgentThreadArchived(actor, 'missing', true)).rejects.toThrow('Target must')
+    target.userId = 'other'
+    await expect(setAgentThreadArchived(actor, 'target', true)).rejects.toThrow('Target must')
+    target.userId = actor.userId
+    target.teamId = 'other-team'
+    await expect(setAgentThreadArchived(actor, 'target', false)).rejects.toThrow('Target must')
+    expect(archives).toEqual([])
+  })
+  test('rejects an actor who left the team', async () => {
+    member = false
+    await expect(setAgentThreadArchived(actor, 'target', true)).rejects.toThrow('still belong')
+    expect(archives).toEqual([])
   })
 })

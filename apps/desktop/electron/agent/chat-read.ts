@@ -7,7 +7,7 @@ import {
   CHAT_STREAM_NO_CONTENT_TIMEOUT_MS,
 } from './chat-shared.ts'
 import {
-  agentReauthenticationEvent,
+  agentHttpProductEvent,
   formatAgentLocalError,
   formatAgentSseError,
   parseSseEvent,
@@ -109,10 +109,13 @@ export async function consumeChatStream(
           state.terminalEventDetected = true
         }
         if (data.type === 'error') {
-          const reauthentication = agentReauthenticationEvent(data)
+          // A refusal the backend could only make after the stream opened
+          // (e.g. it reattached a parked continuation first) is the same
+          // product event as the HTTP refusal.
+          const productEvent = agentHttpProductEvent(data)
 
-          if (reauthentication) {
-            emit(reauthentication)
+          if (productEvent) {
+            emit(productEvent)
 
             return 'stop'
           }

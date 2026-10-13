@@ -143,6 +143,7 @@ test(
       .join('')
 
     assert.match(replayed, /NUPHOS_MOVED_OK/)
+    assert.deepEqual(events.at(-1), { id, type: 'replayed', resumed: false })
     const stillThere = waitForOutput(emitter, '/usr/lib')
 
     // A shell that had been restarted would answer with the home directory
