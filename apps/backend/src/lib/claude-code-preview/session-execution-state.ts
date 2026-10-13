@@ -155,7 +155,11 @@ export async function steerConversationRuntime(
     )
 
     if (result.outcome !== 'injected')
-      throw new AppError(409, 'runtime_steering_unavailable', 'The turn already ended')
+      throw new AppError(
+        409,
+        'runtime_steering_unavailable',
+        'The turn already ended. Your message was not sent; send it as a new turn.',
+      )
 
     return text
   } finally {
