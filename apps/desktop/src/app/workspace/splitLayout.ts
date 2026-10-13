@@ -71,3 +71,15 @@ export function isSplitShortcut(
     !event.isComposing
   )
 }
+
+/**
+ * The pane a ⌘-click reuses: the one the last ⌘-click filled, as long as it
+ * still shows that chat and is not the pane the click came from.
+ */
+export function reusableBesidePane(
+  last: { pane: string; sessionId: string } | null,
+  source: string,
+  shownIn: (pane: string) => string | null | undefined,
+): string | null {
+  return last && last.pane !== source && shownIn(last.pane) === last.sessionId ? last.pane : null
+}

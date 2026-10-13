@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
-import { isSplitShortcut, paneRects, removePane, splitPane } from './splitLayout'
+import {
+  isSplitShortcut,
+  paneRects,
+  removePane,
+  reusableBesidePane,
+  splitPane,
+} from './splitLayout'
 import {
   createWorkspaceState,
   selectAllResidentTabs,
@@ -63,41 +69,53 @@ export function WorkspaceSplits({
     [activeId, focusSurfaces, stores],
   )
   const split = useCallback(
-    (direction: 'row' | 'column', sessionId: string | null = null, teamId?: string) => {
-      const current = stores.get(activeId)?.getState()
+    (
+      direction: 'row' | 'column',
+      from = activeId,
+      seed?: { sessionId: string; teamId?: string },
+    ) => {
+      const current = stores.get(from)?.getState()
 
       if (!current?.teamsKnown || !current.teamScope) return null
       const id = crypto.randomUUID()
       const teamScope =
-        teamId && teamId !== current.teamScope.teamId ? teamScopeOf(teamId) : current.teamScope
+        seed?.teamId && seed.teamId !== current.teamScope.teamId
+          ? teamScopeOf(seed.teamId)
+          : current.teamScope
 
-      seeds.set(id, { ...createWorkspaceState(), teamScope, teamsKnown: true, sessionId })
-      setLayout((value) => splitPane(value, activeId, id, direction))
-      setActiveId(id)
+      seeds.set(id, {
+        ...createWorkspaceState(),
+        teamScope,
+        teamsKnown: true,
+        sessionId: seed?.sessionId ?? null,
+      })
+      setLayout((value) => splitPane(value, from, id, direction))
+      // A chat opened beside leaves the pane it was opened from in focus.
+      if (!seed) setActiveId(id)
 
       return id
     },
     [activeId, seeds, stores],
   )
   // ⌘-click on a session link: focus it where it is already open, else show it
-  // in the pane the last ⌘-click opened, else split one off to the right.
-  const beside = useRef<string | null>(null)
+  // in the pane the last ⌘-click filled, else split one off to the right.
+  const beside = useRef<{ pane: string; sessionId: string } | null>(null)
   const openSessionBeside = useCallback(
-    (sessionId: string, teamId?: string) => {
+    (source: string, sessionId: string, teamId?: string) => {
       if (focusSession(sessionId, teamId)) return true
-      const id = beside.current
-      const store = id ? stores.get(id) : undefined
+      let pane = reusableBesidePane(beside.current, source, (id) => {
+        const state = stores.get(id)?.getState()
 
-      if (id && store) {
-        store.actions.selectSession(sessionId, { teamId })
-        focusSurfaces.set(id, 'session')
-        setActiveId(id)
+        return state && !state.mainPageOpen ? state.sessionId : null
+      })
 
-        return true
-      }
-      beside.current = split('row', sessionId, teamId)
+      if (pane) stores.get(pane)?.actions.selectSession(sessionId, { teamId })
+      else pane = split('row', source, { sessionId, teamId })
+      if (!pane) return false
+      focusSurfaces.set(pane, 'session')
+      beside.current = { pane, sessionId }
 
-      return beside.current !== null
+      return true
     },
     [focusSession, focusSurfaces, split, stores],
   )
@@ -212,7 +230,8 @@ export function WorkspaceSplits({
               key={rect.id}
               value={{
                 focusSession,
-                openSessionBeside,
+                openSessionBeside: (sessionId, teamId) =>
+                  openSessionBeside(rect.id, sessionId, teamId),
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 isTabFocused: () => focusSurfaces.get(rect.id) === 'tab',

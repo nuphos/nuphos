@@ -16,6 +16,7 @@ import {
   teamIdFromAppPath,
 } from '../../lib/appRoutes'
 import { parseAtlasLink } from '../../lib/atlasLinkMention'
+import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
@@ -114,7 +115,10 @@ export function useWorkspaceLinkOpeners(a: Args) {
       if (beside) {
         const sessionId = navigation.active === 'team.agent' ? navigation.agentSessionId : null
 
-        return !!sessionId && !!openSessionBeside?.(sessionId, navigation.scope.teamId)
+        // Message text is untrusted: a malformed team id falls back to the pane's team.
+        const teamId = isTeamId(navigation.scope.teamId) ? navigation.scope.teamId : undefined
+
+        return Boolean(sessionId && openSessionBeside?.(sessionId, teamId))
       }
       if (navigation.active === 'team.agent') {
         if (navigation.agentSessionId) {

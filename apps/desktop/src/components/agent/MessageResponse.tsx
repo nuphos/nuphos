@@ -8,9 +8,10 @@ import type { ComponentProps, MouseEvent, ReactNode } from 'react'
 import { Streamdown } from 'streamdown'
 import 'streamdown/styles.css'
 
+import { linkClickMode } from '../../lib/linkClickMode'
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
-import { isMac } from '../../lib/platform'
 import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
+import { isMac } from '../../lib/platform'
 
 type StreamdownComponents = ComponentProps<typeof Streamdown>['components']
 type StreamdownAnimated = ComponentProps<typeof Streamdown>['animated']
@@ -73,13 +74,12 @@ function createComponents(
       }
       const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
         if (!link || !onLinkClick) return
-        if (event.button !== 0 || event.shiftKey || event.altKey) return
         // ⌘-click (Ctrl elsewhere) asks to open the link beside this pane; a
         // handler that declines leaves the browser default.
-        const beside = isMac ? event.metaKey : event.ctrlKey
+        const mode = linkClickMode(event, isMac)
 
-        if (!beside && (event.metaKey || event.ctrlKey)) return
-        if (onLinkClick(link, beside)) {
+        if (!mode) return
+        if (onLinkClick(link, mode === 'beside')) {
           event.preventDefault()
           event.stopPropagation()
         }
