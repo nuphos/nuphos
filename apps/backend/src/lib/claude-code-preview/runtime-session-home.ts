@@ -30,8 +30,9 @@ let unreadable;
 const done = (result) => { process.stdout.write(JSON.stringify({ result, unreadable })); process.exit(0); };
 // Sessions are processes of the runtime: descendants of the topmost ancestor of
 // this job that runs as the same user (tini in the image, which also adopts
-// orphaned background shells). The parent pid in /proc/<pid>/stat is readable
-// for every process, so the set is known even where environ is not.
+// orphaned background shells), running as that user themselves. The parent pid
+// in /proc/<pid>/stat is readable for every process, so the set is known even
+// where environ is not.
 const runtimeProcesses = async () => {
   const parent = new Map();
   for (const pid of await fs.readdir('/proc')) {
@@ -45,7 +46,9 @@ const runtimeProcesses = async () => {
     for (let at = pid; at && at !== '0'; at = parent.get(at)) if (at === root) return true;
     return false;
   };
-  return [...parent.keys()].filter(descends);
+  const own = [];
+  for (const pid of parent.keys()) if (descends(pid) && (await sameUser(pid))) own.push(pid);
+  return own;
 };
 // HOME is matched by the original path; a working directory follows the
 // directory itself.
