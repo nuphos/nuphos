@@ -83,7 +83,10 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // The sender can change between turns of a live session. OpenAB keeps the current
   // sender's credential in its per-session directory, so this runs again before every
   // prompt (see patchRuntimeDefaults) and leaves that sender's skills, or none.
+  const revision = () =>
+    fs.readFile(path.join(personal, '.claude', '.skills-revision'), 'utf8').catch(() => '')
   const syncPersonal = async (timeoutMs) => {
+    const before = await revision()
     const credentials = run?.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
     const current = !credentials
       ? ''
@@ -110,9 +113,18 @@ export async function nuphosSyncRuntimeSkills(params, run) {
         .rm(path.join(personal, '.claude', '.skills-revision'), { force: true })
         .catch(() => {})
     }
+
+    return (await revision()) !== before
   }
 
-  globalThis.nuphosRefreshPersonalSkills = () => syncPersonal(5_000).catch(() => {})
+  // Claude Code notices a changed skills directory a moment after the write. A prompt
+  // sent before that still carries the previous sender's skill list, so when the tree
+  // changed, give the running session time to reload it.
+  globalThis.nuphosRefreshPersonalSkills = async () => {
+    const changed = await syncPersonal(5_000).catch(() => false)
+
+    if (changed) await new Promise((resolve) => setTimeout(resolve, run?.reloadMs ?? 2_000))
+  }
   const [team] = await Promise.all([sync(), syncPersonal()])
 
   // Present even when empty, so a skill synced for a later turn is picked up.

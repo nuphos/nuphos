@@ -111,6 +111,7 @@ test('a Claude session also syncs the sender’s personal skills into its own ho
       sessionHome: directory,
       credentialsDir,
       env: { NUPHOS_TEST_RECORD: record },
+      reloadMs: 0,
     }
 
     assert.equal(await nuphosSyncRuntimeSkills(params, run), true)

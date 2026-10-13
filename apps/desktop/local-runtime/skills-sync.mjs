@@ -170,7 +170,10 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   // The sender can change between turns of a live session. OpenAB keeps the current
   // sender's credential in its per-session directory, so this runs again before every
   // prompt and leaves that sender's skills, or none.
+  const revision = () =>
+    fs.readFile(path.join(personalClaude, '.skills-revision'), 'utf8').catch(() => '')
   const syncPersonal = async (timeoutMs) => {
+    const before = await revision()
     const credentials = options.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
     const current = !credentials
       ? ''
@@ -190,9 +193,18 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
           .catch(() => {})
       await fs.rm(path.join(personalClaude, '.skills-revision'), { force: true }).catch(() => {})
     }
+
+    return (await revision()) !== before
   }
 
-  globalThis.nuphosRefreshPersonalSkills = () => syncPersonal(5_000).catch(() => {})
+  // Claude Code notices a changed skills directory a moment after the write. A prompt
+  // sent before that still carries the previous sender's skill list, so when the tree
+  // changed, give the running session time to reload it.
+  globalThis.nuphosRefreshPersonalSkills = async () => {
+    const changed = await syncPersonal(5_000).catch(() => false)
+
+    if (changed) await new Promise((resolve) => setTimeout(resolve, options?.reloadMs ?? 2_000))
+  }
   const [team] = await Promise.all([
     install(path.join(workspace, '.claude'), url, true),
     syncPersonal(),
