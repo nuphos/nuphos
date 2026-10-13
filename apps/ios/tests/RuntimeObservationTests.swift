@@ -153,6 +153,7 @@ struct RuntimeObservationTests {
         followingARunStartedElsewhereNeverEmptiesTheTranscript()
         print("Runtime observation, transcript replay, steering, turn start and unread regressions passed")
         ChatRowTests.run()
+        MessagePreviewTests.run()
         ComposerActionTests.run()
         SessionLinkTests.run()
         SidebarFavoritesTests.run()

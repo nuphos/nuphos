@@ -20,12 +20,15 @@ type SshTerminalEvent =
   | { id: string; type: 'data'; data: string }
   | { id: string; type: 'exit'; code: number | null; signal: NodeJS.Signals | null }
   | { id: string; type: 'error'; message: string }
+  | { id: string; type: 'replayed'; resumed: boolean }
 
 type SshSession = {
   id: string
   child: ChildProcessWithoutNullStreams
   keyDir: string
   events: SshTerminalEvent[]
+  /** A view already replayed this output, so its terminal queries were answered. */
+  replayed: boolean
   cleanupStarted: boolean
 }
 
@@ -135,7 +138,14 @@ export async function startSshSession(
       },
     )
 
-    const session: SshSession = { id, child, keyDir, events: [], cleanupStarted: false }
+    const session: SshSession = {
+      id,
+      child,
+      keyDir,
+      events: [],
+      replayed: false,
+      cleanupStarted: false,
+    }
 
     sessions.set(id, session)
 
@@ -188,7 +198,10 @@ export function replaySshSession(target: WebContents, id: string): void {
   const session = sessions.get(id)
 
   if (!session) return
-  for (const event of session.events.slice()) {
+  const end = { id, type: 'replayed', resumed: session.replayed } as const
+
+  session.replayed = true
+  for (const event of [...session.events, end]) {
     if (!target.isDestroyed()) target.send('ssh-terminal:event', { ...event })
   }
 }

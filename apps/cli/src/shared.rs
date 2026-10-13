@@ -1,7 +1,5 @@
 //! Choices the TUI and the non-interactive commands make the same way.
 
-use std::io::Write;
-
 use anyhow::{bail, Result};
 use serde_json::Value;
 
@@ -11,29 +9,20 @@ use crate::render::clean;
 
 pub const ADD_AGENT_HINT: &str = "Add an agent with `nuphos agents claude-code --create` (or codex).";
 
-/// `--team` (or `NUPHOS_TEAM`), the team used last time, then the first
-/// team. Asks only when there is no team at all, to name a new one.
-pub async fn resolve_team(api: &Api, prefs: &mut Prefs, wanted: Option<&str>, interactive: bool) -> Result<Value> {
-    let teams = api.teams().await?;
+/// `--team` (or `NUPHOS_TEAM`), the team used last time, then the first team.
+pub fn pick_team(teams: &[Value], prefs: &Prefs, wanted: Option<&str>) -> Result<Value> {
     if teams.is_empty() {
-        if !interactive {
-            bail!("You are not a member of any Nuphos team yet. Create one with `nuphos team --create NAME`.");
-        }
-        print!("You are not in a Nuphos team yet. Name one to create it: ");
-        std::io::stdout().flush()?;
-        let mut name = String::new();
-        std::io::stdin().read_line(&mut name)?;
-        let team = create_team(api, prefs, &name).await?;
-        println!("Created team {}. {ADD_AGENT_HINT}", label(&team));
-        return Ok(team);
+        bail!("You are not a member of any Nuphos team yet. Create one with `nuphos team --create NAME`.");
     }
     if let Some(name) = wanted {
-        return find(&teams, name, "team");
+        return find(teams, name, "team");
     }
-    let team =
-        prefs.team_id.as_deref().and_then(|id| teams.iter().find(|t| t["id"] == id)).unwrap_or(&teams[0]).clone();
-    remember_team(prefs, &team);
-    Ok(team)
+    Ok(prefs.team_id.as_deref().and_then(|id| teams.iter().find(|t| t["id"] == id)).unwrap_or(&teams[0]).clone())
+}
+
+/// My user id, from `/auth/me`.
+pub fn user_id(me: &Value) -> String {
+    me["user"]["id"].as_str().or(me["id"].as_str()).unwrap_or_default().to_string()
 }
 
 /// Creates a team with me as its administrator and makes it the default.
@@ -185,6 +174,18 @@ mod tests {
         assert_eq!(id(serde_json::json!({ "key": "fav-href:/teams/t1/chats/abc?x=1" })), Some("abc".into()));
         assert_eq!(id(serde_json::json!({ "href": "/teams/t1/agent/skills" })), None);
         assert_eq!(id(serde_json::json!({ "href": "/teams/t1/plans" })), None);
+    }
+
+    #[test]
+    fn picks_the_team() {
+        let teams =
+            vec![serde_json::json!({ "id": "a", "name": "Alpha" }), serde_json::json!({ "id": "b", "name": "Beta" })];
+        let prefs = |id: Option<&str>| Prefs { team_id: id.map(String::from), ..Default::default() };
+        let pick = |p: &Prefs, wanted| pick_team(&teams, p, wanted).ok().map(|t| t["id"].clone());
+        assert_eq!(pick(&prefs(Some("a")), Some("beta")), Some("b".into()));
+        assert_eq!(pick(&prefs(Some("b")), None), Some("b".into()));
+        assert_eq!(pick(&prefs(Some("gone")), None), Some("a".into()));
+        assert!(pick_team(&[], &prefs(None), None).is_err());
     }
 
     #[test]

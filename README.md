@@ -55,9 +55,11 @@ their lid.
 | `apps/desktop` | Electron/Vite/React client — the workspace itself                       |
 | `apps/runtime` | Claude Code / Codex container images, adapters and independent releases |
 | `apps/ios`     | SwiftUI client: pick a session back up away from your desk              |
+| `apps/android` | Jetpack Compose client for Nuphos Cloud                                 |
 
-There is an Android client too; it is not open source yet. The iOS app is the
-one in here.
+See [`apps/android/README.md`](apps/android/README.md) for Android build and test
+instructions. The Android client currently uses Nuphos Cloud sign-in; custom
+self-hosted endpoints are not yet supported.
 
 The agent runtime lives in [`apps/runtime`](apps/runtime) (Apache-2.0).
 Its image executes a turn, and a self-hosted deployment registers its own.

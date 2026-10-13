@@ -9,6 +9,7 @@ enum LocalAgentTests {
         defaultsToAUsableCloudAgent()
         namesCloudOnlyProviders()
         modelSettingsRemainAvailable()
+        measuresWhatIsLeft()
         print("Local agents passed")
     }
 
@@ -76,6 +77,11 @@ enum LocalAgentTests {
         var selection = CredentialSelection()
         selection.toggle(item)
         precondition(selection.json["deviceIds"] == .array([.string("mac")]))
+    }
+
+    private static func measuresWhatIsLeft() {
+        let left = [-5, 0, 37.4, 99.6, 120].map { RuntimeQuota.Window(label: "5-hour", usedPercent: $0, resetsAt: nil).leftPercent }
+        precondition(left == [100, 100, 62, 0, 0])
     }
 
     private static func agent(_ json: String) -> RuntimeInstance {

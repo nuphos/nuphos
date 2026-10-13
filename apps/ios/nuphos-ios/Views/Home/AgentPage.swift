@@ -41,6 +41,10 @@ struct AgentPage: View {
         @Bindable var store = store
 
         content
+            // On the switch, so the empty and error states refresh too.
+            .refreshable {
+                if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
+            }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             #if DEBUG
@@ -190,7 +194,7 @@ struct AgentPage: View {
             } description: {
                 Text("Create or join a workspace to start chatting with an agent.")
             } actions: {
-                Button("Set up workspace") { showWorkspaceSetup = true }.buttonStyle(.borderedProminent)
+                Button("Set up workspace") { showWorkspaceSetup = true }.prominentButton()
             }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
             ContentUnavailableView {
@@ -199,7 +203,7 @@ struct AgentPage: View {
                 Text(store.selectedTeam?.isAdministrator == true ? "Create a cloud agent and sign in with your AI provider." : "Ask a workspace administrator to connect a cloud agent, or open Nuphos on your computer to connect your own local agent.")
             } actions: {
                 if store.selectedTeam?.isAdministrator == true {
-                    Button("Set up agent") { showAgentSetup = true }.buttonStyle(.borderedProminent)
+                    Button("Set up agent") { showAgentSetup = true }.prominentButton()
                 }
             }
         case .idle, .loading:
@@ -213,7 +217,7 @@ struct AgentPage: View {
                 Text(message)
             } actions: {
                 Button("Try again") { Task { await store.loadTeams() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
             }
         case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
@@ -316,7 +320,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .refreshable { await store.reload() }
         .onAppear { store.startPolling() }
         .task {
             while !Task.isCancelled {

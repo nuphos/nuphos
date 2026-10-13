@@ -1,6 +1,7 @@
 import { parseMessageMetadata } from './messageMetadata.ts'
+import { normalizeTransferUploadPart } from './parts.ts'
 
-import type { Tab } from './model.ts'
+import type { Message, Tab } from './model.ts'
 import type { Part, SteeringPart } from './parts.ts'
 
 export function parseSteeringPart(value: unknown): SteeringPart | null {
@@ -8,12 +9,36 @@ export function parseSteeringPart(value: unknown): SteeringPart | null {
   const { type, data } = value as Record<string, unknown>
 
   if (type !== 'data-steering' || !data || typeof data !== 'object') return null
-  const { id, text, metadata } = data as Record<string, unknown>
+  const { id, text, upload, metadata } = data as Record<string, unknown>
 
   if (typeof id !== 'string' || typeof text !== 'string') return null
+  const files =
+    upload && typeof upload === 'object'
+      ? normalizeTransferUploadPart(upload as Record<string, unknown>)
+      : null
   const sender = parseMessageMetadata(metadata)
 
-  return { type: 'data-steering', data: { id, text, ...(sender ? { metadata: sender } : {}) } }
+  return {
+    type: 'data-steering',
+    data: {
+      id,
+      text,
+      ...(files ? { upload: files } : {}),
+      ...(sender ? { metadata: sender } : {}),
+    },
+  }
+}
+
+/** The receipt as the user's message: its files show as a card instead of the text naming them. */
+export function steeringMessage({ id, text, upload, metadata }: SteeringPart['data']): Message {
+  // The backend names the files in the text's last paragraph (`steeringText`).
+  const typed = upload ? text.slice(0, Math.max(0, text.lastIndexOf('\n\n'))) : text
+  const parts: Part[] = [
+    ...(typed ? [{ type: 'text' as const, text: typed }] : []),
+    ...(upload ? [upload] : []),
+  ]
+
+  return { id, role: 'user', parts, ...(metadata ? { metadata } : {}) }
 }
 
 const isReceipt =

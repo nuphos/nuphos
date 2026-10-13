@@ -187,7 +187,7 @@ struct AgentSetupView: View {
                         Button { openURL(url) } label: {
                             Text("Open Sign-In Page").frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .prominentButton()
                         .controlSize(.large)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
@@ -224,7 +224,7 @@ struct AgentSetupView: View {
                 Button { startLogin(runtime) } label: {
                     Text(login == nil ? "Sign In" : "Try Again").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .prominentButton()
                 .controlSize(.large)
                 .disabled(busy)
                 .listRowInsets(EdgeInsets())
@@ -294,7 +294,7 @@ struct AgentSetupView: View {
                     Button { openURL(url) } label: {
                         Text("Open \(url.host() ?? "Sign-In Page")").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
                     .controlSize(.large)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
