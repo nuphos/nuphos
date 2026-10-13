@@ -57,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -519,18 +520,25 @@ private fun TrailingButton(
  * Mirrors iOS `ComposerAttachment`: a 64dp thumbnail with an 18dp remove disc
  * nudged past its top-end corner. The disc is a plain clickable rather than an
  * [IconButton], whose 48dp minimum touch target drew a ripple over a quarter of
- * the thumbnail; the invisible hit area is widened to 34dp instead.
+ * the thumbnail; the invisible hit area is widened to 34dp instead. The tile
+ * pads by the hit box's full overhang, because touches outside a parent's
+ * bounds are not delivered and would otherwise shave 8dp off two sides.
  */
 @Composable
 private fun AttachmentTile(attachment: ComposerAttachment, onRemove: () -> Unit) {
-    Box(Modifier.padding(top = RemoveBadgeOverhang, end = RemoveBadgeOverhang)) {
+    Box(Modifier.padding(top = RemoveBadgeHitOverhang, end = RemoveBadgeHitOverhang)) {
         AttachmentThumbnail(attachment)
         Box(
             Modifier
                 .align(Alignment.TopEnd)
                 .offset(x = RemoveBadgeHitOverhang, y = -RemoveBadgeHitOverhang)
                 .size(RemoveBadgeHitSize)
-                .clickable(interactionSource = null, indication = null, role = Role.Button, onClick = onRemove),
+                .clickable(
+                    interactionSource = null,
+                    indication = ripple(bounded = false, radius = RemoveBadgeHitSize / 2),
+                    role = Role.Button,
+                    onClick = onRemove,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Box(

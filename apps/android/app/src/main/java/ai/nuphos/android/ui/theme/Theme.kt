@@ -76,7 +76,9 @@ private val DarkScheme = darkColorScheme(
     surfaceVariant = BubbleDark,
     onSurfaceVariant = Color(0xFFA1A1AA),
     outline = Color(0xFF71717A),
-    outlineVariant = Color(0xFF353539),
+    // One step above surfaceContainerHighest, so a divider on the highest
+    // tier is still visible.
+    outlineVariant = Color(0xFF3F3F46),
     surfaceContainerLowest = Color(0xFF0F0F12),
     surfaceContainerLow = Color(0xFF1A1A1D),
     surfaceContainer = SurfaceDark,
