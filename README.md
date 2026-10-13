@@ -175,6 +175,31 @@ It starts the local stack, backend, runtime and Electron Desktop with isolated
 configuration. Do not start Desktop on its own or use the web-only Vite server
 as the default dev loop.
 
+### Parallel instances
+
+Every worktree can run `bun run dev` at the same time. All of them share one
+Mongo / RustFS / runtime stack, whose secrets live in the main checkout's
+`deploy/compose/.env`. Everything else derives from the instance name, which is
+the worktree's directory name or `NUPHOS_DEV_INSTANCE`:
+
+- the backend, Vite and DevTools (CDP) ports, each claimed free at start;
+- the Desktop profile, `Nuphos Dev (<name> local)`;
+- the Desktop sign-in, `~/.config/nuphos/cli.dev.<name>.yaml`;
+- the logs, `$TMPDIR/nuphos-dev-logs/<name>-*.log`.
+
+To run a second instance from the same worktree, set a different
+`NUPHOS_DEV_INSTANCE`.
+
+```bash
+bun run dev:instances           # name, state, ports, disk usage and worktree of each instance
+bun run dev:instances rm <name> # stop it, then delete its profile, sign-in, logs and clean worktree
+```
+
+`rm` stops only that instance's own launcher and processes, and leaves the
+shared stack and the main checkout alone. It does not remove a worktree that has
+uncommitted changes. An e2e harness should attach to the `CDP` port that
+`dev:instances` lists, never to a fixed port.
+
 ## Working Guidelines
 
 `AGENTS.md` and `CLAUDE.md` point coding agents here, so this section is the

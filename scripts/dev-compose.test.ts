@@ -31,6 +31,15 @@ test('runtime-password prints the password the runtime generated', () => {
   })
 })
 
+test('instances lists, and rm names the one to remove', () => {
+  assert.deepEqual(parseStackCommand(['instances']), { kind: 'instances', remove: null })
+  assert.deepEqual(parseStackCommand(['instances', 'rm', 'pr12']), {
+    kind: 'instances',
+    remove: 'pr12',
+  })
+  assert.deepEqual(parseStackCommand(['instances', 'rm']), { kind: 'usage' })
+})
+
 test('anything else prints usage', () => {
   assert.deepEqual(parseStackCommand([]), { kind: 'usage' })
   assert.deepEqual(parseStackCommand(['down']), { kind: 'usage' })

@@ -1,14 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { desktopInstanceSuffix, parseDesktop, parseElectronBackendHealth } from './dev-desktop.ts'
+import { parseDesktop, parseElectronBackendHealth } from './dev-desktop.ts'
 import { desktop } from './dev-services.ts'
-
-test('desktop instance identity uses a local-stack profile and isolates parallel launchers', () => {
-  assert.equal(desktopInstanceSuffix('nuphos', 3718), 'nuphos local')
-  assert.equal(desktopInstanceSuffix('nuphos', 3719), 'nuphos local-3719')
-  assert.equal(desktopInstanceSuffix('feature-x', 3722), 'feature-x local-3722')
-})
 
 describe('Electron backend health protocol', () => {
   test('parses a valid unhealthy event', () => {

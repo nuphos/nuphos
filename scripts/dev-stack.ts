@@ -2,6 +2,7 @@
 // and runtime with the dev override, one dashboard row each. Shared by all
 // worktrees, so it is left running on quit; `bun run dev:reset` wipes it.
 import { existsSync } from 'node:fs'
+import { dirname } from 'node:path'
 
 import { stripAnsi } from './dev-child-output.ts'
 import { COMPOSE, COMPOSE_DIR, COMPOSE_ENV, RESET_ARGS, clearDevSignIn } from './dev-compose.ts'
@@ -142,9 +143,9 @@ async function readImages(): Promise<Images | null> {
 
 async function ensureComposeEnv(): Promise<boolean> {
   if (existsSync(COMPOSE_ENV)) return true
-  pushEvent(compose, 'no deploy/compose/.env — generating it with init-env.sh')
+  pushEvent(compose, `no ${COMPOSE_ENV} — generating it with init-env.sh`)
   const result = await runDevCommand('sh', ['init-env.sh'], {
-    cwd: COMPOSE_DIR,
+    cwd: dirname(COMPOSE_ENV),
     timeoutMs: 30_000,
   })
 
@@ -167,7 +168,7 @@ const startDataStores = singleFlight(async (): Promise<LocalStack | null> => {
   const local = readLocalStack(COMPOSE_ENV)
 
   if (!local) {
-    failRows(rows, 'deploy/compose/.env lacks generated secrets; delete it and rerun', '')
+    failRows(rows, `${COMPOSE_ENV} lacks generated secrets; delete it and rerun`, '')
 
     return null
   }

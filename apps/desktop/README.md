@@ -17,7 +17,8 @@ bun run dev
 
 The launcher starts the local stack, backend, runtime, and Electron Desktop.
 It configures the backend URL and gives each worktree an isolated Desktop
-profile and single-instance lock, so multiple worktrees can run side by side.
+profile, sign-in, ports and single-instance lock, so multiple worktrees can run
+side by side (see [Parallel instances](../../README.md#parallel-instances)).
 Each profile has its own login state. Do not launch Desktop separately.
 
 ### Computer Use with local Codex
