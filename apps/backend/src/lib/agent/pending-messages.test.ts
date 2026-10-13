@@ -96,6 +96,37 @@ describe('pending user messages', () => {
     expect(PENDING_TTL_SEC * 1_000).toBeGreaterThan(OPENAB_PERMISSION_DECISION_TIMEOUT_MS)
   })
 
+  test('a newer wake-up for the same resource replaces the parked one', async () => {
+    const wake = (url: string, text: string) =>
+      enqueuePendingUserMessage(
+        USER,
+        SESSION,
+        buildPendingUserMessage({
+          renderedText: text,
+          source: 'agent.resource',
+          metadata: {
+            version: 1,
+            sender: { type: 'system', id: 'github', displayName: 'GitHub' },
+            source: 'agent.resource',
+            resourceUrl: url,
+            sentAt: new Date().toISOString(),
+          },
+        }),
+      )
+
+    for (let i = 0; i < 9; i++) await enqueue(`message ${String(i)}`)
+    for (let i = 0; i < 30; i++)
+      expect(await wake('https://github.com/o/r/pull/1', `ci ${String(i)}`)).toBe(true)
+    // The queue is now full; another resource and another person are refused.
+    expect(await wake('https://github.com/o/r/pull/2', 'other pr')).toBe(false)
+    expect(await enqueue('message 9')).toBe(false)
+
+    const drained = await drainPendingUserMessages(USER, SESSION)
+
+    expect(drained).toHaveLength(10)
+    expect(drained.at(-1)!.renderedText).toBe('ci 29')
+  })
+
   test('a full queue refuses the newest message instead of evicting an acknowledged one', async () => {
     const outcomes: boolean[] = []
 

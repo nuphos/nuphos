@@ -71,15 +71,20 @@ export async function enqueuePendingUserMessage(
   message: PendingUserMessage,
 ): Promise<boolean> {
   const key = pendingKey(userId, sessionId)
+  // A resource wake-up only says "look at this PR again"; the session reads its
+  // state itself, so a newer one replaces the parked one instead of taking a slot.
+  const resource = message.metadata?.resourceUrl ?? ''
 
   // Read from config rather than lib/redis's helper: that helper is mocked
   // process-wide by another suite, and this decision must not depend on which
   // test file ran first.
   if (!config.redis.enabled) {
     const queue = localQueues.get(key) ?? []
+    const parked = queue.findIndex((m) => resource && m.metadata?.resourceUrl === resource)
 
-    if (queue.length >= PENDING_MAX) return false
-    queue.push(message)
+    if (parked >= 0) queue[parked] = message
+    else if (queue.length >= PENDING_MAX) return false
+    else queue.push(message)
     localQueues.set(key, queue)
 
     return true
@@ -87,6 +92,13 @@ export async function enqueuePendingUserMessage(
   const stored = await tryRedis((c) =>
     c.eval(
       `
+        for i, raw in ipairs(ARGV[4] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
+          local ok, item = pcall(cjson.decode, raw)
+          if ok and type(item.metadata) == 'table' and item.metadata.resourceUrl == ARGV[4] then
+            redis.call('LSET', KEYS[1], i - 1, ARGV[1])
+            return redis.call('EXPIRE', KEYS[1], ARGV[3])
+          end
+        end
         if redis.call('LLEN', KEYS[1]) >= tonumber(ARGV[2]) then
           return 0
         end
@@ -99,6 +111,7 @@ export async function enqueuePendingUserMessage(
       JSON.stringify(message),
       PENDING_MAX,
       PENDING_TTL_SEC,
+      resource,
     ),
   )
 
@@ -246,17 +259,7 @@ export async function hasPendingUserMessages(
     const matchesActor = (message: PendingUserMessage) =>
       message.actorUserId === actorUserId || (!message.actorUserId && allowActorless)
 
-    if ((localQueues.get(key) ?? []).some(matchesActor)) return true
-    const raw = await tryRedis((c) => c.lrange(key, 0, -1))
-
-    return (Array.isArray(raw) ? raw : []).some((value) => {
-      if (typeof value !== 'string') return false
-      try {
-        return matchesActor(JSON.parse(value) as PendingUserMessage)
-      } catch {
-        return false
-      }
-    })
+    return await someParked(key, matchesActor)
   }
 
   if ((localQueues.get(key)?.length ?? 0) > 0) return true
@@ -271,9 +274,10 @@ export async function hasPendingUserMessage(
   sessionId: string,
   messageId: string,
 ): Promise<boolean> {
-  const key = pendingKey(userId, sessionId)
-  const matches = (message: PendingUserMessage) => message.id === messageId
+  return await someParked(pendingKey(userId, sessionId), (message) => message.id === messageId)
+}
 
+async function someParked(key: string, matches: (message: PendingUserMessage) => boolean) {
   if ((localQueues.get(key) ?? []).some(matches)) return true
   const raw = await tryRedis((c) => c.lrange(key, 0, -1))
 
