@@ -117,6 +117,12 @@ final class ChatSession {
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
         if runtimeObservation?.executing(at: observations.now) == true { awaitingAdmission = false }
+        // A message the turn could not take goes out once the agent accepts a new one.
+        if isNativeRuntime, !queued.isEmpty, canSubmit, allows("send") {
+            let next = queued.removeFirst()
+            awaitingAdmission = true
+            Task { await dispatch(next) }
+        }
     }
     func tickRuntimeClock() { observations.tick() }
 
@@ -395,9 +401,8 @@ final class ChatSession {
     /// Hands a message to the running turn (`POST …/steer`). The runtime
     /// picks it up at its next prompt boundary; the transcript snapshot at
     /// the end of the turn shows it in place. The status that offered
-    /// steering can be seconds old, so a turn that ended meanwhile rejects
-    /// it — the message then goes back to the composer instead of waiting
-    /// for a turn that will never take it.
+    /// steering can be seconds old; the server decides from the live state,
+    /// and a message it cannot steer waits in the queue for the next turn.
     private func steer(_ submission: ComposerSubmission, text: String) async {
         let streamId = currentStreamId
         let assistantId = messages.last?.id
@@ -409,6 +414,9 @@ final class ChatSession {
                 appendSteering(id: id, text: text)
                 lastSubmittedRowID = "steering.\(id)"
             }
+        } catch AgentChatAPI.Conflict.other(let code, _, _) where code == "runtime_steering_unavailable" {
+            queued.append(text)
+            Analytics.shared.track("agent_message_queued", teamID: teamId)
         } catch {
             self.error = error.localizedDescription
             failedSubmission = submission
