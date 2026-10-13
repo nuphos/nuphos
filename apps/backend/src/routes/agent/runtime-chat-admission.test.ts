@@ -51,6 +51,20 @@ test('a refusal that outlasts the budget still answers runtime_not_accepting_mes
   expect(status.reads()).toBeGreaterThan(0)
 })
 
+test('a continuation parked on a lost output connection is admitted for the prompt path to reattach', () => {
+  // Nothing else reattaches it: a 409 here leaves the message queued forever.
+  assertRuntimeChatAdmission(
+    {
+      ...settling,
+      state: 'active',
+      phase: 'resume_disconnected',
+      label: 'Automatic continuation paused: output connection lost',
+    },
+    true,
+    false,
+  )
+})
+
 test('a running turn or a pending user request is refused without waiting', async () => {
   for (const snapshot of [
     { ...settling, state: 'active' as const },

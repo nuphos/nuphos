@@ -1,4 +1,5 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { AppError } from '@/lib/errors'
 import { RunHandoff } from '@/lib/lifecycle'
 
 import { registry } from './agent-chat-registry'
@@ -120,8 +121,12 @@ export async function runClaudeCodePreviewPrompt(args: {
 
   if (observed.schemaVersion === 2 && observed.phase === 'resume_disconnected') {
     await resumeSessionOn(session, await registry.acquire(session.teamId, session.endpoint))
-    throw new Error(
-      'Reconnected to the agent; it is continuing after a background task. Send again once it finishes.',
+    // The same refusal admission gives a busy runtime: the client keeps the
+    // message queued and sends it once the continuation finishes.
+    throw new AppError(
+      409,
+      'runtime_not_accepting_message',
+      'Reconnected to the agent; it is continuing after a background task. Your message is queued until it finishes.',
     )
   }
   if (observed.schemaVersion !== 2 || !(observed.actions as { send?: boolean } | undefined)?.send)

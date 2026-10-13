@@ -135,7 +135,12 @@ test('a busy runtime is rejected without loading or prompting a replacement sock
 test('re-attaches a continuation parked on a lost output connection instead of leaving it stuck', async () => {
   sendAllowed = false
   phase = 'resume_disconnected'
-  await expect(run()).rejects.toThrow('continuing after a background task')
+  // Refused like any busy runtime, so the client parks the message instead of failing the turn.
+  await expect(run()).rejects.toMatchObject({
+    status: 409,
+    code: 'runtime_not_accepting_message',
+    message: expect.stringContaining('continuing after a background task'),
+  })
   expect(calls).toEqual(['observe-control', 'load'])
   expect(sessionsByConversation.get('team:conversation')?.client).toBe(replacement)
 })
