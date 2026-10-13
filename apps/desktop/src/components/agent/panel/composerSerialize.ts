@@ -111,9 +111,11 @@ export function insertTextIntoEditor(
     range.collapse(false)
   }
   const before = readEditorText(el)
+  // A multi-line block starts on its own line; inline text only needs a space.
+  const block = text.includes('\n')
 
-  if (before && !/\s$/.test(before)) {
-    range.insertNode(document.createTextNode(' '))
+  if (before && !(block ? /\n$/ : /\s$/).test(before)) {
+    range.insertNode(document.createTextNode(block ? '\n' : ' '))
     range.collapse(false)
   }
   const node = document.createTextNode(text)

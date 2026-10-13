@@ -197,7 +197,7 @@ struct ModelSettingsSheet: View {
                                         .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
-                                    .disabled(!config.isEditable || saving || (session != nil && (session?.canManage != true || error != nil)))
+                                    .disabled(!config.isEditable || saving || (session != nil && (session?.ownsChat != true || error != nil)))
                                 }
                             }
                             .listRowBackground(Theme.surface)

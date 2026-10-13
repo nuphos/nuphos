@@ -57,12 +57,6 @@ export function SidebarItemContextMenu({
                 onSelect: () =>
                   renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
               },
-              {
-                key: 'archive',
-                label: 'Archive chat',
-                icon: Archive,
-                onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
-              },
               ...(menu.item.parentKey
                 ? [
                     {
@@ -73,6 +67,17 @@ export function SidebarItemContextMenu({
                     },
                   ]
                 : []),
+            ]
+          : []),
+        ...(menu.item.key.startsWith('agent-session:') &&
+        (!menu.item.readOnlyChat || menu.item.managedChat)
+          ? [
+              {
+                key: 'archive',
+                label: 'Archive chat',
+                icon: Archive,
+                onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
+              },
             ]
           : []),
       ]}
