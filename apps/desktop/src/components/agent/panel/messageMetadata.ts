@@ -28,5 +28,8 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
     },
     source: m.source,
     sentAt: m.sentAt,
+    ...(typeof m.sourceSessionId === 'string' && m.sourceSessionId
+      ? { sourceSessionId: m.sourceSessionId }
+      : {}),
   }
 }

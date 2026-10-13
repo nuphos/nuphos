@@ -37,7 +37,7 @@ export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentCon
 
 export async function authorizeThreadDelivery(
   data: ThreadActor & { targetSessionId: string },
-): Promise<AgentConversation> {
+): Promise<{ source: AgentConversation; target: AgentConversation }> {
   const source = await authorizeThreadActor(data)
   const target = await getConversationBySessionId(data.targetSessionId)
 
@@ -51,7 +51,7 @@ export async function authorizeThreadDelivery(
     throw new Error('Target must be another unarchived conversation you own in this team.')
   }
 
-  return target
+  return { source, target }
 }
 
 function receipt(actor: ThreadActor, threadId: string, messageId: string) {
@@ -139,7 +139,7 @@ export async function updateThread(
   threadId: string,
   change: { fullAccess?: boolean; runtimeId?: string },
 ) {
-  const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
+  const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
   // Who opened it, not who it is nested under now: adopting a conversation must
   // not hand over control of it.
@@ -181,13 +181,13 @@ export async function updateThread(
 }
 
 export async function executeThreadTurn(data: ThreadTurn): Promise<void> {
-  const target = await authorizeThreadDelivery(data)
+  const { source, target } = await authorizeThreadDelivery(data)
   // Lazy so importing the tools does not pull in the route graph.
   const { executeConversationTurn } = await import('./conversation-turn')
 
   await executeConversationTurn(data, target, data.prompt, 'agent.thread', {
     version: 1,
-    sender: { type: 'agent', id: data.sessionId, displayName: 'Nuphos agent' },
+    sender: { type: 'agent', id: data.sessionId, displayName: source.title || 'Nuphos agent' },
     source: 'agent.thread',
     sourceSessionId: data.sessionId,
     sentAt: new Date().toISOString(),

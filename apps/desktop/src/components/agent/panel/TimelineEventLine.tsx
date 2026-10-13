@@ -34,7 +34,7 @@ function Runtime({ runtime }: { runtime: AgentTimelineRuntime }) {
   )
 }
 
-function Rule({ children, title }: { children: ReactNode; title?: string }) {
+export function Rule({ children, title }: { children: ReactNode; title?: string }) {
   return (
     <div className="flex items-center gap-2 text-[11.5px] text-tertiary" title={title}>
       <div className="h-px flex-1 bg-border/60" />

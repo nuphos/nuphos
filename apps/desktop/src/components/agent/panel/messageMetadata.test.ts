@@ -32,3 +32,15 @@ for (const [source, type, displayName] of [
     )
   })
 }
+
+test('agent.thread keeps the session it came from', () => {
+  const metadata = {
+    version: 1,
+    sender: { type: 'agent', id: 'source', displayName: 'Review PRs' },
+    source: 'agent.thread',
+    sourceSessionId: 'source',
+    sentAt: '2026-10-11T00:00:00Z',
+  }
+
+  assert.equal(parseMessageMetadata(metadata)?.sourceSessionId, 'source')
+})
