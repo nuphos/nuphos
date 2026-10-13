@@ -139,6 +139,7 @@ export function useSidebarFavorites({
         // A pinned chat keeps its chat row identity, so its threads nest and
         // fold under it in Pinned exactly as they do in Chats.
         key: sessionId ? `${AGENT_SESSION_KEY_PREFIX}${sessionId}` : identity,
+        href,
         parentKey: live?.parentKey,
         foldedStatus: live?.foldedStatus,
         readOnlyChat: live?.readOnlyChat,
