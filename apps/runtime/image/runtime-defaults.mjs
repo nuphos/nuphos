@@ -166,6 +166,11 @@ export async function nuphosTraceRestore(params, operation, restore) {
         }
         const line = `${JSON.stringify(snapshot)}\n`
         try {
+          process.stderr.write(line)
+        } catch {
+          /* Diagnostics cannot fail a restore. */
+        }
+        try {
           fs.writeFileSync(temporary, line, { mode: 0o600 })
           fs.renameSync(temporary, file)
         } catch {
@@ -174,11 +179,6 @@ export async function nuphosTraceRestore(params, operation, restore) {
           } catch {
             /* Best effort only. */
           }
-        }
-        try {
-          process.stderr.write(line)
-        } catch {
-          /* Diagnostics cannot fail a restore. */
         }
       }
     } catch {
