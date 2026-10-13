@@ -109,7 +109,7 @@ for k in ("accessToken", "projectId", "serviceAccountEmail", "expiresAt"):
       config_path="$config_dir/config_\${config_name}"
       umask 077
       printf '%s' "$accessToken" > "$token_path"
-      printf '%s\\n' "$config_name" > "$token_dir/active_config"
+      printf '%s' "$config_name" > "$token_dir/active_config"
       cat > "$config_path" <<EOF
 [auth]
 access_token_file = $token_path

@@ -156,7 +156,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         else void move(runtimeId)
       },
       selectDisabled: tab?.streaming || moving,
-      quota: tab?.runtimeId ? runtimeQuotas.get(tab.runtimeId) : undefined,
+      quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',
       loading: runtimeInstancesLoading,

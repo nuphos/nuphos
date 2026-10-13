@@ -16,6 +16,8 @@ type TerminalSession = {
   /** Output so far, so a view that remounted can replay what it missed. */
   events: LocalTerminalEvent[]
   bufferedBytes: number
+  /** A view already replayed this output, so its terminal queries were answered. */
+  replayed: boolean
   exited: boolean
   agentScope?: string
 }
@@ -87,6 +89,7 @@ export class LocalTerminalSessions {
       shell,
       events: [],
       bufferedBytes: 0,
+      replayed: false,
       exited: false,
       agentScope,
     }
@@ -146,7 +149,13 @@ export class LocalTerminalSessions {
   }
 
   replay(owner: WebContents, id: string): void {
-    for (const event of this.owned(owner, id).events.slice()) {
+    const session = this.owned(owner, id)
+    const end = { id, type: 'replayed', resumed: session.replayed } as const
+
+    session.replayed = true
+    // The end marker shares the event channel so it arrives after the replayed
+    // data; the invoke's own reply can overtake them.
+    for (const event of [...session.events, end]) {
       if (!owner.isDestroyed()) owner.send('local-terminal:event', event)
     }
   }

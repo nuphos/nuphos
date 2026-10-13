@@ -55,8 +55,9 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
     terminal.focus()
     terminal.writeln('Connecting…')
 
+    let ready = false
     const dataDisposable = terminal.onData((data) => {
-      void api.sshTerminalInput(sessionId, data)
+      if (ready) void api.sshTerminalInput(sessionId, data)
     })
     const unsubscribe = api.onSshTerminalEvent((event) => {
       if (event.id !== sessionId) return
@@ -70,6 +71,15 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
           sessionId,
         })
         terminal.writeln(`\r\nConnection error: ${event.message}`)
+      } else if (event.type === 'replayed') {
+        // A resumed shell already answered the queries in its replayed output;
+        // hold input until xterm has parsed it, or its second answers land on
+        // the prompt as text. A new shell may still be waiting for them.
+        if (event.resumed)
+          terminal.write('', () => {
+            ready = true
+          })
+        else ready = true
       } else {
         const detail = event.signal ? `signal ${event.signal}` : `code ${String(event.code ?? 0)}`
 

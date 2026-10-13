@@ -9,7 +9,6 @@ struct ToolCallRow: View {
     var canDecide: Bool
     let session: ChatSession
     var onOpen: () -> Void
-    var onAlwaysAllow: () -> Void
 
     private var isRunning: Bool { part.state == .inputStreaming || part.state == .inputAvailable || part.state == .approvalResponded }
     private var command: String? { part.command }
@@ -57,7 +56,7 @@ struct ToolCallRow: View {
             .buttonStyle(.plain)
 
             if part.state == .approvalRequested {
-                ApprovalActions(part: part, enabled: canDecide, session: session, onAlwaysAllow: onAlwaysAllow)
+                ApprovalActions(part: part, enabled: canDecide, session: session)
             } else if let note = authorizationNote {
                 Text(note)
                     .font(Theme.Text.caption)
@@ -125,16 +124,14 @@ struct ToolCallRow: View {
     }
 }
 
-/// Approve once / for session / always / deny — for a tool call waiting on
-/// the user. Only the newest pending call is enabled.
+/// Approve once / deny — for a tool call waiting on the user. Only the
+/// newest pending call is enabled.
 struct ApprovalActions: View {
     let part: ChatPart.ToolPart
     var enabled: Bool
     let session: ChatSession
-    var onAlwaysAllow: () -> Void
 
     private var reason: String? { part.authorization?["reason"]?.stringValue }
-    private var isOpenAB: Bool { part.approval?.source == "openab" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -146,28 +143,13 @@ struct ApprovalActions: View {
             .foregroundStyle(Theme.body)
 
             if enabled {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Button { session.decide(toolCallId: part.toolCallId, .once) } label: {
-                            Text("Approve once").foregroundStyle(Theme.canvas)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        if isOpenAB {
-                            Button("Deny", role: .destructive) { session.decide(toolCallId: part.toolCallId, .deny) }
-                                .buttonStyle(.bordered)
-                        } else {
-                            Button("For session") { session.decide(toolCallId: part.toolCallId, .session) }
-                                .buttonStyle(.bordered)
-                        }
+                HStack(spacing: 8) {
+                    Button { session.decide(toolCallId: part.toolCallId, .once) } label: {
+                        Text("Approve once")
                     }
-                    if !isOpenAB {
-                        HStack(spacing: 8) {
-                            Button("Always allow…", action: onAlwaysAllow)
-                                .buttonStyle(.bordered)
-                            Button("Deny", role: .destructive) { session.decide(toolCallId: part.toolCallId, .deny) }
-                                .buttonStyle(.bordered)
-                        }
-                    }
+                    .prominentButton()
+                    Button("Deny", role: .destructive) { session.decide(toolCallId: part.toolCallId, .deny) }
+                        .buttonStyle(.bordered)
                 }
                 .controlSize(.small)
                 .font(Theme.Text.label.weight(.medium))
@@ -191,7 +173,6 @@ struct ToolRunView: View {
     var live: Bool
     let session: ChatSession
     var onOpen: (ChatPart.ToolPart) -> Void
-    var onAlwaysAllow: (ChatPart.ToolPart) -> Void
 
     @State private var userOpen: Bool?
     @State private var attentionFor: String?
@@ -236,7 +217,7 @@ struct ToolRunView: View {
                     ForEach(items) { item in
                         switch item {
                         case .tool(let part, let canDecide):
-                            ToolLineRow(part: part, canDecide: canDecide, session: session, onOpen: { onOpen(part) }, onAlwaysAllow: { onAlwaysAllow(part) })
+                            ToolLineRow(part: part, canDecide: canDecide, session: session, onOpen: { onOpen(part) })
                         case .thinking(_, let part):
                             ReasoningTile(part: part)
                         }
@@ -264,7 +245,6 @@ struct ToolLineRow: View {
     var canDecide: Bool
     let session: ChatSession
     var onOpen: () -> Void
-    var onAlwaysAllow: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -283,7 +263,7 @@ struct ToolLineRow: View {
             .buttonStyle(.plain)
 
             if part.state == .approvalRequested {
-                ApprovalActions(part: part, enabled: canDecide, session: session, onAlwaysAllow: onAlwaysAllow)
+                ApprovalActions(part: part, enabled: canDecide, session: session)
             } else if let note = Self.decisionNote(for: part) {
                 Text(note).font(Theme.Text.caption).italic().foregroundStyle(Theme.muted)
             }

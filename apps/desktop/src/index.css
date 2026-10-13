@@ -2136,18 +2136,28 @@ html.platform-darwin:not(.window-fullscreen)
 /* Small resource labels need theme-specific contrast, including hover fills. */
 :root {
   --resource-linear: #a4adff;
+  --resource-started: #f2c94c;
+  --resource-triage: #fc7840;
   --resource-open: #66d98c;
   --resource-merged: #c4a2ff;
   --resource-closed: #ff9aa3;
 }
 html.light {
   --resource-linear: #505fc4;
+  --resource-started: #9a6700;
+  --resource-triage: #c2410c;
   --resource-open: #16713a;
   --resource-merged: #7541b1;
   --resource-closed: #b42332;
 }
 .session-resource-linear {
   color: var(--resource-linear);
+}
+.session-resource-triage {
+  color: var(--resource-triage);
+}
+.session-resource-started {
+  color: var(--resource-started);
 }
 .session-resource-open {
   color: var(--resource-open);

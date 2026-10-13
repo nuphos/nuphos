@@ -120,21 +120,22 @@ test('output missed while the view was unmounted is replayed, not lost or double
   send(target, session, { id, type: 'data', data: 'before' })
   assert.deepEqual(
     sent.map((e) => (e.type === 'data' ? e.data : e.type)),
-    ['before'],
+    ['replayed', 'before'],
   )
 
   // The dock swapped chat session: the view unmounted, the session did not.
   detachPodExecSession(id)
   send(target, session, { id, type: 'data', data: 'while-away' })
-  assert.equal(sent.length, 1, 'nothing is streamed at a listener that is gone')
+  assert.equal(sent.length, 2, 'nothing is streamed at a listener that is gone')
 
   // Back again: the fresh xterm is repainted from the buffer, once.
   sent.length = 0
   replayPodExecSession(target, id)
   assert.deepEqual(
     sent.map((e) => (e.type === 'data' ? e.data : e.type)),
-    ['before', 'while-away'],
+    ['before', 'while-away', 'replayed'],
   )
+  assert.deepEqual(sent.at(-1), { id, type: 'replayed', resumed: true })
 
   sent.length = 0
   send(target, session, { id, type: 'data', data: 'after' })

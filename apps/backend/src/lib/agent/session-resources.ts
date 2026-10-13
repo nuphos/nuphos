@@ -48,6 +48,8 @@ export type SessionResource = {
   title: string
   url: string
   state: string
+  /** Linear workflow state type (backlog, unstarted, started, completed, canceled, triage). */
+  stateType?: string
   repository?: string
   number?: number
   linkedAt: string
@@ -176,9 +178,9 @@ async function resolveResource(
         identifier: string
         title: string
         url: string
-        state: { name: string }
+        state: { name: string; type: string }
       } | null
-    }>(token, 'query($id:String!){issue(id:$id){id identifier title url state{name}}}', {
+    }>(token, 'query($id:String!){issue(id:$id){id identifier title url state{name type}}}', {
       id: input.issueId,
     }),
   )
@@ -194,6 +196,7 @@ async function resolveResource(
     title: `${issue.identifier} ${issue.title}`.slice(0, 300),
     url: issue.url,
     state: issue.state.name,
+    stateType: issue.state.type,
   }
 }
 
@@ -273,6 +276,7 @@ export async function refreshSessionResource(
         'linkedResources.$.title': fresh.title,
         'linkedResources.$.state': fresh.state,
         'linkedResources.$.url': fresh.url,
+        ...(fresh.stateType ? { 'linkedResources.$.stateType': fresh.stateType } : {}),
       },
     },
   )
