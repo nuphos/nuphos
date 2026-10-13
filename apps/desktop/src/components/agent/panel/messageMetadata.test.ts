@@ -53,6 +53,7 @@ test('agent.thread keeps known runtime icons and drops unknown providers', () =>
     sourceSessionId: 'source',
     sentAt: '2026-10-11T00:00:00Z',
   }
+
   assert.equal(parseMessageMetadata(metadata)?.sender.agentRuntime, 'codex')
   assert.equal(
     parseMessageMetadata({ ...metadata, sender: { ...metadata.sender, agentRuntime: 'unknown' } })
