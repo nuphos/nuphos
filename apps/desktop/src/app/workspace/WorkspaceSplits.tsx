@@ -90,8 +90,7 @@ export function WorkspaceSplits({
         sessionId: seed?.sessionId ?? null,
       })
       setLayout((value) => splitPane(value, from, id, direction))
-      // A chat opened beside leaves the pane it was opened from in focus.
-      if (!seed) setActiveId(id)
+      setActiveId(id)
 
       return id
     },
