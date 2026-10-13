@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   dispatchedDraft,
+  markAutoSend,
   nextAutoSend,
   parkRefusedTurn,
   pumpAutoSend,
@@ -77,6 +78,23 @@ test('a refusal with nothing to resend only clears the transport', () => {
 
   assert.equal(parked.streaming, false)
   assert.equal(parked.queued, undefined)
+})
+
+test('a draft the user sends, or a steer the turn outran, waits in place for the next turn', () => {
+  const waiting = tab({
+    queued: [
+      { id: 'first', text: 'first', filePaths: [], autoSend: true },
+      { id: 'late', text: 'late', filePaths: [], steering: true },
+      { id: 'draft', text: 'draft', filePaths: [] },
+    ],
+  })
+
+  assert.deepEqual(markAutoSend(waiting, 'late').queued, [
+    { id: 'first', text: 'first', filePaths: [], autoSend: true },
+    { id: 'late', text: 'late', filePaths: [], steering: false, autoSend: true },
+    { id: 'draft', text: 'draft', filePaths: [] },
+  ])
+  assert.equal(nextAutoSend(markAutoSend(waiting, 'draft'))?.id, 'first')
 })
 
 test('a queued message is sent only once a fresh status allows send', async () => {
