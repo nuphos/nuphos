@@ -170,5 +170,6 @@ test('thread runtime attribution survives storage parsing', () => {
     sourceSessionId: 'source',
     sentAt: '2026-10-13T00:00:00Z',
   }
+
   expect(parseMessageMetadata(message)?.sender.agentRuntime).toBe('claude-code')
 })
