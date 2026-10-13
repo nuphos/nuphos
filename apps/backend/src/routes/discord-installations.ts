@@ -28,9 +28,14 @@ export const discordInstallationsRoutes = new Hono<{ Variables: TeamAuthVariable
 
 discordInstallationsRoutes.get('/', async (c) => {
   const connection = await getDiscordConnection(c.get('teamId'), c.get('userId'))
-  // Looked up live so existing links get a name too; a failed lookup leaves the id.
+  // Looked up live so existing links get a name too. The name is display-only, so
+  // a slow, rate-limited or failed lookup gives up and leaves the id. A race, not
+  // an abort signal: discordApi's 429 back-off sleep would outlast the signal.
   const user = connection.linkedDiscordUserId
-    ? await getDiscordUser(connection.linkedDiscordUserId).catch(() => null)
+    ? await Promise.race([
+        getDiscordUser(connection.linkedDiscordUserId).catch(() => null),
+        new Promise<null>((resolve) => setTimeout(resolve, 2000, null)),
+      ])
     : null
 
   return c.json({ ...connection, linkedDiscordUsername: user?.username ?? null })
