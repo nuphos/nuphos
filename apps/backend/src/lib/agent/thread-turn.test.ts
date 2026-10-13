@@ -9,7 +9,7 @@ import {
   clearPendingUserMessages,
   enqueuePendingUserMessage,
 } from './pending-messages'
-import { executeThreadTurn } from './thread-turn'
+import { startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
@@ -94,7 +94,10 @@ afterEach(async () => {
 })
 
 test('idle target wakes through the normal runner and keeps transcript, actor and approvals', async () => {
-  await executeThreadTurn(data)
+  const { status, run } = await startThreadTurn(data)
+
+  expect(status).toBe('started')
+  await run
   expect(runs).toHaveLength(1)
   expect(runs[0]).toMatchObject({
     userId: 'owner',
@@ -130,7 +133,7 @@ test('busy target queues without blocking the sending thread or starting a secon
       return { status: 'completed' }
     },
   })
-  await executeThreadTurn(data)
+  expect((await startThreadTurn(data)).status).toBe('delivered')
   expect(claims[0]?.message.renderedText).toBe('CI passed')
   expect(claims[0]?.message.metadata?.sourceSessionId).toBe('source')
   expect(runs).toHaveLength(0)
@@ -151,7 +154,9 @@ test('recovered pending messages include the delivery exactly once', async () =>
       return { status: 'completed' }
     },
   })
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(JSON.stringify(runs[0]?.messages).match(/CI passed/g)).toHaveLength(1)
   expect(runs[0]?.messages[1]?.metadata).toMatchObject({
     source: 'agent.thread',
@@ -161,7 +166,9 @@ test('recovered pending messages include the delivery exactly once', async () =>
 
 test('redelivery of an already accepted message does not repeat work', async () => {
   alreadyAccepted = true
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(runs).toHaveLength(0)
   expect(claims).toHaveLength(0)
 })
@@ -171,7 +178,9 @@ test('redelivery already queued on a busy target does not enqueue twice', async 
     ...buildPendingUserMessage({ renderedText: 'CI passed', source: 'agent.thread' }),
     id: data.messageId,
   })
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(claims).toHaveLength(0)
   expect(runs).toHaveLength(0)
 })
@@ -187,13 +196,13 @@ test('runner failure releases the claim and fails the durable job', async () => 
     }),
     runAgentForTrigger: async () => ({ status: 'failed' }),
   })
-  await expect(executeThreadTurn(data)).rejects.toThrow('Thread run failed')
+  await expect(startThreadTurn(data).then(({ run }) => run)).rejects.toThrow('Thread run failed')
   expect(released).toBe(1)
 })
 
 test('full pending queue is an error, not a delivery receipt', async () => {
   installTurnRunner({ claimAgentRunOrEnqueue: async () => ({ mode: 'dropped' }) })
-  await expect(executeThreadTurn(data)).rejects.toThrow('could not be queued')
+  await expect(startThreadTurn(data).then(({ run }) => run)).rejects.toThrow('could not be queued')
 })
 
 test('recovered batch preserves every delivery ID and metadata across redelivery', async () => {
@@ -232,9 +241,15 @@ test('recovered batch preserves every delivery ID and metadata across redelivery
       return { status: 'completed' }
     },
   })
-  await executeThreadTurn(data)
-  await executeThreadTurn({ ...data, messageId: earlier.id, prompt: earlier.renderedText })
-  await executeThreadTurn(data)
+  await (
+    await startThreadTurn(data)
+  ).run
+  await (
+    await startThreadTurn({ ...data, messageId: earlier.id, prompt: earlier.renderedText })
+  ).run
+  await (
+    await startThreadTurn(data)
+  ).run
   expect(runs).toHaveLength(1)
   expect(claims).toHaveLength(1)
   expect(released).toBe(1)

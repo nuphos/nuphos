@@ -37,7 +37,14 @@ struct AgentDetailView: View {
             Section("Usage") {
                 if let quota, quota.available {
                     ForEach(quota.windows, id: \.label) { window in
-                        LabeledContent(window.label, value: "\(Int(window.usedPercent.rounded()))% used")
+                        LabeledContent(window.label) {
+                            HStack(spacing: 8) {
+                                QuotaGauge(window: window).frame(width: 60)
+                                Text("\(window.leftPercent)% left")
+                                    .monospacedDigit()
+                                    .foregroundStyle(window.labelTint ?? .secondary)
+                            }
+                        }
                     }
                 } else {
                     Text(quota?.reason ?? "Unavailable").foregroundStyle(.secondary)

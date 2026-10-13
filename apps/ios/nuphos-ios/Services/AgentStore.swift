@@ -257,6 +257,13 @@ final class AgentStore {
     private var loadedPageCursors: [String] = []
     private var refreshPageIndex = 0
 
+    /// The viewer's own sessions whose title or first message contains
+    /// `query`, newest first, other than `excluded` — what an `@` offers.
+    func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {
+        guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, limit: 6, scope: .mine, search: query) else { return [] }
+        return Array(page.conversations.filter { $0.sessionId != excluded }.prefix(5))
+    }
+
     // MARK: - Composer settings (IAM + permission mode)
 
     private static let permissionModeKey = "nuphos.agentPermissionMode"

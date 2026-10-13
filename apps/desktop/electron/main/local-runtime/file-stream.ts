@@ -32,7 +32,7 @@ export class LocalFileStream implements SocketLike {
   send(input: string): void {
     if (this.readyState !== 1 || this.child) return
     if (input.length > 16384) return this.close()
-    let request: { sessionId?: unknown; path?: unknown; action?: unknown }
+    let request: { path?: unknown; action?: unknown }
 
     try {
       request = JSON.parse(input)
@@ -66,11 +66,9 @@ export class LocalFileStream implements SocketLike {
     })
     child.stdin.end(
       JSON.stringify({
-        sessionId: request.sessionId,
         path: request.path,
         action: request.action,
         workspace: this.workspace,
-        workspaceScope: 'local-user',
       }),
     )
   }

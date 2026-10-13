@@ -92,7 +92,8 @@ type Props = {
    *  audit views must never expose approve/composer/fork. */
   sessionReadOnly?: boolean
   /** Called when AgentPanel changes which session it is showing. */
-  onSessionChange?: (sessionId: string | null) => void
+  /** `unshown`: the chat the panel left without ever showing it (it could not be opened). */
+  onSessionChange?: (sessionId: string | null, unshown?: string) => void
   /** Opens Nuphos markdown links from assistant messages inside the desktop workspace. */
   onOpenNuphosLink?: (href: string) => boolean
   /** Opens workspace Settings at the Claude Code/OpenAB setup section. */

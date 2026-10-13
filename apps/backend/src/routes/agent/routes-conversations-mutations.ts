@@ -7,9 +7,9 @@ import {
   recordAgentEvent,
   renameConversation,
   setConversationArchived,
+  setConversationParent,
   setMessageFeedback,
   syncConversationTranscript,
-  unlinkConversationParent,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
 import { conversationAccess, managesConversation } from '@/lib/agent/db/access'
@@ -33,6 +33,12 @@ import {
   resolveVerifiedTeamId,
 } from './team-scope'
 import { getFirstTranscriptMessage, normalizeTranscriptMessages } from './transcript'
+
+const parentBody = z
+  .object({ parentSessionId: z.string().min(1).nullable(), teamId: z.string().optional() })
+  .strict()
+const INVALID_PARENT =
+  'Parent must be another conversation you own in this team, not nested below it'
 
 agent.post('/conversations/:sessionId/messages/:messageId/feedback', async (c) => {
   const userId = c.get('userId')
@@ -167,13 +173,18 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   return c.json({ ok: true, archived: body.archived })
 })
 
-agent.delete('/conversations/:sessionId/parent', async (c) => {
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  const found = await unlinkConversationParent(c.req.param('sessionId'), c.get('userId'), teamId)
+// PUT { parentSessionId } nests the conversation; null or DELETE unlinks it.
+agent.on(['PUT', 'DELETE'], '/conversations/:sessionId/parent', async (c) => {
+  const { parentSessionId = null, teamId: candidate } =
+    c.req.method === 'PUT' ? parentBody.parse(await c.req.json()) : {}
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, candidate))
+  const sessionId = c.req.param('sessionId')
+  const result = await setConversationParent(sessionId, c.get('userId'), teamId, parentSessionId)
 
-  if (!found) throw new AppError(404, 'not_found', 'Conversation not found')
+  if (result === 'not_found') throw new AppError(404, 'not_found', 'Conversation not found')
+  if (result === 'invalid_parent') throw new AppError(400, 'invalid_parent', INVALID_PARENT)
 
-  return c.json({ ok: true })
+  return c.json({ ok: true, parentSessionId })
 })
 
 agent.put('/conversations/:sessionId/transcript', async (c) => {
