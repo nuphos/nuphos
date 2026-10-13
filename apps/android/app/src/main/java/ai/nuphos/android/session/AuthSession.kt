@@ -284,7 +284,12 @@ class AuthSession(
         state = State.SigningIn
         loginJob = scope.launch {
             try {
-                val received = AccountApi("").passwordSignIn(email, password)
+                val received = try {
+                    AccountApi("").passwordSignIn(email, password)
+                } catch (_: NuphosApi.Failure.Unauthorized) {
+                    if (generation == expected) state = State.SignedOut("The email or password is incorrect.")
+                    return@launch
+                }
                 val user = NuphosApi.currentUser(received)
                 ensureActive()
                 if (generation != expected || state !is State.SigningIn) return@launch
@@ -297,7 +302,9 @@ class AuthSession(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: NuphosApi.Failure.Unauthorized) {
-                if (generation == expected) state = State.SignedOut("The email or password is incorrect.")
+                if (generation == expected) state = State.SignedOut(NuphosApi.Failure.Unauthorized.message)
+            } catch (e: NuphosApi.Failure.Http) {
+                if (generation == expected) state = State.SignedOut(e.message)
             } catch (_: Exception) {
                 if (generation == expected) state = State.SignedOut("Password sign-in did not complete. Check your details and connection, then try again.")
             } finally {

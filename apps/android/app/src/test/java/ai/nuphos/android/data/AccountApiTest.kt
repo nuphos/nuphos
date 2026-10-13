@@ -39,6 +39,17 @@ class AccountApiTest {
         try { api.passwordSignIn("fixture@example.com", "fixture-password"); fail() }
         catch (_: NuphosApi.Failure.Unauthorized) { }
     }
+    @Test fun passwordLoginPreservesRateLimitInstructions() = runTest {
+        status = 429
+        response = """{"error":{"message":"Too many attempts. Try again in 15 minutes or use an email code"}}"""
+        try { api.passwordSignIn("fixture@example.com", "fixture-password"); fail() }
+        catch (e: NuphosApi.Failure.Http) {
+            assertEquals(429, e.code)
+            assertEquals("Too many attempts. Try again in 15 minutes or use an email code", e.message)
+        }
+        assertEquals(1, requests.size)
+    }
+
     @Test fun passwordLoginInvalidInputDoesNotSendCredentials() = runTest {
         for ((email, password) in listOf("" to "password", "a@b.com" to "", "a@b.com" to "p".repeat(129))) {
             try { api.passwordSignIn(email, password); fail() } catch (_: IllegalArgumentException) { }

@@ -176,7 +176,7 @@ fun LoginScreen(modifier: Modifier = Modifier) {
             androidx.compose.material3.TextButton(
                 onClick = { passwordMode = !passwordMode; password = "" }, enabled = !busy,
             ) { Text(if (passwordMode) "Continue with Google" else "Use a password") }
-            Text(
+            if (!passwordMode) Text(
                 stringResource(R.string.sign_in_hint),
                 modifier = Modifier.padding(top = 14.dp, bottom = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
