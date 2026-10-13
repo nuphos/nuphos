@@ -40,7 +40,10 @@ import {
   interruptToolSteps,
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
-import { createSteeringAttribution } from '@/lib/claude-code-preview/steering-receipt'
+import {
+  createSteeringAttribution,
+  steeringReceipt,
+} from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
 
@@ -162,8 +165,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
           return
         }
         if (update.kind === 'steering') {
-          const metadata = steeringAttribution()
-          const receipt = { id: update.id, text: update.text, ...(metadata ? { metadata } : {}) }
+          const receipt = steeringReceipt(update.id, update.text, steeringAttribution())
 
           orderedParts.appendSteering(receipt)
           state.emit({ type: 'data-steering', data: receipt })

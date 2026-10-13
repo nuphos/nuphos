@@ -220,26 +220,6 @@ enum AgentChatAPI {
 
     // MARK: Auto Mode
 
-    /// `POST /agent/auto-mode/session-approvals` — "Approve for session".
-    static func approveForSession(token: String, sessionId: String, command: String) async throws {
-        struct Body: Encodable { var sessionId: String; var command: String }
-        _ = try await send("POST", "agent/auto-mode/session-approvals", token: token, body: Body(sessionId: sessionId, command: command))
-    }
-
-    /// `POST /agent/auto-mode/policy/rules` — "Always allow…".
-    static func createPolicyRule(token: String, description: String) async throws {
-        struct Body: Encodable { var description: String }
-        _ = try await send("POST", "agent/auto-mode/policy/rules", token: token, body: Body(description: String(description.prefix(200))))
-    }
-
-    static func activatePolicyRule(token: String, ruleId: String) async throws {
-        _ = try await send("POST", "agent/auto-mode/policy/rules/\(ruleId)/activate", token: token, body: Optional<Int>.none)
-    }
-
-    static func deletePolicyRule(token: String, ruleId: String) async throws {
-        _ = try await send("DELETE", "agent/auto-mode/policy/rules/\(ruleId)", token: token, body: Optional<Int>.none)
-    }
-
     /// `GET /agent/auto-mode/bypass?sessionId=` → whether this conversation
     /// runs every command without asking.
     static func bypass(token: String, sessionId: String) async throws -> Bool {

@@ -1,10 +1,12 @@
 export type SessionResource = {
   id: string
-  /** Slack and Discord entries are the session's chat thread; they cannot be unlinked here. */
+  /** Slack and Discord entries are the session's chat thread; unlinking unbinds it. */
   provider: 'github' | 'linear' | 'slack' | 'discord'
   title: string
   url: string
   state: string
+  /** Linear workflow state type, e.g. `started` or `completed`. */
+  stateType?: string
   repository?: string
   number?: number
   linkedAt: string

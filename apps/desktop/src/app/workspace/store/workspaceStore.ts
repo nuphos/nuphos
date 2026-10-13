@@ -32,6 +32,8 @@ export type WorkspaceActions = {
     options?: { readOnly?: boolean; teamId?: string; keepMainPage?: boolean },
   ) => void
   openMainPage: (teamId: string) => void
+  stepSurface: (direction: -1 | 1) => void
+  forgetSession: (sessionId: string) => void
   setSessionReadOnly: (readOnly: boolean) => void
   switchTeam: (teamId: string) => void
   setDockOpen: (open: boolean) => void
@@ -98,6 +100,8 @@ export function createWorkspaceStore(
         resetHomeScroll: sessionId === null && !options?.keepMainPage,
       }),
     openMainPage: (teamId) => dispatch({ type: 'openMainPage', teamId }),
+    stepSurface: (direction) => dispatch({ type: 'stepSurface', direction }),
+    forgetSession: (sessionId) => dispatch({ type: 'forgetSession', sessionId }),
     setSessionReadOnly: (readOnly) => dispatch({ type: 'setSessionReadOnly', readOnly }),
     // The open session belongs to the team being left, so its dock is not
     // rewritten with the new team's tab: switching lands on a new chat instead.

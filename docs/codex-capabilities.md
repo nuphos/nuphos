@@ -13,18 +13,36 @@ MCP surface for either agent runtime, without patching another upstream bundle.
 
 1. Create a thread with a bounded task, completion condition, and a request to
    report back. The tool creates a visible conversation with the same owner,
-   team, runtime, and credential selection, then persists a background job.
+   team, runtime, credential selection, and permission mode (Full Access or Auto
+   Mode), then starts its first turn the same way a message typed into a new chat
+   does. The source can later change the thread with `update_thread`: switch it
+   between the two modes (Full Access requires the source itself to be in Full
+   Access) or move it, with its history, to another agent picked from
+   `list_agent_runtimes`, for example when it hits that agent's usage limit.
 2. Continue chatting in the source conversation while the worker runs.
 3. The worker calls `send_message_to_thread` with the source ID and its result.
-   The existing run claim starts an idle conversation or enqueues a message for
-   an active one. Agent-generated input is explicitly identified as such.
+   The existing run claim starts an idle conversation (`status: "started"`) or
+   delivers the message to an active one's turn (`status: "delivered"`).
+   Agent-generated input is explicitly identified as such.
 
 Both threads must belong to the acting user in the same team. The target runs
 with its own runtime and credential selection, which the same owner chose.
-Membership and ownership are checked again when the queued job executes. This deliberately does not grant an agent the
+Membership and ownership are checked again when the turn starts. This deliberately does not grant an agent the
 human user's full workspace-wide conversation capabilities. Shared conversations
 owned by another actor are not delegation sources. Existing list/read tools
 remain the discovery path.
+
+`set_thread_parent` regroups an existing thread under another conversation in
+the sidebar, such as a manager session collecting the threads it coordinates;
+a null parent unlinks it. It is the same operation as
+`PUT /agent/conversations/:sessionId/parent`, with the same ownership and team
+checks, and refuses a parent nested below the thread.
+
+`archive_thread` archives a conversation the actor owns in the current team,
+or restores it with `archived=false`. The current conversation is supported.
+The tool verifies source ownership, current membership, and target ownership
+and team. Archiving does not cancel an active turn; a new human message restores
+the conversation.
 
 The Redis trigger scheduler must be running: there is no detached-process
 fallback. Queue acceptance means **queued**, not completed. A stalled job that

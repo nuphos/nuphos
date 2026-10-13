@@ -5,6 +5,7 @@ import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
+import { sharedChatSection, withChatSections } from './chat-sections'
 import {
   SidebarHeaderBar,
   SidebarTeamSwitcher,
@@ -16,7 +17,7 @@ import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
 import { SidebarItemContextMenu } from './item-context-menu'
 import { SidebarSectionList } from './sections-list'
-import { sharedChatSection, teamSections, withChatSections } from './sections-services'
+import { teamSections } from './sections-services'
 import { settingsBackTarget } from './types'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'

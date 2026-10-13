@@ -227,13 +227,6 @@ export type WorkspaceTabState = {
   navHistoryIndex: number
   agentSessionId: string | null
   /**
-   * Whether the Agent page's conversation rail is open in THIS tab. Per tab
-   * rather than a global preference: two tabs are two things being looked at,
-   * and one wanting the list says nothing about the other. Absent — which is
-   * every new tab — means collapsed; the page is a conversation first.
-   */
-  agentRailCollapsed?: boolean
-  /**
    * Tab-strip label carried over from a persisted session, used only until the
    * tab is first activated and its content mounts (which recomputes `pageMeta`
    * with the live title). Lets restored-but-unmounted tabs — especially agent
