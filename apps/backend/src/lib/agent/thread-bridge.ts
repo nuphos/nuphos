@@ -12,6 +12,7 @@ import {
   getConversationBySessionId,
   recordAgentEvent,
   setConversationArchived,
+  setConversationParent,
   upsertConversationShell,
 } from './db'
 
