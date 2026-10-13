@@ -152,9 +152,20 @@ jobs:
           APP_ID: '6812533633'
           GROUP: External Beta
           BUILD_NUMBER: ${{ steps.build.outputs.number }}
+          ASC_VERSION: 5.14.3
+          ASC_SHA256: 8445a2110c4472e926bac69cf90ebcec91a28e4eb142b6d2c81fc4addb16aaae
         run: |
           set -euo pipefail
-          brew install asc >/dev/null 2>&1 || brew upgrade asc >/dev/null 2>&1 || true
+          # Pinned: the steps below use subcommands and flags that older asc
+          # builds lack, and Homebrew on the runner does not always give the
+          # newest one.
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bin/asc" \
+            "https://github.com/rudrankriyam/App-Store-Connect-CLI/releases/download/$ASC_VERSION/asc_${ASC_VERSION}_macOS_arm64"
+          echo "$ASC_SHA256  $RUNNER_TEMP/bin/asc" | shasum -a 256 -c - >/dev/null
+          chmod +x "$RUNNER_TEMP/bin/asc"
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           asc auth login --bypass-keychain --skip-validation --name ci \
             --key-id "$KEY_ID" --issuer-id "$ISSUER" --private-key "$KEY_PATH" >/dev/null
           STATE=''
