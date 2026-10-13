@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { test } from 'node:test'
 
 import { agentEnv, deriveControlKey, openabConfigToml, openabEnv } from './config.ts'
@@ -73,6 +76,30 @@ test('openab listens on loopback only, with a control key it cannot confuse with
     createHmac('sha256', transportKey).update('nuphos-runtime-control-v1').digest('hex'),
   )
   assert.equal(env.HOME, launch.openabHome)
+})
+
+test('the runtime offers only its bundled attachment program as a job', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'bundle-'))
+  const bundled = { ...launch, bundle: { ...launch.bundle, root } }
+
+  try {
+    assert.equal(openabEnv(bundled).OPENAB_RUNTIME_JOBS, undefined)
+    writeFileSync(path.join(root, 'attachment-job.mjs'), '')
+    const jobs = openabEnv(bundled).OPENAB_RUNTIME_JOBS
+
+    if (process.platform === 'win32') return assert.equal(jobs, undefined)
+    assert.equal(
+      jobs,
+      `attachments=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} ${path.join(root, 'attachment-job.mjs')}`,
+    )
+    // openab splits the command on whitespace, so a spaced path cannot run.
+    assert.equal(
+      openabEnv({ ...bundled, nodeExecPath: '/Apps/Nuphos 2.app/Nuphos' }).OPENAB_RUNTIME_JOBS,
+      undefined,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('the config quotes paths as TOML strings', () => {

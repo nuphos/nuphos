@@ -79,8 +79,9 @@ runs as its own device, so the desktop app on the same computer is unaffected;
 `NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
-the session id. A command that needs approval is denied unless `--approve` is
-given; the exit status is 0, 1 on error, or 2 when an approval was denied.
+the session id. New conversations use the mode last picked in `/full-access`
+(Full Access by default). In Full Access nothing asks for approval. In Auto Mode,
+a command that needs approval is denied unless `--approve` is given; the exit status is 0, 1 on error, or 2 when an approval was denied.
 
 Sign-in is shared with the desktop app: both read and write
 `~/.config/nuphos/cli.yaml` (`NUPHOS_CLI_CONFIG` overrides it), and the API
@@ -90,21 +91,22 @@ too. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
 
 In the composer:
 
-| Key                    | Action                                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `enter`                | send                                                                                                  |
-| `alt+enter` / `ctrl+j` | new line                                                                                              |
-| `esc`                  | stop the reply, or back to the latest                                                                 |
-| `↑` / `↓`, mouse wheel | scroll the conversation                                                                               |
-| `pgup` / `pgdn`        | scroll a page                                                                                         |
-| `ctrl+\`               | sessions: switch to another conversation                                                              |
-| `y` / `n`              | answer a command waiting for approval                                                                 |
-| `/model`               | model and reasoning effort                                                                            |
-| `/agents`              | the agents this team runs on: choose one, add a Nuphos-managed or self-hosted one, `l` to sign one in |
-| `/team`                | switch team                                                                                           |
-| `/new`, `/resume`      | start or continue a conversation                                                                      |
-| `/archive`             | archive this conversation, start a new one                                                            |
-| `/logout`, `/quit`     | sign out, exit                                                                                        |
+| Key                    | Action                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `enter`                | send                                                                                                   |
+| `alt+enter` / `ctrl+j` | new line                                                                                               |
+| `esc`                  | stop the reply, or back to the latest                                                                  |
+| `↑` / `↓`, mouse wheel | scroll the conversation                                                                                |
+| `pgup` / `pgdn`        | scroll a page                                                                                          |
+| `ctrl+\`               | sessions: switch to another conversation                                                               |
+| `y` / `n`              | answer a command waiting for approval                                                                  |
+| `/model`               | model and reasoning effort                                                                             |
+| `/full-access`         | switch Full Access: allow the agent's actions without asking; new conversations start in the last pick |
+| `/agents`              | the agents this team runs on: choose one, add a Nuphos-managed or self-hosted one, `l` to sign one in  |
+| `/team`                | switch team                                                                                            |
+| `/new`, `/resume`      | start or continue a conversation                                                                       |
+| `/archive`             | archive this conversation, start a new one                                                             |
+| `/logout`, `/quit`     | sign out, exit                                                                                         |
 
 The wheel scrolls through the terminal's alternate scroll mode, so the mouse is
 left alone and selecting text to copy works as usual. Scrolled up, the view

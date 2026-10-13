@@ -1,4 +1,5 @@
-import { ArrowLeft, ArrowRight, Globe, RotateCw, X } from 'lucide-react'
+import clsx from 'clsx'
+import { ArrowLeft, ArrowRight, Globe, MessageSquarePlus, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
@@ -6,15 +7,21 @@ import { BrowserLoadingProgress } from '../components/BrowserLoadingProgress'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
+import { BrowserCommentBox } from './browser/BrowserCommentBox'
+import { useBrowserComments } from './browser/useBrowserComments'
+
 import type { WebviewTag } from 'electron'
 
 /** Each mounted dock tab owns its webview and navigation history. */
 export function BrowserView({
   url,
   onNavigate,
+  onComment,
 }: {
   url?: string
   onNavigate?: (url: string) => void
+  /** Receives a page comment for the agent composer, with its screenshot. */
+  onComment?: (text: string, filePaths: string[]) => void
 }) {
   const [initialUrl] = useState(() => normalizeBrowserUrl(url ?? BROWSER_HOME_URL))
   const lastUrl = useRef(initialUrl)
@@ -33,6 +40,8 @@ export function BrowserView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  const comments = useBrowserComments(viewRef, onComment)
+  const { reset: resetComments } = comments
 
   useEffect(() => {
     const host = hostRef.current
@@ -55,6 +64,11 @@ export function BrowserView({
         onNavigateRef.current?.(currentUrl)
       }
       setNav({ back: view.canGoBack(), forward: view.canGoForward() })
+    }
+    const onDocument = () => {
+      // A new document drops comment mode along with the old page.
+      resetComments()
+      sync()
     }
     const onReady = () => {
       setReady(true)
@@ -80,7 +94,7 @@ export function BrowserView({
     }
 
     view.addEventListener('dom-ready', onReady)
-    view.addEventListener('did-navigate', sync)
+    view.addEventListener('did-navigate', onDocument)
     view.addEventListener('did-navigate-in-page', sync)
     view.addEventListener('did-start-loading', onStart)
     view.addEventListener('did-stop-loading', onStop)
@@ -91,7 +105,7 @@ export function BrowserView({
 
     return () => {
       view.removeEventListener('dom-ready', onReady)
-      view.removeEventListener('did-navigate', sync)
+      view.removeEventListener('did-navigate', onDocument)
       view.removeEventListener('did-navigate-in-page', sync)
       view.removeEventListener('did-start-loading', onStart)
       view.removeEventListener('did-stop-loading', onStop)
@@ -100,7 +114,7 @@ export function BrowserView({
       view.remove()
       viewRef.current = null
     }
-  }, [initialUrl])
+  }, [initialUrl, resetComments])
 
   useEffect(() => {
     if (lastRefresh.current === refreshKey) return
@@ -169,6 +183,19 @@ export function BrowserView({
             className="ml-1 h-7 min-w-0 flex-1 rounded-md bg-zGray-900 px-2.5 text-xs text-main outline-none focus:ring-1 focus:ring-zGray-600"
             placeholder="Search or enter URL"
           />
+          {onComment && (
+            <button
+              type="button"
+              className={clsx(buttonClass, comments.active && 'bg-zGray-800 text-main')}
+              disabled={!ready}
+              onClick={comments.toggle}
+              aria-pressed={comments.active}
+              aria-label="Comment on the page"
+              title={comments.active ? 'Exit comment mode (Esc)' : 'Comment on the page'}
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+            </button>
+          )}
           <BrowserLoadingProgress loading={loading} failed={error !== null} />
         </form>
         {error && (
@@ -179,7 +206,22 @@ export function BrowserView({
             Could not load this page: {error}. Check the address or reload to retry.
           </div>
         )}
-        <div ref={hostRef} className="min-h-0 flex-1" />
+        <div className="relative min-h-0 flex-1">
+          <div ref={hostRef} className="h-full" />
+          {comments.active && !comments.draft && (
+            <div className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full bg-zGray-900/90 px-3 py-1 text-xs text-secondary shadow">
+              Click an element to comment · Esc to exit
+            </div>
+          )}
+          {comments.draft && (
+            <BrowserCommentBox
+              key={comments.draft.selector}
+              rect={comments.draft.rect}
+              onSave={(note) => void comments.save(note)}
+              onCancel={comments.cancel}
+            />
+          )}
+        </div>
       </div>
     </PageMeta>
   )

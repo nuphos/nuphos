@@ -41,7 +41,9 @@ export function usePanelPermissions(acc: Acc) {
     readDefaultPermissionMode(localStorage),
   )
 
-  const activeSessionId = activeTab?.foreign ? null : (activeTab?.sessionId ?? null)
+  // Managers set their own Full Access in a shared conversation, as the owner does.
+  const activeSessionId =
+    activeTab?.foreign && !activeTab.canManage ? null : (activeTab?.sessionId ?? null)
   // Keep the locally selected mode while the first turn is being prepared.
   // Transcript sync may already have created a row, but /chat has not yet
   // initialized its authorization state. Reconcile after the turn settles.
@@ -120,7 +122,7 @@ export function usePanelPermissions(acc: Acc) {
       const tab = tabsRef.current.find((t) => t.id === activeId)
       const sessionId = tab?.sessionId
 
-      if (!sessionId || tab.readOnly || tab.foreign) return
+      if (!sessionId || tab.readOnly || (tab.foreign && !tab.canManage)) return
       if (bypass === (bypassBySession[sessionId] ?? false)) return
       applyBypass(sessionId, bypass)
     },

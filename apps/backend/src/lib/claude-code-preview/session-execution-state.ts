@@ -57,12 +57,20 @@ export async function conversationExecutionState(
       callTimeoutMs: 3_000,
     })
     await client.initialize()
-
-    return parseSessionExecutionState(
+    const state = parseSessionExecutionState(
       await client.getSessionExecutionState(
         attachment?.openabSessionId ?? 'sess_00000000-0000-0000-0000-000000000000',
       ),
     )
+
+    // A continuation parked on a lost output connection moves again only when
+    // a prompt reattaches it (runClaudeCodePreviewPrompt). The runtime says
+    // send:false; the clients wait for send:true before prompting; so nothing
+    // ever reattached it. Say what the backend will do: accept the prompt.
+    if (state.schemaVersion === 2 && state.phase === 'resume_disconnected' && state.actions)
+      return { ...state, actions: { ...state.actions, send: true } }
+
+    return state
   } catch (error) {
     return {
       state:
@@ -133,7 +141,12 @@ export async function steerConversationRuntime(
         [],
       )
     : []
-  const attachments = await materializeRuntimeAttachments(conversation.teamId, endpoint, files)
+  const attachments = await materializeRuntimeAttachments(
+    conversation.teamId,
+    conversation.userId,
+    endpoint,
+    files,
+  )
   const text = steeringText(
     steer.text,
     files.map((file) => file.name),
