@@ -17,6 +17,8 @@ export const CUA_RESULT_MAX_CHARS = 6 * 1024 * 1024
 export function fitFrame(result: CuaToolResult): CuaToolResult {
   if (JSON.stringify(result).length <= CUA_RESULT_MAX_CHARS) return result
   const text = result.content.filter((part) => (part as { type?: string }).type !== 'image')
+  const images = result.content.length - text.length
+  const megabytes = (JSON.stringify(result).length / 1024 / 1024).toFixed(1)
 
   if (JSON.stringify(text).length > CUA_RESULT_MAX_CHARS)
     return failed('The result was too large to send. Read a smaller part of the UI.')
@@ -27,7 +29,7 @@ export function fitFrame(result: CuaToolResult): CuaToolResult {
       ...text,
       {
         type: 'text',
-        text: 'The screenshot was too large to send. Take one of a single window or a smaller region instead.',
+        text: `${images} screenshot(s) totalling ${megabytes} MB were too large to send in one result and were dropped. Take fewer screenshots per call.`,
       },
     ],
   }
