@@ -41,6 +41,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -108,6 +109,8 @@ fun HomeRoute(
     connectorsStore: ConnectorsStore,
 ) {
     val membershipAuth = LocalAuthSession.current
+    // Keep the controller registered for Activity state restoration while memberships load.
+    val nav = rememberNavController()
     LaunchedEffect(agentStore) {
         val generation = membershipAuth.generation
         val token = membershipAuth.token
@@ -143,12 +146,67 @@ fun HomeRoute(
         LaunchedEffect(connectorsStore) {
             while (true) { delay(1000); connectorsStore.expire() }
         }
-        // Resolve the selected team before restoring a team-bound destination.
-        if (agentStore.selectedTeam == null && agentStore.teamsPhase in setOf(AgentStore.Phase.Idle, AgentStore.Phase.Loading)) {
-            SplashScreen()
-            return@CompositionLocalProvider
+        // Keep NavHost attached during membership loading so restored entries receive lifecycle events.
+        // Defer team-bound screens and link resolution until the selected workspace is known.
+        val membershipsLoading = agentStore.selectedTeam == null &&
+            agentStore.teamsPhase in setOf(AgentStore.Phase.Idle, AgentStore.Phase.Loading)
+        val links = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).conversationLinks
+        val pendingLink by links.value.collectAsState()
+        var linkError by remember(token, user.id) { mutableStateOf<String?>(null) }
+        LaunchedEffect(pendingLink, token, user.id, membershipAuth.generation, membershipAuth.aiAllowed, agentStore.workspaceRevision, membershipsLoading) {
+            if (membershipsLoading) return@LaunchedEffect
+            val request = pendingLink ?: return@LaunchedEffect
+            if (!membershipAuth.aiAllowed || membershipAuth.user?.id != user.id) return@LaunchedEffect
+            val generation = membershipAuth.generation
+            val workspaceRevision = agentStore.workspaceRevision
+            val access = AiAccess.bind(token)
+            fun current() = membershipAuth.generation == generation && membershipAuth.token == token &&
+                membershipAuth.user?.id == user.id && access() && links.value.value == request &&
+                agentStore.workspaceRevision == workspaceRevision
+            linkError = null
+            try {
+                val resolved = ai.nuphos.android.session.ConversationLinkAccess(
+                    memberships = { WorkspaceApi(token).memberships() },
+                    teamId = { team: ai.nuphos.android.model.Team -> team.id },
+                    conversation = { destination ->
+                        NuphosApi.conversationDetail(token, destination.teamId, destination.conversationId)
+                    },
+                ).resolve(request.destination, ::current)
+                // Navigation and workspace mutations require the Android main thread.
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                    if (!current()) return@withContext
+                    if (resolved == null) {
+                        links.complete(request)
+                        linkError = "This conversation is unavailable or your account does not have access."
+                    } else if (agentStore.acceptMemberships(resolved.first, resolved.second.id)) {
+                        nav.navigate("conversation/${android.net.Uri.encode(request.destination.conversationId)}") {
+                            popUpTo("home")
+                            launchSingleTop = true
+                        }
+                        links.complete(request)
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                    if (current()) {
+                        links.complete(request)
+                        linkError = when (e) {
+                            is NuphosApi.Failure.Unauthorized -> "Sign-in has expired. Sign in again to open this conversation."
+                            is NuphosApi.Failure.Http -> if (e.code == 403 || e.code == 404)
+                                "This conversation is unavailable or your account does not have access."
+                                else "We could not open this conversation. Please try the link again."
+                            else -> "We could not open this conversation. Check your connection and try the link again."
+                        }
+                    }
+                }
+            }
         }
-        val nav = rememberNavController()
+        linkError?.let { message ->
+            AlertDialog(onDismissRequest = { linkError = null }, title = { Text("Could not open conversation") },
+                text = { Text(message) }, confirmButton = { TextButton(onClick = { linkError = null }) { Text("OK") } })
+        }
         val notifications = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).localNotifications
         val pendingNotification by notifications.pending.value.collectAsState()
         val notificationAuth = LocalAuthSession.current
@@ -158,7 +216,9 @@ fun HomeRoute(
             if (target != null) nav.navigate("trigger-run/${android.net.Uri.encode(target.sessionId)}?teamId=${android.net.Uri.encode(target.teamId)}") { launchSingleTop = true }
         }
         NavHost(nav, startDestination = "home") {
-            composable("home") { HomeScreen(user, nav, monitoring, triggers, triggerRuns) }
+            composable("home") {
+                if (membershipsLoading) SplashScreen() else HomeScreen(user, nav, monitoring, triggers, triggerRuns)
+            }
             composable(
                 "conversation/{id}?fresh={fresh}",
                 arguments = listOf(
@@ -168,11 +228,13 @@ fun HomeRoute(
             ) { entry ->
                 val id = entry.arguments?.getString("id").orEmpty()
                 val fresh = entry.arguments?.getBoolean("fresh") == true
-                ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack() }, nav = nav)
+                if (membershipsLoading) SplashScreen()
+                else ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack() }, nav = nav)
             }
             composable("plan/{id}") { entry ->
                 val id = entry.arguments?.getString("id").orEmpty()
-                PlanDetailScreen(planId = id, nav = nav, teamId = agentStore.selectedTeam?.id)
+                if (membershipsLoading) SplashScreen()
+                else PlanDetailScreen(planId = id, nav = nav, teamId = agentStore.selectedTeam?.id)
             }
             composable(
                 "trigger-run/{id}?teamId={teamId}",
@@ -181,7 +243,8 @@ fun HomeRoute(
                     navArgument("teamId") { type = NavType.StringType },
                 ),
             ) { entry ->
-                ConversationScreen(
+                if (membershipsLoading) SplashScreen()
+                else ConversationScreen(
                     sessionId = entry.arguments?.getString("id").orEmpty(),
                     fresh = false,
                     onBack = { nav.popBackStack() },

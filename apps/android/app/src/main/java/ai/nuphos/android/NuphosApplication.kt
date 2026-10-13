@@ -5,6 +5,7 @@ import ai.nuphos.android.data.TokenStore
 import ai.nuphos.android.session.AuthSession
 
 class NuphosApplication : Application() {
+    val conversationLinks = ai.nuphos.android.session.PendingConversationLink()
     lateinit var localNotifications: ai.nuphos.android.notifications.LocalNotifications
         private set
     lateinit var tokenStore: TokenStore

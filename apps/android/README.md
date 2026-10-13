@@ -27,6 +27,14 @@ once the SDK licenses are accepted. The debug APK is for development and uses a
 local debug signing key. It is not a signed store release. An installed APK must
 use the same signing key to update without removing app data.
 
+For repeat device builds, keep an existing development key in a stable local
+`ANDROID_USER_HOME` and set that directory explicitly for every build. Verify
+that the key exists and that its certificate matches the installed APK before
+building or updating. Stop if it is missing or different; do not generate a
+replacement key, replace a global keystore, uninstall the app, or clear its data
+to bypass a signing mismatch. Keep private keys outside Git and public artifacts.
+Play app signing and CI upload keys remain separate from this development key.
+
 ## Service support
 
 The current app connects to `api.nuphos.ai`. Sign-in opens `nuphos.ai` in a
@@ -45,6 +53,43 @@ contains the API contracts used by the app. Managed cloud operations remain
 service-dependent and are not added to the self-hosted backend by this client.
 
 ## Tests
+
+### Conversation App Links
+
+The app accepts `https://nuphos.ai/teams/{teamId}/agent/{conversationId}` with
+an optional single trailing slash. Team IDs must be 24 hexadecimal characters;
+conversation IDs contain 1–128 ASCII letters, digits, `_` or `-`, starting with a
+letter or digit. Queries, fragments, explicit ports, encoded paths and other
+hosts are rejected. OAuth and connector custom-scheme callbacks stay separate.
+
+A link supplies only a destination. The app retains it through login and Activity
+recreation, checks current-account membership and conversation access, then
+switches to the authorized workspace. It never submits a message or approves a
+computer permission from a link. Invalid links are ignored. Inaccessible destinations show
+a generic unavailable/access-denied state without displaying another account's data.
+
+The website verification endpoint is maintained by `zeabur/nuphos-landingpage`.
+Its approved certificate list must match the actual installed APK signer; the
+Play app-signing certificate is distinct from the upload certificate. An empty
+`assetlinks.json` document trusts no signer and cannot verify the domain.
+
+`ConversationLinksFixtureDeviceTest` uses synthetic, intercepted HTTP responses
+and requires a disposable emulator with no installed account. It refuses physical
+devices and is disabled unless explicitly opted in:
+
+```sh
+adb -s EMULATOR_SERIAL shell am instrument -w \
+  -e isolatedConversationLinks true \
+  -e class ai.nuphos.android.ConversationLinksFixtureDeviceTest \
+  ai.nuphos.android.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+These tests verify intent handling, screens and navigation. Explicit Activity
+launches do not prove automatic OS domain verification. Final acceptance still
+requires the hosted signer statement, `pm get-app-links` reporting `verified`,
+and real link taps in Chrome and a messaging app. Keep signed-out and app-absent
+acceptance on a disposable emulator; never log out, uninstall or clear data on
+a personal phone for these tests.
 
 JVM tests use synthetic inputs and intercepted HTTP responses. They do not need
 an account or a live server. CI runs Python runner tests and JVM tests, checks
