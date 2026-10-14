@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from 'react'
 import { effortLabel, modelChoiceLabel } from '../../../lib/configLabels'
 import { effortResetValue } from '../../../lib/effortStops'
 import { concreteModelChoices } from '../../../lib/modelChoices'
+import { isClaudeCatalog } from '../../../lib/modelGroups'
 
+import { ClaudeModelList } from './ClaudeModelList'
 import { HintTooltip } from './modelControlParts'
 import { FG_TERTIARY, SURFACE } from './modelControlStyles'
 import { ModelEffortPanel } from './ModelEffortPanel'
@@ -141,6 +143,11 @@ export function ModelSelector({
   // A runtime that exposes no model controls gets no picker at all.
   if (status === 'unsupported') return null
   const select = (configId: string, value: string) => control.select({ configId, value })
+  const pickModel = (value: string) => {
+    if (!model) return
+    select(model.id, value)
+    if (effort) setView('effort')
+  }
   const footer = [
     (loading || slow) &&
       !error &&
@@ -218,17 +225,25 @@ export function ModelSelector({
                 onOpenModels={() => setView('models')}
               />
             )}
-            {(view === 'models' || !effort) && model && (
-              <ModelListPanel
-                model={model}
-                offerDefault={status === 'dormant'}
-                blocked={blocked}
-                onSelect={(value) => {
-                  select(model.id, value)
-                  if (effort) setView('effort')
-                }}
-              />
-            )}
+            {(view === 'models' || !effort) &&
+              model &&
+              // Each runtime's list follows its own app: Claude's menu or Codex's.
+              (isClaudeCatalog(model.options) ? (
+                <ClaudeModelList
+                  model={model}
+                  fast={fast}
+                  blocked={blocked}
+                  onSelect={pickModel}
+                  onSelectFast={(value) => fast && select(fast.id, value)}
+                />
+              ) : (
+                <ModelListPanel
+                  model={model}
+                  offerDefault={status === 'dormant'}
+                  blocked={blocked}
+                  onSelect={pickModel}
+                />
+              ))}
             {footer.length > 0 && (
               <div
                 className={clsx(

@@ -15,3 +15,10 @@ export const SURFACE = clsx(
 export const FG_SECONDARY = 'text-[rgba(var(--color-text-base),0.65)]'
 export const FG_TERTIARY = 'text-[rgba(var(--color-text-base),0.45)]'
 export const HOVER_FILL = 'hover:bg-[rgba(var(--color-text-base),0.08)]'
+
+/** A row in the model menus. */
+export const MENU_ROW = clsx(
+  'flex w-full rounded-[8px] px-[9px] text-left text-[13.5px] text-main outline-none',
+  'focus-visible:bg-[rgba(var(--color-text-base),0.08)] disabled:opacity-50',
+  HOVER_FILL,
+)
