@@ -10,6 +10,8 @@ import type { ReactNode } from 'react'
  * from MenuItem's uppercase hint styling.
  */
 export function ShortcutHint({ combo, className }: { combo: string; className?: string }) {
+  if (!combo) return null
+
   return (
     <span className={clsx('font-sans normal-case tracking-normal text-tertiary', className)}>
       {comboText(combo)}

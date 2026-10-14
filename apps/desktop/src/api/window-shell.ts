@@ -73,6 +73,8 @@ export type WindowShellApi = {
   onAgentEvent(cb: (payload: { streamId: string; event: unknown }) => void): () => void
   onAgentPlanUpdated(cb: (payload: { plan: Plan }) => void): () => void
   onAppShortcut(cb: (action: AppShortcutAction) => void): () => void
+  /** A visible chat owns the session shortcuts, so the main process may swallow them. */
+  setSessionShortcutsActive(active: boolean): void
   k8sStartPortForward(
     context: string,
     ns: string,

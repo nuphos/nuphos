@@ -127,8 +127,14 @@ export function SessionHeaderMenu({
   })
   useEffect(() => {
     if (!shortcutsActive || typeof window.api.onAppShortcut !== 'function') return
+    // The main process swallows these combos only while a visible chat owns them.
+    window.api.setSessionShortcutsActive(true)
+    const off = window.api.onAppShortcut((action) => onShortcut.current?.(action))
 
-    return window.api.onAppShortcut((action) => onShortcut.current?.(action))
+    return () => {
+      off()
+      window.api.setSessionShortcutsActive(false)
+    }
   }, [shortcutsActive])
 
   return (

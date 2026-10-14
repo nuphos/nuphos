@@ -10,7 +10,7 @@ import {
 
 import type { ShortcutInput } from './sessionShortcuts.ts'
 
-const none = { meta: false, control: false, alt: false, shift: false }
+const none = { meta: false, control: false, alt: false, shift: false, isComposing: false }
 
 function press(code: string, key: string, mods: Partial<ShortcutInput>): ShortcutInput {
   return { ...none, code, key, ...mods }
@@ -72,6 +72,22 @@ test('Ctrl is mod off macOS', () => {
   assert.equal(matchSessionShortcut(press('KeyA', 'A', { meta: true, shift: true }), false), null)
 })
 
+test('copy link has no shortcut off macOS, so Ctrl+Shift+C stays copy', () => {
+  assert.equal(
+    matchSessionShortcut(press('KeyC', 'C', { control: true, shift: true }), false),
+    null,
+  )
+  assert.equal(sessionShortcutCombo('copy-chat-link', false), '')
+  assert.equal(sessionShortcutCombo('copy-chat-link', true), 'mod+shift+c')
+})
+
+test('a key pressed while an IME is composing is not a shortcut', () => {
+  assert.equal(
+    matchSessionShortcut(press('KeyA', 'A', { meta: true, shift: true, isComposing: true }), true),
+    null,
+  )
+})
+
 test('AltGr text input off macOS is not a shortcut', () => {
   // Some layouts type ¶ with AltGr+R.
   assert.equal(matchSessionShortcut(press('KeyR', '¶', { control: true, alt: true }), false), null)
@@ -85,6 +101,10 @@ test('every combo is unique and renders', () => {
   const combos = SESSION_SHORTCUTS.map((shortcut) => shortcut.combo)
 
   assert.equal(new Set(combos).size, combos.length)
-  assert.deepEqual(comboParts(sessionShortcutCombo('rename-chat'), true), ['⌘', '⌥', 'R'])
-  assert.deepEqual(comboParts(sessionShortcutCombo('archive-chat'), false), ['Ctrl', 'Shift', 'A'])
+  assert.deepEqual(comboParts(sessionShortcutCombo('rename-chat', true), true), ['⌘', '⌥', 'R'])
+  assert.deepEqual(comboParts(sessionShortcutCombo('archive-chat', false), false), [
+    'Ctrl',
+    'Shift',
+    'A',
+  ])
 })

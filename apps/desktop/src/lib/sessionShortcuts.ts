@@ -5,6 +5,8 @@
  * src/lib/platform.ts.
  */
 
+import { isMac } from './platform.ts'
+
 export type SessionShortcutAction =
   'rename-chat' | 'toggle-pin-chat' | 'copy-chat-link' | 'archive-chat'
 
@@ -15,6 +17,8 @@ type SessionShortcut = {
   code: string
   alt: boolean
   shift: boolean
+  /** Off macOS the combo is Ctrl+Shift+C, which terminals and editors use for copy. */
+  macOnly?: boolean
 }
 
 export const SESSION_SHORTCUTS: SessionShortcut[] = [
@@ -38,6 +42,7 @@ export const SESSION_SHORTCUTS: SessionShortcut[] = [
     code: 'KeyC',
     alt: false,
     shift: true,
+    macOnly: true,
   },
   {
     action: 'archive-chat',
@@ -48,8 +53,11 @@ export const SESSION_SHORTCUTS: SessionShortcut[] = [
   },
 ]
 
-export function sessionShortcutCombo(action: SessionShortcutAction): string {
-  return SESSION_SHORTCUTS.find((shortcut) => shortcut.action === action)?.combo ?? ''
+/** '' when the action has no shortcut on this platform. */
+export function sessionShortcutCombo(action: SessionShortcutAction, mac: boolean = isMac): string {
+  const shortcut = SESSION_SHORTCUTS.find((entry) => entry.action === action)
+
+  return shortcut && (mac || !shortcut.macOnly) ? shortcut.combo : ''
 }
 
 /** The subset of Electron's before-input-event `Input` the matcher reads. */
@@ -60,6 +68,7 @@ export type ShortcutInput = {
   control: boolean
   alt: boolean
   shift: boolean
+  isComposing: boolean
 }
 
 export function matchSessionShortcut(
@@ -69,12 +78,12 @@ export function matchSessionShortcut(
   // mod is ⌘ on macOS and Ctrl elsewhere; the other modifier must be up.
   const mod = mac ? input.meta && !input.control : input.control && !input.meta
 
-  if (!mod) return null
+  if (!mod || input.isComposing) return null
   const shortcut = SESSION_SHORTCUTS.find(
     (entry) => entry.code === input.code && entry.alt === input.alt && entry.shift === input.shift,
   )
 
-  if (!shortcut) return null
+  if (!shortcut || (shortcut.macOnly && !mac)) return null
   // Off macOS, Ctrl+Alt is AltGr on many layouts: if it typed another
   // character, the user is entering text, not pressing a shortcut.
   const letter = shortcut.code.slice(3).toLowerCase()

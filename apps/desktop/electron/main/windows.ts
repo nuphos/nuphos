@@ -3,13 +3,13 @@ import { fileURLToPath } from 'node:url'
 
 import { BrowserWindow, ipcMain } from 'electron'
 
-import { matchSessionShortcut } from '../../src/lib/sessionShortcuts'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
 import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
+import { liveSessionShortcut } from './session-shortcuts'
 import { APP_NAME, isDev } from './env'
 import { openExternal } from './open-external'
 import { TITLEBAR_ROW_H, titleBarOverlayFor } from './window-titlebar'
@@ -221,7 +221,7 @@ export function createWindow(): BrowserWindow {
     const commandOrControl = input.meta || input.control
     // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, so they run
     // before the ⌥ bail-out below.
-    const sessionAction = matchSessionShortcut(input, process.platform === 'darwin')
+    const sessionAction = liveSessionShortcut(win.webContents, input)
 
     if (sessionAction) {
       event.preventDefault()
