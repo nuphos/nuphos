@@ -36,6 +36,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       desktop: ${{ steps.filter.outputs.desktop }}
+      desktop_package: ${{ steps.filter.outputs.desktop_package }}
       ios: ${{ steps.filter.outputs.ios }}
       cli: ${{ steps.filter.outputs.cli }}
       dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
@@ -54,6 +55,18 @@ jobs:
               - '.github/workflows/ci.yml'
             desktop:
               - 'apps/desktop/**'
+              - '.github/workflows/ci.yml'
+            # Everything the packaged app is built from except the renderer
+            # sources, which typecheck, lint and tests already cover. The single
+            # `*` takes the top-level config: package.json (electron-builder's
+            # config), the lockfile, vite.config.ts, index.html.
+            desktop_package:
+              - 'apps/desktop/*'
+              - 'apps/desktop/electron/**'
+              - 'apps/desktop/local-runtime/**'
+              - 'apps/desktop/build/**'
+              - 'apps/desktop/scripts/**'
+              - 'apps/desktop/patches/**'
               - '.github/workflows/ci.yml'
             ios:
               - 'apps/ios/**'
@@ -247,11 +260,17 @@ jobs:
         timeout-minutes: 3
         working-directory: apps/desktop
         run: pnpm test
+      # Packaging costs ~3.5 minutes and has not caught anything the steps
+      # above missed, so it runs only when a packaging input changed. The merge
+      # queue uses the same filter against the queue's base, so nothing that
+      # can break the package lands without being packaged.
       - name: Stage the local agent adapter
+        if: needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
+        if: needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: pnpm run electron:build --mac --arm64 --x64 --dir --publish never
         env:
