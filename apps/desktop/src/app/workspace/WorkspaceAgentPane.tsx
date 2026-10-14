@@ -253,6 +253,7 @@ export function WorkspaceAgentPane({
               canArchive={currentHeading.canArchive === true}
               onRename={() => setRenamingSessionId(selectedSessionId)}
               onFork={() => setAgentSidebarPendingFork(selectedSessionId)}
+              canFork={!selectedSessionReadOnly}
             />
           )}
         </div>

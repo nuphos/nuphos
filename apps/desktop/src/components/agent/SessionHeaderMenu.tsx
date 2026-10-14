@@ -47,6 +47,8 @@ type Props = {
   onRename: () => void
   /** Opens a writable copy of this chat (the Plans page's fork path). */
   onFork: () => void
+  /** False for read-only (audit) views, which must never offer a fork. */
+  canFork: boolean
 }
 
 function findPin(userId: string, teamId: string, sessionId: string) {
@@ -78,6 +80,7 @@ export function SessionHeaderMenu({
   canArchive,
   onRename,
   onFork,
+  canFork,
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
   const pin = useSessionPin(userId, teamId, sessionId)
@@ -139,9 +142,11 @@ export function SessionHeaderMenu({
         >
           {favoriteToggleTitle(true, Boolean(pin))}
         </MenuItem>
-        <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
-          Fork chat
-        </MenuItem>
+        {canFork && (
+          <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
+            Fork chat
+          </MenuItem>
+        )}
         <MenuSubmenu>
           <MenuSubmenuTrigger
             icon={<Copy className="h-3.5 w-3.5" />}
