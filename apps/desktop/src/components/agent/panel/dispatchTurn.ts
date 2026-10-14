@@ -158,6 +158,8 @@ export async function runDispatchTurn(
             autoResumeAttempts: 0,
             credentialAccess,
             promptSuggestion: null,
+            // The first turn stores the session, so a fork is no longer unsaved.
+            unsaved: false,
           }
         : t,
     ),

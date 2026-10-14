@@ -6,6 +6,7 @@ import { usePlan } from '../planUpdates'
 
 import { ACTIVE_LIFECYCLE_STATUSES } from './applyEvent'
 import { credentialSelectionSignature } from './credentialAccess'
+import { sessionActionGates } from './sessionActions'
 import { useConversationPlanReference } from './useConversationPlanReference'
 
 import type { ActivePlan } from './applyEvent'
@@ -175,20 +176,17 @@ export function usePanelPlanPane(acc: Acc) {
     // is reported with the session it belongs to — a consumer that already
     // knows the title of the one it asked for can ignore the stale report
     // instead of flickering back through it.
+    const gates = sessionActionGates(activeTab)
+
     onTitleChangeRef.current?.(
       activeTab?.title?.trim() || '',
       activeTab?.sessionId ?? null,
       activeTab?.claudeCodeRuntimeAttached === true,
       activeTab?.agentRuntime,
-      Boolean(activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign),
+      gates.canRename,
       activeTab?.runtimeId,
-      // The server lets the owner or a manager archive.
-      Boolean(
-        activeTab?.sessionId &&
-        !activeTab.readOnly &&
-        !activeTab.archived &&
-        (!activeTab.foreign || activeTab.canManage),
-      ),
+      gates.canArchive,
+      gates.saved,
     )
   }, [
     activeTab?.readOnly,
@@ -200,6 +198,7 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.runtimeId,
     activeTab?.canManage,
     activeTab?.archived,
+    activeTab?.unsaved,
     sessionIdProp,
   ])
 

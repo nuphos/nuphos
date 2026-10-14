@@ -56,6 +56,7 @@ export type PanelCtx = {
     canRename?: boolean,
     runtimeId?: string,
     canArchive?: boolean,
+    saved?: boolean,
   ) => void
   /** `unshown`: the chat the panel left without ever showing it (it could not be opened). */
   onSessionChange?: (sessionId: string | null, unshown?: string) => void

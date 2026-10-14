@@ -62,6 +62,7 @@ export function WorkspaceAgentPane({
     title: string
     canRename?: boolean
     canArchive?: boolean
+    saved?: boolean
     runtime: AgentProvider | null
     runtimeId?: string
   }>({ sessionId: null, title: 'Agent', runtime: null })
@@ -122,11 +123,13 @@ export function WorkspaceAgentPane({
       canRename?: boolean,
       runtimeId?: string,
       canArchive?: boolean,
+      saved?: boolean,
     ) => {
       setHeading({
         sessionId,
         canRename,
         canArchive,
+        saved,
         runtimeId,
         title: nextTitle || 'Agent',
         runtime: runtimeAttached ? (agentRuntime ?? 'claude-code') : null,
@@ -242,7 +245,7 @@ export function WorkspaceAgentPane({
               }
             />
           )}
-          {selectedSessionId && (
+          {selectedSessionId && currentHeading.saved !== false && (
             <SessionHeaderMenu
               key={`menu-${selectedSessionId}`}
               sessionId={selectedSessionId}

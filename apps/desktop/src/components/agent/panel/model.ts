@@ -143,6 +143,8 @@ export type Tab = {
   foreign?: boolean
   /** A teammate's conversation this viewer may still move and re-credential. */
   canManage?: boolean
+  /** A fork the server has not stored yet: its sessionId is client-minted until the first turn. */
+  unsaved?: boolean
   /** Opened from Archived Chats: archiving again would only rewrite its date. */
   archived?: boolean
   /** Every credential option that existed when this conversation's selection was last saved. */

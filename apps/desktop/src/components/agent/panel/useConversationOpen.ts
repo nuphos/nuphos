@@ -193,6 +193,7 @@ export function useConversationOpen(acc: Acc) {
           // the source conversation.
           readOnly: false,
           slackThread: null,
+          unsaved: true,
         }
 
         credentialAccessRef.current.set(tab.sessionId, tab.credentialAccess)
