@@ -1,4 +1,6 @@
 import type {
+  SleepPreferences,
+  SleepState,
   DeviceExecAuditPage,
   LocalAgentLoginState,
   LocalAgentProvider,
@@ -16,6 +18,7 @@ export type WindowDeviceApi = {
   localRuntimeCancelCodexLogin(): Promise<void>
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>
+  localRuntimeSetSleepPreferences(value: SleepPreferences): Promise<SleepState>
   localRuntimeGetState(): Promise<LocalRuntimeState>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>

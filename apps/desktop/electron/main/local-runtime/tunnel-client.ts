@@ -51,6 +51,12 @@ export type TunnelClientDeps = {
   connectExec?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
+  activity?: {
+    open(id: string, purpose: string): void
+    data(id: string, raw: string, incoming: boolean): void
+    close(id: string): void
+    clear(): void
+  }
   status: () => LocalRuntimeTunnelStatus
   /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
   onChange?: (connected: boolean, superseded: boolean) => void
@@ -135,6 +141,7 @@ export class RuntimeTunnelClient {
     clearTimeout(this.idleTimer)
     for (const { runtime } of this.streams.values()) runtime.close()
     this.streams.clear()
+    this.deps.activity?.clear()
     const socket = this.socket
 
     this.socket = undefined
@@ -222,12 +229,14 @@ export class RuntimeTunnelClient {
       case 'data': {
         const stream = this.streams.get(frame.s)
 
+        if (stream) this.deps.activity?.data(frame.s, frame.d, true)
         if (stream?.runtime.readyState === OPEN) stream.runtime.send(frame.d)
         else stream?.pending.push(frame.d)
 
         return
       }
       case 'close':
+        this.deps.activity?.close(frame.s)
         this.streams.get(frame.s)?.runtime.close()
         this.streams.delete(frame.s)
     }
@@ -258,6 +267,7 @@ export class RuntimeTunnelClient {
     const stream = { runtime, pending: [] as string[] }
 
     this.streams.set(s, stream)
+    this.deps.activity?.open(s, purpose)
     runtime.addEventListener('open', () => {
       if (this.streams.get(s) !== stream) return
       this.send({ t: 'opened', s })
@@ -265,11 +275,15 @@ export class RuntimeTunnelClient {
     })
     runtime.addEventListener('message', (event) => {
       if (this.streams.get(s) !== stream) return
-      if (typeof event.data === 'string') this.send({ t: 'data', s, d: event.data })
+      if (typeof event.data === 'string') {
+        this.deps.activity?.data(s, event.data, false)
+        this.send({ t: 'data', s, d: event.data })
+      }
     })
     runtime.addEventListener('close', () => {
       if (this.streams.get(s) !== stream) return
       this.streams.delete(s)
+      this.deps.activity?.close(s)
       this.send({ t: 'close', s })
     })
     runtime.addEventListener('error', () => {

@@ -15,6 +15,8 @@ export const deviceApi = {
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
   localRuntimeCancelCodexLogin: () => ipcRenderer.invoke('localRuntime:cancelCodexLogin'),
+  localRuntimeSetSleepPreferences: (value: unknown) =>
+    ipcRenderer.invoke('localRuntime:setSleepPreferences', value),
   localRuntimeGetState: () => ipcRenderer.invoke('localRuntime:getState'),
   onLocalRuntimeState: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)

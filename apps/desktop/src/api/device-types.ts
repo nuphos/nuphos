@@ -67,7 +67,15 @@ export type LocalAgentLoginState = {
   error?: string
 }
 
+export type SleepPreferences = { mode: 'off' | 'tasks' | 'host'; onlyOnAC: boolean }
+export type SleepState = SleepPreferences & {
+  supported: boolean
+  active: boolean
+  reason: 'unsupported' | 'off' | 'battery' | 'signed-out' | 'idle' | 'active'
+}
+
 export type LocalRuntimeState = {
+  sleepPrevention?: SleepState
   claudeLogin?: LocalAgentLoginState
   codexLogin?: LocalAgentLoginState
   agents: Record<LocalAgentProvider, LocalAgentState>

@@ -1,4 +1,4 @@
-import type { LocalAgentProvider, LocalRuntimeState } from './device-types.ts'
+import type { LocalAgentProvider, LocalRuntimeState, SleepPreferences } from './device-types.ts'
 
 export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
@@ -8,6 +8,8 @@ export const deviceApi = {
   localRuntimeStartCodexLogin: () => window.api.localRuntimeStartCodexLogin(),
   localRuntimeCancelClaudeLogin: () => window.api.localRuntimeCancelClaudeLogin(),
   localRuntimeCancelCodexLogin: () => window.api.localRuntimeCancelCodexLogin(),
+  localRuntimeSetSleepPreferences: (value: SleepPreferences) =>
+    window.api.localRuntimeSetSleepPreferences(value),
   localRuntimeGetState: () => window.api.localRuntimeGetState(),
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),

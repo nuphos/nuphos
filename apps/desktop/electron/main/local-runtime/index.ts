@@ -24,12 +24,12 @@ import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
+import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { LocalRuntimeState } from './controller-types.ts'
-import type { DevBundleHint } from './dev-bundle.ts'
 
 const dataDir = () => path.join(app.getPath('userData'), 'local-runtime')
 const devBuild = () => !app.isPackaged && !process.env.NUPHOS_LOCAL_RUNTIME_DIR
@@ -38,12 +38,9 @@ function bundleRoot(): string {
   if (process.env.NUPHOS_LOCAL_RUNTIME_DIR) return process.env.NUPHOS_LOCAL_RUNTIME_DIR
   if (app.isPackaged) return path.join(process.resourcesPath, 'local-runtime')
 
-  return path.join(
-    app.getAppPath(),
-    'build',
-    'local-runtime',
-    `${process.platform}-${process.arch}`,
-  )
+  const platform = `${process.platform}-${process.arch}`
+
+  return path.join(app.getAppPath(), 'build', 'local-runtime', platform)
 }
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
@@ -128,6 +125,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   },
   createTunnel: (runtime, status, onChange) =>
     new RuntimeTunnelClient({
+      activity: sleep.taskActivity,
       connectBackend: () => {
         const token = authSession.current()
 
@@ -221,6 +219,7 @@ export function cancelLocalCodexLogin(): void {
 
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {
+  sleep.initSleepPrevention(broadcastState)
   const follow = (token: string | null) => {
     const userId = token ? (unverifiedTokenSubject(token) ?? null) : null
 
@@ -239,6 +238,7 @@ export function initLocalRuntime(): void {
       status: broadcastState,
     })
   powerMonitor.on('resume', () => {
+    broadcastState()
     controller.reconnect()
   })
   powerMonitor.on('unlock-screen', () => {
@@ -248,24 +248,21 @@ export function initLocalRuntime(): void {
 
 /** Resolves once openab has exited, so quitting never leaves it behind. */
 export function stopLocalRuntime(): Promise<void> {
+  sleep.stopSleepPrevention()
   cancelLocalClaudeLogin()
   cancelLocalCodexLogin()
 
   return controller.shutdown()
 }
 
-export function getLocalRuntimeState(): LocalRuntimeState & {
-  deviceId: string
-  devBundle?: DevBundleHint
-  claudeLogin: ReturnType<LocalAgentLogin['state']>
-  codexLogin: ReturnType<LocalAgentLogin['state']>
-} {
+export function getLocalRuntimeState() {
   const bundle = findBundle()
   const incomplete = LOCAL_AGENT_PROVIDERS.some((provider) => !bundle?.adapters[provider])
   const devBundle = devBuild() && incomplete ? devBundleHint(bundleRoot()) : undefined
 
   return {
     ...controller.state(),
+    sleepPrevention: sleep.sleepState(),
     claudeLogin: logins['claude-code'].state(),
     codexLogin: logins.codex.state(),
     deviceId: readDeviceIdentity().deviceId,
