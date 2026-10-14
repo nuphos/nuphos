@@ -5,6 +5,7 @@ import { websocket } from 'hono/bun'
 import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { createLocalTunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { openLocalRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { errorHandler } from '@/lib/errors'
 import {
@@ -166,6 +167,30 @@ describe('device runtime tunnel route', () => {
     expect(await reply).toBe('pong:ping')
     socket.close()
     desktop.close()
+  })
+
+  test('revoking the device closes its tunnel with 4003', async () => {
+    const host = serve('owner')
+    const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`)
+
+    desktop.addEventListener('message', (event) => {
+      if ((JSON.parse(String(event.data)) as { t: string }).t === 'ping')
+        desktop.send(JSON.stringify({ t: 'pong' }))
+    })
+    await waitFor<void>((resolve) => {
+      desktop.addEventListener('open', () => {
+        resolve()
+      })
+    })
+    const closed = waitFor<number>((resolve) => {
+      desktop.addEventListener('close', (event) => {
+        resolve(event.code)
+      })
+    })
+
+    await Bun.sleep(30)
+    await bus.publish(holderChannel('owner', 'd1'), JSON.stringify({ t: 'revoke' }))
+    expect(await closed).toBe(4003)
   })
 
   test('another user cannot hold a tunnel for a computer they do not own', async () => {

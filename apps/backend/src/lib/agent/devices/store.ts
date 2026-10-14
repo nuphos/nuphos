@@ -10,6 +10,8 @@ export type AgentDevice = {
   label: string
   platform: string
   allowLocalExec: boolean
+  /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
+  credentialHash?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -28,6 +30,14 @@ export async function setupAgentDeviceIndexes(): Promise<void> {
     { userId: 1, deviceId: 1 },
     { unique: true, name: 'agent_device_user_device_unique' },
   )
+  await collection.createIndex(
+    { credentialHash: 1 },
+    {
+      unique: true,
+      partialFilterExpression: { credentialHash: { $exists: true } },
+      name: 'agent_device_credential_unique',
+    },
+  )
 }
 
 export async function upsertAgentDevice(
@@ -41,6 +51,42 @@ export async function upsertAgentDevice(
     { $set: { ...device, userId, updatedAt: now }, $setOnInsert: { createdAt: now } },
     { upsert: true },
   )
+}
+
+/** Registers the device under its owner and replaces any credential it had. */
+export async function upsertAgentDeviceWithCredential(
+  userId: string,
+  device: AgentDeviceRegistration,
+  credentialHash: string,
+): Promise<void> {
+  const now = new Date()
+
+  await agentDevices().updateOne(
+    { userId, deviceId: device.deviceId },
+    {
+      $set: { ...device, userId, credentialHash, updatedAt: now },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true },
+  )
+}
+
+export async function findAgentDeviceByCredentialHash(
+  credentialHash: string,
+): Promise<AgentDevice | null> {
+  return agentDevices().findOne({ credentialHash })
+}
+
+export async function revokeAgentDeviceCredential(
+  userId: string,
+  deviceId: string,
+): Promise<boolean> {
+  const result = await agentDevices().updateOne(
+    { userId, deviceId, credentialHash: { $exists: true } },
+    { $unset: { credentialHash: '' }, $set: { updatedAt: new Date() } },
+  )
+
+  return result.modifiedCount > 0
 }
 
 export async function getAgentDevice(

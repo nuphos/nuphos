@@ -4,6 +4,7 @@ import { setupAutoModeIndexes } from '@/lib/agent/auto-mode/store'
 import { setupAgentIndexes } from '@/lib/agent/db'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
+import { setupDeviceJoinTokenIndexes } from '@/lib/agent/devices/join-tokens'
 import { setupAgentDeviceIndexes } from '@/lib/agent/devices/store'
 import { setupDirectoryIndexes } from '@/lib/agent/directory'
 import { runMemoryProviderSetup } from '@/lib/agent/memory-slots'
@@ -95,6 +96,7 @@ export async function setupIndexes(): Promise<void> {
     ['home-layouts', setupHomeLayoutIndexes],
     ['push-devices', setupPushDeviceIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
+    ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
