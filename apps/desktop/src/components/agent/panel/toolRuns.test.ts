@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { before, mock, test } from 'node:test'
 
-import { foldedTurnLayout, segmentParts } from './toolRuns.ts'
+import { foldedTurnLayout, segmentParts, turnDisplayParts } from './toolRuns.ts'
 
 import type { Part } from './parts.ts'
 
@@ -250,5 +250,40 @@ test('an errored plan call stays in the fold as a tool row', () => {
   assert.deepEqual(foldedTurnLayout([failed, text('Sorry.')], 0, 1), {
     planIndices: [],
     foldHasWork: true,
+  })
+})
+
+test('a stopped turn shows its unanswered grouped calls as interrupted', () => {
+  const pending: Part = { ...tool(), state: 'input-available' } as Part
+  const parts: Part[] = [tool(), pending, text('Turn failed.')]
+  const shown = turnDisplayParts(parts, false)
+
+  assert.deepEqual(segmentParts(shown, 0, 2), [{ kind: 'toolRun', indices: [0, 1] }])
+  assert.equal(shown[1].type === 'tool' && shown[1].state, 'output-error')
+  assert.equal(shown[0], parts[0])
+  assert.equal(shown[2], parts[2])
+})
+
+test('a streaming turn keeps its running calls as they are', () => {
+  const parts: Part[] = [tool(), { ...tool(), state: 'input-available' } as Part]
+
+  assert.equal(turnDisplayParts(parts, true), parts)
+})
+
+test('a call waiting for approval is left alone after a stop', () => {
+  const waiting: Part = { ...tool(), state: 'approval-requested' } as Part
+
+  assert.equal(turnDisplayParts([waiting], false)[0], waiting)
+})
+
+test('a stopped turn whose fold only held an unanswered plan_update has no work to show', () => {
+  const parts: Part[] = [
+    { ...tool('plan_update'), state: 'input-available' } as Part,
+    text('Done.'),
+  ]
+
+  assert.deepEqual(foldedTurnLayout(turnDisplayParts(parts, false), 0, 1), {
+    planIndices: [],
+    foldHasWork: false,
   })
 })

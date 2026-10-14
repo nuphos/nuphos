@@ -1,6 +1,7 @@
 import { isPlanProposalToolName } from '../planReference.ts'
 
 import { isHiddenMemoryIngestPart } from './parts.ts'
+import { INTERRUPTED_TOOL_MESSAGE, incompleteToolErrorText } from './toolInterruption.ts'
 
 import type { Part, ToolPart } from './parts.ts'
 
@@ -48,6 +49,25 @@ function plainToolFollows(parts: readonly Part[], from: number, to: number): boo
   }
 
   return false
+}
+
+export function finalizeToolPartForDisplay(part: ToolPart): ToolPart {
+  if (part.state !== 'input-streaming' && part.state !== 'input-available') return part
+
+  return {
+    ...part,
+    state: 'output-error',
+    errorText: incompleteToolErrorText(part, INTERRUPTED_TOOL_MESSAGE),
+  }
+}
+
+// A stopped turn has nothing in flight: show its unanswered calls as
+// interrupted everywhere — single rows, grouped runs and the fold — instead of
+// leaving them loading.
+export function turnDisplayParts(parts: Part[], streaming: boolean): Part[] {
+  if (streaming) return parts
+
+  return parts.map((part) => (part.type === 'tool' ? finalizeToolPartForDisplay(part) : part))
 }
 
 export function segmentParts(parts: readonly Part[], from: number, to: number): PartSegment[] {

@@ -2,7 +2,7 @@ import { track, trackError } from '../../../lib/analytics'
 import { withClientToolDeadline } from '../../../lib/clientToolDeadline'
 import { pendingClientSideLocalTools } from '../../../lib/clientToolPhase'
 
-import { INTERRUPTED_TOOL_MESSAGE, incompleteToolErrorText } from './stall'
+import { incompleteToolErrorText } from './stall'
 
 import type { Message, Tab } from './model'
 import type { Part, ToolPart } from './parts'
@@ -87,21 +87,6 @@ export function supersedePendingApprovals(messages: Message[]): Message[] {
         }
       : m,
   )
-}
-
-export function finalizeToolPartForDisplay(part: ToolPart): ToolPart {
-  if (part.state !== 'input-streaming' && part.state !== 'input-available') return part
-
-  return {
-    ...part,
-    state: 'output-error',
-    errorText: incompleteToolErrorText(part, INTERRUPTED_TOOL_MESSAGE),
-  }
-}
-
-/** Part-level {@link finalizeToolPartForDisplay}: non-tool parts pass through. */
-export function finalizePartForDisplay(part: Part): Part {
-  return part.type === 'tool' ? finalizeToolPartForDisplay(part) : part
 }
 
 export function findPendingClientSideLocalTools(messages: Message[]): ToolPart[] {

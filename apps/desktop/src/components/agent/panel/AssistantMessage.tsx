@@ -7,14 +7,13 @@ import { PermissionGrantCard } from '../PermissionGrantCard'
 import { isPlanProposalToolName } from '../planReference'
 
 import { extractProposalIdFromOutput } from './applyEvent'
-import { finalizePartForDisplay, finalizeToolPartForDisplay } from './clientTools'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
 import { renderPartRange } from './renderPartRange'
-import { foldedTurnLayout } from './toolRuns'
+import { foldedTurnLayout, turnDisplayParts } from './toolRuns'
 import { assistantPartKey, lastVisiblePartIndex, turnWorkSeconds } from './streamText'
 import { AssistantPlanPart, ChartToolPart } from './toolParts'
 import { ToolPartView } from './ToolPartView'
@@ -89,8 +88,7 @@ export const AssistantMessage = memo(
     const orderedParts = normalizeRecallFirstOrder(message.parts)
     const recallLead = recallLeadCount(orderedParts)
     const streamingTailIndex = streaming ? lastVisiblePartIndex(orderedParts) : -1
-    // Stopped turn: unanswered calls are over, so grouped runs must not shimmer either.
-    const displayParts = streaming ? orderedParts : orderedParts.map(finalizePartForDisplay)
+    const displayParts = turnDisplayParts(orderedParts, streaming)
     const keyCounts: Record<string, number> = {}
     // The response text the copy button writes to the clipboard — the rendered
     // markdown answer only, not tool calls / reasoning.
@@ -173,13 +171,11 @@ export const AssistantMessage = memo(
       // `skill` tool calls are setup noise (the input is just a skill name,
       // the output is the entire SKILL.md). Don't render them.
       if (p.type === 'tool' && p.toolName !== 'skill') {
-        const renderPart = streaming ? p : finalizeToolPartForDisplay(p)
-
-        if (renderPart.toolName === 'render_chart') {
-          return <ChartToolPart key={partKey} part={renderPart} now={now} />
+        if (p.toolName === 'render_chart') {
+          return <ChartToolPart key={partKey} part={p} now={now} />
         }
-        if (renderPart.toolName === 'propose_permission_grant') {
-          const proposalId = extractProposalIdFromOutput(renderPart.output)
+        if (p.toolName === 'propose_permission_grant') {
+          const proposalId = extractProposalIdFromOutput(p.output)
 
           if (proposalId) {
             return (
@@ -188,18 +184,18 @@ export const AssistantMessage = memo(
                 proposalId={proposalId}
                 teamId={teamId}
                 canApprove={isTeamAdmin && canActOnPlans}
-                toolCallId={renderPart.toolCallId}
+                toolCallId={p.toolCallId}
               />
             )
           }
           // No proposalId yet (still streaming) or the tool errored — fall
           // through to the generic tool view.
         }
-        if (isPlanProposalToolName(renderPart.toolName) || renderPart.toolName === 'plan') {
+        if (isPlanProposalToolName(p.toolName) || p.toolName === 'plan') {
           return (
             <AssistantPlanPart
               key={partKey}
-              part={renderPart}
+              part={p}
               now={now}
               teamId={teamId}
               streaming={streaming}
@@ -213,12 +209,7 @@ export const AssistantMessage = memo(
         }
 
         return (
-          <ToolPartView
-            key={partKey}
-            part={renderPart}
-            now={now}
-            initiallyOpen={options?.initiallyOpen}
-          />
+          <ToolPartView key={partKey} part={p} now={now} initiallyOpen={options?.initiallyOpen} />
         )
       }
 
@@ -228,7 +219,7 @@ export const AssistantMessage = memo(
       renderPartRange(displayParts, from, to, renderMessagePart, now)
     const folded = collapseSplit > recallLead
     const { planIndices, foldHasWork } = folded
-      ? foldedTurnLayout(orderedParts, recallLead, collapseSplit)
+      ? foldedTurnLayout(displayParts, recallLead, collapseSplit)
       : { planIndices: [], foldHasWork: false }
     const liftedPlans = new Set(planIndices)
     const renderFoldPart = (p: Part, i: number, options?: RenderPartOptions) =>
@@ -270,7 +261,7 @@ export const AssistantMessage = memo(
               section="lookedUp"
             />
           ))}
-        {planIndices.map((i) => renderMessagePart(orderedParts[i], i))}
+        {planIndices.map((i) => renderMessagePart(displayParts[i], i))}
         {message.stoppedByUser && (
           <div className="flex items-center gap-1.5 text-[12px] text-tertiary italic pt-1">
             <Square className="h-3 w-3" strokeWidth={2} fill="currentColor" />
