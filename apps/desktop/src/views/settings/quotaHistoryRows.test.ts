@@ -15,14 +15,17 @@ test('every bucket of the range is on the axis, floored like the backend', () =>
   assert.equal(new Date(buckets.at(-1) ?? 0).toISOString(), '2026-10-09T12:00:00.000Z')
 })
 
-test('a row per reporting agent, windows by name, bands only where readings stopped', () => {
+test('a row per reporting agent, each bucket the busiest of its windows', () => {
   const rows = quotaHistoryRows(
     [
       {
         runtimeId: 'a',
         windowId: 'seven_day',
         label: 'Weekly',
-        points: [{ at: '2026-10-09T09:00:00.000Z', usedPercent: 40 }],
+        points: [
+          { at: '2026-10-09T09:00:00.000Z', usedPercent: 40 },
+          { at: '2026-10-09T11:00:00.000Z', usedPercent: 30 },
+        ],
       },
       {
         runtimeId: 'a',
@@ -48,19 +51,18 @@ test('a row per reporting agent, windows by name, bands only where readings stop
   )
 
   assert.deepEqual(
-    rows.map((row) => [row.instance.id, row.windows.map((w) => w.label)]),
-    [['a', ['5-hour', 'Weekly']]],
+    rows.map((row) => row.instance.id),
+    ['a'],
   )
-  const fiveHour = rows[0]?.windows[0]?.data.slice(-4).map((p) => p.value)
-
-  // The lone empty 10:00 hour between two readings is bridged, so it is not drawn.
-  assert.deepEqual(fiveHour, [null, 20, 35, null])
-  // Everything before 09:00, and the hour in progress up to now.
+  assert.equal(rows[0]?.peak.length, quotaBuckets('7d', now).length)
+  // 09:00 and 11:00 take the higher window; 10:00 and the hour in progress read nothing.
   assert.deepEqual(
-    rows[0]?.gaps.map((g) => [new Date(g.from).toISOString(), new Date(g.to).toISOString()]),
+    rows[0]?.peak.slice(-4).map((p) => [new Date(p.at).toISOString(), p.value]),
     [
-      [new Date(quotaBuckets('7d', now)[0] ?? 0).toISOString(), '2026-10-09T09:00:00.000Z'],
-      ['2026-10-09T12:00:00.000Z', new Date(now).toISOString()],
+      ['2026-10-09T09:00:00.000Z', 40],
+      ['2026-10-09T10:00:00.000Z', null],
+      ['2026-10-09T11:00:00.000Z', 35],
+      ['2026-10-09T12:00:00.000Z', null],
     ],
   )
 })

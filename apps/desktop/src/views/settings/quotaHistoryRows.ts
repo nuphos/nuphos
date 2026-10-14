@@ -1,4 +1,4 @@
-import type { MetricGap, MetricPoint } from './MetricChart'
+import type { MetricPoint } from './MetricChart'
 import type {
   RuntimeInstance,
   RuntimeQuotaHistoryRange,
@@ -17,9 +17,6 @@ export const QUOTA_HISTORY_RANGES: Record<
 
 export type QuotaHistoryRow = {
   instance: RuntimeInstance
-  windows: { id: string; label: string; data: MetricPoint[] }[]
-  /** Stretches of two or more buckets in which nothing at all was read for this agent. */
-  gaps: MetricGap[]
   /** Every bucket's highest use across the agent's windows; null where nothing was read. */
   peak: MetricPoint[]
 }
@@ -36,39 +33,7 @@ export function quotaBuckets(range: RuntimeQuotaHistoryRange, nowMs: number): nu
   return buckets
 }
 
-/** A single empty bucket between two readings is a missed poll, not a break: the line
- *  runs straight through it and it gets no band. */
-function bridgedBuckets(buckets: number[], read: Set<number>): Set<number> {
-  return new Set(
-    buckets.filter(
-      (at, i) => !read.has(at) && read.has(buckets[i - 1] ?? -1) && read.has(buckets[i + 1] ?? -1),
-    ),
-  )
-}
-
-/** Runs of empty buckets, merged, each ending where the next bucket starts. */
-function gapsOf(
-  buckets: number[],
-  read: Set<number>,
-  bridged: Set<number>,
-  step: number,
-  nowMs: number,
-): MetricGap[] {
-  const gaps: MetricGap[] = []
-
-  for (const at of buckets) {
-    if (read.has(at) || bridged.has(at)) continue
-    const last = gaps.at(-1)
-    const to = Math.min(at + step, nowMs)
-
-    if (last?.to === at) last.to = to
-    else gaps.push({ from: at, to })
-  }
-
-  return gaps
-}
-
-/** One row per agent that reported in the range, its usage windows sorted by name. */
+/** One row per agent that reported in the range. */
 export function quotaHistoryRows(
   series: RuntimeQuotaHistorySeries[],
   instances: readonly RuntimeInstance[],
@@ -76,30 +41,17 @@ export function quotaHistoryRows(
   nowMs = Date.now(),
 ): QuotaHistoryRow[] {
   const buckets = quotaBuckets(range, nowMs)
-  const step = QUOTA_HISTORY_RANGES[range].bucketMinutes * 60_000
 
   return instances.flatMap((instance) => {
-    const own = series
+    const used = series
       .filter((s) => s.runtimeId === instance.id)
-      .sort((a, b) => a.label.localeCompare(b.label))
+      .map((s) => new Map(s.points.map((p) => [Date.parse(p.at), p.usedPercent])))
 
-    if (own.length === 0) return []
-    const read = new Set<number>()
-    const used = own.map((s) => new Map(s.points.map((p) => [Date.parse(p.at), p.usedPercent])))
-
-    for (const values of used) for (const at of values.keys()) read.add(at)
-    const bridged = bridgedBuckets(buckets, read)
-    const drawn = buckets.filter((at) => !bridged.has(at))
+    if (used.length === 0) return []
 
     return [
       {
         instance,
-        windows: own.map((s, i) => ({
-          id: s.windowId,
-          label: s.label,
-          data: drawn.map((at) => ({ at, value: used[i]?.get(at) ?? null })),
-        })),
-        gaps: gapsOf(buckets, read, bridged, step, nowMs),
         peak: buckets.map((at) => {
           const values = used.flatMap((u) => u.get(at) ?? [])
 

@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 
-export const ACCENT = 'rgb(164, 105, 255)'
+const ACCENT = 'rgb(164, 105, 255)'
 const CAPACITY = 'rgb(118, 124, 140)'
 
 /** The faint band behind a stretch with no reading; legends reuse it. */

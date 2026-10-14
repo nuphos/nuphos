@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
-import { AGENT_USAGE_COLUMNS, AgentUsageRow, LIMIT } from './AgentUsageRow'
+import { AGENT_USAGE_COLUMNS, AgentUsageRow, LIMIT_FILL } from './AgentUsageRow'
 import { GAP_FILL, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
@@ -51,9 +51,10 @@ function foldCells(points: MetricPoint[]): MetricPoint[] {
 /** Darker the more of the plan a bucket used; a used-up window turns orange. */
 function cellColor(value: number | null): string | undefined {
   if (value === null) return GAP_FILL
-  if (value >= 100) return LIMIT
+  if (value >= 100) return LIMIT_FILL
 
-  return `rgba(164, 105, 255, ${String(0.12 + (0.88 * value) / 100)})`
+  // Starts well above GAP_FILL so a quiet agent never reads as one that did not report.
+  return `rgba(var(--color-zViolet-500), ${String(0.2 + (0.8 * value) / 100)})`
 }
 
 function UsageHeatmap({
@@ -90,7 +91,7 @@ function UsageHeatmap({
         <span
           aria-hidden="true"
           className="ml-2 h-2.5 w-2.5 rounded-sm"
-          style={{ backgroundColor: LIMIT }}
+          style={{ backgroundColor: LIMIT_FILL }}
         />
         <span>At limit</span>
       </div>
@@ -99,6 +100,8 @@ function UsageHeatmap({
           <button
             key={row.instance.id}
             type="button"
+            // The table below covers keyboard access; one tab stop per agent is enough.
+            tabIndex={-1}
             onClick={() => onSelect(row.instance.id)}
             className="group flex w-full items-center gap-3 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
           >

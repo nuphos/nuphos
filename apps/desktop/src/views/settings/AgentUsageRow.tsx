@@ -4,8 +4,6 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { ACCENT } from './MetricChart'
-
 import type { MetricPoint } from './MetricChart'
 import type { QuotaHistoryRow } from './quotaHistoryRows'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
@@ -13,8 +11,9 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 /** Shared by the header and every row so the columns line up. */
 export const AGENT_USAGE_COLUMNS = 'grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px] gap-5'
 
-/** The used-up colour; a fixed value so it reads the same in light and dark themes. */
-export const LIMIT = 'rgb(244, 119, 89)'
+/** Fills that read the same in both themes; the theme only remaps the lighter rungs. */
+export const USED_FILL = 'rgb(var(--color-zViolet-500))'
+export const LIMIT_FILL = 'rgb(var(--color-zOrangered-500))'
 
 const percent = (value: number) => `${String(Math.round(value))}%`
 
@@ -65,7 +64,6 @@ export function AgentUsageRow({
   return (
     <button
       type="button"
-      aria-current={selected ? 'page' : undefined}
       onClick={() => onSelect(instance.id)}
       className={clsx(
         `t-agents-row grid w-full ${AGENT_USAGE_COLUMNS} items-center border-b border-zGray-800/60 px-4 py-2.5 text-left outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-500/60`,
@@ -78,7 +76,7 @@ export function AgentUsageRow({
         </span>
         <span className="truncate text-[13px] font-medium text-main">{instance.label}</span>
         {atLimit && (
-          <span className="shrink-0 rounded-full bg-zOrangered-500/10 px-2 py-0.5 text-[11px] text-zOrangered-600">
+          <span className="shrink-0 rounded-full bg-zOrangered-500/10 px-2 py-0.5 text-[11px] text-zOrangered-400">
             At limit
           </span>
         )}
@@ -111,14 +109,14 @@ export function AgentUsageRow({
                   className="block h-full rounded-full"
                   style={{
                     width: `${String(Math.min(window.usedPercent, 100))}%`,
-                    backgroundColor: window.usedPercent >= 100 ? LIMIT : ACCENT,
+                    backgroundColor: window.usedPercent >= 100 ? LIMIT_FILL : USED_FILL,
                   }}
                 />
               </span>
               <span
                 className={clsx(
                   'w-9 shrink-0 text-right font-mono',
-                  window.usedPercent >= 100 ? 'text-zOrangered-600' : 'text-main',
+                  window.usedPercent >= 100 ? 'text-zOrangered-400' : 'text-main',
                 )}
               >
                 {percent(window.usedPercent)}
@@ -138,7 +136,7 @@ export function AgentUsageRow({
             <path
               d={sparklinePath(row.peak)}
               fill="none"
-              stroke={atLimit ? LIMIT : ACCENT}
+              stroke={atLimit ? LIMIT_FILL : USED_FILL}
               strokeWidth={1.5}
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
