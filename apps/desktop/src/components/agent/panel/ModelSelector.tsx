@@ -1,3 +1,4 @@
+import { effortLabel, modelChoiceLabel } from '../../../lib/configLabels'
 import { concreteModelChoices, isDefaultModel } from '../../../lib/modelChoices'
 
 import { ChevronDown, ChevronLeft, Loader2, RefreshCw, Zap } from 'lucide-react'
@@ -15,29 +16,47 @@ import {
 import type { useSessionConfig } from './useSessionConfig'
 import type { SessionConfigOption, SessionConfigState } from '../../../api/session-config-types'
 
+type Choice = SessionConfigOption['options'][number]
+
+function choiceLabel(option: SessionConfigOption, choice: Choice) {
+  if (option.kind === 'model') return modelChoiceLabel(choice)
+  if (option.kind === 'effort') return effortLabel(choice)
+
+  return choice.name
+}
+
 function currentLabel(option: SessionConfigOption) {
   if (option.kind === 'model') {
     const { current, label } = concreteModelChoices(
-      option.options.map((choice) => ({ ...choice, id: choice.value })),
+      option.options.map((choice) => ({
+        ...choice,
+        id: choice.value,
+        name: modelChoiceLabel(choice),
+      })),
       option.currentValue,
     )
 
     return label ?? current ?? ''
   }
   if (option.kind === 'effort' && option.currentValue === 'default') return ''
+  const choice = option.options.find((candidate) => candidate.value === option.currentValue)
 
-  return (
-    option.options.find((choice) => choice.value === option.currentValue)?.name ??
-    option.currentValue
-  )
+  return choiceLabel(option, choice ?? { value: option.currentValue, name: option.currentValue })
 }
 
-/** Show the model whenever one is known; "unavailable" means the agent is offline. */
+/** Show the model, plus effort when it is not the default, whenever a model is
+ *  known; "unavailable" means the agent is offline. */
 function modelLabel(
   model: SessionConfigOption | undefined,
+  effort: SessionConfigOption | undefined,
   status: SessionConfigState['status'] | undefined,
 ) {
-  if (model) return currentLabel(model)
+  if (model) {
+    const name = currentLabel(model)
+    const level = effort ? currentLabel(effort) : ''
+
+    return name && level ? `${name} · ${level}` : name
+  }
   if (status === 'offline') return 'Model unavailable'
 
   return ''
@@ -84,7 +103,11 @@ export function ModelSelector({
 
   // A runtime that exposes no model controls gets no picker at all.
   if (status === 'unsupported') return null
-  const label = modelLabel(model, status)
+  const label = modelLabel(
+    model,
+    options?.find((option) => option.kind === 'effort'),
+    status,
+  )
   const blocked =
     disabled ||
     saving ||
@@ -165,7 +188,7 @@ export function ModelSelector({
                     closeOnClick={false}
                     onClick={() => control.select({ configId: option.id, value: choice.value })}
                   >
-                    {choice.name}
+                    {choiceLabel(option, choice)}
                   </MenuItem>
                 ))}
             </MenuContent>
