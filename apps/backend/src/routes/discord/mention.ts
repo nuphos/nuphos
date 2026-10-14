@@ -3,7 +3,7 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { defaultDependencies } from './message-dependencies'
 import { ingestDiscordAttachments } from './attachments'
-import { discordMessageText, quoteDiscordReply } from './message'
+import { discordMessageText, discordReplyQuote } from './message'
 
 import type { DiscordMessageCreate } from './message'
 
@@ -219,9 +219,10 @@ export async function handleDiscordMention(
       userId: userMapping.nuphosUserId,
       sessionId: thread.sessionId,
     })
-    const said = event.referenced_message ? quoteDiscordReply(event.referenced_message, text) : text
-    const renderedText = attached ? `${said}\n\n${attached}` : said
-    const metadata = await createMessageMetadata(userMapping.nuphosUserId, 'discord')
+    const renderedText = attached ? `${text}\n\n${attached}` : text
+    const replyTo = event.referenced_message && discordReplyQuote(event.referenced_message)
+    const attribution = await createMessageMetadata(userMapping.nuphosUserId, 'discord')
+    const metadata = replyTo ? { ...attribution, replyTo } : attribution
     const claim = await turnRunner.claimAgentRunOrEnqueue({
       userId: thread.agentUserId,
       sessionId: thread.sessionId,

@@ -153,6 +153,8 @@ export type AgentMessageMetadata = {
   sentAt: string
   /** The session an agent.thread message came from. */
   sourceSessionId?: string
+  /** The message this one replies to, e.g. a Discord reply. */
+  replyTo?: { authorName: string; text: string }
 }
 
 export type AgentPersistedMessage = {
