@@ -1,10 +1,11 @@
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Profiler, useEffect, useRef } from 'react'
+import { Profiler, useEffect, useRef, useState } from 'react'
 
 import { WorkspaceTabPane } from '../../app/workspace/WorkspaceTabPane'
 import { EMPTY_LIST } from '../../app/workspaceTabState'
 import { Toolbar } from '../../components/Toolbar'
+import { PageAsideContext } from '../../hooks/usePageAside'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
 import { ToolbarPrimaryActionContext } from '../../hooks/useToolbarPrimaryAction'
 import { teamCanUseAgent } from '../../lib/agentAccess'
@@ -98,6 +99,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     onSidebarOpenKey,
   } = ws
   const surfaceRef = useRef<HTMLElement | null>(null)
+  const [pageAsideEl, setPageAsideEl] = useState<HTMLDivElement | null>(null)
   const focusedTabRef = useRef<string | null>(null)
   const paneActive = useWorkspacePane()?.active ?? true
 
@@ -135,8 +137,8 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
       data-workspace-focus-surface="tab"
       className="@container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none workspace-content-surface"
     >
-      <div className="flex flex-1 min-h-0 flex-col">
-        <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+      <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
           {activeTab?.active !== 'team.browser' && activeTab?.active !== 'team.terminal' && (
             <Profiler id="toolbar" onRender={(id, _p, ms) => reportShellRender(id, ms)}>
               <Toolbar
@@ -213,82 +215,85 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                 {error}
               </div>
             )}
-            <ToolbarPrimaryActionContext.Provider value={setToolbarPrimaryAction}>
-              <ToolbarSlotsContext.Provider value={toolbarSlots}>
-                <div className="flex-1 min-h-0">
-                  {panes.map((tab) => (
-                    <Profiler
-                      key={tab.id}
-                      id={tab.id}
-                      onRender={(id, _phase, actualDuration) =>
-                        reportPaneRender(id, actualDuration)
-                      }
-                    >
-                      <WorkspaceTabPane
-                        conversationId={mainPageOpen ? null : ws.selectedSessionId}
+            <PageAsideContext.Provider value={pageAsideEl}>
+              <ToolbarPrimaryActionContext.Provider value={setToolbarPrimaryAction}>
+                <ToolbarSlotsContext.Provider value={toolbarSlots}>
+                  <div className="flex-1 min-h-0">
+                    {panes.map((tab) => (
+                      <Profiler
                         key={tab.id}
-                        tab={tab}
-                        isTeamAdmin={
-                          teams.find((t) => t.id === tab.scope.teamId)?.role === 'ADMINISTRATOR'
+                        id={tab.id}
+                        onRender={(id, _phase, actualDuration) =>
+                          reportPaneRender(id, actualDuration)
                         }
-                        agentPaid={teamCanUseAgent(teams.find((t) => t.id === tab.scope.teamId))}
-                        active={tab.id === activeTabId}
-                        mounted={mountedIds.has(tab.id)}
-                        accounts={accounts}
-                        firstRunDevForced={firstRunDevForced}
-                        databaseConnections={databaseConnectionsByTeam[tab.scope.teamId]}
-                        githubInstallations={
-                          githubInstallationsByTeam[tab.scope.teamId] ?? EMPTY_LIST
-                        }
-                        gitlabBindings={gitlabBindingsByTeam[tab.scope.teamId] ?? EMPTY_LIST}
-                        grafanaInstances={grafanaInstancesByTeam[tab.scope.teamId] ?? EMPTY_LIST}
-                        user={user}
-                        rootIntegrations={rootIntegrations}
-                        rootIntegrationsLoading={accounts === undefined}
-                        scopeChipForPath={scopeChipForPath}
-                        onOpenPath={onSidebarOpenPath}
-                        onOpenKey={onSidebarOpenKey}
-                        onDockAgentToSidebar={stableDockAgentToSidebar}
-                        pendingPageImport={sidebarAgentPagePendingImport}
-                        onPagePendingImportConsumed={clearSidebarAgentPagePendingImport}
-                        pendingChatPrompt={
-                          tab.active === 'team.agent' && tab.id === activeTabId
-                            ? pendingChatPrompt
-                            : null
-                        }
-                        onChatPromptConsumed={consumeChatPrompt}
-                        onOpenNuphosLink={stableOpenNuphosLinkFromChat}
-                        onOpenNodeLink={stableOpenNodeLink}
-                        onOpenPlanInChat={stableOpenPlanInChat}
-                        onOpenConversation={stableOpenConversationHere}
-                        onAgentSessionTitle={setAgentSessionTitle}
-                        onOpenAuditConversation={openAuditConversation}
-                        copyLink={copyLink}
-                        openInChat={stableOpenInChat}
-                        onOpenAgentChat={stableOpenAgentChatWithPrompt}
-                        onStartFirstRunConnect={startFirstRunConnect}
-                        updateTab={updateTab}
-                        onFilterChange={setActiveFilter}
-                        enterScopeInTab={enterScopeInTab}
-                        enterCluster={stableEnterCluster}
-                        openLightsailSshTab={openLightsailSshTab}
-                        openEc2SshTab={openEc2SshTab}
-                        openGceSshTab={openGceSshTab}
-                        onRequestBindGithub={setBindGithubTarget}
-                        onRequestBindGitlab={setBindGitlabTarget}
-                        onOpenSettingsSection={openSettingsSection}
-                        slackBindRequested={slackBindRequested && tab.id === activeTabId}
-                        onSlackBindHandled={handleSlackBindRequested}
-                        renderAgentPage={false}
-                        dockVisible={ws.dockOpen}
-                      />
-                    </Profiler>
-                  ))}
-                </div>
-              </ToolbarSlotsContext.Provider>
-            </ToolbarPrimaryActionContext.Provider>
+                      >
+                        <WorkspaceTabPane
+                          conversationId={mainPageOpen ? null : ws.selectedSessionId}
+                          key={tab.id}
+                          tab={tab}
+                          isTeamAdmin={
+                            teams.find((t) => t.id === tab.scope.teamId)?.role === 'ADMINISTRATOR'
+                          }
+                          agentPaid={teamCanUseAgent(teams.find((t) => t.id === tab.scope.teamId))}
+                          active={tab.id === activeTabId}
+                          mounted={mountedIds.has(tab.id)}
+                          accounts={accounts}
+                          firstRunDevForced={firstRunDevForced}
+                          databaseConnections={databaseConnectionsByTeam[tab.scope.teamId]}
+                          githubInstallations={
+                            githubInstallationsByTeam[tab.scope.teamId] ?? EMPTY_LIST
+                          }
+                          gitlabBindings={gitlabBindingsByTeam[tab.scope.teamId] ?? EMPTY_LIST}
+                          grafanaInstances={grafanaInstancesByTeam[tab.scope.teamId] ?? EMPTY_LIST}
+                          user={user}
+                          rootIntegrations={rootIntegrations}
+                          rootIntegrationsLoading={accounts === undefined}
+                          scopeChipForPath={scopeChipForPath}
+                          onOpenPath={onSidebarOpenPath}
+                          onOpenKey={onSidebarOpenKey}
+                          onDockAgentToSidebar={stableDockAgentToSidebar}
+                          pendingPageImport={sidebarAgentPagePendingImport}
+                          onPagePendingImportConsumed={clearSidebarAgentPagePendingImport}
+                          pendingChatPrompt={
+                            tab.active === 'team.agent' && tab.id === activeTabId
+                              ? pendingChatPrompt
+                              : null
+                          }
+                          onChatPromptConsumed={consumeChatPrompt}
+                          onOpenNuphosLink={stableOpenNuphosLinkFromChat}
+                          onOpenNodeLink={stableOpenNodeLink}
+                          onOpenPlanInChat={stableOpenPlanInChat}
+                          onOpenConversation={stableOpenConversationHere}
+                          onAgentSessionTitle={setAgentSessionTitle}
+                          onOpenAuditConversation={openAuditConversation}
+                          copyLink={copyLink}
+                          openInChat={stableOpenInChat}
+                          onOpenAgentChat={stableOpenAgentChatWithPrompt}
+                          onStartFirstRunConnect={startFirstRunConnect}
+                          updateTab={updateTab}
+                          onFilterChange={setActiveFilter}
+                          enterScopeInTab={enterScopeInTab}
+                          enterCluster={stableEnterCluster}
+                          openLightsailSshTab={openLightsailSshTab}
+                          openEc2SshTab={openEc2SshTab}
+                          openGceSshTab={openGceSshTab}
+                          onRequestBindGithub={setBindGithubTarget}
+                          onRequestBindGitlab={setBindGitlabTarget}
+                          onOpenSettingsSection={openSettingsSection}
+                          slackBindRequested={slackBindRequested && tab.id === activeTabId}
+                          onSlackBindHandled={handleSlackBindRequested}
+                          renderAgentPage={false}
+                          dockVisible={ws.dockOpen}
+                        />
+                      </Profiler>
+                    ))}
+                  </div>
+                </ToolbarSlotsContext.Provider>
+              </ToolbarPrimaryActionContext.Provider>
+            </PageAsideContext.Provider>
           </div>
         </div>
+        <div ref={setPageAsideEl} className="flex min-h-0 shrink-0 empty:hidden" />
       </div>
     </main>
   )

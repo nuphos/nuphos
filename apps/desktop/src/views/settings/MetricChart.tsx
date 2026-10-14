@@ -9,7 +9,9 @@ import {
   YAxis,
 } from 'recharts'
 
-const ACCENT = 'rgb(164, 105, 255)'
+/** Shared with the Agents heatmap and usage bars so every usage chart is one violet. */
+export const ACCENT_RGB = '164, 105, 255'
+const ACCENT = `rgb(${ACCENT_RGB})`
 const CAPACITY = 'rgb(118, 124, 140)'
 
 /** The faint band behind a stretch with no reading; legends reuse it. */

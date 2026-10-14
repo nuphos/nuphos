@@ -10,7 +10,31 @@
   transition: width var(--duration-fast) var(--ease-smooth-out);
 }
 
+/* The agent panel slides in beside the page; switching agents fades the body. */
+.t-agent-panel,
+.t-agent-panel-body,
+.t-agents-reveal {
+  transition:
+    transform var(--duration-fast) var(--ease-smooth-out),
+    opacity var(--duration-fast) var(--ease-smooth-out);
+}
+
+@starting-style {
+  .t-agent-panel {
+    transform: translateX(var(--distance-base));
+    opacity: 0;
+  }
+
+  .t-agent-panel-body,
+  .t-agents-reveal {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .t-agent-panel,
+  .t-agent-panel-body,
+  .t-agents-reveal,
   .t-agents-row,
   .t-agents-page [role='progressbar'] > * {
     transition: none !important;

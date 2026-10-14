@@ -5,6 +5,8 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
+import { ACCENT_RGB } from './MetricChart'
+
 import type { MetricPoint } from './MetricChart'
 import type { QuotaHistoryRow } from './quotaHistoryRows'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
@@ -13,8 +15,8 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 export const AGENT_USAGE_COLUMNS =
   'grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px_16px] gap-5'
 
-/** Fills that read the same in both themes; the theme only remaps the lighter rungs. */
-export const USED_FILL = 'rgba(var(--color-zViolet-400), 0.8)'
+/** Usage fills match MetricChart's violet; the used-up orange is a token the theme leaves alone. */
+export const USED_FILL = `rgb(${ACCENT_RGB})`
 export const LIMIT_FILL = 'rgba(var(--color-zOrangered-500), 0.7)'
 
 const percent = (value: number) => `${String(Math.round(value))}%`

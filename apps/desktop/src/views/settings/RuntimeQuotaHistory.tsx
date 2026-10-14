@@ -4,7 +4,7 @@ import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
 import { AGENT_USAGE_COLUMNS, AgentUsageRow, LIMIT_FILL } from './AgentUsageRow'
-import { GAP_FILL, RangeSwitch } from './MetricChart'
+import { ACCENT_RGB, GAP_FILL, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
 
@@ -57,7 +57,7 @@ function cellColor(value: number | null): string | undefined {
   // Ten even steps of 10%, darkest at 90% and above.
   const step = Math.min(9, Math.floor(value / 10))
 
-  return `rgba(var(--color-zViolet-400), ${String(0.22 + (0.78 * step) / 9)})`
+  return `rgba(${ACCENT_RGB}, ${String(0.22 + (0.78 * step) / 9)})`
 }
 
 function UsageHeatmap({
@@ -117,7 +117,7 @@ function UsageHeatmap({
                 <span
                   key={point.at}
                   title={`${timeLabel(point.at)} · ${point.value === null ? 'No reading' : percent(point.value)}`}
-                  className="aspect-square min-w-0 flex-1 rounded-[2px]"
+                  className="aspect-square min-w-0 flex-1 rounded-[2px] transition-[background-color] duration-300 motion-reduce:transition-none"
                   style={{ backgroundColor: cellColor(point.value) }}
                 />
               ))}
@@ -133,6 +133,51 @@ function UsageHeatmap({
           ))}
           <span>Now</span>
         </span>
+      </div>
+    </div>
+  )
+}
+
+const SKELETON = 'animate-pulse rounded bg-zGray-800/50 motion-reduce:animate-none'
+
+/** The heatmap card's shape while its history loads, so the table does not jump. */
+function HeatmapSkeleton({ rows }: { rows: number }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="mb-4 rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3"
+    >
+      <div className={`mb-4 h-3.5 w-48 ${SKELETON}`} />
+      <div className="space-y-2">
+        {Array.from({ length: Math.max(rows, 3) }, (_, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <div className={`h-3 w-40 shrink-0 ${SKELETON}`} />
+            <div className={`h-3 min-w-0 flex-1 ${SKELETON}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** The whole overview's shape before the agents themselves have loaded. */
+export function AgentUsageSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading agents">
+      <div className={`mb-2 h-3 w-36 ${SKELETON}`} />
+      <div className={`mb-4 h-3 w-64 ${SKELETON}`} />
+      <HeatmapSkeleton rows={5} />
+      <div aria-hidden="true" className="rounded-xl border border-zGray-800/60 bg-surface/40">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 border-b border-zGray-800/60 px-4 py-3 last:border-b-0"
+          >
+            <div className={`h-8 w-8 shrink-0 rounded-lg ${SKELETON}`} />
+            <div className={`h-3 w-40 ${SKELETON}`} />
+            <div className={`ml-auto h-1.5 w-48 ${SKELETON}`} />
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -209,6 +254,7 @@ export function RuntimeQuotaHistory({
           </div>
         }
       />
+      {!loaded && <HeatmapSkeleton rows={Math.min(instances.length, 8)} />}
       {loaded &&
         (rows.length === 0 ? (
           <p className="mb-4 rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
