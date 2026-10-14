@@ -52,6 +52,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Previous / next conversation', combos: ['up', 'down'] },
       { label: 'Stop response', combos: ['esc'] },
       { label: 'Find in conversation', combos: ['mod+f'] },
+      { label: 'Toggle chat summary', combos: ['mod+i'] },
     ],
   },
   {

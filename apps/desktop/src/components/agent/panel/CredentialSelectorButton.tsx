@@ -1,7 +1,8 @@
 import clsx from 'clsx'
 import { Laptop, Loader2, Shield, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
+import { onCredentialPickerRequest } from '../../../lib/credentialPickerEvents'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
 
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
@@ -35,6 +36,19 @@ function SelectionButton({
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // The chat summary's Connectors and device rows open this picker.
+  useEffect(() => {
+    const trigger = triggerRef.current
+
+    if (!trigger) return
+
+    return onCredentialPickerRequest(trigger, devices, () => {
+      setMenuOpen(true)
+      onOpen()
+    })
+  }, [devices, onOpen])
   const listedDevices = shownDevices(options.devices, value.deviceIds)
   const selectedCount = devices ? value.deviceIds.length : countSelectedCredentials(value)
   const totalCount = devices ? listedDevices.length : countTotalCredentials(options)
@@ -66,6 +80,7 @@ function SelectionButton({
       }}
     >
       <MenuTrigger
+        ref={triggerRef}
         className={clsx(
           'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main',
           hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
