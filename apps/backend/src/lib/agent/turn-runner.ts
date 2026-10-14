@@ -15,6 +15,7 @@ type AgentRoutes = typeof import('@/routes/agent')
 export type TurnRunner = {
   runAgentForTrigger: AgentRoutes['runAgentForTrigger']
   claimAgentRunOrEnqueue: AgentRoutes['claimAgentRunOrEnqueue']
+  admitChannelTurn: AgentRoutes['admitChannelTurn']
   claimAgentRunForSession: AgentRoutes['claimAgentRunForSession']
   hasActiveAgentRunForSession: AgentRoutes['hasActiveAgentRunForSession']
 }
@@ -32,6 +33,7 @@ async function resolve<K extends keyof TurnRunner>(name: K): Promise<TurnRunner[
 export const turnRunner: TurnRunner = {
   runAgentForTrigger: async (params) => (await resolve('runAgentForTrigger'))(params),
   claimAgentRunOrEnqueue: async (args) => (await resolve('claimAgentRunOrEnqueue'))(args),
+  admitChannelTurn: async (args, timing) => (await resolve('admitChannelTurn'))(args, timing),
   claimAgentRunForSession: async (userId, sessionId) =>
     (await resolve('claimAgentRunForSession'))(userId, sessionId),
   hasActiveAgentRunForSession: async (userId, sessionId) =>

@@ -1,9 +1,19 @@
+import '@/routes/agent'
+
 import { describe, expect, test } from 'bun:test'
+
+import { clearPendingUserMessages } from '@/lib/agent/pending-messages'
+import { turnRunner } from '@/lib/agent/turn-runner'
+import { useDb } from '@/lib/test/doubles/db'
+import { agentRuns, createAgentRun, registerAgentRun } from '@/routes/agent/run-registry'
 
 import { handleDiscordMention } from './mention'
 import { discordReplyQuote } from './message'
 
 import type { DiscordMessageCreate, DiscordMessageDependencies } from './mention'
+
+// Turn admission looks the conversation up; none here means no move is running.
+useDb({ db: (() => ({ collection: () => ({ findOne: async () => null }) })) as never })
 
 const thread = {
   guildId: 'guild',
@@ -125,7 +135,7 @@ function setup(
     },
     signNuphosToken: () => 'actor-token',
     turnRunner: {
-      claimAgentRunOrEnqueue: async () => ({ mode: 'claimed', carried: [], release: () => {} }),
+      admitChannelTurn: async () => ({ mode: 'run', carried: [], release: () => {} }),
     },
   } as unknown as DiscordMessageDependencies
 
@@ -209,6 +219,30 @@ describe('Discord conversation admission', () => {
 
     await handleDiscordMention(message(false), 'bot', false, dependencies)
     expect(calls.turns).toHaveLength(1)
+  })
+  test('a message sent during a busy turn runs once that turn ends, with no follow-up', async () => {
+    const { calls, dependencies } = setup()
+    const busy = createAgentRun('owner', 'session', 'stream-busy', {
+      requestId: 'request-busy',
+      userId: 'owner',
+      sessionId: 'session',
+      streamId: 'stream-busy',
+      route: 'discord.agent',
+      method: 'TRIGGER',
+    })
+
+    dependencies.turnRunner = turnRunner
+    registerAgentRun(busy)
+    const handled = handleDiscordMention(message(), 'bot', false, dependencies)
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(calls.turns).toEqual([])
+    busy.done = true
+    busy.releaseOwnership()
+    agentRuns.delete(busy.key)
+    await handled
+    expect(calls.turns).toHaveLength(1)
+    await clearPendingUserMessages('owner', 'session')
   })
   test('unlinked thread participants are ignored without repeated prompts', async () => {
     const { calls, dependencies } = setup({ linked: false })

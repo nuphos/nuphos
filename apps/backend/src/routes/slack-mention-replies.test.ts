@@ -220,11 +220,11 @@ useThreadAddressing({
 useAgentPlans({ hasPlanAwaitingApprovalForConversation: async () => state.planAwaitingApproval })
 
 useTurnRunner({
-  claimAgentRunOrEnqueue: async (args) => {
+  admitChannelTurn: async (args, timing) => {
     claimActors.push(args.actorUserId)
-    const { claimAgentRunOrEnqueue } = await import('@/routes/agent/run-registry')
+    const { admitChannelTurn } = await import('@/routes/agent/run-registry')
 
-    return await claimAgentRunOrEnqueue(args)
+    return await admitChannelTurn(args, timing)
   },
   runAgentForTrigger: async (params) => {
     agentRuns.push({

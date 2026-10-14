@@ -31,6 +31,7 @@ export { isPlanReadyForApproval } from '@/lib/agent/plan-readiness'
 export { drainInFlightAgentRuns } from './agent/run-frames'
 export { startAgentRunStallSweeper } from './agent/run-stall'
 export {
+  admitChannelTurn,
   claimAgentRunForSession,
   claimAgentRunOrEnqueue,
   hasActiveAgentRunForSession,
