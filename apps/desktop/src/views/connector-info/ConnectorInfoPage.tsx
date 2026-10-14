@@ -6,7 +6,7 @@ import { LinearMark } from '../../components/LinearMark'
 import { toast } from '../../components/ui/toast'
 import { CATALOG } from '../addIntegrationCatalog'
 
-import type { ConnectorInfo, ConnectorInfoStatus } from './types'
+import type { ConnectorInfo } from './types'
 import type { ConnectorInfoProvider } from '../../lib/appRoutes'
 import type { ReactNode } from 'react'
 
@@ -22,13 +22,11 @@ function ConnectorLogo({ provider, size }: { provider: ConnectorInfoProvider; si
   return <CloudLogo provider={provider} size={size} />
 }
 
-function ConnectionStatusBadge({ status }: { status: ConnectorInfoStatus }) {
+function ConnectionStatusBadge({ warning }: { warning?: string }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-zGray-800/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${status.tone === 'warn' ? 'bg-amber-500' : 'bg-green-500'}`}
-      />
-      {status.label}
+    <div className="flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full border border-zGray-800/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
+      <span className={`h-1.5 w-1.5 rounded-full ${warning ? 'bg-amber-500' : 'bg-green-500'}`} />
+      {warning ?? 'Connected'}
     </div>
   )
 }
@@ -208,9 +206,7 @@ export function ConnectorInfoPage({
                       {providerLabel} connection
                     </div>
                   </div>
-                  <ConnectionStatusBadge
-                    status={connection.info.status ?? { label: 'Connected', tone: 'ok' }}
-                  />
+                  <ConnectionStatusBadge warning={connection.info.warning} />
                   <ChevronRight
                     className={`h-4 w-4 flex-none text-tertiary transition-transform duration-200 ${
                       isSelected ? 'rotate-90' : ''
