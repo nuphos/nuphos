@@ -19,7 +19,6 @@ import {
   parseDeviceIdentity,
   readMachineKey,
   stableDeviceId,
-  withStableDeviceId,
 } from '../device-identity-core.ts'
 
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
@@ -45,27 +44,23 @@ const NAMES: Record<LocalAgentProvider, string> = { 'claude-code': 'Claude Code'
 
 function deviceIdentity(): DeviceIdentity {
   const file = path.join(dataDir, 'device-identity.json')
-  const key = readMachineKey()
-  const stable = key ? stableDeviceId(key, 'cli') : null
-  let saved: DeviceIdentity | null = null
 
   try {
-    saved = parseDeviceIdentity(readFileSync(file, 'utf8'))
+    const saved = parseDeviceIdentity(readFileSync(file, 'utf8'))
+
+    if (saved) return saved
   } catch {
     // None yet.
   }
-  const identity = saved
-    ? withStableDeviceId(saved, stable)
-    : {
-        deviceId: stable ?? randomUUID(),
-        label: defaultDeviceLabel(),
-        createdAt: new Date().toISOString(),
-      }
-
-  if (identity !== saved) {
-    mkdirSync(dataDir, { recursive: true })
-    writeFileSync(file, JSON.stringify(identity), { mode: 0o600 })
+  const key = readMachineKey()
+  const identity = {
+    deviceId: key ? stableDeviceId(key, 'cli') : randomUUID(),
+    label: defaultDeviceLabel(),
+    createdAt: new Date().toISOString(),
   }
+
+  mkdirSync(dataDir, { recursive: true })
+  writeFileSync(file, JSON.stringify(identity), { mode: 0o600 })
 
   return identity
 }
@@ -135,7 +130,6 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       label: device.label,
       platform: process.platform,
       allowLocalExec: true,
-      ...(device.previousDeviceIds ? { previousDeviceIds: device.previousDeviceIds } : {}),
     })
   },
   createProcess: () => new OpenabProcess(),

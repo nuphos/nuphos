@@ -7,7 +7,6 @@ import {
   parseRegMachineGuid,
   readMachineKey,
   stableDeviceId,
-  withStableDeviceId,
 } from './device-identity-core.ts'
 
 const identity = { deviceId: 'abc-123', label: 'My Mac', createdAt: '2026-01-01T00:00:00.000Z' }
@@ -43,21 +42,6 @@ test('one stable id per machine and client kind, never the raw machine key', () 
   assert.ok(!desktop.includes('MACHINE'))
 })
 
-test('an install moves onto the stable id and remembers the ids it replaces', () => {
-  const stable = stableDeviceId('MACHINE-UUID', 'desktop')
-  const moved = withStableDeviceId(identity, stable)
-
-  assert.deepEqual(moved, { ...identity, deviceId: stable, previousDeviceIds: ['abc-123'] })
-  assert.equal(withStableDeviceId(moved, stable), moved)
-  assert.equal(withStableDeviceId(identity, null), identity)
-  assert.deepEqual(parseDeviceIdentity(JSON.stringify(moved)), moved)
-  // A second reinstall that minted another random id adds to the list.
-  assert.deepEqual(
-    withStableDeviceId({ ...moved, deviceId: 'def-456' }, stable).previousDeviceIds,
-    ['abc-123', 'def-456'],
-  )
-})
-
 test('reads the machine key from ioreg and reg output', () => {
   const ioreg = `+-o J314sAP  <class IOPlatformExpertDevice, id 0x100000214, registered>
     {
@@ -74,12 +58,4 @@ HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography
   assert.equal(parseIoregPlatformUuid('no uuid here'), null)
   assert.equal(parseRegMachineGuid('ERROR: The system was unable to find the value'), null)
   assert.ok(['string', 'object'].includes(typeof readMachineKey()))
-})
-
-test('keeps at most the last 20 replaced ids', () => {
-  const many = { ...identity, previousDeviceIds: Array.from({ length: 25 }, (_, i) => `old-${i}`) }
-  const moved = withStableDeviceId(many, 'stable')
-
-  assert.equal(moved.previousDeviceIds?.length, 20)
-  assert.equal(moved.previousDeviceIds?.at(-1), 'abc-123')
 })

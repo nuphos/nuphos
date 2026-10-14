@@ -7,8 +7,6 @@ export type DeviceIdentity = {
   deviceId: string
   label: string
   createdAt: string
-  /** Ids this install registered under before its stable one; the backend merges them into it. */
-  previousDeviceIds?: string[]
 }
 
 export type DeviceKind = 'desktop' | 'cli'
@@ -24,15 +22,10 @@ export function parseDeviceIdentity(raw: string): DeviceIdentity | null {
       parsed.label.length > 0 &&
       typeof parsed.createdAt === 'string'
     ) {
-      const previous = Array.isArray(parsed.previousDeviceIds)
-        ? parsed.previousDeviceIds.filter((id): id is string => typeof id === 'string' && !!id)
-        : []
-
       return {
         deviceId: parsed.deviceId,
         label: parsed.label,
         createdAt: parsed.createdAt,
-        ...(previous.length ? { previousDeviceIds: previous } : {}),
       }
     }
   } catch {
@@ -97,7 +90,9 @@ export function readMachineKey(platform: NodeJS.Platform = process.platform): st
 
 /**
  * One id per machine and client kind, so a reinstall, a new profile or a new
- * agent home registers into the same device instead of adding one. Hashed so
+ * agent home registers into the same device instead of adding one. Only a new
+ * identity takes it: an existing one keeps its id, which its selections and
+ * local-agent conversations already name. Hashed so
  * the hardware id never leaves the machine; the Desktop and the CLI stay two
  * devices because each holds its own runtime tunnel.
  */
@@ -105,21 +100,4 @@ export function stableDeviceId(machineKey: string, kind: DeviceKind): string {
   const h = createHash('sha256').update(`nuphos-device-v1\0${kind}\0${machineKey}`).digest('hex')
 
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
-}
-
-/** Moves an identity onto the stable id, remembering the id it replaces. */
-export function withStableDeviceId(
-  identity: DeviceIdentity,
-  stableId: string | null,
-): DeviceIdentity {
-  if (!stableId || identity.deviceId === stableId) return identity
-
-  return {
-    ...identity,
-    deviceId: stableId,
-    // The registration accepts up to 20; older ids have long been merged.
-    previousDeviceIds: [
-      ...new Set([...(identity.previousDeviceIds ?? []), identity.deviceId]),
-    ].slice(-20),
-  }
 }

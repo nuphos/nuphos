@@ -9,7 +9,6 @@ import {
   parseDeviceIdentity,
   readMachineKey,
   stableDeviceId,
-  withStableDeviceId,
 } from './device-identity-core.ts'
 
 import type { DeviceIdentity } from './device-identity-core.ts'
@@ -55,8 +54,7 @@ export function readDeviceIdentity(): DeviceIdentity {
     const parsed = parseDeviceIdentity(raw)
 
     if (parsed) {
-      cached = withStableDeviceId(parsed, stableId())
-      if (cached !== parsed) persist(cached)
+      cached = parsed
 
       return cached
     }

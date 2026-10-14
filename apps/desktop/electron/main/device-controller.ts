@@ -17,7 +17,6 @@ async function syncRegistration(identity: DeviceIdentity): Promise<void> {
         platform: process.platform,
         // Older backends still require this capability flag in registration.
         allowLocalExec: true,
-        ...(identity.previousDeviceIds ? { previousDeviceIds: identity.previousDeviceIds } : {}),
       },
       10_000,
     )

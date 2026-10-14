@@ -6,7 +6,6 @@ import {
   decodeAuditCursor,
   listDeviceExecAudit,
 } from '@/lib/agent/devices/audit'
-import { mergeAgentDevice } from '@/lib/agent/devices/merge'
 import { getAgentDevice, upsertAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
@@ -22,8 +21,6 @@ const deviceRegistrationSchema = z.object({
   label: z.string().trim().min(1).max(200),
   platform: z.string().trim().min(1).max(64),
   allowLocalExec: z.boolean(),
-  // Ids this computer registered under before its stable one.
-  previousDeviceIds: z.array(z.string().trim().min(1).max(128)).max(20).optional(),
 })
 
 const auditQuerySchema = z.object({
@@ -37,7 +34,6 @@ const auditQuerySchema = z.object({
 
 export type AgentDeviceRouteDependencies = {
   upsertAgentDevice: (userId: string, device: AgentDeviceRegistration) => Promise<void>
-  mergeAgentDevice: (userId: string, fromId: string, toId: string) => Promise<boolean>
   getAgentDevice: (userId: string, deviceId: string) => Promise<AgentDevice | null>
   listDeviceExecAudit: (
     ownerUserId: string,
@@ -49,7 +45,6 @@ export type AgentDeviceRouteDependencies = {
 
 const defaultDependencies: AgentDeviceRouteDependencies = {
   upsertAgentDevice,
-  mergeAgentDevice,
   getAgentDevice,
   listDeviceExecAudit,
   conversationTitlesFor,
@@ -59,12 +54,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.put('/devices', zv('json', deviceRegistrationSchema), async (c) => {
-    const userId = c.get('userId')
-    const { previousDeviceIds = [], ...device } = c.req.valid('json')
-
-    await deps.upsertAgentDevice(userId, device)
-    for (const previous of previousDeviceIds)
-      await deps.mergeAgentDevice(userId, previous, device.deviceId)
+    await deps.upsertAgentDevice(c.get('userId'), c.req.valid('json'))
 
     return c.json({ ok: true })
   })
