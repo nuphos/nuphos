@@ -4,6 +4,7 @@ import { parseConnectRequest } from './connectCardModel.ts'
 import { isHiddenMemoryIngestPart } from './parts.ts'
 import { isThreadBadgePart } from './threadBadges.ts'
 import { INTERRUPTED_TOOL_MESSAGE, incompleteToolErrorText } from './toolInterruption.ts'
+import { isTriggerCardPart } from './triggerCards.ts'
 
 import type { Part, ToolPart } from './parts.ts'
 
@@ -35,7 +36,7 @@ export function isPlainToolPart(part: Part): part is ToolPart {
   if (part.type !== 'tool') return false
   if (CARD_TOOL_NAMES.has(part.toolName) || isPlanProposalToolName(part.toolName)) return false
   if (isConnectCardPart(part)) return false
-  if (isThreadBadgePart(part)) return false
+  if (isThreadBadgePart(part) || isTriggerCardPart(part)) return false
 
   return !BOOKKEEPING_TOOL_NAMES.has(part.toolName)
 }
@@ -125,9 +126,9 @@ export function isLiftedCardPart(part: Part): part is ToolPart {
   )
 }
 
-// A folded turn lifts its plan and connect cards and thread badges out from
-// behind the "Worked for" header so they sit under the answer; the fold itself
-// only renders when other work remains.
+// A folded turn lifts its plan, connect and trigger cards and thread badges out
+// from behind the "Worked for" header so they sit under the answer; the fold
+// itself only renders when other work remains.
 export function foldedTurnLayout(
   parts: readonly Part[],
   from: number,
@@ -139,8 +140,9 @@ export function foldedTurnLayout(
   for (let index = from; index < to; index += 1) {
     const part = parts[index]
 
-    if (isLiftedCardPart(part) || isThreadBadgePart(part)) planIndices.push(index)
-    else if (!isInvisiblePart(part)) foldHasWork = true
+    if (isLiftedCardPart(part) || isThreadBadgePart(part) || isTriggerCardPart(part)) {
+      planIndices.push(index)
+    } else if (!isInvisiblePart(part)) foldHasWork = true
   }
 
   return { planIndices, foldHasWork }

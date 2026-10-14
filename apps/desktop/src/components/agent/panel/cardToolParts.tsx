@@ -1,5 +1,7 @@
 import { ThreadBadge } from './ThreadBadge'
 import { isThreadBadgePart } from './threadBadges'
+import { TriggerCard } from './TriggerCard'
+import { isTriggerCardPart } from './triggerCards'
 
 import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
@@ -14,6 +16,9 @@ export function renderCardToolPart(
 ): ReactElement | null {
   if (isThreadBadgePart(part)) {
     return <ThreadBadge key={key} part={part} teamId={teamId} onOpen={onOpen} />
+  }
+  if (isTriggerCardPart(part)) {
+    return <TriggerCard key={key} part={part} teamId={teamId} onOpen={onOpen} />
   }
 
   return null
