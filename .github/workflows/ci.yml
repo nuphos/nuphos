@@ -118,15 +118,19 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE"
+          # A failed diff or jq must fail the step or answer false, never true.
+          git diff --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed"
           only=true
           while read -r f; do
             case "$f" in
               apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
               apps/*/package.json)
-                [ "$(git show "$BASE:$f" | jq -S 'del(.version)')" = "$(jq -S 'del(.version)' "$f")" ] || only=false ;;
+                old=$(git show "$BASE:$f" | jq -S 'del(.version)') &&
+                  new=$(jq -S 'del(.version)' "$f") &&
+                  [ "$old" = "$new" ] || only=false ;;
               *) only=false ;;
             esac
-          done < <(git diff --no-renames --name-only "$BASE" HEAD)
+          done < "$RUNNER_TEMP/changed"
           echo "version_only=$only" | tee -a "$GITHUB_OUTPUT"
 
   ios:
