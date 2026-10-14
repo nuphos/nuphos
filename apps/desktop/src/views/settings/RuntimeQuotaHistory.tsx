@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
-import { AGENT_USAGE_COLUMNS, AgentUsageRow, LIMIT_FILL } from './AgentUsageRow'
+import { AGENT_USAGE_COLUMNS, AgentUsageRow } from './AgentUsageRow'
 import { HeatmapSkeleton } from './AgentUsageSkeleton'
-import { ACCENT_RGB, GAP_FILL, RangeSwitch } from './MetricChart'
+import { GAP_FILL, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
+import { UsageHeatmap } from './UsageHeatmap'
 
-import type { MetricPoint } from './MetricChart'
-import type { QuotaHistoryRow } from './quotaHistoryRows'
 import type {
   RuntimeInstance,
   RuntimeQuota,
@@ -23,143 +21,6 @@ const RANGE_OPTIONS = (Object.keys(QUOTA_HISTORY_RANGES) as RuntimeQuotaHistoryR
 )
 // A reading is held ten minutes on the backend, so nothing new arrives sooner.
 const POLL_MS = 600_000
-const LEGEND_STEPS = [10, 40, 70, 95]
-// Enough cells to read a day at a glance; finer buckets fold into their busiest.
-const MAX_CELLS = 72
-// Each cell keeps at least this much room (with its gap), so a narrow page gets
-// fewer, wider cells rather than dots.
-const MIN_CELL_PX = 11
-
-const percent = (value: number) => `${String(Math.round(value))}%`
-
-function timeLabelFor(range: RuntimeQuotaHistoryRange): (at: number) => string {
-  return (at) =>
-    new Date(at).toLocaleString([], {
-      ...(range === '1d' ? {} : { month: 'short', day: 'numeric' }),
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-}
-
-function foldCells(points: MetricPoint[], maxCells: number): MetricPoint[] {
-  const size = Math.ceil(points.length / maxCells)
-
-  return Array.from({ length: Math.ceil(points.length / size) }, (_, i) => {
-    const chunk = points.slice(i * size, (i + 1) * size)
-    const values = chunk.flatMap((p) => (p.value === null ? [] : [p.value]))
-
-    return { at: chunk[0].at, value: values.length > 0 ? Math.max(...values) : null }
-  })
-}
-
-/** Darker the more of the plan a bucket used; a used-up window turns orange. */
-function cellColor(value: number | null): string | undefined {
-  if (value === null) return GAP_FILL
-  if (value >= 100) return LIMIT_FILL
-
-  // Starts well above GAP_FILL so a quiet agent never reads as one that did not report.
-  // Ten even steps of 10%, darkest at 90% and above.
-  const step = Math.min(9, Math.floor(value / 10))
-
-  return `rgba(${ACCENT_RGB}, ${String(0.22 + (0.78 * step) / 9)})`
-}
-
-function UsageHeatmap({
-  rows,
-  range,
-  nowMs,
-  onSelect,
-}: {
-  rows: QuotaHistoryRow[]
-  range: RuntimeQuotaHistoryRange
-  nowMs: number
-  onSelect: (runtimeId: string) => void
-}) {
-  const timeLabel = timeLabelFor(range)
-  const from = nowMs - QUOTA_HISTORY_RANGES[range].hours * 3_600_000
-  const ticks = [0, 0.25, 0.5, 0.75].map((f) => from + f * (nowMs - from))
-  const [cells, setCells] = useState<HTMLSpanElement | null>(null)
-  const [cellsWidth, setCellsWidth] = useState(0)
-  const maxCells = cellsWidth
-    ? Math.max(12, Math.min(MAX_CELLS, Math.floor(cellsWidth / MIN_CELL_PX)))
-    : MAX_CELLS
-
-  useEffect(() => {
-    if (!cells) return
-    const observer = new ResizeObserver(([entry]) => setCellsWidth(entry?.contentRect.width ?? 0))
-
-    observer.observe(cells)
-
-    return () => observer.disconnect()
-  }, [cells])
-
-  return (
-    <div className="mb-4 rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3">
-      <div className="mb-3 flex items-center gap-1.5 text-[11px] text-tertiary">
-        <span className="mr-auto text-[13px] font-medium text-main">
-          Highest plan window, every agent
-        </span>
-        <span>0%</span>
-        {LEGEND_STEPS.map((step) => (
-          <span
-            key={step}
-            aria-hidden="true"
-            className="h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: cellColor(step) }}
-          />
-        ))}
-        <span>99%</span>
-        <span
-          aria-hidden="true"
-          className="ml-2 h-2.5 w-2.5 rounded-sm"
-          style={{ backgroundColor: LIMIT_FILL }}
-        />
-        <span>At limit</span>
-      </div>
-      <div className="space-y-[3px]">
-        {rows.map((row) => (
-          <button
-            key={row.instance.id}
-            type="button"
-            // The table below covers keyboard access; one tab stop per agent is enough.
-            tabIndex={-1}
-            onClick={() => onSelect(row.instance.id)}
-            className="group flex w-full items-center gap-3 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
-          >
-            <span className="flex w-28 shrink-0 items-center gap-2 text-[11.5px] text-secondary group-hover:text-main @3xl:w-40">
-              <AgentProviderIcon provider={row.instance.provider} className="h-3 w-3 shrink-0" />
-              <span className="truncate">{row.instance.label}</span>
-            </span>
-            <span
-              ref={row === rows[0] ? setCells : undefined}
-              className="flex min-w-0 flex-1 gap-[2px]"
-            >
-              {foldCells(row.peak, maxCells).map((point) => (
-                <span
-                  key={point.at}
-                  title={`${timeLabel(point.at)} · ${point.value === null ? 'No reading' : percent(point.value)}`}
-                  className="aspect-square min-w-0 flex-1 rounded-[2px] transition-[background-color] duration-300 motion-reduce:transition-none"
-                  style={{ backgroundColor: cellColor(point.value) }}
-                />
-              ))}
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="mt-2 flex gap-3 font-mono text-[10.5px] text-tertiary">
-        <span className="w-28 shrink-0 @3xl:w-40" />
-        <span className="flex min-w-0 flex-1 justify-between">
-          {ticks.map((at, i) => (
-            <span key={at} className={i % 2 === 1 ? 'hidden @3xl:inline' : undefined}>
-              {timeLabel(at)}
-            </span>
-          ))}
-          <span>Now</span>
-        </span>
-      </div>
-    </div>
-  )
-}
 
 /** How much of each agent's subscription the team used over the last day, week or
  *  month: a heatmap of every agent's busiest plan window, then one row per agent. */
