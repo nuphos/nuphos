@@ -36,6 +36,8 @@ struct CredentialCatalog: Equatable, Sendable {
         let id: String
         let label: String
         let detail: String?
+        /// A device that is offline or has local exec off. Shown only while selected, so it can be unticked.
+        var offline = false
     }
 
     static let providers: [Provider] = [
@@ -85,8 +87,8 @@ struct CredentialCatalog: Equatable, Sendable {
                 let detail = provider.detailKeys.lazy.compactMap { row[$0]?.stringValue }.first(where: { !$0.isEmpty && $0 != label })
                 guard provider.optionsKey == "devices" else { return Item(provider: provider, id: id, label: label, detail: detail) }
                 let platform = detail.map(Self.platformName)
-                let unavailable = row["available"]?.boolValue == false
-                return Item(provider: provider, id: id, label: label, detail: unavailable ? [platform, "Unavailable"].compactMap { $0 }.joined(separator: " · ") : platform)
+                let offline = row["available"]?.boolValue == false
+                return Item(provider: provider, id: id, label: label, detail: offline ? [platform, "Unavailable"].compactMap { $0 }.joined(separator: " · ") : platform, offline: offline)
             }
             return items.isEmpty ? nil : (provider, items)
         }
@@ -153,11 +155,12 @@ struct CredentialSelection: Equatable, Codable, Sendable {
     }
 
     mutating func selectAll(in catalog: CredentialCatalog) {
-        for item in catalog.allItems where !contains(item) { toggle(item) }
+        for item in catalog.allItems where !item.offline && !contains(item) { toggle(item) }
     }
 
     func containsAll(in catalog: CredentialCatalog) -> Bool {
-        !catalog.allItems.isEmpty && catalog.allItems.allSatisfy(contains)
+        let usable = catalog.allItems.filter { !$0.offline }
+        return !usable.isEmpty && usable.allSatisfy(contains)
     }
 
     /// `AgentCredentialSelection` — every known key present, empty arrays allowed.

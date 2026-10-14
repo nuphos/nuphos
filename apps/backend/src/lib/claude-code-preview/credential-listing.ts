@@ -206,7 +206,13 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     }),
     unsetMeansAll: true,
   }),
-  deviceIds: deviceLister,
+  deviceIds: (selectedIds, options) => {
+    const listed = deviceLister(selectedIds, options)
+    const usable = new Set(options.devices.filter((d) => d.available).map((d) => d.deviceId))
+
+    // Only a device usable now is worth asking the user to tick.
+    return { ...listed, unselected: listed.unselected.filter((entry) => usable.has(entry.id)) }
+  },
 }
 
 export function partitionCredentials(

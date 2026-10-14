@@ -1,18 +1,21 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { buildDeviceCredentialSections } from './credentialSections.ts'
+import { buildDeviceCredentialSections, usableDeviceIds } from './credentialSections.ts'
 
-const devices = [
-  { deviceId: 'm1', label: 'MacBook M1', platform: 'darwin', available: true },
-  { deviceId: 'm5', label: 'MacBook M5', platform: 'darwin', available: false },
-  // An older backend omits `available` and lists only usable devices.
-  { deviceId: 'pc', label: 'PC', platform: 'win32' },
-]
-
-describe('device credentials', () => {
-  test('lists every device, marking an unavailable one so it can be kept or unticked', () => {
-    const [section] = buildDeviceCredentialSections(devices)
+describe('device credential sections', () => {
+  test('shows usable devices and a selected offline one, marked, so it can be unticked', () => {
+    const [section] = buildDeviceCredentialSections(
+      [
+        { deviceId: 'm1', label: 'MacBook M1', platform: 'darwin', available: true },
+        { deviceId: 'm5', label: 'MacBook M5', platform: 'darwin', available: false },
+        // An unselected offline or long-gone registration stays hidden.
+        { deviceId: 'old', label: 'MacBook M1', platform: 'darwin', available: false },
+        // An older backend omits `available` and lists only usable devices.
+        { deviceId: 'pc', label: 'PC', platform: 'win32' },
+      ],
+      ['m5'],
+    )
 
     assert.deepEqual(
       section?.items.map((item) => [item.id, item.sublabel]),
@@ -21,6 +24,17 @@ describe('device credentials', () => {
         ['m5', 'darwin · Unavailable'],
         ['pc', 'win32'],
       ],
+    )
+  })
+
+  test('a new conversation defaults to the usable devices only', () => {
+    assert.deepEqual(
+      usableDeviceIds([
+        { deviceId: 'm1', label: 'M1', platform: 'darwin', available: true },
+        { deviceId: 'old', label: 'M1', platform: 'darwin', available: false },
+        { deviceId: 'pc', label: 'PC', platform: 'win32' },
+      ]),
+      ['m1', 'pc'],
     )
   })
 })
