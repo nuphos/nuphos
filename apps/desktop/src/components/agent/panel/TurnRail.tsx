@@ -1,11 +1,14 @@
 import clsx from 'clsx'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { MIN_RAIL_TURNS, pickRailTurns } from './railTurns'
 import { useTurnRail } from './useTurnRail'
 
 import type { Message } from './model'
 import type { KeyboardEvent, RefObject } from 'react'
+
+// Widest the preview may be; narrower docked transcripts shrink it to fit.
+const CARD_MAX_WIDTH = 256
 
 const NAV_KEYS: Partial<Record<string, (i: number, n: number) => number>> = {
   ArrowUp: (i) => Math.max(0, i - 1),
@@ -26,19 +29,40 @@ export function TurnRail({
 }) {
   const turns = useMemo(() => pickRailTurns(messages), [messages])
   const { activeId, jumpTo } = useTurnRail(scrollRef, turns, onBeforeJump)
-  const [hover, setHover] = useState<{ index: number; top: number } | null>(null)
+  const [hover, setHover] = useState<{ index: number; top: number; width: number } | null>(null)
   const railRef = useRef<HTMLDivElement>(null)
+  const navRef = useRef<HTMLElement>(null)
+
+  // Keep the current turn's tick inside the rail when the tick column scrolls.
+  useEffect(() => {
+    const nav = navRef.current
+    const index = turns.findIndex((t) => t.id === activeId)
+    const tick = nav?.querySelectorAll<HTMLElement>('button')[Math.max(0, index)]
+
+    if (!nav || !tick) return
+    if (tick.offsetTop < nav.scrollTop) nav.scrollTop = tick.offsetTop
+    else if (tick.offsetTop + tick.offsetHeight > nav.scrollTop + nav.clientHeight) {
+      nav.scrollTop = tick.offsetTop + tick.offsetHeight - nav.clientHeight
+    }
+  }, [activeId, turns])
 
   if (turns.length < MIN_RAIL_TURNS) return null
   const activeIndex = Math.max(
     0,
     turns.findIndex((t) => t.id === activeId),
   )
+
   const show = (index: number, button: HTMLElement) => {
     const rail = railRef.current?.getBoundingClientRect()
     const rect = button.getBoundingClientRect()
 
-    setHover({ index, top: rect.top - (rail?.top ?? 0) + rect.height / 2 })
+    const room = (rail?.left ?? 0) - (scrollRef.current?.getBoundingClientRect().left ?? 0) - 16
+
+    setHover({
+      index,
+      top: rect.top - (rail?.top ?? 0) + rect.height / 2,
+      width: Math.max(120, Math.min(CARD_MAX_WIDTH, room)),
+    })
   }
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const move = NAV_KEYS[event.key]
@@ -58,6 +82,7 @@ export function TurnRail({
       onMouseLeave={() => setHover(null)}
     >
       <nav
+        ref={navRef}
         aria-label="Conversation turns"
         onKeyDown={onKeyDown}
         onBlur={() => setHover(null)}
@@ -91,8 +116,8 @@ export function TurnRail({
       {card && (
         <div
           role="tooltip"
-          style={{ top: hover.top }}
-          className="surface-raised pointer-events-none absolute right-full mr-2 w-64 -translate-y-1/2 rounded-lg border border-zGray-700/80 bg-elevated px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
+          style={{ top: hover.top, width: hover.width }}
+          className="surface-raised pointer-events-none absolute right-full mr-2 -translate-y-1/2 rounded-lg border border-zGray-700/80 bg-elevated px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
         >
           <div className="truncate text-[12.5px] font-semibold text-main">{card.title}</div>
           {card.preview && (
