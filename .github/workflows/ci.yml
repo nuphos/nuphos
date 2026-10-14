@@ -53,15 +53,17 @@ jobs:
             backend:
               - 'apps/backend/**'
               - '.github/workflows/ci.yml'
+            # electron main imports runtime-file-program.ts from the backend.
             desktop:
               - 'apps/desktop/**'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
               - '.github/workflows/ci.yml'
-            # Everything the packaged app is built from except the renderer
-            # sources, which typecheck, lint and tests already cover. The single
-            # `*` takes the top-level config: package.json (electron-builder's
-            # config), the lockfile, vite.config.ts, index.html.
+            # What electron-builder adds beyond the vite bundle, which every
+            # desktop change still builds. The single `*` takes the top-level
+            # config: package.json (electron-builder's config) and the lockfile.
             desktop_package:
               - 'apps/desktop/*'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
               - 'apps/desktop/electron/**'
               - 'apps/desktop/local-runtime/**'
               - 'apps/desktop/build/**'
@@ -260,10 +262,15 @@ jobs:
         timeout-minutes: 3
         working-directory: apps/desktop
         run: pnpm test
-      # Packaging costs ~3.5 minutes and has not caught anything the steps
-      # above missed, so it runs only when a packaging input changed. The merge
-      # queue uses the same filter against the queue's base, so nothing that
-      # can break the package lands without being packaged.
+      # Bundling catches what tsc and eslint cannot (unresolved assets, CSS,
+      # Rollup errors) and takes seconds, so it runs on every desktop change.
+      - name: Build renderer and main bundles
+        working-directory: apps/desktop
+        run: pnpm exec vite build
+      # Staging and electron-builder cost ~3.5 minutes and have not caught
+      # anything the steps above missed, so they run only when a packaging input
+      # changed. The merge queue uses the same filter against the queue's base,
+      # so nothing that can break the package lands without being packaged.
       - name: Stage the local agent adapter
         if: needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
@@ -272,7 +279,7 @@ jobs:
       - name: Package Nuphos macOS app
         if: needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
-        run: pnpm run electron:build --mac --arm64 --x64 --dir --publish never
+        run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
