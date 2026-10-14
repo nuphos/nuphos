@@ -8,7 +8,14 @@ export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
 const modelControlsSchema = z.object({
   effort: z
-    .array(z.object({ value: z.string().min(1).max(100), name: z.string().max(200) }))
+    .array(
+      z.object({
+        value: z.string().min(1).max(100),
+        name: z.string().max(200),
+        // Claude names the level its "default" stands for here.
+        description: z.string().max(200).optional(),
+      }),
+    )
     .max(100),
   fast: z.boolean(),
   defaultFast: z.enum(['on', 'off']).optional(),
