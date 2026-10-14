@@ -137,14 +137,14 @@ export function catalogSessionConfig(
   const option = (
     id: keyof RuntimeDefaults,
     name: string,
-    choices: { value: string; name: string }[],
+    choices: { value: string; name: string; description?: string }[],
     fallback: string,
   ): SessionConfigOption => ({
     id,
     name,
     kind: id,
     currentValue: choices.some((choice) => choice.value === chosen[id]) ? chosen[id]! : fallback,
-    options: choices.map(({ value, name }) => ({ value, name })),
+    options: choices.map(({ value, name, description }) => ({ value, name, description })),
   })
 
   if (!catalog.models.length) return []
@@ -153,7 +153,7 @@ export function catalogSessionConfig(
     option(
       'model',
       'Model',
-      catalog.models.map(({ id, name }) => ({ value: id, name })),
+      catalog.models.map(({ id, name, description }) => ({ value: id, name, description })),
       controls?.modelId ?? 'default',
     ),
     ...(controls?.effort.length
