@@ -97,7 +97,8 @@ The token works once. The machine keeps its own credential in
 moves it); later runs need neither the token nor a sign-in. The credential
 opens only this machine's tunnel. Revoking it
 (`DELETE /agent/devices/<deviceId>/credential`) disconnects the machine, and
-`nuphos agent` then exits with status 78 until it joins again.
+`nuphos agent` then exits with status 78, as it does for a used or expired
+token, until it joins again with a new one.
 
 To keep it running with systemd, use a dedicated non-root account: anyone who
 controls that account acts as this machine in Nuphos, and conversation

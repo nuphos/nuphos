@@ -185,7 +185,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         })
       },
       onRevoked: () => {
-        void controller.shutdown().then(() => exitRevoked(dataDir))
+        void controller.shutdown().then(exitRevoked)
       },
       connectFile: () => {
         const workspace = controller.state().workspace

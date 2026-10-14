@@ -68,6 +68,25 @@ test('a saved credential wins over a token passed again', async (t) => {
   assert.deepEqual(urls, [`${API}/agent/devices/d1/runtime-tunnel`])
 })
 
+test('a revoked credential is replaced by a new token', async (t) => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), 'device-credential-'))
+
+  deviceCredentialStore(dataDir).write({
+    apiUrl: API,
+    userId: 'u1',
+    deviceId: 'd1',
+    credential: 'nbx_revoked',
+  })
+  t.mock.method(globalThis, 'fetch', async (url: string) =>
+    url.endsWith('/auth/devices/join')
+      ? Response.json({ userId: 'u1', deviceId: 'd1', credential: 'nbx_new' }, { status: 201 })
+      : new Response(null, { status: 401 }),
+  )
+
+  assert.equal((await deviceCredentialFor(options(dataDir, 'nbj_new')))?.credential, 'nbx_new')
+  assert.equal(deviceCredentialStore(dataDir).read(API, 'd1')?.credential, 'nbx_new')
+})
+
 test('no saved credential and no token means the signed-in session is used', async () => {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), 'device-credential-'))
 

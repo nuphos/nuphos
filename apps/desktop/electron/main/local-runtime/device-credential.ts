@@ -2,7 +2,7 @@
 // which opens only its runtime tunnel and is revoked on its own, so a server
 // never has to hold a person's session.
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 export type DeviceCredential = {
@@ -34,9 +34,6 @@ export function deviceCredentialStore(dataDir: string) {
     write(credential: DeviceCredential): void {
       mkdirSync(dataDir, { recursive: true })
       writeFileSync(file, JSON.stringify(credential), { mode: 0o600 })
-    },
-    remove(): void {
-      rmSync(file, { force: true })
     },
   }
 }
@@ -75,9 +72,8 @@ export async function credentialRevoked(
   return response?.status === 401 || response?.status === 404
 }
 
-/** Forgets the revoked credential and exits for good. */
-export function exitRevoked(dataDir: string): never {
-  deviceCredentialStore(dataDir).remove()
+/** Exits for good: the saved credential stays, so a restart fails the same way. */
+export function exitRevoked(): never {
   console.error(
     'This computer was disconnected from Nuphos. Join it again with a new token: `nuphos agent --join <token>`.',
   )
@@ -85,9 +81,10 @@ export function exitRevoked(dataDir: string): never {
 }
 
 /**
- * This computer's credential: the one an earlier join left, which wins over a
- * token passed again so a service can keep it in its environment, or a new one
- * from `joinToken`. Null means the host runs on the signed-in session instead.
+ * This computer's credential: the one an earlier join left while the backend
+ * still accepts it, which wins over a token passed again so a service can keep
+ * it in its environment, or a new one from `joinToken`. Null means the host
+ * runs on the signed-in session instead.
  */
 export async function deviceCredentialFor(options: {
   dataDir: string
@@ -99,14 +96,15 @@ export async function deviceCredentialFor(options: {
 }): Promise<DeviceCredential | null> {
   const store = deviceCredentialStore(options.dataDir)
   const saved = store.read(options.apiUrl, options.device.deviceId)
+  const revoked =
+    saved && (await credentialRevoked(options.tunnelUrl, saved.credential, options.headers))
 
-  if (saved) {
-    if (await credentialRevoked(options.tunnelUrl, saved.credential, options.headers))
-      exitRevoked(options.dataDir)
+  if (saved && !revoked) return saved
+  if (!options.joinToken) {
+    if (revoked) exitRevoked()
 
-    return saved
+    return null
   }
-  if (!options.joinToken) return null
   const joined = await joinDevice(
     options.apiUrl,
     { token: options.joinToken, ...options.device, platform: process.platform },
@@ -114,12 +112,10 @@ export async function deviceCredentialFor(options: {
   )
 
   if (typeof joined === 'number') {
-    console.error(
-      joined === 401
-        ? 'This join token is invalid, used or expired; create a new one.'
-        : `Could not join Nuphos (HTTP ${String(joined)}).`,
-    )
-    process.exit(1)
+    if (joined !== 401) throw new Error(`Could not join Nuphos (HTTP ${String(joined)}).`)
+    // A used token left in a service's environment must not restart forever either.
+    console.error('This join token is invalid, used or expired; create a new one.')
+    process.exit(EXIT_REVOKED)
   }
   store.write(joined)
 
