@@ -183,6 +183,15 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    # The runtime-state store's compare-and-set is a Lua script; its suite runs
+    # only against a real Redis (TEST_REDIS_URL below).
+    services:
+      redis:
+        image: redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -228,6 +237,8 @@ jobs:
         # automatically, which is what the previous hard-coded list could not do —
         # it let a new file silently join the shared process and break an
         # unrelated suite.
+        env:
+          TEST_REDIS_URL: redis://127.0.0.1:6379/0
         run: |
           CONTENDED='@/routes/agent|@/lib/identity|@/lib/agent/db|@/models|@/lib/slack/api|@/lib/slack/agent-bot|@/middleware/auth'
           isolated=$(grep -rlE "mock\.module\('($CONTENDED)'" src --include='*.test.ts' | sort)

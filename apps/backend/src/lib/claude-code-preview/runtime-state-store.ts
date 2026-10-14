@@ -88,18 +88,22 @@ export function rememberRuntimeState(
   )
 }
 
-// Sessions this backend opened, with the connection holding each. A runtime,
-// including one on a user's device, can push any session id; only the holding
-// connection's pushes are stored, under the team the backend opened it for.
-const held = new Map<string, { connection: object; teamId: string }>()
+// Sessions this backend opened, per connection that holds them. A runtime,
+// including one on a user's device, can push any session id; a push is stored
+// only for a session its own connection holds, under the team the backend
+// opened it for. Keyed by connection first, so one runtime reusing another
+// runtime's session id cannot displace that holder.
+const held = new WeakMap<object, Map<string, { teamId: string }>>()
 
 export function holdRuntimeState(connection: object, teamId: string, openabSessionId: string) {
-  const entry = { connection, teamId }
+  const sessions = held.get(connection) ?? new Map<string, { teamId: string }>()
+  const entry = { teamId }
 
-  held.set(openabSessionId, entry)
+  held.set(connection, sessions)
+  sessions.set(openabSessionId, entry)
 
   return () => {
-    if (held.get(openabSessionId) === entry) held.delete(openabSessionId)
+    if (sessions.get(openabSessionId) === entry) sessions.delete(openabSessionId)
   }
 }
 
@@ -111,9 +115,9 @@ export function rememberPushedRuntimeState(connection: object, params: unknown) 
   }
 
   if (typeof sessionId !== 'string' || update?.sessionUpdate !== 'runtime_state') return
-  const holder = held.get(sessionId)
+  const holder = held.get(connection)?.get(sessionId)
 
-  if (holder?.connection !== connection) return
+  if (!holder) return
   try {
     rememberRuntimeState(
       holder.teamId,
