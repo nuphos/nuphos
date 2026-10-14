@@ -65,7 +65,7 @@ export async function nuphosAsk(
   // text turns, so we wrap the JSON in a tagged block it can read.
   const contextBlock =
     args.context && typeof args.context === 'object'
-      ? `\n\n<context>\n${JSON.stringify(args.context)}\n</context>`
+      ? `\n\n<context>\n${JSON.stringify(args.context).replaceAll('<', '\\u003c')}\n</context>`
       : ''
 
   // runAgentForTrigger syncs the DB transcript to exactly the messages it is

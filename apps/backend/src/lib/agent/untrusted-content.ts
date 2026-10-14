@@ -8,10 +8,10 @@
  * paging by typing in the channel.
  */
 export function fenceUntrusted(tag: string, body: string, note: string): string {
-  // Escape anything that reads as this fence's marker so the content cannot
-  // close the block early and continue as if it were server-supplied
-  // instruction. Escaping never removes text, so it cannot assemble a new marker.
-  const escaped = body.replace(new RegExp(`<(?=[\\s/]*${tag}\\b)`, 'gi'), '&lt;')
+  // Escape every `<`, so nothing in the content can close the block early or
+  // pose as another server-supplied block. Store bodies raw and fence them only
+  // when rendering, so the escape never reaches what people read.
+  const escaped = body.replaceAll('<', '&lt;')
 
   return [`<${tag}>`, escaped, `</${tag}>`, note].join('\n')
 }
