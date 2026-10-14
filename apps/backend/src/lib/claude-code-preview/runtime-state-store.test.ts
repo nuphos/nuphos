@@ -11,9 +11,10 @@ import {
 // The conversation list reads each session's runtime status from what the
 // runtime last pushed, instead of opening a runtime connection per row.
 const stored = new Map<string, string>()
+let redisOn = true
 
 useRedis({
-  redisEnabled: () => true,
+  redisEnabled: () => redisOn,
   withRedis: (op) =>
     op({
       set: async (key: string, value: string) => {
@@ -26,7 +27,10 @@ useRedis({
     } as never),
 })
 
-beforeEach(() => stored.clear())
+beforeEach(() => {
+  stored.clear()
+  redisOn = true
+})
 
 const snapshot = {
   state: 'idle',
@@ -71,4 +75,14 @@ test('an invalid snapshot is not stored', async () => {
   await Bun.sleep(0)
 
   expect(stored.size).toBe(0)
+})
+
+test('without Redis (one self-hosted backend) the same push is kept in memory', async () => {
+  redisOn = false
+  push('sess-local', snapshot)
+
+  expect(await readRuntimeStates(['sess-local'])).toEqual([snapshot as never])
+  expect(stored.size).toBe(0)
+  forgetRuntimeState('sess-local')
+  expect(await readRuntimeStates(['sess-local'])).toEqual([null])
 })

@@ -1,4 +1,4 @@
-import { withRedis } from '@/lib/redis'
+import { redisEnabled, withRedis } from '@/lib/redis'
 
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 
@@ -12,10 +12,25 @@ const TTL_SECONDS = 600
 
 const key = (openabSessionId: string) => `agent:runtime-state:${openabSessionId}`
 
+// Without Redis there is one backend (self-hosted Compose, local dev), so its
+// own memory holds every session it observes.
+const local = new Map<string, { value: string; expiresAt: number }>()
+
 export function rememberRuntimeState(openabSessionId: string, snapshot: SessionExecutionState) {
-  void withRedis((redis) =>
-    redis.set(key(openabSessionId), JSON.stringify(snapshot), 'EX', TTL_SECONDS),
-  )
+  const value = JSON.stringify(snapshot)
+
+  if (!redisEnabled()) {
+    local.delete(openabSessionId)
+    local.set(openabSessionId, { value, expiresAt: Date.now() + TTL_SECONDS * 1_000 })
+    // Insertion order is write order, so expired entries sit at the front.
+    for (const [id, entry] of local) {
+      if (entry.expiresAt > Date.now()) break
+      local.delete(id)
+    }
+
+    return
+  }
+  void withRedis((redis) => redis.set(key(openabSessionId), value, 'EX', TTL_SECONDS))
 }
 
 /** A `session/update` frame: keep it when it is a valid runtime_state push. */
@@ -37,6 +52,7 @@ export function rememberPushedRuntimeState(params: unknown) {
 }
 
 export function forgetRuntimeState(openabSessionId: string) {
+  local.delete(openabSessionId)
   void withRedis((redis) => redis.del(key(openabSessionId)))
 }
 
@@ -45,7 +61,15 @@ export async function readRuntimeStates(
   openabSessionIds: (string | undefined)[],
 ): Promise<(SessionExecutionState | null)[]> {
   const ids = openabSessionIds.filter((id): id is string => Boolean(id))
-  const values = ids.length ? await withRedis((redis) => redis.mget(ids.map(key))) : null
+  const values = !redisEnabled()
+    ? ids.map((id) => {
+        const entry = local.get(id)
+
+        return entry && entry.expiresAt > Date.now() ? entry.value : null
+      })
+    : ids.length
+      ? await withRedis((redis) => redis.mget(ids.map(key)))
+      : null
   const byId = new Map(ids.map((id, index) => [id, values?.[index] ?? null]))
 
   return openabSessionIds.map((id) => {
