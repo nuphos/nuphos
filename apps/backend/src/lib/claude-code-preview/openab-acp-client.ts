@@ -130,16 +130,11 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     lead = '',
   ): Promise<JsonRpcResult> {
     this.cancelledSessions.delete(sessionId)
+    const meta = promptMeta(Boolean(onAccepted), context)
 
     return this.call(
       'session/prompt',
-      attachmentPrompt(
-        sessionId,
-        text,
-        attachments,
-        promptMeta(Boolean(onAccepted), context),
-        lead,
-      ),
+      attachmentPrompt(sessionId, text, attachments, meta, lead),
       {
         sessionId,
         onTextDelta,
