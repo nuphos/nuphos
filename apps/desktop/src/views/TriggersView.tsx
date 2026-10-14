@@ -232,6 +232,7 @@ export function TriggersView({
         <TriggerForm
           mode="create"
           teamId={teamId}
+          currentUserId={currentUserId}
           canManage={canManage}
           canDelete={canDelete}
           members={members}
@@ -258,6 +259,7 @@ export function TriggersView({
           mode="edit"
           triggerId={triggerForm.triggerId}
           teamId={teamId}
+          currentUserId={currentUserId}
           canManage={canManage}
           canDelete={canDelete}
           members={members}

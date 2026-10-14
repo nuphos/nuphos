@@ -21,6 +21,7 @@ export function TriggerFormFields({
   form,
   setForm,
   teamId,
+  currentUserId,
   canManage,
   canDelete,
   cronEnabled,
@@ -33,6 +34,7 @@ export function TriggerFormFields({
   form: FormState
   setForm: React.Dispatch<React.SetStateAction<FormState>>
   teamId?: string
+  currentUserId?: string
   canManage: boolean
   canDelete: boolean
   cronEnabled: boolean | null
@@ -152,7 +154,7 @@ export function TriggerFormFields({
         </>
       )}
 
-      {teamId && (
+      {teamId && canBind(mode, loaded, currentUserId) && (
         <DeliverToField
           teamId={teamId}
           value={form.targetSessionId}
@@ -191,6 +193,17 @@ export function TriggerFormFields({
   )
 }
 
+/**
+ * A bound fire runs with the session's own credentials, so only the trigger's
+ * principal may pick one, and never on a routed, grouped or incident trigger.
+ */
+function canBind(mode: 'create' | 'edit', loaded: AgentTrigger | null, viewerId?: string) {
+  if (mode === 'create') return true
+  if (!loaded || loaded.watchGroupId || loaded.incidentMode || loaded.sessionRouting) return false
+
+  return (loaded.executionPrincipalUserId ?? loaded.userId) === viewerId
+}
+
 const NEW_CONVERSATION = { value: '', label: 'A new conversation each fire' }
 
 /** Where a fire lands: a fresh run, or one of the viewer's own sessions. */
@@ -211,7 +224,7 @@ function DeliverToField({
     let cancelled = false
 
     api
-      .agentListConversations(teamId, { scope: 'mine', limit: 50 })
+      .agentListConversations(teamId, { scope: 'mine', limit: 50, archived: 'exclude' })
       .then((page) => {
         if (!cancelled)
           setSessions(
@@ -229,7 +242,7 @@ function DeliverToField({
 
   // A bound session older than the first page still has to read as itself.
   if (value && !sessions.some((s) => s.value === value))
-    options.push({ value, label: 'Bound session' })
+    options.push({ value, label: 'Current session (not in your recent 50)' })
 
   return (
     <Field

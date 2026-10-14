@@ -1,9 +1,10 @@
-import { Loader2, Pencil, Play } from 'lucide-react'
+import { ArrowRight, Loader2, Pencil, Play } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { Button } from '../../components/ui/button'
+import { api } from '../../api'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -173,47 +174,87 @@ export function TriggerDetail({
           actionsSlot,
         )}
 
-      {trigger.targetSessionId ? (
-        // A bound trigger has no runs of its own: every fire lands here.
-        <AgentPanel
-          key={`trigger-target-${trigger.id}`}
-          variant="page"
-          open
+      <div className="flex min-h-0 flex-1">
+        <TriggerRunsList
           teamId={teamId}
-          sessionId={trigger.targetSessionId}
-        />
-      ) : (
-        <div className="flex min-h-0 flex-1">
-          <TriggerRunsList
-            teamId={teamId}
-            triggerIds={[trigger.id]}
-            schedule={scheduleSummary(trigger)}
-            query={filter}
-            refreshKey={runsKey}
-            selectedSessionId={selectedSessionId}
-            onOpenRun={setSelectedSessionId}
-            onListLoaded={onListLoaded}
-          />
-          <div className="flex min-w-0 flex-1 flex-col">
-            {selectedSessionId ? (
-              <AgentPanel
-                key={`trigger-run-${trigger.id}`}
-                variant="page"
-                open
+          triggerIds={[trigger.id]}
+          schedule={scheduleSummary(trigger)}
+          deliversTo={
+            trigger.targetSessionId && (
+              <DeliversTo
                 teamId={teamId}
-                sessionId={selectedSessionId}
-                onSessionChange={setSelectedSessionId}
+                sessionId={trigger.targetSessionId}
+                onOpen={setSelectedSessionId}
               />
-            ) : (
-              <div className="flex flex-1 items-center justify-center px-6 text-center text-[12.5px] text-tertiary">
-                {firedAt !== null
-                  ? 'Starting a run — it will appear on the left shortly.'
-                  : 'Pick a run to read it, or press Run now to start one.'}
-              </div>
-            )}
-          </div>
+            )
+          }
+          query={filter}
+          refreshKey={runsKey}
+          selectedSessionId={selectedSessionId}
+          onOpenRun={setSelectedSessionId}
+          onListLoaded={onListLoaded}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {selectedSessionId ? (
+            <AgentPanel
+              key={`trigger-run-${trigger.id}`}
+              variant="page"
+              open
+              teamId={teamId}
+              sessionId={selectedSessionId}
+              onSessionChange={setSelectedSessionId}
+            />
+          ) : (
+            <div className="flex flex-1 items-center justify-center px-6 text-center text-[12.5px] text-tertiary">
+              {firedAt !== null
+                ? 'Starting a run — it will appear on the left shortly.'
+                : 'Pick a run to read it, or press Run now to start one.'}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
+  )
+}
+
+/** Where a bound trigger's fires land; its runs list keeps the history from before. */
+function DeliversTo({
+  teamId,
+  sessionId,
+  onOpen,
+}: {
+  teamId: string
+  sessionId: string
+  onOpen: (sessionId: string) => void
+}) {
+  const [target, setTarget] = useState<{ title: string; archived: boolean } | null>(null)
+
+  useEffect(() => {
+    let alive = true
+
+    api
+      .agentGetConversation(sessionId, teamId, { tail: 1, runtimeState: 'omit' })
+      .then((c) => {
+        if (alive) setTarget({ title: c.title || 'Untitled', archived: Boolean(c.archivedAt) })
+      })
+      // A session the viewer cannot open still reads as a link.
+      .catch(() => {})
+
+    return () => {
+      alive = false
+    }
+  }, [teamId, sessionId])
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(sessionId)}
+      className="flex w-full min-w-0 items-center gap-1 px-3 pt-1 text-left text-[11.5px] text-tertiary hover:text-main"
+    >
+      <span className="flex-shrink-0">Delivers to</span>
+      <span className="min-w-0 truncate text-secondary">{target?.title ?? 'a session'}</span>
+      {target?.archived && <span className="flex-shrink-0 text-warning">(archived)</span>}
+      <ArrowRight className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
+    </button>
   )
 }

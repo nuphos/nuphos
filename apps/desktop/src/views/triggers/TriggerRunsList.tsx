@@ -2,6 +2,7 @@ import { AgentHistoryPage } from '../../components/agent/AgentPanel'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
 import type { AgentConversation } from '../../api'
+import type { ReactNode } from 'react'
 
 const COLUMN_WIDTH = 320
 
@@ -17,6 +18,7 @@ export function TriggerRunsList({
   teamId,
   triggerIds,
   schedule,
+  deliversTo,
   query,
   refreshKey,
   selectedSessionId,
@@ -28,6 +30,8 @@ export function TriggerRunsList({
   triggerIds: string[]
   /** Human-readable schedule, shown above the list. */
   schedule?: string
+  /** A bound trigger's target session, shown under the schedule. */
+  deliversTo?: ReactNode
   /** The workspace toolbar's search box — the app has one, in one place. */
   query: string
   /** Bumped after a manual fire so the new run appears without a page refresh. */
@@ -54,6 +58,7 @@ export function TriggerRunsList({
           {schedule}
         </div>
       )}
+      {deliversTo}
       <AgentHistoryPage
         teamId={teamId}
         refreshKey={refreshKey}

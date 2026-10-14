@@ -18,6 +18,7 @@ type FormProps = {
   mode: 'create' | 'edit'
   triggerId?: string
   teamId?: string
+  currentUserId?: string
   canManage: boolean
   canDelete: boolean
   members: TeamMember[]
@@ -33,6 +34,7 @@ export function TriggerForm({
   mode,
   triggerId,
   teamId,
+  currentUserId,
   canManage,
   canDelete,
   members,
@@ -122,6 +124,7 @@ export function TriggerForm({
           form={form}
           setForm={setForm}
           teamId={teamId}
+          currentUserId={currentUserId}
           canManage={canManage}
           canDelete={canDelete}
           cronEnabled={cronEnabled}
