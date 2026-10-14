@@ -5,6 +5,7 @@ import type { WorkspaceStore } from './store/workspaceStore'
 
 export const WorkspacePaneContext = createContext<{
   focusSession: (sessionId: string, teamId?: string) => boolean
+  openSessionBeside: (sessionId: string, teamId?: string) => boolean
   sidebarCollapsed: boolean
   toggleSidebarCollapsed: () => void
   isTabFocused: () => boolean

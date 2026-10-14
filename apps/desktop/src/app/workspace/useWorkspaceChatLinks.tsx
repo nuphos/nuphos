@@ -194,8 +194,9 @@ export function useWorkspaceChatLinks(a: Args) {
   // deep-link fallback (team tab / seed into chat) still keeps it in-app. A bare
   // file path opens in Files; other web links open in the built-in browser.
   const openNuphosLinkFromChat = useCallback(
-    (href: string): boolean => {
-      if (openNuphosLinkInNewTab(href)) return true
+    (href: string, beside = false): boolean => {
+      if (openNuphosLinkInNewTab(href, beside)) return true
+      if (beside) return false
       if (openBoundProviderLinkFromChat(href)) return true
       const filePath = runtimeFilePathFromHref(href)
 

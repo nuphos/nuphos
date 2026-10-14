@@ -77,7 +77,7 @@ export const AssistantMessage = memo(
     onApprovePlan?: (planId: string) => void
     onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
     activePlanCanAct?: ActivePlanCanAct | null
-    onOpenNuphosLink?: (href: string) => boolean
+    onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
     onMessageFeedback?: (
       sessionId: string,
       messageId: string,

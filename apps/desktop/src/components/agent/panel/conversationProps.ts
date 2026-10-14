@@ -35,7 +35,7 @@ export type ConversationProps = {
     keepPolling: boolean
   } | null
   /** Opens Nuphos markdown links from assistant messages inside the desktop workspace. */
-  onOpenNuphosLink?: (href: string) => boolean
+  onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   /** Opens Settings directly on the workspace Agent setup section. */
   onOpenAgentSettings?: () => void
 }

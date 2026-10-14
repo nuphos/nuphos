@@ -7,3 +7,4 @@ mkdir -p build/sym
 npm install --no-save --no-package-lock playwright-core@1.64.0
 swift symbols.swift build/sym
 node hero.mjs
+node hero.mjs ipad

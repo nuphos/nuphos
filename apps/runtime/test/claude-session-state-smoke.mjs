@@ -1,6 +1,9 @@
 /* eslint-disable sonarjs/no-internal-api-use -- Regression tests exercise the exact pinned adapter bundle patched in the runtime image. */
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 
 import { ClaudeAcpAgent } from '../image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js'
@@ -242,7 +245,23 @@ test('an SDK stream end mid-turn settles the prompt and publishes interrupted', 
   await until(() => h.lastState() === 'interrupted', `stuck at ${h.lastState()}`)
 })
 
-test('loading a session publishes its current state and restores no turn', async () => {
+test('loading a session publishes its state and records restoration phases', async (t) => {
+  const home = await mkdtemp(join(tmpdir(), 'claude-restore-'))
+  const previous = process.env.HOME
+  process.env.HOME = home
+  t.after(async () => {
+    if (previous === undefined) delete process.env.HOME
+    else process.env.HOME = previous
+    await rm(home, { recursive: true })
+  })
+  const conversation = randomUUID()
+  const file = join(
+    home,
+    '.nuphos',
+    'session-homes',
+    createHash('sha256').update(conversation).digest('hex'),
+    'session-restore.json',
+  )
   const updates = []
   const agent = new ClaudeAcpAgent(
     { sessionUpdate: async (notification) => void updates.push(notification) },
@@ -253,11 +272,26 @@ test('loading a session publishes its current state and restores no turn', async
     agent.sessions[sessionId] = newSession(sdkStream())
     return { sessionId }
   }
-  agent.replaySessionHistory = async () => {}
+  agent.replaySessionHistory = async () => {
+    const snapshot = JSON.parse(await readFile(file, 'utf8'))
+    assert.equal(snapshot.phase, 'history-replay')
+    assert.equal(snapshot.status, 'running')
+  }
   agent.sendAvailableCommandsUpdate = async () => {}
   for (const method of ['loadSession', 'resumeSession']) {
     updates.length = 0
-    await agent[method]({ sessionId: SESSION, cwd: '/test', mcpServers: [] })
+    await agent[method]({
+      sessionId: SESSION,
+      cwd: '/test',
+      mcpServers: [],
+      _meta: { claudeCode: { options: { env: { NUPHOS_SESSION_ID: conversation } } } },
+    })
+    const diagnostic = JSON.parse(await readFile(file, 'utf8'))
+    assert.equal(diagnostic.status, 'completed')
+    const phases = diagnostic.steps.map((step) => step.phase)
+    assert.ok(phases.includes('provider-update'))
+    assert.ok(phases.includes('sdk-session'))
+    assert.equal(phases.includes('history-replay'), method === 'loadSession')
     assert.deepEqual(
       updates.map(({ update }) => update._meta?.['ai.nuphos/sessionState']?.state),
       ['idle'],

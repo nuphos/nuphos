@@ -63,7 +63,7 @@ export const UserMessage = memo(
     /** Whether a referenced `proposed` plan can be acted on (not streaming/read-only).
      *  This is what lets a historical plan be pulled into chat and executed. */
     canActOnPlans?: boolean
-    onOpenNuphosLink?: (href: string) => boolean
+    onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   }) => {
     const sendMotionRef = useSentMessageMotion(message.id)
     const [preview, setPreview] = useState<number | null>(null)

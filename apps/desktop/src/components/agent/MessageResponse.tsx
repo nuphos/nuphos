@@ -6,8 +6,10 @@ import { isValidElement, memo, useContext, useMemo, useState } from 'react'
 import { Streamdown } from 'streamdown'
 import 'streamdown/styles.css'
 
+import { linkClickMode } from '../../lib/linkClickMode'
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
 import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
+import { isMac } from '../../lib/platform'
 import { ContextMenu } from '../ContextMenu'
 
 import { ChatLinkMenuContext, isChatMenuLink } from './chatLinkMenuContext'
@@ -45,7 +47,7 @@ function ChatLink({
   children,
 }: {
   link: string | undefined
-  onLinkClick?: (href: string) => boolean
+  onLinkClick?: (href: string, beside: boolean) => boolean
   children: ReactNode
 }) {
   const menuActions = useContext(ChatLinkMenuContext)
@@ -53,10 +55,12 @@ function ChatLink({
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!link || !onLinkClick) return
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-      return
-    }
-    if (onLinkClick(link)) {
+    // ⌘-click (Ctrl elsewhere) asks to open the link beside this pane; a
+    // handler that declines leaves the browser default.
+    const mode = linkClickMode(event, isMac)
+
+    if (!mode) return
+    if (onLinkClick(link, mode === 'beside')) {
       event.preventDefault()
       event.stopPropagation()
     }
@@ -114,7 +118,7 @@ function ChatLink({
 }
 
 function createComponents(
-  onLinkClick?: (href: string) => boolean,
+  onLinkClick?: (href: string, beside: boolean) => boolean,
   renderLink?: (href: string, children: ReactNode) => ReactNode | null,
 ): StreamdownComponents {
   return {
@@ -192,7 +196,7 @@ type Props = {
   streaming?: boolean
   teamId?: string
   currentUrl?: string
-  onLinkClick?: (href: string) => boolean
+  onLinkClick?: (href: string, beside: boolean) => boolean
   /** Render a link as a custom node instead of the default anchor (return null to fall through). */
   renderLink?: (href: string, children: ReactNode) => ReactNode | null
 }

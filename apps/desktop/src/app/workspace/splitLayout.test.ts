@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { paneRects, removePane, splitPane } from './splitLayout.ts'
+import { paneRects, removePane, reusableBesidePane, splitPane } from './splitLayout.ts'
 
 test('repeated horizontal splits produce three equal panes', () => {
   const layout = splitPane(splitPane({ id: 'a' }, 'a', 'b', 'row'), 'b', 'c', 'row')
@@ -54,4 +54,18 @@ test('closing the original pane leaves a stable first leaf to take over persiste
   const expanded = splitPane(next, 'surviving-pane', 'another-pane', 'column')
 
   assert.equal(paneRects(expanded)[0].id, 'surviving-pane')
+})
+
+const shown = (map: Record<string, string>) => (pane: string) => map[pane]
+
+test('a Cmd-click reuses the last beside pane only while it still shows that chat', () => {
+  const last = { pane: 'b', sessionId: 's1' }
+
+  assert.equal(reusableBesidePane(null, 'a', shown({})), null)
+  assert.equal(reusableBesidePane(last, 'a', shown({ b: 's1' })), 'b')
+  // The click came from the beside pane itself: never replace its own chat.
+  assert.equal(reusableBesidePane(last, 'b', shown({ b: 's1' })), null)
+  // The user opened another chat there, or closed the pane.
+  assert.equal(reusableBesidePane(last, 'a', shown({ b: 's2' })), null)
+  assert.equal(reusableBesidePane(last, 'a', shown({})), null)
 })

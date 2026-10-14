@@ -69,6 +69,27 @@ until someone re-reviews the patch.
 `OPENAB_AGENT_COMMAND` names the patched adapter, and `claude` on `PATH` is the
 same native CLI the Claude adapter runs.
 
+### Session restoration diagnostics
+
+Native `session/load` and `session/resume` write a bounded `session-restore.json`
+snapshot in the conversation's persistent CLI home (the agent's `$HOME`). Each
+attempt retains its predecessor as `session-restore.previous.json` and also emits `agent.session.restore`
+JSON records on stderr. The file is mode 0600 and is replaced atomically.
+
+Records contain the conversation ID, attempt ID, process ID, operation, timestamps,
+elapsed milliseconds, and phase transitions. Common phases are `skills-sync` and
+`adapter-restore`; Claude additionally reports `provider-update`, `sdk-session`,
+`history-replay`, and `publish-state`. No prompts, environment values, transcript
+contents, or native error messages are recorded.
+
+Read the snapshot (or its predecessor after one retry). A `running` record means the
+adapter never recorded completion: correlate its time and process ID with the
+gateway timeout, process exit, and pod events. It does not by itself prove a
+timeout. `failed` means the adapter threw; `completed` means it returned. These
+records locate a stalled phase, not necessarily its underlying SDK or filesystem
+cause. Storage failures never prevent restoration. Persistence across pod
+replacement depends on the runtime home volume, as for native session history.
+
 ### Command-line tools
 
 The image ships only what the agent loop and the skills use on every turn:
