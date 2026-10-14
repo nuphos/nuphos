@@ -108,6 +108,18 @@ export function TriggersView({
     }
   }
 
+  // What both the create and edit forms are handed.
+  const formProps = {
+    teamId,
+    currentUserId,
+    canManage,
+    canDelete,
+    members,
+    atlasApiUrl,
+    cronEnabled,
+    onCancel: closeForm,
+  }
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       {membersFailed && (
@@ -231,14 +243,7 @@ export function TriggersView({
       {triggerForm?.kind === 'create' && (
         <TriggerForm
           mode="create"
-          teamId={teamId}
-          currentUserId={currentUserId}
-          canManage={canManage}
-          canDelete={canDelete}
-          members={members}
-          atlasApiUrl={atlasApiUrl}
-          cronEnabled={cronEnabled}
-          onCancel={closeForm}
+          {...formProps}
           onSaved={(trigger) => {
             setListState((prev) =>
               prev.kind === 'ready'
@@ -258,14 +263,7 @@ export function TriggersView({
         <TriggerForm
           mode="edit"
           triggerId={triggerForm.triggerId}
-          teamId={teamId}
-          currentUserId={currentUserId}
-          canManage={canManage}
-          canDelete={canDelete}
-          members={members}
-          atlasApiUrl={atlasApiUrl}
-          cronEnabled={cronEnabled}
-          onCancel={closeForm}
+          {...formProps}
           onSaved={(trigger) => {
             setListState((prev) =>
               prev.kind === 'ready'
