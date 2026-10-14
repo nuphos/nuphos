@@ -10,6 +10,8 @@ import type { OpenAbProvider } from './runtime-provider'
 export const PROVISIONER_FIELD_MANAGER = 'nuphos-provisioner'
 export const RUNTIME_CONFIG_MAP = 'openab-runtime-config'
 export const MCP_TOOL_TIMEOUT_MS = 30 * 60_000
+// OpenAB ends an inner session idle this long (also its own default).
+export const SESSION_TTL_HOURS = 4
 
 export type KubeObject = {
   apiVersion: string
@@ -128,7 +130,7 @@ export function runtimeConfigMapObject(
   // Measured footprint is ~400 MiB per session (claude + the acp wrapper), so 8
   // sessions sit around 3.5 GiB of the pod's 8 GiB, still leaving room for the
   // one heavy tool the memory limits above are sized for.
-  const poolConfig = '[pool]\nmax_sessions = 8\nsession_ttl_hours = 4\n'
+  const poolConfig = `[pool]\nmax_sessions = 8\nsession_ttl_hours = ${String(SESSION_TTL_HOURS)}\n`
 
   return {
     apiVersion: 'v1',

@@ -6,10 +6,12 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { controlRegistry } from './agent-chat-registry'
 import { developmentRuntimeEndpoint } from './runtime-catalog'
+import { SESSION_TTL_HOURS } from './runtime-objects'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { conversationExecutionState } from './session-execution-state'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
+import type { Filter } from 'mongodb'
 
 // Removes the conversation's CLI home that apps/runtime/image/session-home.mjs
 // creates: <runtime HOME>/.nuphos/session-homes/<sha256(sessionId)>, unless a
@@ -85,13 +87,31 @@ if (await inUse(home, home)) done('in_use');
 // Set aside first: a session that starts now gets a fresh home, and one that
 // started during the scan is caught by the second scan and keeps this one.
 const aside = home + '.reclaim-' + Date.now() + '-' + randomUUID();
-await fs.rename(home, aside);
+// Gone since the check: another backend replica's sweep took it first.
+await fs.rename(home, aside).catch((err) => (err.code === 'ENOENT' ? done('absent') : Promise.reject(err)));
 if (await inUse(aside, home)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
 await fs.rm(aside, { recursive: true, force: true });
 done('removed');
 `
 
 const RETRY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+
+// Conversations whose home is no longer needed: archived ones, and trigger runs
+// nobody archives once the runtime has ended their inner session for idleness.
+function reclaimableFilter(now: Date, since = new Date(0)): Filter<AgentConversation> {
+  return {
+    $or: [
+      { archivedAt: { $gt: since } },
+      {
+        'metadata.trigger.id': { $exists: true },
+        lastActiveAt: {
+          $lte: new Date(now.getTime() - SESSION_TTL_HOURS * 60 * 60 * 1000),
+          $gt: since,
+        },
+      },
+    ],
+  }
+}
 
 type ReclaimCandidate = Pick<
   AgentConversation,
@@ -103,7 +123,8 @@ type ReclaimCandidate = Pick<
   | 'claudeCodePreview'
   | 'runtimeMigration'
   | 'archivedAt'
-> & { sessionHomeReclaimedAt?: Date } // Set once this archive's home is gone.
+  | 'lastActiveAt'
+> & { sessionHomeReclaimedAt?: Date } // Set once the home is gone since it became reclaimable.
 
 const RECLAIM_PROJECTION = {
   teamId: 1,
@@ -114,18 +135,19 @@ const RECLAIM_PROJECTION = {
   claudeCodePreview: 1,
   runtimeMigration: 1,
   archivedAt: 1,
+  lastActiveAt: 1,
 }
 
 /**
- * Removes an archived conversation's CLI home once the runtime reports no live
- * session for it. Returns false to have a later sweep retry: still archived but
- * in use, or the runtime is unreachable right now. Agents on someone's own
+ * Removes a reclaimable conversation's CLI home once the runtime reports no live
+ * session for it. Returns false to have a later sweep retry: still reclaimable
+ * but in use, or the runtime is unreachable right now. Agents on someone's own
  * computer are not reached; their disk is theirs.
  */
-export async function reclaimSessionHome(sessionId: string): Promise<boolean> {
-  // Re-read now: the sweep can run long, and a restored conversation keeps its home.
+export async function reclaimSessionHome(sessionId: string, now = new Date()): Promise<boolean> {
+  // Re-read now: the sweep can run long, and a restored or resumed conversation keeps its home.
   const conversation = (await agentConversations().findOne(
-    { sessionId, archivedAt: { $exists: true } },
+    { sessionId, ...reclaimableFilter(now) },
     { projection: RECLAIM_PROJECTION },
   )) as ReclaimCandidate | null
 
@@ -179,29 +201,27 @@ export async function reclaimSessionHome(sessionId: string): Promise<boolean> {
 }
 
 /**
- * Hourly: archived conversations whose home is not reclaimed since they were
- * archived. One that is still running is retried on the next sweep.
+ * Hourly: reclaimable conversations whose home is not reclaimed since they
+ * became reclaimable. One that is still running is retried on the next sweep.
  */
-export async function reclaimArchivedSessionHomes(now = new Date()): Promise<number> {
+export async function reclaimSessionHomes(now = new Date()): Promise<number> {
   const candidates = (await agentConversations()
-    .find(
-      { archivedAt: { $gt: new Date(now.getTime() - RETRY_WINDOW_MS) } },
-      { projection: { sessionId: 1, archivedAt: 1, sessionHomeReclaimedAt: 1 } },
-    )
+    .find(reclaimableFilter(now, new Date(now.getTime() - RETRY_WINDOW_MS)), {
+      projection: { sessionId: 1, archivedAt: 1, lastActiveAt: 1, sessionHomeReclaimedAt: 1 },
+    })
     .toArray()) as ReclaimCandidate[]
   let reclaimed = 0
 
   for (const conversation of candidates) {
-    if (
-      conversation.sessionHomeReclaimedAt &&
-      conversation.archivedAt &&
-      conversation.sessionHomeReclaimedAt >= conversation.archivedAt
-    )
-      continue
+    // An unarchived trigger run counts from its last turn; a later turn reclaims again.
+    const at = conversation.archivedAt ?? conversation.lastActiveAt
+    const since = conversation.archivedAt ? { archivedAt: at } : { lastActiveAt: at }
+
+    if (conversation.sessionHomeReclaimedAt && conversation.sessionHomeReclaimedAt >= at) continue
     try {
-      if (!(await reclaimSessionHome(conversation.sessionId))) continue
+      if (!(await reclaimSessionHome(conversation.sessionId, now))) continue
       await agentConversations().updateOne(
-        { sessionId: conversation.sessionId, archivedAt: conversation.archivedAt },
+        { sessionId: conversation.sessionId, ...since },
         { $set: { sessionHomeReclaimedAt: now } },
       )
       reclaimed += 1

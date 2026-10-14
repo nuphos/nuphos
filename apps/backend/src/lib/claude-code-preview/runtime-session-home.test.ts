@@ -21,7 +21,7 @@ import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { RECLAIM_SESSION_HOME_PROGRAM, reclaimArchivedSessionHomes } from './runtime-session-home'
+import { RECLAIM_SESSION_HOME_PROGRAM, reclaimSessionHomes } from './runtime-session-home'
 
 // The program reads /proc, which only Linux runtimes have.
 describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () => {
@@ -223,7 +223,7 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
   })
 })
 
-describe('reclaimArchivedSessionHomes', () => {
+describe('reclaimSessionHomes', () => {
   const now = new Date('2026-10-13T20:00:00Z')
   const archivedAt = new Date('2026-10-13T19:00:00Z')
   // A computer's own agent is never reached, so it counts as reclaimed at once.
@@ -274,32 +274,32 @@ describe('reclaimArchivedSessionHomes', () => {
   test('marks an archive that has nothing to reclaim', async () => {
     const row = conversation({})
 
-    expect(await reclaimArchivedSessionHomes(now)).toBe(1)
+    expect(await reclaimSessionHomes(now)).toBe(1)
     expect(row.sessionHomeReclaimedAt).toEqual(now)
   })
 
   test('skips one already reclaimed since it was archived', async () => {
     conversation({ sessionHomeReclaimedAt: now })
-    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    expect(await reclaimSessionHomes(now)).toBe(0)
   })
 
   test('reclaims again after a later archive', async () => {
     conversation({ sessionHomeReclaimedAt: new Date('2026-10-01T00:00:00Z') })
-    expect(await reclaimArchivedSessionHomes(now)).toBe(1)
+    expect(await reclaimSessionHomes(now)).toBe(1)
   })
 
   test('retries while the runtime still runs the session', async () => {
     state = 'idle'
     const row = conversation({ runtimeId: 'development-claude-code' })
 
-    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    expect(await reclaimSessionHomes(now)).toBe(0)
     expect(row.sessionHomeReclaimedAt).toBeUndefined()
   })
 
   test('retries while the runtime cannot be resolved', async () => {
     const row = conversation({ runtimeId: 'gone' })
 
-    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    expect(await reclaimSessionHomes(now)).toBe(0)
     expect(row.sessionHomeReclaimedAt).toBeUndefined()
   })
 
@@ -311,12 +311,66 @@ describe('reclaimArchivedSessionHomes', () => {
     onProbe = () => {
       delete restored.archivedAt
     }
-    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    expect(await reclaimSessionHomes(now)).toBe(0)
     expect(restored.sessionHomeReclaimedAt).toBeUndefined()
   })
 
   test('ignores conversations that are not archived', async () => {
-    conversation({ archivedAt: undefined })
-    expect(await reclaimArchivedSessionHomes(now)).toBe(0)
+    conversation({ archivedAt: undefined, lastActiveAt: new Date('2026-10-12T00:00:00Z') })
+    expect(await reclaimSessionHomes(now)).toBe(0)
+  })
+
+  describe('trigger runs', () => {
+    const run = (lastActiveAt: Date, fields: Record<string, unknown> = {}) =>
+      conversation({
+        archivedAt: undefined,
+        lastActiveAt,
+        metadata: { trigger: { id: 't' } },
+        ...fields,
+      })
+
+    test('reclaims one whose inner session has expired', async () => {
+      const lastActiveAt = new Date('2026-10-13T15:59:00Z')
+      const row = run(lastActiveAt)
+
+      expect(await reclaimSessionHomes(now)).toBe(1)
+      expect(row.sessionHomeReclaimedAt).toEqual(now)
+    })
+
+    test('keeps one that ran within the session TTL', async () => {
+      const row = run(new Date('2026-10-13T16:01:00Z'))
+
+      expect(await reclaimSessionHomes(now)).toBe(0)
+      expect(row.sessionHomeReclaimedAt).toBeUndefined()
+    })
+
+    test('reclaims again after a later turn', async () => {
+      run(new Date('2026-10-13T12:00:00Z'), {
+        sessionHomeReclaimedAt: new Date('2026-10-13T08:00:00Z'),
+      })
+      expect(await reclaimSessionHomes(now)).toBe(1)
+    })
+
+    test('skips one already reclaimed since its last turn', async () => {
+      run(new Date('2026-10-13T12:00:00Z'), {
+        sessionHomeReclaimedAt: new Date('2026-10-13T17:00:00Z'),
+      })
+      expect(await reclaimSessionHomes(now)).toBe(0)
+    })
+
+    test('keeps the home of one resumed while the sweep ran', async () => {
+      state = 'idle'
+      run(new Date('2026-10-13T12:00:00Z'), {
+        sessionId: 'first',
+        runtimeId: 'development-claude-code',
+      })
+      const resumed = run(new Date('2026-10-13T12:00:00Z'), { sessionId: 'second' })
+
+      onProbe = () => {
+        resumed.lastActiveAt = new Date('2026-10-13T19:59:00Z')
+      }
+      expect(await reclaimSessionHomes(now)).toBe(0)
+      expect(resumed.sessionHomeReclaimedAt).toBeUndefined()
+    })
   })
 })

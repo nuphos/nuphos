@@ -1,6 +1,6 @@
 import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
-import { reclaimArchivedSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
+import { reclaimSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -52,7 +52,7 @@ function runSweep() {
     .catch((err: unknown) => {
       logError('agent.conversation_auto_archive.failed', err)
     })
-    .then(() => reclaimArchivedSessionHomes())
+    .then(() => reclaimSessionHomes())
     .catch((err: unknown) => {
       logError('agent.session_home_reclaim.failed', err)
     })
