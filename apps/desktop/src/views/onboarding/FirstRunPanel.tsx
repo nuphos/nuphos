@@ -123,6 +123,11 @@ export function FirstRunPanel({
   return (
     <aside
       style={{ width: open ? PANEL_WIDTH : 0 }}
+      // Closed, the panel stays mounted at zero width so its steps survive a
+      // reopen. Inert keeps that clipped content out of the Tab order and the
+      // accessibility tree, where its Close button and cloud picker were still
+      // reachable on every workspace.
+      inert={!open}
       className={clsx(
         // Same surface as the agent panel it sits in place of, so the dock reads
         // as one slot with two possible occupants.
@@ -135,8 +140,10 @@ export function FirstRunPanel({
           intermediate width while the panel opens. */}
       <div style={{ width: PANEL_WIDTH }} className="flex h-full flex-col">
         {/* Height matches the agent panel's header and the content toolbar, so
-          swapping between the two doesn't shift the first line of the page. */}
-        <div className="h-[42px] flex-shrink-0 flex items-center gap-2 px-3">
+          swapping between the two doesn't shift the first line of the page.
+          The right padding clears the viewport-fixed workspace panel toggle,
+          which otherwise sits on top of Close and takes its clicks. */}
+        <div className="workspace-dock-toggle-pad h-[42px] flex-shrink-0 flex items-center gap-2 pl-3">
           <div className="flex-1 truncate text-[13.5px] font-semibold text-main">
             Your first task
           </div>
