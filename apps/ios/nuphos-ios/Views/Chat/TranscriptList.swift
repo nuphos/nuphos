@@ -145,11 +145,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         // which would show new rows at their estimated size for that frame.
         // Commit the position in the same turn as the change.
         collection.layoutIfNeeded()
-        if sent, let id = extendedID {
-            restore(id: id, edge: .top, offset: 0)
-            positioned = true
-        } else if !positioned || following {
-            positionAtEnd()
+        if sent || !positioned || following {
+            UIView.performWithoutAnimation { positionAtEnd() }
         } else if let anchor {
             restore(id: anchor.id, edge: .top, offset: anchor.offset)
         }
@@ -178,14 +175,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let size = collection.bounds.size
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size
-        if !positioned, let id = extendedID {
-            restore(id: id, edge: .top, offset: 0)
-            positioned = true
-        } else if !positioned {
-            positionAtEnd()
-        } else if following, let last = rows.indices.last {
+        if !positioned || following {
             // Inside the keyboard's animation, so the rows travel with it.
-            layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
+            positionAtEnd()
         }
         animatePendingSend()
     }
@@ -213,9 +205,13 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         cell.layer.add(arrival, forKey: "sent-arrival")
     }
 
+    /// The end of the content. While a reply still fits below a just-sent
+    /// message, the room reserved for it puts that message at the top.
     private func positionAtEnd() {
-        guard collection.bounds.height > 0, let last = rows.last else { return }
-        restore(id: last.id, edge: .bottom, offset: 0)
+        guard collection.bounds.height > 0, let last = rows.indices.last else { return }
+        layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
+        let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
+        if collection.contentOffset.y < end { collection.contentOffset.y = end }
         positioned = true
     }
 
@@ -242,8 +238,6 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     }
 
     @objc private func showLatest() {
-        extendedID = nil
-        layout.settings.indexPathForExtendedLayout = nil
         following = true
         positionAtEnd()
         updateLatestButton()
