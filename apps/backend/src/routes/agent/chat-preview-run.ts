@@ -44,8 +44,13 @@ export type PreviewChatTurnArgs = {
   slackThread?: { teamId: string; channelId: string; threadTs: string }
   /** Background shown to the model beside this turn's message, never stored in it. */
   turnContext?: string
+  /** The client declared it resends a refused message; headless senders never do. */
+  clientResendsRefusal?: boolean
   onRunHandoff?: (next: AgentRun) => void
 }
+
+/** Set when the runtime connection dropped mid-turn and the turn was left to it. */
+export type TurnEnd = 'connection-lost' | undefined
 
 export type PreviewRunState = {
   current: () => AgentRun

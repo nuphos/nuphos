@@ -247,9 +247,32 @@ export function buildVolcengineCredentialSections(
   ]
 }
 
-export function buildDeviceCredentialSections(
+// Every device the user ever registered is listed, offline or not. Show the usable
+// ones, plus a selected one that is away so it can still be unticked.
+export function shownDevices(devices: AgentCredentialOptions['devices'], selectedIds: string[]) {
+  return devices.filter(
+    (device) => device.available !== false || selectedIds.includes(device.deviceId),
+  )
+}
+
+export function usableDeviceIds(devices: AgentCredentialOptions['devices'] | undefined) {
+  return (devices ?? []).filter((device) => device.available !== false).map((d) => d.deviceId)
+}
+
+// Select-all adds the usable devices; a selected unavailable one stays selected.
+export function selectAllDevices(
+  selectedIds: string[],
   devices: AgentCredentialOptions['devices'],
+): string[] {
+  return [...new Set([...selectedIds, ...usableDeviceIds(devices)])]
+}
+
+export function buildDeviceCredentialSections(
+  allDevices: AgentCredentialOptions['devices'],
+  selectedIds: string[],
 ): CredentialSection[] {
+  const devices = shownDevices(allDevices, selectedIds)
+
   if (devices.length === 0) return []
 
   return [
@@ -260,7 +283,7 @@ export function buildDeviceCredentialSections(
       items: devices.map((device) => ({
         id: device.deviceId,
         label: device.label,
-        sublabel: device.platform,
+        sublabel: device.available === false ? `${device.platform} · Unavailable` : device.platform,
       })),
     },
   ]

@@ -61,7 +61,7 @@ export {
   appendAutonomousConversationTurn,
   appendConversationMessages,
 } from './db/transcript-autonomous'
-export { getConversationTranscriptForAgent } from './db/transcript-read'
+export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
 export {
   getConversationMessagesHead,
   getConversations,

@@ -7,6 +7,8 @@ object AiAccess {
     private data class Access(val token: String? = null, val granted: Boolean = false, val revision: Long = 0)
     private val state = mutableStateOf(Access())
 
+    var onRevoked: () -> Unit = {}
+
     val revision: Long get() = synchronized(this) { state.value.revision }
 
     @Synchronized fun activate(token: String) {
@@ -23,12 +25,25 @@ object AiAccess {
         return true
     }
 
-    @Synchronized fun revoke() {
-        state.value = state.value.copy(granted = false, revision = state.value.revision + 1)
+    fun revoke() {
+        val wasGranted = synchronized(this) {
+            val granted = state.value.granted
+            state.value = state.value.copy(granted = false, revision = state.value.revision + 1)
+            granted
+        }
+        if (wasGranted) onRevoked()
     }
 
-    @Synchronized fun revokeIfCurrent(token: String, revision: Long) {
-        if (state.value.token == token && state.value.revision == revision) revoke()
+    fun revokeIfCurrent(token: String, revision: Long) {
+        val wasGranted = synchronized(this) {
+            if (state.value.token != token || state.value.revision != revision) false
+            else {
+                val granted = state.value.granted
+                state.value = state.value.copy(granted = false, revision = state.value.revision + 1)
+                granted
+            }
+        }
+        if (wasGranted) onRevoked()
     }
 
     @Synchronized fun allows(token: String): Boolean = state.value.let { it.token == token && it.granted }

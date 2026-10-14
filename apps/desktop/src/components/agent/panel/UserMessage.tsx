@@ -6,6 +6,7 @@ import { Avatar } from '../../Avatar'
 import { MessageResponse } from '../MessageResponse'
 import { PlanCard } from '../PlanTool'
 
+import { AgentEventMessage } from './AgentEventMessage'
 import { CopyMessageButton } from './messageActions'
 import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInline'
 import { renderAtlasMentionLink } from './messageInlineLinks'
@@ -62,7 +63,7 @@ export const UserMessage = memo(
     /** Whether a referenced `proposed` plan can be acted on (not streaming/read-only).
      *  This is what lets a historical plan be pulled into chat and executed. */
     canActOnPlans?: boolean
-    onOpenNuphosLink?: (href: string) => boolean
+    onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   }) => {
     const sendMotionRef = useSentMessageMotion(message.id)
     const [preview, setPreview] = useState<number | null>(null)
@@ -89,6 +90,19 @@ export const UserMessage = memo(
       .join('\n\n')
       .trim()
 
+    const source = message.metadata?.source
+
+    if (message.metadata && (source === 'agent.thread' || source === 'agent.resource'))
+      return (
+        <AgentEventMessage
+          metadata={message.metadata}
+          text={copyableText}
+          teamId={teamId}
+          onOpenNuphosLink={onOpenNuphosLink}
+          renderLink={renderLink}
+        />
+      )
+
     return (
       <div ref={sendMotionRef} className="group/message flex flex-col items-end gap-2">
         <div className="flex w-full items-start justify-end gap-2.5">
@@ -106,6 +120,17 @@ export const UserMessage = memo(
                     Slack
                   </span>
                 )}
+              </div>
+            )}
+            {message.metadata?.replyTo && (
+              <div
+                className="max-w-full border-l-2 border-zGray-700 pl-2 pr-1 text-xs leading-4 text-tertiary line-clamp-2 whitespace-pre-wrap break-words"
+                title={message.metadata.replyTo.text}
+              >
+                <span className="font-medium text-secondary">
+                  {message.metadata.replyTo.authorName}
+                </span>{' '}
+                {message.metadata.replyTo.text}
               </div>
             )}
             {images.length > 0 && (

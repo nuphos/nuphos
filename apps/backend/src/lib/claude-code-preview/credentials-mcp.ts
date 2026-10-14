@@ -32,10 +32,15 @@ export function previewMcpBaseUrl(external?: boolean, backendUrl?: string): stri
 
 // The skill bundle's address and credential ride the session; the runtime runs
 // its own sync from them.
-function skillSyncEnv(teamId: string, base: string): Record<string, string> {
+function skillSyncEnv(
+  teamId: string,
+  skillsOwnerId: string | undefined,
+  base: string,
+): Record<string, string> {
   return {
     NUPHOS_RUNTIME_SKILLS_URL: runtimeSkillsUrl(teamId, undefined, base),
-    NUPHOS_RUNTIME_SKILLS_TOKEN: mintRuntimeSkillsToken(teamId),
+    // Naming a member lets the same sync fetch their personal skills as well.
+    NUPHOS_RUNTIME_SKILLS_TOKEN: mintRuntimeSkillsToken(teamId, skillsOwnerId),
   }
 }
 
@@ -45,9 +50,11 @@ export function previewSessionEnv(args: {
   token: string
   conversationId: string
   teamId: string
+  /** Whose personal skills this turn may load, if anyone's. */
+  personalSkillsOf?: string
 }): Record<string, string> {
   return {
-    ...skillSyncEnv(args.teamId, args.base),
+    ...skillSyncEnv(args.teamId, args.personalSkillsOf, args.base),
     // Native skills share the classic setup scripts. Give those scripts the
     // same variable names they already understand, but with the narrowly
     // scoped preview bearer rather than a user's general Nuphos token.
@@ -106,6 +113,10 @@ export function previewSessionAccess(
       token,
       conversationId,
       teamId,
+      // Personal skills are delivered only on the conversation owner's own turns. A
+      // guest's turn gets none, so nobody's skills are written into a conversation
+      // home that belongs to someone else.
+      personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
     }),
   }
 }

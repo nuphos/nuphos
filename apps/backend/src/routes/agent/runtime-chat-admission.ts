@@ -1,5 +1,6 @@
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
+import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 
 /** Commands may be rejected by runtime; backend transport leases never grant admission. */
@@ -17,11 +18,7 @@ export function assertRuntimeChatAdmission(
   if (attached && snapshot?.schemaVersion !== 2)
     throw new AppError(503, 'runtime_status_unavailable', 'Cannot reach authoritative agent status')
   if (snapshot?.schemaVersion === 2 && !snapshot.actions?.send)
-    throw new AppError(
-      409,
-      'runtime_not_accepting_message',
-      snapshot.label ?? 'The agent cannot accept a message yet',
-    )
+    throw refusal(snapshot.label ?? 'The agent cannot accept a message yet')
 }
 
 /** Idle but briefly refusing sends (e.g. reading session settings), not mid-turn or awaiting the user. */

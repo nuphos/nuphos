@@ -100,6 +100,7 @@ test('resumes an observed session on a fresh transport when its transport closes
 
   expect(session.client).toBe(replacement)
   expect(replacement.loads).toEqual([['sess-1', '/workspace/conv-conv', [], 'context', undefined]])
+  expect(await session.reattached).toBe(true)
 })
 
 test('keeps retrying while the runtime is unreachable', async () => {

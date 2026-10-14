@@ -186,5 +186,8 @@ export type AgentCredentialOptions = {
     deviceId: string
     label: string
     platform: string
+    // Online with local exec allowed, i.e. usable right now. A device that is not
+    // stays selectable so a selection can keep or drop it.
+    available: boolean
   }[]
 }

@@ -76,8 +76,7 @@ useMemoryIngestDispatch({
   },
 })
 
-const { ingestPreviewTurn, prefixUserMessage, recallForPreviewTurn } =
-  await import('./preview-recall')
+const { ingestPreviewTurn, recallForPreviewTurn } = await import('./preview-recall')
 
 const messages = [
   { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'which cluster is prod?' }] },
@@ -136,11 +135,6 @@ describe('recallForPreviewTurn', () => {
     })
 
     expect(memory.planApproval).toBe(false)
-  })
-
-  test('prefixUserMessage places the block after the user text, classic tail placement', () => {
-    expect(prefixUserMessage('hello', '<memory>x</memory>')).toBe('hello\n\n<memory>x</memory>')
-    expect(prefixUserMessage('hello', null)).toBe('hello')
   })
 })
 

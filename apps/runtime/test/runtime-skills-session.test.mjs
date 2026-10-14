@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile, chmod } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { nuphosSyncRuntimeSkills, patchRuntimeDefaults } from '../image/runtime-defaults.mjs'
+import {
+  nuphosSyncRuntimeSkills,
+  patchPersonalSkillsRefresh,
+  patchRuntimeDefaults,
+} from '../image/runtime-defaults.mjs'
 
 /** Stand in for /usr/local/bin/nuphos-sync-skills by recording what it was handed. */
 async function withFakeScript(body, run) {
@@ -85,6 +89,127 @@ test('a session cannot choose the workspace the sync writes to', async () => {
       assert.doesNotMatch(await readFile(record, 'utf8'), /NUPHOS_RUNTIME_WORKSPACE/u)
     },
   )
+})
+
+test('personal skills follow the turn’s credential, and the session is rebuilt only when they change', async () => {
+  // The fake installs one skill named after whoever the credential names; `none` has none.
+  const install = [
+    '[ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ] || exit 0',
+    '[ ! -e "$NUPHOS_TEST_RECORD.fail" ] || exit 1',
+    'd="$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR/.claude"',
+    'who=$(printf %s "$NUPHOS_RUNTIME_SKILLS_TOKEN" | cut -d. -f2)',
+    'rm -rf "$d/skills"; mkdir -p "$d/skills"',
+    '[ "$who" = none ] || mkdir "$d/skills/$who"',
+    'printf %s "$who" > "$d/.skills-revision"',
+  ].join('\n')
+
+  await withFakeScript(install, async ({ script, directory, record }) => {
+    const personal = join(directory, 'personal-skills')
+    const skills = join(personal, '.claude/skills')
+    const credentialsDir = join(directory, 'credentials')
+    const credential = join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN')
+    const params = meta({
+      NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
+      NUPHOS_RUNTIME_SKILLS_TOKEN: 'p.owner.1.sig',
+    })
+
+    params.cwd = '/workspace'
+    const run = {
+      script,
+      sessionHome: directory,
+      credentialsDir,
+      env: { NUPHOS_TEST_RECORD: record },
+    }
+    const calls = []
+    const agent = {
+      sessions: { s1: { configOptions: [{ id: 'model', currentValue: 'picked' }] } },
+      teardownSession: async (id) => calls.push(['teardown', id]),
+      createSession: async (created, opts) => {
+        calls.push(['create', created.cwd, opts.resume])
+
+        return { configOptions: [{ id: 'model', currentValue: 'default' }] }
+      },
+      setSessionConfigOption: async (option) =>
+        calls.push(['config', option.configId, option.value]),
+    }
+    const rebuild = [
+      ['teardown', 's1'],
+      ['create', '/workspace', 's1'],
+      ['config', 'model', 'picked'],
+    ]
+    // One prompt with the given credential file; returns what the session went through.
+    const prompt = async (token) => {
+      calls.length = 0
+      if (token === undefined) await rm(credential, { force: true })
+      else await writeFile(credential, `${token}\n`)
+      await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
+
+      return [...calls]
+    }
+
+    // Opening the session may use the credential it came with.
+    await mkdir(credentialsDir)
+    assert.equal(await nuphosSyncRuntimeSkills(params, run), true)
+    assert.deepEqual(params._meta.claudeCode.options.additionalDirectories, [personal])
+    assert.deepEqual(await readdir(skills), ['owner'])
+
+    // The owner again, under a freshly minted credential: nothing changed, nothing rebuilt.
+    assert.deepEqual(await prompt('p.owner.2.sig'), [])
+
+    // A guest's turn names nobody: the owner's skills go and the session is rebuilt.
+    assert.deepEqual(await prompt('p.none.3.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), [])
+
+    // Back to the owner: installed again, rebuilt again.
+    assert.deepEqual(await prompt('p.owner.4.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), ['owner'])
+
+    // The owner's sync fails: skills are never fatal, so what is installed stays.
+    await writeFile(`${record}.fail`, '')
+    assert.deepEqual(await prompt('p.owner.5.sig'), [])
+    assert.deepEqual(await readdir(skills), ['owner'])
+
+    // Someone else's sync fails: the owner's skills must not stay for that turn.
+    assert.deepEqual(await prompt('p.other.6.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), [])
+    await rm(`${record}.fail`)
+
+    // A prompt without its own credential never falls back to the one the session
+    // opened with.
+    assert.deepEqual(await prompt('p.owner.7.sig'), rebuild)
+    assert.deepEqual(await prompt(undefined), rebuild)
+    assert.deepEqual(await readdir(skills), [])
+
+    // With no personal skills on either side, switching senders rebuilds nothing.
+    assert.deepEqual(await prompt('p.none.8.sig'), [])
+    assert.deepEqual(await prompt(undefined), [])
+
+    // The adapter process is replaced and a guest's turn reopens the session while the
+    // owner's skills are still in the home. The guest's sync fails: nothing here has
+    // synced yet, so the tree cannot be trusted and is emptied.
+    assert.deepEqual(await prompt('p.owner.9.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), ['owner'])
+    await writeFile(`${record}.fail`, '')
+    await writeFile(credential, 'p.none.10.sig\n')
+    const reopened = meta({
+      NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
+      NUPHOS_RUNTIME_SKILLS_TOKEN: 'p.none.10.sig',
+    })
+
+    await nuphosSyncRuntimeSkills(reopened, run)
+    assert.deepEqual(await readdir(skills), [])
+  })
+  delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('only the Claude adapter re-syncs personal skills before a prompt', () => {
+  const patched = patchPersonalSkillsRefresh('class A {\n    async prompt(params) {\n    }\n}')
+
+  assert.match(
+    patched,
+    /async prompt\(params\) \{\n\s+await globalThis\.nuphosRefreshPersonalSkills\?\.\(this, params\);/u,
+  )
+  assert.throws(() => patchPersonalSkillsRefresh('class A {}'), /exactly one/u)
 })
 
 test('the Codex session shape is read too', async () => {

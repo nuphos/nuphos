@@ -24,11 +24,12 @@ final class ChatSession {
     private(set) var error: String?
     private(set) var queued: [String] = []
     private(set) var isOwner = false
-    var canManage: Bool { loaded && isOwner && !readOnly }
-    /// A participant granted manage access may move the session too, onto a
-    /// Cloud agent only.
-    private(set) var isManager = false
-    var canMove: Bool { loaded && !readOnly && (isOwner || isManager) }
+    /// The owner, or a teammate invited to manage: may switch the mode and the
+    /// agent, change credentials, and archive.
+    private(set) var manages = false
+    var canManage: Bool { loaded && manages && !readOnly }
+    /// Renaming, model settings and feedback stay with the owner.
+    var ownsChat: Bool { loaded && isOwner && !readOnly }
     private(set) var readOnly = false
     private(set) var loaded = false
     private(set) var loadError: String?
@@ -117,6 +118,12 @@ final class ChatSession {
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
         if runtimeObservation?.executing(at: observations.now) == true { awaitingAdmission = false }
+        // A message the turn could not take goes out once the agent accepts a new one.
+        if isNativeRuntime, !queued.isEmpty, canSubmit, allows("send") {
+            let next = queued.removeFirst()
+            awaitingAdmission = true
+            Task { await dispatch(next) }
+        }
     }
     func tickRuntimeClock() { observations.tick() }
 
@@ -252,6 +259,7 @@ final class ChatSession {
         let s = ChatSession(token: token, teamId: teamId)
         s.loaded = true
         s.isOwner = true
+        s.manages = true
         return s
     }
 
@@ -275,7 +283,7 @@ final class ChatSession {
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
-            isManager = detail.access == "manage"
+            manages = detail.canManage ?? isOwner
             if let t = detail.title, !t.isEmpty { title = t }
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
@@ -395,9 +403,8 @@ final class ChatSession {
     /// Hands a message to the running turn (`POST …/steer`). The runtime
     /// picks it up at its next prompt boundary; the transcript snapshot at
     /// the end of the turn shows it in place. The status that offered
-    /// steering can be seconds old, so a turn that ended meanwhile rejects
-    /// it — the message then goes back to the composer instead of waiting
-    /// for a turn that will never take it.
+    /// steering can be seconds old; the server decides from the live state,
+    /// and a message it cannot steer waits in the queue for the next turn.
     private func steer(_ submission: ComposerSubmission, text: String) async {
         let streamId = currentStreamId
         let assistantId = messages.last?.id
@@ -409,6 +416,9 @@ final class ChatSession {
                 appendSteering(id: id, text: text)
                 lastSubmittedRowID = "steering.\(id)"
             }
+        } catch AgentChatAPI.Conflict.other(let code, _, _) where code == "runtime_steering_unavailable" {
+            queued.append(text)
+            Analytics.shared.track("agent_message_queued", teamID: teamId)
         } catch {
             self.error = error.localizedDescription
             failedSubmission = submission
@@ -436,7 +446,7 @@ final class ChatSession {
     }
 
     private func applyPendingModelSettings() async {
-        guard canManage, !isStreaming, !sessionConfigSaving, sessionConfigError == nil,
+        guard ownsChat, !isStreaming, !sessionConfigSaving, sessionConfigError == nil,
               let config = sessionConfig, [.ready, .dormant].contains(config.status),
               !pendingModelSettings.isEmpty else { return }
         guard let next = config.nextSelection(in: &pendingModelSettings, streaming: isStreaming) else { return }
@@ -444,7 +454,7 @@ final class ChatSession {
     }
 
     func setSessionConfig(configId: String, value: String) async {
-        guard canManage, !sessionConfigSaving, sessionConfigError == nil, sessionConfig?.isEditable == true else { return }
+        guard ownsChat, !sessionConfigSaving, sessionConfigError == nil, sessionConfig?.isEditable == true else { return }
         if isStreaming || sessionConfig?.status == .busy {
             pendingModelSettings[configId] = value
             return
@@ -471,7 +481,7 @@ final class ChatSession {
     /// when the destination can hold them — another Cloud agent of the same
     /// type — and the move falls back to the transcript alone when they cannot.
     func move(to target: RuntimeInstance) async throws {
-        guard canMove else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can move it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can move it.") }
         func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
             try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
         }
@@ -517,14 +527,14 @@ final class ChatSession {
     // MARK: - Archive
 
     func rename(_ name: String) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can rename it.") }
+        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can rename it.") }
         struct Body: Encodable { let title: String }
         _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
         title = name
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -621,7 +631,7 @@ final class ChatSession {
     // MARK: - Feedback
 
     func rate(messageId: String, rating: String?) async {
-        guard canManage else { return }
+        guard ownsChat else { return }
         try? await AgentChatAPI.feedback(token: token, teamId: teamId, sessionId: sessionId, messageId: messageId, rating: rating)
         if let i = messages.firstIndex(where: { $0.id == messageId }) { messages[i].feedback = rating }
     }
@@ -826,7 +836,7 @@ final class ChatSession {
 
     private func adoptRuntime(from detail: AgentConversationDetail) {
         isOwner = detail.isOwner ?? false
-        isManager = detail.access == "manage"
+        manages = detail.canManage ?? isOwner
         readOnly = detail.readOnly ?? true
         if let r = detail.agentRuntime { agentRuntime = r }
         if let id = detail.runtimeId { runtimeId = id }
@@ -917,10 +927,11 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false]
+                clientCapabilities: ["localTools": false, "resendsRefusal": true]
             )
 
             var needsFreshRetry = false
+            var refused = false
             var terminal = false
 
             do {
@@ -948,6 +959,9 @@ final class ChatSession {
                         if code == "runtime_auth_required" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
+                        // Another turn took the runtime after admission; nothing was
+                        // recorded, so send the message again like the HTTP refusal.
+                        if code == "runtime_not_accepting_message" { refused = true; break }
                         needsFreshRetry = true
                         continue
                     }
@@ -1024,6 +1038,20 @@ final class ChatSession {
             }
 
             if Task.isCancelled { return .aborted }
+
+            if refused {
+                guard notReadyRetries < 30 else { return .failed(lastErrorText ?? "The agent hit an error.") }
+                notReadyRetries += 1
+                phaseLabel = "Waiting for the agent to be ready…"
+                if let i = streamAssistantIndex, messages.indices.contains(i) { messages.remove(at: i) }
+                streamAssistantIndex = nil
+                streamReducer = nil
+                accepted = false
+                forceFresh = true
+                resumeFrom = 0
+                try? await Task.sleep(for: backoff(notReadyRetries, base: 0.5, max: 3))
+                continue
+            }
 
             if needsFreshRetry {
                 if isNativeRuntime || options.explicitResume || toolExecutionMayHaveStarted {
@@ -1254,7 +1282,7 @@ final class ChatSession {
     }
 
     func syncTranscriptNow() async {
-        guard canManage, !messages.isEmpty, !transcriptOwnedByServer else { return }
+        guard ownsChat, !messages.isEmpty, !transcriptOwnedByServer else { return }
         let sig = signature()
         guard sig != lastSyncedSignature else { return }
         let wire = messages.map(\.forWire)

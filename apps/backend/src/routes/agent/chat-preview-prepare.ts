@@ -9,11 +9,15 @@ import {
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
-import { renderAttributedMessage } from '@/lib/agent/message-metadata'
-import { drainPendingUserMessages, renderInjectedUserMessages } from '@/lib/agent/pending-messages'
+import { attributionHeader, renderAttributedMessage } from '@/lib/agent/message-metadata'
+import {
+  drainPendingUserMessages,
+  enqueuePendingUserMessage,
+  renderInjectedUserMessages,
+} from '@/lib/agent/pending-messages'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
-import { prefixUserMessage, recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
+import { recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
 import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
 import { runtimeAttachments } from '@/lib/claude-code-preview/runtime-attachments'
 
@@ -31,21 +35,17 @@ import type { UIMessage } from 'ai'
 
 type ResumeReason = NonNullable<AgentChatBody['resumeReason']>
 
+function userText(message: UIMessage): string {
+  return message.parts
+    .filter((p): p is { type: 'text'; text: string } => p.type === 'text' && Boolean(p.text))
+    .map((p) => p.text)
+    .join('\n\n')
+}
+
 export function lastUserMessageText(messages: UIMessage[]): string {
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const message = messages.at(index)
+  const message = messages.findLast((m) => m.role === 'user')
 
-    if (message?.role !== 'user') continue
-
-    const text = message.parts
-      .filter((p): p is { type: 'text'; text: string } => p.type === 'text' && Boolean(p.text))
-      .map((p) => p.text)
-      .join('\n\n')
-
-    return renderAttributedMessage(message.id, text, message.metadata)
-  }
-
-  return ''
+  return message ? renderAttributedMessage(message.id, userText(message), message.metadata) : ''
 }
 
 /**
@@ -60,6 +60,33 @@ export function turnPromptMessages(
   if (resume) return messages
 
   return messages.slice(0, messages.findLastIndex((m) => m.role === 'user') + 1)
+}
+
+/**
+ * Splits a turn into the user's own words, prompted last where the agent reads
+ * a slash command, and everything Nuphos adds ahead of them. The current
+ * message's header ends that lead, so only attachment links separate it from
+ * its words. A resume replaces the turn's messages, as it is not a new request.
+ */
+export function turnPrompt(args: {
+  resume: string | null
+  inputs: UIMessage[]
+  turnContext?: string
+  carried: string
+  recall?: string | null
+}): { lead: (history?: string | null) => string; text: string } {
+  const last = args.resume === null ? args.inputs.at(-1) : undefined
+  const turn =
+    args.resume === null
+      ? [args.turnContext, ...args.inputs.slice(0, -1).map((m) => lastUserMessageText([m]))]
+      : []
+  const header = last ? attributionHeader(last.id, last.metadata) : ''
+
+  return {
+    lead: (history) =>
+      [history, ...turn, args.carried, args.recall, header].filter(Boolean).join('\n\n'),
+    text: args.resume ?? (last ? userText(last) : ''),
+  }
 }
 
 const RESUME_MESSAGE: Record<ResumeReason, string> = {
@@ -120,7 +147,10 @@ export async function persistPreviewTurnContext(
 export type PreparedPreviewTurn = {
   memory: PreviewTurnMemory | null
   systemPrompt: string | undefined
+  /** Everything but the user's own words, prompted ahead of them. */
   message: string
+  /** The user's own words, prompted last so a leading slash command reaches the agent. */
+  text: string
   attachments: RuntimeAttachment[]
   freshSessionMessage: (uncertain?: boolean) => string
   /** Queued-while-idle messages folded into the first prompt; persisted too. */
@@ -182,30 +212,31 @@ export async function preparePreviewTurn(
         { teamId, userId: actorUserId, sessionId },
         images,
       )
-  const lastUserText =
-    resumeMessage(args.resume) ??
-    [args.turnContext, ...inputs.map((m) => lastUserMessageText([m]))].filter(Boolean).join('\n\n')
 
   if (memory) emitRecallStartFrame(args.run, sessionId, requestId, memory.recall)
-  const carriedBlock = carried.length > 0 ? `\n\n${renderInjectedUserMessages(carried)}` : ''
-  const recallBlock = memory?.recall.memoryBlock ?? null
+  const { lead, text } = turnPrompt({
+    resume: resumeMessage(args.resume),
+    inputs,
+    turnContext: args.turnContext,
+    carried: carried.length > 0 ? renderInjectedUserMessages(carried) : '',
+    recall: memory?.recall.memoryBlock,
+  })
 
   return {
     memory,
     attachments,
     systemPrompt,
-    message: prefixUserMessage(`${lastUserText}${carriedBlock}`, recallBlock),
-    freshSessionMessage: (uncertain?: boolean) => {
-      const preamble = previewHistoryPreamble(
-        messages,
-        compactionSummary,
-        uncertain,
-        args.resume ? 0 : inputs.length,
-      )
-      const history = preamble ? `${preamble}\n\n` : ''
-
-      return prefixUserMessage(`${history}${lastUserText}${carriedBlock}`, recallBlock)
-    },
+    message: lead(),
+    text,
+    freshSessionMessage: (uncertain?: boolean) =>
+      lead(
+        previewHistoryPreamble(
+          messages,
+          compactionSummary,
+          uncertain,
+          args.resume ? 0 : inputs.length,
+        ),
+      ),
     carried,
     clearActiveTurn: () =>
       clearConversationPreviewTurn(sessionId, teamId, requestId).catch((err: unknown) => {
@@ -226,4 +257,16 @@ export function carriedUserMessages(carried: PendingUserMessage[]): UIMessage[] 
     metadata: entry.metadata,
     parts: [{ type: 'text', text: entry.renderedText }],
   }))
+}
+
+/**
+ * A refused turn never reached the agent. When its client resends the message, the
+ * queued messages it drained go back on the queue for that resent turn.
+ */
+export async function requeueCarried(
+  userId: string,
+  sessionId: string,
+  carried: PendingUserMessage[],
+) {
+  for (const entry of carried) await enqueuePendingUserMessage(userId, sessionId, entry)
 }

@@ -65,9 +65,10 @@ export async function consumeBackgroundWorkLost(
 }
 
 /**
- * The text to prompt with, once this turn knows whether its inner session is
- * new and what became of the conversation's background work. The mark is
- * consumed here, after runtime admission, so a refused turn keeps it pending.
+ * What Nuphos prompts with ahead of the user's own words, once this turn knows
+ * whether its inner session is new and what became of the conversation's
+ * background work. The mark is consumed here, after runtime admission, so a
+ * refused turn keeps it pending.
  */
 export async function backgroundWorkPrompt(
   session: TeamSession,

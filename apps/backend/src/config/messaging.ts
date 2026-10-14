@@ -43,6 +43,8 @@ export function messagingConfig() {
           ? (process.env.LINEAR_TOKEN_ENCRYPTION_KEY_ID ?? 'default')
           : (process.env.LARK_TOKEN_ENCRYPTION_KEY_ID ?? 'default'),
     },
+    // Android push uses ADC; no service-account key belongs in app configuration.
+    fcm: { projectId: optional('FCM_PROJECT_ID') },
     // iOS push. Without the key id, team id and private key, push is off.
     // APNS_ENV is only the fallback for a device that did not report its own
     // environment (Xcode builds register as sandbox, TestFlight as production).

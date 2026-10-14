@@ -118,7 +118,7 @@ describe('createLocalExecTool execute', () => {
 
     expect(result).toEqual({
       error:
-        "No local devices are available for this conversation. Ask the user to select their device in this conversation's credential selector (the shield button in the composer); they must have Nuphos Desktop open and signed in on that device.",
+        'No local device is usable in this conversation. Either none is selected in its credential selector, or the selected one is offline: Nuphos Desktop must be open and signed in on it, with local exec allowed. list_credentials shows which.',
     })
     expect(dispatchCalls).toEqual([])
   })

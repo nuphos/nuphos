@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { AlertCircle, Sparkles } from 'lucide-react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { ContextMenu } from '../components/ContextMenu'
@@ -12,9 +13,20 @@ import { LocalSkillImportMenu } from './skills/LocalSkillImportMenu'
 import { buildSkillColumns } from './skills/skillColumns'
 import { SkillDetailPane } from './skills/SkillDetailPane'
 import { useSkillActions } from './skills/useSkillActions'
+import { useSkillMenu } from './skills/useSkillMenu'
 import { useTeamSkills } from './skills/useTeamSkills'
 
-import type { TeamSkillSummary } from '../api'
+import type { SkillScope, TeamSkillSummary } from '../api'
+
+const SCOPES: { scope: SkillScope; label: string; title: string }[] = [
+  { scope: 'team', label: 'Team', title: 'Skills shared with everyone in this team' },
+  {
+    scope: 'personal',
+    label: 'Personal',
+    title:
+      'Your own skills in this team. Claude Code agents load them on your turns in your own conversations.',
+  },
+]
 
 type Props = {
   teamId: string
@@ -36,7 +48,16 @@ export function TeamSkillsView({
   onLoading,
   onOpenAgentChat,
 }: Props) {
-  const list = useTeamSkills({ teamId, currentUserId, refreshKey, filter, onCount, onLoading })
+  const [scope, setScope] = useState<SkillScope>('team')
+  const list = useTeamSkills({
+    teamId,
+    scope,
+    currentUserId,
+    refreshKey,
+    filter,
+    onCount,
+    onLoading,
+  })
   const {
     state,
     members,
@@ -60,12 +81,15 @@ export function TeamSkillsView({
     fileInputRef,
     canEdit,
     canDelete,
+    canPromote,
+    teamNames,
     reloadWithSkeleton,
     rows,
     selectedSkill,
   } = list
-  const { loadSkillDetail, deleteObject, deleteSkill, uploadFile, menuItems } = useSkillActions({
+  const { loadSkillDetail, deleteObject, deleteSkill, uploadFile } = useSkillActions({
     teamId,
+    scope,
     filter,
     state,
     canEdit,
@@ -79,10 +103,18 @@ export function TeamSkillsView({
     uploadKey,
     setUploadKey,
     setUploading,
-    menu,
     detailRequestRef,
     fileInputRef,
     reloadWithSkeleton,
+  })
+  const menuItems = useSkillMenu({
+    teamId,
+    scope,
+    menu,
+    canDelete,
+    canPromote,
+    deleteSkill,
+    onPromoted: reloadWithSkeleton,
   })
 
   // Drop the slot in the states below that render no list, so the controls row
@@ -119,13 +151,35 @@ export function TeamSkillsView({
     <div className="flex-1 flex min-h-0">
       {importSlot &&
         createPortal(
-          <LocalSkillImportMenu
-            teamId={teamId}
-            disabled={!canEdit}
-            onImported={(name) => {
-              void reloadWithSkeleton().then(() => setSelectedName(name))
-            }}
-          />,
+          <>
+            <div className="flex items-center rounded-md bg-zGray-900/60 p-0.5">
+              {SCOPES.map((option) => (
+                <button
+                  key={option.scope}
+                  type="button"
+                  aria-pressed={scope === option.scope}
+                  title={option.title}
+                  onClick={() => setScope(option.scope)}
+                  className={clsx(
+                    'h-6 px-2 rounded text-[12px]',
+                    scope === option.scope
+                      ? 'bg-zGray-800 text-main'
+                      : 'text-secondary hover:text-main',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <LocalSkillImportMenu
+              teamId={teamId}
+              scope={scope}
+              disabled={!canEdit}
+              onImported={(name) => {
+                void reloadWithSkeleton().then(() => setSelectedName(name))
+              }}
+            />
+          </>,
           importSlot,
         )}
       {menu && (
@@ -142,18 +196,31 @@ export function TeamSkillsView({
             icon={Sparkles}
             title="Skills"
             description={
-              <>
-                Skills are reusable instructions that teach the agent how your team works. Ask the
-                agent to create one, or upload skill directories under{' '}
-                <code className="px-1 py-0.5 bg-zGray-900/60 rounded">skills/&lt;name&gt;/</code> to
-                your team bucket.
-              </>
+              scope === 'personal' ? (
+                <>
+                  Personal skills are yours in this team. Claude Code agents load them on your turns
+                  in conversations you own, and never on another member&apos;s turn. A team skill
+                  with the same name is used instead. Move a skill to the team when everyone should
+                  have it.
+                </>
+              ) : (
+                <>
+                  Skills are reusable instructions that teach the agent how your team works. Ask the
+                  agent to create one, or upload skill directories under{' '}
+                  <code className="px-1 py-0.5 bg-zGray-900/60 rounded">skills/&lt;name&gt;/</code>{' '}
+                  to your team bucket.
+                </>
+              )
             }
-            agentAction={{
-              label: 'Create a skill for me',
-              prompt:
-                'Create a team skill for me — ask me what workflow or convention it should teach, then write and save it.',
-            }}
+            agentAction={
+              scope === 'personal'
+                ? undefined
+                : {
+                    label: 'Create a skill for me',
+                    prompt:
+                      'Create a team skill for me — ask me what workflow or convention it should teach, then write and save it.',
+                  }
+            }
             onOpenAgentChat={onOpenAgentChat}
           />
         ) : (
@@ -168,7 +235,7 @@ export function TeamSkillsView({
             }
             storageKey="team-skills"
             empty="No skills match your search."
-            columns={buildSkillColumns()}
+            columns={buildSkillColumns(scope === 'personal' ? teamNames : undefined)}
           />
         )}
       </div>

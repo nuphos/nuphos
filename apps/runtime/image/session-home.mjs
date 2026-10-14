@@ -36,6 +36,8 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     GOMODCACHE: nuphosJoin(runtimeHome, 'go', 'pkg', 'mod'),
     BUN_INSTALL_CACHE_DIR: nuphosJoin(runtimeHome, '.bun', 'install', 'cache'),
     PLAYWRIGHT_BROWSERS_PATH: nuphosJoin(runtimeHome, '.cache', 'ms-playwright', 'browsers'),
+    PIP_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'pip'),
+    UV_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'uv'),
     XDG_DATA_HOME: nuphosJoin(home, '.local', 'share'),
     XDG_STATE_HOME: nuphosJoin(home, '.local', 'state'),
     CLOUDSDK_CONFIG: nuphosJoin(config, 'gcloud'),

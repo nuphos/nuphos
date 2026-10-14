@@ -5,6 +5,7 @@ import {
   buildSkillMdContent,
   groupSkillObjects,
   parseSkillDescription,
+  personalSkillsScope,
   skillNameFromObjectKey,
   skillObjectKeyForName,
   validateSkillName,
@@ -106,5 +107,14 @@ describe('groupSkillObjects', () => {
     expect(grouped.skills[0]?.name).toBe('demo')
     expect(grouped.skills[0]?.files).toHaveLength(2)
     expect(grouped.orphans).toHaveLength(1)
+  })
+})
+
+describe('personalSkillsScope', () => {
+  test('nests one member under the team, apart from the team skills prefix', () => {
+    const scope = personalSkillsScope('64f1a2b3c4d5e6f7a8b9c0d1', '64f1a2b3c4d5e6f7a8b9c0d2')
+
+    expect(scope).toBe('teams/64f1a2b3c4d5e6f7a8b9c0d1/users/64f1a2b3c4d5e6f7a8b9c0d2')
+    expect(`${scope}/skills/`.startsWith('teams/64f1a2b3c4d5e6f7a8b9c0d1/skills/')).toBe(false)
   })
 })

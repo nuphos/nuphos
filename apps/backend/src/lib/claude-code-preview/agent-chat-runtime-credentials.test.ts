@@ -95,7 +95,8 @@ const run = (token: string) =>
     conversationId: 'conversation',
     userId: 'user',
     locale: 'en-US',
-    message: 'Continue',
+    message: '',
+    text: 'Continue',
     endpoint,
     mcpServers: [
       {

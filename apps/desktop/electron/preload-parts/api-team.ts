@@ -101,24 +101,29 @@ export const teamApi = {
     ipcRenderer.invoke('dashboards:saveAlert', teamId, dashboardId, panelId, input),
   dashboardsDeleteAlert: (teamId: string, dashboardId: string, panelId: string) =>
     ipcRenderer.invoke('dashboards:deleteAlert', teamId, dashboardId, panelId),
-  teamSkillsGetManifest: (teamId: string) => ipcRenderer.invoke('teamSkills:getManifest', teamId),
-  teamSkillsListObjects: (teamId: string) => ipcRenderer.invoke('teamSkills:listObjects', teamId),
-  teamSkillsGetObject: (teamId: string, key: string) =>
-    ipcRenderer.invoke('teamSkills:getObject', teamId, key),
-  teamSkillsGetHistory: (teamId: string, name: string) =>
-    ipcRenderer.invoke('teamSkills:getHistory', teamId, name),
+  teamSkillsGetManifest: (teamId: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:getManifest', teamId, scope),
+  teamSkillsListObjects: (teamId: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:listObjects', teamId, scope),
+  teamSkillsGetObject: (teamId: string, key: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:getObject', teamId, key, scope),
+  teamSkillsGetHistory: (teamId: string, name: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:getHistory', teamId, name, scope),
   teamSkillsPutObject: (
     teamId: string,
     key: string,
     file: { filename: string; bytes: Uint8Array; contentType?: string },
-  ) => ipcRenderer.invoke('teamSkills:putObject', teamId, key, file),
+    scope?: string,
+  ) => ipcRenderer.invoke('teamSkills:putObject', teamId, key, file, scope),
   teamSkillsListLocal: () => ipcRenderer.invoke('teamSkills:listLocal'),
-  teamSkillsImportLocal: (teamId: string, skillId: string) =>
-    ipcRenderer.invoke('teamSkills:importLocal', teamId, skillId),
-  teamSkillsDeleteObject: (teamId: string, key: string) =>
-    ipcRenderer.invoke('teamSkills:deleteObject', teamId, key),
-  teamSkillsDeleteSkill: (teamId: string, name: string) =>
-    ipcRenderer.invoke('teamSkills:deleteSkill', teamId, name),
+  teamSkillsImportLocal: (teamId: string, skillId: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:importLocal', teamId, skillId, scope),
+  teamSkillsDeleteObject: (teamId: string, key: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:deleteObject', teamId, key, scope),
+  teamSkillsDeleteSkill: (teamId: string, name: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:deleteSkill', teamId, name, scope),
+  teamSkillsPromote: (teamId: string, name: string) =>
+    ipcRenderer.invoke('teamSkills:promote', teamId, name),
   atlasCreateTeam: (name: string) => ipcRenderer.invoke('atlas:createTeam', name),
   atlasUpdateTeam: (teamId: string, input: { name?: string; avatarUrl?: string }) =>
     ipcRenderer.invoke('atlas:updateTeam', teamId, input),

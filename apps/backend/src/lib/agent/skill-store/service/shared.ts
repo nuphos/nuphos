@@ -114,6 +114,11 @@ export function teamSkillsScope(teamId: string): string {
   return `teams/${teamId}`
 }
 
+/** One member's private skills within one team, like personal instructions. */
+export function personalSkillsScope(teamId: string, userId: string): string {
+  return `teams/${teamId}/users/${userId}`
+}
+
 export async function listSkillScopes(): Promise<string[]> {
   const s3 = requireSkillsStore()
   const scopes = new Set<string>(['global'])

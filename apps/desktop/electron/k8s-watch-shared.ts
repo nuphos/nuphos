@@ -78,6 +78,10 @@ export type Subscription = {
   // We don't emit change events for the cache contents at that moment; subsequent
   // events stream normally.
   primed: boolean
+  /** The webContents 'destroyed' listener, kept so unsubscribe() can remove it.
+   * Left attached, it pins this subscription's informer entry (and every object
+   * it cached) for the lifetime of the window. */
+  onDestroyed: () => void
 }
 
 export type FlushPending = {

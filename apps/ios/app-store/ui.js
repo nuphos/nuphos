@@ -8,6 +8,12 @@ const LOGOS = path.resolve(__dirname, '../nuphos-ios/Assets.xcassets/Logos')
 const CLAUDE = `${LOGOS}/logo-claude.imageset/claude.svg`
 const OPENAI = `${LOGOS}/logo-openai.imageset/openai.svg`
 const SIZES = JSON.parse(fs.readFileSync(`${BUILD}/sym/sizes.json`, 'utf8'));
+// The app has no iPad-specific layout: on a 13" iPad (1032×1376 pt) the same screens run full width
+// under a 24pt status bar. ipad() moves the trailing controls right by DX, the navigation bar up by
+// DY and the composer down by DB; at the defaults the iPhone markup is unchanged.
+// The agent picker is a form sheet there, centered and SX wider than the iPhone's.
+let W = 440, H = 956, DX = 0, DY = 0, DB = 0, SX = 0;
+const ipad = () => { W = 1032; H = 1376; DX = W - 440; DY = -30; DB = H - 956 - 12; SX = 120; };
 
 // Masks are fetched with CORS, which file:// URLs fail, so assets are inlined as data URIs.
 const uri = (f) => `data:image/${f.endsWith('.svg') ? 'svg+xml' : f.endsWith('.jpg') ? 'jpeg' : 'png'};base64,${fs.readFileSync(f).toString('base64')}`;
@@ -28,7 +34,7 @@ const FACES = fs.readdirSync(FACE_DIR).filter((f) => f.endsWith('.jpg')).map((f)
 
 const CSS = `${FACES}
 * { box-sizing: border-box; margin: 0; padding: 0; }
-.ios { width: 440px; height: 956px; position: relative; overflow: hidden; background: #141414; color: #fff;
+.ios { position: relative; overflow: hidden; background: #141414; color: #fff;
   font-family: -apple-system, "SF Pro Text", "SF Pro", sans-serif; font-size: 17px; -webkit-font-smoothing: antialiased; }
 .ios .abs { position: absolute; }
 .sym { display: inline-block; flex: none; -webkit-mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; }
@@ -47,10 +53,16 @@ const CSS = `${FACES}
 .step { position: absolute; left: 16.3px; height: 18px; gap: 6px; font-size: 13px; letter-spacing: -.16px; color: #84848C; white-space: nowrap; margin-top: -.6px; }
 .step .t { font-size: 11px; color: #5F5F66; }
 .step .n { color: #5F5F66; }
+.flow { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.flow > *, .flow > [data-lift] > * { position: relative !important; flex: none; }
+.flow .bubble, .flow .row.muted { align-self: flex-end; left: auto !important; max-width: calc(100% - 72.3px); }
+.flow .prose, .flow .abs.row:not(.muted) { align-self: stretch; left: auto !important; right: auto !important; margin-left: 16.3px; margin-right: 16.3px; }
 .card { position: absolute; left: 27.6px; right: 27.6px; background: #202024; border-radius: 26px; overflow: hidden; }
 `;
 
-const status = () => `
+const status = () => W > 440 ? `
+  <div class="abs" style="left:24px;top:8px;font-size:15px;font-weight:600;letter-spacing:-.2px">9:41&nbsp;&nbsp;Tue Oct 13</div>
+  <div class="abs row" style="right:24px;top:10px;gap:7px">${sym('wifi', 'semibold', 14)}<span style="font-size:15px;font-weight:600">100%</span>${sym('battery.100percent', 'regular', 19)}</div>` : `
   <div class="abs" style="left:157.3px;top:14px;width:125.4px;height:36.7px;border-radius:18.4px;background:#000"></div>
   <div class="abs" style="left:43px;width:81px;top:22.2px;text-align:center;font-size:17px;font-weight:600;letter-spacing:-.2px">9:41</div>
   <div class="abs" style="left:310px;top:24.2px">${sym('cellularbars', 'regular', 17.3)}</div>
@@ -65,71 +77,92 @@ const avatar = (initials, size, x, y) =>
 
 // One conversation row; `i` is its index in the list (75pt pitch).
 const convRow = (i, c) => {
-  const cy = 153.7 + i * 75;
-  const ind = c.state === 'working' ? spinner(395, cy) : c.state === 'unread'
-    ? `<div class="abs" style="left:395px;top:${cy - 3.5}px;width:7px;height:7px;border-radius:50%;background:#8B4DFF"></div>` : '';
+  const cy = 153.7 + DY + i * 75;
+  const ind = c.state === 'working' ? spinner(395 + DX, cy) : c.state === 'unread'
+    ? `<div class="abs" style="left:${395 + DX}px;top:${cy - 3.5}px;width:7px;height:7px;border-radius:50%;background:#8B4DFF"></div>` : '';
   return `${avatar(c.who, 36, 20.3, cy - 18)}
     <div class="abs" style="left:68.5px;top:${cy - 19.9}px;font-weight:500;letter-spacing:-.43px;white-space:nowrap">${c.title}</div>
     <div class="abs row muted" style="left:68.2px;top:${cy + 3.2}px;height:17px;gap:5px;font-size:13px;letter-spacing:-.08px;white-space:nowrap">${mark[c.agent](12)}<span>${c.meta}</span></div>
-    ${ind}<div class="abs" style="left:412.3px;top:${cy - 8.7}px">${sym('chevron.right', 'semibold', 14, '#4E4E53')}</div>
+    ${ind}<div class="abs" style="left:${412.3 + DX}px;top:${cy - 8.7}px">${sym('chevron.right', 'semibold', 14, '#4E4E53')}</div>
     <div class="sep" style="left:27.3px;right:20px;top:${cy + 36.6}px"></div>`;
 };
 
 const composer = (placeholder, sending) => `
-  <div class="glass" style="left:16.3px;right:16.3px;top:868.3px;height:45.4px;background:rgba(255,255,255,.035)"></div>
-  <div class="abs" style="left:34.7px;top:880.2px;color:#6C6C72;letter-spacing:-.43px">${placeholder}</div>
-  <div class="abs" style="left:352.6px;top:880.3px">${sym('mic', 'regular', 18, '#B4B4BA')}</div>
-  <div class="abs" style="left:384px;top:874px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:${sending ? '#fff' : '#2C2C2E'}">
+  <div class="glass" style="left:16.3px;right:16.3px;top:${868.3 + DB}px;height:45.4px;background:rgba(255,255,255,.035)"></div>
+  <div class="abs" style="left:34.7px;top:${880.2 + DB}px;color:#6C6C72;letter-spacing:-.43px">${placeholder}</div>
+  <div class="abs" style="left:${352.6 + DX}px;top:${880.3 + DB}px">${sym('mic', 'regular', 18, '#B4B4BA')}</div>
+  <div class="abs" style="left:${384 + DX}px;top:${874 + DB}px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:${sending ? '#fff' : '#2C2C2E'}">
     ${sending ? '<div style="width:12.4px;height:12.4px;border-radius:2.6px;background:#141414"></div>' : sym('arrow.up', 'semibold', 15, '#6C6C72')}</div>`;
 
-const home = (convs) => `<div class="ios">${status()}
-  <div class="abs" style="left:34.6px;top:70.6px;font-size:22px;font-weight:700;letter-spacing:-.5px">Agent</div>
-  <div class="abs" style="left:102px;top:76.2px">${sym('chevron.down', 'semibold', 15, '#8E8E93')}</div>
-  <div class="glass" style="left:256px;top:62px;width:44px;height:44px">${sym('magnifyingglass', 'regular', 22)}</div>
-  <div class="glass" style="left:312px;top:62px;width:44px;height:44px">${sym('line.3.horizontal.decrease', 'regular', 22)}</div>
-  <div class="glass" style="left:372px;top:62px;width:44px;height:44px"></div>${avatar('BW', 30, 379, 69)}
+const ios = (bg = '#141414') => `<div class="ios" style="width:${W}px;height:${H}px;background:${bg}">${status()}`;
+const home = (convs) => `${ios()}
+  <div class="abs" style="left:34.6px;top:${70.6 + DY}px;font-size:22px;font-weight:700;letter-spacing:-.5px">Agent</div>
+  <div class="abs" style="left:102px;top:${76.2 + DY}px">${sym('chevron.down', 'semibold', 15, '#8E8E93')}</div>
+  <div class="glass" style="left:${256 + DX}px;top:${62 + DY}px;width:44px;height:44px">${sym('magnifyingglass', 'regular', 22)}</div>
+  <div class="glass" style="left:${312 + DX}px;top:${62 + DY}px;width:44px;height:44px">${sym('line.3.horizontal.decrease', 'regular', 22)}</div>
+  <div class="glass" style="left:${372 + DX}px;top:${62 + DY}px;width:44px;height:44px"></div>${avatar('BW', 30, 379 + DX, 69 + DY)}
   ${convs.map((c, i) => convRow(i, c)).join('')}
   ${composer('Ask Nuphos anything…', false)}</div>`;
 
 const chatHeader = (title, agent, label) => `
-  <div class="glass" style="left:20px;top:62px;width:44px;height:44px">${sym('chevron.left', 'semibold', 23, '#fff', 'margin-left:-2px')}</div>
-  <div class="glass" style="left:376px;top:62px;width:44px;height:44px">${sym('ellipsis', 'semibold', 22)}</div>
-  <div class="abs" style="left:70px;right:70px;top:69.3px;text-align:center;font-size:13px;font-weight:600;letter-spacing:-.08px;white-space:nowrap">${title}</div>
-  <div class="abs row muted" style="left:70px;right:70px;top:84.2px;height:16px;justify-content:center;gap:4px;font-size:11px;letter-spacing:.06px">${mark[agent](11)}<span>${label}</span></div>`;
+  <div class="glass" style="left:20px;top:${62 + DY}px;width:44px;height:44px">${sym('chevron.left', 'semibold', 23, '#fff', 'margin-left:-2px')}</div>
+  <div class="glass" style="left:${376 + DX}px;top:${62 + DY}px;width:44px;height:44px">${sym('ellipsis', 'semibold', 22)}</div>
+  <div class="abs" style="left:70px;right:70px;top:${69.3 + DY}px;text-align:center;font-size:13px;font-weight:600;letter-spacing:-.08px;white-space:nowrap">${title}</div>
+  <div class="abs row muted" style="left:70px;right:70px;top:${84.2 + DY}px;height:16px;justify-content:center;gap:4px;font-size:11px;letter-spacing:.06px">${mark[agent](11)}<span>${label}</span></div>`;
 
-// Transcript rows are laid out by absolute y (points), taken from the capture.
+// Transcript rows are laid out by absolute y (points), taken from the capture. `at(y)` places a row:
+// a number is its iPhone y; on iPad a string carries the flow spacing instead.
+const at = (y) => (typeof y === 'number' ? `top:${y}px` : y);
 // Sender caption: 20pt photo + name, as UserBubble renders it when the sender has an avatar.
-const sender = (name, y, who) => `<div class="abs row muted" style="right:16.3px;top:${y - 3}px;height:20px;gap:6px;font-size:12px"><div class="avatar f-${who}" style="width:20px;height:20px"></div>${name}</div>`;
-const bubble = (text, y, left) => `<div class="bubble" style="top:${y}px;left:${left}px;letter-spacing:-.43px">${text}</div>`;
-const step = (y, label, secs, calls) => `<div class="step row" style="top:${y}px"><span>${label}</span>${secs ? `<span class="t mono">${secs}</span>` : ''}${calls ? `<span class="n">· ${calls}</span>` : ''}${sym('chevron.right', 'semibold', 9.5, '#5F5F66')}</div>`;
-const prose = (y, html) => `<div class="prose" style="top:${y}px;letter-spacing:-.43px">${html}</div>`;
-const activity = (y, a, b) => `<div class="abs" style="left:16.3px;top:${y}px;font-size:13px;letter-spacing:-.08px"><span style="color:#8E8E93">${a}</span> <span style="color:#D8D8DC">${b}</span></div>`;
+const sender = (y, name, who) => `<div class="abs row muted" style="right:16.3px;${at(typeof y === 'number' ? y - 3 : y)};height:20px;gap:6px;font-size:12px"><div class="avatar f-${who}" style="width:20px;height:20px"></div>${name}</div>`;
+const bubble = (y, text, left) => `<div class="bubble" style="${at(y)};left:${left}px;letter-spacing:-.43px">${text}</div>`;
+const step = (y, label, secs, calls) => `<div class="step row" style="${at(y)}"><span>${label}</span>${secs ? `<span class="t mono">${secs}</span>` : ''}${calls ? `<span class="n">· ${calls}</span>` : ''}${sym('chevron.right', 'semibold', 9.5, '#5F5F66')}</div>`;
+const prose = (y, html) => `<div class="prose" style="${at(y)};letter-spacing:-.43px">${html}</div>`;
+const activity = (y, a, b) => `<div class="abs" style="left:16.3px;${at(y)};font-size:13px;letter-spacing:-.08px"><span style="color:#8E8E93">${a}</span> <span style="color:#D8D8DC">${b}</span></div>`;
+const pill = (y, label) => `<div class="abs row" style="left:16.3px;right:16.3px;${at(y)};height:34px;border-radius:11px;background:#202024;padding:0 14px 0 14px;gap:7px;font-size:13px;letter-spacing:.1px;color:#A1A1AA">${sym('wrench.and.screwdriver', 'regular', 12.5, '#A1A1AA')}<span style="flex:1">${label}</span>${sym('chevron.right', 'semibold', 10.5, '#D0D0D5')}</div>`;
 
-const chatSSO = (lift) => `<div class="ios">${status()}${chatHeader('Add SSO to the admin dashboard', 'claude', 'Claude Code')}
-  ${lift ? '' : sender('Bruce Wayne', 128, 'BW')}
-  ${lift ? '' : bubble('Add SSO to the admin dashboard. I’m<br>heading out, so keep going and I’ll check<br>in from my phone.', 152.7, 78.3)}
-  ${step(267.3, '/workspace/src/routes/admin.tsx', '4s', '3 calls')}
-  ${prose(295.3, 'The OIDC flow is in place and the admin routes now<br>require an SSO session. Next I’m adding tests for the<br>callback and the expired-session redirect.')}
-  ${step(398.3, 'Run the auth test suite', '41s', '2 calls')}
-  ${prose(426.3, '2 of 38 tests fail: the callback rejects tokens without<br>an <code>email_verified</code> claim. Fixing the claim check<br>now.')}
-  ${step(529, '/workspace/src/auth/sso.ts', '3s', '')}
-  ${activity(560, 'Running', 'tests…')}
+// A transcript as [row, iPhone y, ...args]. `lift` leaves out the people's messages, which the
+// screenshot lifts out of the screen. On iPad the lines no longer wrap, so the rows flow with the
+// spacing the capture shows between them, and a lifted message keeps its place, hidden, as
+// data-lift="<n>" for compose.mjs to find.
+const GAP = (prev, row) => (row === bubble ? 7.7 : row === prose ? 10.5 : row === activity && prev === step ? 13 : 23.5);
+const transcript = (rows, lift) => {
+  const people = (row) => lift && (row === sender || row === bubble);
+  if (W === 440) return rows.map(([row, y, ...a]) => (people(row) ? '' : row(y, ...a))).join('');
+  let n = 0;
+  return `<div class="flow" style="top:${rows[0][1] - 3 + DY}px">${rows.map(([row, , ...a], i) => {
+    const html = row(`margin-top:${i ? GAP(rows[i - 1][0], row) : 0}px`, ...a.map((v) => (typeof v === 'string' ? v.replace(/<br>/g, ' ') : v)));
+    return people(row) ? `<div data-lift="${row === bubble ? n++ : 'sender'}" style="display:contents;visibility:hidden">${html}</div>` : html;
+  }).join('')}</div>`;
+};
+
+const chatSSO = (lift) => `${ios()}${chatHeader('Add SSO to the admin dashboard', 'claude', 'Claude Code')}
+  ${transcript([
+    [sender, 128, 'Bruce Wayne', 'BW'],
+    [bubble, 152.7, 'Add SSO to the admin dashboard. I’m<br>heading out, so keep going and I’ll check<br>in from my phone.', 78.3],
+    [step, 267.3, '/workspace/src/routes/admin.tsx', '4s', '3 calls'],
+    [prose, 295.3, 'The OIDC flow is in place and the admin routes now<br>require an SSO session. Next I’m adding tests for the<br>callback and the expired-session redirect.'],
+    [step, 398.3, 'Run the auth test suite', '41s', '2 calls'],
+    [prose, 426.3, '2 of 38 tests fail: the callback rejects tokens without<br>an <code>email_verified</code> claim. Fixing the claim check<br>now.'],
+    [step, 529, '/workspace/src/auth/sso.ts', '3s', ''],
+    [activity, 560, 'Running', 'tests…'],
+  ], lift)}
   ${composer('Send a message…', true)}</div>`;
 
-const pill = (y, label) => `<div class="abs row" style="left:16.3px;right:16.3px;top:${y}px;height:34px;border-radius:11px;background:#202024;padding:0 14px 0 14px;gap:7px;font-size:13px;letter-spacing:.1px;color:#A1A1AA">${sym('wrench.and.screwdriver', 'regular', 12.5, '#A1A1AA')}<span style="flex:1">${label}</span>${sym('chevron.right', 'semibold', 10.5, '#D0D0D5')}</div>`;
-
-const chatBilling = (lift) => `<div class="ios">${status()}${chatHeader('Migrate billing jobs to the queue', 'codex', 'Codex')}
-  ${lift ? '' : sender('Maya Chen', 128, 'MC')}
-  ${lift ? '' : bubble('Move the nightly invoice job onto the new<br>queue, and keep the cron as a fallback for<br>now.', 152.7, 71.5)}
-  ${pill(268.7, 'Worked for 8s · 2 steps')}
-  ${prose(314, 'Done. The job now enqueues one task per account,<br>and the cron stays behind a <code>LEGACY_CRON</code> flag.')}
-  ${lift ? '' : sender('Bruce Wayne', 392.3, 'BW')}
-  ${lift ? '' : bubble('Make the tasks idempotent. A retry must<br>never invoice an account twice.', 416.5, 79)}
-  ${pill(508, 'Worked for 26s · 2 steps')}
-  ${prose(552.7, 'Each task now uses <code>account:period</code> as its<br>idempotency key. All 54 billing tests pass.')}
-  ${lift ? '' : sender('Leo Park', 631.3, 'LP')}
-  ${lift ? '' : bubble('Looks good. Open the PR and I’ll review it.', 656, 71.5)}
-  ${activity(721.5, 'Opening', 'pull request…')}
+const chatBilling = (lift) => `${ios()}${chatHeader('Migrate billing jobs to the queue', 'codex', 'Codex')}
+  ${transcript([
+    [sender, 128, 'Maya Chen', 'MC'],
+    [bubble, 152.7, 'Move the nightly invoice job onto the new<br>queue, and keep the cron as a fallback for<br>now.', 71.5],
+    [pill, 268.7, 'Worked for 8s · 2 steps'],
+    [prose, 314, 'Done. The job now enqueues one task per account,<br>and the cron stays behind a <code>LEGACY_CRON</code> flag.'],
+    [sender, 392.3, 'Bruce Wayne', 'BW'],
+    [bubble, 416.5, 'Make the tasks idempotent. A retry must<br>never invoice an account twice.', 79],
+    [pill, 508, 'Worked for 26s · 2 steps'],
+    [prose, 552.7, 'Each task now uses <code>account:period</code> as its<br>idempotency key. All 54 billing tests pass.'],
+    [sender, 631.3, 'Leo Park', 'LP'],
+    [bubble, 656, 'Looks good. Open the PR and I’ll review it.', 71.5],
+    [activity, 721.5, 'Opening', 'pull request…'],
+  ], lift)}
   ${composer('Send a message…', true)}</div>`;
 
 // Agent picker sheet. `rows` are [mark, title, subtitle?, selected?].
@@ -137,18 +170,18 @@ const rtRow = (y, h, m, title, sub, sel, last) => `
   <div class="abs" style="left:22px;top:${y + h / 2 - 10}px">${m === 'claude' ? claude(20) : codex(20, '#E8E8EA')}</div>
   <div class="abs" style="left:60px;top:${y + (sub ? 17.6 : h / 2 - 9.2)}px;font-size:15px;font-weight:500;letter-spacing:-.23px">${title}</div>
   ${sub ? `<div class="abs muted" style="left:60px;top:${y + 38.6}px;font-size:12px">${sub}</div>` : ''}
-  ${sel ? `<div class="abs" style="left:318px;top:${y + h / 2 - 8}px">${sym('checkmark', 'semibold', 17)}</div>` : ''}
-  ${sub ? '' : `<div class="abs" style="left:345px;top:${y + h / 2 - 11}px">${sym('info.circle', 'regular', 17)}</div>`}
+  ${sel ? `<div class="abs" style="left:${318 + SX}px;top:${y + h / 2 - 8}px">${sym('checkmark', 'semibold', 17)}</div>` : ''}
+  ${sub ? '' : `<div class="abs" style="left:${345 + SX}px;top:${y + h / 2 - 11}px">${sym('info.circle', 'regular', 17)}</div>`}
   ${last ? '' : `<div class="sep" style="left:60px;right:19px;top:${y + h - .3}px"></div>`}`;
 
-const runtimes = () => `<div class="ios" style="background:#0A0A0A">${status()}
+const runtimes = () => `${ios('#0A0A0A')}
   <div style="opacity:.32">${chatHeader('New chat', 'claude', 'Claude Code')}</div>
-  <div class="abs" style="left:8px;right:8.6px;top:451px;height:495.7px;border-radius:38px;background:#161616;box-shadow:inset 0 0 0 .67px rgba(255,255,255,.07)">
-    <div class="abs" style="left:194px;top:5px;width:36px;height:5px;border-radius:3px;background:#5A5A5E"></div>
+  <div class="abs" style="${SX ? `left:${(W - 423.4 - SX) / 2}px;width:${423.4 + SX}px;top:${(H - 495.7) / 2}px` : 'left:8px;right:8.6px;top:451px'};height:495.7px;border-radius:38px;background:#161616;box-shadow:inset 0 0 0 .67px rgba(255,255,255,.07)">
+    ${SX ? '' : '<div class="abs" style="left:194px;top:5px;width:36px;height:5px;border-radius:3px;background:#5A5A5E"></div>'}
     <div class="abs" style="left:0;right:0;top:30.5px;text-align:center;font-weight:600;letter-spacing:-.72px">Agent</div>
-    <div class="glass" style="left:292.4px;top:19.5px;width:112px;height:42px;box-shadow:inset 0 0 0 .67px rgba(255,255,255,.04);background:rgba(255,255,255,.065)"></div>
-    <div class="abs" style="left:303px;top:29px">${sym('plus', 'medium', 22)}</div>
-    <div class="abs" style="left:352.6px;top:30.5px;font-weight:600;letter-spacing:-.72px">Done</div>
+    <div class="glass" style="left:${292.4 + SX}px;top:19.5px;width:112px;height:42px;box-shadow:inset 0 0 0 .67px rgba(255,255,255,.04);background:rgba(255,255,255,.065)"></div>
+    <div class="abs" style="left:${303 + SX}px;top:29px">${sym('plus', 'medium', 22)}</div>
+    <div class="abs" style="left:${352.6 + SX}px;top:30.5px;font-weight:600;letter-spacing:-.72px">Done</div>
     <div class="abs" style="left:39.1px;top:80.6px;font-weight:600;letter-spacing:-.72px;color:#8E8E93">My computers</div>
     <div class="card" style="left:19.6px;right:19px;top:110.3px;height:215px">
       ${rtRow(0, 71.7, 'claude', 'MacBook Pro', 'Claude Code')}${rtRow(71.7, 71.7, 'codex', 'MacBook Pro', 'Codex')}${rtRow(143.4, 71.7, 'claude', 'Mac Studio', 'Claude Code', false, true)}</div>
@@ -157,4 +190,4 @@ const runtimes = () => `<div class="ios" style="background:#0A0A0A">${status()}
       ${rtRow(0, 56, 'claude', 'Claude Code', '', true)}${rtRow(56, 56, 'codex', 'Codex', '', false, true)}</div>
   </div></div>`;
 
-module.exports = { chatBilling, runtimes, pill, uri, CSS, home, chatSSO, sym, mark, avatar, status, chatHeader, composer, sender, bubble, step, prose, activity, BUILD };
+module.exports = { ipad, chatBilling, runtimes, pill, uri, CSS, home, chatSSO, sym, mark, avatar, status, chatHeader, composer, sender, bubble, step, prose, activity, BUILD };

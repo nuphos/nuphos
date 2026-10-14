@@ -66,7 +66,10 @@ class AuthSession(
         private set
     private var consentRequest = 0L
 
+    var onIdentityReset: () -> Unit = {}
+
     private fun beginIdentity(): Long {
+        if (state !is State.Restoring) onIdentityReset()
         composerDrafts.onIdentity(null)
         runtimeSelections.clear()
         workspaceWriteReview = WorkspaceWriteReview()
@@ -247,6 +250,21 @@ class AuthSession(
                 customTabsOpen = true
                 tabs.launchUrl(activity, Uri.parse(url))
                 val code = withContext(Dispatchers.IO) { attempt.awaitDelivery() }
+                ensureActive()
+                if (generation != expected || state !is State.SigningIn || loginAttempt !== attempt) return@launch
+                // Only a validated loopback delivery may bring the host back. This
+                // intent carries no code or token; redemption still waits for onResume.
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    try {
+                        activity.startActivity(Intent(activity, ai.nuphos.android.MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        })
+                    } catch (_: ActivityNotFoundException) {
+                        // Keep the callback page's manual return link as a fallback.
+                    } catch (_: SecurityException) {
+                        // Browser/OS policy may require the user to return manually.
+                    }
+                }
                 if (withTimeoutOrNull(5 * 60 * 1000L) { resumed.await(); true } != true) {
                     throw java.net.SocketTimeoutException("Sign-in expired. Please try again.")
                 }

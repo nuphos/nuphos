@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
 
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
-import { buildDeviceCredentialSections } from './credentialSections'
+import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from './credentialSections'
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
 import { useCredentialSections } from './credentialSelectorButtonHooks'
 import { CredentialSelectorSectionList } from './credentialSelectorButtonSections'
@@ -35,12 +35,15 @@ function SelectionButton({
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const listedDevices = shownDevices(options.devices, value.deviceIds)
   const selectedCount = devices ? value.deviceIds.length : countSelectedCredentials(value)
-  const totalCount = devices ? options.devices.length : countTotalCredentials(options)
+  const totalCount = devices ? listedDevices.length : countTotalCredentials(options)
   const sections = useCredentialSections(options)
   const hasNew =
     unseen !== undefined &&
-    (devices ? unseen.deviceIds.length > 0 : countSelectedCredentials(unseen) > 0)
+    (devices
+      ? listedDevices.some((device) => unseen.deviceIds.includes(device.deviceId))
+      : countSelectedCredentials(unseen) > 0)
   const title = devices ? 'Devices' : 'Agent credentials'
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
@@ -48,7 +51,9 @@ function SelectionButton({
     const next = select ? allCredentialAccess(options) : emptyCredentialAccess()
 
     onChange(
-      devices ? { ...value, deviceIds: next.deviceIds } : { ...next, deviceIds: value.deviceIds },
+      devices
+        ? { ...value, deviceIds: select ? selectAllDevices(value.deviceIds, options.devices) : [] }
+        : { ...next, deviceIds: value.deviceIds },
     )
   }
 
@@ -162,7 +167,7 @@ function DeviceOptions({
 }: Pick<CredentialSelectorControl, 'options' | 'value' | 'unseen' | 'onChange'>) {
   return (
     <>
-      {buildDeviceCredentialSections(options.devices)
+      {buildDeviceCredentialSections(options.devices, value.deviceIds)
         .flatMap((section) => section.items)
         .map((device) => (
           <MenuCheckboxItem

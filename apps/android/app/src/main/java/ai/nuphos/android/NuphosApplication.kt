@@ -5,6 +5,7 @@ import ai.nuphos.android.data.TokenStore
 import ai.nuphos.android.session.AuthSession
 
 class NuphosApplication : Application() {
+    val conversationLinks = ai.nuphos.android.session.PendingConversationLink()
     lateinit var localNotifications: ai.nuphos.android.notifications.LocalNotifications
         private set
     lateinit var tokenStore: TokenStore
@@ -12,10 +13,17 @@ class NuphosApplication : Application() {
     lateinit var authSession: AuthSession
         private set
 
+    lateinit var pushNotifications: ai.nuphos.android.notifications.PushNotifications
+        private set
+
     override fun onCreate() {
         super.onCreate()
         tokenStore = TokenStore(this)
         authSession = AuthSession(this, tokenStore)
         localNotifications = ai.nuphos.android.notifications.LocalNotifications(this, { authSession.user?.id }, { authSession.aiAllowed })
+        pushNotifications = ai.nuphos.android.notifications.PushNotifications(this)
+        ai.nuphos.android.session.AiAccess.onRevoked = { pushNotifications.reset(clearPending = false) }
+        authSession.onIdentityReset = { pushNotifications.reset() }
+        registerActivityLifecycleCallbacks(pushNotifications)
     }
 }

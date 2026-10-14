@@ -58,7 +58,7 @@ export type PanelCtx = {
   ) => void
   /** `unshown`: the chat the panel left without ever showing it (it could not be opened). */
   onSessionChange?: (sessionId: string | null, unshown?: string) => void
-  onOpenNuphosLink?: (href: string) => boolean
+  onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   onOpenAgentSettings?: () => void
   newChatRequest: number
   autoFocusComposer: boolean

@@ -24,7 +24,8 @@ export function observeSession(session: TeamSession): void {
   observeAutonomousUpdates(session)
   const transport = session.client
   const onLost = () => {
-    void reattachAfterTransportLoss(session, transport)
+    // A close after a retire finds the first attempt running; keep its outcome.
+    if (!session.reattaching) session.reattached = reattachAfterTransportLoss(session, transport)
   }
   const stopClosed = transport.onClosed(onLost)
   const stopRetired = transport.onRetired(onLost)

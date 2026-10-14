@@ -7,6 +7,7 @@ export {
   groupSkillObjects,
   listSkillObjects,
 } from './service/manifest'
+export { promoteSkill } from './service/promote'
 export { putSkillObject, putSkillObjects } from './service/put'
 export {
   assertSkillNameNotBuiltinOverlay,
@@ -15,6 +16,7 @@ export {
   listBuiltinSkillNames,
   listSkillScopes,
   parseSkillDescription,
+  personalSkillsScope,
   skillNameFromObjectKey,
   skillObjectKeyForName,
   teamSkillsScope,

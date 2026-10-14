@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 
-import { patchRuntimeDefaults } from '../runtime-defaults.mjs'
+import { patchPersonalSkillsRefresh, patchRuntimeDefaults } from '../runtime-defaults.mjs'
 import { patchClaudeSessionState } from './session-state.mjs'
 import { patchClaudeTurnCompletion } from './turn-completion.mjs'
 
@@ -67,4 +67,27 @@ patched = patched
   )
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
-writeFileSync(target, patchRuntimeDefaults(`${sessionHome}\n${helper}\n${patched}`))
+patched = patchRuntimeDefaults(`${sessionHome}\n${helper}\n${patched}`)
+for (const method of ['loadSession', 'resumeSession']) {
+  const start = patched.indexOf(`async nuphos_${method}(params, nuphosRestorePhase) {`)
+  const end = patched.indexOf('\n    async ', start + 1)
+  const body = patched.slice(start, end)
+  const setup = '        const result = await this.getOrCreateSession(params);'
+  if (start < 0 || end < 0 || body.split(setup).length !== 2)
+    throw new Error(`Expected one Claude ${method} restoration handoff.`)
+  let traced = body.replace(
+    setup,
+    `        nuphosRestorePhase('sdk-session');\n${setup}${method === 'resumeSession' ? "\n        nuphosRestorePhase('publish-state');" : ''}`,
+  )
+  if (method === 'loadSession') {
+    const replay = '        await this.replaySessionHistory(params.sessionId);'
+    if (traced.split(replay).length !== 2) throw new Error('Expected one Claude history replay.')
+    traced = traced.replace(
+      replay,
+      `        nuphosRestorePhase('history-replay');\n${replay}\n        nuphosRestorePhase('publish-state');`,
+    )
+  }
+  traced = traced.replace('{\n', "{\n        nuphosRestorePhase('provider-update');\n")
+  patched = patched.slice(0, start) + traced + patched.slice(end)
+}
+writeFileSync(target, patchPersonalSkillsRefresh(patched))

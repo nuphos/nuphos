@@ -14,15 +14,27 @@ import coil3.request.crossfade
 import okhttp3.OkHttpClient
 
 class MainActivity : ComponentActivity() {
+    private var handledConversationUrl: String? = null
     private val notificationPermission = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
 
-    fun requestNotificationPermission() { notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+    fun requestNotificationPermission() {
+        val prefs = getPreferences(MODE_PRIVATE)
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            prefs.getBoolean("notification_permission_asked", false)) return
+        prefs.edit().putBoolean("notification_permission_asked", true).apply()
+        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
 
     private val auth by lazy { (application as NuphosApplication).authSession }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        handledConversationUrl = savedInstanceState?.getString("handled_conversation_url")
+        if (handledConversationUrl != null && intent?.data?.toString() == handledConversationUrl) {
+            setIntent(Intent(intent).also { it.data = null })
+        }
+        (application as NuphosApplication).conversationLinks.restore(savedInstanceState?.getString("conversation_link"))
         SingletonImageLoader.setSafe { context ->
             ImageLoader.Builder(context)
                 .components { add(OkHttpNetworkFetcherFactory(OkHttpClient())) }
@@ -43,6 +55,12 @@ class MainActivity : ComponentActivity() {
         handleAuthIntent(intent)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("handled_conversation_url", handledConversationUrl)
+        outState.putString("conversation_link", (application as NuphosApplication).conversationLinks.value.value?.destination?.url)
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onResume() {
         super.onResume()
         handleAuthIntent(intent)
@@ -55,6 +73,15 @@ class MainActivity : ComponentActivity() {
             return
         }
         val data = intent?.data ?: return
+        if (intent.action == Intent.ACTION_VIEW) {
+            val destination = ai.nuphos.android.session.ConversationLink.parse(data.toString())
+            if (destination != null) {
+                handledConversationUrl = data.toString()
+                (application as NuphosApplication).conversationLinks.offer(destination)
+                setIntent(Intent(intent).also { it.data = null })
+                return
+            }
+        }
         if (ai.nuphos.android.session.ConnectorIntents.dispatch(data.toString()) || auth.handleCallback(data)) {
             setIntent(Intent(intent).also { it.data = null })
         }

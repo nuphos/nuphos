@@ -61,7 +61,7 @@ class AccountApiTest {
         assertFalse(api.consent().accepted)
         api.setConsent(true)
         assertEquals("PUT", requests.last().method)
-        assertEquals("https://api.nuphos.ai/auth/ai-consent", requests.last().url.toString())
+        assertEquals("${NuphosApi.BASE_URL}/auth/ai-consent", requests.last().url.toString())
         assertEquals("""{"version":"2026-09-28","accepted":true}""", body())
         api.setConsent(false)
         assertEquals("""{"version":"2026-09-28","accepted":false}""", body())

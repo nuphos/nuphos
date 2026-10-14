@@ -41,4 +41,14 @@ class ComputerCredentialTest {
         assertEquals(setOf("aws"), available.ids["awsRoleIds"])
         assertEquals(2, available.count)
     }
+
+    @Test fun unavailableComputerIsMarked() {
+        val computers = CredentialCatalog(JsonValue.parse("""{
+            "devices":[{"deviceId":"m1","label":"M1","platform":"darwin","available":true},
+                       {"deviceId":"m5","label":"M5","platform":"darwin","available":false}]
+        }""")!!).allItems
+        assertEquals(listOf("m1", "m5"), computers.map { it.id })
+        assertEquals(listOf("macOS", "macOS · Unavailable"), computers.map { it.detail })
+        assertEquals(listOf(false, true), computers.map { it.unavailable })
+    }
 }

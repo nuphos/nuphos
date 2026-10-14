@@ -15,12 +15,12 @@ import {
   handedOff,
   lostToReattach,
 } from './chat-preview-handoff'
-import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
+import { carriedUserMessages, preparePreviewTurn, requeueCarried } from './chat-preview-prepare'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
 import { handlePreviewToolUpdate } from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
 
-import type { PreviewChatTurnArgs } from './chat-preview-run'
+import type { PreviewChatTurnArgs, TurnEnd } from './chat-preview-run'
 import type { PreviewDecision } from '@/lib/claude-code-preview/decision-waiter'
 import type { OpenAbPermissionHandler } from '@/lib/claude-code-preview/openab-acp-session'
 import type { UIMessage } from 'ai'
@@ -40,6 +40,7 @@ import {
   interruptToolSteps,
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
+import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import {
   createSteeringAttribution,
   steeringReceipt,
@@ -49,7 +50,7 @@ import { RunHandoff } from '@/lib/lifecycle'
 
 export type { PreviewChatTurnArgs } from './chat-preview-run'
 
-export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): Promise<void> {
+export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): Promise<TurnEnd> {
   const { run, sessionId, teamId, userId } = args
   const actorUserId = args.actorUserId ?? userId
   const requestId = run.trace?.requestId ?? randomUUID()
@@ -133,22 +134,20 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     })
   }
 
-  const promptOnce = (message: string, freshSessionMessage?: (uncertain?: boolean) => string) =>
+  const promptOnce = () =>
     runClaudeCodePreviewPrompt({
       teamId,
       conversationId: sessionId,
       userId: actorUserId,
       conversationOwnerUserId: userId,
       locale: args.locale,
-      message,
+      message: prepared.message,
+      text: prepared.text,
       attachments: prepared.attachments,
-      ...(freshSessionMessage ? { freshSessionMessage } : {}),
+      freshSessionMessage: prepared.freshSessionMessage,
       endpoint: args.endpoint,
       mcpServers: access.mcpServers,
-      runtime: {
-        provider: args.endpoint.provider ?? 'claude-code',
-        env: access.runtimeEnv,
-      },
+      runtime: { provider: args.endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta) => {
@@ -206,7 +205,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       provider: config.agent.modelProvider,
     })
 
-  const prompt = promptOnce(prepared.message, prepared.freshSessionMessage)
+  const prompt = promptOnce()
 
   try {
     if ((await Promise.race([prompt, handedOff(state.signal)])) === HANDED_OFF) {
@@ -241,9 +240,11 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       await clearActiveTurn()
       state.finish()
 
-      return
+      return 'connection-lost'
     }
-    await persistInterrupted(err)
+    if (args.clientResendsRefusal && isRuntimeRefusal(err))
+      await requeueCarried(userId, sessionId, prepared.carried)
+    else await persistInterrupted(err)
 
     state.unbind()
     await clearActiveTurn()

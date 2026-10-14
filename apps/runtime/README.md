@@ -69,6 +69,27 @@ until someone re-reviews the patch.
 `OPENAB_AGENT_COMMAND` names the patched adapter, and `claude` on `PATH` is the
 same native CLI the Claude adapter runs.
 
+### Session restoration diagnostics
+
+Native `session/load` and `session/resume` write a bounded `session-restore.json`
+snapshot in the conversation's persistent CLI home (the agent's `$HOME`). Each
+attempt retains its predecessor as `session-restore.previous.json` and also emits `agent.session.restore`
+JSON records on stderr. The file is mode 0600 and is replaced atomically.
+
+Records contain the conversation ID, attempt ID, process ID, operation, timestamps,
+elapsed milliseconds, and phase transitions. Common phases are `skills-sync` and
+`adapter-restore`; Claude additionally reports `provider-update`, `sdk-session`,
+`history-replay`, and `publish-state`. No prompts, environment values, transcript
+contents, or native error messages are recorded.
+
+Read the snapshot (or its predecessor after one retry). A `running` record means the
+adapter never recorded completion: correlate its time and process ID with the
+gateway timeout, process exit, and pod events. It does not by itself prove a
+timeout. `failed` means the adapter threw; `completed` means it returned. These
+records locate a stalled phase, not necessarily its underlying SDK or filesystem
+cause. Storage failures never prevent restoration. Persistence across pod
+replacement depends on the runtime home volume, as for native session history.
+
 ### Command-line tools
 
 The image ships only what the agent loop and the skills use on every turn:
@@ -78,16 +99,16 @@ installs the pinned release the first time it runs and then hands over to it, so
 `aws s3 ls` works as it always did — the first call just takes longer and needs
 network access.
 
-| Tool                                | Commands                                                                    |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| AWS CLI v2                          | `aws`                                                                       |
-| Google Cloud CLI                    | `gcloud`, `gsutil`, `bq`, and `gke-gcloud-auth-plugin`                      |
-| mongosh                             | `mongosh`                                                                   |
-| PostgreSQL 17 client                | `psql`, `pg_dump`, `pg_dumpall`, `pg_restore`, `pg_isready`                 |
-| MariaDB client                      | `mariadb`/`mysql`, `mariadb-dump`/`mysqldump`, `mariadb-admin`/`mysqladmin` |
-| Hetzner, Volcengine, Aliyun, Linode | `hcloud`, `ve`, `aliyun`, `linode-cli`                                      |
-| Helm, Tailscale                     | `helm`, `tailscale`, `tailscaled`                                           |
-| C/C++ toolchain                     | `gcc`, `g++`, `cc`, `c++`, `make`, binutils                                 |
+| Tool                                         | Commands                                                                    |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| AWS CLI v2                                   | `aws`                                                                       |
+| Google Cloud CLI                             | `gcloud`, `gsutil`, `bq`, and `gke-gcloud-auth-plugin`                      |
+| mongosh                                      | `mongosh`                                                                   |
+| PostgreSQL 17 client                         | `psql`, `pg_dump`, `pg_dumpall`, `pg_restore`, `pg_isready`                 |
+| MariaDB client                               | `mariadb`/`mysql`, `mariadb-dump`/`mysqldump`, `mariadb-admin`/`mysqladmin` |
+| Hetzner, Volcengine, Aliyun, Linode, Tencent | `hcloud`, `ve`, `aliyun`, `linode-cli`, `tccli`                             |
+| Helm, Tailscale                              | `helm`, `tailscale`, `tailscaled`                                           |
+| C/C++ toolchain                              | `gcc`, `g++`, `cc`, `c++`, `make`, binutils                                 |
 
 Versions, download URLs and SHA-256 checksums are pinned in
 [`image/tools/manifest.json`](image/tools/manifest.json); a download that does not
@@ -311,17 +332,23 @@ it only to teams that may share them.
 Nuphos conversations have separate CLI homes under
 `~/.nuphos/session-homes/<sha256-conversation-id>`. Both adapters give shell tools
 that conversation's `HOME`, XDG directories, and explicit config paths for gcloud,
-gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly four caches stay in
+gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly six caches stay in
 the runtime home and are shared by every conversation: `GOCACHE`, `GOMODCACHE`,
-`BUN_INSTALL_CACHE_DIR` and `PLAYWRIGHT_BROWSERS_PATH`. `XDG_CACHE_HOME` remains
+`BUN_INSTALL_CACHE_DIR`, `PLAYWRIGHT_BROWSERS_PATH`, `PIP_CACHE_DIR` and
+`UV_CACHE_DIR`. `XDG_CACHE_HOME` remains
 per conversation because some tools keep login state there. On the OpenCode
 runtime, `$XDG_DATA_HOME/opencode` (OpenCode's login and sessions) links to the
 runtime home; the rest of `XDG_DATA_HOME` stays per conversation. Go does not
 re-authenticate cached modules, so a private module fetched with one
 conversation's Git credentials is readable by every conversation on the runtime.
+The same holds for packages pip and uv fetch from a private index, and both reuse
+wheels built locally without checking them again.
 The home persists across
 new/load/resume and token refresh; existing runtime-global credentials are never
-copied into it. Re-run credential setup inside the conversation after upgrading.
+copied into it. Once a conversation is archived and the runtime reports no live
+session for it, the backend's hourly sweep removes its home, logins included,
+unless a process still runs with that HOME. A turn after unarchiving starts like
+a new conversation. Re-run credential setup inside the conversation after upgrading.
 The agent provider's own login remains runtime-owned so this does not require a
 new Claude/Codex login. Desktop bundles use the same adapter behavior.
 
@@ -340,6 +367,14 @@ only has to be able to resolve and reach the backend they are served from. The
 team's skills arrive the same way: for a runtime it did not provision, the backend
 hands each session a short-lived bundle address, and the runtime fetches the bundle
 itself.
+
+The same address also serves the conversation owner's personal skills, on the owner's
+own turns only; a guest's turn gets none. The Claude adapter installs them in
+`personal-skills/` under the conversation's session home and adds that directory to
+the session, so no other conversation on the runtime loads them. It syncs them again
+before each prompt, because the sender can change between the turns of one
+conversation, and rebuilds the session when they changed. When a team skill has the
+same name, Claude Code uses the team skill. Like the session home, this is not a filesystem boundary.
 
 `GATEWAY_ALLOWED_USERS` is baked as the gateway-wide trusted-sender list, not an ACP
 switch. If you also enable Discord, Slack or LINE on the same container, **add**

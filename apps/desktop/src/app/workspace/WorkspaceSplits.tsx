@@ -1,11 +1,22 @@
 import { clsx } from 'clsx'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
-import { isSplitShortcut, paneRects, removePane, splitPane } from './splitLayout'
-import { createWorkspaceState, selectAllResidentTabs, selectScope } from './store/workspaceState'
+import {
+  isSplitShortcut,
+  paneRects,
+  removePane,
+  reusableBesidePane,
+  splitPane,
+} from './splitLayout'
+import {
+  createWorkspaceState,
+  selectAllResidentTabs,
+  selectScope,
+  teamScopeOf,
+} from './store/workspaceState'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
 
 import type { SplitLayout } from './splitLayout'
@@ -58,17 +69,55 @@ export function WorkspaceSplits({
     [activeId, focusSurfaces, stores],
   )
   const split = useCallback(
-    (direction: 'row' | 'column') => {
-      const current = stores.get(activeId)?.getState()
+    (
+      direction: 'row' | 'column',
+      from = activeId,
+      seed?: { sessionId: string; teamId?: string },
+    ) => {
+      const current = stores.get(from)?.getState()
 
-      if (!current?.teamsKnown || !current.teamScope) return
+      if (!current?.teamsKnown || !current.teamScope) return null
       const id = crypto.randomUUID()
+      const teamScope =
+        seed?.teamId && seed.teamId !== current.teamScope.teamId
+          ? teamScopeOf(seed.teamId)
+          : current.teamScope
 
-      seeds.set(id, { ...createWorkspaceState(), teamScope: current.teamScope, teamsKnown: true })
-      setLayout((value) => splitPane(value, activeId, id, direction))
+      seeds.set(id, {
+        ...createWorkspaceState(),
+        teamScope,
+        teamsKnown: true,
+        sessionId: seed?.sessionId ?? null,
+      })
+      setLayout((value) => splitPane(value, from, id, direction))
       setActiveId(id)
+
+      return id
     },
     [activeId, seeds, stores],
+  )
+  // ⌘-click on a session link: focus it where it is already open, else show it
+  // in the pane the last ⌘-click filled, else split one off to the right.
+  const beside = useRef<{ pane: string; sessionId: string } | null>(null)
+  const openSessionBeside = useCallback(
+    (source: string, sessionId: string, teamId?: string) => {
+      if (focusSession(sessionId, teamId)) return true
+      let pane = reusableBesidePane(beside.current, source, (id) => {
+        const state = stores.get(id)?.getState()
+
+        return state && !state.mainPageOpen ? state.sessionId : null
+      })
+
+      if (pane) stores.get(pane)?.actions.selectSession(sessionId, { teamId })
+      else pane = split('row', source, { sessionId, teamId })
+      if (!pane) return false
+      focusSurfaces.set(pane, 'session')
+      setActiveId(pane)
+      beside.current = { pane, sessionId }
+
+      return true
+    },
+    [focusSession, focusSurfaces, split, stores],
   )
 
   useEffect(() => {
@@ -181,6 +230,8 @@ export function WorkspaceSplits({
               key={rect.id}
               value={{
                 focusSession,
+                openSessionBeside: (sessionId, teamId) =>
+                  openSessionBeside(rect.id, sessionId, teamId),
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 isTabFocused: () => focusSurfaces.get(rect.id) === 'tab',

@@ -32,7 +32,7 @@ export async function resolveAvailableLocalExecDevices(
   const selected = new Set(access.deviceIds)
 
   return options.devices
-    .filter((device) => selected.has(device.deviceId))
+    .filter((device) => device.available && selected.has(device.deviceId))
     .map((device) => ({ deviceId: device.deviceId, label: device.label }))
 }
 

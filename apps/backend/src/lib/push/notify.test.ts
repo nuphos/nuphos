@@ -61,8 +61,8 @@ let scheduled: { work: () => void; delayMs: number }[]
 
 function notifier(overrides: Partial<TurnNotifierDeps> = {}) {
   const store: PushDeviceStore = {
-    register: async () => undefined,
-    unregister: async () => undefined,
+    register: async () => {},
+    unregister: async () => {},
     listForUser: async (userId) => devices.filter((d) => d.userId === userId),
     removeToken: async (token) => {
       removed.push(token)
@@ -291,4 +291,83 @@ describe('turn notifier', () => {
 
     expect(n.trackedKeys()).toBe(2)
   })
+})
+
+describe('FCM dispatch', () => {
+  test('delivers Android independently when APNs is not configured', async () => {
+    configured = false
+    devices = [
+      {
+        ...device('FCM:MixedCase'),
+        platform: 'android',
+        environment: 'production',
+        projectId: 'nuphos-android',
+      },
+    ]
+    const delivered: string[] = []
+    const n = notifier({
+      fcmProject: () => 'nuphos-android',
+      sendFcm: async (_project, request) => {
+        delivered.push(request.token)
+        expect(request.userId).toBe('user-1')
+        expect(request.teamId).toBe('team-1')
+
+        return { status: 200, deadToken: false }
+      },
+    })
+
+    await n.runEnded(run())
+    expect(delivered).toEqual(['FCM:MixedCase'])
+    expect(sent).toEqual([])
+  })
+  test('does not send a token belonging to another Firebase project', async () => {
+    devices = [{ ...device('wrong'), platform: 'android', projectId: 'another-project' }]
+    let calls = 0
+
+    await notifier({
+      fcmProject: () => 'nuphos-android',
+      sendFcm: async () => {
+        calls++
+
+        return { status: 200, deadToken: false }
+      },
+    }).runEnded(run())
+    expect(calls).toBe(0)
+  })
+  test('removes only a provider-confirmed dead Android token', async () => {
+    devices = [{ ...device('dead'), platform: 'android', projectId: 'nuphos-android' }]
+    await notifier({
+      fcmProject: () => 'nuphos-android',
+      sendFcm: async () => ({ status: 404, deadToken: true }),
+    }).runEnded(run())
+    expect(removed).toEqual(['dead'])
+  })
+})
+
+test('Android-only badge changes are debounced and isolated to the configured project', async () => {
+  configured = false
+  devices = [
+    { ...device('android'), platform: 'android', projectId: 'project' },
+    { ...device('other'), platform: 'android', projectId: 'other' },
+  ]
+  const badges: number[] = []
+  const n = notifier({
+    fcmProject: () => 'project',
+    sendFcmBadge: async (_project, token, user, badge) => {
+      expect(token).toBe('android')
+      expect(user).toBe('user-1')
+      badges.push(badge)
+
+      return { status: 200, deadToken: false }
+    },
+  })
+
+  n.badgeChanged('user-1')
+  n.badgeChanged('user-1')
+  expect(scheduled).toHaveLength(1)
+  unread = 0
+  scheduled[0]!.work()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(badges).toEqual([0])
+  expect(sent).toHaveLength(0)
 })

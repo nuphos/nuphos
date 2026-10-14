@@ -65,9 +65,19 @@ struct ConversationView: View {
                     canSteer: session.canSteer,
                     allowsAttachments: !session.canSteer,
                     failedSubmission: $session.failedSubmission,
-                    sessionMentions: SessionMentionSource(teamId: session.teamId) { query in
-                        await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
-                    },
+                    mentions: MentionSource(
+                        teamId: session.teamId,
+                        // Only someone who may change the session's devices can bring one in.
+                        devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
+                        pickDevice: { device in
+                            var selection = session.credentialAccess ?? CredentialSelection()
+                            if !selection.contains(device) { selection.toggle(device); session.credentialAccess = selection }
+                        },
+                        search: { query in
+                            await store.loadCredentialOptions()
+                            return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                        }
+                    ),
                     onSend: { session.send($0) },
                     onStop: { session.stop() }
                 ) {
@@ -129,18 +139,19 @@ struct ConversationView: View {
                         } label: {
                             Label(store.isPinned(session.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(session.sessionId) ? "pin.slash" : "pin")
                         }
-                        if session.canMove {
-                            Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
-                                .disabled(session.isStreaming)
+                        if session.ownsChat {
+                            Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
                         }
                         if session.canManage {
-                            Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
+                            Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
+                                .disabled(session.isStreaming)
                             Button {
                                 Task {
                                     updating = true
                                     defer { updating = false }
                                     do {
                                         try await session.setArchived(!session.isArchived)
+                                        store.removeFromList(session.sessionId)
                                         // Either direction takes the chat out
                                         // of the list it was opened from, so
                                         // stay there rather than on a chat
@@ -254,10 +265,14 @@ struct ConversationView: View {
         .frame(maxWidth: 240)
     }
 
-    /// Plan links open the plan here; everything else leaves the app.
+    /// Plan links open the plan here and session links open that chat the
+    /// way a tapped notification does; everything else leaves the app.
     private func open(link url: URL) {
         if let target = PlanLink.target(in: url) {
             planLink = target
+        } else if let link = SessionLink.target(in: url) {
+            guard link.sessionId != session.sessionId else { return }
+            PushNotifications.shared.pendingTarget = PushTarget(teamId: link.teamId, sessionId: link.sessionId)
         } else {
             openURL(url)
         }

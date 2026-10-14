@@ -75,8 +75,8 @@ class NativeLoginTest {
                 assertFalse(url.contains(registration["clientState"]!!.jsonPrimitive.content))
                 assertEquals(fixture.code, redeemed["code"]!!.jsonPrimitive.content)
                 fixture.requests.forEach {
-                    assertEquals("https", it.url.scheme)
-                    assertEquals("api.nuphos.ai", it.url.host)
+                    assertEquals(java.net.URI(NuphosApi.BASE_URL).scheme, it.url.scheme)
+                    assertEquals(java.net.URI(NuphosApi.BASE_URL).host, it.url.host)
                     assertNull(it.header("Authorization"))
                 }
                 try { fixture.hit(fixture.delivery()); fail("Replay listener remained open") } catch (_: IOException) { }

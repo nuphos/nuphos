@@ -30,8 +30,9 @@ const options: AgentCredentialOptions = {
   secureframeIntegrations: [],
   resendIntegrations: [],
   devices: [
-    { deviceId: 'mac', label: 'MacBook', platform: 'darwin' },
-    { deviceId: 'pc', label: 'Desktop PC', platform: 'win32' },
+    { deviceId: 'mac', label: 'MacBook', platform: 'darwin', available: true },
+    { deviceId: 'pc', label: 'Desktop PC', platform: 'win32', available: true },
+    { deviceId: 'asleep', label: 'Asleep', platform: 'darwin', available: false },
   ],
   ...emptyConnectorCredentialOptions(),
 }
@@ -49,7 +50,7 @@ const access: AgentCredentialAccess = {
   secureframeIntegrationIds: [],
   jiraSiteIds: [],
   asanaAccountIds: [],
-  deviceIds: ['mac', 'gone'],
+  deviceIds: ['mac', 'asleep', 'gone'],
   updatedAt: new Date(),
   updatedBy: 'u1',
 }

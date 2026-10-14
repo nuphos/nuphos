@@ -115,10 +115,10 @@ export function WhatsNewReader({ entry, onClose }: { entry: ChangelogEntry; onCl
         <button
           type="button"
           onClick={openInBrowser}
-          title="Open in browser"
-          aria-label="Open in browser"
-          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-zGray-800 hover:text-main"
+          title="Open this changelog entry in your browser"
+          className="flex h-7 flex-shrink-0 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-zGray-800 hover:text-main"
         >
+          changelog
           <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
       }

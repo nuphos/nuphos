@@ -4,6 +4,7 @@ import {
   createAgentThread,
   listThreadRuntimes,
   sendAgentThreadMessage,
+  setAgentThreadArchived,
   setAgentThreadParent,
   updateThread,
 } from '@/lib/agent/thread-bridge'
@@ -48,6 +49,13 @@ const update = z
     runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
   })
   .strict()
+const archive = z
+  .object({
+    label: common.label,
+    threadId: z.string().uuid(),
+    archived: z.boolean().default(true).describe('false restores an archived conversation.'),
+  })
+  .strict()
 const list = z.object({ label: common.label }).strict()
 
 // A refusal is the answer the agent needs, so it gets the reason, as tools served
@@ -75,11 +83,22 @@ export function threadToolModule(): PreviewToolModule {
         name: 'send_message_to_thread',
         description:
           'Send work or a completion report to another Nuphos thread you own in this team. ' +
-          'The target keeps its own runtime and credential selection. An idle thread starts a turn; ' +
-          'a busy thread receives the message through its pending-message queue. ' +
+          'The target keeps its own runtime and credential selection. status is "started" when an ' +
+          'idle thread started a turn now, "delivered" when a busy thread received the message into ' +
+          'its active turn; neither means the task is done. ' +
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +
-          'A queued receipt is not proof of task completion. Do not send acknowledgement loops.',
+          'Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
+      },
+      {
+        name: 'archive_thread',
+        description:
+          'Archive a Nuphos conversation you own in this team, or restore it with archived=false. ' +
+          'Use when its work is done or the user asks; the current conversation counts too. ' +
+          'Archiving hides it and stops resource-event wakeups, but does not stop a running turn. ' +
+          'A new human message restores it. Use threadId from create_thread or session_id from ' +
+          'list_recent_conversations.',
+        inputSchema: toolInputJsonSchema(archive),
       },
       {
         name: 'list_agent_runtimes',
@@ -124,6 +143,13 @@ export function threadToolModule(): PreviewToolModule {
         if (!parsed.success) return toolError(parsed.error.message)
 
         return answer(sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt))
+      },
+      archive_thread: async (args) => {
+        const parsed = archive.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
       },
       list_agent_runtimes: async (args) => {
         const parsed = list.safeParse(args)

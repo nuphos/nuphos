@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto'
 
 import { collectSkillFiles } from '@/lib/agent/skill-store/inject'
 import { resolveSkillsDirectory } from '@/lib/agent/skill-store/merge'
+import { safeJoinUnder } from '@/lib/agent/skill-store/safe-path'
+import { personalSkillsScope } from '@/lib/agent/skill-store/service'
+import { getScopeCacheDir, isSkillsStoreConfigured, syncScope } from '@/lib/agent/skill-store/sync'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { AppError } from '@/lib/errors'
 
@@ -62,6 +65,32 @@ export async function nativeSkillBundle(
   teamId: string,
 ): Promise<{ revision: string; files: NativeSkillFile[] }> {
   const directory = await resolveSkillsDirectory(teamId)
+  const files = nativeSkillFiles(await collectSkillFiles(directory)).toSorted((a, b) =>
+    byCodeUnit(a.path, b.path),
+  )
+
+  return { revision: revisionOf(files), files }
+}
+
+/**
+ * One member's personal skills in one team, on their own. The runtime installs
+ * them in the conversation's directory, beside the shared team tree rather than
+ * in it, so they reach only the turns that member starts.
+ */
+export async function personalSkillBundle(
+  teamId: string,
+  userId: string,
+): Promise<{ revision: string; files: NativeSkillFile[] }> {
+  const scope = personalSkillsScope(teamId, userId)
+
+  if (isSkillsStoreConfigured()) {
+    try {
+      await syncScope(scope)
+    } catch {
+      // Serve the last cached revision when the store is transiently unavailable.
+    }
+  }
+  const directory = safeJoinUnder(getScopeCacheDir(scope), 'skills')
   const files = nativeSkillFiles(await collectSkillFiles(directory)).toSorted((a, b) =>
     byCodeUnit(a.path, b.path),
   )

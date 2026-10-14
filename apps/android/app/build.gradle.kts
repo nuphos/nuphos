@@ -1,11 +1,23 @@
 plugins {
+    id("com.google.gms.google-services") version "4.5.0" apply false
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Firebase is optional for contributor/fixture builds. Release builds must supply configuration.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 val releaseVersionCode = providers.gradleProperty("nuphosVersionCode").orElse("1").get()
 val releaseVersionName = providers.gradleProperty("nuphosVersionName").orElse("1.0").get()
+val debugApiBaseUrl = providers.gradleProperty("nuphosDebugApiBaseUrl").orElse("https://api.nuphos.ai").get()
+require(debugApiBaseUrl == "https://api.nuphos.ai" || debugApiBaseUrl.matches(Regex("http://127\\.0\\.0\\.1:[0-9]{1,5}")))
+require(debugApiBaseUrl == "https://api.nuphos.ai" || debugApiBaseUrl.substringAfterLast(':').toInt() in 1..65535)
+val debugPushBaseUrl = providers.gradleProperty("nuphosDebugPushBaseUrl").orElse(debugApiBaseUrl).get()
+require(debugPushBaseUrl == "https://api.nuphos.ai" || debugPushBaseUrl.matches(Regex("http://127\\.0\\.0\\.1:[0-9]{1,5}"))) {
+    "Debug push endpoint must be the production API or an adb-reversed loopback address"
+}
+require(debugPushBaseUrl == "https://api.nuphos.ai" || debugPushBaseUrl.substringAfterLast(':').toInt() in 1..65535)
 require(releaseVersionCode.matches(Regex("[1-9][0-9]{0,9}")) &&
     (releaseVersionCode.toLongOrNull() ?: Long.MAX_VALUE) <= 2100000000L) {
     "nuphosVersionCode must be an integer from 1 to 2100000000 without leading zeros"
@@ -26,9 +38,15 @@ android {
         versionName = releaseVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "PUSH_BASE_URL", "\"https://api.nuphos.ai\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://api.nuphos.ai\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "PUSH_BASE_URL", "\"$debugPushBaseUrl\"")
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -55,6 +73,10 @@ android {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    // Firebase Play Services transitively includes an old Fragment; ActivityResult requires >=1.3.
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -87,4 +109,10 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+// Coroutine tests replace Dispatchers.Main; isolate test classes from leaked global state.
+tasks.withType<Test>().configureEach {
+    forkEvery = 1
+    maxParallelForks = 1
 }

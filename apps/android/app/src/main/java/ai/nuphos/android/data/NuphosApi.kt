@@ -19,7 +19,7 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 object NuphosApi {
-    const val BASE_URL = "https://api.nuphos.ai"
+    const val BASE_URL = ai.nuphos.android.BuildConfig.API_BASE_URL
 
     sealed class Failure : Exception() {
         data object Unauthorized : Failure() {
@@ -93,11 +93,21 @@ object NuphosApi {
         teamId: String,
         sessionId: String,
         tail: Int = 100,
+    ): AgentConversationDetail = conversationDetail(Http.client, token, teamId, sessionId, tail)
+
+    internal suspend fun conversationDetail(
+        client: OkHttpClient,
+        token: String,
+        teamId: String,
+        sessionId: String,
+        tail: Int = 100,
     ): AgentConversationDetail = get(
         "agent/conversations/$sessionId",
         token,
         listOf("teamId" to teamId, "tail" to tail.toString()),
         timeoutSeconds = 20,
+        forbiddenIsUnauthorized = false,
+        transport = client,
     )
 
     suspend fun credentialOptions(token: String, teamId: String): CredentialCatalog {
@@ -116,11 +126,13 @@ object NuphosApi {
         token: String,
         query: List<Pair<String, String>> = emptyList(),
         timeoutSeconds: Long,
+        forbiddenIsUnauthorized: Boolean = true,
+        transport: OkHttpClient = Http.client,
     ): T = withContext(Dispatchers.IO) {
         val url = BASE_URL.toHttpUrl().newBuilder().addPathSegments(path).apply {
             query.forEach { (k, v) -> addQueryParameter(k, v) }
         }.build()
-        val client = Http.client.newBuilder()
+        val client = transport.newBuilder()
             .callTimeout(timeoutSeconds, TimeUnit.SECONDS)
             .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
             .build()
@@ -137,7 +149,7 @@ object NuphosApi {
                 response.isSuccessful -> runCatching {
                     Http.json.decodeFromString<T>(body)
                 }.getOrElse { throw Failure.InvalidResponse }
-                response.code == 401 || response.code == 403 -> throw Failure.Unauthorized
+                response.code == 401 || (response.code == 403 && forbiddenIsUnauthorized) -> throw Failure.Unauthorized
                 else -> {
                     val message = runCatching {
                         Http.json.decodeFromString<ErrorEnvelope>(body).error?.message

@@ -39,7 +39,10 @@ export function allCredentialAccessFromOptions(
     resendIntegrationIds: selectAll
       ? options.resendIntegrations.map((entry) => entry.integrationId)
       : [],
-    deviceIds: options.devices.map((device) => device.deviceId),
+    // Offline and long-gone registrations are listed too; a default takes only usable ones.
+    deviceIds: options.devices
+      .filter((device) => device.available)
+      .map((device) => device.deviceId),
     ...(selectAll
       ? {
           githubInstallationIds: options.githubInstallations.map((entry) => entry.installationId),

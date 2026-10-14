@@ -4,7 +4,12 @@ import '@/routes/agent'
 
 import { expect, test } from 'bun:test'
 
-import { lastUserMessageText, resumeMessage, turnPromptMessages } from './chat-preview-prepare'
+import {
+  lastUserMessageText,
+  resumeMessage,
+  turnPrompt,
+  turnPromptMessages,
+} from './chat-preview-prepare'
 
 import type { UIMessage } from 'ai'
 
@@ -105,4 +110,98 @@ test('a resume keeps the whole history', () => {
   ]
 
   expect(turnPromptMessages(messages, {})).toEqual(messages)
+})
+
+const attributed = (id: string, text: string, sender: string): UIMessage => ({
+  id,
+  role: 'user',
+  parts: [{ type: 'text', text }],
+  metadata: {
+    version: 1,
+    sender: { type: 'user', id: sender, displayName: sender },
+    source: 'nuphos',
+    sentAt: '2026-10-14T00:00:00.000Z',
+  },
+})
+const header = (id: string) => `"messageId":"${id}"`
+
+test("the user's own words are the prompt's text; their header ends the lead", () => {
+  const { lead, text } = turnPrompt({
+    resume: null,
+    inputs: [attributed('m1', '/goal tests pass', 'alice')],
+    carried: 'Someone sent this while you were still working: <bob>',
+    recall: '<memory>x</memory>',
+  })
+
+  expect(text).toBe('/goal tests pass')
+  const parts = lead().split('\n\n')
+
+  expect(parts.at(-1)).toContain(header('m1'))
+  expect(parts.at(-1)).toContain('"id":"alice"')
+  expect(lead()).not.toContain('/goal')
+  expect(lead().indexOf('<bob>')).toBeLessThan(lead().indexOf(header('m1')))
+  expect(lead().indexOf('<memory>')).toBeLessThan(lead().indexOf(header('m1')))
+})
+
+test('earlier inputs of the turn stay attributed in the lead', () => {
+  const { lead, text } = turnPrompt({
+    resume: null,
+    inputs: [attributed('m1', 'first', 'alice'), attributed('m2', 'second', 'bob')],
+    turnContext: 'from Slack',
+    carried: '',
+  })
+
+  expect(text).toBe('second')
+  expect(lead()).toStartWith('from Slack')
+  expect(lead()).toContain('first')
+  expect(lead()).toEndWith(lead().slice(lead().lastIndexOf('<nuphos_message_metadata>')))
+  expect(lead().lastIndexOf(header('m2'))).toBeGreaterThan(lead().indexOf('first'))
+})
+
+test('a fresh session puts the history first', () => {
+  const { lead } = turnPrompt({
+    resume: null,
+    inputs: [attributed('m1', 'hi', 'alice')],
+    carried: '',
+  })
+
+  expect(lead('<history>')).toStartWith('<history>\n\n')
+  expect(lead('<history>')).toContain(header('m1'))
+})
+
+test('a resume prompts its own words with no turn messages', () => {
+  const { lead, text } = turnPrompt({
+    resume: 'Carry on',
+    inputs: [attributed('m1', 'old task', 'alice')],
+    turnContext: 'ctx',
+    carried: '',
+    recall: '<memory>x</memory>',
+  })
+
+  expect(text).toBe('Carry on')
+  expect(lead()).toBe('<memory>x</memory>')
+})
+
+test('an image-only message has no text of its own', () => {
+  const image: UIMessage = {
+    ...attributed('m1', '', 'alice'),
+    parts: [{ type: 'file', mediaType: 'image/png', url: 'x' }],
+  }
+  const { lead, text } = turnPrompt({ resume: null, inputs: [image], carried: '' })
+
+  expect(text).toBe('')
+  expect(lead()).toContain(header('m1'))
+})
+
+test("a reply's quoted message is fenced in the current header, outside its JSON", () => {
+  const reply = attributed('m1', '/compact', 'alice')
+
+  reply.metadata = { ...(reply.metadata as object), replyTo: { authorName: 'Bob', text: 'hi' } }
+  const { lead, text } = turnPrompt({ resume: null, inputs: [reply], carried: '' })
+  const json = /<nuphos_message_metadata>\n(.*)\n<\/nuphos_message_metadata>/.exec(lead())?.[1]
+
+  expect(text).toBe('/compact')
+  expect(JSON.parse(json!)).not.toHaveProperty('replyTo')
+  expect(lead()).toContain('<replied-message')
+  expect(lead()).toContain('Bob: hi')
 })
