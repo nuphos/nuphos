@@ -192,3 +192,16 @@ test('an image-only message has no text of its own', () => {
   expect(text).toBe('')
   expect(lead()).toContain(header('m1'))
 })
+
+test("a reply's quoted message is fenced in the current header, outside its JSON", () => {
+  const reply = attributed('m1', '/compact', 'alice')
+
+  reply.metadata = { ...(reply.metadata as object), replyTo: { authorName: 'Bob', text: 'hi' } }
+  const { lead, text } = turnPrompt({ resume: null, inputs: [reply], carried: '' })
+  const json = /<nuphos_message_metadata>\n(.*)\n<\/nuphos_message_metadata>/.exec(lead())?.[1]
+
+  expect(text).toBe('/compact')
+  expect(JSON.parse(json!)).not.toHaveProperty('replyTo')
+  expect(lead()).toContain('<replied-message')
+  expect(lead()).toContain('Bob: hi')
+})

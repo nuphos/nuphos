@@ -122,6 +122,17 @@ export const UserMessage = memo(
                 )}
               </div>
             )}
+            {message.metadata?.replyTo && (
+              <div
+                className="max-w-full border-l-2 border-zGray-700 pl-2 pr-1 text-xs leading-4 text-tertiary line-clamp-2 whitespace-pre-wrap break-words"
+                title={message.metadata.replyTo.text}
+              >
+                <span className="font-medium text-secondary">
+                  {message.metadata.replyTo.authorName}
+                </span>{' '}
+                {message.metadata.replyTo.text}
+              </div>
+            )}
             {images.length > 0 && (
               <div className="max-w-full flex flex-wrap justify-end gap-1.5 pr-1">
                 {images.map((p, i) => (

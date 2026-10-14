@@ -190,6 +190,8 @@ export type AgentCredentialOptions = {
     deviceId: string
     label: string
     platform: string
+    // Online with local exec allowed. Older backends list only those and omit it.
+    available?: boolean
   }[]
 }
 

@@ -5,6 +5,14 @@ import type { AgentMessageMetadata } from '../../../api/agent-types'
 
 const SOURCES = new Set(['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'])
 
+function parseReplyTo(value: unknown): AgentMessageMetadata['replyTo'] {
+  const r = value as Partial<NonNullable<AgentMessageMetadata['replyTo']>> | undefined
+
+  return typeof r?.authorName === 'string' && typeof r.text === 'string'
+    ? { authorName: r.authorName, text: r.text }
+    : undefined
+}
+
 /** Accept only the server-authored attribution shape; anything else is dropped. */
 export function parseMessageMetadata(value: unknown): AgentMessageMetadata | undefined {
   if (!value || typeof value !== 'object') return undefined
@@ -19,6 +27,7 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
   if (typeof m.sender.displayName !== 'string' || typeof m.sentAt !== 'string') return undefined
   const agentRuntime = AGENT_PROVIDERS.find((p) => p === m.sender?.agentRuntime)
   const avatarURL = trustedAvatarURL(m.sender.avatarURL)
+  const replyTo = parseReplyTo(m.replyTo)
 
   return {
     version: 1,
@@ -34,5 +43,6 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
     ...(typeof m.sourceSessionId === 'string' && m.sourceSessionId
       ? { sourceSessionId: m.sourceSessionId }
       : {}),
+    ...(replyTo ? { replyTo } : {}),
   }
 }

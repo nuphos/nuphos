@@ -14,26 +14,24 @@ import {
 
 import type { AgentCredentialOptions } from './types'
 
-// Only the user's own devices that allow local exec, in a team they belong to.
-// No team means no devices.
+// The user's own devices, in a team they belong to; no team means no devices.
+// Offline ones are listed too, so a selection is what the user ticked, not what
+// happened to be online when it was saved. Use checks `available`.
 export async function resolveDeviceOptions(
   userId: string,
   teamId: string | undefined,
 ): Promise<AgentCredentialOptions['devices']> {
   if (!teamId || !(await isActiveTeamMember(userId, teamId))) return []
   const devices = await listAgentDevicesForUser(userId)
-  const candidates = devices.filter((device) => device.allowLocalExec)
-  const eligible = await Promise.all(
-    candidates.map(async (device) => await isDevicePresent(userId, device.deviceId)),
-  )
 
-  return candidates
-    .filter((_, index) => eligible[index])
-    .map((device) => ({
+  return await Promise.all(
+    devices.map(async (device) => ({
       deviceId: device.deviceId,
       label: device.label,
       platform: device.platform,
-    }))
+      available: device.allowLocalExec && (await isDevicePresent(userId, device.deviceId)),
+    })),
+  )
 }
 
 export async function getAgentCredentialOptions(

@@ -183,7 +183,7 @@ async function resolveDevice(
 
   if (devices.length === 0)
     return toolError(
-      "No local devices are available for this conversation. Ask the user to select their Mac in this conversation's credential selector; Nuphos Desktop must be open and signed in on it.",
+      'No local device is usable in this conversation. Either no Mac is selected in its credential selector, or the selected one is offline: Nuphos Desktop must be open and signed in on it, with local exec allowed. list_credentials shows which.',
     )
   const deviceId = pickDevice(devices, args.device)
 

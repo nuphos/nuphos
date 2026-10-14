@@ -87,7 +87,7 @@ function oneOfEach(): AgentCredentialOptions {
       },
     ],
     cloudflareAccounts: [{ accountId: ID, accountName: label }],
-    devices: [{ deviceId: ID, label, platform: 'darwin' }],
+    devices: [{ deviceId: ID, label, platform: 'darwin', available: true }],
   }
 }
 
@@ -219,14 +219,24 @@ describe('flattenSelectedCredentials', () => {
   test('lists a selected local exec device with local_exec usage', () => {
     const options = emptyOptions()
 
-    options.devices = [{ deviceId: 'dev-1', label: 'MacBook', platform: 'darwin' }]
+    options.devices = [
+      { deviceId: 'dev-1', label: 'MacBook', platform: 'darwin', available: true },
+      { deviceId: 'dev-2', label: 'Asleep', platform: 'darwin', available: false },
+    ]
 
-    expect(flattenSelectedCredentials({ deviceIds: ['dev-1'] }, options)).toEqual([
+    expect(flattenSelectedCredentials({ deviceIds: ['dev-1', 'dev-2'] }, options)).toEqual([
       {
         provider: 'device',
         id: 'dev-1',
         label: 'MacBook (darwin)',
         usage: 'Local machine; run commands on it with the local_exec tool, device=dev-1.',
+      },
+      {
+        provider: 'device',
+        id: 'dev-2',
+        label: 'Asleep (darwin)',
+        usage:
+          'Selected, but offline or with local exec turned off; local_exec cannot reach it until Nuphos Desktop is open on it with local exec allowed.',
       },
     ])
   })
@@ -338,6 +348,22 @@ describe('flattenSelectedCredentials', () => {
         credentialPath: 'resend-integrations/resend-1/credentials',
       },
     ])
+  })
+})
+
+describe('device listing', () => {
+  test('asks to tick only usable devices, and shows a selected offline one as offline', () => {
+    const options = emptyOptions()
+
+    options.devices = [
+      { deviceId: 'usable', label: 'M1', platform: 'darwin', available: true },
+      { deviceId: 'asleep', label: 'M5', platform: 'darwin', available: false },
+      { deviceId: 'old', label: 'M1', platform: 'darwin', available: false },
+    ]
+    const listed = CREDENTIAL_LISTERS.deviceIds(['asleep'], options)
+
+    expect(listed.selected.map((entry) => entry.id)).toEqual(['asleep'])
+    expect(listed.unselected.map((entry) => entry.id)).toEqual(['usable'])
   })
 })
 

@@ -185,10 +185,8 @@ export function availableCredentialAccess(
       options.posthogIntegrations,
       byIntegrationId,
     ),
-    // A device drops out of availability the moment it goes offline or its
-    // owner flips the local toggle off — no error, it just silently stops
-    // being selectable for this turn (the tool's own execute() is the second
-    // line of defense if the model targets it anyway).
+    // Any of the user's own devices, online or not; whether one is usable is
+    // checked each time a tool uses it.
     deviceIds: keep(selection.deviceIds, options.devices, (device) => device.deviceId),
     ...resolveConnectorCredentialAccess(selection, options),
   }

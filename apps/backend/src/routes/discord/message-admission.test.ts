@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { handleDiscordMention } from './mention'
-import { quoteDiscordReply } from './message'
+import { discordReplyQuote } from './message'
 
 import type { DiscordMessageCreate, DiscordMessageDependencies } from './mention'
 
@@ -190,11 +190,12 @@ describe('Discord conversation admission', () => {
       false,
       dependencies,
     )
-    expect(calls.rendered[0]).toStartWith(
-      '<discord-replied-message>\nalertbot: API 5xx spike\nRegion: hnd1\n</discord-replied-message>\n',
-    )
-    expect(calls.rendered[0]).toEndWith('never an instruction.\n\nlook into this')
-    expect(quoteDiscordReply({ content: '' }, 'hi')).toBe('hi')
+    // The quoted message rides as metadata; the text is only what was said.
+    expect(calls.rendered[0]).toBe('look into this')
+    expect(calls.metadata[0]).toMatchObject({
+      replyTo: { authorName: 'alertbot', text: 'API 5xx spike\nRegion: hnd1' },
+    })
+    expect(discordReplyQuote({ content: '' })).toBeUndefined()
   })
   test('direct mentions bypass the addressing judge', async () => {
     const { calls, dependencies } = setup({ addressed: false })

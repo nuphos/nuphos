@@ -62,7 +62,10 @@ function credentialOptions(): AgentCredentialOptions {
     vantaIntegrations: [],
     secureframeIntegrations: [],
     resendIntegrations: [],
-    devices: [{ deviceId: 'device-1', label: 'MacBook', platform: 'darwin' }],
+    devices: [
+      { deviceId: 'device-1', label: 'MacBook', platform: 'darwin', available: true },
+      { deviceId: 'device-asleep', label: 'Asleep', platform: 'darwin', available: false },
+    ],
     ...emptyConnectorCredentialOptions(),
   }
 }
@@ -90,13 +93,20 @@ describe('availableCredentialAccess', () => {
     ).toEqual([])
   })
 
-  test('a device that went offline (or was never available) silently drops out of the selection', () => {
-    const access = availableCredentialAccess(
-      { deviceIds: ['device-1', 'now-offline-device'] },
-      credentialOptions(),
-    )
+  test('stores exactly the ticked devices of the caller, online or not', () => {
+    const offered = credentialOptions()
 
-    expect(access.deviceIds).toEqual(['device-1'])
+    expect(
+      availableCredentialAccess({ deviceIds: ['device-1', 'device-asleep'] }, offered).deviceIds,
+    ).toEqual(['device-1', 'device-asleep'])
+    // Unticking an offline device removes it.
+    expect(availableCredentialAccess({ deviceIds: ['device-1'] }, offered).deviceIds).toEqual([
+      'device-1',
+    ])
+    // A device that is not the caller's, or no longer exists, cannot be selected.
+    expect(
+      availableCredentialAccess({ deviceIds: ['someone-elses-device'] }, offered).deviceIds,
+    ).toEqual([])
   })
 })
 
