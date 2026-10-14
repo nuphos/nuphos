@@ -97,7 +97,7 @@ test('anchors each group to the turn that pushed it, not the newest turn', () =>
 test('a group newer than every stored reply belongs to the turn that just finished', () => {
   const messages = [
     message('a1', 'assistant', AT('2026-01-01T00:01:00.000Z')),
-    message('u2', 'user'),
+    message('u2', 'user', AT('2026-01-01T00:02:00.000Z')),
     message('a2', 'assistant'),
   ]
   const anchored = anchorDownloadGroups(messages, [group('g1', '2026-01-01T00:05:00.000Z')])
@@ -106,6 +106,48 @@ test('a group newer than every stored reply belongs to the turn that just finish
     anchored.get('a2')?.map((g) => g.groupId),
     ['g1'],
   )
+})
+
+test('a card keeps its turn while the next reply streams, stamped or not', () => {
+  // Turn 1 pushed the files; messages from another session arrived while
+  // idle; then the user sent turn 2, which is still streaming.
+  const stamped = [
+    message('u1', 'user', AT('2026-01-01T00:00:00.000Z')),
+    message('a1', 'assistant', AT('2026-01-01T00:01:00.000Z')),
+    message('t1', 'user', AT('2026-01-01T00:02:00.000Z')),
+    message('u2', 'user', AT('2026-01-01T00:03:00.000Z')),
+    message('a2', 'assistant'),
+  ]
+  const unstamped = stamped.map((m) => (m.id === 'a1' ? message('a1', 'assistant') : m))
+  const groups = [group('g1', '2026-01-01T00:00:30.000Z')]
+
+  for (const messages of [stamped, unstamped]) {
+    const anchored = anchorDownloadGroups(messages, groups)
+
+    assert.deepEqual([...anchored.keys()], ['a1'])
+  }
+})
+
+test('a turn that never got its stamp does not take the next turn’s card', () => {
+  const messages = [
+    message('a1', 'assistant'),
+    message('u2', 'user', AT('2026-01-01T00:02:00.000Z')),
+    message('a2', 'assistant'),
+  ]
+  const anchored = anchorDownloadGroups(messages, [group('g1', '2026-01-01T00:02:30.000Z')])
+
+  assert.deepEqual([...anchored.keys()], ['a2'])
+})
+
+test('a group older than the loaded page waits for earlier history', () => {
+  const messages = [
+    message('a1', 'assistant', AT('2026-01-01T00:01:00.000Z')),
+    message('u2', 'user', AT('2026-01-01T00:02:00.000Z')),
+  ]
+  const groups = [group('g1', '2026-01-01T00:00:30.000Z')]
+
+  assert.equal(anchorDownloadGroups(messages, groups, true).size, 0)
+  assert.deepEqual([...anchorDownloadGroups(messages, groups).keys()], ['a1'])
 })
 
 test('several groups from one turn keep push order', () => {
@@ -121,7 +163,7 @@ test('several groups from one turn keep push order', () => {
   )
 })
 
-test('an unstamped transcript stacks every card under the last reply', () => {
+test('an unstamped transcript stacks every card under the first reply', () => {
   const messages = [message('a1', 'assistant'), message('u2', 'user'), message('a2', 'assistant')]
   const anchored = anchorDownloadGroups(messages, [
     group('g1', '2026-01-01T00:00:30.000Z'),
@@ -130,7 +172,7 @@ test('an unstamped transcript stacks every card under the last reply', () => {
 
   assert.equal(anchored.size, 1)
   assert.deepEqual(
-    anchored.get('a2')?.map((g) => g.groupId),
+    anchored.get('a1')?.map((g) => g.groupId),
     ['g1', 'g2'],
   )
 })

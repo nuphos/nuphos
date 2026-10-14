@@ -64,7 +64,7 @@ export function ConversationMessageList({
   onRequestFeedbackComment: (messageId: string) => void
 }) {
   useReportVisibleError(tab.error, 'agent_conversation_error')
-  const downloadsByMessage = useTransferDownloads(tab, teamId)
+  const downloadsByMessage = useTransferDownloads(tab, teamId, hasEarlier)
   const timeline = placeTimelineEvents(tab.messages, tab.timelineEvents, hasEarlier)
   // Events newer than the moment this session was opened animate in; the ones
   // it opened with do not.
