@@ -21,10 +21,13 @@ export function shouldLoadTransferDownloads(tab: Tab | undefined): tab is Tab {
  * transcript — so each is placed by its push time, with the same rule as
  * timeline events (firstMessageNewerThan): the card belongs to the assistant
  * message at that slot, or else to the nearest one before it. A group pushed
- * while a turn runs sits after that turn's user message and before the next
- * one's, so it lands on that turn's reply whether or not the client holds the
- * reply's stored time yet — the card does not move once it does. A group older
- * than the first loaded message stays out while earlier history is unloaded.
+ * while a turn runs sits after the message that starts the turn (the user
+ * message, or an autonomous reply's own start stamp) and before the next
+ * turn's, so it lands on that turn's reply whether or not the client holds the
+ * reply's stored time yet, and does not move once it does. A group older than
+ * the first loaded message waits for earlier history; with none to wait for it
+ * goes to the first reply rather than nowhere — a client clock seconds ahead
+ * can stamp the first message after the push.
  */
 export function anchorDownloadGroups(
   messages: readonly Message[],
@@ -38,9 +41,10 @@ export function anchorDownloadGroups(
     const index = firstMessageNewerThan(messages, Date.parse(group.createdAt))
 
     if (index === 0 && hasEarlier) continue
-    const anchor = messages
-      .slice(0, index < 0 ? undefined : index + 1)
-      .findLast((m) => m.role === 'assistant')
+    const slot = index < 0 ? messages.length : index + 1
+    const anchor =
+      messages.slice(0, slot).findLast((m) => m.role === 'assistant') ??
+      messages.slice(slot).find((m) => m.role === 'assistant')
 
     if (!anchor) continue
     const list = byMessage.get(anchor.id) ?? []

@@ -46,6 +46,8 @@ test('autonomous start opens a distinct assistant turn and replay is idempotent'
 
   assert.equal(tabAfterStart.messages.length, 3)
   assert.equal(tabAfterStart.messages.at(-1)?.turnOrigin, 'autonomous')
+  // Its start stamp marks the turn boundary no user message does.
+  assert.equal(typeof tabAfterStart.messages.at(-1)?.createdAt, 'number')
 
   const tabAfterReplay = startAutonomousTurn(tabAfterStart, 'stream-1', 'autonomous-1')
 

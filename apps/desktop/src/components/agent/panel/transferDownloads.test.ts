@@ -128,6 +128,38 @@ test('a card keeps its turn while the next reply streams, stamped or not', () =>
   }
 })
 
+test('a card from an autonomous turn stays on it, before and after the read-back', () => {
+  // The previous reply is unstamped on the client; the autonomous reply has
+  // its start stamp while it runs, then the stored (turn-end) stamp.
+  const groups = [group('g1', '2026-01-01T00:04:00.000Z')]
+  const live = [
+    message('u1', 'user', AT('2026-01-01T00:00:00.000Z')),
+    message('a1', 'assistant'),
+    { ...message('a2', 'assistant', AT('2026-01-01T00:03:00.000Z')), turnOrigin: 'autonomous' },
+  ] satisfies Message[]
+  const stored = [
+    message('u1', 'user', AT('2026-01-01T00:00:00.000Z')),
+    message('a1', 'assistant', AT('2026-01-01T00:01:00.000Z')),
+    { ...message('a2', 'assistant', AT('2026-01-01T00:05:00.000Z')), turnOrigin: 'autonomous' },
+  ] satisfies Message[]
+
+  for (const messages of [live, stored]) {
+    assert.deepEqual([...anchorDownloadGroups(messages, groups).keys()], ['a2'])
+  }
+})
+
+test('a card pushed before the first message’s stamp goes to the first reply', () => {
+  // A client clock a few seconds ahead stamps the message after the push.
+  const messages = [
+    message('u1', 'user', AT('2026-01-01T00:00:05.000Z')),
+    message('a1', 'assistant'),
+  ]
+  const groups = [group('g1', '2026-01-01T00:00:02.000Z')]
+
+  assert.deepEqual([...anchorDownloadGroups(messages, groups).keys()], ['a1'])
+  assert.equal(anchorDownloadGroups(messages, groups, true).size, 0)
+})
+
 test('a turn that never got its stamp does not take the next turn’s card', () => {
   const messages = [
     message('a1', 'assistant'),
