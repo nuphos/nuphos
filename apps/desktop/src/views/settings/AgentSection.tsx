@@ -91,8 +91,10 @@ export function AgentSection({
           </p>
         )}
         {instances.length > 0 && (
-          <div ref={setPage} className="relative flex min-h-0 flex-1">
-            <div className="min-w-0 flex-1 overflow-y-auto p-5 lg:p-8">
+          <div ref={setPage} className="relative min-h-0 flex-1">
+            {/* Block, not flex: the open panel marks this scroller inert, and the inert
+                z-index would lift a flex item above the panel. */}
+            <div className="h-full overflow-y-auto p-5 lg:p-8">
               <div className="mx-auto w-full max-w-5xl">
                 <RuntimeQuotaHistory
                   teamId={teamId}
@@ -105,8 +107,8 @@ export function AgentSection({
             </div>
             <Dialog.Root open={open && selected !== undefined} onOpenChange={setOpen}>
               <Dialog.Portal container={page}>
-                <Dialog.Backdrop className="absolute inset-0 z-30 bg-black/10 transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-                <Dialog.Popup className="absolute inset-y-0 right-0 z-30 flex w-[min(680px,100%)] flex-col border-l border-zGray-800 bg-surface shadow-2xl shadow-black/20 outline-none transition-transform duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:translate-x-full data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:translate-x-full">
+                <Dialog.Backdrop className="absolute inset-0 z-30 bg-black/10 transition-opacity duration-150 motion-reduce:transition-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+                <Dialog.Popup className="absolute inset-y-0 right-0 z-30 flex w-[min(680px,100%)] flex-col border-l border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/20 outline-none transition-transform motion-reduce:transition-none duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:translate-x-full data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:translate-x-full">
                   <div className="flex items-center justify-end px-3 pt-3">
                     <Dialog.Title className="sr-only">{selected?.label}</Dialog.Title>
                     <Dialog.Close
