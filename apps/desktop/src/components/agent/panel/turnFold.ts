@@ -1,3 +1,5 @@
+import { BOOKKEEPING_TOOL_NAMES } from './toolRuns.ts'
+
 import type { Part } from './parts.ts'
 
 // Codex-style turn folding: a turn qualifies when its last meaningful part is
@@ -27,9 +29,7 @@ export function collapsedTurnSplitIndex(parts: Part[]): number {
       continue
     }
     if (p.state !== 'output-available' && p.state !== 'output-error') return -1
-    if (p.toolName !== 'skill' && p.toolName !== 'plan_update' && p.toolName !== 'plan_get') {
-      hasProcess = true
-    }
+    if (!BOOKKEEPING_TOOL_NAMES.has(p.toolName)) hasProcess = true
   }
 
   return hasProcess ? finalTextIndex : -1
@@ -66,13 +66,14 @@ function awaitsApproval(parts: Part[], to: number): boolean {
 // Where this turn's fold starts, or -1 when the turn stays fully expanded. A
 // turn still streaming, or one the user steered mid-flight, shows its work as it
 // happens; a finished turn folds whether it ended in an answer or was cut short.
+// endedWithoutAnswer: the user stopped the turn, or it finished with no reply text.
 export function turnFoldSplitIndex(
   parts: Part[],
-  { streaming, stoppedByUser }: { streaming: boolean; stoppedByUser?: boolean },
+  { streaming, endedWithoutAnswer }: { streaming: boolean; endedWithoutAnswer?: boolean },
 ): number {
   if (parts.some((p) => p.type === 'data-steering')) return 0
   if (streaming) return -1
-  if (stoppedByUser === true || parts.some((p) => p.type === 'turn-interrupted')) {
+  if (endedWithoutAnswer === true || parts.some((p) => p.type === 'turn-interrupted')) {
     const split = interruptedTurnSplitIndex(parts)
 
     return awaitsApproval(parts, split) ? -1 : split

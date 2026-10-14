@@ -16,7 +16,9 @@ export type PartSegment =
 // Tool calls that render as their own card (chart, plan, permission grant)
 // carry content the user came for, so they never hide inside a run.
 const CARD_TOOL_NAMES = new Set(['render_chart', 'plan', 'propose_permission_grant'])
-const BOOKKEEPING_TOOL_NAMES = new Set(['skill', 'plan_update', 'plan_get'])
+
+// Agent bookkeeping that never renders as a tool row.
+export const BOOKKEEPING_TOOL_NAMES = new Set(['skill', 'plan_update', 'plan_get'])
 
 export function isPlainToolPart(part: Part): part is ToolPart {
   if (part.type !== 'tool') return false

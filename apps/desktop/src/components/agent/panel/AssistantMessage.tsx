@@ -1,4 +1,3 @@
-import { Square } from 'lucide-react'
 import { memo } from 'react'
 
 import { normalizeRecallFirstOrder, recallLeadCount } from '../../../lib/agentMessagePartOrder'
@@ -13,6 +12,8 @@ import { AssistantMessageActions } from './messageActions'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
 import { renderPartRange } from './renderPartRange'
+import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
+import { StoppedTurnEnding } from './StoppedTurnEnding'
 import { foldedTurnLayout, turnDisplayParts } from './toolRuns'
 import { assistantPartKey, lastVisiblePartIndex, turnWorkSeconds } from './streamText'
 import { AssistantPlanPart, ChartToolPart } from './toolParts'
@@ -85,7 +86,9 @@ export const AssistantMessage = memo(
     ) => void
     onRequestFeedbackComment?: (messageId: string) => void
   }) => {
-    const orderedParts = normalizeRecallFirstOrder(message.parts)
+    const normalizedParts = normalizeRecallFirstOrder(message.parts)
+    const orderedParts = withoutNoResponsePlaceholder(normalizedParts)
+    const stoppedCalls = streaming ? null : stoppedTurnCalls(orderedParts, message.stoppedByUser)
     const recallLead = recallLeadCount(orderedParts)
     const streamingTailIndex = streaming ? lastVisiblePartIndex(orderedParts) : -1
     const displayParts = turnDisplayParts(orderedParts, streaming)
@@ -100,7 +103,7 @@ export const AssistantMessage = memo(
     // Fold boundary for a finished turn (see turnFoldSplitIndex).
     const collapseSplit = turnFoldSplitIndex(orderedParts, {
       streaming,
-      stoppedByUser: message.stoppedByUser,
+      endedWithoutAnswer: message.stoppedByUser === true || orderedParts !== normalizedParts,
     })
     // Duration: live-completed turns carry client-stamped tool timestamps;
     // reloaded transcripts fall back to persisted message times (prev user
@@ -262,12 +265,7 @@ export const AssistantMessage = memo(
             />
           ))}
         {planIndices.map((i) => renderMessagePart(displayParts[i], i))}
-        {message.stoppedByUser && (
-          <div className="flex items-center gap-1.5 text-[12px] text-tertiary italic pt-1">
-            <Square className="h-3 w-3" strokeWidth={2} fill="currentColor" />
-            <span>Stopped by user</span>
-          </div>
-        )}
+        {stoppedCalls !== null && <StoppedTurnEnding calls={stoppedCalls} />}
         {!streaming && copyableText && (
           <AssistantMessageActions
             text={copyableText}

@@ -42,14 +42,14 @@ test('final answer text stays outside the fold with the notice', () => {
 test('a turn the user stopped folds like a completed one', () => {
   const parts = [text('On it.'), tool(), tool()]
 
-  assert.equal(turnFoldSplitIndex(parts, { streaming: false, stoppedByUser: true }), 3)
+  assert.equal(turnFoldSplitIndex(parts, { streaming: false, endedWithoutAnswer: true }), 3)
 })
 
 test('an approval the user can still answer keeps the turn expanded', () => {
   const parts = [tool(), tool('approval-requested'), interrupted('timeout')]
 
   assert.equal(turnFoldSplitIndex(parts, { streaming: false }), -1)
-  assert.equal(turnFoldSplitIndex(parts, { streaming: false, stoppedByUser: true }), -1)
+  assert.equal(turnFoldSplitIndex(parts, { streaming: false, endedWithoutAnswer: true }), -1)
 })
 
 test('a live turn never folds, streaming or steering', () => {
