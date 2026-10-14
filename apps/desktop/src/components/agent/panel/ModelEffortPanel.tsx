@@ -75,7 +75,7 @@ export function ModelEffortPanel({
   resetValue?: string
   /** No changes at all, e.g. the agent is offline. */
   blocked: boolean
-  /** A change is being saved; the slider stays usable and sends its last stop. */
+  /** A change is being saved; the slider and reset are disabled until it ends. */
   saving: boolean
   sliderRef?: React.Ref<HTMLInputElement>
   onSelect: (configId: string, value: string) => void
