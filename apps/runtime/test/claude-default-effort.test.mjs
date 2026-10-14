@@ -34,6 +34,15 @@ test('a pinned level, an unknown level or an old CLI leaves the choice alone', a
   }
 })
 
+test('a get_settings that never answers leaves the choice alone after the timeout', async () => {
+  const config = options('default')
+  const started = Date.now()
+
+  await nuphosDescribeDefaultEffort({ getSettings: () => new Promise(() => {}) }, config, 20)
+  assert.equal(config[0].options[0].description, undefined)
+  assert.ok(Date.now() - started < 1000)
+})
+
 test('the patch lands once at session creation and once after a config change', () => {
   const source = [
     '            const configOptions = buildConfigOptions(modes, models, modelInfos, settingsEffortForModel(settingsManager.getSettings(), currentModelInfo), agents, currentAgent, fastMode);',
