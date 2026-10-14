@@ -45,6 +45,8 @@ export type AgentTrigger = {
   name: string
   triggerType: AgentTriggerType
   cronExpression?: string
+  /** Every fire is delivered into this conversation instead of a new one. */
+  targetSessionId?: string
   messageTemplate: string
   enabled: boolean
   source?: AgentTriggerSource
@@ -112,6 +114,7 @@ export type CreateAgentTriggerInput = {
   triggerType: AgentTriggerType
   messageTemplate: string
   cronExpression?: string
+  targetSessionId?: string
   teamId?: string
   incidentMode?: boolean
   slackDestination?: AgentTriggerSlackDestination
@@ -121,6 +124,8 @@ export type UpdateAgentTriggerInput = {
   name?: string
   messageTemplate?: string
   cronExpression?: string
+  /** null goes back to a new conversation per fire. */
+  targetSessionId?: string | null
   enabled?: boolean
   incidentMode?: boolean
   slackDestination?: AgentTriggerSlackDestination | null

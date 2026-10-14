@@ -13,6 +13,8 @@ export type FormState = {
   triggerType: AgentTriggerType
   cronExpression: string
   messageTemplate: string
+  /** '' opens a new conversation per fire. */
+  targetSessionId: string
 }
 
 export function useTriggerFormController({
@@ -41,6 +43,7 @@ export function useTriggerFormController({
     triggerType: 'cron',
     cronExpression: '0 9 * * 1-5',
     messageTemplate: '',
+    targetSessionId: '',
   })
   const [saving, setSaving] = useState(false)
   const [revealSecret, setRevealSecret] = useState(false)
@@ -66,6 +69,7 @@ export function useTriggerFormController({
           triggerType: t.triggerType,
           cronExpression: t.cronExpression ?? '',
           messageTemplate: t.messageTemplate,
+          targetSessionId: t.targetSessionId ?? '',
         })
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err))

@@ -173,36 +173,47 @@ export function TriggerDetail({
           actionsSlot,
         )}
 
-      <div className="flex min-h-0 flex-1">
-        <TriggerRunsList
+      {trigger.targetSessionId ? (
+        // A bound trigger has no runs of its own: every fire lands here.
+        <AgentPanel
+          key={`trigger-target-${trigger.id}`}
+          variant="page"
+          open
           teamId={teamId}
-          triggerIds={[trigger.id]}
-          schedule={scheduleSummary(trigger)}
-          query={filter}
-          refreshKey={runsKey}
-          selectedSessionId={selectedSessionId}
-          onOpenRun={setSelectedSessionId}
-          onListLoaded={onListLoaded}
+          sessionId={trigger.targetSessionId}
         />
-        <div className="flex min-w-0 flex-1 flex-col">
-          {selectedSessionId ? (
-            <AgentPanel
-              key={`trigger-run-${trigger.id}`}
-              variant="page"
-              open
-              teamId={teamId}
-              sessionId={selectedSessionId}
-              onSessionChange={setSelectedSessionId}
-            />
-          ) : (
-            <div className="flex flex-1 items-center justify-center px-6 text-center text-[12.5px] text-tertiary">
-              {firedAt !== null
-                ? 'Starting a run — it will appear on the left shortly.'
-                : 'Pick a run to read it, or press Run now to start one.'}
-            </div>
-          )}
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <TriggerRunsList
+            teamId={teamId}
+            triggerIds={[trigger.id]}
+            schedule={scheduleSummary(trigger)}
+            query={filter}
+            refreshKey={runsKey}
+            selectedSessionId={selectedSessionId}
+            onOpenRun={setSelectedSessionId}
+            onListLoaded={onListLoaded}
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            {selectedSessionId ? (
+              <AgentPanel
+                key={`trigger-run-${trigger.id}`}
+                variant="page"
+                open
+                teamId={teamId}
+                sessionId={selectedSessionId}
+                onSessionChange={setSelectedSessionId}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center px-6 text-center text-[12.5px] text-tertiary">
+                {firedAt !== null
+                  ? 'Starting a run — it will appear on the left shortly.'
+                  : 'Pick a run to read it, or press Run now to start one.'}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
