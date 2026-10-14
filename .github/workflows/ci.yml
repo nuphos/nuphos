@@ -34,13 +34,14 @@ jobs:
     name: Detect changed apps
     runs-on: ubuntu-24.04-arm
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      desktop: ${{ steps.filter.outputs.desktop }}
+      # A version-only diff (a release PR) skips these; see the step below.
+      backend: ${{ steps.filter.outputs.backend == 'true' && steps.bump.outputs.version_only != 'true' }}
+      desktop: ${{ steps.filter.outputs.desktop == 'true' && steps.bump.outputs.version_only != 'true' }}
       desktop_package: ${{ steps.filter.outputs.desktop_package }}
-      ios: ${{ steps.filter.outputs.ios }}
+      ios: ${{ steps.filter.outputs.ios == 'true' && steps.bump.outputs.version_only != 'true' }}
       cli: ${{ steps.filter.outputs.cli }}
       dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
-      lint_config: ${{ steps.filter.outputs.lint_config }}
+      lint_config: ${{ steps.filter.outputs.lint_config == 'true' && steps.bump.outputs.version_only != 'true' }}
       import_cycles: ${{ steps.filter.outputs.import_cycles }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -104,6 +105,29 @@ jobs:
               - 'scripts/check-import-cycles.test.mjs'
               - 'scripts/import-cycles.baseline.json'
               - '.github/workflows/ci.yml'
+
+      # A release PR changes only `version` fields, the App Store notes and the
+      # runtime's SDK pins. No job here reads a version: Electron and the
+      # release workflows do, at run or tag time. So such a diff skips the
+      # backend, desktop, iOS and lint-config jobs. The CLI job still runs on
+      # its Cargo bump (its build is `--locked`), and Runtime CI builds the
+      # images for the pins. Anything else in the diff runs everything.
+      - name: Detect a version-only diff
+        id: bump
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE"
+          only=true
+          while read -r f; do
+            case "$f" in
+              apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
+              apps/*/package.json)
+                [ "$(git show "$BASE:$f" | jq -S 'del(.version)')" = "$(jq -S 'del(.version)' "$f")" ] || only=false ;;
+              *) only=false ;;
+            esac
+          done < <(git diff --no-renames --name-only "$BASE" HEAD)
+          echo "version_only=$only" | tee -a "$GITHUB_OUTPUT"
 
   ios:
     name: iOS (simulator build)
