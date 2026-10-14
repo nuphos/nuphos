@@ -148,13 +148,14 @@ export function useConversationOpen(acc: Acc) {
   // user owns: copy the transcript for full context, but mint a fresh sessionId
   // and mark it writable. The original is never touched; the new turn (e.g. the
   // plan's Approve) persists under the current user. Used to continue a plan
-  // from the Plans page — works for any team member, since team conversations
-  // are team-readable but only the owner can write to the original.
+  // from the Plans page and by the titlebar's Fork chat — works for any team
+  // member, since team conversations are team-readable but only the owner can
+  // write to the original.
   const forkConversation = useCallback(
     async (sourceSessionId: string) => {
       const generation = ++openGenerationRef.current
 
-      setOpeningConversation({ sessionId: sourceSessionId, title: 'Continuing plan…' })
+      setOpeningConversation({ sessionId: sourceSessionId, title: 'Forking chat…' })
       try {
         const detail = await api.agentGetConversation(sourceSessionId, teamId)
 
@@ -209,7 +210,7 @@ export function useConversationOpen(acc: Acc) {
           return
         }
         setOpeningConversation(null)
-        toast.apiError('Could not continue plan', err)
+        toast.apiError('Could not fork chat', err)
       }
     },
     [credentialOptions, teamId],

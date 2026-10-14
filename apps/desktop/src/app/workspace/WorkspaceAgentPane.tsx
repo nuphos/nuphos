@@ -51,6 +51,7 @@ export function WorkspaceAgentPane({
     setAuditChatLocate,
     selectedSessionId,
     selectedSessionReadOnly,
+    setAgentSidebarPendingFork,
     workspaceActions,
     startFirstRunConnect,
     stableOpenNuphosLinkFromChat,
@@ -251,6 +252,7 @@ export function WorkspaceAgentPane({
               canRename={currentHeading.canRename === true}
               canArchive={currentHeading.canArchive === true}
               onRename={() => setRenamingSessionId(selectedSessionId)}
+              onFork={() => setAgentSidebarPendingFork(selectedSessionId)}
             />
           )}
         </div>

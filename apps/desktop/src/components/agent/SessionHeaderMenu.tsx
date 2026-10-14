@@ -1,4 +1,15 @@
-import { Archive, Link2, MoreHorizontal, Pencil, Pin, PinOff } from 'lucide-react'
+import {
+  Archive,
+  ChevronRight,
+  Copy,
+  GitBranch,
+  Hash,
+  Link2,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
@@ -11,7 +22,15 @@ import {
   subscribeSidebarFavorites,
 } from '../../lib/sidebarFavorites'
 import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/menu'
+import {
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuSeparator,
+  MenuSubmenu,
+  MenuSubmenuTrigger,
+  MenuTrigger,
+} from '../ui/menu'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
 
@@ -26,6 +45,8 @@ type Props = {
   canRename: boolean
   canArchive: boolean
   onRename: () => void
+  /** Opens a writable copy of this chat (the Plans page's fork path). */
+  onFork: () => void
 }
 
 function findPin(userId: string, teamId: string, sessionId: string) {
@@ -56,6 +77,7 @@ export function SessionHeaderMenu({
   canRename,
   canArchive,
   onRename,
+  onFork,
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
   const pin = useSessionPin(userId, teamId, sessionId)
@@ -76,16 +98,12 @@ export function SessionHeaderMenu({
     addSidebarFavorite(userId, teamId, { label: title, href })
   }
 
-  function copyLink() {
-    void copyLinkWithFeedback(
-      agentSessionUrl(teamId, sessionId),
-      (value) => navigator.clipboard.writeText(value),
-      {
-        onSuccess: () =>
-          toast.success('Link copied', undefined, { timeoutMs: 1200, dedupe: false }),
-        onError: () => toast.error('Could not copy link', 'Clipboard was blocked.'),
-      },
-    )
+  function copy(value: string, what: 'Link' | 'Session ID') {
+    void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
+      onSuccess: () =>
+        toast.success(`${what} copied`, undefined, { timeoutMs: 1200, dedupe: false }),
+      onError: () => toast.error(`Could not copy ${what.toLowerCase()}`, 'Clipboard was blocked.'),
+    })
   }
 
   return (
@@ -121,9 +139,31 @@ export function SessionHeaderMenu({
         >
           {favoriteToggleTitle(true, Boolean(pin))}
         </MenuItem>
-        <MenuItem icon={<Link2 className="h-3.5 w-3.5" />} onClick={copyLink}>
-          Copy link
+        <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
+          Fork chat
         </MenuItem>
+        <MenuSubmenu>
+          <MenuSubmenuTrigger
+            icon={<Copy className="h-3.5 w-3.5" />}
+            chevron={<ChevronRight className="h-3 w-3" />}
+          >
+            Copy
+          </MenuSubmenuTrigger>
+          <MenuContent align="start" className="w-[180px]">
+            <MenuItem
+              icon={<Link2 className="h-3.5 w-3.5" />}
+              onClick={() => copy(agentSessionUrl(teamId, sessionId), 'Link')}
+            >
+              Link
+            </MenuItem>
+            <MenuItem
+              icon={<Hash className="h-3.5 w-3.5" />}
+              onClick={() => copy(sessionId, 'Session ID')}
+            >
+              Session ID
+            </MenuItem>
+          </MenuContent>
+        </MenuSubmenu>
         {canArchive && (
           <>
             <MenuSeparator />
