@@ -10,19 +10,21 @@
   transition: width var(--duration-fast) var(--ease-smooth-out);
 }
 
-/* The agent panel slides in beside the page; switching agents fades the body. */
-.t-agent-panel,
+/* The agent panel opens like the dock: its width eases while the content inside
+   keeps its final width. Switching agents fades the body; the overview fades in. */
+.t-agent-panel {
+  width: var(--agent-panel-w);
+  transition: width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .t-agent-panel-body,
 .t-agents-reveal {
-  transition:
-    transform var(--duration-fast) var(--ease-smooth-out),
-    opacity var(--duration-fast) var(--ease-smooth-out);
+  transition: opacity var(--duration-fast) var(--ease-smooth-out);
 }
 
 @starting-style {
   .t-agent-panel {
-    transform: translateX(var(--distance-base));
-    opacity: 0;
+    width: 0;
   }
 
   .t-agent-panel-body,
