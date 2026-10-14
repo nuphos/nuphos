@@ -35,7 +35,13 @@ const runtimeModelCatalogSchema = z.object({
     .object({
       modelId: z.string().min(1).max(500),
       effort: z
-        .array(z.object({ value: z.string().min(1).max(100), name: z.string().max(200) }))
+        .array(
+          z.object({
+            value: z.string().min(1).max(100),
+            name: z.string().max(200),
+            description: z.string().max(200).optional(),
+          }),
+        )
         .max(100),
       fast: z.boolean(),
       defaultFast: z.enum(['on', 'off']).optional(),
@@ -179,7 +185,11 @@ async function observedModels(
                     effort:
                       options
                         .find((o) => o.kind === 'effort')
-                        ?.options.map(({ value, name }) => ({ value, name })) ?? [],
+                        ?.options.map(({ value, name, description }) => ({
+                          value,
+                          name,
+                          ...(description ? { description } : {}),
+                        })) ?? [],
                     fast: ['on', 'off'].every((value) =>
                       options
                         .find((o) => o.kind === 'fast')

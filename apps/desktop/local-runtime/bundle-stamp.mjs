@@ -28,6 +28,7 @@ export const RUNTIME_SOURCES = [
     'patch-adapter.mjs',
     'turn-completion.mjs',
     'session-state.mjs',
+    'default-effort.mjs',
   ].map((file) => `claude-agent-acp/${file}`),
   ...[
     'package.json',
