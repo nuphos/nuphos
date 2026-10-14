@@ -1,5 +1,6 @@
 import './agents.css'
 import { useEffect, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
@@ -44,13 +45,21 @@ export function AgentSection({
   const selected = catalog.instances.find((instance) => instance.id === selectedId)
   // The control that opened the panel gets focus back when it closes.
   const opener = useRef<HTMLElement | null>(null)
-  const select = (id: string) => {
-    if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement
-    setSelectedId(id)
-  }
   const close = () => {
     setSelectedId(null)
     opener.current?.focus()
+  }
+  // Selecting the open agent again closes its panel.
+  const select = (id: string) => {
+    if (id === selectedId) return close()
+    if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement
+    setSelectedId(id)
+  }
+  // Escape from the overview or the panel, but not from a dialog opened on top: those
+  // portal outside both and handle their own Escape, though React still bubbles it here.
+  const closeOnEscape = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Escape' || selectedId === null) return
+    if (event.currentTarget.contains(event.target as Node)) close()
   }
 
   const { isActive } = useWorkspaceTab()
@@ -65,7 +74,10 @@ export function AgentSection({
   }, [catalog.loading, onLoading])
 
   return (
-    <div className="t-agents-page flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      onKeyDown={closeOnEscape}
+      className="t-agents-page flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
       {adding && (
         <AddAgentDialog
           key={teamId}
@@ -115,12 +127,7 @@ export function AgentSection({
         createPortal(
           <aside
             aria-label={selected.label}
-            // Only Escape pressed in the panel itself: a dialog opened from it portals
-            // elsewhere but still bubbles here through React, and handles its own Escape.
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && event.currentTarget.contains(event.target as Node))
-                close()
-            }}
+            onKeyDown={closeOnEscape}
             className="t-agent-panel flex h-full w-[min(560px,48cqw)] flex-col border-l border-zGray-800/60 sidebar-surface"
           >
             <div className="titlebar-drag flex h-[42px] shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3">
