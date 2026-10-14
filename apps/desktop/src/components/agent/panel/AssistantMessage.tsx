@@ -7,6 +7,8 @@ import { isPlanProposalToolName } from '../planReference'
 
 import { extractProposalIdFromOutput } from './applyEvent'
 import { ConnectToolPart } from './ConnectCard'
+import { LocalUrlStrip } from './LocalUrlChip'
+import { turnLocalUrls } from './localUrls'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
@@ -23,6 +25,7 @@ import { DownloadFilesCard } from './transferCards'
 import { turnFoldSplitIndex } from './turnFold'
 import { TurnInterruptedPartView } from './TurnInterruptedPartView'
 import { steeringMessage } from './steering'
+import { useLocalUrlLinks } from './useLocalUrlLinks'
 import { UserMessage } from './UserMessage'
 
 import type { Message, MessageRating } from './model'
@@ -87,6 +90,7 @@ export const AssistantMessage = memo(
     ) => void
     onRequestFeedbackComment?: (messageId: string) => void
   }) => {
+    const renderAgentLink = useLocalUrlLinks(onOpenNuphosLink)
     const normalizedParts = normalizeRecallFirstOrder(message.parts)
     const orderedParts = withoutNoResponsePlaceholder(normalizedParts)
     const stoppedCalls = streaming ? null : stoppedTurnCalls(orderedParts, message.stoppedByUser)
@@ -139,6 +143,7 @@ export const AssistantMessage = memo(
             teamId={teamId}
             currentUrl={currentUrl}
             onLinkClick={onOpenNuphosLink}
+            renderLink={renderAgentLink}
           >
             {p.text}
           </MessageResponse>
@@ -277,6 +282,9 @@ export const AssistantMessage = memo(
             />
           ))}
         {planIndices.map((i) => renderMessagePart(displayParts[i], i))}
+        {!streaming && (
+          <LocalUrlStrip urls={turnLocalUrls(orderedParts)} onOpen={onOpenNuphosLink} />
+        )}
         {stoppedCalls !== null && <StoppedTurnEnding calls={stoppedCalls} />}
         {!streaming && copyableText && (
           <AssistantMessageActions

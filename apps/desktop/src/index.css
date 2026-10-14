@@ -1828,6 +1828,17 @@
   }
 }
 
+/* An action chip or card the transcript adds under an answer settles in the
+   same way. */
+.t-chat-card-in {
+  animation: t-tool-run-in 220ms var(--panel-ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-chat-card-in {
+    animation: none !important;
+  }
+}
+
 /* Share card — a view, chip or receipt settles in; a check pops on. */
 @keyframes t-share-in {
   from {

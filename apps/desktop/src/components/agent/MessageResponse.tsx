@@ -42,13 +42,17 @@ function extractText(node: ReactNode): string {
   return ''
 }
 
-function ChatLink({
+export function ChatLink({
   link,
   onLinkClick,
+  className = 'text-zViolet-accent hover:underline',
+  title,
   children,
 }: {
   link: string | undefined
   onLinkClick?: (href: string, beside: boolean) => boolean
+  className?: string
+  title?: string
   children: ReactNode
 }) {
   const menuActions = useContext(ChatLinkMenuContext)
@@ -107,7 +111,8 @@ function ChatLink({
         rel="noreferrer"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className="text-zViolet-accent hover:underline"
+        className={className}
+        title={title}
       >
         {children}
       </a>
