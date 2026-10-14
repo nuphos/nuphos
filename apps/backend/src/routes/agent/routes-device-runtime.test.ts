@@ -22,8 +22,9 @@ const bus = createLocalTunnelBus()
 const presence = createMemoryPresenceStore()
 let server: Server<unknown> | undefined
 
-afterEach(async () => {
-  await server?.stop(true)
+afterEach(() => {
+  // Not awaited: bun 1.3 never resolves stop() once the server has closed a socket itself.
+  void server?.stop(true)
   server = undefined
 })
 
@@ -173,13 +174,13 @@ describe('device runtime tunnel route', () => {
     const host = serve('owner')
     const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`)
 
-    desktop.addEventListener('message', (event) => {
-      if ((JSON.parse(String(event.data)) as { t: string }).t === 'ping')
-        desktop.send(JSON.stringify({ t: 'pong' }))
-    })
-    await waitFor<void>((resolve) => {
-      desktop.addEventListener('open', () => {
-        resolve()
+    // The holder's first ping shows it has subscribed to its channel.
+    const subscribed = waitFor<void>((resolve) => {
+      desktop.addEventListener('message', (event) => {
+        if ((JSON.parse(String(event.data)) as { t: string }).t === 'ping') {
+          desktop.send(JSON.stringify({ t: 'pong' }))
+          resolve()
+        }
       })
     })
     const closed = waitFor<number>((resolve) => {
@@ -188,16 +189,10 @@ describe('device runtime tunnel route', () => {
       })
     })
 
-    // The holder subscribes asynchronously after the upgrade; repeat until it has.
-    const revoke = setInterval(() => {
-      void bus.publish(holderChannel('owner', 'd1'), JSON.stringify({ t: 'revoke' }))
-    }, 20)
+    await subscribed
+    await bus.publish(holderChannel('owner', 'd1'), JSON.stringify({ t: 'revoke' }))
 
-    try {
-      expect(await closed).toBe(4003)
-    } finally {
-      clearInterval(revoke)
-    }
+    expect(await closed).toBe(4003)
   })
 
   test('another user cannot hold a tunnel for a computer they do not own', async () => {
@@ -246,7 +241,7 @@ describe('device runtime tunnel route', () => {
         { sessionId: 's1', conversationTitle: 'Fix the deploy', actorName: 'Mika', turns: 3 },
       ],
     })
-    await server?.stop(true)
+    void server?.stop(true)
     const intruder = await fetch(
       `http://${serve('intruder', routeDeps)}/agent/devices/d1/runtime-activity`,
     )

@@ -162,10 +162,12 @@ export async function getNuphosUserForCredential(
     deletedAt: { $exists: false },
   })
 
+  const issued = Math.floor(issuedAt.getTime() / 1000)
+
   if (
     !user ||
     (user.sessionsInvalidBefore !== undefined &&
-      Math.floor(issuedAt.getTime() / 1000) < user.sessionsInvalidBefore)
+      (!Number.isFinite(issued) || issued < user.sessionsInvalidBefore))
   )
     return null
 
@@ -177,20 +179,7 @@ async function authenticateNuphosToken(token: string): Promise<NuphosUser | null
 
   if (!claims) return null
 
-  if (!MongoObjectId.isValid(claims.sub)) return null
-  const user = await users().findOne({
-    _id: new MongoObjectId(claims.sub),
-    deletedAt: { $exists: false },
-  })
-
-  if (
-    !user ||
-    (user.sessionsInvalidBefore !== undefined &&
-      (!Number.isFinite(claims.iat) || claims.iat < user.sessionsInvalidBefore))
-  )
-    return null
-
-  return mapUser(user)
+  return getNuphosUserForCredential(claims.sub, new Date(claims.iat * 1000))
 }
 
 async function uniqueUsername(email: string): Promise<string> {
