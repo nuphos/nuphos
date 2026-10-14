@@ -49,10 +49,11 @@ export function SearchResults({
     [mode, owner, query],
   )
   const resultCount = mode === 'people' ? results.people.length : results.sessions.length
-  const count = commands.length + resultCount
-  const selectedIndex = Math.min(selected, Math.max(0, count - 1))
   const busy = pending || results.loading
-  const activeId = !busy && count > 0 ? `${listId}-${selectedIndex}` : undefined
+  // Commands are local, so they stay usable while only the sessions load.
+  const count = commands.length + (busy ? 0 : resultCount)
+  const selectedIndex = Math.min(selected, Math.max(0, count - 1))
+  const activeId = count > 0 ? `${listId}-${selectedIndex}` : undefined
 
   useEffect(() => {
     const input = inputRef.current
@@ -63,7 +64,7 @@ export function SearchResults({
     else input.removeAttribute('aria-activedescendant')
     document.getElementById(activeId ?? '')?.scrollIntoView({ block: 'nearest' })
     function onKey(event: KeyboardEvent) {
-      const action = searchKeyAction(event, busy, count, isMac)
+      const action = searchKeyAction(event, false, count, isMac)
 
       if (!action) return
       event.preventDefault()
@@ -86,7 +87,6 @@ export function SearchResults({
     }
   }, [
     activeId,
-    busy,
     commands,
     count,
     inputRef,
@@ -111,7 +111,7 @@ export function SearchResults({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-      {!busy && commands.length > 0 && (
+      {commands.length > 0 && (
         <PaletteCommandRows
           listId={listId}
           commands={commands}
@@ -128,7 +128,7 @@ export function SearchResults({
             {resultCount}
             {results.hasMore ? '+' : ''}{' '}
             {mode === 'people'
-              ? count === 1
+              ? resultCount === 1
                 ? 'person'
                 : 'people'
               : resultCount === 1
