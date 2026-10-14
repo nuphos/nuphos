@@ -165,6 +165,32 @@ test('a takeover by another app on this computer stops redialing', (t) => {
   assert.equal(backends.length, 1)
 })
 
+test('a revoked computer stops redialing and says so once', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let revoked = 0
+  const backends: FakeSocket[] = []
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => {
+      const socket = new FakeSocket()
+
+      backends.push(socket)
+
+      return socket
+    },
+    connectRuntime: () => null,
+    status: () => ({ agents: {} }),
+    onRevoked: () => revoked++,
+  })
+
+  client.start()
+  backends[0]?.emit('open')
+  backends[0]?.emit('close', { code: 4003 })
+  t.mock.timers.tick(60_000)
+
+  assert.equal(revoked, 1)
+  assert.equal(backends.length, 1)
+})
+
 test('stopping drops every stream and the socket', () => {
   const { backend, runtimes, client } = setup()
 

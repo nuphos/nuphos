@@ -1,6 +1,7 @@
 // Behavioral tests for the sandbox-side kubectl credential scripts, driven
-// through a curl shim so no network or backend is involved. PATH is pinned to
-// the shim + system dirs so results don't depend on a kubectl on the dev box.
+// through curl and kubectl shims so no network, backend, or host kubectl is
+// involved. The shims come first on PATH, so a kubectl in /usr/bin (as on the
+// CI runner, whose cold start alone can exceed the 5s test budget) never runs.
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -40,7 +41,7 @@ printf '%s' "${httpCode}"
   )
 }
 
-function installKubectlMergeShim(): void {
+function writeKubectlShim(): void {
   writeFileSync(
     path.join(shim, 'kubectl'),
     `#!/usr/bin/env bash
@@ -93,6 +94,7 @@ beforeEach(() => {
   shim = mkdtempSync(path.join(tmpdir(), 'kubectl-scripts-shim-'))
   callLog = path.join(shim, 'calls.log')
   argLog = path.join(shim, 'args.log')
+  writeKubectlShim()
 })
 
 describe('get-credential.sh', () => {
@@ -192,7 +194,6 @@ describe('sync-clusters.sh', () => {
   })
 
   test('--onprem merges with existing cloud contexts instead of replacing them', () => {
-    installKubectlMergeShim()
     writeCurlShim('cloud-context', '200')
     expect(run(syncClusters, []).exitCode).toBe(0)
 

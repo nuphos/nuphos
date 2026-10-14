@@ -1,11 +1,11 @@
 // `nuphos agent`: this computer's local agents without Electron. The CLI runs
 // this bundled file on the user's own Node, next to the staged openab and
-// adapters, signed in with the session the CLI and the desktop share.
+// adapters. It connects either with this computer's own credential, from
+// `nuphos agent --join <token>`, or with the session the CLI and the desktop share.
 
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 
 import yaml from 'js-yaml'
@@ -25,6 +25,7 @@ import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } fr
 import { prepareAgentHome } from './agent-home.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
+import { deviceCredentialFor, exitRevoked, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
@@ -37,8 +38,13 @@ import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 // Apart from the desktop's, so both can run on one computer as two devices, each
 // with its own runtime tunnel; the device id itself comes from the machine.
-const dataDir =
-  process.env.NUPHOS_AGENT_HOME ?? path.join(os.homedir(), '.local', 'share', 'nuphos', 'agent')
+// The CLI sets it, so its default lives in one place (agent.rs).
+const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
+
+if (!dataDir) {
+  console.error('NUPHOS_AGENT_HOME is not set; run this through `nuphos agent`.')
+  process.exit(1)
+}
 const clientVersion = `nuphos-cli/${process.env.NUPHOS_CLI_VERSION ?? 'dev'}`
 const NAMES: Record<LocalAgentProvider, string> = { 'claude-code': 'Claude Code', codex: 'Codex' }
 
@@ -85,11 +91,20 @@ function currentToken(): string | null {
   }
 }
 
-const token = currentToken()
-const owner = token ? unverifiedTokenSubject(token) : undefined
+const deviceCredential = await deviceCredentialFor({
+  dataDir,
+  apiUrl: apiUrl(),
+  label: device.label,
+  joinToken: process.env.NUPHOS_JOIN_TOKEN?.trim() || undefined,
+  headers: { 'x-atlas-client': clientVersion },
+})
+// A joined computer is the device the backend registered for it.
+const deviceId = deviceCredential?.deviceId ?? device.deviceId
+const token = deviceCredential ? null : currentToken()
+const owner = deviceCredential?.userId ?? (token ? unverifiedTokenSubject(token) : undefined)
 
-if (!token || !owner) {
-  console.error('Not signed in; run `nuphos login` first.')
+if (!owner) {
+  console.error('Not signed in; run `nuphos login`, or join with `nuphos agent --join <token>`.')
   process.exit(1)
 }
 if (!bundle()) {
@@ -124,7 +139,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   },
   onChange: report,
   prepareAgentHome,
+  // Joining already registered it.
   registerDevice: async () => {
+    if (deviceCredential) return
     await callJson('PUT', '/agent/devices', {
       deviceId: device.deviceId,
       label: device.label,
@@ -161,14 +178,17 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   createTunnel: (runtime, status, onChange) =>
     new RuntimeTunnelClient({
       connectBackend: () => {
-        const fresh = currentToken()
+        const fresh = deviceCredential?.credential ?? currentToken()
 
-        if (!fresh || unverifiedTokenSubject(fresh) !== owner) throw new Error('Signed out')
-        const url = `${apiUrl().replace(/^http/u, 'ws')}/agent/devices/${encodeURIComponent(device.deviceId)}/runtime-tunnel`
+        if (!fresh || (!deviceCredential && unverifiedTokenSubject(fresh) !== owner))
+          throw new Error('Signed out')
 
-        return new WebSocket(url, {
+        return new WebSocket(tunnelUrlFor(apiUrl(), deviceId).replace(/^http/u, 'ws'), {
           headers: { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion },
         })
+      },
+      onRevoked: () => {
+        void controller.shutdown().then(exitRevoked)
       },
       connectFile: () => {
         const workspace = controller.state().workspace
@@ -249,15 +269,17 @@ function stop(message = 'Stopping the local agents…'): void {
   void controller.shutdown().then(() => process.exit(0))
 }
 
-// The agents follow the session, as the desktop's do: signed out here or in the
-// app (the same cli.yaml), or signed in as someone else, they stop. Logging out
-// does not revoke the token, so an open tunnel would otherwise keep serving.
-setInterval(() => {
-  const fresh = currentToken()
+// Signed in with the session, the agents follow it, as the desktop's do: signed
+// out here or in the app (the same cli.yaml), or signed in as someone else, they
+// stop. Logging out does not revoke the token, so an open tunnel would otherwise
+// keep serving. A joined computer stops when its own credential is revoked.
+if (!deviceCredential)
+  setInterval(() => {
+    const fresh = currentToken()
 
-  if (!stopping && (!fresh || unverifiedTokenSubject(fresh) !== owner))
-    stop('Signed out of Nuphos; stopping the local agents.')
-}, 2_000)
+    if (!stopping && (!fresh || unverifiedTokenSubject(fresh) !== owner))
+      stop('Signed out of Nuphos; stopping the local agents.')
+  }, 2_000)
 // A closed terminal or a dropped SSH session stops them too.
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => stop())
 console.log(`Running this computer's agents for Nuphos as "${device.label}". Press Ctrl-C to stop.`)

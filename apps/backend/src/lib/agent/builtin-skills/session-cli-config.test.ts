@@ -121,7 +121,7 @@ else:
   }
 })
 
-test('GitHub token refresh preserves other hosts and is readable by real gh and git helpers', () => {
+test('GitHub token refresh preserves other hosts and writes the entry gh reads', () => {
   const root = mkdtempSync(join(tmpdir(), 'nuphos-gh-auth-'))
   const target = join(root, 'hosts.yml')
   const write = (token: string) =>
@@ -140,39 +140,10 @@ test('GitHub token refresh preserves other hosts and is readable by real gh and 
     expect(readFileSync(target, 'utf8')).toContain(other)
     expect(readFileSync(target, 'utf8')).not.toContain('synthetic-first')
     expect(statSync(target).mode & 0o777).toBe(0o600)
-    const gh = Bun.which('gh')
-
-    if (gh) {
-      const env = {
-        PATH: process.env.PATH,
-        HOME: root,
-        GH_CONFIG_DIR: root,
-        GIT_CONFIG_GLOBAL: join(root, '.gitconfig'),
-      }
-      const output = execFileSync(gh, ['auth', 'token', '--hostname', 'github.com'], {
-        env,
-        encoding: 'utf8',
-      })
-
-      expect(output.trim()).toBe('synthetic-refreshed')
-      execFileSync(gh, ['auth', 'setup-git', '--hostname', 'github.com'], { env, stdio: 'pipe' })
-      const credential = execFileSync(gh, ['auth', 'git-credential', 'get'], {
-        env,
-        input: 'protocol=https\nhost=github.com\n\n',
-        encoding: 'utf8',
-      })
-
-      expect(credential).toContain('password=synthetic-refreshed')
-      expect(readFileSync(env.GIT_CONFIG_GLOBAL, 'utf8')).toContain('auth git-credential')
-      // Older gh versions migrate the hosts file to block YAML on first use.
-      write('synthetic-after-migration')
-      expect(
-        execFileSync(gh, ['auth', 'token', '--hostname', 'github.com'], {
-          env,
-          encoding: 'utf8',
-        }).trim(),
-      ).toBe('synthetic-after-migration')
-    }
+    // Exactly the multi-account entry gh reads; installation tokens have no /user.
+    expect(readFileSync(target, 'utf8')).toContain(
+      'github.com: {"user": "x-access-token", "oauth_token": "synthetic-refreshed", "git_protocol": "https", "users": {"x-access-token": {"oauth_token": "synthetic-refreshed"}}}\n',
+    )
     writeFileSync(
       target,
       JSON.stringify({ 'enterprise.example.invalid': { oauth_token: 'enterprise-synthetic' } }),

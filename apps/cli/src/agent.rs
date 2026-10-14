@@ -15,16 +15,51 @@ use crate::config;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const MIN_NODE: u64 = 22;
 
+/// The join token from `--join`, `--join -` (stdin) or `NUPHOS_JOIN_TOKEN`.
+pub fn join_token(arg: Option<&str>) -> Result<Option<String>> {
+    let token = match arg {
+        Some("-") => {
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line).context("could not read the join token")?;
+            line
+        }
+        Some(token) => token.to_owned(),
+        None => std::env::var("NUPHOS_JOIN_TOKEN").unwrap_or_default(),
+    };
+    let token = token.trim();
+    Ok((!token.is_empty()).then(|| token.to_owned()))
+}
+
+/// Where the host keeps this computer's identity and credential; the host gets it as `NUPHOS_AGENT_HOME`.
+fn agent_home() -> Result<PathBuf> {
+    if let Some(dir) = std::env::var_os("NUPHOS_AGENT_HOME") {
+        return Ok(PathBuf::from(dir));
+    }
+    let home = std::env::var_os("HOME").context("HOME is not set")?;
+    Ok(PathBuf::from(home).join(".local/share/nuphos/agent"))
+}
+
+/// Whether an earlier `--join` left this computer a credential. The host checks
+/// it is still valid; this only decides whether to sign in first.
+pub fn joined() -> bool {
+    agent_home().is_ok_and(|dir| dir.join("device-credential.json").is_file())
+}
+
 /// Replaces this process with the host, so Ctrl-C reaches it directly and
 /// it can stop the agents before exiting.
-pub async fn run() -> Result<i32> {
+pub async fn run(join: Option<String>) -> Result<i32> {
     let node = node()?;
     let runtime = match std::env::var_os("NUPHOS_LOCAL_RUNTIME_DIR") {
         Some(dir) => PathBuf::from(dir),
         None => fetch().await?,
     };
-    let error = Command::new(node)
+    let mut host = Command::new(node);
+    if let Some(token) = join {
+        host.env("NUPHOS_JOIN_TOKEN", token);
+    }
+    let error = host
         .arg(runtime.join("host.mjs"))
+        .env("NUPHOS_AGENT_HOME", agent_home()?)
         .env("NUPHOS_LOCAL_RUNTIME_DIR", &runtime)
         .env("NUPHOS_API_URL", config::api_url())
         .env("NUPHOS_CLI_VERSION", VERSION)

@@ -5,6 +5,7 @@ import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
+import { rememberRuntimeState } from './runtime-state-store'
 import { steeringText } from './steering-receipt'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
@@ -12,6 +13,14 @@ import { liveAttachment } from '@/lib/agent/db/shared'
 import { AppError } from '@/lib/errors'
 
 import type { AgentConversation } from '@/lib/agent/db'
+
+/** No live session to report on: the next prompt starts or restores one. */
+export const READY_FOR_NEXT_MESSAGE: SessionExecutionState = {
+  state: 'dormant',
+  schemaVersion: 2,
+  label: 'Ready — your next message starts the agent',
+  actions: { send: true, cancel: false, steer: false, reply: false },
+}
 
 /** A read-only control connection: never resume, restore, prompt, or claim an output sink. */
 export async function conversationExecutionState(
@@ -36,13 +45,7 @@ export async function conversationExecutionState(
   // to be ready" forever, because only a prompt can change that state. Say what
   // is actually true. A conversation that has never been moved keeps the probe:
   // one from before attachments were tracked may still have a live session.
-  if (!attachment && conversation.runtimeMigration)
-    return {
-      state: 'dormant',
-      schemaVersion: 2,
-      label: 'Ready — your next message starts the agent',
-      actions: { send: true, cancel: false, steer: false, reply: false },
-    }
+  if (!attachment && conversation.runtimeMigration) return READY_FOR_NEXT_MESSAGE
   let client: OpenAbAcpClient | undefined
 
   try {
@@ -63,6 +66,8 @@ export async function conversationExecutionState(
         attachment?.openabSessionId ?? 'sess_00000000-0000-0000-0000-000000000000',
       ),
     )
+
+    if (attachment) rememberRuntimeState(conversation.teamId, attachment.openabSessionId, state)
 
     // A continuation parked on a lost output connection moves again only when
     // a prompt reattaches it (runClaudeCodePreviewPrompt). The runtime says

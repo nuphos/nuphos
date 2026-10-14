@@ -5,6 +5,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { observeAutonomousUpdates } from './autonomous-session-observer'
 import { markBackgroundWorkLost } from './background-work'
+import { forgetRuntimeState, holdRuntimeState } from './runtime-state-store'
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
@@ -23,7 +24,10 @@ const sleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 export function observeSession(session: TeamSession): void {
   observeAutonomousUpdates(session)
   const transport = session.client
+  const release = holdRuntimeState(transport, session.teamId, session.openabSessionId)
   const onLost = () => {
+    // The list falls back to dormant until the reattached transport reports.
+    forgetRuntimeState(session.teamId, session.openabSessionId)
     // A close after a retire finds the first attempt running; keep its outcome.
     if (!session.reattaching) session.reattached = reattachAfterTransportLoss(session, transport)
   }
@@ -34,6 +38,7 @@ export function observeSession(session: TeamSession): void {
   session.stopObserving = () => {
     stopClosed()
     stopRetired()
+    release()
     stopUpdates?.()
   }
 }
