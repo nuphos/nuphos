@@ -1,5 +1,3 @@
-import { isDevicePresent } from '@/lib/agent/devices/presence'
-import { isActiveTeamMember, listAgentDevicesForUser } from '@/lib/agent/devices/store'
 import { canUseAllowList } from '@/lib/byos/access'
 import { extractAwsAccountId } from '@/lib/byos/account'
 import { cachedAwsAccountAlias } from '@/lib/byos/aws'
@@ -12,27 +10,9 @@ import {
   emptyConnectorCredentialOptions,
 } from './credential-options-connectors'
 
+import { resolveDeviceOptions } from './credential-options-devices'
+
 import type { AgentCredentialOptions } from './types'
-
-// The user's own devices, in a team they belong to; no team means no devices.
-// Offline ones are listed too, so a selection is what the user ticked, not what
-// happened to be online when it was saved. Use checks `available`.
-export async function resolveDeviceOptions(
-  userId: string,
-  teamId: string | undefined,
-): Promise<AgentCredentialOptions['devices']> {
-  if (!teamId || !(await isActiveTeamMember(userId, teamId))) return []
-  const devices = await listAgentDevicesForUser(userId)
-
-  return await Promise.all(
-    devices.map(async (device) => ({
-      deviceId: device.deviceId,
-      label: device.label,
-      platform: device.platform,
-      available: device.allowLocalExec && (await isDevicePresent(userId, device.deviceId)),
-    })),
-  )
-}
 
 export async function getAgentCredentialOptions(
   teamId: string | undefined,

@@ -119,25 +119,28 @@ export async function nuphosUpdateCredentials(
   if (!('sessionId' in conversation)) return conversation
 
   try {
+    // Full replacement covers only the categories this tool can name; the rest,
+    // such as local devices and connectors, keep what the conversation has.
     const { access } = await resolveAgentCredentialAccess({
       teamId,
       userId: ctx.userId,
+      stored: conversation.credentialAccess,
       selection: {
-        awsRoleIds: args.aws_role_ids,
-        gcpServiceAccountIds: args.gcp_service_account_ids,
-        linodeAccountIds: args.linode_account_ids,
-        hetznerAccountIds: args.hetzner_account_ids,
-        betterStackIntegrationIds: args.betterstack_integration_ids,
-        uptimeKumaInstanceIds: args.uptime_kuma_instance_ids,
-        linearWorkspaceIds: args.linear_workspace_ids,
-        jiraSiteIds: args.jira_site_ids,
-        asanaAccountIds: args.asana_account_ids,
-        sentryAccountIds: args.sentry_account_ids,
-        tailscaleClientIds: args.tailscale_client_ids,
-        zeaburIds: args.zeabur_ids,
-        vantaIntegrationIds: args.vanta_integration_ids,
-        secureframeIntegrationIds: args.secureframe_integration_ids,
-        resendIntegrationIds: args.resend_integration_ids,
+        awsRoleIds: args.aws_role_ids ?? [],
+        gcpServiceAccountIds: args.gcp_service_account_ids ?? [],
+        linodeAccountIds: args.linode_account_ids ?? [],
+        hetznerAccountIds: args.hetzner_account_ids ?? [],
+        betterStackIntegrationIds: args.betterstack_integration_ids ?? [],
+        uptimeKumaInstanceIds: args.uptime_kuma_instance_ids ?? [],
+        linearWorkspaceIds: args.linear_workspace_ids ?? [],
+        jiraSiteIds: args.jira_site_ids ?? [],
+        asanaAccountIds: args.asana_account_ids ?? [],
+        sentryAccountIds: args.sentry_account_ids ?? [],
+        tailscaleClientIds: args.tailscale_client_ids ?? [],
+        zeaburIds: args.zeabur_ids ?? [],
+        vantaIntegrationIds: args.vanta_integration_ids ?? [],
+        secureframeIntegrationIds: args.secureframe_integration_ids ?? [],
+        resendIntegrationIds: args.resend_integration_ids ?? [],
       },
     })
     const updated = await updateConversationCredentialAccess(sessionId, ctx.userId, teamId, access)

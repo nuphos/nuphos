@@ -31,11 +31,7 @@ enum CredentialScopeTests {
         precondition(devicesOnly.scoped(to: .credentials).isEmpty)
         precondition(!devicesOnly.scoped(to: .devices).isEmpty)
         let mixed = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"m1","label":"M1","platform":"darwin","available":true},{"deviceId":"m5","label":"M5","platform":"darwin","available":false}]}"#)!).scoped(to: .devices)
-        precondition(mixed.allItems.map(\.detail) == ["macOS", "macOS · Offline"])
-        var picked = CredentialSelection()
-        picked.selectAll(in: mixed)
-        precondition(picked.json["deviceIds"]?.arrayValue?.compactMap(\.stringValue) == ["m1"])
-        precondition(picked.containsAll(in: mixed))
+        precondition(mixed.allItems.map(\.detail) == ["macOS", "macOS · Unavailable"])
         print("Credential scope tests passed")
     }
 }

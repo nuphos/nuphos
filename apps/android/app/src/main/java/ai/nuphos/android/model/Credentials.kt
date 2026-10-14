@@ -36,13 +36,20 @@ data class CredentialCatalog(
                 val detail = provider.detailKeys.firstNotNullOfOrNull {
                     row[it]?.stringValue?.takeIf { v -> v.isNotEmpty() && v != label }
                 }
-                Item(provider, id, label, if (provider.optionsKey == "devices") detail?.let(::platformName) else detail)
+                Item(provider, id, label, if (provider.optionsKey == "devices") computerDetail(detail, row) else detail)
             }
             if (items.isEmpty()) null else Section(provider, items)
         },
     )
 
     companion object {
+        // A computer that is offline or has local exec off stays listed, marked, so it can be kept or unticked.
+        private fun computerDetail(platform: String?, row: JsonValue): String? {
+            val name = platform?.let(::platformName)
+            if (row["available"]?.boolValue != false) return name
+            return listOfNotNull(name, "Unavailable").joinToString(" · ")
+        }
+
         private fun platformName(platform: String) = when (platform) {
             "darwin" -> "macOS"
             "win32" -> "Windows"

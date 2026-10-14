@@ -1,7 +1,6 @@
 import { pruneSelectionToAvailable } from '../../../lib/credentialSelection'
 
 import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants'
-import { usableDeviceIds } from './credentialSections'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
@@ -185,7 +184,10 @@ export function defaultCredentialAccess(options: AgentCredentialOptions): AgentC
   return {
     ...allCredentialAccess(options),
     resendIntegrationIds: [],
-    deviceIds: usableDeviceIds(options.devices),
+    // An unavailable Mac is listed but not ticked by default; it may be away for weeks.
+    deviceIds: (options.devices ?? [])
+      .filter((device) => device.available !== false)
+      .map((device) => device.deviceId),
   }
 }
 

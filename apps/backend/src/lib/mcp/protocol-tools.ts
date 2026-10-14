@@ -102,7 +102,8 @@ export const TOOL_DEFINITIONS = [
     description:
       'Replace the set of credentials a conversation may use. FULL replacement: ' +
       'every id list you omit (or send empty) revokes that category for the ' +
-      'session. Ids must come from nuphos_list_credentials; any id you are not ' +
+      'session. Categories this tool has no parameter for, such as local devices, ' +
+      'stay as they are. Ids must come from nuphos_list_credentials; any id you are not ' +
       'allowed to use is rejected with an error. Takes effect on the next ' +
       'nuphos_ask in the session.',
     inputSchema: {
