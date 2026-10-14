@@ -1,3 +1,4 @@
+// CI evidence: a code change next to a version bump.
 // The backend's single source of truth for environment variables. The value
 // each key takes — and the comment explaining it — lives in one of the section
 // modules under `src/config/`; this file only composes them into the `config`
