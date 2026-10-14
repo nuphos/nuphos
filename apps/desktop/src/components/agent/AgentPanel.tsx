@@ -95,7 +95,7 @@ type Props = {
   /** `unshown`: the chat the panel left without ever showing it (it could not be opened). */
   onSessionChange?: (sessionId: string | null, unshown?: string) => void
   /** Opens Nuphos markdown links from assistant messages inside the desktop workspace. */
-  onOpenNuphosLink?: (href: string) => boolean
+  onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   /** Opens workspace Settings at the Claude Code/OpenAB setup section. */
   onOpenAgentSettings?: () => void
   /** Focus the blank composer when this page-mode panel becomes active. */

@@ -48,7 +48,7 @@ export type WorkspaceTabPaneProps = {
   onPagePendingImportConsumed: () => void
   pendingChatPrompt: AgentPromptSeed | null
   onChatPromptConsumed: () => void
-  onOpenNuphosLink: (href: string) => boolean
+  onOpenNuphosLink: (href: string, beside?: boolean) => boolean
   onOpenNodeLink: (url: string) => void
   onOpenPlanInChat: (planId: string) => void
   onOpenConversation: (sessionId: string) => void

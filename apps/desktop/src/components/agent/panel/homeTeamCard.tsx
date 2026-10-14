@@ -18,14 +18,9 @@ const RANGES: { value: TeamActivityRange; label: string; slotMinutes: number }[]
   { value: '7d', label: '7d', slotMinutes: 120 },
   { value: '30d', label: '30d', slotMinutes: 720 },
 ]
-// Empty, then four steps of the busiest cell, GitHub-style.
-const LEVELS = [
-  'bg-zGray-800/50',
-  'bg-zViolet-500/25',
-  'bg-zViolet-500/45',
-  'bg-zViolet-500/70',
-  'bg-zViolet-500',
-]
+// Empty, then four steps of the busiest cell, GitHub-style. Shades are themed
+// in index.css (--color-heatmap-*).
+const LEVELS = ['bg-heatmap-0', 'bg-heatmap-1', 'bg-heatmap-2', 'bg-heatmap-3', 'bg-heatmap-4']
 const MAX_TITLES = 6
 const time = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 const day = (d: Date) =>

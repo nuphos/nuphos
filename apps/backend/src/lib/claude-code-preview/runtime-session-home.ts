@@ -24,25 +24,69 @@ const { createHash, randomUUID } = await import('node:crypto');
 const { sessionId } = JSON.parse(await fs.readFile(path.join(process.argv[2], 'params.json'), 'utf8'));
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2);
 const id = createHash('sha256').update(sessionId).digest('hex');
-const home = path.join(os.homedir(), '.nuphos', 'session-homes', id);
-const done = (result) => { process.stdout.write(JSON.stringify({ result })); process.exit(0); };
-// HOME is matched by path; a working directory follows the directory itself.
-const inUse = async (dir) => {
+const homes = path.join(os.homedir(), '.nuphos', 'session-homes');
+const home = path.join(homes, id);
+let unreadable;
+const done = (result) => { process.stdout.write(JSON.stringify({ result, unreadable })); process.exit(0); };
+// Processes of this user, each marked whether it is inside the runtime's tree:
+// descendants of the topmost ancestor of this job that runs as the same user
+// (tini in the image). The parent pid in /proc/<pid>/stat is readable for every
+// process, so the tree is known even where environ is not. A session process
+// can also sit outside it: an orphan adopted by a root pid 1 (Railway).
+const userProcesses = async () => {
+  const parent = new Map();
   for (const pid of await fs.readdir('/proc')) {
-    if (!/^\d+$/.test(pid)) continue;
-    const env = (await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => '')).split('\0');
-    const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch(() => '');
-    if (env.includes('HOME=' + home) || cwd === dir || cwd.startsWith(dir + '/')) return true;
+    const stat = /^\d+$/.test(pid) && (await fs.readFile('/proc/' + pid + '/stat', 'utf8').catch(() => ''));
+    if (stat) parent.set(pid, stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]);
+  }
+  const sameUser = async (pid) => (await fs.stat('/proc/' + pid).catch(() => null))?.uid === process.getuid();
+  let root = String(process.pid);
+  for (let pid = parent.get(root); pid && pid !== '0' && (await sameUser(pid)); pid = parent.get(pid)) root = pid;
+  const descends = (pid) => {
+    for (let at = pid; at && at !== '0'; at = parent.get(at)) if (at === root) return true;
+    return false;
+  };
+  const found = [];
+  for (const pid of parent.keys()) if (await sameUser(pid)) found.push([pid, descends(pid)]);
+  return found;
+};
+// HOME is matched by the original path; a working directory follows the
+// directory itself.
+const inUse = async (dir, byHome) => {
+  for (const [pid, inTree] of await userProcesses()) {
+    // No working directory: the process has exited, possibly an unreaped
+    // zombie whose environ is unreadable. An unreadable process in the
+    // runtime's tree counts as a user, since keeping a home is always safe;
+    // one outside it (a host's systemd --user) is not a session.
+    const cwd = await fs.readlink('/proc/' + pid + '/cwd').catch((err) => (err.code === 'ENOENT' || err.code === 'ESRCH' ? null : ''));
+    if (cwd === null) continue;
+    const env = await fs.readFile('/proc/' + pid + '/environ', 'utf8').catch(() => null);
+    if (env === null || cwd === '') {
+      if (!inTree) continue;
+      const comm = await fs.readFile('/proc/' + pid + '/comm', 'utf8').catch(() => '?');
+      unreadable = pid + ' ' + comm.trim();
+      return true;
+    }
+    if (env.split('\0').includes('HOME=' + byHome) || cwd === dir || cwd.startsWith(dir + '/')) return true;
   }
   return false;
 };
+// A job killed during the rm, or a failed rename back, leaves this home's
+// <id>.reclaim-<ms>-* behind; its next reclaim removes it once nothing uses it.
+// One younger than any job may still belong to a running job, so it waits.
+for (const name of await fs.readdir(homes).catch(() => [])) {
+  const setAt = Number(/^[0-9]+/.exec(name.startsWith(id + '.reclaim-') ? name.slice(id.length + 9) : '')?.[0]);
+  if (!(Date.now() - setAt > 10 * 60_000)) continue;
+  const left = path.join(homes, name);
+  if (!(await inUse(left, home))) await fs.rm(left, { recursive: true, force: true }).catch(() => {});
+}
 if (!(await fs.lstat(home).catch(() => null))) done('absent');
-if (await inUse(home)) done('in_use');
+if (await inUse(home, home)) done('in_use');
 // Set aside first: a session that starts now gets a fresh home, and one that
 // started during the scan is caught by the second scan and keeps this one.
-const aside = home + '.reclaim-' + randomUUID();
+const aside = home + '.reclaim-' + Date.now() + '-' + randomUUID();
 await fs.rename(home, aside);
-if (await inUse(aside)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
+if (await inUse(aside, home)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
 await fs.rm(aside, { recursive: true, force: true });
 done('removed');
 `
@@ -121,7 +165,17 @@ export async function reclaimSessionHome(sessionId: string): Promise<boolean> {
   if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
     throw new Error(`Reclaiming the session home failed: ${JSON.stringify(result)}`)
 
-  return (JSON.parse(result.stdout) as { result?: string }).result !== 'in_use'
+  const outcome = JSON.parse(result.stdout) as { result?: string; unreadable?: string }
+
+  // Kept because a process could not be inspected; a host where this repeats
+  // never reclaims anything.
+  if (outcome.unreadable)
+    logEvent('warn', 'agent.session_home_reclaim.unreadable_process', {
+      session_id: sessionId,
+      process: outcome.unreadable,
+    })
+
+  return outcome.result !== 'in_use'
 }
 
 /**

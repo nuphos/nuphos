@@ -1,8 +1,9 @@
 import Foundation
 
-/// An `@` in the composer that picks one of the viewer's other sessions. The
-/// pick becomes the session's link — what desktop sends for the same mention —
-/// so the agent can read that conversation.
+/// An `@` in the composer that picks one of the viewer's other sessions or
+/// devices. A session becomes its link — what desktop sends for the same
+/// mention — so the agent can read that conversation; a device becomes
+/// `@Label` and is turned on for the session, so the agent may run on it.
 enum SessionMention {
     /// The `@query` the draft ends with, or nil. As on desktop, an `@` only
     /// starts a mention at the start of a line or after whitespace, so an
@@ -15,15 +16,23 @@ enum SessionMention {
         return String(query)
     }
 
-    /// The draft with its trailing `@query` replaced by `link`.
-    static func insert(_ link: URL, into text: String) -> String {
+    /// The draft with its trailing `@query` replaced by `replacement`.
+    static func insert(_ replacement: String, into text: String) -> String {
         guard let at = text.lastIndex(of: "@") else { return text }
-        return String(text[..<at]) + link.absoluteString + " "
+        return String(text[..<at]) + replacement + " "
+    }
+
+    /// Whether a device's label answers the query, as desktop matches it.
+    static func matches(_ label: String, _ query: String) -> Bool {
+        query.isEmpty || label.localizedCaseInsensitiveContains(query)
     }
 }
 
-/// Where the composer looks up the viewer's other sessions for an `@`.
-struct SessionMentionSource {
+/// What an `@` in the composer offers: the viewer's devices and other sessions.
+struct MentionSource {
     let teamId: String
+    var devices: [CredentialCatalog.Item] = []
+    /// Turns a mentioned device on for the session.
+    var pickDevice: @MainActor (CredentialCatalog.Item) -> Void = { _ in }
     let search: @MainActor (String) async -> [AgentConversation]
 }

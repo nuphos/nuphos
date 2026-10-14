@@ -16,9 +16,11 @@ import {
   teamIdFromAppPath,
 } from '../../lib/appRoutes'
 import { parseAtlasLink } from '../../lib/atlasLinkMention'
+import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
+import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceAccountsResult } from './useWorkspaceAccounts'
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
@@ -70,6 +72,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
     openConversationInNewTab,
     setFirstRunPanelOpen,
   } = a
+  const openSessionBeside = useWorkspacePane()?.openSessionBeside
 
   const newTab = useCallback(() => {
     const teamId = selectScope(workspaceStore.getState())?.teamId
@@ -80,7 +83,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
   }, [setFirstRunPanelOpen, workspaceActions, workspaceStore])
 
   const openNuphosLinkInNewTab = useCallback(
-    (href: string): boolean => {
+    (href: string, beside = false): boolean => {
       const trimmed = href.trim()
       let url: URL
 
@@ -109,6 +112,14 @@ export function useWorkspaceLinkOpeners(a: Args) {
 
       if (!navigation) return false
 
+      if (beside) {
+        const sessionId = navigation.active === 'team.agent' ? navigation.agentSessionId : null
+
+        // Message text is untrusted: a malformed team id falls back to the pane's team.
+        const teamId = isTeamId(navigation.scope.teamId) ? navigation.scope.teamId : undefined
+
+        return Boolean(sessionId && openSessionBeside?.(sessionId, teamId))
+      }
       if (navigation.active === 'team.agent') {
         if (navigation.agentSessionId) {
           openConversationInNewTab(navigation.agentSessionId, navigation.scope.teamId)
@@ -146,6 +157,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
     [
       accountsByTeam,
       openConversationInNewTab,
+      openSessionBeside,
       setFirstRunPanelOpen,
       updateTab,
       workspaceActions,

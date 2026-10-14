@@ -10,3 +10,11 @@ exports.convs = [
   { who: 'LP', title: 'Draft the v2.4 release notes', agent: 'claude', meta: '1 day · Claude Code' },
   { who: 'BW', title: 'Add dark mode to settings', agent: 'claude', meta: '2 days · Claude Code' },
 ];
+// More rows for the taller iPad home screen.
+exports.more = [
+  { who: 'MC', title: 'Bump the Postgres driver', agent: 'codex', meta: '3 days · Codex' },
+  { who: 'LP', title: 'Write the onboarding checklist', agent: 'claude', meta: '4 days · Claude Code' },
+  { who: 'BW', title: 'Trim the Docker image size', agent: 'claude', meta: '5 days · MacBook Pro · Claude Code' },
+  { who: 'MC', title: 'Add retries to the webhook sender', agent: 'codex', meta: '6 days · Codex' },
+  { who: 'LP', title: 'Clean up unused feature flags', agent: 'claude', meta: '1 wk · Claude Code' },
+];

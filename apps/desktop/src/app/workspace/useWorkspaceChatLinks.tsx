@@ -13,6 +13,7 @@ import { mergeIfChanged } from '../../lib/mergeIfChanged'
 import { runtimeFilePathFromHref } from '../../lib/runtimeFileLink'
 import { isAppWebUrl } from '../../lib/webBaseUrl'
 
+import { useChatLinkMenuActions } from './useChatLinkMenuActions'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceAccountsResult } from './useWorkspaceAccounts'
@@ -63,6 +64,7 @@ export function useWorkspaceChatLinks(a: Args) {
     openConversationHere,
     openNuphosLinkInNewTab,
     openAppOpenDeepLink,
+    copyLink,
     teamId,
     accountsByTeam,
     setAccountsByTeam,
@@ -192,8 +194,9 @@ export function useWorkspaceChatLinks(a: Args) {
   // deep-link fallback (team tab / seed into chat) still keeps it in-app. A bare
   // file path opens in Files; other web links open in the built-in browser.
   const openNuphosLinkFromChat = useCallback(
-    (href: string): boolean => {
-      if (openNuphosLinkInNewTab(href)) return true
+    (href: string, beside = false): boolean => {
+      if (openNuphosLinkInNewTab(href, beside)) return true
+      if (beside) return false
       if (openBoundProviderLinkFromChat(href)) return true
       const filePath = runtimeFilePathFromHref(href)
 
@@ -244,6 +247,14 @@ export function useWorkspaceChatLinks(a: Args) {
     [boundResources, openExternalLink, openNuphosLinkInNewTab, teamId],
   )
 
+  const chatLinkMenuActions = useChatLinkMenuActions({
+    teamId,
+    copyLink,
+    openExternalLink,
+    openNuphosLinkFromChat,
+    openNuphosLinkInNewTab,
+  })
+
   // Pane props whose dependency chains root in `tabs`/`activeTab` — they churn
   // on every poll tick and switch, and one unstable prop re-renders every
   // mounted pane: the memoized pane is only as good as its least stable prop.
@@ -267,6 +278,7 @@ export function useWorkspaceChatLinks(a: Args) {
   }, [paneActive, openAppOpenDeepLink])
 
   return {
+    chatLinkMenuActions,
     openNuphosLinkFromChat,
     stableDockAgentToSidebar,
     stableOpenNuphosLinkFromChat,

@@ -11,3 +11,12 @@ export type PendingUserMessage = {
   source: string
   receivedAt: string
 }
+
+// A resource wake-up is only "<event> on <PR>"; the session reads the PR itself.
+// One identical to a parked wake-up adds nothing, so it takes no slot. Distinct
+// events keep one each, and the parked one keeps its acknowledged id.
+export function wakeUpKey(message: PendingUserMessage): string {
+  const url = message.source === 'agent.resource' ? message.metadata?.resourceUrl : undefined
+
+  return url ? `${url} ${message.renderedText}` : ''
+}

@@ -226,6 +226,95 @@ export async function nuphosApplyRuntimeDefaults(agent, params, response) {
   }
 }
 
+// One bounded snapshot per conversation, in its persistent CLI home. A killed
+// adapter cannot report failure, so an unfinished phase is deliberately left
+// as running rather than being mislabelled as a timeout or a successful restore.
+export async function nuphosTraceRestore(params, operation, restore) {
+  const env =
+    params?._meta?.claudeCode?.options?.env ??
+    params?._meta?.['ai.nuphos/codex']?.env ??
+    params?._meta?.['ai.nuphos/session']?.env ??
+    {}
+  const sessionId = env.NUPHOS_SESSION_ID
+  let record = () => {}
+  // Do not log arbitrary metadata, native error messages, prompts, or credentials.
+  if (typeof sessionId === 'string' && /^[\da-f-]{36}$/iu.test(sessionId)) {
+    try {
+      const fs = await import('node:fs')
+      const { join } = await import('node:path')
+      const { homedir } = await import('node:os')
+      const { createHash, randomUUID } = await import('node:crypto')
+      const dir = join(
+        process.env.HOME || process.env.USERPROFILE || homedir(),
+        '.nuphos',
+        'session-homes',
+        createHash('sha256').update(sessionId).digest('hex'),
+      )
+      const attemptId = randomUUID()
+      const file = join(dir, 'session-restore.json')
+      const temporary = join(dir, `.session-restore-${attemptId}.tmp`)
+      const started = performance.now()
+      const steps = []
+      try {
+        fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+        fs.renameSync(file, join(dir, 'session-restore.previous.json'))
+      } catch {
+        /* First attempt or unavailable storage; stderr still works. */
+      }
+      record = (phase, status = 'running') => {
+        const elapsedMs = Math.round(performance.now() - started)
+        // Phase names are constants at the instrumented call sites.
+        steps.push({ phase, elapsedMs })
+        if (steps.length > 12) steps.shift()
+        const snapshot = {
+          event: 'agent.session.restore',
+          sessionId,
+          attemptId,
+          operation,
+          pid: process.pid,
+          at: new Date().toISOString(),
+          status,
+          phase,
+          elapsedMs,
+          steps,
+        }
+        const line = `${JSON.stringify(snapshot)}\n`
+        try {
+          process.stderr.write(line)
+        } catch {
+          /* Diagnostics cannot fail a restore. */
+        }
+        try {
+          fs.writeFileSync(temporary, line, { mode: 0o600 })
+          fs.renameSync(temporary, file)
+        } catch {
+          try {
+            fs.unlinkSync(temporary)
+          } catch {
+            /* Best effort only. */
+          }
+        }
+      }
+    } catch {
+      /* A read-only home must not prevent session restoration. */
+    }
+  }
+  let phase = 'skills-sync'
+  const step = (next) => {
+    phase = next
+    record(phase)
+  }
+  step(phase)
+  try {
+    const result = await restore(step)
+    record('complete', 'completed')
+    return result
+  } catch (error) {
+    record(phase, 'failed')
+    throw error
+  }
+}
+
 export function patchRuntimeDefaults(source) {
   const anchor = 'async newSession(params) {'
   // Skills live in the container, so a session reopened after a restart needs them again.
@@ -242,9 +331,21 @@ export function patchRuntimeDefaults(source) {
   }
   async nuphosNewSession(params) {`,
   )
-  for (const handler of reopenAnchors)
-    body = body.replace(handler, `${handler}\n        await nuphosSyncRuntimeSkills(params);`)
-  return `${shebang}${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${body}`
+  for (const handler of reopenAnchors) {
+    const method = handler.includes('loadSession') ? 'loadSession' : 'resumeSession'
+    body = body.replace(
+      handler,
+      `${handler}
+        return nuphosTraceRestore(params, '${method}', async (nuphosRestorePhase) => {
+            await nuphosSyncRuntimeSkills(params);
+            nuphosRestorePhase('adapter-restore');
+            return this.nuphos_${method}(params, nuphosRestorePhase);
+        });
+    }
+    async nuphos_${method}(params, nuphosRestorePhase) {`,
+    )
+  }
+  return `${shebang}${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${nuphosTraceRestore.toString()}\n${body}`
 }
 
 // Claude only. The sender of a turn may differ from the last one's, so the personal

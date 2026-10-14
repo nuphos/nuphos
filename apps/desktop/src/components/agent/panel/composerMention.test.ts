@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { matchMembers, mentionQuery, sessionMentionUrl } from './composerMention.ts'
+import { matchDevices, matchMembers, mentionQuery, sessionMentionUrl } from './composerMention.ts'
 
 import type { TeamMember } from '../../../types'
 
@@ -48,4 +48,17 @@ test('members match by name or email, case-insensitively, skipping removed ones'
 
 test("a session mention is the session's canonical link", () => {
   assert.equal(sessionMentionUrl('t1', 's/1'), 'https://nuphos.ai/teams/t1/agent/s%2F1')
+})
+
+test('devices match by label, case-insensitively', () => {
+  const devices = [
+    { deviceId: 'd1', label: "Ann's MacBook Pro", platform: 'darwin' },
+    { deviceId: 'd2', label: 'build-box', platform: 'linux' },
+  ]
+
+  assert.deepEqual(
+    matchDevices(devices, 'macbook').map((d) => d.deviceId),
+    ['d1'],
+  )
+  assert.equal(matchDevices(devices, '').length, 2)
 })

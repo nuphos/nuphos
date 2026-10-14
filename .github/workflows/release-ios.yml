@@ -204,16 +204,19 @@ jobs:
           echo "asc $(asc --version)" >> "$GITHUB_STEP_SUMMARY"
 
           # Everything that can fail without touching App Store Connect runs
-          # before the submission is withdrawn. published.txt lists the
-          # published screenshot set in order, each with its SHA-256; see
-          # app-store/README.md.
+          # before the submission is withdrawn. published.txt lists every
+          # published screenshot set in order, each image with its display
+          # type and SHA-256; see app-store/README.md.
           SHOTS="$RUNNER_TEMP/screenshots"
-          mkdir -p "$SHOTS"
-          while read -r SHA URL; do
-            curl -fsSL --retry 3 -o "$SHOTS/$(basename "$URL")" "$URL"
-            echo "$SHA  $SHOTS/$(basename "$URL")" | shasum -a 256 -c - >/dev/null
+          while read -r TYPE SHA URL; do
+            mkdir -p "$SHOTS/$TYPE"
+            curl -fsSL --retry 3 -o "$SHOTS/$TYPE/$(basename "$URL")" "$URL"
+            echo "$SHA  $SHOTS/$TYPE/$(basename "$URL")" | shasum -a 256 -c - >/dev/null
           done < app-store/published.txt
-          asc screenshots validate --path "$SHOTS" --device-type IPHONE_67 >/dev/null
+          TYPES="$(awk '!seen[$1]++ { print $1 }' app-store/published.txt)"
+          for TYPE in $TYPES; do
+            asc screenshots validate --path "$SHOTS/$TYPE" --device-type "$TYPE" >/dev/null
+          done
 
           # A version cannot be edited while a submission holds it. Only
           # submissions that carry an App Store version are withdrawn; in-app
@@ -257,12 +260,35 @@ jobs:
           fi
           asc localizations update --version "$VERSION_ID" --locale en-US --whats-new "$(cat whats-new.txt)" >/dev/null
 
-          asc screenshots upload --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US \
-            --path "$SHOTS" --device-type IPHONE_67 --replace --confirm >/dev/null
+          for TYPE in $TYPES; do
+            asc screenshots upload --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US \
+              --path "$SHOTS/$TYPE" --device-type "$TYPE" --replace --confirm >/dev/null
+          done
           {
             echo 'Screenshots on this version:'
             asc screenshots list --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US --output markdown
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # Submit only if the version shows exactly the published sets: no
+          # other display type, and in each set the same files, in order, with
+          # the MD5 App Store Connect recorded for the uploaded source file.
+          # That checksum can be empty for a moment after an upload.
+          while read -r TYPE SHA URL; do
+            echo "APP_$TYPE $(basename "$URL") $(md5 -q "$SHOTS/$TYPE/$(basename "$URL")")"
+          done < app-store/published.txt | sort -s -k1,1 > "$RUNNER_TEMP/expected.txt"
+          for _ in $(seq 1 12); do
+            asc screenshots list --app "$APP_ID" --version-id "$VERSION_ID" --locale en-US --output json \
+              | jq -r '.sets | sort_by(.set.attributes.screenshotDisplayType)[]
+                  | .set.attributes.screenshotDisplayType as $t
+                  | .screenshots[] | "\($t) \(.attributes.fileName) \(.attributes.sourceFileChecksum // "")"' \
+              > "$RUNNER_TEMP/actual.txt"
+            if cmp -s "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/actual.txt"; then break; fi
+            sleep 10
+          done
+          if ! diff -u "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/actual.txt"; then
+            echo '::error::The screenshots on the version do not match app-store/published.txt; nothing was submitted.'
+            exit 1
+          fi
 
           asc review submit --app "$APP_ID" --version-id "$VERSION_ID" --build-id "$BUILD_ID" --confirm
           echo "Version $VERSION submitted for App Store review." >> "$GITHUB_STEP_SUMMARY"

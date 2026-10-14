@@ -2,9 +2,12 @@ name: CI
 
 on:
   pull_request:
+  merge_group:
 
+# Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
+# queued runs never cancel each other; a PR's new push still cancels its old run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:

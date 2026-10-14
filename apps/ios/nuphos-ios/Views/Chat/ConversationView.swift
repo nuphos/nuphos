@@ -65,9 +65,19 @@ struct ConversationView: View {
                     canSteer: session.canSteer,
                     allowsAttachments: !session.canSteer,
                     failedSubmission: $session.failedSubmission,
-                    sessionMentions: SessionMentionSource(teamId: session.teamId) { query in
-                        await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
-                    },
+                    mentions: MentionSource(
+                        teamId: session.teamId,
+                        // Only someone who may change the session's devices can bring one in.
+                        devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
+                        pickDevice: { device in
+                            var selection = session.credentialAccess ?? CredentialSelection()
+                            if !selection.contains(device) { selection.toggle(device); session.credentialAccess = selection }
+                        },
+                        search: { query in
+                            await store.loadCredentialOptions()
+                            return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                        }
+                    ),
                     onSend: { session.send($0) },
                     onStop: { session.stop() }
                 ) {
@@ -255,10 +265,14 @@ struct ConversationView: View {
         .frame(maxWidth: 240)
     }
 
-    /// Plan links open the plan here; everything else leaves the app.
+    /// Plan links open the plan here and session links open that chat the
+    /// way a tapped notification does; everything else leaves the app.
     private func open(link url: URL) {
         if let target = PlanLink.target(in: url) {
             planLink = target
+        } else if let link = SessionLink.target(in: url) {
+            guard link.sessionId != session.sessionId else { return }
+            PushNotifications.shared.pendingTarget = PushTarget(teamId: link.teamId, sessionId: link.sessionId)
         } else {
             openURL(url)
         }
