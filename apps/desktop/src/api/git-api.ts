@@ -1,6 +1,7 @@
 import type {
   GithubMergeMethod,
   GithubPullRef,
+  GithubRefKey,
   GithubReviewEvent,
 } from '../types/github-pr-detail.ts'
 
@@ -26,6 +27,7 @@ export const gitApi = {
     pullNumber: number,
   ) => window.api.atlasGetGithubPull(teamId, installationId, owner, repo, pullNumber),
   githubCliViewer: () => window.api.githubCliViewer(),
+  githubCliRefSummary: (ref: GithubRefKey) => window.api.githubCliRefSummary(ref),
   githubCliComment: (pull: GithubPullRef, body: string) => window.api.githubCliComment(pull, body),
   githubCliReview: (pull: GithubPullRef, event: GithubReviewEvent, body: string) =>
     window.api.githubCliReview(pull, event, body),

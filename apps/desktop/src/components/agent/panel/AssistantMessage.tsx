@@ -7,25 +7,24 @@ import { isPlanProposalToolName } from '../planReference'
 
 import { extractProposalIdFromOutput } from './applyEvent'
 import { ConnectToolPart } from './ConnectCard'
-import { LocalUrlStrip } from './LocalUrlChip'
-import { turnLocalUrls } from './localUrls'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
 import { renderPartRange } from './renderPartRange'
+import { steeringMessage } from './steering'
 import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
 import { StoppedTurnEnding } from './StoppedTurnEnding'
-import { foldedTurnLayout, isConnectCardPart, turnDisplayParts } from './toolRuns'
 import { assistantPartKey, lastVisiblePartIndex, turnWorkSeconds } from './streamText'
 import { AssistantPlanPart, ChartToolPart } from './toolParts'
 import { ToolPartView } from './ToolPartView'
+import { foldedTurnLayout, isConnectCardPart, turnDisplayParts } from './toolRuns'
 import { DownloadFilesCard } from './transferCards'
 import { turnFoldSplitIndex } from './turnFold'
 import { TurnInterruptedPartView } from './TurnInterruptedPartView'
-import { steeringMessage } from './steering'
-import { useLocalUrlLinks } from './useLocalUrlLinks'
+import { TurnLinkChips } from './TurnLinkChips'
+import { useAgentLinks } from './useAgentLinks'
 import { UserMessage } from './UserMessage'
 
 import type { Message, MessageRating } from './model'
@@ -90,7 +89,7 @@ export const AssistantMessage = memo(
     ) => void
     onRequestFeedbackComment?: (messageId: string) => void
   }) => {
-    const renderAgentLink = useLocalUrlLinks(onOpenNuphosLink)
+    const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
     const normalizedParts = normalizeRecallFirstOrder(message.parts)
     const orderedParts = withoutNoResponsePlaceholder(normalizedParts)
     const stoppedCalls = streaming ? null : stoppedTurnCalls(orderedParts, message.stoppedByUser)
@@ -283,7 +282,7 @@ export const AssistantMessage = memo(
           ))}
         {planIndices.map((i) => renderMessagePart(displayParts[i], i))}
         {!streaming && (
-          <LocalUrlStrip urls={turnLocalUrls(orderedParts)} onOpen={onOpenNuphosLink} />
+          <TurnLinkChips parts={orderedParts} teamId={teamId} onOpen={onOpenNuphosLink} />
         )}
         {stoppedCalls !== null && <StoppedTurnEnding calls={stoppedCalls} />}
         {!streaming && copyableText && (
