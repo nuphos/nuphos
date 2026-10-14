@@ -30,16 +30,17 @@ export function buildSkillColumns(shadowed?: ReadonlySet<string>): Column<TeamSk
                 no SKILL.md
               </span>
             )}
-            {shadowed?.has(row.name) && (
-              <span
-                className="inline-flex items-center gap-0.5 text-amber-400"
-                title="A team skill has this name, and the agent uses the team skill. Rename this one to use it."
-              >
-                <AlertTriangle className="w-3 h-3" strokeWidth={1.8} />
-                team skill used instead
-              </span>
-            )}
           </div>
+          {/* On its own line: beside the name it squeezed the name out. */}
+          {shadowed?.has(row.name) && (
+            <div
+              className="mt-0.5 flex items-center gap-0.5 text-[11px] text-amber-400"
+              title="A team skill has this name, and the agent uses the team skill. Rename this one to use it."
+            >
+              <AlertTriangle className="w-3 h-3 flex-shrink-0" strokeWidth={1.8} />
+              <span className="truncate">team skill used instead</span>
+            </div>
+          )}
         </div>
       ),
     },
