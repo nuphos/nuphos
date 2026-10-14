@@ -20,6 +20,8 @@ export type QuotaHistoryRow = {
   windows: { id: string; label: string; data: MetricPoint[] }[]
   /** Stretches of two or more buckets in which nothing at all was read for this agent. */
   gaps: MetricGap[]
+  /** Every bucket's highest use across the agent's windows; null where nothing was read. */
+  peak: MetricPoint[]
 }
 
 /** Every bucket of the range, so a stretch nobody read stays on the axis. */
@@ -98,6 +100,11 @@ export function quotaHistoryRows(
           data: drawn.map((at) => ({ at, value: used[i]?.get(at) ?? null })),
         })),
         gaps: gapsOf(buckets, read, bridged, step, nowMs),
+        peak: buckets.map((at) => {
+          const values = used.flatMap((u) => u.get(at) ?? [])
+
+          return { at, value: values.length > 0 ? Math.max(...values) : null }
+        }),
       },
     ]
   })

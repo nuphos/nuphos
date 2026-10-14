@@ -1,7 +1,7 @@
 import './agents.css'
+import { Dialog } from '@base-ui/react/dialog'
 import { useEffect, useState } from 'react'
-import { Bot, ChevronRight } from 'lucide-react'
-import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { X } from 'lucide-react'
 
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
@@ -30,6 +30,9 @@ export function AgentSection({
 }) {
   const [adding, setAdding] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Kept apart from the selection so the panel still has its agent while it slides out.
+  const [open, setOpen] = useState(false)
+  const [page, setPage] = useState<HTMLDivElement | null>(null)
   const catalog = useRuntimeInstances(teamId, refreshKey)
   const quotas = useRuntimeQuotas(teamId, catalog.instances)
   const instances = catalog.instances.filter(
@@ -38,7 +41,10 @@ export function AgentSection({
       instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
   )
   const selected = instances.find((instance) => instance.id === selectedId)
-  const online = instances.filter((instance) => instance.status === 'active').length
+  const select = (id: string) => {
+    setSelectedId(id)
+    setOpen(true)
+  }
 
   const { isActive } = useWorkspaceTab()
 
@@ -58,7 +64,7 @@ export function AgentSection({
             key={teamId}
             teamId={teamId}
             onClose={() => setAdding(false)}
-            onAdded={setSelectedId}
+            onAdded={select}
           />
         )}
         {catalog.error && (
@@ -85,92 +91,46 @@ export function AgentSection({
           </p>
         )}
         {instances.length > 0 && (
-          <>
-            <div className="flex min-h-0 flex-1">
-              <nav
-                aria-label="Agents"
-                className="flex w-56 shrink-0 flex-col border-r border-zGray-800/60 bg-surface/40 lg:w-72"
-              >
-                <div className="flex items-center justify-between px-5 py-4 text-[11px] text-tertiary">
-                  <span className="font-medium tracking-wide">{instances.length} agents</span>
-                  <span>{online} enabled</span>
-                </div>
-                <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2.5 pb-4">
-                  {instances.map((instance) => {
-                    const selected = selectedId === instance.id
-
-                    return (
-                      <button
-                        key={instance.id}
-                        type="button"
-                        aria-current={selected ? 'page' : undefined}
-                        onClick={() => setSelectedId(instance.id)}
-                        className={`t-agents-row group flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60 ${selected ? 'border-zViolet-500/25 bg-zViolet-500/[0.07] text-main shadow-sm' : 'border-transparent text-secondary hover:bg-zGray-800/40'}`}
-                      >
-                        <span
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${selected ? 'border-zViolet-500/20 bg-main' : 'border-zGray-800/70 bg-main/60'}`}
-                        >
-                          <AgentProviderIcon
-                            provider={instance.provider}
-                            className="h-[18px] w-[18px]"
-                          />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium">
-                            {instance.label}
-                          </span>
-                          <span className="mt-1 flex items-center gap-1.5 text-[11px] text-tertiary">
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${instance.status === 'active' ? 'bg-zViolet-400' : 'bg-zGray-600'}`}
-                            />
-                            {instance.kind === 'managed'
-                              ? 'Cloud'
-                              : instance.kind === 'external'
-                                ? 'Self-hosted'
-                                : 'Development'}
-                            {instance.status !== 'active' && ' · Disabled'}
-                          </span>
-                        </span>
-                        <ChevronRight
-                          aria-hidden="true"
-                          className={`h-3.5 w-3.5 shrink-0 ${selected ? 'text-zViolet-400' : 'text-tertiary opacity-0 group-hover:opacity-60'}`}
-                        />
-                      </button>
-                    )
-                  })}
-                </div>
-              </nav>
-              <div className="min-w-0 flex-1 overflow-y-auto p-5 lg:p-8">
-                <div
-                  key={selected?.id ?? 'empty'}
-                  className="t-panel-slide t-agents-detail h-full"
-                  data-open="true"
-                >
-                  {selected ? (
-                    <RuntimeInstanceCard
-                      key={selected.id}
-                      teamId={teamId}
-                      instance={selected}
-                      quota={quotas.get(selected.id)}
-                      isAdmin={isAdmin}
-                    />
-                  ) : (
-                    <div className="mx-auto w-full max-w-5xl">
-                      <RuntimeQuotaHistory
-                        teamId={teamId}
-                        instances={instances}
-                        onSelect={setSelectedId}
-                      />
-                      <p className="flex items-center gap-2 text-xs text-tertiary">
-                        <Bot className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                        Select an agent to see its models, sign-in and runtime details.
-                      </p>
-                    </div>
-                  )}
-                </div>
+          <div ref={setPage} className="relative flex min-h-0 flex-1">
+            <div className="min-w-0 flex-1 overflow-y-auto p-5 lg:p-8">
+              <div className="mx-auto w-full max-w-5xl">
+                <RuntimeQuotaHistory
+                  teamId={teamId}
+                  instances={instances}
+                  quotas={quotas}
+                  selectedId={open ? selectedId : null}
+                  onSelect={select}
+                />
               </div>
             </div>
-          </>
+            <Dialog.Root open={open && selected !== undefined} onOpenChange={setOpen}>
+              <Dialog.Portal container={page}>
+                <Dialog.Backdrop className="absolute inset-0 z-30 bg-black/10 transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+                <Dialog.Popup className="absolute inset-y-0 right-0 z-30 flex w-[min(680px,100%)] flex-col border-l border-zGray-800 bg-surface shadow-2xl shadow-black/20 outline-none transition-transform duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:translate-x-full data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:translate-x-full">
+                  <div className="flex items-center justify-end px-3 pt-3">
+                    <Dialog.Title className="sr-only">{selected?.label}</Dialog.Title>
+                    <Dialog.Close
+                      aria-label="Close"
+                      className="rounded-md p-1.5 text-tertiary outline-none hover:bg-zGray-800/60 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
+                    >
+                      <X className="h-4 w-4" />
+                    </Dialog.Close>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-6">
+                    {selected && (
+                      <RuntimeInstanceCard
+                        key={selected.id}
+                        teamId={teamId}
+                        instance={selected}
+                        quota={quotas.get(selected.id)}
+                        isAdmin={isAdmin}
+                      />
+                    )}
+                  </div>
+                </Dialog.Popup>
+              </Dialog.Portal>
+            </Dialog.Root>
+          </div>
         )}
       </div>
     </div>

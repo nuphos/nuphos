@@ -1,17 +1,18 @@
-import { ChevronRight } from 'lucide-react'
+import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
-import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { GAP_FILL, MetricChart, RangeSwitch } from './MetricChart'
+import { AGENT_USAGE_COLUMNS, AgentUsageRow } from './AgentUsageRow'
+import { GAP_FILL, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
 
 import type { QuotaHistoryRow } from './quotaHistoryRows'
 import type {
   RuntimeInstance,
+  RuntimeQuota,
   RuntimeQuotaHistoryRange,
   RuntimeQuotaHistorySeries,
 } from '../../types/runtime'
@@ -21,6 +22,7 @@ const RANGE_OPTIONS = (Object.keys(QUOTA_HISTORY_RANGES) as RuntimeQuotaHistoryR
 )
 // A reading is held ten minutes on the backend, so nothing new arrives sooner.
 const POLL_MS = 600_000
+const LEGEND_STEPS = [10, 40, 70, 95]
 
 const percent = (value: number) => `${String(Math.round(value))}%`
 
@@ -33,76 +35,105 @@ function timeLabelFor(range: RuntimeQuotaHistoryRange): (at: number) => string {
     })
 }
 
-function AgentUsageRow({
-  row,
+/** Darker the more of the plan a bucket used; a used-up window turns orange. */
+function cellColor(value: number | null): string | undefined {
+  if (value === null) return GAP_FILL
+  if (value >= 100) return undefined
+
+  return `rgba(164, 105, 255, ${String(0.12 + (0.88 * value) / 100)})`
+}
+
+function UsageHeatmap({
+  rows,
   range,
   nowMs,
   onSelect,
 }: {
-  row: QuotaHistoryRow
+  rows: QuotaHistoryRow[]
   range: RuntimeQuotaHistoryRange
   nowMs: number
   onSelect: (runtimeId: string) => void
 }) {
-  const { instance } = row
-  const domain: [number, number] = [nowMs - QUOTA_HISTORY_RANGES[range].hours * 3_600_000, nowMs]
+  const timeLabel = timeLabelFor(range)
+  const from = nowMs - QUOTA_HISTORY_RANGES[range].hours * 3_600_000
+  const ticks = [0, 0.25, 0.5, 0.75].map((f) => from + f * (nowMs - from))
 
   return (
-    <div className="rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3">
-      <button
-        type="button"
-        onClick={() => onSelect(instance.id)}
-        className="group -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-2.5 rounded-lg px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
-      >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zGray-800/70 bg-main">
-          <AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />
+    <div className="mb-4 rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3">
+      <div className="mb-3 flex items-center gap-1.5 text-[11px] text-tertiary">
+        <span className="mr-auto text-[13px] font-medium text-main">
+          Highest plan window, every agent
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">
-          {instance.label}
-        </span>
-        <span className="shrink-0 text-[11px] text-tertiary">
-          {AGENT_PROVIDER[instance.provider].label}
-        </span>
-        <ChevronRight
-          aria-hidden="true"
-          className="h-3.5 w-3.5 shrink-0 text-tertiary opacity-0 transition-opacity group-hover:opacity-70"
-        />
-      </button>
-      <div
-        className="mt-3 grid gap-x-6 gap-y-4"
-        style={{
-          gridTemplateColumns: `repeat(${String(Math.min(row.windows.length, 3))}, minmax(0, 1fr))`,
-        }}
-      >
-        {row.windows.map((window) => (
-          <MetricChart
-            key={window.id}
-            title={window.label}
-            data={window.data}
-            format={percent}
-            timeLabel={timeLabelFor(range)}
-            domain={domain}
-            max={100}
-            gaps={row.gaps}
+        <span>0%</span>
+        {LEGEND_STEPS.map((step) => (
+          <span
+            key={step}
+            aria-hidden="true"
+            className="h-2.5 w-2.5 rounded-sm"
+            style={{ backgroundColor: cellColor(step) }}
           />
         ))}
+        <span>99%</span>
+        <span aria-hidden="true" className="ml-2 h-2.5 w-2.5 rounded-sm bg-zOrangered-400" />
+        <span>At limit</span>
+      </div>
+      <div className="space-y-[3px]">
+        {rows.map((row) => (
+          <button
+            key={row.instance.id}
+            type="button"
+            onClick={() => onSelect(row.instance.id)}
+            className="group flex w-full items-center gap-3 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
+          >
+            <span className="flex w-40 shrink-0 items-center gap-2 text-[11.5px] text-secondary group-hover:text-main">
+              <AgentProviderIcon provider={row.instance.provider} className="h-3 w-3 shrink-0" />
+              <span className="truncate">{row.instance.label}</span>
+            </span>
+            <span className="flex min-w-0 flex-1 gap-[2px]">
+              {row.peak.map((point) => (
+                <span
+                  key={point.at}
+                  title={`${timeLabel(point.at)} · ${point.value === null ? 'No reading' : percent(point.value)}`}
+                  className={clsx(
+                    'h-3 min-w-0 flex-1 rounded-[2px]',
+                    point.value !== null && point.value >= 100 && 'bg-zOrangered-400',
+                  )}
+                  style={{ backgroundColor: cellColor(point.value) }}
+                />
+              ))}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-3 font-mono text-[10.5px] text-tertiary">
+        <span className="w-40 shrink-0" />
+        <span className="flex min-w-0 flex-1 justify-between">
+          {ticks.map((at) => (
+            <span key={at}>{timeLabel(at)}</span>
+          ))}
+          <span>Now</span>
+        </span>
       </div>
     </div>
   )
 }
 
 /** How much of each agent's subscription the team used over the last day, week or
- *  month, one row per agent with a chart per usage window. */
+ *  month: a heatmap of every agent's busiest plan window, then one row per agent. */
 export function RuntimeQuotaHistory({
   teamId,
   instances,
+  quotas,
+  selectedId,
   onSelect,
 }: {
   teamId: string
   instances: readonly RuntimeInstance[]
+  quotas: ReadonlyMap<string, RuntimeQuota>
+  selectedId: string | null
   onSelect: (runtimeId: string) => void
 }) {
-  const [range, setRange] = useState<RuntimeQuotaHistoryRange>('7d')
+  const [range, setRange] = useState<RuntimeQuotaHistoryRange>('1d')
   const [loaded, setLoaded] = useState<{
     range: RuntimeQuotaHistoryRange
     series: RuntimeQuotaHistorySeries[]
@@ -130,14 +161,15 @@ export function RuntimeQuotaHistory({
     }
   }, [teamId, range])
 
-  if (!loaded) return null
-  const rows = quotaHistoryRows(loaded.series, instances, loaded.range, loaded.nowMs)
+  const rows = loaded ? quotaHistoryRows(loaded.series, instances, loaded.range, loaded.nowMs) : []
+  const rowById = new Map(rows.map((row) => [row.instance.id, row]))
+  const shownRange = loaded?.range ?? range
 
   return (
     <section className="mb-10">
       <PanelHeading
         title="Subscription usage"
-        hint={`Highest share of each plan window used per ${QUOTA_HISTORY_RANGES[loaded.range].bucketLabel}`}
+        hint={`Highest share of each plan window used per ${QUOTA_HISTORY_RANGES[shownRange].bucketLabel}`}
         right={
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 text-[11px] text-tertiary">
@@ -157,24 +189,35 @@ export function RuntimeQuotaHistory({
           </div>
         }
       />
-      {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
-          No usage recorded in this range yet. A reading is kept each time an agent reports its
-          usage while someone on the team has Nuphos open.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {rows.map((row) => (
-            <AgentUsageRow
-              key={row.instance.id}
-              row={row}
-              range={loaded.range}
-              nowMs={loaded.nowMs}
-              onSelect={onSelect}
-            />
-          ))}
+      {loaded &&
+        (rows.length === 0 ? (
+          <p className="mb-4 rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
+            No usage recorded in this range yet. A reading is kept each time an agent reports its
+            usage while someone on the team has Nuphos open.
+          </p>
+        ) : (
+          <UsageHeatmap rows={rows} range={loaded.range} nowMs={loaded.nowMs} onSelect={onSelect} />
+        ))}
+      <div className="overflow-hidden rounded-xl border border-zGray-800/60 bg-surface/40">
+        <div
+          className={`grid ${AGENT_USAGE_COLUMNS} border-b border-zGray-800/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary`}
+        >
+          <span>Agent</span>
+          <span>Runs on</span>
+          <span>Usage</span>
+          <span>Last {QUOTA_HISTORY_RANGES[shownRange].label}</span>
         </div>
-      )}
+        {instances.map((instance) => (
+          <AgentUsageRow
+            key={instance.id}
+            instance={instance}
+            quota={quotas.get(instance.id)}
+            row={rowById.get(instance.id)}
+            selected={selectedId === instance.id}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
     </section>
   )
 }

@@ -1,17 +1,3 @@
-/* Reuse the installed transitions.dev panel reveal and shared motion scale. */
-.t-agents-detail {
-  --panel-translate-y: var(--distance-base);
-  --panel-open-dur: var(--duration-fast);
-}
-
-@starting-style {
-  .t-agents-page .t-agents-detail[data-open='true'] {
-    transform: translateY(var(--panel-translate-y));
-    opacity: 0;
-    filter: blur(var(--panel-blur));
-  }
-}
-
 .t-agents-row {
   transition:
     background-color var(--duration-quick) var(--ease-smooth-out),
@@ -20,18 +6,12 @@
     box-shadow var(--duration-quick) var(--ease-smooth-out);
 }
 
-.t-agents-row > svg {
-  transition: opacity var(--duration-quick) var(--ease-smooth-out);
-}
-
 .t-agents-page [role='progressbar'] > * {
   transition: width var(--duration-fast) var(--ease-smooth-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .t-agents-detail,
   .t-agents-row,
-  .t-agents-row > svg,
   .t-agents-page [role='progressbar'] > * {
     transition: none !important;
   }
