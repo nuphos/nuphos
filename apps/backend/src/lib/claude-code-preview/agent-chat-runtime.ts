@@ -210,11 +210,12 @@ export async function runClaudeCodePreviewPrompt(args: {
     )
 
     if (activeTurn.cancelled) return { stopReason: 'cancelled' }
+    // The lead ends with the current message's header, nearest its words.
     const lead = [
-      await backgroundWorkPrompt(session, fresh, args),
       attachments.length
         ? 'Attached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
         : '',
+      await backgroundWorkPrompt(session, fresh, args),
     ]
       .filter(Boolean)
       .join('\n\n')

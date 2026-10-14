@@ -85,9 +85,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
 
 /** Called only at the model boundary; never store this prefix in message parts. */
 export function renderAttributedMessage(id: string, text: string, metadata: unknown): string {
-  const header = attributionHeader(id, metadata)
-
-  return header ? `${header}\n\n${text}` : text
+  return [attributionHeader(id, metadata), text].filter(Boolean).join('\n\n')
 }
 
 /** Everything before one message body: its metadata block and any fenced replied-to message. */
