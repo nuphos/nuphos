@@ -55,11 +55,13 @@ fun CredentialPickerSheet(
             catalog.isEmpty -> Text("No computers or IAM available. Connect a computer or cloud account in Nuphos to use it here.", modifier = Modifier.padding(24.dp))
             else -> LazyColumn {
                 catalog.sections.forEach { section ->
+                    val rows = section.items.filter { !it.unavailable || selection.contains(it) }
+                    if (rows.isEmpty()) return@forEach
                     item { Text(section.provider.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.primary) }
                     if (section.provider.optionsKey == "devices") {
                         item { Text("Allow this conversation to operate the computers you select.", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
                     }
-                    items(section.items.filter { !it.unavailable || selection.contains(it) }, key = { it.id }) { item ->
+                    items(rows, key = { it.id }) { item ->
                         val computer = section.provider.optionsKey == "devices"
                         ListItem(
                             headlineContent = { Text(item.label) },

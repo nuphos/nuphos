@@ -259,6 +259,14 @@ export function usableDeviceIds(devices: AgentCredentialOptions['devices'] | und
   return (devices ?? []).filter((device) => device.available !== false).map((d) => d.deviceId)
 }
 
+// Select-all adds the usable devices; a selected unavailable one stays selected.
+export function selectAllDevices(
+  selectedIds: string[],
+  devices: AgentCredentialOptions['devices'],
+): string[] {
+  return [...new Set([...selectedIds, ...usableDeviceIds(devices)])]
+}
+
 export function buildDeviceCredentialSections(
   allDevices: AgentCredentialOptions['devices'],
   selectedIds: string[],

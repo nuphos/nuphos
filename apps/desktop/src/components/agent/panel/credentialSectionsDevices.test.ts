@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { buildDeviceCredentialSections, usableDeviceIds } from './credentialSections.ts'
+import {
+  buildDeviceCredentialSections,
+  selectAllDevices,
+  usableDeviceIds,
+} from './credentialSections.ts'
 
 describe('device credential sections', () => {
   test('shows usable devices and a selected offline one, marked, so it can be unticked', () => {
@@ -35,6 +39,20 @@ describe('device credential sections', () => {
         { deviceId: 'pc', label: 'PC', platform: 'win32' },
       ]),
       ['m1', 'pc'],
+    )
+  })
+
+  test('select-all adds the usable devices and keeps a selected unavailable one', () => {
+    assert.deepEqual(
+      selectAllDevices(
+        ['m5'],
+        [
+          { deviceId: 'm1', label: 'M1', platform: 'darwin', available: true },
+          { deviceId: 'm5', label: 'M5', platform: 'darwin', available: false },
+          { deviceId: 'old', label: 'M1', platform: 'darwin', available: false },
+        ],
+      ),
+      ['m5', 'm1'],
     )
   })
 })

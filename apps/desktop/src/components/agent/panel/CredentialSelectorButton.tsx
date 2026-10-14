@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
 
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
-import { buildDeviceCredentialSections, shownDevices, usableDeviceIds } from './credentialSections'
+import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from './credentialSections'
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
 import { useCredentialSections } from './credentialSelectorButtonHooks'
 import { CredentialSelectorSectionList } from './credentialSelectorButtonSections'
@@ -52,13 +52,7 @@ function SelectionButton({
 
     onChange(
       devices
-        ? // Adds the usable ones; a selected unavailable device stays selected.
-          {
-            ...value,
-            deviceIds: select
-              ? [...new Set([...value.deviceIds, ...usableDeviceIds(options.devices)])]
-              : [],
-          }
+        ? { ...value, deviceIds: select ? selectAllDevices(value.deviceIds, options.devices) : [] }
         : { ...next, deviceIds: value.deviceIds },
     )
   }
