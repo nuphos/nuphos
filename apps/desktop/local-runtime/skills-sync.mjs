@@ -105,6 +105,9 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
             if ((await fs.lstat(skillsDir).catch(() => null))?.isSymbolicLink())
               await fs.rm(skillsDir, { force: true })
             await fs.mkdir(skillsDir, { recursive: true })
+            // The marker goes first: a run cut off halfway must not leave a partial
+            // tree that later runs take for the complete one.
+            await fs.rm(revisionFile, { force: true })
             for (const entry of await fs.readdir(skillsDir))
               await fs.rm(path.join(skillsDir, entry), { recursive: true, force: true })
             await fs.cp(staging, skillsDir, { recursive: true })
@@ -186,7 +189,9 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
       : await fs.readFile(revisionFile, 'utf8').catch(() => '')
   // The part of the credential that says whose it is; the rest changes on every mint.
   const holder = (credential) => credential.split('.')[1] ?? ''
-  let syncedFor = holder(token)
+  // Unknown until a sync here succeeds: a reopened session finds whatever an earlier
+  // process left in this home, so the first failed sync empties it.
+  let syncedFor
   const syncPersonal = async (timeoutMs, atPrompt) => {
     const before = await installed()
     const credentials = options?.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
@@ -199,6 +204,8 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     const usable = refreshed && !/[\u0000-\u001f"\\]/u.test(refreshed)
     // Opening a session may use the credential the session came with. A prompt may
     // not: without this turn's own credential, nobody's personal skills are installed.
+    // (With no credentials directory at all there is no per-turn credential to prefer;
+    // OpenAB sets it for every session it runs.)
     const credential = usable ? refreshed : atPrompt && credentials ? '' : token
 
     if (!credential) {

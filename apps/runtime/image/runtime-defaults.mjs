@@ -97,7 +97,9 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       : await fs.readFile(revisionFile, 'utf8').catch(() => '')
   // The part of the credential that says whose it is; the rest changes on every mint.
   const holder = (credential) => credential.split('.')[1] ?? ''
-  let syncedFor = holder(token)
+  // Unknown until a sync here succeeds: a reopened session finds whatever an earlier
+  // process left in this home, so the first failed sync empties it.
+  let syncedFor
   const syncPersonal = async (timeoutMs, atPrompt) => {
     const before = await installed()
     const credentials = run?.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
@@ -110,6 +112,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     const usable = refreshed && !/[\u0000-\u001f"\\]/u.test(refreshed)
     // Opening a session may use the credential the session came with. A prompt may
     // not: without this turn's own credential, nobody's personal skills are installed.
+    // (With no credentials directory at all there is no per-turn credential to prefer;
+    // OpenAB sets it for every session it runs.)
     const credential = usable ? refreshed : atPrompt && credentials ? '' : token
 
     if (!credential) {

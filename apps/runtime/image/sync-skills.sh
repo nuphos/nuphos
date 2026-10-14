@@ -183,6 +183,9 @@ done
 if [[ -n $personal_dir ]]; then
   [[ -L $claude_dir/skills ]] && rm -f "$claude_dir/skills"
   mkdir -p "$claude_dir/skills"
+  # The marker goes first: a run killed halfway must not leave a partial tree that
+  # later runs take for the complete one.
+  rm -f "$revision_file"
   find "$claude_dir/skills" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
   cp -R "$staging"/. "$claude_dir/skills"/
   printf '%s' "$revision" >"$revision_file.incoming"

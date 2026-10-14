@@ -183,6 +183,21 @@ test('personal skills follow the turn’s credential, and the session is rebuilt
     // With no personal skills on either side, switching senders rebuilds nothing.
     assert.deepEqual(await prompt('p.none.8.sig'), [])
     assert.deepEqual(await prompt(undefined), [])
+
+    // The adapter process is replaced and a guest's turn reopens the session while the
+    // owner's skills are still in the home. The guest's sync fails: nothing here has
+    // synced yet, so the tree cannot be trusted and is emptied.
+    assert.deepEqual(await prompt('p.owner.9.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), ['owner'])
+    await writeFile(`${record}.fail`, '')
+    await writeFile(credential, 'p.none.10.sig\n')
+    const reopened = meta({
+      NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
+      NUPHOS_RUNTIME_SKILLS_TOKEN: 'p.none.10.sig',
+    })
+
+    await nuphosSyncRuntimeSkills(reopened, run)
+    assert.deepEqual(await readdir(skills), [])
   })
   delete globalThis.nuphosRefreshPersonalSkills
 })
