@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 
 export type ModelControls = {
-  effort: { value: string; name: string }[]
+  effort: { value: string; name: string; description?: string }[]
   fast: boolean
   defaultFast?: 'on' | 'off'
   defaultEffort?: string
@@ -78,7 +78,7 @@ export function controlsOf(options: ConfigOption[]): ModelControls {
 
   return {
     ...(typeof effort?.currentValue === 'string' ? { defaultEffort: effort.currentValue } : {}),
-    effort: choices(effort).map(({ value, name }) => ({ value, name })),
+    effort: choices(effort),
     fast: fastValues.has('on') && fastValues.has('off'),
     ...(fast?.currentValue === 'on' || fast?.currentValue === 'off'
       ? { defaultFast: fast.currentValue }
@@ -190,18 +190,23 @@ export function probeLocalModels(options: {
       }
 
       for (const { id } of models) {
-        if (controls[id]) continue
-        try {
-          const updated = await call('session/set_config_option', {
-            sessionId,
-            configId: model.id,
-            value: id,
-          })
+        // Claude validates full model ids with a network call that can fail
+        // once; try again before reporting the model without its controls.
+        for (let attempt = 0; attempt < 2 && !controls[id]; attempt++) {
+          try {
+            const updated = await call('session/set_config_option', {
+              sessionId,
+              configId: model.id,
+              value: id,
+            })
 
-          configOptions = (updated.configOptions ?? configOptions) as ConfigOption[]
-          controls[id] = controlsOf(configOptions)
-        } catch {
-          // One advertised model can fail validation without invalidating the catalog.
+            configOptions = (updated.configOptions ?? configOptions) as ConfigOption[]
+            controls[id] = controlsOf(configOptions)
+          } catch {
+            // Still rejected after a retry: leave it out. A pick made before the
+            // first reply is applied at session creation, where a rejected model
+            // would fail the conversation's first message.
+          }
         }
       }
       finish(null, {

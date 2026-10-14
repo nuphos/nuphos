@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 
 import { patchPersonalSkillsRefresh, patchRuntimeDefaults } from '../runtime-defaults.mjs'
+import { patchClaudeDefaultEffort } from './default-effort.mjs'
 import { patchClaudeSessionState } from './session-state.mjs'
 import { patchClaudeTurnCompletion } from './turn-completion.mjs'
 
@@ -14,7 +15,9 @@ if (
   throw new Error('Claude ACP bundle changed; review the Nuphos adapter patches.')
 const mcpAnchor = '            for (const server of params.mcpServers) {'
 if (source.split(mcpAnchor).length !== 2) throw new Error('Expected one Claude MCP server handoff.')
-let patched = patchClaudeSessionState(patchClaudeTurnCompletion(source)).replace(
+let patched = patchClaudeDefaultEffort(
+  patchClaudeSessionState(patchClaudeTurnCompletion(source)),
+).replace(
   mcpAnchor,
   '            for (const server of nuphosBridgeMcpServers(params.mcpServers)) {',
 )
