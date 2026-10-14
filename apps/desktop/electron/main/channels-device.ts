@@ -2,7 +2,6 @@ import * as atlas from '../atlas'
 
 import { getDeviceIdentity, listDeviceAudit, updateDeviceLabel } from './device-controller.ts'
 import { readThisComputerFile } from './linked-file.ts'
-import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import {
   getLocalRuntimeState,
   startLocalClaudeLogin,
@@ -14,6 +13,7 @@ import {
   refreshLocalRuntime,
   userEnv,
 } from './local-runtime/index.ts'
+import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
 
 import type { LocalAgentProvider } from './local-runtime/agent-cli.ts'

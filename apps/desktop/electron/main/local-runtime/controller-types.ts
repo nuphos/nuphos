@@ -3,9 +3,12 @@ import path from 'node:path'
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
+import type { LocalAgentLogin } from './agent-login.ts'
 import type { LocalRuntimeBundle } from './config.ts'
+import type { DevBundleHint } from './dev-bundle.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
+import type { SleepState } from './sleep-prevention.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-client.ts'
 
 export type LocalAgentState = {
@@ -23,6 +26,15 @@ export type LocalRuntimeState = {
   workspace: string | null
   /** Who this computer's agents belong to right now. */
   userId: string | null
+}
+
+/** Desktop IPC contract, including account login and device-local sleep state. */
+export type LocalRuntimeViewState = LocalRuntimeState & {
+  deviceId: string
+  sleepPrevention: SleepState
+  devBundle?: DevBundleHint
+  claudeLogin: ReturnType<LocalAgentLogin['state']>
+  codexLogin: ReturnType<LocalAgentLogin['state']>
 }
 
 export type RuntimeProcess = {

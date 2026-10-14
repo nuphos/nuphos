@@ -95,3 +95,36 @@ test('preferences validate at the IPC boundary and unsupported systems never sta
   sleep.configure({ mode: 'host', onlyOnAC: false })
   assert.equal(sleep.state().reason, 'unsupported')
 })
+
+test('activity broadcasts only on busy transitions, not tool RPCs or concurrent prompts', () => {
+  let changes = 0
+  const activity = new RuntimeTaskActivity(() => {
+    changes += 1
+  })
+
+  activity.open('a', 'transport')
+  activity.open('b', 'transport')
+  activity.open('control', 'control')
+  activity.data('a', '{"id":0,"method":"session/new"}', true)
+  activity.data('a', '{"id":0,"result":{}}', false)
+  assert.equal(changes, 0)
+  activity.data('a', '{"id":1,"method":"session/prompt"}', true)
+  assert.equal(changes, 1)
+  activity.data('a', '{"id":2,"method":"fs/read_text_file"}', false)
+  activity.data('a', '{"id":2,"result":{}}', true)
+  activity.data('b', '{"id":1,"method":"session/prompt"}', true)
+  activity.open('terminal', 'terminal')
+  activity.data('a', '{"id":1,"result":{}}', false)
+  activity.close('b')
+  activity.close('control')
+  assert.equal(changes, 1)
+  activity.close('terminal')
+  assert.equal(changes, 2)
+  activity.close('missing')
+  activity.clear()
+  assert.equal(changes, 2)
+  activity.open('exec', 'exec')
+  assert.equal(changes, 3)
+  activity.clear()
+  assert.equal(changes, 4)
+})

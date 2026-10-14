@@ -78,7 +78,7 @@ export function LocalRuntimeSection({
         (next) => {
           if (!cancelled) setState(next)
         },
-        () => {},
+        () => undefined,
       )
 
     queueMicrotask(() => void refresh())

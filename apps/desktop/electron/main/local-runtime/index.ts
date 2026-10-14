@@ -29,7 +29,7 @@ import { RuntimeTunnelClient } from './tunnel-client.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeBundle } from './config.ts'
-import type { LocalRuntimeState } from './controller-types.ts'
+import type { LocalRuntimeState, LocalRuntimeViewState } from './controller-types.ts'
 
 const dataDir = () => path.join(app.getPath('userData'), 'local-runtime')
 const devBuild = () => !app.isPackaged && !process.env.NUPHOS_LOCAL_RUNTIME_DIR
@@ -38,9 +38,12 @@ function bundleRoot(): string {
   if (process.env.NUPHOS_LOCAL_RUNTIME_DIR) return process.env.NUPHOS_LOCAL_RUNTIME_DIR
   if (app.isPackaged) return path.join(process.resourcesPath, 'local-runtime')
 
-  const platform = `${process.platform}-${process.arch}`
-
-  return path.join(app.getAppPath(), 'build', 'local-runtime', platform)
+  return path.join(
+    app.getAppPath(),
+    'build',
+    'local-runtime',
+    `${process.platform}-${process.arch}`,
+  )
 }
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
@@ -255,7 +258,7 @@ export function stopLocalRuntime(): Promise<void> {
   return controller.shutdown()
 }
 
-export function getLocalRuntimeState() {
+export function getLocalRuntimeState(): LocalRuntimeViewState {
   const bundle = findBundle()
   const incomplete = LOCAL_AGENT_PROVIDERS.some((provider) => !bundle?.adapters[provider])
   const devBundle = devBuild() && incomplete ? devBundleHint(bundleRoot()) : undefined

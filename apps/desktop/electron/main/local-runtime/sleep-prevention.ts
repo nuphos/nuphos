@@ -91,8 +91,10 @@ export class RuntimeTaskActivity {
   }
 
   open(id: string, purpose: string): void {
+    const wasBusy = this.busy()
+
     this.streams.set(id, { purpose, prompts: new Set() })
-    this.changed()
+    if (wasBusy !== this.busy()) this.changed()
   }
 
   data(id: string, raw: string, incoming: boolean): void {
@@ -104,21 +106,27 @@ export class RuntimeTaskActivity {
       const key = message.id
 
       if (typeof key !== 'string' && typeof key !== 'number') return
+      const wasBusy = this.busy()
+
       if (incoming && message.method === 'session/prompt') stream.prompts.add(key)
       else if (!incoming && ('result' in message || 'error' in message)) stream.prompts.delete(key)
-      this.changed()
+      if (wasBusy !== this.busy()) this.changed()
     } catch {
       // Non-JSON traffic is not an ACP prompt.
     }
   }
 
   close(id: string): void {
+    const wasBusy = this.busy()
+
     this.streams.delete(id)
-    this.changed()
+    if (wasBusy !== this.busy()) this.changed()
   }
 
   clear(): void {
+    const wasBusy = this.busy()
+
     this.streams.clear()
-    this.changed()
+    if (wasBusy !== this.busy()) this.changed()
   }
 }
