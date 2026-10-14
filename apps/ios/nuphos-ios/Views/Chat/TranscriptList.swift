@@ -305,6 +305,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
              .assistantText(id: "answer.\(index)", messageId: "a\(index)",
                             text: String(repeating: "Paragraph **\(index)** with a [link](https://example.com). A long response must preserve the reading position.\n\n", count: index == 39 ? 60 : 6), streaming: false)]
         }
+        let fixture0 = fixture
         func apply(_ submitted: String? = nil) {
             update(rows: fixture, submittedRowID: submitted, sessionID: "scroll-regression", content: render)
         }
@@ -401,6 +402,51 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let expandedHeight = layout.layoutAttributesForItem(at: cardPath)?.size.height ?? 0
         check("step_anchor", initialY.isFinite && stepDrift < 1 && expandedHeight > 300,
               "maxTitleDrift=\(stepDrift) expandedHeight=\(expandedHeight)")
+        // A send puts the question at the top; the reply streams into the room
+        // below it, then keeps the end in view. A touch while it streams must
+        // never move the transcript back down, wherever the reader was.
+        func y(of id: String) -> CGFloat {
+            guard let index = rows.firstIndex(where: { $0.id == id }),
+                  let attributes = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0)) else { return .infinity }
+            return attributes.frame.minY - collection.bounds.minY - collection.adjustedContentInset.top
+        }
+        func touch() {
+            scrollViewWillBeginDragging(collection)
+            scrollViewDidEndDragging(collection, willDecelerate: false)
+        }
+        func sendAndStream(_ name: String) async {
+            let question = "user.\(name)", answer = "answer.\(name)"
+            fixture.append(.user(id: question, messageId: name, text: "Send while \(name)", images: []))
+            apply(question)
+            await pause()
+            let pinned = y(of: question)
+            var lastOffset = collection.contentOffset.y, backward: CGFloat = 0
+            let probe = TranscriptFrameProbe { [unowned self] in
+                backward = max(backward, lastOffset - collection.contentOffset.y)
+                lastOffset = collection.contentOffset.y
+            }
+            fixture.append(.assistantText(id: answer, messageId: name, text: "", streaming: true))
+            for step in 1...30 {
+                fixture[fixture.count - 1] = .assistantText(id: answer, messageId: name,
+                    text: String(repeating: "Streaming paragraph with **bold text**.\n\n", count: step), streaming: true)
+                apply(question)
+                if step == 4 { touch() }
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            await pause()
+            probe.stop()
+            check("pinned_stream_\(name)", abs(pinned - 12) < 1 && backward < 1 && nearBottom,
+                  "pinnedY=\(pinned) maxBackward=\(backward) nearBottom=\(nearBottom)")
+        }
+        fixture = fixture0
+        apply()
+        showLatest()
+        await pause()
+        await sendAndStream("bottom")
+        restore(id: "user.20", edge: .top, offset: 0)
+        touch()
+        await pause()
+        await sendAndStream("up")
         check("suite_complete", true, "")
     }
     #endif
