@@ -4,6 +4,17 @@ Native Android client built with Kotlin and Jetpack Compose. This contribution
 contains the app, Gradle wrapper, JVM tests, and isolated device fixture tests.
 It does not contain credentials, APK files, IDE settings, or personal test data.
 
+
+### Password sign-in
+
+The welcome screen also supports existing accounts with an email and a password
+(12–128 characters), using the same `/auth/password/sign-in` endpoint as iOS.
+Google sign-in remains available. Passwords are not saved; only a validated
+session token is passed to the existing token store. This option does not create
+accounts or set/reset passwords. Store review credentials belong in Play Console,
+never in the repository.
+
+
 ## Requirements
 
 - Android Studio or Android SDK command-line tools.
@@ -154,15 +165,6 @@ personal phone or run data-changing tests against a personal account.
 
 For signed AAB artifact CI, version inputs and administrator prerequisites, see
 [Android release artifacts](RELEASE.md).
-
-### Password sign-in
-
-The welcome screen also supports existing accounts with an email and a password
-(12–128 characters), using the same `/auth/password/sign-in` endpoint as iOS.
-Google sign-in remains available. Passwords are not saved; only a validated
-session token is passed to the existing token store. This option does not create
-accounts or set/reset passwords. Store review credentials belong in Play Console,
-never in the repository.
 
 ### Android push development
 
