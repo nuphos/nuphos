@@ -20,10 +20,8 @@ test('the runtime default is not a stop; every other level is, in order', () => 
   assert.equal(effortStops(codex).length, 6)
 })
 
-test('reset returns to the runtime default, else the level the chat started on', () => {
-  assert.equal(effortResetValue(claude, 'high'), 'default')
-  assert.equal(effortResetValue(codex, 'medium'), 'medium')
-  assert.equal(effortResetValue(codex, 'gone'), undefined)
+test('reset returns to the runtime default, and there is none without one', () => {
+  assert.equal(effortResetValue(claude), 'default')
   assert.equal(effortResetValue(codex), undefined)
 })
 
