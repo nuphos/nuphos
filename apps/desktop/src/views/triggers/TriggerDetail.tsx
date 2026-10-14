@@ -1,14 +1,14 @@
-import { ArrowRight, Loader2, Pencil, Play } from 'lucide-react'
+import { Loader2, Pencil, Play } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { Button } from '../../components/ui/button'
-import { api } from '../../api'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { scheduleSummary } from './cron'
+import { DeliversTo } from './DeliversTo'
 import { Toggle } from './parts'
 import { testFireTrigger } from './triggerFormActions'
 import { TriggerRunsList } from './TriggerRunsList'
@@ -214,47 +214,5 @@ export function TriggerDetail({
         </div>
       </div>
     </div>
-  )
-}
-
-/** Where a bound trigger's fires land; its runs list keeps the history from before. */
-function DeliversTo({
-  teamId,
-  sessionId,
-  onOpen,
-}: {
-  teamId: string
-  sessionId: string
-  onOpen: (sessionId: string) => void
-}) {
-  const [target, setTarget] = useState<{ title: string; archived: boolean } | null>(null)
-
-  useEffect(() => {
-    let alive = true
-
-    api
-      .agentGetConversation(sessionId, teamId, { tail: 1, runtimeState: 'omit' })
-      .then((c) => {
-        if (alive) setTarget({ title: c.title || 'Untitled', archived: Boolean(c.archivedAt) })
-      })
-      // A session the viewer cannot open still reads as a link.
-      .catch(() => {})
-
-    return () => {
-      alive = false
-    }
-  }, [teamId, sessionId])
-
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(sessionId)}
-      className="flex w-full min-w-0 items-center gap-1 px-3 pt-1 text-left text-[11.5px] text-tertiary hover:text-main"
-    >
-      <span className="flex-shrink-0">Delivers to</span>
-      <span className="min-w-0 truncate text-secondary">{target?.title ?? 'a session'}</span>
-      {target?.archived && <span className="flex-shrink-0 text-warning">(archived)</span>}
-      <ArrowRight className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
-    </button>
   )
 }
