@@ -37,7 +37,7 @@ beforeEach(() => {
 })
 
 describe('agent credential options: devices', () => {
-  test('offers only online, opted-in devices of the requester', async () => {
+  test("offers the requester's own devices, available only when online and opted in", async () => {
     devices = [
       device({ deviceId: 'd1', label: 'Online' }),
       device({ deviceId: 'd2', label: 'Offline' }),
@@ -47,7 +47,9 @@ describe('agent credential options: devices', () => {
     online = new Set(['u1:d1', 'u1:d3', 'u2:d4'])
 
     expect(await resolveDeviceOptions('u1', 't1')).toEqual([
-      { deviceId: 'd1', label: 'Online', platform: 'darwin' },
+      { deviceId: 'd1', label: 'Online', platform: 'darwin', available: true },
+      { deviceId: 'd2', label: 'Offline', platform: 'darwin', available: false },
+      { deviceId: 'd3', label: 'Master switch off', platform: 'darwin', available: false },
     ])
   })
 

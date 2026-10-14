@@ -260,7 +260,8 @@ export function buildDeviceCredentialSections(
       items: devices.map((device) => ({
         id: device.deviceId,
         label: device.label,
-        sublabel: device.platform,
+        // Still listed so a selection can keep or untick it while it is away.
+        sublabel: device.available === false ? `${device.platform} · Offline` : device.platform,
       })),
     },
   ]

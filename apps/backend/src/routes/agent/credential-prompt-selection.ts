@@ -191,7 +191,10 @@ export function selectAgentCredentials(
       access.cloudflareAccountIds,
       (account) => account.accountId,
     ),
-    devices: pick(options.devices, access.deviceIds, (device) => device.deviceId),
+    // Only devices usable now are offered to the model; a selected offline one waits.
+    devices: pick(options.devices, access.deviceIds, (device) => device.deviceId).filter(
+      (device) => device.available,
+    ),
   }
 }
 

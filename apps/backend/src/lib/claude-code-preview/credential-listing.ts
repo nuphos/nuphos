@@ -200,7 +200,9 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     idOf: (d) => d.deviceId,
     details: (d, id) => ({
       label: `${d.label} (${d.platform})`,
-      usage: `Local machine; run commands on it with the local_exec tool, device=${id}.`,
+      usage: d.available
+        ? `Local machine; run commands on it with the local_exec tool, device=${id}.`
+        : 'Selected, but offline or with local exec turned off; local_exec cannot reach it until Nuphos Desktop is open on it with local exec allowed.',
     }),
   }),
 }

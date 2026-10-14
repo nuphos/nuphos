@@ -62,7 +62,10 @@ function credentialOptions(): AgentCredentialOptions {
     vantaIntegrations: [],
     secureframeIntegrations: [],
     resendIntegrations: [],
-    devices: [{ deviceId: 'device-1', label: 'MacBook', platform: 'darwin' }],
+    devices: [
+      { deviceId: 'device-1', label: 'MacBook', platform: 'darwin', available: true },
+      { deviceId: 'device-asleep', label: 'Asleep', platform: 'darwin', available: false },
+    ],
     ...emptyConnectorCredentialOptions(),
   }
 }
@@ -90,26 +93,20 @@ describe('availableCredentialAccess', () => {
     ).toEqual([])
   })
 
-  test('a device never available to the caller cannot be selected', () => {
-    const access = availableCredentialAccess(
-      { deviceIds: ['device-1', 'someone-elses-device'] },
-      credentialOptions(),
-    )
+  test('stores exactly the ticked devices of the caller, online or not', () => {
+    const offered = credentialOptions()
 
-    expect(access.deviceIds).toEqual(['device-1'])
-  })
-
-  test('a stored device that is offline stays selected until it is back and deselected', () => {
-    const stored = { deviceIds: ['device-1', 'offline-device'] }
-
-    // A client cannot show the offline device, so its omission is not a choice.
     expect(
-      availableCredentialAccess({ deviceIds: [] }, credentialOptions(), undefined, stored),
-    ).toMatchObject({ deviceIds: ['offline-device'] })
+      availableCredentialAccess({ deviceIds: ['device-1', 'device-asleep'] }, offered).deviceIds,
+    ).toEqual(['device-1', 'device-asleep'])
+    // Unticking an offline device removes it.
+    expect(availableCredentialAccess({ deviceIds: ['device-1'] }, offered).deviceIds).toEqual([
+      'device-1',
+    ])
+    // A device that is not the caller's, or no longer exists, cannot be selected.
     expect(
-      availableCredentialAccess({ deviceIds: ['device-1'] }, credentialOptions(), undefined, stored)
-        .deviceIds,
-    ).toEqual(['device-1', 'offline-device'])
+      availableCredentialAccess({ deviceIds: ['someone-elses-device'] }, offered).deviceIds,
+    ).toEqual([])
   })
 })
 
@@ -185,19 +182,5 @@ describe('managerCredentialAccess', () => {
     // aws-2 is the manager's, which a turn running as the owner cannot use.
     expect(access.awsRoleIds).toEqual([])
     expect(access.azureAccountIds).toEqual(['az-1'])
-  })
-
-  test("a manager's edit neither drops the owner's offline device nor adds the manager's", () => {
-    const access = managerCredentialAccess(
-      { deviceIds: ['managers-device'] },
-      { deviceIds: ['owners-offline-mac'], updatedAt: new Date(), updatedBy: 'owner' } as never,
-      {
-        ...managerOptions,
-        devices: [{ deviceId: 'managers-device', label: 'M', platform: 'darwin' }],
-      },
-      ownerOnly,
-    )
-
-    expect(access.deviceIds).toEqual(['owners-offline-mac'])
   })
 })

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -51,7 +50,6 @@ beforeEach(() => {
   bypass.clear()
   events.length = 0
   moves.length = 0
-  credentialWrites.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -73,9 +71,6 @@ useIdentity({
 const bypass = new Map<string, Record<string, unknown>>()
 const events: { conversationId: string; event: string }[] = []
 const moves: { sessionId: string; runtimeId: string; mode: string; userId: string }[] = []
-const credentialWrites: { sessionId: string; access: AgentCredentialAccess }[] = []
-// Online devices of the owner; 'mac-2' is online but not selected for the parent.
-const onlineDevices = ['mac-1', 'mac-2']
 
 useDb({
   db: () => ({
@@ -108,12 +103,6 @@ useConversationRuntimeMove({
 
     return { runtimeId, runtimeLabel: 'Other', agentRuntime: 'codex', mode }
   },
-})
-useCredentialOptions({
-  getAgentCredentialOptions: async () =>
-    ({
-      devices: onlineDevices.map((deviceId) => ({ deviceId, label: deviceId, platform: 'darwin' })),
-    }) as never,
 })
 useRuntimeCatalog({
   // Without a user only the team's agents are listed; a local one would need the owner.
@@ -162,11 +151,6 @@ useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
   recordAgentEvent: (event) => {
     events.push(event)
-  },
-  updateConversationCredentialAccess: async (sessionId, _userId, _teamId, credentialAccess) => {
-    credentialWrites.push({ sessionId, access: credentialAccess })
-
-    return null
   },
   getConversationWithMessages: async (sessionId) => ({
     conversation: { ...source, sessionId },
@@ -278,33 +262,6 @@ describe('conversation-scoped thread tools', () => {
     )
     expect(await getSessionBypass('target', 'owner')).toBe(false)
     expect(moves).toHaveLength(0)
-  })
-
-  test("a thread starts with exactly its parent's devices", async () => {
-    source = { ...source, credentialAccess: { ...access, deviceIds: ['mac-1', 'offline-mac'] } }
-    await createAgentThread(actor, 'Work', 'Task')
-
-    expect(shells[0]?.credentialAccess?.deviceIds).toEqual(['mac-1', 'offline-mac'])
-  })
-
-  test('a parent sets its thread to the devices it can use itself, and nothing else', async () => {
-    source = { ...source, credentialAccess: { ...access, deviceIds: ['mac-1', 'offline-mac'] } }
-    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
-    const result = await updateThread(actor, threadId, { deviceIds: ['mac-1'] })
-
-    expect(result.deviceIds).toEqual(['mac-1'])
-    expect(credentialWrites).toEqual([
-      {
-        sessionId: threadId,
-        access: expect.objectContaining({ awsRoleIds: ['role-1'], deviceIds: ['mac-1'] }),
-      },
-    ])
-    // Online but not the parent's, the parent's but offline, or unknown: all refused.
-    for (const id of ['mac-2', 'offline-mac', 'someone-elses-mac'])
-      await expect(updateThread(actor, threadId, { deviceIds: [id] })).rejects.toThrow(id)
-    await updateThread(actor, threadId, { deviceIds: [] })
-    expect(credentialWrites.map((w) => w.access.deviceIds)).toEqual([['mac-1'], []])
-    await expect(updateThread(actor, 'target', { deviceIds: [] })).rejects.toThrow('created')
   })
 
   test("a thread never moves onto the owner's computer", async () => {

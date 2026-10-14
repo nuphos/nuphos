@@ -15,24 +15,6 @@ function keep<T>(selected: string[] | undefined, available: T[], idOf: (item: T)
   return selected?.filter((id) => allowed.has(id)) ?? []
 }
 
-// `options.devices` lists only the devices online right now, and going offline is
-// not a choice to deselect: a stored device that cannot be seen or picked now
-// stays selected for when it is back. Using one still requires it to be online.
-function selectedDevices(
-  selected: string[] | undefined,
-  stored: string[] | undefined,
-  online: AgentCredentialOptions['devices'],
-) {
-  const onlineIds = new Set(online.map((device) => device.deviceId))
-
-  return [
-    ...new Set([
-      ...(selected ?? []).filter((id) => onlineIds.has(id)),
-      ...(stored ?? []).filter((id) => !onlineIds.has(id)),
-    ]),
-  ]
-}
-
 export async function resolveAgentCredentialAccess(params: {
   teamId: string | undefined
   userId: string
@@ -49,7 +31,6 @@ export async function resolveAgentCredentialAccess(params: {
         normalizeCredentialSelection(withOmittedKeysFromStored(params.selection, params.stored)),
         options,
         params.kubeContext,
-        params.stored,
       ),
       updatedAt: new Date(),
       updatedBy: params.userId,
@@ -109,7 +90,7 @@ export function managerCredentialAccess(
     if (hidden.length) merged[key] = [...new Set([...(merged[key] ?? []), ...hidden])]
   }
 
-  return availableCredentialAccess(merged, ownerOptions, undefined, stored)
+  return availableCredentialAccess(merged, ownerOptions)
 }
 
 // A client that predates a selection key omits it; keep the stored value for
@@ -134,7 +115,6 @@ export function availableCredentialAccess(
   selection: AgentCredentialSelection,
   options: AgentCredentialOptions,
   kubeContext?: string,
-  stored?: AgentCredentialSelection,
 ): Omit<AgentCredentialAccess, 'updatedAt' | 'updatedBy'> {
   const onpremClusterIds = includeBoundOnpremCluster(
     keep(selection.onpremClusterIds, options.onpremClusters, (cluster) => cluster.clusterId),
@@ -205,7 +185,9 @@ export function availableCredentialAccess(
       options.posthogIntegrations,
       byIntegrationId,
     ),
-    deviceIds: selectedDevices(selection.deviceIds, stored?.deviceIds, options.devices),
+    // Any of the user's own devices, online or not; whether one is usable is
+    // checked each time a tool uses it.
+    deviceIds: keep(selection.deviceIds, options.devices, (device) => device.deviceId),
     ...resolveConnectorCredentialAccess(selection, options),
   }
 }

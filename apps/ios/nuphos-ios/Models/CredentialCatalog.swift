@@ -83,7 +83,11 @@ struct CredentialCatalog: Equatable, Sendable {
                 guard let id = row[provider.idKey]?.stringValue else { return nil }
                 let label = provider.labelKeys.lazy.compactMap { row[$0]?.stringValue }.first(where: { !$0.isEmpty }) ?? id
                 let detail = provider.detailKeys.lazy.compactMap { row[$0]?.stringValue }.first(where: { !$0.isEmpty && $0 != label })
-                return Item(provider: provider, id: id, label: label, detail: provider.optionsKey == "devices" ? detail.map(Self.platformName) : detail)
+                guard provider.optionsKey == "devices" else { return Item(provider: provider, id: id, label: label, detail: detail) }
+                // An offline device stays listed so a selection can keep or untick it.
+                let platform = detail.map(Self.platformName)
+                let offline = row["available"]?.boolValue == false
+                return Item(provider: provider, id: id, label: label, detail: offline ? [platform, "Offline"].compactMap { $0 }.joined(separator: " · ") : platform)
             }
             return items.isEmpty ? nil : (provider, items)
         }
