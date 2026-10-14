@@ -201,7 +201,7 @@ function canBind(mode: 'create' | 'edit', loaded: AgentTrigger | null, viewerId?
   if (mode === 'create') return true
   if (!loaded || loaded.watchGroupId || loaded.incidentMode || loaded.sessionRouting) return false
 
-  return (loaded.executionPrincipalUserId ?? loaded.userId) === viewerId
+  return (loaded.executionPrincipalUserId ?? loaded.createdByUserId ?? loaded.userId) === viewerId
 }
 
 const NEW_CONVERSATION = { value: '', label: 'A new conversation each fire' }
