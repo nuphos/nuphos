@@ -120,6 +120,14 @@ export const UserMessage = memo(
                     Slack
                   </span>
                 )}
+                {message.metadata.unattested && (
+                  <span
+                    className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary"
+                    title="Posted in Discord by someone with no linked Nuphos account. The name is the one they chose."
+                  >
+                    Discord · unverified
+                  </span>
+                )}
               </div>
             )}
             {message.metadata?.replyTo && (

@@ -9,7 +9,11 @@ import {
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
-import { attributionHeader, renderAttributedMessage } from '@/lib/agent/message-metadata'
+import {
+  attributionHeader,
+  parseMessageMetadata,
+  renderAttributedMessage,
+} from '@/lib/agent/message-metadata'
 import {
   drainPendingUserMessages,
   enqueuePendingUserMessage,
@@ -75,10 +79,16 @@ export function turnPrompt(args: {
   carried: string
   recall?: string | null
 }): { lead: (history?: string | null) => string; text: string } {
-  const last = args.resume === null ? args.inputs.at(-1) : undefined
+  const final = args.resume === null ? args.inputs.at(-1) : undefined
+  // Only a verified sender's words take the last block; an unattested message
+  // stays fenced in the lead even when nothing was said after it.
+  const last = parseMessageMetadata(final?.metadata)?.unattested ? undefined : final
   const turn =
     args.resume === null
-      ? [args.turnContext, ...args.inputs.slice(0, -1).map((m) => lastUserMessageText([m]))]
+      ? [
+          args.turnContext,
+          ...(last ? args.inputs.slice(0, -1) : args.inputs).map((m) => lastUserMessageText([m])),
+        ]
       : []
   const header = last ? attributionHeader(last.id, last.metadata) : ''
 

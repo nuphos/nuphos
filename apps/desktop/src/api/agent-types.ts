@@ -155,6 +155,8 @@ export type AgentMessageMetadata = {
   sourceSessionId?: string
   /** The message this one replies to, e.g. a Discord reply. */
   replyTo?: { authorName: string; text: string }
+  /** A Discord author with no verified Nuphos identity; the name is theirs to choose. */
+  unattested?: true
 }
 
 export type AgentPersistedMessage = {

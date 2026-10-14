@@ -107,7 +107,8 @@ const UNATTESTED_NOTE =
 export function attributionHeader(id: string, metadata: unknown): string {
   const attribution = parseMessageMetadata(metadata)
 
-  if (!attribution) return ''
+  // An unattested author gets no trusted block: the fenced body names them.
+  if (!attribution || attribution.unattested) return ''
   const { replyTo, ...trusted } = attribution
   const { avatarURL: _avatarURL, ...sender } = attribution.sender
   const json = JSON.stringify({

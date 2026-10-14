@@ -78,3 +78,16 @@ test('a Discord reply keeps the quoted message as metadata', () => {
     undefined,
   )
 })
+
+test('an unverified Discord author keeps the unattested mark, and only for Discord', () => {
+  const metadata = {
+    version: 1,
+    sender: { type: 'user', id: 'discord:999', displayName: 'Yuanlin Lin' },
+    source: 'discord',
+    sentAt: '2026-10-14T00:00:00Z',
+    unattested: true,
+  }
+
+  assert.equal(parseMessageMetadata(metadata)?.unattested, true)
+  assert.equal(parseMessageMetadata({ ...metadata, source: 'nuphos' })?.unattested, undefined)
+})

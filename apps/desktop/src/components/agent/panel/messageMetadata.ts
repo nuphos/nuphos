@@ -44,5 +44,6 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
       ? { sourceSessionId: m.sourceSessionId }
       : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
   }
 }
