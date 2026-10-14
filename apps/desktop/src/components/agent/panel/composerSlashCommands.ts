@@ -1,11 +1,11 @@
 import { createContext } from 'react'
 
-/** A composer `/` command. `run` gets the composer's editor, for commands that act on it. */
+/** A Nuphos action the composer's `/` menu offers. It runs only when picked. */
 export type SlashCommand = {
   id: string
   title: string
   description: string
-  run: (editor: HTMLElement) => void
+  run: () => void
 }
 
 export const SlashCommandsContext = createContext<SlashCommand[]>([])
@@ -23,4 +23,19 @@ export function matchSlashCommands(commands: readonly SlashCommand[], query: str
   return commands.filter(
     (command) => command.id.startsWith(needle) || command.title.toLowerCase().includes(needle),
   )
+}
+
+/**
+ * What a key does while the menu is open. Typed text such as `/model` is meant
+ * for the agent, so Enter runs a command only after the arrows highlighted
+ * one (`active` is -1 until then); otherwise it sends the message as typed.
+ */
+export function slashKeyAction(key: string, shiftKey: boolean, active: number) {
+  if (key === 'ArrowDown') return 'next'
+  if (key === 'ArrowUp') return 'previous'
+  if (key === 'Tab' && !shiftKey) return 'select'
+  if (key === 'Enter' && !shiftKey && active >= 0) return 'select'
+  if (key === 'Escape') return 'dismiss'
+
+  return null
 }

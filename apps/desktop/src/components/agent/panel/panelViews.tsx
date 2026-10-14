@@ -10,14 +10,12 @@ import { PermissionResumeContext } from '../permissionResumeContext'
 
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
-import { SlashCommandsContext } from './composerSlashCommands'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
-import { usePanelSlashCommands } from './panelSlashCommands'
 import { AuthorizationActionContext } from './parts'
 import { QueuedStrip } from './QueuedStrip'
 
@@ -75,7 +73,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
         : undefined,
     [currentUserId, editableSessionId, foreignChat, forkConversation],
   )
-  const slashCommands = usePanelSlashCommands(c)
   const modelSession =
     activeTab?.sessionId && !activeTab.foreign && teamId
       ? {
@@ -173,41 +170,12 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   sidebar={isSidebarMode}
                 />
               )}
-              <SlashCommandsContext.Provider value={slashCommands}>
-                {activeTab.messages.length === 0 ? (
-                  <DelayedPanelReveal>
-                    <Composer
-                      onSend={(text, filePaths) => void sendInActive(text, filePaths)}
-                      onStop={stopActive}
-                      streaming={false}
-                      runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
-                      executing={runtimeIsExecuting(activeTab.runtimeState)}
-                      readOnly={activeTab.readOnly}
-                      activitySource={activeTab.activitySource}
-                      slackThread={activeTab.slackThread}
-                      credentialSelector={visibleConversationCredentialSelector}
-                      runtimeControl={runtimeControl}
-                      modelSession={modelSession}
-                      bypassControl={bypassControl}
-                      pendingSeed={pendingPromptReady}
-                      onSeedConsumed={onPromptConsumed}
-                      sidebar={isSidebarMode}
-                      dropRegisterRef={conversationDropRef}
-                      draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                      mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
-                    />
-                  </DelayedPanelReveal>
-                ) : (
+              {activeTab.messages.length === 0 ? (
+                <DelayedPanelReveal>
                   <Composer
                     onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                     onStop={stopActive}
                     streaming={false}
-                    promptSuggestion={
-                      activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
-                        ? null
-                        : activeTab.promptSuggestion
-                    }
-                    autoFocus
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}
@@ -224,8 +192,35 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     draftKey={composerDraftKey(teamId, activeTab.sessionId)}
                     mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
-                )}
-              </SlashCommandsContext.Provider>
+                </DelayedPanelReveal>
+              ) : (
+                <Composer
+                  onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                  onStop={stopActive}
+                  streaming={false}
+                  promptSuggestion={
+                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                      ? null
+                      : activeTab.promptSuggestion
+                  }
+                  autoFocus
+                  runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                  executing={runtimeIsExecuting(activeTab.runtimeState)}
+                  readOnly={activeTab.readOnly}
+                  activitySource={activeTab.activitySource}
+                  slackThread={activeTab.slackThread}
+                  credentialSelector={visibleConversationCredentialSelector}
+                  runtimeControl={runtimeControl}
+                  modelSession={modelSession}
+                  bypassControl={bypassControl}
+                  pendingSeed={pendingPromptReady}
+                  onSeedConsumed={onPromptConsumed}
+                  sidebar={isSidebarMode}
+                  dropRegisterRef={conversationDropRef}
+                  draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                  mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+                />
+              )}
             </div>
           </div>
         </AuthorizationActionContext.Provider>

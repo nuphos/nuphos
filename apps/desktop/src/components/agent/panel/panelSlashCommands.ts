@@ -5,19 +5,10 @@ import { ATLAS_WEB_BASE_URL } from '../../../lib/webBaseUrl'
 import type { SlashCommand } from './composerSlashCommands'
 import type { PanelViewCtx } from './ctx'
 
-const MODEL_TRIGGER = '[aria-label^="Model settings"]'
-
-/** Opens the model menu of the composer the command was typed in. */
-function openModelMenu(editor: HTMLElement) {
-  let node = editor.parentElement
-
-  while (node && !node.querySelector(MODEL_TRIGGER)) node = node.parentElement
-  node?.querySelector<HTMLElement>(MODEL_TRIGGER)?.click()
-}
-
 /**
- * The composer's `/` commands: Codex's most used ones that Nuphos already
- * has a control for, in Codex's order and wording.
+ * The panel's `/` actions: Codex's most used ones that Nuphos already has a
+ * control for, in Codex's order and wording. Each composer adds Model itself
+ * when it has a model control.
  */
 export function usePanelSlashCommands(c: PanelViewCtx): SlashCommand[] {
   const { activeTab, forkConversation, onOpenNuphosLink, startNewChat, teamId } = c
@@ -36,7 +27,6 @@ export function usePanelSlashCommands(c: PanelViewCtx): SlashCommand[] {
             },
           ]
         : []),
-      { id: 'model', title: 'Model', description: 'Change the model', run: openModelMenu },
       ...(teamId && onOpenNuphosLink
         ? [
             {

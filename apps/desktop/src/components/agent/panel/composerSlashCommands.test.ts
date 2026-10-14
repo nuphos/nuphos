@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { matchSlashCommands, slashQuery } from './composerSlashCommands.ts'
+import { matchSlashCommands, slashKeyAction, slashQuery } from './composerSlashCommands.ts'
 
 const run = () => null
 const commands = [
@@ -28,4 +28,19 @@ test('commands match by id prefix or title', () => {
     ['model'],
   )
   assert.equal(matchSlashCommands(commands, '').length, 3)
+})
+
+test('/model + Enter sends /model: Enter runs nothing until the arrows pick a row', () => {
+  // `/model` still matches the Model action, but nothing is highlighted yet.
+  assert.equal(matchSlashCommands(commands, 'model').length, 1)
+  assert.equal(slashKeyAction('Enter', false, -1), null)
+  assert.equal(slashKeyAction('Enter', false, 0), 'select')
+})
+
+test('Tab and the arrows work the menu; Shift+Enter never selects', () => {
+  assert.equal(slashKeyAction('Tab', false, -1), 'select')
+  assert.equal(slashKeyAction('ArrowDown', false, -1), 'next')
+  assert.equal(slashKeyAction('ArrowUp', false, -1), 'previous')
+  assert.equal(slashKeyAction('Enter', true, 0), null)
+  assert.equal(slashKeyAction('Escape', false, -1), 'dismiss')
 })

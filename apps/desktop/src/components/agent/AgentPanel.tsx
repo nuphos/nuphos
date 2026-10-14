@@ -6,9 +6,11 @@
 
 import { memo, useLayoutEffect } from 'react'
 
+import { SlashCommandsContext } from './panel/composerSlashCommands'
 import { HOME_TAB_ID } from './panel/model'
 import { PanelContent, PanelSidebarLayout } from './panel/panelContent'
 import { PanelPageLayout } from './panel/panelPageLayout'
+import { usePanelSlashCommands } from './panel/panelSlashCommands'
 import { computePanelRenderState } from './panel/panelRenderState'
 import { PanelConversationPage, PanelHomePage } from './panel/panelViews'
 import { useAgentEventStream } from './panel/useAgentEventStream'
@@ -233,9 +235,14 @@ export const AgentPanel = memo(function AgentPanel({
     if (pendingPrompt?.newChat && activeId !== HOME_TAB_ID) setActiveId(HOME_TAB_ID)
   }, [activeId, pendingPrompt?.newChat, pendingPrompt?.nonce, setActiveId])
 
+  const slashCommands = usePanelSlashCommands(c)
   const homePage = <PanelHomePage c={c} />
   const conversationPage = <PanelConversationPage c={c} />
-  const content = <PanelContent c={c} homePage={homePage} conversationPage={conversationPage} />
+  const content = (
+    <SlashCommandsContext.Provider value={slashCommands}>
+      <PanelContent c={c} homePage={homePage} conversationPage={conversationPage} />
+    </SlashCommandsContext.Provider>
+  )
 
   if (variant === 'page') {
     return <PanelPageLayout c={c} content={content} />

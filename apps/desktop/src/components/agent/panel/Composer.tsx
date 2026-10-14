@@ -14,6 +14,7 @@ import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
 import { useComposerMentions } from './useComposerMentions'
+import { useComposerSlashCommands } from './useComposerSlashCommands'
 import { useComposerState } from './useComposerState'
 import { useSessionConfig } from './useSessionConfig'
 
@@ -120,6 +121,14 @@ export function Composer({
 
   useComposerDraft(state, readOnly ? undefined : draftKey)
   const mentions = useComposerMentions(state.ref, state.syncEmpty, mentionScope, credentialSelector)
+  const slash = useComposerSlashCommands(
+    state.ref,
+    state.composingRef,
+    state.syncEmpty,
+    modelSession && modelControl.data?.status !== 'unsupported'
+      ? () => modelControl.setOpen(true)
+      : undefined,
+  )
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,
@@ -130,26 +139,6 @@ export function Composer({
     dropRegisterRef,
   })
   const { filePaths, isEmpty } = state
-
-  function removeAttachment(filePath: string) {
-    state.setFilePaths((prev) => prev.filter((path) => path !== filePath))
-    state.setFolderPaths((prev) => {
-      if (!prev.has(filePath)) return prev
-      const next = new Set(prev)
-
-      next.delete(filePath)
-
-      return next
-    })
-    state.setImageThumbs((prev) => {
-      if (!(filePath in prev)) return prev
-      const next = { ...prev }
-
-      delete next[filePath]
-
-      return next
-    })
-  }
 
   const sendDisabled = sendBlocked || (isEmpty && filePaths.length === 0) || streaming || readOnly
 
@@ -201,12 +190,13 @@ export function Composer({
         >
           {mentions.ui}
           {!readOnly && runtimeControl && <SignedOutAgentNotice control={runtimeControl} />}
+          {slash.ui}
           {filePaths.length > 0 && (
             <AttachmentChips
               filePaths={filePaths}
               folderPaths={state.folderPaths}
               imageThumbs={state.imageThumbs}
-              onRemove={removeAttachment}
+              onRemove={state.removeAttachment}
             />
           )}
           {readOnly ? (
@@ -227,9 +217,10 @@ export function Composer({
               onInput={() => {
                 state.syncEmpty()
                 mentions.onInput()
+                slash.onInput()
               }}
               onKeyDown={(e) => {
-                if (!mentions.onKeyDown(e)) actions.onKeyDown(e)
+                if (!slash.onKeyDown(e) && !mentions.onKeyDown(e)) actions.onKeyDown(e)
               }}
               onPaste={actions.onPaste}
               onCompositionStart={state.onCompositionStart}

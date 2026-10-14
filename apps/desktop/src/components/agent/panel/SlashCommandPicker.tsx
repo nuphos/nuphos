@@ -1,9 +1,9 @@
-import { Popover } from '@base-ui/react/popover'
-import clsx from 'clsx'
+import { ComposerPicker, ComposerPickerRow } from './composerPicker'
 
 import type { SlashCommand } from './composerSlashCommands'
+import type { Popover } from '@base-ui/react/popover'
 
-/** The `/` menu; same anchor positioning and look as the @ mention picker. */
+/** The `/` menu: Nuphos actions, labelled as such so they don't pass for agent commands. */
 export function SlashCommandPicker({
   commands,
   active,
@@ -20,53 +20,29 @@ export function SlashCommandPicker({
   onClose: () => void
 }) {
   return (
-    <Popover.Root
+    <ComposerPicker
       open={commands.length > 0}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
+      anchor={anchor}
+      label="Nuphos actions"
+      className="w-[300px]"
+      onClose={onClose}
     >
-      <Popover.Portal>
-        <Popover.Positioner
-          anchor={anchor}
-          side="top"
-          align="start"
-          sideOffset={6}
-          className="z-[1000]"
+      <div role="presentation" className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-tertiary">
+        Nuphos actions
+      </div>
+      {commands.map((command, index) => (
+        <ComposerPickerRow
+          key={command.id}
+          selected={index === active}
+          onSelect={() => onSelect(command)}
+          onActive={() => onActive(index)}
         >
-          <Popover.Popup
-            role="listbox"
-            aria-label="Slash commands"
-            initialFocus={false}
-            finalFocus={false}
-            style={{ transformOrigin: 'var(--transform-origin)' }}
-            className="t-dropdown is-open w-[300px] max-h-[var(--available-height)] overflow-auto rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none"
-          >
-            {commands.map((command, index) => (
-              <div
-                key={command.id}
-                role="option"
-                aria-selected={index === active}
-                className={clsx(
-                  'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px]',
-                  index === active && 'bg-zGray-800/60',
-                )}
-                // Keep focus (and the caret) in the editor.
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  onSelect(command)
-                }}
-                onMouseEnter={() => onActive(index)}
-              >
-                <span className="shrink-0 text-main">{command.title}</span>
-                <span className="ml-auto truncate text-[11.5px] text-tertiary">
-                  {command.description}
-                </span>
-              </div>
-            ))}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+          <span className="shrink-0 text-main">{command.title}</span>
+          <span className="ml-auto truncate text-[11.5px] text-tertiary">
+            {command.description}
+          </span>
+        </ComposerPickerRow>
+      ))}
+    </ComposerPicker>
   )
 }

@@ -121,6 +121,26 @@ export function useComposerState({
     editListenerRef.current?.()
   }
 
+  function removeAttachment(filePath: string) {
+    setFilePaths((prev) => prev.filter((path) => path !== filePath))
+    setFolderPaths((prev) => {
+      if (!prev.has(filePath)) return prev
+      const next = new Set(prev)
+
+      next.delete(filePath)
+
+      return next
+    })
+    setImageThumbs((prev) => {
+      if (!(filePath in prev)) return prev
+      const next = { ...prev }
+
+      delete next[filePath]
+
+      return next
+    })
+  }
+
   function onCompositionStart() {
     composingRef.current = true
   }
@@ -225,6 +245,7 @@ export function useComposerState({
     syncEmpty,
     clearEditor,
     onCompositionStart,
+    removeAttachment,
     onCompositionEnd,
     seedAlreadySeen,
   }
