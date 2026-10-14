@@ -45,6 +45,9 @@ function RowAction({
     )
   }
   if (!interactive) return <span className="text-[12px] text-tertiary">Not connected</span>
+  if (status === 'choose') {
+    return <span className="text-[12px] text-tertiary">Pick one in the credential picker</span>
+  }
   const busy = status === 'connecting'
   const label = ACTION_LABEL[status] ?? 'Connect'
 
@@ -123,7 +126,13 @@ export function ConnectHeader({
       <div className="text-[13.5px] font-medium text-main">
         {single ? `Connect ${single}` : 'Connect apps to continue'}
       </div>
-      {reason && <div className="mt-0.5 text-[12.5px] leading-snug text-secondary">{reason}</div>}
+      {/* The agent wrote this; quote it so it can't pass for an app message. */}
+      {reason && (
+        <blockquote className="mt-1.5 border-l-2 border-zGray-700 pl-2 text-[12.5px] leading-snug text-secondary">
+          <span className="text-tertiary">Agent: </span>
+          {reason}
+        </blockquote>
+      )}
     </div>
   )
 }

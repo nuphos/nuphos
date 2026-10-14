@@ -55,7 +55,9 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Declare that the current task is genuinely blocked on a choice only the user can make, then end the turn with exactly that concise question. ' +
         'Use this ONLY for a real preference, approval for a risky/costly/irreversible action, a credential or secret the tools cannot obtain, an integration the user must connect, or a material risk tradeoff. ' +
         'Do not use it for facts you can inspect, safe read-only work, optional follow-ups, or to avoid finishing the task. ' +
-        'After this tool returns, do not run more tools or make the choice yourself; ask the question from `question`, include the supplied options when present, and wait for the next user message.',
+        'For an integration or cloud account the task needs that is not connected to the team, or connected but not selected for this conversation, use category `integration` and list it in `providers`: in the Desktop app the user then gets a Connect card for it. ' +
+        'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
+        'After this tool returns, do not run more tools or make the choice yourself; follow the returned instruction, include the supplied options when present, and wait for the next user message.',
       inputSchema: z.object({
         label: labelField,
         category: z.enum(['preference', 'approval', 'credential', 'integration', 'risk_tradeoff']),
@@ -71,9 +73,16 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           .max(5)
           .optional()
           .describe('Two to five concrete choices when the decision has a finite menu.'),
+        providers: z
+          .array(z.enum(CONNECTABLE_PROVIDERS))
+          .min(1)
+          .max(6)
+          .optional()
+          .describe('With category `integration`: the integrations or cloud accounts to connect.'),
       }),
       execute: async (input) => {
         const { label: _label, category, question, options } = input
+        const providers = category === 'integration' ? input.providers : undefined
         const decision: ExplicitUserDecision = options
           ? { category, question, options }
           : { category, question }
@@ -84,43 +93,10 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ok: true,
           status: 'awaiting_user_decision',
           ...decision,
-          instruction:
-            'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
-        }
-      },
-    })
-    userDecisionTools.request_connection = tool({
-      description:
-        'Show the user an inline Connect card for integrations or cloud accounts this task needs but cannot use yet: ' +
-        'not connected to the team, or connected but not selected for this conversation. ' +
-        'Each row connects through the same flow as the Integrations page, and the new credential is selected for this conversation automatically. ' +
-        'Use it instead of telling the user to visit Integrations or tick the credential picker. ' +
-        'The card renders below your final message, so refer to it as "the card below" or "the card", never "above". ' +
-        'After this tool returns, end the turn with one short sentence; the user continues once connected.',
-      inputSchema: z.object({
-        label: labelField,
-        providers: z.array(z.enum(CONNECTABLE_PROVIDERS)).min(1).max(6),
-        reason: z
-          .string()
-          .trim()
-          .min(1)
-          .max(300)
-          .describe('One line on why the task needs these connections, in the user’s language.'),
-      }),
-      execute: async (input) => {
-        const { providers, reason } = input
-        const question = `Connect ${providers.join(', ')} to continue: ${reason}`
-
-        onExplicitUserDecision({ category: 'integration', question })
-
-        return {
-          ok: true,
-          status: 'awaiting_connection',
-          providers,
-          reason,
-          instruction:
-            'The user sees a Connect card below your message. End the turn with one short sentence that calls it "the card below" (never "above") and wait; do not tell them to open Integrations or the credential picker. ' +
-            'Once they connect, the credential is selected for this conversation and they will ask you to continue.',
+          ...(providers ? { providers } : {}),
+          instruction: providers
+            ? 'The user sees a Connect card for these below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait; once connected, the credential is selected for this conversation and they will ask you to continue.'
+            : 'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
         }
       },
     })

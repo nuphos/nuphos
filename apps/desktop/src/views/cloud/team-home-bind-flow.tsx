@@ -19,7 +19,7 @@ export const TeamHomeBindFlow = forwardRef<
   TeamHomeBindFlowHandle,
   {
     teamId: string
-    onOpenAgentChat: (prompt: string) => void
+    onOpenAgentChat?: (prompt: string) => void
     onOpenSettingsSection?: (section: string) => void
     onChanged: () => void
     onFocusConnector?: (detail: FocusedConnector) => void

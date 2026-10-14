@@ -39,12 +39,16 @@ async function boundAfterConnect(
     last = normalizeCredentialOptions(await api.agentGetCredentialOptions(teamId))
     const ids = newConnectIds(provider, before, allCredentialAccess(last))
 
-    if (ids.length > 0) return { options: last, ids }
+    // Select only an unambiguous result; with several (a teammate bound one in
+    // the same window) the row asks the user to pick in the credential picker.
+    if (ids.length > 0) return { options: last, ids: ids.length === 1 ? ids : [] }
   }
-  // Reconnecting an account the team already had adds no new id; select it.
+  // Reconnecting an account the team already had adds no new id; select it if it is the only one.
   const existing = last ? allCredentialAccess(last)[CONNECT_SELECTION_KEY[provider]] : []
 
-  return last && existing.length > 0 ? { options: last, ids: existing } : null
+  return last && existing.length > 0
+    ? { options: last, ids: existing.length === 1 ? existing : [] }
+    : null
 }
 
 type Fresh = { forOptions: AgentCredentialOptions; options: AgentCredentialOptions }
@@ -66,10 +70,13 @@ export function ConnectCard({
   teamId,
   providers,
   reason,
+  canAct,
 }: {
   teamId?: string
   providers: ConnectProvider[]
   reason: string
+  /** The latest reply and no turn running: only then can the card act or resume. */
+  canAct: boolean
 }) {
   const ctx = useContext(ConnectCardContext)
   const credentials = ctx?.credentials
@@ -82,7 +89,7 @@ export function ConnectCard({
     null,
   )
   const boundRef = useRef(false)
-  const interactive = Boolean(credentials && teamId)
+  const interactive = Boolean(credentials && teamId && canAct)
   const available = currentAvailable(credentials, fresh)
   const setPhase = (provider: ConnectProvider, phase: ConnectPhase) =>
     setPhases((prev) => ({ ...prev, [provider]: phase }))
@@ -113,7 +120,9 @@ export function ConnectCard({
           return
         }
         setFresh({ forOptions: credentials.options, options: found.options })
-        credentials.onChange(withConnectIds(credentials.value, active.provider, found.ids))
+        if (found.ids.length > 0) {
+          credentials.onChange(withConnectIds(credentials.value, active.provider, found.ids))
+        }
         setPhase(active.provider, 'idle')
       })
       .catch(() => setPhase(active.provider, 'error'))
@@ -130,7 +139,7 @@ export function ConnectCard({
     if (!credentials || !available) return
     const ids = available[CONNECT_SELECTION_KEY[provider]]
 
-    credentials.onChange(withConnectIds(credentials.value, provider, ids))
+    if (ids.length === 1) credentials.onChange(withConnectIds(credentials.value, provider, ids))
   }
 
   return (
@@ -161,7 +170,6 @@ export function ConnectCard({
           ref={bindFlowRef}
           teamId={teamId}
           addIntegrationOpen={false}
-          onOpenAgentChat={(prompt) => ctx?.send(prompt)}
           onChanged={onBound}
           onDialogsClosed={onDialogsClosed}
         />
@@ -170,19 +178,28 @@ export function ConnectCard({
   )
 }
 
-/** `request_connection`: its card once the input parses, else the plain tool row. */
+/** An integration decision with `providers`: its card once the input parses, else the plain tool row. */
 export function ConnectToolPart({
   part,
   now,
   teamId,
+  canAct,
 }: {
   part: ToolPart
   now: number
   teamId?: string
+  canAct: boolean
 }) {
   const request = part.state === 'output-error' ? null : parseConnectRequest(part.input)
 
   if (!request) return <ToolPartView part={part} now={now} />
 
-  return <ConnectCard teamId={teamId} providers={request.providers} reason={request.reason} />
+  return (
+    <ConnectCard
+      teamId={teamId}
+      providers={request.providers}
+      reason={request.reason}
+      canAct={canAct}
+    />
+  )
 }

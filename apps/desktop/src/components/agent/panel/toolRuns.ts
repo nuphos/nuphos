@@ -1,5 +1,6 @@
 import { isPlanProposalToolName } from '../planReference.ts'
 
+import { parseConnectRequest } from './connectCardModel.ts'
 import { isHiddenMemoryIngestPart } from './parts.ts'
 import { INTERRUPTED_TOOL_MESSAGE, incompleteToolErrorText } from './toolInterruption.ts'
 
@@ -13,14 +14,18 @@ export type PartSegment =
   // between calls ends the run so it stays where it happened in the turn.
   | { kind: 'toolRun'; indices: number[] }
 
-// Tool calls that render as their own card (chart, plan, permission grant,
-// connect) carry content the user came for, so they never hide inside a run.
-const CARD_TOOL_NAMES = new Set([
-  'render_chart',
-  'plan',
-  'propose_permission_grant',
-  'request_connection',
-])
+// Tool calls that render as their own card (chart, plan, permission grant)
+// carry content the user came for, so they never hide inside a run. So does an
+// integration decision that renders as a Connect card.
+const CARD_TOOL_NAMES = new Set(['render_chart', 'plan', 'propose_permission_grant'])
+
+export function isConnectCardPart(part: Part): boolean {
+  return (
+    part.type === 'tool' &&
+    part.toolName === 'request_user_decision' &&
+    parseConnectRequest(part.input) !== null
+  )
+}
 
 // Agent bookkeeping that never renders as a tool row.
 export const BOOKKEEPING_TOOL_NAMES = new Set(['skill', 'plan_update', 'plan_get'])
@@ -28,6 +33,7 @@ export const BOOKKEEPING_TOOL_NAMES = new Set(['skill', 'plan_update', 'plan_get
 export function isPlainToolPart(part: Part): part is ToolPart {
   if (part.type !== 'tool') return false
   if (CARD_TOOL_NAMES.has(part.toolName) || isPlanProposalToolName(part.toolName)) return false
+  if (isConnectCardPart(part)) return false
 
   return !BOOKKEEPING_TOOL_NAMES.has(part.toolName)
 }
@@ -108,13 +114,12 @@ export function segmentParts(parts: readonly Part[], from: number, to: number): 
   return segments
 }
 
-export function isPlanCardPart(part: Part): part is ToolPart {
+/** Plan and Connect cards: lifted out of a folded turn so they sit under the answer. */
+export function isLiftedCardPart(part: Part): part is ToolPart {
   if (part.type !== 'tool' || part.state === 'output-error') return false
 
   return (
-    part.toolName === 'plan' ||
-    part.toolName === 'request_connection' ||
-    isPlanProposalToolName(part.toolName)
+    part.toolName === 'plan' || isPlanProposalToolName(part.toolName) || isConnectCardPart(part)
   )
 }
 
@@ -131,7 +136,7 @@ export function foldedTurnLayout(
   for (let index = from; index < to; index += 1) {
     const part = parts[index]
 
-    if (isPlanCardPart(part)) planIndices.push(index)
+    if (isLiftedCardPart(part)) planIndices.push(index)
     else if (!isInvisiblePart(part)) foldHasWork = true
   }
 

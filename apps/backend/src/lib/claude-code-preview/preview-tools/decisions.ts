@@ -155,7 +155,11 @@ function passthroughHandler(
   options: BlockOptions,
 ): ToolHandler {
   return async (args) => {
-    const outcome = await runClassicTool(name, tool, args, ctx, options)
+    // Only the Desktop app renders the Connect card; elsewhere (Slack, Discord,
+    // Lark) the integration question goes out as plain text.
+    const { providers: _providers, ...plain } = args
+    const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
+    const outcome = await runClassicTool(name, tool, input, ctx, options)
 
     return 'error' in outcome ? toolError(outcome.error) : toolResult(outcome.output)
   }

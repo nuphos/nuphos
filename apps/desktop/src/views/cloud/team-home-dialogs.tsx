@@ -60,7 +60,7 @@ export function TeamHomeBindDialogs({
   bindMode = 'install',
 }: {
   teamId: string
-  onOpenAgentChat: (prompt: string) => void
+  onOpenAgentChat?: (prompt: string) => void
   onChanged: () => void
   onFocusConnector?: (detail: FocusedConnector) => void
   onDialogsClosed?: () => void

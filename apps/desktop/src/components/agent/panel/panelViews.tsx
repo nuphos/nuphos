@@ -74,15 +74,17 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     <ConversationReveal sessionId={activeTab.sessionId}>
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
-          <ConnectCardContext.Provider
-            value={{
-              credentials: activeTab.readOnly ? undefined : visibleConversationCredentialSelector,
-              send: (text) => void sendInActive(text),
-            }}
-          >
-            <div className="relative grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr_auto]">
-              {/* Keep the transcript above the composer as its height changes. */}
-              <div className="col-start-1 row-start-1 flex min-h-0 flex-col overflow-hidden">
+          <div className="relative grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr_auto]">
+            {/* Keep the transcript above the composer as its height changes. */}
+            <div className="col-start-1 row-start-1 flex min-h-0 flex-col overflow-hidden">
+              <ConnectCardContext.Provider
+                value={{
+                  credentials: activeTab.readOnly
+                    ? undefined
+                    : visibleConversationCredentialSelector,
+                  send: (text) => void sendInActive(text),
+                }}
+              >
                 <Conversation
                   tab={activeTab}
                   visible={c.visible && c.showingConversationPage}
@@ -134,51 +136,24 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onOpenNuphosLink={onOpenNuphosLink}
                   onOpenAgentSettings={onOpenAgentSettings}
                 />
-              </div>
-              <div className="col-start-1 row-start-2 z-10">
-                {activeTab.queued && activeTab.queued.length > 0 && (
-                  <QueuedStrip
-                    items={activeTab.queued}
-                    canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
-                    onRemove={(queuedId) => removeQueued(activeTab.id, queuedId)}
-                    onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
-                    sidebar={isSidebarMode}
-                  />
-                )}
-                {activeTab.messages.length === 0 ? (
-                  <DelayedPanelReveal>
-                    <Composer
-                      onSend={(text, filePaths) => void sendInActive(text, filePaths)}
-                      onStop={stopActive}
-                      streaming={false}
-                      runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
-                      executing={runtimeIsExecuting(activeTab.runtimeState)}
-                      readOnly={activeTab.readOnly}
-                      activitySource={activeTab.activitySource}
-                      slackThread={activeTab.slackThread}
-                      credentialSelector={visibleConversationCredentialSelector}
-                      runtimeControl={runtimeControl}
-                      modelSession={modelSession}
-                      bypassControl={bypassControl}
-                      pendingSeed={pendingPromptReady}
-                      onSeedConsumed={onPromptConsumed}
-                      sidebar={isSidebarMode}
-                      dropRegisterRef={conversationDropRef}
-                      draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                      mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
-                    />
-                  </DelayedPanelReveal>
-                ) : (
+              </ConnectCardContext.Provider>
+            </div>
+            <div className="col-start-1 row-start-2 z-10">
+              {activeTab.queued && activeTab.queued.length > 0 && (
+                <QueuedStrip
+                  items={activeTab.queued}
+                  canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
+                  onRemove={(queuedId) => removeQueued(activeTab.id, queuedId)}
+                  onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
+                  sidebar={isSidebarMode}
+                />
+              )}
+              {activeTab.messages.length === 0 ? (
+                <DelayedPanelReveal>
                   <Composer
                     onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                     onStop={stopActive}
                     streaming={false}
-                    promptSuggestion={
-                      activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
-                        ? null
-                        : activeTab.promptSuggestion
-                    }
-                    autoFocus
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}
@@ -195,10 +170,37 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     draftKey={composerDraftKey(teamId, activeTab.sessionId)}
                     mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
-                )}
-              </div>
+                </DelayedPanelReveal>
+              ) : (
+                <Composer
+                  onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                  onStop={stopActive}
+                  streaming={false}
+                  promptSuggestion={
+                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                      ? null
+                      : activeTab.promptSuggestion
+                  }
+                  autoFocus
+                  runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                  executing={runtimeIsExecuting(activeTab.runtimeState)}
+                  readOnly={activeTab.readOnly}
+                  activitySource={activeTab.activitySource}
+                  slackThread={activeTab.slackThread}
+                  credentialSelector={visibleConversationCredentialSelector}
+                  runtimeControl={runtimeControl}
+                  modelSession={modelSession}
+                  bypassControl={bypassControl}
+                  pendingSeed={pendingPromptReady}
+                  onSeedConsumed={onPromptConsumed}
+                  sidebar={isSidebarMode}
+                  dropRegisterRef={conversationDropRef}
+                  draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                  mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+                />
+              )}
             </div>
-          </ConnectCardContext.Provider>
+          </div>
         </AuthorizationActionContext.Provider>
       </PermissionResumeContext.Provider>
     </ConversationReveal>

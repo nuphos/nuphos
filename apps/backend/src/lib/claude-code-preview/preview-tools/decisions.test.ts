@@ -41,7 +41,6 @@ describe('decision tool module', () => {
     expect(names).toEqual(
       expect.arrayContaining([
         'request_user_decision',
-        'request_connection',
         'port_forward_start',
         'port_forward_stop',
         'port_forward_list',
@@ -83,25 +82,45 @@ describe('decision tool module', () => {
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })
 
-  test('request_connection returns at once with the providers for the Connect card', async () => {
+  test('an integration decision carries its providers to the Desktop Connect card', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({
       publish: async (_ctx, frame) => {
         frames.push(frame)
       },
     }).handlers(ctx)
-    const result = await tools.request_connection!({
+    const result = await tools.request_user_decision!({
       label: 'Ask to connect Linear',
+      category: 'integration',
+      question: 'Filing the ticket needs a Linear workspace.',
       providers: ['linear'],
-      reason: 'Filing the ticket needs a Linear workspace.',
     })
 
     expect(result.structuredContent).toMatchObject({
-      status: 'awaiting_connection',
+      status: 'awaiting_user_decision',
       providers: ['linear'],
     })
-    expect(frames[0]).toMatchObject({ toolName: 'request_connection' })
+    expect(frames[0]).toMatchObject({ input: { providers: ['linear'] } })
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
+  })
+
+  test('without a Desktop session the integration question goes out without a card', async () => {
+    const frames: Record<string, unknown>[] = []
+    const tools = decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers({ ...ctx, localTools: false })
+    const result = await tools.request_user_decision!({
+      label: 'Ask to connect Linear',
+      category: 'integration',
+      question: 'Filing the ticket needs a Linear workspace.',
+      providers: ['linear'],
+    })
+
+    expect(result.structuredContent).not.toHaveProperty('providers')
+    expect((result.structuredContent as { instruction: string }).instruction).not.toContain('card')
+    expect(frames[0]).not.toMatchObject({ input: { providers: ['linear'] } })
   })
 
   test('client-side tools publish only the input card and return what the desktop ran', async () => {
