@@ -6,10 +6,8 @@ import { comboParts } from '../../../lib/platform'
 import type { ReactNode } from 'react'
 
 /**
- * Codex desktop's tooltips (ChatGPT.app, webview/assets/app-shared-*.js `w5`,
- * `eMi`, `dxi`), at the 1.1 scale the rest of this control uses: they open
- * after 200 ms, a neighbour opens at once for 300 ms after one closes, and
- * they appear and leave without animation.
+ * Tooltips for the model controls open after 200 ms, a neighbour opens at once
+ * for 300 ms after one closes, and they appear and leave without animation.
  */
 export function ModelTooltipProvider({ children }: { children: ReactNode }) {
   return (
