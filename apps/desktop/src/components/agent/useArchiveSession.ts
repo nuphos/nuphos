@@ -5,7 +5,7 @@ import { archiveChat } from '../../lib/archiveChat'
 import { announceChatArchived, announceChatUnarchived } from '../../lib/chatArchiveEvents'
 import { toast } from '../ui/toast'
 
-export type ArchiveTarget = { sessionId: string; teamId: string; title: string }
+type ArchiveTarget = { sessionId: string; teamId: string; title: string }
 
 /** Archives the open session with the history page's Undo receipt. */
 export function useArchiveSession({ sessionId, teamId, title }: ArchiveTarget) {

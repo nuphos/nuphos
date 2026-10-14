@@ -213,7 +213,9 @@ export function WorkspaceAgentPane({
               canRename={currentHeading.canRename === true}
               editing={renamingSessionId === selectedSessionId}
               onEditingChange={(editing) =>
-                setRenamingSessionId(editing ? selectedSessionId : null)
+                setRenamingSessionId((current) =>
+                  editing ? selectedSessionId : current === selectedSessionId ? null : current,
+                )
               }
             />
             {selectedSessionId && (
