@@ -88,7 +88,12 @@ enum Command {
         session: String,
     },
     /// Run this computer's Claude Code and Codex as local agents, as the desktop app does.
-    Agent,
+    Agent {
+        /// Join Nuphos with a one-time token instead of signing in (`-` reads it from stdin;
+        /// `NUPHOS_JOIN_TOKEN` works too). Later runs need neither.
+        #[arg(long, value_name = "TOKEN")]
+        join: Option<String>,
+    },
     /// Sign in through the browser (shared with the desktop app).
     Login,
     /// Sign out here and in the desktop app.
@@ -121,9 +126,13 @@ async fn run(args: Args) -> Result<i32> {
             return Ok(0);
         }
         Some(Command::Update) => return update::update().await,
-        Some(Command::Agent) => {
-            sign_in(std::io::stdin().is_terminal()).await?;
-            return agent::run().await;
+        Some(Command::Agent { join }) => {
+            let join = agent::join_token(join.as_deref())?;
+            // A joined computer has its own credential; only the session needs signing in.
+            if join.is_none() && !agent::joined() {
+                sign_in(std::io::stdin().is_terminal()).await?;
+            }
+            return agent::run(join).await;
         }
         Some(Command::Login) => {
             let session = login::login(&config::api_url()).await?;
@@ -181,9 +190,8 @@ async fn run(args: Args) -> Result<i32> {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }
         Some(Command::Stop { session }) => cli::stop(&ctx, &session).await.map(|_| 0),
-        Some(Command::Agent | Command::Login | Command::Logout | Command::Update | Command::Resume { .. }) | None => {
-            Ok(0)
-        }
+        Some(Command::Agent { .. } | Command::Login | Command::Logout | Command::Update | Command::Resume { .. })
+        | None => Ok(0),
     }
 }
 

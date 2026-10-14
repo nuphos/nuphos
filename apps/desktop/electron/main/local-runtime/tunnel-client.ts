@@ -54,6 +54,8 @@ export type TunnelClientDeps = {
   status: () => LocalRuntimeTunnelStatus
   /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
   onChange?: (connected: boolean, superseded: boolean) => void
+  /** The backend revoked this computer's credential; the tunnel stays down. */
+  onRevoked?: () => void
 }
 
 const OPEN = 1
@@ -62,6 +64,7 @@ const RECONNECT_BACKOFF_MS = [500, 1_000, 2_000, 5_000, 10_000]
 /** The backend pings every 5s; silence this long means the socket is dead. */
 export const TUNNEL_IDLE_TIMEOUT_MS = 12_000
 const CLOSE_SUPERSEDED = 4000
+const CLOSE_REVOKED = 4003
 
 export function tunnelReconnectDelayMs(attempt: number): number {
   return RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)]
@@ -187,7 +190,10 @@ export class RuntimeTunnelClient {
       const superseded = event.code === CLOSE_SUPERSEDED
 
       this.deps.onChange?.(false, superseded)
-      if (superseded) this.running = false
+      if (event.code === CLOSE_REVOKED) {
+        this.running = false
+        this.deps.onRevoked?.()
+      } else if (superseded) this.running = false
       else this.scheduleReconnect()
     })
     socket.addEventListener('error', () => {

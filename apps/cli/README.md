@@ -65,6 +65,7 @@ nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
 nuphos login | logout
 nuphos agent                                 # run this computer's agents
+nuphos agent --join TOKEN                    # join without signing in, then run them
 ```
 
 `nuphos agent` makes this computer a local agent, as the desktop app does: the
@@ -78,6 +79,50 @@ login; if none exists, it asks you to sign in to that shared login. Linux and
 Windows use a separate Claude sign-in for Nuphos. Codex uses your `codex login`. It
 runs as its own device, so the desktop app on the same computer is unaffected;
 `NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
+
+### On a server
+
+A machine nobody signs in on, such as a VM, a Mac mini or a container, joins
+with a one-time token instead of a session. Create one while signed in
+(`POST /agent/devices/join-tokens`, valid 15 minutes by default), then on the
+machine:
+
+```sh
+curl -fsSL https://nuphos.ai/install | sh
+NUPHOS_JOIN_TOKEN=nbj_… nuphos agent      # or: nuphos agent --join -  (reads stdin)
+```
+
+The token works once. The machine keeps its own credential in
+`~/.local/share/nuphos/agent/device-credential.json` (`NUPHOS_AGENT_HOME`
+moves it); later runs need neither the token nor a sign-in. The credential
+opens only this machine's tunnel. Revoking it
+(`DELETE /agent/devices/<deviceId>/credential`) disconnects the machine, and
+`nuphos agent` then exits with status 78 until it joins again.
+
+To keep it running with systemd, use a dedicated non-root account: anyone who
+controls that account acts as this machine in Nuphos, and conversation
+commands run as it.
+
+```ini
+# ~/.config/systemd/user/nuphos-agent.service
+[Unit]
+Description=Nuphos local agents
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/nuphos agent
+Restart=always
+RestartSec=10
+RestartPreventExitStatus=78
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
+```
+
+Join once in a terminal, then `systemctl --user enable --now nuphos-agent` and
+`sudo loginctl enable-linger "$USER"`. Add the directories of `node` and
+`claude` to `PATH` if they live elsewhere.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
 the session id. New conversations use the mode last picked in `/full-access`

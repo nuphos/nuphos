@@ -15,15 +15,43 @@ use crate::config;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const MIN_NODE: u64 = 22;
 
+/// The join token from `--join`, `--join -` (stdin) or `NUPHOS_JOIN_TOKEN`.
+pub fn join_token(arg: Option<&str>) -> Result<Option<String>> {
+    let token = match arg {
+        Some("-") => {
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line).context("could not read the join token")?;
+            line
+        }
+        Some(token) => token.to_owned(),
+        None => std::env::var("NUPHOS_JOIN_TOKEN").unwrap_or_default(),
+    };
+    let token = token.trim();
+    Ok((!token.is_empty()).then(|| token.to_owned()))
+}
+
+/// Whether an earlier `--join` left this computer a credential. The host checks
+/// it is still valid; this only decides whether to sign in first.
+pub fn joined() -> bool {
+    let dir = std::env::var_os("NUPHOS_AGENT_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share/nuphos/agent")));
+    dir.is_some_and(|dir| dir.join("device-credential.json").is_file())
+}
+
 /// Replaces this process with the host, so Ctrl-C reaches it directly and
 /// it can stop the agents before exiting.
-pub async fn run() -> Result<i32> {
+pub async fn run(join: Option<String>) -> Result<i32> {
     let node = node()?;
     let runtime = match std::env::var_os("NUPHOS_LOCAL_RUNTIME_DIR") {
         Some(dir) => PathBuf::from(dir),
         None => fetch().await?,
     };
-    let error = Command::new(node)
+    let mut host = Command::new(node);
+    if let Some(token) = join {
+        host.env("NUPHOS_JOIN_TOKEN", token);
+    }
+    let error = host
         .arg(runtime.join("host.mjs"))
         .env("NUPHOS_LOCAL_RUNTIME_DIR", &runtime)
         .env("NUPHOS_API_URL", config::api_url())
