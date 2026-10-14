@@ -177,39 +177,73 @@ export async function dashboardsDeleteAlert(
   )
 }
 
-// --- Team skills (S3-backed agent skills store) ---
+// --- Skills (S3-backed agent skills store) ---
+// `scope` picks the team store (default) or the caller's own personal skills.
 
-export async function teamSkillsGetManifest(teamId: string): Promise<unknown> {
-  return call('GET', `/teams/${teamId}/skills/manifest`)
+export type SkillScope = 'team' | 'personal'
+
+function skillsRoute(
+  teamId: string,
+  tail: string,
+  scope: SkillScope | undefined,
+  params: Record<string, string> = {},
+): string {
+  return appendQuery(`/teams/${teamId}/skills/${tail}`, {
+    ...params,
+    scope: scope === 'personal' ? scope : undefined,
+  })
 }
 
-export async function teamSkillsListObjects(teamId: string): Promise<unknown> {
-  return call('GET', `/teams/${teamId}/skills/objects`)
+export async function teamSkillsGetManifest(teamId: string, scope?: SkillScope): Promise<unknown> {
+  return call('GET', skillsRoute(teamId, 'manifest', scope))
 }
 
-export async function teamSkillsGetObject(teamId: string, key: string): Promise<unknown> {
-  return call('GET', appendQuery(`/teams/${teamId}/skills/object`, { key }))
+export async function teamSkillsListObjects(teamId: string, scope?: SkillScope): Promise<unknown> {
+  return call('GET', skillsRoute(teamId, 'objects', scope))
 }
 
-export async function teamSkillsGetHistory(teamId: string, name: string): Promise<unknown> {
-  return call('GET', appendQuery(`/teams/${teamId}/skills/history`, { name }))
+export async function teamSkillsGetObject(
+  teamId: string,
+  key: string,
+  scope?: SkillScope,
+): Promise<unknown> {
+  return call('GET', skillsRoute(teamId, 'object', scope, { key }))
+}
+
+export async function teamSkillsGetHistory(
+  teamId: string,
+  name: string,
+  scope?: SkillScope,
+): Promise<unknown> {
+  return call('GET', skillsRoute(teamId, 'history', scope, { name }))
 }
 
 export async function teamSkillsPutObject(
   teamId: string,
   key: string,
   file: { filename: string; bytes: Uint8Array; contentType?: string },
+  scope?: SkillScope,
 ): Promise<unknown> {
-  return callMultipart(`/teams/${teamId}/skills/object`, { key }, file, { timeoutMs: 120_000 })
+  return callMultipart(skillsRoute(teamId, 'object', scope), { key }, file, { timeoutMs: 120_000 })
 }
 
-export async function teamSkillsDeleteObject(teamId: string, key: string): Promise<void> {
-  await call('DELETE', appendQuery(`/teams/${teamId}/skills/object`, { key }))
+export async function teamSkillsDeleteObject(
+  teamId: string,
+  key: string,
+  scope?: SkillScope,
+): Promise<void> {
+  await call('DELETE', skillsRoute(teamId, 'object', scope, { key }))
 }
 
 export async function teamSkillsDeleteSkill(
   teamId: string,
   name: string,
+  scope?: SkillScope,
 ): Promise<{ name: string; deletedCount: number; keys: string[] }> {
-  return call('DELETE', appendQuery(`/teams/${teamId}/skills/skill`, { name }))
+  return call('DELETE', skillsRoute(teamId, 'skill', scope, { name }))
+}
+
+/** Move one of the caller's personal skills into the team store. */
+export async function teamSkillsPromote(teamId: string, name: string): Promise<unknown> {
+  return call('POST', skillsRoute(teamId, 'promote', undefined, { name }))
 }

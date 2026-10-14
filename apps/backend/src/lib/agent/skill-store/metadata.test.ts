@@ -104,6 +104,10 @@ describe('skill metadata serialization', () => {
   test('derives team identity from a normalized team scope', () => {
     expect(skillTeamIdFromScope('teams/64f1a2b3c4d5e6f7a8b9c0d1')).toBe('64f1a2b3c4d5e6f7a8b9c0d1')
     expect(skillTeamIdFromScope('global')).toBeNull()
+    // A personal scope still belongs to its team.
+    expect(
+      skillTeamIdFromScope('teams/64f1a2b3c4d5e6f7a8b9c0d1/users/64f1a2b3c4d5e6f7a8b9c0d2'),
+    ).toBe('64f1a2b3c4d5e6f7a8b9c0d1')
   })
 
   test('serializes trusted provenance without inventing legacy creation time', () => {

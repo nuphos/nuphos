@@ -1,4 +1,4 @@
-// One-click "import this computer's skill into the team store": resolve the
+// One-click "import this computer's skill into the team or personal store": resolve the
 // skill against what listLocalSkills found, then read and upload its files one
 // at a time under `skills/<name>/`.
 import fs from 'node:fs/promises'
@@ -9,6 +9,7 @@ import { teamSkillsPutObject } from '../atlas'
 import { listLocalSkills, localSkillEntries, MAX_SKILL_FILE_BYTES } from './local-skills'
 
 import type { LocalSkillSource } from './local-skills'
+import type { SkillScope } from '../atlas'
 
 export type LocalSkillImportResult = {
   name: string
@@ -38,6 +39,7 @@ export async function importLocalSkill(
   teamId: string,
   /** The `id` of a skill `listLocalSkills` returned. */
   id: string,
+  scope?: SkillScope,
 ): Promise<LocalSkillImportResult> {
   // Never take a directory the renderer names: the listing main just produced is
   // the whole allow-list, and it already excludes symlinked roots and anything
@@ -60,11 +62,16 @@ export async function importLocalSkill(
     const key = `skills/${skill.name}/${entry.relPath}`
     const bytes = new Uint8Array(await fs.readFile(path.join(skill.path, entry.relPath)))
 
-    await teamSkillsPutObject(teamId, key, {
-      filename: entry.relPath.split('/').pop() ?? entry.relPath,
-      bytes,
-      contentType: contentType(entry.relPath),
-    })
+    await teamSkillsPutObject(
+      teamId,
+      key,
+      {
+        filename: entry.relPath.split('/').pop() ?? entry.relPath,
+        bytes,
+        contentType: contentType(entry.relPath),
+      },
+      scope,
+    )
     keys.push(key)
   }
 

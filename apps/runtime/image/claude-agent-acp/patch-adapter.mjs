@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 
-import { patchRuntimeDefaults } from '../runtime-defaults.mjs'
+import { patchPersonalSkillsRefresh, patchRuntimeDefaults } from '../runtime-defaults.mjs'
 import { patchClaudeSessionState } from './session-state.mjs'
 import { patchClaudeTurnCompletion } from './turn-completion.mjs'
 
@@ -90,4 +90,4 @@ for (const method of ['loadSession', 'resumeSession']) {
   traced = traced.replace('{\n', "{\n        nuphosRestorePhase('provider-update');\n")
   patched = patched.slice(0, start) + traced + patched.slice(end)
 }
-writeFileSync(target, patched)
+writeFileSync(target, patchPersonalSkillsRefresh(patched))

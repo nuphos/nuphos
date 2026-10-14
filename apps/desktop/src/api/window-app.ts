@@ -14,6 +14,7 @@ import type {
   PastedAttachmentPayload,
 } from './app-types.ts'
 import type {
+  SkillScope,
   TeamSkillHistory,
   TeamSkillManifest,
   TeamSkillObject,
@@ -157,20 +158,34 @@ export type WindowAppApi = {
     dashboardId: string,
     panelId: string,
   ): Promise<{ ok: boolean }>
-  teamSkillsGetManifest(teamId: string): Promise<TeamSkillManifest>
-  teamSkillsListObjects(teamId: string): Promise<{ scope: string; objects: TeamSkillObject[] }>
-  teamSkillsGetObject(teamId: string, key: string): Promise<TeamSkillObjectDetail>
-  teamSkillsGetHistory(teamId: string, name: string): Promise<TeamSkillHistory>
+  teamSkillsGetManifest(teamId: string, scope?: SkillScope): Promise<TeamSkillManifest>
+  teamSkillsListObjects(
+    teamId: string,
+    scope?: SkillScope,
+  ): Promise<{ scope: string; objects: TeamSkillObject[] }>
+  teamSkillsGetObject(
+    teamId: string,
+    key: string,
+    scope?: SkillScope,
+  ): Promise<TeamSkillObjectDetail>
+  teamSkillsGetHistory(teamId: string, name: string, scope?: SkillScope): Promise<TeamSkillHistory>
   teamSkillsPutObject(
     teamId: string,
     key: string,
     file: { filename: string; bytes: Uint8Array; contentType?: string },
+    scope?: SkillScope,
   ): Promise<TeamSkillObject>
   teamSkillsListLocal(): Promise<LocalSkillInfo[]>
-  teamSkillsImportLocal(teamId: string, skillId: string): Promise<LocalSkillImportResult>
-  teamSkillsDeleteObject(teamId: string, key: string): Promise<void>
+  teamSkillsImportLocal(
+    teamId: string,
+    skillId: string,
+    scope?: SkillScope,
+  ): Promise<LocalSkillImportResult>
+  teamSkillsDeleteObject(teamId: string, key: string, scope?: SkillScope): Promise<void>
   teamSkillsDeleteSkill(
     teamId: string,
     name: string,
+    scope?: SkillScope,
   ): Promise<{ name: string; deletedCount: number; keys: string[] }>
+  teamSkillsPromote(teamId: string, name: string): Promise<unknown>
 }

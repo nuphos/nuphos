@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 
-import { nativeSkillBundle } from '@/lib/claude-code-preview/native-skills'
+import { nativeSkillBundle, personalSkillBundle } from '@/lib/claude-code-preview/native-skills'
 import { verifyRuntimeSkillsToken } from '@/lib/claude-code-preview/runtime-skills-token'
 import { AppError } from '@/lib/errors'
 
@@ -11,10 +11,24 @@ claudeCodeRuntimeSkills.get('/:teamId', async (c) => {
   const token = authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : ''
   const teamId = c.req.param('teamId')
 
-  if (verifyRuntimeSkillsToken(token) !== teamId) {
+  const claims = verifyRuntimeSkillsToken(token)
+
+  if (claims?.teamId !== teamId) {
     throw new AppError(401, 'unauthorized', 'Invalid runtime skills credential')
   }
-  const bundle = await nativeSkillBundle(teamId)
+  // `?scope=personal` is the personal skills of the member the credential
+  // names. `scope` in the body lets a runtime tell this answer from the team
+  // bundle an older backend would send for the same request.
+  const personal = c.req.query('scope') === 'personal'
+  const bundle = !personal
+    ? await nativeSkillBundle(teamId)
+    : {
+        scope: 'personal',
+        // Automation actors are not members and have no personal scope.
+        ...(claims.userId && /^[a-f0-9]{24}$/u.test(claims.userId)
+          ? await personalSkillBundle(teamId, claims.userId)
+          : { revision: 'none', files: [] }),
+      }
   const etag = `"${bundle.revision}"`
 
   c.header('Cache-Control', 'no-store')

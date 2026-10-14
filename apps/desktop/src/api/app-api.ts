@@ -7,6 +7,7 @@ import type {
   LocalSessionSource,
   PastedAttachmentPayload,
 } from './app-types.ts'
+import type { SkillScope } from './plan-types.ts'
 import type { Diagram } from '../architecture/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
@@ -135,21 +136,26 @@ export const appApi = {
   ) => window.api.dashboardsSaveAlert(teamId, dashboardId, panelId, input),
   dashboardsDeleteAlert: (teamId: string, dashboardId: string, panelId: string) =>
     window.api.dashboardsDeleteAlert(teamId, dashboardId, panelId),
-  teamSkillsGetManifest: (teamId: string) => window.api.teamSkillsGetManifest(teamId),
-  teamSkillsListObjects: (teamId: string) => window.api.teamSkillsListObjects(teamId),
-  teamSkillsGetObject: (teamId: string, key: string) => window.api.teamSkillsGetObject(teamId, key),
-  teamSkillsGetHistory: (teamId: string, name: string) =>
-    window.api.teamSkillsGetHistory(teamId, name),
+  teamSkillsGetManifest: (teamId: string, scope?: SkillScope) =>
+    window.api.teamSkillsGetManifest(teamId, scope),
+  teamSkillsListObjects: (teamId: string, scope?: SkillScope) =>
+    window.api.teamSkillsListObjects(teamId, scope),
+  teamSkillsGetObject: (teamId: string, key: string, scope?: SkillScope) =>
+    window.api.teamSkillsGetObject(teamId, key, scope),
+  teamSkillsGetHistory: (teamId: string, name: string, scope?: SkillScope) =>
+    window.api.teamSkillsGetHistory(teamId, name, scope),
   teamSkillsPutObject: (
     teamId: string,
     key: string,
     file: { filename: string; bytes: Uint8Array; contentType?: string },
-  ) => window.api.teamSkillsPutObject(teamId, key, file),
+    scope?: SkillScope,
+  ) => window.api.teamSkillsPutObject(teamId, key, file, scope),
   teamSkillsListLocal: () => window.api.teamSkillsListLocal(),
-  teamSkillsImportLocal: (teamId: string, skillId: string) =>
-    window.api.teamSkillsImportLocal(teamId, skillId),
-  teamSkillsDeleteObject: (teamId: string, key: string) =>
-    window.api.teamSkillsDeleteObject(teamId, key),
-  teamSkillsDeleteSkill: (teamId: string, name: string) =>
-    window.api.teamSkillsDeleteSkill(teamId, name),
+  teamSkillsImportLocal: (teamId: string, skillId: string, scope?: SkillScope) =>
+    window.api.teamSkillsImportLocal(teamId, skillId, scope),
+  teamSkillsDeleteObject: (teamId: string, key: string, scope?: SkillScope) =>
+    window.api.teamSkillsDeleteObject(teamId, key, scope),
+  teamSkillsDeleteSkill: (teamId: string, name: string, scope?: SkillScope) =>
+    window.api.teamSkillsDeleteSkill(teamId, name, scope),
+  teamSkillsPromote: (teamId: string, name: string) => window.api.teamSkillsPromote(teamId, name),
 }

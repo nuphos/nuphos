@@ -26,6 +26,15 @@ fi
 umask 077
 runtime_workspace=${NUPHOS_RUNTIME_WORKSPACE:-/workspace}
 claude_dir="$runtime_workspace/.claude"
+# A second run per session installs the personal skills of the member the credential
+# names. They go to a directory of that one conversation, never into the workspace
+# tree every conversation on this runtime reads. The adapter derives the directory
+# from the conversation id; nothing a session sends chooses it.
+personal_dir=${NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR:-}
+if [[ -n $personal_dir ]]; then
+  claude_dir="$personal_dir/.claude"
+  NUPHOS_RUNTIME_SKILLS_URL="$NUPHOS_RUNTIME_SKILLS_URL?scope=personal"
+fi
 mkdir -p "$claude_dir"
 
 # The EXIT trap below cannot run when a caller's timeout SIGKILLs this process group,
@@ -102,6 +111,11 @@ if [[ $status == 304 ]]; then
 fi
 
 jq -e '.revision | type == "string"' "$bundle" >/dev/null
+# A backend that predates personal skills ignores the scope and answers with the team
+# bundle, which must not be installed a second time as somebody's personal skills.
+if [[ -n $personal_dir ]] && ! jq -e '.scope == "personal"' "$bundle" >/dev/null; then
+  exit 0
+fi
 revision=$(jq -er '.revision' "$bundle")
 
 # From here to the end is one critical section. A self-hosted runtime runs this per
@@ -163,6 +177,22 @@ done
 # The destination carries the pid as well as the revision so that it can never
 # be the directory `skills` currently points at: nothing live is removed to
 # make room, whatever state the marker above is in.
+# Personal skills are replaced in place instead. A running Claude Code session watches
+# the directory it resolved at start and never follows a swapped symlink, and this
+# tree has one reader, between whose turns the run happens.
+if [[ -n $personal_dir ]]; then
+  [[ -L $claude_dir/skills ]] && rm -f "$claude_dir/skills"
+  mkdir -p "$claude_dir/skills"
+  # The marker goes first: a run killed halfway must not leave a partial tree that
+  # later runs take for the complete one.
+  rm -f "$revision_file"
+  find "$claude_dir/skills" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -R "$staging"/. "$claude_dir/skills"/
+  printf '%s' "$revision" >"$revision_file.incoming"
+  mv -f "$revision_file.incoming" "$revision_file"
+  exit 0
+fi
+
 installed="$claude_dir/skills.$revision.$$"
 mv "$staging" "$installed"
 ln -sfn "$(basename "$installed")" "$tmp_dir/skills.link"
@@ -170,6 +200,7 @@ mv -T "$tmp_dir/skills.link" "$claude_dir/skills"
 
 # settings.json is the agent's, not a skill: it sits beside the tree rather
 # than inside it. Copied rather than linked so it survives the swap above.
+# Only the team bundle reaches this point, so a personal skill cannot become agent settings.
 if [[ -r $installed/_runtime/settings.json ]]; then
   cp "$installed/_runtime/settings.json" "$claude_dir/.settings.json.incoming"
   mv -f "$claude_dir/.settings.json.incoming" "$claude_dir/settings.json"

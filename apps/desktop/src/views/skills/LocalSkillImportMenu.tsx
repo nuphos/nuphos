@@ -5,7 +5,7 @@ import { api } from '../../api'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 
-import type { LocalSkillInfo } from '../../api'
+import type { LocalSkillInfo, SkillScope } from '../../api'
 
 const SOURCE_LABELS: Record<LocalSkillInfo['source'], string> = {
   claude: 'Claude Code',
@@ -13,13 +13,15 @@ const SOURCE_LABELS: Record<LocalSkillInfo['source'], string> = {
 }
 
 /** One click per skill: read `~/.claude/skills/<name>` (or the Codex folder) on
- *  this computer and upload it into the team store under `skills/<name>/`. */
+ *  this computer and upload it into the store being viewed, under `skills/<name>/`. */
 export function LocalSkillImportMenu({
   teamId,
+  scope,
   disabled,
   onImported,
 }: {
   teamId: string
+  scope: SkillScope
   disabled: boolean
   onImported: (name: string) => void
 }) {
@@ -43,7 +45,7 @@ export function LocalSkillImportMenu({
     (skill: LocalSkillInfo) => {
       setImporting(skill.id)
       api
-        .teamSkillsImportLocal(teamId, skill.id)
+        .teamSkillsImportLocal(teamId, skill.id, scope)
         .then((result) => {
           const files = `${String(result.keys.length)} file${result.keys.length === 1 ? '' : 's'}`
 
@@ -60,7 +62,7 @@ export function LocalSkillImportMenu({
         })
         .finally(() => setImporting(null))
     },
-    [onImported, teamId],
+    [onImported, scope, teamId],
   )
 
   return (

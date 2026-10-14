@@ -8,11 +8,17 @@ import { useResetOnKey } from '../useResetOnKey'
 import { canDeleteSkills, canEditSkills } from './skillsShared'
 
 import type { LoadState, MenuState } from './skillsShared'
-import type { TeamSkillHistory, TeamSkillObject, TeamSkillObjectDetail } from '../../api'
+import type {
+  SkillScope,
+  TeamSkillHistory,
+  TeamSkillObject,
+  TeamSkillObjectDetail,
+} from '../../api'
 import type { TeamMember } from '../../types'
 
 type ListArgs = {
   teamId: string
+  scope: SkillScope
   currentUserId: string
   refreshKey: number
   filter: string
@@ -22,6 +28,7 @@ type ListArgs = {
 
 export function useTeamSkills({
   teamId,
+  scope,
   currentUserId,
   refreshKey,
   filter,
@@ -30,6 +37,7 @@ export function useTeamSkills({
 }: ListArgs) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [members, setMembers] = useState<TeamMember[]>([])
+  const [teamNames, setTeamNames] = useState<ReadonlySet<string>>(new Set())
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [skillMd, setSkillMd] = useState<TeamSkillObjectDetail | null>(null)
   const [skillFiles, setSkillFiles] = useState<TeamSkillObject[]>([])
@@ -46,8 +54,10 @@ export function useTeamSkills({
     () => members.find((member) => member.id === currentUserId)?.role,
     [members, currentUserId],
   )
-  const canEdit = canEditSkills(currentRole)
-  const canDelete = canDeleteSkills(currentRole)
+  // Personal skills are the member's own; only the team store is role-gated.
+  const canPromote = canEditSkills(currentRole)
+  const canEdit = scope === 'personal' || canPromote
+  const canDelete = scope === 'personal' || canDeleteSkills(currentRole)
 
   useEffect(() => {
     let alive = true
@@ -66,6 +76,26 @@ export function useTeamSkills({
     }
   }, [teamId])
 
+  // On a name clash the agent uses the team skill, so the Personal tab needs the
+  // team's names to say which personal skills that affects.
+  useEffect(() => {
+    if (scope !== 'personal') return
+    let alive = true
+
+    api
+      .teamSkillsGetManifest(teamId)
+      .then((manifest) => {
+        if (alive) setTeamNames(new Set(manifest.skills.map((skill) => skill.name)))
+      })
+      .catch(() => {
+        if (alive) setTeamNames(new Set())
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [teamId, scope, refreshKey])
+
   const reload = useCallback(() => {
     const requestId = listRequestRef.current + 1
 
@@ -73,7 +103,7 @@ export function useTeamSkills({
     onLoading?.(true)
 
     return api
-      .teamSkillsGetManifest(teamId)
+      .teamSkillsGetManifest(teamId, scope)
       .then((manifest) => {
         if (listRequestRef.current !== requestId) return
         setState({ kind: 'ready', manifest })
@@ -98,11 +128,14 @@ export function useTeamSkills({
           onLoading?.(false)
         }
       })
-  }, [onLoading, teamId])
+  }, [onLoading, scope, teamId])
 
   // `reload` is kicked from the effect below, so the skeleton flip it used to
   // do lives here instead; event-driven callers use `reloadWithSkeleton`.
-  useResetOnKey(`${teamId}|${String(refreshKey)}`, () => setState({ kind: 'loading' }))
+  useResetOnKey(`${teamId}|${scope}|${String(refreshKey)}`, () => {
+    setState({ kind: 'loading' })
+    setSelectedName(null)
+  })
 
   const reloadWithSkeleton = useCallback(async () => {
     setState({ kind: 'loading' })
@@ -120,14 +153,14 @@ export function useTeamSkills({
 
     listRequestRef.current = requestId
     try {
-      const manifest = await api.teamSkillsGetManifest(teamId)
+      const manifest = await api.teamSkillsGetManifest(teamId, scope)
 
       if (listRequestRef.current !== requestId) return
       setState({ kind: 'ready', manifest })
     } catch {
       // swallow; next foreground load surfaces errors
     }
-  }, [state, teamId])
+  }, [scope, state, teamId])
 
   useSilentTick(() => {
     void silentRefresh()
@@ -180,6 +213,8 @@ export function useTeamSkills({
     fileInputRef,
     canEdit,
     canDelete,
+    canPromote,
+    teamNames,
     reload,
     reloadWithSkeleton,
     rows,
