@@ -2,6 +2,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { resolveTriggerCredentialAccess } from '@/routes/agent'
 
+import { getConversationBySessionId } from './db'
 import {
   executionAuthorizationIsCurrent,
   triggerExecutionPrincipalFilter,
@@ -23,7 +24,7 @@ import type { AgentTrigger } from './trigger-db'
  * departed principal must not take working siblings down with it. The Group
  * itself is only paused once nothing is left to run.
  */
-async function pauseIngressesForDepartedPrincipal(
+async function pauseBrokenIngresses(
   trigger: AgentTrigger,
   principalUserId: string,
   error: string,
@@ -192,8 +193,19 @@ export async function resolveExecutionAuthorization(inbound: AgentTrigger) {
       const error =
         'The Trigger creator is no longer a member of this team. The Trigger was paused.'
 
-      await pauseIngressesForDepartedPrincipal(trigger, principalUserId, error, now)
+      await pauseBrokenIngresses(trigger, principalUserId, error, now)
       throw new AppError(409, 'trigger_execution_principal_invalid', error)
+    }
+  }
+  if (trigger.targetSessionId) {
+    const target = await getConversationBySessionId(trigger.targetSessionId)
+
+    // Otherwise a 30-minute cron would knock on a deleted session forever.
+    if (!target || target.teamId !== trigger.teamId || target.userId !== principalUserId) {
+      const error = 'The session this Trigger delivers to is gone. The Trigger was paused.'
+
+      await pauseBrokenIngresses(trigger, principalUserId, error, now)
+      throw new AppError(409, 'trigger_target_session_invalid', error)
     }
   }
 

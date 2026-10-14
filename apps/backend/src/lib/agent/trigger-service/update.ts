@@ -14,6 +14,7 @@ import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler
 import { assertTriggerSlackDestinationAuthorized } from '../trigger-slack-authorization'
 
 import {
+  assertBindableSession,
   findManagedTrigger,
   parseTriggerId,
   serializeTrigger,
@@ -65,6 +66,19 @@ export async function updateTrigger(
   if (trigger.sessionRouting && patch.incidentMode === true) {
     throw new AppError(400, 'invalid_routing', 'Routed sessions cannot enable incident mode')
   }
+  const nextTargetSessionId =
+    patch.targetSessionId === undefined
+      ? trigger.targetSessionId
+      : (patch.targetSessionId ?? undefined)
+  const targetSessionChanged = nextTargetSessionId !== trigger.targetSessionId
+
+  if (nextTargetSessionId && (trigger.sessionRouting || trigger.watchGroupId)) {
+    throw new AppError(
+      400,
+      'invalid_target_session',
+      'targetSessionId cannot be combined with session routing or a Watch Group',
+    )
+  }
   if (patch.minIntervalSeconds !== undefined) {
     validateMinInterval(trigger.triggerType, patch.minIntervalSeconds)
   }
@@ -82,6 +96,10 @@ export async function updateTrigger(
   }
 
   const nextIncidentMode = patch.incidentMode ?? trigger.incidentMode
+
+  if (nextTargetSessionId && nextIncidentMode) {
+    throw new AppError(400, 'invalid_target_session', 'A bound session cannot use incident mode')
+  }
   const nextSlackDestination =
     patch.incidentMode === false || patch.slackDestination === null
       ? undefined
@@ -115,7 +133,8 @@ export async function updateTrigger(
     cronChanged ||
     minIntervalChanged ||
     incidentModeChanged ||
-    slackDestinationChanged
+    slackDestinationChanged ||
+    targetSessionChanged
 
   // An edit changes what the Trigger does, never who it runs as. Editing is
   // still gated on outranking the principal, because until the identity moves
@@ -127,6 +146,10 @@ export async function updateTrigger(
   }
 
   const principalUserId = triggerExecutionPrincipalId(trigger)
+
+  if (targetSessionChanged && nextTargetSessionId) {
+    await assertBindableSession(nextTargetSessionId, trigger.teamId, principalUserId)
+  }
 
   if (
     nextIncidentMode === true &&
@@ -151,6 +174,9 @@ export async function updateTrigger(
     ...(cronChanged && nextCronExpression ? { cronExpression: nextCronExpression } : {}),
     ...(minIntervalChanged ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
     ...(incidentModeChanged ? { incidentMode: nextIncidentMode } : {}),
+    ...(targetSessionChanged && nextTargetSessionId
+      ? { targetSessionId: nextTargetSessionId }
+      : {}),
     ...(slackDestinationChanged && nextSlackDestination
       ? { slackDestination: nextSlackDestination }
       : {}),
@@ -165,6 +191,7 @@ export async function updateTrigger(
   if (patch.incidentMode === false || patch.slackDestination === null) {
     delete updated.slackDestination
   }
+  if (!nextTargetSessionId) delete updated.targetSessionId
 
   const resetIncidentLifecycle =
     trigger.incidentMode === true &&
@@ -181,6 +208,7 @@ export async function updateTrigger(
   if (patch.incidentMode === false || patch.slackDestination === null) {
     $unset.slackDestination = true
   }
+  if (targetSessionChanged && !nextTargetSessionId) $unset.targetSessionId = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }

@@ -15,6 +15,7 @@ import { assertTriggerSlackDestinationAuthorized } from '../trigger-slack-author
 import { validateCreateTriggerShape } from './create-validation'
 import { assertTriggerCreationQuota, resolveTriggerCredentialSelection } from './quota'
 import {
+  assertBindableSession,
   serializeTrigger,
   isDuplicateKeyError,
   validateIncidentConfiguration,
@@ -72,6 +73,17 @@ export async function createTrigger(
     ) {
       throw new AppError(400, 'invalid_routing', 'GitHub installation is not bound to this team')
     }
+  }
+
+  if (input.targetSessionId !== undefined) {
+    if (input.sessionRouting || input.watchGroup || input.incidentMode) {
+      throw new AppError(
+        400,
+        'invalid_target_session',
+        'targetSessionId cannot be combined with session routing, a Watch Group or incident mode',
+      )
+    }
+    await assertBindableSession(input.targetSessionId, ctx.teamId, ctx.userId)
   }
 
   const messageTemplate = input.messageTemplate.trim()
@@ -159,6 +171,7 @@ export async function createTrigger(
     ...(cronExpression ? { cronExpression } : {}),
     ...(webhookSecret ? { webhookSecret } : {}),
     ...(input.sessionRouting ? { sessionRouting: input.sessionRouting } : {}),
+    ...(input.targetSessionId ? { targetSessionId: input.targetSessionId } : {}),
     messageTemplate,
     enabled: input.enabled ?? true,
     ...(ctx.source !== 'user' ? { source: ctx.source } : {}),

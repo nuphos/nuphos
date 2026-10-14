@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
 
+import { getConversationBySessionId } from '../db'
 import { agentTriggers, isRetiredTriggerShape } from '../trigger-db'
 
 import type { MonitoringIdentity } from '../monitoring-workflow'
@@ -21,6 +22,8 @@ export type CreateTriggerInput = {
   triggerType: TriggerType
   cronExpression?: string
   sessionRouting?: SessionRouting
+  /** Existing conversation every fire is delivered into. */
+  targetSessionId?: string
   messageTemplate: string
   /** Auto-disable after this time (hourly expiry sweep). */
   expiresAt?: Date
@@ -49,6 +52,8 @@ export type UpdateTriggerPatch = {
   messageTemplate?: string
   enabled?: boolean
   cronExpression?: string
+  /** Bind to an existing conversation, or null to open a new one per fire again. */
+  targetSessionId?: string | null
   minIntervalSeconds?: number
   incidentMode?: boolean
   /** Set a new exact destination, or null to clear it when disabling incident mode. */
@@ -98,6 +103,29 @@ export function validateIncidentConfiguration(input: {
       400,
       'invalid_slack_destination',
       'slackDestination requires incidentMode=true',
+    )
+  }
+}
+
+/** A Trigger may only wake a live conversation its execution principal owns. */
+export async function assertBindableSession(
+  sessionId: string,
+  teamId: string | undefined,
+  principalUserId: string,
+): Promise<void> {
+  const target = await getConversationBySessionId(sessionId)
+
+  if (
+    !teamId ||
+    !target ||
+    target.teamId !== teamId ||
+    target.userId !== principalUserId ||
+    target.archivedAt
+  ) {
+    throw new AppError(
+      400,
+      'invalid_target_session',
+      'targetSessionId must be an unarchived conversation of the Trigger owner in this team',
     )
   }
 }

@@ -54,6 +54,9 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     const created = await createTrigger(
       {
         ...(routing.success ? { sessionRouting: routing.data } : {}),
+        ...(typeof body.targetSessionId === 'string'
+          ? { targetSessionId: body.targetSessionId }
+          : {}),
         name: body.name,
         triggerType: body.triggerType as TriggerType,
         ...(typeof body.cronExpression === 'string' ? { cronExpression: body.cronExpression } : {}),
@@ -106,6 +109,9 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         : {}),
       ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
       ...(typeof body.cronExpression === 'string' ? { cronExpression: body.cronExpression } : {}),
+      ...(typeof body.targetSessionId === 'string' || body.targetSessionId === null
+        ? { targetSessionId: body.targetSessionId }
+        : {}),
       ...(typeof body.minIntervalSeconds === 'number'
         ? { minIntervalSeconds: body.minIntervalSeconds }
         : {}),

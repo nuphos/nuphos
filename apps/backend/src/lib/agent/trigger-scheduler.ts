@@ -5,10 +5,10 @@ import { CRON_TIME_ZONE } from '@/lib/cron'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
+import { closeThreadQueue } from './thread-queue'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger, RoutedSessionBusyError } from './trigger-executor'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
-import { closeThreadQueue } from './thread-queue'
 // Straight to the two section modules, not the trigger-service barrel: the
 // barrel would also pull create/update/transfer into our graph and widen the
 // cycle below to files we never touch.
@@ -98,7 +98,10 @@ export async function initTriggerScheduler(): Promise<boolean> {
       // fire that races it must not execute an already-expired trigger.
       if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
       if (trigger.triggerType !== 'cron') return
-      await executeTrigger(trigger, undefined, { runKind: 'scheduled' })
+      await executeTrigger(trigger, undefined, {
+        runKind: 'scheduled',
+        ...(job.id ? { fireId: job.id } : {}),
+      })
     },
     { connection, concurrency: 3 },
   )

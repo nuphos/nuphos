@@ -50,7 +50,12 @@ const options = {
 
 const runs: TriggerRunParams[] = []
 let heldTurn: Promise<void> | undefined
-let conversation: { sessionId: string; teamId: string; userId: string } | null = null
+let conversation: {
+  sessionId: string
+  teamId: string
+  userId: string
+  archivedAt?: Date
+} | null = null
 const history = [
   { messageId: 'prior', role: 'assistant', parts: [{ type: 'text', text: 'Prior finding' }] },
 ]
@@ -59,6 +64,7 @@ useDb({
   db: () => ({
     collection: (name: string) => ({
       updateOne: () => Promise.resolve({}),
+      updateMany: () => Promise.resolve({}),
       findOne: () => Promise.resolve(name === 'agent_conversations' ? conversation : null),
       find: () => ({ sort: () => ({ toArray: () => Promise.resolve(history) }) }),
     }),
@@ -76,6 +82,10 @@ useTriggerRunExecute({
 })
 
 const { executeTrigger } = await import('./trigger-executor')
+const { startQueuedTurn } = await import('./conversation-turn')
+const { installQueuedTurnStarter } = await import('./session-released')
+
+installQueuedTurnStarter(startQueuedTurn)
 
 const PRINCIPAL_ID = new ObjectId().toHexString()
 
@@ -172,4 +182,82 @@ test('routed sessions refuse an execution-principal change', async () => {
   } finally {
     conversation = null
   }
+})
+
+describe('a Trigger bound to an existing session', () => {
+  const sessionId = 'bound-session'
+  const bound = { ...legacyTrigger, targetSessionId: sessionId } as AgentTrigger
+  const texts = (index: number) =>
+    runs[index]?.messages.flatMap((message) =>
+      message.role === 'user' ? message.parts.map((part) => (part as { text: string }).text) : [],
+    )
+
+  test('wakes the idle session as a resource event instead of opening a conversation', async () => {
+    runs.length = 0
+    conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
+    try {
+      expect(await executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'f1' })).toBe(
+        sessionId,
+      )
+    } finally {
+      conversation = null
+    }
+    expect(runs).toHaveLength(1)
+    expect(runs[0]?.sessionId).toBe(sessionId)
+    expect(runs[0]?.trigger).toBeUndefined()
+    expect(runs[0]?.source).toBe('agent.resource')
+    expect(runs[0]?.messages[0]?.id).toBe('prior')
+    expect(runs[0]?.messages.at(-1)?.metadata).toMatchObject({
+      source: 'agent.resource',
+      sender: { type: 'system', id: `trigger:${bound._id!.toHexString()}` },
+    })
+  })
+
+  test('runs fires that arrive during a turn once, after it, coalesced', async () => {
+    runs.length = 0
+    conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
+    let finish!: () => void
+
+    heldTurn = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    try {
+      const first = executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'a' })
+
+      for (let i = 0; i < 100 && runs.length === 0; i++)
+        await new Promise((resolve) => setTimeout(resolve, 1))
+      await executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'b' })
+      await executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'c' })
+      expect(runs).toHaveLength(1)
+      heldTurn = undefined
+      finish()
+      await first
+      for (let i = 0; i < 100 && runs.length < 2; i++)
+        await new Promise((resolve) => setTimeout(resolve, 1))
+      expect(runs).toHaveLength(2)
+      expect(texts(1)).toEqual(['check the deploy'])
+    } finally {
+      heldTurn = undefined
+      conversation = null
+    }
+  })
+
+  test('skips an archived session', async () => {
+    runs.length = 0
+    conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1', archivedAt: new Date() }
+    try {
+      await executeTrigger(bound, undefined, { runKind: 'scheduled' })
+    } finally {
+      conversation = null
+    }
+    expect(runs).toHaveLength(0)
+  })
+
+  test('pauses instead of firing when the session is gone', async () => {
+    runs.length = 0
+    await expect(executeTrigger(bound, undefined, { runKind: 'scheduled' })).rejects.toThrow(
+      'The Trigger was paused',
+    )
+    expect(runs).toHaveLength(0)
+  })
 })

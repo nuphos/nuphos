@@ -55,6 +55,11 @@ export type AgentTrigger = {
   webhookSecret?: string
   /** Immutable routing identity; create a new trigger to change it. */
   sessionRouting?: SessionRouting
+  /**
+   * Deliver every fire into this existing conversation instead of opening a
+   * new one. It must belong to the execution principal in the same team.
+   */
+  targetSessionId?: string
   messageTemplate: string
   enabled: boolean
   source?: TriggerSource
