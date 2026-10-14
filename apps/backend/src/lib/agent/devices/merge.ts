@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 
-import { localRuntimeId } from './local-runtime/address'
+import { localRuntimeId, localRuntimeUrl, parseLocalRuntimeUrl } from './local-runtime/address'
 
 import type { Filter, UpdateFilter } from 'mongodb'
 
@@ -24,6 +24,45 @@ const SELECTIONS: [string, string, (userId: string) => Filter<Doc>][] = [
 
 // Per-device history, read back by owner and device id.
 const HISTORY = ['agent_device_exec_audit', 'agent_device_runtime_sessions']
+
+const escapeRegex = (text: string) => text.replace(/[.*+?^$()|[\]{}\\/]/gu, '\\$&')
+
+const at = (doc: Doc, path: string): unknown =>
+  path.split('.').reduce<unknown>((value, key) => (value as Doc | undefined)?.[key], doc)
+
+// A conversation on one of the device's local agents names it twice: in its
+// runtime id and in the runtime URL its turns are addressed to.
+async function moveLocalAgentConversations(userId: string, fromId: string, toId: string) {
+  const conversations = db().collection<Doc>('agent_conversations')
+
+  for (const provider of ['claude-code', 'codex'] as const) {
+    await conversations.updateMany(
+      { userId, runtimeId: localRuntimeId({ userId, deviceId: fromId, provider }) },
+      { $set: { runtimeId: localRuntimeId({ userId, deviceId: toId, provider }) } },
+    )
+  }
+  const prefix = `nuphos-device://runtime/${encodeURIComponent(userId)}/${encodeURIComponent(fromId)}?`
+  const pinned = await conversations
+    .find(
+      { userId, 'claudeCodePreview.runtimeUrl': { $regex: `^${escapeRegex(prefix)}` } },
+      { projection: { 'claudeCodePreview.runtimeUrl': 1 } },
+    )
+    .toArray()
+
+  for (const doc of pinned) {
+    const ref = parseLocalRuntimeUrl(String(at(doc, 'claudeCodePreview.runtimeUrl')))
+
+    if (ref?.userId !== userId || ref.deviceId !== fromId) continue
+    await conversations.updateOne(
+      { _id: doc._id },
+      {
+        $set: {
+          'claudeCodePreview.runtimeUrl': localRuntimeUrl({ ...ref, deviceId: toId }, ref.teamId),
+        },
+      },
+    )
+  }
+}
 
 /**
  * Folds a registration this computer used before into its stable one: the
@@ -54,14 +93,7 @@ export async function mergeAgentDevice(
       { arrayFilters: [{ old: fromId }] },
     )
   }
-  for (const provider of ['claude-code', 'codex'] as const) {
-    await db()
-      .collection('agent_conversations')
-      .updateMany(
-        { userId, runtimeId: localRuntimeId({ userId, deviceId: fromId, provider }) },
-        { $set: { runtimeId: localRuntimeId({ userId, deviceId: toId, provider }) } },
-      )
-  }
+  await moveLocalAgentConversations(userId, fromId, toId)
   for (const name of HISTORY) {
     await db()
       .collection(name)

@@ -15,6 +15,8 @@ const matches = (doc: Doc, filter: Doc): boolean =>
     if (key === '$or') return (want as Doc[]).some((f) => matches(doc, f))
     const value = at(doc, key)
 
+    if (want && typeof want === 'object' && '$regex' in want)
+      return typeof value === 'string' && new RegExp(want.$regex as string, 'u').test(value)
     if (want && typeof want === 'object' && '$all' in want)
       return (want.$all as unknown[]).every((v) => Array.isArray(value) && value.includes(v))
 
@@ -37,6 +39,21 @@ useDb({
 
       return {
         findOne: (filter: Doc) => Promise.resolve(docs().find((d) => matches(d, filter)) ?? null),
+        find: (filter: Doc) => ({
+          toArray: () => Promise.resolve(docs().filter((d) => matches(d, filter))),
+        }),
+        updateOne: (filter: Doc, update: Doc) => {
+          const doc = docs().find((d) => matches(d, filter))
+
+          for (const [path, value] of Object.entries((update.$set ?? {}) as Doc)) {
+            if (!doc) break
+            const { parent, key } = parentOf(doc, path)
+
+            parent[key] = value
+          }
+
+          return Promise.resolve({})
+        },
         deleteOne: (filter: Doc) => {
           store[name] = docs().filter((d) => !matches(d, filter))
 
@@ -78,9 +95,21 @@ beforeEach(() => {
     agent_conversations: [
       { sessionId: 'mine', userId: 'u1', credentialAccess: { deviceIds: ['x', 'old'] } },
       { sessionId: 'both', userId: 'u1', credentialAccess: { deviceIds: ['old', 'new'] } },
-      { sessionId: 'local', userId: 'u1', runtimeId: 'local_u1_old_codex' },
+      {
+        _id: 'local',
+        sessionId: 'local',
+        userId: 'u1',
+        runtimeId: 'local_u1_old_codex',
+        claudeCodePreview: { runtimeUrl: 'nuphos-device://runtime/u1/old?team=t1&provider=codex' },
+      },
       { sessionId: 'theirs', userId: 'u2', credentialAccess: { deviceIds: ['old'] } },
-      { sessionId: 'their-local', userId: 'u2', runtimeId: 'local_u2_old' },
+      {
+        _id: 'their-local',
+        sessionId: 'their-local',
+        userId: 'u2',
+        runtimeId: 'local_u2_old',
+        claudeCodePreview: { runtimeUrl: 'nuphos-device://runtime/u2/old?team=t1' },
+      },
     ],
     cost_panels: [{ createdBy: 'u1', credentialAccess: { deviceIds: ['old'] } }],
     agent_triggers: [
@@ -111,6 +140,9 @@ describe('mergeAgentDevice', () => {
 
     expect(ids('agent_conversations')?.slice(0, 2)).toEqual([['x', 'new'], ['new']])
     expect(store.agent_conversations?.[2]?.runtimeId).toBe('local_u1_new_codex')
+    expect(at(store.agent_conversations![2]!, 'claudeCodePreview.runtimeUrl')).toBe(
+      'nuphos-device://runtime/u1/new?team=t1&provider=codex',
+    )
     expect(ids('cost_panels')).toEqual([['new']])
     expect(ids('agent_triggers')?.[0]).toEqual(['new'])
     expect(store.agent_device_exec_audit?.[0]).toEqual({ ownerUserId: 'u1', deviceId: 'new' })
@@ -126,6 +158,9 @@ describe('mergeAgentDevice', () => {
       credentialAccess: { deviceIds: ['old'] },
     })
     expect(store.agent_conversations?.[4]?.runtimeId).toBe('local_u2_old')
+    expect(at(store.agent_conversations![4]!, 'claudeCodePreview.runtimeUrl')).toBe(
+      'nuphos-device://runtime/u2/old?team=t1',
+    )
     expect(ids('agent_triggers')?.[1]).toEqual(['old'])
     expect(store.agent_device_exec_audit?.[1]).toEqual({ ownerUserId: 'u2', deviceId: 'old' })
   })
