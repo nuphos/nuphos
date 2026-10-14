@@ -1,6 +1,4 @@
-import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { signNuphosToken } from '@/lib/identity'
-import { logError, logEvent } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationWithMessages } from './db'
@@ -36,13 +34,14 @@ export async function executeConversationTurn(...args: TurnArgs): Promise<void> 
 
 /**
  * Hands the message to the target: 'started' when it took the run (`run` settles
- * with the turn), 'delivered' when it went to the target's active turn instead.
+ * with the turn's finish reason), 'delivered' when it went to the target's active
+ * turn instead.
  */
 export async function startConversationTurn(
   ...[data, target, renderedText, source, metadata]: TurnArgs
-): Promise<{ status: 'started' | 'delivered'; run: Promise<void> }> {
+): Promise<{ status: 'started' | 'delivered'; run: Promise<string | undefined> }> {
   // Also the answer for a redelivery already accepted, not only for a busy target.
-  const delivered = { status: 'delivered' as const, run: Promise.resolve() }
+  const delivered = { status: 'delivered' as const, run: Promise.resolve(undefined) }
 
   // A stalled queue delivery may have reached an active turn before its ACK.
   if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId))
@@ -76,9 +75,7 @@ export async function startConversationTurn(
   if (claim.mode === 'dropped') throw new Error('Thread message could not be queued.')
   if (claim.mode === 'queued') return delivered
 
-  const run = async (): Promise<void> => {
-    let finishReason: string | undefined
-
+  const run = async (): Promise<string | undefined> => {
     try {
       // Read after taking the claim so a just-finished turn cannot be overwritten.
       const history = await getConversationWithMessages(
@@ -125,62 +122,12 @@ export async function startConversationTurn(
 
       if (outcome.status === 'failed')
         throw new Error('Thread run failed; inspect the target conversation.')
-      finishReason = outcome.finishReason
+
+      return outcome.finishReason
     } finally {
       claim.release()
     }
-    // After the release, so the continuation can take the run.
-    if (finishReason === 'connection-lost')
-      continueLostTurn(data, target, source, metadata).catch((error: unknown) => {
-        logError('agent.conversation_turn.continue_failed', error, {
-          team_id: data.teamId,
-          session_id: data.targetSessionId,
-        })
-      })
   }
 
   return { status: 'started', run: run() }
-}
-
-export const LOST_TURN_PROMPT =
-  'Your previous turn was cut off: the agent runtime restarted while you were working, and anything still running then was stopped. Check the state of what you were doing, then continue the task from where it stopped.'
-const CONTINUED = ':continued'
-
-/**
- * A turn whose runtime connection dropped is left to the runtime, which keeps
- * running it through a network blip. When the runtime process itself died (an
- * OOMKill restarts the container) the session reattaches idle and the turn is
- * gone; with nobody watching a thread or resource turn, it sat idle and its
- * parent never heard back. It gets exactly one continuation, once the session
- * is back on the air and idle.
- */
-export async function continueLostTurn(
-  data: ConversationTurn,
-  target: AgentConversation,
-  source: TurnArgs[3],
-  metadata: MessageMetadata,
-): Promise<void> {
-  // A continuation lost again is left alone: a task that keeps killing its runtime must not loop.
-  if (data.messageId.endsWith(CONTINUED)) return
-  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
-
-  if (!session || !(await session.reattached)) return
-  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
-
-  // Anything but idle means the runtime still has the turn; its observer carries the rest.
-  if (state !== 'idle') return
-  logEvent('info', 'agent.conversation_turn.lost_turn_continued', {
-    team_id: data.teamId,
-    session_id: data.targetSessionId,
-    source,
-  })
-  const { run } = await startConversationTurn(
-    { ...data, messageId: `${data.messageId}${CONTINUED}` },
-    target,
-    LOST_TURN_PROMPT,
-    source,
-    { ...metadata, sentAt: new Date().toISOString() },
-  )
-
-  await run
 }

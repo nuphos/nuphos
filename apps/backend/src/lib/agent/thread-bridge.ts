@@ -5,8 +5,9 @@ import {
   initializeSessionBypass,
   setSessionBypass,
 } from '@/lib/agent/auto-mode/store'
+import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { getTeamMembership } from '@/lib/identity'
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import {
   getConversationBySessionId,
@@ -213,15 +214,49 @@ export async function startThreadTurn(data: ThreadTurn) {
     sentAt: new Date().toISOString(),
   })
 
-  run.catch((error: unknown) => {
-    logError('agent.thread.turn_failed', error, {
-      session_id: data.targetSessionId,
-      source_session_id: data.sessionId,
-      message_id: data.messageId,
+  run
+    .then((finish) => (finish === 'connection-lost' ? reportLostThreadTurn(data) : undefined))
+    .catch((error: unknown) => {
+      logError('agent.thread.turn_failed', error, {
+        session_id: data.targetSessionId,
+        source_session_id: data.sessionId,
+        message_id: data.messageId,
+      })
     })
-  })
 
   return { status, run }
+}
+
+export const LOST_THREAD_TURN_NOTICE =
+  'My last turn was cut off: the agent runtime restarted, or could not be reached, while I was working, so it did not finish and I will not continue on my own. Check what I already did in this thread before sending the task again; work in progress may be partly done.'
+
+/**
+ * A turn whose runtime connection dropped is left to the runtime, which keeps
+ * running it through a network blip and reports back as usual. When the runtime
+ * itself restarted (an OOMKill), the session reloads with no agent process
+ * (`dormant`) and the turn is gone; nothing would ever tell the parent. A live
+ * runtime that finished the turn while disconnected stays `idle` and says nothing.
+ */
+async function reportLostThreadTurn(data: ThreadTurn): Promise<void> {
+  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
+
+  if (!session?.reattached) return
+  const back = await session.reattached
+  const state = back
+    ? (await session.client.getSessionExecutionState(session.openabSessionId)).state
+    : 'unreachable'
+
+  if (state !== 'dormant' && state !== 'unreachable') return
+  logEvent('info', 'agent.thread.lost_turn_reported', {
+    session_id: data.targetSessionId,
+    source_session_id: data.sessionId,
+    state,
+  })
+  await sendAgentThreadMessage(
+    { ...data, sessionId: data.targetSessionId },
+    data.sessionId,
+    LOST_THREAD_TURN_NOTICE,
+  )
 }
 
 export async function setAgentThreadParent(

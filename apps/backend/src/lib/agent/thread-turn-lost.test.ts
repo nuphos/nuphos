@@ -4,9 +4,8 @@ import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-reg
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import { LOST_TURN_PROMPT } from './conversation-turn'
 import { clearPendingUserMessages } from './pending-messages'
-import { startThreadTurn } from './thread-bridge'
+import { LOST_THREAD_TURN_NOTICE, startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
@@ -24,9 +23,9 @@ const data: ThreadTurn = {
   locale: 'en',
 }
 const conversation = {
-  sessionId: 'parent',
   userId: 'owner',
   teamId: 'team',
+  title: 'Child',
   firstMessage: 'Original task',
   credentialAccess: { awsRoleIds: [] } as unknown as AgentCredentialAccess,
   agentRuntime: 'claude-code',
@@ -34,7 +33,6 @@ const conversation = {
 } as AgentConversation
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 let finishReasons: (string | undefined)[] = []
-let released = 0
 
 useIdentity({
   getTeamMembership: async () => ({ role: 'MEMBER' }),
@@ -43,35 +41,28 @@ useIdentity({
 useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
   getConversationBySessionId: async (id) => ({ ...conversation, sessionId: id }),
-  getConversationWithMessages: async () => ({
-    conversation: { ...conversation, sessionId: 'child' },
+  getConversationWithMessages: async (id) => ({
+    conversation: { ...conversation, sessionId: id },
     messages: [],
   }),
 })
 
-function attach(reattached: boolean, state: string) {
+function attach(reattached: boolean | undefined, state = 'dormant') {
   sessionsByConversation.set('team:child', {
     openabSessionId: 'sess-1',
-    reattached: Promise.resolve(reattached),
+    ...(reattached === undefined ? {} : { reattached: Promise.resolve(reattached) }),
     client: { getSessionExecutionState: async () => ({ state }) },
   } as unknown as TeamSession)
 }
 
-/** Lets the fire-and-forget continuation run to completion. */
+/** Lets the report that follows the child's run finish. */
 const settle = () => Bun.sleep(10)
 
 beforeEach(() => {
   runs.length = 0
-  released = 0
   finishReasons = ['connection-lost', 'stop']
   installTurnRunner({
-    claimAgentRunOrEnqueue: async () => ({
-      mode: 'run',
-      carried: [],
-      release: () => {
-        released++
-      },
-    }),
+    claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
     runAgentForTrigger: async (args) => {
       runs.push(args)
 
@@ -83,62 +74,70 @@ afterEach(async () => {
   resetTurnRunner()
   sessionsByConversation.delete('team:child')
   await clearPendingUserMessages('owner', 'child')
+  await clearPendingUserMessages('owner', 'parent')
 })
 
-test('a thread turn whose runtime died continues once the session is back and idle', async () => {
+test('a thread turn lost to a runtime restart tells the parent, from the thread', async () => {
+  attach(true, 'dormant')
+  await (
+    await startThreadTurn(data)
+  ).run
+  await settle()
+
+  expect(runs.map((run) => run.sessionId)).toEqual(['child', 'parent'])
+  expect(runs[1]?.messages.at(-1)).toMatchObject({
+    metadata: { source: 'agent.thread', sourceSessionId: 'child', sender: { id: 'child' } },
+    parts: [{ type: 'text', text: LOST_THREAD_TURN_NOTICE }],
+  })
+})
+
+test('a runtime that never came back is reported too', async () => {
+  attach(false)
+  await (
+    await startThreadTurn(data)
+  ).run
+  await settle()
+
+  expect(runs.map((run) => run.sessionId)).toEqual(['child', 'parent'])
+})
+
+test('a live runtime that finished the turn while disconnected reports nothing', async () => {
   attach(true, 'idle')
   await (
     await startThreadTurn(data)
   ).run
   await settle()
 
-  expect(runs).toHaveLength(2)
-  expect(runs[1]?.messages.at(-1)).toMatchObject({
-    id: 'delivery:continued',
-    metadata: { source: 'agent.thread', sourceSessionId: 'parent' },
-    parts: [{ type: 'text', text: LOST_TURN_PROMPT }],
-  })
-  expect(released).toBe(2)
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
 })
 
-test('a runtime still running the turn keeps it; nothing is sent', async () => {
+test('a runtime still running the turn reports nothing', async () => {
   attach(true, 'active')
   await (
     await startThreadTurn(data)
   ).run
   await settle()
 
-  expect(runs).toHaveLength(1)
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
 })
 
-test('a session that never came back is not prompted', async () => {
-  attach(false, 'idle')
-  await (
-    await startThreadTurn(data)
-  ).run
-  await settle()
-
-  expect(runs).toHaveLength(1)
-})
-
-test('a continuation lost again is not continued', async () => {
-  attach(true, 'idle')
-  finishReasons = ['connection-lost', 'connection-lost', 'stop']
-  await (
-    await startThreadTurn(data)
-  ).run
-  await settle()
-
-  expect(runs).toHaveLength(2)
-})
-
-test('a turn that finished normally is not continued', async () => {
-  attach(true, 'idle')
+test('a turn that finished normally reports nothing', async () => {
+  attach(true, 'dormant')
   finishReasons = ['stop']
   await (
     await startThreadTurn(data)
   ).run
   await settle()
 
-  expect(runs).toHaveLength(1)
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
+})
+
+test('no reattach in progress means nothing to report', async () => {
+  attach(undefined)
+  await (
+    await startThreadTurn(data)
+  ).run
+  await settle()
+
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
 })
