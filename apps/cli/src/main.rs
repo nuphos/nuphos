@@ -89,8 +89,9 @@ enum Command {
     },
     /// Run this computer's Claude Code and Codex as local agents, as the desktop app does.
     Agent {
-        /// Join Nuphos with a one-time token instead of signing in (`-` reads it from stdin;
-        /// `NUPHOS_JOIN_TOKEN` works too). Later runs need neither.
+        /// Join Nuphos with a one-time token instead of signing in. Pass `-` and pipe the token
+        /// to stdin, or set `NUPHOS_JOIN_TOKEN`, so it stays out of the shell history. Later
+        /// runs need neither.
         #[arg(long, value_name = "TOKEN")]
         join: Option<String>,
     },

@@ -30,13 +30,19 @@ pub fn join_token(arg: Option<&str>) -> Result<Option<String>> {
     Ok((!token.is_empty()).then(|| token.to_owned()))
 }
 
+/// Where the host keeps this computer's identity and credential; the host gets it as `NUPHOS_AGENT_HOME`.
+fn agent_home() -> Result<PathBuf> {
+    if let Some(dir) = std::env::var_os("NUPHOS_AGENT_HOME") {
+        return Ok(PathBuf::from(dir));
+    }
+    let home = std::env::var_os("HOME").context("HOME is not set")?;
+    Ok(PathBuf::from(home).join(".local/share/nuphos/agent"))
+}
+
 /// Whether an earlier `--join` left this computer a credential. The host checks
 /// it is still valid; this only decides whether to sign in first.
 pub fn joined() -> bool {
-    let dir = std::env::var_os("NUPHOS_AGENT_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share/nuphos/agent")));
-    dir.is_some_and(|dir| dir.join("device-credential.json").is_file())
+    agent_home().is_ok_and(|dir| dir.join("device-credential.json").is_file())
 }
 
 /// Replaces this process with the host, so Ctrl-C reaches it directly and
@@ -53,6 +59,7 @@ pub async fn run(join: Option<String>) -> Result<i32> {
     }
     let error = host
         .arg(runtime.join("host.mjs"))
+        .env("NUPHOS_AGENT_HOME", agent_home()?)
         .env("NUPHOS_LOCAL_RUNTIME_DIR", &runtime)
         .env("NUPHOS_API_URL", config::api_url())
         .env("NUPHOS_CLI_VERSION", VERSION)

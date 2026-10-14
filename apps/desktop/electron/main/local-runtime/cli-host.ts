@@ -6,7 +6,6 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 
 import yaml from 'js-yaml'
@@ -39,8 +38,13 @@ import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 // Apart from the desktop's, so both can run on one computer as two devices, each
 // with its own runtime tunnel; the device id itself comes from the machine.
-const dataDir =
-  process.env.NUPHOS_AGENT_HOME ?? path.join(os.homedir(), '.local', 'share', 'nuphos', 'agent')
+// The CLI sets it, so its default lives in one place (agent.rs).
+const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
+
+if (!dataDir) {
+  console.error('NUPHOS_AGENT_HOME is not set; run this through `nuphos agent`.')
+  process.exit(1)
+}
 const clientVersion = `nuphos-cli/${process.env.NUPHOS_CLI_VERSION ?? 'dev'}`
 const NAMES: Record<LocalAgentProvider, string> = { 'claude-code': 'Claude Code', codex: 'Codex' }
 

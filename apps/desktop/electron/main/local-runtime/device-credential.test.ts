@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, statSync } from 'node:fs'
+import { mkdtempSync, readdirSync, statSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -65,7 +65,7 @@ test('a saved credential wins over a token passed again', async (t) => {
   assert.deepEqual(urls, [`${API}/agent/devices/d1/runtime-tunnel`])
 })
 
-test('a revoked credential is replaced by a new token', async (t) => {
+test('a new token gives a new device; the revoked one is not reused', async (t) => {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), 'device-credential-'))
 
   deviceCredentialStore(dataDir).write({
@@ -76,12 +76,15 @@ test('a revoked credential is replaced by a new token', async (t) => {
   })
   t.mock.method(globalThis, 'fetch', async (url: string) =>
     url.endsWith('/auth/devices/join')
-      ? Response.json({ userId: 'u1', deviceId: 'd1', credential: 'nbx_new' }, { status: 201 })
+      ? Response.json({ userId: 'u1', deviceId: 'd2', credential: 'nbx_new' }, { status: 201 })
       : new Response(null, { status: 401 }),
   )
 
-  assert.equal((await deviceCredentialFor(options(dataDir, 'nbj_new')))?.credential, 'nbx_new')
-  assert.equal(deviceCredentialStore(dataDir).read(API)?.credential, 'nbx_new')
+  const joined = await deviceCredentialFor(options(dataDir, 'nbj_new'))
+
+  assert.deepEqual([joined?.deviceId, joined?.credential], ['d2', 'nbx_new'])
+  assert.deepEqual(deviceCredentialStore(dataDir).read(API), joined)
+  assert.deepEqual(readdirSync(dataDir), ['device-credential.json'])
 })
 
 test('no saved credential and no token means the signed-in session is used', async () => {
@@ -90,7 +93,7 @@ test('no saved credential and no token means the signed-in session is used', asy
   assert.equal(await deviceCredentialFor(options(dataDir)), null)
 })
 
-test('only a refusal counts as revoked, not an unreachable backend', async (t) => {
+test('only a 401 counts as revoked, not a missing route or an unreachable backend', async (t) => {
   const statuses = [401, 404, 426]
 
   t.mock.method(globalThis, 'fetch', async () => {
@@ -103,7 +106,7 @@ test('only a refusal counts as revoked, not an unreachable backend', async (t) =
   const revoked = () => credentialRevoked(`${API}/tunnel`, 'nbx_1', {})
 
   assert.equal(await revoked(), true)
-  assert.equal(await revoked(), true)
+  assert.equal(await revoked(), false)
   assert.equal(await revoked(), false)
   assert.equal(await revoked(), false)
 })

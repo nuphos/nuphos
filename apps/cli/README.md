@@ -65,7 +65,7 @@ nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
 nuphos login | logout
 nuphos agent                                 # run this computer's agents
-nuphos agent --join TOKEN                    # join without signing in, then run them
+nuphos agent --join -                        # join with a one-time token from stdin, then run them
 ```
 
 `nuphos agent` makes this computer a local agent, as the desktop app does: the
@@ -89,8 +89,13 @@ machine:
 
 ```sh
 curl -fsSL https://nuphos.ai/install | sh
-NUPHOS_JOIN_TOKEN=nbj_… nuphos agent      # or: nuphos agent --join -  (reads stdin)
+nuphos agent --join -        # paste the token, then Enter
 ```
+
+`--join -` reads the token from stdin, and `NUPHOS_JOIN_TOKEN` in the
+environment works too, so it never lands in the shell history or in `ps`. From
+a script or cloud-init, write it to a file only the agent's account can read and
+pipe it: `nuphos agent --join - < /run/nuphos-join`.
 
 The token works once. The machine keeps its own credential in
 `~/.local/share/nuphos/agent/device-credential.json` (`NUPHOS_AGENT_HOME`
@@ -122,7 +127,10 @@ WantedBy=default.target
 ```
 
 Join once in a terminal, then `systemctl --user enable --now nuphos-agent` and
-`sudo loginctl enable-linger "$USER"`. Add the directories of `node` and
+`sudo loginctl enable-linger "$USER"`. To join from the unit instead, put
+`NUPHOS_JOIN_TOKEN=nbj_…` in a file with mode 600 and add
+`EnvironmentFile=%h/.config/nuphos/join.env` to `[Service]`; the token is used
+on the first start and ignored afterwards. Add the directories of `node` and
 `claude` to `PATH` if they live elsewhere.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with

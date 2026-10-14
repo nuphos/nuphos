@@ -2,7 +2,7 @@
 // which opens only its runtime tunnel and is revoked on its own, so a server
 // never has to hold a person's session.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 export type DeviceCredential = {
@@ -34,9 +34,13 @@ export function deviceCredentialStore(dataDir: string) {
         return null
       }
     },
+    /** Whole or absent, never half-written: a crash mid-write must not leave a broken file. */
     write(credential: DeviceCredential): void {
-      mkdirSync(dataDir, { recursive: true })
-      writeFileSync(file, JSON.stringify(credential), { mode: 0o600 })
+      const partial = `${file}.${String(process.pid)}.tmp`
+
+      mkdirSync(dataDir, { recursive: true, mode: 0o700 })
+      writeFileSync(partial, JSON.stringify(credential), { mode: 0o600 })
+      renameSync(partial, file)
     },
   }
 }
@@ -59,9 +63,9 @@ export async function joinDevice(
 }
 
 /**
- * Whether the backend no longer accepts the credential. A computer revoked
- * while it was off would otherwise redial its tunnel forever; a network error
- * is not a revocation.
+ * Whether the backend refused the credential (401). A computer revoked while it
+ * was off would otherwise redial its tunnel forever. Anything else, a network
+ * error or a missing route, is not a revocation.
  */
 export async function credentialRevoked(
   tunnelUrl: string,
@@ -72,13 +76,13 @@ export async function credentialRevoked(
     headers: { ...headers, authorization: `Bearer ${credential}` },
   }).catch(() => null)
 
-  return response?.status === 401 || response?.status === 404
+  return response?.status === 401
 }
 
 /** Exits for good: the saved credential stays, so a restart fails the same way. */
 export function exitRevoked(): never {
   console.error(
-    'This computer was disconnected from Nuphos. Join it again with a new token: `nuphos agent --join <token>`.',
+    'This computer was disconnected from Nuphos. Join it again with a new token: `nuphos agent --join -`.',
   )
   process.exit(EXIT_REVOKED)
 }
