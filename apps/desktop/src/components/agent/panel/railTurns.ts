@@ -12,7 +12,6 @@ export type RailTurn = {
   /** Ids of every message in the turn, user message first. */
   messageIds: string[]
   title: string
-  preview: string
 }
 
 function messageText(message: Message): string {
@@ -53,10 +52,9 @@ export function previewText(text: string): string {
   return clip(flat, PREVIEW_MAX)
 }
 
-/** One entry per user message, with the assistant reply that follows it. */
+/** One entry per user message, with the ids of the replies that follow it. */
 export function pickRailTurns(messages: Message[]): RailTurn[] {
   const turns: RailTurn[] = []
-  const replies: string[][] = []
 
   for (const message of messages) {
     if (message.role === 'user') {
@@ -65,16 +63,23 @@ export function pickRailTurns(messages: Message[]): RailTurn[] {
           ? 'Plan approval'
           : firstLine(messageText(message)) || 'Attachment'
 
-      turns.push({ id: message.id, messageIds: [message.id], title, preview: '' })
-      replies.push([])
+      turns.push({ id: message.id, messageIds: [message.id], title })
       continue
     }
-    const turn = turns.at(-1)
-
-    if (!turn) continue
-    turn.messageIds.push(message.id)
-    replies[replies.length - 1].push(messageText(message))
+    turns.at(-1)?.messageIds.push(message.id)
   }
 
-  return turns.map((turn, i) => ({ ...turn, preview: previewText(replies[i].join(' ')) }))
+  return turns
+}
+
+/** Preview of one turn's replies; computed only for the hovered turn. */
+export function turnPreview(messages: Message[], turn: RailTurn): string {
+  const replyIds = new Set(turn.messageIds.slice(1))
+
+  return previewText(
+    messages
+      .filter((m) => replyIds.has(m.id))
+      .map(messageText)
+      .join(' '),
+  )
 }

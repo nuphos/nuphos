@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { MIN_RAIL_TURNS, pickRailTurns } from './railTurns'
+import { MIN_RAIL_TURNS, pickRailTurns, turnPreview } from './railTurns'
 import { useTurnRail } from './useTurnRail'
 
 import type { Message } from './model'
@@ -32,11 +32,17 @@ export function TurnRail({
   const [hover, setHover] = useState<{ index: number; top: number; width: number } | null>(null)
   const railRef = useRef<HTMLDivElement>(null)
   const navRef = useRef<HTMLElement>(null)
+  const turnsRef = useRef(turns)
+
+  useEffect(() => {
+    turnsRef.current = turns
+  })
 
   // Keep the current turn's tick inside the rail when the tick column scrolls.
+  // Keyed on activeId alone so streamed deltas do not force a layout read.
   useEffect(() => {
     const nav = navRef.current
-    const index = turns.findIndex((t) => t.id === activeId)
+    const index = turnsRef.current.findIndex((t) => t.id === activeId)
     const tick = nav?.querySelectorAll<HTMLElement>('button')[Math.max(0, index)]
 
     if (!nav || !tick) return
@@ -44,7 +50,7 @@ export function TurnRail({
     else if (tick.offsetTop + tick.offsetHeight > nav.scrollTop + nav.clientHeight) {
       nav.scrollTop = tick.offsetTop + tick.offsetHeight - nav.clientHeight
     }
-  }, [activeId, turns])
+  }, [activeId])
 
   if (turns.length < MIN_RAIL_TURNS) return null
   const activeIndex = Math.max(
@@ -74,6 +80,7 @@ export function TurnRail({
     buttons[move(current, buttons.length)].focus()
   }
   const card = hover && turns[hover.index]
+  const preview = card ? turnPreview(messages, card) : ''
 
   return (
     <div
@@ -96,7 +103,7 @@ export function TurnRail({
               key={turn.id}
               type="button"
               tabIndex={active ? 0 : -1}
-              aria-label={`Turn ${String(i + 1)}: ${turn.title}`}
+              aria-label={`Turn: ${turn.title}`}
               aria-current={active ? 'location' : undefined}
               onClick={() => jumpTo(turn.id)}
               onMouseEnter={(e) => show(i, e.currentTarget)}
@@ -120,10 +127,8 @@ export function TurnRail({
           className="surface-raised pointer-events-none absolute right-full mr-2 -translate-y-1/2 rounded-lg border border-zGray-700/80 bg-elevated px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
         >
           <div className="truncate text-[12.5px] font-semibold text-main">{card.title}</div>
-          {card.preview && (
-            <div className="mt-0.5 line-clamp-2 text-[12px] leading-4 text-tertiary">
-              {card.preview}
-            </div>
+          {preview && (
+            <div className="mt-0.5 line-clamp-2 text-[12px] leading-4 text-tertiary">{preview}</div>
           )}
         </div>
       )}

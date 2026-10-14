@@ -1,28 +1,35 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { firstLine, pickRailTurns, previewText } from './railTurns.ts'
+import { firstLine, pickRailTurns, previewText, turnPreview } from './railTurns.ts'
 
 import type { Message } from './model.ts'
 
 const msg = (id: string, role: Message['role'], text: string, extra: Partial<Message> = {}) =>
   ({ id, role, parts: text ? [{ type: 'text', text }] : [], ...extra }) as Message
 
-test('one turn per user message, with the following assistant replies as preview', () => {
-  const turns = pickRailTurns([
-    msg('u1', 'user', 'Deploy staging\nwith the new chart'),
-    msg('a1', 'assistant', 'Deployed **staging**.'),
-    msg('a1b', 'assistant', 'All pods ready.', { turnOrigin: 'autonomous' }),
-    msg('u2', 'user', 'Thanks'),
-  ])
+const transcript = [
+  msg('u1', 'user', 'Deploy staging\nwith the new chart'),
+  msg('a1', 'assistant', 'Deployed **staging**.'),
+  msg('a1b', 'assistant', 'All pods ready.', { turnOrigin: 'autonomous' }),
+  msg('u2', 'user', 'Thanks'),
+]
 
+test('one turn per user message, owning the assistant replies that follow it', () => {
   assert.deepEqual(
-    turns.map((t) => [t.id, t.title, t.preview, t.messageIds]),
+    pickRailTurns(transcript).map((t) => [t.id, t.title, t.messageIds]),
     [
-      ['u1', 'Deploy staging', 'Deployed staging. All pods ready.', ['u1', 'a1', 'a1b']],
-      ['u2', 'Thanks', '', ['u2']],
+      ['u1', 'Deploy staging', ['u1', 'a1', 'a1b']],
+      ['u2', 'Thanks', ['u2']],
     ],
   )
+})
+
+test('a turn preview joins only its own replies', () => {
+  const [first, second] = pickRailTurns(transcript)
+
+  assert.equal(turnPreview(transcript, first), 'Deployed staging. All pods ready.')
+  assert.equal(turnPreview(transcript, second), '')
 })
 
 test('assistant messages before the first user message are ignored', () => {
