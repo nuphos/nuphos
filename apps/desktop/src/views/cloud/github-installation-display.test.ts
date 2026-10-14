@@ -43,11 +43,8 @@ test('summary names a single account and counts several', () => {
   assert.equal(githubConnectedSummary([personal, org]), 'Connected · 2 accounts')
 })
 
-test('settings URL differs for personal and organization installations', () => {
-  assert.equal(
-    githubInstallationSettingsUrl(personal),
-    'https://github.com/settings/installations/101',
-  )
+test('settings URL links organizations only', () => {
+  assert.equal(githubInstallationSettingsUrl(personal), null)
   assert.equal(
     githubInstallationSettingsUrl(org),
     'https://github.com/organizations/nuphos/settings/installations/202',

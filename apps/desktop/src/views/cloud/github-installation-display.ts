@@ -21,13 +21,14 @@ export function githubConnectedSummary(installations: GithubInstallation[]): str
   return `Connected · ${String(installations.length)} accounts`
 }
 
-/** GitHub's own settings page for the installation, where repo access is changed. */
-export function githubInstallationSettingsUrl(installation: GithubInstallation): string {
-  const id = String(installation.installationId)
+/**
+ * The organization's settings page for the installation, where repo access is changed. Null for a
+ * personal account: its settings page opens only for the account owner and 404s for teammates.
+ */
+export function githubInstallationSettingsUrl(installation: GithubInstallation): string | null {
+  if (githubAccountKind(installation) === 'personal') return null
 
-  return installation.accountType === 'Organization'
-    ? `https://github.com/organizations/${encodeURIComponent(installation.accountLogin)}/settings/installations/${id}`
-    : `https://github.com/settings/installations/${id}`
+  return `https://github.com/organizations/${encodeURIComponent(installation.accountLogin)}/settings/installations/${String(installation.installationId)}`
 }
 
 /** Installations still shown as connector rows (drops ones being deleted). */
