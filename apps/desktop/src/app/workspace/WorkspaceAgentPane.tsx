@@ -13,11 +13,11 @@ import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
 import { SessionFindBar } from './SessionFindBar'
+import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
-import type { AgentProvider } from '../../types/runtime'
 
 export function WorkspaceAgentPane({
   ws,
@@ -57,15 +57,7 @@ export function WorkspaceAgentPane({
     stableOpenNuphosLinkFromChat,
     stableOpenSessionResource,
   } = ws
-  const [heading, setHeading] = useState<{
-    sessionId: string | null
-    title: string
-    canRename?: boolean
-    canArchive?: boolean
-    saved?: boolean
-    runtime: AgentProvider | null
-    runtimeId?: string
-  }>({ sessionId: null, title: 'Agent', runtime: null })
+  const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
@@ -114,29 +106,6 @@ export function WorkspaceAgentPane({
     [setAgentSidebarPendingImport],
   )
   const handleLocateConsumed = useCallback(() => setAuditChatLocate(null), [setAuditChatLocate])
-  const handleTitleChange = useCallback(
-    (
-      nextTitle: string,
-      sessionId: string | null,
-      runtimeAttached: boolean,
-      agentRuntime?: AgentProvider,
-      canRename?: boolean,
-      runtimeId?: string,
-      canArchive?: boolean,
-      saved?: boolean,
-    ) => {
-      setHeading({
-        sessionId,
-        canRename,
-        canArchive,
-        saved,
-        runtimeId,
-        title: nextTitle || 'Agent',
-        runtime: runtimeAttached ? (agentRuntime ?? 'claude-code') : null,
-      })
-    },
-    [],
-  )
 
   // The dock covers this column instead of reflowing it: while expanded the
   // content keeps the width it had and the shrinking column clips it, until
@@ -171,10 +140,6 @@ export function WorkspaceAgentPane({
   }, [workspaceExpanded])
 
   if (!teamId) return null
-  const currentHeading =
-    heading.sessionId === selectedSessionId
-      ? heading
-      : { sessionId: selectedSessionId, title: 'Agent', runtime: null }
 
   return (
     <main
