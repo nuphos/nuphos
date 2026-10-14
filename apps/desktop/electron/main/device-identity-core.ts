@@ -50,6 +50,12 @@ export function defaultDeviceLabel(): string {
   }
 }
 
+export const parseIoregPlatformUuid = (out: string): string | null =>
+  /"IOPlatformUUID" = "([^"]+)"/u.exec(out)?.[1] ?? null
+
+export const parseRegMachineGuid = (out: string): string | null =>
+  /MachineGuid\s+REG_SZ\s+(\S+)/u.exec(out)?.[1] ?? null
+
 /** The OS's own id for this machine, or null where none can be read. */
 export function readMachineKey(platform: NodeJS.Platform = process.platform): string | null {
   const run = (cmd: string, args: string[]) =>
@@ -60,23 +66,18 @@ export function readMachineKey(platform: NodeJS.Platform = process.platform): st
     })
 
   try {
-    if (platform === 'darwin') {
-      return (
-        /"IOPlatformUUID" = "([^"]+)"/u.exec(
-          run('ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice']),
-        )?.[1] ?? null
-      )
-    }
+    if (platform === 'darwin')
+      return parseIoregPlatformUuid(run('ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice']))
     if (platform === 'win32') {
-      const out = run('reg', [
-        'query',
-        'HKLM\\SOFTWARE\\Microsoft\\Cryptography',
-        '/v',
-        'MachineGuid',
-        '/reg:64',
-      ])
-
-      return /MachineGuid\s+REG_SZ\s+(\S+)/u.exec(out)?.[1] ?? null
+      return parseRegMachineGuid(
+        run('reg', [
+          'query',
+          'HKLM\\SOFTWARE\\Microsoft\\Cryptography',
+          '/v',
+          'MachineGuid',
+          '/reg:64',
+        ]),
+      )
     }
   } catch {
     return null
@@ -116,6 +117,9 @@ export function withStableDeviceId(
   return {
     ...identity,
     deviceId: stableId,
-    previousDeviceIds: [...new Set([...(identity.previousDeviceIds ?? []), identity.deviceId])],
+    // The registration accepts up to 20; older ids have long been merged.
+    previousDeviceIds: [
+      ...new Set([...(identity.previousDeviceIds ?? []), identity.deviceId]),
+    ].slice(-20),
   }
 }

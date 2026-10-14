@@ -3,6 +3,8 @@ import { test } from 'node:test'
 
 import {
   parseDeviceIdentity,
+  parseIoregPlatformUuid,
+  parseRegMachineGuid,
   readMachineKey,
   stableDeviceId,
   withStableDeviceId,
@@ -56,8 +58,28 @@ test('an install moves onto the stable id and remembers the ids it replaces', ()
   )
 })
 
-test('reads a machine key on this platform, or none', () => {
-  const key = readMachineKey()
+test('reads the machine key from ioreg and reg output', () => {
+  const ioreg = `+-o J314sAP  <class IOPlatformExpertDevice, id 0x100000214, registered>
+    {
+      "IOPlatformSerialNumber" = "C02XXXXXXX"
+      "IOPlatformUUID" = "1B8746E0-59E7-4E69-B08A-037AEE21CB41"
+    }`
+  const reg = `
+HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography
+    MachineGuid    REG_SZ    5a3c2b1e-0d4f-4a6b-9c8d-7e6f5a4b3c2d
+`
 
-  assert.ok(key === null || key.length > 0)
+  assert.equal(parseIoregPlatformUuid(ioreg), '1B8746E0-59E7-4E69-B08A-037AEE21CB41')
+  assert.equal(parseRegMachineGuid(reg), '5a3c2b1e-0d4f-4a6b-9c8d-7e6f5a4b3c2d')
+  assert.equal(parseIoregPlatformUuid('no uuid here'), null)
+  assert.equal(parseRegMachineGuid('ERROR: The system was unable to find the value'), null)
+  assert.ok(['string', 'object'].includes(typeof readMachineKey()))
+})
+
+test('keeps at most the last 20 replaced ids', () => {
+  const many = { ...identity, previousDeviceIds: Array.from({ length: 25 }, (_, i) => `old-${i}`) }
+  const moved = withStableDeviceId(many, 'stable')
+
+  assert.equal(moved.previousDeviceIds?.length, 20)
+  assert.equal(moved.previousDeviceIds?.at(-1), 'abc-123')
 })
