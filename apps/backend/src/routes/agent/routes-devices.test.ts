@@ -9,6 +9,7 @@ import type { AgentDeviceRegistration, AgentDevice } from '@/lib/agent/devices/s
 import type { AuthVariables } from '@/middleware/auth'
 
 let upserted: { userId: string; device: AgentDeviceRegistration }[]
+let merged: [string, string, string][]
 let devices: Record<string, AgentDevice>
 let auditEntries: DeviceExecAuditEntry[]
 let auditQueries: { ownerUserId: string; deviceId: string; limit: number; cursor?: string }[]
@@ -36,6 +37,11 @@ function buildApp() {
           updatedAt: new Date(),
         }
       },
+      mergeAgentDevice: async (userId, fromId, toId) => {
+        merged.push([userId, fromId, toId])
+
+        return true
+      },
       getAgentDevice: async (userId, deviceId) => devices[key(userId, deviceId)] ?? null,
       listDeviceExecAudit: async (ownerUserId, deviceId, options) => {
         auditQueries.push({ ownerUserId, deviceId, ...options })
@@ -62,6 +68,7 @@ function buildApp() {
 
 beforeEach(() => {
   upserted = []
+  merged = []
   devices = {}
   auditEntries = []
   auditQueries = []
@@ -120,6 +127,34 @@ describe('agent device routes', () => {
         userId: 'user-1',
         device: { deviceId: 'd1', label: 'MacBook', platform: 'darwin', allowLocalExec: true },
       },
+    ])
+    expect(merged).toEqual([])
+  })
+
+  test('PUT /agent/devices merges the ids this computer used before into its stable one', async () => {
+    const response = await buildApp().request('/agent/devices', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: 'stable',
+        label: 'MacBook',
+        platform: 'darwin',
+        allowLocalExec: true,
+        previousDeviceIds: ['old-1', 'old-2'],
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    // The stable record is written first and never carries the old ids.
+    expect(upserted).toEqual([
+      {
+        userId: 'user-1',
+        device: { deviceId: 'stable', label: 'MacBook', platform: 'darwin', allowLocalExec: true },
+      },
+    ])
+    expect(merged).toEqual([
+      ['user-1', 'old-1', 'stable'],
+      ['user-1', 'old-2', 'stable'],
     ])
   })
 
