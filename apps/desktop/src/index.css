@@ -2017,6 +2017,30 @@
     opacity var(--tabs-dur) var(--tabs-ease),
     transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1);
 }
+/* A just-closed tab, kept only while it collapses so its neighbours slide over. */
+.t-tab-closing {
+  display: flex;
+  flex: none;
+  overflow: hidden;
+  pointer-events: none;
+  animation: t-tab-close var(--tabs-dur) var(--tabs-ease) forwards;
+}
+.t-tab-closing > .t-tab {
+  flex: 0 0 var(--tab-closing-w);
+  min-width: 0;
+}
+@keyframes t-tab-close {
+  from {
+    width: var(--tab-closing-w);
+    opacity: 1;
+  }
+  to {
+    width: 0;
+    opacity: 0;
+    /* Absorb the strip's gap too, so nothing snaps when the copy unmounts. */
+    margin-right: -0.125rem;
+  }
+}
 /* Hover-revealed trailing controls inside a tab (favorite star, close). */
 .t-workspace-tab-action {
   transition:
@@ -2028,6 +2052,9 @@
   .t-workspace-tab-action,
   .t-tab-content {
     transition: none !important;
+  }
+  .t-tab-closing {
+    display: none;
   }
 }
 

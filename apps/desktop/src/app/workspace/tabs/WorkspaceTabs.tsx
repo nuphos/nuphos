@@ -17,6 +17,7 @@ import { WorkspaceTabsContextMenu } from './WorkspaceTabsContextMenu'
 
 import type { TabContextMenuState, WorkspaceTabsProps } from './tabsTypes'
 import type { TabDropTarget } from './useTabDragPreview'
+import type { CSSProperties } from 'react'
 
 export function WorkspaceTabs({
   userId,
@@ -42,6 +43,13 @@ export function WorkspaceTabs({
   const [dragSlotWidth, setDragSlotWidth] = useState(0)
   const [tabDropSettling, setTabDropSettling] = useState(false)
   const [tabContextMenu, setTabContextMenu] = useState<TabContextMenuState | null>(null)
+  const [closingTab, setClosingTab] = useState<{
+    tab: WorkspaceTabsProps['tabs'][number]
+    index: number
+    width: number
+    selected: boolean
+  } | null>(null)
+  const closingTabRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   // Keep the close affordance on the final tab too. It deliberately calls the
   // same closeTab action as Cmd+W, whose single-tab branch replaces the tab
@@ -116,7 +124,72 @@ export function WorkspaceTabs({
   // Close immediately. The old two-phase path selected a fallback, rendered
   // every pane, waited for a 120 ms animation, then removed the tab and
   // rendered them all again. Heavy pages made that cosmetic delay much worse.
-  const handleClose = useCallback((id: string) => onClose(id), [onClose])
+  // The strip alone animates instead: an inert copy of the closed tab stays in
+  // its slot while it collapses, so the neighbours slide over.
+  const handleClose = useCallback(
+    (id: string) => {
+      const index = tabs.findIndex((tab) => tab.id === id)
+      const width = tabRefs.current.get(id)?.offsetWidth
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+      setClosingTab(
+        index >= 0 && width && !reducedMotion
+          ? { tab: tabs[index], index, width, selected: id === activeTabId }
+          : null,
+      )
+      onClose(id)
+    },
+    [activeTabId, onClose, tabs],
+  )
+
+  const tabItem = (
+    tab: WorkspaceTabsProps['tabs'][number],
+    selected = tab.id === activeTabId,
+    refs = tabRefs,
+  ) => (
+    <WorkspaceTabItem
+      key={tab.id}
+      tab={tab}
+      accounts={accounts}
+      databaseConnections={databaseConnectionsByTeam[tab.scope.teamId] ?? []}
+      selected={selected}
+      showClose={showClose}
+      dragging={draggingTabId === tab.id}
+      dragOffsetX={dragOffsetX}
+      previewOffset={tabPreviewOffsets.get(tab.id)}
+      isFavorited={isFavorited}
+      toggleFavorite={toggleFavorite}
+      handleClose={handleClose}
+      handleTabPointerDown={handleTabPointerDown}
+      handleTabMouseDown={handleTabMouseDown}
+      clearTabDragState={clearTabDragState}
+      onSelect={onSelect}
+      tabRefs={refs}
+      tabPointerDragRef={tabPointerDragRef}
+      suppressTabClickRef={suppressTabClickRef}
+      setTabContextMenu={setTabContextMenu}
+    />
+  )
+  const tabItems = tabs.map((tab) => tabItem(tab))
+
+  if (closingTab) {
+    tabItems.splice(
+      Math.min(closingTab.index, tabItems.length),
+      0,
+      <div
+        key={`closing-${closingTab.tab.id}`}
+        className="t-tab-closing"
+        style={{ '--tab-closing-w': `${String(closingTab.width)}px` } as CSSProperties}
+        aria-hidden
+        inert
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget) setClosingTab(null)
+        }}
+      >
+        {tabItem(closingTab.tab, closingTab.selected, closingTabRefs)}
+      </div>,
+    )
+  }
 
   const contextMenuCanFavorite = tabContextMenu
     ? !isPermanentSidebarPage(tabContextMenu.appHref)
@@ -148,30 +221,7 @@ export function WorkspaceTabs({
         className="t-tab-strip flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden pl-2 scrollbar-none"
         data-drop-settling={tabDropSettling ? 'true' : undefined}
       >
-        {tabs.map((tab) => (
-          <WorkspaceTabItem
-            key={tab.id}
-            tab={tab}
-            accounts={accounts}
-            databaseConnections={databaseConnectionsByTeam[tab.scope.teamId] ?? []}
-            selected={tab.id === activeTabId}
-            showClose={showClose}
-            dragging={draggingTabId === tab.id}
-            dragOffsetX={dragOffsetX}
-            previewOffset={tabPreviewOffsets.get(tab.id)}
-            isFavorited={isFavorited}
-            toggleFavorite={toggleFavorite}
-            handleClose={handleClose}
-            handleTabPointerDown={handleTabPointerDown}
-            handleTabMouseDown={handleTabMouseDown}
-            clearTabDragState={clearTabDragState}
-            onSelect={onSelect}
-            tabRefs={tabRefs}
-            tabPointerDragRef={tabPointerDragRef}
-            suppressTabClickRef={suppressTabClickRef}
-            setTabContextMenu={setTabContextMenu}
-          />
-        ))}
+        {tabItems}
         <Tooltip
           content={
             <span className="inline-flex items-center gap-1.5">
