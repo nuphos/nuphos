@@ -64,3 +64,17 @@ export function ownsShortcut(chip: HTMLElement) {
     ).length === 1
   )
 }
+
+/** Why fast mode can't be on, when the runtime says so. Claude reports it
+ *  after a turn, as "Faster responses… — requires extra usage…". */
+export function fastUnavailableReason(option: SessionConfigOption | undefined) {
+  const reason = option?.description?.split(' — ')[1]?.trim()
+
+  if (!option || option.currentValue === 'on' || !reason) return undefined
+  const sentence = reason.replace(/\.$/, '')
+
+  return {
+    tooltip: `Fast mode ${sentence}.`,
+    detail: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`,
+  }
+}
