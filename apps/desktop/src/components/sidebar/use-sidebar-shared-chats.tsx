@@ -7,7 +7,9 @@ import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 
 import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
+import { visibleSidebarChats } from './local-archive-guard'
 import { AGENT_SESSIONS_POLL_MS, sharedSessionsCacheKey } from './state'
+import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
@@ -45,6 +47,7 @@ export function useSidebarSharedChats({
     currentTeamIdRef.current = teamId
   }, [teamId])
   const refreshSeqRef = useRef(0)
+  const locallyArchivedRef = useRef<Map<string, number>>(new Map())
   const refreshingTeamRef = useRef<string | null>(null)
   const refresh = useCallback(async () => {
     // The workspace's loading skeleton renders the sidebar with an empty team
@@ -61,8 +64,10 @@ export function useSidebarSharedChats({
       )
 
       if (!rows) return
-      writeSwrCache(sharedSessionsCacheKey(teamId), rows)
-      setSessions(rows)
+      const visible = visibleSidebarChats(rows, locallyArchivedRef.current, seq)
+
+      writeSwrCache(sharedSessionsCacheKey(teamId), visible)
+      setSessions(visible)
     } catch {
       // Best-effort list — keep showing whatever is already there.
     } finally {
@@ -77,6 +82,8 @@ export function useSidebarSharedChats({
 
     return () => clearInterval(interval)
   }, [refresh, teamId])
+
+  useSidebarArchiveEvents({ teamId, locallyArchivedRef, refreshSeqRef, setSessions, refresh })
 
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()

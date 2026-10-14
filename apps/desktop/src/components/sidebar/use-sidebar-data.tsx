@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
-import { onChatUnarchived } from '../../lib/chatArchiveEvents'
+import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
+import { announceChatArchived, onChatUnarchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
 import { customResourceNavigationKey } from '../../lib/customResourceNavigation'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
@@ -19,6 +20,7 @@ import {
   crdCacheKey,
   resizeDurationMs,
 } from './state'
+import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
 import type { Item, Section } from './types'
 import type { AgentConversation } from '../../api'
@@ -142,11 +144,8 @@ export function useSidebarChats({
   useEffect(() => {
     currentTeamIdRef.current = teamId
   }, [teamId])
-  // Rapid archiving races the list refresh: a fetch started before the next
-  // archive can respond seconds later still containing that row, and a whole-
-  // list setState would resurrect it. Two guards: only the latest request may
-  // apply (seq), and rows archived locally stay filtered until a listing
-  // requested after the archive landed (see local-archive-guard).
+  // Only the latest request may apply. Locally archived rows stay filtered
+  // until a listing requested after the archive landed (see local-archive-guard).
   const refreshSeqRef = useRef(0)
   const refreshingTeamRef = useRef<string | null>(null)
   const locallyArchivedRef = useRef<Map<string, number>>(new Map())
@@ -178,7 +177,6 @@ export function useSidebarChats({
 
   useEffect(() => {
     if (!teamId) return
-    // A just-created session needs a beat to be persisted before it lists.
     const initial = setTimeout(() => void refreshSessions(), agentSessionId ? 1000 : 0)
     const interval = setInterval(() => void refreshSessions(), AGENT_SESSIONS_POLL_MS)
 
@@ -198,6 +196,15 @@ export function useSidebarChats({
   )
 
   const [archivingIds, setArchivingIds] = useState<ReadonlySet<string>>(() => new Set())
+
+  useSidebarArchiveEvents({
+    teamId,
+    locallyArchivedRef,
+    refreshSeqRef,
+    setSessions: setAgentSessions,
+    refresh: refreshSessions,
+    onArchived,
+  })
   const archiveChat = useCallback(
     async (sessionId: string) => {
       // Re-entrancy guard: a second click while the first archive is in
@@ -212,7 +219,7 @@ export function useSidebarChats({
       let ok = false
 
       try {
-        await api.agentSetConversationArchived(sessionId, true, teamId)
+        await archiveChatRequest(sessionId, teamId)
         ok = true
       } catch {
         // Handled below once the collapse finished.
@@ -228,14 +235,12 @@ export function useSidebarChats({
         return next
       })
       if (ok) {
-        setAgentSessions((prev) => prev.filter((c) => c.sessionId !== sessionId))
-        onArchived?.(sessionId)
-        void refreshSessions()
+        announceChatArchived({ sessionId, teamId })
       } else {
         toast.error('Could not archive chat')
       }
     },
-    [teamId, refreshSessions, onArchived],
+    [teamId],
   )
 
   const unlinkChat = useCallback(

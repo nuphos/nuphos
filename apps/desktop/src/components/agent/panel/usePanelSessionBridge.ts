@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { resolveSessionSync } from '../../../lib/agentSessionSync'
+import { onChatArchived } from '../../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../../lib/chatTitleEvents'
 
 import { HOME_TAB_ID } from './model'
@@ -47,6 +48,29 @@ export function usePanelSessionBridge(acc: Acc) {
     tabsRef,
     uploadingTabsRef,
   } = acc
+
+  useEffect(
+    () =>
+      onChatArchived((change) => {
+        if (change.teamId !== teamId) return
+        const showing = activeTab?.sessionId === change.sessionId
+        const opening = pendingOpenRef.current === change.sessionId
+
+        if (!showing && !opening) return
+        openGenerationRef.current += 1
+        pendingOpenRef.current = null
+        setOpeningConversation(null)
+        setActiveId(HOME_TAB_ID)
+      }),
+    [
+      teamId,
+      activeTab?.sessionId,
+      openGenerationRef,
+      pendingOpenRef,
+      setOpeningConversation,
+      setActiveId,
+    ],
+  )
 
   useEffect(
     () =>
