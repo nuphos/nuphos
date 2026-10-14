@@ -9,6 +9,7 @@ import {
 } from './chat-preview-finish'
 import {
   CONNECTION_LOST_TOOL_ERROR,
+  continueLostTurnLater,
   HANDED_OFF,
   HANDED_OFF_TOOL_ERROR,
   handOffPreviewTurn,
@@ -241,6 +242,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       })
       await clearActiveTurn()
       state.finish()
+      continueLostTurnLater(args)
 
       return
     }

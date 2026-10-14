@@ -82,6 +82,8 @@ export type TeamSession = {
   innerSessionLost?: boolean
   /** The lost transport a background re-attach is currently replacing. */
   reattaching?: TeamPreviewClient
+  /** Outcome of the latest background re-attach; true once the session is back on the air. */
+  reattached?: Promise<boolean>
   activeTurn?: { cancelled: boolean; client?: TeamPreviewClient }
 }
 
