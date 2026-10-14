@@ -194,9 +194,9 @@ export async function updateThread(
   }
 }
 
-// Same path as a message typed into a chat: an idle target starts its turn in this
-// process, a busy one takes the message into its active turn. Returns which
-// happened; `run` settles with the turn, whose failure is logged here.
+// An idle target starts its turn in this process. A busy one queues the message,
+// which runs once that turn releases the session. Returns which happened; `run`
+// settles with a turn started here, whose failure is logged here.
 export async function startThreadTurn(data: ThreadTurn) {
   const { source, target } = await authorizeThreadDelivery(data)
   // Lazy so importing the tools does not pull in the route graph.

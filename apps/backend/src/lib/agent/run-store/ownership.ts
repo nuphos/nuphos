@@ -1,3 +1,4 @@
+import { sessionReleased } from '@/lib/agent/session-released'
 import { RUNTIME_HANDOFFS_KEY } from '@/lib/claude-code-preview/runtime-handoff-store'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled, replicaId, withRedis } from '@/lib/redis'
@@ -30,7 +31,11 @@ export function startAgentRunOwnership(
     teamId?: string
   } = {},
 ): () => void {
-  if (!redisEnabled()) return () => {}
+  if (!redisEnabled()) {
+    return () => {
+      sessionReleased(userId, sessionId)
+    }
+  }
   const key = streamKey(userId, streamId)
   const oKey = ownerKey(userId, streamId)
   const aKey = activeRunKey(userId, sessionId)
@@ -125,6 +130,12 @@ export function startAgentRunOwnership(
     // the drainer always observes a terminating run's release as already in
     // flight — tracking it is what lets shutdown wait for the DEL to land.
     trackGuardWrite(release)
+    // Only once the active-run hash is gone can the next turn claim the session.
+    void release
+      .catch(() => undefined)
+      .then(() => {
+        sessionReleased(userId, sessionId)
+      })
     void release.catch((err: unknown) => {
       traceRunStoreError(
         'agent.run.redis_owner_release_failed',

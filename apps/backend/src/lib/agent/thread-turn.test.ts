@@ -3,11 +3,13 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import { executeConversationTurn } from './conversation-turn'
+import { executeConversationTurn, startQueuedTurn } from './conversation-turn'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,
   enqueuePendingUserMessage,
+  hasPendingUserMessage,
+  hasPendingUserMessages,
 } from './pending-messages'
 import { startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
@@ -137,6 +139,49 @@ test('busy target queues without blocking the sending thread or starting a secon
   expect(claims[0]?.message.renderedText).toBe('CI passed')
   expect(claims[0]?.message.metadata?.sourceSessionId).toBe('source')
   expect(runs).toHaveLength(0)
+})
+
+test('a message queued behind a turn runs once the session is released', async () => {
+  const slack = buildPendingUserMessage({ renderedText: 'from Slack', source: 'slack' })
+  const thread = buildPendingUserMessage({
+    renderedText: 'CI passed',
+    source: 'agent.thread',
+    actorUserId: 'owner',
+  })
+
+  installTurnRunner({
+    claimAgentRunForSession: async () => () => {
+      released++
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+
+      return { status: 'completed' }
+    },
+  })
+  await enqueuePendingUserMessage('owner', 'target', slack)
+  await enqueuePendingUserMessage('owner', 'target', thread)
+  await startQueuedTurn('owner', 'target')
+
+  expect(runs).toHaveLength(1)
+  expect(runs[0]).toMatchObject({ userId: 'owner', sessionId: 'target', source: 'agent.thread' })
+  expect(runs[0]?.messages.map((message) => message.id)).toEqual(['prior', thread.id])
+  expect(released).toBe(1)
+  // Slack answers in its channel, so its own handler adopts that message.
+  expect(await hasPendingUserMessage('owner', 'target', slack.id)).toBe(true)
+})
+
+test('a session still held elsewhere leaves its queue to the holder', async () => {
+  installTurnRunner({ claimAgentRunForSession: async () => null })
+  await enqueuePendingUserMessage(
+    'owner',
+    'target',
+    buildPendingUserMessage({ renderedText: 'CI passed', source: 'agent.thread' }),
+  )
+  await startQueuedTurn('owner', 'target')
+
+  expect(runs).toHaveLength(0)
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(true)
 })
 
 test('recovered pending messages include the delivery exactly once', async () => {

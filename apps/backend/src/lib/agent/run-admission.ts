@@ -6,6 +6,7 @@ import { AppError } from '@/lib/errors'
 import { redisEnabled } from '@/lib/redis'
 
 import { getActiveAgentRunForSession, reserveActiveAgentRunForSession } from './run-store'
+import { sessionReleased } from './session-released'
 
 import type { AgentRun } from '@/routes/agent/types'
 
@@ -106,5 +107,6 @@ export async function claimAgentRunForSession(
       agentRunSessionReservations.delete(key)
     }
     releaseRemoteReservation()
+    sessionReleased(userId, sessionId)
   }
 }

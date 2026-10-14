@@ -9,10 +9,11 @@ import { config } from '@/config'
 import { logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
 
-import { wakeUpKey } from './pending-message-types'
+import { parkedFor, wakeUpKey } from './pending-message-types'
 
 export { renderInjectedUserMessages } from './pending-message-render'
 
+export { TRANSCRIPT_SOURCES } from './pending-message-types'
 export type { PendingUserMessage } from './pending-message-types'
 import type { PendingUserMessage } from './pending-message-types'
 
@@ -175,6 +176,7 @@ export async function drainPendingUserMessages(
   userId: string,
   sessionId: string,
   actorUserId?: string,
+  sources?: readonly string[],
 ): Promise<PendingUserMessage[]> {
   const key = pendingKey(userId, sessionId)
   const allowActorless = actorUserId === userId
@@ -185,12 +187,20 @@ export async function drainPendingUserMessages(
             local items = redis.call('LRANGE', KEYS[1], 0, -1)
             redis.call('DEL', KEYS[1])
             local selected = {}
+            local sources = ARGV[4] ~= '' and cjson.decode(ARGV[4]) or nil
             for _, raw in ipairs(items) do
               local ok, item = pcall(cjson.decode, raw)
               local matches = ok and (
                 item.actorUserId == ARGV[1] or
                 (item.actorUserId == nil and ARGV[2] == '1')
               )
+              if matches and sources then
+                local listed = false
+                for _, source in ipairs(sources) do
+                  if item.source == source then listed = true end
+                end
+                matches = listed
+              end
               if matches then
                 table.insert(selected, raw)
               else
@@ -205,6 +215,7 @@ export async function drainPendingUserMessages(
           actorUserId,
           allowActorless ? '1' : '0',
           PENDING_TTL_SEC,
+          sources ? JSON.stringify(sources) : '',
         )
       : c.eval(
           `
@@ -217,12 +228,7 @@ export async function drainPendingUserMessages(
         ),
   )
   const local = actorUserId ? (localQueues.get(key) ?? []) : takeLocal(key)
-  const selectedLocal = actorUserId
-    ? local.filter(
-        (message) =>
-          message.actorUserId === actorUserId || (!message.actorUserId && allowActorless),
-      )
-    : local
+  const selectedLocal = actorUserId ? local.filter(parkedFor(userId, actorUserId, sources)) : local
 
   if (actorUserId) {
     const selected = new Set(selectedLocal.map((message) => message.id))
@@ -251,16 +257,11 @@ export async function hasPendingUserMessages(
   userId: string,
   sessionId: string,
   actorUserId?: string,
+  sources?: readonly string[],
 ): Promise<boolean> {
   const key = pendingKey(userId, sessionId)
 
-  if (actorUserId) {
-    const allowActorless = actorUserId === userId
-    const matchesActor = (message: PendingUserMessage) =>
-      message.actorUserId === actorUserId || (!message.actorUserId && allowActorless)
-
-    return await someParked(key, matchesActor)
-  }
+  if (actorUserId) return await someParked(key, parkedFor(userId, actorUserId, sources))
 
   if ((localQueues.get(key)?.length ?? 0) > 0) return true
   const length = await tryRedis((c) => c.llen(key))

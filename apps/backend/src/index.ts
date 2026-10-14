@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs'
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
+import { startQueuedTurn } from '@/lib/agent/conversation-turn'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
   initMemoryRetentionRollup,
@@ -17,6 +18,7 @@ import {
 } from '@/lib/agent/memory-slots/attribution-store'
 import { drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
 import { flushGuardWrites } from '@/lib/agent/run-store'
+import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
 import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
@@ -99,6 +101,8 @@ if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
 }
 
+// A message queued behind a turn starts the next one when that turn lets go.
+installQueuedTurnStarter(startQueuedTurn)
 await dashboardRefreshScheduler.init()
 if (await initTriggerScheduler()) {
   logEvent('info', 'backend.trigger_scheduler.ready')
