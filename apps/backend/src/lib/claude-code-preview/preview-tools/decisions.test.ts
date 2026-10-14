@@ -41,6 +41,7 @@ describe('decision tool module', () => {
     expect(names).toEqual(
       expect.arrayContaining([
         'request_user_decision',
+        'request_connection',
         'port_forward_start',
         'port_forward_stop',
         'port_forward_list',
@@ -79,6 +80,27 @@ describe('decision tool module', () => {
     ])
     expect(frames[0]).toMatchObject({ toolName: 'request_user_decision' })
     // The answer is the user's next message — nothing is parked on the waiter.
+    expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
+  })
+
+  test('request_connection returns at once with the providers for the Connect card', async () => {
+    const frames: Record<string, unknown>[] = []
+    const tools = decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers(ctx)
+    const result = await tools.request_connection!({
+      label: 'Ask to connect Linear',
+      providers: ['linear'],
+      reason: 'Filing the ticket needs a Linear workspace.',
+    })
+
+    expect(result.structuredContent).toMatchObject({
+      status: 'awaiting_connection',
+      providers: ['linear'],
+    })
+    expect(frames[0]).toMatchObject({ toolName: 'request_connection' })
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })
 

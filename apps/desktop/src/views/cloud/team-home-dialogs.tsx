@@ -14,6 +14,8 @@ import { BindSentryDialog } from '../BindSentryDialog'
 import { BindSlackDialog } from '../BindSlackDialog'
 import { BindSonarqubeDialog } from '../BindSonarqubeDialog'
 
+import { useDialogsClosed } from './useDialogsClosed'
+
 import type { BindMode } from './connector-actions'
 import type { BindProvider } from './team-home-bind'
 
@@ -24,6 +26,7 @@ export function TeamHomeBindDialogs({
   onOpenAgentChat,
   onChanged,
   onFocusConnector,
+  onDialogsClosed,
   bindProvider,
   setBindProvider,
   bindGithubOpen,
@@ -60,6 +63,7 @@ export function TeamHomeBindDialogs({
   onOpenAgentChat: (prompt: string) => void
   onChanged: () => void
   onFocusConnector?: (detail: FocusedConnector) => void
+  onDialogsClosed?: () => void
   bindProvider: BindProvider | null
   setBindProvider: (provider: BindProvider | null) => void
   bindGithubOpen: boolean
@@ -92,6 +96,27 @@ export function TeamHomeBindDialogs({
   setBindLarkOpen: (open: boolean) => void
   bindMode?: BindMode
 }) {
+  useDialogsClosed(
+    [
+      bindProvider !== null,
+      bindGithubOpen,
+      bindGitlabOpen,
+      bindLinearOpen,
+      bindJiraOpen,
+      bindAsanaOpen,
+      bindSentryOpen,
+      bindPosthogOpen,
+      bindGrafanaOpen,
+      bindSonarqubeOpen,
+      bindOnpremOpen,
+      bindDatabaseOpen,
+      bindSlackOpen,
+      bindDiscordOpen,
+      bindLarkOpen,
+    ],
+    onDialogsClosed,
+  )
+
   return (
     <>
       <BindAccountDialog

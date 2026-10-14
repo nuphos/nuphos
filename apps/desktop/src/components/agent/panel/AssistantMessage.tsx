@@ -6,6 +6,7 @@ import { PermissionGrantCard } from '../PermissionGrantCard'
 import { isPlanProposalToolName } from '../planReference'
 
 import { extractProposalIdFromOutput } from './applyEvent'
+import { ConnectToolPart } from './ConnectCard'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
@@ -176,6 +177,9 @@ export const AssistantMessage = memo(
       if (p.type === 'tool' && p.toolName !== 'skill') {
         if (p.toolName === 'render_chart') {
           return <ChartToolPart key={partKey} part={p} now={now} />
+        }
+        if (p.toolName === 'request_connection') {
+          return <ConnectToolPart key={partKey} part={p} now={now} teamId={teamId} />
         }
         if (p.toolName === 'propose_permission_grant') {
           const proposalId = extractProposalIdFromOutput(p.output)

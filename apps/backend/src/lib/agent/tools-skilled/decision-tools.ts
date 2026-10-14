@@ -6,6 +6,40 @@ import { labelField, withLabel } from './labeling'
 import type { ExplicitUserDecision } from './types'
 import type { AgentSessionOrigin } from '../tools-triggers'
 
+// Connectors the desktop's in-chat Connect card can bind and then select for the
+// conversation. Each maps to a field of the conversation's credential selection.
+export const CONNECTABLE_PROVIDERS = [
+  'github',
+  'gitlab',
+  'linear',
+  'jira',
+  'asana',
+  'sentry',
+  'posthog',
+  'grafana',
+  'sonarqube',
+  'notion',
+  'upstash',
+  'resend',
+  'cloudflare',
+  'betterstack',
+  'uptime-kuma',
+  'tailscale',
+  'zeabur',
+  'vanta',
+  'secureframe',
+  'aws',
+  'gcp',
+  'azure',
+  'linode',
+  'hetzner',
+  'tencent',
+  'aliyun',
+  'volcengine',
+  'huawei',
+  'onprem-k8s',
+] as const
+
 type UserDecisionDeps = {
   agentOrigin: AgentSessionOrigin
   onExplicitUserDecision?: (decision: ExplicitUserDecision) => void
@@ -52,6 +86,40 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ...decision,
           instruction:
             'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
+        }
+      },
+    })
+    userDecisionTools.request_connection = tool({
+      description:
+        'Show the user an inline Connect card for integrations or cloud accounts this task needs but cannot use yet: ' +
+        'not connected to the team, or connected but not selected for this conversation. ' +
+        'Each row connects through the same flow as the Integrations page, and the new credential is selected for this conversation automatically. ' +
+        'Use it instead of telling the user to visit Integrations or tick the credential picker. ' +
+        'After this tool returns, end the turn with one short sentence; the user continues once connected.',
+      inputSchema: z.object({
+        label: labelField,
+        providers: z.array(z.enum(CONNECTABLE_PROVIDERS)).min(1).max(6),
+        reason: z
+          .string()
+          .trim()
+          .min(1)
+          .max(300)
+          .describe('One line on why the task needs these connections, in the user’s language.'),
+      }),
+      execute: async (input) => {
+        const { providers, reason } = input
+        const question = `Connect ${providers.join(', ')} to continue: ${reason}`
+
+        onExplicitUserDecision({ category: 'integration', question })
+
+        return {
+          ok: true,
+          status: 'awaiting_connection',
+          providers,
+          reason,
+          instruction:
+            'The user now sees a Connect card. End the turn with one short sentence and wait; do not tell them to open Integrations or the credential picker. ' +
+            'Once they connect, the credential is selected for this conversation and they will ask you to continue.',
         }
       },
     })

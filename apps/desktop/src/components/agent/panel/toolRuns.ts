@@ -13,9 +13,14 @@ export type PartSegment =
   // between calls ends the run so it stays where it happened in the turn.
   | { kind: 'toolRun'; indices: number[] }
 
-// Tool calls that render as their own card (chart, plan, permission grant)
-// carry content the user came for, so they never hide inside a run.
-const CARD_TOOL_NAMES = new Set(['render_chart', 'plan', 'propose_permission_grant'])
+// Tool calls that render as their own card (chart, plan, permission grant,
+// connect) carry content the user came for, so they never hide inside a run.
+const CARD_TOOL_NAMES = new Set([
+  'render_chart',
+  'plan',
+  'propose_permission_grant',
+  'request_connection',
+])
 
 // Agent bookkeeping that never renders as a tool row.
 export const BOOKKEEPING_TOOL_NAMES = new Set(['skill', 'plan_update', 'plan_get'])
@@ -106,10 +111,14 @@ export function segmentParts(parts: readonly Part[], from: number, to: number): 
 export function isPlanCardPart(part: Part): part is ToolPart {
   if (part.type !== 'tool' || part.state === 'output-error') return false
 
-  return part.toolName === 'plan' || isPlanProposalToolName(part.toolName)
+  return (
+    part.toolName === 'plan' ||
+    part.toolName === 'request_connection' ||
+    isPlanProposalToolName(part.toolName)
+  )
 }
 
-// A folded turn lifts its plan cards out from behind the "Worked for" header so
+// A folded turn lifts its plan and connect cards out from behind the "Worked for" header so
 // they sit under the answer; the fold itself only renders when other work remains.
 export function foldedTurnLayout(
   parts: readonly Part[],
