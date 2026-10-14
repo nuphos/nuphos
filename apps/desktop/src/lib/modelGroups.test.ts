@@ -62,6 +62,23 @@ test('versions compare numerically, not by list position', () => {
   )
 })
 
+test('bare family names, as an older backend sends them, still lead their families', () => {
+  const bare = ['Opus', 'Fable', 'Sonnet', 'Haiku', 'Haiku 4.5', 'Opus 4.8'].map((name) => ({
+    value: name.toLowerCase().replace(' ', '-'),
+    name,
+  }))
+  const { latest, older } = claudeModelGroups(bare, (choice) => choice.name)
+
+  assert.deepEqual(
+    latest.map((choice) => choice.name),
+    ['Opus', 'Fable', 'Sonnet', 'Haiku'],
+  )
+  assert.deepEqual(
+    older.map((choice) => choice.name),
+    ['Haiku 4.5', 'Opus 4.8'],
+  )
+})
+
 test('Claude catalogs are told apart from Codex ones by their model ids', () => {
   assert.equal(isClaudeCatalog([{ value: 'opus', name: 'Opus 5.5' }]), true)
   assert.equal(isClaudeCatalog([{ value: 'claude-opus-4-6', name: 'Opus 4.6' }]), true)
