@@ -63,20 +63,31 @@ export function agentReauthenticationEvent(error: {
 }
 
 // Setup and busy states have dedicated UI; other failures retain diagnostics.
-export function agentHttpProductEvent(error: AgentHttpErrorPayload): AgentHttpProductEvent | null {
+export function agentHttpProductEvent(error: {
+  code?: unknown
+  errorCode?: unknown
+  message?: unknown
+  errorText?: unknown
+  [key: string]: unknown
+}): AgentHttpProductEvent | null {
   const reauthentication = agentReauthenticationEvent(error)
 
   if (reauthentication) return reauthentication
-  if (error.code === 'claude_code_setup_required' || error.code === 'codex_setup_required') {
-    return { type: 'agent-setup-required', message: error.message }
+  const code = error.errorCode ?? error.code
+  const message =
+    [error.message, error.errorText].find((value): value is string => typeof value === 'string') ??
+    ''
+
+  if (code === 'claude_code_setup_required' || code === 'codex_setup_required') {
+    return { type: 'agent-setup-required', message }
   }
   // A Slack-bound conversation whose session is mid-turn on the Slack side:
   // an expected product state, not a stream failure.
-  if (error.code === 'conversation_busy') {
-    return { type: 'conversation-busy', message: error.message }
+  if (code === 'conversation_busy') {
+    return { type: 'conversation-busy', message }
   }
-  if (error.code === 'runtime_not_accepting_message') {
-    return { type: 'runtime-not-ready', message: error.message }
+  if (code === 'runtime_not_accepting_message') {
+    return { type: 'runtime-not-ready', message }
   }
 
   return null

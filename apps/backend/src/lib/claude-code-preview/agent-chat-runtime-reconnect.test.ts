@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
+import { OpenAbRpcError } from './openab-acp-errors'
 
 import type { TeamPreviewClient } from './team-openab-runtime'
 
@@ -18,9 +19,11 @@ const attachment = { openabSessionId: 'session', runtimeUrl: endpoint.url }
 const calls: string[] = []
 let sendAllowed = true
 let phase: string | undefined
+let phaseAfterLoad: string | undefined
 let loaded = false
 let loadedPrompt: string | undefined
 let prompted: string | undefined
+let promptError: Error | undefined
 const noop = () => {}
 const replacement = {
   getSessionExecutionState: () => {
@@ -36,6 +39,7 @@ const replacement = {
   prompt: async (_session: string, message: string) => {
     expect(loaded).toBe(true)
     calls.push('prompt')
+    if (promptError) throw promptError
     prompted = message
 
     return { stopReason: 'end_turn' }
@@ -68,15 +72,22 @@ useSessionExecutionState({
     expect(conversation.claudeCodePreview).toEqual(attachment)
     calls.push('observe-control')
 
-    return { schemaVersion: 2, phase, actions: { send: sendAllowed }, label: 'Running tools…' }
+    return {
+      schemaVersion: 2,
+      phase: loaded ? phaseAfterLoad : phase,
+      actions: { send: sendAllowed },
+      label: 'Running tools…',
+    }
   },
 })
 beforeEach(() => {
   calls.length = 0
   loaded = false
   prompted = undefined
+  promptError = undefined
   sendAllowed = true
   phase = undefined
+  phaseAfterLoad = undefined
   workLost = null
   sessionsByConversation.set('team:conversation', {
     teamId: 'team',
@@ -128,16 +139,41 @@ test('observes through control before attaching a replacement prompt socket', as
 
 test('a busy runtime is rejected without loading or prompting a replacement socket', async () => {
   sendAllowed = false
-  await expect(run()).rejects.toThrow('Running tools…')
+  // Another turn took the runtime after route admission: refused like admission
+  // refuses, so the client keeps the message and sends it again.
+  await expect(run()).rejects.toMatchObject({
+    status: 409,
+    code: 'runtime_not_accepting_message',
+    message: 'Running tools…',
+  })
   expect(calls).toEqual(['observe-control'])
+})
+
+test('the runtime refusing the prompt because another turn won the race is the same refusal', async () => {
+  promptError = new OpenAbRpcError('Session busy: a prompt is already in progress', -32001)
+  await expect(run()).rejects.toMatchObject({ status: 409, code: 'runtime_not_accepting_message' })
 })
 
 test('re-attaches a continuation parked on a lost output connection instead of leaving it stuck', async () => {
   sendAllowed = false
   phase = 'resume_disconnected'
-  await expect(run()).rejects.toThrow('continuing after a background task')
-  expect(calls).toEqual(['observe-control', 'load'])
+  // Refused like any busy runtime, so the client parks the message instead of failing the turn.
+  await expect(run()).rejects.toMatchObject({
+    status: 409,
+    code: 'runtime_not_accepting_message',
+    message: expect.stringContaining('continuing after a background task'),
+  })
+  expect(calls).toEqual(['observe-control', 'load', 'observe-control'])
   expect(sessionsByConversation.get('team:conversation')?.client).toBe(replacement)
+})
+
+test('a reattach that leaves the continuation parked fails the turn instead of inviting another', async () => {
+  // A 409 here would have the client prompt again on its next probe, forever.
+  sendAllowed = false
+  phase = 'resume_disconnected'
+  phaseAfterLoad = 'resume_disconnected'
+  await expect(run()).rejects.toThrow('could not be reattached')
+  expect(calls).toEqual(['observe-control', 'load', 'observe-control'])
 })
 
 test('a reattach that lost the inner agent reports it on the very next prompt', async () => {

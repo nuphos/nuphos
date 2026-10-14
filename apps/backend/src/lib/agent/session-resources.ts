@@ -15,6 +15,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { agentConversations, getConversationBySessionId } from './db'
 import { canManage, conversationAccess } from './db/access'
 import { githubReviewScope } from './github-review-scope'
+import { unlinkSessionThread } from './session-thread-resources'
 
 import type { AgentConversation } from './db'
 
@@ -240,10 +241,13 @@ export async function bindSessionResource(
 
 export async function unlinkSessionResource(actor: ResourceActor, id: string) {
   await resourceConversation(actor, true)
-  await agentConversations().updateOne(
-    { sessionId: actor.sessionId, teamId: actor.teamId },
-    { $pull: { linkedResources: { id } } },
-  )
+  await Promise.all([
+    agentConversations().updateOne(
+      { sessionId: actor.sessionId, teamId: actor.teamId },
+      { $pull: { linkedResources: { id } } },
+    ),
+    unlinkSessionThread(actor.sessionId, id),
+  ])
 
   return { ok: true }
 }

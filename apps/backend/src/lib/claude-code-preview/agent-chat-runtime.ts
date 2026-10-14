@@ -8,7 +8,9 @@ import {
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
+import { OpenAbRpcError } from './openab-acp-errors'
 import { openConversationSession } from './open-conversation-session'
+import { refusal } from './runtime-refusal'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
   assertConversationRuntimeAvailable,
@@ -106,28 +108,39 @@ export async function runClaudeCodePreviewPrompt(args: {
   )
 
   // Query runtime admission without attaching a replacement prompt socket.
-  const observed = await conversationExecutionState({
-    teamId: session.teamId,
-    sessionId: session.conversationId,
-    userId: session.conversationOwnerUserId ?? session.userId,
-    agentRuntime: session.endpoint.provider ?? 'claude-code',
-    runtimeId: session.endpoint.runtimeId,
-    claudeCodePreview: {
-      runtimeUrl: session.endpoint.url,
-      openabSessionId: session.openabSessionId,
-    },
-  })
+  const observe = () =>
+    conversationExecutionState({
+      teamId: session.teamId,
+      sessionId: session.conversationId,
+      userId: session.conversationOwnerUserId ?? session.userId,
+      agentRuntime: session.endpoint.provider ?? 'claude-code',
+      runtimeId: session.endpoint.runtimeId,
+      claudeCodePreview: {
+        runtimeUrl: session.endpoint.url,
+        openabSessionId: session.openabSessionId,
+      },
+    })
+  const observed = await observe()
 
   if (observed.schemaVersion === 2 && observed.phase === 'resume_disconnected') {
     await resumeSessionOn(session, await registry.acquire(session.teamId, session.endpoint))
-    throw new Error(
+    const reattached = await observe()
+
+    // Still parked: the next prompt would only land here again. Fail this one.
+    if (reattached.schemaVersion === 2 && reattached.phase === 'resume_disconnected')
+      throw new Error('The agent could not be reattached to its background work. Try again later.')
+    // The same refusal admission gives a busy runtime: the client keeps the
+    // message queued and sends it once the continuation finishes.
+    throw refusal(
       'Reconnected to the agent; it is continuing after a background task. Send again once it finishes.',
     )
   }
-  if (observed.schemaVersion !== 2 || !(observed.actions as { send?: boolean } | undefined)?.send)
+  if (observed.schemaVersion !== 2)
     throw new Error(
       typeof observed.label === 'string' ? observed.label : 'Agent is not accepting messages',
     )
+  if (!observed.actions?.send)
+    throw refusal(observed.label ?? 'The agent cannot accept a message yet')
 
   const principalChanged = previewSessionPrincipalChanged(session, args.userId)
 
@@ -188,6 +201,7 @@ export async function runClaudeCodePreviewPrompt(args: {
     }
     const attachments = await materializeRuntimeAttachments(
       args.teamId,
+      args.conversationOwnerUserId ?? args.userId,
       args.endpoint,
       args.attachments ?? [],
     )
@@ -201,22 +215,29 @@ export async function runClaudeCodePreviewPrompt(args: {
     const text = lastTextChunkTracker(args.onTextDelta)
     // A refusal or transport failure does not grant authority to cancel or
     // replace the runtime session. Its snapshot remains the lifecycle source.
-    const result = await client.prompt(
-      session.openabSessionId,
-      message,
-      text.onTextDelta,
-      args.onAgentUpdate,
-      args.onPermissionRequest,
-      () => {
-        // Runtime admission, not a backend flag, selects the command whose
-        // principal and cancellation route own subsequent output.
-        Object.assign(session, nextContext)
-        session.activeTurn = activeTurn
-        if (activeTurn.cancelled) client.cancel(session.openabSessionId)
-      },
-      nextContext,
-      attachments,
-    )
+    const result = await client
+      .prompt(
+        session.openabSessionId,
+        message,
+        text.onTextDelta,
+        args.onAgentUpdate,
+        args.onPermissionRequest,
+        () => {
+          // Runtime admission, not a backend flag, selects the command whose
+          // principal and cancellation route own subsequent output.
+          Object.assign(session, nextContext)
+          session.activeTurn = activeTurn
+          if (activeTurn.cancelled) client.cancel(session.openabSessionId)
+        },
+        nextContext,
+        attachments,
+      )
+      .catch((error: unknown) => {
+        // The runtime's own busy rejection: another turn won the race since the check above.
+        throw error instanceof OpenAbRpcError && error.code === -32001
+          ? refusal(error.message)
+          : error
+      })
 
     return { stopReason: await settledCodexStopReason(session, result, text.last()) }
   } finally {

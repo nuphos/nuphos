@@ -120,6 +120,16 @@
      */
     --color-agent-canvas: var(--color-background-base);
     --color-composer-surface: 38, 39, 43;
+    /*
+     * Team Activity heatmap: empty, then four activity levels. Each level
+     * steps up in lightness (OKLCH hue 290) so neighbours stay apart; alpha
+     * steps of zViolet-500 all sat in the dark end and were hard to tell apart.
+     */
+    --color-heatmap-0: 50, 47, 55;
+    --color-heatmap-1: 73, 56, 131;
+    --color-heatmap-2: 105, 75, 196;
+    --color-heatmap-3: 139, 110, 242;
+    --color-heatmap-4: 189, 176, 255;
     --scrollbar-thumb: rgba(255, 255, 255, 0.18);
     --scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
     /*
@@ -249,6 +259,12 @@
     --color-appBg: 243, 243, 244;
     /* Agent canvas inherits --color-background-base from the shared theme token. */
     --color-composer-surface: 255, 255, 255;
+    /* Heatmap levels darken instead, so busier still means higher contrast. */
+    --color-heatmap-0: 224, 222, 228;
+    --color-heatmap-1: 192, 183, 248;
+    --color-heatmap-2: 152, 134, 237;
+    --color-heatmap-3: 117, 79, 224;
+    --color-heatmap-4: 79, 38, 167;
     --scrollbar-thumb: rgba(36, 35, 38, 0.16);
     --scrollbar-thumb-hover: rgba(36, 35, 38, 0.26);
     /*

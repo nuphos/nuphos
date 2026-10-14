@@ -44,6 +44,8 @@ export type PreviewChatTurnArgs = {
   slackThread?: { teamId: string; channelId: string; threadTs: string }
   /** Background shown to the model beside this turn's message, never stored in it. */
   turnContext?: string
+  /** The client declared it resends a refused message; headless senders never do. */
+  clientResendsRefusal?: boolean
   onRunHandoff?: (next: AgentRun) => void
 }
 

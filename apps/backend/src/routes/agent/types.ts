@@ -38,6 +38,8 @@ export type AgentChatBody = {
   initialSessionConfig?: RuntimeDefaults
   clientCapabilities?: {
     localTools?: boolean
+    /** The client keeps a message refused with runtime_not_accepting_message and sends it again. */
+    resendsRefusal?: boolean
   }
 }
 

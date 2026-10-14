@@ -96,6 +96,43 @@ describe('pending user messages', () => {
     expect(PENDING_TTL_SEC * 1_000).toBeGreaterThan(OPENAB_PERMISSION_DECISION_TIMEOUT_MS)
   })
 
+  test('an identical wake-up takes no slot; distinct events and resources keep one each', async () => {
+    const wake = (pr: number, text: string) => {
+      const message = buildPendingUserMessage({
+        renderedText: text,
+        source: 'agent.resource',
+        metadata: {
+          version: 1,
+          sender: { type: 'system', id: 'github', displayName: 'GitHub' },
+          source: 'agent.resource',
+          resourceUrl: `https://github.com/o/r/pull/${String(pr)}`,
+          sentAt: new Date().toISOString(),
+        },
+      })
+
+      return { message, queued: enqueuePendingUserMessage(USER, SESSION, message) }
+    }
+    const first = wake(1, 'GitHub check_suite.completed.')
+
+    expect(await first.queued).toBe(true)
+    await enqueue('from a person')
+    for (let i = 0; i < 30; i++)
+      expect(await wake(1, 'GitHub check_suite.completed.').queued).toBe(true)
+    expect(await wake(1, 'GitHub pull_request_review.submitted.').queued).toBe(true)
+    expect(await wake(2, 'GitHub check_suite.completed.').queued).toBe(true)
+
+    const drained = await drainPendingUserMessages(USER, SESSION)
+
+    expect(drained.map((m) => m.renderedText)).toEqual([
+      'GitHub check_suite.completed.',
+      'from a person',
+      'GitHub pull_request_review.submitted.',
+      'GitHub check_suite.completed.',
+    ])
+    // The parked wake-up keeps the id that was already acknowledged.
+    expect(drained[0]!.id).toBe(first.message.id)
+  })
+
   test('a full queue refuses the newest message instead of evicting an acknowledged one', async () => {
     const outcomes: boolean[] = []
 

@@ -6,6 +6,7 @@ import { Avatar } from '../../Avatar'
 import { MessageResponse } from '../MessageResponse'
 import { PlanCard } from '../PlanTool'
 
+import { AgentEventMessage } from './AgentEventMessage'
 import { CopyMessageButton } from './messageActions'
 import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInline'
 import { renderAtlasMentionLink } from './messageInlineLinks'
@@ -88,6 +89,19 @@ export const UserMessage = memo(
       .map((p) => p.text)
       .join('\n\n')
       .trim()
+
+    const source = message.metadata?.source
+
+    if (message.metadata && (source === 'agent.thread' || source === 'agent.resource'))
+      return (
+        <AgentEventMessage
+          metadata={message.metadata}
+          text={copyableText}
+          teamId={teamId}
+          onOpenNuphosLink={onOpenNuphosLink}
+          renderLink={renderLink}
+        />
+      )
 
     return (
       <div ref={sendMotionRef} className="group/message flex flex-col items-end gap-2">
