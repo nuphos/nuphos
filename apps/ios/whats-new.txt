@@ -1,6 +1,8 @@
-- Share a session from your phone: set who on the team can open it, invite teammates and pick their role.
-- Type @ in the composer to point the agent at one of your other sessions.
+- Share a session from your phone: choose who on the team can open it and invite teammates with a role.
+- Session managers can switch the agent, switch Full Access and archive the session.
+- Type @ in the composer to point the agent at one of your other sessions, or to pick one of your devices.
+- Tapping a Nuphos session link in a chat opens that session in the app.
+- A message sent just as a turn ends is queued and sent next, instead of failing.
 - Agent usage shows what is left, as a bar that drains like a battery.
-- Session managers can switch the agent.
-- Long messages stay fast and are folded; pull to refresh works on empty lists.
-- The approval card no longer offers "For session" and "Always allow", which had stopped working.
+- A selected device that is offline stays selected and shows as Unavailable.
+- Fixes: the chat list keeps its place when you go back, and long messages stay fast and folded.
