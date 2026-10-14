@@ -12,6 +12,9 @@ let upserted: { userId: string; device: AgentDeviceRegistration }[]
 let devices: Record<string, AgentDevice>
 let auditEntries: DeviceExecAuditEntry[]
 let auditQueries: { ownerUserId: string; deviceId: string; limit: number; cursor?: string }[]
+let issued: { userId: string; options: { label?: string; expiresInSec?: number } }[]
+let credentials: Set<string>
+let disconnected: string[]
 
 function key(userId: string, deviceId: string): string {
   return `${userId}:${deviceId}`
@@ -53,6 +56,15 @@ function buildApp() {
       },
       conversationTitlesFor: async (sessionIds) =>
         new Map(sessionIds.map((id) => [id, `Title ${id}`])),
+      issueJoinToken: async (userId, options) => {
+        issued.push({ userId, options })
+
+        return { token: 'nbj_test', expiresAt: new Date('2026-10-14T12:15:00Z') }
+      },
+      revokeCredential: async (userId, deviceId) => credentials.delete(key(userId, deviceId)),
+      disconnect: async (userId, deviceId) => {
+        disconnected.push(key(userId, deviceId))
+      },
     }),
   )
   app.onError(errorHandler)
@@ -65,6 +77,9 @@ beforeEach(() => {
   devices = {}
   auditEntries = []
   auditQueries = []
+  issued = []
+  credentials = new Set()
+  disconnected = []
 })
 
 function auditEntry(overrides: Partial<DeviceExecAuditEntry>): DeviceExecAuditEntry {
@@ -173,5 +188,50 @@ describe('agent device routes', () => {
 
     expect(response.status).toBe(404)
     expect(auditQueries).toEqual([])
+  })
+
+  test('POST /devices/join-tokens issues a token for the caller with a 15 minute default', async () => {
+    const response = await buildApp().request('/agent/devices/join-tokens', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label: 'build box' }),
+    })
+
+    expect(response.status).toBe(201)
+    expect(await response.json()).toEqual({
+      token: 'nbj_test',
+      expiresAt: '2026-10-14T12:15:00.000Z',
+    })
+    expect(issued).toEqual([
+      { userId: 'user-1', options: { label: 'build box', expiresInSec: 900 } },
+    ])
+  })
+
+  test('POST /devices/join-tokens caps the lifetime at a day', async () => {
+    const response = await buildApp().request('/agent/devices/join-tokens', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expiresInSec: 86_401 }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(issued).toEqual([])
+  })
+
+  test('DELETE .../credential revokes the caller own device and drops its tunnel', async () => {
+    credentials.add(key('user-1', 'd1'))
+    const response = await buildApp().request('/agent/devices/d1/credential', { method: 'DELETE' })
+
+    expect(response.status).toBe(200)
+    expect(disconnected).toEqual([key('user-1', 'd1')])
+  })
+
+  test('DELETE .../credential 404s without touching another user tunnel', async () => {
+    credentials.add(key('user-2', 'd1'))
+    const response = await buildApp().request('/agent/devices/d1/credential', { method: 'DELETE' })
+
+    expect(response.status).toBe(404)
+    expect(disconnected).toEqual([])
+    expect(credentials.has(key('user-2', 'd1'))).toBe(true)
   })
 })

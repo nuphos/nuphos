@@ -130,6 +130,7 @@ export type HolderMessage =
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
+  | { t: 'revoke' }
   | { t: 'ping'; conn: string }
 
 /** The holder → the replica that opened one stream. */

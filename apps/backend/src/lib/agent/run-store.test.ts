@@ -290,7 +290,7 @@ async function sessionIsBusy(): Promise<boolean> {
   const probe = await reserveActiveAgentRunForSession(USER, SESSION, 'probe-token')
 
   if (probe === null) return true
-  probe()
+  void probe()
   await flush()
 
   return false
@@ -309,7 +309,7 @@ async function claimSession(): Promise<() => void> {
 
   return () => {
     releaseOwnership()
-    releaseReservation?.()
+    void releaseReservation?.()
   }
 }
 
@@ -363,14 +363,14 @@ describe('agent run busy-guard lifecycle (issue #338)', () => {
 
       expect(await reserveActiveAgentRunForSession(USER, SESSION, 'overlap-token')).toBeNull()
     } finally {
-      releaseReservation?.()
+      void releaseReservation?.()
       await flush()
     }
 
     const nextTurn = await reserveActiveAgentRunForSession(USER, SESSION, 'next-turn-token')
 
     expect(nextTurn).not.toBeNull()
-    nextTurn?.()
+    void nextTurn?.()
   })
 
   test('a fresh claim marks the session busy', async () => {
@@ -423,7 +423,7 @@ describe('agent run busy-guard lifecycle (issue #338)', () => {
         const reclaim = await reserveActiveAgentRunForSession(USER, SESSION, 'next-turn-token')
 
         expect(reclaim).not.toBeNull()
-        reclaim?.()
+        void reclaim?.()
       } finally {
         // The crash window is over — the assertions above already ran, so this
         // only clears the real setInterval startAgentRunOwnership scheduled, and

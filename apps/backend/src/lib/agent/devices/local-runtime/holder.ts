@@ -31,6 +31,7 @@ const DEFAULT_IDLE_TIMEOUT_MS = 15_000
 
 export const TUNNEL_CLOSE_SUPERSEDED = 4000
 export const TUNNEL_CLOSE_IDLE = 4001
+export const TUNNEL_CLOSE_REVOKED = 4003
 
 /**
  * Holds one desktop's reverse tunnel on this replica. Streams opened from any
@@ -111,6 +112,11 @@ export async function attachRuntimeTunnel(
         if (message.previous ? message.previous !== conn : message.conn === conn) return
         end()
         connection.close(TUNNEL_CLOSE_SUPERSEDED, 'Another connection took over this computer')
+
+        return
+      case 'revoke':
+        end()
+        connection.close(TUNNEL_CLOSE_REVOKED, 'This computer was disconnected from Nuphos')
 
         return
       case 'ping':
