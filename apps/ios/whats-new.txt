@@ -6,3 +6,4 @@
 - Agent usage shows what is left, as a bar that drains like a battery.
 - A selected device that is offline stays selected and shows as Unavailable.
 - Fixes: the chat list keeps its place when you go back, and long messages stay fast and folded.
+Evidence only.
