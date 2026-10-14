@@ -197,12 +197,15 @@ export async function resolveExecutionAuthorization(inbound: AgentTrigger) {
       throw new AppError(409, 'trigger_execution_principal_invalid', error)
     }
   }
-  if (trigger.targetSessionId) {
-    const target = await getConversationBySessionId(trigger.targetSessionId)
+  const target = trigger.targetSessionId
+    ? await getConversationBySessionId(trigger.targetSessionId)
+    : null
 
+  if (trigger.targetSessionId) {
     // Otherwise a 30-minute cron would knock on a deleted session forever.
-    if (!target || target.teamId !== trigger.teamId || target.userId !== principalUserId) {
-      const error = 'The session this Trigger delivers to is gone. The Trigger was paused.'
+    if (!target?.teamId || target.teamId !== trigger.teamId || target.userId !== principalUserId) {
+      const error =
+        "The session this Trigger delivers to was deleted or no longer belongs to the Trigger's owner. The Trigger was paused."
 
       await pauseBrokenIngresses(trigger, principalUserId, error, now)
       throw new AppError(409, 'trigger_target_session_invalid', error)
@@ -233,5 +236,5 @@ export async function resolveExecutionAuthorization(inbound: AgentTrigger) {
   }
   await markExecutionAuthorizationValid(trigger, now)
 
-  return { principalUserId, credentialAccess }
+  return { principalUserId, credentialAccess, target }
 }

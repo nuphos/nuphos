@@ -148,6 +148,14 @@ export async function updateTrigger(
   const principalUserId = triggerExecutionPrincipalId(trigger)
 
   if (targetSessionChanged && nextTargetSessionId) {
+    // A bound fire runs with the session's own credentials, so only its owner may bind it.
+    if ((typeof actor === 'string' ? actor : actor.userId) !== principalUserId) {
+      throw new AppError(
+        403,
+        'invalid_target_session',
+        'Only the Trigger owner can choose the session it delivers to',
+      )
+    }
     await assertBindableSession(nextTargetSessionId, trigger.teamId, principalUserId)
   }
 
