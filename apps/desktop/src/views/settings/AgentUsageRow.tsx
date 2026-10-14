@@ -79,6 +79,10 @@ export function AgentUsageRow({
           <AgentProviderIcon provider={instance.provider} className="h-4 w-4" />
         </span>
         <span className="truncate text-[13px] font-medium text-main">{instance.label}</span>
+        {/* Runs on, which carries the status, is hidden when the page is narrow. */}
+        {instance.status !== 'active' && (
+          <span className="shrink-0 text-[11px] text-tertiary @3xl:hidden">Disabled</span>
+        )}
         {atLimit && (
           <span className="shrink-0 rounded-full bg-zOrangered-500/10 px-2 py-0.5 text-[11px] text-zOrangered-400">
             At limit

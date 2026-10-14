@@ -97,7 +97,7 @@ export function AgentSection({
           key={teamId}
           teamId={teamId}
           onClose={() => setAdding(false)}
-          onAdded={setSelectedId}
+          onAdded={select}
         />
       )}
       {catalog.error && (
@@ -143,6 +143,7 @@ export function AgentSection({
           // keeps its final width, so the panel never reflows mid-animation.
           <aside
             aria-label={selected.label}
+            inert={!open}
             onKeyDown={closeOnEscape}
             style={{ '--agent-panel-w': open ? PANEL_WIDTH : '0px' } as CSSProperties}
             className="t-agent-panel flex h-full shrink-0 overflow-hidden border-l border-zGray-800/60 sidebar-surface"
