@@ -99,6 +99,11 @@ export function finalizeToolPartForDisplay(part: ToolPart): ToolPart {
   }
 }
 
+/** Part-level {@link finalizeToolPartForDisplay}: non-tool parts pass through. */
+export function finalizePartForDisplay(part: Part): Part {
+  return part.type === 'tool' ? finalizeToolPartForDisplay(part) : part
+}
+
 export function findPendingClientSideLocalTools(messages: Message[]): ToolPart[] {
   return pendingClientSideLocalTools(messages).filter(
     (part): part is ToolPart => part.type === 'tool',

@@ -7,7 +7,7 @@ import { PermissionGrantCard } from '../PermissionGrantCard'
 import { isPlanProposalToolName } from '../planReference'
 
 import { extractProposalIdFromOutput } from './applyEvent'
-import { finalizeToolPartForDisplay } from './clientTools'
+import { finalizePartForDisplay, finalizeToolPartForDisplay } from './clientTools'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
@@ -89,6 +89,8 @@ export const AssistantMessage = memo(
     const orderedParts = normalizeRecallFirstOrder(message.parts)
     const recallLead = recallLeadCount(orderedParts)
     const streamingTailIndex = streaming ? lastVisiblePartIndex(orderedParts) : -1
+    // Stopped turn: unanswered calls are over, so grouped runs must not shimmer either.
+    const displayParts = streaming ? orderedParts : orderedParts.map(finalizePartForDisplay)
     const keyCounts: Record<string, number> = {}
     // The response text the copy button writes to the clipboard — the rendered
     // markdown answer only, not tool calls / reasoning.
@@ -223,7 +225,7 @@ export const AssistantMessage = memo(
       return null
     }
     const renderRange = (from: number, to: number) =>
-      renderPartRange(orderedParts, from, to, renderMessagePart, now)
+      renderPartRange(displayParts, from, to, renderMessagePart, now)
     const folded = collapseSplit > recallLead
     const { planIndices, foldHasWork } = folded
       ? foldedTurnLayout(orderedParts, recallLead, collapseSplit)
@@ -241,7 +243,7 @@ export const AssistantMessage = memo(
             {foldHasWork && (
               <CollapsedWorkView seconds={workSeconds}>
                 {() =>
-                  renderPartRange(orderedParts, recallLead, collapseSplit, renderFoldPart, now)
+                  renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)
                 }
               </CollapsedWorkView>
             )}
