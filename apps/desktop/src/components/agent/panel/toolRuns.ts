@@ -1,7 +1,11 @@
 import { isPlanProposalToolName } from '../planReference.ts'
 
 import { isHiddenMemoryIngestPart } from './parts.ts'
-import { INTERRUPTED_TOOL_MESSAGE, incompleteToolErrorText } from './toolInterruption.ts'
+import {
+  INTERRUPTED_TOOL_MESSAGE,
+  NOT_RUN_TOOL_MESSAGE,
+  incompleteToolErrorText,
+} from './toolInterruption.ts'
 
 import type { Part, ToolPart } from './parts.ts'
 
@@ -51,23 +55,45 @@ function plainToolFollows(parts: readonly Part[], from: number, to: number): boo
   return false
 }
 
-export function finalizeToolPartForDisplay(part: ToolPart): ToolPart {
-  if (part.state !== 'input-streaming' && part.state !== 'input-available') return part
-
-  return {
-    ...part,
-    state: 'output-error',
-    errorText: incompleteToolErrorText(part, INTERRUPTED_TOOL_MESSAGE),
+// Approval calls only finalize when the user stopped the turn: a turn that
+// merely ended on an approval request is still waiting for an answer.
+export function finalizeToolPartForDisplay(part: ToolPart, stoppedByUser = false): ToolPart {
+  if (part.state === 'input-streaming' || part.state === 'input-available') {
+    return {
+      ...part,
+      state: 'output-error',
+      errorText: incompleteToolErrorText(part, INTERRUPTED_TOOL_MESSAGE),
+    }
   }
+  if (!stoppedByUser) return part
+  if (
+    part.state === 'approval-requested' ||
+    (part.state === 'approval-responded' && part.output === undefined)
+  ) {
+    const mayHaveRun = part.state === 'approval-responded' && part.approval?.approved !== false
+
+    return {
+      ...part,
+      state: 'output-error',
+      errorText: mayHaveRun ? INTERRUPTED_TOOL_MESSAGE : NOT_RUN_TOOL_MESSAGE,
+    }
+  }
+
+  return part
 }
 
 // A stopped turn has nothing in flight: show its unanswered calls as
 // interrupted everywhere — single rows, grouped runs and the fold — instead of
-// leaving them loading.
-export function turnDisplayParts(parts: Part[], streaming: boolean): Part[] {
+// leaving them loading. A user stop also retires its pending approvals.
+export function turnDisplayParts(
+  parts: Part[],
+  { streaming, stoppedByUser = false }: { streaming: boolean; stoppedByUser?: boolean },
+): Part[] {
   if (streaming) return parts
 
-  return parts.map((part) => (part.type === 'tool' ? finalizeToolPartForDisplay(part) : part))
+  return parts.map((part) =>
+    part.type === 'tool' ? finalizeToolPartForDisplay(part, stoppedByUser) : part,
+  )
 }
 
 export function segmentParts(parts: readonly Part[], from: number, to: number): PartSegment[] {

@@ -88,7 +88,10 @@ export const AssistantMessage = memo(
     const orderedParts = normalizeRecallFirstOrder(message.parts)
     const recallLead = recallLeadCount(orderedParts)
     const streamingTailIndex = streaming ? lastVisiblePartIndex(orderedParts) : -1
-    const displayParts = turnDisplayParts(orderedParts, streaming)
+    const displayParts = turnDisplayParts(orderedParts, {
+      streaming,
+      stoppedByUser: message.stoppedByUser,
+    })
     const keyCounts: Record<string, number> = {}
     // The response text the copy button writes to the clipboard — the rendered
     // markdown answer only, not tool calls / reasoning.
@@ -98,7 +101,7 @@ export const AssistantMessage = memo(
       .join('\n\n')
       .trim()
     // Fold boundary for a finished turn (see turnFoldSplitIndex).
-    const collapseSplit = turnFoldSplitIndex(orderedParts, {
+    const collapseSplit = turnFoldSplitIndex(displayParts, {
       streaming,
       stoppedByUser: message.stoppedByUser,
     })

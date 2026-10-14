@@ -6,6 +6,9 @@ export const INTERRUPTED_TOOL_MESSAGE = 'Interrupted before the tool finished.'
 // fully materialized — the model stalled mid-emission and the silence watchdog
 // aborted the turn. Distinguish it from a complete tool call that started and
 // got interrupted, which "Interrupted before the tool finished" implies.
+// A call still waiting on (or declined at) approval when the user stopped the
+// turn never ran.
+export const NOT_RUN_TOOL_MESSAGE = 'Stopped before the tool ran.'
 export const INCOMPLETE_TOOL_MESSAGE = "The model didn't finish generating this tool call."
 
 // Refine the generic interrupted message per tool-part state; leave explicit

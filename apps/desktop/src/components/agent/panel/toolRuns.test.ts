@@ -256,7 +256,7 @@ test('an errored plan call stays in the fold as a tool row', () => {
 test('a stopped turn shows its unanswered grouped calls as interrupted', () => {
   const pending: Part = { ...tool(), state: 'input-available' } as Part
   const parts: Part[] = [tool(), pending, text('Turn failed.')]
-  const shown = turnDisplayParts(parts, false)
+  const shown = turnDisplayParts(parts, { streaming: false, stoppedByUser: true })
 
   assert.deepEqual(segmentParts(shown, 0, 2), [{ kind: 'toolRun', indices: [0, 1] }])
   assert.equal(shown[1].type === 'tool' && shown[1].state, 'output-error')
@@ -267,13 +267,47 @@ test('a stopped turn shows its unanswered grouped calls as interrupted', () => {
 test('a streaming turn keeps its running calls as they are', () => {
   const parts: Part[] = [tool(), { ...tool(), state: 'input-available' } as Part]
 
-  assert.equal(turnDisplayParts(parts, true), parts)
+  assert.equal(turnDisplayParts(parts, { streaming: true, stoppedByUser: true }), parts)
 })
 
-test('a call waiting for approval is left alone after a stop', () => {
+test('a call waiting for approval is left alone when the turn only paused on it', () => {
   const waiting: Part = { ...tool(), state: 'approval-requested' } as Part
 
-  assert.equal(turnDisplayParts([waiting], false)[0], waiting)
+  assert.equal(turnDisplayParts([waiting], { streaming: false })[0], waiting)
+})
+
+test('a user stop shows a call still waiting for approval as not run', () => {
+  const waiting: Part = { ...tool(), state: 'approval-requested' } as Part
+  const [shown] = turnDisplayParts([tool(), waiting], {
+    streaming: false,
+    stoppedByUser: true,
+  }).slice(1)
+
+  assert.equal(shown.type === 'tool' && shown.state, 'output-error')
+  assert.equal(shown.type === 'tool' && shown.errorText, 'Stopped before the tool ran.')
+})
+
+test('a user stop shows an approved call that never returned output as interrupted', () => {
+  const approved: Part = {
+    ...tool(),
+    state: 'approval-responded',
+    approval: { id: 'a', approved: true },
+  } as Part
+  const [shown] = turnDisplayParts([approved], { streaming: false, stoppedByUser: true })
+
+  assert.equal(shown.type === 'tool' && shown.state, 'output-error')
+  assert.equal(shown.type === 'tool' && shown.errorText, 'Interrupted before the tool finished.')
+})
+
+test('a user stop shows a declined call that never returned output as not run', () => {
+  const declined: Part = {
+    ...tool(),
+    state: 'approval-responded',
+    approval: { id: 'a', approved: false },
+  } as Part
+  const [shown] = turnDisplayParts([declined], { streaming: false, stoppedByUser: true })
+
+  assert.equal(shown.type === 'tool' && shown.errorText, 'Stopped before the tool ran.')
 })
 
 test('a stopped turn whose fold only held an unanswered plan_update has no work to show', () => {
@@ -282,8 +316,11 @@ test('a stopped turn whose fold only held an unanswered plan_update has no work 
     text('Done.'),
   ]
 
-  assert.deepEqual(foldedTurnLayout(turnDisplayParts(parts, false), 0, 1), {
-    planIndices: [],
-    foldHasWork: false,
-  })
+  assert.deepEqual(
+    foldedTurnLayout(turnDisplayParts(parts, { streaming: false, stoppedByUser: true }), 0, 1),
+    {
+      planIndices: [],
+      foldHasWork: false,
+    },
+  )
 })
