@@ -71,7 +71,7 @@ describe('awaitQueuedTurn', () => {
   test('a channel message queued behind a busy turn runs once that turn ends', async () => {
     const endTurn = startBusyTurn()
     const message = await queue('what about staging?')
-    const other = await queue('and prod?', 'discord')
+    const other = await queue('and prod?')
     const waiting = awaitQueuedTurn(
       { userId: OWNER, sessionId: SESSION, messageId: message.id },
       FAST,

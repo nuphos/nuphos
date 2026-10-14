@@ -259,23 +259,22 @@ export async function awaitQueuedTurn(
     const release = await claimAgentRunForSession(args.userId, args.sessionId)
 
     if (release) {
+      // A busy turn's step boundary may have taken it before the claim landed.
+      if (!(await hasPendingUserMessage(args.userId, args.sessionId, args.messageId))) {
+        release()
+        continue
+      }
       const carried = await drainPendingUserMessages(
         args.userId,
         args.sessionId,
         args.actorUserId ?? args.userId,
       )
 
-      if (carried.some((entry) => entry.id === args.messageId)) {
-        return {
-          mode: 'run',
-          release,
-          carried: carried.filter((entry) => entry.id !== args.messageId),
-        }
+      return {
+        mode: 'run',
+        release,
+        carried: carried.filter((entry) => entry.id !== args.messageId),
       }
-      for (const entry of carried) {
-        await enqueuePendingUserMessage(args.userId, args.sessionId, entry)
-      }
-      release()
     }
     if (Date.now() >= deadline) {
       await removePendingUserMessage(args.userId, args.sessionId, args.messageId)

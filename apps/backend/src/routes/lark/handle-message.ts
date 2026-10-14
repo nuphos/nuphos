@@ -209,8 +209,8 @@ export async function handleLarkMessage(
       ? `${text || '(shared a file)'}\n\n${attachments.note}`
       : text
     const metadata = await createMessageMetadata(thread.agentUserId, 'lark')
-    // A message that arrives mid-turn is queued rather than refused, and runs as
-    // the next turn once the current one ends.
+    // A message that arrives mid-turn is queued rather than refused. A busy Lark
+    // turn takes it at its next step; otherwise it runs once that turn ends.
     const turn = await turnRunner.admitChannelTurn({
       userId: thread.agentUserId,
       sessionId: thread.sessionId,
