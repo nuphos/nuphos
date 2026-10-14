@@ -127,12 +127,19 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     onAccepted?: () => void,
     context?: PromptSessionContext,
     attachments: PromptAttachment[] = [],
+    lead = '',
   ): Promise<JsonRpcResult> {
     this.cancelledSessions.delete(sessionId)
 
     return this.call(
       'session/prompt',
-      attachmentPrompt(sessionId, text, attachments, promptMeta(Boolean(onAccepted), context)),
+      attachmentPrompt(
+        sessionId,
+        text,
+        attachments,
+        promptMeta(Boolean(onAccepted), context),
+        lead,
+      ),
       {
         sessionId,
         onTextDelta,

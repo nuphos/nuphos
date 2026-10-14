@@ -76,9 +76,16 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
 
 /** Called only at the model boundary; never store this prefix in message parts. */
 export function renderAttributedMessage(id: string, text: string, metadata: unknown): string {
+  const header = attributionHeader(id, metadata)
+
+  return header ? `${header}\n\n${text}` : text
+}
+
+/** The `<nuphos_message_metadata>` block for one message, or '' without valid metadata. */
+export function attributionHeader(id: string, metadata: unknown): string {
   const attribution = parseMessageMetadata(metadata)
 
-  if (!attribution) return text
+  if (!attribution) return ''
   const { avatarURL: _avatarURL, ...sender } = attribution.sender
   const json = JSON.stringify({
     ...attribution,
@@ -98,7 +105,7 @@ export function renderAttributedMessage(id: string, text: string, metadata: unkn
       : {}),
   }).replaceAll('<', '\\u003c')
 
-  return `<nuphos_message_metadata>\n${json}\n</nuphos_message_metadata>\n\n${text}`
+  return `<nuphos_message_metadata>\n${json}\n</nuphos_message_metadata>`
 }
 
 /** Restore trusted fields by stable message ID, never by transcript position. */

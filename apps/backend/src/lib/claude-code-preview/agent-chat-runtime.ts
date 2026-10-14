@@ -67,7 +67,10 @@ export async function runClaudeCodePreviewPrompt(args: {
   /** Durable conversation owner, when it differs from the turn's actor. */
   conversationOwnerUserId?: string
   locale: string
+  /** What Nuphos adds to the turn, sent in the blocks before the user's own text. */
   message: string
+  /** The user's own words, sent last so a leading slash command reaches the agent. */
+  text: string
   attachments?: RuntimeAttachment[]
   endpoint: TeamRuntimeEndpoint
   mcpServers?: AcpHttpMcpServer[]
@@ -207,18 +210,21 @@ export async function runClaudeCodePreviewPrompt(args: {
     )
 
     if (activeTurn.cancelled) return { stopReason: 'cancelled' }
-    const message =
-      (await backgroundWorkPrompt(session, fresh, args)) +
-      (attachments.length
-        ? '\n\nAttached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
-        : '')
+    const lead = [
+      await backgroundWorkPrompt(session, fresh, args),
+      attachments.length
+        ? 'Attached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n')
     const text = lastTextChunkTracker(args.onTextDelta)
     // A refusal or transport failure does not grant authority to cancel or
     // replace the runtime session. Its snapshot remains the lifecycle source.
     const result = await client
       .prompt(
         session.openabSessionId,
-        message,
+        args.text,
         text.onTextDelta,
         args.onAgentUpdate,
         args.onPermissionRequest,
@@ -231,6 +237,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         },
         nextContext,
         attachments,
+        lead,
       )
       .catch((error: unknown) => {
         // The runtime's own busy rejection: another turn won the race since the check above.

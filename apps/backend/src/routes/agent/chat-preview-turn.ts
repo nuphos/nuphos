@@ -142,6 +142,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       conversationOwnerUserId: userId,
       locale: args.locale,
       message,
+      text: prepared.text,
       attachments: prepared.attachments,
       ...(freshSessionMessage ? { freshSessionMessage } : {}),
       endpoint: args.endpoint,

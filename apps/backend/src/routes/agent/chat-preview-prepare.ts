@@ -9,7 +9,7 @@ import {
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
-import { renderAttributedMessage } from '@/lib/agent/message-metadata'
+import { attributionHeader, renderAttributedMessage } from '@/lib/agent/message-metadata'
 import {
   drainPendingUserMessages,
   enqueuePendingUserMessage,
@@ -17,7 +17,7 @@ import {
 } from '@/lib/agent/pending-messages'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
-import { prefixUserMessage, recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
+import { recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
 import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
 import { runtimeAttachments } from '@/lib/claude-code-preview/runtime-attachments'
 
@@ -35,21 +35,17 @@ import type { UIMessage } from 'ai'
 
 type ResumeReason = NonNullable<AgentChatBody['resumeReason']>
 
+function userText(message: UIMessage): string {
+  return message.parts
+    .filter((p): p is { type: 'text'; text: string } => p.type === 'text' && Boolean(p.text))
+    .map((p) => p.text)
+    .join('\n\n')
+}
+
 export function lastUserMessageText(messages: UIMessage[]): string {
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const message = messages.at(index)
+  const message = messages.findLast((m) => m.role === 'user')
 
-    if (message?.role !== 'user') continue
-
-    const text = message.parts
-      .filter((p): p is { type: 'text'; text: string } => p.type === 'text' && Boolean(p.text))
-      .map((p) => p.text)
-      .join('\n\n')
-
-    return renderAttributedMessage(message.id, text, message.metadata)
-  }
-
-  return ''
+  return message ? renderAttributedMessage(message.id, userText(message), message.metadata) : ''
 }
 
 /**
@@ -124,7 +120,10 @@ export async function persistPreviewTurnContext(
 export type PreparedPreviewTurn = {
   memory: PreviewTurnMemory | null
   systemPrompt: string | undefined
+  /** Everything but the user's own words, prompted ahead of them. */
   message: string
+  /** The user's own words, prompted last so a leading slash command reaches the agent. */
+  text: string
   attachments: RuntimeAttachment[]
   freshSessionMessage: (uncertain?: boolean) => string
   /** Queued-while-idle messages folded into the first prompt; persisted too. */
@@ -186,30 +185,44 @@ export async function preparePreviewTurn(
         { teamId, userId: actorUserId, sessionId },
         images,
       )
-  const lastUserText =
-    resumeMessage(args.resume) ??
-    [args.turnContext, ...inputs.map((m) => lastUserMessageText([m]))].filter(Boolean).join('\n\n')
+  const resume = resumeMessage(args.resume)
+  const last = resume === null ? inputs.at(-1) : undefined
+  // A resume replaces the turn's messages, as it is not a new request.
+  const turnLead =
+    resume === null
+      ? [
+          args.turnContext,
+          ...inputs.slice(0, -1).map((m) => lastUserMessageText([m])),
+          last && attributionHeader(last.id, last.metadata),
+        ]
+      : []
 
   if (memory) emitRecallStartFrame(args.run, sessionId, requestId, memory.recall)
-  const carriedBlock = carried.length > 0 ? `\n\n${renderInjectedUserMessages(carried)}` : ''
-  const recallBlock = memory?.recall.memoryBlock ?? null
+  const lead = (history?: string | null) =>
+    [
+      history,
+      ...turnLead,
+      carried.length > 0 ? renderInjectedUserMessages(carried) : '',
+      memory?.recall.memoryBlock,
+    ]
+      .filter(Boolean)
+      .join('\n\n')
 
   return {
     memory,
     attachments,
     systemPrompt,
-    message: prefixUserMessage(`${lastUserText}${carriedBlock}`, recallBlock),
-    freshSessionMessage: (uncertain?: boolean) => {
-      const preamble = previewHistoryPreamble(
-        messages,
-        compactionSummary,
-        uncertain,
-        args.resume ? 0 : inputs.length,
-      )
-      const history = preamble ? `${preamble}\n\n` : ''
-
-      return prefixUserMessage(`${history}${lastUserText}${carriedBlock}`, recallBlock)
-    },
+    message: lead(),
+    text: resume ?? (last ? userText(last) : ''),
+    freshSessionMessage: (uncertain?: boolean) =>
+      lead(
+        previewHistoryPreamble(
+          messages,
+          compactionSummary,
+          uncertain,
+          args.resume ? 0 : inputs.length,
+        ),
+      ),
     carried,
     clearActiveTurn: () =>
       clearConversationPreviewTurn(sessionId, teamId, requestId).catch((err: unknown) => {

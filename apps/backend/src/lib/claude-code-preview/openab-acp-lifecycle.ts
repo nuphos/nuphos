@@ -187,19 +187,26 @@ export abstract class OpenAbAcpLifecycle {
   }
 }
 
+/**
+ * The user's own text is the last block: Claude Code reads a slash command only
+ * there, so everything Nuphos adds (attribution, recall, history, attachments)
+ * goes in the blocks before it.
+ */
 export function attachmentPrompt(
   sessionId: string,
   text: string,
   attachments: PromptAttachment[],
   meta: Record<string, unknown>,
+  lead = '',
 ) {
   return {
     sessionId,
     prompt: [
-      { type: 'text', text },
+      ...(lead ? [{ type: 'text', text: lead }] : []),
       ...attachments.flatMap(({ description, ...link }) =>
         description ? [link, { type: 'text', text: `${link.uri}: ${description}` }] : [link],
       ),
+      ...(text ? [{ type: 'text', text }] : []),
     ],
     ...meta,
   }

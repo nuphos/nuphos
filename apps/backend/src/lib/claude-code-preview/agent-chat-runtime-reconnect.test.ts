@@ -36,11 +36,11 @@ const replacement = {
 
     return { alive: true }
   },
-  prompt: async (_session: string, message: string) => {
+  prompt: async (_session: string, text: string, ...rest: unknown[]) => {
     expect(loaded).toBe(true)
     calls.push('prompt')
     if (promptError) throw promptError
-    prompted = message
+    prompted = [rest[6], text].filter(Boolean).join('\n\n')
 
     return { stopReason: 'end_turn' }
   },
@@ -111,7 +111,8 @@ const run = (systemPrompt?: string) =>
     conversationId: 'conversation',
     userId: 'user',
     locale: 'en-US',
-    message: 'Continue',
+    message: '',
+    text: 'Continue',
     systemPrompt,
     endpoint,
     signal: new AbortController().signal,
@@ -124,7 +125,8 @@ const runFresh = () =>
     conversationId: 'conversation',
     userId: 'user',
     locale: 'en-US',
-    message: 'Continue',
+    message: '',
+    text: 'Continue',
     freshSessionMessage: (uncertain?: boolean) =>
       `${uncertain ? 'contact was lost' : 'your background work is gone'}\n\nContinue`,
     endpoint,
