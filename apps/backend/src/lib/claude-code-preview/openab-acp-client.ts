@@ -10,6 +10,7 @@ import {
   sessionMeta,
 } from './openab-acp-session.ts'
 import { createCallTimer, refreshSessionTimers } from './openab-acp-timers.ts'
+import { rememberPushedRuntimeState } from './runtime-state-store'
 import { observeOpenAbSessionUpdates, routeOpenAbSessionUpdate } from './openab-acp-updates.ts'
 
 import type { OpenAbAcpConnection } from './openab-acp-connect.ts'
@@ -211,6 +212,7 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     }
     if (message.method === 'session/update') {
       refreshSessionTimers(this.pending.values(), message.params)
+      rememberPushedRuntimeState(message.params)
       routeOpenAbSessionUpdate({
         params: message.params,
         pending: [...this.pending.values()],

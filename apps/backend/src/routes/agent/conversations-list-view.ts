@@ -5,9 +5,11 @@ import type { AgentConversation } from '@/lib/agent/db'
 import type { SessionThreadResource } from '@/lib/agent/session-thread-resources'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
+import { liveAttachment } from '@/lib/agent/db/shared'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
-import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
+import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
+import { READY_FOR_NEXT_MESSAGE } from '@/lib/claude-code-preview/session-execution-state'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadsBySessionIds } from '@/lib/slack/agent-bot'
 
@@ -20,28 +22,17 @@ export type ConversationActiveRun = { streamId: string; startedAt: string | null
  * wake-up), so list rows carry the live run the way the detail does: the
  * local registry first, then the shared store.
  */
-async function activeRunFor(conversation: ListedConversation): Promise<{
-  activeRun: ConversationActiveRun | null
-  runtimeState: Awaited<ReturnType<typeof conversationExecutionState>>
-}> {
+async function activeRunFor(
+  conversation: ListedConversation,
+): Promise<ConversationActiveRun | null> {
   try {
     const run =
       getLocalActiveAgentRun(conversation.userId, conversation.sessionId) ??
       (await getActiveAgentRunForSession(conversation.userId, conversation.sessionId))
 
-    const runtimeState = await conversationExecutionState(
-      conversation as unknown as AgentConversation,
-    )
-
-    return {
-      runtimeState,
-      activeRun:
-        run && runtimeState.state === 'active'
-          ? { streamId: run.streamId, startedAt: run.startedAt ?? null }
-          : null,
-    }
+    return run ? { streamId: run.streamId, startedAt: run.startedAt ?? null } : null
   } catch {
-    return { activeRun: null, runtimeState: { state: 'disconnected' } }
+    return null
   }
 }
 
@@ -62,13 +53,21 @@ export async function serializeConversationList<T extends ListedConversation>(
 
     return []
   })
-  const [ownerById, slackThreads, activeRuns, threadResources] = await Promise.all([
+  const [ownerById, slackThreads, activeRuns, runtimeStates, threadResources] = await Promise.all([
     buildConversationOwnerMap(
       teamId,
       conversations.map((conversation) => conversation.userId),
     ),
     slackThreadsPromise,
     Promise.all(conversations.map(activeRunFor)),
+    // What the runtime last pushed for each session; the list never asks it.
+    readRuntimeStates(
+      conversations.map(
+        (conversation) =>
+          liveAttachment(conversation as unknown as Pick<AgentConversation, 'claudeCodePreview'>)
+            ?.openabSessionId,
+      ),
+    ),
     sessionThreadResources(
       conversations as unknown as Pick<AgentConversation, 'sessionId' | 'firstMessage'>[],
     ).catch((err: unknown) => {
@@ -79,18 +78,22 @@ export async function serializeConversationList<T extends ListedConversation>(
   ])
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
-  return conversations.map((conversation, index) => ({
-    ...serializeConversationForViewer(
-      conversation,
-      viewer,
-      ownerById,
-      slackThreadBySessionId.get(conversation.sessionId),
-    ),
-    linkedResources: [
-      ...(threadResources.get(conversation.sessionId) ?? []),
-      ...((conversation.linkedResources as unknown[] | undefined) ?? []),
-    ],
-    activeRun: activeRuns[index]?.activeRun ?? null,
-    runtimeState: activeRuns[index]?.runtimeState ?? { state: 'unknown' },
-  }))
+  return conversations.map((conversation, index) => {
+    const runtimeState = runtimeStates[index] ?? READY_FOR_NEXT_MESSAGE
+
+    return {
+      ...serializeConversationForViewer(
+        conversation,
+        viewer,
+        ownerById,
+        slackThreadBySessionId.get(conversation.sessionId),
+      ),
+      linkedResources: [
+        ...(threadResources.get(conversation.sessionId) ?? []),
+        ...((conversation.linkedResources as unknown[] | undefined) ?? []),
+      ],
+      activeRun: runtimeState.state === 'active' ? (activeRuns[index] ?? null) : null,
+      runtimeState,
+    }
+  })
 }
