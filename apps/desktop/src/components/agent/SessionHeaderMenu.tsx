@@ -36,6 +36,7 @@ import { ShortcutHint } from '../ui/shortcut-hint'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
 
+import { SessionProjectSubmenu } from './SessionProjectSubmenu'
 import { agentSessionUrl } from './sessionUrl'
 import { useArchiveSession } from './useArchiveSession'
 
@@ -177,6 +178,7 @@ export function SessionHeaderMenu({
             Fork chat
           </MenuItem>
         )}
+        <SessionProjectSubmenu userId={userId} teamId={teamId} sessionId={sessionId} />
         <MenuSubmenu>
           <MenuSubmenuTrigger
             icon={<Copy className="h-3.5 w-3.5" />}

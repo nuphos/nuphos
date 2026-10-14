@@ -65,6 +65,30 @@ export type SidebarFavoritesSnapshot = {
   updatedAt: string | null
 }
 
+export type SidebarProjectEntry = { id: string; name: string; sessionIds: string[] }
+export type SidebarProjectsSnapshot = {
+  projects: SidebarProjectEntry[]
+  revision: number
+  updatedAt: string | null
+}
+
+export async function getSidebarProjects(teamId: string): Promise<SidebarProjectsSnapshot> {
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/sidebar-projects`)
+}
+
+export async function putSidebarProjects(
+  teamId: string,
+  projects: SidebarProjectEntry[],
+  expectedRevision: number,
+): Promise<SidebarProjectsSnapshot> {
+  return call(
+    'PUT',
+    `/teams/${encodeURIComponent(teamId)}/sidebar-projects`,
+    { projects, expectedRevision },
+    { retry: false },
+  )
+}
+
 export async function listTeams(): Promise<Team[]> {
   // Team discovery is the desktop bootstrap gate. The shared development
   // Mongo replica can take well over the global 15s request budget while its

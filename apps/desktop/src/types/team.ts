@@ -115,6 +115,13 @@ export type SidebarFavoritesCloudSnapshot = {
   updatedAt: string | null
 }
 
+export type SidebarProjectCloudEntry = { id: string; name: string; sessionIds: string[] }
+export type SidebarProjectsCloudSnapshot = {
+  projects: SidebarProjectCloudEntry[]
+  revision: number
+  updatedAt: string | null
+}
+
 /** A repository a home card follows, addressed the way the GitHub API routes need it. */
 export type HomeRepo = { installationId: number; fullName: string }
 
