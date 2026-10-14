@@ -49,6 +49,9 @@ export type PreviewChatTurnArgs = {
   onRunHandoff?: (next: AgentRun) => void
 }
 
+/** Set when the runtime connection dropped mid-turn and the turn was left to it. */
+export type TurnEnd = 'connection-lost' | undefined
+
 export type PreviewRunState = {
   current: () => AgentRun
   /** Aborts when whichever run currently owns the stream is aborted. */

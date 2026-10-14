@@ -192,7 +192,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       getSlackAgentThreadBySessionId(sessionId).catch(() => null),
     ])
 
-    await runClaudeCodePreviewChatTurn({
+    const ended = await runClaudeCodePreviewChatTurn({
       run,
       sessionId,
       teamId,
@@ -215,9 +215,10 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
           }
         : {}),
     })
+
     chatSpan.end()
 
-    return { status: 'completed', finishReason: 'stop' }
+    return { status: 'completed', finishReason: ended ?? 'stop' }
   } catch (err) {
     recordTriggerRunFailure(err, runTrace, source)
     chatSpan.end()
