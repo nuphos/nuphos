@@ -1,4 +1,4 @@
-import { getConversationBySessionId, updateConversationCredentialAccess } from '@/lib/agent/db'
+import { getConversationBySessionId, setConversationCredentialFields } from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -102,6 +102,27 @@ export async function nuphosListCredentials(
   })
 }
 
+// The categories nuphos_update_credentials replaces, by tool argument. It has no
+// parameter for the others (local devices, on-prem, connectors), so it never
+// writes them.
+const NAMED_CATEGORIES = {
+  awsRoleIds: 'aws_role_ids',
+  gcpServiceAccountIds: 'gcp_service_account_ids',
+  linodeAccountIds: 'linode_account_ids',
+  hetznerAccountIds: 'hetzner_account_ids',
+  betterStackIntegrationIds: 'betterstack_integration_ids',
+  uptimeKumaInstanceIds: 'uptime_kuma_instance_ids',
+  linearWorkspaceIds: 'linear_workspace_ids',
+  jiraSiteIds: 'jira_site_ids',
+  asanaAccountIds: 'asana_account_ids',
+  sentryAccountIds: 'sentry_account_ids',
+  tailscaleClientIds: 'tailscale_client_ids',
+  zeaburIds: 'zeabur_ids',
+  vantaIntegrationIds: 'vanta_integration_ids',
+  secureframeIntegrationIds: 'secureframe_integration_ids',
+  resendIntegrationIds: 'resend_integration_ids',
+} as const
+
 export async function nuphosUpdateCredentials(
   args: Record<string, unknown>,
   ctx: McpCallContext,
@@ -119,38 +140,30 @@ export async function nuphosUpdateCredentials(
   if (!('sessionId' in conversation)) return conversation
 
   try {
-    // Full replacement covers only the categories this tool can name; the rest,
-    // such as local devices and connectors, keep what the conversation has.
     const { access } = await resolveAgentCredentialAccess({
       teamId,
       userId: ctx.userId,
-      stored: conversation.credentialAccess,
-      selection: {
-        awsRoleIds: args.aws_role_ids ?? [],
-        gcpServiceAccountIds: args.gcp_service_account_ids ?? [],
-        linodeAccountIds: args.linode_account_ids ?? [],
-        hetznerAccountIds: args.hetzner_account_ids ?? [],
-        betterStackIntegrationIds: args.betterstack_integration_ids ?? [],
-        uptimeKumaInstanceIds: args.uptime_kuma_instance_ids ?? [],
-        linearWorkspaceIds: args.linear_workspace_ids ?? [],
-        jiraSiteIds: args.jira_site_ids ?? [],
-        asanaAccountIds: args.asana_account_ids ?? [],
-        sentryAccountIds: args.sentry_account_ids ?? [],
-        tailscaleClientIds: args.tailscale_client_ids ?? [],
-        zeaburIds: args.zeabur_ids ?? [],
-        vantaIntegrationIds: args.vanta_integration_ids ?? [],
-        secureframeIntegrationIds: args.secureframe_integration_ids ?? [],
-        resendIntegrationIds: args.resend_integration_ids ?? [],
-      },
+      selection: Object.fromEntries(
+        Object.entries(NAMED_CATEGORIES).map(([key, arg]) => [key, args[arg] ?? []]),
+      ),
     })
-    const updated = await updateConversationCredentialAccess(sessionId, ctx.userId, teamId, access)
+    // Write only what this tool names; the rest of the selection is not read
+    // back and rewritten, so an edit made meanwhile in the picker survives.
+    const updated = await setConversationCredentialFields(
+      sessionId,
+      ctx.userId,
+      teamId,
+      Object.fromEntries(
+        Object.keys(NAMED_CATEGORIES).map((key) => [key, access[key as keyof typeof access]]),
+      ),
+    )
 
-    if (!updated) return toolError(`Session not found: ${sessionId}`)
+    if (!updated?.credentialAccess) return toolError(`Session not found: ${sessionId}`)
 
     return toolResult({
       session_id: sessionId,
       team_id: teamId,
-      enabled_for_session: credentialAccessPayload(access),
+      enabled_for_session: credentialAccessPayload(updated.credentialAccess),
     })
   } catch (err) {
     if (err instanceof AppError) return toolError(err.message)

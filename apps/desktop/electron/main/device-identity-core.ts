@@ -9,7 +9,7 @@ export type DeviceIdentity = {
   createdAt: string
 }
 
-export type DeviceKind = 'desktop' | 'cli'
+type DeviceKind = 'desktop' | 'cli'
 
 export function parseDeviceIdentity(raw: string): DeviceIdentity | null {
   try {
@@ -92,9 +92,9 @@ export function readMachineKey(platform: NodeJS.Platform = process.platform): st
  * One id per machine and client kind, so a reinstall, a new profile or a new
  * agent home registers into the same device instead of adding one. Only a new
  * identity takes it: an existing one keeps its id, which its selections and
- * local-agent conversations already name. Hashed so
- * the hardware id never leaves the machine; the Desktop and the CLI stay two
- * devices because each holds its own runtime tunnel.
+ * local-agent conversations already name. Hashed so the hardware id never
+ * leaves the machine; the Desktop and the CLI stay two devices because each
+ * holds its own runtime tunnel.
  */
 export function stableDeviceId(machineKey: string, kind: DeviceKind): string {
   const h = createHash('sha256').update(`nuphos-device-v1\0${kind}\0${machineKey}`).digest('hex')

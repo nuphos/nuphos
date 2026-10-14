@@ -86,3 +86,4 @@ export type {
   ConversationsScope,
   ConversationsSort,
 } from './db/transcript'
+export { setConversationCredentialFields } from './db/credential-fields'
