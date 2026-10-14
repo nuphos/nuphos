@@ -1,35 +1,38 @@
-import { beforeEach, expect, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import Redis from 'ioredis'
 
 import { useRedis } from '@/lib/test/doubles/redis'
 
 import {
   forgetRuntimeState,
+  holdRuntimeState,
   readRuntimeStates,
   rememberPushedRuntimeState,
+  rememberRuntimeState,
 } from './runtime-state-store'
 
 // The conversation list reads each session's runtime status from what the
-// runtime last pushed, instead of opening a runtime connection per row.
-const stored = new Map<string, string>()
-let redisOn = true
+// runtime last pushed, instead of opening a runtime connection per row. The
+// compare-and-set script needs a real Redis; set TEST_REDIS_URL to run those
+// cases (CI runs the in-memory store, which applies the same rule).
+const redisUrl = process.env.TEST_REDIS_URL
+const real = redisUrl ? new Redis(redisUrl) : null
+let redisOn = false
 
 useRedis({
   redisEnabled: () => redisOn,
-  withRedis: (op) =>
-    op({
-      set: async (key: string, value: string) => {
-        stored.set(key, value)
-
-        return 'OK'
-      },
-      del: async (key: string) => Number(stored.delete(key)),
-      mget: async (keys: string[]) => keys.map((key) => stored.get(key) ?? null),
-    } as never),
+  withRedis: (op) => (real ? op(real as never) : Promise.resolve(null)),
 })
 
-beforeEach(() => {
-  stored.clear()
-  redisOn = true
+afterAll(() => real?.disconnect())
+
+const connection = {}
+const intruder = {}
+
+beforeEach(async () => {
+  redisOn = false
+  await real?.flushdb()
+  for (const id of ['sess-a', 'sess-b']) forgetRuntimeState('team-a', id)
 })
 
 const snapshot = {
@@ -43,46 +46,104 @@ const snapshot = {
   revision: 7,
 }
 
-function push(sessionId: string, value: Record<string, unknown>) {
-  rememberPushedRuntimeState({
+function push(from: object, sessionId: string, value: Record<string, unknown>) {
+  rememberPushedRuntimeState(from, {
     sessionId,
     update: { sessionUpdate: 'runtime_state', snapshot: value },
   })
 }
 
-test('a pushed runtime_state is what the list reads back, epoch and revision intact', async () => {
-  push('sess-a', snapshot)
-  await Bun.sleep(0)
+// Redis writes are fire-and-forget; let them land before reading.
+const settle = () => Bun.sleep(real && redisOn ? 20 : 0)
 
-  expect(await readRuntimeStates(['sess-a', undefined, 'sess-unknown'])).toEqual([
-    snapshot as never,
-    null,
-    null,
-  ])
-})
+function cases() {
+  test('a held session’s push is what the list reads back, epoch and revision intact', async () => {
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
 
-test('a lost transport clears the entry, so the list stops reporting the old state', async () => {
-  push('sess-a', snapshot)
-  await Bun.sleep(0)
-  forgetRuntimeState('sess-a')
-  await Bun.sleep(0)
+    push(connection, 'sess-a', snapshot)
+    await settle()
+    release()
 
-  expect(await readRuntimeStates(['sess-a'])).toEqual([null])
-})
+    expect(await readRuntimeStates('team-a', ['sess-a', undefined, 'sess-b'])).toEqual([
+      snapshot as never,
+      null,
+      null,
+    ])
+  })
 
-test('an invalid snapshot is not stored', async () => {
-  push('sess-a', { state: 'idle' })
-  await Bun.sleep(0)
+  test('another connection, or a session nobody here opened, cannot store state', async () => {
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
 
-  expect(stored.size).toBe(0)
-})
+    push(intruder, 'sess-a', snapshot)
+    push(connection, 'sess-b', snapshot)
+    await settle()
+    release()
+    push(connection, 'sess-a', snapshot)
+    await settle()
 
-test('without Redis (one self-hosted backend) the same push is kept in memory', async () => {
-  redisOn = false
-  push('sess-local', snapshot)
+    expect(await readRuntimeStates('team-a', ['sess-a', 'sess-b'])).toEqual([null, null])
+  })
 
-  expect(await readRuntimeStates(['sess-local'])).toEqual([snapshot as never])
-  expect(stored.size).toBe(0)
-  forgetRuntimeState('sess-local')
-  expect(await readRuntimeStates(['sess-local'])).toEqual([null])
+  test('the key is per team: another team reading the same session id sees nothing', async () => {
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    await settle()
+
+    expect(await readRuntimeStates('team-b', ['sess-a'])).toEqual([null])
+  })
+
+  test('an older revision of the same epoch never replaces a newer one', async () => {
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 9 } as never)
+    await settle()
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, state: 'active', revision: 8 } as never)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, state: 'active', revision: 9 } as never)
+    await settle()
+
+    expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.revision).toBe(9)
+    expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.state).toBe('idle')
+
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 10 } as never)
+    await settle()
+    expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.revision).toBe(10)
+  })
+
+  test('a new runtime epoch replaces the old one whatever its revision', async () => {
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 50 } as never)
+    await settle()
+    rememberRuntimeState('team-a', 'sess-a', {
+      ...snapshot,
+      epoch: 'runtime-2',
+      revision: 1,
+    } as never)
+    await settle()
+
+    expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.epoch).toBe('runtime-2')
+  })
+
+  test('a lost transport clears the entry, so the list stops reporting the old state', async () => {
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    await settle()
+    forgetRuntimeState('team-a', 'sess-a')
+    await settle()
+
+    expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([null])
+  })
+
+  test('an invalid snapshot is not stored', async () => {
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
+
+    push(connection, 'sess-a', { state: 'idle' })
+    await settle()
+    release()
+
+    expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([null])
+  })
+}
+
+describe('in memory (one self-hosted backend, no Redis)', cases)
+
+describe.skipIf(!real)('Redis compare-and-set', () => {
+  beforeEach(() => {
+    redisOn = true
+  })
+  cases()
 })

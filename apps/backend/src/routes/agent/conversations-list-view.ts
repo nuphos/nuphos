@@ -3,6 +3,7 @@ import { getLocalActiveAgentRun } from './run-registry'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { SessionThreadResource } from '@/lib/agent/session-thread-resources'
+import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
 import { liveAttachment } from '@/lib/agent/db/shared'
@@ -16,6 +17,14 @@ import { getSlackAgentThreadsBySessionIds } from '@/lib/slack/agent-bot'
 type ListedConversation = Record<string, unknown> & { userId: string; sessionId: string }
 
 export type ConversationActiveRun = { streamId: string; startedAt: string | null }
+
+const RUN_IN_PROGRESS: SessionExecutionState = {
+  state: 'active',
+  schemaVersion: 2,
+  phase: 'working',
+  label: 'Working…',
+  actions: { send: false, cancel: true, steer: false, reply: false },
+}
 
 /**
  * A reply can be running on another client (desktop, Slack, a scheduled
@@ -53,21 +62,35 @@ export async function serializeConversationList<T extends ListedConversation>(
 
     return []
   })
+  // What the runtime last pushed for each session; the list never asks it.
+  const runtimeStatesPromise = teamId
+    ? readRuntimeStates(
+        teamId,
+        conversations.map(
+          (conversation) =>
+            liveAttachment(conversation as unknown as Pick<AgentConversation, 'claudeCodePreview'>)
+              ?.openabSessionId,
+        ),
+      )
+    : Promise.resolve(conversations.map(() => null))
+  // A stored idle or dormant snapshot already says no run is live.
+  const activeRunsPromise = runtimeStatesPromise.then((states) =>
+    Promise.all(
+      conversations.map(async (conversation, index) => {
+        const state = states[index]
+
+        return !state || state.state === 'active' ? activeRunFor(conversation) : null
+      }),
+    ),
+  )
   const [ownerById, slackThreads, activeRuns, runtimeStates, threadResources] = await Promise.all([
     buildConversationOwnerMap(
       teamId,
       conversations.map((conversation) => conversation.userId),
     ),
     slackThreadsPromise,
-    Promise.all(conversations.map(activeRunFor)),
-    // What the runtime last pushed for each session; the list never asks it.
-    readRuntimeStates(
-      conversations.map(
-        (conversation) =>
-          liveAttachment(conversation as unknown as Pick<AgentConversation, 'claudeCodePreview'>)
-            ?.openabSessionId,
-      ),
-    ),
+    activeRunsPromise,
+    runtimeStatesPromise,
     sessionThreadResources(
       conversations as unknown as Pick<AgentConversation, 'sessionId' | 'firstMessage'>[],
     ).catch((err: unknown) => {
@@ -79,7 +102,10 @@ export async function serializeConversationList<T extends ListedConversation>(
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   return conversations.map((conversation, index) => {
-    const runtimeState = runtimeStates[index] ?? READY_FOR_NEXT_MESSAGE
+    // No snapshot (expired, or its connection was lost mid-turn): a live run
+    // still means the turn is running.
+    const runtimeState =
+      runtimeStates[index] ?? (activeRuns[index] ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
 
     return {
       ...serializeConversationForViewer(

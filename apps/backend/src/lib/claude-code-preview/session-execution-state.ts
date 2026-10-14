@@ -67,7 +67,7 @@ export async function conversationExecutionState(
       ),
     )
 
-    if (attachment) rememberRuntimeState(attachment.openabSessionId, state)
+    if (attachment) rememberRuntimeState(conversation.teamId, attachment.openabSessionId, state)
 
     // A continuation parked on a lost output connection moves again only when
     // a prompt reattaches it (runClaudeCodePreviewPrompt). The runtime says
