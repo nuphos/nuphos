@@ -30,6 +30,13 @@ export function claudeLoginUrl(output: string): string | undefined {
   }
 }
 
+/** The agent's own sign-in command; `nuphos agent login` runs the same one in a terminal. */
+export function signInArgs(provider: 'claude-code' | 'codex'): string[] {
+  return provider === 'codex'
+    ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
+    : ['auth', 'login', '--claudeai']
+}
+
 export class LocalAgentLogin {
   private child: ChildProcess | undefined
   private timer: ReturnType<typeof setTimeout> | undefined
@@ -76,17 +83,11 @@ export class LocalAgentLogin {
     let child: ChildProcess
 
     try {
-      child = (this.deps.spawn ?? spawn)(
-        cli,
-        codex
-          ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
-          : ['auth', 'login', '--claudeai'],
-        {
-          env,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          shell: cli.endsWith('.cmd'),
-        },
-      )
+      child = (this.deps.spawn ?? spawn)(cli, signInArgs(codex ? 'codex' : 'claude-code'), {
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: cli.endsWith('.cmd'),
+      })
     } catch {
       this.update({ state: 'failed', error: `Could not start ${name} sign-in. Please try again.` })
 

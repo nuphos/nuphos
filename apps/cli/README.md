@@ -115,6 +115,9 @@ nuphos agent login claude    # prints a URL to open and takes the code back
 nuphos agent login codex     # device sign-in: a URL and a one-time code
 ```
 
+A running `nuphos agent` checks logins only when it starts an agent, so restart
+it afterwards (`systemctl --user restart nuphos-agent`, or run it again).
+
 To keep it running with systemd, use a dedicated non-root account: anyone who
 controls that account acts as this machine in Nuphos, and conversation
 commands run as it.
