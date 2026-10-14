@@ -93,6 +93,20 @@ describe('availableCredentialAccess', () => {
     ).toEqual([])
   })
 
+  test('a ticked device that is asleep stays ticked beside an online one of the same name', () => {
+    const sameName = {
+      ...credentialOptions(),
+      devices: [
+        { deviceId: 'office-mac', label: 'MacBook-Pro.local', platform: 'darwin', available: true },
+        { deviceId: 'home-mac', label: 'MacBook-Pro.local', platform: 'darwin', available: false },
+      ],
+    }
+
+    expect(availableCredentialAccess({ deviceIds: ['home-mac'] }, sameName).deviceIds).toEqual([
+      'home-mac',
+    ])
+  })
+
   test('stores exactly the ticked devices of the caller, online or not', () => {
     const offered = credentialOptions()
 
