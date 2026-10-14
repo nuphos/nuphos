@@ -135,13 +135,20 @@ export function EditableConversationTitle({
   teamId,
   title,
   canRename,
+  editing: editingProp,
+  onEditingChange,
 }: {
   sessionId: string | null
   teamId: string
   title: string
   canRename: boolean
+  /** Lets another control (the titlebar menu) open the editor. */
+  editing?: boolean
+  onEditingChange?: (editing: boolean) => void
 }) {
-  const [editing, setEditing] = useState(false)
+  const [localEditing, setLocalEditing] = useState(false)
+  const editing = editingProp ?? localEditing
+  const setEditing = onEditingChange ?? setLocalEditing
 
   if (!sessionId || !canRename) return <span className="truncate">{title}</span>
   if (editing)

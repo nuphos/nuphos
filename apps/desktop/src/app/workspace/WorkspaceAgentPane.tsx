@@ -5,7 +5,7 @@ import { connectedResourceLabels } from '../../app/accountScopes'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { EditableConversationTitle } from '../../components/agent/panel/ConversationTitleEditor'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
-import { SessionArchiveButton } from '../../components/agent/SessionArchiveButton'
+import { SessionHeaderMenu } from '../../components/agent/SessionHeaderMenu'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { teamCanUseAgent } from '../../lib/agentAccess'
@@ -64,6 +64,8 @@ export function WorkspaceAgentPane({
     runtime: AgentProvider | null
     runtimeId?: string
   }>({ sessionId: null, title: 'Agent', runtime: null })
+  // The titlebar menu's Rename opens the same inline editor as clicking the title.
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
   const connectedResources = useMemo(
     () =>
@@ -209,6 +211,10 @@ export function WorkspaceAgentPane({
               teamId={teamId}
               title={currentHeading.title}
               canRename={currentHeading.canRename === true}
+              editing={renamingSessionId === selectedSessionId}
+              onEditingChange={(editing) =>
+                setRenamingSessionId(editing ? selectedSessionId : null)
+              }
             />
             {selectedSessionId && (
               <SessionTitlebarResources
@@ -233,12 +239,16 @@ export function WorkspaceAgentPane({
               }
             />
           )}
-          {selectedSessionId && currentHeading.canArchive === true && (
-            <SessionArchiveButton
-              key={`archive-${selectedSessionId}`}
+          {selectedSessionId && (
+            <SessionHeaderMenu
+              key={`menu-${selectedSessionId}`}
               sessionId={selectedSessionId}
               teamId={teamId}
+              userId={user.id}
               title={currentHeading.title}
+              canRename={currentHeading.canRename === true}
+              canArchive={currentHeading.canArchive === true}
+              onRename={() => setRenamingSessionId(selectedSessionId)}
             />
           )}
         </div>

@@ -1,24 +1,15 @@
-import { Archive, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { archiveChat } from '../../lib/archiveChat'
 import { announceChatArchived, announceChatUnarchived } from '../../lib/chatArchiveEvents'
 import { toast } from '../ui/toast'
-import { Tooltip } from '../ui/tooltip'
 
-/** Titlebar action beside Share: archive the open session. */
-export function SessionArchiveButton({
-  sessionId,
-  teamId,
-  title,
-}: {
-  sessionId: string
-  teamId: string
-  title: string
-}) {
+export type ArchiveTarget = { sessionId: string; teamId: string; title: string }
+
+/** Archives the open session with the history page's Undo receipt. */
+export function useArchiveSession({ sessionId, teamId, title }: ArchiveTarget) {
   const [archiving, setArchiving] = useState(false)
-  const label = archiving ? 'Archiving…' : 'Archive chat'
 
   async function archive() {
     if (archiving) return
@@ -45,25 +36,5 @@ export function SessionArchiveButton({
     }
   }
 
-  return (
-    <Tooltip content={label} side="bottom">
-      <button
-        type="button"
-        disabled={archiving}
-        aria-busy={archiving}
-        aria-label={label}
-        onClick={() => void archive()}
-        className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main disabled:opacity-60 motion-reduce:transition-none"
-      >
-        {archiving ? (
-          <Loader2
-            className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-        ) : (
-          <Archive className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-        )}
-      </button>
-    </Tooltip>
-  )
+  return { archiving, archive }
 }
