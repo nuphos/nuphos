@@ -1,14 +1,14 @@
-import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
-import { AGENT_USAGE_COLUMNS, AgentUsageRow } from './AgentUsageRow'
+import { AGENT_USAGE_COLUMNS, AgentUsageRow, LIMIT } from './AgentUsageRow'
 import { GAP_FILL, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
 
+import type { MetricPoint } from './MetricChart'
 import type { QuotaHistoryRow } from './quotaHistoryRows'
 import type {
   RuntimeInstance,
@@ -23,6 +23,8 @@ const RANGE_OPTIONS = (Object.keys(QUOTA_HISTORY_RANGES) as RuntimeQuotaHistoryR
 // A reading is held ten minutes on the backend, so nothing new arrives sooner.
 const POLL_MS = 600_000
 const LEGEND_STEPS = [10, 40, 70, 95]
+// Enough cells to read a day at a glance; finer buckets fold into their busiest.
+const MAX_CELLS = 72
 
 const percent = (value: number) => `${String(Math.round(value))}%`
 
@@ -35,10 +37,21 @@ function timeLabelFor(range: RuntimeQuotaHistoryRange): (at: number) => string {
     })
 }
 
+function foldCells(points: MetricPoint[]): MetricPoint[] {
+  const size = Math.ceil(points.length / MAX_CELLS)
+
+  return Array.from({ length: Math.ceil(points.length / size) }, (_, i) => {
+    const chunk = points.slice(i * size, (i + 1) * size)
+    const values = chunk.flatMap((p) => (p.value === null ? [] : [p.value]))
+
+    return { at: chunk[0].at, value: values.length > 0 ? Math.max(...values) : null }
+  })
+}
+
 /** Darker the more of the plan a bucket used; a used-up window turns orange. */
 function cellColor(value: number | null): string | undefined {
   if (value === null) return GAP_FILL
-  if (value >= 100) return undefined
+  if (value >= 100) return LIMIT
 
   return `rgba(164, 105, 255, ${String(0.12 + (0.88 * value) / 100)})`
 }
@@ -74,7 +87,11 @@ function UsageHeatmap({
           />
         ))}
         <span>99%</span>
-        <span aria-hidden="true" className="ml-2 h-2.5 w-2.5 rounded-sm bg-zOrangered-400" />
+        <span
+          aria-hidden="true"
+          className="ml-2 h-2.5 w-2.5 rounded-sm"
+          style={{ backgroundColor: LIMIT }}
+        />
         <span>At limit</span>
       </div>
       <div className="space-y-[3px]">
@@ -90,14 +107,11 @@ function UsageHeatmap({
               <span className="truncate">{row.instance.label}</span>
             </span>
             <span className="flex min-w-0 flex-1 gap-[2px]">
-              {row.peak.map((point) => (
+              {foldCells(row.peak).map((point) => (
                 <span
                   key={point.at}
                   title={`${timeLabel(point.at)} · ${point.value === null ? 'No reading' : percent(point.value)}`}
-                  className={clsx(
-                    'h-3 min-w-0 flex-1 rounded-[2px]',
-                    point.value !== null && point.value >= 100 && 'bg-zOrangered-400',
-                  )}
+                  className="h-3 min-w-0 flex-1 rounded-[2px]"
                   style={{ backgroundColor: cellColor(point.value) }}
                 />
               ))}

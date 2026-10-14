@@ -13,6 +13,9 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 /** Shared by the header and every row so the columns line up. */
 export const AGENT_USAGE_COLUMNS = 'grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px] gap-5'
 
+/** The used-up colour; a fixed value so it reads the same in light and dark themes. */
+export const LIMIT = 'rgb(244, 119, 89)'
+
 const percent = (value: number) => `${String(Math.round(value))}%`
 
 const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
@@ -105,11 +108,11 @@ export function AgentUsageRow({
               <span className="w-14 shrink-0 truncate text-tertiary">{window.label}</span>
               <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-zGray-800">
                 <span
-                  className={clsx(
-                    'block h-full rounded-full',
-                    window.usedPercent >= 100 ? 'bg-zOrangered-400' : 'bg-zViolet-accent',
-                  )}
-                  style={{ width: `${String(Math.min(window.usedPercent, 100))}%` }}
+                  className="block h-full rounded-full"
+                  style={{
+                    width: `${String(Math.min(window.usedPercent, 100))}%`,
+                    backgroundColor: window.usedPercent >= 100 ? LIMIT : ACCENT,
+                  }}
                 />
               </span>
               <span
@@ -135,7 +138,7 @@ export function AgentUsageRow({
             <path
               d={sparklinePath(row.peak)}
               fill="none"
-              stroke={atLimit ? 'rgb(244, 119, 89)' : ACCENT}
+              stroke={atLimit ? LIMIT : ACCENT}
               strokeWidth={1.5}
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
