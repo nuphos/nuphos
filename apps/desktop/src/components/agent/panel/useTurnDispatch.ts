@@ -228,15 +228,6 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
-      // An unsaved fork has no server session to report a runtime state, so the
-      // queue would wait on it forever. Its first send creates the session, like
-      // a new chat's.
-      if (tab.unsaved && !uploadingTabsRef.current.has(activeId)) {
-        emitFirstRunConvo('asked')
-        void dispatchTurn(activeId, trimmed, filePaths, turnKind)
-
-        return
-      }
       if (runtimeAllows(tab.runtimeState, 'steer') && !runtimeAllows(tab.runtimeState, 'reply')) {
         await sendSteering(activeId, trimmed, filePaths)
 
@@ -244,7 +235,10 @@ export function useTurnDispatch(acc: Acc) {
       }
       const replying = runtimeAllows(tab.runtimeState, 'reply')
 
-      const sendable = runtimeAllows(tab.runtimeState, 'send')
+      // An unsaved fork has no server session to report a runtime state, so a
+      // queue would wait on it forever. Its first send creates the session, like
+      // a new chat's.
+      const sendable = tab.unsaved || runtimeAllows(tab.runtimeState, 'send')
 
       if (!replying && !sendable && !runtimeMayAcceptLater(tab.runtimeState)) {
         toast.error(runtimeStatusLabel(tab.runtimeState))
@@ -253,7 +247,9 @@ export function useTurnDispatch(acc: Acc) {
       }
       // An automatic turn must not trust a snapshot that may be seconds old,
       // and nothing may overtake a message that is already waiting.
-      if (!replying && (!sendable || turnKind === 'plan-approval' || nextAutoSend(tab))) {
+      const staleApproval = turnKind === 'plan-approval' && !tab.unsaved
+
+      if (!replying && (!sendable || staleApproval || nextAutoSend(tab))) {
         queueUntilSendable(activeId, trimmed, filePaths, turnKind)
 
         return

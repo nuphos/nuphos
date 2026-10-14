@@ -141,6 +141,13 @@ export async function runDispatchTurn(
     credentialAccessRef.current.get(tab.sessionId) ?? tab.credentialAccess,
   )
 
+  // A fork's copied turns exist only in this client until its first send, and
+  // /chat accepts one user message the server hasn't stored. Store them first
+  // as an import, the path a local session import takes, so this send carries
+  // only the new message. A regular sync of the same turn would race the import
+  // and store the new message before /chat could attribute it.
+  const forkHistory = tab.unsaved && baseMessages.some((m) => m.role === 'user')
+
   setTabs((prev) =>
     prev.map((t) =>
       t.id === tabId
@@ -158,19 +165,13 @@ export async function runDispatchTurn(
             autoResumeAttempts: 0,
             credentialAccess,
             promptSuggestion: null,
-            // The first turn stores the session, so a fork is no longer unsaved.
-            unsaved: false,
+            // The first turn stores the session, so a fork is no longer unsaved;
+            // one with copied turns stays unsaved until their import lands.
+            unsaved: forkHistory ? t.unsaved : false,
           }
         : t,
     ),
   )
-  // A fork's copied turns exist only in this client until its first send, and
-  // /chat accepts one user message the server hasn't stored. Store them first
-  // as an import, the path a local session import takes, so this send carries
-  // only the new message. A regular sync of the same turn would race the import
-  // and store the new message before /chat could attribute it.
-  const forkHistory = tab.unsaved && baseMessages.some((m) => m.role === 'user')
-
   if (!forkHistory) {
     syncTranscriptNow({
       ...tab,
@@ -199,8 +200,12 @@ export async function runDispatchTurn(
     : Promise.resolve()
 
   void importForkHistory
-    .then(() =>
-      window.api.agentStart({
+    .then(() => {
+      if (forkHistory) {
+        setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, unsaved: false } : t)))
+      }
+
+      return window.api.agentStart({
         streamId,
         sessionId: tab.sessionId,
         agentRuntime: tab.agentRuntime,
@@ -213,8 +218,8 @@ export async function runDispatchTurn(
         kubeContext: kubeContextRef.current ?? undefined,
         diagramId: getActiveDiagramId() ?? undefined,
         credentialAccess,
-      }),
-    )
+      })
+    })
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err)
 

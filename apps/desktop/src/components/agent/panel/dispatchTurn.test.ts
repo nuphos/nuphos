@@ -166,4 +166,16 @@ test('a failed import does not start the turn and surfaces the error', async () 
   )
   assert.equal(state.tabs()[0].streaming, false)
   assert.equal(state.tabs()[0].error, 'import failed')
+  // Still a fork the server hasn't stored, so the next send imports again.
+  assert.equal(state.tabs()[0].unsaved, true)
+
+  failImport = false
+  await runDispatchTurn(state.ctx, 'tab', 'again', [])
+  await settle()
+
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['sync', 'sync', 'start'],
+  )
+  assert.equal(state.tabs()[0].unsaved, false)
 })
