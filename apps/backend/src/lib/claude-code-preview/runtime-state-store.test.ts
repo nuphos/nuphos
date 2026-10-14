@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test'
 import Redis from 'ioredis'
 
 import { useRedis } from '@/lib/test/doubles/redis'
@@ -139,11 +139,64 @@ function cases() {
   })
 }
 
-describe('in memory (one self-hosted backend, no Redis)', cases)
+describe('in memory (one self-hosted backend, no Redis)', () => {
+  cases()
+
+  afterEach(() => setSystemTime())
+
+  test('an open tab probing an unchanged session keeps its entry past the TTL', async () => {
+    const start = Date.now()
+
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    for (let minute = 1; minute <= 25; minute++) {
+      setSystemTime(start + minute * 60_000)
+      rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    }
+    expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([snapshot as never])
+
+    // Once nobody probes, it lapses.
+    setSystemTime(start + 36 * 60_000)
+    expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([null])
+  })
+
+  test('an older revision does not extend the entry', async () => {
+    const start = Date.now()
+
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    setSystemTime(start + 9 * 60_000)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 6 } as never)
+    setSystemTime(start + 11 * 60_000)
+
+    expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([null])
+  })
+})
 
 describe.skipIf(!real)('Redis compare-and-set', () => {
   beforeEach(() => {
     redisOn = true
   })
   cases()
+
+  test('an open tab probing an unchanged session keeps its entry past the TTL', async () => {
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    await settle()
+    const stored = 'agent:runtime-state:team-a:sess-a'
+
+    // Stand in for most of the TTL having passed: one second left.
+    await real?.expire(stored, 1)
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    await settle()
+    await Bun.sleep(1_200)
+
+    expect(await real?.ttl(stored)).toBeGreaterThan(590)
+    expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([snapshot as never])
+
+    // An older revision neither replaces nor extends it.
+    await real?.expire(stored, 1)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 6 } as never)
+    await settle()
+    await Bun.sleep(1_200)
+
+    expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([null])
+  })
 })

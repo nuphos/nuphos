@@ -16,13 +16,16 @@ const key = (teamId: string, openabSessionId: string) =>
   `agent:runtime-state:${teamId}:${openabSessionId}`
 
 // Pushes and the detail probe race; within one runtime epoch the higher
-// revision is the newer snapshot, so an older one must never replace it.
-function isStale(stored: SessionExecutionState, next: SessionExecutionState) {
-  return (
-    stored.epoch !== undefined &&
-    stored.epoch === next.epoch &&
-    (stored.revision ?? -1) >= (next.revision ?? -1)
-  )
+// revision is the newer snapshot, so an older one must never replace it. The
+// same snapshot again (an open tab probing an unchanged session) only extends
+// the entry, so a session someone is looking at never falls back to a
+// synthesized row.
+function compare(stored: SessionExecutionState, next: SessionExecutionState) {
+  if (stored.epoch === undefined || stored.epoch !== next.epoch) return 'write'
+  const held = stored.revision ?? -1
+  const incoming = next.revision ?? -1
+
+  return incoming > held ? 'write' : incoming === held ? 'refresh' : 'skip'
 }
 
 const WRITE_IF_NEWER = `
@@ -31,7 +34,12 @@ if stored and ARGV[2] ~= '' then
   local ok, prev = pcall(cjson.decode, stored)
   if ok and type(prev) == 'table' and prev.epoch == ARGV[2] then
     local revision = tonumber(prev.revision)
-    if revision and revision >= tonumber(ARGV[3]) then return 0 end
+    local incoming = tonumber(ARGV[3])
+    if revision and revision == incoming then
+      redis.call('EXPIRE', KEYS[1], ARGV[4])
+      return 0
+    end
+    if revision and revision > incoming then return 0 end
   end
 end
 redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[4])
@@ -50,10 +58,15 @@ export function rememberRuntimeState(
 
   if (!redisEnabled()) {
     const stored = local.get(id)
+    const live = stored && stored.expiresAt > Date.now() ? stored : undefined
+    const verdict = live ? compare(live.snapshot, snapshot) : 'write'
 
-    if (stored && stored.expiresAt > Date.now() && isStale(stored.snapshot, snapshot)) return
+    if (verdict === 'skip') return
     local.delete(id)
-    local.set(id, { snapshot, expiresAt: Date.now() + TTL_SECONDS * 1_000 })
+    local.set(id, {
+      snapshot: verdict === 'refresh' && live ? live.snapshot : snapshot,
+      expiresAt: Date.now() + TTL_SECONDS * 1_000,
+    })
     // Insertion order is write order, so expired entries sit at the front.
     for (const [entryId, entry] of local) {
       if (entry.expiresAt > Date.now()) break
