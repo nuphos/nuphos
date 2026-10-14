@@ -45,7 +45,7 @@ RUN chmod -R a+rX /opt/nuphos-runtime \
 
 COPY --chmod=755 sync-skills.sh /usr/local/bin/nuphos-sync-skills
 COPY --chmod=755 seed-codex-auth.sh /usr/local/bin/nuphos-seed-codex-auth
-COPY runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs acp-shim.mjs /opt/
+COPY reply-images.mjs runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs acp-shim.mjs /opt/
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/

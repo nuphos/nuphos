@@ -657,3 +657,23 @@ this migration; changing that bundle is a separate runtime upgrade.
 The initial source snapshot is imported from
 [`zeabur/nuphos-runtime@ce0cfc0`](https://github.com/zeabur/nuphos-runtime/commit/ce0cfc06112cacff63365d7cd0953f8ebc32e64c); its original
 history remains available there. Preserve this directory's LICENSE and NOTICE.
+
+## Reply images
+
+The patched Claude Code and Codex adapters upload inline Markdown image references
+inside the session workspace automatically. The same patch is bundled with Desktop
+local runtimes. Supported files are PNG, JPEG, GIF and WebP up to 5 MiB, with at most
+eight references and a 20-second upload budget per reply segment. Paths are checked
+against the real workspace boundary; files outside it and SVGs are rejected. Code
+examples and remote image URLs remain unchanged. Move output files into the session
+workspace before referencing them.
+
+Desktop resolves the persisted transfer-group reference using the viewer's own
+credentials, shows an inline preview and download action, and displays the transfer
+expiry. Existing transfer retention and creator-only authorization still apply;
+this does not grant teammates access to another member's attachments. Expired files
+must be regenerated or uploaded again. Upload failures produce a visible explanation;
+ask the agent to resend the image to retry. The inline Retry button refreshes a failed
+preview URL, not an expired transfer. Old replies can be processed when their native
+session history is replayed, provided the original files still exist. Other ACP
+providers continue using the explicit file-transfer workflow.

@@ -18,6 +18,7 @@ export const ATTACHMENT_JOB = '../../backend/src/lib/claude-code-preview/attachm
 export const RUNTIME_DIR = join(here, '../../runtime/image')
 export const RUNTIME_SOURCES = [
   'runtime-defaults.mjs',
+  'reply-images.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'session-home.mjs',
