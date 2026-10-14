@@ -12,10 +12,11 @@ import {
   getConversationBySessionId,
   recordAgentEvent,
   setConversationParent,
+  updateConversationCredentialAccess,
   upsertConversationShell,
 } from './db'
 
-import type { AgentConversation } from './db'
+import type { AgentConversation, AgentCredentialAccess } from './db'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
 export type ThreadTurn = ThreadActor & {
@@ -142,14 +143,51 @@ export async function listThreadRuntimes(actor: ThreadActor) {
   }
 }
 
+// The parent's selected devices that are online, which is what its own local_exec
+// can reach, are the only ones it may hand to a thread.
+async function threadDeviceSelection(
+  actor: ThreadActor,
+  target: AgentConversation,
+  deviceIds: string[],
+): Promise<AgentCredentialAccess> {
+  // A thread starts with its parent's selection, so it always has one.
+  if (!target.credentialAccess) throw new Error('This thread has no credential selection.')
+  const { getAgentCredentialOptions } = await import('@/routes/agent/credential-options')
+  const [source, options] = await Promise.all([
+    getConversationBySessionId(actor.sessionId),
+    getAgentCredentialOptions(actor.teamId, actor.userId),
+  ])
+  const usable = new Set(
+    options.devices
+      .filter((device) => device.available)
+      .map(({ deviceId }) => deviceId)
+      .filter((id) => source?.credentialAccess?.deviceIds?.includes(id)),
+  )
+  const refused = deviceIds.filter((id) => !usable.has(id))
+
+  if (refused.length) {
+    throw new Error(
+      `Not a device this conversation can use right now: ${refused.join(', ')}. ` +
+        `Available: ${[...usable].join(', ') || 'none'}.`,
+    )
+  }
+
+  return {
+    ...target.credentialAccess,
+    deviceIds: [...new Set(deviceIds)],
+    updatedAt: new Date(),
+    updatedBy: actor.userId,
+  }
+}
+
 /**
- * The parent's own controls for a thread it created: its permission mode, never
- * more access than the parent has, and the agent it runs on.
+ * The parent's own controls for a thread it created: its permission mode and
+ * local devices, never more access than the parent has, and the agent it runs on.
  */
 export async function updateThread(
   actor: ThreadActor,
   threadId: string,
-  change: { fullAccess?: boolean; runtimeId?: string },
+  change: { fullAccess?: boolean; runtimeId?: string; deviceIds?: string[] },
 ) {
   const target = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
@@ -167,6 +205,9 @@ export async function updateThread(
     if (!(await listRuntimeInstances(actor.teamId)).some(({ id }) => id === change.runtimeId))
       throw new Error("A thread can only move to one of the team's agents, not to a computer.")
   }
+  const devices = change.deviceIds
+    ? await threadDeviceSelection(actor, target, change.deviceIds)
+    : undefined
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
   const runtime = change.runtimeId
@@ -183,8 +224,12 @@ export async function updateThread(
     })
   }
 
+  if (devices)
+    await updateConversationCredentialAccess(threadId, actor.userId, actor.teamId, devices)
+
   return {
     threadId,
+    ...(devices ? { deviceIds: devices.deviceIds } : {}),
     ...(change.fullAccess === undefined
       ? {}
       : { mode: change.fullAccess ? 'full_access' : 'auto' }),
