@@ -48,6 +48,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Send message', combos: ['enter'] },
       { label: 'New line', combos: ['shift+enter'] },
       { label: 'Accept suggested prompt', combos: ['tab'] },
+      { label: 'Select effort', combos: ['ctrl+shift+m'] },
       { label: 'Previous / next conversation', combos: ['up', 'down'] },
       { label: 'Stop response', combos: ['esc'] },
       { label: 'Find in conversation', combos: ['mod+f'] },

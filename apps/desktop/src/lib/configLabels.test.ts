@@ -27,8 +27,15 @@ test('names that carry a version, or descriptions without one, stay unchanged', 
   )
 })
 
+test('Codex model ids read the way Codex desktop shows them', () => {
+  assert.equal(modelChoiceLabel({ name: 'GPT-6.1-Sol' }), 'GPT-6.1 Sol')
+  assert.equal(modelChoiceLabel({ name: 'GPT-6-Astra', description: 'Frontier' }), 'GPT-6 Astra')
+  assert.equal(modelChoiceLabel({ name: 'GPT-5.6-Terra' }), 'GPT-5.6 Terra')
+  assert.equal(modelChoiceLabel({ name: 'GPT-6.1-Sol (low)' }), 'GPT-6.1-Sol (low)')
+})
+
 test('known effort values read naturally; unknown ones keep the runtime name', () => {
-  assert.equal(effortLabel({ value: 'xhigh', name: 'Xhigh' }), 'Extra high')
+  assert.equal(effortLabel({ value: 'xhigh', name: 'Xhigh' }), 'Extra High')
   assert.equal(effortLabel({ value: 'low', name: 'Low' }), 'Low')
   assert.equal(effortLabel({ value: 'max', name: 'Max' }), 'Max')
   assert.equal(effortLabel({ value: 'ultra', name: 'Ultra' }), 'Ultra')

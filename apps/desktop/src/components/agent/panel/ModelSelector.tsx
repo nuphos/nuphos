@@ -1,65 +1,39 @@
+import { Popover } from '@base-ui/react/popover'
+import clsx from 'clsx'
+import { ChevronDown, Loader2, RefreshCw } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+
 import { effortLabel, modelChoiceLabel } from '../../../lib/configLabels'
-import { concreteModelChoices, isDefaultModel } from '../../../lib/modelChoices'
+import { effortResetValue } from '../../../lib/effortStops'
+import { concreteModelChoices } from '../../../lib/modelChoices'
 
-import { ChevronDown, ChevronLeft, Loader2, RefreshCw, Zap } from 'lucide-react'
-
-import {
-  Menu,
-  MenuContent,
-  MenuItem,
-  MenuSeparator,
-  MenuSubmenu,
-  MenuSubmenuTrigger,
-  MenuTrigger,
-} from '../../ui/menu'
+import { HintTooltip } from './modelControlParts'
+import { FG_TERTIARY, SURFACE } from './modelControlStyles'
+import { ModelEffortPanel } from './ModelEffortPanel'
+import { ModelListPanel } from './ModelListPanel'
 
 import type { useSessionConfig } from './useSessionConfig'
 import type { SessionConfigOption, SessionConfigState } from '../../../api/session-config-types'
 
-type Choice = SessionConfigOption['options'][number]
+export const EFFORT_SHORTCUT = 'ctrl+shift+m'
 
-function choiceLabel(option: SessionConfigOption, choice: Choice) {
-  if (option.kind === 'model') return modelChoiceLabel(choice)
-  if (option.kind === 'effort') return effortLabel(choice)
+function modelName(option: SessionConfigOption) {
+  const { current, label } = concreteModelChoices(
+    option.options.map((choice) => ({
+      ...choice,
+      id: choice.value,
+      name: modelChoiceLabel(choice),
+    })),
+    option.currentValue,
+  )
 
-  return choice.name
+  return label ?? current ?? ''
 }
 
-function currentLabel(option: SessionConfigOption) {
-  if (option.kind === 'model') {
-    const { current, label } = concreteModelChoices(
-      option.options.map((choice) => ({
-        ...choice,
-        id: choice.value,
-        name: modelChoiceLabel(choice),
-      })),
-      option.currentValue,
-    )
+function effortName(option: SessionConfigOption | undefined) {
+  const choice = option?.options.find((candidate) => candidate.value === option.currentValue)
 
-    return label ?? current ?? ''
-  }
-  if (option.kind === 'effort' && option.currentValue === 'default') return ''
-  const choice = option.options.find((candidate) => candidate.value === option.currentValue)
-
-  return choiceLabel(option, choice ?? { value: option.currentValue, name: option.currentValue })
-}
-
-/** Show the model, plus effort when it is not the default, whenever a model is
- *  known; "unavailable" means the agent is offline. */
-function modelLabel(
-  model: SessionConfigOption | undefined,
-  effort: SessionConfigOption | undefined,
-  status: SessionConfigState['status'] | undefined,
-) {
-  if (model) {
-    const name = currentLabel(model)
-    const level = effort ? currentLabel(effort) : ''
-
-    return name && level ? `${name} · ${level}` : name
-  }
-  if (status === 'offline') return 'Model unavailable'
-
-  return ''
+  return choice && choice.value !== 'default' ? effortLabel(choice) : ''
 }
 
 function modelHint(
@@ -77,6 +51,23 @@ function modelHint(
     return 'Send a message to start this session before changing model settings.'
 }
 
+/** ⌃⇧M belongs to the composer that has focus, or to the only one on screen. */
+function ownsShortcut(chip: HTMLElement) {
+  let scope = chip.parentElement
+
+  while (scope && !scope.querySelector('[aria-label="Message"]')) scope = scope.parentElement
+  const active = document.activeElement
+
+  if (scope && active && scope.contains(active)) return true
+
+  return (
+    (!active || active === document.body) &&
+    [...document.querySelectorAll<HTMLElement>('[data-model-chip]')].filter((other) =>
+      other.checkVisibility(),
+    ).length === 1
+  )
+}
+
 export type ModelControl = Pick<
   ReturnType<typeof useSessionConfig>,
   'data' | 'loading' | 'slow' | 'saving' | 'error' | 'stalled' | 'queued' | 'open' | 'select'
@@ -92,22 +83,22 @@ export function ModelSelector({
   streaming: boolean
 }) {
   const { data, loading, slow, saving, error, stalled } = control
+  const [view, setView] = useState<'effort' | 'models'>('effort')
+  const chipRef = useRef<HTMLButtonElement>(null)
+  const sliderRef = useRef<HTMLInputElement>(null)
+  const [initialEffort, setInitialEffort] = useState<Record<string, string>>({})
   const options = data?.options.map((option) => {
     const queued = control.queued?.find((selection) => selection.configId === option.id)
 
     return queued ? { ...option, currentValue: queued.value } : option
   })
   const model = options?.find((option) => option.kind === 'model')
+  const effort = options?.find((option) => option.kind === 'effort')
+  const fast = options?.find((option) => option.kind === 'fast')
   const status = data?.status
   const busy = status === 'busy' || streaming
-
-  // A runtime that exposes no model controls gets no picker at all.
-  if (status === 'unsupported') return null
-  const label = modelLabel(
-    model,
-    options?.find((option) => option.kind === 'effort'),
-    status,
-  )
+  const name = model ? modelName(model) : status === 'offline' ? 'Model unavailable' : ''
+  const level = effortName(effort)
   const blocked =
     disabled ||
     saving ||
@@ -115,105 +106,162 @@ export function ModelSelector({
     slow ||
     (status !== 'ready' && status !== 'dormant' && status !== 'busy')
   const hint = modelHint(status, Boolean(model), busy, stalled)
+  // Before the first reply, the level a model starts on is the runtime's default.
+  const effortKey = model?.currentValue ?? ''
+
+  if (status === 'dormant' && effort && !(effortKey in initialEffort))
+    setInitialEffort({ ...initialEffort, [effortKey]: effort.currentValue })
+  const setOpen = control.setOpen
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        !event.ctrlKey ||
+        !event.shiftKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.code !== 'KeyM'
+      )
+        return
+      const chip = chipRef.current
+
+      if (!chip?.isConnected || !ownsShortcut(chip)) return
+      event.preventDefault()
+      setView(effort ? 'effort' : 'models')
+      setOpen(true)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [effort, setOpen])
+
+  const effortOpen = control.open && view === 'effort'
+
+  // A runtime that exposes no model controls gets no picker at all.
+  if (status === 'unsupported') return null
+  const select = (configId: string, value: string) => control.select({ configId, value })
+  const footer = [
+    (loading || slow) &&
+      !error &&
+      (slow ? 'The agent is reconnecting. This may take a moment.' : 'Getting model settings…'),
+    error,
+    error && model && 'Showing last synced settings.',
+    control.queued ? 'Selected for the next reply.' : hint,
+    disabled &&
+      !busy &&
+      status === 'ready' &&
+      'Available when this conversation is ready for your next message.',
+  ].filter(Boolean)
 
   return (
-    <Menu open={control.open} onOpenChange={control.setOpen}>
-      <MenuTrigger
-        aria-label={`Model settings: ${label}`}
-        className="flex h-7 min-w-0 max-w-48 items-center gap-1 rounded-full px-2 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main"
-      >
-        {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-        {label ? (
-          <span className="truncate">{label}</span>
-        ) : (
-          <span
-            aria-label="Loading model"
-            className="h-3 w-24 animate-pulse rounded bg-zGray-700/60 motion-reduce:animate-none"
+    <Popover.Root
+      open={control.open}
+      onOpenChange={(open) => {
+        if (open) setView(effort ? 'effort' : 'models')
+        control.setOpen(open)
+      }}
+      // Arrow keys move the effort slider as soon as it shows, as in Codex.
+      onOpenChangeComplete={(open) => {
+        if (open) sliderRef.current?.focus()
+      }}
+    >
+      <HintTooltip label="Select effort" combo={EFFORT_SHORTCUT} disabled={control.open || !effort}>
+        <Popover.Trigger
+          ref={chipRef}
+          data-model-chip=""
+          aria-label={`Model settings: ${[name, level].filter(Boolean).join(' ')}`}
+          className={clsx(
+            'flex h-[31px] min-w-0 max-w-64 items-center gap-[4px] rounded-full pl-[10.5px] pr-[9px] text-[13.5px] text-main outline-none transition-colors',
+            'hover:bg-[rgba(var(--color-text-base),0.07)] focus-visible:bg-[rgba(var(--color-text-base),0.07)] data-[popup-open]:bg-[rgba(var(--color-text-base),0.07)]',
+          )}
+        >
+          {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+          {effortOpen ? (
+            <span className={clsx('truncate px-[18px]', FG_TERTIARY)}>Select effort</span>
+          ) : name ? (
+            <>
+              <span className="min-w-0 truncate">{name}</span>
+              {level && (
+                <span className={clsx('shrink-0 whitespace-nowrap', FG_TERTIARY)}>{level}</span>
+              )}
+            </>
+          ) : (
+            <span
+              aria-label="Loading model"
+              className="h-3 w-24 animate-pulse rounded bg-zGray-700/60 motion-reduce:animate-none"
+            />
+          )}
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className={clsx('ml-[2px] shrink-0', FG_TERTIARY)}
           />
-        )}
-        {data?.options.some((option) => option.kind === 'fast' && option.currentValue === 'on') && (
-          <Zap className="h-3 w-3 shrink-0" />
-        )}
-        <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
-      </MenuTrigger>
-      <MenuContent side="top" align="end" className="w-72">
-        {(loading || slow) && !error && (
-          <p role="status" className="flex items-center gap-2 px-2.5 py-2 text-xs text-tertiary">
-            {!slow && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {slow
-              ? 'The agent is reconnecting. This may take a moment.'
-              : 'Getting model settings…'}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="px-2.5 py-2 text-xs text-error">
-            {error}
-          </p>
-        )}
-        {error && model && (
-          <p className="px-2.5 pb-2 text-[11px] text-tertiary">Showing last synced settings.</p>
-        )}
-        {control.queued && (
-          <p className="px-2.5 py-2 text-xs text-tertiary">Selected for the next reply.</p>
-        )}
-        {!control.queued && hint && <p className="px-2.5 py-2 text-xs text-tertiary">{hint}</p>}
-        {disabled && !busy && status === 'ready' && (
-          <p className="px-2.5 py-2 text-xs text-tertiary">
-            Available when this conversation is ready for your next message.
-          </p>
-        )}
-        {options?.map((option) => (
-          <MenuSubmenu key={option.id}>
-            <MenuSubmenuTrigger
-              disabled={blocked}
-              chevron={<ChevronLeft className="h-3 w-3 opacity-60" />}
-            >
-              <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                <span>
-                  {option.kind === 'model' ? 'Model' : option.kind === 'effort' ? 'Effort' : 'Fast'}
-                </span>
-                <span className="truncate text-xs text-tertiary">{currentLabel(option)}</span>
-              </span>
-            </MenuSubmenuTrigger>
-            <MenuContent side="left" align="end" className="max-h-80 w-72">
-              {option.options
-                .filter(
-                  (choice) => option.kind === 'fast' || !isDefaultModel(choice.value, choice.name),
-                )
-                .map((choice) => (
-                  <MenuItem
-                    key={choice.value}
-                    selected={choice.value === option.currentValue}
-                    disabled={blocked}
-                    closeOnClick={false}
-                    onClick={() => control.select({ configId: option.id, value: choice.value })}
-                  >
-                    {choiceLabel(option, choice)}
-                  </MenuItem>
+        </Popover.Trigger>
+      </HintTooltip>
+      <Popover.Portal>
+        <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
+          <Popover.Popup
+            initialFocus={view !== 'effort'}
+            className={clsx(SURFACE, 't-dropdown is-open w-[280px] rounded-[16px] outline-none')}
+          >
+            {view === 'effort' && effort && model && (
+              <ModelEffortPanel
+                effort={effort}
+                fast={fast}
+                modelName={name}
+                resetValue={effortResetValue(effort.options, initialEffort[effortKey])}
+                blocked={blocked && !saving}
+                saving={saving}
+                sliderRef={sliderRef}
+                onSelect={select}
+                onOpenModels={() => setView('models')}
+              />
+            )}
+            {(view === 'models' || !effort) && model && (
+              <ModelListPanel
+                model={model}
+                offerDefault={status === 'dormant'}
+                blocked={blocked}
+                onSelect={(value) => {
+                  select(model.id, value)
+                  if (effort) setView('effort')
+                }}
+              />
+            )}
+            {footer.length > 0 && (
+              <div
+                className={clsx(
+                  'mx-[13.5px] border-t border-[rgba(var(--color-text-base),0.06)] py-[8px] text-center text-[12px] leading-[16px]',
+                  model ? '' : 'border-t-0',
+                  FG_TERTIARY,
+                )}
+              >
+                {footer.map((line) => (
+                  <p key={String(line)} role={line === error ? 'alert' : 'status'}>
+                    {line}
+                  </p>
                 ))}
-            </MenuContent>
-          </MenuSubmenu>
-        ))}
-        {(error || stalled) && (
-          <>
-            <MenuSeparator />
-            <MenuItem
-              icon={
-                loading || saving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5" />
-                )
-              }
-              disabled={saving || loading}
-              closeOnClick={false}
-              onClick={control.refresh}
-            >
-              Retry connection
-            </MenuItem>
-          </>
-        )}
-      </MenuContent>
-    </Menu>
+                {(error || stalled) && (
+                  <button
+                    type="button"
+                    disabled={saving || loading}
+                    onClick={control.refresh}
+                    className="mx-auto mt-[6px] flex items-center gap-[6px] rounded-[6px] px-[8px] py-[3px] text-main hover:bg-[rgba(var(--color-text-base),0.08)] disabled:opacity-50"
+                  >
+                    {loading || saving ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={13} />
+                    )}
+                    Retry connection
+                  </button>
+                )}
+              </div>
+            )}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
