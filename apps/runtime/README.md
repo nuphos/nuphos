@@ -677,3 +677,12 @@ ask the agent to resend the image to retry. The inline Retry button refreshes a 
 preview URL, not an expired transfer. Old replies can be processed when their native
 session history is replayed, provided the original files still exist. Other ACP
 providers continue using the explicit file-transfer workflow.
+
+Only Desktop understands the reply-image marker in this initial implementation.
+iOS, Android and channel deliveries currently receive an unsupported URL; their
+inline previews are not enabled by this change. Shared-session teammates retain the
+existing creator-only denial and see an unavailable image. In-memory deduplication
+does not survive adapter restarts, so replaying native history can create another
+transfer. If the session workspace is the entire home directory, all supported
+images beneath that directory are eligible: use a dedicated workspace for a narrow
+read boundary.

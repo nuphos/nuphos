@@ -119,3 +119,34 @@ for (const provider of ['claude-code', 'codex'])
     assert.match(sent[1].update.content.text, /_reply-images/)
     assert.equal(calls.length, 3)
   })
+
+for (const provider of ['claude-code', 'codex'])
+  test(`${provider}: punctuation and code do not freeze subsequent streaming chunks`, async () => {
+    const sent = []
+    const agent = { prompt: async () => {} }
+    if (provider === 'codex')
+      agent.connection = { notify: async (_method, value) => sent.push(value.update.content.text) }
+    else agent.client = { sessionUpdate: async (value) => sent.push(value.update.content.text) }
+    const meta =
+      provider === 'codex' ? { 'ai.nuphos/codex': { env } } : { claudeCode: { options: { env } } }
+    nuphosReplyImages(agent, { cwd: '/tmp', _meta: meta }, { sessionId: 'native' })
+    const notify = async (text) => {
+      const update = {
+        sessionId: 'native',
+        update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } },
+      }
+      if (provider === 'codex') await agent.connection.notify('session/update', update)
+      else await agent.client.sessionUpdate(update)
+    }
+    for (const chunk of [
+      'Done! ',
+      'Now running the build, ',
+      'step 2 of 40, ',
+      '`inline code` keeps streaming ',
+      'step 3 of 40...',
+    ]) {
+      const before = sent.join('')
+      await notify(chunk)
+      assert.equal(sent.join(''), before + chunk)
+    }
+  })

@@ -19,6 +19,7 @@ export const RUNTIME_DIR = join(here, '../../runtime/image')
 export const RUNTIME_SOURCES = [
   'runtime-defaults.mjs',
   'reply-images.mjs',
+  'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'session-home.mjs',

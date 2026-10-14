@@ -1,3 +1,5 @@
+import { nuphosStreamReplyImages } from './reply-image-stream.mjs'
+
 // Inlined into both native adapters, so local and cloud use the same contract.
 export function nuphosReplyImages(agent, params, response) {
   const env = params?._meta?.claudeCode?.options?.env ?? params?._meta?.['ai.nuphos/codex']?.env
@@ -19,14 +21,17 @@ export function nuphosReplyImages(agent, params, response) {
     let queue = Promise.resolve()
     const flush = async (state) => {
       const pending = state.pending
+      if (pending) {
+        const text = await nuphosStreamReplyImages('', state, nuphosUploadReplyImages, true)
+        if (text)
+          await send({
+            ...pending,
+            update: { ...pending.update, content: { ...pending.update.content, text } },
+          })
+      }
       state.pending = null
-      state.skip = false
-      if (!pending) return
-      const text = await nuphosUploadReplyImages(pending.update.content.text, state)
-      await send({
-        ...pending,
-        update: { ...pending.update, content: { ...pending.update.content, text } },
-      })
+      state.scan = undefined
+      state.uploadSignal = undefined
     }
     target[method] = (...args) => {
       if (method === 'notify' && args[0] !== 'session/update') return original(...args)
@@ -36,19 +41,19 @@ export function nuphosReplyImages(agent, params, response) {
         if (!state) return send(notification)
         const update = notification.update
         if (update?.sessionUpdate === 'agent_message_chunk' && update.content?.type === 'text') {
-          if (state.skip) return send(notification)
           if (state.pending && state.pending.update.messageId !== update.messageId)
             await flush(state)
-          if (!state.pending && !/[!`~]/.test(update.content.text)) return send(notification)
-          if (!state.pending) state.pending = structuredClone(notification)
-          else state.pending.update.content.text += update.content.text
-          // Bounded buffering; malformed/huge Markdown is forwarded without reading files.
-          if (state.pending.update.content.text.length > 256 * 1024) {
-            const pending = state.pending
-            state.pending = null
-            state.skip = true
-            await send(pending)
-          }
+          state.pending = notification
+          const text = await nuphosStreamReplyImages(
+            update.content.text,
+            state,
+            nuphosUploadReplyImages,
+          )
+          if (text)
+            await send({
+              ...notification,
+              update: { ...update, content: { ...update.content, text } },
+            })
           return
         }
         await flush(state)
@@ -92,7 +97,7 @@ export async function nuphosUploadReplyImages(text, state) {
   const { fileURLToPath } = await import('node:url')
   const { createHash } = await import('node:crypto')
   // Match code before images: examples in fenced/inline code are never attachments.
-  const uploadSignal = AbortSignal.timeout(20_000)
+  const uploadSignal = state.uploadSignal ?? AbortSignal.timeout(20_000)
   const tokens =
     /```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`+[^`\n]*`+|!\[([^\]\n]*)\]\((<[^>\n]+>|[^\s)]+)(?:\s+"[^"\n]*")?\)/g
   let output = '',

@@ -221,10 +221,15 @@ type Props = {
 
 export const MessageResponse = memo(
   ({ children, className, streaming = false, teamId, onLinkClick, renderLink }: Props) => {
-    const components = useMemo(
-      () => createComponents(teamId, onLinkClick, renderLink),
-      [teamId, onLinkClick, renderLink],
-    )
+    const hasReplyImages = /https:\/\/nuphos\.ai\/_reply-images\/[a-f0-9]{24}/.test(children)
+    const components = useMemo(() => {
+      const custom = createComponents(teamId, onLinkClick, renderLink)
+
+      // Keep Streamdown's default images in all unrelated MessageResponse views.
+      if (custom && !hasReplyImages) delete custom.img
+
+      return custom
+    }, [teamId, onLinkClick, renderLink, hasReplyImages])
 
     return (
       <div

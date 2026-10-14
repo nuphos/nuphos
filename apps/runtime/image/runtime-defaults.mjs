@@ -1,3 +1,4 @@
+import { nuphosStreamReplyImages } from './reply-image-stream.mjs'
 import { nuphosReplyImages, nuphosUploadReplyImages } from './reply-images.mjs'
 
 // Pull the team's skill bundle into the workspace before the session is handed back,
@@ -356,7 +357,7 @@ export function patchRuntimeDefaults(source) {
     async nuphos_${method}(params, nuphosRestorePhase) {`,
     )
   }
-  return `${shebang}${nuphosReplyImages.toString()}\n${nuphosUploadReplyImages.toString()}\n${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${nuphosTraceRestore.toString()}\n${body}`
+  return `${shebang}${nuphosStreamReplyImages.toString()}\n${nuphosReplyImages.toString()}\n${nuphosUploadReplyImages.toString()}\n${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${nuphosTraceRestore.toString()}\n${body}`
 }
 
 // Claude only. The sender of a turn may differ from the last one's, so the personal
