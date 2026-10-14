@@ -6,6 +6,7 @@ import { PermissionGrantCard } from '../PermissionGrantCard'
 import { isPlanProposalToolName } from '../planReference'
 
 import { extractProposalIdFromOutput } from './applyEvent'
+import { renderCardToolPart } from './cardToolParts'
 import { ConnectToolPart } from './ConnectCard'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
@@ -179,6 +180,9 @@ export const AssistantMessage = memo(
       // `skill` tool calls are setup noise (the input is just a skill name,
       // the output is the entire SKILL.md). Don't render them.
       if (p.type === 'tool' && p.toolName !== 'skill') {
+        const card = renderCardToolPart(p, partKey, teamId, onOpenNuphosLink)
+
+        if (card) return card
         if (p.toolName === 'render_chart') {
           return <ChartToolPart key={partKey} part={p} now={now} />
         }
