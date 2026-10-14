@@ -95,6 +95,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'not connected to the team, or connected but not selected for this conversation. ' +
         'Each row connects through the same flow as the Integrations page, and the new credential is selected for this conversation automatically. ' +
         'Use it instead of telling the user to visit Integrations or tick the credential picker. ' +
+        'The card renders below your final message, so refer to it as "the card below" or "the card", never "above". ' +
         'After this tool returns, end the turn with one short sentence; the user continues once connected.',
       inputSchema: z.object({
         label: labelField,
@@ -118,7 +119,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           providers,
           reason,
           instruction:
-            'The user now sees a Connect card. End the turn with one short sentence and wait; do not tell them to open Integrations or the credential picker. ' +
+            'The user sees a Connect card below your message. End the turn with one short sentence that calls it "the card below" (never "above") and wait; do not tell them to open Integrations or the credential picker. ' +
             'Once they connect, the credential is selected for this conversation and they will ask you to continue.',
         }
       },
