@@ -14,7 +14,7 @@ mod update;
 use std::io::{IsTerminal, Read};
 
 use anyhow::{bail, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde_json::Value;
 
 use crate::api::Api;
@@ -32,6 +32,28 @@ struct Args {
     json: bool,
     #[command(subcommand)]
     command: Option<Command>,
+}
+
+#[derive(Subcommand)]
+enum AgentAction {
+    /// Sign an agent in for this computer's Nuphos runtime, which keeps its own login
+    /// (on a server, after `--join`). Prints a URL to open and a code to enter.
+    Login { agent: AgentName },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum AgentName {
+    Claude,
+    Codex,
+}
+
+impl AgentName {
+    fn provider(self) -> &'static str {
+        match self {
+            AgentName::Claude => "claude-code",
+            AgentName::Codex => "codex",
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -91,9 +113,11 @@ enum Command {
     Agent {
         /// Join Nuphos with a one-time token instead of signing in. Pass `-` and pipe the token
         /// to stdin, or set `NUPHOS_JOIN_TOKEN`, so it stays out of the shell history. Later
-        /// runs need neither.
+        /// runs need neither. Then sign the agent in with `nuphos agent login claude`.
         #[arg(long, value_name = "TOKEN")]
         join: Option<String>,
+        #[command(subcommand)]
+        action: Option<AgentAction>,
     },
     /// Sign in through the browser (shared with the desktop app).
     Login,
@@ -127,13 +151,16 @@ async fn run(args: Args) -> Result<i32> {
             return Ok(0);
         }
         Some(Command::Update) => return update::update().await,
-        Some(Command::Agent { join }) => {
+        Some(Command::Agent { action: Some(AgentAction::Login { agent }), .. }) => {
+            return agent::run(agent::Host::Login(agent.provider())).await;
+        }
+        Some(Command::Agent { join, action: None }) => {
             let join = agent::join_token(join.as_deref())?;
             // A joined computer has its own credential; only the session needs signing in.
             if join.is_none() && !agent::joined() {
                 sign_in(std::io::stdin().is_terminal()).await?;
             }
-            return agent::run(join).await;
+            return agent::run(agent::Host::Agents(join)).await;
         }
         Some(Command::Login) => {
             let session = login::login(&config::api_url()).await?;

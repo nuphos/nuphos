@@ -3,7 +3,6 @@
 // adapters. It connects either with this computer's own credential, from
 // `nuphos agent --join <token>`, or with the session the CLI and the desktop share.
 
-import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -21,9 +20,16 @@ import {
   stableDeviceId,
 } from '../device-identity-core.ts'
 
-import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
+import {
+  AGENT_NAMES,
+  LOCAL_AGENT_PROVIDERS,
+  isLocalAgentProvider,
+  probeAgentCli,
+  readAgentUsage,
+} from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
-import { agentCliEnv, agentEnv, readBundle } from './config.ts'
+import { signInAgent } from './cli-sign-in.ts'
+import { agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { deviceCredentialFor, exitRevoked, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
@@ -46,7 +52,6 @@ if (!dataDir) {
   process.exit(1)
 }
 const clientVersion = `nuphos-cli/${process.env.NUPHOS_CLI_VERSION ?? 'dev'}`
-const NAMES: Record<LocalAgentProvider, string> = { 'claude-code': 'Claude Code', codex: 'Codex' }
 
 function deviceIdentity(): DeviceIdentity {
   const file = path.join(dataDir, 'device-identity.json')
@@ -107,6 +112,12 @@ if (!owner) {
   console.error('Not signed in; run `nuphos login`, or join with `nuphos agent --join <token>`.')
   process.exit(1)
 }
+// `nuphos agent login <agent>`: the agent's own sign-in, against the login this
+// computer's runtime uses, so a server never needs files placed by hand.
+if (isLocalAgentProvider(process.env.NUPHOS_AGENT_LOGIN))
+  process.exit(
+    await signInAgent(process.env.NUPHOS_AGENT_LOGIN, path.join(dataDir, 'users', owner)),
+  )
 if (!bundle()) {
   console.error(`No local runtime bundle at ${bundleRoot}.`)
   process.exit(1)
@@ -222,44 +233,18 @@ function report(): void {
     let detail = 'starting…'
 
     if (agent.online && agent.cli?.installed && !agent.cli.loggedIn)
-      detail = 'not signed in; run `nuphos agent` in a terminal to sign in'
+      detail = `not signed in; run \`nuphos agent login ${provider === 'codex' ? 'codex' : 'claude'}\``
     else if (agent.online) detail = 'online'
     else if (agent.error) detail = agent.error
     else if (!agent.available) detail = 'not bundled for this computer'
 
-    return `  ${NAMES[provider]}: ${detail}`
+    return `  ${AGENT_NAMES[provider]}: ${detail}`
   })
   const summary = lines.join('\n')
 
   if (summary === lastSummary) return
   lastSummary = summary
   console.log(`${new Date().toLocaleTimeString()} ${device.label}\n${summary}`)
-}
-
-/** Sign in only when the same credential store used by the agent is not authenticated. */
-async function signInClaude(ownerId: string): Promise<void> {
-  const cli = controller.state().agents['claude-code'].cli
-
-  if (!cli?.installed || cli.loggedIn || !process.stdin.isTTY) return
-  const cliPath = findAgentCli('claude-code', process.env)
-  const userDir = path.join(dataDir, 'users', ownerId)
-  const agentHome = prepareAgentHome('claude-code', userDir, path.join(userDir, 'workspace'))
-
-  if (!cliPath || !agentHome) return
-  console.log(
-    process.platform === 'darwin'
-      ? 'Sign Claude Code in for Nuphos (updates the Claude login used by your terminal):'
-      : 'Sign Claude Code in for Nuphos (a separate sign-in from your own terminal):',
-  )
-  await new Promise((resolve) => {
-    spawn(cliPath, ['auth', 'login', '--claudeai'], {
-      env: agentCliEnv({ provider: 'claude-code', env: process.env, cliPath, agentHome }),
-      stdio: 'inherit',
-    })
-      .on('exit', resolve)
-      .on('error', resolve)
-  })
-  await controller.refresh(true, ['claude-code'])
 }
 
 function stop(message = 'Stopping the local agents…'): void {
@@ -287,4 +272,3 @@ console.log(
   'Conversations you move onto this computer can be continued by anyone in that team, and their messages run commands here.',
 )
 await controller.setUser(owner)
-await signInClaude(owner)

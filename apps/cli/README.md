@@ -66,6 +66,7 @@ nuphos stop --session ID
 nuphos login | logout
 nuphos agent                                 # run this computer's agents
 nuphos agent --join -                        # join with a one-time token from stdin, then run them
+nuphos agent login claude|codex              # sign an agent in for this computer's runtime
 ```
 
 `nuphos agent` makes this computer a local agent, as the desktop app does: the
@@ -104,6 +105,15 @@ opens only this machine's tunnel. Revoking it
 (`DELETE /agent/devices/<deviceId>/credential`) disconnects the machine, and
 `nuphos agent` then exits with status 78, as it does for a used or expired
 token, until it joins again with a new one.
+
+The runtime keeps its own agent logins, apart from any `claude` or `codex`
+login the account may have. Until an agent is signed in, `nuphos agent` reports
+it as "not signed in"; sign it in from a terminal on the machine:
+
+```sh
+nuphos agent login claude    # prints a URL to open and takes the code back
+nuphos agent login codex     # device sign-in: a URL and a one-time code
+```
 
 To keep it running with systemd, use a dedicated non-root account: anyone who
 controls that account acts as this machine in Nuphos, and conversation

@@ -11,6 +11,15 @@ export type LocalAgentProvider = 'claude-code' | 'codex'
 
 export const LOCAL_AGENT_PROVIDERS: readonly LocalAgentProvider[] = ['claude-code', 'codex']
 
+export const AGENT_NAMES: Record<LocalAgentProvider, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'Codex',
+}
+
+export function isLocalAgentProvider(value: unknown): value is LocalAgentProvider {
+  return LOCAL_AGENT_PROVIDERS.includes(value as LocalAgentProvider)
+}
+
 export type AgentCliStatus =
   | { installed: false }
   | {

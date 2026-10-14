@@ -45,18 +45,26 @@ pub fn joined() -> bool {
     agent_home().is_ok_and(|dir| dir.join("device-credential.json").is_file())
 }
 
+/// What the host does: run the agents (joining first with a token), or sign one agent in.
+pub enum Host {
+    Agents(Option<String>),
+    Login(&'static str),
+}
+
 /// Replaces this process with the host, so Ctrl-C reaches it directly and
 /// it can stop the agents before exiting.
-pub async fn run(join: Option<String>) -> Result<i32> {
+pub async fn run(what: Host) -> Result<i32> {
     let node = node()?;
     let runtime = match std::env::var_os("NUPHOS_LOCAL_RUNTIME_DIR") {
         Some(dir) => PathBuf::from(dir),
         None => fetch().await?,
     };
     let mut host = Command::new(node);
-    if let Some(token) = join {
-        host.env("NUPHOS_JOIN_TOKEN", token);
-    }
+    match what {
+        Host::Agents(Some(token)) => host.env("NUPHOS_JOIN_TOKEN", token),
+        Host::Agents(None) => &mut host,
+        Host::Login(provider) => host.env("NUPHOS_AGENT_LOGIN", provider),
+    };
     let error = host
         .arg(runtime.join("host.mjs"))
         .env("NUPHOS_AGENT_HOME", agent_home()?)
