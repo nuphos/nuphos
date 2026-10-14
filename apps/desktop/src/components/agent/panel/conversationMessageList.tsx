@@ -36,6 +36,7 @@ export function ConversationMessageList({
   activePlanCanAct,
   onOpenNuphosLink,
   onOpenAgentSettings,
+  onEditMessage,
   isTeamAdmin,
   onMessageFeedback,
   onRequestFeedbackComment,
@@ -50,6 +51,7 @@ export function ConversationMessageList({
   | 'activePlanCanAct'
   | 'onOpenNuphosLink'
   | 'onOpenAgentSettings'
+  | 'onEditMessage'
   | 'onMessageFeedback'
 > & {
   tab: Tab
@@ -135,6 +137,7 @@ export function ConversationMessageList({
                     !tab.readOnly
                   }
                   onOpenNuphosLink={onOpenNuphosLink}
+                  onEdit={onEditMessage}
                 />
               </div>
             ) : (

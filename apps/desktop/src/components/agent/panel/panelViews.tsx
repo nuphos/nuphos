@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { useCallback } from 'react'
 
 import { api } from '../../../api'
 import { track } from '../../../lib/analytics'
@@ -29,6 +30,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     bypassBySession,
     conversationDropRef,
     dockCurrentSession,
+    forkConversation,
     onDockToSidebar,
     handleMessageFeedback,
     handleRejectPlan,
@@ -52,6 +54,17 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     visibleConversationCredentialSelector,
   } = c
   const { runtimeControl } = useConversationRuntimeControl(c)
+  // Only your own stored, writable chat can be edited; the fork needs it on the server.
+  const editableSessionId =
+    activeTab && !activeTab.readOnly && !activeTab.foreign && !activeTab.unsaved
+      ? activeTab.sessionId
+      : undefined
+  const editMessage = useCallback(
+    (messageId: string, text: string) => {
+      if (editableSessionId) void forkConversation(editableSessionId, { messageId, text })
+    },
+    [editableSessionId, forkConversation],
+  )
   const modelSession =
     activeTab?.sessionId && !activeTab.foreign && teamId
       ? {
@@ -135,6 +148,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   activePlanCanAct={activePlanCanAct}
                   onOpenNuphosLink={onOpenNuphosLink}
                   onOpenAgentSettings={onOpenAgentSettings}
+                  onEditMessage={editableSessionId ? editMessage : undefined}
                 />
               </ConnectCardContext.Provider>
             </div>
