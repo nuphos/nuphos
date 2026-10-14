@@ -3,18 +3,26 @@
  * level Claude Code will actually send — get_settings' applied.effort — in that
  * choice's description, so a client can show "High" instead of "Default".
  */
-export async function nuphosDescribeDefaultEffort(query, configOptions) {
+export async function nuphosDescribeDefaultEffort(query, configOptions, timeoutMs = 2000) {
   const effort = configOptions?.find((option) => option.category === 'thought_level')
   const inherited = effort?.options?.find((choice) => choice.value === 'default')
 
   if (!inherited || effort.currentValue !== 'default') return
+  let timer
   try {
-    const applied = (await query.getSettings())?.applied?.effort
+    // A stalled get_settings must not hold up the session; give up and keep "Default".
+    const settings = await Promise.race([
+      query.getSettings(),
+      new Promise((resolve) => (timer = setTimeout(resolve, timeoutMs))),
+    ])
+    const applied = settings?.applied?.effort
 
     if (typeof applied === 'string' && effort.options.some((choice) => choice.value === applied))
       inherited.description = applied
   } catch {
     // Older Claude Code has no get_settings; the choice keeps its plain name.
+  } finally {
+    clearTimeout(timer)
   }
 }
 
