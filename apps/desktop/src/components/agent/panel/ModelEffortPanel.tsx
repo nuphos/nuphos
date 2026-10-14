@@ -5,23 +5,17 @@ import { useEffect, useRef, useState } from 'react'
 
 import { effortLabel } from '../../../lib/configLabels'
 import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
+import { Tooltip } from '../../ui/tooltip'
 
-import {
-  ACCENT_FILL,
-  ACCENT_TEXT,
-  FG_SECONDARY,
-  FG_TERTIARY,
-  HOVER_FILL,
-} from './modelControlStyles'
-import { HintTooltip } from './modelControlParts'
 import { fastUnavailableReason } from './modelSelectorParts'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
 
-/** Stops sit a thumb's radius in from each end of the track. */
-const KNOB = 29
+/** Stops sit a thumb's radius in from each end of the track (h-7, 28px). */
+const KNOB = 28
 const along = (fraction: number) =>
   `calc(${String(KNOB / 2)}px + (100% - ${String(KNOB)}px) * ${String(fraction)})`
+const HOVER = 'hover:bg-zGray-800/80 focus-visible:bg-zGray-800/80'
 
 function IconButton({
   label,
@@ -50,19 +44,12 @@ function IconButton({
       aria-disabled={inert || undefined}
       onClick={inert ? undefined : onClick}
       className={clsx(
-        'group absolute top-[5.5px] flex h-[32px] w-[32px] items-center justify-center rounded-[8px] outline-none disabled:opacity-40',
-        inert && 'cursor-default opacity-40',
+        'flex h-7 w-7 items-center justify-center rounded-md outline-none disabled:opacity-40',
+        inert ? 'cursor-default opacity-40' : !disabled && HOVER,
         className,
       )}
     >
-      <span
-        className={clsx(
-          'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] group-focus-visible:bg-[rgba(var(--color-text-base),0.08)]',
-          !disabled && !inert && HOVER_FILL,
-        )}
-      >
-        {children}
-      </span>
+      {children}
     </button>
   )
 }
@@ -126,11 +113,11 @@ export function ModelEffortPanel({
         : 'Reset to default'
 
   return (
-    <div className="relative px-[13.5px] pb-[13.5px] pt-[11px]">
+    <div className="relative px-3 pb-3 pt-2.5">
       {fast && (
-        <HintTooltip
-          label={fastReason?.tooltip ?? (fastOn ? 'Fast mode is on' : 'Fast mode')}
-          side="top"
+        <Tooltip
+          content={fastReason?.tooltip ?? (fastOn ? 'Fast mode is on' : 'Fast mode')}
+          triggerClassName="absolute left-1.5 top-1.5"
         >
           <IconButton
             label={fastReason?.tooltip ?? (fastOn ? 'Turn off fast mode' : 'Turn on fast mode')}
@@ -138,27 +125,27 @@ export function ModelEffortPanel({
             disabled={blocked || saving}
             inert={Boolean(fastReason)}
             onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
-            className={clsx('left-[5.5px]', fastOn ? ACCENT_TEXT : FG_TERTIARY)}
+            className={fastOn ? 'text-zOrangered-400' : 'text-tertiary'}
           >
             <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
           </IconButton>
-        </HintTooltip>
+        </Tooltip>
       )}
       {/* Reset only exists where the runtime names a default level to return to. */}
       {resetValue && (
-        <HintTooltip label={resetHint} side="top">
+        <Tooltip content={resetHint} triggerClassName="absolute right-1.5 top-1.5">
           <IconButton
             label={resetHint}
             inert={blocked || saving || resetValue === effort.currentValue}
             onClick={() => onSelect(effort.id, resetValue)}
-            className={clsx('right-[5.5px]', FG_TERTIARY)}
+            className="text-tertiary"
           >
             <RotateCcw size={16} strokeWidth={1.6} />
           </IconButton>
-        </HintTooltip>
+        </Tooltip>
       )}
       <div className="flex flex-col items-center">
-        <span className={clsx('text-[14px] font-medium leading-[21.5px]', ACCENT_TEXT)}>
+        <span className="text-sm font-medium text-zOrangered-400">
           {current ? effortLabel(current) : 'Default'}
         </span>
         <button
@@ -167,9 +154,8 @@ export function ModelEffortPanel({
           disabled={!onOpenModels}
           onClick={onOpenModels}
           className={clsx(
-            'flex max-w-full items-center gap-[2px] rounded-[6px] px-[4px] text-[12.5px] leading-[18px] outline-none focus-visible:bg-[rgba(var(--color-text-base),0.08)]',
-            FG_SECONDARY,
-            onOpenModels && HOVER_FILL,
+            'flex max-w-full items-center gap-0.5 rounded-md px-1 text-xs leading-5 text-secondary outline-none',
+            onOpenModels && HOVER,
           )}
         >
           <span className="truncate">{modelName}</span>
@@ -195,13 +181,13 @@ export function ModelEffortPanel({
             if (stop && stop.value !== effort.currentValue) onSelect(effort.id, stop.value)
           }, 350)
         }}
-        className="mt-[15.5px] data-[disabled]:opacity-60"
+        className="mt-4 data-[disabled]:opacity-60"
       >
-        <Slider.Control className="relative h-[26px] cursor-pointer touch-none select-none">
-          <Slider.Track className="relative h-full w-full rounded-full bg-[rgba(var(--color-text-base),0.1)] shadow-[inset_0_0_0_0.5px_rgba(var(--color-text-base),0.12)]">
+        <Slider.Control className="relative h-7 cursor-pointer touch-none select-none">
+          <Slider.Track className="relative h-full w-full rounded-full bg-zGray-800">
             {index >= 0 && (
               <span
-                className={clsx('absolute inset-y-0 left-0 rounded-l-full', ACCENT_FILL)}
+                className="absolute inset-y-0 left-0 rounded-l-full bg-zOrangered-400"
                 style={{ width: along(fraction) }}
               />
             )}
@@ -210,8 +196,8 @@ export function ModelEffortPanel({
                 key={stop.value}
                 aria-hidden
                 className={clsx(
-                  'absolute top-1/2 h-[4px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full',
-                  stopIndex <= index ? 'bg-white/30' : 'bg-[rgba(var(--color-text-base),0.3)]',
+                  'absolute top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full',
+                  stopIndex <= index ? 'bg-white/40' : 'bg-zGray-600',
                 )}
                 style={{ left: along(stopFraction(stops.length, stopIndex)) }}
               />
@@ -220,7 +206,7 @@ export function ModelEffortPanel({
               inputRef={sliderRef}
               getAriaValueText={() => (current ? effortLabel(current) : 'Default')}
               className={clsx(
-                'h-[29px] w-[29px] rounded-full border-[0.5px] border-black/10 bg-white shadow-[0_0_2px_rgba(0,0,0,0.1)] outline-none',
+                'h-7 w-7 rounded-full border border-black/10 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-zOrangered-400/60',
                 index < 0 && 'opacity-0',
               )}
             />

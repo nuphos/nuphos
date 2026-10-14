@@ -1,18 +1,18 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { ChevronDown, Loader2, RefreshCw } from 'lucide-react'
+import { ChevronDown, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { effortLabel } from '../../../lib/configLabels'
 import { effortResetValue, effortStops } from '../../../lib/effortStops'
-import { isClaudeCatalog } from '../../../lib/modelGroups'
+import { Kbd } from '../../ui/kbd'
+import { Menu, MenuContent } from '../../ui/menu'
+import { Tooltip } from '../../ui/tooltip'
 
-import { ClaudeModelList } from './ClaudeModelList'
 import { ModelChipLabel } from './ModelChipLabel'
-import { HintTooltip, ModelTooltipProvider } from './modelControlParts'
-import { FG_TERTIARY, SURFACE } from './modelControlStyles'
 import { ModelEffortPanel } from './ModelEffortPanel'
-import { ModelListPanel } from './ModelListPanel'
+import { ModelFooter, ModelMenuFooter } from './ModelFooter'
+import { ModelMenu } from './ModelMenu'
 import {
   composerOf,
   EFFORT_SHORTCUT,
@@ -42,6 +42,7 @@ export function ModelSelector({
   const [view, setView] = useState<'effort' | 'models'>('effort')
   const chipRef = useRef<HTMLButtonElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const options = data?.options.map((option) => {
     const queued = control.queued?.find((selection) => selection.configId === option.id)
 
@@ -98,87 +99,97 @@ export function ModelSelector({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [effort, open, setOpen])
 
-  const effortOpen = control.open && view === 'effort'
+  // Effort is a popover, since a slider is not a menu item; the model list is a
+  // menu. Both hang off the chip, and one open flag shows whichever view is on.
+  const showModels = view === 'models' || !effort
+  const modelsOpen = control.open && showModels && Boolean(model)
+  const effortOpen = control.open && !modelsOpen
 
   // A runtime that exposes no model controls gets no picker at all.
   if (status === 'unsupported') return null
   const select = (configId: string, value: string) => control.select({ configId, value })
   const pickModel = (value: string) => {
     if (!model) return
-    select(model.id, value)
+    if (value !== model.currentValue) select(model.id, value)
     control.setOpen(false)
   }
-  const footer = [
-    (loading || slow) &&
-      !error &&
-      (slow ? 'The agent is reconnecting. This may take a moment.' : 'Getting model settings…'),
-    error,
-    error && model && 'Showing last synced settings.',
-    control.queued ? 'Selected for the next reply.' : hint,
-    disabled &&
-      !busy &&
-      status === 'ready' &&
-      'Available when this conversation is ready for your next message.',
-  ].filter(Boolean)
+  const footer = {
+    lines: [
+      (loading || slow) &&
+        !error &&
+        (slow ? 'The agent is reconnecting. This may take a moment.' : 'Getting model settings…'),
+      error,
+      error && model && 'Showing last synced settings.',
+      control.queued ? 'Selected for the next reply.' : hint,
+      disabled &&
+        !busy &&
+        status === 'ready' &&
+        'Available when this conversation is ready for your next message.',
+    ].filter((line): line is string => Boolean(line)),
+    error: error ?? undefined,
+    onRetry: error || stalled ? control.refresh : undefined,
+    retrying: loading || saving,
+  }
+  // Closing returns to the message box, so typing carries on; switching views
+  // leaves focus to the view that opens.
+  const finalFocus = () =>
+    !control.open &&
+    (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
 
   return (
-    <ModelTooltipProvider>
+    <>
       <Popover.Root
-        open={control.open}
-        onOpenChange={(next, details) => {
-          // Escape from the model list steps back to effort; a second one closes.
-          if (!next && details.reason === 'escape-key' && view === 'models' && effort) {
-            details.cancel()
-            setView('effort')
-
-            return
-          }
+        open={effortOpen}
+        onOpenChange={(next) => {
           if (next) setView(effort ? 'effort' : 'models')
           control.setOpen(next)
         }}
-        // Arrow keys move the effort slider as soon as it shows, as in Codex.
-        onOpenChangeComplete={(open) => {
-          if (open) sliderRef.current?.focus()
+        // Arrow keys move the effort slider as soon as it shows.
+        onOpenChangeComplete={(shown) => {
+          if (shown) sliderRef.current?.focus()
         }}
       >
-        <HintTooltip
-          label="Select effort"
-          combo={EFFORT_SHORTCUT}
+        <Tooltip
+          content={
+            <span className="flex items-center gap-2">
+              Select effort <Kbd combo={EFFORT_SHORTCUT} />
+            </span>
+          }
           disabled={control.open || !effort}
+          triggerClassName="min-w-0"
         >
           <Popover.Trigger
             ref={chipRef}
             data-model-chip=""
             aria-label={`Model settings: ${[name, level].filter(Boolean).join(' ')}${fast?.currentValue === 'on' ? ', fast mode on' : ''}`}
-            className={clsx(
-              'flex h-[31px] min-w-0 max-w-64 items-center gap-[4px] rounded-full pl-[10.5px] pr-[9px] text-[13.5px] text-main outline-none transition-colors',
-              // A filled pill at rest, as Codex's, so opening it changes nothing but the text.
-              'bg-[rgba(var(--color-text-base),0.07)] hover:bg-[rgba(var(--color-text-base),0.1)] focus-visible:bg-[rgba(var(--color-text-base),0.1)]',
-            )}
+            // A filled pill at rest, so opening it changes nothing but the text.
+            className="flex h-8 min-w-0 max-w-64 items-center gap-1 rounded-full bg-zGray-800/60 pl-2.5 pr-2 text-[13px] text-main outline-none transition-colors hover:bg-zGray-800 focus-visible:bg-zGray-800"
           >
             {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
             <ModelChipLabel
               name={name}
               level={level}
               levels={effortLevels}
-              choosingEffort={effortOpen}
+              choosingEffort={effortOpen && Boolean(effort)}
               fast={fast?.currentValue === 'on'}
             />
-            <ChevronDown size={14} strokeWidth={1.8} className={clsx('shrink-0', FG_TERTIARY)} />
+            <ChevronDown size={14} strokeWidth={1.8} className="shrink-0 text-tertiary" />
           </Popover.Trigger>
-        </HintTooltip>
+        </Tooltip>
         <Popover.Portal>
           <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
             <Popover.Popup
-              // Closing returns to the message box, so typing carries on.
-              finalFocus={() =>
-                composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ??
-                true
+              finalFocus={finalFocus}
+              className={(state) =>
+                clsx(
+                  't-dropdown w-72 rounded-xl border border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+                  state.open && 'is-open',
+                  state.transitionStatus === 'ending' && 'is-closing',
+                )
               }
-              initialFocus={view !== 'effort'}
-              className={clsx(SURFACE, 'model-picker-enter w-[280px] rounded-[16px] outline-none')}
+              style={{ transformOrigin: 'bottom center' }}
             >
-              {view === 'effort' && effort && model && (
+              {!showModels && effort && model && (
                 <ModelEffortPanel
                   effort={effort}
                   fast={fast}
@@ -191,58 +202,47 @@ export function ModelSelector({
                   onOpenModels={() => setView('models')}
                 />
               )}
-              {(view === 'models' || !effort) &&
-                model &&
-                // Each runtime's list follows its own app: Claude's menu or Codex's.
-                (isClaudeCatalog(model.options) ? (
-                  <ClaudeModelList
-                    model={model}
-                    blocked={blocked}
-                    onSelect={pickModel}
-                    onBack={effort ? () => setView('effort') : undefined}
-                  />
-                ) : (
-                  <ModelListPanel
-                    model={model}
-                    blocked={blocked}
-                    onSelect={pickModel}
-                    onBack={effort ? () => setView('effort') : undefined}
-                  />
-                ))}
-              {footer.length > 0 && (
-                <div
-                  className={clsx(
-                    'mx-[13.5px] border-t border-[rgba(var(--color-text-base),0.06)] py-[8px] text-center text-[12px] leading-[16px]',
-                    model ? '' : 'border-t-0',
-                    FG_TERTIARY,
-                  )}
-                >
-                  {footer.map((line) => (
-                    <p key={String(line)} role={line === error ? 'alert' : 'status'}>
-                      {line}
-                    </p>
-                  ))}
-                  {(error || stalled) && (
-                    <button
-                      type="button"
-                      disabled={saving || loading}
-                      onClick={control.refresh}
-                      className="mx-auto mt-[6px] flex items-center gap-[6px] rounded-[6px] px-[8px] py-[3px] text-main hover:bg-[rgba(var(--color-text-base),0.08)] disabled:opacity-50"
-                    >
-                      {loading || saving ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <RefreshCw size={13} />
-                      )}
-                      Retry connection
-                    </button>
-                  )}
-                </div>
-              )}
+              <ModelFooter {...footer} divided={Boolean(model)} />
             </Popover.Popup>
           </Popover.Positioner>
         </Popover.Portal>
       </Popover.Root>
-    </ModelTooltipProvider>
+      <Menu
+        open={modelsOpen}
+        onOpenChange={(next, details) => {
+          // This menu has no trigger of its own. Base UI still reports trigger and
+          // sibling closes when "More models" opens or the view steps back to
+          // effort; neither is the user closing it.
+          if (details.reason === 'trigger-hover' || details.reason === 'sibling-open') return
+          // Escape from the model list steps back to effort; a second one closes.
+          if (!next && details.reason === 'escape-key' && effort) setView('effort')
+          else control.setOpen(next)
+        }}
+        // Start on the current model, so ↑/↓ move from where the user is.
+        onOpenChangeComplete={(shown) => {
+          if (shown) menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+        }}
+      >
+        <MenuContent
+          ref={menuRef}
+          anchor={chipRef}
+          side="top"
+          align="center"
+          sideOffset={8}
+          finalFocus={finalFocus}
+          className="w-72 rounded-xl"
+        >
+          {model && (
+            <ModelMenu
+              model={model}
+              blocked={blocked}
+              onSelect={pickModel}
+              onBack={effort ? () => setView('effort') : undefined}
+              footer={<ModelMenuFooter {...footer} />}
+            />
+          )}
+        </MenuContent>
+      </Menu>
+    </>
   )
 }
