@@ -1,6 +1,7 @@
 import { pruneSelectionToAvailable } from '../../../lib/credentialSelection'
 
 import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants'
+import { usableDeviceIds } from './credentialSections'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
@@ -181,7 +182,11 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
 // Note this is deliberately NOT `allCredentialAccess` with a tweak: that one
 // means "every id that exists" and is what prune/select-all need.
 export function defaultCredentialAccess(options: AgentCredentialOptions): AgentCredentialSelection {
-  return { ...allCredentialAccess(options), resendIntegrationIds: [] }
+  return {
+    ...allCredentialAccess(options),
+    resendIntegrationIds: [],
+    deviceIds: usableDeviceIds(options.devices),
+  }
 }
 
 // Drop any selected credential ids that are no longer present in the available
