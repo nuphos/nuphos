@@ -3,6 +3,7 @@
 // credential files placed by hand.
 
 import { spawn } from 'node:child_process'
+import { mkdirSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -37,6 +38,8 @@ export async function signInAgent(provider: LocalAgentProvider, userDir: string)
 
     return 1
   }
+  // Codex exits when CODEX_HOME does not exist yet, as on a freshly joined machine.
+  mkdirSync(agentHome, { recursive: true, mode: 0o700 })
   console.log(`Signing ${AGENT_NAMES[provider]} in for this computer's Nuphos runtime.`)
   const status = await new Promise<number>((resolve) => {
     spawn(cliPath, signInArgs(provider), {
