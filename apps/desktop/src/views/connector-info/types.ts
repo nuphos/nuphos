@@ -6,12 +6,6 @@ export type ConnectorInfo = {
   fields: { label: string; value: string; mono?: boolean }[]
   externalUrl: string | null
   externalLabel: string
-  /**
-   * Replaces the green "Connected" badge with an amber one carrying this text:
-   * the team-level connection is fine, but the current user still has something
-   * to do (e.g. link their own account).
-   */
-  warning?: string
   tailscaleSandboxAccess?: TailscaleSandboxAccess | null
 }
 

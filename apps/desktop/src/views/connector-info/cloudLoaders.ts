@@ -9,14 +9,8 @@ export const cloudLoaders: ConnectorInfoLoaders = {
 
     if (!installation) return null
 
-    // The bot install is team-wide, but the bot only acts for members whose own
-    // Discord account is linked. A green "Connected" hid that distinction.
     return {
       name: installation.guildName,
-      warning:
-        connection.linkedDiscordUserId === null
-          ? 'Bot installed · Your account not linked'
-          : undefined,
       fields: [
         { label: 'Server', value: installation.guildName },
         { label: 'Server ID', value: installation.guildId, mono: true },
