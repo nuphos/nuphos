@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-import { onChatArchived } from '../../lib/chatArchiveEvents'
+import { onChatArchived, onChatUnarchived } from '../../lib/chatArchiveEvents'
 
 import type { AgentConversation } from '../../api'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
@@ -30,5 +30,13 @@ export function useSidebarArchiveEvents({
         void refresh()
       }),
     [teamId, locallyArchivedRef, refreshSeqRef, setSessions, refresh, onArchived],
+  )
+  useEffect(
+    () =>
+      onChatUnarchived((sessionId) => {
+        locallyArchivedRef.current.delete(sessionId)
+        void refresh()
+      }),
+    [locallyArchivedRef, refresh],
   )
 }

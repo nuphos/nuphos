@@ -1,13 +1,22 @@
 import { Archive, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { api } from '../../api'
 import { archiveChat } from '../../lib/archiveChat'
-import { announceChatArchived } from '../../lib/chatArchiveEvents'
+import { announceChatArchived, announceChatUnarchived } from '../../lib/chatArchiveEvents'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
 
 /** Titlebar action beside Share: archive the open session. */
-export function SessionArchiveButton({ sessionId, teamId }: { sessionId: string; teamId: string }) {
+export function SessionArchiveButton({
+  sessionId,
+  teamId,
+  title,
+}: {
+  sessionId: string
+  teamId: string
+  title: string
+}) {
   const [archiving, setArchiving] = useState(false)
   const label = archiving ? 'Archiving…' : 'Archive chat'
 
@@ -17,6 +26,18 @@ export function SessionArchiveButton({ sessionId, teamId }: { sessionId: string;
     try {
       await archiveChat(sessionId, teamId)
       announceChatArchived({ sessionId, teamId })
+      // Same receipt as the history page: one stray click must be one click to undo.
+      toast.success('Chat archived', `"${title}" is still available in the Agent history.`, {
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            void api
+              .agentSetConversationArchived(sessionId, false, teamId)
+              .then(() => announceChatUnarchived(sessionId))
+              .catch((err: unknown) => toast.apiError('Could not restore chat', err))
+          },
+        },
+      })
     } catch (err) {
       toast.apiError('Could not archive chat', err)
     } finally {

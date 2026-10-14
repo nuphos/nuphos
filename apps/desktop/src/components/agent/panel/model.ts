@@ -143,6 +143,8 @@ export type Tab = {
   foreign?: boolean
   /** A teammate's conversation this viewer may still move and re-credential. */
   canManage?: boolean
+  /** Opened from Archived Chats: archiving again would only rewrite its date. */
+  archived?: boolean
   /** Every credential option that existed when this conversation's selection was last saved. */
   credentialOptionsSeen?: AgentCredentialSelection
   slackThread?: AgentSlackThread | null

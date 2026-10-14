@@ -85,6 +85,7 @@ type Props = {
     agentRuntime?: AgentProvider,
     canRename?: boolean,
     runtimeId?: string,
+    canArchive?: boolean,
   ) => void
   /** Externally-controlled session id (drives which chat is displayed). */
   sessionId?: string | null

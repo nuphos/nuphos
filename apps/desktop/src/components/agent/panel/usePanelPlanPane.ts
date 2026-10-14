@@ -182,6 +182,13 @@ export function usePanelPlanPane(acc: Acc) {
       activeTab?.agentRuntime,
       Boolean(activeTab?.sessionId && !activeTab.readOnly && !activeTab.foreign),
       activeTab?.runtimeId,
+      // The server lets the owner or a manager archive.
+      Boolean(
+        activeTab?.sessionId &&
+        !activeTab.readOnly &&
+        !activeTab.archived &&
+        (!activeTab.foreign || activeTab.canManage),
+      ),
     )
   }, [
     activeTab?.readOnly,
@@ -191,6 +198,8 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.claudeCodeRuntimeAttached,
     activeTab?.agentRuntime,
     activeTab?.runtimeId,
+    activeTab?.canManage,
+    activeTab?.archived,
     sessionIdProp,
   ])
 

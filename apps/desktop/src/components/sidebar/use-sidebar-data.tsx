@@ -5,7 +5,7 @@ import { api } from '../../api'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
-import { announceChatArchived, onChatUnarchived } from '../../lib/chatArchiveEvents'
+import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
 import { customResourceNavigationKey } from '../../lib/customResourceNavigation'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
@@ -144,8 +144,11 @@ export function useSidebarChats({
   useEffect(() => {
     currentTeamIdRef.current = teamId
   }, [teamId])
-  // Only the latest request may apply. Locally archived rows stay filtered
-  // until a listing requested after the archive landed (see local-archive-guard).
+  // Rapid archiving races the list refresh: a fetch started before the next
+  // archive can respond seconds later still containing that row, and a whole-
+  // list setState would resurrect it. Two guards: only the latest request may
+  // apply (seq), and rows archived locally stay filtered until a listing
+  // requested after the archive landed (see local-archive-guard).
   const refreshSeqRef = useRef(0)
   const refreshingTeamRef = useRef<string | null>(null)
   const locallyArchivedRef = useRef<Map<string, number>>(new Map())
@@ -177,6 +180,7 @@ export function useSidebarChats({
 
   useEffect(() => {
     if (!teamId) return
+    // A just-created session needs a beat to be persisted before it lists.
     const initial = setTimeout(() => void refreshSessions(), agentSessionId ? 1000 : 0)
     const interval = setInterval(() => void refreshSessions(), AGENT_SESSIONS_POLL_MS)
 
@@ -185,15 +189,6 @@ export function useSidebarChats({
       clearInterval(interval)
     }
   }, [refreshSessions, agentSessionId, teamId])
-
-  useEffect(
-    () =>
-      onChatUnarchived((sessionId) => {
-        locallyArchivedRef.current.delete(sessionId)
-        void refreshSessions()
-      }),
-    [refreshSessions],
-  )
 
   const [archivingIds, setArchivingIds] = useState<ReadonlySet<string>>(() => new Set())
 

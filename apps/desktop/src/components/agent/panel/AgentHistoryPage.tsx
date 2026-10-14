@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { archiveChat } from '../../../lib/archiveChat'
+import { announceChatArchived, announceChatUnarchived } from '../../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../../lib/chatTitleEvents'
 import { toast } from '../../ui/toast'
 
@@ -196,7 +198,7 @@ export function AgentHistoryPage({
     const label = conversation.title || conversation.firstMessage || 'Untitled chat'
 
     try {
-      await api.agentSetConversationArchived(conversation.sessionId, true, teamId)
+      await archiveChat(conversation.sessionId, teamId)
     } catch (err) {
       toast.apiError('Could not archive chat', err)
 
@@ -212,13 +214,17 @@ export function AgentHistoryPage({
 
       return prev.filter((c) => c.sessionId !== conversation.sessionId)
     })
+    announceChatArchived({ sessionId: conversation.sessionId, teamId })
     toast.success('Chat archived', `"${label}" is still available in the Agent history.`, {
       action: {
         label: 'Undo',
         onClick: () => {
           void api
             .agentSetConversationArchived(conversation.sessionId, false, teamId)
-            .then(() => setItems((prev) => prev.toSpliced(index, 0, conversation)))
+            .then(() => {
+              setItems((prev) => prev.toSpliced(index, 0, conversation))
+              announceChatUnarchived(conversation.sessionId)
+            })
             .catch((err: unknown) => toast.apiError('Could not restore chat', err))
         },
       },
