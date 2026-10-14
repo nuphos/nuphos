@@ -229,3 +229,17 @@ test('a Discord reply queued behind a running turn still carries its quote', () 
   expect(rendered).toContain('\n\nand this one?')
   expect(rendered.split('</nuphos_message_metadata>')[0]).not.toContain('the DPA thread')
 })
+
+test("a Trigger fire reads as its owner's instruction, not a GitHub event", () => {
+  const parsed = parseMessageMetadata({
+    ...metadata,
+    sender: { type: 'system', id: 'trigger:abc', displayName: 'PR audit' },
+    source: 'agent.resource',
+    resourceUrl: '/teams/t/triggers/abc',
+  })
+  const json = renderAttributedMessage('fire', 'Audit open PRs', parsed).split('\n')[1]!
+  const { instructions } = JSON.parse(json) as { instructions: string }
+
+  expect(instructions).toContain('carry it out')
+  expect(instructions).not.toContain('GitHub')
+})
