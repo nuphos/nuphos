@@ -1,9 +1,11 @@
 import clsx from 'clsx'
 import { Check } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 import { modelChoiceLabel } from '../../../lib/configLabels'
 import { concreteModelChoices, isDefaultModel } from '../../../lib/modelChoices'
 
+import { focusCurrentRow, menuKeyDown } from './menuKeys'
 import { HintTooltip } from './modelControlParts'
 import { FG_TERTIARY, MENU_ROW as ROW } from './modelControlStyles'
 
@@ -18,13 +20,19 @@ export function ModelListPanel({
   offerDefault,
   blocked,
   onSelect,
+  onBack,
 }: {
   model: SessionConfigOption
   /** Whether the runtime can go back to its own default model. */
   offerDefault: boolean
   blocked: boolean
   onSelect: (value: string) => void
+  /** Back to the effort view. */
+  onBack?: () => void
 }) {
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => focusCurrentRow(listRef.current), [])
   const inherited = model.options.find((choice) => isDefaultModel(choice.value, choice.name))
   const { choices, current } = concreteModelChoices(
     model.options.map((choice) => ({ ...choice, id: choice.value })),
@@ -33,13 +41,18 @@ export function ModelListPanel({
   const onDefault = model.currentValue === inherited?.value
 
   return (
-    <div className="flex max-h-[min(360px,var(--available-height))] flex-col overflow-y-auto px-[5px] pb-[3.5px] pt-[5px]">
+    <div
+      ref={listRef}
+      onKeyDown={(event) => menuKeyDown(event, { onBack })}
+      className="flex max-h-[min(360px,var(--available-height))] flex-col overflow-y-auto px-[5px] pb-[3.5px] pt-[5px]"
+    >
       <p className={clsx('px-[9px] pb-[5px] pt-[6px] text-[13px] leading-[18px]', FG_TERTIARY)}>
         Select model
       </p>
       {(inherited || offerDefault) && (
         <button
           type="button"
+          data-menu-row=""
           role="menuitemradio"
           aria-checked={onDefault}
           disabled={blocked}
@@ -59,6 +72,7 @@ export function ModelListPanel({
         const row = (
           <button
             type="button"
+            data-menu-row=""
             role="menuitemradio"
             aria-checked={!onDefault && choice.id === current}
             disabled={blocked}

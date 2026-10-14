@@ -1,13 +1,13 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
 import { Check, ChevronRight } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { modelChoiceLabel } from '../../../lib/configLabels'
 import { concreteModelChoices } from '../../../lib/modelChoices'
 import { claudeModelGroups } from '../../../lib/modelGroups'
-import { Switch } from '../../ui/Switch'
 
+import { focusCurrentRow, menuKeyDown } from './menuKeys'
 import { FG_TERTIARY, MENU_ROW, SURFACE } from './modelControlStyles'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
@@ -34,6 +34,7 @@ function ModelRow({
   return (
     <button
       type="button"
+      data-menu-row=""
       role="menuitemradio"
       aria-checked={current}
       disabled={blocked}
@@ -66,13 +67,22 @@ export function ClaudeModelList({
   blocked,
   onSelect,
   onSelectFast,
+  onBack,
 }: {
   model: SessionConfigOption
   fast?: SessionConfigOption
   blocked: boolean
   onSelect: (value: string) => void
   onSelectFast: (value: 'on' | 'off') => void
+  /** Back to the effort view. */
+  onBack?: () => void
 }) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const moreRef = useRef<HTMLButtonElement>(null)
+  const olderRef = useRef<HTMLDivElement>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
+
+  useEffect(() => focusCurrentRow(listRef.current), [])
   const { choices, current } = concreteModelChoices(
     model.options.map((choice) => ({ ...choice, id: choice.value })),
     model.currentValue,
@@ -100,7 +110,21 @@ export function ClaudeModelList({
   }, [blocked, latest, onSelect])
 
   return (
-    <div className="flex flex-col p-[5px]">
+    <div
+      ref={listRef}
+      className="flex flex-col p-[5px]"
+      onKeyDown={(event) =>
+        menuKeyDown(event, {
+          onBack,
+          onForward: (row) => {
+            if (!moreRef.current?.isSameNode(row)) return false
+            setMoreOpen(true)
+
+            return true
+          },
+        })
+      }
+    >
       {latest.map((choice, index) => (
         <ModelRow
           key={choice.id}
@@ -114,8 +138,17 @@ export function ClaudeModelList({
       {older.length > 0 && (
         <>
           <Separator />
-          <Popover.Root>
+          <Popover.Root
+            open={moreOpen}
+            onOpenChange={setMoreOpen}
+            onOpenChangeComplete={(open) => {
+              if (open && olderRef.current?.contains(document.activeElement) === false)
+                focusCurrentRow(olderRef.current)
+            }}
+          >
             <Popover.Trigger
+              ref={moreRef}
+              data-menu-row=""
               openOnHover
               delay={80}
               className={clsx(
@@ -142,10 +175,20 @@ export function ClaudeModelList({
                 className="z-[1001]"
               >
                 <Popover.Popup
+                  ref={olderRef}
                   initialFocus={false}
+                  // ← returns to "More models".
+                  onKeyDown={(event) =>
+                    menuKeyDown(event, {
+                      onBack: () => {
+                        setMoreOpen(false)
+                        moreRef.current?.focus()
+                      },
+                    })
+                  }
                   className={clsx(
                     SURFACE,
-                    't-dropdown is-open flex max-h-[var(--available-height)] w-[220px] flex-col overflow-y-auto rounded-[16px] p-[5px] outline-none',
+                    'model-picker-enter flex max-h-[var(--available-height)] w-[220px] flex-col overflow-y-auto rounded-[16px] p-[5px] outline-none',
                   )}
                 >
                   {older.map((choice) => (
@@ -166,17 +209,32 @@ export function ClaudeModelList({
       {fast && (
         <>
           <Separator />
-          <div
-            className={clsx(MENU_ROW, 'h-[31.5px] items-center pr-[9.5px] hover:bg-transparent')}
+          <button
+            type="button"
+            data-menu-row=""
+            role="menuitemcheckbox"
+            aria-checked={fastOn}
+            disabled={blocked}
+            onClick={() => onSelectFast(fastOn ? 'off' : 'on')}
+            className={clsx(MENU_ROW, 'h-[31.5px] items-center pr-[9.5px]')}
           >
             <span className="flex-1">Fast mode</span>
-            <Switch
-              checked={fastOn}
-              disabled={blocked}
-              label="Fast mode"
-              onChange={(on) => onSelectFast(on ? 'on' : 'off')}
-            />
-          </div>
+            {/* The app's Switch, drawn inside the row so the whole row toggles. */}
+            <span
+              aria-hidden
+              className={clsx(
+                'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                fastOn ? 'bg-zViolet-500' : 'bg-zGray-700',
+              )}
+            >
+              <span
+                className={clsx(
+                  'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+                  fastOn ? 'translate-x-[18px]' : 'translate-x-0.5',
+                )}
+              />
+            </span>
+          </button>
         </>
       )}
     </div>

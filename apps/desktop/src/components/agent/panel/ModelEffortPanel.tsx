@@ -4,7 +4,7 @@ import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { effortLabel } from '../../../lib/configLabels'
-import { effortStops, stopFraction } from '../../../lib/effortStops'
+import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
 
 import {
   ACCENT_FILL,
@@ -13,6 +13,7 @@ import {
   FG_TERTIARY,
   HOVER_FILL,
 } from './modelControlStyles'
+import { HintTooltip } from './modelControlParts'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
 
@@ -25,6 +26,7 @@ function IconButton({
   label,
   onClick,
   disabled,
+  inert,
   pressed,
   className,
   children,
@@ -32,6 +34,8 @@ function IconButton({
   label: string
   onClick: () => void
   disabled?: boolean
+  /** Looks unavailable but still shows its tooltip, which says why. */
+  inert?: boolean
   pressed?: boolean
   className: string
   children: React.ReactNode
@@ -42,16 +46,18 @@ function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       disabled={disabled}
-      onClick={onClick}
+      aria-disabled={inert || undefined}
+      onClick={inert ? undefined : onClick}
       className={clsx(
         'group absolute top-[5.5px] flex h-[32px] w-[32px] items-center justify-center rounded-[8px] outline-none disabled:opacity-40',
+        inert && 'cursor-default opacity-40',
         className,
       )}
     >
       <span
         className={clsx(
           'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] group-focus-visible:bg-[rgba(var(--color-text-base),0.08)]',
-          !disabled && HOVER_FILL,
+          !disabled && !inert && HOVER_FILL,
         )}
       >
         {children}
@@ -88,9 +94,19 @@ export function ModelEffortPanel({
   onOpenModels?: () => void
 }) {
   const stops = effortStops(effort.options)
-  const committed = stops.findIndex((stop) => stop.value === effort.currentValue)
+  const running = resolvedEffort(effort.options, effort.currentValue)
+  const committed = stops.findIndex((stop) => stop.value === running)
   // A draft only holds until the runtime reports a different level.
   const [draft, setDraft] = useState<{ index: number; from: string }>()
+  const [wasSaving, setWasSaving] = useState(saving)
+
+  // Drop a draft once the runtime reports any change, or once a save ends
+  // either way, so a failed change never lingers on the slider.
+  if (wasSaving !== saving) {
+    setWasSaving(saving)
+    if (!saving && draft) setDraft(undefined)
+  }
+  if (draft && draft.from !== effort.currentValue) setDraft(undefined)
   const index = draft?.from === effort.currentValue ? draft.index : committed
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -98,6 +114,15 @@ export function ModelEffortPanel({
   const current = index >= 0 ? stops[index] : undefined
   const fraction = stopFraction(stops.length, index)
   const fastOn = fast?.currentValue === 'on'
+  const resetLevel =
+    resetValue && stops.find((stop) => stop.value === resolvedEffort(effort.options, resetValue))
+  const resetHint = !resetValue
+    ? 'This agent reports no default effort'
+    : resetValue === effort.currentValue
+      ? 'Already at the default effort'
+      : resetLevel
+        ? `Reset to default (${effortLabel(resetLevel)})`
+        : 'Reset to default'
 
   return (
     <div className="relative px-[13.5px] pb-[13.5px] pt-[11px]">
@@ -112,14 +137,16 @@ export function ModelEffortPanel({
           <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
         </IconButton>
       )}
-      <IconButton
-        label="Reset to default"
-        disabled={blocked || saving || !resetValue || resetValue === effort.currentValue}
-        onClick={() => resetValue && onSelect(effort.id, resetValue)}
-        className={clsx('right-[5.5px]', FG_TERTIARY)}
-      >
-        <RotateCcw size={16} strokeWidth={1.6} />
-      </IconButton>
+      <HintTooltip label={resetHint} side="top">
+        <IconButton
+          label={resetHint}
+          inert={blocked || saving || !resetValue || resetValue === effort.currentValue}
+          onClick={() => resetValue && onSelect(effort.id, resetValue)}
+          className={clsx('right-[5.5px]', FG_TERTIARY)}
+        >
+          <RotateCcw size={16} strokeWidth={1.6} />
+        </IconButton>
+      </HintTooltip>
       <div className="flex flex-col items-center">
         <span className={clsx('text-[14px] font-medium leading-[21.5px]', ACCENT_TEXT)}>
           {current ? effortLabel(current) : 'Default'}
