@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -102,54 +102,94 @@ test('the adapter patch points the bridge and skills sync at the desktop bundle'
   assert.throws(() => patchDesktopAdapter('nothing to patch'))
 })
 
-test('the sender’s personal skills go to the conversation home, not the workspace', async (t) => {
+test('personal skills follow the turn’s credential and never land in the workspace', async (t) => {
   const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
   const sessionHome = mkdtempSync(join(tmpdir(), 'skills-home-'))
   const credentialsDir = mkdtempSync(join(tmpdir(), 'skills-credentials-'))
+  const credential = join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN')
   const personal = join(sessionHome, 'personal-skills')
   const skills = join(personal, '.claude', 'skills')
-  const personalBundle = (revision, name) =>
-    new Response(
+  let failing = false
+  // The backend answers for whoever the bearer names; `none` has no personal skills.
+  const personalBundle = (bearer) => {
+    const who = bearer.split('.')[1]
+
+    if (failing) return new Response(null, { status: 500 })
+
+    return new Response(
       JSON.stringify({
         scope: 'personal',
-        revision,
-        files: [file(`${name}/SKILL.md`, name), file('_runtime/settings.json', '{"x":1}')],
+        revision: who,
+        files:
+          who === 'none'
+            ? []
+            : [file(`${who}/SKILL.md`, who), file('_runtime/settings.json', '{"x":1}')],
       }),
     )
-  // Each sender is recognised by the bearer the request carries.
-  let answer = (bearer) =>
-    bearer === 'Bearer token' ? personalBundle('p1', 'owner-notes') : personalBundle('p2', 'mate')
+  }
 
   t.mock.method(globalThis, 'fetch', (url, init) =>
     Promise.resolve(
       String(url).endsWith('?scope=personal')
-        ? answer(init.headers.authorization)
+        ? personalBundle(init.headers.authorization)
         : bundle('r1', [file('team/SKILL.md', 'T')]),
     ),
   )
-  const owner = structuredClone(params)
+  const opened = structuredClone(params)
 
-  assert.equal(await nuphosLocalSyncSkills(owner, { workspace, sessionHome, credentialsDir }), true)
-  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner-notes'])
+  opened.cwd = '/workspace'
+  opened._meta.claudeCode.options.env.NUPHOS_RUNTIME_SKILLS_TOKEN = 'p.owner.1.sig'
+  const calls = []
+  const agent = {
+    sessions: { s1: { configOptions: [] } },
+    teardownSession: async () => calls.push('teardown'),
+    createSession: async (created, opts) => {
+      calls.push(`resume ${opts.resume}`)
+
+      return { configOptions: [] }
+    },
+  }
+  const rebuild = ['teardown', 'resume s1']
+  const prompt = async (token) => {
+    calls.length = 0
+    if (token === undefined) rmSync(credential, { force: true })
+    else writeFileSync(credential, `${token}\n`)
+    await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
+
+    return [...calls]
+  }
+
+  assert.equal(
+    await nuphosLocalSyncSkills(opened, { workspace, sessionHome, credentialsDir }),
+    true,
+  )
+  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['team'])
   // In place, so a running session keeps watching it; and no agent settings from it.
   assert.equal(lstatSync(skills).isSymbolicLink(), false)
   assert.equal(readdirSync(join(personal, '.claude')).includes('settings.json'), false)
-  assert.deepEqual(owner._meta.claudeCode.options.additionalDirectories, [personal])
+  assert.deepEqual(opened._meta.claudeCode.options.additionalDirectories, [personal])
 
-  // Before the next prompt the sender is whoever OpenAB's credential file names.
-  writeFileSync(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'teammate\n')
-  await globalThis.nuphosRefreshPersonalSkills()
-  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'mate'])
-
-  // That sender's sync fails: nobody's skills stay, the watched directory does.
-  answer = () => new Response(null, { status: 500 })
-  await globalThis.nuphosRefreshPersonalSkills()
+  // Same member under a new credential: nothing changed, nothing rebuilt.
+  assert.deepEqual(await prompt('p.owner.2.sig'), [])
+  // A guest's turn names nobody: the owner's skills go and the session is rebuilt.
+  assert.deepEqual(await prompt('p.none.3.sig'), rebuild)
   assert.deepEqual(readdirSync(skills), [])
+  assert.deepEqual(await prompt('p.owner.4.sig'), rebuild)
 
-  // An older backend answers the personal request with the team bundle: install nothing.
-  answer = () => bundle('r1', [file('team/SKILL.md', 'T')])
-  await globalThis.nuphosRefreshPersonalSkills()
+  // The owner's sync fails: what is installed stays. Someone else's fails: it goes.
+  failing = true
+  assert.deepEqual(await prompt('p.owner.5.sig'), [])
+  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
+  assert.deepEqual(await prompt('p.other.6.sig'), rebuild)
   assert.deepEqual(readdirSync(skills), [])
+  failing = false
+
+  // A prompt without its own credential never falls back to the session's.
+  assert.deepEqual(await prompt('p.owner.7.sig'), rebuild)
+  assert.deepEqual(await prompt(undefined), rebuild)
+  assert.deepEqual(readdirSync(skills), [])
+  // With no personal skills on either side, switching senders rebuilds nothing.
+  assert.deepEqual(await prompt('p.none.8.sig'), [])
   delete globalThis.nuphosRefreshPersonalSkills
 })

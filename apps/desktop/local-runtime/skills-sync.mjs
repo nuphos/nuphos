@@ -13,7 +13,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   const fs = await import('node:fs/promises')
   const path = await import('node:path')
   const { randomUUID } = await import('node:crypto')
-  // The sender's personal skills go to this conversation's own home and are offered to
+  // The owner's personal skills go to this conversation's own home and are offered to
   // Claude Code as an additional directory, so no other conversation loads them.
   const claudeOptions = params?._meta?.claudeCode?.options
   const sessionHome = !claudeOptions
@@ -167,59 +167,84 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   if (!personal) return install(path.join(workspace, '.claude'), url, true)
   const personalClaude = path.join(personal, '.claude')
   const personalSkills = path.join(personalClaude, 'skills')
-  // The sender can change between turns of a live session. OpenAB keeps the current
-  // sender's credential in its per-session directory, so this runs again before every
-  // prompt and leaves that sender's skills, or none.
-  const revision = () =>
-    fs.readFile(path.join(personalClaude, '.skills-revision'), 'utf8').catch(() => '')
-  const syncPersonal = async (timeoutMs) => {
-    const before = await revision()
-    const credentials = options.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
-    const current = !credentials
+  // Whose personal skills, if anyone's, can change between the turns of a live session.
+  // OpenAB keeps the current turn's credential in its per-session directory, so this
+  // runs again before every prompt and leaves the skills that credential allows, or
+  // none. It reports whether the skills on disk changed.
+  const revisionFile = path.join(personalClaude, '.skills-revision')
+  const empty = async () => {
+    for (const entry of await fs.readdir(personalSkills).catch(() => []))
+      await fs
+        .rm(path.join(personalSkills, entry), { recursive: true, force: true })
+        .catch(() => {})
+    await fs.rm(revisionFile, { force: true }).catch(() => {})
+  }
+  // No personal skills is one state, whoever the credential names.
+  const installed = async () =>
+    (await fs.readdir(personalSkills).catch(() => [])).length === 0
+      ? ''
+      : await fs.readFile(revisionFile, 'utf8').catch(() => '')
+  // The part of the credential that says whose it is; the rest changes on every mint.
+  const holder = (credential) => credential.split('.')[1] ?? ''
+  let syncedFor = holder(token)
+  const syncPersonal = async (timeoutMs, atPrompt) => {
+    const before = await installed()
+    const credentials = options?.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
+    const refreshed = !credentials
       ? ''
       : await fs.readFile(path.join(credentials, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'utf8').then(
           (value) => value.trim(),
           () => '',
         )
-    const bearer = current && !/[\u0000-\u001f"\\]/u.test(current) ? current : token
-    const mine = await install(personalClaude, `${url}?scope=personal`, false, bearer, timeoutMs)
+    const usable = refreshed && !/[\u0000-\u001f"\\]/u.test(refreshed)
+    // Opening a session may use the credential the session came with. A prompt may
+    // not: without this turn's own credential, nobody's personal skills are installed.
+    const credential = usable ? refreshed : atPrompt && credentials ? '' : token
 
-    // A sync that failed must not leave the previous sender's skills in place. The
-    // directory itself stays: the running session watches it.
-    if (!mine) {
-      for (const entry of await fs.readdir(personalSkills).catch(() => []))
-        await fs
-          .rm(path.join(personalSkills, entry), { recursive: true, force: true })
-          .catch(() => {})
-      await fs.rm(path.join(personalClaude, '.skills-revision'), { force: true }).catch(() => {})
+    if (!credential) {
+      await empty()
+      syncedFor = ''
+    } else if (
+      await install(personalClaude, `${url}?scope=personal`, false, credential, timeoutMs)
+    ) {
+      syncedFor = holder(credential)
+    } else if (holder(credential) !== syncedFor) {
+      // A failed sync must not leave another member's skills in place. For the same
+      // member it changes nothing: what is installed stays.
+      await empty()
+      syncedFor = holder(credential)
     }
 
-    return (await revision()) !== before
+    return (await installed()) !== before
   }
 
   // A running Claude Code session reads its skills when it starts, and its file watcher
-  // can lag a change by half a minute once the session is idle. So when the tree
-  // changed, the session is rebuilt the way the adapter itself rebuilds one whose
+  // can lag a change by half a minute once the session is idle. So when the skills on
+  // disk changed, the session is rebuilt the way the adapter itself rebuilds one whose
   // parameters changed: torn down and resumed, keeping the transcript and the settings
-  // the session had.
+  // the session had. Anything short of that leaves the session as it is.
   globalThis.nuphosRefreshPersonalSkills = async (agent, prompt) => {
-    const changed = await syncPersonal(5_000).catch(() => false)
+    const changed = await syncPersonal(5_000, true).catch(() => false)
     const id = prompt?.sessionId
     const live = agent?.sessions?.[id]
 
     if (!changed || !live) return
     const kept = (live.configOptions ?? []).map((option) => [option.id, option.currentValue])
+    const resume = () =>
+      agent.createSession(
+        {
+          cwd: params.cwd,
+          mcpServers: params.mcpServers ?? [],
+          additionalDirectories: params.additionalDirectories,
+          _meta: params._meta,
+        },
+        { resume: id },
+      )
 
     await agent.teardownSession(id)
-    const rebuilt = await agent.createSession(
-      {
-        cwd: params.cwd,
-        mcpServers: params.mcpServers ?? [],
-        additionalDirectories: params.additionalDirectories,
-        _meta: params._meta,
-      },
-      { resume: id },
-    )
+    // Past the teardown there is no session to fall back to, so try twice before
+    // letting the turn fail.
+    const rebuilt = await resume().catch(resume)
 
     for (const [configId, value] of kept) {
       const now = rebuilt.configOptions?.find((option) => option.id === configId)

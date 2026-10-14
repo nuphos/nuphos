@@ -91,21 +91,28 @@ test('a session cannot choose the workspace the sync writes to', async () => {
   )
 })
 
-test('a Claude session also syncs the sender’s personal skills into its own home', async () => {
-  // The fake records the credential each personal run used and installs one skill.
-  const install =
-    'if [ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ]; then ' +
-    'printf "%s\\n" "$NUPHOS_RUNTIME_SKILLS_TOKEN" >> "$NUPHOS_TEST_RECORD"; ' +
-    '[ ! -e "$NUPHOS_TEST_RECORD.fail" ] || exit 1; ' +
-    'mkdir -p "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR/.claude/skills/mine"; fi'
+test('personal skills follow the turn’s credential, and the session is rebuilt only when they change', async () => {
+  // The fake installs one skill named after whoever the credential names; `none` has none.
+  const install = [
+    '[ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ] || exit 0',
+    '[ ! -e "$NUPHOS_TEST_RECORD.fail" ] || exit 1',
+    'd="$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR/.claude"',
+    'who=$(printf %s "$NUPHOS_RUNTIME_SKILLS_TOKEN" | cut -d. -f2)',
+    'rm -rf "$d/skills"; mkdir -p "$d/skills"',
+    '[ "$who" = none ] || mkdir "$d/skills/$who"',
+    'printf %s "$who" > "$d/.skills-revision"',
+  ].join('\n')
 
   await withFakeScript(install, async ({ script, directory, record }) => {
     const personal = join(directory, 'personal-skills')
+    const skills = join(personal, '.claude/skills')
     const credentialsDir = join(directory, 'credentials')
+    const credential = join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN')
     const params = meta({
       NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
-      NUPHOS_RUNTIME_SKILLS_TOKEN: 'owner',
+      NUPHOS_RUNTIME_SKILLS_TOKEN: 'p.owner.1.sig',
     })
+
     params.cwd = '/workspace'
     const run = {
       script,
@@ -113,15 +120,6 @@ test('a Claude session also syncs the sender’s personal skills into its own ho
       credentialsDir,
       env: { NUPHOS_TEST_RECORD: record },
     }
-
-    assert.equal(await nuphosSyncRuntimeSkills(params, run), true)
-    assert.deepEqual(params._meta.claudeCode.options.additionalDirectories, [personal])
-    assert.deepEqual(await readdir(join(personal, '.claude/skills')), ['mine'])
-
-    // Before the next prompt the sender is whoever OpenAB's credential file names.
-    await mkdir(credentialsDir)
-    await writeFile(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), 'teammate\n')
-    // The fake leaves the revision alone, so nothing changed and the session is kept.
     const calls = []
     const agent = {
       sessions: { s1: { configOptions: [{ id: 'model', currentValue: 'picked' }] } },
@@ -134,24 +132,57 @@ test('a Claude session also syncs the sender’s personal skills into its own ho
       setSessionConfigOption: async (option) =>
         calls.push(['config', option.configId, option.value]),
     }
-
-    await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
-    assert.deepEqual((await readFile(record, 'utf8')).trim().split('\n'), ['owner', 'teammate'])
-    assert.deepEqual(calls, [])
-
-    // A changed tree rebuilds the session by resuming it, with the settings it had.
-    await writeFile(join(personal, '.claude/.skills-revision'), 'previous')
-    await writeFile(`${record}.fail`, '')
-    await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
-    assert.deepEqual(calls, [
+    const rebuild = [
       ['teardown', 's1'],
       ['create', '/workspace', 's1'],
       ['config', 'model', 'picked'],
-    ])
+    ]
+    // One prompt with the given credential file; returns what the session went through.
+    const prompt = async (token) => {
+      calls.length = 0
+      if (token === undefined) await rm(credential, { force: true })
+      else await writeFile(credential, `${token}\n`)
+      await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
 
-    // That sender's sync failed: the previous sender's skills did not stay, the
-    // directory did.
-    assert.deepEqual(await readdir(join(personal, '.claude/skills')), [])
+      return [...calls]
+    }
+
+    // Opening the session may use the credential it came with.
+    await mkdir(credentialsDir)
+    assert.equal(await nuphosSyncRuntimeSkills(params, run), true)
+    assert.deepEqual(params._meta.claudeCode.options.additionalDirectories, [personal])
+    assert.deepEqual(await readdir(skills), ['owner'])
+
+    // The owner again, under a freshly minted credential: nothing changed, nothing rebuilt.
+    assert.deepEqual(await prompt('p.owner.2.sig'), [])
+
+    // A guest's turn names nobody: the owner's skills go and the session is rebuilt.
+    assert.deepEqual(await prompt('p.none.3.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), [])
+
+    // Back to the owner: installed again, rebuilt again.
+    assert.deepEqual(await prompt('p.owner.4.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), ['owner'])
+
+    // The owner's sync fails: skills are never fatal, so what is installed stays.
+    await writeFile(`${record}.fail`, '')
+    assert.deepEqual(await prompt('p.owner.5.sig'), [])
+    assert.deepEqual(await readdir(skills), ['owner'])
+
+    // Someone else's sync fails: the owner's skills must not stay for that turn.
+    assert.deepEqual(await prompt('p.other.6.sig'), rebuild)
+    assert.deepEqual(await readdir(skills), [])
+    await rm(`${record}.fail`)
+
+    // A prompt without its own credential never falls back to the one the session
+    // opened with.
+    assert.deepEqual(await prompt('p.owner.7.sig'), rebuild)
+    assert.deepEqual(await prompt(undefined), rebuild)
+    assert.deepEqual(await readdir(skills), [])
+
+    // With no personal skills on either side, switching senders rebuilds nothing.
+    assert.deepEqual(await prompt('p.none.8.sig'), [])
+    assert.deepEqual(await prompt(undefined), [])
   })
   delete globalThis.nuphosRefreshPersonalSkills
 })
