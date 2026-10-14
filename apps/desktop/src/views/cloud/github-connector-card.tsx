@@ -123,6 +123,7 @@ export function GithubConnectorCard({
             className="mt-0.5 flex max-w-full items-start gap-1 text-left text-[12px] leading-4 text-secondary/80 transition-colors hover:text-main"
           >
             <span className="mt-[5px] h-1.5 w-1.5 flex-none rounded-full bg-success" />
+            <span className="sr-only">Connected: </span>
             <span className="line-clamp-2 min-w-0 break-words">{summary}</span>
             <ChevronRight
               className={clsx(

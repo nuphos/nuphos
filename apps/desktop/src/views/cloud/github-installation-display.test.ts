@@ -39,8 +39,8 @@ test('repo access follows the installation target type', () => {
 })
 
 test('summary names a single account and counts several', () => {
-  assert.equal(githubConnectedSummary([personal]), 'Connected · seraph27 (personal)')
-  assert.equal(githubConnectedSummary([personal, org]), 'Connected · 2 accounts')
+  assert.equal(githubConnectedSummary([personal]), 'seraph27 (personal)')
+  assert.equal(githubConnectedSummary([personal, org]), '2 accounts')
 })
 
 test('settings URL links organizations only', () => {

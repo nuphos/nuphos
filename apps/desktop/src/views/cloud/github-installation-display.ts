@@ -10,15 +10,15 @@ export function githubRepoAccessLabel(installation: GithubInstallation): string 
   return installation.targetType === 'all' ? 'All repositories' : 'Selected repositories'
 }
 
-/** One line naming where the app is installed: the account when there is one. */
+/** Where the app is installed: the account when there is one. The card's green dot says connected. */
 export function githubConnectedSummary(installations: GithubInstallation[]): string {
   if (installations.length === 1) {
     const [installation] = installations
 
-    return `Connected · ${installation.accountLogin} (${githubAccountKind(installation)})`
+    return `${installation.accountLogin} (${githubAccountKind(installation)})`
   }
 
-  return `Connected · ${String(installations.length)} accounts`
+  return `${String(installations.length)} accounts`
 }
 
 /**
