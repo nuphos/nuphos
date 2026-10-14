@@ -91,9 +91,11 @@ export function AgentSection({
           </p>
         )}
         {instances.length > 0 && (
-          <div ref={setPage} className="relative min-h-0 flex-1">
+          <div ref={setPage} className="relative min-h-0 flex-1 overflow-clip">
             {/* Block, not flex: the open panel marks this scroller inert, and the inert
-                z-index would lift a flex item above the panel. */}
+                z-index would lift a flex item above the panel. The container clips rather
+                than hides overflow: the panel starts off to the right as focus moves into
+                it, and a hidden-overflow ancestor would scroll sideways to reveal it. */}
             <div className="h-full overflow-y-auto p-5 lg:p-8">
               <div className="mx-auto w-full max-w-5xl">
                 <RuntimeQuotaHistory

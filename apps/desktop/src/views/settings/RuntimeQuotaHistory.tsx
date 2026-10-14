@@ -54,7 +54,10 @@ function cellColor(value: number | null): string | undefined {
   if (value >= 100) return LIMIT_FILL
 
   // Starts well above GAP_FILL so a quiet agent never reads as one that did not report.
-  return `rgba(var(--color-zViolet-400), ${String(0.18 + (0.57 * value) / 100)})`
+  // Ten even steps of 10%, darkest at 90% and above.
+  const step = Math.min(9, Math.floor(value / 10))
+
+  return `rgba(var(--color-zViolet-400), ${String(0.22 + (0.78 * step) / 9)})`
 }
 
 function UsageHeatmap({
