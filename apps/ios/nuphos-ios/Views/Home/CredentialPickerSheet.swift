@@ -21,7 +21,7 @@ struct CredentialPickerSheet: View {
                         List {
                             ForEach(catalog.sections, id: \.provider.id) { section in
                                 Section {
-                                    ForEach(section.items) { item in
+                                    ForEach(section.items.filter { !$0.offline || selection.contains($0) }) { item in
                                         Button {
                                             selection.toggle(item)
                                         } label: {

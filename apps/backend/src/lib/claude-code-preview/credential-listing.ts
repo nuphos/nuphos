@@ -25,6 +25,18 @@ export type {
   UnselectedCredentialEntry,
 } from './credential-lister'
 
+const deviceLister: Lister = lister<AgentCredentialOptions['devices'][number]>({
+  provider: 'device',
+  available: (o) => o.devices,
+  idOf: (d) => d.deviceId,
+  details: (d, id) => ({
+    label: `${d.label} (${d.platform})`,
+    usage: d.available
+      ? `Local machine; run commands on it with the local_exec tool, device=${id}.`
+      : 'Selected, but offline or with local exec turned off; local_exec cannot reach it until Nuphos Desktop is open on it with local exec allowed.',
+  }),
+})
+
 // Keyed by every selection field, so a new selectable type cannot compile
 // without deciding how list_credentials shows it.
 export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
@@ -194,17 +206,13 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     }),
     unsetMeansAll: true,
   }),
-  deviceIds: lister({
-    provider: 'device',
-    available: (o) => o.devices,
-    idOf: (d) => d.deviceId,
-    details: (d, id) => ({
-      label: `${d.label} (${d.platform})`,
-      usage: d.available
-        ? `Local machine; run commands on it with the local_exec tool, device=${id}.`
-        : 'Selected, but offline or with local exec turned off; local_exec cannot reach it until Nuphos Desktop is open on it with local exec allowed.',
-    }),
-  }),
+  deviceIds: (selectedIds, options) => {
+    const listed = deviceLister(selectedIds, options)
+    const usable = new Set(options.devices.filter((d) => d.available).map((d) => d.deviceId))
+
+    // Only a device usable now is worth asking the user to tick.
+    return { ...listed, unselected: listed.unselected.filter((entry) => usable.has(entry.id)) }
+  },
 }
 
 export function partitionCredentials(

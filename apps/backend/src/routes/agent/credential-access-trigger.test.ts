@@ -33,7 +33,10 @@ const options: AgentCredentialOptions = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [{ integrationId: 'mail', label: 'Mail', permission: 'full_access' }],
-  devices: [],
+  devices: [
+    { deviceId: 'mac', label: 'Mac', platform: 'darwin', available: true },
+    { deviceId: 'old-mac', label: 'Mac', platform: 'darwin', available: false },
+  ],
   githubInstallations: [
     { installationId: 'github', accountLogin: 'team', accountType: 'Organization' },
   ],
@@ -57,6 +60,8 @@ describe('resolveTriggerCredentialAccess', () => {
     expect(access.awsRoleIds).toEqual(['role-1'])
     expect(access.resendIntegrationIds).toEqual(['mail'])
     expect(access.githubInstallationIds).toEqual(['github'])
+    // Offline or long-gone registrations are not defaulted in.
+    expect(access.deviceIds).toEqual(['mac'])
     expect(access.updatedBy).toBe('principal')
   })
 })

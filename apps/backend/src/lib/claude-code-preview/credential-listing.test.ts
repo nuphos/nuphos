@@ -351,6 +351,22 @@ describe('flattenSelectedCredentials', () => {
   })
 })
 
+describe('device listing', () => {
+  test('asks to tick only usable devices, and shows a selected offline one as offline', () => {
+    const options = emptyOptions()
+
+    options.devices = [
+      { deviceId: 'usable', label: 'M1', platform: 'darwin', available: true },
+      { deviceId: 'asleep', label: 'M5', platform: 'darwin', available: false },
+      { deviceId: 'old', label: 'M1', platform: 'darwin', available: false },
+    ]
+    const listed = CREDENTIAL_LISTERS.deviceIds(['asleep'], options)
+
+    expect(listed.selected.map((entry) => entry.id)).toEqual(['asleep'])
+    expect(listed.unselected.map((entry) => entry.id)).toEqual(['usable'])
+  })
+})
+
 describe('partitionCredentials', () => {
   test('lists usable but unselected credentials with a tick hint and no way to fetch them', () => {
     const options = emptyOptions()
