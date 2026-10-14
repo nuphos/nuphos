@@ -27,3 +27,12 @@ export function concreteModelChoices<T extends { id: string; name: string; descr
 
   return { choices, current, label }
 }
+
+/** The runtime's own "default" model choice, when it offers one. A list shows
+ *  a Default row only for this: the literal "default" is not a valid pick
+ *  for a runtime whose catalog lists concrete models only. */
+export function offeredDefaultModel<T extends { value: string; name: string }>(
+  choices: T[],
+): T | undefined {
+  return choices.find((choice) => isDefaultModel(choice.value, choice.name))
+}

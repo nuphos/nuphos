@@ -3,7 +3,7 @@ import { Check } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { modelChoiceLabel } from '../../../lib/configLabels'
-import { concreteModelChoices, isDefaultModel } from '../../../lib/modelChoices'
+import { concreteModelChoices, offeredDefaultModel } from '../../../lib/modelChoices'
 
 import { focusCurrentRow, menuKeyDown } from './menuKeys'
 import { HintTooltip } from './modelControlParts'
@@ -17,14 +17,11 @@ import type { SessionConfigOption } from '../../../api/session-config-types'
  */
 export function ModelListPanel({
   model,
-  offerDefault,
   blocked,
   onSelect,
   onBack,
 }: {
   model: SessionConfigOption
-  /** Whether the runtime can go back to its own default model. */
-  offerDefault: boolean
   blocked: boolean
   onSelect: (value: string) => void
   /** Back to the effort view. */
@@ -33,7 +30,7 @@ export function ModelListPanel({
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => focusCurrentRow(listRef.current), [])
-  const inherited = model.options.find((choice) => isDefaultModel(choice.value, choice.name))
+  const inherited = offeredDefaultModel(model.options)
   const { choices, current } = concreteModelChoices(
     model.options.map((choice) => ({ ...choice, id: choice.value })),
     model.currentValue,
@@ -49,14 +46,14 @@ export function ModelListPanel({
       <p className={clsx('px-[9px] pb-[5px] pt-[6px] text-[13px] leading-[18px]', FG_TERTIARY)}>
         Select model
       </p>
-      {(inherited || offerDefault) && (
+      {inherited && (
         <button
           type="button"
           data-menu-row=""
           role="menuitemradio"
           aria-checked={onDefault}
           disabled={blocked}
-          onClick={() => onSelect(inherited?.value ?? 'default')}
+          onClick={() => onSelect(inherited.value)}
           className={clsx(ROW, 'flex-col items-start pb-[6.5px] pt-[5.5px]')}
         >
           <span className="flex w-full items-center leading-[20px]">
@@ -64,7 +61,7 @@ export function ModelListPanel({
             {onDefault && <Check size={14} strokeWidth={2} className={FG_TERTIARY} />}
           </span>
           <span className={clsx('text-[12px] leading-[16px]', FG_TERTIARY)}>
-            {inherited?.description || 'Recommended set of models'}
+            {inherited.description || 'Recommended set of models'}
           </span>
         </button>
       )}
