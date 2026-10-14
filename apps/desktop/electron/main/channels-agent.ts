@@ -165,6 +165,7 @@ export const agentChannels = {
         parts: unknown[]
       }[]
       baseIndex?: number
+      import?: boolean
     },
   ) => agent.syncConversationTranscript(args),
   'agent:deleteConversation': (_e: unknown, sessionId: string, teamId?: string) =>

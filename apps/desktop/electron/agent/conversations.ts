@@ -184,6 +184,7 @@ export async function syncConversationTranscript(args: {
     parts: unknown[]
   }[]
   baseIndex?: number
+  import?: boolean
 }): Promise<void> {
   const put = (messages: typeof args.messages, baseIndex: number | undefined) =>
     callJson<{ ok: boolean }>(
@@ -195,13 +196,14 @@ export async function syncConversationTranscript(args: {
         runtimeId: args.runtimeId,
         messages,
         baseIndex: baseIndex && baseIndex > 0 ? baseIndex : undefined,
+        import: args.import,
       },
     )
   // Same suffix-window protocol as the chat POST: the PUT has
   // delete-absent semantics over the hydrated transcript, so sending only the
   // current turn's tail is equivalent — and keeps the body from growing past
   // the ingress limit on a long live session.
-  const window = windowTranscript(args.messages, args.baseIndex)
+  const window = windowTranscript(args.messages, args.baseIndex, args.import)
 
   try {
     await put(window.messages, window.baseIndex)

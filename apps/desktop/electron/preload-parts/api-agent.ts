@@ -94,6 +94,7 @@ export const agentApi = {
       role: 'user' | 'assistant'
       parts: unknown[]
     }[]
+    import?: boolean
   }) => ipcRenderer.invoke('agent:syncConversationTranscript', args),
   agentDeleteConversation: (sessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:deleteConversation', sessionId, teamId),

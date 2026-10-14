@@ -228,6 +228,15 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
+      // An unsaved fork has no server session to report a runtime state, so the
+      // queue would wait on it forever. Its first send creates the session, like
+      // a new chat's.
+      if (tab.unsaved && !uploadingTabsRef.current.has(activeId)) {
+        emitFirstRunConvo('asked')
+        void dispatchTurn(activeId, trimmed, filePaths, turnKind)
+
+        return
+      }
       if (runtimeAllows(tab.runtimeState, 'steer') && !runtimeAllows(tab.runtimeState, 'reply')) {
         await sendSteering(activeId, trimmed, filePaths)
 
