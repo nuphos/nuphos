@@ -5,7 +5,7 @@ import { applyEvent } from './applyEvent'
 import { finalizeIncompleteTools, latchTabError } from './clientTools'
 import { dispatchedDraft, parkRefusedTurn } from './queuedAutoSend'
 import { normalizeAgentError, uid } from './stall'
-import { stampAssistantTurnEnd } from './streamText'
+import { stampAssistantTurnEnd } from './messagePlacement'
 import { updateCurrentAssistantParts } from './turnBoundaries'
 
 import type { PanelCtx } from './ctx'
@@ -145,7 +145,7 @@ export function applyStreamEvent(
         // already failed.
         const nextTab = {
           ...t,
-          messages: finalizeIncompleteTools(t.messages, err),
+          messages: stampAssistantTurnEnd(finalizeIncompleteTools(t.messages, err)),
           streaming: false,
           streamId: null,
           streamStartedAt: null,
@@ -179,7 +179,7 @@ export function applyStreamEvent(
         // Same cleanup as the IPC-level error branch above.
         const nextTab = {
           ...t,
-          messages: finalizeIncompleteTools(t.messages, err),
+          messages: stampAssistantTurnEnd(finalizeIncompleteTools(t.messages, err)),
           streaming: false,
           streamId: null,
           streamStartedAt: null,

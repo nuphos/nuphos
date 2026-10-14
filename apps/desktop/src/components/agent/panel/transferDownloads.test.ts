@@ -129,13 +129,14 @@ test('a card keeps its turn while the next reply streams, stamped or not', () =>
 })
 
 test('a card from an autonomous turn stays on it, before and after the read-back', () => {
-  // The previous reply is unstamped on the client; the autonomous reply has
-  // its start stamp while it runs, then the stored (turn-end) stamp.
+  // No user message starts an autonomous turn: the previous reply's turn-end
+  // stamp is the boundary. The autonomous reply is unstamped while it runs,
+  // then carries its stored (turn-end) stamp.
   const groups = [group('g1', '2026-01-01T00:04:00.000Z')]
   const live = [
     message('u1', 'user', AT('2026-01-01T00:00:00.000Z')),
-    message('a1', 'assistant'),
-    { ...message('a2', 'assistant', AT('2026-01-01T00:03:00.000Z')), turnOrigin: 'autonomous' },
+    message('a1', 'assistant', AT('2026-01-01T00:01:00.000Z')),
+    { ...message('a2', 'assistant'), turnOrigin: 'autonomous' },
   ] satisfies Message[]
   const stored = [
     message('u1', 'user', AT('2026-01-01T00:00:00.000Z')),

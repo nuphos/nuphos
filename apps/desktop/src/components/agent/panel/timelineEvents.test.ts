@@ -41,6 +41,26 @@ test('a streaming message counts as the newest, and nothing newer trails it', ()
   )
 })
 
+test('an event during an autonomous turn sits before its reply, live and stored', () => {
+  // No user message starts the turn; the previous reply's turn-end stamp is
+  // the boundary, and the autonomous reply is unstamped until read back.
+  const live = [{ id: 'a1', createdAt: 1_000 }, { id: 'a2' }]
+  const stored = [
+    { id: 'a1', createdAt: 1_000 },
+    { id: 'a2', createdAt: 5_000 },
+  ]
+
+  for (const messages of [live, stored]) {
+    const { before, trailing } = placeTimelineEvents(messages, [event('during', 4_000)])
+
+    assert.deepEqual(
+      before.get('a2')?.map((e) => e.text),
+      ['during'],
+    )
+    assert.deepEqual(trailing, [])
+  }
+})
+
 test('an event older than the loaded page waits for earlier history', () => {
   assert.equal(placeTimelineEvents(messages, [event('early', 500)], true).before.size, 0)
 })
