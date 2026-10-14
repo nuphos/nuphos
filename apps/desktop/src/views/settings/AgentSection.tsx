@@ -105,7 +105,13 @@ export function AgentSection({
                 />
               </div>
             </div>
-            <Dialog.Root open={open && selected !== undefined} onOpenChange={setOpen}>
+            {/* Focus stays in the panel, but the page is not scroll-locked: locking it hides
+                the scrollbar and shifts the overview sideways as the panel opens. */}
+            <Dialog.Root
+              open={open && selected !== undefined}
+              onOpenChange={setOpen}
+              modal="trap-focus"
+            >
               <Dialog.Portal container={page}>
                 <Dialog.Backdrop className="absolute inset-0 z-30 bg-black/10 transition-opacity duration-150 motion-reduce:transition-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
                 <Dialog.Popup className="absolute inset-y-0 right-0 z-30 flex w-[min(680px,100%)] flex-col border-l border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/20 outline-none transition-transform motion-reduce:transition-none duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:translate-x-full data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:translate-x-full">

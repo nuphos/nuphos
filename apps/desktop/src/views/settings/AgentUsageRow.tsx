@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { ChevronRight } from 'lucide-react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
@@ -9,11 +10,12 @@ import type { QuotaHistoryRow } from './quotaHistoryRows'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /** Shared by the header and every row so the columns line up. */
-export const AGENT_USAGE_COLUMNS = 'grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px] gap-5'
+export const AGENT_USAGE_COLUMNS =
+  'grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px_16px] gap-5'
 
 /** Fills that read the same in both themes; the theme only remaps the lighter rungs. */
-export const USED_FILL = 'rgb(var(--color-zViolet-500))'
-export const LIMIT_FILL = 'rgb(var(--color-zOrangered-500))'
+export const USED_FILL = 'rgba(var(--color-zViolet-400), 0.8)'
+export const LIMIT_FILL = 'rgba(var(--color-zOrangered-500), 0.7)'
 
 const percent = (value: number) => `${String(Math.round(value))}%`
 
@@ -66,8 +68,8 @@ export function AgentUsageRow({
       type="button"
       onClick={() => onSelect(instance.id)}
       className={clsx(
-        `t-agents-row grid w-full ${AGENT_USAGE_COLUMNS} items-center border-b border-zGray-800/60 px-4 py-2.5 text-left outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-500/60`,
-        selected ? 'bg-zViolet-500/[0.07]' : 'hover:bg-zGray-800/30',
+        `t-agents-row group grid w-full cursor-pointer ${AGENT_USAGE_COLUMNS} items-center border-b border-zGray-800/60 px-4 py-2.5 text-left outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-500/60`,
+        selected ? 'bg-zViolet-500/[0.07]' : 'hover:bg-zGray-800/40',
       )}
     >
       <span className="flex min-w-0 items-center gap-3">
@@ -144,6 +146,13 @@ export function AgentUsageRow({
           </svg>
         )}
       </span>
+      <ChevronRight
+        aria-hidden="true"
+        className={clsx(
+          'h-4 w-4 text-tertiary transition-opacity',
+          selected ? 'opacity-100' : 'opacity-40 group-hover:opacity-100',
+        )}
+      />
     </button>
   )
 }

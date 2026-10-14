@@ -54,7 +54,7 @@ function cellColor(value: number | null): string | undefined {
   if (value >= 100) return LIMIT_FILL
 
   // Starts well above GAP_FILL so a quiet agent never reads as one that did not report.
-  return `rgba(var(--color-zViolet-500), ${String(0.2 + (0.8 * value) / 100)})`
+  return `rgba(var(--color-zViolet-400), ${String(0.18 + (0.57 * value) / 100)})`
 }
 
 function UsageHeatmap({
@@ -114,7 +114,7 @@ function UsageHeatmap({
                 <span
                   key={point.at}
                   title={`${timeLabel(point.at)} · ${point.value === null ? 'No reading' : percent(point.value)}`}
-                  className="h-3 min-w-0 flex-1 rounded-[2px]"
+                  className="aspect-square min-w-0 flex-1 rounded-[2px]"
                   style={{ backgroundColor: cellColor(point.value) }}
                 />
               ))}
@@ -223,6 +223,7 @@ export function RuntimeQuotaHistory({
           <span>Runs on</span>
           <span>Usage</span>
           <span>Last {QUOTA_HISTORY_RANGES[shownRange].label}</span>
+          <span />
         </div>
         {instances.map((instance) => (
           <AgentUsageRow
