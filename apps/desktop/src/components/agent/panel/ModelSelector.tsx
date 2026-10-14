@@ -9,7 +9,7 @@ import { isClaudeCatalog } from '../../../lib/modelGroups'
 
 import { ClaudeModelList } from './ClaudeModelList'
 import { ModelChipLabel } from './ModelChipLabel'
-import { HintTooltip } from './modelControlParts'
+import { HintTooltip, ModelTooltipProvider } from './modelControlParts'
 import { FG_TERTIARY, SURFACE } from './modelControlStyles'
 import { ModelEffortPanel } from './ModelEffortPanel'
 import { ModelListPanel } from './ModelListPanel'
@@ -127,127 +127,128 @@ export function ModelSelector({
   ].filter(Boolean)
 
   return (
-    <Popover.Root
-      open={control.open}
-      onOpenChange={(next, details) => {
-        // Escape from the model list steps back to effort; a second one closes.
-        if (!next && details.reason === 'escape-key' && view === 'models' && effort) {
-          details.cancel()
-          setView('effort')
+    <ModelTooltipProvider>
+      <Popover.Root
+        open={control.open}
+        onOpenChange={(next, details) => {
+          // Escape from the model list steps back to effort; a second one closes.
+          if (!next && details.reason === 'escape-key' && view === 'models' && effort) {
+            details.cancel()
+            setView('effort')
 
-          return
-        }
-        if (next) setView(effort ? 'effort' : 'models')
-        control.setOpen(next)
-      }}
-      // Arrow keys move the effort slider as soon as it shows, as in Codex.
-      onOpenChangeComplete={(open) => {
-        if (open) sliderRef.current?.focus()
-      }}
-    >
-      <HintTooltip label="Select effort" combo={EFFORT_SHORTCUT} disabled={control.open || !effort}>
-        <Popover.Trigger
-          ref={chipRef}
-          data-model-chip=""
-          aria-label={`Model settings: ${[name, level].filter(Boolean).join(' ')}${fast?.currentValue === 'on' ? ', fast mode on' : ''}`}
-          className={clsx(
-            'flex h-[31px] min-w-0 max-w-64 items-center gap-[4px] rounded-full pl-[10.5px] pr-[9px] text-[13.5px] text-main outline-none transition-colors',
-            'hover:bg-[rgba(var(--color-text-base),0.07)] focus-visible:bg-[rgba(var(--color-text-base),0.07)] data-[popup-open]:bg-[rgba(var(--color-text-base),0.07)]',
-          )}
+            return
+          }
+          if (next) setView(effort ? 'effort' : 'models')
+          control.setOpen(next)
+        }}
+        // Arrow keys move the effort slider as soon as it shows, as in Codex.
+        onOpenChangeComplete={(open) => {
+          if (open) sliderRef.current?.focus()
+        }}
+      >
+        <HintTooltip
+          label="Select effort"
+          combo={EFFORT_SHORTCUT}
+          disabled={control.open || !effort}
         >
-          {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-          <ModelChipLabel
-            name={name}
-            level={level}
-            levels={effortLevels}
-            choosingEffort={effortOpen}
-            fast={fast?.currentValue === 'on'}
-          />
-          <ChevronDown
-            size={14}
-            strokeWidth={1.8}
-            className={clsx('ml-[2px] shrink-0', FG_TERTIARY)}
-          />
-        </Popover.Trigger>
-      </HintTooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
-          <Popover.Popup
-            // Closing returns to the message box, so typing carries on.
-            finalFocus={() =>
-              composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ??
-              true
-            }
-            initialFocus={view !== 'effort'}
-            className={clsx(SURFACE, 'model-picker-enter w-[280px] rounded-[16px] outline-none')}
+          <Popover.Trigger
+            ref={chipRef}
+            data-model-chip=""
+            aria-label={`Model settings: ${[name, level].filter(Boolean).join(' ')}${fast?.currentValue === 'on' ? ', fast mode on' : ''}`}
+            className={clsx(
+              'flex h-[31px] min-w-0 max-w-64 items-center gap-[4px] rounded-full pl-[10.5px] pr-[9px] text-[13.5px] text-main outline-none transition-colors',
+              // A filled pill at rest, as Codex's, so opening it changes nothing but the text.
+              'bg-[rgba(var(--color-text-base),0.07)] hover:bg-[rgba(var(--color-text-base),0.1)] focus-visible:bg-[rgba(var(--color-text-base),0.1)]',
+            )}
           >
-            {view === 'effort' && effort && model && (
-              <ModelEffortPanel
-                effort={effort}
-                fast={fast}
-                modelName={name}
-                resetValue={effortResetValue(effort.options, initialEffort[effortKey])}
-                blocked={blocked && !saving}
-                saving={saving}
-                sliderRef={sliderRef}
-                onSelect={select}
-                onOpenModels={() => setView('models')}
-              />
-            )}
-            {(view === 'models' || !effort) &&
-              model &&
-              // Each runtime's list follows its own app: Claude's menu or Codex's.
-              (isClaudeCatalog(model.options) ? (
-                <ClaudeModelList
-                  model={model}
+            {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+            <ModelChipLabel
+              name={name}
+              level={level}
+              levels={effortLevels}
+              choosingEffort={effortOpen}
+              fast={fast?.currentValue === 'on'}
+            />
+            <ChevronDown size={14} strokeWidth={1.8} className={clsx('shrink-0', FG_TERTIARY)} />
+          </Popover.Trigger>
+        </HintTooltip>
+        <Popover.Portal>
+          <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
+            <Popover.Popup
+              // Closing returns to the message box, so typing carries on.
+              finalFocus={() =>
+                composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ??
+                true
+              }
+              initialFocus={view !== 'effort'}
+              className={clsx(SURFACE, 'model-picker-enter w-[280px] rounded-[16px] outline-none')}
+            >
+              {view === 'effort' && effort && model && (
+                <ModelEffortPanel
+                  effort={effort}
                   fast={fast}
-                  blocked={blocked}
-                  onSelect={pickModel}
-                  onBack={effort ? () => setView('effort') : undefined}
-                  onSelectFast={(value) => fast && select(fast.id, value)}
+                  modelName={name}
+                  resetValue={effortResetValue(effort.options, initialEffort[effortKey])}
+                  blocked={blocked && !saving}
+                  saving={saving}
+                  sliderRef={sliderRef}
+                  onSelect={select}
+                  onOpenModels={() => setView('models')}
                 />
-              ) : (
-                <ModelListPanel
-                  model={model}
-                  offerDefault={status === 'dormant'}
-                  blocked={blocked}
-                  onSelect={pickModel}
-                  onBack={effort ? () => setView('effort') : undefined}
-                />
-              ))}
-            {footer.length > 0 && (
-              <div
-                className={clsx(
-                  'mx-[13.5px] border-t border-[rgba(var(--color-text-base),0.06)] py-[8px] text-center text-[12px] leading-[16px]',
-                  model ? '' : 'border-t-0',
-                  FG_TERTIARY,
-                )}
-              >
-                {footer.map((line) => (
-                  <p key={String(line)} role={line === error ? 'alert' : 'status'}>
-                    {line}
-                  </p>
+              )}
+              {(view === 'models' || !effort) &&
+                model &&
+                // Each runtime's list follows its own app: Claude's menu or Codex's.
+                (isClaudeCatalog(model.options) ? (
+                  <ClaudeModelList
+                    model={model}
+                    blocked={blocked}
+                    onSelect={pickModel}
+                    onBack={effort ? () => setView('effort') : undefined}
+                  />
+                ) : (
+                  <ModelListPanel
+                    model={model}
+                    offerDefault={status === 'dormant'}
+                    blocked={blocked}
+                    onSelect={pickModel}
+                    onBack={effort ? () => setView('effort') : undefined}
+                  />
                 ))}
-                {(error || stalled) && (
-                  <button
-                    type="button"
-                    disabled={saving || loading}
-                    onClick={control.refresh}
-                    className="mx-auto mt-[6px] flex items-center gap-[6px] rounded-[6px] px-[8px] py-[3px] text-main hover:bg-[rgba(var(--color-text-base),0.08)] disabled:opacity-50"
-                  >
-                    {loading || saving ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <RefreshCw size={13} />
-                    )}
-                    Retry connection
-                  </button>
-                )}
-              </div>
-            )}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+              {footer.length > 0 && (
+                <div
+                  className={clsx(
+                    'mx-[13.5px] border-t border-[rgba(var(--color-text-base),0.06)] py-[8px] text-center text-[12px] leading-[16px]',
+                    model ? '' : 'border-t-0',
+                    FG_TERTIARY,
+                  )}
+                >
+                  {footer.map((line) => (
+                    <p key={String(line)} role={line === error ? 'alert' : 'status'}>
+                      {line}
+                    </p>
+                  ))}
+                  {(error || stalled) && (
+                    <button
+                      type="button"
+                      disabled={saving || loading}
+                      onClick={control.refresh}
+                      className="mx-auto mt-[6px] flex items-center gap-[6px] rounded-[6px] px-[8px] py-[3px] text-main hover:bg-[rgba(var(--color-text-base),0.08)] disabled:opacity-50"
+                    >
+                      {loading || saving ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <RefreshCw size={13} />
+                      )}
+                      Retry connection
+                    </button>
+                  )}
+                </div>
+              )}
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    </ModelTooltipProvider>
   )
 }
