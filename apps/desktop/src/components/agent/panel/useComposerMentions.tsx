@@ -7,6 +7,7 @@ import { matchDevices, matchMembers, mentionQuery } from './composerMention'
 import { MENTION_ATTR, optionChip } from './composerMentionChips'
 import { MentionPicker } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
+import { useComposerSlashCommands } from './useComposerSlashCommands'
 
 import type { MentionOption } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
@@ -45,6 +46,7 @@ export function useComposerMentions(
   scope?: { teamId: string; sessionId?: string },
   credentials?: Pick<CredentialSelectorControl, 'options' | 'value' | 'onChange'>,
 ) {
+  const slash = useComposerSlashCommands(editorRef, onEdited)
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [query, setQuery] = useState<string | null>(null)
   const [active, setActive] = useState(0)
@@ -104,6 +106,7 @@ export function useComposerMentions(
   }
 
   function onInput() {
+    slash.onInput()
     const el = editorRef.current
     const caret = el && caretText(el)
     const next = caret && scope ? mentionQuery(caret.node.data.slice(0, caret.offset)) : null
@@ -157,6 +160,7 @@ export function useComposerMentions(
 
   /** Handles the picker's keys; true when the key was its to take. */
   function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>): boolean {
+    if (slash.onKeyDown(e)) return true
     // An IME's Enter confirms its candidate, not a member.
     if (matches.length === 0 || e.nativeEvent.isComposing) return false
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -200,6 +204,7 @@ export function useComposerMentions(
   const names = uninvited.map((member) => member.name || member.email)
   const ui = (
     <>
+      {slash.ui}
       <MentionPicker
         allDevices={credentials?.options.devices ?? []}
         options={matches}
