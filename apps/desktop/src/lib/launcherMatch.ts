@@ -47,3 +47,20 @@ export function rankNewTabOptions(options: NewTabOption[], query: string): NewTa
     .sort((a, b) => a.rank - b.rank || (b.option.frecency ?? 0) - (a.option.frecency ?? 0))
     .map((entry) => entry.option)
 }
+
+/** Puts the Open-in-Browser row first, unless an option's label is exactly the
+ *  query (a connector named after its hostname): that option leads and the
+ *  address row comes second, so Enter still opens the connector. */
+export function withAddressOption(
+  ranked: NewTabOption[],
+  address: NewTabOption | null,
+  query: string,
+): NewTabOption[] {
+  if (!address) return ranked
+  const needle = query.trim().toLocaleLowerCase()
+  const exact = ranked.find((option) => option.label.toLocaleLowerCase() === needle)
+
+  if (!exact) return [address, ...ranked]
+
+  return [exact, address, ...ranked.filter((option) => option !== exact)]
+}

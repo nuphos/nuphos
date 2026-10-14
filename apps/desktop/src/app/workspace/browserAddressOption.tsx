@@ -1,13 +1,18 @@
 import { Globe } from 'lucide-react'
 
+import { browserAddressUrl } from '../../lib/browserUrl'
+
 import type { NewTabOption } from '../../lib/launcherMatch'
 
 /** The omnibox row: typed text that reads as an address opens in a Browser tab. */
 export function browserAddressOption(
-  url: string,
+  query: string,
   teamId: string,
   onOpenPath: (href: string, label: string, newTab: boolean) => void,
-): NewTabOption {
+): NewTabOption | null {
+  const url = browserAddressUrl(query)
+
+  if (!url) return null
   const href = `/teams/${encodeURIComponent(teamId)}/browser?${new URLSearchParams({ url })}`
 
   return {

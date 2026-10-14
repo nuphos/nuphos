@@ -7,10 +7,9 @@ import { useSidebarFavorites } from '../../components/sidebar/use-sidebar-favori
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 import { useDockHistory } from '../../hooks/useDockHistory'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
-import { browserAddressUrl } from '../../lib/browserUrl'
 import { groupByConnectorCategory } from '../../lib/connectorCategories'
 import { frecency, searchDockHistory } from '../../lib/dockHistory'
-import { newTabOptionDomId, rankNewTabOptions } from '../../lib/launcherMatch'
+import { newTabOptionDomId, rankNewTabOptions, withAddressOption } from '../../lib/launcherMatch'
 import { TEAM_WORKSPACE_NAV_ITEMS } from '../../lib/teamOverviewNav'
 import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 
@@ -143,14 +142,13 @@ export function WorkspaceNewTabPage({
   const launcherOptions = groups
     .slice(1)
     .flatMap((group) => group.options.map((option) => ({ ...option, detail: group.title })))
-  const addressUrl = onOpenPath ? browserAddressUrl(query) : null
+  const addressOption = onOpenPath ? browserAddressOption(query, teamId, onOpenPath) : null
   // While typing, every group collapses into one list ranked by match, then
-  // frecency, led by an Open-in-Browser row when the text is an address. With
+  // frecency, with an Open-in-Browser row when the text is an address. With
   // an empty query the grouped launcher stays, Recent first.
   const options: NewTabOption[] = searching
-    ? [
-        ...(addressUrl && onOpenPath ? [browserAddressOption(addressUrl, teamId, onOpenPath)] : []),
-        ...rankNewTabOptions(
+    ? withAddressOption(
+        rankNewTabOptions(
           [
             ...launcherOptions.map((option) => ({
               ...option,
@@ -162,7 +160,9 @@ export function WorkspaceNewTabPage({
           ],
           query,
         ),
-      ]
+        addressOption,
+        query,
+      )
     : groups.flatMap((group) => group.options)
   const active = Math.min(activeIndex, options.length - 1)
   const visibleGroups = groups.filter((group) => group.options.length > 0)
