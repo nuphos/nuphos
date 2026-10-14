@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
 import { AGENT_USAGE_COLUMNS, AgentUsageRow, LIMIT_FILL } from './AgentUsageRow'
+import { HeatmapSkeleton } from './AgentUsageSkeleton'
 import { ACCENT_RGB, GAP_FILL, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
@@ -25,6 +26,9 @@ const POLL_MS = 600_000
 const LEGEND_STEPS = [10, 40, 70, 95]
 // Enough cells to read a day at a glance; finer buckets fold into their busiest.
 const MAX_CELLS = 72
+// Each cell keeps at least this much room (with its gap), so a narrow page gets
+// fewer, wider cells rather than dots.
+const MIN_CELL_PX = 11
 
 const percent = (value: number) => `${String(Math.round(value))}%`
 
@@ -37,8 +41,8 @@ function timeLabelFor(range: RuntimeQuotaHistoryRange): (at: number) => string {
     })
 }
 
-function foldCells(points: MetricPoint[]): MetricPoint[] {
-  const size = Math.ceil(points.length / MAX_CELLS)
+function foldCells(points: MetricPoint[], maxCells: number): MetricPoint[] {
+  const size = Math.ceil(points.length / maxCells)
 
   return Array.from({ length: Math.ceil(points.length / size) }, (_, i) => {
     const chunk = points.slice(i * size, (i + 1) * size)
@@ -74,6 +78,20 @@ function UsageHeatmap({
   const timeLabel = timeLabelFor(range)
   const from = nowMs - QUOTA_HISTORY_RANGES[range].hours * 3_600_000
   const ticks = [0, 0.25, 0.5, 0.75].map((f) => from + f * (nowMs - from))
+  const [cells, setCells] = useState<HTMLSpanElement | null>(null)
+  const [cellsWidth, setCellsWidth] = useState(0)
+  const maxCells = cellsWidth
+    ? Math.max(12, Math.min(MAX_CELLS, Math.floor(cellsWidth / MIN_CELL_PX)))
+    : MAX_CELLS
+
+  useEffect(() => {
+    if (!cells) return
+    const observer = new ResizeObserver(([entry]) => setCellsWidth(entry?.contentRect.width ?? 0))
+
+    observer.observe(cells)
+
+    return () => observer.disconnect()
+  }, [cells])
 
   return (
     <div className="mb-4 rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3">
@@ -108,12 +126,15 @@ function UsageHeatmap({
             onClick={() => onSelect(row.instance.id)}
             className="group flex w-full items-center gap-3 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
           >
-            <span className="flex w-40 shrink-0 items-center gap-2 text-[11.5px] text-secondary group-hover:text-main">
+            <span className="flex w-28 shrink-0 items-center gap-2 text-[11.5px] text-secondary group-hover:text-main @3xl:w-40">
               <AgentProviderIcon provider={row.instance.provider} className="h-3 w-3 shrink-0" />
               <span className="truncate">{row.instance.label}</span>
             </span>
-            <span className="flex min-w-0 flex-1 gap-[2px]">
-              {foldCells(row.peak).map((point) => (
+            <span
+              ref={row === rows[0] ? setCells : undefined}
+              className="flex min-w-0 flex-1 gap-[2px]"
+            >
+              {foldCells(row.peak, maxCells).map((point) => (
                 <span
                   key={point.at}
                   title={`${timeLabel(point.at)} · ${point.value === null ? 'No reading' : percent(point.value)}`}
@@ -126,58 +147,15 @@ function UsageHeatmap({
         ))}
       </div>
       <div className="mt-2 flex gap-3 font-mono text-[10.5px] text-tertiary">
-        <span className="w-40 shrink-0" />
+        <span className="w-28 shrink-0 @3xl:w-40" />
         <span className="flex min-w-0 flex-1 justify-between">
-          {ticks.map((at) => (
-            <span key={at}>{timeLabel(at)}</span>
+          {ticks.map((at, i) => (
+            <span key={at} className={i % 2 === 1 ? 'hidden @3xl:inline' : undefined}>
+              {timeLabel(at)}
+            </span>
           ))}
           <span>Now</span>
         </span>
-      </div>
-    </div>
-  )
-}
-
-const SKELETON = 'animate-pulse rounded bg-zGray-800/50 motion-reduce:animate-none'
-
-/** The heatmap card's shape while its history loads, so the table does not jump. */
-function HeatmapSkeleton({ rows }: { rows: number }) {
-  return (
-    <div
-      aria-hidden="true"
-      className="mb-4 rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3"
-    >
-      <div className={`mb-4 h-3.5 w-48 ${SKELETON}`} />
-      <div className="space-y-2">
-        {Array.from({ length: Math.max(rows, 3) }, (_, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <div className={`h-3 w-40 shrink-0 ${SKELETON}`} />
-            <div className={`h-3 min-w-0 flex-1 ${SKELETON}`} />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** The whole overview's shape before the agents themselves have loaded. */
-export function AgentUsageSkeleton() {
-  return (
-    <div aria-busy="true" aria-label="Loading agents">
-      <div className={`mb-2 h-3 w-36 ${SKELETON}`} />
-      <div className={`mb-4 h-3 w-64 ${SKELETON}`} />
-      <HeatmapSkeleton rows={5} />
-      <div aria-hidden="true" className="rounded-xl border border-zGray-800/60 bg-surface/40">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 border-b border-zGray-800/60 px-4 py-3 last:border-b-0"
-          >
-            <div className={`h-8 w-8 shrink-0 rounded-lg ${SKELETON}`} />
-            <div className={`h-3 w-40 ${SKELETON}`} />
-            <div className={`ml-auto h-1.5 w-48 ${SKELETON}`} />
-          </div>
-        ))}
       </div>
     </div>
   )
@@ -231,7 +209,7 @@ export function RuntimeQuotaHistory({
   const shownRange = loaded?.range ?? range
 
   return (
-    <section className="mb-10">
+    <section className="@container mb-10">
       <PanelHeading
         title="Subscription usage"
         hint={`Highest share of each plan window used per ${QUOTA_HISTORY_RANGES[shownRange].bucketLabel}`}
@@ -269,9 +247,9 @@ export function RuntimeQuotaHistory({
           className={`grid ${AGENT_USAGE_COLUMNS} border-b border-zGray-800/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary`}
         >
           <span>Agent</span>
-          <span>Runs on</span>
+          <span className="hidden @3xl:block">Runs on</span>
           <span>Usage</span>
-          <span>Last {QUOTA_HISTORY_RANGES[shownRange].label}</span>
+          <span className="hidden @3xl:block">Last {QUOTA_HISTORY_RANGES[shownRange].label}</span>
           <span />
         </div>
         {instances.map((instance) => (

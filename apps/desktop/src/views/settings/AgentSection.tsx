@@ -9,7 +9,8 @@ import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
 
 import { AddAgentDialog } from './AddAgentDialog'
 import { RuntimeInstanceCard } from './RuntimeInstanceCard'
-import { AgentUsageSkeleton, RuntimeQuotaHistory } from './RuntimeQuotaHistory'
+import { AgentUsageSkeleton } from './AgentUsageSkeleton'
+import { RuntimeQuotaHistory } from './RuntimeQuotaHistory'
 
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'

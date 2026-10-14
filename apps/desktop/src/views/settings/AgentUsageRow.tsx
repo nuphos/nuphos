@@ -13,7 +13,7 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /** Shared by the header and every row so the columns line up. */
 export const AGENT_USAGE_COLUMNS =
-  'grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px_16px] gap-5'
+  'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_16px] gap-5 @3xl:grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px_16px]'
 
 /** Usage fills match MetricChart's violet; the used-up orange is a token the theme leaves alone. */
 export const USED_FILL = `rgb(${ACCENT_RGB})`
@@ -84,11 +84,11 @@ export function AgentUsageRow({
             At limit
           </span>
         )}
-        <span className="ml-auto shrink-0 text-[11px] text-tertiary">
+        <span className="ml-auto hidden shrink-0 text-[11px] text-tertiary @3xl:inline">
           {AGENT_PROVIDER[instance.provider].label}
         </span>
       </span>
-      <span className="flex items-center gap-1.5 text-[12px] text-secondary">
+      <span className="hidden items-center gap-1.5 text-[12px] text-secondary @3xl:flex">
         <span
           className={clsx(
             'h-1.5 w-1.5 rounded-full',
@@ -129,7 +129,7 @@ export function AgentUsageRow({
           ))
         )}
       </span>
-      <span className="h-6">
+      <span className="hidden h-6 @3xl:block">
         {row && (
           <svg
             aria-hidden="true"
