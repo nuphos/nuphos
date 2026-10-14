@@ -7,12 +7,14 @@ import { useSidebarFavorites } from '../../components/sidebar/use-sidebar-favori
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 import { useDockHistory } from '../../hooks/useDockHistory'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { browserAddressUrl } from '../../lib/browserUrl'
 import { groupByConnectorCategory } from '../../lib/connectorCategories'
 import { frecency, searchDockHistory } from '../../lib/dockHistory'
 import { newTabOptionDomId, rankNewTabOptions } from '../../lib/launcherMatch'
 import { TEAM_WORKSPACE_NAV_ITEMS } from '../../lib/teamOverviewNav'
 import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 
+import { browserAddressOption } from './browserAddressOption'
 import { HistoryIcon, LauncherIcon, NewTabGroupSection, NewTabOptionRow } from './NewTabOptions'
 
 import type { Item, Section } from '../../components/sidebar/types'
@@ -141,21 +143,26 @@ export function WorkspaceNewTabPage({
   const launcherOptions = groups
     .slice(1)
     .flatMap((group) => group.options.map((option) => ({ ...option, detail: group.title })))
+  const addressUrl = onOpenPath ? browserAddressUrl(query) : null
   // While typing, every group collapses into one list ranked by match, then
-  // frecency. With an empty query the grouped launcher stays, Recent first.
+  // frecency, led by an Open-in-Browser row when the text is an address. With
+  // an empty query the grouped launcher stays, Recent first.
   const options: NewTabOption[] = searching
-    ? rankNewTabOptions(
-        [
-          ...launcherOptions.map((option) => ({
-            ...option,
-            frecency: recent.find((entry) => sameTitle(entry, option))?.frecency,
-          })),
-          ...searchDockHistory(history, query, now)
-            .map(historyOption)
-            .filter((entry) => !launcherOptions.some((option) => sameTitle(entry, option))),
-        ],
-        query,
-      )
+    ? [
+        ...(addressUrl && onOpenPath ? [browserAddressOption(addressUrl, teamId, onOpenPath)] : []),
+        ...rankNewTabOptions(
+          [
+            ...launcherOptions.map((option) => ({
+              ...option,
+              frecency: recent.find((entry) => sameTitle(entry, option))?.frecency,
+            })),
+            ...searchDockHistory(history, query, now)
+              .map(historyOption)
+              .filter((entry) => !launcherOptions.some((option) => sameTitle(entry, option))),
+          ],
+          query,
+        ),
+      ]
     : groups.flatMap((group) => group.options)
   const active = Math.min(activeIndex, options.length - 1)
   const visibleGroups = groups.filter((group) => group.options.length > 0)

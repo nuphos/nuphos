@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { BROWSER_HOME_URL, normalizeBrowserUrl } from './browserUrl.ts'
+import { BROWSER_HOME_URL, browserAddressUrl, normalizeBrowserUrl } from './browserUrl.ts'
 
 test('browser accepts web addresses and local development servers', () => {
   for (const [input, expected] of [
@@ -32,4 +32,16 @@ test('search text and privileged schemes never become executable navigation', ()
       `https://www.google.com/search?q=${encodeURIComponent(input)}`,
     )
   }
+})
+
+test('typed addresses resolve to a URL; plain words and searches do not', () => {
+  for (const [input, expected] of [
+    ['http://127.0.0.1:8787/index.html', 'http://127.0.0.1:8787/index.html'],
+    ['localhost:3000', 'http://localhost:3000'],
+    ['nuphos.ai', 'https://nuphos.ai'],
+    [' docs.nuphos.ai/guide ', 'https://docs.nuphos.ai/guide'],
+  ])
+    assert.equal(browserAddressUrl(input), expected)
+  for (const input of ['', 'terminal', 'aws billing', 'nuphos.ai docs', '999.168.1.1'])
+    assert.equal(browserAddressUrl(input), null)
 })
