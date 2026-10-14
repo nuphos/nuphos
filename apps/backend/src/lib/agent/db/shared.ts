@@ -76,10 +76,10 @@ export type AgentConversation = {
   transcriptUpdatedAt?: Date
   createdAt: Date
   lastActiveAt: Date
-  // Owner-set archive marker. Archived conversations stay fully intact and
+  // Archive marker, set by the owner or a manager. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
-  // When the owner last un-archived it by hand. The idle sweep counts from
+  // When it was last un-archived by hand. The idle sweep counts from
   // here as well as from lastActiveAt, so a restored conversation is not
   // filed away again an hour later.
   archiveRestoredAt?: Date
@@ -104,8 +104,8 @@ export type AgentConversation = {
   compactionSummary?: string
   compactionMessageCount?: number
   parentSessionId?: string // Opener via create_thread; the sidebar nests under it until unlinked.
-  // Native Mongo parent reference. Legacy vendor fields remain untouched in
-  // stored documents but are not read or reused by the native tracer.
+  createdBySessionId?: string // The create_thread opener. Set once; parentSessionId can change.
+  // Native Mongo parent reference. Legacy vendor fields stay stored but unused.
   conversationTraceParent?: string
   credentialAccess?: AgentCredentialAccess
   // Execution runtime is chosen once when the conversation is created and is

@@ -13,13 +13,11 @@ export function QueuedStrip({
   onRemove,
   onSteer,
   sidebar = false,
-  canSend = false,
   canSteer = false,
 }: {
   items: QueuedMessage[]
   onRemove: (queuedId: string) => void
   onSteer: (queuedId: string) => void
-  canSend?: boolean
   canSteer?: boolean
   sidebar?: boolean
 }) {
@@ -67,7 +65,7 @@ export function QueuedStrip({
               <button
                 type="button"
                 onClick={() => onSteer(item.id)}
-                disabled={!(canSend || canSteer) || item.steering}
+                disabled={item.steering || (item.autoSend && !canSteer)}
                 className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-zGray-800 enabled:hover:text-main disabled:opacity-40"
                 title="Send draft"
                 aria-label="Send draft"

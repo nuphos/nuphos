@@ -1,17 +1,18 @@
-import clsx from 'clsx'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
-import { Avatar } from '../../Avatar'
 import { AppAlertDialog } from '../../ui/alert-dialog'
 
-import { matchMembers, mentionQuery } from './composerMention'
+import { matchDevices, matchMembers, mentionQuery } from './composerMention'
+import { MENTION_ATTR, optionChip } from './composerMentionChips'
+import { MentionPicker } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
 
+import type { MentionOption } from './composerMentionChips'
+import type { CredentialSelectorControl } from './credentialSections'
+import type { AgentConversation } from '../../../api/agent-types'
 import type { TeamMember } from '../../../types'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-
-const MENTION_ATTR = 'data-mention-user-id'
 
 /** The text node the caret sits in and the text before it, when inside `el`. */
 function caretText(el: HTMLElement): { node: Text; offset: number } | null {
@@ -30,21 +31,50 @@ function mentionedUserIds(el: HTMLElement | null): string[] {
 }
 
 /**
- * `@` mentions of teammates in the composer: an autocomplete while typing, a
- * chip that sends as `@Name`, and — like Slack — an offer to invite anyone
- * mentioned who is not in the session yet, asked after the message is sent so
- * the message itself never waits on it.
+ * `@` mentions in the composer: an autocomplete while typing over teammates
+ * and the viewer's own other sessions. A teammate becomes a chip that sends as
+ * `@Name` and — like Slack — an offer to invite anyone mentioned who is not in
+ * the session yet, asked after the message is sent so the message itself never
+ * waits on it. A session becomes the same link chip a pasted session URL does,
+ * so the agent receives its canonical link and can read it. A device sends as
+ * `@Label` and is turned on for the session, so the agent may run on it.
  */
 export function useComposerMentions(
   editorRef: RefObject<HTMLDivElement | null>,
   onEdited: () => void,
   scope?: { teamId: string; sessionId?: string },
+  credentials?: Pick<CredentialSelectorControl, 'options' | 'value' | 'onChange'>,
 ) {
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [query, setQuery] = useState<string | null>(null)
   const [active, setActive] = useState(0)
+  const [anchor, setAnchor] = useState<{
+    getBoundingClientRect: () => DOMRect
+    contextElement: HTMLElement
+  } | null>(null)
   const [uninvited, setUninvited] = useState<TeamMember[]>([])
-  const matches = query === null || !members ? [] : matchMembers(members, query)
+  // Tagged with the query they answer, so a list for an earlier keystroke is
+  // never shown (or picked) under a later one.
+  const [sessions, setSessions] = useState<{ query: string; list: AgentConversation[] }>()
+  // The query last asked about. A slow answer for an earlier keystroke can
+  // land after the latest one's and would otherwise replace it.
+  const asked = useRef<string | null>(null)
+  const matches: MentionOption[] =
+    query === null
+      ? []
+      : [
+          ...(members ? matchMembers(members, query) : []).map((member): MentionOption => ({
+            kind: 'member',
+            member,
+          })),
+          ...matchDevices(credentials?.options.devices ?? [], query).map(
+            (device): MentionOption => ({ kind: 'device', device }),
+          ),
+          ...(sessions?.query === query ? sessions.list : []).map((session): MentionOption => ({
+            kind: 'session',
+            session,
+          })),
+        ]
 
   function loadMembers() {
     if (members || !scope) return
@@ -55,6 +85,24 @@ export function useComposerMentions(
       .catch(() => setMembers(null))
   }
 
+  /** The viewer's own sessions matching the query, newest activity first. */
+  function loadSessions(next: string) {
+    if (!scope) return
+    asked.current = next
+    api
+      .agentListConversations(scope.teamId, { scope: 'mine', search: next || undefined, limit: 6 })
+      .then((page) => {
+        if (asked.current !== next) return
+        setSessions({
+          query: next,
+          list: page.conversations
+            .filter((session) => session.sessionId !== scope.sessionId)
+            .slice(0, 5),
+        })
+      })
+      .catch(() => setSessions(undefined))
+  }
+
   function onInput() {
     const el = editorRef.current
     const caret = el && caretText(el)
@@ -62,25 +110,39 @@ export function useComposerMentions(
 
     setQuery(next)
     setActive(0)
-    if (next !== null) loadMembers()
+    if (next === null || !el || !caret) return
+    const range = document.createRange()
+
+    range.setStart(caret.node, caret.offset)
+    range.collapse(true)
+    setAnchor({ getBoundingClientRect: () => range.getBoundingClientRect(), contextElement: el })
+    loadMembers()
+    loadSessions(next)
   }
 
-  function select(member: TeamMember) {
+  function select(option: MentionOption) {
     const el = editorRef.current
     const caret = el && caretText(el)
 
-    if (!caret || query === null) return
+    if (!caret || query === null || !scope) return
     const range = document.createRange()
 
     range.setStart(caret.node, caret.offset - query.length - 1)
     range.setEnd(caret.node, caret.offset)
     range.deleteContents()
-    const chip = document.createElement('span')
+    const chip = optionChip(option, scope.teamId)
 
-    chip.contentEditable = 'false'
-    chip.setAttribute(MENTION_ATTR, member.id)
-    chip.className = 'rounded px-0.5 font-medium text-zViolet-accent bg-zViolet-accent/10'
-    chip.textContent = `@${member.name || member.email}`
+    if (
+      option.kind === 'device' &&
+      credentials &&
+      !credentials.value.deviceIds.includes(option.device.deviceId)
+    ) {
+      credentials.onChange({
+        ...credentials.value,
+        deviceIds: [...credentials.value.deviceIds, option.device.deviceId],
+      })
+    }
+
     range.insertNode(chip)
     const trailing = document.createTextNode(' ')
 
@@ -138,42 +200,14 @@ export function useComposerMentions(
   const names = uninvited.map((member) => member.name || member.email)
   const ui = (
     <>
-      {matches.length > 0 && (
-        // The menu dropdown transition (t-dropdown) the app's menus use, growing
-        // up from the composer's left edge.
-        <div
-          role="listbox"
-          data-origin="bottom-left"
-          className="t-dropdown is-open absolute bottom-full left-0 z-20 mb-2 w-[280px] overflow-hidden rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]"
-        >
-          {matches.map((member, index) => (
-            <div
-              key={member.id}
-              role="option"
-              aria-selected={index === active}
-              className={clsx(
-                'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px]',
-                index === active && 'bg-zGray-800/60',
-              )}
-              // Keep focus (and the caret) in the editor.
-              onMouseDown={(e) => {
-                e.preventDefault()
-                select(member)
-              }}
-              onMouseEnter={() => setActive(index)}
-            >
-              <Avatar
-                src={member.avatarURL}
-                name={member.name}
-                size={18}
-                className="rounded-full"
-              />
-              <span className="truncate text-main">{member.name || member.email}</span>
-              <span className="ml-auto truncate text-[11.5px] text-tertiary">{member.email}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <MentionPicker
+        options={matches}
+        active={active}
+        anchor={anchor}
+        onSelect={select}
+        onActive={setActive}
+        onClose={() => setQuery(null)}
+      />
       <AppAlertDialog
         open={uninvited.length > 0}
         title={

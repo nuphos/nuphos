@@ -1,6 +1,7 @@
 import { clsx } from 'clsx'
 import { createPortal } from 'react-dom'
 
+import { ChatLinkMenuContext } from '../../components/agent/chatLinkMenuContext'
 import { ConfettiBurst } from '../../components/ConfettiBurst'
 import { PortForwardBottomBar } from '../../components/PortForwardBottomBar'
 import { ShortcutsHelpModal } from '../../components/ShortcutsHelpModal'
@@ -198,7 +199,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
   }
 
   return (
-    <>
+    <ChatLinkMenuContext.Provider value={ws.chatLinkMenuActions}>
       <div
         className={clsx(
           'flex h-full flex-col text-main overflow-hidden',
@@ -255,6 +256,6 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
       {invitationTakeover}
       {/* Play a new-workspace celebration once. */}
       {landingCelebration && <ConfettiBurst onDone={() => setLandingCelebration(false)} />}
-    </>
+    </ChatLinkMenuContext.Provider>
   )
 }

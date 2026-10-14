@@ -178,6 +178,7 @@ export function AgentHomePage({
                   dropRegisterRef={dropRegisterRef}
                   draftKey={composerDraftKey(teamId)}
                   onImportSession={onImportSession}
+                  mentionScope={teamId ? { teamId } : undefined}
                 />
               </div>
               {firstRun && !stripDismissed && (

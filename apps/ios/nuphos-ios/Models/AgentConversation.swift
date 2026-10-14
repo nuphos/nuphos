@@ -45,6 +45,9 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     let owner: Owner?
     let isOwner: Bool?
     let readOnly: Bool?
+    /// The owner, or a teammate invited to manage it: may switch the mode and
+    /// the agent, and archive it.
+    let canManage: Bool
     let tokenUsage: TokenUsage?
     let activitySource: ActivitySource?
     /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
@@ -73,7 +76,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 
     var isArchived: Bool { archivedAt != nil }
-    var canManage: Bool { isOwner == true && readOnly != true }
+    var ownsChat: Bool { isOwner == true && readOnly != true }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -88,6 +91,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         owner = try c.decodeIfPresent(Owner.self, forKey: .owner)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
+        canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage) ?? (isOwner == true && readOnly != true)
         tokenUsage = try c.decodeIfPresent(TokenUsage.self, forKey: .tokenUsage)
         activitySource = try c.decodeIfPresent(ActivitySource.self, forKey: .activitySource)
         agentRuntime = try c.decodeIfPresent(String.self, forKey: .agentRuntime)
@@ -120,6 +124,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.owner = owner
         self.isOwner = isOwner
         self.readOnly = readOnly
+        canManage = isOwner == true && readOnly != true
         self.tokenUsage = tokenUsage
         self.activitySource = activitySource
         self.agentRuntime = agentRuntime
@@ -153,6 +158,17 @@ struct SessionResource: Decodable, Identifiable, Equatable, Sendable {
     }
 }
 
+extension Array where Element == AgentConversation {
+    /// A fresh first page over the rows already listed: page one as the
+    /// server returns it, then the later rows it no longer covers. Nothing a
+    /// refresh misses is dropped, so a chat that leaves the list has to be
+    /// removed by whoever took it out.
+    func refreshed(firstPage: [AgentConversation]) -> [AgentConversation] {
+        let ids = Set(firstPage.map(\.sessionId))
+        return firstPage + filter { !ids.contains($0.sessionId) }
+    }
+}
+
 struct AgentConversationsPage: Codable, Sendable {
     let conversations: [AgentConversation]
     let nextCursor: String?
@@ -179,8 +195,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     let activeRun: ActiveRun?
     let runtimeState: JSONValue?
     let isOwner: Bool?
-    /// `owner` | `manage` | `reply` | `view`.
-    let access: String?
+    let canManage: Bool?
     let readOnly: Bool?
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
@@ -194,7 +209,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     let timelineEvents: [TimelineEvent]
 
     private enum CodingKeys: String, CodingKey {
-        case isOwner, access, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
+        case isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
     }
 
     init(from decoder: Decoder) throws {
@@ -204,7 +219,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         activeRun = try? c.decodeIfPresent(ActiveRun.self, forKey: .activeRun)
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
-        access = try? c.decodeIfPresent(String.self, forKey: .access)
+        canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)

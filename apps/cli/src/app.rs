@@ -61,8 +61,9 @@ const PROVIDERS: [(&str, &str); 5] = [
 /// How long a sign-in may take, from starting the agent to the browser.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const COMMANDS: [(&str, &str); 8] = [
+const COMMANDS: [(&str, &str); 9] = [
     ("/model", "choose the model and reasoning effort"),
+    ("/full-access", "allow the agent's actions without asking, or ask again"),
     ("/team", "switch to another team"),
     ("/agents", "choose, add or sign in the agents this team runs on"),
     ("/new", "start a new conversation"),
@@ -136,6 +137,8 @@ pub struct App {
     model_label: Option<String>,
     /// Model settings picked for a conversation not started yet.
     new_pick: Value,
+    /// Full Access: the agent's permission requests are allowed without asking.
+    full_access: bool,
 
     session_id: String,
     /// No message sent yet: the conversation does not exist on the server.
@@ -207,6 +210,7 @@ impl App {
     /// welcome screen.
     pub fn new(api: Api, prefs: Prefs) -> Self {
         let (tx, rx) = unbounded_channel();
+        let full_access = prefs.full_access;
         let (apply_tx, apply_rx) = unbounded_channel();
         App {
             api,
@@ -220,6 +224,7 @@ impl App {
             new_pick: json!({}),
             session_id: String::new(),
             is_new: true,
+            full_access,
             messages: Vec::new(),
             base_index: 0,
             assistant: None,
@@ -712,7 +717,9 @@ impl App {
     /// `❯` and the draft in a rounded box, with the agent and model set into
     /// its bottom border.
     fn draw_composer(&self, f: &mut Frame, area: Rect) {
-        let label = format!(" {} · {} ", self.agent_label(), self.model_label.as_deref().unwrap_or("default model"));
+        let mode = if self.full_access { " · full access" } else { "" };
+        let label =
+            format!(" {} · {}{mode} ", self.agent_label(), self.model_label.as_deref().unwrap_or("default model"));
         let block = Block::bordered()
             .border_type(BorderType::Rounded)
             .border_style(dim())
@@ -1031,6 +1038,7 @@ impl App {
             self.notice = None;
             match command {
                 Some("/model") => self.open_model_picker(),
+                Some("/full-access") => self.toggle_full_access(),
                 Some("/agents") => self.open_agents(),
                 Some("/team") => self.open_team_picker(),
                 Some("/new") => self.new_conversation(),
@@ -1082,6 +1090,32 @@ impl App {
         self.runtime = self.default_runtime();
         self.model_label = None;
         self.new_pick = json!({});
+        self.full_access = self.prefs.full_access;
+    }
+
+    /// `/full-access`: a new conversation starts in the picked mode; an
+    /// existing one switches on the server. Either way it becomes the mode new
+    /// conversations start in, as on the desktop.
+    fn toggle_full_access(&mut self) {
+        let next = !self.full_access;
+        let done = move |app: &mut App| {
+            app.full_access = next;
+            app.prefs.full_access = next;
+            config::write_prefs(&app.prefs);
+            app.notice = Some(if next { "Full Access is on." } else { "Full Access is off." }.into());
+        };
+        if self.is_new {
+            return done(self);
+        }
+        let (api, session) = (self.api.clone(), self.session_id.clone());
+        self.background(true, async move {
+            let result = api.set_full_access(&session, next).await;
+            Box::new(move |app: &mut App| match result {
+                Ok(_) if app.session_id == session => done(app),
+                Ok(_) => {}
+                Err(e) => app.notice = Some(format!("Could not update Full Access: {}", e.message)),
+            }) as Apply
+        });
     }
 
     fn send(&mut self, text: &str) {
@@ -1095,7 +1129,7 @@ impl App {
         self.is_new = false;
         let mut body = self.chat_body();
         if first {
-            body["permissionMode"] = json!("auto");
+            body["permissionMode"] = json!(if self.full_access { "bypass" } else { "auto" });
             if let Some(runtime) = &self.runtime {
                 body["runtimeId"] = runtime["id"].clone();
                 body["agentRuntime"] = runtime["provider"].clone();
@@ -1781,9 +1815,21 @@ impl App {
         self.background(false, async move {
             let detail = api.conversation(&team, &id).await;
             let config = api.model_config(&team, &id).await.ok();
+            // Only the owner and managers may read or change their mode in a conversation.
+            let manager = detail.as_ref().is_ok_and(|d| d["canManage"] == true);
+            let full_access = if manager { Some(api.full_access(&id).await) } else { None };
             Box::new(move |app: &mut App| {
                 if app.session_id == id {
                     app.loading = false;
+                    app.full_access = match full_access {
+                        None => false,
+                        Some(Ok(v)) => v["bypass"].as_bool().unwrap_or(false),
+                        // The border is the only sign of Full Access; never let it be silently wrong.
+                        Some(Err(e)) => {
+                            app.notice = Some(format!("Could not read whether Full Access is on: {}", e.message));
+                            false
+                        }
+                    };
                     app.show_conversation(detail, config);
                 }
             }) as Apply

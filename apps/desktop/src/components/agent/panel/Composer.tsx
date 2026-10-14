@@ -127,7 +127,7 @@ export function Composer({
   })
 
   useComposerDraft(state, readOnly ? undefined : draftKey)
-  const mentions = useComposerMentions(state.ref, state.syncEmpty, mentionScope)
+  const mentions = useComposerMentions(state.ref, state.syncEmpty, mentionScope, credentialSelector)
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,

@@ -7,7 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import ai.nuphos.android.data.*
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.agent.RuntimeSetupSheet
-import ai.nuphos.android.ui.agent.AgentSelectionButton
+import ai.nuphos.android.ui.agent.AgentChip
 import ai.nuphos.android.ui.theme.NuphosTheme
 import kotlinx.coroutines.*
 import okhttp3.*
@@ -124,11 +124,11 @@ class RuntimeSetupFixtureDeviceTest {
     }
     @Test fun homeSelectionLabelUpdatesAndDoesNotShowUnavailableAgent() {
         selection.saveCatalog(listOf(AgentRuntime("computer", "codex", "My laptop", "active", "local")))
-        compose.setContent { NuphosTheme { AgentSelectionButton(selection, true, {}) } }
+        compose.setContent { NuphosTheme { AgentChip(selection, true, {}) } }
         compose.onNodeWithText("Choose an Agent").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Agent for new chats").assertIsDisplayed()
         compose.runOnIdle { assertTrue(selection.select("computer")) }
         compose.onNodeWithText("My laptop").assertIsDisplayed()
-        compose.onNodeWithText("Codex · Change Agent").assertIsDisplayed()
         compose.runOnIdle { selection.saveCatalog(emptyList()) }
         compose.onNodeWithText("Choose an available Agent").assertIsDisplayed()
         compose.onNodeWithText("My laptop").assertDoesNotExist()

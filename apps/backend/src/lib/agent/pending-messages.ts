@@ -9,6 +9,8 @@ import { config } from '@/config'
 import { logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
 
+import { wakeUpKey } from './pending-message-types'
+
 export { renderInjectedUserMessages } from './pending-message-render'
 
 export type { PendingUserMessage } from './pending-message-types'
@@ -71,6 +73,7 @@ export async function enqueuePendingUserMessage(
   message: PendingUserMessage,
 ): Promise<boolean> {
   const key = pendingKey(userId, sessionId)
+  const wakeUp = wakeUpKey(message)
 
   // Read from config rather than lib/redis's helper: that helper is mocked
   // process-wide by another suite, and this decision must not depend on which
@@ -78,6 +81,7 @@ export async function enqueuePendingUserMessage(
   if (!config.redis.enabled) {
     const queue = localQueues.get(key) ?? []
 
+    if (wakeUp && queue.some((parked) => wakeUpKey(parked) === wakeUp)) return true
     if (queue.length >= PENDING_MAX) return false
     queue.push(message)
     localQueues.set(key, queue)
@@ -87,6 +91,14 @@ export async function enqueuePendingUserMessage(
   const stored = await tryRedis((c) =>
     c.eval(
       `
+        for _, raw in ipairs(ARGV[4] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
+          local ok, item = pcall(cjson.decode, raw)
+          if ok and type(item) == 'table' and item.source == 'agent.resource'
+            and type(item.metadata) == 'table'
+            and tostring(item.metadata.resourceUrl) .. ' ' .. tostring(item.renderedText) == ARGV[4] then
+            return redis.call('EXPIRE', KEYS[1], ARGV[3])
+          end
+        end
         if redis.call('LLEN', KEYS[1]) >= tonumber(ARGV[2]) then
           return 0
         end
@@ -99,6 +111,7 @@ export async function enqueuePendingUserMessage(
       JSON.stringify(message),
       PENDING_MAX,
       PENDING_TTL_SEC,
+      wakeUp,
     ),
   )
 
@@ -246,17 +259,7 @@ export async function hasPendingUserMessages(
     const matchesActor = (message: PendingUserMessage) =>
       message.actorUserId === actorUserId || (!message.actorUserId && allowActorless)
 
-    if ((localQueues.get(key) ?? []).some(matchesActor)) return true
-    const raw = await tryRedis((c) => c.lrange(key, 0, -1))
-
-    return (Array.isArray(raw) ? raw : []).some((value) => {
-      if (typeof value !== 'string') return false
-      try {
-        return matchesActor(JSON.parse(value) as PendingUserMessage)
-      } catch {
-        return false
-      }
-    })
+    return await someParked(key, matchesActor)
   }
 
   if ((localQueues.get(key)?.length ?? 0) > 0) return true
@@ -271,9 +274,10 @@ export async function hasPendingUserMessage(
   sessionId: string,
   messageId: string,
 ): Promise<boolean> {
-  const key = pendingKey(userId, sessionId)
-  const matches = (message: PendingUserMessage) => message.id === messageId
+  return await someParked(pendingKey(userId, sessionId), (message) => message.id === messageId)
+}
 
+async function someParked(key: string, matches: (message: PendingUserMessage) => boolean) {
   if ((localQueues.get(key) ?? []).some(matches)) return true
   const raw = await tryRedis((c) => c.lrange(key, 0, -1))
 

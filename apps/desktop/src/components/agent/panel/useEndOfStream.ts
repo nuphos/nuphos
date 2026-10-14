@@ -143,8 +143,8 @@ export function useEndOfStream(acc: Acc) {
   )
 
   // Drains the end-of-stream side effects whose updater ran during a render
-  // instead of inside setTabs. No dep array: this must run after every commit,
-  // because the commit is what proves the updater has produced its decisions.
+  // instead of inside setTabs. No dep array: this must run after every commit.
+  // An effect whose updater has not run yet queues itself again (endEvent.ts).
   useEffect(() => {
     const queued = pendingEndEffectsRef.current
 

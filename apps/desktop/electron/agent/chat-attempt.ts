@@ -98,7 +98,8 @@ export async function postChatAttempt(
         agentRuntime: args.agentRuntime,
         runtimeId: args.runtimeId,
         initialSessionConfig: args.initialSessionConfig,
-        clientCapabilities: { localTools: true },
+        // A runtime refusal parks the draft and sends it again (parkRefusedTurn).
+        clientCapabilities: { localTools: true, resendsRefusal: true },
         // Only the very first POST of an auto-resumed run carries the
         // nudge; subsequent reconnects within that same run are
         // transport-level resumes against an already-running agent loop

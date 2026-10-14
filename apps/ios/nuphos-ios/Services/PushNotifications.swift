@@ -5,12 +5,18 @@ import UserNotifications
 import UIKit
 #endif
 
-/// A conversation a notification points at.
+/// A conversation a notification or a session link points at.
 struct PushTarget: Equatable, Hashable, Identifiable {
     let teamId: String
     let sessionId: String
     let title: String
     var id: String { "\(teamId)/\(sessionId)" }
+
+    init(teamId: String, sessionId: String, title: String = "Chat") {
+        self.teamId = teamId
+        self.sessionId = sessionId
+        self.title = title
+    }
 
     nonisolated init?(userInfo: [AnyHashable: Any]) {
         guard let teamId = userInfo["teamId"] as? String, !teamId.isEmpty,

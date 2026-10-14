@@ -1,7 +1,8 @@
 # App Store screenshots
 
-The HTML that the iPhone 6.9" App Store screenshots (1320×2868, no alpha) are rendered from. The
-finished images are not kept in git; the current set is on the CDN:
+The HTML that the App Store screenshots are rendered from: iPhone 6.9" (1320×2868) and iPad 13"
+(2064×2752), both without alpha. The finished images are not kept in git; the current iPhone set is
+on the CDN, and the iPad set is the same four under `ipad/`:
 
 | Image                                         | Message                                      | What is lifted out of the screen                   |
 | --------------------------------------------- | -------------------------------------------- | -------------------------------------------------- |
@@ -16,15 +17,31 @@ macOS only: the port relies on SF Pro, SF Symbols and Georgia, and renders with 
 Google Chrome.
 
 ```sh
-bash setup.sh    # once: playwright-core, SF Symbols, hero frames -> build/
-node compose.mjs  # writes build/screenshots/*.png and build/html/*.html
+bash setup.sh          # once: playwright-core, SF Symbols, hero frames -> build/
+node compose.mjs        # iPhone: writes build/screenshots/*.png and build/html/*.html
+node compose.mjs ipad   # iPad: writes build/screenshots/ipad/*.png
 ```
+
+The app has no iPad-specific layout, so the iPad set renders the same ported screens at the 13"
+iPad's 1032×1376 points: rows and controls stretch to the full width, the agent picker is a
+centered form sheet, and messages no longer wrap, so the transcript flows instead of using the
+iPhone capture's y positions.
 
 `setup.sh` captures the background from the live nuphos.ai hero shader, which animates, so a fresh
 `build/` gives slightly different backgrounds than the published images.
 
 After re-rendering, upload `build/screenshots/*.png` over the files in the `cdn` R2 bucket under
-`nuphos/app-store/ios/en-US/`, which `cdn.zeabur.com` serves.
+`nuphos/app-store/ios/en-US/` (and `build/screenshots/ipad/*.png` under `.../en-US/ipad/`), which
+`cdn.zeabur.com` serves.
+
+[`published.txt`](published.txt) lists the published images in App Store order, one
+`<display type>  <sha256>  <url>` per line (`shasum -a 256 <file>`), where the display type is the
+`asc --device-type` of the set the image belongs to. A release fails if a download does not match
+its hash, so update the hash whenever an image is replaced. Every iOS release (`release-ios.yml`)
+downloads them, replaces each listed set on the version, and submits for review only if the
+version's screenshots then match this file exactly: no other set, and the same files in the same
+order in each. Add, remove or reorder a screenshot by editing that file; the next release picks it
+up.
 
 ## Files
 
