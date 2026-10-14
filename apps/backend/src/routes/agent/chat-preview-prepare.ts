@@ -260,7 +260,6 @@ export async function preparePreviewTurn(
   }
 }
 
-/** The carried queue as transcript messages (empty when nothing was queued). */
 /** A channel message is answered in its channel, so only a turn there takes it. */
 export function drainTurnQueue(
   userId: string,
@@ -276,6 +275,7 @@ export function drainTurnQueue(
   )
 }
 
+/** The carried queue as transcript messages (empty when nothing was queued). */
 export function carriedUserMessages(carried: PendingUserMessage[]): UIMessage[] {
   return carried.map((entry) => ({
     id: entry.id,

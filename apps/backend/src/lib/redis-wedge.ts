@@ -2,7 +2,9 @@ import type Redis from 'ioredis'
 
 // ioredis keeps a half-open socket "connected" indefinitely. Count op timeouts
 // in a row so the caller can drop the socket and let the retry strategy
-// reconnect.
+// reconnect. One trip per connection: `disconnect(true)` leaves the status
+// `ready` until the socket closes, so the rest of a burst's timeouts would
+// otherwise trip again and again on the socket already being dropped.
 export const REDIS_WEDGE_TIMEOUT_THRESHOLD = 5
 
 export const REDIS_OP_TIMEOUT_MESSAGE = 'redis op timeout'
@@ -12,8 +14,13 @@ export function createRedisWedgeDetector(
   threshold = REDIS_WEDGE_TIMEOUT_THRESHOLD,
 ) {
   let consecutiveTimeouts = 0
+  let armed = true
 
   return {
+    connected(): void {
+      consecutiveTimeouts = 0
+      armed = true
+    },
     success(): void {
       consecutiveTimeouts = 0
     },
@@ -23,9 +30,11 @@ export function createRedisWedgeDetector(
 
         return
       }
+      if (!armed) return
       consecutiveTimeouts += 1
       if (consecutiveTimeouts < threshold) return
       consecutiveTimeouts = 0
+      armed = false
       onWedge()
     },
   }

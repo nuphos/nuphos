@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 
 import type { NativeDeliveryTarget } from '@/lib/native-auth'
 import type { AuthVariables } from '@/middleware/auth'
 
+import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
@@ -18,6 +20,7 @@ import {
   redeemNativeSession,
   registerNativeSession,
 } from '@/lib/native-auth'
+import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 
 export const auth = new Hono<{ Variables: AuthVariables }>()
@@ -110,6 +113,25 @@ auth.post('/native/session/redeem', async (c) => {
   const { token, user } = await redeemNativeSession(body?.handle, body?.codeVerifier, body?.code)
 
   return c.json({ token, user })
+})
+
+// `nuphos agent --join`: a one-time token from the device's owner becomes a
+// credential for this device alone. No session is involved, so this stays public.
+const deviceJoinSchema = z.object({
+  token: z.string().min(1).max(200),
+  label: z.string().trim().min(1).max(200),
+  platform: z.string().trim().min(1).max(64),
+})
+
+auth.post('/devices/join', zv('json', deviceJoinSchema), async (c) => {
+  const { token, ...device } = c.req.valid('json')
+  const joined = await redeemDeviceJoinToken(token, device)
+
+  if (!joined) {
+    throw new AppError(401, 'invalid_join_token', 'This join token is invalid, used or expired')
+  }
+
+  return c.json(joined, 201)
 })
 
 auth.post('/google/sign-in', async (c) => {

@@ -5,6 +5,7 @@ import { websocket } from 'hono/bun'
 import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { createLocalTunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { openLocalRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { errorHandler } from '@/lib/errors'
 import {
@@ -21,8 +22,9 @@ const bus = createLocalTunnelBus()
 const presence = createMemoryPresenceStore()
 let server: Server<unknown> | undefined
 
-afterEach(async () => {
-  await server?.stop(true)
+afterEach(() => {
+  // Not awaited: bun 1.3 never resolves stop() once the server has closed a socket itself.
+  void server?.stop(true)
   server = undefined
 })
 
@@ -168,6 +170,31 @@ describe('device runtime tunnel route', () => {
     desktop.close()
   })
 
+  test('revoking the device closes its tunnel with 4003', async () => {
+    const host = serve('owner')
+    const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`)
+
+    // The holder's first ping shows it has subscribed to its channel.
+    const subscribed = waitFor<void>((resolve) => {
+      desktop.addEventListener('message', (event) => {
+        if ((JSON.parse(String(event.data)) as { t: string }).t === 'ping') {
+          desktop.send(JSON.stringify({ t: 'pong' }))
+          resolve()
+        }
+      })
+    })
+    const closed = waitFor<number>((resolve) => {
+      desktop.addEventListener('close', (event) => {
+        resolve(event.code)
+      })
+    })
+
+    await subscribed
+    await bus.publish(holderChannel('owner', 'd1'), JSON.stringify({ t: 'revoke' }))
+
+    expect(await closed).toBe(4003)
+  })
+
   test('another user cannot hold a tunnel for a computer they do not own', async () => {
     const host = serve('intruder')
     const res = await fetch(`http://${host}/agent/devices/d1/runtime-tunnel`, {
@@ -214,7 +241,7 @@ describe('device runtime tunnel route', () => {
         { sessionId: 's1', conversationTitle: 'Fix the deploy', actorName: 'Mika', turns: 3 },
       ],
     })
-    await server?.stop(true)
+    void server?.stop(true)
     const intruder = await fetch(
       `http://${serve('intruder', routeDeps)}/agent/devices/d1/runtime-activity`,
     )

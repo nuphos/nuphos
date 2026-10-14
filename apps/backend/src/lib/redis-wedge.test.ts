@@ -13,7 +13,7 @@ import {
 const timeout = () => new Error(REDIS_OP_TIMEOUT_MESSAGE)
 
 describe('redis wedge detector', () => {
-  test('fires once after the threshold of consecutive timeouts', () => {
+  test('fires once per connection', () => {
     let wedges = 0
     const detector = createRedisWedgeDetector(() => {
       wedges += 1
@@ -24,10 +24,10 @@ describe('redis wedge detector', () => {
     expect(wedges).toBe(0)
     detector.failure(timeout())
     expect(wedges).toBe(1)
-    detector.failure(timeout())
-    detector.failure(timeout())
+    for (let i = 0; i < 10; i += 1) detector.failure(timeout())
     expect(wedges).toBe(1)
-    detector.failure(timeout())
+    detector.connected()
+    for (let i = 0; i < 3; i += 1) detector.failure(timeout())
     expect(wedges).toBe(2)
   })
 
@@ -129,6 +129,43 @@ describe('anyClientEnded', () => {
       client.disconnect(true)
       await until(() => client.status === 'end')
       expect(anyClientEnded([null, client])).toBe(true)
+    } finally {
+      client.disconnect()
+      sentinel.close()
+    }
+  })
+})
+
+describe('a burst of timeouts', () => {
+  // The prod pattern: an event-loop stall fails every op in flight at once.
+  // `disconnect(true)` leaves the status `ready` until the socket closes, so
+  // each further five timeouts tripped the detector again on the same socket.
+  test('drops the socket once', async () => {
+    const sentinel = await fakeSentinel()
+    const client = new Redis({
+      sentinels: [{ host: '127.0.0.1', port: sentinel.port }],
+      name: 'master',
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => 10,
+    })
+    let trips = 0
+    const detector = createRedisWedgeDetector(() => {
+      if (forceReconnect(client)) trips += 1
+    })
+
+    client.on('error', () => {})
+    client.on('ready', () => {
+      detector.connected()
+    })
+
+    try {
+      await until(() => client.status === 'ready')
+      for (let i = 0; i < 20; i += 1) detector.failure(timeout())
+      expect(trips).toBe(1)
+      await until(() => client.status === 'connecting')
+      await until(() => client.status === 'ready')
+      for (let i = 0; i < 5; i += 1) detector.failure(timeout())
+      expect(trips).toBe(2)
     } finally {
       client.disconnect()
       sentinel.close()

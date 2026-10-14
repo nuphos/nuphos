@@ -98,6 +98,11 @@ function newClient(role: 'client' | 'subscriber'): Redis {
     if (isShuttingDown()) return
     logEvent('error', 'redis.client.ended', { role, replica_id: replicaId })
   })
+  if (role === 'client') {
+    client.on('ready', () => {
+      wedge.connected()
+    })
+  }
   instrumentRedis(client, { role })
 
   return client
