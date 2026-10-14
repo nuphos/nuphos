@@ -26,7 +26,7 @@ import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } fr
 import { prepareAgentHome } from './agent-home.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
-import { deviceCredentialFor, exitRevoked } from './device-credential.ts'
+import { deviceCredentialFor, exitRevoked, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
@@ -87,16 +87,15 @@ function currentToken(): string | null {
   }
 }
 
-const tunnelUrl = () =>
-  `${apiUrl()}/agent/devices/${encodeURIComponent(device.deviceId)}/runtime-tunnel`
 const deviceCredential = await deviceCredentialFor({
   dataDir,
   apiUrl: apiUrl(),
-  tunnelUrl: tunnelUrl(),
-  device: { deviceId: device.deviceId, label: device.label },
+  label: device.label,
   joinToken: process.env.NUPHOS_JOIN_TOKEN?.trim() || undefined,
   headers: { 'x-atlas-client': clientVersion },
 })
+// A joined computer is the device the backend registered for it.
+const deviceId = deviceCredential?.deviceId ?? device.deviceId
 const token = deviceCredential ? null : currentToken()
 const owner = deviceCredential?.userId ?? (token ? unverifiedTokenSubject(token) : undefined)
 
@@ -180,7 +179,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         if (!fresh || (!deviceCredential && unverifiedTokenSubject(fresh) !== owner))
           throw new Error('Signed out')
 
-        return new WebSocket(tunnelUrl().replace(/^http/u, 'ws'), {
+        return new WebSocket(tunnelUrlFor(apiUrl(), deviceId).replace(/^http/u, 'ws'), {
           headers: { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion },
         })
       },

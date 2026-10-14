@@ -12,7 +12,10 @@ export type DeviceCredential = {
   credential: string
 }
 
-export type JoinRequest = { token: string; deviceId: string; label: string; platform: string }
+export type JoinRequest = { token: string; label: string; platform: string }
+
+export const tunnelUrlFor = (apiUrl: string, deviceId: string) =>
+  `${apiUrl}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel`
 
 /** A service manager treats this exit as final, so a revoked computer does not restart. */
 export const EXIT_REVOKED = 78
@@ -21,12 +24,12 @@ export function deviceCredentialStore(dataDir: string) {
   const file = path.join(dataDir, 'device-credential.json')
 
   return {
-    /** Only the credential for this backend and this computer. */
-    read(apiUrl: string, deviceId: string): DeviceCredential | null {
+    /** Only the credential for this backend. */
+    read(apiUrl: string): DeviceCredential | null {
       try {
         const saved = JSON.parse(readFileSync(file, 'utf8')) as DeviceCredential
 
-        return saved.apiUrl === apiUrl && saved.deviceId === deviceId ? saved : null
+        return saved.apiUrl === apiUrl ? saved : null
       } catch {
         return null
       }
@@ -81,7 +84,8 @@ export function exitRevoked(): never {
 }
 
 /**
- * This computer's credential: the one an earlier join left while the backend
+ * This computer's credential, and with it the device id the backend chose for
+ * it: the one an earlier join left while the backend
  * still accepts it, which wins over a token passed again so a service can keep
  * it in its environment, or a new one from `joinToken`. Null means the host
  * runs on the signed-in session instead.
@@ -89,15 +93,19 @@ export function exitRevoked(): never {
 export async function deviceCredentialFor(options: {
   dataDir: string
   apiUrl: string
-  tunnelUrl: string
-  device: { deviceId: string; label: string }
+  label: string
   joinToken?: string
   headers: Record<string, string>
 }): Promise<DeviceCredential | null> {
   const store = deviceCredentialStore(options.dataDir)
-  const saved = store.read(options.apiUrl, options.device.deviceId)
+  const saved = store.read(options.apiUrl)
   const revoked =
-    saved && (await credentialRevoked(options.tunnelUrl, saved.credential, options.headers))
+    saved &&
+    (await credentialRevoked(
+      tunnelUrlFor(options.apiUrl, saved.deviceId),
+      saved.credential,
+      options.headers,
+    ))
 
   if (saved && !revoked) return saved
   if (!options.joinToken) {
@@ -107,7 +115,7 @@ export async function deviceCredentialFor(options: {
   }
   const joined = await joinDevice(
     options.apiUrl,
-    { token: options.joinToken, ...options.device, platform: process.platform },
+    { token: options.joinToken, label: options.label, platform: process.platform },
     options.headers,
   )
 

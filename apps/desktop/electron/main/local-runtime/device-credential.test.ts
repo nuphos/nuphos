@@ -11,17 +11,15 @@ import {
 } from './device-credential.ts'
 
 const API = 'http://backend.test'
-const DEVICE = { deviceId: 'd1', label: 'vm-1' }
 const options = (dataDir: string, joinToken?: string) => ({
   dataDir,
   apiUrl: API,
-  tunnelUrl: `${API}/agent/devices/d1/runtime-tunnel`,
-  device: DEVICE,
+  label: 'vm-1',
   headers: {},
   ...(joinToken ? { joinToken } : {}),
 })
 
-test('a join token becomes a credential kept only for this backend and computer', async (t) => {
+test('a join token becomes a credential kept only for this backend', async (t) => {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), 'device-credential-'))
   const requests: { url: string; body: unknown }[] = []
 
@@ -37,15 +35,14 @@ test('a join token becomes a credential kept only for this backend and computer'
   assert.deepEqual(requests, [
     {
       url: `${API}/auth/devices/join`,
-      body: { token: 'nbj_1', deviceId: 'd1', label: 'vm-1', platform: process.platform },
+      body: { token: 'nbj_1', label: 'vm-1', platform: process.platform },
     },
   ])
   assert.equal(statSync(path.join(dataDir, 'device-credential.json')).mode & 0o777, 0o600)
   const store = deviceCredentialStore(dataDir)
 
-  assert.equal(store.read(API, 'd1')?.credential, 'nbx_1')
-  assert.equal(store.read('http://other.test', 'd1'), null)
-  assert.equal(store.read(API, 'd2'), null)
+  assert.equal(store.read(API)?.credential, 'nbx_1')
+  assert.equal(store.read('http://other.test'), null)
 })
 
 test('a saved credential wins over a token passed again', async (t) => {
@@ -84,7 +81,7 @@ test('a revoked credential is replaced by a new token', async (t) => {
   )
 
   assert.equal((await deviceCredentialFor(options(dataDir, 'nbj_new')))?.credential, 'nbx_new')
-  assert.equal(deviceCredentialStore(dataDir).read(API, 'd1')?.credential, 'nbx_new')
+  assert.equal(deviceCredentialStore(dataDir).read(API)?.credential, 'nbx_new')
 })
 
 test('no saved credential and no token means the signed-in session is used', async () => {
