@@ -188,9 +188,16 @@ describe('device runtime tunnel route', () => {
       })
     })
 
-    await Bun.sleep(30)
-    await bus.publish(holderChannel('owner', 'd1'), JSON.stringify({ t: 'revoke' }))
-    expect(await closed).toBe(4003)
+    // The holder subscribes asynchronously after the upgrade; repeat until it has.
+    const revoke = setInterval(() => {
+      void bus.publish(holderChannel('owner', 'd1'), JSON.stringify({ t: 'revoke' }))
+    }, 20)
+
+    try {
+      expect(await closed).toBe(4003)
+    } finally {
+      clearInterval(revoke)
+    }
   })
 
   test('another user cannot hold a tunnel for a computer they do not own', async () => {

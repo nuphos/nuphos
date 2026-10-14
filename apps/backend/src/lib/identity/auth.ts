@@ -148,6 +148,30 @@ export async function getNuphosUserById(userId: string): Promise<NuphosUser | nu
   return user ? mapUser(user) : null
 }
 
+/**
+ * The live user behind a credential issued at `issuedAt`, unless "sign out
+ * everywhere" (a password reset) happened since, as for session tokens.
+ */
+export async function getNuphosUserForCredential(
+  userId: string,
+  issuedAt: Date,
+): Promise<NuphosUser | null> {
+  if (!MongoObjectId.isValid(userId)) return null
+  const user = await users().findOne({
+    _id: new MongoObjectId(userId),
+    deletedAt: { $exists: false },
+  })
+
+  if (
+    !user ||
+    (user.sessionsInvalidBefore !== undefined &&
+      Math.floor(issuedAt.getTime() / 1000) < user.sessionsInvalidBefore)
+  )
+    return null
+
+  return mapUser(user)
+}
+
 async function authenticateNuphosToken(token: string): Promise<NuphosUser | null> {
   const claims = verifyNuphosToken(token)
 

@@ -119,7 +119,6 @@ auth.post('/native/session/redeem', async (c) => {
 // credential for this device alone. No session is involved, so this stays public.
 const deviceJoinSchema = z.object({
   token: z.string().min(1).max(200),
-  deviceId: z.string().trim().min(1).max(128),
   label: z.string().trim().min(1).max(200),
   platform: z.string().trim().min(1).max(64),
 })

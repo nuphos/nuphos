@@ -12,6 +12,7 @@ export type AgentDevice = {
   allowLocalExec: boolean
   /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
   credentialHash?: string
+  credentialIssuedAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -53,22 +54,22 @@ export async function upsertAgentDevice(
   )
 }
 
-/** Registers the device under its owner and replaces any credential it had. */
-export async function upsertAgentDeviceWithCredential(
+/** A joined device is always new, so a join token can never take over an existing one. */
+export async function insertJoinedAgentDevice(
   userId: string,
   device: AgentDeviceRegistration,
   credentialHash: string,
 ): Promise<void> {
   const now = new Date()
 
-  await agentDevices().updateOne(
-    { userId, deviceId: device.deviceId },
-    {
-      $set: { ...device, userId, credentialHash, updatedAt: now },
-      $setOnInsert: { createdAt: now },
-    },
-    { upsert: true },
-  )
+  await agentDevices().insertOne({
+    ...device,
+    userId,
+    credentialHash,
+    credentialIssuedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  })
 }
 
 export async function findAgentDeviceByCredentialHash(

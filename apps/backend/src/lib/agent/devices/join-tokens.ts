@@ -1,8 +1,9 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import { db } from '@/lib/db'
+import { getNuphosUserForCredential } from '@/lib/identity'
 
-import { upsertAgentDeviceWithCredential } from './store'
+import { insertJoinedAgentDevice } from './store'
 
 import type { AgentDeviceRegistration } from './store'
 import type { Collection } from 'mongodb'
@@ -63,26 +64,37 @@ export async function issueDeviceJoinToken(
   return { token, expiresAt }
 }
 
-/** Uses the token once and returns the device's new credential, or null when it is not usable. */
+/**
+ * Uses the token once and registers a new device for its issuer, or returns
+ * null when the token is not usable. The device id is the server's, so a token
+ * can never take over a device that already exists.
+ */
 export async function redeemDeviceJoinToken(
   token: string,
-  device: Omit<AgentDeviceRegistration, 'allowLocalExec'>,
+  device: Pick<AgentDeviceRegistration, 'label' | 'platform'>,
 ): Promise<{ userId: string; deviceId: string; credential: string } | null> {
   if (!token.startsWith(DEVICE_JOIN_TOKEN_PREFIX)) return null
   const now = new Date()
+  const deviceId = randomUUID()
   const used = await joinTokens().findOneAndUpdate(
     { _id: hashDeviceSecret(token), usedAt: { $exists: false }, expiresAt: { $gt: now } },
-    { $set: { usedAt: now, deviceId: device.deviceId } },
+    { $set: { usedAt: now, deviceId } },
   )
 
-  if (!used) return null
+  // A token issued before "sign out everywhere" died with the sessions.
+  if (!used || !(await getNuphosUserForCredential(used.userId, used.createdAt))) return null
   const credential = secret(DEVICE_CREDENTIAL_PREFIX)
 
-  await upsertAgentDeviceWithCredential(
+  await insertJoinedAgentDevice(
     used.userId,
-    { ...device, label: used.label ?? device.label, allowLocalExec: true },
+    {
+      deviceId,
+      label: used.label ?? device.label,
+      platform: device.platform,
+      allowLocalExec: true,
+    },
     hashDeviceSecret(credential),
   )
 
-  return { userId: used.userId, deviceId: device.deviceId, credential }
+  return { userId: used.userId, deviceId, credential }
 }

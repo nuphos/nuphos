@@ -20,9 +20,14 @@ function app(user: NuphosUser | null = USER) {
     requireAuthOrDeviceCredential({
       findDevice: async (hash) =>
         hash === hashDeviceSecret(CREDENTIAL)
-          ? ({ userId: 'owner', deviceId: 'd1' } as AgentDevice)
+          ? ({
+              userId: 'owner',
+              deviceId: 'd1',
+              credentialIssuedAt: new Date('2026-10-14T00:00:00Z'),
+            } as AgentDevice)
           : null,
-      getUser: async (id) => (user?.id === id ? user : null),
+      getUser: async (id, issuedAt) =>
+        user?.id === id && issuedAt >= signedOutEverywhereAt ? user : null,
     }),
   )
   routes.all('*', (c) => c.text(c.get('userId')))
@@ -34,6 +39,7 @@ function app(user: NuphosUser | null = USER) {
   return root
 }
 
+let signedOutEverywhereAt = new Date(0)
 const bearer = (token: string) => ({ headers: { authorization: `Bearer ${token}` } })
 
 describe('device credentials on the agent routes', () => {
@@ -61,5 +67,13 @@ describe('device credentials on the agent routes', () => {
     expect(
       (await app(null).request('/agent/devices/d1/runtime-tunnel', bearer(CREDENTIAL))).status,
     ).toBe(401)
+  })
+
+  test('stop working once the owner signs out everywhere', async () => {
+    signedOutEverywhereAt = new Date('2026-10-15T00:00:00Z')
+    expect(
+      (await app().request('/agent/devices/d1/runtime-tunnel', bearer(CREDENTIAL))).status,
+    ).toBe(401)
+    signedOutEverywhereAt = new Date(0)
   })
 })

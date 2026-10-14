@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
 
 import type * as dbActual from '@/lib/db'
+import type * as identityActual from '@/lib/identity'
 
 // Run with: cd apps/backend && bun test src/lib/agent/devices/join-tokens.test.ts
 
@@ -52,13 +54,25 @@ const collection = (name: string) => {
 }
 
 useDb({ db: (() => ({ collection })) as unknown as typeof dbActual.db })
+// u1 signed out everywhere at this time; tokens issued before it are dead.
+let signedOutEverywhereAt = new Date(0)
+
+useIdentity({
+  getNuphosUserForCredential: (async (userId: string, issuedAt: Date) =>
+    userId === 'u1' && issuedAt >= signedOutEverywhereAt
+      ? { id: userId }
+      : null) as unknown as typeof identityActual.getNuphosUserForCredential,
+})
 
 const { hashDeviceSecret, issueDeviceJoinToken, redeemDeviceJoinToken } =
   await import('@/lib/agent/devices/join-tokens')
 
-const MACHINE = { deviceId: 'd1', label: 'vm-1', platform: 'linux' }
+const MACHINE = { label: 'vm-1', platform: 'linux' }
 
-beforeEach(() => collections.clear())
+beforeEach(() => {
+  collections.clear()
+  signedOutEverywhereAt = new Date(0)
+})
 
 describe('device join tokens', () => {
   test('a token registers the device once and stores only a hash of its credential', async () => {
@@ -72,7 +86,7 @@ describe('device join tokens', () => {
     expect(collection('agent_devices').docs).toEqual([
       expect.objectContaining({
         userId: 'u1',
-        deviceId: 'd1',
+        deviceId: joined?.deviceId,
         label: 'build box',
         platform: 'linux',
         allowLocalExec: true,
@@ -91,17 +105,23 @@ describe('device join tokens', () => {
     expect(collection('agent_devices').docs).toEqual([])
   })
 
-  test('joining the same machine again replaces its credential', async () => {
+  test('every join is a new device with a server-chosen id', async () => {
     const first = await redeemDeviceJoinToken((await issueDeviceJoinToken('u1', {})).token, MACHINE)
     const second = await redeemDeviceJoinToken(
       (await issueDeviceJoinToken('u1', {})).token,
       MACHINE,
     )
 
-    expect(collection('agent_devices').docs).toHaveLength(1)
-    expect(collection('agent_devices').docs[0]?.credentialHash).toBe(
-      hashDeviceSecret(second?.credential ?? ''),
-    )
-    expect(first?.credential).not.toBe(second?.credential)
+    expect(first?.deviceId).toMatch(/^[0-9a-f-]{36}$/)
+    expect(second?.deviceId).not.toBe(first?.deviceId)
+    expect(collection('agent_devices').docs).toHaveLength(2)
+  })
+
+  test('a token issued before signing out everywhere is refused', async () => {
+    const { token } = await issueDeviceJoinToken('u1', {})
+
+    signedOutEverywhereAt = new Date(Date.now() + 1000)
+    expect(await redeemDeviceJoinToken(token, MACHINE)).toBeNull()
+    expect(collection('agent_devices').docs).toEqual([])
   })
 })
