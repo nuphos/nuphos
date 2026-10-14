@@ -12,7 +12,7 @@ const nodeEnv = config.nodeEnv
 useRedis({ redisEnabled: () => false })
 useAgentRunStore({
   getActiveAgentRunForSession: async () => null,
-  reserveActiveAgentRunForSession: async () => () => {},
+  reserveActiveAgentRunForSession: async () => async () => {},
 })
 
 function setNodeEnv(value: string) {

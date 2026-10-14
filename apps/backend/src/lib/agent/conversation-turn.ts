@@ -1,4 +1,5 @@
 import { signNuphosToken } from '@/lib/identity'
+import { logEvent } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
@@ -113,8 +114,16 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
     const target = carried.length ? await getConversationBySessionId(sessionId) : null
     const first = carried[0]
 
-    if (!first || !target?.teamId) return
-    const source = first.source === 'agent.resource' ? 'agent.resource' : 'agent.thread'
+    if (!first) return
+    if (!target?.teamId) {
+      logEvent('warn', 'agent.pending_messages.queued_turn_dropped', {
+        user_id: userId,
+        session_id: sessionId,
+        message_ids: carried.map((message) => message.id),
+      })
+
+      return
+    }
 
     await runTurn(
       {
@@ -124,7 +133,7 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
         locale: target.metadata?.locale,
       },
       target,
-      source,
+      first.source,
       carried,
     )
   } finally {
@@ -135,7 +144,7 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
 async function runTurn(
   data: Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & { locale?: string },
   target: AgentConversation,
-  source: TurnArgs[3],
+  source: string,
   pending: Pick<PendingUserMessage, 'id' | 'renderedText' | 'metadata'>[],
 ): Promise<string | undefined> {
   // Read after taking the claim so a just-finished turn cannot be overwritten.

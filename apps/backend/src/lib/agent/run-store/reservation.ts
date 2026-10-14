@@ -15,8 +15,8 @@ export async function reserveActiveAgentRunForSession(
   sessionId: string,
   token: string,
   options: { heartbeatMs?: number } = {},
-): Promise<(() => void) | null> {
-  if (!redisEnabled()) return () => {}
+): Promise<(() => Promise<unknown>) | null> {
+  if (!redisEnabled()) return () => Promise.resolve()
   const key = activeRunReservationKey(userId, sessionId)
   const heartbeatMs = options.heartbeatMs ?? OWNER_HEARTBEAT_MS
   const result = await withRedis((c) => c.set(key, token, 'EX', RESERVATION_TTL_SEC, 'NX'))
@@ -64,7 +64,7 @@ export async function reserveActiveAgentRunForSession(
     })
   }, heartbeatMs)
 
-  return () => {
+  return async () => {
     if (state.released) return
     state.released = true
     stopRefresh()
@@ -83,7 +83,7 @@ export async function reserveActiveAgentRunForSession(
     )
 
     trackGuardWrite(release)
-    void release.catch((err: unknown) => {
+    await release.catch((err: unknown) => {
       logError('agent.run.redis_reservation_release_failed', err, {
         user_id: userId,
         session_id: sessionId,

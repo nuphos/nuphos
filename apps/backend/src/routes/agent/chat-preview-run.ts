@@ -42,6 +42,8 @@ export type PreviewChatTurnArgs = {
   diagramId?: string
   currentUrl?: string | null
   slackThread?: { teamId: string; channelId: string; threadTs: string }
+  /** Answers in a Slack, Lark or Discord thread, so it also takes their queued messages. */
+  channelTurn?: boolean
   /** Background shown to the model beside this turn's message, never stored in it. */
   turnContext?: string
   /** The client declared it resends a refused message; headless senders never do. */

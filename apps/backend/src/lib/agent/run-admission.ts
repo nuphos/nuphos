@@ -95,7 +95,7 @@ export async function claimAgentRunForSession(
     if (!runtimeOperation) await assertConversationRuntimeAvailable(sessionId)
   } catch (error) {
     agentRunSessionReservations.delete(key)
-    releaseRemoteReservation()
+    void releaseRemoteReservation()
     throw error
   }
   let released = false
@@ -106,7 +106,9 @@ export async function claimAgentRunForSession(
     if (agentRunSessionReservations.get(key) === token) {
       agentRunSessionReservations.delete(key)
     }
-    releaseRemoteReservation()
-    sessionReleased(userId, sessionId)
+    // Only once the reservation is gone can the next turn claim the session.
+    void releaseRemoteReservation().then(() => {
+      sessionReleased(userId, sessionId)
+    })
   }
 }

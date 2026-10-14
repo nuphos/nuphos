@@ -5,6 +5,13 @@ import '@/routes/agent'
 import { expect, test } from 'bun:test'
 
 import {
+  buildPendingUserMessage,
+  enqueuePendingUserMessage,
+  hasPendingUserMessage,
+} from '@/lib/agent/pending-messages'
+
+import {
+  drainTurnQueue,
   lastUserMessageText,
   resumeMessage,
   turnPrompt,
@@ -237,4 +244,18 @@ test('an unattested message never takes the last block, even as the final input'
   // No trusted block speaks for an unverified author.
   expect(lead()).not.toContain('discord:999')
   expect(lead()).toContain(header('m1'))
+})
+
+test('a transcript turn leaves a queued Slack message for the Slack turn', async () => {
+  const thread = buildPendingUserMessage({ renderedText: 'CI passed', source: 'agent.thread' })
+  const slack = buildPendingUserMessage({ renderedText: 'from Slack', source: 'slack' })
+
+  await enqueuePendingUserMessage('owner', 'queued', thread)
+  await enqueuePendingUserMessage('owner', 'queued', slack)
+
+  expect((await drainTurnQueue('owner', 'queued', 'owner')).map((m) => m.id)).toEqual([thread.id])
+  expect(await hasPendingUserMessage('owner', 'queued', slack.id)).toBe(true)
+  expect((await drainTurnQueue('owner', 'queued', 'owner', true)).map((m) => m.id)).toEqual([
+    slack.id,
+  ])
 })

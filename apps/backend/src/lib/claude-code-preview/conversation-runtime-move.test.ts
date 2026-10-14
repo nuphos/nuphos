@@ -30,7 +30,7 @@ useDb({ db: () => memory })
 useRedis({ redisEnabled: () => true })
 useAgentRunStore({
   getActiveAgentRunForSession: async () => (busy ? { streamId: 'active' } : null),
-  reserveActiveAgentRunForSession: async () => () => {},
+  reserveActiveAgentRunForSession: async () => async () => {},
 })
 useRuntimeCatalog({
   requireRuntimeInstance: async () => target,
