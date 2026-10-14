@@ -4,6 +4,7 @@ import { Laptop, MessageSquare } from 'lucide-react'
 
 import { Avatar } from '../../Avatar'
 
+import { deviceDetail } from './composerMention'
 import { optionKey } from './composerMentionChips'
 
 import type { MentionOption } from './composerMentionChips'
@@ -19,7 +20,19 @@ function Row({ icon, label, detail }: { icon: ReactNode; label: string; detail: 
   )
 }
 
-function MentionOptionRow({ option }: { option: MentionOption }) {
+const SECTION_TITLES: Record<MentionOption['kind'], string> = {
+  member: 'People',
+  device: 'Devices',
+  session: 'Chats',
+}
+
+function MentionOptionRow({
+  option,
+  devices,
+}: {
+  option: MentionOption
+  devices: Extract<MentionOption, { kind: 'device' }>['device'][]
+}) {
   switch (option.kind) {
     case 'member':
       return (
@@ -41,7 +54,7 @@ function MentionOptionRow({ option }: { option: MentionOption }) {
         <Row
           icon={<Laptop size={16} className="shrink-0 text-tertiary" />}
           label={option.device.label}
-          detail="Device"
+          detail={deviceDetail(option.device, devices)}
         />
       )
     case 'session':
@@ -49,7 +62,7 @@ function MentionOptionRow({ option }: { option: MentionOption }) {
         <Row
           icon={<MessageSquare size={16} className="shrink-0 text-tertiary" />}
           label={option.session.title || option.session.firstMessage || 'Untitled session'}
-          detail="Session"
+          detail=""
         />
       )
   }
@@ -71,6 +84,8 @@ export function MentionPicker({
   onActive: (index: number) => void
   onClose: () => void
 }) {
+  const devices = options.flatMap((option) => (option.kind === 'device' ? [option.device] : []))
+
   return (
     <Popover.Root
       open={options.length > 0}
@@ -93,7 +108,16 @@ export function MentionPicker({
             style={{ transformOrigin: 'var(--transform-origin)' }}
             className="t-dropdown is-open w-[280px] max-h-[var(--available-height)] overflow-auto rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none"
           >
-            {options.map((option, index) => (
+            {options.map((option, index) => [
+              option.kind !== options[index - 1]?.kind && (
+                <div
+                  key={`heading-${option.kind}`}
+                  role="presentation"
+                  className="px-2 pb-1 pt-2 text-[11px] font-medium text-tertiary first:pt-1"
+                >
+                  {SECTION_TITLES[option.kind]}
+                </div>
+              ),
               <div
                 key={optionKey(option)}
                 role="option"
@@ -109,9 +133,9 @@ export function MentionPicker({
                 }}
                 onMouseEnter={() => onActive(index)}
               >
-                <MentionOptionRow option={option} />
-              </div>
-            ))}
+                <MentionOptionRow option={option} devices={devices} />
+              </div>,
+            ])}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
