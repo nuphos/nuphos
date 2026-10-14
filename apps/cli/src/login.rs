@@ -1,6 +1,7 @@
 //! Browser sign-in, the desktop's native flow (RFC 8252 loopback + PKCE):
 //! register a session, open the browser, take the `code` from the redirect to
-//! 127.0.0.1, and redeem it for the token.
+//! 127.0.0.1, and redeem it for the token. Without a browser here, the user
+//! pastes that redirect's address back instead.
 
 use std::time::{Duration, Instant};
 
@@ -53,31 +54,21 @@ pub async fn login(api_url: &str) -> Result<Session> {
 
     let mut start = url::Url::parse(&config::login_url())?.join("/api/google/start")?;
     start.query_pairs_mut().append_pair("handle", handle);
-    println!("Opening your browser to sign in to Nuphos…\nIf it does not open, visit:\n\n  {start}\n");
-    let _ = open::that(start.as_str());
-
     let deadline = Instant::now() + LOGIN_TIMEOUT;
-    let (mut browser, code) = loop {
-        let (mut stream, _) = tokio::time::timeout_at(deadline.into(), listener.accept())
-            .await
-            .map_err(|_| anyhow!("Sign-in timed out"))??;
-        let Some(params) = read_callback(&mut stream).await else {
-            respond(&mut stream, 404, "Not found").await;
-            continue;
-        };
-        // The state ties the redirect to this attempt.
-        if param(&params, "state").as_deref() != Some(client_state.as_str()) {
-            respond(&mut stream, 400, "This sign-in link belongs to another attempt.").await;
-            continue;
-        }
-        if let Some(error) = param(&params, "error") {
-            respond(&mut stream, 400, "Sign-in did not complete. Return to the terminal.").await;
-            bail!("Sign-in failed: {error}");
-        }
-        match param(&params, "code") {
-            Some(code) => break (stream, code),
-            None => respond(&mut stream, 400, "Sign-in did not complete. Return to the terminal.").await,
-        }
+    // No browser here (a server over SSH): sign in from any browser and carry
+    // the redirect back by hand. The code still reaches only that browser.
+    let (mut browser, code) = if headless() {
+        println!(
+            "Open this link in a browser on any computer to sign in to Nuphos:\n\n  {start}\n\n\
+             The browser then fails to load a 127.0.0.1 page. Copy that page's address\n\
+             and paste it here (only into a terminal you started yourself):"
+        );
+        (None, pasted_code(&client_state, deadline).await?)
+    } else {
+        println!("Opening your browser to sign in to Nuphos…\nIf it does not open, visit:\n\n  {start}\n");
+        let _ = open::that(start.as_str());
+        let (stream, code) = loopback_code(&listener, &client_state, deadline).await?;
+        (Some(stream), code)
     };
 
     // Held open until the session is in hand, so the tab never claims success early.
@@ -101,7 +92,7 @@ pub async fn login(api_url: &str) -> Result<Session> {
             continue;
         }
         if !response.status().is_success() {
-            respond(&mut browser, 500, "Sign-in failed. Return to the terminal.").await;
+            respond_to(&mut browser, 500, "Sign-in failed. Return to the terminal.").await;
             bail!("Sign-in failed with status {}", response.status());
         }
         let body: Value = response.json().await?;
@@ -114,10 +105,79 @@ pub async fn login(api_url: &str) -> Result<Session> {
             user_info: Some(user),
         };
         config::write_session(&session)?;
-        respond(&mut browser, 200, "Signed in to Nuphos. You can close this tab and return to the terminal.").await;
+        respond_to(&mut browser, 200, "Signed in to Nuphos. You can close this tab and return to the terminal.").await;
         return Ok(session);
     }
     bail!("Sign-in timed out")
+}
+
+/// SSH sessions, and Linux without a display, cannot open a browser here.
+fn headless() -> bool {
+    std::env::var_os("SSH_CONNECTION").is_some()
+        || (cfg!(target_os = "linux")
+            && std::env::var_os("DISPLAY").is_none()
+            && std::env::var_os("WAYLAND_DISPLAY").is_none())
+}
+
+/// The `code` the browser was redirected with, or an error that ends the
+/// sign-in; `None` when these parameters are not for this attempt.
+fn callback_code(params: &[(String, String)], state: &str) -> Result<Option<String>> {
+    if param(params, "state").as_deref() != Some(state) {
+        return Ok(None);
+    }
+    if let Some(error) = param(params, "error") {
+        bail!("Sign-in failed: {error}");
+    }
+    Ok(param(params, "code"))
+}
+
+async fn loopback_code(listener: &TcpListener, state: &str, deadline: Instant) -> Result<(TcpStream, String)> {
+    loop {
+        let (mut stream, _) = tokio::time::timeout_at(deadline.into(), listener.accept())
+            .await
+            .map_err(|_| anyhow!("Sign-in timed out"))??;
+        let Some(params) = read_callback(&mut stream).await else {
+            respond(&mut stream, 404, "Not found").await;
+            continue;
+        };
+        let code = callback_code(&params, state);
+        if let Ok(Some(code)) = code {
+            return Ok((stream, code));
+        }
+        // The state ties the redirect to this attempt.
+        let message = if param(&params, "state").as_deref() != Some(state) {
+            "This sign-in link belongs to another attempt."
+        } else {
+            "Sign-in did not complete. Return to the terminal."
+        };
+        respond(&mut stream, 400, message).await;
+        code?;
+    }
+}
+
+/// Reads pasted addresses until one carries this attempt's code.
+async fn pasted_code(state: &str, deadline: Instant) -> Result<String> {
+    loop {
+        let (read, line) = tokio::time::timeout_at(
+            deadline.into(),
+            tokio::task::spawn_blocking(|| {
+                let mut line = String::new();
+                std::io::stdin().read_line(&mut line).map(|n| (n, line))
+            }),
+        )
+        .await
+        .map_err(|_| anyhow!("Sign-in timed out"))???;
+        if read == 0 {
+            bail!("Sign-in canceled");
+        }
+        let params = url::Url::parse(line.trim())
+            .map(|url| url.query_pairs().map(|(k, v)| (k.into_owned(), v.into_owned())).collect::<Vec<_>>())
+            .unwrap_or_default();
+        match callback_code(&params, state)? {
+            Some(code) => return Ok(code),
+            None => println!("That is not the address this sign-in ended on; paste the whole 127.0.0.1 address:"),
+        }
+    }
 }
 
 /// The query of a `GET /callback?…` request, or `None` for anything else.
@@ -137,6 +197,12 @@ fn param(params: &[(String, String)], key: &str) -> Option<String> {
     params.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
 }
 
+async fn respond_to(browser: &mut Option<TcpStream>, status: u16, message: &str) {
+    if let Some(stream) = browser {
+        respond(stream, status, message).await;
+    }
+}
+
 async fn respond(stream: &mut TcpStream, status: u16, message: &str) {
     let body = format!(
         "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Nuphos</title></head>\
@@ -154,4 +220,23 @@ async fn respond(stream: &mut TcpStream, status: u16, message: &str) {
     );
     let _ = stream.write_all(response.as_bytes()).await;
     let _ = stream.shutdown().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn query(url: &str) -> Vec<(String, String)> {
+        url::Url::parse(url).unwrap().query_pairs().map(|(k, v)| (k.into_owned(), v.into_owned())).collect()
+    }
+
+    #[test]
+    fn callback_code_takes_only_this_attempt() {
+        let ok = query("http://127.0.0.1:4242/callback?code=abc&state=s1");
+        assert_eq!(callback_code(&ok, "s1").unwrap().as_deref(), Some("abc"));
+        assert_eq!(callback_code(&ok, "s2").unwrap(), None);
+        assert_eq!(callback_code(&query("http://127.0.0.1:1/callback?state=s1"), "s1").unwrap(), None);
+        assert!(callback_code(&query("http://127.0.0.1:1/callback?state=s1&error=denied"), "s1").is_err());
+        assert_eq!(callback_code(&[], "s1").unwrap(), None);
+    }
 }

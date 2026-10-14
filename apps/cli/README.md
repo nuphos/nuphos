@@ -79,6 +79,46 @@ Windows use a separate Claude sign-in for Nuphos. Codex uses your `codex login`.
 runs as its own device, so the desktop app on the same computer is unaffected;
 `NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
 
+### On a server
+
+The same command turns a Linux server or VM with no desktop into a computer
+your conversations can use: it appears in the device picker under its
+hostname, runs that machine's Claude Code or Codex, and takes `local_exec`.
+`local_terminal` stays a desktop feature, since it opens a tab someone watches.
+Use a dedicated, non-root account: commands from the conversation run as it.
+
+```sh
+curl -fsSL https://nuphos.ai/install | sh
+npm install -g @anthropic-ai/claude-code   # and/or Codex
+nuphos login    # over SSH: open the printed link anywhere, paste back the address it ends on
+nuphos agent    # the first run in a terminal signs Claude Code in; Ctrl-C once it is online
+```
+
+To keep it running, a systemd user service:
+
+```ini
+# ~/.config/systemd/user/nuphos-agent.service
+[Unit]
+Description=Nuphos local agents
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/nuphos agent
+Restart=always
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
+```
+
+```sh
+systemctl --user enable --now nuphos-agent
+sudo loginctl enable-linger "$USER"   # keep it running after you log out
+```
+
+Add the directories of `node` and `claude` to `PATH` there if they live
+elsewhere (for example `~/.npm-global/bin`).
+
 `exec` writes the reply to stdout and tool activity to stderr, ending with
 the session id. New conversations use the mode last picked in `/full-access`
 (Full Access by default). In Full Access nothing asks for approval. In Auto Mode,
