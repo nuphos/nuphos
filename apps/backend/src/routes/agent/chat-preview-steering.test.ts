@@ -3,11 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { drainPendingUserMessages } from '@/lib/agent/pending-messages'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 
-import {
-  admitPreviewTurn,
-  enqueuePreviewSteer,
-  interceptPreviewSteering,
-} from './chat-preview-steering'
+import { admitPreviewTurn, interceptPreviewSteering } from './chat-preview-steering'
 
 import type { UIMessage } from 'ai'
 
@@ -152,36 +148,6 @@ describe('interceptPreviewSteering', () => {
         messages: [userMessage('delete production')],
       }),
     ).rejects.toMatchObject({ code: 'conversation_in_use_by_teammate' })
-    expect(await drainPendingUserMessages(ARGS.runOwnerUserId, ARGS.sessionId)).toEqual([])
-  })
-})
-
-describe('enqueuePreviewSteer', () => {
-  test('parks an explicit steer without replacing the live stream', async () => {
-    const result = await enqueuePreviewSteer({
-      runOwnerUserId: ARGS.runOwnerUserId,
-      userId: ARGS.userId,
-      sessionId: ARGS.sessionId,
-      text: '先查 staging',
-    })
-    const queued = await drainPendingUserMessages(ARGS.runOwnerUserId, ARGS.sessionId)
-
-    expect(queued).toHaveLength(1)
-    expect(result.messageId).toBe(queued[0]!.id)
-    expect(queued[0]?.renderedText).toBe('先查 staging')
-  })
-
-  test('leaves nothing queued when the turn is already over', async () => {
-    activeRuns = []
-
-    await expect(
-      enqueuePreviewSteer({
-        runOwnerUserId: ARGS.runOwnerUserId,
-        userId: ARGS.userId,
-        sessionId: ARGS.sessionId,
-        text: 'too late',
-      }),
-    ).rejects.toMatchObject({ code: 'conversation_not_running' })
     expect(await drainPendingUserMessages(ARGS.runOwnerUserId, ARGS.sessionId)).toEqual([])
   })
 })
