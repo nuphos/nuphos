@@ -533,12 +533,16 @@
                           "platform": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "available": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "deviceId",
                           "label",
-                          "platform"
+                          "platform",
+                          "available"
                         ],
                         "additionalProperties": false
                       }
@@ -1521,12 +1525,16 @@
                               "platform": {
                                 "type": "string",
                                 "minLength": 1
+                              },
+                              "available": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
                               "deviceId",
                               "label",
-                              "platform"
+                              "platform",
+                              "available"
                             ],
                             "additionalProperties": false
                           }
