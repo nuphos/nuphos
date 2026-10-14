@@ -228,29 +228,28 @@ export async function startThreadTurn(data: ThreadTurn) {
 }
 
 export const LOST_THREAD_TURN_NOTICE =
-  'My last turn was cut off: the agent runtime restarted, or could not be reached, while I was working, so it did not finish and I will not continue on my own. Check what I already did in this thread before sending the task again; work in progress may be partly done.'
+  '[Nuphos notice, not written by the agent] This thread lost its connection to the runtime during its last turn and came back with no agent process, for example because the runtime restarted. That turn may have stopped partway or may have finished just before; its result and any report may never arrive. Check this thread before repeating anything, since work may be partly done. If the restart came from heavy work such as builds or tests, avoid re-running several such tasks at once.'
 
 /**
  * A turn whose runtime connection dropped is left to the runtime, which keeps
  * running it through a network blip and reports back as usual. When the runtime
- * itself restarted (an OOMKill), the session reloads with no agent process
- * (`dormant`) and the turn is gone; nothing would ever tell the parent. A live
+ * itself restarted (an OOMKill), the session reattaches with no agent process
+ * (`dormant`) and the turn is gone; nothing would ever tell the sender. A live
  * runtime that finished the turn while disconnected stays `idle` and says nothing.
  */
 async function reportLostThreadTurn(data: ThreadTurn): Promise<void> {
+  // A lost notice is not reported back, so two threads on a crash-looping runtime cannot ping-pong.
+  if (data.prompt === LOST_THREAD_TURN_NOTICE) return
   const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
 
-  if (!session?.reattached) return
-  const back = await session.reattached
-  const state = back
-    ? (await session.client.getSessionExecutionState(session.openabSessionId)).state
-    : 'unreachable'
+  // False also means superseded or shutting down; only a session back on the air says anything.
+  if (!session?.reattached || !(await session.reattached)) return
+  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
 
-  if (state !== 'dormant' && state !== 'unreachable') return
+  if (state !== 'dormant') return
   logEvent('info', 'agent.thread.lost_turn_reported', {
     session_id: data.targetSessionId,
     source_session_id: data.sessionId,
-    state,
   })
   await sendAgentThreadMessage(
     { ...data, sessionId: data.targetSessionId },

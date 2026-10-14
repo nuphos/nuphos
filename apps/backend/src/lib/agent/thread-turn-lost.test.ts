@@ -77,7 +77,7 @@ afterEach(async () => {
   await clearPendingUserMessages('owner', 'parent')
 })
 
-test('a thread turn lost to a runtime restart tells the parent, from the thread', async () => {
+test('a thread turn lost to a runtime restart tells its sender, once', async () => {
   attach(true, 'dormant')
   await (
     await startThreadTurn(data)
@@ -91,14 +91,24 @@ test('a thread turn lost to a runtime restart tells the parent, from the thread'
   })
 })
 
-test('a runtime that never came back is reported too', async () => {
+test('a reattach that did not bring the session back reports nothing', async () => {
   attach(false)
   await (
     await startThreadTurn(data)
   ).run
   await settle()
 
-  expect(runs.map((run) => run.sessionId)).toEqual(['child', 'parent'])
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
+})
+
+test('a lost notice is not reported back', async () => {
+  attach(true, 'dormant')
+  await (
+    await startThreadTurn({ ...data, prompt: LOST_THREAD_TURN_NOTICE })
+  ).run
+  await settle()
+
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
 })
 
 test('a live runtime that finished the turn while disconnected reports nothing', async () => {
