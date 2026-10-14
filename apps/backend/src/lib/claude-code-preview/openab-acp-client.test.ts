@@ -1643,7 +1643,7 @@ test('steering forwards attachments as native resource links', async () => {
 
   expect(frame.params).toEqual({
     sessionId: 'session',
-    prompt: [{ type: 'text', text: 'Look' }, link],
+    prompt: [link, { type: 'text', text: 'Look' }],
     messageId: 'receipt',
   })
   h.socket().receive({ jsonrpc: '2.0', id: frame.id, result: { outcome: 'injected' } })
@@ -1682,7 +1682,7 @@ test('sends native local file references alongside text to a fresh runtime sessi
     method: 'session/prompt',
     params: {
       sessionId: 'fresh',
-      prompt: [{ type: 'text', text: 'Read this screenshot' }, ...images],
+      prompt: [...images, { type: 'text', text: 'Read this screenshot' }],
     },
   })
   h.socket().receive({ jsonrpc: '2.0', id: request.id, result: { stopReason: 'end_turn' } })

@@ -61,11 +61,6 @@ export async function recallForPreviewTurn(args: {
   }
 }
 
-/**
- * Same placement as the classic turn's `user-message-tail`: the recall block
- * rides after the user's own text as a separate paragraph. ACP prompts are
- * plain text, so this is the whole of "inline".
- */
 export type PreviewToolStep = {
   toolCallId: string
   toolName: string

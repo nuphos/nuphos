@@ -62,6 +62,33 @@ export function turnPromptMessages(
   return messages.slice(0, messages.findLastIndex((m) => m.role === 'user') + 1)
 }
 
+/**
+ * Splits a turn into the user's own words, prompted last where the agent reads
+ * a slash command, and everything Nuphos adds ahead of them. The current
+ * message's header ends that lead, so only attachment links separate it from
+ * its words. A resume replaces the turn's messages, as it is not a new request.
+ */
+export function turnPrompt(args: {
+  resume: string | null
+  inputs: UIMessage[]
+  turnContext?: string
+  carried: string
+  recall?: string | null
+}): { lead: (history?: string | null) => string; text: string } {
+  const last = args.resume === null ? args.inputs.at(-1) : undefined
+  const turn =
+    args.resume === null
+      ? [args.turnContext, ...args.inputs.slice(0, -1).map((m) => lastUserMessageText([m]))]
+      : []
+  const header = last ? attributionHeader(last.id, last.metadata) : ''
+
+  return {
+    lead: (history) =>
+      [history, ...turn, args.carried, args.recall, header].filter(Boolean).join('\n\n'),
+    text: args.resume ?? (last ? userText(last) : ''),
+  }
+}
+
 const RESUME_MESSAGE: Record<ResumeReason, string> = {
   'permission-decision':
     'The permission proposal you were waiting on has been decided in Nuphos. Read the ' +
@@ -185,35 +212,22 @@ export async function preparePreviewTurn(
         { teamId, userId: actorUserId, sessionId },
         images,
       )
-  const resume = resumeMessage(args.resume)
-  const last = resume === null ? inputs.at(-1) : undefined
-  // A resume replaces the turn's messages, as it is not a new request.
-  const turnLead =
-    resume === null
-      ? [
-          args.turnContext,
-          ...inputs.slice(0, -1).map((m) => lastUserMessageText([m])),
-          last && attributionHeader(last.id, last.metadata),
-        ]
-      : []
 
   if (memory) emitRecallStartFrame(args.run, sessionId, requestId, memory.recall)
-  const lead = (history?: string | null) =>
-    [
-      history,
-      ...turnLead,
-      carried.length > 0 ? renderInjectedUserMessages(carried) : '',
-      memory?.recall.memoryBlock,
-    ]
-      .filter(Boolean)
-      .join('\n\n')
+  const { lead, text } = turnPrompt({
+    resume: resumeMessage(args.resume),
+    inputs,
+    turnContext: args.turnContext,
+    carried: carried.length > 0 ? renderInjectedUserMessages(carried) : '',
+    recall: memory?.recall.memoryBlock,
+  })
 
   return {
     memory,
     attachments,
     systemPrompt,
     message: lead(),
-    text: resume ?? (last ? userText(last) : ''),
+    text,
     freshSessionMessage: (uncertain?: boolean) =>
       lead(
         previewHistoryPreamble(
