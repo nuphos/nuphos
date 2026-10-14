@@ -17,10 +17,11 @@ import {
   appendAgentRunPhase,
   finishAgentRun,
 } from './run-frames'
-import { attachAgentRunFrameSink, createAgentRun, registerAgentRun } from './run-registry'
+import { attachAgentRunFrameSink, createAgentRun } from './run-registry'
 import { serializeTelemetryMessages } from './telemetry'
 import { persistAcceptedConversationTurn } from './transcript'
 import { recordTriggerRunFailure } from './trigger-run-observability'
+import { acceptAgentRun } from './turn-start-frame'
 import { restoreArchivedForTurn } from './turn-unarchive'
 
 import type { AgentRunOutcome } from './run-pump-helpers'
@@ -129,8 +130,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   // Every caller of this function is headless — nobody on the other end can
   // press Stop, so the turn needs an outer bound of its own.
   run.deadlineAt = Date.now() + HEADLESS_TURN_DEADLINE_MS
-  registerAgentRun(run)
-  appendAgentRunPhase(run, 'request-accepted')
+  acceptAgentRun(run, messages)
 
   const attachFrameSink = (target: AgentRun) => {
     if (!params.frameSink) return

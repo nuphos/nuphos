@@ -2,8 +2,8 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
-import { createAgentRun } from './run-registry'
-import { appendAgentRunTurnStart, turnInputMessages } from './turn-start-frame'
+import { agentRunKey, agentRuns, createAgentRun } from './run-registry'
+import { acceptAgentRun, appendAgentRunTurnStart, turnInputMessages } from './turn-start-frame'
 
 import type { UIMessage } from 'ai'
 
@@ -56,6 +56,17 @@ describe('turn start frame', () => {
     const second: UIMessage = { id: 'u3', role: 'user', parts: [{ type: 'text', text: 'Also…' }] }
 
     expect(turnInputMessages([...history, approval, second]).map((m) => m.id)).toEqual(['u2', 'u3'])
+  })
+
+  test('accepting a run registers it and puts its input before the accepted phase', () => {
+    const run = newRun()
+
+    acceptAgentRun(run, [...history, approval])
+
+    expect(agentRuns.get(agentRunKey('user-1', 'stream-1'))).toBe(run)
+    expect(run.frames.map((frame) => frameData(frame).type)).toEqual(['atlas-turn-start', 'phase'])
+    agentRuns.delete(agentRunKey('user-1', 'stream-1'))
+    run.releaseOwnership()
   })
 
   test('a continuation has no new input and emits nothing', () => {
