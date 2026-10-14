@@ -217,6 +217,7 @@ export function TeamHomeView({
       <IntegrationCatalog
         rows={activeRows}
         visibleRows={filtered}
+        githubInstallations={githubInstallations}
         loading={loading}
         filter={filter}
         onFilterChange={onFilterChange}

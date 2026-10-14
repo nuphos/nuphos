@@ -8,11 +8,14 @@ import { SearchBox } from '../../components/Toolbar'
 import { CATALOG } from '../addIntegrationCatalog'
 
 import { installedConnectorAddAction } from './connector-actions'
+import { GithubConnectorCard } from './github-connector-card'
+import { visibleGithubInstallations } from './github-installation-display'
 import { InstalledList } from './team-home-installed'
 
 import type { BindMode } from './connector-actions'
 import type { AddIntegrationKey, CatalogItem } from '../addIntegrationCatalog'
 import type { IntegrationPlatformRow } from './team-home-bind'
+import type { GithubInstallation } from '../../types'
 
 function CatalogLogo({ provider }: { provider: AddIntegrationKey }) {
   if (provider === 'linear') return <LinearMark size={20} />
@@ -113,6 +116,7 @@ function CatalogConnector({
 export function IntegrationCatalog({
   rows,
   visibleRows,
+  githubInstallations,
   loading,
   filter,
   onFilterChange,
@@ -122,6 +126,7 @@ export function IntegrationCatalog({
 }: {
   rows: IntegrationPlatformRow[]
   visibleRows: IntegrationPlatformRow[]
+  githubInstallations: GithubInstallation[]
   loading: boolean
   filter: string
   onFilterChange: (filter: string) => void
@@ -180,17 +185,38 @@ export function IntegrationCatalog({
                 <h2 className="border-b border-zGray-800/55 pb-3 text-[13px] font-medium text-main">
                   {category.title}
                 </h2>
-                <div className="mt-1.5 grid grid-cols-1 gap-x-7 sm:grid-cols-2">
-                  {category.items.map((item) => (
-                    <CatalogConnector
-                      key={item.key}
-                      item={item}
-                      installed={rows.filter((row) => row.provider === item.key)}
-                      onAdd={onAdd}
-                      onOpenGroup={onOpenInstalledGroup}
-                      onContextMenu={onRowContextMenu}
-                    />
-                  ))}
+                <div className="mt-1.5 grid grid-cols-1 items-start gap-x-7 sm:grid-cols-2">
+                  {category.items.map((item) => {
+                    const installed = rows.filter((row) => row.provider === item.key)
+                    const github =
+                      item.key === 'github'
+                        ? visibleGithubInstallations(
+                            githubInstallations,
+                            installed.map((row) => row.key),
+                          )
+                        : []
+
+                    return github.length > 0 ? (
+                      <GithubConnectorCard
+                        key={item.key}
+                        name={item.name}
+                        installations={github}
+                        installed={installed}
+                        onAddAnother={() => onAdd('github')}
+                        onOpenGroup={onOpenInstalledGroup}
+                        onContextMenu={onRowContextMenu}
+                      />
+                    ) : (
+                      <CatalogConnector
+                        key={item.key}
+                        item={item}
+                        installed={installed}
+                        onAdd={onAdd}
+                        onOpenGroup={onOpenInstalledGroup}
+                        onContextMenu={onRowContextMenu}
+                      />
+                    )
+                  })}
                 </div>
               </section>
             ))}
