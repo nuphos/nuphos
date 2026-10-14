@@ -11,6 +11,7 @@ import {
 } from './conversationStreamTokens'
 import { statusElapsedSeconds } from './sessionContinuity'
 import { computeStatus } from './status'
+import { TurnRail } from './TurnRail'
 import { useConversationRead } from './useConversationRead'
 import { useConversationScroll } from './useConversationScroll'
 
@@ -74,6 +75,7 @@ export function Conversation({
     handleTouchStart,
     handleTouchMove,
     handleUserScrollIntent,
+    lockScrollToHistory,
   } = useConversationScroll({
     tab,
     lastMsg,
@@ -183,6 +185,7 @@ export function Conversation({
           onRequestFeedbackComment={setFeedbackCommentFor}
         />
       </div>
+      <TurnRail messages={tab.messages} scrollRef={ref} onBeforeJump={lockScrollToHistory} />
       {showJumpToLatest && (
         <button
           type="button"

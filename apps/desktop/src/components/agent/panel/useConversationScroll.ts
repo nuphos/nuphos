@@ -261,5 +261,6 @@ export function useConversationScroll({
     handleTouchStart,
     handleTouchMove,
     handleUserScrollIntent,
+    lockScrollToHistory,
   }
 }
