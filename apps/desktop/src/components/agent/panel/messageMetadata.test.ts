@@ -73,4 +73,8 @@ test('a Discord reply keeps the quoted message as metadata', () => {
 
   assert.deepEqual(parseMessageMetadata(metadata)?.replyTo, metadata.replyTo)
   assert.equal(parseMessageMetadata({ ...metadata, replyTo: { text: 'x' } })?.replyTo, undefined)
+  assert.equal(
+    parseMessageMetadata({ ...metadata, replyTo: { authorName: 'Can', text: '' } })?.replyTo,
+    undefined,
+  )
 })

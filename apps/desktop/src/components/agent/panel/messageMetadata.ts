@@ -8,7 +8,7 @@ const SOURCES = new Set(['nuphos', 'slack', 'discord', 'lark', 'agent.thread', '
 function parseReplyTo(value: unknown): AgentMessageMetadata['replyTo'] {
   const r = value as Partial<NonNullable<AgentMessageMetadata['replyTo']>> | undefined
 
-  return typeof r?.authorName === 'string' && typeof r.text === 'string'
+  return typeof r?.authorName === 'string' && r.authorName && typeof r.text === 'string' && r.text
     ? { authorName: r.authorName, text: r.text }
     : undefined
 }
