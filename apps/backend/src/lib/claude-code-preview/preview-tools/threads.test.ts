@@ -43,6 +43,8 @@ test('a thread message publishes its own frames, since the runtime hides nuphos-
   const ctx = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'en' }
   const tools = threadToolModule({
     publish: async (_ctx, frame) => {
+      // A slow input frame must still land before the result.
+      if (frame.type === 'tool-input-available') await Bun.sleep(20)
       frames.push(frame)
     },
   }).handlers(ctx as PreviewToolContext)

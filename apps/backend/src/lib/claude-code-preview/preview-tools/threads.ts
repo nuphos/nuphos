@@ -76,32 +76,31 @@ function answer(work: Promise<unknown>) {
 
 // The runtime hides nuphos-tools calls from the live stream, so the Desktop's
 // thread badge only sees one when the tool publishes its own frames, as decisions do.
-function shown(
+async function shown(
   publish: PublishPreviewFrame,
   ctx: PreviewToolContext,
   toolName: string,
   input: unknown,
-  work: Promise<unknown>,
+  run: () => Promise<unknown>,
 ) {
   const toolCallId = `nuphos-${randomUUID()}`
   const emit = (frame: Record<string, unknown>) => publish(ctx, frame).catch(() => {})
 
-  void emit({ type: 'tool-input-available', toolCallId, toolName, input })
+  // The work starts only once the input frame is out, so its result never arrives first.
+  await emit({ type: 'tool-input-available', toolCallId, toolName, input })
+  try {
+    const output = await run()
 
-  return work.then(
-    async (output) => {
-      await emit({ type: 'tool-output-available', toolCallId, output })
+    await emit({ type: 'tool-output-available', toolCallId, output })
 
-      return toolResult(output)
-    },
-    async (error: unknown) => {
-      const errorText = error instanceof Error ? error.message : String(error)
+    return toolResult(output)
+  } catch (error: unknown) {
+    const errorText = error instanceof Error ? error.message : String(error)
 
-      await emit({ type: 'tool-output-error', toolCallId, errorText })
+    await emit({ type: 'tool-output-error', toolCallId, errorText })
 
-      return toolError(errorText)
-    },
-  )
+    return toolError(errorText)
+  }
 }
 
 export function threadToolModule(
@@ -184,7 +183,7 @@ export function threadToolModule(
           ctx,
           'create_thread',
           parsed.data,
-          createAgentThread(ctx, parsed.data.prompt, parsed.data.title),
+          () => createAgentThread(ctx, parsed.data.prompt, parsed.data.title),
         )
       },
       send_message_to_thread: async (args) => {
@@ -197,7 +196,7 @@ export function threadToolModule(
           ctx,
           'send_message_to_thread',
           parsed.data,
-          sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
+          () => sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
         )
       },
       archive_thread: async (args) => {
