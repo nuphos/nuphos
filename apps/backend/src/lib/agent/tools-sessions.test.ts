@@ -6,6 +6,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
 import { createSessionTools } from './tools-sessions'
 
+import type * as dbActual from './db'
 import type { AgentRun } from '@/routes/agent/types'
 
 test('exposes the past-conversation tools in a team', () => {
@@ -23,7 +24,29 @@ test('offers nothing outside a team scope', () => {
 let runningLastAssistantAt: Date | null = null
 const diagnostics = [{ message_index: 7, outcome: 'interrupted', reason: 'timeout' }]
 
+let listOptions: unknown
+
 useAgentDb({
+  getConversations: async (viewer, options) => {
+    expect(viewer).toBe('u')
+    listOptions = options
+
+    return {
+      conversations: [
+        {
+          sessionId: 'child',
+          userId: 'u',
+          parentSessionId: 'c',
+          title: 'Sub-agent',
+          createdAt: new Date(0),
+          lastActiveAt: new Date(0),
+          messageCount: 2,
+        } as Awaited<ReturnType<typeof dbActual.getConversations>>['conversations'][number],
+      ],
+      nextCursor: null,
+      hasMore: false,
+    }
+  },
   renameConversation: async (sessionId, userId, teamId, title) =>
     sessionId === 'c' && userId === 'u' && teamId === 'team' && title === 'Incident review',
   getConversationTranscriptForAgent: async (viewer, options) => {
@@ -59,6 +82,20 @@ useAgentDb({
       lastAssistantAt: null,
     }
   },
+})
+
+test("list_recent_conversations children:true lists this conversation's own sub-agents", async () => {
+  const tool = createSessionTools('u', 'c', 'team').list_recent_conversations!
+  const result = await tool.execute!(
+    { label: 'List sub-agents', children: true, scope: 'team' },
+    { toolCallId: 'list', messages: [] },
+  )
+
+  // Owner-scoped even when team scope is asked for: never another user's threads.
+  expect(listOptions).toMatchObject({ teamId: 'team', scope: 'mine', parentSessionId: 'c' })
+  expect(result).toMatchObject({
+    conversations: [{ session_id: 'child', parent_session_id: 'c' }],
+  })
 })
 
 test('read_conversation returns termination records outside the clipped transcript', async () => {

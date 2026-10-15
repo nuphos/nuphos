@@ -14,6 +14,7 @@ export const NUPHOS_TOOLS_INSTRUCTIONS =
   'connector setup (create_connector), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread), and channel delivery. ' +
   'When the user asks for a sub-agent (in any language), use create_thread, not your ' +
   "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. " +
+  'List yours with list_recent_conversations children:true. ' +
   'Domain resources use native skills backed by the ' +
   'canonical Nuphos REST API. Every call renders its own card in the Nuphos chat UI — ' +
   'do not re-describe the output in prose beyond what the user needs. Every ' +

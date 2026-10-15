@@ -72,7 +72,7 @@ export function threadToolModule(): PreviewToolModule {
       {
         name: 'create_thread',
         description:
-          'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it when asked for a sub-agent or to delegate/background work. ' +
+          'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it only when asked for a sub-agent or to delegate/background work. ' +
           'Inherits your current runtime, selected credentials and permission mode, not your transcript. ' +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +

@@ -38,7 +38,8 @@ describe('nuphos-tools surface', () => {
   })
 
   test('routes sub-agent requests to create_thread', () => {
-    expect(NUPHOS_TOOLS_INSTRUCTIONS).toContain('When the user asks for a sub-agent')
+    expect(NUPHOS_TOOLS_INSTRUCTIONS).toContain('use create_thread, not your')
+    expect(NUPHOS_TOOLS_INSTRUCTIONS).toContain('list_recent_conversations children:true')
   })
 
   test('routes domain resources away from the host-control MCP surface', () => {
