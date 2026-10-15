@@ -205,7 +205,7 @@ export function BoxRow({
       ) : (
         <BoxMetrics
           metrics={device.metrics}
-          status={device.metricsStatus}
+          status={state === 'creating' ? 'starting' : device.metricsStatus}
           receivedAt={device.metricsReceivedAt}
         />
       )}

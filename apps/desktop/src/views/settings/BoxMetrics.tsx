@@ -44,7 +44,8 @@ function validMetrics(value: unknown): value is DeviceMetrics {
   )
 }
 
-const STATUS_LABEL: Record<DeviceMetricsStatus, string> = {
+const STATUS_LABEL: Record<DeviceMetricsStatus | 'starting', string> = {
+  starting: 'Starting',
   offline: 'Host offline',
   unsupported: 'Host update required for metrics',
   waiting: 'Waiting for metrics',
@@ -59,7 +60,8 @@ export function BoxMetrics({
   receivedAt,
 }: {
   metrics?: DeviceMetrics | null
-  status?: DeviceMetricsStatus
+  /** `starting` while the Box itself is still being made: no host yet is expected, not offline. */
+  status?: DeviceMetricsStatus | 'starting'
   receivedAt?: string | null
 }) {
   const [history, setHistory] = useState<DeviceMetrics[]>([])

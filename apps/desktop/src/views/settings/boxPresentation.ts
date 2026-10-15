@@ -51,11 +51,6 @@ export function boxes(devices: AgentDevice[]): BoxDevice[] {
   return devices.filter((device): device is BoxDevice => device.box !== undefined)
 }
 
-/** What the Boxes list shows: a computer while its agents are connected; a cloud Box always, so it can be resumed. */
-export function machines(devices: AgentDevice[]): AgentDevice[] {
-  return devices.filter((device) => device.box !== undefined || device.online === true)
-}
-
 /** Derived, never stored: a cloud Box's state is instabox's; a computer is running while connected. */
 export function boxState(device: AgentDevice, now = Date.now()): MachineState {
   if (!device.box) return device.online ? 'running' : 'stopped'

@@ -12,7 +12,6 @@ import {
   boxState,
   newAgentAction,
   machineLine,
-  machines,
   newBoxBlockedReason,
   vanishedBoxes,
 } from './boxPresentation.ts'
@@ -58,13 +57,12 @@ test('only a running Box pauses; a paused or failed one resumes; a starting one 
   assert.deepEqual(boxActions('creating'), { pause: false, resume: false, remove: false })
 })
 
-test('lists every cloud Box and each computer while its agents are connected', () => {
+test('a cloud Box is a Box; a computer is running while connected and stopped when not', () => {
   const laptop: AgentDevice = { deviceId: 'mac', label: 'Mac', platform: 'darwin', online: true }
   const away: AgentDevice = { deviceId: 'old', label: 'Mac', platform: 'darwin', online: false }
   const ids = (devices: AgentDevice[]) => devices.map((device) => device.deviceId)
 
   assert.deepEqual(ids(boxes([laptop, box('a', 'running')])), ['a'])
-  assert.deepEqual(ids(machines([laptop, away, box('a', 'paused')])), ['mac', 'a'])
   assert.equal(boxState(laptop), 'running')
   assert.equal(boxState(away), 'stopped')
   assert.equal(boxState(box('a', 'paused')), 'paused')
