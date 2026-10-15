@@ -70,7 +70,9 @@ function PlanDetails({ usage, plan }: { usage: BoxUsage; plan: BillingSummary['p
       <dd>
         {usage.usedVcpus === null
           ? 'Unavailable'
-          : `${String(usage.usedVcpus)} of ${String(limit)}`}
+          : limit === 0
+            ? `${String(usage.usedVcpus)}, no plan`
+            : `${String(usage.usedVcpus)} of ${String(limit)}`}
       </dd>
       {plan && (
         <>
