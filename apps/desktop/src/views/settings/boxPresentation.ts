@@ -14,13 +14,20 @@ export type BoxDevice = AgentDevice & { box: BoxStatus }
 export const BOX_CREATING_POLL_MS = 1_000
 // A Box still creating after this long will not come up.
 export const BOX_SETUP_TIMEOUT_MS = 5 * 60_000
+// How long a running Box's host may take to connect before it reads as offline.
+export const BOX_HOST_GRACE_MS = 60_000
 
-/** A cloud Box's state, or, for a computer, `stopped` while its agents are not connected. */
-export type MachineState = BoxState | 'stopped'
+/**
+ * A cloud Box's state, or, for a computer, `stopped` while its agents are not connected.
+ * A running Box whose host is away is `connecting`, then `hostOffline` after the grace period.
+ */
+export type MachineState = BoxState | 'stopped' | 'connecting' | 'hostOffline'
 
 export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   creating: { label: 'Starting', tone: 'pending' },
   running: { label: 'Running', tone: 'online' },
+  connecting: { label: 'Starting', tone: 'pending' },
+  hostOffline: { label: 'Host offline', tone: 'pending' },
   paused: { label: 'Paused', tone: 'off' },
   stopped: { label: 'Offline', tone: 'off' },
   error: { label: "Didn't start", tone: 'error' },
@@ -33,7 +40,7 @@ export function boxActions(state: MachineState): {
   remove: boolean
 } {
   return {
-    pause: state === 'running',
+    pause: state === 'running' || state === 'connecting' || state === 'hostOffline',
     resume: state === 'paused' || state === 'error',
     remove: state !== 'creating',
   }
@@ -50,10 +57,12 @@ export function machines(devices: AgentDevice[]): AgentDevice[] {
 }
 
 /** Derived, never stored: a cloud Box's state is instabox's; a computer is running while connected. */
-export function boxState(device: AgentDevice): MachineState {
-  if (device.box) return device.box.state
+export function boxState(device: AgentDevice, now = Date.now()): MachineState {
+  if (!device.box) return device.online ? 'running' : 'stopped'
+  if (device.box.state !== 'running' || device.online) return device.box.state
+  const since = device.box.updatedAt ? Date.parse(device.box.updatedAt) : Number.NaN
 
-  return device.online ? 'running' : 'stopped'
+  return now - since < BOX_HOST_GRACE_MS ? 'connecting' : 'hostOffline'
 }
 
 /**

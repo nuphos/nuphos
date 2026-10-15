@@ -40,6 +40,8 @@ test('each Box state has a badge', () => {
     {
       creating: 'Starting',
       running: 'Running',
+      connecting: 'Starting',
+      hostOffline: 'Host offline',
       paused: 'Paused',
       stopped: 'Offline',
       error: "Didn't start",
@@ -176,4 +178,19 @@ test('unlimited or unknown usage never blocks', () => {
   assert.equal(newBoxBlockedReason(usage(null, null, null), true), null)
   assert.equal(newBoxBlockedReason(usage(12, null, 4), true), null)
   assert.equal(newBoxBlockedReason(null, true), null)
+})
+
+test('a running Box reads Starting until its host connects, then Host offline after the grace period', () => {
+  const now = Date.parse('2026-10-15T08:00:00Z')
+  const away = (updatedAt?: string): AgentDevice => ({
+    ...box('a', 'running', false),
+    box: { provider: 'instabox', sandboxId: 'sb-a', state: 'running', updatedAt },
+  })
+
+  assert.equal(boxState(away('2026-10-15T07:59:30Z'), now), 'connecting')
+  assert.equal(boxState(away('2026-10-15T07:58:00Z'), now), 'hostOffline')
+  assert.equal(boxState(away(), now), 'hostOffline')
+  assert.equal(boxState(box('a', 'running', true), now), 'running')
+  assert.equal(BOX_BADGE.connecting.tone, 'pending')
+  assert.deepEqual(boxActions('hostOffline'), { pause: true, resume: false, remove: true })
 })

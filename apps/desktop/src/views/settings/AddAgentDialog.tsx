@@ -70,13 +70,15 @@ function BoxAgentForm({
   teamId,
   onBack,
   onChosen,
+  onOpenBilling,
 }: {
   teamId: string
   onBack: () => void
   onChosen: (instance: RuntimeInstance) => void
+  onOpenBilling?: () => void
 }) {
   const [deviceId, setDeviceId] = useState<string | null>(null)
-  const box = useBoxSetup(teamId, deviceId, setDeviceId)
+  const box = useBoxSetup(teamId, deviceId, setDeviceId, onOpenBilling)
   const button =
     'rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60 disabled:opacity-50'
 
@@ -224,7 +226,18 @@ export function AddAgentDialog({
               />
             )}
             {step === 'box' && (
-              <BoxAgentForm teamId={teamId} onBack={() => go('back')} onChosen={setSigningIn} />
+              <BoxAgentForm
+                teamId={teamId}
+                onBack={() => go('back')}
+                onChosen={setSigningIn}
+                onOpenBilling={
+                  onOpenBilling &&
+                  (() => {
+                    onClose()
+                    onOpenBilling()
+                  })
+                }
+              />
             )}
           </div>
         </Dialog.Popup>

@@ -208,7 +208,7 @@ export function BoxRow({
       )}
       <ul
         className={clsx(
-          state === 'paused'
+          state === 'paused' || state === 'connecting' || state === 'hostOffline'
             ? 'hidden'
             : 'mt-auto flex shrink-0 items-center gap-2 overflow-x-auto pb-1',
           dim && 'opacity-50',
