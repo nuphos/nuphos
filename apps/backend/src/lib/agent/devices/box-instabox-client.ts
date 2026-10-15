@@ -8,6 +8,8 @@ import { AppError } from '@/lib/errors'
 
 import { killMachine, listMachines } from './instabox-machines'
 
+/** The default template: a desktop the person can watch and take over. */
+export const BOX_TEMPLATE = 'agent-browser'
 /** Installing the CLI and the agents on a fresh machine. */
 export const INSTALL_TIMEOUT_MS = 9 * 60_000
 /** Ordering a machine, in the background. */

@@ -1,4 +1,4 @@
-import { optional } from './env'
+import { boundedInt, optional } from './env'
 
 /**
  * Boxes: cloud machines Nuphos creates on instabox for a user, registered as that
@@ -14,6 +14,10 @@ export type BoxConfig = {
    * carry node 22, claude, codex and nuphos. Unset means the default template, installed on create.
    */
   template?: string
+  /** vCPUs a team's running Boxes may use when its document sets no `boxVcpuLimit`; unset is unlimited. */
+  defaultVcpuLimit?: number
+  /** The billing service clients open to buy or change a plan; unset shows no Upgrade. */
+  billingUrl?: string
 }
 
 export function boxConfig(): BoxConfig {
@@ -24,6 +28,10 @@ export function boxConfig(): BoxConfig {
   return {
     ...(downloadUrl ? { downloadUrl } : {}),
     ...(template ? { template } : {}),
+    ...(optional('BOX_DEFAULT_VCPU_LIMIT')
+      ? { defaultVcpuLimit: boundedInt('BOX_DEFAULT_VCPU_LIMIT', 0, { min: 0, max: 10_000 }) }
+      : {}),
+    ...(optional('NUPHOS_BILLING_URL') ? { billingUrl: optional('NUPHOS_BILLING_URL') } : {}),
     instabox: apiKey
       ? {
           apiKey,

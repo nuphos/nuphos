@@ -18,6 +18,7 @@ import { logError, logEvent } from '@/lib/observability'
 import {
   AGENT_COMMAND,
   BOX_INSTALL_COMMAND,
+  BOX_TEMPLATE,
   CREATE_TIMEOUT_MS,
   INSTALL_TIMEOUT_MS,
   QUICK_TIMEOUT_MS,
@@ -26,6 +27,7 @@ import {
   killBoxMachine,
   unavailable,
 } from './box-instabox-client'
+import { startWithinLimit } from './box-instabox-limit'
 
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { isDevicePresent } from './presence'
@@ -38,12 +40,10 @@ import {
 
 import type { AgentDevice, AgentDeviceBox } from './store'
 
-export { boxBackendUrl, boxesAvailable, boxesEnabled } from './box-instabox-client'
+export { BOX_TEMPLATE, boxBackendUrl, boxesAvailable, boxesEnabled } from './box-instabox-client'
 export { boxState } from './box-instabox-state'
 export type { BoxState } from './box-instabox-state'
 
-/** The default template: a desktop the person can watch and take over. */
-export const BOX_TEMPLATE = 'agent-browser'
 /** The machine joins within this; a token left unused expires with it. */
 const JOIN_TOKEN_TTL_SEC = 60 * 60
 /** How long a resume may take before the tunnel is back. */
@@ -103,7 +103,9 @@ export async function createBox(
     box: { provider: 'instabox' as const, teamId, createdBy: userId },
   }
 
-  const created = await insertBoxAgentDevice(userId, registration)
+  const created = await startWithinLimit(teamId, undefined, () =>
+    insertBoxAgentDevice(userId, registration),
+  )
 
   void order(userId, teamId, deviceId, label, url)
 
@@ -171,10 +173,9 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
   const sandboxId = requireMachine(device)
 
   try {
-    const sandbox = await Sandbox.connect(sandboxId, {
-      ...connection(QUICK_TIMEOUT_MS),
-      resume: true,
-    })
+    const sandbox = await startWithinLimit(device.box.teamId, sandboxId, () =>
+      Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
+    )
 
     await sandbox.desktop.start()
     const { url } = await sandbox.desktop.streamUrl({ viewOnly: false, ttlSeconds: 15 * 60 })
@@ -237,6 +238,7 @@ export async function resumeBox(userId: string, deviceId: string): Promise<Agent
       background: true,
     })
   } catch (error) {
+    if (error instanceof AppError) throw error
     throw unavailable('Could not resume the Box', error)
   }
 

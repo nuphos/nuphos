@@ -13,6 +13,7 @@ import {
   newAgentAction,
   machineLine,
   machines,
+  newBoxBlockedReason,
   vanishedBoxes,
 } from './boxPresentation.ts'
 
@@ -151,4 +152,28 @@ test('New Agent adds an agent on a capable host, and only signs in the existing 
   assert.deepEqual(newAgentAction(capable, 'claude-code'), { create: true })
   assert.deepEqual(newAgentAction(old, 'codex'), { signIn: 'codex' })
   assert.equal(newAgentAction(old, 'claude-code'), null)
+})
+
+const usage = (limitVcpus: number | null, usedVcpus: number | null, boxVcpus: number | null) => ({
+  limitVcpus,
+  usedVcpus,
+  boxVcpus,
+  subscribed: limitVcpus !== null && limitVcpus > 0,
+  billingUrl: 'http://billing.test',
+})
+
+test('no Box plan blocks a new Box and tells who can fix it', () => {
+  assert.match(newBoxBlockedReason(usage(0, 0, 4), true) ?? '', /no Box plan/)
+  assert.match(newBoxBlockedReason(usage(0, 0, 4), false) ?? '', /administrator/)
+})
+
+test('a Box that fits the plan may start; one past it is blocked', () => {
+  assert.equal(newBoxBlockedReason(usage(12, 8, 4), true), null)
+  assert.match(newBoxBlockedReason(usage(12, 12, 4), true) ?? '', /12 of 12 vCPU/)
+})
+
+test('unlimited or unknown usage never blocks', () => {
+  assert.equal(newBoxBlockedReason(usage(null, null, null), true), null)
+  assert.equal(newBoxBlockedReason(usage(12, null, 4), true), null)
+  assert.equal(newBoxBlockedReason(null, true), null)
 })

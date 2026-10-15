@@ -155,3 +155,34 @@ export type AgentDeviceList = {
   /** False or missing when this backend cannot create Boxes. */
   boxAvailable?: boolean
 }
+
+/** The team's Box vCPU limit and use, from the backend. */
+export type BoxUsage = {
+  /** Null when unlimited. */
+  limitVcpus: number | null
+  /** Whether the limit comes from the team's own subscription. */
+  subscribed: boolean
+  usedVcpus: number | null
+  boxVcpus: number | null
+  /** The billing service; null when this deployment has none. */
+  billingUrl: string | null
+}
+
+/** The billing service's read-only summary for the Billing section. */
+export type BillingSummary = {
+  plan: {
+    vcpus: number
+    status: string
+    currentPeriodEnd: string | null
+    cancelAt: string | null
+    card: { brand: string; last4: string } | null
+  } | null
+  invoices: {
+    number: string | null
+    total: number
+    currency: string
+    status: string | null
+    created: string | null
+    url: string | null
+  }[]
+}

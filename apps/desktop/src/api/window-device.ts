@@ -2,7 +2,9 @@ import type {
   AgentDevice,
   AgentDeviceList,
   AgentDeviceListOptions,
+  BillingSummary,
   BoxStatus,
+  BoxUsage,
   DeviceAgentInstance,
   SleepPreferences,
   SleepState,
@@ -43,5 +45,8 @@ export type WindowDeviceApi = {
   ): Promise<DeviceAgentInstance>
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }>
+  boxUsage(teamId: string): Promise<BoxUsage>
+  boxBillingPage(teamId: string, vcpus?: number): Promise<{ url: string }>
+  boxBillingSummary(teamId: string): Promise<BillingSummary>
   boxJoinToken(): Promise<{ token: string; expiresAt: string; apiUrl: string | null }>
 }

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { parseAtlasError } from '../../api/errors'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED, useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 
-import { BOX_CREATING_POLL_MS, boxAgents, boxSetupPhase } from './boxPresentation'
+import { openBilling } from './billing'
+import { BOX_CREATING_POLL_MS, BOX_VCPU_TIERS, boxAgents, boxSetupPhase } from './boxPresentation'
 import { useAgentDevices } from './useAgentDevices'
 
 /**
@@ -40,7 +42,17 @@ export function useBoxSetup(
     try {
       onCreated((await api.boxCreate(label, teamId)).deviceId)
     } catch (error) {
-      toast.apiError('Could not create Box', error)
+      const { code, message } = parseAtlasError(error)
+
+      // No plan, or past it: offer one right there. A team with a plan lands in its portal.
+      if (code === 'box_vcpu_limit')
+        toast.error('Could not create Box', message, {
+          action: {
+            label: 'Get a Box plan',
+            onClick: () => void openBilling(teamId, BOX_VCPU_TIERS[0]),
+          },
+        })
+      else toast.apiError('Could not create Box', error)
     } finally {
       setCreating(false)
     }

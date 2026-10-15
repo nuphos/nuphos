@@ -5,6 +5,7 @@ const calls: unknown[][] = []
 
 mock.module('../atlas/client.ts', {
   namedExports: {
+    readToken: async () => null,
     call: (...args: unknown[]) => {
       calls.push(args)
 

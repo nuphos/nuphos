@@ -187,6 +187,14 @@ export async function setAgentDeviceBoxSandbox(
   return result.matchedCount > 0
 }
 
+/** The team's Boxes still being ordered: instabox does not list their machines yet. */
+export async function countTeamBoxesOrdering(teamId: string): Promise<number> {
+  return agentDevices().countDocuments({
+    'box.teamId': teamId,
+    'box.sandboxId': { $exists: false },
+  })
+}
+
 export async function deleteAgentDevice(userId: string, deviceId: string): Promise<boolean> {
   const result = await agentDevices().deleteOne({ userId, deviceId })
 

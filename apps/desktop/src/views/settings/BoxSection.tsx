@@ -1,5 +1,4 @@
 import clsx from 'clsx'
-import { Box, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -10,10 +9,18 @@ import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
 import { JoinDialog } from './BoxParts'
-import { boxAgents, boxPollMs, machines, vanishedBoxes } from './boxPresentation'
+import { BoxPlanBar, NewBoxButton } from './BoxPlanBar'
+import {
+  boxAgents,
+  boxPollMs,
+  machines,
+  newBoxBlockedReason,
+  vanishedBoxes,
+} from './boxPresentation'
 import { BoxRow } from './BoxRow'
 import { PanelHeading } from './RuntimePanel'
 import { useAgentDevices } from './useAgentDevices'
+import { useBoxUsage } from './useBoxUsage'
 
 import './BoxLoading.css'
 
@@ -48,6 +55,8 @@ export function BoxSection({
   const [creating, setCreating] = useState(false)
   const [join, setJoin] = useState<BoxJoin | null>(null)
   const previous = useRef<AgentDevice[]>([])
+  const { usage, reload: reloadUsage } = useBoxUsage(teamId)
+  const blocked = newBoxBlockedReason(usage, canCreate)
   const { isActive } = useWorkspaceTab()
   const {
     list,
@@ -81,6 +90,7 @@ export function BoxSection({
       toast.apiError('Could not create Box', error)
     } finally {
       setCreating(false)
+      reloadUsage()
     }
   }
   const owned = machines(list?.devices ?? [])
@@ -113,18 +123,14 @@ export function BoxSection({
               Connect external Box
             </Button>
             {list?.boxAvailable && canCreate && (
-              <Button type="submit" size="sm" variant="secondary" disabled={creating || !list}>
-                {creating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Box className="h-3.5 w-3.5" />
-                )}
-                New Box
-              </Button>
+              <NewBoxButton creating={creating} blocked={blocked} />
             )}
           </form>
         }
       />
+      {list?.boxAvailable && (
+        <BoxPlanBar teamId={teamId} isAdmin={canCreate} usage={usage} blocked={blocked} />
+      )}
       {join && <JoinDialog join={join} onClose={() => setJoin(null)} />}
       <div
         className={clsx('box-loading t-skel', list && 'is-revealed')}
@@ -164,7 +170,10 @@ export function BoxSection({
                   device={device}
                   agents={boxAgents(device.deviceId, instances)}
                   onSelect={onSelect}
-                  onChanged={reload}
+                  onChanged={() => {
+                    reload()
+                    reloadUsage()
+                  }}
                 />
               ))}
             </ul>

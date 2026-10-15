@@ -45,6 +45,10 @@ export type NuphosTeamDoc = {
     deletedAt?: Date
   }[]
   billing?: TeamBilling
+  /** vCPUs the team's running Boxes may use; written only by the billing service. */
+  boxVcpuLimit?: number
+  /** Held while a Box starts in this team, so two starts cannot both pass its limit. */
+  boxStartLease?: { token: string; until: Date }
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date

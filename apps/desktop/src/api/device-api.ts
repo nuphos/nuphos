@@ -35,4 +35,7 @@ export const deviceApi = {
     window.api.boxCreateAgent(deviceId, teamId, provider),
   boxRename: (deviceId: string, teamId: string, label: string) =>
     window.api.boxRename(deviceId, teamId, label),
+  boxUsage: (teamId: string) => window.api.boxUsage(teamId),
+  boxBillingPage: (teamId: string, vcpus?: number) => window.api.boxBillingPage(teamId, vcpus),
+  boxBillingSummary: (teamId: string) => window.api.boxBillingSummary(teamId),
 }

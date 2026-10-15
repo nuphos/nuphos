@@ -31,8 +31,9 @@ mock.module('./client.ts', {
       bodies.push(body)
       options.push(opts)
 
-      return list
+      return path.endsWith('/box-usage') ? { billingUrl: 'http://billing.test' } : list
     },
+    readToken: async () => 'session-token',
   },
 })
 mock.module('../main/device-identity.ts', {
@@ -47,7 +48,7 @@ mock.module('../main/device-metrics.ts', {
     },
   },
 })
-const { listAgentDevices } = await import('./boxes.ts')
+const { boxBillingPage, boxBillingSummary, listAgentDevices } = await import('./boxes.ts')
 
 test('default and explicit false device lists do not request metrics or sample this computer', async () => {
   assert.equal(await listAgentDevices(), list)
@@ -92,4 +93,36 @@ test('adding an agent posts once and outlasts the backend 60s host wait', async 
   assert.equal(calls.at(-1), '/agent/devices/box%2F1/agents')
   assert.deepEqual(bodies.at(-1), { teamId: 'team-1', provider: 'codex' })
   assert.deepEqual(options.at(-1), { retry: false, timeoutMs: 65_000 })
+})
+
+test('a plan Checkout for a subscribed team falls back to the portal; the summary is a GET', async (t) => {
+  const requests: { url: string; method: string; auth: string }[] = []
+  const answers: Record<string, [number, unknown]> = {
+    checkout: [409, { error: 'already_subscribed' }],
+    portal: [200, { url: 'https://portal.test' }],
+    subscription: [200, { plan: null, invoices: [] }],
+  }
+
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    requests.push({
+      url,
+      method: init.method ?? 'GET',
+      auth: (init.headers as Record<string, string>).Authorization ?? '',
+    })
+    const [status, body] = answers[url.split('/').pop() ?? ''] ?? [500, {}]
+
+    return new Response(JSON.stringify(body), { status })
+  })
+
+  assert.deepEqual(await boxBillingPage('t1', 12), { url: 'https://portal.test' })
+  assert.deepEqual(await boxBillingSummary('t1'), { plan: null, invoices: [] })
+  assert.deepEqual(requests, [
+    { url: 'http://billing.test/teams/t1/checkout', method: 'POST', auth: 'Bearer session-token' },
+    { url: 'http://billing.test/teams/t1/portal', method: 'POST', auth: 'Bearer session-token' },
+    {
+      url: 'http://billing.test/teams/t1/subscription',
+      method: 'GET',
+      auth: 'Bearer session-token',
+    },
+  ])
 })

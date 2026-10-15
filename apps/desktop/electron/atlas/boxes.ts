@@ -1,11 +1,14 @@
 import { readDeviceMetrics } from '../main/device-metrics.ts'
 
-import { call } from './client.ts'
+import { call, readToken } from './client.ts'
+import { buildAtlasError } from './error.ts'
 
 import type {
   AgentDevice,
   AgentDeviceList,
   AgentDeviceListOptions,
+  BillingSummary,
+  BoxUsage,
   DeviceAgentInstance,
   LocalAgentProvider,
 } from '../../src/api/device-types.ts'
@@ -92,4 +95,66 @@ export function boxJoinToken(): Promise<{
 }
 export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true }> {
   return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
+}
+
+export function getBoxUsage(teamId: string): Promise<BoxUsage> {
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/box-usage`)
+}
+
+/** What the billing service's errors (`{ error }` only) mean to the user. */
+const BILLING_ERRORS: Record<string, string> = {
+  checkout_in_progress: 'A checkout for this team is already in progress; try again shortly',
+  forbidden: 'Only team administrators can manage billing',
+  no_customer: 'Choose a plan first',
+}
+
+/**
+ * Calls the billing service, a separate origin whose CORS takes only Authorization
+ * and Content-Type, hence a plain fetch. Answers the error code instead of throwing it.
+ */
+async function billing(teamId: string, method: 'GET' | 'POST', page: string, body?: unknown) {
+  const { billingUrl } = await getBoxUsage(teamId)
+
+  if (!billingUrl) throw new Error('This deployment has no billing service')
+  const response = await fetch(`${billingUrl}/teams/${encodeURIComponent(teamId)}/${page}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${(await readToken()) ?? ''}`,
+      'Content-Type': 'application/json',
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  })
+  const json = (await response.json().catch(() => ({}))) as { error?: string }
+
+  return response.ok
+    ? { ok: true as const, value: json as unknown }
+    : { ok: false as const, error: json.error ?? `billing_${String(response.status)}` }
+}
+
+function billingError(error: string): Error {
+  return buildAtlasError(BILLING_ERRORS[error] ?? `Billing answered ${error}`, error)
+}
+
+/** Checkout for a `vcpus` plan, or the portal without one or for a team that already has one. */
+export async function boxBillingPage(teamId: string, vcpus?: number): Promise<{ url: string }> {
+  let page =
+    vcpus === undefined
+      ? await billing(teamId, 'POST', 'portal')
+      : await billing(teamId, 'POST', 'checkout', {
+          plan: `nuphos_box_${String(vcpus)}vcpu_monthly`,
+        })
+
+  if (!page.ok && page.error === 'already_subscribed')
+    page = await billing(teamId, 'POST', 'portal')
+  if (!page.ok) throw billingError(page.error)
+
+  return page.value as { url: string }
+}
+
+export async function boxBillingSummary(teamId: string): Promise<BillingSummary> {
+  const summary = await billing(teamId, 'GET', 'subscription')
+
+  if (!summary.ok) throw billingError(summary.error)
+
+  return summary.value as BillingSummary
 }
