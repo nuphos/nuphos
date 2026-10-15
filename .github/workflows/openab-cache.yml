@@ -1,0 +1,66 @@
+name: openab cache
+
+# Builds the openab binaries that release-desktop.yml and release-cli.yml ship,
+# once per prepare.mjs (it pins OPENAB_COMMIT and the cargo flags), and keeps
+# them in a cache on main. A tag run can restore main's caches but not another
+# tag's, so this is what lets both releases skip cargo (10-17 min per target).
+# A release that misses the cache compiles as before. Only this workflow saves
+# the cache: Linux builds here on 22.04, the oldest glibc either release
+# supports.
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/desktop/local-runtime/prepare.mjs
+      - .github/workflows/openab-cache.yml
+  # Compiles an OPENAB_COMMIT bump for every shipped target before it merges.
+  pull_request:
+    paths:
+      - apps/desktop/local-runtime/prepare.mjs
+      - .github/workflows/openab-cache.yml
+  # GitHub evicts a cache nobody has read for 7 days.
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            targets: darwin-arm64,darwin-x64
+          - runner: windows-2025
+            targets: win32-x64,win32-arm64
+          - runner: ubuntu-22.04
+            targets: linux-x64
+          - runner: ubuntu-22.04-arm
+            targets: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The key and paths must match the restore steps in the release workflows.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: openab-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/local-runtime/prepare.mjs') }}
+          path: |
+            ~/.cache/nuphos/openab-*/target/*/release/openab
+            ~/.cache/nuphos/openab-*/target/*/release/openab.exe
+      # The same staging the releases run, so a hit here proves theirs.
+      - name: Stage local runtime
+        env:
+          TARGETS: ${{ matrix.targets }}
+        run: node local-runtime/prepare.mjs --targets "$TARGETS" --require

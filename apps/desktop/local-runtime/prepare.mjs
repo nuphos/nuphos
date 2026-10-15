@@ -119,9 +119,20 @@ async function buildAdapter(provider) {
 function buildOpenab(target) {
   const triple = RUST_TARGETS[target]
 
-  if (!triple || !hasCommand('cargo')) return null
+  if (!triple) return null
   const source = join(homedir(), '.cache', 'nuphos', `openab-${OPENAB_COMMIT}`)
+  const binary = join(
+    source,
+    'target',
+    triple,
+    'release',
+    target.startsWith('win32') ? 'openab.exe' : 'openab',
+  )
 
+  // The source is pinned, so a built binary is final. Release jobs restore it
+  // from the cache openab-cache.yml fills, and compile only on a miss.
+  if (existsSync(binary)) return binary
+  if (!hasCommand('cargo')) return null
   if (!existsSync(join(source, 'Cargo.toml'))) {
     rmSync(source, { recursive: true, force: true })
     mkdirSync(source, { recursive: true })
@@ -140,13 +151,7 @@ function buildOpenab(target) {
     source,
   )
 
-  return join(
-    source,
-    'target',
-    triple,
-    'release',
-    target.startsWith('win32') ? 'openab.exe' : 'openab',
-  )
+  return binary
 }
 
 export async function prepare({ targets, openab, skipOpenab, require }) {
