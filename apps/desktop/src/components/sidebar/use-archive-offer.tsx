@@ -11,6 +11,12 @@ type Offer = { sessionId: string; title: string; finished: string[]; running: nu
 
 const plural = (count: number, one: string) => `${String(count)} ${one}${count === 1 ? '' : 's'}`
 
+export function archiveTitle(conversations: readonly AgentConversation[], sessionId: string) {
+  const conversation = conversations.find((item) => item.sessionId === sessionId)
+
+  return conversation?.title || conversation?.firstMessage || 'this chat'
+}
+
 /**
  * Archiving a chat with finished threads asks whether they go too; running
  * threads always stay. A chat without finished threads archives at once, as
@@ -24,25 +30,25 @@ export function useArchiveOffer({
   conversations: readonly AgentConversation[]
   runtimeStates: ReadonlyMap<string, RuntimeExecution>
   /** Archives the chat, then the given threads. */
-  onArchive: (sessionId: string, threadIds: string[]) => Promise<void> | void
+  onArchive: (sessionId: string, threadIds: string[]) => Promise<unknown> | void
 }) {
   const [offer, setOffer] = useState<Offer | null>(null)
   const [withThreads, setWithThreads] = useState(true)
 
-  function request(sessionId: string) {
-    const { finished, running } = threadsUnder(sessionId, conversations, runtimeStates)
+  /** `fresh` replaces the list the hook was given, for a caller that just re-read it. */
+  function request(sessionId: string, fresh?: readonly AgentConversation[]) {
+    const list = fresh ?? conversations
+    const { finished, running } = threadsUnder(sessionId, list, runtimeStates)
 
     if (finished.length === 0) {
       void onArchive(sessionId, [])
 
       return
     }
-    const conversation = conversations.find((item) => item.sessionId === sessionId)
-
     setWithThreads(true)
     setOffer({
       sessionId,
-      title: conversation?.title || conversation?.firstMessage || 'this chat',
+      title: archiveTitle(list, sessionId),
       finished,
       running: running.length,
     })

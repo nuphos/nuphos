@@ -26,10 +26,10 @@ test('finished threads are offered for archiving and running ones are kept', () 
 
 test('a thread whose own thread is still running is not finished', () => {
   const conversations = [
-    { sessionId: 'a', parentSessionId: 'p' },
+    { sessionId: 'a', parentSessionId: 'p', runtimeState: idle },
     { sessionId: 'a1', parentSessionId: 'a' },
-    { sessionId: 'b', parentSessionId: 'p' },
-    { sessionId: 'b1', parentSessionId: 'b' },
+    { sessionId: 'b', parentSessionId: 'p', runtimeState: idle },
+    { sessionId: 'b1', parentSessionId: 'b', runtimeState: idle },
   ]
 
   assert.deepEqual(threadsUnder('p', conversations, new Map([['a1', busy()]])), {
@@ -44,4 +44,18 @@ test('thread states match the in-chat badges', () => {
   assert.equal(threadState(idle), 'done')
   assert.equal(threadState({ ...idle, state: 'interrupted' }), 'stopped')
   assert.equal(threadState(undefined), 'done')
+})
+
+test("a teammate's thread is never offered, and one without a snapshot stays", () => {
+  const conversations = [
+    { sessionId: 'p' },
+    { sessionId: 'mine', parentSessionId: 'p', runtimeState: idle },
+    { sessionId: 'theirs', parentSessionId: 'p', runtimeState: idle, readOnly: true },
+    { sessionId: 'unknown', parentSessionId: 'p' },
+  ]
+
+  assert.deepEqual(threadsUnder('p', conversations, new Map()), {
+    finished: ['mine'],
+    running: ['unknown'],
+  })
 })
