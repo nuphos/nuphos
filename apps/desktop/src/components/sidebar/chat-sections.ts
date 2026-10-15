@@ -50,7 +50,8 @@ export function withChatSections(
   const projectGroups = (projects ?? []).map((project) => ({
     id: project.id,
     name: project.name,
-    items: group(`project:${project.id}`),
+    // Owned and shared chats come from separate lists; a project shows them by activity.
+    items: group(`project:${project.id}`).sort((a, b) => (b.activeAt ?? 0) - (a.activeAt ?? 0)),
   }))
   const groups: Section[] = [
     { title: 'Pinned', items: [...pinnedChatItems, ...group('Pinned')] },

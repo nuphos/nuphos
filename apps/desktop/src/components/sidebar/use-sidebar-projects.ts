@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+import {
+  filedChatCount,
+  MAX_FILED_CHATS,
+  projectChangeRefusal,
+} from '../../lib/sidebar-projects/model'
+import { reachableSessionIds } from '../../lib/sidebar-projects/prune'
 
 import {
   createSidebarProject,
@@ -44,9 +51,7 @@ export function useSidebarProjects({
   }
   useEffect(() => {
     if (!userId || !teamId) return
-    void syncSidebarProjects(userId, teamId).catch(() => {
-      // Keep the cached list; the next change retries against the server.
-    })
+    void syncSidebarProjects(userId, teamId)
     const unsubscribe = subscribeSidebarProjects(userId, teamId, () =>
       setList(readSidebarProjects(userId, teamId)),
     )
@@ -58,11 +63,37 @@ export function useSidebarProjects({
     }
   }, [teamId, userId])
 
+  // Deleted chats stay filed until something removes them; once projects hold
+  // three quarters of the cap, drop the ones no longer reachable (at most once a session).
+  const pruned = useRef(new Set<string>())
+
+  useEffect(() => {
+    const key = `${userId}|${teamId}`
+
+    if (!userId || !teamId || pruned.current.has(key)) return
+    if (filedChatCount(list) < MAX_FILED_CHATS * 0.75) return
+    pruned.current.add(key)
+    void reachableSessionIds(teamId)
+      .then((reachable) => {
+        if (!reachable) return
+        const gone = list
+          .flatMap((project) => project.sessionIds)
+          .filter((id) => !reachable.has(id))
+
+        if (gone.length > 0)
+          updateSidebarProjects(userId, teamId, { kind: 'forget', sessionIds: gone })
+      })
+      .catch(() => {
+        // Try again next session.
+      })
+  }, [list, teamId, userId])
+
   const change = useCallback(
     (next: SidebarProjectChange) => {
-      updateSidebarProjects(userId, teamId, next).catch((error: unknown) =>
-        toast.apiError('Could not save projects', error),
-      )
+      const refusal = projectChangeRefusal(readSidebarProjects(userId, teamId), next)
+
+      if (refusal) toast.error('Could not change projects', refusal)
+      else updateSidebarProjects(userId, teamId, next)
     },
     [teamId, userId],
   )
@@ -72,9 +103,10 @@ export function useSidebarProjects({
       list,
       projectOf: (sessionId) => list.find((project) => project.sessionIds.includes(sessionId)),
       create: (sessionId) => {
-        createSidebarProject(userId, teamId, sessionId).saved.catch((error: unknown) =>
-          toast.apiError('Could not create project', error),
-        )
+        const refusal = projectChangeRefusal(list, { kind: 'create', id: '', name: '', sessionId })
+
+        if (refusal) toast.error('Could not create project', refusal)
+        else createSidebarProject(userId, teamId, sessionId)
       },
       rename: (id, name) => change({ kind: 'rename', id, name }),
       remove: (id) => change({ kind: 'delete', id }),

@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { applyProjectChange, nextProjectName, projectForSession } from './sidebar-projects/model.ts'
-import { readSidebarProjects, updateSidebarProjects } from './sidebarProjects.ts'
+import {
+  applyProjectChange,
+  MAX_PROJECTS,
+  nextProjectName,
+  projectChangeRefusal,
+  projectForSession,
+} from './sidebar-projects/model.ts'
+import {
+  readSidebarProjects,
+  syncSidebarProjects,
+  updateSidebarProjects,
+} from './sidebarProjects.ts'
 
 import type { SidebarProject } from './sidebar-projects/model.ts'
 
@@ -87,7 +97,8 @@ test('new projects get distinct default names', () => {
 
 test('a conflicting save replays the change onto the newer server list', async () => {
   remote = { projects: [infra], revision: 3, updatedAt: '' }
-  await updateSidebarProjects('u', 't', { kind: 'create', id: 'web', name: 'Web', sessionId: 'b' })
+  updateSidebarProjects('u', 't', { kind: 'create', id: 'web', name: 'Web', sessionId: 'b' })
+  await syncSidebarProjects('u', 't')
 
   assert.equal(remote.revision, 4)
   assert.deepEqual(
@@ -97,11 +108,40 @@ test('a conflicting save replays the change onto the newer server list', async (
   assert.deepEqual(readSidebarProjects('u', 't'), remote.projects)
 })
 
-test('a failed save falls back to the saved list', async () => {
+test('a failed save keeps the edit and saves it on the next try', async () => {
   failNextPut = true
-  await assert.rejects(updateSidebarProjects('u', 't', { kind: 'delete', id: 'infra' }), /offline/)
+  updateSidebarProjects('u', 't', { kind: 'delete', id: 'infra' })
+  await syncSidebarProjects('u', 't')
+  // Offline: the edit stays on screen instead of being thrown away.
   assert.deepEqual(
     readSidebarProjects('u', 't').map((project) => project.id),
+    ['web'],
+  )
+  assert.deepEqual(
+    remote.projects.map((project) => project.id),
     ['infra', 'web'],
+  )
+  await syncSidebarProjects('u', 't')
+  assert.deepEqual(
+    remote.projects.map((project) => project.id),
+    ['web'],
+  )
+})
+
+test('changes past the limits are refused, and gone chats can be forgotten', () => {
+  const full = Array.from({ length: MAX_PROJECTS }, (_, i) => ({
+    id: String(i),
+    name: 'P',
+    sessionIds: [],
+  }))
+
+  assert.ok(projectChangeRefusal(full, { kind: 'create', id: 'x', name: 'X' }))
+  assert.equal(applyProjectChange(full, { kind: 'create', id: 'x', name: 'X' }), full)
+  assert.deepEqual(
+    applyProjectChange([{ ...infra, sessionIds: ['a', 'b'] }], {
+      kind: 'forget',
+      sessionIds: ['a'],
+    }),
+    [{ ...infra, sessionIds: ['b'] }],
   )
 })

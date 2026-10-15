@@ -104,3 +104,21 @@ test('Chats stays as a drop target while every chat is filed', () => {
 
   assert.deepEqual(layout(sections).Chats, [])
 })
+
+test('a project lists its owned and shared chats together by activity', () => {
+  const owned = { ...row('agent-session:new'), activeAt: 2 }
+  const shared = { ...row('agent-session:old'), activeAt: 1 }
+  const sections = withChatSections(
+    [{ items: [] }, { title: 'Chats', items: [owned] }],
+    [],
+    [shared],
+    () => false,
+    [{ id: 'p', name: 'P', sessionIds: ['new', 'old'] }],
+  )
+  const project = sections.find((section) => section.title === 'Projects')?.projects?.[0]
+
+  assert.deepEqual(
+    project?.items.map((item) => item.key),
+    ['agent-session:new', 'agent-session:old'],
+  )
+})

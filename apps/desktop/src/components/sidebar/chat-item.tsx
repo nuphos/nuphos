@@ -49,6 +49,7 @@ export function chatSidebarItem({
     ),
     enabled: true,
     active,
+    activeAt: Date.parse(conversation.lastActiveAt) || 0,
     ...(readOnly ? { readOnlyChat: true } : {}),
     ...(readOnly && conversation.canManage ? { managedChat: true } : {}),
     ...(conversation.parentSessionId

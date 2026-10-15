@@ -1,29 +1,31 @@
-import { Hono } from 'hono'
-import { MongoServerError, ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { AppError } from '@/lib/errors'
-import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
 import { userTeamSidebarProjects } from '@/models'
+import { sidebarDocumentRoutes } from '@/routes/sidebar-document'
 
-import type { TeamAuthVariables } from '@/middleware/auth'
-import type { UserTeamSidebarProjects } from '@/models'
+import type { Collection } from 'mongodb'
 
-export const sidebarProjectsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
+/** Projects per person per team. */
+export const MAX_PROJECTS = 50
+/** Chats filed across all of a person's projects: the client prunes chats that are gone. */
+export const MAX_FILED_CHATS = 2000
+
+// Session ids are minted by the backend (UUIDs) and by clients, so check the
+// shape rather than insist on a UUID.
+const sessionIdSchema = z.string().regex(/^[\w-]{1,128}$/, 'Invalid chat id')
 
 const projectSchema = z
   .object({
     id: z.string().trim().min(1).max(64),
     name: z.string().trim().min(1).max(80),
-    sessionIds: z.array(z.string().trim().min(1).max(128)).max(1000),
+    sessionIds: z.array(sessionIdSchema).max(MAX_FILED_CHATS),
   })
   .strict()
 
 const replaceSchema = z
   .object({
     expectedRevision: z.number().int().nonnegative(),
-    projects: z.array(projectSchema).max(100),
+    projects: z.array(projectSchema).max(MAX_PROJECTS),
   })
   .strict()
   .superRefine(({ projects }, ctx) => {
@@ -50,67 +52,22 @@ const replaceSchema = z
         filed.add(sessionId)
       }
     }
+    if (filed.size > MAX_FILED_CHATS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Projects can hold at most ${String(MAX_FILED_CHATS)} chats in total`,
+        path: ['projects'],
+      })
+    }
   })
 
-function serializeProjects(doc: UserTeamSidebarProjects | null) {
-  return {
-    projects: doc?.projects ?? [],
-    revision: doc?.revision ?? 0,
-    updatedAt: doc?.updatedAt.toISOString() ?? null,
-  }
-}
-
-sidebarProjectsRoutes.get('/', async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const doc = await userTeamSidebarProjects().findOne({ teamId, userId: c.get('userId') })
-
-  return c.json(serializeProjects(doc))
-})
-
-// Whole-list replace guarded by a revision, the same contract as favorites.
-sidebarProjectsRoutes.put('/', zv('json', replaceSchema), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const userId = c.get('userId')
-  const { projects, expectedRevision } = c.req.valid('json')
-  const collection = userTeamSidebarProjects()
-  const now = new Date()
-  let saved: UserTeamSidebarProjects | null = null
-
-  if (expectedRevision === 0) {
-    const doc: UserTeamSidebarProjects = {
-      _id: new ObjectId(),
-      teamId,
-      userId,
-      projects,
-      revision: 1,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    try {
-      await collection.insertOne(doc)
-      saved = doc
-    } catch (error) {
-      if (!(error instanceof MongoServerError) || error.code !== 11000) throw error
-    }
-  } else {
-    saved = await collection.findOneAndUpdate(
-      { teamId, userId, revision: expectedRevision },
-      { $set: { projects, updatedAt: now }, $inc: { revision: 1 } },
-      { returnDocument: 'after' },
-    )
-  }
-
-  if (!saved) {
-    const current = await collection.findOne({ teamId, userId })
-
-    throw new AppError(
-      409,
-      'sidebar_projects_changed',
-      'Projects changed concurrently; refresh and retry',
-      serializeProjects(current),
-    )
-  }
-
-  return c.json(serializeProjects(saved))
+// Whole-list replace guarded by a revision, shared with favorites.
+export const sidebarProjectsRoutes = sidebarDocumentRoutes({
+  field: 'projects',
+  collection: () => userTeamSidebarProjects() as unknown as Collection,
+  schema: replaceSchema,
+  conflict: {
+    code: 'sidebar_projects_changed',
+    message: 'Projects changed concurrently; refresh and retry',
+  },
 })

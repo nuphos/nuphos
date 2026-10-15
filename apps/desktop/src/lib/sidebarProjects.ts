@@ -1,29 +1,50 @@
-import { api, parseAtlasError } from '../api.ts'
+import { api } from '../api.ts'
 
 import { applyProjectChange, nextProjectName } from './sidebar-projects/model.ts'
+import { createDocumentSync } from './sidebarDocumentSync.ts'
 
 import type { SidebarProject, SidebarProjectChange } from './sidebar-projects/model.ts'
+import type { DocumentSyncMeta } from './sidebarDocumentSync.ts'
 
 export type { SidebarProject, SidebarProjectChange } from './sidebar-projects/model.ts'
 
-const CACHE_STORAGE_KEY = 'nuphos.sidebarProjects.v1'
+const CACHE_STORAGE_KEY = 'nuphos.sidebarProjects.v2'
+const SYNC_STORAGE_KEY = 'nuphos.sidebarProjects.sync.v2'
 const CHANGE_EVENT = 'nuphos:sidebar-projects-changed'
 const CREATED_EVENT = 'nuphos:sidebar-project-created'
-const MAX_CONFLICT_RETRIES = 5
 
-type ScopeState = {
-  /** The list as the server last confirmed it. */
-  confirmed: SidebarProject[]
-  revision: number
-  /** Local changes not yet saved, replayed on top of `confirmed`. */
-  pending: SidebarProjectChange[]
-  saving: Promise<void> | null
-}
+type ProjectOperation = { id: string; change: SidebarProjectChange }
 
-const states = new Map<string, ScopeState>()
+// Used when localStorage is unavailable or full, so the session still works.
+const memory = new Map<string, unknown>()
 
 function scopeKey(userId: string, teamId: string): string {
   return `${encodeURIComponent(userId)}|${encodeURIComponent(teamId)}`
+}
+
+function readRecord(storageKey: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKey) ?? '{}') as unknown
+
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function read(storageKey: string, scope: string): unknown {
+  const key = `${storageKey}|${scope}`
+
+  return memory.has(key) ? memory.get(key) : readRecord(storageKey)[scope]
+}
+
+function write(storageKey: string, scope: string, value: unknown): void {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({ ...readRecord(storageKey), [scope]: value }))
+    memory.delete(`${storageKey}|${scope}`)
+  } catch {
+    memory.set(`${storageKey}|${scope}`, value)
+  }
 }
 
 function validProject(value: unknown): value is SidebarProject {
@@ -37,46 +58,22 @@ function validProject(value: unknown): value is SidebarProject {
   )
 }
 
-function readCache(): Record<string, { projects?: unknown; revision?: unknown } | undefined> {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(CACHE_STORAGE_KEY) ?? '{}') as unknown
+function readItems(userId: string, teamId: string): SidebarProject[] {
+  const value = read(CACHE_STORAGE_KEY, scopeKey(userId, teamId))
 
-    return parsed && typeof parsed === 'object' ? (parsed as never) : {}
-  } catch {
-    return {}
-  }
+  return Array.isArray(value) ? value.filter(validProject) : []
 }
 
-function stateFor(userId: string, teamId: string): ScopeState {
-  const key = scopeKey(userId, teamId)
-  const existing = states.get(key)
+function readMeta(userId: string, teamId: string): DocumentSyncMeta<ProjectOperation> {
+  const value = read(SYNC_STORAGE_KEY, scopeKey(userId, teamId)) as
+    Partial<DocumentSyncMeta<ProjectOperation>> | undefined
 
-  if (existing) return existing
-  const cached = readCache()[key]
-  const state: ScopeState = {
-    confirmed: Array.isArray(cached?.projects) ? cached.projects.filter(validProject) : [],
-    revision: typeof cached?.revision === 'number' ? cached.revision : 0,
-    pending: [],
-    saving: null,
-  }
-
-  states.set(key, state)
-
-  return state
-}
-
-function confirm(userId: string, teamId: string, projects: SidebarProject[], revision: number) {
-  const state = stateFor(userId, teamId)
-
-  state.confirmed = projects.filter(validProject)
-  state.revision = revision
-  try {
-    localStorage.setItem(
-      CACHE_STORAGE_KEY,
-      JSON.stringify({ ...readCache(), [scopeKey(userId, teamId)]: { projects, revision } }),
-    )
-  } catch {
-    // The in-memory copy still serves this session.
+  return {
+    migrated: true,
+    revision: typeof value?.revision === 'number' ? value.revision : 0,
+    pending: Array.isArray(value?.pending)
+      ? value.pending.filter((op) => typeof op?.id === 'string' && Boolean(op.change))
+      : [],
   }
 }
 
@@ -85,85 +82,56 @@ function notify(userId: string, teamId: string): void {
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { userId, teamId } }))
 }
 
+function applyOperations(projects: SidebarProject[], operations: ProjectOperation[]) {
+  return operations.reduce(
+    (next, operation) => applyProjectChange(next, operation.change),
+    projects,
+  )
+}
+
+const projectsSync = createDocumentSync<SidebarProject, ProjectOperation>({
+  conflictCode: 'sidebar_projects_changed',
+  readItems,
+  writeItems: (userId, teamId, items) => write(CACHE_STORAGE_KEY, scopeKey(userId, teamId), items),
+  readMeta,
+  writeMeta: (userId, teamId, meta) => write(SYNC_STORAGE_KEY, scopeKey(userId, teamId), meta),
+  notify,
+  get: async (teamId) => {
+    const remote = await api.atlasGetSidebarProjects(teamId)
+
+    return { items: remote.projects, revision: remote.revision }
+  },
+  put: async (teamId, items, revision) => {
+    const saved = await api.atlasPutSidebarProjects(teamId, items, revision)
+
+    return { items: saved.projects, revision: saved.revision }
+  },
+  apply: applyOperations,
+})
+
 /** This person's projects in this team, including changes still being saved. */
 export function readSidebarProjects(userId: string, teamId: string): SidebarProject[] {
-  const state = stateFor(userId, teamId)
-
-  return state.pending.reduce(applyProjectChange, state.confirmed)
+  return readItems(userId, teamId)
 }
 
-async function saveOnce(userId: string, teamId: string): Promise<void> {
-  const state = stateFor(userId, teamId)
-
-  let conflicts = 0
-
-  // Changes made while a save is in flight go out in the next round.
-  while (state.pending.length > 0) {
-    const captured = state.pending.length
-    const desired = state.pending.slice(0, captured).reduce(applyProjectChange, state.confirmed)
-
-    try {
-      const saved = await api.atlasPutSidebarProjects(teamId, desired, state.revision)
-
-      confirm(userId, teamId, saved.projects, saved.revision)
-      state.pending.splice(0, captured)
-      notify(userId, teamId)
-      conflicts = 0
-    } catch (error) {
-      if (parseAtlasError(error).code !== 'sidebar_projects_changed') throw error
-      conflicts += 1
-      if (conflicts >= MAX_CONFLICT_RETRIES)
-        throw new Error('Projects kept changing concurrently', { cause: error })
-      // Someone saved first (another window or device): replay onto theirs.
-      const remote = await api.atlasGetSidebarProjects(teamId)
-
-      confirm(userId, teamId, remote.projects, remote.revision)
-    }
-  }
-}
-
-/**
- * Applies a change locally right away and saves it. On failure the change is
- * dropped, so the sidebar falls back to the saved list, and the caller is told.
- */
+/** Applies a change locally right away; it is kept and retried until the server has it. */
 export function updateSidebarProjects(
   userId: string,
   teamId: string,
   change: SidebarProjectChange,
-): Promise<void> {
-  const state = stateFor(userId, teamId)
-
-  state.pending.push(change)
+): void {
+  write(
+    CACHE_STORAGE_KEY,
+    scopeKey(userId, teamId),
+    applyProjectChange(readItems(userId, teamId), change),
+  )
   notify(userId, teamId)
-  const previous = state.saving ?? Promise.resolve()
-  const run = previous
-    .catch(() => {
-      // The earlier change reported its own failure.
-    })
-    .then(() => saveOnce(userId, teamId))
-    .catch((error: unknown) => {
-      state.pending = []
-      notify(userId, teamId)
-      throw error
-    })
-    .finally(() => {
-      if (state.saving === run) state.saving = null
-    })
-
-  state.saving = run
-
-  return run
+  projectsSync.enqueue(userId, teamId, { id: globalThis.crypto.randomUUID(), change })
 }
 
-/** Refreshes from the server unless local changes are still being saved. */
-export async function syncSidebarProjects(userId: string, teamId: string): Promise<void> {
-  if (!userId || !teamId) return
-  const remote = await api.atlasGetSidebarProjects(teamId)
-  const state = stateFor(userId, teamId)
-
-  if (state.saving || state.pending.length > 0) return
-  confirm(userId, teamId, remote.projects, remote.revision)
-  notify(userId, teamId)
+/** Reconciles with the server, replaying changes not yet saved on top of its copy. */
+export function syncSidebarProjects(userId: string, teamId: string): Promise<void> {
+  return projectsSync.sync(userId, teamId)
 }
 
 export function subscribeSidebarProjects(
@@ -186,20 +154,16 @@ export function subscribeSidebarProjects(
  * Creates a project, optionally with a chat already in it, and tells the
  * sidebar so it can put the new name straight into edit mode.
  */
-export function createSidebarProject(
-  userId: string,
-  teamId: string,
-  sessionId?: string,
-): { id: string; saved: Promise<void> } {
+export function createSidebarProject(userId: string, teamId: string, sessionId?: string): string {
   const id = globalThis.crypto.randomUUID()
   const name = nextProjectName(readSidebarProjects(userId, teamId))
-  const saved = updateSidebarProjects(userId, teamId, { kind: 'create', id, name, sessionId })
 
+  updateSidebarProjects(userId, teamId, { kind: 'create', id, name, sessionId })
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(CREATED_EVENT, { detail: { userId, teamId, id } }))
   }
 
-  return { id, saved }
+  return id
 }
 
 export function onSidebarProjectCreated(

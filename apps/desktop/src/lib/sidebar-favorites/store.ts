@@ -6,8 +6,6 @@ const CACHE_STORAGE_KEY = 'nuphos.sidebarFavorites.v2'
 const SYNC_STORAGE_KEY = 'nuphos.sidebarFavorites.sync.v1'
 
 export const CHANGE_EVENT = 'nuphos:sidebar-favorites-changed'
-export const MAX_CONFLICT_RETRIES = 8
-export const MAX_RETRY_DELAY_MS = 60_000
 
 export const HREF_FAVORITE_PREFIX = 'fav-href:'
 
@@ -27,16 +25,8 @@ export type SyncMeta = {
   pending: SidebarFavoriteOperation[]
 }
 
-export type SyncRuntime = {
-  running: Promise<void> | null
-  retryAttempt: number
-  retryTimer: ReturnType<typeof setTimeout> | null
-}
-
 const transientFavorites = new Map<string, SidebarFavorite[]>()
 const transientSyncMeta = new Map<string, SyncMeta>()
-
-export const runtimes = new Map<string, SyncRuntime>()
 
 /** Stable identity used for dedupe, removal, and sidebar item keys. */
 export function favoriteIdentity(entry: Pick<SidebarFavorite, 'key' | 'href'>): string {

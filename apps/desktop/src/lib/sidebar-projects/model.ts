@@ -6,8 +6,42 @@ export type SidebarProjectChange =
   | { kind: 'delete'; id: string }
   /** `projectId: null` takes the chat back to Chats. */
   | { kind: 'move'; sessionId: string; projectId: string | null }
+  /** Drops chats that no longer exist, so the list never fills up with them. */
+  | { kind: 'forget'; sessionIds: string[] }
 
 export const PROJECT_NAME_MAX = 80
+/** The server's limits; changes past them are refused here, so a save never fails on them. */
+export const MAX_PROJECTS = 50
+export const MAX_FILED_CHATS = 2000
+
+export function filedChatCount(projects: readonly SidebarProject[]): number {
+  return projects.reduce((total, project) => total + project.sessionIds.length, 0)
+}
+
+/** Why a change can't be made, or null when it can. */
+export function projectChangeRefusal(
+  projects: readonly SidebarProject[],
+  change: SidebarProjectChange,
+): string | null {
+  if (change.kind === 'create' && projects.length >= MAX_PROJECTS) {
+    return `You can have up to ${String(MAX_PROJECTS)} projects.`
+  }
+  const filing =
+    (change.kind === 'move' && change.projectId) || (change.kind === 'create' && change.sessionId)
+  const sessionId =
+    change.kind === 'move' || change.kind === 'create' ? change.sessionId : undefined
+
+  if (
+    filing &&
+    sessionId &&
+    !projects.some((project) => project.sessionIds.includes(sessionId)) &&
+    filedChatCount(projects) >= MAX_FILED_CHATS
+  ) {
+    return `Projects can hold up to ${String(MAX_FILED_CHATS)} chats.`
+  }
+
+  return null
+}
 
 export function cleanProjectName(name: string): string {
   return name.trim().slice(0, PROJECT_NAME_MAX)
@@ -30,6 +64,7 @@ export function applyProjectChange(
   projects: SidebarProject[],
   change: SidebarProjectChange,
 ): SidebarProject[] {
+  if (projectChangeRefusal(projects, change)) return projects
   switch (change.kind) {
     case 'create': {
       if (projects.some((project) => project.id === change.id)) return projects
@@ -53,6 +88,15 @@ export function applyProjectChange(
     }
     case 'delete':
       return projects.filter((project) => project.id !== change.id)
+    case 'forget': {
+      const gone = new Set(change.sessionIds)
+
+      return projects.map((project) =>
+        project.sessionIds.some((id) => gone.has(id))
+          ? { ...project, sessionIds: project.sessionIds.filter((id) => !gone.has(id)) }
+          : project,
+      )
+    }
     case 'move': {
       if (change.projectId && !projects.some((project) => project.id === change.projectId))
         return projects

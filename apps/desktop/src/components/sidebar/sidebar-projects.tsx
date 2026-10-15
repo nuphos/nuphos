@@ -102,8 +102,9 @@ export function SidebarProjects({
   projects: SidebarProjectsController
 }) {
   const [deleting, setDeleting] = useState<ProjectGroup | null>(null)
-  const filed = deleting?.items.filter((item) => !item.parentKey).length ?? 0
-  const chats = filed === 1 ? 'Its chat goes' : `Its ${String(filed)} chats go`
+  // Count what the project holds, not only the rows shown: archived and pinned chats are filed too.
+  const filed = projects.list.find((project) => project.id === deleting?.id)?.sessionIds.length ?? 0
+  const chats = filed === 1 ? 'Its chat leaves' : `Its ${String(filed)} chats leave`
 
   return (
     <>
@@ -125,7 +126,7 @@ export function SidebarProjects({
         title={`Delete “${deleting?.name ?? ''}”?`}
         description={
           filed > 0
-            ? `${chats} back to Chats. Nothing is archived or deleted.`
+            ? `${chats} the project. Nothing is archived or deleted.`
             : 'The project is empty. No chats are affected.'
         }
         confirmLabel="Delete project"

@@ -153,4 +153,27 @@ describe('sidebar projects API', () => {
     }
     expect(documents.size).toBe(0)
   })
+
+  test('bounds the document: at most 50 projects and 2000 filed chats in total', async () => {
+    const many = Array.from({ length: 51 }, (_, i) => ({
+      id: `p${String(i)}`,
+      name: 'P',
+      sessionIds: [],
+    }))
+
+    expect((await replace(0, many)).status).toBe(400)
+    const ids = (from: number) => Array.from({ length: 1000 }, (_, i) => `s${String(from + i)}`)
+    const full = [0, 1000, 2000].map((from, i) => ({
+      id: `p${String(i)}`,
+      name: 'P',
+      sessionIds: ids(from),
+    }))
+
+    expect((await replace(0, full)).status).toBe(400)
+    expect((await replace(0, full.slice(0, 2))).status).toBe(200)
+  })
+
+  test('rejects chat ids that are not plain id strings', async () => {
+    expect((await replace(0, [{ id: 'p1', name: 'P', sessionIds: ['../../x'] }])).status).toBe(400)
+  })
 })

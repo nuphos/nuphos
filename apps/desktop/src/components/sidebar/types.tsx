@@ -42,6 +42,8 @@ export type Item = {
   managedChat?: boolean
   /** The row this one nests under when both are in the same section. */
   parentKey?: string
+  /** A chat's last activity (ms), to order chats drawn from several lists. */
+  activeAt?: number
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
 }
