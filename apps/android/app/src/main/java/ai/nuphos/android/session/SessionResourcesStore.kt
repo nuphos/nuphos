@@ -16,12 +16,14 @@ class SessionResourcesStore(private val read: suspend () -> List<SessionResource
         private set
     var failed by mutableStateOf(false)
         private set
+    var hasLoaded by mutableStateOf(false)
+        private set
     private var generation = 0
 
     fun invalidate(clear: Boolean = true) {
         generation++
         loading = false
-        if (clear) { resources = emptyList(); failed = false }
+        if (clear) { resources = emptyList(); failed = false; hasLoaded = false }
     }
 
     suspend fun refresh(allowed: () -> Boolean = { true }) {
@@ -32,12 +34,15 @@ class SessionResourcesStore(private val read: suspend () -> List<SessionResource
         try {
             val result = read()
             coroutineContext.ensureActive()
-            if (ticket == generation && allowed()) resources = result.filter { it.supported }.distinctBy { it.id }
+            if (ticket == generation && allowed()) {
+                resources = result.filter { it.supported }.distinctBy { it.id }
+                hasLoaded = true
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             // Do not retain stale titles/links after access is withdrawn, or print server errors.
-            if (ticket == generation && allowed()) { resources = emptyList(); failed = true }
+            if (ticket == generation && allowed()) { resources = emptyList(); failed = true; hasLoaded = true }
         } finally {
             if (ticket == generation) {
                 loading = false

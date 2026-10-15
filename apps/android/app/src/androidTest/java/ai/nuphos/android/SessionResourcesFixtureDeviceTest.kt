@@ -161,6 +161,8 @@ class SessionResourcesFixtureDeviceTest {
                 store = AgentStore(token, app)
                 storeReady = true
                 setState(store, "selectedTeam", Team("fixture-team", "Synthetic team"))
+                // An already-running session must still show its existing links on first entry.
+                setState(store.session("saved", "Synthetic resource conversation"), "isStreaming", true)
                 auth = AuthSession(app, app.tokenStore)
                 AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             }
@@ -172,6 +174,21 @@ class SessionResourcesFixtureDeviceTest {
             } } }
             compose.waitUntil(8000) { compose.onAllNodesWithText("#42").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Synthetic chat still available").assertExists()
+            var activeReads = requests.count { it.url.encodedPath.endsWith("/resources") }
+            compose.runOnIdle { lifecycle.currentState = Lifecycle.State.CREATED }
+            compose.waitForIdle()
+            compose.runOnIdle { lifecycle.currentState = Lifecycle.State.RESUMED }
+            compose.waitUntil(8000) { requests.count { it.url.encodedPath.endsWith("/resources") } > activeReads }
+            compose.waitForIdle()
+            activeReads = requests.count { it.url.encodedPath.endsWith("/resources") }
+            compose.onNodeWithContentDescription("Refresh linked resources").performClick()
+            compose.waitUntil(8000) { requests.count { it.url.encodedPath.endsWith("/resources") } > activeReads }
+            val initialReads = requests.count { it.url.encodedPath.endsWith("/resources") }
+            compose.runOnIdle {
+                assertTrue(store.session("saved", "Synthetic resource conversation").isStreaming)
+                setState(store.session("saved", "Synthetic resource conversation"), "isStreaming", false)
+            }
+            compose.waitUntil(8000) { requests.count { it.url.encodedPath.endsWith("/resources") } > initialReads }
             compose.runOnIdle { resourceState = "merged" }
             // Allow Compose to observe each lifecycle state before resuming.
             compose.runOnIdle { lifecycle.currentState = Lifecycle.State.CREATED }

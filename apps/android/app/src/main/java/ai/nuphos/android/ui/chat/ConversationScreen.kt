@@ -178,12 +178,16 @@ fun ConversationScreen(
         session.pollWhileIdle()
     }
 
-    // A separate read: resource failures never block transcript loading or the composer.
+    // Initial entry, foreground and manual refresh work even during an active turn.
+    // Turn completion is a separate event, never a resource polling loop.
     val resourcesAllowed = resumed && auth.aiAllowed && selectedTeamId == session.teamId && session.loaded && session.loadError == null
     var refreshResources by remember(session) { mutableStateOf(0) }
-    LaunchedEffect(session, resourcesAllowed, auth.generation, AiAccess.revision, refreshResources, session.isStreaming, session.messages.size) {
-        if (resourcesAllowed && !session.isStreaming) session.refreshResources()
-        else session.linkedResources.invalidate(clear = !resourcesAllowed && resumed)
+    LaunchedEffect(session, resourcesAllowed, auth.generation, AiAccess.revision, refreshResources) {
+        if (resourcesAllowed) session.refreshResources()
+        else session.linkedResources.invalidate(clear = resumed)
+    }
+    LaunchedEffect(session, session.isStreaming, session.messages.size) {
+        if (resourcesAllowed && !session.isStreaming && session.linkedResources.hasLoaded) session.refreshResources()
     }
     DisposableEffect(session) {
         onDispose { session.linkedResources.invalidate() }

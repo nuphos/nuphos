@@ -36,7 +36,7 @@ class SessionResourcesTest {
     }
     @Test fun emptyIsSuccessAndUnknownProvidersAreIgnored() = runTest {
         val state = SessionResourcesStore { listOf(pr, pr, pr.copy(id = "thread", provider = "slack")) }
-        state.refresh(); assertEquals(listOf(pr), state.resources)
+        state.refresh(); assertTrue(state.hasLoaded); assertEquals(listOf(pr), state.resources)
         val empty = SessionResourcesStore { emptyList() }
         empty.refresh(); assertFalse(empty.failed); assertFalse(empty.loading); assertTrue(empty.resources.isEmpty())
     }
@@ -44,7 +44,7 @@ class SessionResourcesTest {
         var denied = false
         val state = SessionResourcesStore { if (denied) throw NuphosApi.Failure.Http(403, "private error") else listOf(pr) }
         state.refresh(); denied = true; state.refresh()
-        assertTrue(state.failed); assertFalse(state.loading); assertTrue(state.resources.isEmpty())
+        assertTrue(state.failed); assertTrue(state.hasLoaded); assertFalse(state.loading); assertTrue(state.resources.isEmpty())
         denied = false; state.refresh(); assertFalse(state.failed); assertEquals(listOf(pr), state.resources)
     }
     @Test fun olderResponseCannotReplaceNewRefreshOrRepublishAfterInvalidation() = runTest {
@@ -57,7 +57,7 @@ class SessionResourcesTest {
         val late = CompletableDeferred<List<SessionResource>>()
         val disposed = SessionResourcesStore { late.await() }
         val job = async { disposed.refresh() }; yield(); disposed.invalidate()
-        late.complete(listOf(pr)); job.await(); assertTrue(disposed.resources.isEmpty())
+        late.complete(listOf(pr)); job.await(); assertTrue(disposed.resources.isEmpty()); assertFalse(disposed.hasLoaded)
     }
     @Test fun revokedConsentAndCancellationCannotPublishLateResults() = runTest {
         var allowed = true
@@ -72,6 +72,6 @@ class SessionResourcesTest {
         val never = CompletableDeferred<List<SessionResource>>()
         val cancelled = SessionResourcesStore { never.await() }
         val cancelledJob = async { cancelled.refresh() }; yield(); cancelledJob.cancel(); cancelledJob.join()
-        assertFalse(cancelled.failed); assertFalse(cancelled.loading); assertTrue(cancelled.resources.isEmpty())
+        assertFalse(cancelled.hasLoaded); assertFalse(cancelled.failed); assertFalse(cancelled.loading); assertTrue(cancelled.resources.isEmpty())
     }
 }
