@@ -20,7 +20,7 @@ class SharingState(val transport: SharingTransport, private val owner: () -> Boo
     var pending by mutableStateOf<String?>(null); private set
     var added by mutableStateOf<TeamMember?>(null); private set
     var loading by mutableStateOf(false); private set
-    val editable get() = canManage && access != null && pending == null
+    val editable get() = canManage && access != null && pending == null && !loading
     val canInvite get() = editable && localRuntime != null
     fun clearError() { error = null }
     suspend fun load() {
