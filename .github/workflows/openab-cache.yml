@@ -83,3 +83,12 @@ jobs:
           path: |
             ~/.cache/nuphos/openab-*/target/*/release/openab
             ~/.cache/nuphos/openab-*/target/*/release/openab.exe
+      # A rejected entry keeps its key, so saving cannot replace it and every
+      # release would compile without anyone noticing.
+      - name: Fail on a rejected cache entry
+        if: steps.openab.outputs.rejected != '0'
+        env:
+          KEY: ${{ steps.openab.outputs.key }}
+        run: |
+          echo "::error::The cache under $KEY holds openab binaries this workflow did not attest for this prepare.mjs. Delete that entry (gh cache delete) so the next run replaces it."
+          exit 1
