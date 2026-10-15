@@ -224,7 +224,10 @@ export function Composer({
               }}
               onPaste={actions.onPaste}
               onCompositionStart={state.onCompositionStart}
-              onCompositionEnd={state.onCompositionEnd}
+              onCompositionEnd={() => {
+                state.onCompositionEnd()
+                slash.onInput()
+              }}
             />
           )}
           <div className="flex items-end gap-2 mt-1 min-w-0">

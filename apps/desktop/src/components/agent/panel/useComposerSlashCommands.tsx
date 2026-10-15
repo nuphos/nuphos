@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useState } from 'react'
 
 import {
   matchSlashCommands,
@@ -25,6 +25,8 @@ export function useComposerSlashCommands(
   const panelCommands = useContext(SlashCommandsContext)
   const [query, setQuery] = useState<string | null>(null)
   const [active, setActive] = useState(-1)
+  // Only the arrows arm Enter; a pointer resting over the menu does not.
+  const [armed, setArmed] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [anchor, setAnchor] = useState<{
     getBoundingClientRect: () => DOMRect
@@ -45,7 +47,10 @@ export function useComposerSlashCommands(
 
     // An IME draft such as `/mo` before conversion is not a query yet.
     if (composingRef.current) return
-    if (!el?.textContent.startsWith('/')) setDismissed(false)
+    const typed = el?.textContent ?? ''
+
+    // A new message starts fresh: sending clears the editor without an input event.
+    if (!typed.startsWith('/') || typed === '/') setDismissed(false)
     if (!el || !sel?.isCollapsed || node?.nodeType !== Node.TEXT_NODE || !el.contains(node)) {
       setQuery(null)
 
@@ -56,6 +61,7 @@ export function useComposerSlashCommands(
 
     setQuery(next)
     setActive(-1)
+    setArmed(false)
     if (next === null) return
     const range = document.createRange()
 
@@ -63,14 +69,6 @@ export function useComposerSlashCommands(
     range.collapse(true)
     setAnchor({ getBoundingClientRect: () => range.getBoundingClientRect(), contextElement: el })
   }
-
-  useEffect(() => {
-    const el = editorRef.current
-
-    el?.addEventListener('compositionend', onInput)
-
-    return () => el?.removeEventListener('compositionend', onInput)
-  })
 
   function select(command: SlashCommand) {
     const el = editorRef.current
@@ -85,10 +83,12 @@ export function useComposerSlashCommands(
   /** Handles the menu's keys; true when the key was its to take. */
   function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>): boolean {
     if (matches.length === 0 || e.nativeEvent.isComposing) return false
-    const action = slashKeyAction(e.key, e.shiftKey, active)
+    const action = slashKeyAction(e.key, e.shiftKey, { active, armed })
 
     if (action === 'next' || action === 'previous') {
       const step = action === 'next' ? 1 : -1
+
+      setArmed(true)
 
       setActive((index) =>
         index < 0 && step < 0
@@ -116,7 +116,10 @@ export function useComposerSlashCommands(
       active={active}
       anchor={anchor}
       onSelect={select}
-      onActive={setActive}
+      onActive={(index) => {
+        setActive(index)
+        setArmed(false)
+      }}
       onClose={() => setDismissed(true)}
     />
   )

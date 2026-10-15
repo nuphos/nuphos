@@ -33,14 +33,18 @@ test('commands match by id prefix or title', () => {
 test('/model + Enter sends /model: Enter runs nothing until the arrows pick a row', () => {
   // `/model` still matches the Model action, but nothing is highlighted yet.
   assert.equal(matchSlashCommands(commands, 'model').length, 1)
-  assert.equal(slashKeyAction('Enter', false, -1), null)
-  assert.equal(slashKeyAction('Enter', false, 0), 'select')
+  assert.equal(slashKeyAction('Enter', false, { active: -1, armed: false }), null)
+  assert.equal(slashKeyAction('Enter', false, { active: 0, armed: true }), 'select')
 })
 
 test('Tab and the arrows work the menu; Shift+Enter never selects', () => {
-  assert.equal(slashKeyAction('Tab', false, -1), 'select')
-  assert.equal(slashKeyAction('ArrowDown', false, -1), 'next')
-  assert.equal(slashKeyAction('ArrowUp', false, -1), 'previous')
-  assert.equal(slashKeyAction('Enter', true, 0), null)
-  assert.equal(slashKeyAction('Escape', false, -1), 'dismiss')
+  assert.equal(slashKeyAction('Tab', false, { active: -1, armed: false }), 'select')
+  assert.equal(slashKeyAction('ArrowDown', false, { active: -1, armed: false }), 'next')
+  assert.equal(slashKeyAction('ArrowUp', false, { active: -1, armed: false }), 'previous')
+  assert.equal(slashKeyAction('Enter', true, { active: 0, armed: true }), null)
+  assert.equal(slashKeyAction('Escape', false, { active: -1, armed: false }), 'dismiss')
+})
+
+test('a row the pointer highlights does not arm Enter', () => {
+  assert.equal(slashKeyAction('Enter', false, { active: 1, armed: false }), null)
 })
