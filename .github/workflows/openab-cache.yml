@@ -1,23 +1,27 @@
 name: openab cache
 
 # Builds the openab binaries that release-desktop.yml and release-cli.yml ship,
-# once per prepare.mjs (it pins OPENAB_COMMIT and the cargo flags), and keeps
-# them in a cache on main. A tag run can restore main's caches but not another
-# tag's, so this is what lets both releases skip cargo (10-17 min per target).
-# A release that misses the cache compiles as before. Only this workflow saves
-# the cache: Linux builds here on 22.04, the oldest glibc either release
-# supports.
+# once per prepare.mjs (it pins OPENAB_COMMIT and the cargo flags) and rustc,
+# attests them, and keeps them in a cache on main. A tag run can restore main's
+# caches but not another tag's, so this is what lets both releases skip cargo
+# (10-17 min per target). The releases ship a restored binary only if this
+# workflow's attestation from main vouches for it, and compile otherwise.
+# Linux builds here on 22.04, the oldest glibc either release supports; the
+# Desktop AppImage still compiles on 24.04 when it misses.
 on:
   push:
     branches: [main]
     paths:
       - apps/desktop/local-runtime/prepare.mjs
       - .github/workflows/openab-cache.yml
+      - .github/actions/openab-binaries/action.yml
   # Compiles an OPENAB_COMMIT bump for every shipped target before it merges.
+  # Its cache and attestations are scoped to the PR, which no release accepts.
   pull_request:
     paths:
       - apps/desktop/local-runtime/prepare.mjs
       - .github/workflows/openab-cache.yml
+      - .github/actions/openab-binaries/action.yml
   # GitHub evicts a cache nobody has read for 7 days.
   schedule:
     - cron: '17 3 * * *'
@@ -28,6 +32,10 @@ permissions:
 
 jobs:
   build:
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -52,15 +60,26 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-      # The key and paths must match the restore steps in the release workflows.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - id: openab
+        uses: ./.github/actions/openab-binaries
         with:
-          key: openab-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/local-runtime/prepare.mjs') }}
-          path: |
-            ~/.cache/nuphos/openab-*/target/*/release/openab
-            ~/.cache/nuphos/openab-*/target/*/release/openab.exe
+          source-ref: ${{ github.ref }}
       # The same staging the releases run, so a hit here proves theirs.
       - name: Stage local runtime
         env:
           TARGETS: ${{ matrix.targets }}
         run: node local-runtime/prepare.mjs --targets "$TARGETS" --require
+      # A fork PR gets no id-token, so it only builds.
+      - if: steps.openab.outputs.hit != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ~/.cache/nuphos/openab-*/target/*/release/openab
+            ~/.cache/nuphos/openab-*/target/*/release/openab.exe
+      - if: steps.openab.outputs.hit != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: ${{ steps.openab.outputs.key }}
+          path: |
+            ~/.cache/nuphos/openab-*/target/*/release/openab
+            ~/.cache/nuphos/openab-*/target/*/release/openab.exe
