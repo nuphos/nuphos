@@ -172,6 +172,8 @@ export function useConversationOpen(acc: Acc) {
     async (sourceSessionId: string, edit?: { messageId: string; text: string }) => {
       const generation = ++openGenerationRef.current
 
+      // A newer fork replaces any edit still waiting on an earlier one.
+      editResendRef.current = null
       setOpeningConversation({ sessionId: sourceSessionId, title: 'Forking chat…' })
       try {
         const detail = await api.agentGetConversation(sourceSessionId, teamId)

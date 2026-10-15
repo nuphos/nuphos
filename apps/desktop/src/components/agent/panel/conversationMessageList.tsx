@@ -137,7 +137,7 @@ export function ConversationMessageList({
                     !tab.readOnly
                   }
                   onOpenNuphosLink={onOpenNuphosLink}
-                  onEdit={onEditMessage}
+                  onEdit={onEditMessage?.allowed(m) ? onEditMessage.edit : undefined}
                 />
               </div>
             ) : (

@@ -1,4 +1,4 @@
-import type { MessageRating, Tab } from './model'
+import type { Message, MessageRating, Tab } from './model'
 
 export type ConversationProps = {
   tab: Tab
@@ -37,7 +37,10 @@ export type ConversationProps = {
   /** Opens Nuphos markdown links from assistant messages inside the desktop workspace. */
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   /** Re-runs one of your sent messages with new text, in a fork of the chat. */
-  onEditMessage?: (messageId: string, text: string) => void
+  onEditMessage?: {
+    allowed: (message: Message) => boolean
+    edit: (messageId: string, text: string) => void
+  }
   /** Opens Settings directly on the workspace Agent setup section. */
   onOpenAgentSettings?: () => void
 }
