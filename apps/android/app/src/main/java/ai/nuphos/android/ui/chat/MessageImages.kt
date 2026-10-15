@@ -1,6 +1,7 @@
 package ai.nuphos.android.ui.chat
 
 import android.graphics.BitmapFactory
+import android.util.Base64InputStream
 import android.util.Base64
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -26,6 +28,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -34,12 +39,15 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.InputStream
+import java.io.IOException
 
 /** No URL fetching: conversation File parts currently contain inline data images.
  * Decode one page at a time off the main thread; thumbnails use a smaller budget.
  */
 internal object MessageImageDecoder {
     private const val MAX_ENCODED = 16 * 1024 * 1024
+    private val supportedMimeTypes = setOf("image/png", "image/jpeg", "image/webp", "image/gif")
     private val header = Regex("data:image/(png|jpeg|jpg|webp|gif);base64", RegexOption.IGNORE_CASE)
 
     fun decode(source: String, edge: Int): ImageBitmap? {
@@ -47,16 +55,44 @@ internal object MessageImageDecoder {
         val comma = source.indexOf(',')
         if (comma !in 1..80 || !header.matches(source.substring(0, comma))) return null
         return try {
-            val bytes = Base64.decode(source.substring(comma + 1), Base64.DEFAULT)
+            // Read only the base64 range without copying the multi-megabyte String.
+            val input = object : InputStream() {
+                var position = comma + 1
+                override fun read(): Int = if (position >= source.length) -1 else {
+                    val char = source[position++]
+                    if (char.code > 127) throw IOException("Invalid base64 character")
+                    char.code
+                }
+                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    if (length == 0) return 0
+                    if (position >= source.length) return -1
+                    val count = minOf(length, source.length - position)
+                    repeat(count) { buffer[offset + it] = read().toByte() }
+                    return count
+                }
+            }
+            val bytes = ByteArray(((source.length - comma - 1).toLong() * 3 / 4 + 3).toInt())
+            var count = 0
+            Base64InputStream(input, Base64.DEFAULT).use { decoded ->
+                while (count < bytes.size) {
+                    val read = decoded.read(bytes, count, bytes.size - count)
+                    if (read < 0) break
+                    count += read
+                }
+            }
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            BitmapFactory.decodeByteArray(bytes, 0, count, bounds)
             if (bounds.outWidth !in 1..100_000 || bounds.outHeight !in 1..100_000) return null
+            if (bounds.outWidth.toLong() * bounds.outHeight > 50_000_000L ||
+                bounds.outMimeType !in supportedMimeTypes) return null
             var sample = 1
             while ((bounds.outWidth.toLong() + sample - 1) / sample > edge ||
                 (bounds.outHeight.toLong() + sample - 1) / sample > edge) sample *= 2
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size,
+            BitmapFactory.decodeByteArray(bytes, 0, count,
                 BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
         } catch (_: IllegalArgumentException) { null }
+        catch (_: IOException) { null }
+        catch (_: OutOfMemoryError) { null }
     }
 }
 
@@ -104,6 +140,18 @@ internal fun MessageImages(images: List<String>, messageId: String) {
 @Composable
 internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val view = LocalView.current
+        DisposableEffect(view) {
+            // This dialog owns a separate window; keep light icons over black even
+            // when the conversation underneath uses light-theme system bars.
+            (view.parent as? DialogWindowProvider)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = false
+                    isAppearanceLightNavigationBars = false
+                }
+            }
+            onDispose { }
+        }
         if (images.isEmpty()) {
             Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -165,7 +213,7 @@ private fun ZoomImage(source: String, index: Int, count: Int, zoomed: Boolean, o
         offset = bounded(offset + pan, scale)
         onZoom(scale > 1.01f)
     }
-    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(0.dp)).onSizeChanged { size = it }
+    Box(Modifier.fillMaxSize().clipToBounds().onSizeChanged { size = it }
         .transformable(transform, canPan = { scale > 1.01f })
         .pointerInput(source) { detectTapGestures(onDoubleTap = {
             scale = if (scale > 1.01f) 1f else 2f
