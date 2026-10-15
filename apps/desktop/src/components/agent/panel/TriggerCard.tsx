@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { api } from '../../../api'
 import { scheduleSummary } from '../../../views/triggers/cron'
+import { viewerTimeZone } from '../../../views/triggers/cronTime'
 import { Button } from '../../ui/button'
 import { Switch } from '../../ui/Switch'
 import { toast } from '../../ui/toast'
@@ -11,14 +12,22 @@ import { ChatLink } from '../MessageResponse'
 
 import { NextRuns, ScheduleEditor } from './TriggerCardBody'
 import { triggerCardInfo } from './triggerCards'
+import { cardSchedule } from './triggerSchedule'
 import { useTrigger } from './useTrigger'
 
 import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
+import type { AgentTrigger } from '../../../api/agent-trigger-types'
 import type { KeyboardEvent } from 'react'
 
 const CARD =
   't-chat-card-in w-full max-w-[520px] overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900/60'
+
+function scheduleLine(trigger: AgentTrigger): string {
+  if (trigger.triggerType !== 'cron') return scheduleSummary(trigger)
+
+  return cardSchedule(trigger.cronExpression ?? '', viewerTimeZone())
+}
 
 function Placeholder({ missing }: { missing: boolean }) {
   return (
@@ -107,7 +116,7 @@ export function TriggerCard({
             </span>
           </div>
           <p className="mt-0.5 text-[12.5px] leading-snug text-secondary">
-            {scheduleSummary(trigger)}
+            {scheduleLine(trigger)}
           </p>
         </div>
         <Switch

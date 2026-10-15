@@ -60,3 +60,15 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
 export function isThreadBadgePart(part: Part): boolean {
   return part.type === 'tool' && threadBadgeInfo(part) !== null
 }
+
+// Titles seen earlier in the transcript, for a later badge whose thread the
+// viewer can no longer read.
+const knownTitles = new Map<string, string>()
+
+export function rememberThreadTitle(threadId: string | null, title: string | null) {
+  if (threadId && title) knownTitles.set(threadId, title)
+}
+
+export function knownThreadTitle(threadId: string | null): string | null {
+  return (threadId && knownTitles.get(threadId)) ?? null
+}

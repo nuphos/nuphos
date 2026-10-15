@@ -3,7 +3,7 @@ import { Check, ChevronRight, CircleAlert, Loader2, MessagesSquare, Square } fro
 
 import { ChatLink } from '../MessageResponse'
 
-import { threadBadgeInfo } from './threadBadges'
+import { knownThreadTitle, rememberThreadTitle, threadBadgeInfo } from './threadBadges'
 import { useThreadStatus } from './useThreadStatus'
 
 import type { OpenLink } from './LocalUrlChip'
@@ -49,6 +49,13 @@ function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boole
   )
 }
 
+// A thread this viewer cannot read has nothing to open.
+function threadHref(teamId: string | undefined, threadId: string | null, status: ThreadStatus) {
+  return teamId && threadId && status !== 'unavailable'
+    ? `/teams/${teamId}/agent/${threadId}`
+    : null
+}
+
 /** A thread the agent started or messaged: its title, whether it is working, one click to open. */
 export function ThreadBadge({
   part,
@@ -63,21 +70,22 @@ export function ThreadBadge({
   const { title, status } = useThreadStatus(info?.threadId ?? null, teamId)
 
   if (!info) return null
-  const name = title ?? info.title ?? 'Thread'
+  rememberThreadTitle(info.threadId, title ?? info.title)
+  const known = title ?? info.title ?? knownThreadTitle(info.threadId)
+  const name = known ?? (status === 'unavailable' ? 'a thread you can’t open' : 'a thread')
   const verb = info.verb === 'started' ? 'Started' : 'Messaged'
+  const href = threadHref(teamId, info.threadId, status)
   const body = (
     <>
       <MessagesSquare aria-hidden strokeWidth={1.75} className="size-3.5 shrink-0 text-tertiary" />
       <span className="shrink-0 text-tertiary">{verb}</span>
-      <span className="min-w-0 max-w-[44ch] truncate font-medium">{name}</span>
-      <StatusLabel status={status} pending={info.pending} />
+      <span className={clsx('min-w-0 max-w-[44ch] truncate', known && 'font-medium')}>{name}</span>
+      {/* The fallback name already says the thread can't be opened. */}
+      {(known !== null || status !== 'unavailable') && (
+        <StatusLabel status={status} pending={info.pending} />
+      )}
     </>
   )
-  // A thread this viewer cannot read has nothing to open.
-  const href =
-    teamId && info.threadId && status !== 'unavailable'
-      ? `/teams/${teamId}/agent/${info.threadId}`
-      : null
 
   return (
     <div className="t-chat-card-in flex min-w-0">

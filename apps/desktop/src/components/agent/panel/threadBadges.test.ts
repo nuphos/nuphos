@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { threadBadgeInfo } from './threadBadges.ts'
+import { knownThreadTitle, rememberThreadTitle, threadBadgeInfo } from './threadBadges.ts'
 
 import type { ToolPart } from './parts.ts'
 
@@ -52,4 +52,13 @@ test('failed calls, missing receipts and other tools stay tool rows', () => {
     threadBadgeInfo(part('send_message_to_thread', { input: { threadId: 'nope' } })),
     null,
   )
+})
+
+test('a thread title seen earlier names a later badge for the same thread', () => {
+  rememberThreadTitle(ID, 'Sidebar cleanup')
+  rememberThreadTitle('other', null)
+
+  assert.equal(knownThreadTitle(ID), 'Sidebar cleanup')
+  assert.equal(knownThreadTitle('0b8d7c6e-1111-4222-8333-944455556666'), null)
+  assert.equal(knownThreadTitle(null), null)
 })
