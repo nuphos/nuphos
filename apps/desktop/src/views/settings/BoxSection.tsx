@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { Box, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -8,8 +9,6 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
-import { JoinDialog } from './BoxParts'
-import { BoxPlanBar, NewBoxButton } from './BoxPlanBar'
 import {
   boxAgents,
   boxPollMs,
@@ -24,7 +23,6 @@ import { useBoxUsage } from './useBoxUsage'
 
 import './BoxLoading.css'
 
-import type { BoxJoin } from './BoxParts'
 import type { AgentDevice } from '../../api'
 import type { RuntimeInstance } from '../../types/runtime'
 
@@ -44,16 +42,18 @@ export function BoxSection({
   instances,
   onSelect,
   canCreate,
+  onOpenBilling,
 }: {
   teamId: string
   /** Only the team's administrators make Boxes; the backend enforces it. */
   canCreate: boolean
   instances: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
+  /** Where a New Box the plan has no room for goes. */
+  onOpenBilling: () => void
 }) {
   const thisComputer = useThisComputer()
   const [creating, setCreating] = useState(false)
-  const [join, setJoin] = useState<BoxJoin | null>(null)
   const previous = useRef<AgentDevice[]>([])
   const { usage, reload: reloadUsage } = useBoxUsage(teamId)
   const blocked = newBoxBlockedReason(usage, canCreate)
@@ -82,6 +82,12 @@ export function BoxSection({
   }, [list])
 
   const create = async () => {
+    if (blocked) {
+      toast.info(blocked)
+      onOpenBilling()
+
+      return
+    }
     setCreating(true)
     try {
       await api.boxCreate(undefined, teamId)
@@ -107,31 +113,19 @@ export function BoxSection({
               void create()
             }}
           >
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={!list}
-              onClick={() =>
-                void api
-                  .boxJoinToken()
-                  .then(setJoin, (error: unknown) =>
-                    toast.apiError('Could not make a join command', error),
-                  )
-              }
-            >
-              Connect external Box
-            </Button>
             {list?.boxAvailable && canCreate && (
-              <NewBoxButton creating={creating} blocked={blocked} />
+              <Button type="submit" size="sm" variant="secondary" disabled={creating}>
+                {creating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Box className="h-3.5 w-3.5" />
+                )}
+                New Box
+              </Button>
             )}
           </form>
         }
       />
-      {list?.boxAvailable && (
-        <BoxPlanBar teamId={teamId} isAdmin={canCreate} usage={usage} blocked={blocked} />
-      )}
-      {join && <JoinDialog join={join} onClose={() => setJoin(null)} />}
       <div
         className={clsx('box-loading t-skel', list && 'is-revealed')}
         aria-busy={!list && !loadError}

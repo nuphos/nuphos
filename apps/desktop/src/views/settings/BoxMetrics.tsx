@@ -10,6 +10,8 @@ const SLOTS = 10
 const gib = (bytes: number) => (bytes / 1024 ** 3).toFixed(1).replace(/\.0$/u, '')
 const capacity = (value: { used: number; total: number }) =>
   `${gib(value.used)} / ${gib(value.total)}G`
+const share = (value: { used: number; total: number }) => (value.used / value.total) * 100
+const percentLabel = (value: number) => `${String(Math.round(value))}%`
 
 function validCapacity(value: unknown): value is DeviceMetrics['memory'] {
   if (!value || typeof value !== 'object') return false
@@ -53,19 +55,17 @@ const STATUS_LABEL: Record<DeviceMetricsStatus, string> = {
 /** Ten real samples, newest at the right. Empty slots never pretend to be history. */
 export function BoxMetrics({
   metrics,
-  paused,
   status,
   receivedAt,
 }: {
   metrics?: DeviceMetrics | null
-  paused: boolean
   status?: DeviceMetricsStatus
   receivedAt?: string | null
 }) {
   const [history, setHistory] = useState<DeviceMetrics[]>([])
   const reading = validMetrics(metrics) ? metrics : null
   const state = status ?? (reading ? 'live' : 'waiting')
-  const current = !paused && (state === 'live' || state === 'stale') ? reading : null
+  const current = state === 'live' || state === 'stale' ? reading : null
   const cleanHistory = Array.isArray(history) ? history.filter(validMetrics) : []
   const append = current && state === 'live' && cleanHistory.at(-1)?.sampledAt !== current.sampledAt
 
@@ -75,25 +75,27 @@ export function BoxMetrics({
   const rows = [
     {
       label: 'CPU',
-      value: current ? `${String(Math.round(current.cpuPercent))}%` : '—',
+      value: current ? percentLabel(current.cpuPercent) : '—',
+      detail: null,
       percent: (m: DeviceMetrics) => m.cpuPercent,
     },
     {
       label: 'Memory',
-      value: current ? capacity(current.memory) : '—',
-      percent: (m: DeviceMetrics) => (m.memory.used / m.memory.total) * 100,
+      value: current ? percentLabel(share(current.memory)) : '—',
+      detail: current && capacity(current.memory),
+      percent: (m: DeviceMetrics) => share(m.memory),
     },
     {
       label: 'Disk',
-      value: current ? capacity(current.disk) : '—',
-      percent: (m: DeviceMetrics) => (m.disk.used / m.disk.total) * 100,
+      value: current ? percentLabel(share(current.disk)) : '—',
+      detail: current && capacity(current.disk),
+      percent: (m: DeviceMetrics) => share(m.disk),
     },
   ]
   const samples = current ? cleanHistory : []
   let statusLabel = STATUS_LABEL[state]
 
   if (state === 'live' && !current) statusLabel = STATUS_LABEL.waiting
-  if (paused) statusLabel = 'Box paused'
   const received =
     receivedAt && Number.isFinite(Date.parse(receivedAt))
       ? `Received ${new Date(receivedAt).toLocaleTimeString()}`
@@ -123,8 +125,12 @@ export function BoxMetrics({
           </time>
         )}
       </div>
-      {rows.map(({ label, value, percent }) => (
-        <div key={label} className="min-w-0" title={`${label} · ${title}`}>
+      {rows.map(({ label, value, detail, percent }) => (
+        <div
+          key={label}
+          className="min-w-0"
+          title={[label, detail, title].filter(Boolean).join(' · ')}
+        >
           <div className="text-[10px] leading-[14px] text-tertiary">{label}</div>
           <div className="mt-1 whitespace-nowrap text-[11px] leading-4 font-medium tabular-nums text-secondary">
             {value}

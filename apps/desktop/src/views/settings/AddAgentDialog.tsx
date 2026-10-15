@@ -15,6 +15,7 @@ import { ExternalRuntimePasswordForm } from './ExternalRuntimePasswordForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxAvailable } from './useAgentDevices'
 import { useBoxSetup } from './useBoxSetup'
+import { useBoxUsage } from './useBoxUsage'
 
 import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
 import type { RuntimeInstance } from '../../types/runtime'
@@ -32,21 +33,24 @@ function Choice({
   title,
   description,
   selected,
+  disabled,
   onClick,
 }: {
   icon: ReactNode
   title: string
   description: string
   selected?: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       aria-pressed={selected}
       className={clsx(
-        'flex w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors',
+        'flex w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
         selected
           ? 'border-zViolet-500/70 bg-zViolet-500/10'
           : 'border-zGray-800 hover:border-zGray-700 hover:bg-zGray-800/40',
@@ -127,13 +131,17 @@ export function AddAgentDialog({
   teamId,
   onClose,
   onAdded,
+  onOpenBilling,
 }: {
   teamId: string
   onClose: () => void
   onAdded?: (runtimeId: string) => void
+  /** Without it, a team with no Box plan can only read where to get one. */
+  onOpenBilling?: () => void
 }) {
   const [step, setStep] = useState<AddAgentStep>('choose')
   const boxAvailable = useBoxAvailable()
+  const noPlan = useBoxUsage(teamId).usage?.limitVcpus === 0
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
   const go = (action: AddAgentAction) => setStep((current) => nextAddAgentStep(current, action))
   const added = (runtimeId: string) => {
@@ -174,8 +182,17 @@ export function AddAgentDialog({
                   <Choice
                     icon={<Box className="h-4 w-4" />}
                     title="New Box"
-                    description="A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account."
-                    onClick={() => go('box')}
+                    description={
+                      noPlan
+                        ? 'Needs a Box plan → Billing'
+                        : 'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.'
+                    }
+                    disabled={noPlan && !onOpenBilling}
+                    onClick={() => {
+                      if (!noPlan) return go('box')
+                      onClose()
+                      onOpenBilling?.()
+                    }}
                   />
                 )}
                 <Choice

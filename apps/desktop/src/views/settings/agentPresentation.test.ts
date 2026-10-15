@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentRunsOn, visibleAgent } from './agentPresentation.ts'
+import { agentName, agentRunsOn, visibleAgent } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
 
 import type { RuntimeInstance } from '../../types/runtime.ts'
@@ -85,4 +85,16 @@ test('Runs on uses the actual current device, labels remote Boxes, and handles m
   assert.equal(agentRunsOn(teamAgent('managed'), 'mac'), 'Cloud')
   assert.equal(agentRunsOn(teamAgent('external'), 'mac'), 'Self-hosted')
   assert.equal(agentRunsOn(teamAgent('development'), 'mac'), 'Development')
+})
+
+test('a computer agent is named by its provider; team runtimes keep their own names', () => {
+  const local = {
+    kind: 'local',
+    provider: 'claude-code',
+    label: 'Claude Code in Mac',
+  } as RuntimeInstance
+  const managed = { kind: 'managed', provider: 'codex', label: 'Prod Codex' } as RuntimeInstance
+
+  assert.equal(agentName(local), 'Claude Code')
+  assert.equal(agentName(managed), 'Prod Codex')
 })

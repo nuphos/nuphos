@@ -59,6 +59,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
     onOpenAuditConversation,
     onOpenConversation,
     onOpenNodeLink,
+    onOpenSettingsSection,
     onSelectActive,
     renderPage,
   } = ctx
@@ -78,6 +79,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
         refreshKey={refreshKey}
         onCount={onCount}
         onLoading={onLoading}
+        onOpenBilling={() => onOpenSettingsSection('workspace.billing')}
       />,
     )
   }

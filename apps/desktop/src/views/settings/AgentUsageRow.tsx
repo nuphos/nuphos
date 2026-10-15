@@ -4,18 +4,16 @@ import { ChevronRight } from 'lucide-react'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
-import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { agentRunsOn } from './agentPresentation'
+import { agentName, agentRunsOn } from './agentPresentation'
 import { ACCENT_RGB } from './MetricChart'
+import { STATUS_DOT } from './runtimePresentation'
 
-import type { MetricPoint } from './MetricChart'
-import type { QuotaHistoryRow } from './quotaHistoryRows'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /** Shared by the header and every row so the columns line up. */
 export const AGENT_USAGE_COLUMNS =
-  'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_16px] gap-5 @3xl:grid-cols-[minmax(0,1.4fr)_120px_minmax(0,1fr)_140px_16px]'
+  'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_16px] gap-5 @3xl:grid-cols-[minmax(0,1.4fr)_160px_minmax(0,1fr)_16px]'
 
 /** Usage fills match MetricChart's violet; the used-up orange is a token the theme leaves alone. */
 export const USED_FILL = `rgb(${ACCENT_RGB})`
@@ -23,30 +21,15 @@ export const LIMIT_FILL = 'rgba(var(--color-zOrangered-500), 0.7)'
 
 const percent = (value: number) => `${String(Math.round(value))}%`
 
-/** One line per bucket, broken wherever nothing was read. */
-function sparklinePath(points: MetricPoint[]): string {
-  return points
-    .map((p, i) => {
-      if (p.value === null) return ''
-      const command = points[i - 1]?.value == null ? 'M' : 'L'
-
-      return `${command}${String(i)},${String(100 - Math.min(p.value, 100))}`
-    })
-    .join(' ')
-}
-
-/** One agent: who it is, where it runs, how much of each plan window is used now, and
- *  the shape of its busiest window over the chosen range. */
+/** One agent: who it is, where it runs, and how much of each plan window is used now. */
 export function AgentUsageRow({
   instance,
   quota,
-  row,
   selected,
   onSelect,
 }: {
   instance: RuntimeInstance
   quota: RuntimeQuota | undefined
-  row: QuotaHistoryRow | undefined
   selected: boolean
   onSelect: (runtimeId: string) => void
 }) {
@@ -68,7 +51,7 @@ export function AgentUsageRow({
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zGray-800/70 bg-main">
           <AgentProviderIcon provider={instance.provider} className="h-4 w-4" />
         </span>
-        <span className="truncate text-[13px] font-medium text-main">{instance.label}</span>
+        <span className="truncate text-[13px] font-medium text-main">{agentName(instance)}</span>
         {/* Runs on, which carries the status, is hidden when the page is narrow. */}
         {instance.status !== 'active' && (
           <span className="shrink-0 text-[11px] text-tertiary @3xl:hidden">Disabled</span>
@@ -78,15 +61,12 @@ export function AgentUsageRow({
             At limit
           </span>
         )}
-        <span className="ml-auto hidden shrink-0 text-[11px] text-tertiary @3xl:inline">
-          {AGENT_PROVIDER[instance.provider].label}
-        </span>
       </span>
       <span className="hidden items-center gap-1.5 text-[12px] text-secondary @3xl:flex">
         <span
           className={clsx(
             'h-1.5 w-1.5 rounded-full',
-            instance.status === 'active' ? 'bg-zViolet-400' : 'bg-zGray-600',
+            instance.status === 'active' ? STATUS_DOT.online : STATUS_DOT.off,
           )}
         />
         {agentRunsOn(instance, thisComputer?.deviceId)}
@@ -121,25 +101,6 @@ export function AgentUsageRow({
               </span>
             </span>
           ))
-        )}
-      </span>
-      <span className="hidden h-6 @3xl:block">
-        {row && (
-          <svg
-            aria-hidden="true"
-            viewBox={`0 0 ${String(Math.max(row.peak.length - 1, 1))} 100`}
-            preserveAspectRatio="none"
-            className="h-full w-full overflow-visible"
-          >
-            <path
-              d={sparklinePath(row.peak)}
-              fill="none"
-              stroke={atLimit ? LIMIT_FILL : USED_FILL}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
         )}
       </span>
       <ChevronRight

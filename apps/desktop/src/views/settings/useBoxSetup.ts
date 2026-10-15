@@ -6,7 +6,7 @@ import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED, useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 
 import { openBilling } from './billing'
-import { BOX_CREATING_POLL_MS, BOX_VCPU_TIERS, boxAgents, boxSetupPhase } from './boxPresentation'
+import { BOX_CREATING_POLL_MS, BOX_PLANS, boxAgents, boxSetupPhase } from './boxPresentation'
 import { useAgentDevices } from './useAgentDevices'
 
 /**
@@ -49,7 +49,7 @@ export function useBoxSetup(
         toast.error('Could not create Box', message, {
           action: {
             label: 'Get a Box plan',
-            onClick: () => void openBilling(teamId, BOX_VCPU_TIERS[0]),
+            onClick: () => void openBilling(teamId, BOX_PLANS[0].vcpus),
           },
         })
       else toast.apiError('Could not create Box', error)

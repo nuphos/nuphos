@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Ellipsis, Pause, Play, Plus } from 'lucide-react'
+import { Ellipsis, Play, Plus } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -187,18 +187,8 @@ export function BoxRow({
       >
         {thisComputer ? 'This computer' : machineLine(device)}
       </div>
-      <BoxMetrics
-        metrics={device.metrics}
-        paused={state === 'paused'}
-        status={device.metricsStatus}
-        receivedAt={device.metricsReceivedAt}
-      />
-      {state === 'paused' && agents.length === 0 && (
-        <div className="mt-auto flex shrink-0 items-center justify-between gap-3 pb-1">
-          <div className="text-[11px] text-tertiary">
-            <Pause className="mb-1 h-4 w-4" />
-            Resume to use your agents
-          </div>
+      {state === 'paused' ? (
+        <div className="mt-auto pb-1">
           <Button
             size="sm"
             variant="secondary"
@@ -209,10 +199,16 @@ export function BoxRow({
             {busy ? 'Resuming…' : 'Resume'}
           </Button>
         </div>
+      ) : (
+        <BoxMetrics
+          metrics={device.metrics}
+          status={device.metricsStatus}
+          receivedAt={device.metricsReceivedAt}
+        />
       )}
       <ul
         className={clsx(
-          state === 'paused' && agents.length === 0
+          state === 'paused'
             ? 'hidden'
             : 'mt-auto flex shrink-0 items-center gap-2 overflow-x-auto pb-1',
           dim && 'opacity-50',
@@ -232,7 +228,7 @@ export function BoxRow({
             <Menu>
               <MenuTrigger
                 aria-label={`New agent on ${device.label}`}
-                render={<Button size="sm" variant="secondary" />}
+                render={<Button size="sm" variant="secondary" className="h-10" />}
               >
                 <Plus className="h-3.5 w-3.5" />
                 New Agent

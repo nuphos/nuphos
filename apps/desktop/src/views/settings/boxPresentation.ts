@@ -139,8 +139,12 @@ export function boxSetupProblem(phase: BoxSetupPhase): string | null {
   return null
 }
 
-/** The vCPU sizes the billing service sells, smallest first. */
-export const BOX_VCPU_TIERS = [4, 12, 24]
+/** The plans the billing service sells, smallest first. */
+export const BOX_PLANS = [
+  { vcpus: 4, usdPerMonth: 20 },
+  { vcpus: 12, usdPerMonth: 50 },
+  { vcpus: 24, usdPerMonth: 100 },
+]
 
 /** Why the team's vCPU limit keeps a new Box from starting; null when one can start. */
 export function newBoxBlockedReason(usage: BoxUsage | null, isAdmin: boolean): string | null {
