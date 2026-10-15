@@ -91,7 +91,7 @@ export function GithubRefChip({
   const review = summary?.review ? REVIEW[summary.review] : null
 
   return (
-    <ChatLink link={ref.url} onLinkClick={onOpen} className={CHIP} title={describe(ref, summary)}>
+    <ChatLink link={ref.href} onLinkClick={onOpen} className={CHIP} title={describe(ref, summary)}>
       <StateIcon kind={ref.kind} state={summary?.state} />
       {summary ? (
         <span className="min-w-0 max-w-[40ch] truncate">{summary.title}</span>
@@ -137,7 +137,7 @@ export function GithubRefLink({
 
   return (
     <ChatLink
-      link={ref.url}
+      link={ref.href}
       onLinkClick={onOpen}
       className="text-zViolet-accent hover:underline"
       title={describe(ref, summary)}

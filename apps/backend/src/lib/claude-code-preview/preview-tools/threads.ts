@@ -8,11 +8,19 @@ import {
   setAgentThreadParent,
   updateThread,
 } from '@/lib/agent/thread-bridge'
+import { randomUUID } from 'node:crypto'
+
 import { toolError, toolResult } from '@/lib/mcp/protocol'
+
+import { publishPreviewFrame } from '../run-frame-bridge'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 
-import type { PreviewToolModule } from '../preview-tool-context'
+import type {
+  PreviewToolContext,
+  PreviewToolModule,
+  PublishPreviewFrame,
+} from '../preview-tool-context'
 
 const common = {
   label: z
@@ -66,7 +74,41 @@ function answer(work: Promise<unknown>) {
   )
 }
 
-export function threadToolModule(): PreviewToolModule {
+// The runtime hides nuphos-tools calls from the live stream, so the Desktop's
+// thread badge only sees one when the tool publishes its own frames, as decisions do.
+function shown(
+  publish: PublishPreviewFrame,
+  ctx: PreviewToolContext,
+  toolName: string,
+  input: unknown,
+  work: Promise<unknown>,
+) {
+  const toolCallId = `nuphos-${randomUUID()}`
+  const emit = (frame: Record<string, unknown>) => publish(ctx, frame).catch(() => {})
+
+  void emit({ type: 'tool-input-available', toolCallId, toolName, input })
+
+  return work.then(
+    async (output) => {
+      await emit({ type: 'tool-output-available', toolCallId, output })
+
+      return toolResult(output)
+    },
+    async (error: unknown) => {
+      const errorText = error instanceof Error ? error.message : String(error)
+
+      await emit({ type: 'tool-output-error', toolCallId, errorText })
+
+      return toolError(errorText)
+    },
+  )
+}
+
+export function threadToolModule(
+  options: { publish?: PublishPreviewFrame } = {},
+): PreviewToolModule {
+  const publish = options.publish ?? publishPreviewFrame
+
   return {
     definitions: [
       {
@@ -137,14 +179,26 @@ export function threadToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(createAgentThread(ctx, parsed.data.prompt, parsed.data.title))
+        return shown(
+          publish,
+          ctx,
+          'create_thread',
+          parsed.data,
+          createAgentThread(ctx, parsed.data.prompt, parsed.data.title),
+        )
       },
       send_message_to_thread: async (args) => {
         const parsed = send.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt))
+        return shown(
+          publish,
+          ctx,
+          'send_message_to_thread',
+          parsed.data,
+          sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
+        )
       },
       archive_thread: async (args) => {
         const parsed = archive.safeParse(args)

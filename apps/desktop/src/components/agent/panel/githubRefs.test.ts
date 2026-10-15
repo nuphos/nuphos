@@ -12,6 +12,8 @@ test('githubRef reads pull requests and issues, including their tabs', () => {
     number: 349,
     kind: 'pull',
     url: 'https://github.com/nuphos/nuphos/pull/349',
+    // A deep link keeps its tab and anchor for navigation.
+    href: 'https://github.com/nuphos/nuphos/pull/349/files#diff-1',
   })
   assert.equal(githubRef('https://github.com/a/b/issues/7')?.kind, 'issue')
 })

@@ -3,8 +3,11 @@ import { AlarmClock, ArrowUpRight, Loader2, Pencil } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { useTeamMembers } from '../../../lib/bindingAccess'
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { viewerTimeZone } from '../../../views/triggers/cronTime'
+import { canManageTeamTriggers } from '../../../views/triggers/shared'
 import { Button } from '../../ui/button'
 import { Switch } from '../../ui/Switch'
 import { toast } from '../../ui/toast'
@@ -63,6 +66,12 @@ export function TriggerCard({
   const { trigger, missing, setTrigger } = useTrigger(info?.triggerId ?? null, teamId)
   const [draft, setDraft] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const me = useCurrentUser()
+  // Viewers may read a trigger but not change it, as on the Triggers page.
+  const role = useTeamMembers(teamId ?? '').find(
+    (member) => member.id === me?.id && !member.removedAt,
+  )?.role
+  const canManage = canManageTeamTriggers(role)
 
   if (!info) return null
   if (!trigger) return <Placeholder missing={missing} />
@@ -121,7 +130,7 @@ export function TriggerCard({
         </div>
         <Switch
           checked={trigger.enabled}
-          disabled={busy}
+          disabled={busy || !canManage}
           label={trigger.enabled ? 'Pause this trigger' : 'Resume this trigger'}
           onChange={(enabled) =>
             void update(
@@ -163,7 +172,7 @@ export function TriggerCard({
                 <ArrowUpRight aria-hidden className="size-3.5" />
               </ChatLink>
             )}
-            {trigger.triggerType === 'cron' && (
+            {trigger.triggerType === 'cron' && canManage && (
               <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDraft(current)}>
                 <Pencil aria-hidden className="size-3.5" />
                 Edit schedule

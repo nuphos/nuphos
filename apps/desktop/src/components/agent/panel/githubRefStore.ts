@@ -2,13 +2,14 @@ import { useEffect, useSyncExternalStore } from 'react'
 
 import { api } from '../../../api'
 
+import { reviewers } from '../../../views/github-repo/pullRequestStatus'
+
 import { githubRef } from './githubRefs'
 
 import type { GithubRef } from './githubRefs'
 import type { GithubInstallation } from '../../../types'
 import type {
   GithubPRDetail,
-  GithubPRReview,
   GithubRefState,
   GithubRefSummary,
 } from '../../../types/github-pr-detail'
@@ -28,21 +29,14 @@ function setEntry(url: string, entry: GithubRefEntry) {
   for (const listener of listeners) listener()
 }
 
-// Without a signed-in `gh`, a pull request in a repository the team's GitHub
-// App can read still resolves through the backend.
-function reviewDecision(reviews: GithubPRReview[]): GithubRefSummary['review'] {
-  const latest = new Map<string, string>()
+// The PR page's review rules: latest decision per reviewer, and a fresh review
+// request puts that reviewer back to pending.
+function reviewDecision(pull: GithubPRDetail): GithubRefSummary['review'] {
+  const states = new Set(reviewers(pull).map((reviewer) => reviewer.state))
 
-  for (const review of reviews) {
-    if (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED') {
-      latest.set(review.author, review.state)
-    }
-  }
-  const states = new Set(latest.values())
+  if (states.has('changes_requested')) return 'changes_requested'
 
-  if (states.has('CHANGES_REQUESTED')) return 'changes_requested'
-
-  return states.has('APPROVED') ? 'approved' : null
+  return states.has('approved') && !states.has('pending') ? 'approved' : null
 }
 
 function pullState(pull: GithubPRDetail): GithubRefState {
@@ -52,11 +46,18 @@ function pullState(pull: GithubPRDetail): GithubRefState {
   return pull.draft ? 'draft' : 'open'
 }
 
+// Without a signed-in `gh`, a pull request in a repository the team's GitHub
+// App can read still resolves through the backend.
 async function viaInstallation(ref: GithubRef, teamId: string): Promise<GithubRefSummary | null> {
   let list = installations.get(teamId)
 
   if (!list) {
-    list = api.atlasListGithubInstallations(teamId).catch(() => [])
+    // A failed lookup is not cached, so the next refresh tries again.
+    list = api.atlasListGithubInstallations(teamId).catch(() => {
+      installations.delete(teamId)
+
+      return []
+    })
     installations.set(teamId, list)
   }
   const owner = ref.owner.toLowerCase()
@@ -76,7 +77,7 @@ async function viaInstallation(ref: GithubRef, teamId: string): Promise<GithubRe
     kind: 'pull',
     title: pull.title,
     state,
-    review: state === 'open' ? reviewDecision(pull.reviews) : null,
+    review: state === 'open' ? reviewDecision(pull) : null,
   }
 }
 
@@ -129,10 +130,15 @@ export function useGithubRef(ref: GithubRef, teamId?: string): GithubRefEntry | 
     if (!current) return
     refresh(current, teamId)
     const onFocus = () => refresh(current, teamId)
+    // Also re-read on the clock, for a chip that stays on screen in a focused window.
+    const timer = window.setInterval(() => refresh(current, teamId), STALE_MS)
 
     window.addEventListener('focus', onFocus)
 
-    return () => window.removeEventListener('focus', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      window.clearInterval(timer)
+    }
   }, [url, teamId])
 
   return snapshot.get(url)

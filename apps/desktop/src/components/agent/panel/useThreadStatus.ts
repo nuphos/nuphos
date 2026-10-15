@@ -2,25 +2,14 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../../api'
 import { publishRuntimeStates, useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
-import { runtimeTurnActive } from '../../../lib/runtimeExecution'
 
-import type { RuntimeExecution } from '../../../lib/runtimeExecution'
+import { threadStatusOf } from './threadStatus'
 
-export type ThreadStatus = 'loading' | 'running' | 'waiting' | 'done' | 'stopped' | 'unavailable'
+import type { ThreadStatus } from './threadStatus'
 
 // A running turn reads as stopped once its snapshot is 12 s old, so re-read
 // well inside that while the thread works.
 const ACTIVE_POLL_MS = 5_000
-
-function statusOf(snapshot: RuntimeExecution | undefined): ThreadStatus {
-  if (!snapshot) return 'loading'
-  if (runtimeTurnActive(snapshot)) {
-    // A pending request is the turn itself; only a permission prompt waits on a person.
-    return (snapshot.permissionWaits ?? 0) > 0 ? 'waiting' : 'running'
-  }
-
-  return snapshot.state === 'interrupted' || snapshot.state === 'disconnected' ? 'stopped' : 'done'
-}
 
 /** Publishes the thread's runtime state for every reader and returns its title. */
 async function readThread(threadId: string, teamId: string | undefined): Promise<string | null> {
@@ -44,8 +33,10 @@ export function useThreadStatus(
   const snapshot = useAgentRuntimeStates().get(threadId ?? '')
   const [title, setTitle] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
-  const status = failed ? 'unavailable' : statusOf(snapshot)
-  const active = status === 'running' || status === 'waiting'
+  const status: ThreadStatus = failed ? 'unavailable' : threadStatusOf(snapshot)
+  // A stale snapshot reads as loading; keep polling until a fresh one says how it ended.
+  const active =
+    status === 'running' || status === 'waiting' || (status === 'loading' && snapshot !== undefined)
 
   // Once for the title (and the state, if no other view has it yet)…
   useEffect(() => {

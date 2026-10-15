@@ -1,7 +1,8 @@
 import type { Part } from './parts.ts'
 import type { GithubRefKey } from '../../../types/github-pr-detail.ts'
 
-export type GithubRef = GithubRefKey & { kind: 'pull' | 'issue'; url: string }
+/** `url` is the canonical key for lookup and dedupe; `href` is where the link actually points. */
+export type GithubRef = GithubRefKey & { kind: 'pull' | 'issue'; url: string; href: string }
 
 const NAME = /^[\w.-]{1,100}$/
 const URL_IN_TEXT = /https:\/\/github\.com\/[^\s"'`<>()[\]{}\\]+/gi
@@ -33,6 +34,7 @@ export function githubRef(raw: string): GithubRef | null {
     number,
     kind,
     url: `https://github.com/${owner}/${repo}/${segment}/${num}`,
+    href: url.toString(),
   }
 }
 

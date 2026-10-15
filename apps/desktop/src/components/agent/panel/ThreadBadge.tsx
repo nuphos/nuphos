@@ -8,7 +8,7 @@ import { useThreadStatus } from './useThreadStatus'
 
 import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
-import type { ThreadStatus } from './useThreadStatus'
+import type { ThreadStatus } from './threadStatus'
 import type { LucideIcon } from 'lucide-react'
 
 const STATUS: Record<ThreadStatus, { label: string; icon?: LucideIcon; tone: string }> = {
