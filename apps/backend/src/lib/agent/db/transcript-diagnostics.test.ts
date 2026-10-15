@@ -63,3 +63,36 @@ test('structured diagnostics omit arbitrary payloads and survive without prose',
     }),
   ).toEqual([])
 })
+
+test('optional fields the driver stored as null still read as a valid record', () => {
+  // The Mongo driver writes an undefined optional field as null.
+  const result = transcriptTurnDiagnostics({
+    index: 15,
+    role: 'assistant' as const,
+    parts: [
+      {
+        type: 'turn-interrupted',
+        reason: 'error',
+        diagnostics: {
+          streamId: 'run',
+          startedAt: '2026-10-15T01:58:07.840Z',
+          endedAt: '2026-10-15T01:58:10.273Z',
+          elapsedMs: 2433,
+          lastOutputAt: null,
+          outputSilenceMs: null,
+          runtimeId: 'runtime',
+          source: 'runtime',
+          error: '**Server Error** (code: -32000)\nAuthentication required',
+          errorCode: -32603,
+          timeoutKind: null,
+          timeoutMs: null,
+          lastTool: null,
+        },
+      },
+    ],
+  })
+
+  expect(result[0]?.diagnostics_unavailable).toBeUndefined()
+  expect(result[0]?.diagnostics).toMatchObject({ source: 'runtime', errorCode: -32603 })
+  expect(result[0]?.diagnostics).not.toHaveProperty('lastTool')
+})

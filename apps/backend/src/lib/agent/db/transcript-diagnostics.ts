@@ -6,6 +6,14 @@ import { redactSecrets } from '@/lib/journal/redact'
 
 const timestamp = z.string().datetime()
 
+// The Mongo driver stores an optional field the writer left undefined as null,
+// which the schema's `.optional()` rejects; absent is what the writer meant.
+function withoutNulls(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+
+  return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== null))
+}
+
 export function transcriptTurnDiagnostics(message: {
   index: number
   role: string
@@ -18,7 +26,7 @@ export function transcriptTurnDiagnostics(message: {
     const part = raw as Record<string, unknown>
 
     if (part.type !== 'turn-interrupted') return []
-    const parsed = turnDiagnosticsSchema.safeParse(part.diagnostics)
+    const parsed = turnDiagnosticsSchema.safeParse(withoutNulls(part.diagnostics))
     const reason =
       typeof part.reason === 'string' && ['cancelled', 'timeout', 'error'].includes(part.reason)
         ? part.reason

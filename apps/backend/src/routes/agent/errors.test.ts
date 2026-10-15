@@ -51,3 +51,15 @@ test('the implementation-defined -32000 bucket alone does not mean signed out', 
   expect(frame.errorCode).toBeUndefined()
   expect(frame.errorText).toContain('Session store is unavailable')
 })
+
+test('the gateway relaying the sign-out refusal as -32603 is still a sign-out', () => {
+  // Observed in production: openab answers session/prompt with JSON-RPC -32603
+  // and keeps the adapter's -32000 only in the message wrapper.
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError('**Server Error** (code: -32000)\nAuthentication required', -32603),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_auth_required')
+  expect(frame.errorText).toContain('Sign the agent in again')
+})
