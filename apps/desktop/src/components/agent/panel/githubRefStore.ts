@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 
 import { api } from '../../../api'
+import { createLimiter } from '../../../lib/limiter'
 
 import { reviewers } from '../../../views/github-repo/pullRequestStatus'
 
@@ -17,12 +18,17 @@ import type {
 // Chips re-read a reference they show when it is older than this, so a pull
 // request merged since keeps its old state only until the next look.
 const STALE_MS = 60_000
+// Each read is a `gh` process; a transcript full of links queues instead of spawning them all.
+const MAX_IN_FLIGHT = 2
+// A merged or closed reference does not change on its own, so it is read once.
+const SETTLED = new Set<GithubRefState>(['merged', 'closed', 'completed', 'not_planned'])
 
 export type GithubRefEntry = { summary: GithubRefSummary | null; loading: boolean; at: number }
 
 let entries: ReadonlyMap<string, GithubRefEntry> = new Map()
 const listeners = new Set<() => void>()
 const installations = new Map<string, Promise<GithubInstallation[]>>()
+const limited = createLimiter(MAX_IN_FLIGHT)
 
 function setEntry(url: string, entry: GithubRefEntry) {
   entries = new Map(entries).set(url, entry)
@@ -83,8 +89,6 @@ async function viaInstallation(ref: GithubRef, teamId: string): Promise<GithubRe
 
 async function load(ref: GithubRef, teamId: string | undefined) {
   const previous = entries.get(ref.url)
-
-  setEntry(ref.url, { summary: previous?.summary ?? null, loading: true, at: Date.now() })
   let summary: GithubRefSummary | null = null
 
   try {
@@ -104,7 +108,11 @@ function refresh(ref: GithubRef, teamId: string | undefined) {
   const entry = entries.get(ref.url)
 
   if (entry?.loading) return
-  if (!entry || Date.now() - entry.at > STALE_MS) void load(ref, teamId)
+  if (entry?.summary && SETTLED.has(entry.summary.state)) return
+  if (entry && Date.now() - entry.at <= STALE_MS) return
+  // Marked loading while queued, so other chips for the same link wait for this read.
+  setEntry(ref.url, { summary: entry?.summary ?? null, loading: true, at: Date.now() })
+  limited(() => load(ref, teamId))
 }
 
 function subscribe(listener: () => void) {
@@ -117,7 +125,7 @@ function subscribe(listener: () => void) {
 
 const getSnapshot = () => entries
 
-/** The reference's title and state, re-read when stale and when the window regains focus. */
+/** The reference's title and state, re-read when stale (unless settled) and when the window regains focus. */
 export function useGithubRef(ref: GithubRef, teamId?: string): GithubRefEntry | undefined {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
