@@ -1,6 +1,16 @@
 package ai.nuphos.android.ui.agent
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.runtime.saveable.rememberSaveable
+import ai.nuphos.android.session.ConversationNesting
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -96,6 +106,11 @@ fun AgentPage(
         if (expiry != null) { delay(((expiry - now) * 1000).toLong() + 1); statusClock = RuntimeObservation.now() }
     }
     val pins = store.pinnedShortcuts
+    var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(emptyList<String>()) }
+    val tree = remember(store.conversations, pins, foldedIds, account) {
+        ConversationNesting.nest(store.conversations, pins.mapTo(mutableSetOf()) { it.sessionId }, foldedIds.toSet(), account)
+    }
+    val shortcuts = pins.filter { it.sessionId !in tree.loadedPinnedIds }
     LaunchedEffect(store, store.selectedTeam?.id) { store.loadFavorites() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { it.key } }
@@ -174,29 +189,36 @@ fun AgentPage(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (pins.isNotEmpty()) {
-                            item(key = "pins:header") { Text("Pinned", style = MaterialTheme.typography.titleSmall) }
-                            items(pins, key = { it.listKey }) { pin ->
-                                Card(Modifier.fillMaxWidth().clickable {
-                                    nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}")
-                                }) {
-                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat")
-                                        Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        for (section in ConversationNesting.Section.entries) {
+                            val rows = tree.rows.filter { it.section == section }
+                            if (rows.isNotEmpty() || (section == ConversationNesting.Section.Pinned && shortcuts.isNotEmpty())) {
+                                item(key = "section:$section") { Text(section.title, style = MaterialTheme.typography.titleSmall) }
+                            }
+                            if (section == ConversationNesting.Section.Pinned) {
+                                items(shortcuts, key = { it.listKey }) { pin ->
+                                    Card(Modifier.fillMaxWidth().clickable {
+                                        nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}")
+                                    }) {
+                                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat")
+                                            Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
                                     }
                                 }
                             }
-                            item(key = "history:header") { Text("History", style = MaterialTheme.typography.titleSmall) }
-                        }
-                        items(store.conversations, key = { "history:${it.sessionId}" }) { conversation ->
-                            ConversationRow(conversation, store.favorites?.contains(conversation.sessionId) == true, store.historyObservation(conversation)?.label(maxOf(statusClock, RuntimeObservation.now()))) {
-                                nav.navigate("conversation/${conversation.sessionId}")
+                            items(rows, key = { "history:${it.conversation.sessionId}" }) { row ->
+                                ConversationTreeRow(row, store.favorites?.contains(row.conversation.sessionId) == true,
+                                    store.historyObservation(row.conversation)?.label(maxOf(statusClock, RuntimeObservation.now())),
+                                    onToggle = {
+                                        foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
+                                    },
+                                    onClick = { nav.navigate("conversation/${android.net.Uri.encode(row.conversation.sessionId)}") })
                             }
                         }
                         if (store.hasMore) {
-                            item {
-                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                    LoadingIndicator()
+                            item(key = "history:more") {
+                                TextButton(onClick = { scope.launch { store.loadMore() } }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Load more chats")
                                 }
                             }
                         }
@@ -230,8 +252,25 @@ fun AgentPage(
     }
 }
 
+/** Cap visual indentation so malformed/deep trees cannot squeeze the title off-screen. */
 @Composable
-private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, onClick: () -> Unit) {
+internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit) {
+    val depth = row.depth.coerceAtMost(4)
+    val line = MaterialTheme.colorScheme.outlineVariant
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (depth > 0) Canvas(Modifier.width((depth * 16).dp).height(64.dp)) {
+            val x = size.width - 8.dp.toPx()
+            drawLine(line, Offset(x, 0f), Offset(x, size.height / 2), 1.dp.toPx())
+            drawLine(line, Offset(x, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
+        }
+        Box(Modifier.weight(1f).semantics { stateDescription = "Thread level ${row.depth}" }) {
+            ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick)
+        }
+    }
+}
+
+@Composable
+private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -256,6 +295,15 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
                 if (status != null) Text(status, style = MaterialTheme.typography.labelSmall)
                 else if (HistoryStatus.unread(conversation)) Text("Unread", style = MaterialTheme.typography.labelSmall)
                 Text(meta(conversation), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (threads > 0) {
+                TextButton(onClick = onToggle, modifier = Modifier.semantics {
+                    stateDescription = if (folded) "Collapsed" else "Expanded"
+                }) {
+                    Text("$threads")
+                    Icon(if (folded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+                        contentDescription = "${if (folded) "Show" else "Hide"} $threads threads")
+                }
             }
             if (pinned) {
                 Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))

@@ -158,7 +158,7 @@ class PinnedHistoryFixtureDeviceTest {
     @Test fun pinsOpenBeyondPageWithoutHydrationAndKeepFilterAndArchiveRules() {
         render()
         assertTrue(requests.none { it.url.encodedPath.startsWith("/agent/conversations/") })
-        compose.onAllNodesWithContentDescription("Pinned chat").assertCountEquals(4)
+        compose.onAllNodesWithContentDescription("Pinned chat").assertCountEquals(3)
         for (scope in listOf(ConversationScope.Team, ConversationScope.Mine)) {
             compose.runOnIdle { store.updateScope(scope) }; compose.waitForIdle()
             compose.onNodeWithText("Beyond first page").assertExists()
