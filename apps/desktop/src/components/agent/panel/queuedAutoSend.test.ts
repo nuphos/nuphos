@@ -10,6 +10,7 @@ import {
   queueAutoSend,
   rememberDispatchedDraft,
   runtimeMayAcceptLater,
+  sendsAsNewSession,
   stopAutoSend,
 } from './queuedAutoSend.ts'
 
@@ -177,4 +178,11 @@ test('only an agent that can never accept a message is not waited on', () => {
     true,
   )
   assert.equal(runtimeMayAcceptLater({ state: 'idle', observedAt: performance.now() }), false)
+})
+
+test("a fork's first send goes straight out; a second one while it runs queues", () => {
+  assert.equal(sendsAsNewSession({ unsaved: true, streaming: false }), true)
+  // The first send is importing and starting: a second Enter must not start another.
+  assert.equal(sendsAsNewSession({ unsaved: true, streaming: true }), false)
+  assert.equal(sendsAsNewSession({ unsaved: false, streaming: false }), false)
 })

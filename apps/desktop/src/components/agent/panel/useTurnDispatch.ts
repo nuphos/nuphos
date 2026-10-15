@@ -9,7 +9,13 @@ import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID, emitFirstRunConvo } from './model'
-import { markAutoSend, nextAutoSend, queueAutoSend, runtimeMayAcceptLater } from './queuedAutoSend'
+import {
+  markAutoSend,
+  nextAutoSend,
+  queueAutoSend,
+  runtimeMayAcceptLater,
+  sendsAsNewSession,
+} from './queuedAutoSend'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
 import { useSteering } from './useSteering'
@@ -235,10 +241,8 @@ export function useTurnDispatch(acc: Acc) {
       }
       const replying = runtimeAllows(tab.runtimeState, 'reply')
 
-      // An unsaved fork has no server session to report a runtime state, so a
-      // queue would wait on it forever. Its first send creates the session, like
-      // a new chat's.
-      const sendable = tab.unsaved || runtimeAllows(tab.runtimeState, 'send')
+      const newSession = sendsAsNewSession(tab)
+      const sendable = newSession || runtimeAllows(tab.runtimeState, 'send')
 
       if (!replying && !sendable && !runtimeMayAcceptLater(tab.runtimeState)) {
         toast.error(runtimeStatusLabel(tab.runtimeState))
@@ -247,7 +251,7 @@ export function useTurnDispatch(acc: Acc) {
       }
       // An automatic turn must not trust a snapshot that may be seconds old,
       // and nothing may overtake a message that is already waiting.
-      const staleApproval = turnKind === 'plan-approval' && !tab.unsaved
+      const staleApproval = turnKind === 'plan-approval' && !newSession
 
       if (!replying && (!sendable || staleApproval || nextAutoSend(tab))) {
         queueUntilSendable(activeId, trimmed, filePaths, turnKind)

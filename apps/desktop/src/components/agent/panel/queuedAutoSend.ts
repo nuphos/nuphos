@@ -31,6 +31,12 @@ export function runtimeMayAcceptLater(snapshot: RuntimeExecution | undefined): b
   )
 }
 
+/** An unsaved fork has no server session to report a runtime state, so its first
+ *  send goes out at once, like a new chat's; sends during that one queue. */
+export function sendsAsNewSession(tab: Pick<Tab, 'unsaved' | 'streaming'>): boolean {
+  return tab.unsaved === true && !tab.streaming
+}
+
 /** Queue a message that auto-sends once the agent allows it. */
 export function queueAutoSend(tab: Tab, draft: SendDraft): Tab {
   const queued = (tab.queued ?? []).filter((item) => item.id !== draft.id)
