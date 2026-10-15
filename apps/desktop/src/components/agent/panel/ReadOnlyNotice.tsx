@@ -9,6 +9,7 @@ import { quotaSignedOut } from '../../../lib/runtimeQuota'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
+import { ASK_ADMIN_TO_RECONNECT } from './AgentSetupRequiredCard'
 import { ConversationActivityBadges } from './historyRows'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 
@@ -77,7 +78,10 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
 /** Said before the message goes, not after it fails: every turn on a signed-out
  *  agent dies in its first seconds. */
 export function SignedOutAgentNotice({ control }: { control: RuntimeControl }) {
-  const { value, quotas, onSettings } = control
+  const { value, quotas, canUpdateTeamAgents: isTeamAdmin } = control
+  // Only an administrator can sign a team agent back in; a member gets the same
+  // instruction the reauthentication card gives after a failed turn.
+  const onSettings = isTeamAdmin ? control.onSettings : undefined
 
   if (!value?.id || !quotaSignedOut(quotas?.get(value.id))) return null
 
@@ -88,8 +92,10 @@ export function SignedOutAgentNotice({ control }: { control: RuntimeControl }) {
     >
       <KeyRound aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-400" />
       <span className="min-w-0 flex-1">
-        {value.label} is signed out, so messages sent now will fail. Sign it in again, or switch to
-        another agent.
+        {value.label} is signed out, so messages will likely fail.{' '}
+        {isTeamAdmin
+          ? 'Sign it in again in Agent settings, or switch to another agent.'
+          : `${ASK_ADMIN_TO_RECONNECT} Or switch to another agent.`}
       </span>
       {onSettings && (
         <Button

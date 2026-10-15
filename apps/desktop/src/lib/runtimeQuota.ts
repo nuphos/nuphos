@@ -31,10 +31,10 @@ export function quotaNote(quota: RuntimeQuota | undefined): string | null {
   return quota.reason ?? null
 }
 
-/** The usage probe found no sign-in on the agent, the reading that also shows on the
- *  Agents page. Turns there fail until it is signed in again. A self-hosted agent
+/** The usage probe found no sign-in on the agent (the Agents page shows it as the
+ *  Usage stat). Turns there fail until it is signed in again. A self-hosted agent
  *  signed in through `CLAUDE_CODE_OAUTH_TOKEN` reads the same, so this warns and
- *  never blocks. */
+ *  never blocks. The reason is produced by the backend's runtime-quota-probe.ts. */
 export function quotaSignedOut(quota: RuntimeQuota | undefined): boolean {
   return quota?.available === false && quota.reason === 'Sign in required'
 }
