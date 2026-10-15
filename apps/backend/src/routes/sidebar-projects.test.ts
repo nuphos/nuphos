@@ -121,13 +121,6 @@ describe('sidebar projects API', () => {
     expect(body).toMatchObject({ projects: [infra], revision: 1 })
   })
 
-  test('keeps the order of projects and of the chats a person arranged by hand', async () => {
-    const web = { id: 'p2', name: 'Web', sessionIds: ['s4', 's3'], manualOrder: true }
-    const saved = await replace(0, [web, infra])
-
-    expect(((await saved.json()) as { projects: unknown[] }).projects).toEqual([web, infra])
-  })
-
   test('keeps each person’s projects separate within a team', async () => {
     await replace(0, [infra])
     currentUserId = 'user-b'

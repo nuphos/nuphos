@@ -104,24 +104,3 @@ test('Chats stays as a drop target while every chat is filed', () => {
 
   assert.deepEqual(layout(sections).Chats, [])
 })
-
-test('a hand-ordered project lists its chats in that order, threads under their parent', () => {
-  const chats = [
-    row('agent-session:a'),
-    row('agent-session:t', 'agent-session:b'),
-    row('agent-session:b'),
-  ]
-  const sections = withChatSections(
-    [{ items: [] }, { title: 'Chats', items: chats }],
-    [],
-    [],
-    () => false,
-    [{ id: 'web', name: 'Web', sessionIds: ['b', 'a'], manualOrder: true }],
-  )
-  const web = sections.find((section) => section.title === 'Projects')?.projects?.[0]
-
-  assert.deepEqual(
-    web?.items.map((item) => item.key),
-    ['agent-session:b', 'agent-session:a', 'agent-session:t'],
-  )
-})

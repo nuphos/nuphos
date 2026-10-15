@@ -2,103 +2,74 @@ import { useRef, useState } from 'react'
 
 import type { DragEvent } from 'react'
 
-export type DragKind = 'chat' | 'project'
-/** Where a drop lands: into the target, or on one side of it for reordering. */
-export type DropPosition = 'inside' | 'before' | 'after'
+const CHAT_DRAG_TYPE = 'application/x-nuphos-chat'
 
-const DRAG_TYPE: Record<DragKind, string> = {
-  chat: 'application/x-nuphos-chat',
-  project: 'application/x-nuphos-project',
-}
+// The browser hides drag data until the drop, so targets that only take some
+// chats look the dragged one up here while it hovers.
+let draggedSessionId: string | null = null
 
-// Drag data stays hidden until the drop, so targets read the dragged id here.
-let dragged: { kind: DragKind; id: string } | null = null
-
-/** Starts dragging a chat row or a project; only sidebar drop targets read the payload. */
-export function startDrag(event: DragEvent, kind: DragKind, id: string): void {
-  event.dataTransfer.setData(DRAG_TYPE[kind], id)
+/** Starts dragging a sidebar chat row; only sidebar drop targets read the payload. */
+export function startChatDrag(event: DragEvent, sessionId: string): void {
+  event.dataTransfer.setData(CHAT_DRAG_TYPE, sessionId)
   event.dataTransfer.effectAllowed = 'move'
-  dragged = { kind, id }
+  draggedSessionId = sessionId
 }
 
-export function endDrag(): void {
-  dragged = null
-}
-
-function draggedId(event: DragEvent, kind: DragKind): string | null {
-  return event.dataTransfer.types.includes(DRAG_TYPE[kind]) && dragged?.kind === kind
-    ? dragged.id
-    : null
-}
-
-/** Before or after, by which half of the element's first child (its row) the pointer is over. */
-function sideOf(event: DragEvent): DropPosition {
-  const box = (event.currentTarget.firstElementChild ?? event.currentTarget).getBoundingClientRect()
-
-  return event.clientY < box.top + box.height / 2 ? 'before' : 'after'
+export function endChatDrag(): void {
+  draggedSessionId = null
 }
 
 /**
- * Makes an element accept one kind of drag. `over` says where the drop would
- * land while something acceptable hovers; enter and leave are counted so
- * crossing child elements does not flicker. Without `onDrop` it ignores drags.
+ * Makes an element accept a dragged chat. `over` is true while a chat hovers
+ * it; enter/leave are counted so moving across child elements does not flicker.
+ * With no handler the element ignores drags entirely, and `accepts` can turn
+ * down a chat that is already where this target would put it.
  */
-export function useDropTarget({
-  kind,
-  onDrop,
-  accepts = () => true,
-  sided = false,
-}: {
-  kind: DragKind
-  onDrop: ((id: string, position: DropPosition) => void) | undefined
-  accepts?: (id: string) => boolean
-  /** Reorder targets drop before or after themselves instead of inside. */
-  sided?: boolean
-}) {
+export function useChatDropTarget(
+  onDrop: ((sessionId: string) => void) | undefined,
+  accepts: (sessionId: string) => boolean = () => true,
+) {
   const depth = useRef(0)
-  const [over, setOver] = useState<DropPosition | null>(null)
+  const [over, setOver] = useState(false)
 
-  if (!onDrop) return { over: null, props: {} }
-  const acceptable = (event: DragEvent) => {
-    const id = draggedId(event, kind)
-
-    return id !== null && accepts(id) ? id : null
-  }
-  const hover = (event: DragEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    event.dataTransfer.dropEffect = 'move'
-    setOver(sided ? sideOf(event) : 'inside')
-  }
+  if (!onDrop) return { over: false, props: {} }
+  const carriesChat = (event: DragEvent) =>
+    event.dataTransfer.types.includes(CHAT_DRAG_TYPE) &&
+    draggedSessionId !== null &&
+    accepts(draggedSessionId)
 
   return {
     over,
     props: {
       onDragEnter: (event: DragEvent) => {
-        if (acceptable(event) === null) return
-        depth.current += 1
-        hover(event)
-      },
-      onDragOver: (event: DragEvent) => {
-        if (acceptable(event) !== null) hover(event)
-      },
-      onDragLeave: (event: DragEvent) => {
-        if (acceptable(event) === null) return
-        event.stopPropagation()
-        depth.current = Math.max(0, depth.current - 1)
-        if (depth.current === 0) setOver(null)
-      },
-      onDrop: (event: DragEvent) => {
-        const id = acceptable(event)
-        const position = sided ? sideOf(event) : 'inside'
-
-        depth.current = 0
-        setOver(null)
-        if (id === null) return
+        if (!carriesChat(event)) return
         event.preventDefault()
         event.stopPropagation()
-        endDrag()
-        onDrop(id, position)
+        depth.current += 1
+        setOver(true)
+      },
+      onDragOver: (event: DragEvent) => {
+        if (!carriesChat(event)) return
+        event.preventDefault()
+        event.stopPropagation()
+        event.dataTransfer.dropEffect = 'move'
+      },
+      onDragLeave: (event: DragEvent) => {
+        if (!carriesChat(event)) return
+        event.stopPropagation()
+        depth.current = Math.max(0, depth.current - 1)
+        if (depth.current === 0) setOver(false)
+      },
+      onDrop: (event: DragEvent) => {
+        const sessionId = event.dataTransfer.getData(CHAT_DRAG_TYPE)
+
+        depth.current = 0
+        setOver(false)
+        endChatDrag()
+        if (!sessionId) return
+        event.preventDefault()
+        event.stopPropagation()
+        onDrop(sessionId)
       },
     },
   }

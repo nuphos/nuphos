@@ -115,12 +115,7 @@ export type SidebarFavoritesCloudSnapshot = {
   updatedAt: string | null
 }
 
-export type SidebarProjectCloudEntry = {
-  id: string
-  name: string
-  sessionIds: string[]
-  manualOrder?: boolean
-}
+export type SidebarProjectCloudEntry = { id: string; name: string; sessionIds: string[] }
 export type SidebarProjectsCloudSnapshot = {
   projects: SidebarProjectCloudEntry[]
   revision: number

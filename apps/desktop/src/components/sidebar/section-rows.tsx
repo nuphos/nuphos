@@ -7,7 +7,8 @@ import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import { SidebarNavIcon, SidebarNavItem } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
-import { ChatRowFrame } from './chat-row-frame'
+import { endChatDrag, startChatDrag } from './chat-drag'
+import { NestedRowBody } from './nest-guides'
 import { nestItems } from './nest-items'
 import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
@@ -62,12 +63,7 @@ export function SidebarRows({
   onItemMenu,
   onSelect,
   onOpenKey,
-  reorder,
-}: SidebarRowsContext & {
-  items: Item[]
-  /** Lets chats be dropped above or below each other (a project's own order). */
-  reorder?: (dragged: string, target: string, position: 'before' | 'after') => void
-}) {
+}: SidebarRowsContext & { items: Item[] }) {
   return (
     <>
       {nestItems(items, (key) => isGroupCollapsed({ title: key })).map(
@@ -198,21 +194,30 @@ export function SidebarRows({
             </SessionRowSurface>
           )
 
-          if (!rowSessionId) return <div key={item.key}>{row}</div>
-
-          return (
-            <ChatRowFrame
+          // Chat rows collapse out (t-collapse, grid-rows) while an
+          // archive is in flight; other rows render flat.
+          // Keyed by item.key, not index: the list shrinks when an
+          // archive lands, and positional keys would hand the removed
+          // row's data-open state to its neighbor, replaying a bogus
+          // collapse.
+          return rowSessionId ? (
+            <div
               key={item.key}
-              sessionId={rowSessionId}
-              archiving={archivingIds.has(rowSessionId)}
-              trail={trail}
-              expanded={hasChildren && !folded}
+              className={clsx(
+                't-collapse t-sidebar-session t-stagger relative',
+                archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
+              )}
+              data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
               draggable={teamView}
-              // Only a project's own chats reorder; threads stay under their chat.
-              onReorder={trail.length === 0 ? reorder : undefined}
+              onDragStart={teamView ? (event) => startChatDrag(event, rowSessionId) : undefined}
+              onDragEnd={endChatDrag}
             >
-              {row}
-            </ChatRowFrame>
+              <NestedRowBody trail={trail} expanded={hasChildren && !folded}>
+                {row}
+              </NestedRowBody>
+            </div>
+          ) : (
+            <div key={item.key}>{row}</div>
           )
         },
       )}

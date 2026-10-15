@@ -58,7 +58,7 @@ export type Section = {
   /** Default for a group with no persisted user preference. */
   defaultCollapsed?: boolean
   /** The Projects group: each project's chats, rendered as folders. */
-  projects?: { id: string; name: string; manualOrder: boolean; items: Item[] }[]
+  projects?: { id: string; name: string; items: Item[] }[]
 }
 
 export function isTeamIntegrationsActive(active: string): boolean {

@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import {
-  applyProjectChange,
-  nextProjectName,
-  placeBeside,
-  projectForSession,
-} from './sidebar-projects/model.ts'
+import { applyProjectChange, nextProjectName, projectForSession } from './sidebar-projects/model.ts'
 import { readSidebarProjects, updateSidebarProjects } from './sidebarProjects.ts'
 
 import type { SidebarProject } from './sidebar-projects/model.ts'
@@ -79,40 +74,6 @@ test('changes aimed at a project that is gone do nothing', () => {
   assert.deepEqual(applyProjectChange([infra], { kind: 'rename', id: 'infra', name: '  ' }), [
     infra,
   ])
-})
-
-test('dragging projects and chats keeps the order a person chose', () => {
-  const web: SidebarProject = { id: 'web', name: 'Web', sessionIds: ['b', 'c'] }
-  const arranged = applyProjectChange([infra, web], { kind: 'arrange', ids: ['web', 'infra'] })
-
-  assert.deepEqual(
-    arranged.map((project) => project.id),
-    ['web', 'infra'],
-  )
-  const ordered = applyProjectChange(arranged, {
-    kind: 'order',
-    id: 'web',
-    sessionIds: placeBeside(['b', 'c'], 'c', 'b', 'before'),
-  })
-
-  assert.deepEqual(ordered[0], {
-    id: 'web',
-    name: 'Web',
-    sessionIds: ['c', 'b'],
-    manualOrder: true,
-  })
-  const filed = applyProjectChange(ordered, { kind: 'move', sessionId: 'a', projectId: 'web' })
-
-  assert.deepEqual(filed[0]?.sessionIds, ['a', 'c', 'b'])
-  assert.equal(
-    applyProjectChange(filed, { kind: 'sortByRecent', id: 'web' })[0]?.manualOrder,
-    undefined,
-  )
-})
-
-test('a drop beside a chat lands on that side of it', () => {
-  assert.deepEqual(placeBeside(['a', 'b', 'c'], 'a', 'c', 'after'), ['b', 'c', 'a'])
-  assert.deepEqual(placeBeside(['a', 'b'], 'x', 'b', 'before'), ['a', 'x', 'b'])
 })
 
 test('deleting a project keeps its chats; they just leave the project', () => {
