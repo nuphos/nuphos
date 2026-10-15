@@ -45,8 +45,10 @@ runs:
         # cannot be swapped in under the current key.
         want=$(git rev-parse HEAD:apps/desktop/local-runtime/prepare.mjs)
         verified=0 rejected=0
-        for bin in ~/.cache/nuphos/openab-*/target/*/release/openab ~/.cache/nuphos/openab-*/target/*/release/openab.exe; do
-          [ -f "$bin" ] || continue
+        # One glob, filtered by name: Git Bash on Windows matches `openab` to
+        # openab.exe, which gh then cannot open.
+        for bin in ~/.cache/nuphos/openab-*/target/*/release/openab*; do
+          case "$bin" in */openab | */openab.exe) ;; *) continue ;; esac
           ok=false
           for sha in $(gh attestation verify "$bin" --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openab-cache.yml" \
