@@ -64,7 +64,7 @@ export function SleepPreventionSettings({
           checked={current.onlyOnAC}
           disabled={saving}
           onCheckedChange={(onlyOnAC) => void save({ ...current, onlyOnAC })}
-          className="relative h-5 w-9 shrink-0 rounded-full bg-zGray-700 data-[checked]:bg-zViolet-500 disabled:opacity-50"
+          className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-zGray-700 data-[checked]:bg-zViolet-500 disabled:opacity-50"
         >
           <Switch.Thumb className="block h-4 w-4 translate-x-0.5 rounded-full bg-white data-[checked]:translate-x-[18px]" />
         </Switch.Root>
