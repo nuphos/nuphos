@@ -269,9 +269,10 @@ export function WorkspaceAgentPane({
               onTitleChange={handleTitleChange}
             />
           </div>
-          {summaryOpen && savedSessionId && (
+          {savedSessionId && (
             <ChatSummaryPanel
               key={savedSessionId}
+              open={summaryOpen}
               sessionId={savedSessionId}
               teamId={teamId}
               onOpenLink={stableOpenSessionResource}

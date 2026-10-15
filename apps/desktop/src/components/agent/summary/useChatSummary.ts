@@ -15,14 +15,18 @@ import type { AgentConversation } from '../../../api/agent-types'
 // copies instead of asking the backend again.
 const LIST_READ_MS = 2_000
 
-function readLists(teamId: string): AgentConversation[][] {
-  return [
-    readSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId)) ?? [],
-    readSwrCache<AgentConversation[]>(sharedSessionsCacheKey(teamId)) ?? [],
-  ]
+type Lists = { loaded: boolean; lists: AgentConversation[][] }
+
+function readLists(teamId: string): Lists {
+  const own = readSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
+  const shared = readSwrCache<AgentConversation[]>(sharedSessionsCacheKey(teamId))
+
+  return { loaded: own !== undefined || shared !== undefined, lists: [own ?? [], shared ?? []] }
 }
 
 export type ChatSummary = {
+  /** False until the sidebar has listed this team's chats once. */
+  loaded: boolean
   conversation: AgentConversation | undefined
   threads: AgentConversation[]
   outputs: OutputFile[]
@@ -31,7 +35,7 @@ export type ChatSummary = {
 
 /** Read only while the panel is mounted, which is while it is open. */
 export function useChatSummary(sessionId: string, teamId: string): ChatSummary {
-  const [lists, setLists] = useState(() => readLists(teamId))
+  const [{ loaded, lists }, setLists] = useState(() => readLists(teamId))
   const [outputs, setOutputs] = useState<{ sessionId: string; files: OutputFile[] } | null>(null)
   const [devices, setDevices] = useState<AgentCredentialOptions['devices']>()
 
@@ -84,6 +88,7 @@ export function useChatSummary(sessionId: string, teamId: string): ChatSummary {
   }, [teamId, deviceCount])
 
   return {
+    loaded,
     conversation,
     threads: subThreadsOf(sessionId, lists),
     outputs: outputs?.sessionId === sessionId ? outputs.files : [],

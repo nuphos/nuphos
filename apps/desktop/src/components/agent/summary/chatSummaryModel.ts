@@ -43,7 +43,7 @@ export function changesOf(resources: readonly SessionResource[]): SessionResourc
     .sort((a, b) => b.linkedAt.localeCompare(a.linkedAt))
 }
 
-/** "nuphos/nuphos #12" for a pull request, the issue key ("ENG-12") for Linear. */
+/** "nuphos #12" for a pull request, the issue key ("ENG-12") for Linear. */
 export function changeSubtitle(resource: SessionResource): string {
   if (resource.provider === 'github') {
     const repo = resource.repository?.split('/').at(-1) ?? ''
@@ -88,6 +88,18 @@ export function outputFilesOf(groups: readonly FileTransferGroup[], now: number)
     )
 }
 
+/** Splits "a-very-long-name.png" so a row can cut the name and keep the extension. */
+export function splitFileName(fileName: string): [string, string] {
+  const dot = fileName.lastIndexOf('.')
+
+  return dot > 0 ? [fileName.slice(0, dot), fileName.slice(dot)] : [fileName, '']
+}
+
+/** The pickers live in the composer, which only a chat's managers see. */
+export function canPickCredentials(conversation: AgentConversation | undefined): boolean {
+  return conversation?.canManage !== false && conversation?.readOnly !== true
+}
+
 /** Connectors ticked for this chat, devices aside: those are shown with the runtime. */
 export function connectorCount(conversation: AgentConversation | undefined): number {
   return conversation?.credentialAccess
@@ -107,4 +119,23 @@ export function deviceLabels(
 
     return device ? [device.label] : []
   })
+}
+
+/** The machine a runtime label names: "MacBook-Pro.local · Claude Code" → "MacBook-Pro.local". */
+export function machineName(label: string | undefined, local: boolean): string {
+  const name = label?.split(' · ')[0]?.trim()
+
+  if (name) return name
+
+  return local ? 'This computer' : 'Cloud runtime'
+}
+
+/** Devices other than the machine the chat already runs on, which gets one row for both. */
+export function otherDevices(
+  names: readonly string[],
+  machine: string,
+): { others: string[]; machineIsDevice: boolean } {
+  const others = names.filter((name) => name !== machine)
+
+  return { others, machineIsDevice: others.length < names.length }
 }
