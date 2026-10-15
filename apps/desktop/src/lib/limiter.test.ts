@@ -32,8 +32,14 @@ test('no more than the limit run at once, and every task runs', async () => {
 test('a failed task frees its slot', async () => {
   const run = createLimiter(1)
 
+  let ran = false
+
   run(() => Promise.reject(new Error('gh failed')))
   await new Promise<void>((resolve) => {
-    run(async () => resolve())
+    run(async () => {
+      ran = true
+      resolve()
+    })
   })
+  assert.equal(ran, true)
 })
