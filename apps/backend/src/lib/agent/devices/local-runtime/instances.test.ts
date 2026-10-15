@@ -2,7 +2,11 @@ import { expect, test } from 'bun:test'
 
 import { createLocalTunnelBus } from './bus'
 import { attachRuntimeTunnel } from './holder'
-import { createLocalAgentInstance } from './instances'
+import {
+  commitLocalAgentInstance,
+  createLocalAgentInstance,
+  removeLocalAgentInstance,
+} from './instances'
 import { createMemoryPresenceStore } from './presence'
 import { holderChannel, streamChannel } from './protocol'
 import { DeviceRuntimeSocket } from './socket'
@@ -73,7 +77,7 @@ test('unanswered creates time out and close their stream', async () => {
 
   await expect(
     createLocalAgentInstance(target, instance, { deps, timeoutMs: 5 }),
-  ).rejects.toMatchObject({ code: 'agent_create_timeout' })
+  ).rejects.toMatchObject({ code: 'agent_instance_timeout' })
 })
 
 test('the holder forwards the selected instance id and never opens an unknown one', async () => {
@@ -134,4 +138,73 @@ test('the holder forwards the selected instance id and never opens an unknown on
     missing.close()
     tunnel.closed()
   }
+})
+
+/** A host that answers every request with `reply`, recording what it was asked. */
+async function answering(reply: (request: Record<string, unknown>) => object) {
+  const { bus, deps } = setup()
+  const requests: Record<string, unknown>[] = []
+  let stream = ''
+
+  await bus.subscribe(holderChannel('owner', 'box'), (raw) => {
+    const frame = JSON.parse(raw) as HolderMessage
+
+    if (frame.t === 'open') {
+      stream = frame.s
+      void bus.publish(streamChannel(stream), JSON.stringify({ t: 'opened' }))
+    } else if (frame.t === 'data') {
+      const request = JSON.parse(frame.d) as Record<string, unknown>
+
+      requests.push(request)
+      void bus.publish(
+        streamChannel(stream),
+        JSON.stringify({ t: 'data', d: JSON.stringify(reply(request)) }),
+      )
+    }
+  })
+
+  return { deps, requests }
+}
+
+test('create returns the pending agent the host recorded', async () => {
+  const { deps } = await answering(() => ({
+    ok: true,
+    instance: { ...instance, state: 'pending' },
+  }))
+
+  expect(await createLocalAgentInstance(target, instance, { deps })).toEqual({
+    ...instance,
+    state: 'pending',
+  })
+})
+
+test('commit and remove name only the instance, and surface the host refusal', async () => {
+  const { deps, requests } = await answering((request) =>
+    request.method === 'commit'
+      ? { ok: false, error: 'The agent is not signed in yet' }
+      : { ok: true },
+  )
+
+  await removeLocalAgentInstance(target, instance.instanceId, { deps })
+  await expect(
+    commitLocalAgentInstance(target, instance.instanceId, { deps }),
+  ).rejects.toMatchObject({
+    code: 'agent_instance_failed',
+    message: 'The agent is not signed in yet',
+  })
+  expect(requests).toEqual([
+    { method: 'remove', instanceId: instance.instanceId },
+    { method: 'commit', instanceId: instance.instanceId },
+  ])
+})
+
+test('a reply about a different agent is rejected', async () => {
+  const { deps } = await answering(() => ({
+    ok: true,
+    instance: { ...instance, instanceId: '22222222-2222-4222-8222-222222222222' },
+  }))
+
+  await expect(
+    commitLocalAgentInstance(target, instance.instanceId, { deps }),
+  ).rejects.toMatchObject({ code: 'agent_instance_invalid_response' })
 })

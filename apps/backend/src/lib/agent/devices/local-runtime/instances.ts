@@ -11,17 +11,19 @@ import type { AgentInstance } from './protocol'
 import type { DeviceRuntimeSocketDeps } from './socket'
 
 const responseSchema = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), instance: agentInstanceSchema }),
+  z.object({ ok: z.literal(true), instance: agentInstanceSchema.optional() }),
   z.object({ ok: z.literal(false), error: z.string().max(500) }),
 ])
 
-/** The Box persists its inventory before acknowledging. Retrying an instance id
- * must be idempotent on the host; no second tunnel or cloud credential is used. */
-export function createLocalAgentInstance(
-  target: { userId: string; actorId: string; deviceId: string; teamId: string },
-  instance: AgentInstance,
-  options: { deps?: DeviceRuntimeSocketDeps; timeoutMs?: number } = {},
-): Promise<AgentInstance> {
+type Target = { userId: string; actorId: string; deviceId: string; teamId: string }
+type Options = { deps?: DeviceRuntimeSocketDeps; timeoutMs?: number }
+
+/** One request over the device's own tunnel; the host answers once and closes. */
+function requestInstances(
+  target: Target,
+  body: { method: 'create' | 'commit' | 'remove' } & Record<string, unknown>,
+  options: Options,
+): Promise<AgentInstance | undefined> {
   const socket = new DeviceRuntimeSocket(
     { ...target, purpose: 'instances' },
     options.deps ?? { bus: tunnelBus(), presence: runtimePresenceStore() },
@@ -29,63 +31,92 @@ export function createLocalAgentInstance(
 
   return new Promise((resolve, reject) => {
     let settled = false
-    const finish = (result?: AgentInstance, error?: Error) => {
+    const finish = (error?: Error, result?: AgentInstance) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
       socket.close()
       if (error) reject(error)
-      else if (result) resolve(result)
+      else resolve(result)
     }
     const timer = setTimeout(() => {
-      finish(
-        undefined,
-        new AppError(
-          504,
-          'agent_create_timeout',
-          'The Box did not confirm the new agent. Check its agent list before retrying.',
-        ),
-      )
-    }, options.timeoutMs ?? 60_000)
+      finish(new AppError(504, 'agent_instance_timeout', 'The Box did not answer in time.'))
+    }, options.timeoutMs ?? 10_000)
 
     socket.addEventListener('open', () => {
-      socket.send(JSON.stringify({ method: 'create', ...instance }))
+      socket.send(JSON.stringify(body))
     })
     socket.addEventListener('close', () => {
-      finish(
-        undefined,
-        new AppError(409, 'runtime_offline', 'The Box disconnected before confirming the agent.'),
-      )
+      finish(new AppError(409, 'runtime_offline', 'The Box disconnected before answering.'))
     })
     socket.addEventListener('message', (event) => {
       try {
         const response = responseSchema.parse(JSON.parse(String(event.data)))
 
         if (!response.ok) {
-          finish(undefined, new AppError(409, 'agent_create_failed', response.error))
+          finish(new AppError(409, 'agent_instance_failed', response.error))
 
           return
         }
-        const result = response.instance
-
         if (
-          !result ||
-          result.instanceId !== instance.instanceId ||
-          result.provider !== instance.provider
+          response.instance &&
+          (response.instance.instanceId !== body.instanceId ||
+            (body.provider && response.instance.provider !== body.provider))
         )
           throw new Error('The Box returned a different agent instance')
-        finish(result)
+        finish(undefined, response.instance)
       } catch {
         finish(
-          undefined,
           new AppError(
             502,
-            'agent_create_invalid_response',
-            'The Box returned an invalid agent response.',
+            'agent_instance_invalid_response',
+            'The Box returned an invalid answer.',
           ),
         )
       }
     })
     void socket.connect()
   })
+}
+
+/** The host records the agent as pending and answers before it starts. Retrying an
+ * instance id is idempotent on the host; no second tunnel or cloud credential is used. */
+export async function createLocalAgentInstance(
+  target: Target,
+  instance: AgentInstance,
+  options: Options = {},
+): Promise<AgentInstance> {
+  const created = await requestInstances(target, { method: 'create', ...instance }, options)
+
+  if (!created)
+    throw new AppError(
+      502,
+      'agent_instance_invalid_response',
+      'The Box returned an invalid answer.',
+    )
+
+  return created
+}
+
+/** Keeps an added agent once its sign-in succeeded; the host checks the login itself. */
+export async function commitLocalAgentInstance(
+  target: Target,
+  instanceId: string,
+  options: Options = {},
+): Promise<void> {
+  await requestInstances(target, { method: 'commit', instanceId }, options)
+}
+
+/** Stops an added agent and deletes what it stored. Removing a gone agent succeeds. */
+export async function removeLocalAgentInstance(
+  target: Target,
+  instanceId: string,
+  options: Options = {},
+): Promise<void> {
+  // Stopping a starting agent first waits for it, so allow more than a request.
+  await requestInstances(
+    target,
+    { method: 'remove', instanceId },
+    { timeoutMs: 45_000, ...options },
+  )
 }

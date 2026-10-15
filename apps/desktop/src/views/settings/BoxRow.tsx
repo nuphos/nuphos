@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Ellipsis, Loader2, Play, Plus } from 'lucide-react'
+import { Ellipsis, Play, Plus } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -14,10 +14,10 @@ import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
-import { AddAgentStatus, AgentTile, LiveDot, MachineIcon } from './BoxParts'
+import { BoxAgentSignIn } from './BoxAgentSignIn'
+import { AgentTile, LiveDot, MachineIcon } from './BoxParts'
 import { BOX_BADGE, boxActions, boxState, machineLine, newAgentAction } from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
-import { useAddBoxAgent } from './useAddBoxAgent'
 import { inputClasses } from './styles'
 
 import type { AgentDevice } from '../../api'
@@ -43,8 +43,9 @@ export function BoxRow({
   onChanged: () => void
 }) {
   const [busy, setBusy] = useState(false)
-  // A runtime id: a just-created agent signs in once the catalog lists it.
+  // An older host's existing agent, signing in.
   const [signingIn, setSigningIn] = useState<string | null>(null)
+  const [adding, setAdding] = useState<LocalAgentProvider | null>(null)
   const signingInAgent = agents.find((agent) => agent.id === signingIn)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -68,14 +69,6 @@ export function BoxRow({
     }
   }
 
-  const { adding, pending, add } = useAddBoxAgent(device.deviceId, teamId, (runtimeId) => {
-    // Details first; the sign-in opens over them once the catalog lists the new agent.
-    onSelect(runtimeId)
-    setSigningIn(runtimeId)
-    onChanged()
-    window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
-  })
-  const AddIcon = pending ? Loader2 : Plus
   // An older host cannot add agents; the backend still refuses with 409 if this is stale.
   const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
   const addAgent = (provider: LocalAgentProvider) => {
@@ -83,7 +76,7 @@ export function BoxRow({
 
     if (!action) return
     if ('signIn' in action) return setSigningIn(action.signIn)
-    add(provider)
+    setAdding(provider)
   }
 
   const dim = state === 'paused' || state === 'stopped'
@@ -231,10 +224,9 @@ export function BoxRow({
             <Menu>
               <MenuTrigger
                 aria-label={`New agent on ${device.label}`}
-                disabled={pending}
                 render={<Button size="sm" variant="secondary" className="h-10" />}
               >
-                <AddIcon className={clsx('h-3.5 w-3.5', pending && 'animate-spin')} />
+                <Plus className="h-3.5 w-3.5" />
                 New Agent
               </MenuTrigger>
               <MenuContent align="start">
@@ -253,27 +245,23 @@ export function BoxRow({
                 {!canAddAgents && (
                   <MenuItem disabled>Update the Box host to add more agents</MenuItem>
                 )}
-                {agents
-                  .filter((agent) => agent.local?.instanceId && agent.local.signedIn !== true)
-                  .map((agent) => (
-                    <MenuItem
-                      key={agent.id}
-                      disabled={busy}
-                      onClick={() => {
-                        onSelect(agent.id)
-                        setSigningIn(agent.id)
-                      }}
-                    >
-                      Continue signing in to {agent.label} ({agent.local?.instanceId?.slice(0, 8)})
-                    </MenuItem>
-                  ))}
               </MenuContent>
             </Menu>
           </li>
         )}
       </ul>
       {adding && (
-        <AddAgentStatus label={AGENT_PROVIDER[adding.provider].label} error={adding.error} />
+        <BoxAgentSignIn
+          teamId={teamId}
+          device={device}
+          provider={adding}
+          onDone={(runtimeId) => {
+            setAdding(null)
+            onChanged()
+            window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+            if (runtimeId) onSelect(runtimeId)
+          }}
+        />
       )}
       {signingInAgent && (
         <RuntimeLoginDialog

@@ -61,7 +61,7 @@ export function createBox(label?: string, teamId?: string): Promise<AgentDevice>
     { retry: false },
   )
 }
-/** Add another agent on a device. A cold host can take most of a minute, so wait past the backend's own 60s. */
+/** Add another agent on a device: the Box records it pending and answers at once; it exists once signed in. */
 export function createDeviceAgent(
   deviceId: string,
   teamId: string,
@@ -71,7 +71,20 @@ export function createDeviceAgent(
     'POST',
     `/agent/devices/${encodeURIComponent(deviceId)}/agents`,
     { teamId, provider },
-    { retry: false, timeoutMs: 65_000 },
+    { retry: false },
+  )
+}
+/** Drop an added agent and its sign-in. The Box first lets a still-starting one finish starting. */
+export function removeDeviceAgent(
+  deviceId: string,
+  teamId: string,
+  instanceId: string,
+): Promise<void> {
+  return call(
+    'DELETE',
+    `/agent/devices/${encodeURIComponent(deviceId)}/agents/${encodeURIComponent(instanceId)}?teamId=${encodeURIComponent(teamId)}`,
+    undefined,
+    { retry: false, timeoutMs: 50_000 },
   )
 }
 export function pauseBox(deviceId: string, teamId: string): Promise<AgentDevice> {

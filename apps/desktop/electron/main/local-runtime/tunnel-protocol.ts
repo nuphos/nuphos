@@ -40,9 +40,13 @@ export type LocalRuntimeTunnelStatus = {
       }
     >
   >
-  instances?: ({ instanceId: string; provider: LocalAgentProvider; label: string } & Partial<
-    NonNullable<LocalRuntimeTunnelStatus['agents']['codex']>
-  >)[]
+  instances?: ({
+    instanceId: string
+    provider: LocalAgentProvider
+    label: string
+    /** Pending until its first sign-in; the backend lists only ready agents. */
+    state?: 'pending' | 'ready'
+  } & Partial<NonNullable<LocalRuntimeTunnelStatus['agents']['codex']>>)[]
   backendUrl?: string
   desktops?: { sessionId: string; display: number }[]
 }

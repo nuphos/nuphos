@@ -1,7 +1,9 @@
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { commitLocalAgentInstance } from '@/lib/agent/devices/local-runtime/instances'
 import { AppError } from '@/lib/errors'
 
+import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
 import {
@@ -47,8 +49,19 @@ async function requireLocalLoginAccess(teamId: string, runtimeId: string, userId
   }
 }
 
-export async function requireLoginInstance(teamId: string, runtimeId: string, userId?: string) {
-  await requireLocalLoginAccess(teamId, runtimeId, userId)
+export async function requireLoginInstance(
+  teamId: string,
+  runtimeId: string,
+  userId?: string,
+): Promise<void> {
+  // A computer's agent is reached through its tunnel, so one added a moment ago and
+  // still signing in for the first time is found too, though nothing lists it yet.
+  if (parseLocalRuntimeId(runtimeId)) {
+    if (!userId) throw new AppError(404, 'runtime_not_found', 'Agent is not available')
+    await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
+
+    return
+  }
   const instance = await requireRuntimeInstance(teamId, runtimeId, userId)
 
   if (instance.kind !== 'external' && instance.kind !== 'managed' && instance.kind !== 'local')
@@ -59,8 +72,19 @@ export async function requireLoginInstance(teamId: string, runtimeId: string, us
     )
   if (instance.status !== 'active')
     throw new AppError(409, 'runtime_disabled', 'Enable this agent before signing in')
+}
 
-  return instance
+/** An added agent exists once signed in: its host keeps it from here on. */
+async function commitAddedAgent(doc: RuntimeLoginDoc): Promise<void> {
+  const ref = parseLocalRuntimeId(doc.runtimeId)
+
+  if (!ref?.instanceId || !doc.userId) return
+  await commitLocalAgentInstance(
+    { userId: ref.userId, actorId: doc.userId, deviceId: ref.deviceId, teamId: doc.teamId },
+    ref.instanceId,
+  ).catch(() => {
+    /* The host also keeps it on its next probe; an abandoned one expires there. */
+  })
 }
 
 const loginDeps: RuntimeLoginDeps<ControlLoginTarget> = controlLoginTransport
@@ -162,6 +186,7 @@ export async function performRuntimeLogin<Target>(
       },
       { $set: { state: 'connected' }, $unset: AUTHORIZATION_FIELDS },
     )
+    await commitAddedAgent(doc)
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },

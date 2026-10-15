@@ -42,6 +42,8 @@ export type DeviceAgentInstance = {
   provider: LocalAgentProvider
   label: string
   runtimeId: string
+  /** Exists only once signed in; until then the Box holds it pending. */
+  state?: 'pending'
 }
 
 export type AgentCliStatus =

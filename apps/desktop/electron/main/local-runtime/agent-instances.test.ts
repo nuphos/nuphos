@@ -65,8 +65,15 @@ test('same-provider instances persist and isolate homes, processes, usage and ro
   const first = { instanceId: randomUUID(), provider: 'codex', label: 'Work' }
   const second = { instanceId: randomUUID(), provider: 'codex', label: 'Personal' }
 
+  // Creation answers at once; signing in (here: the probe) is what commits an agent.
+  const commit = async (instance: { instanceId: string }) => {
+    await controller.instanceRequest({ method: 'commit', instanceId: instance.instanceId })
+  }
+
   await controller.instanceRequest({ method: 'create', ...first })
   await controller.instanceRequest({ method: 'create', ...second })
+  await commit(first)
+  await commit(second)
   const runs = starts.slice(-2)
 
   assert.notEqual(runs[0].agentHome, runs[1].agentHome)
@@ -93,10 +100,13 @@ test('same-provider instances persist and isolate homes, processes, usage and ro
   )
   assert.equal(resolveRuntime!('codex', randomUUID()), null)
   assert.equal(resolveRuntime!('claude-code', first.instanceId), null)
-  assert.deepEqual(readInstances(path.join(root, 'users', 'alice')), [first, second])
+  const ready = (instance: object) => ({ ...instance, state: 'ready' })
+
+  assert.deepEqual(readInstances(path.join(root, 'users', 'alice')), [first, second].map(ready))
   const claude = { instanceId: randomUUID(), provider: 'claude-code', label: 'Claude work' }
 
   await controller.instanceRequest({ method: 'create', ...claude })
+  await commit(claude)
   const claudeRun = starts.at(-1)!
 
   assert.ok(claudeRun.agentHome.includes(claude.instanceId))
@@ -108,6 +118,7 @@ test('same-provider instances persist and isolate homes, processes, usage and ro
   const claudeB = { instanceId: randomUUID(), provider: 'claude-code', label: 'Claude personal' }
 
   await controller.instanceRequest({ method: 'create', ...claudeB })
+  await commit(claudeB)
   const claudeBRun = starts.at(-1)!
   const cliEnvB = agentCliEnv(claudeBRun)
 
@@ -133,12 +144,10 @@ test('same-provider instances persist and isolate homes, processes, usage and ro
   assert.equal(controller.state().instances?.length, 0)
   await controller.setUser('alice')
   assert.equal(controller.state().instances?.length, 4)
-  assert.deepEqual(readInstances(path.join(root, 'users', 'alice')), [
-    first,
-    second,
-    claude,
-    claudeB,
-  ])
+  assert.deepEqual(
+    readInstances(path.join(root, 'users', 'alice')),
+    [first, second, claude, claudeB].map(ready),
+  )
   assert.equal(readFileSync(path.join(runs[0].agentHome, 'auth.json'), 'utf8'), '{"mock":true}')
 })
 

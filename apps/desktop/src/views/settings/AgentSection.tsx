@@ -50,13 +50,8 @@ export function AgentSection({
   const instances = visible.filter((instance) =>
     instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
   )
-  // Search does not close the panel, but a provider signing out removes it. An added
-  // agent opens before its sign-in, so the one the user selected stays reachable.
-  const selected = catalog.instances.find(
-    (instance) =>
-      instance.id === selectedId &&
-      (visibleAgent(instance) || instance.local?.instanceId !== undefined),
-  )
+  // Search does not close the panel, but a provider signing out removes it.
+  const selected = visible.find((instance) => instance.id === selectedId)
   // The control that opened the panel gets focus back when it closes.
   const opener = useRef<HTMLElement | null>(null)
   const close = () => {

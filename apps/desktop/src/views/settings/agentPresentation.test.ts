@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentName, agentRunsOn, visibleAgent } from './agentPresentation.ts'
+import { agentName, agentOffline, agentRunsOn, visibleAgent } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
 
 import type { RuntimeInstance } from '../../types/runtime.ts'
@@ -97,4 +97,28 @@ test('a computer agent is named by its provider; team runtimes keep their own na
 
   assert.equal(agentName(local), 'Claude Code')
   assert.equal(agentName(managed), 'Prod Codex')
+})
+
+test("an away computer's signed-in agent stays visible and reads Offline", () => {
+  const away = {
+    id: 'a',
+    kind: 'local',
+    provider: 'codex',
+    status: 'active',
+    label: 'Codex',
+    local: {
+      deviceId: 'box',
+      deviceLabel: 'Box 1',
+      ownerUserId: 'u',
+      signedIn: true,
+      online: false,
+    },
+  } as RuntimeInstance
+  const back = { ...away, local: { ...away.local!, online: true } } as RuntimeInstance
+
+  assert.equal(visibleAgent(away), true)
+  assert.equal(agentOffline(away), true)
+  assert.equal(agentRunsOn(away), 'Box 1 · Offline')
+  assert.equal(agentOffline(back), false)
+  assert.equal(agentRunsOn(back), 'Box 1')
 })

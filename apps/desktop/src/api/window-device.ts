@@ -43,6 +43,7 @@ export type WindowDeviceApi = {
     teamId: string,
     provider: LocalAgentProvider,
   ): Promise<DeviceAgentInstance>
+  boxRemoveAgent(deviceId: string, teamId: string, instanceId: string): Promise<void>
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }>
   boxUsage(teamId: string): Promise<BoxUsage>

@@ -5,6 +5,7 @@ import {
   boxJoinToken,
   createBox,
   createDeviceAgent,
+  removeDeviceAgent,
   deleteBox,
   getBoxUsage,
   renameBox,
@@ -40,6 +41,8 @@ export const boxChannels = {
     createBox(optionalString(label), optionalString(teamId)),
   'box:createAgent': (_e: unknown, deviceId: unknown, teamId: unknown, provider: unknown) =>
     createDeviceAgent(string(deviceId), string(teamId), agentProvider(provider)),
+  'box:removeAgent': (_e: unknown, deviceId: unknown, teamId: unknown, instanceId: unknown) =>
+    removeDeviceAgent(string(deviceId), string(teamId), string(instanceId)),
   'box:pause': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     pauseBox(string(deviceId), string(teamId)),
   'box:resume': (_e: unknown, deviceId: unknown, teamId: unknown) =>

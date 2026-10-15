@@ -19,6 +19,11 @@ export function agentName(instance: RuntimeInstance): string {
   return instance.kind === 'local' ? AGENT_PROVIDER[instance.provider].label : instance.label
 }
 
+/** A computer's agent whose computer is away: still listed, shown offline. */
+export function agentOffline(instance: RuntimeInstance): boolean {
+  return instance.local?.online === false
+}
+
 export function agentRunsOn(instance: RuntimeInstance, currentDeviceId?: string): string {
   const local = instance.local
   let where = RUNS_ON[instance.kind]
@@ -28,5 +33,7 @@ export function agentRunsOn(instance: RuntimeInstance, currentDeviceId?: string)
     if (currentDeviceId && local?.deviceId === currentDeviceId) where = 'This computer'
   }
 
-  return instance.status === 'active' ? where : `${where} · Disabled`
+  if (instance.status !== 'active') return `${where} · Disabled`
+
+  return agentOffline(instance) ? `${where} · Offline` : where
 }

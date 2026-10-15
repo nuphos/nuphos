@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { logEvent } from '@/lib/observability'
 
+import { reportedAgents } from '../agent-registry'
+
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson, streamChannel } from './protocol'
 
@@ -21,6 +23,8 @@ export type TunnelHolderDeps = {
   isMember: (userId: string, teamId: string) => Promise<boolean>
   heartbeatMs?: number
   idleTimeoutMs?: number
+  /** Keeps the agents a report shows signed in listed while the computer is offline. */
+  recordAgents?: (userId: string, deviceId: string, status: LocalRuntimeStatus) => Promise<void>
 }
 
 export type RuntimeTunnel = {
@@ -50,6 +54,7 @@ export async function attachRuntimeTunnel(
   const streams = new Map<string, string>()
   const channel = holderChannel(userId, deviceId)
   let status: LocalRuntimeStatus | undefined
+  let recorded: string | undefined
   let metrics: BoxMetrics | undefined
   let metricsReceivedAt: number | undefined
   let metricsLeaseUntil = 0
@@ -213,10 +218,20 @@ export async function attachRuntimeTunnel(
           void refreshPresence()
 
           return
-        case 'status':
+        case 'status': {
           status = frame.status
+          // Only a changed agent list is written, not every status report.
+          const agents = JSON.stringify(reportedAgents(status))
+
+          if (deps.recordAgents && agents !== recorded) {
+            recorded = agents
+            void deps.recordAgents(userId, deviceId, status).catch(() => {
+              recorded = undefined
+            })
+          }
 
           return
+        }
         case 'pong':
           lastFrameAt = Date.now()
           void refreshPresence()

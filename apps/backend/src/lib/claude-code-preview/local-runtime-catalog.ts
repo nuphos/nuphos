@@ -3,6 +3,7 @@ import {
   listAccessibleDevices,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
+import { registryKey, reportedAgents } from '@/lib/agent/devices/agent-registry'
 import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import {
   localRuntimeId,
@@ -17,6 +18,7 @@ import { AppError } from '@/lib/errors'
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { PreviewRuntimeStatus } from './runtime-status'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
+import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
 import type { LocalAgentRef } from '@/lib/agent/devices/local-runtime/address'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
@@ -32,6 +34,8 @@ export type LocalRuntimeSummary = {
   deviceLabel: string
   instanceId?: string
   agentInstances?: boolean
+  /** Whether the computer reports this agent right now. */
+  online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
   signedIn: boolean | null
   /** Provider usage the computer reported, raw; normalized in runtime-quota. */
@@ -98,24 +102,24 @@ export async function listOwnLocalRuntimes(
   const listed = await Promise.all(
     devices.map(async (device): Promise<LocalRuntimeInstance[]> => {
       const presence = await deps.getPresence(device.userId, device.deviceId)
-      const running = [
-        ...LOCAL_AGENT_PROVIDERS.filter((p) => presence?.status?.agents[p]).map((provider) => ({
-          provider,
-          instanceId: undefined as string | undefined,
-          label: undefined as string | undefined,
-        })),
-        ...(presence?.status?.instances ?? []),
-      ]
+      // Every agent this computer ever had signed in, plus whatever it reports now (an
+      // added agent appears once signed in; until then only its sign-in reaches it).
+      const known = new Map<string, RegisteredAgent>()
+
+      for (const agent of [...(device.agents ?? []), ...reportedAgents(presence?.status)])
+        known.set(registryKey(agent), { ...known.get(registryKey(agent)), ...agent })
+      const running = [...known.values()]
 
       return Promise.all(
-        running.map(async ({ provider, instanceId, label }): Promise<LocalRuntimeInstance> => {
+        running.map(async (agent): Promise<LocalRuntimeInstance> => {
+          const { provider, instanceId, label } = agent
           const id = localRuntimeId({
             userId: device.userId,
             deviceId: device.deviceId,
             provider,
             instanceId,
           })
-          const reported = reportedLocalAgent(presence?.status, { provider, instanceId })
+          const reported = presence ? reportedLocalAgent(presence.status, agent) : undefined
 
           return {
             id,
@@ -131,8 +135,9 @@ export async function listOwnLocalRuntimes(
               agentInstances: presence?.status?.agentInstances === true,
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(instanceId ? { instanceId } : {}),
-              signedIn: reported?.cli.loggedIn ?? null,
-              ...(device.box ? { box: { provider: device.box.provider } } : {}),
+              // Reachable right now; offline, the last report still says who is signed in.
+              online: reported !== undefined,
+              signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
               ...(reported?.usage !== undefined
                 ? {
                     usage: reported.usage,

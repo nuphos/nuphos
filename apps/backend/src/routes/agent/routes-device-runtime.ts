@@ -10,7 +10,7 @@ import {
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
+import { getAgentDevice, isActiveTeamMember, recordDeviceAgents } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 import { logError } from '@/lib/observability'
@@ -45,6 +45,7 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       bus: tunnelBus(),
       presence: runtimePresenceStore(),
       isMember: isActiveTeamMember,
+      recordAgents: recordDeviceAgents,
     },
     listActivity: listLocalRuntimeActivity,
     conversationTitlesFor,

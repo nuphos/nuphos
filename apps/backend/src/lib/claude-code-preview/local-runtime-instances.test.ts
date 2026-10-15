@@ -227,3 +227,91 @@ test('Box instance use and login apply actor ACL before reading transport presen
     id,
   )
 })
+
+describe('an agent still signing in for the first time', () => {
+  const pending = '33333333-3333-4333-8333-333333333333'
+  const withPending = localRuntimeStatusSchema.parse({
+    ...status,
+    instances: [
+      ...(status.instances ?? []),
+      {
+        instanceId: pending,
+        provider: 'codex',
+        label: 'Codex',
+        state: 'pending',
+        cli: { installed: true, loggedIn: false },
+      },
+    ],
+  })
+  const pendingDeps: LocalRuntimeCatalogDeps = {
+    ...deps,
+    getPresence: async () => ({ conn: 'c1', seenAt: Date.now(), status: withPending }),
+  }
+  const id = localRuntimeId({ ...ref, provider: 'codex', instanceId: pending })
+
+  test('is not listed, but its sign-in reaches it and nothing else does', async () => {
+    const listed = await listOwnLocalRuntimes('team', 'owner', pendingDeps)
+
+    expect(listed.map((instance) => instance.id)).not.toContain(id)
+    expect(listed).toHaveLength(3)
+    await expect(
+      resolveLocalRuntimeEndpoint('team', id, 'owner', 'login', pendingDeps),
+    ).resolves.toMatchObject({ runtimeId: id })
+    await expect(
+      resolveLocalRuntimeEndpoint('team', id, 'owner', 'transport', pendingDeps),
+    ).rejects.toThrow()
+  })
+})
+
+describe('a computer that went offline', () => {
+  const box = {
+    ...ref,
+    label: 'Box',
+    platform: 'linux',
+    allowLocalExec: true,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    agents: [
+      { provider: 'claude-code' as const, signedIn: true },
+      { provider: 'claude-code' as const, instanceId: a, label: 'Work', signedIn: true },
+    ],
+  }
+  const offline: LocalRuntimeCatalogDeps = {
+    ...deps,
+    access: { ...deps.access, getDevice: async () => box, listDevices: async () => [box] },
+    getPresence: async () => null,
+  }
+
+  test('keeps its agents listed as offline, with the sign-in it last reported', async () => {
+    const listed = await listOwnLocalRuntimes('team', 'owner', offline)
+
+    expect(
+      listed.map(({ id, local }) => [id, local?.online, local?.signedIn, local?.instanceId]),
+    ).toEqual([
+      [localRuntimeId(ref), false, true, undefined],
+      [localRuntimeId({ ...ref, instanceId: a }), false, true, a],
+    ])
+    // Listed is not reachable: a turn there is refused, never sent to another agent.
+    await expect(
+      resolveLocalRuntimeEndpoint(
+        'team',
+        localRuntimeId({ ...ref, instanceId: a }),
+        'owner',
+        'transport',
+        offline,
+      ),
+    ).rejects.toMatchObject({ code: 'runtime_offline' })
+  })
+
+  test('comes back online with the same ids', async () => {
+    const back = await listOwnLocalRuntimes('team', 'owner', {
+      ...offline,
+      getPresence: async () => ({ conn: 'c1', seenAt: Date.now(), status }),
+    })
+
+    expect(back.filter(({ local }) => local?.online).map(({ id }) => id)).toEqual(
+      expect.arrayContaining([localRuntimeId(ref), localRuntimeId({ ...ref, instanceId: a })]),
+    )
+    expect(new Set(back.map(({ id }) => id)).size).toBe(back.length)
+  })
+})

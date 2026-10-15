@@ -309,3 +309,38 @@ test('losing the command bus also loses heartbeat and takes the device offline',
   await eventually(() => desktop.closed !== undefined)
   expect(await presence.get(owner.userId, owner.deviceId)).toBeNull()
 })
+
+test('a status report records the signed-in agents once, not on every repeat', async () => {
+  const records: unknown[] = []
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send() {}, close() {} },
+    {
+      bus: createLocalTunnelBus(),
+      presence: createMemoryPresenceStore(),
+      isMember: async () => true,
+      recordAgents: async (userId, deviceId, status) => {
+        records.push([userId, deviceId, Object.keys(status.agents)])
+      },
+    },
+  )
+
+  tunnels.push(tunnel)
+  const report = (loggedIn: boolean) =>
+    tunnel.receive(
+      JSON.stringify({
+        t: 'status',
+        status: { agents: { 'claude-code': { cli: { installed: true, loggedIn } } } },
+      }),
+    )
+
+  report(true)
+  report(true)
+  report(false)
+  await eventually(() => records.length === 2)
+  expect(records).toEqual([
+    ['u1', 'd1', ['claude-code']],
+    ['u1', 'd1', ['claude-code']],
+  ])
+})

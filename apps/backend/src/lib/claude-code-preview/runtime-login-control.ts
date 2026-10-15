@@ -1,3 +1,4 @@
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 
 import { controlRegistry } from './agent-chat-registry'
@@ -27,15 +28,14 @@ const LOGIN_FAILED: Record<OpenAbProvider, string> = {
 }
 
 async function controlEndpoint(teamId: string, runtimeId: string, userId?: string) {
-  const { provider, kind } = await requireRuntimeInstance(teamId, runtimeId, userId)
-  // A computer's own runtime is reached over its tunnel; the agent there is the
-  // one being signed in, so its signed-out state is not a reason to refuse.
-  const endpoint =
-    kind === 'local' && userId
-      ? await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
-      : (await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')).find(
-          (candidate) => candidate.runtimeId === runtimeId,
-        )
+  // A computer's own runtime is reached over its tunnel; the agent there is the one
+  // being signed in, so being signed out (or not listed yet) is no reason to refuse.
+  if (parseLocalRuntimeId(runtimeId) && userId)
+    return resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
+  const { provider } = await requireRuntimeInstance(teamId, runtimeId, userId)
+  const endpoint = (await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')).find(
+    (candidate) => candidate.runtimeId === runtimeId,
+  )
 
   if (!endpoint)
     throw new AppError(
@@ -140,13 +140,37 @@ export async function driveControlRuntimeLogin(
 
 export type ControlLoginTarget = Awaited<ReturnType<typeof controlEndpoint>>
 
+/** An agent added a moment ago is still starting: its sign-in waits for it, briefly. */
+export async function acquireStarting(
+  teamId: string,
+  endpoint: ControlLoginTarget,
+  signal: AbortSignal,
+  acquire: (
+    teamId: string,
+    endpoint: ControlLoginTarget,
+  ) => Promise<Awaited<ReturnType<typeof controlRegistry.acquire>>> = controlRegistry.acquire,
+  waitMs = 30_000,
+) {
+  const deadline =
+    Date.now() + (parseLocalRuntimeId(endpoint.runtimeId ?? '')?.instanceId ? waitMs : 0)
+
+  for (;;) {
+    try {
+      return await acquire(teamId, endpoint)
+    } catch (error) {
+      if (signal.aborted || Date.now() >= deadline) throw error
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+  }
+}
+
 async function execControlRuntimeLogin(
   endpoint: ControlLoginTarget,
   onFrame: (frame: RuntimeLoginFrame) => void,
   signal: AbortSignal,
   doc: RuntimeLoginDoc,
 ): Promise<void> {
-  const client = await controlRegistry.acquire(doc.teamId, endpoint)
+  const client = await acquireStarting(doc.teamId, endpoint, signal)
   const provider = runtimeProvider(endpoint.provider)
 
   await driveControlRuntimeLogin(

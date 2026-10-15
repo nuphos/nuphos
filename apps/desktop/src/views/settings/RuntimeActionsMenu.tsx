@@ -45,9 +45,10 @@ export function RuntimeActionsMenu({
         )}
         <MenuSeparator />
         <MenuItem onClick={onToggleEnabled}>{enabled ? 'Disable agent' : 'Enable agent'}</MenuItem>
-        {/* Removing a computer's agent is not supported yet; the runtime delete would act on its machine. */}
-        {instance.kind !== 'local' && (
-          <MenuItem destructive onClick={onRemove}>
+        {/* A computer's own default agents go with the computer; only added ones are removed. */}
+        {(instance.kind !== 'local' || instance.local?.instanceId) && (
+          // The Box deletes the agent's sign-in itself, so it has to be connected.
+          <MenuItem destructive disabled={instance.local?.online === false} onClick={onRemove}>
             Remove agent
           </MenuItem>
         )}

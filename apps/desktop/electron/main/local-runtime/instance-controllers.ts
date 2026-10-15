@@ -1,11 +1,13 @@
+import { rmSync } from 'node:fs'
 import path from 'node:path'
 
-import { prepareIsolatedAgentHome } from './agent-home.ts'
 import { parseInstance, readInstances, writeInstances } from './agent-instances.ts'
+import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
 import { userDir } from './controller-types.ts'
+import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
-import type { AgentInstance } from './agent-instances.ts'
+import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps, LocalRuntimeState } from './controller-types.ts'
 import type { RunningRuntime } from './openab-process.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
@@ -19,42 +21,85 @@ type Controller = {
   status(): LocalRuntimeTunnelStatus
 }
 
-/** UUID owns the lifecycle; a provider only selects its adapter. No additional device tunnel. */
+/** A sign-in left unfinished this long is abandoned: its login has long expired. */
+export const PENDING_TTL_MS = 20 * 60_000
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
+
+type Entry = {
+  metadata: AgentInstanceRecord
+  controller: Controller
+  starting?: Promise<void>
+  expiry?: ReturnType<typeof setTimeout>
+}
+
+export type InstanceControllersOptions = {
+  now?: () => number
+  /** Deletes what a removed agent stored outside its own directory. */
+  removeCredential?: (env: NodeJS.ProcessEnv) => Promise<void>
+}
+
+/**
+ * UUID owns the lifecycle; a provider only selects its adapter. No additional device tunnel.
+ * An added agent exists once it is signed in: until then it is pending, and an abandoned
+ * sign-in removes it with everything it stored.
+ */
 export class InstanceControllers {
-  private readonly entries = new Map<string, { metadata: AgentInstance; controller: Controller }>()
+  private readonly entries = new Map<string, Entry>()
   private readonly deps: LocalRuntimeControllerDeps
   private readonly create: (
     deps: LocalRuntimeControllerDeps,
     provider: LocalAgentProvider,
   ) => Controller
   private readonly changed: () => void
+  private readonly now: () => number
+  private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
+  private userId: string | null = null
   constructor(
     deps: LocalRuntimeControllerDeps,
     create: InstanceControllers['create'],
     changed: () => void,
+    options: InstanceControllersOptions = {},
   ) {
     this.deps = deps
     this.create = create
     this.changed = changed
+    this.now = options.now ?? Date.now
+    this.removeCredential = options.removeCredential ?? deleteClaudeKeychainEntry
   }
 
   async load(userId: string | null): Promise<void> {
+    for (const entry of this.entries.values()) clearTimeout(entry.expiry)
     this.entries.clear()
+    this.userId = userId
     if (!userId) return
     for (const metadata of readInstances(userDir(this.deps.dataDir(), userId)))
       this.add(metadata, userId)
     await Promise.all(
       [...this.entries.values()].map(({ controller }) => controller.setUser(userId)),
     )
+    // A restart ends any sign-in in progress; what is not signed in by now never will be.
+    await Promise.all(
+      [...this.entries.values()]
+        .filter((entry) => entry.metadata.state !== 'ready')
+        .map((entry) => this.settle(entry, true)),
+    )
   }
 
-  shutdown(): Promise<unknown> {
+  async shutdown(): Promise<unknown> {
+    for (const entry of this.entries.values()) clearTimeout(entry.expiry)
+
     return Promise.all([...this.entries.values()].map(({ controller }) => controller.shutdown()))
   }
 
-  refresh(restart: boolean): Promise<unknown> {
-    return Promise.all(
+  async refresh(restart: boolean): Promise<unknown> {
+    await Promise.all(
       [...this.entries.values()].map(({ controller }) => controller.refresh(restart)),
+    )
+
+    return Promise.all(
+      [...this.entries.values()]
+        .filter((entry) => entry.metadata.state !== 'ready')
+        .map((entry) => this.settle(entry, false)),
     )
   }
 
@@ -66,7 +111,7 @@ export class InstanceControllers {
 
   states(online: boolean) {
     return [...this.entries.values()].map(({ metadata, controller }) => ({
-      ...metadata,
+      ...publicMetadata(metadata),
       ...controller.state().agents[metadata.provider],
       online: online && controller.runtime(metadata.provider) !== null,
     }))
@@ -77,7 +122,7 @@ export class InstanceControllers {
       const cli = controller.state().agents[metadata.provider].cli
 
       return {
-        ...metadata,
+        ...publicMetadata(metadata),
         ...controller.status().agents[metadata.provider],
         cli: {
           installed: cli?.installed ?? false,
@@ -87,53 +132,118 @@ export class InstanceControllers {
     })
   }
 
-  private add(metadata: AgentInstance, userId: string): Controller {
-    const dir = path.join(this.deps.dataDir(), 'instances', metadata.instanceId)
+  private add(metadata: AgentInstanceRecord, userId: string): Entry {
+    const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
-      {
-        ...this.deps,
-        dataDir: () => dir,
-        userEnv: async () => ({
-          ...(await this.deps.userEnv()),
-          CLAUDE_SECURESTORAGE_CONFIG_DIR: userDir(dir, userId, 'claude-home'),
-        }),
-        prepareAgentHome: prepareIsolatedAgentHome,
-        readCliCache: () => ({}),
-        writeCliCache: () => {
-          /* Each instance probes its own login. */
-        },
-        registerDevice: async () => {
-          /* One parent device owns every instance. */
-        },
-        createTunnel: () => ({
-          start() {
-            /* Parent owns tunnel. */
-          },
-          stop() {
-            /* Parent owns tunnel. */
-          },
-          sendStatus: this.changed,
-          reconnectNow() {
-            /* Parent owns tunnel. */
-          },
-        }),
-        onChange: this.changed,
-      },
+      instanceControllerDeps(this.deps, dir, userId, this.changed),
       metadata.provider,
     )
+    const entry: Entry = { metadata, controller }
 
-    this.entries.set(metadata.instanceId, { metadata, controller })
+    this.entries.set(metadata.instanceId, entry)
+    this.expireLater(entry)
 
-    return controller
+    return entry
+  }
+
+  private instanceDir(instanceId: string): string {
+    return path.join(this.deps.dataDir(), 'instances', instanceId)
+  }
+
+  private persist(userId: string): void {
+    writeInstances(
+      userDir(this.deps.dataDir(), userId),
+      [...this.entries.values()].map((entry) => entry.metadata),
+    )
+  }
+
+  private expireLater(entry: Entry): void {
+    if (entry.metadata.state !== 'pending') return
+    const createdAt = Date.parse(entry.metadata.createdAt ?? '')
+    const delay = Number.isFinite(createdAt) ? createdAt + PENDING_TTL_MS - this.now() : 0
+
+    entry.expiry = setTimeout(
+      () => {
+        void entry.controller
+          .refresh(false)
+          .then(() => this.settle(entry, true))
+          .catch(() => {
+            /* Retried on the next refresh or start. */
+          })
+      },
+      Math.max(0, delay),
+    )
+    entry.expiry.unref?.()
+  }
+
+  /** Signed in: the agent is kept. Otherwise a final check removes it (a legacy record
+   *  whose login cannot be read is kept rather than guessed away). */
+  private async settle(entry: Entry, final: boolean): Promise<boolean> {
+    const userId = this.userId
+
+    if (!userId || this.entries.get(entry.metadata.instanceId) !== entry) return false
+    const cli = entry.controller.state().agents[entry.metadata.provider].cli
+    const loggedIn = cli?.installed ? cli.loggedIn : undefined
+
+    if (loggedIn === true) {
+      if (entry.metadata.state !== 'ready') {
+        clearTimeout(entry.expiry)
+        entry.metadata = { ...publicMetadata(entry.metadata), state: 'ready' }
+        this.persist(userId)
+        this.changed()
+      }
+
+      return true
+    }
+    if (final && !(entry.metadata.state === undefined && loggedIn == null))
+      await this.remove(entry.metadata.instanceId, userId)
+
+    return false
+  }
+
+  private async remove(instanceId: string, userId: string): Promise<void> {
+    const entry = this.entries.get(instanceId)
+
+    if (!entry) return
+    clearTimeout(entry.expiry)
+    this.entries.delete(instanceId)
+    this.persist(userId)
+    this.changed()
+    const dir = this.instanceDir(instanceId)
+
+    await entry.starting?.catch(() => {})
+    await entry.controller.shutdown()
+    if (entry.metadata.provider === 'claude-code')
+      await this.removeCredential(secureStorageEnv(dir, userId))
+    rmSync(dir, { recursive: true, force: true })
   }
 
   async request(request: unknown, userId: string | null): Promise<unknown> {
     if (!userId) throw new Error('Sign in to Nuphos first')
     if (!request || typeof request !== 'object') throw new Error('Invalid instance request')
-    const body = request as { method?: string }
+    const body = request as { method?: string; instanceId?: unknown }
 
     if (body.method === 'list')
-      return { instances: [...this.entries.values()].map(({ metadata }) => metadata) }
+      return {
+        instances: [...this.entries.values()].map(({ metadata }) => publicMetadata(metadata)),
+      }
+    if (body.method === 'remove' || body.method === 'commit') {
+      if (typeof body.instanceId !== 'string' || !UUID.test(body.instanceId))
+        throw new Error('Invalid agent instance')
+      const entry = this.entries.get(body.instanceId)
+
+      if (body.method === 'remove') {
+        await this.remove(body.instanceId, userId)
+
+        return {}
+      }
+      if (!entry) throw new Error('Agent instance not found')
+      await entry.starting?.catch(() => {})
+      await entry.controller.refresh(false)
+      if (!(await this.settle(entry, false))) throw new Error('The agent is not signed in yet')
+
+      return { instance: publicMetadata(entry.metadata) }
+    }
     if (body.method !== 'create') throw new Error('Unsupported instance method')
     const metadata = parseInstance(request)
     const existing = this.entries.get(metadata.instanceId)
@@ -145,17 +255,32 @@ export class InstanceControllers {
       )
         throw new Error('Agent instance already exists')
 
-      return { instance: existing.metadata }
+      return { instance: publicMetadata(existing.metadata) }
     }
+    const record: AgentInstanceRecord = {
+      ...metadata,
+      state: 'pending',
+      createdAt: new Date(this.now()).toISOString(),
+    }
+
     writeInstances(
       userDir(this.deps.dataDir(), userId),
-      [...this.entries.values()].map((entry) => entry.metadata).concat(metadata),
+      [...this.entries.values()].map((entry) => entry.metadata).concat(record),
     )
-    const controller = this.add(metadata, userId)
+    const entry = this.add(record, userId)
 
-    await controller.setUser(userId)
+    // Acknowledge at once; the sign-in waits for the agent to come up, not the caller.
+    entry.starting = entry.controller.setUser(userId).then(this.changed)
+    entry.starting.catch(() => {
+      /* The controller reports its own start failure. */
+    })
     this.changed()
 
-    return { instance: metadata }
+    return { instance: publicMetadata(record) }
   }
+}
+
+/** What the backend sees: legacy records count as signed-in agents until settled. */
+function publicMetadata({ instanceId, provider, label, state }: AgentInstanceRecord) {
+  return { instanceId, provider, label, state: state ?? ('ready' as const) }
 }

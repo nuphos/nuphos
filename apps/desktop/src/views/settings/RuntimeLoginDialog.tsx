@@ -11,20 +11,29 @@ import type { RuntimeInstance } from '../../types/runtime'
 export function RuntimeLoginDialog({
   teamId,
   instance,
+  immediate,
   onClose,
 }: {
   teamId: string
   instance: RuntimeInstance
-  onClose: () => void
+  /** Start sign-in right away; the backend waits for an agent that is still starting. */
+  immediate?: boolean
+  /** `connected` is true when the sign-in succeeded. */
+  onClose: (connected: boolean) => void
 }) {
   const account = AGENT_PROVIDER[instance.provider].account
-  const state = useRuntimeLogin(teamId, instance, () => {
-    toast.success(`${account} connected`, `${instance.label} is now signed in.`)
-    onClose()
-  })
+  const state = useRuntimeLogin(
+    teamId,
+    instance,
+    () => {
+      toast.success(`${account} connected`, `${instance.label} is now signed in.`)
+      onClose(true)
+    },
+    immediate,
+  )
 
   async function close() {
-    if (await state.cancel()) onClose()
+    if (await state.cancel()) onClose(false)
   }
 
   return (

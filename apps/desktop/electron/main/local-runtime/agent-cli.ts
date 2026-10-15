@@ -1,10 +1,10 @@
 import { execFile } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import { accessSync, constants, realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { claudeKeychainService } from './claude-keychain.ts'
 import { agentCliEnv } from './config.ts'
 
 export type LocalAgentProvider = 'claude-code' | 'codex'
@@ -170,11 +170,6 @@ async function claudeUsageRequest(
   // Match Claude's Keychain selection, including the terminal's unsuffixed default entry.
   // Claude keys the entry by account too; without it a stale entry of the same name can win.
   if (process.platform === 'darwin' && env.CLAUDE_CONFIG_DIR) {
-    const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? env.CLAUDE_CONFIG_DIR
-    const suffix = storageDir
-      ? `-${createHash('sha256').update(storageDir.normalize('NFC')).digest('hex').slice(0, 8)}`
-      : ''
-
     try {
       credential = JSON.parse(
         await run(
@@ -184,7 +179,7 @@ async function claudeUsageRequest(
             '-a',
             os.userInfo().username,
             '-s',
-            `Claude Code-credentials${suffix}`,
+            claudeKeychainService(env),
             '-w',
           ],
           env,

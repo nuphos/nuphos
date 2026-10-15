@@ -255,11 +255,19 @@ export function RuntimeInstanceCard({
           description={
             instance.kind === 'managed'
               ? 'This permanently deletes the agent, its disks, workspaces, and sign-in, and stops running conversations. Your conversation history stays in Nuphos. Move any workspace you want to keep to another agent before removing this one.'
-              : 'This disconnects the external agent. Its files remain on the external machine. Your conversations stay in Nuphos and can be moved using conversation history.'
+              : instance.local
+                ? `This removes the agent and its sign-in from ${instance.local.deviceLabel}. Your conversation history stays in Nuphos.`
+                : 'This disconnects the external agent. Its files remain on the external machine. Your conversations stay in Nuphos and can be moved using conversation history.'
           }
           destructive
           confirmLabel="Remove agent"
-          onConfirm={() => mutate(() => api.atlasRemoveRuntimeInstance(teamId, instance.id))}
+          onConfirm={() =>
+            mutate(() =>
+              instance.local?.instanceId
+                ? api.boxRemoveAgent(instance.local.deviceId, teamId, instance.local.instanceId)
+                : api.atlasRemoveRuntimeInstance(teamId, instance.id),
+            )
+          }
           onClose={() => setConfirmRemoval(false)}
         />
       )}

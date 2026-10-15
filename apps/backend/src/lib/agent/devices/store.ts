@@ -2,6 +2,10 @@ import { ObjectId } from 'mongodb'
 
 import { db } from '@/lib/db'
 
+import { mergeAgentRegistry, reportedAgents } from './agent-registry'
+
+import type { RegisteredAgent } from './agent-registry'
+import type { LocalRuntimeStatus } from './local-runtime/protocol'
 import type { Collection } from 'mongodb'
 
 /** A cloud machine Nuphos created for this device; absent for a person's own computer. Its state is never stored: instabox and presence know it. */
@@ -24,6 +28,8 @@ export type AgentDevice = {
   model?: string
   allowLocalExec: boolean
   box?: AgentDeviceBox
+  /** Agents this computer has ever had signed in; see agent-registry. */
+  agents?: RegisteredAgent[]
   /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
   credentialHash?: string
   credentialIssuedAt?: Date
@@ -236,4 +242,26 @@ export async function setBoxAccess(
   )
 
   return result.matchedCount === 1
+}
+
+/** Keeps the agents a status report shows signed in listed after the computer goes offline. */
+export async function recordDeviceAgents(
+  userId: string,
+  deviceId: string,
+  status: LocalRuntimeStatus,
+): Promise<void> {
+  const device = await agentDevices().findOne({ userId, deviceId }, { projection: { agents: 1 } })
+
+  if (!device) return
+  const next = mergeAgentRegistry(device.agents ?? [], reportedAgents(status))
+
+  if (next) await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
+}
+
+export async function removeDeviceAgent(
+  userId: string,
+  deviceId: string,
+  instanceId: string,
+): Promise<void> {
+  await agentDevices().updateOne({ userId, deviceId }, { $pull: { agents: { instanceId } } })
 }

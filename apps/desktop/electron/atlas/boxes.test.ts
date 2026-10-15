@@ -86,13 +86,16 @@ test('Box IPC forwards optional metrics demand without changing the default', as
   assert.equal(samples, before)
 })
 
-test('adding an agent posts once and outlasts the backend 60s host wait', async () => {
+test('adding an agent posts once; removing one deletes it, waiting out a still-starting agent', async () => {
   const { boxChannels } = await import('../main/channels-box.ts')
 
   await boxChannels['box:createAgent'](null, 'box/1', 'team-1', 'codex')
   assert.equal(calls.at(-1), '/agent/devices/box%2F1/agents')
   assert.deepEqual(bodies.at(-1), { teamId: 'team-1', provider: 'codex' })
-  assert.deepEqual(options.at(-1), { retry: false, timeoutMs: 65_000 })
+  assert.deepEqual(options.at(-1), { retry: false })
+  await boxChannels['box:removeAgent'](null, 'box/1', 'team-1', 'uuid-1')
+  assert.equal(calls.at(-1), '/agent/devices/box%2F1/agents/uuid-1?teamId=team-1')
+  assert.deepEqual(options.at(-1), { retry: false, timeoutMs: 50_000 })
 })
 
 test('a plan Checkout for a subscribed team falls back to the portal; the summary is a GET', async (t) => {

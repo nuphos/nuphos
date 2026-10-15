@@ -206,6 +206,7 @@ const onOwnComputer = (
     ownerUserId: 'u1',
     deviceId: 'd1',
     deviceLabel: 'My Mac',
+    online: true,
     signedIn,
     ...(usage !== undefined ? { usage } : {}),
     ...(usageAt ? { usageAt } : {}),

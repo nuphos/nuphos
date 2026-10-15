@@ -5,10 +5,13 @@ import { z } from 'zod'
 
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
-import { createLocalAgentInstance } from '@/lib/agent/devices/local-runtime/instances'
+import {
+  createLocalAgentInstance,
+  removeLocalAgentInstance,
+} from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
-import { isActiveTeamMember } from '@/lib/agent/devices/store'
+import { isActiveTeamMember, removeDeviceAgent } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { isTeamIdShape } from '@/lib/team-id'
 import { zv } from '@/lib/validate'
@@ -16,6 +19,7 @@ import { zv } from '@/lib/validate'
 import { readTeamIdCandidate } from './team-scope'
 
 import type { AuthVariables } from '@/middleware/auth'
+import type { Context } from 'hono'
 
 const createSchema = z.object({
   teamId: z.string().trim().min(1).max(64).optional(),
@@ -30,6 +34,8 @@ export type DeviceAgentRouteDeps = {
   isMember: typeof isActiveTeamMember
   getPresence: ReturnType<typeof runtimePresenceStore>['get']
   createInstance: typeof createLocalAgentInstance
+  removeInstance: typeof removeLocalAgentInstance
+  forgetAgent: typeof removeDeviceAgent
 }
 
 export function createDeviceAgentRoutes(
@@ -38,15 +44,17 @@ export function createDeviceAgentRoutes(
     isMember: isActiveTeamMember,
     getPresence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
     createInstance: createLocalAgentInstance,
+    removeInstance: removeLocalAgentInstance,
+    forgetAgent: removeDeviceAgent,
   },
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
-  routes.post('/devices/:deviceId/agents', zv('json', createSchema), async (c) => {
+  /** Adding or removing an agent manages the Box, and needs a host that supports it. */
+  const managedDevice = async (c: Context<{ Variables: AuthVariables }>, candidate?: string) => {
     const userId = c.get('userId')
-    const deviceId = c.req.param('deviceId')
-    const body = c.req.valid('json')
-    const teamId = readTeamIdCandidate(c, body.teamId)
+    const deviceId = c.req.param('deviceId') ?? ''
+    const teamId = readTeamIdCandidate(c, candidate)
 
     if (!teamId || !isTeamIdShape(teamId) || !(await deps.isMember(userId, teamId)))
       throw new AppError(404, 'device_not_found', 'Device is not available in this team')
@@ -59,14 +67,19 @@ export function createDeviceAgentRoutes(
         'agent_instances_unavailable',
         'Update and connect the Box host before adding another agent.',
       )
-    const instance = await deps.createInstance(
-      { userId: device.userId, actorId: userId, deviceId, teamId },
-      {
-        instanceId: body.instanceId ?? randomUUID(),
-        provider: body.provider,
-        label: body.label ?? (body.provider === 'codex' ? 'Codex' : 'Claude Code'),
-      },
-    )
+
+    return { target: { userId: device.userId, actorId: userId, deviceId, teamId }, device }
+  }
+
+  routes.post('/devices/:deviceId/agents', zv('json', createSchema), async (c) => {
+    const body = c.req.valid('json')
+    const { target, device } = await managedDevice(c, body.teamId)
+    const { deviceId } = target
+    const instance = await deps.createInstance(target, {
+      instanceId: body.instanceId ?? randomUUID(),
+      provider: body.provider,
+      label: body.label ?? (body.provider === 'codex' ? 'Codex' : 'Claude Code'),
+    })
 
     return c.json(
       {
@@ -75,6 +88,21 @@ export function createDeviceAgentRoutes(
       },
       201,
     )
+  })
+
+  // A default agent (no instance id) is the computer's own and cannot be removed.
+  routes.delete('/devices/:deviceId/agents/:instanceId', async (c) => {
+    const instanceId = c.req.param('instanceId')
+
+    if (!z.string().uuid().safeParse(instanceId).success)
+      throw new AppError(400, 'agent_not_removable', 'Only an added agent can be removed.')
+    const { target } = await managedDevice(c)
+
+    await deps.removeInstance(target, instanceId)
+    // Removing is the only way an agent leaves the list once it has been signed in.
+    await deps.forgetAgent(target.userId, target.deviceId, instanceId)
+
+    return c.body(null, 204)
   })
 
   return routes

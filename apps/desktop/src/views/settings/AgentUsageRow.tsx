@@ -5,7 +5,7 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 
-import { agentName, agentRunsOn } from './agentPresentation'
+import { agentName, agentOffline, agentRunsOn } from './agentPresentation'
 import { ACCENT_RGB } from './MetricChart'
 import { STATUS_DOT } from './runtimePresentation'
 
@@ -66,7 +66,9 @@ export function AgentUsageRow({
         <span
           className={clsx(
             'h-1.5 w-1.5 rounded-full',
-            instance.status === 'active' ? STATUS_DOT.online : STATUS_DOT.off,
+            instance.status === 'active' && !agentOffline(instance)
+              ? STATUS_DOT.online
+              : STATUS_DOT.off,
           )}
         />
         {agentRunsOn(instance, thisComputer?.deviceId)}

@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
+import { agentOffline } from './agentPresentation'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
@@ -91,7 +92,8 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
 
 /** Open the same agent details panel as the usage table. */
 export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
-  const label = AGENT_PROVIDER[agent.provider].label
+  const offline = agentOffline(agent)
+  const label = `${AGENT_PROVIDER[agent.provider].label}${offline ? ' · Offline' : ''}`
 
   return (
     <li className="shrink-0">
@@ -100,7 +102,7 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
         title={label}
         aria-label={`Open ${label} details`}
         onClick={onSelect}
-        className="flex h-10 w-10 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
+        className={`flex h-10 w-10 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60 ${offline ? 'opacity-40 grayscale' : ''}`}
       >
         <AgentProviderIcon provider={agent.provider} className="h-5 w-5" />
       </button>
@@ -111,17 +113,4 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
 /** The green dot before a running Box or a live reading. */
 export function LiveDot() {
   return <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT.online}`} />
-}
-
-/** Under the agents while one is being added, or why it could not be. */
-export function AddAgentStatus({ label, error }: { label: string; error?: string }) {
-  return (
-    <p
-      role={error ? 'alert' : 'status'}
-      title={error}
-      className={`shrink-0 truncate text-[11px] leading-4 ${error ? 'text-error' : 'text-tertiary'}`}
-    >
-      {error ?? `Adding ${label}…`}
-    </p>
-  )
 }
