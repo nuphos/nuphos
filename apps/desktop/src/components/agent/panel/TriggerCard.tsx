@@ -3,6 +3,7 @@ import { AlarmClock, ArrowUpRight, Loader2, Pencil } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
+import { ConfirmDialog } from '../../ConfirmDialog'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useTeamMembers } from '../../../lib/bindingAccess'
 import { scheduleSummary } from '../../../views/triggers/cron'
@@ -66,6 +67,8 @@ export function TriggerCard({
   const { trigger, missing, setTrigger } = useTrigger(info?.triggerId ?? null, teamId)
   const [draft, setDraft] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // The transcript is shared, so turning a live trigger on or off asks first.
+  const [switching, setSwitching] = useState<boolean | null>(null)
   const me = useCurrentUser()
   // Viewers may read a trigger but not change it, as on the Triggers page.
   const role = useTeamMembers(teamId ?? '').find(
@@ -132,14 +135,27 @@ export function TriggerCard({
           checked={trigger.enabled}
           disabled={busy || !canManage}
           label={trigger.enabled ? 'Pause this trigger' : 'Resume this trigger'}
-          onChange={(enabled) =>
-            void update(
-              { enabled },
-              enabled ? 'Could not resume the trigger' : 'Could not pause the trigger',
-            )
-          }
+          onChange={setSwitching}
         />
       </header>
+      <ConfirmDialog
+        open={switching !== null}
+        title={switching ? 'Resume trigger' : 'Pause trigger'}
+        description={
+          switching
+            ? `“${trigger.name}” will run on its schedule again.`
+            : `“${trigger.name}” will stop running until someone resumes it.`
+        }
+        confirmLabel={switching ? 'Resume' : 'Pause'}
+        onConfirm={async () => {
+          if (switching === null) return
+          await update(
+            { enabled: switching },
+            switching ? 'Could not resume the trigger' : 'Could not pause the trigger',
+          )
+        }}
+        onClose={() => setSwitching(null)}
+      />
       <div className="border-t border-zGray-800 px-3.5 py-2.5">
         {editing ? (
           <ScheduleEditor value={draft} onChange={setDraft} />
