@@ -23,10 +23,15 @@ class SessionResourcesTest {
         assertThrows(Exception::class.java) { Http.json.decodeFromString<SessionResourcesEnvelope>("{}") }
     }
     @Test fun rejectsUnsafeUrlsWithoutDisablingResourceTitles() {
-        for (url in listOf("javascript:alert(1)", "intent://github.com", "file:///etc/passwd", "http://github.com", "https://user:secret@github.com", "https:///missing", "https://github.com\n")) {
+        for (url in listOf("javascript:alert(1)", "intent://github.com", "file:///etc/passwd", "http://github.com", "https://user:secret@github.com", "https:///missing", "https://github.com\n", "https://evil.example/pull/1", "https://github.com.evil.com/x", "https://github.com:8443/x", "https://github.com:443/x", "https://linear.app/x")) {
             assertNull(url, pr.copy(url = url).safeUrl)
         }
         assertEquals(pr.url, pr.safeUrl)
+        assertNull(pr.copy(provider = "linear").safeUrl)
+        assertNull(pr.copy(provider = "unknown").safeUrl)
+        val linearUrl = "https://linear.app/example/issue/SYN-1"
+        assertEquals(linearUrl, pr.copy(provider = "linear", url = linearUrl).safeUrl)
+        assertEquals("https://GITHUB.com/example", pr.copy(url = "https://GITHUB.com/example").safeUrl)
         assertEquals("GitHub", pr.providerLabel)
     }
     @Test fun emptyIsSuccessAndUnknownProvidersAreIgnored() = runTest {

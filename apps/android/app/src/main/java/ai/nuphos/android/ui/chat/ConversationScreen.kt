@@ -181,9 +181,9 @@ fun ConversationScreen(
     // A separate read: resource failures never block transcript loading or the composer.
     val resourcesAllowed = resumed && auth.aiAllowed && selectedTeamId == session.teamId && session.loaded && session.loadError == null
     var refreshResources by remember(session) { mutableStateOf(0) }
-    LaunchedEffect(session, resourcesAllowed, auth.generation, AiAccess.revision, refreshResources) {
-        if (resourcesAllowed) session.refreshResources()
-        else session.linkedResources.invalidate(clear = resumed)
+    LaunchedEffect(session, resourcesAllowed, auth.generation, AiAccess.revision, refreshResources, session.isStreaming, session.messages.size) {
+        if (resourcesAllowed && !session.isStreaming) session.refreshResources()
+        else session.linkedResources.invalidate(clear = !resourcesAllowed && resumed)
     }
     DisposableEffect(session) {
         onDispose { session.linkedResources.invalidate() }

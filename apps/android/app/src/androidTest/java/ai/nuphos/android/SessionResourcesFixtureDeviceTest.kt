@@ -59,7 +59,7 @@ class SessionResourcesFixtureDeviceTest {
         var loading by mutableStateOf(false)
         var failed by mutableStateOf(false)
         var rows by mutableStateOf(listOf(pr, pr.copy(id = "closed", state = "closed", number = 43), pr.copy(id = "merged", state = "merged", number = 44),
-            pr.copy(id = "issue", provider = "linear", title = "SYN-1 Synthetic issue", state = "In Review", number = null),
+            pr.copy(id = "issue", provider = "linear", title = "SYN-1 Synthetic issue", state = "In Review", number = null, url = "https://linear.app/example/issue/SYN-1"),
             pr.copy(id = "unsafe", title = "Unsafe synthetic URL", url = "javascript:alert(1)", number = 45)))
         val opened = mutableListOf<String>()
         var noHandler = false
@@ -86,11 +86,16 @@ class SessionResourcesFixtureDeviceTest {
         compose.onNode(hasScrollAction()).performScrollToIndex(2)
         compose.onNodeWithText("#44").assertExists()
         compose.onNode(hasScrollAction()).performScrollToIndex(3)
-        compose.onNodeWithText("SYN-1").assertExists()
+        compose.onNodeWithText("SYN-1").performClick()
+        assertEquals("https://linear.app/example/issue/SYN-1", opened.last())
         snap("synthetic-linear-dark")
         compose.onNode(hasScrollAction()).performScrollToIndex(4)
         compose.onNodeWithContentDescription("GitHub, Unsafe synthetic URL, open, link unavailable").assertIsNotEnabled()
-        assertEquals(1, opened.size)
+        compose.onNodeWithText("Link unavailable").assertExists()
+        snap("synthetic-unsafe-dark")
+        compose.runOnIdle { dark = false }; snap("synthetic-unsafe-light")
+        compose.runOnIdle { dark = true }
+        assertEquals(2, opened.size)
         compose.runOnIdle { rows = listOf(pr); noHandler = true }
         compose.onNodeWithText("#42").performClick()
         compose.onNodeWithText("Could not open this link.").assertExists()
@@ -163,7 +168,7 @@ class SessionResourcesFixtureDeviceTest {
             compose.runOnIdle { lifecycle = LifecycleRegistry(fixtureOwner); lifecycle.currentState = Lifecycle.State.RESUMED }
             compose.setContent { NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth,
                 LocalLifecycleOwner provides fixtureOwner) {
-                ConversationScreen(selected, false, {}, rememberNavController(), browsingOnly = true, browsingTeamId = "fixture-team")
+                ConversationScreen(selected, false, {}, rememberNavController())
             } } }
             compose.waitUntil(8000) { compose.onAllNodesWithText("#42").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Synthetic chat still available").assertExists()
@@ -174,6 +179,16 @@ class SessionResourcesFixtureDeviceTest {
             compose.runOnIdle { lifecycle.currentState = Lifecycle.State.RESUMED }
             compose.waitUntil(8000) { compose.onAllNodesWithText("Merged").fetchSemanticsNodes().isNotEmpty() }
             snap("synthetic-conversation-merged")
+            val beforeTurn = requests.count { it.url.encodedPath.endsWith("/resources") }
+            compose.runOnIdle {
+                resourceState = "closed"
+                setState(store.session("saved", "Synthetic resource conversation"), "isStreaming", true)
+            }
+            compose.waitForIdle()
+            assertEquals(beforeTurn, requests.count { it.url.encodedPath.endsWith("/resources") })
+            compose.runOnIdle { setState(store.session("saved", "Synthetic resource conversation"), "isStreaming", false) }
+            compose.waitUntil(8000) { compose.onAllNodesWithText("Closed").fetchSemanticsNodes().isNotEmpty() }
+            assertTrue(requests.count { it.url.encodedPath.endsWith("/resources") } > beforeTurn)
             compose.runOnIdle { selected = "empty" }
             compose.waitUntil(8000) { requests.any { it.url.encodedPath == "/agent/conversations/empty/resources" } }
             compose.waitForIdle(); compose.onNodeWithText("#42").assertDoesNotExist()

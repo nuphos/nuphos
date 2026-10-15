@@ -58,6 +58,7 @@ fun SessionResourceStrip(
                     val url = resource.safeUrl
                     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                     val tone = when {
+                        url == null -> MaterialTheme.colorScheme.onSurfaceVariant
                         resource.provider != "github" -> MaterialTheme.colorScheme.onSurfaceVariant
                         resource.state == "merged" -> MaterialTheme.colorScheme.primary
                         resource.state == "closed" -> MaterialTheme.colorScheme.error
@@ -85,13 +86,15 @@ fun SessionResourceStrip(
                             Icon(
                                 painterResource(if (resource.provider == "github") R.drawable.ic_resource_github else R.drawable.ic_resource_linear),
                                 contentDescription = null, modifier = Modifier.size(14.dp),
-                                tint = if (resource.provider == "github") MaterialTheme.colorScheme.onSurface else Color(0xFF7C86E8),
+                                tint = if (resource.provider == "github") MaterialTheme.colorScheme.onSurface else Color(0xFF5E6AD2),
                             )
                             Text(resource.chip, style = MaterialTheme.typography.labelMedium,
                                 modifier = Modifier.widthIn(max = 160.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(resource.state.replaceFirstChar { it.titlecase() }, color = tone,
                                 style = MaterialTheme.typography.labelMedium, modifier = Modifier.widthIn(max = 160.dp),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (url == null) Text("Link unavailable", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
