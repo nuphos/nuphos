@@ -11,6 +11,7 @@ object ConversationNesting {
         val depth: Int,
         val threads: Int,
         val folded: Boolean,
+        val hidden: List<AgentConversation> = emptyList(),
     )
     data class Result(val rows: List<Row>, val loadedPinnedIds: Set<String>)
 
@@ -54,24 +55,44 @@ object ConversationNesting {
             }
             // Cross-section children remain visible roots in their own section.
             if (p != null && sections[p] != sections[row.sessionId]) parent[row.sessionId] = null
+            children[row.sessionId].orEmpty().asReversed().forEach(stack::addLast)
+        }
+        // Rebuild after cross-section cuts: newly promoted roots retain source order,
+        // rather than their former parent's position in the first traversal.
+        val finalChildren = rows.groupBy { parent[it.sessionId] }
+        finalChildren[null].orEmpty().asReversed().forEach(stack::addLast)
+        while (stack.isNotEmpty()) {
+            val row = stack.removeLast()
             depths[row.sessionId] = parent[row.sessionId]?.let { depths.getValue(it) + 1 } ?: 0
             order += row
-            children[row.sessionId].orEmpty().asReversed().forEach(stack::addLast)
+            finalChildren[row.sessionId].orEmpty().asReversed().forEach(stack::addLast)
         }
         val counts = mutableMapOf<String, Int>()
         for (row in order.asReversed()) {
             val p = parent[row.sessionId] ?: continue
             counts[p] = (counts[p] ?: 0) + 1 + (counts[row.sessionId] ?: 0)
         }
-        val hidden = mutableSetOf<String>()
+        val hiddenRoot = mutableMapOf<String, String>()
+        val hiddenChildren = mutableMapOf<String, MutableList<AgentConversation>>()
         val visible = mutableListOf<Row>()
         for (row in order) {
             val id = row.sessionId
             val p = parent[id]
-            if (p in hidden || (p != null && p in folded)) { hidden += id; continue }
+            val foldedRoot = hiddenRoot[p] ?: p?.takeIf { it in folded }
+            if (foldedRoot != null) {
+                hiddenRoot[id] = foldedRoot
+                hiddenChildren.getOrPut(foldedRoot) { mutableListOf() }.add(row)
+                continue
+            }
             visible += Row(row, sections.getValue(id), depths.getValue(id), counts[id] ?: 0, id in folded)
         }
-        return Result(Section.entries.flatMap { section -> visible.filter { it.section == section } },
+        return Result(Section.entries.flatMap { section -> visible.filter { it.section == section }.map { it.copy(hidden = hiddenChildren[it.conversation.sessionId].orEmpty()) } },
             rows.filter { it.sessionId in pinned }.mapTo(mutableSetOf()) { it.sessionId })
     }
+    /** Only visible folded roots retain hidden rows, so total retained descendants stays O(n). */
+    fun status(row: Row, label: (AgentConversation) -> String?): String? =
+        (sequenceOf(row.conversation) + row.hidden.asSequence())
+            .mapNotNull { label(it) ?: if (HistoryStatus.unread(it)) "Unread" else null }
+            .maxByOrNull { when (it) { "Running" -> 4; "Paused" -> 3; "Background tools" -> 2; else -> 1 } }
+
 }

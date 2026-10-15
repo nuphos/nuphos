@@ -64,8 +64,12 @@ class ConversationNestingFixtureDeviceTest {
             val client = OkHttpClient.Builder().addInterceptor { chain ->
                 val req = chain.request(); requests += req
                 val path = req.url.encodedPath
-                val text = if (path == "/teams/A/favorites") """{"revision":1,"entries":$entries}""" else "{}"
-                val code = if (path == "/teams/A/favorites") 200 else 404
+                val text = when (path) {
+                    "/teams/A/favorites" -> """{"revision":1,"entries":$entries}"""
+                    "/agent/conversations" -> """{"conversations":[],"hasMore":false}"""
+                    else -> "{}"
+                }
+                val code = if (path in setOf("/teams/A/favorites", "/agent/conversations")) 200 else 404
                 Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                     .body(text.toResponseBody(Http.jsonMedia)).build()
             }.build()
@@ -104,7 +108,7 @@ class ConversationNestingFixtureDeviceTest {
             state(store, "phase").value = AgentStore.Phase.Loaded
             state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
                 AgentConversation("child", "A", "Synthetic child", parentSessionId = "normal"),
-                AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child"),
+                AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child", isOwner = true, unread = JsonValue.Bool(true)),
                 AgentConversation("mine", "A", "Synthetic own chat", isOwner = true),
                 AgentConversation("shared", "A", "Synthetic shared chat", isOwner = false))
             val auth = AuthSession(app, app.tokenStore)
@@ -142,6 +146,7 @@ class ConversationNestingFixtureDeviceTest {
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
         compose.onNodeWithText("My chats").assertExists()
         compose.onNodeWithText("Shared").assertExists()
+        compose.onNodeWithText("Unread").assertExists()
         shot("collapsed")
         compose.onNodeWithContentDescription("Show 2 threads").performClick()
         compose.onNodeWithText("Synthetic child").assertExists()
@@ -150,4 +155,42 @@ class ConversationNestingFixtureDeviceTest {
         compose.onNodeWithText("Opened synthetic child").assertExists()
         assertTrue(requests.none { it.method != "GET" })
     }
+    @Test fun syntheticFoldedLastPageStillOffersExplicitPagination() {
+        render()
+        compose.onNodeWithContentDescription("Hide 2 threads").performClick()
+        compose.runOnIdle {
+            state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent")) +
+                (0 until 20).map { AgentConversation("child-$it", "A", "Hidden $it", parentSessionId = "normal") }
+            state(store, "hasMore").value = true
+            AgentStore::class.java.getDeclaredField("nextCursor").also { it.isAccessible = true }.set(store, "next")
+        }
+        shot("load-more")
+        compose.onNodeWithText("Load more chats").performClick()
+        compose.waitUntil(5_000) { requests.any { it.url.queryParameter("cursor") == "next" } && !store.hasMore }
+        assertTrue(requests.none { it.method != "GET" })
+    }
+
+    @Test fun syntheticIndependentPinAndCrossSectionParents() {
+        render()
+        compose.runOnIdle {
+            state(store, "favorites").value = ConversationActions.Favorites(listOf(
+                JsonValue.obj("key" to JsonValue.Str("agent-session:child"), "label" to JsonValue.Str("Synthetic child"))
+            ), 2)
+        }
+        compose.onNodeWithText("Synthetic parent").assertExists()
+        compose.onNodeWithContentDescription("Hide 1 threads").assertExists()
+        shot("independent-pin")
+        compose.runOnIdle {
+            state(store, "favorites").value = ConversationActions.Favorites(emptyList(), 3)
+            state(store, "conversations").value = listOf(
+                AgentConversation("S1", "A", "Synthetic recent shared child", parentSessionId = "M2", isOwner = false),
+                AgentConversation("S2", "A", "Synthetic older shared chat", isOwner = false),
+                AgentConversation("M2", "A", "Synthetic own parent", isOwner = true))
+        }
+        compose.onNodeWithText("Synthetic recent shared child").assertExists()
+        compose.onNodeWithText("Shared").assertExists()
+        shot("shared-parent")
+        assertTrue(requests.none { it.method != "GET" })
+    }
+
 }

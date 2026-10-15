@@ -53,4 +53,20 @@ class ConversationNestingTest {
         assertEquals(19_999, result.rows.last().depth)
         assertEquals(1, ConversationNesting.nest(rows, folded = setOf("0")).rows.size)
     }
+    @Test fun foldedRootsKeepHiddenActivityWithoutDuplicatingDescendants() {
+        val rows = listOf(row("root"), row("child", "root"), row("leaf", "child"), row("other"))
+        val folded = ConversationNesting.nest(rows, folded = setOf("root", "child")).rows
+        assertEquals(listOf("child", "leaf"), folded.first().hidden.map { it.sessionId })
+        assertEquals("Running", ConversationNesting.status(folded.first()) { if (it.sessionId == "leaf") "Running" else null })
+        assertNull(ConversationNesting.status(folded.last()) { null })
+        assertTrue(ConversationNesting.nest(rows).rows.all { it.hidden.isEmpty() })
+    }
+
+    @Test fun promotedSharedRootsRetainTheirSourceOrder() {
+        val rows = listOf(row("S1", "M2", false), row("S2", mine = false), row("M2"))
+        val shared = ConversationNesting.nest(rows).rows.filter { it.section == ConversationNesting.Section.Shared }
+        assertEquals(listOf("S1", "S2"), shared.map { it.conversation.sessionId })
+        assertTrue(shared.all { it.depth == 0 })
+    }
+
 }

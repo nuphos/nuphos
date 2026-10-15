@@ -2,6 +2,8 @@ package ai.nuphos.android.ui.agent
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.ExpandLess
@@ -109,11 +111,13 @@ fun AgentPage(
     val tree = remember(store.conversations, pins, foldedIds, account) {
         ConversationNesting.nest(store.conversations, pins.mapTo(mutableSetOf()) { it.sessionId }, foldedIds.toSet(), account)
     }
+    val treeSections = remember(tree) { tree.rows.groupBy { it.section } }
     val shortcuts = pins.filter { it.sessionId !in tree.loadedPinnedIds }
     LaunchedEffect(store, store.selectedTeam?.id) { store.loadFavorites() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { it.key } }
             .collect { keys ->
+                // Source tail IDs may be folded or move in tree order; the explicit footer remains available.
                 if (store.hasMore && PinnedHistory.shouldLoadMore(keys, store.conversations.map { it.sessionId })) {
                     store.loadMore()
                 }
@@ -189,7 +193,7 @@ fun AgentPage(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         for (section in ConversationNesting.Section.entries) {
-                            val rows = tree.rows.filter { it.section == section }
+                            val rows = treeSections[section].orEmpty()
                             if (rows.isNotEmpty() || (section == ConversationNesting.Section.Pinned && shortcuts.isNotEmpty())) {
                                 item(key = "section:$section") { Text(section.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
@@ -207,7 +211,7 @@ fun AgentPage(
                             }
                             items(rows, key = { "history:${it.conversation.sessionId}" }) { row ->
                                 ConversationTreeRow(row, store.favorites?.contains(row.conversation.sessionId) == true,
-                                    store.historyObservation(row.conversation)?.label(maxOf(statusClock, RuntimeObservation.now())),
+                                    ConversationNesting.status(row) { store.historyObservation(it)?.label(maxOf(statusClock, RuntimeObservation.now())) },
                                     onToggle = {
                                         foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
                                     },
@@ -256,8 +260,8 @@ fun AgentPage(
 internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit) {
     val depth = row.depth.coerceAtMost(4)
     val line = MaterialTheme.colorScheme.outlineVariant
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        if (depth > 0) Canvas(Modifier.width((depth * 16).dp).height(64.dp)) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+        if (depth > 0) Canvas(Modifier.width((depth * 16).dp).fillMaxHeight()) {
             val x = size.width - 8.dp.toPx()
             drawLine(line, Offset(x, 0f), Offset(x, size.height / 2), 1.dp.toPx())
             drawLine(line, Offset(x, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
