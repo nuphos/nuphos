@@ -11,8 +11,9 @@ type ArchiveTarget = { sessionId: string; teamId: string; title: string }
 export function useArchiveSession({ sessionId, teamId, title }: ArchiveTarget) {
   const [archiving, setArchiving] = useState(false)
 
-  async function archive() {
-    if (archiving) return
+  /** Resolves true once the chat is archived. */
+  async function archive(): Promise<boolean> {
+    if (archiving) return false
     setArchiving(true)
     try {
       await archiveChat(sessionId, teamId)
@@ -29,8 +30,12 @@ export function useArchiveSession({ sessionId, teamId, title }: ArchiveTarget) {
           },
         },
       })
+
+      return true
     } catch (err) {
       toast.apiError('Could not archive chat', err)
+
+      return false
     } finally {
       setArchiving(false)
     }

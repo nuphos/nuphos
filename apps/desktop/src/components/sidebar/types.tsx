@@ -44,6 +44,8 @@ export type Item = {
   parentKey?: string
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
+  /** A thread with nothing left running; it can fold behind its parent's "N done" row. */
+  threadDone?: boolean
 }
 
 export type Section = {

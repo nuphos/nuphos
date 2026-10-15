@@ -13,6 +13,8 @@ import {
 } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
+import { withDoneFolds } from './done-threads'
+import { DoneThreadsRow } from './done-threads-row'
 import { NestedRowBody } from './nest-guides'
 import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
@@ -62,6 +64,9 @@ export function SidebarSectionList({
   onSelect,
   onOpenKey,
 }: SectionListProps) {
+  // Each chat's finished threads behind one "N done" row (see withDoneFolds).
+  const doneFolds = sections.map((section) => withDoneFolds(section.items, isGroupCollapsed))
+
   return (
     <>
       {sections.map((section, idx) => (
@@ -108,8 +113,20 @@ export function SidebarSectionList({
                 {section.loading ? (
                   <SidebarSectionSkeleton />
                 ) : (
-                  nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
+                  nestItems(doneFolds[idx]!.rows, (key) => isGroupCollapsed({ title: key })).map(
                     ({ item, trail, hasChildren, hidden }) => {
+                      const fold = doneFolds[idx]!.foldOf(item)
+
+                      if (fold) {
+                        return (
+                          <DoneThreadsRow
+                            key={item.key}
+                            fold={fold}
+                            trail={trail}
+                            toggleGroup={toggleGroup}
+                          />
+                        )
+                      }
                       const Icon = item.icon
                       const isActive =
                         item.enabled &&
