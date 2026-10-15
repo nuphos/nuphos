@@ -9,13 +9,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
-import {
-  boxAgents,
-  boxPollMs,
-  machines,
-  newBoxBlockedReason,
-  vanishedBoxes,
-} from './boxPresentation'
+import { boxAgents, boxPollMs, newBoxBlockedReason, vanishedBoxes } from './boxPresentation'
 import { BoxRow } from './BoxRow'
 import { PanelHeading } from './RuntimePanel'
 import { useAgentDevices } from './useAgentDevices'
@@ -99,8 +93,8 @@ export function BoxSection({
       reloadUsage()
     }
   }
-  // Everything registered stays listed, once per machine; only its status follows presence.
-  const owned = machines(list?.devices ?? [])
+  // Everything ever registered stays listed; only its status follows presence.
+  const owned = list?.devices ?? []
 
   return (
     <section aria-label="Boxes" className="min-w-0">

@@ -12,7 +12,6 @@ import {
   boxState,
   newAgentAction,
   machineLine,
-  machines,
   newBoxBlockedReason,
   vanishedBoxes,
 } from './boxPresentation.ts'
@@ -192,24 +191,4 @@ test('a running Box reads Starting until its host connects, then Host offline af
   assert.equal(boxState(box('a', 'running', true), now), 'running')
   assert.equal(BOX_BADGE.connecting.tone, 'pending')
   assert.deepEqual(boxActions('hostOffline'), { pause: true, resume: false, remove: true })
-})
-
-test('a computer registered again under a new id shows once; it never drops out while away', () => {
-  const mac = (deviceId: string, online: boolean, createdAt: string): AgentDevice => ({
-    deviceId,
-    label: 'Mac',
-    platform: 'darwin',
-    model: 'MacBook Pro',
-    online,
-    createdAt,
-  })
-  const ids = (devices: AgentDevice[]) => devices.map((device) => device.deviceId)
-  const old = mac('old', false, '2026-10-01T00:00:00Z')
-  const newer = mac('newer', false, '2026-10-10T00:00:00Z')
-  const live = mac('live', true, '2026-10-05T00:00:00Z')
-  const other = { ...mac('mini', false, '2026-10-02T00:00:00Z'), label: 'Mac mini' }
-
-  assert.deepEqual(ids(machines([old, newer, live, other])), ['live', 'mini'])
-  assert.deepEqual(ids(machines([old, newer, other])), ['newer', 'mini'])
-  assert.deepEqual(ids(machines([box('a', 'running'), box('b', 'paused')])), ['a', 'b'])
 })

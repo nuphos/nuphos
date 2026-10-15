@@ -51,31 +51,6 @@ export function boxes(devices: AgentDevice[]): BoxDevice[] {
   return devices.filter((device): device is BoxDevice => device.box !== undefined)
 }
 
-/**
- * One card per machine. A computer registers again under a new id from another install or a
- * reset; it shows once, by its connected registration or else its newest. Boxes are each their own.
- */
-export function machines(devices: AgentDevice[]): AgentDevice[] {
-  const key = (device: AgentDevice) =>
-    device.box ? device.deviceId : [device.label, device.platform, device.model ?? ''].join('\0')
-  const rank = (device: AgentDevice) => [
-    device.online ? 1 : 0,
-    Date.parse(device.createdAt ?? '') || 0,
-  ]
-  const shown = new Map<string, AgentDevice>()
-
-  for (const device of devices) {
-    const current = shown.get(key(device))
-    const [online, created] = rank(device)
-    const [currentOnline, currentCreated] = current ? rank(current) : [-1, -1]
-
-    if (online > currentOnline || (online === currentOnline && created > currentCreated))
-      shown.set(key(device), device)
-  }
-
-  return devices.filter((device) => shown.get(key(device)) === device)
-}
-
 /** Derived, never stored: a cloud Box's state is instabox's; a computer is running while connected. */
 export function boxState(device: AgentDevice, now = Date.now()): MachineState {
   if (!device.box) return device.online ? 'running' : 'stopped'
