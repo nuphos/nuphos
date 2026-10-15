@@ -62,14 +62,15 @@ export const RUNTIME_AUTH_REQUIRED_MESSAGE =
 
 /**
  * The gateway relays an adapter refusal as JSON-RPC -32603 (internal error) and
- * keeps the adapter's own code only in its message wrapper, e.g.
- * `**Server Error** (code: -32000)\nAuthentication required`. The wrapper is
- * the adapter's code; the outer number is the gateway's.
+ * keeps the adapter's own code only in the leading wrapper openab-core's
+ * `format_coded_error` emits: `**<Label>** (code: N)\n<message>`. Only that
+ * shape, and only under the gateway's -32603, names the adapter's code; a
+ * `(code: N)` quoted anywhere else in a message is some other producer's.
  */
-const ACP_WRAPPED_CODE = /\(code: (-?\d+)\)/u
+const ACP_WRAPPED_CODE = /^\*\*[^*\n]+\*\* \(code: (-?\d+)\)\n/u
 
 function acpErrorCode(error: OpenAbRpcError): number | undefined {
-  const wrapped = ACP_WRAPPED_CODE.exec(error.message)
+  const wrapped = error.code === -32603 ? ACP_WRAPPED_CODE.exec(error.message) : null
 
   return wrapped ? Number(wrapped[1]) : error.code
 }
