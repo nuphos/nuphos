@@ -4,19 +4,12 @@ import { useRef } from 'react'
 
 import { api } from '../../../api'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
-import { setChatSummaryOpen, usePresence } from '../../../lib/chatSummaryPanel'
-import { requestCredentialPicker } from '../../../lib/credentialPickerEvents'
+import { setChatSummaryOpen } from '../../../lib/chatSummaryPanel'
 import { toast } from '../../ui/toast'
 
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
-import {
-  canPickCredentials,
-  changesOf,
-  connectorCount,
-  deviceLabels,
-  splitFileName,
-} from './chatSummaryModel'
-import { ChangeRow, SummaryLink, SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
+import { changesOf, splitFileName } from './chatSummaryModel'
+import { ChangeRow, SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
@@ -31,11 +24,9 @@ type Props = {
 
 const PANE = '[data-workspace-focus-surface="session"]'
 
-/** The panel beside the transcript; it stays mounted while it animates out. */
+/** The panel beside the transcript, mounted only while open. */
 export function ChatSummaryPanel({ open, ...props }: Props & { open: boolean }) {
-  const { mounted, leaving } = usePresence(open)
-
-  return mounted ? <SummaryBody {...props} leaving={leaving} /> : null
+  return open ? <SummaryBody {...props} /> : null
 }
 
 function Skeleton() {
@@ -81,9 +72,8 @@ function OutputsSection({
   }
 
   return (
-    <SummarySection
-      title="Outputs"
-      rows={files.map((file) => {
+    <SummarySection title="Outputs">
+      {files.map((file) => {
         const [name, extension] = splitFileName(file.fileName)
 
         return (
@@ -97,7 +87,7 @@ function OutputsSection({
           />
         )
       })}
-    />
+    </SummarySection>
   )
 }
 
@@ -112,22 +102,11 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null) {
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */
-function SummaryBody({
-  sessionId,
-  teamId,
-  onOpenLink,
-  onOpenSession,
-  leaving,
-}: Props & { leaving: boolean }) {
+function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
   const rootRef = useRef<HTMLElement>(null)
-  const { loaded, conversation, threads, outputs, devices } = useChatSummary(sessionId, teamId)
+  const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
   const runtimeStates = useAgentRuntimeStates()
   const changes = changesOf(conversation?.linkedResources ?? [])
-  const connectors = connectorCount(conversation)
-  const canPick = canPickCredentials(conversation)
-  const openPicker = (devicesPicker: boolean) => {
-    if (rootRef.current) requestCredentialPicker(rootRef.current, devicesPicker)
-  }
 
   return (
     <aside
@@ -135,24 +114,22 @@ function SummaryBody({
       aria-label="Chat summary"
       onKeyDown={(event) => closeOnEscape(event, rootRef.current)}
       className={clsx(
-        leaving ? 't-summary-out' : 't-summary-in',
+        't-summary-in',
         'absolute inset-y-0 right-0 z-10 flex w-[304px] flex-shrink-0 flex-col gap-3 overflow-y-auto border-l border-zGray-800/60 bg-main px-3.5 py-3 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
         '@[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent @[760px]:shadow-none',
       )}
     >
       {!loaded && <Skeleton />}
       {changes.length > 0 && (
-        <SummarySection
-          title="Changes"
-          rows={changes.map((resource) => (
+        <SummarySection title="Changes">
+          {changes.map((resource) => (
             <ChangeRow key={resource.id} resource={resource} onOpen={onOpenLink} />
           ))}
-        />
+        </SummarySection>
       )}
       {threads.length > 0 && (
-        <SummarySection
-          title="Threads"
-          rows={threads.map((thread) => (
+        <SummarySection title="Threads">
+          {threads.map((thread) => (
             <ThreadRow
               key={thread.sessionId}
               conversation={thread}
@@ -160,22 +137,9 @@ function SummaryBody({
               onOpen={onOpenSession}
             />
           ))}
-        />
+        </SummarySection>
       )}
-      {conversation && (
-        <ChatSummaryEnvironment
-          conversation={conversation}
-          deviceNames={deviceLabels(conversation, devices)}
-          onPickDevices={canPick ? () => openPicker(true) : undefined}
-        />
-      )}
-      {connectors > 0 && (
-        <SummaryLink
-          title="Connectors"
-          value={`${String(connectors)} connected`}
-          onClick={canPick ? () => openPicker(false) : undefined}
-        />
-      )}
+      {conversation && <ChatSummaryEnvironment conversation={conversation} />}
       {outputs.length > 0 && (
         <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
       )}

@@ -5,15 +5,12 @@ import { isChatSummaryShortcut } from '../../../lib/chatSummaryPanel.ts'
 import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
 
 import {
-  canPickCredentials,
   changeSubtitle,
   changeTitle,
   changesOf,
   connectorCount,
-  deviceLabels,
   findConversation,
   machineName,
-  otherDevices,
   outputFilesOf,
   splitFileName,
   subThreadsOf,
@@ -136,17 +133,13 @@ test('outputs list ready files from live download groups, newest group first', (
   assert.equal(files[0]?.image, true)
 })
 
-test('connectors count leaves devices out; devices resolve to their names', () => {
+test('connectors count leaves devices out', () => {
   const conversation = chat('a', {
     credentialAccess: { ...EMPTY_CREDENTIAL_ACCESS, awsRoleIds: ['r'], deviceIds: ['m', 'gone'] },
   })
 
   assert.equal(connectorCount(conversation), 1)
   assert.equal(connectorCount(undefined), 0)
-  assert.deepEqual(
-    deviceLabels(conversation, [{ deviceId: 'm', label: 'Mac', platform: 'darwin' }]),
-    ['Mac'],
-  )
 })
 
 test('⌘I toggles on macOS and Ctrl+I elsewhere, nothing with extra modifiers', () => {
@@ -157,6 +150,7 @@ test('⌘I toggles on macOS and Ctrl+I elsewhere, nothing with extra modifiers',
     shiftKey: false,
     code: 'KeyI',
     isComposing: false,
+    target: null,
   }
 
   assert.equal(isChatSummaryShortcut({ ...key, metaKey: true }, true), true)
@@ -165,31 +159,38 @@ test('⌘I toggles on macOS and Ctrl+I elsewhere, nothing with extra modifiers',
   assert.equal(isChatSummaryShortcut({ ...key, metaKey: true, shiftKey: true }, true), false)
 })
 
+test('⌘I is left alone while focus is in a dialog or menu', () => {
+  const inside = (selector: string) => (selector.includes('dialog') ? {} : null)
+  const key = {
+    metaKey: true,
+    ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
+    code: 'KeyI',
+    isComposing: false,
+  }
+
+  assert.equal(
+    isChatSummaryShortcut({ ...key, target: { closest: inside } as unknown as EventTarget }, true),
+    false,
+  )
+  assert.equal(
+    isChatSummaryShortcut(
+      { ...key, target: { closest: () => null } as unknown as EventTarget },
+      true,
+    ),
+    true,
+  )
+})
+
 test('the machine is named without the agent, with a fallback per runtime kind', () => {
   assert.equal(machineName('MacBook-Pro.local · Claude Code', true), 'MacBook-Pro.local')
   assert.equal(machineName(undefined, true), 'This computer')
   assert.equal(machineName('', false), 'Cloud runtime')
 })
 
-test('the device a local chat runs on shares the machine row instead of repeating it', () => {
-  assert.deepEqual(otherDevices(['MacBook-Pro.local', 'Linux box'], 'MacBook-Pro.local'), {
-    others: ['Linux box'],
-    machineIsDevice: true,
-  })
-  assert.deepEqual(otherDevices(['Linux box'], 'Cloud runtime'), {
-    others: ['Linux box'],
-    machineIsDevice: false,
-  })
-})
-
 test('a long file name can be cut while its extension stays readable', () => {
   assert.deepEqual(splitFileName('chat-summary-light.png'), ['chat-summary-light', '.png'])
   assert.deepEqual(splitFileName('README'), ['README', ''])
   assert.deepEqual(splitFileName('.env'), ['.env', ''])
-})
-
-test('only a chat its viewer manages offers the credential pickers', () => {
-  assert.equal(canPickCredentials(chat('a', { canManage: true })), true)
-  assert.equal(canPickCredentials(chat('a', { canManage: false })), false)
-  assert.equal(canPickCredentials(chat('a', { readOnly: true })), false)
 })

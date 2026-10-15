@@ -2136,7 +2136,7 @@ html.platform-darwin:not(.window-fullscreen)
   }
 }
 
-/* Chat summary panel: eases in from the right edge and back out. */
+/* Chat summary panel: eases in from the right edge. */
 @keyframes t-summary-in {
   from {
     opacity: 0;
@@ -2149,22 +2149,11 @@ html.platform-darwin:not(.window-fullscreen)
     filter: blur(0);
   }
 }
-@keyframes t-summary-out {
-  to {
-    opacity: 0;
-    transform: translateX(8px);
-  }
-}
 .t-summary-in {
   animation: t-summary-in 220ms var(--panel-ease) both;
 }
-.t-summary-out {
-  animation: t-summary-out 160ms var(--panel-ease) both;
-  pointer-events: none;
-}
 @media (prefers-reduced-motion: reduce) {
-  .t-summary-in,
-  .t-summary-out {
+  .t-summary-in {
     animation: none;
   }
 }
