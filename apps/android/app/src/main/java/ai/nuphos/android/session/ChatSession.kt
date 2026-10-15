@@ -45,6 +45,7 @@ class ChatSession(
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
     private val aiAllowed: () -> Boolean = AiAccess.bind(token),
     val creationRuntimeBinding: ai.nuphos.android.data.RuntimeBinding? = null,
+    private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime, String?) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
 ) {
     var runtimeDeviceLabel by mutableStateOf(creationRuntimeBinding?.displayLabel?.takeIf { it.isNotBlank() })
@@ -141,11 +142,39 @@ class ChatSession(
     private var consentDisposed = false
     private val hasAiAccess get() = !consentDisposed && aiAllowed()
     private val permissions get() = SessionPermissions(loaded, loadError, readOnly || !hasAiAccess, isOwner, canCancelRun, canRespondToRun)
-    val canManage get() = permissions.manage
+    private var manages by mutableStateOf(false)
+    private var hasActiveRun by mutableStateOf(false)
+    var movingAgent by mutableStateOf(false)
+        private set
+    val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
+    val canMoveAgent get() = canManage && serverMetadataObserved && !isStreaming && !hasActiveRun &&
+        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
+
+    suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
+        check(canMoveAgent) { "Wait for the current response to finish before switching agents." }
+        require(target.selectable && (isOwner || target.kind == "managed")) { "Choose an available agent." }
+        if (target.id == runtimeId) return
+        movingAgent = true
+        transportGeneration++
+        detailLoadGeneration++
+        try {
+            val moved = moveRuntime(token, teamId, sessionId, target, agentRuntime)
+            if (!hasAiAccess) return
+            runtimeId = moved.runtimeId
+            runtimeDeviceLabel = moved.displayLabel
+            agentRuntime = moved.agentRuntime
+            runtimeObservation = null
+            serverMetadataObserved = true
+        } finally {
+            transportGeneration++
+            movingAgent = false
+        }
+        reloadFromServer()
+    }
     val canReply get() = permissions.reply && (!isNative || runtimeObservation?.allows("reply", RuntimeObservation.now()) == true) && !submissionPending
     val canEnqueueSteering get() = !steeringUnconfirmed && permissions.reply && isNative && runtimeObservation?.allows("reply", RuntimeObservation.now()) != true && runtimeObservation?.allows("steer", RuntimeObservation.now()) == true
     val canSteer get() = canEnqueueSteering && !steeringPending
-    val canSubmit get() = !runtimeRecoveryRequired && (!isNative || !steeringUnconfirmed) && permissions.writable && !uploadBusy && (!submissionPending || canEnqueueSteering) && (!isNative || canReply || canEnqueueSteering || runtimeObservation?.allows("send", RuntimeObservation.now()) == true)
+    val canSubmit get() = !movingAgent && !runtimeRecoveryRequired && (!isNative || !steeringUnconfirmed) && permissions.writable && !uploadBusy && (!submissionPending || canEnqueueSteering) && (!isNative || canReply || canEnqueueSteering || runtimeObservation?.allows("send", RuntimeObservation.now()) == true)
     val canCancel get() = permissions.cancel && !cancelRequested && (if (isNative) runtimeObservation?.allows("cancel", RuntimeObservation.now()) == true else isStreaming)
     val runtimeLabel get() = if (isNative) {
         val observation = runtimeObservation
@@ -637,6 +666,8 @@ class ChatSession(
         isArchived = detail.archivedAt != null
         readOnly = browsingOnly || (detail.readOnly ?: false)
         isOwner = detail.isOwner ?: false
+        manages = detail.canManage ?: isOwner
+        hasActiveRun = detail.activeRun != null
         canCancelRun = detail.canCancelRun ?: false
         canRespondToRun = detail.canRespondToRun ?: false
         serverMetadataObserved = true
@@ -808,7 +839,7 @@ class ChatSession(
         val generation = transportGeneration
         val observedAt = RuntimeObservation.now()
         val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
-        if (generation != transportGeneration || !hasAiAccess) return
+        if (generation != transportGeneration || movingAgent || !hasAiAccess) return
         if (detail == null) { recallRows = emptySet(); return }
         refreshMetadata(detail, observedAt)
         reconcileAdmission(detail)
@@ -825,11 +856,11 @@ class ChatSession(
             delay(3_000)
             if (!hasAiAccess) return
             observationClock = RuntimeObservation.now()
-            if (!loaded || loadError != null || (!isNative && isStreaming)) continue
+            if (!loaded || loadError != null || movingAgent || (!isNative && isStreaming)) continue
             val generation = transportGeneration
             val observedAt = RuntimeObservation.now()
             val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
-            if (generation != transportGeneration || !hasAiAccess) continue
+            if (generation != transportGeneration || movingAgent || !hasAiAccess) continue
             if (detail == null) { recallRows = emptySet(); continue }
             refreshMetadata(detail, observedAt)
             reconcileAdmission(detail)
@@ -915,7 +946,7 @@ class ChatSession(
                 SseClient.events(request)
                     .catch { e -> streamError = e }
                     .collect { event ->
-                        if (generation != transportGeneration || !hasAiAccess) return@collect
+                        if (generation != transportGeneration || movingAgent || !hasAiAccess) return@collect
                         if (event.data == "[DONE]") return@collect
                         val frame = JsonValue.parse(event.data) ?: return@collect
                         resumeFrom = cursor.decoded(frame)

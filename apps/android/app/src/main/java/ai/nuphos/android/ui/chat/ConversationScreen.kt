@@ -178,6 +178,7 @@ fun ConversationScreen(
         session.pollWhileIdle()
     }
 
+    var showAgent by remember(session) { mutableStateOf(false) }
     var refreshBrowse by remember(session) { mutableStateOf(0) }
     LaunchedEffect(session, refreshBrowse) {
         if (browsingOnly && refreshBrowse > 0 && store.selectedTeam?.id == browsingTeamId) session.reloadFromServer()
@@ -324,7 +325,16 @@ fun ConversationScreen(
                     draftAccount?.let { draftAuth.composerDrafts.bind(it, draftTeam, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(sessionId), ai.nuphos.android.session.AiAccess.bind(draftAuth.token.orEmpty())) }
                 }
                 val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(draftAuth.token, session.teamId)
+                if (showAgent && draftAuth.token != null && draftAuth.aiAllowed) {
+                    val generation = draftAuth.generation
+                    val workspaceRevision = store.workspaceRevision
+                    ConversationAgentSheet(session, draftAuth.token!!, quotas,
+                        isCurrent = { draftAuth.generation == generation && draftAuth.aiAllowed &&
+                            store.workspaceRevision == workspaceRevision && store.selectedTeam?.id == session.teamId },
+                        onDismiss = { showAgent = false })
+                }
                 ChatComposer(
+                    onChooseAgent = { showAgent = true },
                     agentLabel = session.runtimeDeviceLabel,
                     agentQuota = session.runtimeId?.let { quotas[it] },
                     draft = draft,
