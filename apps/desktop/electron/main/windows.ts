@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { BrowserWindow, ipcMain, shell } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
@@ -10,6 +10,7 @@ import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
 import { APP_NAME, isDev } from './env'
+import { openExternal } from './open-external'
 import { TITLEBAR_ROW_H, titleBarOverlayFor } from './window-titlebar'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -204,7 +205,7 @@ export function createWindow(): BrowserWindow {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url).catch((e: unknown) => {
+    openExternal(url).catch((e: unknown) => {
       console.error('[open-external]', url, e)
     })
 
