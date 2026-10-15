@@ -128,6 +128,7 @@ export function Composer({
     modelSession && modelControl.data?.status !== 'unsupported'
       ? () => modelControl.setOpen(true)
       : undefined,
+    runtimeState?.commands,
   )
   const actions = useComposerActions(state, {
     sendBlocked,

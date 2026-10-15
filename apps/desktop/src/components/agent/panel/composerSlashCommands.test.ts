@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { matchSlashCommands, slashKeyAction, slashQuery } from './composerSlashCommands.ts'
+import {
+  agentCommandText,
+  matchSlashCommands,
+  matchSlashOptions,
+  slashKeyAction,
+  slashQuery,
+} from './composerSlashCommands.ts'
 
 const run = () => null
 const commands = [
@@ -47,4 +53,26 @@ test('Tab and the arrows work the menu; Shift+Enter never selects', () => {
 
 test('a row the pointer highlights does not arm Enter', () => {
   assert.equal(slashKeyAction('Enter', false, { active: 1, armed: false }), null)
+})
+
+const agent = [
+  { name: 'review', description: 'Review the diff', hint: 'branch' },
+  { name: 'compact', description: 'Compact the context' },
+  { name: 'model', description: "The agent's own model command" },
+]
+
+test("the agent's commands come first, matched by name, then Nuphos actions", () => {
+  assert.deepEqual(
+    matchSlashOptions(agent, commands, 'mo').map((option) =>
+      option.kind === 'agent' ? `agent:${option.command.name}` : `nuphos:${option.action.id}`,
+    ),
+    ['agent:model', 'nuphos:model'],
+  )
+  assert.equal(matchSlashOptions(agent, commands, '').length, agent.length + commands.length)
+  assert.equal(matchSlashOptions([], commands, 'f')[0]?.kind, 'nuphos')
+})
+
+test('an agent command is written into the message with its hint to type over', () => {
+  assert.deepEqual(agentCommandText(agent[0]!), { text: '/review branch', hintStart: 8 })
+  assert.deepEqual(agentCommandText(agent[1]!), { text: '/compact ', hintStart: 9 })
 })

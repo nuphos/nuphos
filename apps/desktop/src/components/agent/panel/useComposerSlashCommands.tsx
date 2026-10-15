@@ -1,26 +1,30 @@
 import { useContext, useState } from 'react'
 
 import {
-  matchSlashCommands,
+  agentCommandText,
+  matchSlashOptions,
   slashKeyAction,
   slashQuery,
   SlashCommandsContext,
 } from './composerSlashCommands'
 import { SlashCommandPicker } from './SlashCommandPicker'
 
-import type { SlashCommand } from './composerSlashCommands'
+import type { SlashCommand, SlashOption } from './composerSlashCommands'
+import type { AgentCommand } from '../../../lib/runtimeExecution'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 
 /**
- * Typing `/` at the start of a message lists the Nuphos actions the panel
- * provides, plus Model when this composer has a model control. Nothing runs
- * unless picked; Escape keeps the menu closed until the leading `/` is gone.
+ * Typing `/` at the start of a message lists the agent's own commands, then the
+ * Nuphos actions the panel provides (plus Model when this composer has a model
+ * control). An agent command is only written into the message; a Nuphos action
+ * runs only when picked. Escape keeps the menu closed until the leading `/` is gone.
  */
 export function useComposerSlashCommands(
   editorRef: RefObject<HTMLDivElement | null>,
   composingRef: RefObject<boolean>,
   onEdited: () => void,
   openModel?: () => void,
+  agentCommands: readonly AgentCommand[] = [],
 ) {
   const panelCommands = useContext(SlashCommandsContext)
   const [query, setQuery] = useState<string | null>(null)
@@ -38,7 +42,8 @@ export function useComposerSlashCommands(
         { id: 'model', title: 'Model', description: 'Change the model', run: openModel },
       ]
     : panelCommands
-  const matches = query === null || dismissed ? [] : matchSlashCommands(commands, query)
+  const matches =
+    query === null || dismissed ? [] : matchSlashOptions(agentCommands, commands, query)
 
   function onInput() {
     const el = editorRef.current
@@ -70,14 +75,32 @@ export function useComposerSlashCommands(
     setAnchor({ getBoundingClientRect: () => range.getBoundingClientRect(), contextElement: el })
   }
 
-  function select(command: SlashCommand) {
+  function select(option: SlashOption) {
     const el = editorRef.current
 
     setQuery(null)
     if (!el) return
-    el.textContent = ''
+    if (option.kind === 'nuphos') {
+      el.textContent = ''
+      onEdited()
+      option.action.run()
+
+      return
+    }
+    const { text, hintStart } = agentCommandText(option.command)
+
+    el.textContent = text
+    const sel = window.getSelection()
+
+    if (el.firstChild && sel) {
+      const range = document.createRange()
+
+      range.setStart(el.firstChild, hintStart)
+      range.setEnd(el.firstChild, text.length)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
     onEdited()
-    command.run()
   }
 
   /** Handles the menu's keys; true when the key was its to take. */
@@ -112,7 +135,7 @@ export function useComposerSlashCommands(
 
   const ui = (
     <SlashCommandPicker
-      commands={matches}
+      options={matches}
       active={active}
       anchor={anchor}
       onSelect={select}
