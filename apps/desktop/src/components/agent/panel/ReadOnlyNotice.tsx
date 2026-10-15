@@ -10,7 +10,7 @@ import { toast } from '../../ui/toast'
 
 import { ASK_ADMIN_TO_RECONNECT } from './AgentSetupRequiredCard'
 import { ConversationActivityBadges } from './historyRows'
-import { selectedAgentSignOut } from './RuntimeSelector'
+import { selectedAgentSignOut } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 
 import type { RuntimeControl } from './RuntimeSelector'
