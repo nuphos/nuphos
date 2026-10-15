@@ -84,9 +84,10 @@ jobs:
             ~/.cache/nuphos/openab-*/target/*/release/openab
             ~/.cache/nuphos/openab-*/target/*/release/openab.exe
       # A rejected entry keeps its key, so saving cannot replace it and every
-      # release would compile without anyone noticing.
+      # release would compile without anyone noticing. A PR run rejects main's
+      # entries by design (it verifies against its own ref), so it never fails.
       - name: Fail on a rejected cache entry
-        if: steps.openab.outputs.rejected != '0'
+        if: steps.openab.outputs.rejected != '0' && github.event_name != 'pull_request'
         env:
           KEY: ${{ steps.openab.outputs.key }}
         run: |
