@@ -3,6 +3,7 @@ import { Star, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { track } from '../../../lib/analytics'
+import { GithubMark } from '../../GithubMark'
 
 import type { ReactNode } from 'react'
 
@@ -77,10 +78,11 @@ export function StarStrip({ onDone }: { onDone: () => void }) {
       message="Nuphos is built in the open. A star means a lot."
       action={
         <>
-          <Star className="h-3.5 w-3.5 fill-current" strokeWidth={1.8} />
+          <GithubMark size={14} />
           Star on GitHub
           {stars !== null && (
-            <span className="tabular-nums">
+            <span className="flex items-center gap-0.5 tabular-nums">
+              <Star className="h-3 w-3 fill-current" strokeWidth={1.8} />
               {new Intl.NumberFormat('en', { notation: 'compact' }).format(stars)}
             </span>
           )}
