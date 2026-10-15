@@ -74,11 +74,11 @@ class ConversationUnlinkFixtureDeviceTest {
                 }
                 val text = when (path) {
                     "/agent/conversations/child/parent" -> responseBody
-                    "/teams/A/favorites" -> """{"revision":1,"entries":$entries}"""
+                    "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites" -> """{"revision":1,"entries":$entries}"""
                     "/agent/conversations" -> """{"conversations":[],"hasMore":false}"""
                     else -> "{}"
                 }
-                val code = if (path == "/agent/conversations/child/parent") responseCode else if (path in setOf("/teams/A/favorites", "/agent/conversations")) 200 else 404
+                val code = if (path == "/agent/conversations/child/parent") responseCode else if (path in setOf("/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites", "/agent/conversations")) 200 else 404
                 Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                     .body(text.toResponseBody(Http.jsonMedia)).build()
             }.build()
@@ -113,14 +113,14 @@ class ConversationUnlinkFixtureDeviceTest {
         compose.runOnIdle {
             AiAccess.grant(token)
             store = AgentStore(token, compose.activity)
-            state(store, "selectedTeam").value = Team("A", "Fixture A")
-            store.acceptMemberships(listOf(Team("A", "Fixture A"), Team("B", "Fixture B")))
+            state(store, "selectedTeam").value = Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A")
+            store.acceptMemberships(listOf(Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A"), Team("bbbbbbbbbbbbbbbbbbbbbbbb", "Fixture B")))
             state(store, "phase").value = AgentStore.Phase.Loaded
-            state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
-                AgentConversation("child", "A", "Synthetic child", parentSessionId = "normal", isOwner = true),
-                AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child", isOwner = true, unread = JsonValue.Bool(true)),
-                AgentConversation("mine", "A", "Synthetic own chat", isOwner = true),
-                AgentConversation("shared", "A", "Synthetic shared chat", isOwner = false))
+            state(store, "conversations").value = listOf(AgentConversation("normal", "aaaaaaaaaaaaaaaaaaaaaaaa", "Synthetic parent", parentSessionId = null),
+                AgentConversation("child", "aaaaaaaaaaaaaaaaaaaaaaaa", "Synthetic child", parentSessionId = "normal", isOwner = true),
+                AgentConversation("leaf", "aaaaaaaaaaaaaaaaaaaaaaaa", "Synthetic leaf", parentSessionId = "child", isOwner = true, unread = JsonValue.Bool(true)),
+                AgentConversation("mine", "aaaaaaaaaaaaaaaaaaaaaaaa", "Synthetic own chat", isOwner = true),
+                AgentConversation("shared", "aaaaaaaaaaaaaaaaaaaaaaaa", "Synthetic shared chat", isOwner = false))
             val auth = AuthSession(app, app.tokenStore)
             state(auth, "state").value = AuthSession.State.SignedIn(NuphosUser("pins-fixture", "pins@example.invalid", "Unlink fixture"))
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
@@ -190,7 +190,7 @@ class ConversationUnlinkFixtureDeviceTest {
     @Test fun missingOwnerReadOnlyRootAndForeignTeamCannotUnlinkEvenViaStore() {
         render()
         val denied = listOf(child().copy(isOwner = false), child().copy(isOwner = null),
-            child().copy(readOnly = true), child().copy(parentSessionId = null), child().copy(teamId = "B"))
+            child().copy(readOnly = true), child().copy(parentSessionId = null), child().copy(teamId = "bbbbbbbbbbbbbbbbbbbbbbbb"))
         for (row in denied) {
             compose.runOnIdle { state(store, "conversations").value = listOf(row) }
             compose.onAllNodesWithText("Unlink").assertCountEquals(0)
@@ -207,7 +207,7 @@ class ConversationUnlinkFixtureDeviceTest {
         assertEquals(1, deletes())
         val rows = store.conversations
         compose.runOnIdle {
-            store.select(Team("B", "Fixture B")); store.select(Team("A", "Fixture A"))
+            store.select(Team("bbbbbbbbbbbbbbbbbbbbbbbb", "Fixture B")); store.select(Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A"))
         }
         compose.waitUntil(5_000) { store.phase == AgentStore.Phase.Loaded }
         compose.runOnIdle { state(store, "conversations").value = rows }
