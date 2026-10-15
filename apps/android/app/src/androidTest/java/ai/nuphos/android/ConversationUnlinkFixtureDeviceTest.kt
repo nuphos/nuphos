@@ -179,6 +179,7 @@ class ConversationUnlinkFixtureDeviceTest {
         openConfirm(); confirm()
         compose.waitUntil(5_000) { store.unlinkError != null && store.unlinkingSessionId == null }
         assertEquals("normal", child().parentSessionId); assertEquals(1, deletes())
+        compose.onNodeWithText("This chat is unavailable or you no longer have permission to unlink it.").assertExists()
         shot("denied")
         responseCode = 200; responseBody = "{}"; confirm()
         compose.waitUntil(5_000) { deletes() == 2 && store.unlinkingSessionId == null }

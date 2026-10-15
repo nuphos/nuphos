@@ -193,7 +193,12 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (isCurrent()) unlinkError = e.message ?: "Could not unlink chat. Try again."
+            if (isCurrent()) unlinkError = when {
+                e is NuphosApi.Failure.Unauthorized -> "Your session has expired. Please sign in again."
+                e is ai.nuphos.android.data.AgentChatApi.Conflict.Other && e.status in setOf(403, 404) ->
+                    "This chat is unavailable or you no longer have permission to unlink it."
+                else -> "Could not unlink chat. Try again."
+            }
         } finally {
             if (isCurrent()) unlinkingSessionId = null
         }
