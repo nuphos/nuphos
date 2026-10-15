@@ -201,6 +201,7 @@ export function useComposerMentions(
   const ui = (
     <>
       <MentionPicker
+        allDevices={credentials?.options.devices ?? []}
         options={matches}
         active={active}
         anchor={anchor}

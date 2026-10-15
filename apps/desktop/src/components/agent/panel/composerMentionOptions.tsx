@@ -1,6 +1,7 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
 import { Laptop, MessageSquare } from 'lucide-react'
+import { useId } from 'react'
 
 import { Avatar } from '../../Avatar'
 
@@ -10,12 +11,12 @@ import { optionKey } from './composerMentionChips'
 import type { MentionOption } from './composerMentionChips'
 import type { ReactNode } from 'react'
 
-function Row({ icon, label, detail }: { icon: ReactNode; label: string; detail: string }) {
+function Row({ icon, label, detail }: { icon: ReactNode; label: string; detail?: string }) {
   return (
     <>
       {icon}
       <span className="truncate text-main">{label}</span>
-      <span className="ml-auto truncate text-[11.5px] text-tertiary">{detail}</span>
+      {detail && <span className="ml-auto truncate text-[11.5px] text-tertiary">{detail}</span>}
     </>
   )
 }
@@ -62,7 +63,6 @@ function MentionOptionRow({
         <Row
           icon={<MessageSquare size={16} className="shrink-0 text-tertiary" />}
           label={option.session.title || option.session.firstMessage || 'Untitled session'}
-          detail=""
         />
       )
   }
@@ -76,15 +76,25 @@ export function MentionPicker({
   onSelect,
   onActive,
   onClose,
+  allDevices,
 }: {
   options: MentionOption[]
+  /** Every device, not just the matches shown, so a repeated name is caught. */
+  allDevices: Extract<MentionOption, { kind: 'device' }>['device'][]
   active: number
   anchor: Popover.Positioner.Props['anchor']
   onSelect: (option: MentionOption) => void
   onActive: (index: number) => void
   onClose: () => void
 }) {
-  const devices = options.flatMap((option) => (option.kind === 'device' ? [option.device] : []))
+  const headingId = useId()
+  // Each kind is contiguous; `index` stays the option's place in the whole list.
+  const sections = (['member', 'device', 'session'] as const)
+    .map((kind) => ({
+      kind,
+      rows: options.flatMap((option, index) => (option.kind === kind ? [{ option, index }] : [])),
+    }))
+    .filter((section) => section.rows.length > 0)
 
   return (
     <Popover.Root
@@ -108,34 +118,38 @@ export function MentionPicker({
             style={{ transformOrigin: 'var(--transform-origin)' }}
             className="t-dropdown is-open w-[280px] max-h-[var(--available-height)] overflow-auto rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none"
           >
-            {options.map((option, index) => [
-              option.kind !== options[index - 1]?.kind && (
+            {sections.map(({ kind, rows }, sectionIndex) => (
+              <div key={kind} role="group" aria-labelledby={`${headingId}-${kind}`}>
                 <div
-                  key={`heading-${option.kind}`}
-                  role="presentation"
-                  className="px-2 pb-1 pt-2 text-[11px] font-medium text-tertiary first:pt-1"
+                  id={`${headingId}-${kind}`}
+                  className={clsx(
+                    'px-2 pb-1 text-[11px] font-medium text-tertiary',
+                    sectionIndex === 0 ? 'pt-1' : 'pt-2',
+                  )}
                 >
-                  {SECTION_TITLES[option.kind]}
+                  {SECTION_TITLES[kind]}
                 </div>
-              ),
-              <div
-                key={optionKey(option)}
-                role="option"
-                aria-selected={index === active}
-                className={clsx(
-                  'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px]',
-                  index === active && 'bg-zGray-800/60',
-                )}
-                // Keep focus (and the caret) in the editor.
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  onSelect(option)
-                }}
-                onMouseEnter={() => onActive(index)}
-              >
-                <MentionOptionRow option={option} devices={devices} />
-              </div>,
-            ])}
+                {rows.map(({ option, index }) => (
+                  <div
+                    key={optionKey(option)}
+                    role="option"
+                    aria-selected={index === active}
+                    className={clsx(
+                      'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px]',
+                      index === active && 'bg-zGray-800/60',
+                    )}
+                    // Keep focus (and the caret) in the editor.
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      onSelect(option)
+                    }}
+                    onMouseEnter={() => onActive(index)}
+                  >
+                    <MentionOptionRow option={option} devices={allDevices} />
+                  </div>
+                ))}
+              </div>
+            ))}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
