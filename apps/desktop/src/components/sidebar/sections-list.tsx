@@ -8,7 +8,7 @@ import {
 } from '../SidebarNavItem'
 import { Tooltip } from '../ui/tooltip'
 
-import { useChatDropTarget } from './chat-drag'
+import { useDropTarget } from './chat-drag'
 import { SidebarSectionSkeleton } from './parts'
 import { SidebarRows } from './section-rows'
 import { SidebarProjects } from './sidebar-projects'
@@ -84,12 +84,14 @@ function SidebarSection({
   // A project being named stays in view even inside a folded Projects group.
   const collapsed = isGroupCollapsed(section) && !(section.projects && projects?.renamingId)
   // Dropping a filed chat on Chats takes it out of its project.
-  const drop = useChatDropTarget(
-    projects && section.title === 'Chats'
-      ? (sessionId) => projects.move(sessionId, null)
-      : undefined,
-    (sessionId) => Boolean(projects?.projectOf(sessionId)),
-  )
+  const drop = useDropTarget({
+    kind: 'chat',
+    onDrop:
+      projects && section.title === 'Chats'
+        ? (sessionId) => projects.move(sessionId, null)
+        : undefined,
+    accepts: (sessionId) => Boolean(projects?.projectOf(sessionId)),
+  })
 
   let body = <SidebarRows items={section.items} {...rows} />
 
@@ -103,7 +105,7 @@ function SidebarSection({
       className={clsx(
         'rounded-lg transition-[margin-bottom,background-color] duration-200 motion-reduce:transition-none',
         collapsed ? 'mb-1' : SIDEBAR_GROUP_GAP_CLASS,
-        drop.over && 'bg-[var(--sidebar-overlay-hover)]',
+        drop.over && 'bg-zViolet-500/10 ring-1 ring-inset ring-zViolet-500/40',
       )}
     >
       {section.title && (

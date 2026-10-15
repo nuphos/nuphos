@@ -11,6 +11,18 @@ export function sharedChatSection(sharedChatItems: Item[]): Section[] {
   return sharedChatItems.length > 0 ? [{ title: 'Shared', items: sharedChatItems }] : []
 }
 
+/** A hand-ordered project lists its chats in that order; threads still nest under theirs. */
+function inProjectOrder(project: SidebarProject, items: Item[]): Item[] {
+  if (!project.manualOrder) return items
+  const rank = (item: Item) => {
+    const index = project.sessionIds.indexOf(item.key.slice('agent-session:'.length))
+
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index
+  }
+
+  return items.toSorted((left, right) => rank(left) - rank(right))
+}
+
 /**
  * The chat groups in team view: what the viewer pinned, their projects, then
  * the sessions they joined, all above their own Chats. A thread goes wherever
@@ -50,7 +62,8 @@ export function withChatSections(
   const projectGroups = (projects ?? []).map((project) => ({
     id: project.id,
     name: project.name,
-    items: group(`project:${project.id}`),
+    manualOrder: Boolean(project.manualOrder),
+    items: inProjectOrder(project, group(`project:${project.id}`)),
   }))
   const groups: Section[] = [
     { title: 'Pinned', items: [...pinnedChatItems, ...group('Pinned')] },
@@ -70,4 +83,41 @@ export function withChatSections(
   result.splice(chatsIndex === -1 ? 1 : chatsIndex, 0, ...groups)
 
   return result
+}
+
+/** Everything the sidebar lists in this view; split mode keeps only the top nav and chats. */
+export function visibleSections({
+  sections,
+  teamView,
+  dynamicNavigation,
+  pinnedChatItems,
+  sharedChatItems,
+  favoriteItems,
+  isPinned,
+  projects,
+}: {
+  sections: Section[]
+  teamView: boolean
+  dynamicNavigation: boolean
+  pinnedChatItems: Item[]
+  sharedChatItems: Item[]
+  favoriteItems: Item[]
+  isPinned: (item: Item) => unknown
+  projects: readonly SidebarProject[]
+}): Section[] {
+  const listed = teamView
+    ? withChatSections(sections, pinnedChatItems, sharedChatItems, isPinned, projects)
+    : [...sections]
+
+  if (!dynamicNavigation) {
+    return listed.filter(
+      (section, index) =>
+        index === 0 || ['Pinned', 'Projects', 'Shared', 'Chats'].includes(section.title ?? ''),
+    )
+  }
+  if (teamView && favoriteItems.length > 0) {
+    listed.splice(1, 0, { title: 'Favorites', items: favoriteItems })
+  }
+
+  return listed
 }

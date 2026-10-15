@@ -8,8 +8,10 @@ import {
   StarOff,
   Unlink,
 } from 'lucide-react'
+import { useState } from 'react'
 
 import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
+import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { ContextMenu } from '../ContextMenu'
 
 import type { Item } from './types'
@@ -23,6 +25,9 @@ function trimSeparators(items: ContextMenuItem[]): ContextMenuItem[] {
     (item, index) => !('separator' in item) || (index > 0 && index < items.length - 1),
   )
 }
+
+/** Keeps a long project name from stretching the menu. */
+const shortName = (name: string) => (name.length > 36 ? `${name.slice(0, 35)}…` : name)
 
 /** "Move to project" entries: the other projects, a new one, and the way back to Chats. */
 function projectMenuItems(
@@ -38,7 +43,7 @@ function projectMenuItems(
       .filter((project) => project.id !== current?.id)
       .map((project) => ({
         key: `project-${project.id}`,
-        label: project.name,
+        label: shortName(project.name),
         icon: Folder,
         onSelect: () => projects.move(sessionId, project.id),
       })),
@@ -52,7 +57,7 @@ function projectMenuItems(
       ? [
           {
             key: 'project-remove',
-            label: `Remove from ${current.name}`,
+            label: `Remove from ${shortName(current.name)}`,
             icon: FolderMinus,
             onSelect: () => projects.move(sessionId, null),
           },
@@ -62,7 +67,7 @@ function projectMenuItems(
   ]
 }
 
-export function SidebarItemContextMenu({
+function SidebarItemContextMenu({
   menu,
   onClose,
   canFavorite,
@@ -146,5 +151,37 @@ export function SidebarItemContextMenu({
           : []),
       ])}
     />
+  )
+}
+
+type ItemMenuProps = Omit<Parameters<typeof SidebarItemContextMenu>[0], 'menu' | 'renameChat'> & {
+  menu: { x: number; y: number; item: Item } | null
+  teamId: string
+}
+
+/** The right-click menu for a sidebar row, plus the rename dialog it can open. */
+export function SidebarItemMenu({ menu, teamId, ...props }: ItemMenuProps) {
+  const [renameTarget, setRenameTarget] = useState<{ sessionId: string; title: string } | null>(
+    null,
+  )
+
+  return (
+    <>
+      {renameTarget && (
+        <RenameConversationDialog
+          key={renameTarget.sessionId}
+          {...renameTarget}
+          teamId={teamId}
+          onClose={() => setRenameTarget(null)}
+        />
+      )}
+      {menu && (
+        <SidebarItemContextMenu
+          {...props}
+          menu={menu}
+          renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
+        />
+      )}
+    </>
   )
 }

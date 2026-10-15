@@ -65,7 +65,12 @@ export type SidebarFavoritesSnapshot = {
   updatedAt: string | null
 }
 
-export type SidebarProjectEntry = { id: string; name: string; sessionIds: string[] }
+export type SidebarProjectEntry = {
+  id: string
+  name: string
+  sessionIds: string[]
+  manualOrder?: boolean
+}
 export type SidebarProjectsSnapshot = {
   projects: SidebarProjectEntry[]
   revision: number

@@ -17,6 +17,7 @@ const projectSchema = z
     id: z.string().trim().min(1).max(64),
     name: z.string().trim().min(1).max(80),
     sessionIds: z.array(z.string().trim().min(1).max(128)).max(1000),
+    manualOrder: z.boolean().optional(),
   })
   .strict()
 

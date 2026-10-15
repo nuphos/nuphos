@@ -168,8 +168,9 @@ export type UserTeamSidebarFavorites = {
 export type SidebarProject = {
   id: string
   name: string
-  /** Chats filed here. A chat sits in at most one project. */
+  /** Chats filed here, in display order when `manualOrder` is set. A chat sits in at most one project. */
   sessionIds: string[]
+  manualOrder?: boolean
 }
 
 /**

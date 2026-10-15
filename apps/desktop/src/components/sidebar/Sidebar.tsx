@@ -2,11 +2,10 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
-import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
-import { sharedChatSection, withChatSections } from './chat-sections'
+import { sharedChatSection, visibleSections } from './chat-sections'
 import {
   SidebarHeaderBar,
   SidebarTeamSwitcher,
@@ -14,7 +13,7 @@ import {
   SidebarUserEntry,
 } from './header'
 import { SidebarHelpMenu } from './help-menu'
-import { SidebarItemContextMenu } from './item-context-menu'
+import { SidebarItemMenu } from './item-context-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
 import { SidebarSectionList } from './sections-list'
@@ -69,9 +68,6 @@ export function Sidebar({
   onToggleCollapse,
   dynamicNavigation = false,
 }: SidebarProps) {
-  const [renameTarget, setRenameTarget] = useState<{ sessionId: string; title: string } | null>(
-    null,
-  )
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
@@ -125,21 +121,24 @@ export function Sidebar({
     })
 
   const [itemMenu, setItemMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
-  const projects = useSidebarProjects({ userId: user?.id ?? '', teamId })
-  const renderSections = teamView
-    ? withChatSections(sections, pinnedChatItems, sharedChatItems, favoriteMatch, projects.list)
-    : [...sections]
-
-  if (dynamicNavigation && teamView && favoriteItems.length > 0) {
-    renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
-  }
-
-  const sidebarSections = dynamicNavigation
-    ? renderSections
-    : renderSections.filter(
-        (section, index) =>
-          index === 0 || ['Pinned', 'Projects', 'Shared', 'Chats'].includes(section.title ?? ''),
-      )
+  const projects = useSidebarProjects({
+    userId: user?.id ?? '',
+    teamId,
+    openSessionId: chatShown ? agentSessionId : null,
+    newChatActive,
+    listedChats: [...chatItems, ...sharedChatItems],
+    onNewChat: () => onSelect('team.agent'),
+  })
+  const sidebarSections = visibleSections({
+    sections,
+    teamView,
+    dynamicNavigation,
+    pinnedChatItems,
+    sharedChatItems,
+    favoriteItems,
+    isPinned: favoriteMatch,
+    projects: projects.list,
+  })
 
   const showSidebar = !collapsed || peek
 
@@ -273,27 +272,17 @@ export function Sidebar({
           <SidebarHelpMenu onOpenShortcutsHelp={onOpenShortcutsHelp} />
         </div>
       </aside>
-      {renameTarget && (
-        <RenameConversationDialog
-          key={renameTarget.sessionId}
-          {...renameTarget}
-          teamId={teamId}
-          onClose={() => setRenameTarget(null)}
-        />
-      )}
-      {itemMenu && (
-        <SidebarItemContextMenu
-          menu={itemMenu}
-          onClose={() => setItemMenu(null)}
-          canFavorite={canFavorite}
-          favoriteMatch={favoriteMatch}
-          toggleFavorite={toggleFavorite}
-          archiveChat={archiveChat}
-          unlinkChat={unlinkChat}
-          renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
-          projects={teamView ? projects : undefined}
-        />
-      )}
+      <SidebarItemMenu
+        menu={itemMenu}
+        teamId={teamId}
+        onClose={() => setItemMenu(null)}
+        canFavorite={canFavorite}
+        favoriteMatch={favoriteMatch}
+        toggleFavorite={toggleFavorite}
+        archiveChat={archiveChat}
+        unlinkChat={unlinkChat}
+        projects={teamView ? projects : undefined}
+      />
     </>
   )
 }
