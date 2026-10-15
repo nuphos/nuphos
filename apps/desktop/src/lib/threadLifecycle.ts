@@ -10,6 +10,8 @@ type Conversation = {
   sessionId: string
   parentSessionId?: string
   runtimeState?: RuntimeExecution
+  /** A teammate's conversation: the viewer can't archive it. */
+  readOnly?: boolean
 }
 
 export type ThreadState = 'running' | 'waiting' | 'done' | 'stopped'
@@ -32,8 +34,9 @@ export function threadRunning(snapshot: RuntimeExecution | undefined): boolean {
 }
 
 /**
- * The threads under a chat, split by whether they are finished. A thread with
- * a running thread of its own is not finished.
+ * The viewer's own threads under a chat, split by whether a snapshot says they
+ * finished. A thread with a running thread of its own, or with no snapshot yet,
+ * stays. A teammate's thread is never offered: only its owner may archive it.
  */
 export function threadsUnder(
   sessionId: string,
@@ -57,13 +60,12 @@ export function threadsUnder(
     if (seen.has(thread.sessionId)) return true
     seen.add(thread.sessionId)
     const kidsDone = (children.get(thread.sessionId) ?? []).map(visit).every(Boolean)
-    const done =
-      kidsDone &&
-      !threadRunning(
-        newestRuntimeSnapshot(thread.runtimeState, runtimeStates.get(thread.sessionId)),
-      )
+    const snapshot = newestRuntimeSnapshot(thread.runtimeState, runtimeStates.get(thread.sessionId))
+    const done = kidsDone && snapshot !== undefined && !threadRunning(snapshot)
 
-    ;(done ? finished : running).push(thread.sessionId)
+    const bucket = done ? finished : running
+
+    if (!thread.readOnly) bucket.push(thread.sessionId)
 
     return done
   }

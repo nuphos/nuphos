@@ -1,32 +1,37 @@
-import { archiveChat } from '../../lib/archiveChat'
+import { api } from '../../api'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
-import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { readSwrCache } from '../../lib/swrCache'
 import { agentSessionsCacheKey } from '../sidebar/state'
 import { useArchiveOffer } from '../sidebar/use-archive-offer'
-import { toast } from '../ui/toast'
 
 import type { AgentConversation } from '../../api'
 
 /**
  * The titlebar's archive asks about finished threads the same way the sidebar
- * does, reading the threads from the sidebar's cached chat list.
+ * does. It re-reads the chat list first: the sidebar's cached copy may be empty
+ * (a deep link) or older than a thread made since.
  */
-export function useHeaderArchiveOffer(teamId: string, archive: () => Promise<boolean>) {
+export function useHeaderArchiveOffer(
+  teamId: string,
+  archive: (threadIds: string[]) => Promise<boolean>,
+) {
   const runtimeStates = useAgentRuntimeStates()
-
-  return useArchiveOffer({
+  const offer = useArchiveOffer({
     conversations: readSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId)) ?? [],
     runtimeStates,
-    onArchive: async (_sessionId, threadIds) => {
-      if (!(await archive())) return
-      await Promise.all(
-        threadIds.map((id) =>
-          archiveChat(id, teamId)
-            .then(() => announceChatArchived({ sessionId: id, teamId }))
-            .catch((error: unknown) => toast.apiError('Could not archive thread', error)),
-        ),
-      )
-    },
+    onArchive: (_sessionId, threadIds) => archive(threadIds),
   })
+
+  return {
+    dialog: offer.dialog,
+    request: (sessionId: string) => {
+      void api
+        .agentListConversations(teamId, { scope: 'mine', limit: 200 })
+        .then(
+          (page) => page.conversations,
+          () => undefined,
+        )
+        .then((fresh) => offer.request(sessionId, fresh))
+    },
+  }
 }
