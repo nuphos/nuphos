@@ -1613,6 +1613,62 @@
   }
 }
 
+/* Hover marquee — a single-line label that fades out at the inline edge it is
+   clipped on instead of ending in an ellipsis. Same scroll-driven technique as
+   .t-scroll-fade on the inline axis: no fade when the label fits, and as
+   useHoverMarquee scrolls it in place the fade moves from the end to the start.
+   The fade widens while the row is hovered or focused. */
+@property --t-marquee-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --t-marquee-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+.t-marquee {
+  --t-marquee-fade-size: 1.25rem;
+
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--t-marquee-fade-start),
+    #000 calc(100% - var(--t-marquee-fade-end)),
+    transparent 100%
+  );
+  animation:
+    t-marquee-fade-in-start linear both,
+    t-marquee-fade-out-end linear both;
+  animation-timeline: scroll(self inline), scroll(self inline);
+  animation-range:
+    0 var(--t-marquee-fade-size),
+    calc(100% - var(--t-marquee-fade-size)) 100%;
+}
+.group:hover > .t-marquee,
+.group:focus-visible > .t-marquee {
+  --t-marquee-fade-size: 2rem;
+}
+@keyframes t-marquee-fade-in-start {
+  from {
+    --t-marquee-fade-start: 0px;
+  }
+  to {
+    --t-marquee-fade-start: var(--t-marquee-fade-size, 1.25rem);
+  }
+}
+@keyframes t-marquee-fade-out-end {
+  from {
+    --t-marquee-fade-end: var(--t-marquee-fade-size, 1.25rem);
+  }
+  to {
+    --t-marquee-fade-end: 0px;
+  }
+}
+
 /* Card resize — tween an element's width/height when its layout state changes
    (used to collapse/expand the sidebar to/from zero width). */
 .t-resize {
