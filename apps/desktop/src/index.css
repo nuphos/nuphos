@@ -1982,7 +1982,9 @@
 .t-tab[data-active='true'] {
   min-width: 128px;
 }
-.t-tab:not([data-active]) + .t-tab:not([data-active])::before {
+.t-tab:not([data-active]) + .t-tab:not([data-active])::before,
+/* A collapsing copy sits between two tabs: keep the divider they will share. */
+.t-tab:not([data-active]) + .t-tab-closing + .t-tab:not([data-active])::before {
   content: '';
   position: absolute;
   z-index: 1;
@@ -2022,7 +2024,6 @@
   display: flex;
   flex: none;
   overflow: hidden;
-  pointer-events: none;
   animation: t-tab-close var(--tabs-dur) var(--tabs-ease) forwards;
 }
 .t-tab-closing > .t-tab {
@@ -2052,9 +2053,6 @@
   .t-workspace-tab-action,
   .t-tab-content {
     transition: none !important;
-  }
-  .t-tab-closing {
-    display: none;
   }
 }
 
