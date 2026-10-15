@@ -90,10 +90,12 @@ export function pickRailTurns(messages: Message[]): RailTurn[] {
 export function turnPreview(messages: Message[], turn: RailTurn): string {
   const replyIds = new Set(turn.messageIds.slice(1))
 
+  // Only the start is shown, so a long reply is cut before it is stripped.
   return previewText(
     messages
       .filter((m) => replyIds.has(m.id))
       .map(messageText)
-      .join(' '),
+      .join(' ')
+      .slice(0, PREVIEW_MAX * 4),
   )
 }

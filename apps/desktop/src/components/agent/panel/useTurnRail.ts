@@ -105,17 +105,22 @@ export function useTurnRail(
         return
       }
       // The same shift happens while gliding past deferred messages, so land
-      // on the target once the scroll stops, unless the reader took over.
+      // on the target once the scroll stops, unless the reader took over:
+      // any wheel, touch, key or click (Jump to latest, the scrollbar, another
+      // tick) drops the correction.
+      const intents = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const
       const done = (event: Event) => {
         window.clearTimeout(timer)
         root.removeEventListener('scrollend', done)
-        root.removeEventListener('wheel', done)
-        if (event.type !== 'wheel') align()
+        for (const intent of intents) window.removeEventListener(intent, done, true)
+        if (event.type === 'scrollend') align()
       }
       const timer = window.setTimeout(() => done(new Event('scrollend')), SETTLE_TIMEOUT_MS)
 
       root.addEventListener('scrollend', done)
-      root.addEventListener('wheel', done, { passive: true })
+      for (const intent of intents) {
+        window.addEventListener(intent, done, { capture: true, passive: true })
+      }
       root.scrollTo({ top: root.scrollTop + distance, behavior: 'smooth' })
     },
     [onBeforeJump, scrollRef],
