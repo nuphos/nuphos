@@ -36,7 +36,7 @@ export function ConnectorStrip({
     // Tucked 12px under the composer, matching its first-run 12px corner
     // radius so the strip's square top stays hidden behind the curve.
     <div className="relative z-0 -mt-3 flex items-center gap-3 rounded-b-xl bg-field px-4 pb-2 pt-5">
-      <span className="min-w-0 flex-1 text-[12px] text-secondary">{message}</span>
+      <span className="min-w-0 flex-1 truncate text-[12px] text-secondary">{message}</span>
       <div className="flex flex-shrink-0 items-center gap-1">
         <BaseButton
           onClick={onAction}
@@ -57,23 +57,24 @@ export function ConnectorStrip({
 }
 
 const STAR_REPO = 'nuphos/nuphos'
+// Fetched once per app session, however often the home page remounts.
+let starCount: Promise<number | null> | undefined
 
 /** Asks for a GitHub star; `onDone` retires it for good after a star or "not now". */
 export function StarStrip({ onDone }: { onDone: () => void }) {
   const [stars, setStars] = useState<number | null>(null)
 
   useEffect(() => {
-    fetch(`https://api.github.com/repos/${STAR_REPO}`)
+    starCount ??= fetch(`https://api.github.com/repos/${STAR_REPO}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((repo: { stargazers_count?: number } | null) =>
-        setStars(repo?.stargazers_count ?? null),
-      )
-      .catch(() => setStars(null))
+      .then((repo: { stargazers_count?: number } | null) => repo?.stargazers_count ?? null)
+      .catch(() => null)
+    void starCount.then(setStars)
   }, [])
 
   return (
     <ConnectorStrip
-      message="Enjoying Nuphos? We're a small team building it in the open — a GitHub star would mean a lot and helps other teams find us."
+      message="Nuphos is built in the open. A star means a lot."
       action={
         <>
           <Star className="h-3.5 w-3.5 fill-current" strokeWidth={1.8} />
