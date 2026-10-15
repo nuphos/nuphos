@@ -71,6 +71,8 @@ export type AnalyticsEvent =
   | 'agent_first_run_home_viewed'
   | 'agent_first_run_connect_started'
   | 'agent_first_run_strip_dismissed'
+  | 'agent_star_strip_clicked'
+  | 'agent_star_strip_dismissed'
   // The guide's funnel. The gap between cloud_picked and operational_bound is
   // the console trip — the only step we can't shorten from here. asked and
   // answered mark the first real conversation; the gap between answered and

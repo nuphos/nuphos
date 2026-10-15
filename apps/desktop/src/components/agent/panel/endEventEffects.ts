@@ -11,6 +11,16 @@ import type { EndDecision, ResumePayload } from './endEventDecision'
 import type { Tab } from './model'
 import type { StallDetail } from './stall'
 
+const SUCCESSFUL_TURNS_KEY = 'nuphos.agent.successfulTurns'
+
+export function successfulTurns(): number {
+  try {
+    return Number(localStorage.getItem(SUCCESSFUL_TURNS_KEY)) || 0
+  } catch {
+    return 0
+  }
+}
+
 type EndEffectArgs = {
   streamId: string
   sawTurnComplete: boolean
@@ -51,20 +61,32 @@ export function runEndEventEffects(
   // "decided not to resume" is the absence of a later event, which is not
   // evidence of anything. Behind the guard with every other side effect —
   // a double-counted outcome would misread as two turns ending.
+  const outcome = decision.clientToolPayload
+    ? 'client_tool_handoff'
+    : decision.resumePayload
+      ? 'auto_resume'
+      : decision.terminalFailureReportPayload
+        ? 'terminal_failure'
+        : 'clean_end'
+
   track('agent_stream_end_decided', {
     stream_id: streamId,
-    outcome: decision.clientToolPayload
-      ? 'client_tool_handoff'
-      : decision.resumePayload
-        ? 'auto_resume'
-        : decision.terminalFailureReportPayload
-          ? 'terminal_failure'
-          : 'clean_end',
+    outcome,
     saw_turn_complete: sawTurnComplete,
     saw_turn_paused: sawTurnPaused?.reason ?? null,
     orphaned: decision.orphaned,
     deferred: !decision.updaterRan,
   })
+
+  // The home page asks for a GitHub star only after the agent has done some
+  // real work, so count the turns that finished cleanly.
+  if (sawTurnComplete && outcome === 'clean_end') {
+    try {
+      localStorage.setItem(SUCCESSFUL_TURNS_KEY, String(successfulTurns() + 1))
+    } catch {
+      // Storage unavailable — the star ask just stays hidden.
+    }
+  }
 
   // Fired once per recovery (outside the updater so Strict Mode's double-run
   // can't double-report). Distinguishes a never-materialized tool call from a
