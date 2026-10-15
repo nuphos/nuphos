@@ -75,7 +75,7 @@ export function StarStrip({ onDone }: { onDone: () => void }) {
 
   return (
     <ConnectorStrip
-      message="Nuphos is built in the open. A star means a lot."
+      message="Nuphos is open source, built by a small team. If it helps you, a star means a lot."
       action={
         <>
           <GithubMark size={14} />
