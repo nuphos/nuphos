@@ -6,6 +6,8 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
+import { STATUS_DOT } from './runtimePresentation'
+
 import type { AgentDevice } from '../../api'
 import type { RuntimeInstance } from '../../types/runtime'
 
@@ -104,4 +106,9 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
       </button>
     </li>
   )
+}
+
+/** The green dot before a running Box or a live reading. */
+export function LiveDot() {
+  return <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT.online}`} />
 }

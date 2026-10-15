@@ -14,7 +14,7 @@ import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
-import { AgentTile, MachineIcon } from './BoxParts'
+import { AgentTile, LiveDot, MachineIcon } from './BoxParts'
 import { BOX_BADGE, boxActions, boxState, machineLine, newAgentAction } from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { inputClasses } from './styles'
@@ -117,7 +117,11 @@ export function BoxRow({
             }}
           />
         )}
-        <span role="status" className="shrink-0 text-[11px] text-tertiary">
+        <span
+          role="status"
+          className="flex shrink-0 items-center gap-1.5 text-[11px] text-tertiary"
+        >
+          {badge.tone === 'online' && <LiveDot />}
           {badge.label}
         </span>
         <Menu>
@@ -176,12 +180,13 @@ export function BoxRow({
         </Menu>
       </div>
       <div
+        title={machineLine(device)}
         className={clsx(
           'mt-1 shrink-0 truncate text-[11.5px] leading-4 text-tertiary',
           dim && 'opacity-50',
         )}
       >
-        {[thisComputer && 'This Computer', machineLine(device)].filter(Boolean).join(' · ')}
+        {thisComputer ? 'This computer' : machineLine(device)}
       </div>
       <BoxMetrics
         metrics={device.metrics}

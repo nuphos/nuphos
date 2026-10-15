@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import { LiveDot } from './BoxParts'
+
 import './BoxMetrics.css'
 
 import type { DeviceMetrics, DeviceMetricsStatus } from '../../api/device-types'
@@ -111,7 +113,10 @@ export function BoxMetrics({
         className={`col-span-3 flex items-center justify-between gap-2 text-[10px] leading-[14px] ${state === 'stale' ? 'text-amber-500' : 'text-tertiary'}`}
         title={title}
       >
-        <span>{statusLabel}</span>
+        <span className="flex items-center gap-1.5">
+          {statusLabel === STATUS_LABEL.live && <LiveDot />}
+          {statusLabel}
+        </span>
         {received && receivedAt && (
           <time className="shrink-0" dateTime={receivedAt} aria-label={received}>
             {new Date(receivedAt).toLocaleTimeString()}
