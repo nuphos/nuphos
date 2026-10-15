@@ -58,3 +58,18 @@ test('untilRun counts hours up close and calendar days further out', () => {
   assert.equal(untilRun(new Date(2026, 9, 16, 9, 0), now), 'in 2 days')
   assert.equal(untilRun(new Date(2026, 9, 14, 20, 0), new Date(2026, 9, 14, 0, 0)), 'later today')
 })
+
+test('the Nuphos local_exec tool counts, and other tools never read their output', () => {
+  const command = `bash skills/triggers/scripts/trigger-api.sh "$TEAM" POST '' @/tmp/trigger.json`
+  const output = {
+    toJSON() {
+      throw new Error('read the output of a tool that cannot be a trigger')
+    },
+  }
+
+  assert.deepEqual(triggerCardInfo(call(command, created, 'mcp__nuphos-tools__local_exec')), {
+    triggerId: ID,
+    action: 'created',
+  })
+  assert.equal(triggerCardInfo(call(command, output, 'Read')), null)
+})

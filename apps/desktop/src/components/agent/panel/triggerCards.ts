@@ -5,7 +5,13 @@ const ID_FIELD = /"id"\s*:\s*"([\da-f]{24})"/i
 const TYPE_FIELD = /"triggerType"\s*:\s*"(\w+)"/
 // Agent runtimes with bound trigger tools call them by these names.
 const TRIGGER_TOOL = /(^|__|: )trigger_(create|update)$/
-const COMMAND_TOOLS = new Set(['bash', 'Bash', 'Terminal', 'local_exec'])
+const COMMAND_TOOLS = new Set([
+  'bash',
+  'Bash',
+  'Terminal',
+  'local_exec',
+  'mcp__nuphos-tools__local_exec',
+])
 
 export type TriggerCardInfo = { triggerId: string; action: 'created' | 'updated' }
 
@@ -60,18 +66,20 @@ function commandCard(input: unknown, fromOutput: string | null): TriggerCardInfo
 /** A tool call that created or changed a cron trigger, and which one. */
 export function triggerCardInfo(part: ToolPart): TriggerCardInfo | null {
   if (part.state !== 'output-available') return null
+  const bound = TRIGGER_TOOL.exec(part.toolName)
+
+  // Checked first: every render runs this on every tool part, and reading the output is the costly step.
+  if (!bound && !COMMAND_TOOLS.has(part.toolName)) return null
   const { id: fromOutput, cron } = triggerInOutput(part.output)
 
   if (!cron) return null
-  const bound = TRIGGER_TOOL.exec(part.toolName)
-
   if (bound) {
     const action = bound[2] === 'create' ? 'created' : 'updated'
 
     return fromOutput ? { triggerId: fromOutput, action } : null
   }
 
-  return COMMAND_TOOLS.has(part.toolName) ? commandCard(part.input, fromOutput) : null
+  return commandCard(part.input, fromOutput)
 }
 
 export function isTriggerCardPart(part: Part): boolean {
