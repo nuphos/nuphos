@@ -6,6 +6,7 @@ import {
   markAutoSend,
   nextAutoSend,
   parkRefusedTurn,
+  parkFailedForkImport,
   pumpAutoSend,
   queueAutoSend,
   rememberDispatchedDraft,
@@ -202,4 +203,38 @@ test("a fork's first send goes straight out; a second one while it runs queues",
   // The first send is importing and starting: a second Enter must not start another.
   assert.equal(sendsAsNewSession({ unsaved: true, streaming: true }), false)
   assert.equal(sendsAsNewSession({ unsaved: false, streaming: false }), false)
+})
+
+test('a fork whose import failed keeps its message first and sends nothing on its own', async () => {
+  const first = { id: 'first', text: 'first prompt', filePaths: [] }
+  // The first message started the import; a follow-up queued while it ran.
+  const running = queueAutoSend(
+    tab({
+      unsaved: true,
+      streaming: true,
+      messages: [{ id: 'first', role: 'user', parts: [{ type: 'text', text: 'first prompt' }] }],
+    } as Partial<Tab>),
+    { id: 'second', text: 'follow-up', filePaths: [] },
+  )
+  const parked = parkFailedForkImport(running, first, 'Import failed')
+
+  assert.deepEqual(parked.messages, [])
+  assert.deepEqual(
+    parked.queued?.map((item) => [item.id, item.autoSend]),
+    [
+      ['first', false],
+      ['second', false],
+    ],
+  )
+  assert.equal(parked.error, 'Import failed')
+  assert.equal(parked.streaming, false)
+  assert.equal(
+    await pumpAutoSend(parked, {
+      probe: () => assert.fail('nothing to send'),
+      onRuntimeState: () => {},
+      dispatch: () => assert.fail('the follow-up must not overtake the failed message'),
+      onNeverSendable: () => {},
+    }),
+    'idle',
+  )
 })

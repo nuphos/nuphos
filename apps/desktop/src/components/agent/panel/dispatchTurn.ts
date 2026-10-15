@@ -4,7 +4,7 @@ import { toast } from '../../ui/toast.ts'
 
 import { makeAttachmentTurn } from './attachments.ts'
 import { supersedePendingApprovals, finalizeIncompleteTools } from './clientTools.ts'
-import { rememberDispatchedDraft } from './queuedAutoSend.ts'
+import { dispatchedDraft, parkFailedForkImport, rememberDispatchedDraft } from './queuedAutoSend.ts'
 import { INTERRUPTED_TOOL_MESSAGE, newAgentStreamId } from './stall.ts'
 import { getAgentLocale } from './textUtils.ts'
 import { toPersistedMessages, toUiMessages } from './toUiMessages.ts'
@@ -199,8 +199,11 @@ export async function runDispatchTurn(
       })
     : Promise.resolve()
 
+  let imported = !forkHistory
+
   void importForkHistory
     .then(() => {
+      imported = true
       if (forkHistory) {
         setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, unsaved: false } : t)))
       }
@@ -234,18 +237,20 @@ export async function runDispatchTurn(
         err,
       )
       setTabs((prev) =>
-        prev.map((t) =>
-          t.streamId === streamId
-            ? {
-                ...t,
-                streaming: false,
-                streamId: null,
-                phase: null,
-                streamStartedAt: null,
-                error: message,
-              }
-            : t,
-        ),
+        prev.map((t) => {
+          if (t.streamId !== streamId) return t
+          // The fork's history never landed: this message has had no turn yet.
+          if (!imported) return parkFailedForkImport(t, dispatchedDraft(streamId), message)
+
+          return {
+            ...t,
+            streaming: false,
+            streamId: null,
+            phase: null,
+            streamStartedAt: null,
+            error: message,
+          }
+        }),
       )
     })
 }
