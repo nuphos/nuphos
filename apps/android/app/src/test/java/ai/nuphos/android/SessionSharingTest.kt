@@ -20,7 +20,7 @@ class SessionSharingTest {
         var hold: CompletableDeferred<Unit>? = null
         override suspend fun read() = state
         override suspend fun members() = emptyList<TeamMember>()
-        override suspend fun localRuntime() = true
+        override val localRuntime = true
         private suspend fun write(next: SessionAccess): SessionAccess { writes++; hold?.await(); if (fail) error("Synthetic denial (403)"); state = next; return next }
         override suspend fun general(value: GeneralAccess) = write(state.copy(generalAccess = value))
         override suspend fun role(userId: String, role: ShareRole) = write(state.copy(participants = state.participants.map { if (it.id == userId) it.copy(role = role.raw) else it }))
@@ -89,4 +89,16 @@ class SessionSharingTest {
         assertEquals("manage", calls[2].body!!["role"]?.stringValue)
         assertEquals(listOf(JsonValue.Str("new")), calls[2].body!!["userIds"]?.arrayValue)
     }
+    @Test fun offlineLocalAddressNeedsWarningWithoutCatalogRequest() = runTest {
+        var requests = 0
+        fun api(id: String?) = SessionSharingApi("synthetic", "team", "session", id) { _, _, _, _, _ ->
+            requests++; error("No catalog request is allowed")
+        }
+        assertTrue(api("local_owner_device_codex").localRuntime)
+        assertTrue(api("local_owner_device").localRuntime)
+        assertFalse(api("managed-agent").localRuntime)
+        assertFalse(api(null).localRuntime)
+        assertEquals(0, requests)
+    }
+
 }

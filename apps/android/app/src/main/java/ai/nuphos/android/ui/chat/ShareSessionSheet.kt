@@ -51,7 +51,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
             val access = state.access
             if (state.loadError != null) item { Text(state.loadError.orEmpty(), color = MaterialTheme.colorScheme.error) }
             if (access == null && state.loadError == null) item { CircularProgressIndicator(Modifier.size(24.dp)) }
-            if (state.loadError != null || state.membersError != null || state.runtimeError != null) item {
+            if (state.loadError != null || state.membersError != null) item {
                 TextButton(enabled = !state.loading && state.pending == null, onClick = { scope.launch { state.load() } }) { Text("Retry sharing") }
             }
             if (access != null) {
@@ -61,8 +61,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                         { it.title }, onSelect = { scope.launch { state.general(it) } })
                     else Text(access.generalAccess.title)
                     if (state.pending == "access") CircularProgressIndicator(Modifier.size(20.dp))
-                    if (state.localRuntime == true && state.canManage) Text(LOCAL_WARNING, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
-                    state.runtimeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    if (state.localRuntime && state.canManage) Text(LOCAL_WARNING, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
                 }
                 item { Text("In this session", style = MaterialTheme.typography.titleMedium) }
                 items(access.participants, key = { "participant:${it.id}" }) { person ->
@@ -102,7 +101,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                     items(invitable, key = { "member:${it.id}" }) { member ->
                         OutlinedButton(enabled = state.canInvite, onClick = {
                             val role = inviteRole
-                            if (state.localRuntime == true && role != ShareRole.View) confirm = member to role
+                            if (state.localRuntime && role != ShareRole.View) confirm = member to role
                             else scope.launch { state.invite(member, role) }
                         }, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) { Text(member.displayName); Text(member.email, style = MaterialTheme.typography.bodySmall) }

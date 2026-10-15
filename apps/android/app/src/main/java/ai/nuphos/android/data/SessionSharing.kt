@@ -32,7 +32,7 @@ data class SessionAccess(val generalAccess: GeneralAccess, val participants: Lis
 interface SharingTransport {
     suspend fun read(): SessionAccess
     suspend fun members(): List<TeamMember>
-    suspend fun localRuntime(): Boolean
+    val localRuntime: Boolean
     suspend fun general(value: GeneralAccess): SessionAccess
     suspend fun invite(userId: String, role: ShareRole): SessionAccess
     suspend fun role(userId: String, role: ShareRole): SessionAccess
@@ -50,14 +50,8 @@ class SessionSharingApi(private val token: String, private val team: String, ses
         catch (e: kotlinx.serialization.SerializationException) { throw NuphosApi.Failure.InvalidResponse }
     override suspend fun read() = access("GET", "participants")
     override suspend fun members() = NuphosApi.teamMembers(token, team, includeRemoved = false)
-    override suspend fun localRuntime(): Boolean {
-        if (runtimeId == null) return false
-        val result = JsonValue.parse(request("GET", "teams/${segment(team)}/agent-runtimes", token, emptyList(), null))
-        val runtimes = result?.get("runtimes")?.arrayValue ?: throw NuphosApi.Failure.InvalidResponse
-        val runtime = runtimes.firstOrNull { it["id"]?.stringValue == runtimeId }
-            ?: throw IllegalStateException("Agent details are unavailable. Try again before sharing.")
-        return runtime["kind"]?.stringValue == "local" || runtime["local"] is JsonValue.Obj
-    }
+    // Local addresses remain stable when their computer is offline and absent from the catalog.
+    override val localRuntime get() = runtimeId?.startsWith("local_") == true
     override suspend fun general(value: GeneralAccess) = access("PATCH", "access", JsonValue.obj("generalAccess" to JsonValue.Str(value.raw)))
     override suspend fun invite(userId: String, role: ShareRole) = access("POST", "participants", JsonValue.obj(
         "userIds" to JsonValue.Arr(listOf(JsonValue.Str(userId))), "role" to JsonValue.Str(role.raw)))

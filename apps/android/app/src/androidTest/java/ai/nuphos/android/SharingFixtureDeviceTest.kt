@@ -30,7 +30,7 @@ class SharingFixtureDeviceTest {
         var reject = false
         override suspend fun read() = access
         override suspend fun members() = listOf(member, member.copy(id = "removed", removedAt = "2026-01-01"))
-        override suspend fun localRuntime() = true
+        override val localRuntime = true
         private fun write(value: SessionAccess): SessionAccess { calls++; check(!reject) { "Synthetic permission denied (403)" }; access = value; return value }
         override suspend fun general(value: GeneralAccess) = write(access.copy(generalAccess = value))
         override suspend fun invite(userId: String, role: ShareRole) = write(access.copy(participants = access.participants + SessionAccess.Participant(userId, member.name, member.email, false, role.raw)))
@@ -50,7 +50,7 @@ class SharingFixtureDeviceTest {
         val state = SharingState(api) { true }
         var dark by mutableStateOf(false)
         compose.setContent { NuphosTheme(darkTheme = dark) { ShareSessionSheet(state, "https://example.invalid/synthetic-session") {} } }
-        compose.waitUntil(5000) { state.access != null && state.localRuntime != null }
+        compose.waitUntil(5000) { state.access != null && !state.loading }
         compose.onNodeWithText("Owner").assertExists()
         snap("synthetic-owner-light")
         compose.runOnIdle { dark = true }
@@ -88,13 +88,16 @@ class SharingFixtureDeviceTest {
     @Test fun teammateCanOnlyReadSharing() {
         val api = Fixture(SessionAccess(GeneralAccess.View, listOf(person)), member)
         val state = SharingState(api) { false }
-        compose.setContent { NuphosTheme { ShareSessionSheet(state, null) {} } }
+        var dark by mutableStateOf(false)
+        compose.setContent { NuphosTheme(darkTheme = dark) { ShareSessionSheet(state, null) {} } }
         compose.waitUntil { state.access != null }
         compose.onNodeWithText("Team can view").assertExists()
         compose.onNodeWithText("Can view").assertExists()
         compose.onNodeWithText("Only the owner can change who has access.").performScrollTo().assertExists()
         compose.onNodeWithText("Add people").assertDoesNotExist()
-        snap("synthetic-read-only")
+        snap("synthetic-read-only-light")
+        compose.runOnIdle { dark = true }
+        snap("synthetic-read-only-dark")
         assertEquals(0, api.calls)
     }
 }

@@ -12,16 +12,15 @@ class SharingState(val transport: SharingTransport, private val owner: () -> Boo
     val canManage get() = owner()
     var access by mutableStateOf<SessionAccess?>(null); private set
     var members by mutableStateOf<List<TeamMember>?>(null); private set
-    var localRuntime by mutableStateOf<Boolean?>(null); private set
+    val localRuntime get() = canManage && transport.localRuntime
     var loadError by mutableStateOf<String?>(null); private set
     var membersError by mutableStateOf<String?>(null); private set
-    var runtimeError by mutableStateOf<String?>(null); private set
     var error by mutableStateOf<String?>(null); private set
     var pending by mutableStateOf<String?>(null); private set
     var added by mutableStateOf<TeamMember?>(null); private set
     var loading by mutableStateOf(false); private set
     val editable get() = canManage && access != null && pending == null && !loading
-    val canInvite get() = editable && localRuntime != null
+    val canInvite get() = editable
     fun clearError() { error = null }
     suspend fun load() {
         if (loading || pending != null) return
@@ -36,10 +35,7 @@ class SharingState(val transport: SharingTransport, private val owner: () -> Boo
                     membersError = null
                     try { members = transport.members() } catch (e: Exception) { e.rethrowCancellation(); membersError = e.message ?: "Couldn't load teammates." }
                 }
-                launch {
-                    runtimeError = null
-                    try { localRuntime = transport.localRuntime() } catch (e: Exception) { e.rethrowCancellation(); runtimeError = e.message ?: "Couldn't load Agent details." }
-                }
+
             }
         } } finally { loading = false }
     }
