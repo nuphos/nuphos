@@ -1,3 +1,4 @@
+import { nuphosBoxDesktopMcpServers } from './box-desktop-mcp.mjs'
 import { nuphosAuthorizeComputerUse } from './computer-use-permission.mjs'
 import { nuphosDesktopClaudeEnv } from './claude-session-env.mjs'
 import { nuphosLocalSyncSkills } from './skills-sync.mjs'
@@ -33,6 +34,12 @@ export function patchDesktopAdapter(source, provider) {
     'await nuphosLocalSyncSkills(params);',
   )
   if (provider === 'claude-code') {
+    // A Linux Box gives every session a `computer-use` server on its own desktop.
+    patched = replaceOnce(
+      patched,
+      'for (const server of nuphosBridgeMcpServers(params.mcpServers)) {',
+      'for (const server of nuphosBoxDesktopMcpServers(nuphosBridgeMcpServers(params.mcpServers), params._meta?.claudeCode?.options?.env, process.env)) {',
+    )
     patched = replaceOnce(
       patched,
       'const isolated = nuphosSessionHomeEnv(sessionEnv, runtimeEnv)',
@@ -55,7 +62,7 @@ export function patchDesktopAdapter(source, provider) {
 
   const claudeEnv =
     provider === 'claude-code'
-      ? `import { constants as nuphosDesktopFs, mkdirSync as nuphosDesktopMkdir, writeFileSync as nuphosDesktopWrite } from 'node:fs';\nimport { join as nuphosDesktopJoin } from 'node:path';\n${nuphosDesktopClaudeEnv.toString()}\n`
+      ? `import { constants as nuphosDesktopFs, mkdirSync as nuphosDesktopMkdir, writeFileSync as nuphosDesktopWrite } from 'node:fs';\nimport { join as nuphosDesktopJoin } from 'node:path';\n${nuphosDesktopClaudeEnv.toString()}\n${nuphosBoxDesktopMcpServers.toString()}\n`
       : ''
 
   const computerUse = provider === 'codex' ? `${nuphosAuthorizeComputerUse.toString()}\n` : ''

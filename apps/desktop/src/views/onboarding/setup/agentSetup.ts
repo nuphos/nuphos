@@ -48,35 +48,7 @@ export function newlyConnectedAgent(
   return instances.find((instance) => instance.kind === 'external' && !knownIds.has(instance.id))
 }
 
-export type ManagedRuntimePlan =
-  { kind: 'reuse'; instance: RuntimeInstance } | { kind: 'create'; replace: RuntimeInstance | null }
-
-/**
- * What Continue does on the Nuphos Cloud picker, given the agent this flow already created and
- * has not signed in yet: reuse it for the same agent, or remove it before creating a different one.
- */
-export function managedRuntimePlan(
-  created: RuntimeInstance | null,
-  provider: RuntimeInstance['provider'],
-): ManagedRuntimePlan {
-  if (created?.provider === provider) return { kind: 'reuse', instance: created }
-
-  return { kind: 'create', replace: created }
-}
-
-/**
- * The unsigned Nuphos Cloud agent to remove when the user leaves for Self-hosted or skips:
- * only staying on Nuphos Cloud keeps it. `created` is cleared once sign-in completes, so a
- * connected agent is never removed.
- */
-export function unsignedAgentToRemove(
-  created: RuntimeInstance | null,
-  next: 'managed' | 'self-hosted' | 'skip',
-): RuntimeInstance | null {
-  return next === 'managed' ? null : created
-}
-
-export type SetupScreen = 'local' | 'cloud' | 'managed' | 'self-hosted' | 'done'
+export type SetupScreen = 'local' | 'cloud' | 'box' | 'self-hosted' | 'done'
 
 /** Which of the two stepper steps a screen belongs to; the completion screen has none. */
 export function setupStep(screen: SetupScreen): 1 | 2 | undefined {

@@ -72,7 +72,8 @@ export function prepareCodexHome(
 
   try {
     mkdirSync(home, { recursive: true, mode: 0o700 })
-    if (!linkFrom(ownerHome, home, 'auth.json')) return undefined
+    // Without the owner's login Codex still runs, signed out, so it can be signed in from Nuphos.
+    linkFrom(ownerHome, home, 'auth.json')
     // Codex skips an enabled plugin that is not installed, so users without the App are unaffected.
     if (
       linkFrom(ownerHome, home, CUA_PLUGIN_CACHE) &&
@@ -109,7 +110,7 @@ export function prepareCodexHome(
         },
       )
 
-    return existsSync(path.join(ownerHome, 'auth.json')) ? home : undefined
+    return home
   } catch {
     return undefined
   }

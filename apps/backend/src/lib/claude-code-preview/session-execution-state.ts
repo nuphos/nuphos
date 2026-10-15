@@ -12,6 +12,8 @@ import type { SessionExecutionState } from './runtime-execution-snapshot'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { AppError } from '@/lib/errors'
 
+import { withSessionDesktops } from './session-desktops'
+
 import type { AgentConversation } from '@/lib/agent/db'
 
 /** No live session to report on: the next prompt starts or restores one. */
@@ -23,17 +25,26 @@ export const READY_FOR_NEXT_MESSAGE: SessionExecutionState = {
 }
 
 /** A read-only control connection: never resume, restore, prompt, or claim an output sink. */
+type ExecutionStateConversation = Pick<
+  AgentConversation,
+  | 'teamId'
+  | 'sessionId'
+  | 'userId'
+  | 'agentRuntime'
+  | 'runtimeId'
+  | 'claudeCodePreview'
+  | 'runtimeMigration'
+>
+
+/** The runtime's own state, plus the desktops the conversation holds on its Box. */
 export async function conversationExecutionState(
-  conversation: Pick<
-    AgentConversation,
-    | 'teamId'
-    | 'sessionId'
-    | 'userId'
-    | 'agentRuntime'
-    | 'runtimeId'
-    | 'claudeCodePreview'
-    | 'runtimeMigration'
-  >,
+  conversation: ExecutionStateConversation,
+): Promise<SessionExecutionState> {
+  return withSessionDesktops(await probeExecutionState(conversation), conversation)
+}
+
+async function probeExecutionState(
+  conversation: ExecutionStateConversation,
 ): Promise<SessionExecutionState> {
   const attachment = liveAttachment(conversation)
 

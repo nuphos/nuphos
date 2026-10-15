@@ -61,6 +61,10 @@ const AGENT_ENV_PASSTHROUGH = [
   'SystemRoot',
   'ComSpec',
   'PATHEXT',
+  // A Linux Box with a desktop pool: the adapter adds a per-session computer-use server.
+  'NUPHOS_DESKTOP_SESSION',
+  'NUPHOS_DESKTOP_POOL',
+  'NUPHOS_DESKTOP_POOL_SIZE',
 ]
 
 /** Must match `deriveRuntimeControlKey` in the backend and `nuphos-runtime-start`. */
@@ -133,9 +137,47 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
   ].join('\n')
 }
 
+/**
+ * The agent's own sign-in, run by openab when Nuphos asks (the same dialog as a
+ * cloud agent). openab's child inherits openab's env, so this carries only the
+ * command and the provider's config-dir variables, so the login lands in the
+ * runtime's own login. `OPENAB_RUNTIME_LOGIN_COMMAND` is whitespace-split argv, so
+ * a CLI path with a space cannot be expressed; such a computer keeps signing in
+ * from its own UI.
+ */
+export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string> {
+  const wrapper = path.join(
+    launch.bundle.root,
+    `${launch.provider === 'codex' ? 'codex' : 'claude'}-login.mjs`,
+  )
+  const cliEnv = agentCliEnv(launch)
+
+  if (!existsSync(wrapper) || /\s/u.test(launch.nodeExecPath + wrapper)) return {}
+
+  return {
+    ...cliEnv,
+    ...(launch.provider === 'codex'
+      ? { CODEX_EXECUTABLE: launch.cliPath, NUPHOS_CODEX_AUTH_DIRECTORY: launch.agentHome }
+      : {}),
+    OPENAB_RUNTIME_LOGIN_COMMAND: [
+      launch.nodeExecPath,
+      wrapper,
+      ...(launch.provider === 'codex' ? ['--install'] : []),
+    ].join(' '),
+  }
+}
+
+/** The agent's own sign-in command: Claude's browser flow, Codex's device flow. */
+export function agentSignInArgs(provider: LocalAgentProvider): string[] {
+  return provider === 'codex'
+    ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
+    : ['auth', 'login', '--claudeai']
+}
+
 /** openab listens on loopback only; the backend reaches it through the desktop's tunnel. */
 export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
   return {
+    ...agentLoginEnv(launch),
     PATH: launch.env.PATH ?? process.env.PATH ?? '',
     ...(launch.env.USER ? { USER: launch.env.USER } : {}),
     ...(launch.env.SystemRoot ? { SystemRoot: launch.env.SystemRoot } : {}),

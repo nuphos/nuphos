@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/errors'
 
 import { controlRegistry } from './agent-chat-registry'
+import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { loginFrameReader } from './runtime-login-exec'
@@ -25,10 +26,16 @@ const LOGIN_FAILED: Record<OpenAbProvider, string> = {
   opencode: 'Sign-in did not complete. Start again and check the details you entered.',
 }
 
-async function controlEndpoint(teamId: string, runtimeId: string) {
-  const { provider } = await requireRuntimeInstance(teamId, runtimeId)
-  const endpoints = await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')
-  const endpoint = endpoints.find((candidate) => candidate.runtimeId === runtimeId)
+async function controlEndpoint(teamId: string, runtimeId: string, userId?: string) {
+  const { provider, kind } = await requireRuntimeInstance(teamId, runtimeId, userId)
+  // A computer's own runtime is reached over its tunnel; the agent there is the
+  // one being signed in, so its signed-out state is not a reason to refuse.
+  const endpoint =
+    kind === 'local' && userId
+      ? await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
+      : (await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')).find(
+          (candidate) => candidate.runtimeId === runtimeId,
+        )
 
   if (!endpoint)
     throw new AppError(
@@ -168,8 +175,8 @@ async function sendControlRuntimeLoginInput(
  * nothing to restart afterwards.
  */
 export const controlLoginTransport = {
-  prepare: (teamId: string, runtimeId: string): Promise<ControlLoginTarget> =>
-    controlEndpoint(teamId, runtimeId),
+  prepare: (teamId: string, runtimeId: string, userId?: string): Promise<ControlLoginTarget> =>
+    controlEndpoint(teamId, runtimeId, userId),
   exec: execControlRuntimeLogin,
   input: sendControlRuntimeLoginInput,
 }

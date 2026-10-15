@@ -180,14 +180,27 @@ async function ensureNamedTunnel(): Promise<boolean> {
   return tunnelEdgeAlive(tunnel.url!)
 }
 
+// Not ~/.cloudflared/config.yml: the named tunnel's ingress has a catch-all that answers 404.
+const QUICK_TUNNEL = ['tunnel', '--config', '/dev/null', '--no-autoupdate', '--no-prechecks']
+
 async function startQuickTunnel(port: number): Promise<string | null> {
+  quickPort = port
   tunnel.kind = 'quick'
   tunnel.status = 'starting'
   tunnel.note = 'starting…'
   pushEvent(tunnel, 'starting quick tunnel (trycloudflare)…')
   const child = spawn(
     'cloudflared',
-    ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate', '--no-prechecks'],
+    // An empty --config: a named tunnel's ~/.cloudflared/config.yml would otherwise route this quick tunnel to its 404 catch-all.
+    [
+      'tunnel',
+      '--config',
+      '/dev/null',
+      '--url',
+      `http://localhost:${port}`,
+      '--no-autoupdate',
+      '--no-prechecks',
+    ],
     { detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
   )
 
@@ -232,7 +245,19 @@ function applyQuickTunnelResult(url: string | null) {
 // Bring up the tunnel for `port` and return the public URL to hand the backend
 // as NUPHOS_BACKEND_URL. Returns null when unavailable (backend still starts,
 // but sandbox callbacks fall back to PROD — surfaced loudly on the dashboard).
+let quickPort: number | null = null
+
 export async function setupTunnel(port: number): Promise<string | null> {
+  // A backend restart on the same port keeps its quick tunnel: Boxes and runtimes
+  // that were handed this URL must still reach the backend afterwards.
+  if (
+    tunnel.kind === 'quick' &&
+    quickPort === port &&
+    tunnel.url &&
+    tunnel.proc &&
+    tunnel.proc.exitCode === null
+  )
+    return tunnel.url
   stopTunnel() // drop any quick tunnel from a previous (port-conflict) attempt
   if (!hasCloudflared()) {
     tunnel.status = 'missing'

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { agentEnv, deriveControlKey, openabConfigToml, openabEnv } from './config.ts'
+import { agentEnv, agentLoginEnv, deriveControlKey, openabConfigToml, openabEnv } from './config.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
 
@@ -135,4 +135,29 @@ test('an explicit default Keychain override wins over a custom terminal config',
     env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
     process.platform === 'darwin' ? '' : launch.agentHome,
   )
+})
+
+test('tunnel sign-in uses bundled wrappers and each provider’s isolated credential directory', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'nuphos-login-wrappers-'))
+
+  try {
+    for (const provider of ['claude-code', 'codex'] as const) {
+      const wrapper = path.join(root, provider === 'codex' ? 'codex-login.mjs' : 'claude-login.mjs')
+
+      writeFileSync(wrapper, '')
+      const env = agentLoginEnv({ ...launch, provider, bundle: { ...launch.bundle, root } })
+
+      assert.equal(
+        env.OPENAB_RUNTIME_LOGIN_COMMAND,
+        `${launch.nodeExecPath} ${wrapper}${provider === 'codex' ? ' --install' : ''}`,
+      )
+      assert.equal(env.AWS_SECRET_ACCESS_KEY, undefined)
+      if (provider === 'codex') {
+        assert.equal(env.CODEX_EXECUTABLE, launch.cliPath)
+        assert.equal(env.NUPHOS_CODEX_AUTH_DIRECTORY, launch.agentHome)
+      } else assert.equal(env.CLAUDE_CONFIG_DIR, launch.agentHome)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

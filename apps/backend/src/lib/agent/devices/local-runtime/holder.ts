@@ -5,6 +5,7 @@ import { logEvent } from '@/lib/observability'
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson, streamChannel } from './protocol'
 
+import type { BoxMetrics } from '../metrics-schema'
 import type { TunnelBus } from './bus'
 import type { LocalRuntimePresenceStore } from './presence'
 import type { BackendFrame, HolderMessage, LocalRuntimeStatus, StreamMessage } from './protocol'
@@ -49,6 +50,9 @@ export async function attachRuntimeTunnel(
   const streams = new Set<string>()
   const channel = holderChannel(userId, deviceId)
   let status: LocalRuntimeStatus | undefined
+  let metrics: BoxMetrics | undefined
+  let metricsReceivedAt: number | undefined
+  let metricsLeaseUntil = 0
   let lastFrameAt = Date.now()
   let ended = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
@@ -58,7 +62,7 @@ export async function attachRuntimeTunnel(
     deps.bus.publish(streamChannel(s), JSON.stringify(message)).catch(() => {})
   const refreshPresence = () =>
     deps.presence
-      .put(userId, deviceId, { conn, ...(status ? { status } : {}), seenAt: Date.now() })
+      .put(userId, deviceId, { conn, ...(status ? { status } : {}), ...(metrics ? { metrics, metricsReceivedAt } : {}), seenAt: Date.now() })
       .then((updated) => {
         if (!updated && !ended) {
           end()
@@ -123,6 +127,15 @@ export async function attachRuntimeTunnel(
         if (message.conn === conn) connection.send({ t: 'ping' })
 
         return
+      case 'metrics':
+        if (message.conn === conn && Number.isFinite(message.leaseMs)) {
+          const leaseMs = Math.min(12_000, Math.max(0, message.leaseMs))
+
+          metricsLeaseUntil = Date.now() + leaseMs
+          connection.send({ t: 'metrics', leaseMs })
+        }
+
+        return
       case 'open':
         if (message.conn === conn) void openStream(message)
 
@@ -176,6 +189,13 @@ export async function attachRuntimeTunnel(
       const frame = parsed.data
 
       switch (frame.t) {
+        case 'metrics':
+          if (Date.now() >= metricsLeaseUntil) return
+          metrics = frame.metrics
+          metricsReceivedAt = Date.now()
+          void refreshPresence()
+
+          return
         case 'status':
           status = frame.status
 

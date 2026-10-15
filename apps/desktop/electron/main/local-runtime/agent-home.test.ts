@@ -72,16 +72,17 @@ test('Codex’s home loads the App’s Computer Use plugin, so its turn-end hook
   assert.equal(relaunched.split('unified-computer-use@openai-bundled').length, 2)
 })
 
-test('Codex’s home refuses to replace a non-link login and needs the owner’s login', (t) => {
+test('Codex’s home keeps its own login and runs signed out without the owner’s', (t) => {
   const f = codexFixture(t)
   const home = path.join(f.dir, 'codex-home')
 
   mkdirSync(home)
   writeFileSync(path.join(home, 'auth.json'), '{}')
-  assert.equal(prepareCodexHome(f.dir, f.env), undefined)
+  assert.equal(prepareCodexHome(f.dir, f.env), home)
+  assert.equal(readFileSync(path.join(home, 'auth.json'), 'utf8'), '{}')
   rmSync(path.join(f.owner, 'auth.json'))
   rmSync(path.join(home, 'auth.json'))
-  assert.equal(prepareCodexHome(f.dir, f.env), undefined)
+  assert.equal(prepareCodexHome(f.dir, f.env), home)
 })
 
 test('an existing isolated home gains native macOS cleanup without importing personal commands', (t) => {

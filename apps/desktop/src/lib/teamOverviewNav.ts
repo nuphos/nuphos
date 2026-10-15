@@ -10,6 +10,7 @@ import {
   Cloud,
   HeartPulse,
   Globe,
+  Monitor,
   Terminal,
   Network,
   Sparkles,
@@ -110,6 +111,8 @@ function navItemIn(
 }
 
 export function teamOverviewNavItemFor(active: string): TeamOverviewNavItem | undefined {
+  if (active === 'team.desktop') return { key: active, label: 'Desktop', icon: Monitor }
+
   return (
     navItemIn(TEAM_SIDEBAR_NAV_ITEMS, active) ??
     navItemIn(TEAM_WORKSPACE_NAV_ITEMS, active) ??
@@ -122,7 +125,7 @@ export function isTeamManagementKey(active: string): boolean {
 }
 
 export function isTeamWorkspaceKey(active: string): boolean {
-  return Boolean(navItemIn(TEAM_WORKSPACE_NAV_ITEMS, active))
+  return active === 'team.desktop' || Boolean(navItemIn(TEAM_WORKSPACE_NAV_ITEMS, active))
 }
 
 export function isTeamOverviewKey(active: string): boolean {

@@ -6,6 +6,7 @@
 // that and .env.example staying in sync with the sections).
 
 import { agentConfig } from './config/agent'
+import { boxConfig } from './config/box'
 import { byosCloudConfig } from './config/byos-cloud'
 import { byosIntegrationsConfig } from './config/byos-integrations'
 import {
@@ -35,4 +36,5 @@ export const config = {
   claudeCodePreview: claudeCodePreviewConfig(),
   claudeCodeRuntimeProvisioner: claudeCodeRuntimeProvisionerConfig(),
   dashboards: dashboardsConfig(),
+  box: boxConfig(),
 }

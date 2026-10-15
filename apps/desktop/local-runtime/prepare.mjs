@@ -168,6 +168,14 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         filter: (path) => !path.endsWith('.complete'),
       })
     cpSync(join(RUNTIME_DIR, ATTACHMENT_JOB), join(out, 'attachment-job.mjs'))
+    // Claude's sign-in wrapper openab runs on request from Nuphos, the one the runtime image ships.
+    cpSync(join(RUNTIME_DIR, 'claude-login.mjs'), join(out, 'claude-login.mjs'))
+    cpSync(join(RUNTIME_DIR, 'codex-login.mjs'), join(out, 'codex-login.mjs'))
+    // A desktop per session on a Linux Box: the MCP wrapper Claude runs there.
+    cpSync(
+      join(desktopDir, 'local-runtime', 'desktop-session.mjs'),
+      join(out, 'desktop-session.mjs'),
+    )
     if (target.startsWith('darwin')) {
       const arch = target.endsWith('arm64') ? 'arm64' : 'x86_64'
 

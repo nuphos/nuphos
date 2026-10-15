@@ -1,0 +1,49 @@
+import { describe, expect, test } from 'bun:test'
+
+import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+
+import { sessionDesktops, withSessionDesktops } from './session-desktops'
+
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
+
+// Run with: cd apps/backend && bun test src/lib/claude-code-preview/session-desktops.test.ts
+
+const runtimeId = localRuntimeId({ userId: 'u1', deviceId: 'box-1', provider: 'claude-code' })
+const status = {
+  agents: {},
+  desktops: [
+    { display: 2, sessionId: 's1' },
+    { display: 3, sessionId: 's2' },
+  ],
+} as unknown as LocalRuntimeStatus
+
+describe('session desktops', () => {
+  test('a conversation sees only its own desktops on its Box, as running tools', async () => {
+    const store = runtimePresenceStore()
+
+    await store.claim('u1', 'box-1', 'c1')
+    expect(await store.put('u1', 'box-1', { conn: 'c1', status, seenAt: Date.now() })).toBe(true)
+
+    expect(await sessionDesktops({ sessionId: 's1', runtimeId })).toEqual([
+      {
+        id: 'desktop:2',
+        kind: 'desktop',
+        title: 'Desktop',
+        status: 'running',
+        desktop: { display: 2, deviceId: 'box-1' },
+      },
+    ])
+    const snapshot = { state: 'idle' as const, tools: [{ id: 't1' }] }
+
+    expect(await withSessionDesktops(snapshot, { sessionId: 's3', runtimeId })).toBe(snapshot)
+    expect(
+      (await withSessionDesktops(snapshot, { sessionId: 's2', runtimeId })).tools?.map((t) => t.id),
+    ).toEqual(['t1', 'desktop:3'])
+  })
+
+  test('a conversation off any local runtime has none', async () => {
+    expect(await sessionDesktops({ sessionId: 's1', runtimeId: 'managed-1' })).toEqual([])
+    expect(await sessionDesktops({ sessionId: 's1' })).toEqual([])
+  })
+})

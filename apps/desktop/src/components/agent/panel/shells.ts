@@ -22,3 +22,8 @@ export function shellsFromRuntimeState(snapshot: RuntimeExecution | undefined): 
       : [],
   )
 }
+
+/** The X displays this session's desktops are on, in wire order. */
+export function desktopsFromRuntimeState(snapshot: RuntimeExecution | undefined): number[] {
+  return (snapshot?.tools ?? []).flatMap((tool) => (tool.desktop ? [tool.desktop.display] : []))
+}

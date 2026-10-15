@@ -127,7 +127,7 @@ export function selectMountedBrowserTabs(
   return Object.values(buckets).flatMap((bucket) =>
     bucket.tabs.filter(
       (tab) =>
-        tab.active === 'team.browser' &&
+        (tab.active === 'team.browser' || tab.active === 'team.desktop') &&
         (tab.id === bucket.activeTabId || bucket.mountedTabIds.has(tab.id)),
     ),
   )

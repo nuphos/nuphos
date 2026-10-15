@@ -9,7 +9,12 @@ import { clientToolWithLabel, withLabel } from './labeling'
 import type { DeviceExecAuditInput } from '../devices/audit'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 
-export type LocalExecDevice = { deviceId: string; label: string }
+export type LocalExecDevice = {
+  deviceId: string
+  label: string
+  /** For a Box that is offline right now: resumes it and resolves once its tunnel is back. */
+  wake?: () => Promise<boolean>
+}
 
 export type LocalExecTurn = {
   /** The acting user; devices are looked up under this user, so it is also the device owner. */
@@ -211,6 +216,19 @@ export function createLocalExecTool(
           })
 
           return { error: 'You are no longer a member of this team.' }
+        }
+        // A Box that idled into a pause is resumed now, for this command, not for every turn.
+        const wake = devices.find((candidate) => candidate.deviceId === deviceId)?.wake
+
+        if (wake && !(await wake().catch(() => false))) {
+          await audit(deviceId, command, requestedAt, {
+            outcome: 'rejected',
+            reason: 'device_unavailable',
+          })
+
+          return {
+            error: `Device ${deviceId} is a Box that could not be resumed; try again shortly.`,
+          }
         }
         const dispatchedAt = new Date()
         let outcome: Awaited<ReturnType<typeof dispatchLocalExec>>

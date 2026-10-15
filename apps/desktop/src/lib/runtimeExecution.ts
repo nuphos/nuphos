@@ -32,6 +32,8 @@ export type RuntimeExecution = {
       output?: string
       status: 'running' | 'exited'
     }
+    /** A desktop this session holds on its Box: the X display, on which device. */
+    desktop?: { display: number; deviceId: string }
   }[]
   actions?: { send: boolean; cancel: boolean; steer: boolean; reply?: boolean }
   epoch?: string

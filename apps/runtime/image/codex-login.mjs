@@ -47,11 +47,13 @@ export async function installAuthJson(authJson, directory = CODEX_AUTH_DIRECTORY
 export async function runDeviceLogin({
   executable = process.execPath,
   args = ['/opt/nuphos-codex-acp/node_modules/@openai/codex/bin/codex.js'],
+  // The child's HOME is the caller's choice, so a test can keep the CLI off the real one.
+  home,
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   install = false,
   authDirectory = CODEX_AUTH_DIRECTORY,
   signal,
-} = {}) {
+}) {
   const directory = await mkdtemp(join(tmpdir(), 'nuphos-codex-login-'))
   try {
     const child = spawn(
@@ -60,7 +62,7 @@ export async function runDeviceLogin({
       {
         // Do not inherit transport keys, actor tokens, or another Codex login.
         env: {
-          HOME: '/home/node',
+          HOME: home,
           CODEX_HOME: directory,
           PATH: '/usr/local/bin:/usr/bin:/bin',
           TERM: 'dumb',
@@ -130,6 +132,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   process.stdout.on('error', () => controller.abort())
   try {
     await runDeviceLogin({
+      ...(process.env.CODEX_EXECUTABLE
+        ? { executable: process.env.CODEX_EXECUTABLE, args: [] }
+        : {}),
+      home: process.env.HOME ?? '/home/node',
       signal: controller.signal,
       install: process.argv.includes('--install'),
     })

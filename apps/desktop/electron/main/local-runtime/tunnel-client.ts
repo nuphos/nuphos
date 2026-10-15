@@ -1,7 +1,14 @@
+import { createMetricsLease } from './metrics-lease.ts'
+import { parseFrame } from './tunnel-protocol.ts'
+
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
+import type { BackendFrame } from './tunnel-protocol.ts'
+import type { DeviceMetrics } from '../../../src/api/device-types.ts'
 
 export type TunnelPurpose = 'transport' | 'control'
+/** What a backend stream may ask this computer for: an agent, or one of its local tools. */
+export type StreamPurpose = TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc'
 
 /** Lists only the agents running right now; the owner sees exactly these. */
 export type LocalRuntimeTunnelStatus = {
@@ -18,18 +25,8 @@ export type LocalRuntimeTunnelStatus = {
     >
   >
   backendUrl?: string
+  desktops?: { sessionId: string; display: number }[]
 }
-
-type BackendFrame =
-  | {
-      t: 'open'
-      s: string
-      purpose: TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua'
-      provider?: LocalAgentProvider
-    }
-  | { t: 'data'; s: string; d: string }
-  | { t: 'close'; s: string; reason?: string }
-  | { t: 'ping' }
 
 export type SocketEvent = { data?: unknown; code?: number }
 
@@ -51,12 +48,14 @@ export type TunnelClientDeps = {
   connectExec?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
+  connectVnc?: () => SocketLike
   activity?: {
     open(id: string, purpose: string): void
     data(id: string, raw: string, incoming: boolean): void
     close(id: string): void
     clear(): void
   }
+  sampleMetrics?: () => Promise<DeviceMetrics | null>
   status: () => LocalRuntimeTunnelStatus
   /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
   onChange?: (connected: boolean, superseded: boolean) => void
@@ -76,17 +75,6 @@ export function tunnelReconnectDelayMs(attempt: number): number {
   return RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)]
 }
 
-function parseFrame(raw: unknown): BackendFrame | null {
-  if (typeof raw !== 'string') return null
-  try {
-    const frame = JSON.parse(raw) as BackendFrame
-
-    return typeof frame === 'object' && typeof frame.t === 'string' ? frame : null
-  } catch {
-    return null
-  }
-}
-
 /**
  * Keeps exactly one tunnel to the backend open while started, reconnecting with
  * backoff whenever it closes, and relays each stream the backend opens to the
@@ -95,6 +83,7 @@ function parseFrame(raw: unknown): BackendFrame | null {
 export class RuntimeTunnelClient {
   private socket: SocketLike | undefined
   private readonly streams = new Map<string, { runtime: SocketLike; pending: string[] }>()
+  private readonly metrics: ReturnType<typeof createMetricsLease>
   private running = false
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
@@ -103,6 +92,9 @@ export class RuntimeTunnelClient {
 
   constructor(deps: TunnelClientDeps) {
     this.deps = deps
+    this.metrics = createMetricsLease(deps.sampleMetrics, (metrics) =>
+      this.send({ t: 'metrics', metrics }),
+    )
   }
 
   start(): void {
@@ -132,6 +124,7 @@ export class RuntimeTunnelClient {
       t: 'status',
       status: {
         ...this.deps.status(),
+        localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
@@ -140,6 +133,7 @@ export class RuntimeTunnelClient {
   }
 
   private drop(): void {
+    this.metrics.stop()
     clearTimeout(this.reconnectTimer)
     clearTimeout(this.idleTimer)
     for (const { runtime } of this.streams.values()) runtime.close()
@@ -224,6 +218,10 @@ export class RuntimeTunnelClient {
 
   private handle(frame: BackendFrame): void {
     switch (frame.t) {
+      case 'metrics':
+        this.metrics.renew(frame.leaseMs)
+
+        return
       case 'ping':
         this.send({ t: 'pong' })
 
@@ -248,22 +246,20 @@ export class RuntimeTunnelClient {
     }
   }
 
-  private open(
-    s: string,
-    purpose: TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua',
-    provider: LocalAgentProvider,
-  ): void {
+  private open(s: string, purpose: StreamPurpose, provider: LocalAgentProvider): void {
     if (this.streams.has(s)) return
+    const { connectTerminal, connectFile, connectExec, connectCua, connectVnc } = this.deps
+    const local = {
+      terminal: connectTerminal,
+      file: connectFile,
+      exec: connectExec,
+      cua: connectCua,
+      vnc: connectVnc,
+    }
     const runtime =
-      purpose === 'terminal'
-        ? this.deps.connectTerminal?.()
-        : purpose === 'file'
-          ? this.deps.connectFile?.()
-          : purpose === 'exec'
-            ? this.deps.connectExec?.()
-            : purpose === 'cua'
-              ? this.deps.connectCua?.()
-              : this.deps.connectRuntime(purpose, provider)
+      purpose === 'transport' || purpose === 'control'
+        ? this.deps.connectRuntime(purpose, provider)
+        : local[purpose]?.()
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

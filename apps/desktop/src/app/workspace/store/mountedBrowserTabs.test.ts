@@ -34,6 +34,20 @@ test('browser panes are collected from every session, not just the visible one',
   )
 })
 
+test('desktop guests survive session switches and unopened guests stay unmounted', () => {
+  const buckets = {
+    s1: bucket([tab('desktop', 'team.desktop'), tab('cold', 'team.desktop')], 'desktop', [
+      'desktop',
+    ]),
+    s2: bucket([tab('browser', 'team.browser')], 'browser', ['browser']),
+  }
+
+  assert.deepEqual(
+    selectMountedBrowserTabs(buckets).map((t) => t.id),
+    ['desktop', 'browser'],
+  )
+})
+
 test('a browser tab nobody has opened yet is left alone', () => {
   // Restored from disk: in the strip, never activated, so it has no webview and
   // mounting it here would load a page the user has not asked for.

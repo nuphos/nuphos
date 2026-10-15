@@ -4,6 +4,7 @@
 // tools-list/call rather than baked into a static module like the other
 // local tools. It is relayed to the owner's device, so unlike those tools it
 // does not depend on the sending client's `localTools` capability.
+import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import { createLocalTerminalTool } from '@/lib/agent/tools-skilled/local-terminal'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
@@ -31,9 +32,21 @@ export async function resolveAvailableLocalExecDevices(
   ])
   const selected = new Set(access.deviceIds)
 
+  // An offline Box stays usable: it is woken when a command is actually sent to it.
   return options.devices
-    .filter((device) => device.available && selected.has(device.deviceId))
-    .map((device) => ({ deviceId: device.deviceId, label: device.label }))
+    .filter((device) => selected.has(device.deviceId))
+    .flatMap((device) => {
+      if (device.available) return [{ deviceId: device.deviceId, label: device.label }]
+      if (!device.box?.ready) return []
+
+      return [
+        {
+          deviceId: device.deviceId,
+          label: device.label,
+          wake: () => wakeBox(ctx.userId, device.deviceId),
+        },
+      ]
+    })
 }
 
 export async function localExecToolModule(ctx: PreviewToolContext): Promise<PreviewToolModule> {

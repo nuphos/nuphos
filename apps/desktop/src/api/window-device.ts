@@ -1,6 +1,7 @@
 import type {
   AgentDevice,
   AgentDeviceList,
+  AgentDeviceListOptions,
   BoxStatus,
   SleepPreferences,
   SleepState,
@@ -29,9 +30,12 @@ export type WindowDeviceApi = {
   localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
   localRuntimeOpenWorkspace(): Promise<void>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
-  boxListDevices(): Promise<AgentDeviceList>
-  boxCreate(label?: string): Promise<AgentDevice>
+  boxListDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList>
+  boxCreate(label?: string, teamId?: string): Promise<AgentDevice>
   boxPause(deviceId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string): Promise<{ ok: true }>
+  boxRename(deviceId: string, label: string): Promise<{ ok: true }>
+  boxDesktop(deviceId: string): Promise<{ url: string }>
+  boxJoinToken(): Promise<{ token: string; expiresAt: string; apiUrl: string | null }>
 }

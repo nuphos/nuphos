@@ -221,7 +221,7 @@ export function RuntimeSelector({
             {groupAgentsByTier(options, owner).map((group, index) => (
               <MenuGroup key={group.tier}>
                 {index > 0 && <MenuSeparator />}
-                <MenuGroupLabel>{group.title}</MenuGroupLabel>
+                {group.title && <MenuGroupLabel>{group.title}</MenuGroupLabel>}
                 {group.agents.map((instance) => {
                   const update = updates.get(instance.id)
                   const needsLocalLogin =

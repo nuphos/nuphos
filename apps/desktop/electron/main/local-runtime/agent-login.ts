@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
 import { stripVTControlCharacters } from 'node:util'
 
+import { agentSignInArgs } from './config.ts'
+
 import type { ChildProcess } from 'node:child_process'
 
 export type LocalAgentLoginState = {
@@ -76,17 +78,11 @@ export class LocalAgentLogin {
     let child: ChildProcess
 
     try {
-      child = (this.deps.spawn ?? spawn)(
-        cli,
-        codex
-          ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
-          : ['auth', 'login', '--claudeai'],
-        {
-          env,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          shell: cli.endsWith('.cmd'),
-        },
-      )
+      child = (this.deps.spawn ?? spawn)(cli, agentSignInArgs(codex ? 'codex' : 'claude-code'), {
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: cli.endsWith('.cmd'),
+      })
     } catch {
       this.update({ state: 'failed', error: `Could not start ${name} sign-in. Please try again.` })
 

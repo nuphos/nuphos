@@ -1,13 +1,15 @@
 import { AlarmClock, Loader2 } from 'lucide-react'
-import { Fragment } from 'react'
+import { Fragment, useEffect } from 'react'
 
 import { runtimeAllows, runtimeIsExecuting } from '../../../lib/runtimeExecution'
+import { publishSessionDesktops } from '../../../lib/sessionDesktops'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
 import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
+import { desktopsFromRuntimeState } from './shells'
 import { ShellsPanel } from './ShellsPanel'
 import { DEFERRED_MESSAGE_STYLE } from './status'
 import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
@@ -64,6 +66,15 @@ export function ConversationMessageList({
   onRequestFeedbackComment: (messageId: string) => void
 }) {
   useReportVisibleError(tab.error, 'agent_conversation_error')
+  // The workspace turns these into dock tabs; a chat that leaves the screen is forgotten, not closed.
+  useEffect(() => {
+    if (teamId)
+      publishSessionDesktops(tab.sessionId, {
+        teamId,
+        displays: desktopsFromRuntimeState(tab.runtimeState),
+      })
+  }, [tab.sessionId, teamId, tab.runtimeState])
+  useEffect(() => () => publishSessionDesktops(tab.sessionId, null), [tab.sessionId])
   const downloadsByMessage = useTransferDownloads(tab, teamId)
   const timeline = placeTimelineEvents(tab.messages, tab.timelineEvents, hasEarlier)
   // Events newer than the moment this session was opened animate in; the ones

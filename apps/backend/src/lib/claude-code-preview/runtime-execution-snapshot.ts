@@ -33,6 +33,8 @@ export type SessionExecutionState = {
       status: 'running' | 'exited'
       exit?: { exitCode?: number | null; signal?: string | null }
     }
+    /** A desktop the conversation holds on its Box; added by the backend, not openab. */
+    desktop?: { display: number; deviceId: string }
   }[]
   actions?: { send: boolean; cancel: boolean; steer: boolean; reply?: boolean }
   epoch?: string

@@ -1,8 +1,10 @@
 import { ipcRenderer } from 'electron'
 
 import type {
+  DesktopTarget,
   DockTerminalRequest,
   LocalTerminalEvent,
+  RuntimeDesktopEvent,
   TerminalTarget,
 } from '../../src/api/local-terminal-types'
 
@@ -30,5 +32,17 @@ export const localTerminalApi = {
     ipcRenderer.on('local-terminal:event', handler)
 
     return () => ipcRenderer.off('local-terminal:event', handler)
+  },
+  runtimeDesktopStart: (id: string, target: DesktopTarget) =>
+    ipcRenderer.invoke('runtime-desktop:start', id, target),
+  runtimeDesktopInput: (id: string, data: string) =>
+    ipcRenderer.invoke('runtime-desktop:input', id, data),
+  runtimeDesktopClose: (id: string) => ipcRenderer.invoke('runtime-desktop:close', id),
+  onRuntimeDesktopEvent: (callback: (event: RuntimeDesktopEvent) => void) => {
+    const handler = (_event: unknown, payload: RuntimeDesktopEvent) => callback(payload)
+
+    ipcRenderer.on('runtime-desktop:event', handler)
+
+    return () => ipcRenderer.off('runtime-desktop:event', handler)
   },
 }

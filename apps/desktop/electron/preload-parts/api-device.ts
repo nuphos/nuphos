@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron'
 
+import type { AgentDeviceListOptions } from '../../src/api/device-types.ts'
+
 export const deviceApi = {
   onWindowFullScreenChanged: (cb: (fullScreen: boolean) => void) => {
     const handler = (_event: unknown, fullScreen: boolean) => cb(fullScreen)
@@ -32,9 +34,13 @@ export const deviceApi = {
   localRuntimeOpenWorkspace: () => ipcRenderer.invoke('localRuntime:openWorkspace'),
   localRuntimeListActivity: (before?: string) =>
     ipcRenderer.invoke('localRuntime:listActivity', before),
-  boxListDevices: () => ipcRenderer.invoke('box:listDevices'),
-  boxCreate: (label?: string) => ipcRenderer.invoke('box:create', label),
+  boxListDevices: (options?: AgentDeviceListOptions) =>
+    ipcRenderer.invoke('box:listDevices', options),
+  boxCreate: (label?: string, teamId?: string) => ipcRenderer.invoke('box:create', label, teamId),
   boxPause: (deviceId: string) => ipcRenderer.invoke('box:pause', deviceId),
   boxResume: (deviceId: string) => ipcRenderer.invoke('box:resume', deviceId),
   boxDelete: (deviceId: string) => ipcRenderer.invoke('box:delete', deviceId),
+  boxDesktop: (deviceId: string) => ipcRenderer.invoke('box:desktop', deviceId),
+  boxJoinToken: () => ipcRenderer.invoke('box:join-token'),
+  boxRename: (deviceId: string, label: string) => ipcRenderer.invoke('box:rename', deviceId, label),
 }

@@ -2,9 +2,11 @@ import clsx from 'clsx'
 import { ChevronRight } from 'lucide-react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { useThisComputer } from '../../hooks/useThisComputer'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
+import { agentRunsOn } from './agentPresentation'
 import { ACCENT_RGB } from './MetricChart'
 
 import type { MetricPoint } from './MetricChart'
@@ -20,19 +22,6 @@ export const USED_FILL = `rgb(${ACCENT_RGB})`
 export const LIMIT_FILL = 'rgba(var(--color-zOrangered-500), 0.7)'
 
 const percent = (value: number) => `${String(Math.round(value))}%`
-
-const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
-  managed: 'Cloud',
-  external: 'Self-hosted',
-  development: 'Development',
-  local: 'This computer',
-}
-
-function runsOn(instance: RuntimeInstance): string {
-  const where = RUNS_ON[instance.kind]
-
-  return instance.status === 'active' ? where : `${where} · Disabled`
-}
 
 /** One line per bucket, broken wherever nothing was read. */
 function sparklinePath(points: MetricPoint[]): string {
@@ -61,6 +50,7 @@ export function AgentUsageRow({
   selected: boolean
   onSelect: (runtimeId: string) => void
 }) {
+  const thisComputer = useThisComputer()
   const windows = quota?.available ? quota.windows : []
   const atLimit = windows.some((window) => window.usedPercent >= 100)
   const note = quotaNote(quota)
@@ -99,7 +89,7 @@ export function AgentUsageRow({
             instance.status === 'active' ? 'bg-zViolet-400' : 'bg-zGray-600',
           )}
         />
-        {runsOn(instance)}
+        {agentRunsOn(instance, thisComputer?.deviceId)}
       </span>
       <span className="min-w-0 space-y-1">
         {windows.length === 0 ? (

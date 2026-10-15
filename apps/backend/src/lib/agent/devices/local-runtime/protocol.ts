@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
-export type TunnelPurpose = 'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua'
+import { boxMetricsSchema } from '../metrics-schema'
+
+export type TunnelPurpose = 'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
 
@@ -79,8 +81,19 @@ export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
 
 export const localRuntimeStatusSchema = z.object({
   localExec: z.boolean().optional(),
+  localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
+  /** Desktops this computer runs for conversations (a Box: one X display per session). */
+  desktops: z
+    .array(
+      z.object({
+        display: z.number().int().min(2).max(255),
+        sessionId: z.string().min(1).max(128),
+      }),
+    )
+    .max(64)
+    .optional(),
   agents: z.object({
     'claude-code': localAgentStatusSchema.optional(),
     codex: localAgentStatusSchema.optional(),
@@ -97,6 +110,7 @@ const payload = z.string().max(8 * 1024 * 1024)
 /** Desktop → backend over the tunnel WebSocket. */
 export const desktopFrameSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('status'), status: localRuntimeStatusSchema }),
+  z.object({ t: z.literal('metrics'), metrics: boxMetricsSchema }),
   z.object({ t: z.literal('opened'), s: streamIdSchema }),
   z.object({ t: z.literal('data'), s: streamIdSchema, d: payload }),
   z.object({
@@ -116,6 +130,7 @@ export type BackendFrame =
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string; reason?: string }
   | { t: 'ping' }
+  | { t: 'metrics'; leaseMs: number }
 
 /** Any replica → the replica holding the device's tunnel. */
 export type HolderMessage =
@@ -132,6 +147,7 @@ export type HolderMessage =
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }
   | { t: 'ping'; conn: string }
+  | { t: 'metrics'; conn: string; leaseMs: number }
 
 /** The holder → the replica that opened one stream. */
 export type StreamMessage =

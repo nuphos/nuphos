@@ -19,7 +19,7 @@ import type { RuntimeLoginDoc, RuntimeLoginStatus } from './runtime-login-store'
 const running = new Map<string, AbortController>()
 
 export type RuntimeLoginDeps<Target> = {
-  prepare: (teamId: string, runtimeId: string) => Promise<Target>
+  prepare: (teamId: string, runtimeId: string, userId?: string) => Promise<Target>
   exec: (
     target: Target,
     onFrame: (frame: RuntimeLoginFrame) => void,
@@ -30,12 +30,13 @@ export type RuntimeLoginDeps<Target> = {
   input?: (target: Target, doc: RuntimeLoginDoc, text: string) => Promise<void>
 }
 
-/** Managed and self-hosted runtimes both own their sign-in; a member's computer and a
- *  development runtime are signed in where they run. */
-export async function requireLoginInstance(teamId: string, runtimeId: string) {
-  const instance = await requireRuntimeInstance(teamId, runtimeId)
+/** Managed, self-hosted and local runtimes own their sign-in (a local one over its
+ *  computer's tunnel, into the runtime's own config dir); a development runtime is
+ *  signed in where it runs. */
+export async function requireLoginInstance(teamId: string, runtimeId: string, userId?: string) {
+  const instance = await requireRuntimeInstance(teamId, runtimeId, userId)
 
-  if (instance.kind !== 'external' && instance.kind !== 'managed')
+  if (instance.kind !== 'external' && instance.kind !== 'managed' && instance.kind !== 'local')
     throw new AppError(
       400,
       'runtime_login_unavailable',
@@ -88,7 +89,7 @@ export async function performRuntimeLogin<Target>(
   }, 2_000)
 
   try {
-    target = await deps.prepare(doc.teamId, doc.runtimeId)
+    target = await deps.prepare(doc.teamId, doc.runtimeId, doc.userId)
 
     if (controller.signal.aborted) throw new Error('Sign-in cancelled')
     let authenticated = false
@@ -173,7 +174,7 @@ export async function startRuntimeLogin(
   runtimeId: string,
   userId: string,
 ): Promise<RuntimeLoginStatus> {
-  await requireLoginInstance(teamId, runtimeId)
+  await requireLoginInstance(teamId, runtimeId, userId)
   const doc = await claimRuntimeLogin(teamId, runtimeId, userId)
 
   void performRuntimeLogin(doc, loginDeps).catch(() => {
@@ -230,7 +231,7 @@ export async function submitRuntimeLoginCode(
   attemptId: string,
   code: string,
 ): Promise<RuntimeLoginStatus> {
-  await requireLoginInstance(teamId, runtimeId)
+  await requireLoginInstance(teamId, runtimeId, userId)
   const doc = await readRuntimeLogin(teamId, runtimeId, userId)
 
   if (doc.attemptId !== attemptId)

@@ -12,8 +12,6 @@ import { stripVTControlCharacters } from 'node:util'
 const AUTHORIZE_HOSTS = new Set(['claude.com', 'claude.ai'])
 const CODE_LINE = /^[\w.~-]{1,2048}#[\w.~-]{1,512}$/u
 
-export const CLAUDE_HOME = process.env.HOME ?? '/home/node'
-
 export function authorizeUrl(output) {
   const match = /visit: (https:\/\/\S+)/u.exec(stripVTControlCharacters(output))
 
@@ -40,18 +38,35 @@ class LoginError extends Error {
   }
 }
 
+/**
+ * Everything that decides where the login lands is a parameter: `home` and
+ * `configDir` (a Box or a desktop's local agent has its own) come from the caller,
+ * never from this process's environment. Only the CLI entrypoint below reads env, so
+ * a test that passes a temp `home` can never touch the real login of the machine it
+ * runs on.
+ */
 export async function runClaudeLogin({
-  executable = process.env.CLAUDE_CODE_EXECUTABLE || 'claude',
+  executable = 'claude',
   args = [],
-  home = CLAUDE_HOME,
+  home,
+  configDir = join(home, '.claude'),
+  secureStorageConfigDir,
   input = process.stdin,
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   signal,
-} = {}) {
+}) {
   const child = spawn(executable, [...args, 'auth', 'login', '--claudeai'], {
     // Not the gateway's environment: no transport keys, and no CLAUDE_CODE_OAUTH_TOKEN,
     // which would shadow the login this writes.
-    env: { HOME: home, PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin', TERM: 'dumb' },
+    env: {
+      HOME: home,
+      PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+      TERM: 'dumb',
+      CLAUDE_CONFIG_DIR: configDir,
+      ...(secureStorageConfigDir !== undefined
+        ? { CLAUDE_SECURESTORAGE_CONFIG_DIR: secureStorageConfigDir }
+        : {}),
+    },
     stdio: ['pipe', 'pipe', 'ignore'],
     detached: process.platform !== 'win32',
   })
@@ -104,9 +119,12 @@ export async function runClaudeLogin({
 
     if (failure) throw failure
     if (code !== 0) throw new LoginError('failed')
-    const credential = await stat(join(home, '.claude', '.credentials.json')).catch(() => null)
+    // macOS keeps the login in the Keychain, so only a file-backed login is checked.
+    if (process.platform !== 'darwin') {
+      const credential = await stat(join(configDir, '.credentials.json')).catch(() => null)
 
-    if (!credential?.isFile() || credential.size === 0) throw new LoginError('failed')
+      if (!credential?.isFile() || credential.size === 0) throw new LoginError('failed')
+    }
     emit({ type: 'authenticated' })
   } finally {
     lines.removeAllListeners('close')
@@ -120,7 +138,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   for (const event of ['SIGTERM', 'SIGINT']) process.once(event, () => controller.abort())
   process.stdout.on('error', () => controller.abort())
   try {
-    await runClaudeLogin({ signal: controller.signal })
+    // The only place the environment is read: the runtime's own home and config dir.
+    await runClaudeLogin({
+      executable: process.env.CLAUDE_CODE_EXECUTABLE || 'claude',
+      home: process.env.HOME ?? '/home/node',
+      configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
+      secureStorageConfigDir: process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+      signal: controller.signal,
+    })
   } catch (error) {
     // Provider output can contain sensitive values; report only a fixed reason.
     const reason = error instanceof LoginError ? error.reason : 'failed'

@@ -102,21 +102,40 @@ export type LocalRuntimeActivityPage = {
   nextCursor: string | null
 }
 
-export type BoxState = 'creating' | 'running' | 'paused' | 'stopped' | 'error'
+export type BoxState = 'creating' | 'running' | 'paused' | 'error'
 
 /** A Box: a device Nuphos runs in a sandbox for its owner. */
 export type BoxStatus = {
   provider: 'instabox'
-  sandboxId: string
+  /** Set once the machine exists. */
+  sandboxId?: string
   state: BoxState
+  /** The host has joined at least once; until then the Box is still starting. */
+  joined?: boolean
   updatedAt?: string
 }
 
 /** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
+export type DeviceMetrics = {
+  sampledAt: string
+  cpuPercent: number
+  memory: { used: number; total: number }
+  disk: { used: number; total: number }
+}
+
+export type DeviceMetricsStatus = 'offline' | 'unsupported' | 'waiting' | 'stale' | 'live'
+
+export type AgentDeviceListOptions = { metrics?: boolean }
+
 export type AgentDevice = {
+  metricsStatus?: DeviceMetricsStatus
+  metricsReceivedAt?: string | null
+  metrics?: DeviceMetrics | null
   deviceId: string
   label: string
   platform: string
+  model?: string
+  createdAt?: string
   allowLocalExec?: boolean
   online?: boolean
   box?: BoxStatus

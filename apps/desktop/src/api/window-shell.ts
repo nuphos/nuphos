@@ -1,6 +1,8 @@
 import type {
+  DesktopTarget,
   DockTerminalRequest,
   LocalTerminalEvent,
+  RuntimeDesktopEvent,
   TerminalTarget,
 } from './local-terminal-types'
 import type { Plan } from './plan-types.ts'
@@ -40,6 +42,10 @@ export type WindowShellApi = {
   localTerminalResize(id: string, cols: number, rows: number): Promise<void>
   localTerminalClose(id: string): Promise<void>
   onLocalTerminalEvent(callback: (event: LocalTerminalEvent) => void): () => void
+  runtimeDesktopStart(id: string, target: DesktopTarget): Promise<void>
+  runtimeDesktopInput(id: string, data: string): Promise<void>
+  runtimeDesktopClose(id: string): Promise<void>
+  onRuntimeDesktopEvent(callback: (event: RuntimeDesktopEvent) => void): () => void
   appOpenExternal(url: string): Promise<void>
   appOpenSsh(url: string): Promise<void>
   sshTerminalInput(id: string, data: string): Promise<void>

@@ -1,4 +1,9 @@
-import type { LocalAgentProvider, LocalRuntimeState, SleepPreferences } from './device-types.ts'
+import type {
+  AgentDeviceListOptions,
+  LocalAgentProvider,
+  LocalRuntimeState,
+  SleepPreferences,
+} from './device-types.ts'
 
 export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
@@ -19,9 +24,12 @@ export const deviceApi = {
   localRuntimeLatestAgentVersions: () => window.api.localRuntimeLatestAgentVersions(),
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
   localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
-  boxListDevices: () => window.api.boxListDevices(),
-  boxCreate: (label?: string) => window.api.boxCreate(label),
+  boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
+  boxCreate: (label?: string, teamId?: string) => window.api.boxCreate(label, teamId),
   boxPause: (deviceId: string) => window.api.boxPause(deviceId),
   boxResume: (deviceId: string) => window.api.boxResume(deviceId),
   boxDelete: (deviceId: string) => window.api.boxDelete(deviceId),
+  boxDesktop: (deviceId: string) => window.api.boxDesktop(deviceId),
+  boxJoinToken: () => window.api.boxJoinToken(),
+  boxRename: (deviceId: string, label: string) => window.api.boxRename(deviceId, label),
 }

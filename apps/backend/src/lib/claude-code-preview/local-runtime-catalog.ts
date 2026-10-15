@@ -1,3 +1,4 @@
+import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import {
   localRuntimeId,
   localRuntimeUrl,
@@ -5,7 +6,11 @@ import {
 } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
-import { isActiveTeamMember, listAgentDevicesForUser } from '@/lib/agent/devices/store'
+import {
+  getAgentDevice,
+  isActiveTeamMember,
+  listAgentDevicesForUser,
+} from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
 import type { RuntimeModelCatalog } from './runtime-models'
@@ -25,6 +30,8 @@ export type LocalRuntimeSummary = {
   usage?: unknown
   /** When that computer read the usage above. */
   usageAt?: string
+  /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
+  box?: { provider: 'instabox' }
 }
 
 export type LocalRuntimeInstance = {
@@ -41,12 +48,18 @@ export type LocalRuntimeCatalogDeps = {
   listDevices: (userId: string) => Promise<AgentDevice[]>
   isMember: (userId: string, teamId: string) => Promise<boolean>
   getPresence: (userId: string, deviceId: string) => Promise<LocalRuntimePresence | null>
+  /** Resumes an offline Box and returns its presence once it is back; undefined otherwise. */
+  wakeDevice: (userId: string, deviceId: string) => Promise<LocalRuntimePresence | undefined>
 }
 
 const defaultDeps: LocalRuntimeCatalogDeps = {
   listDevices: (userId) => listAgentDevicesForUser(userId),
   isMember: (userId, teamId) => isActiveTeamMember(userId, teamId),
   getPresence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
+  wakeDevice: async (userId, deviceId) =>
+    (await wakeBox(userId, deviceId))
+      ? ((await runtimePresenceStore().get(userId, deviceId)) ?? undefined)
+      : undefined,
 }
 
 const PROVIDER_LABEL: Record<LocalAgentProvider, string> = {
@@ -75,7 +88,7 @@ export async function listOwnLocalRuntimes(
           return {
             id,
             provider,
-            label: `${device.label} · ${PROVIDER_LABEL[provider]}`,
+            label: `${PROVIDER_LABEL[provider]} in ${device.label}`,
             status: 'active',
             kind: 'local',
             createdAt: device.createdAt.toISOString(),
@@ -84,6 +97,7 @@ export async function listOwnLocalRuntimes(
               deviceId: device.deviceId,
               deviceLabel: device.label,
               signedIn: reported?.cli.loggedIn ?? null,
+              ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(reported?.usage !== undefined
                 ? {
                     usage: reported.usage,
@@ -116,18 +130,21 @@ export async function resolveLocalRuntimeEndpoint(
   teamId: string,
   runtimeId: string,
   userId: string,
-  purpose: 'transport' | 'control',
+  /** `login` is the control channel for the agent's own sign-in, so signed out is fine. */
+  purpose: 'transport' | 'control' | 'login',
   deps: LocalRuntimeCatalogDeps = defaultDeps,
 ): Promise<TeamRuntimeEndpoint & { runtimeId: string }> {
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (!ref || ref.userId !== userId) throw notAvailable()
-  const [member, presence] = await Promise.all([
+  const [member, found] = await Promise.all([
     deps.isMember(ref.userId, teamId),
     deps.getPresence(ref.userId, ref.deviceId),
   ])
 
   if (!member) throw notAvailable()
+  // A paused Box is resumed and given a moment to reconnect before it counts as offline.
+  const presence = found ?? (await deps.wakeDevice(ref.userId, ref.deviceId)) ?? null
   const agent = presence?.status?.agents[ref.provider]
 
   if (!presence || !agent)
@@ -136,7 +153,7 @@ export async function resolveLocalRuntimeEndpoint(
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
     )
-  if (agent.cli.loggedIn === false)
+  if (agent.cli.loggedIn === false && purpose !== 'login')
     throw new AppError(
       409,
       'runtime_login_required',
@@ -145,7 +162,7 @@ export async function resolveLocalRuntimeEndpoint(
 
   return {
     url: localRuntimeUrl(ref, teamId),
-    authKey: purpose,
+    authKey: purpose === 'login' ? 'control' : purpose,
     runtimeId,
     external: true,
     local: { userId: ref.userId, deviceId: ref.deviceId },

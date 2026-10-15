@@ -46,6 +46,7 @@ import {
   steeringReceipt,
 } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
+import { desktopTracker } from '@/lib/claude-code-preview/session-desktops'
 import { RunHandoff } from '@/lib/lifecycle'
 
 export type { PreviewChatTurnArgs } from './chat-preview-run'
@@ -61,6 +62,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const answers: string[] = []
   const toolLog = createPreviewToolLog()
   const state = createPreviewRunState({ run, userId, sessionId })
+  const desktops = desktopTracker({ sessionId, runtimeId: args.endpoint.runtimeId })
   const diagnostic = createTurnDiagnostics(
     {
       streamId: run.streamId,
@@ -159,7 +161,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       onAgentUpdate: (update) => {
         if (update.kind === 'runtime-state') {
           diagnostic.observe()
-          state.emit({ type: 'runtime-state', snapshot: update.snapshot })
+          state.emit({ type: 'runtime-state', snapshot: desktops.with(update.snapshot) })
 
           return
         }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { subscribeSessionDesktops } from '../../lib/sessionDesktops'
 import { observeTerminalProcesses } from '../../lib/sessionTerminalProcesses'
 import {
   collectExecScopes,
@@ -11,6 +12,7 @@ import {
 } from '../../lib/terminalTabTeardown'
 
 import { openDockTerminal } from './openDockTerminal'
+import { syncDesktopTabs } from './syncDesktopTabs'
 import { selectAllResidentTabs, selectCurrentBucket } from './store/workspaceState'
 
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
@@ -75,6 +77,14 @@ export function useWorkspaceTabSync(a: Args) {
       }),
     [workspaceStore],
   )
+
+  // A desktop tab follows the conversation's runtime snapshot: it opens when the
+  // session holds a desktop and closes when that desktop is torn down.
+  useEffect(() => {
+    syncDesktopTabs(workspaceStore)
+
+    return subscribeSessionDesktops(() => syncDesktopTabs(workspaceStore))
+  }, [workspaceStore])
 
   // Terminal teardown is *observed*, not requested: every path that ends a
   // terminal drops the tab or navigates it elsewhere, so "a tab that stopped

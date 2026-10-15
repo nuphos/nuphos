@@ -1,21 +1,72 @@
+import { readDeviceMetrics } from '../main/device-metrics.ts'
+
 import { call } from './client.ts'
 
-import type { AgentDevice, AgentDeviceList, BoxStatus } from '../../src/api/device-types.ts'
+import type {
+  AgentDevice,
+  AgentDeviceList,
+  AgentDeviceListOptions,
+} from '../../src/api/device-types.ts'
 
-// Boxes are personal: the routes act on the signed-in user's own devices, in any team.
+// Boxes are personal: the routes act on the signed-in user's own devices.
 const box = (deviceId: string) => `/agent/devices/${encodeURIComponent(deviceId)}/box`
 
-export function listAgentDevices(): Promise<AgentDeviceList> {
-  return call('GET', '/agent/devices')
+export async function listAgentDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList> {
+  const demand = options?.metrics === true
+  const [list, metrics] = await Promise.all([
+    call<AgentDeviceList>('GET', demand ? '/agent/devices?metrics=true' : '/agent/devices'),
+    demand ? readDeviceMetrics() : null,
+  ])
+
+  if (!demand) return list
+  const { readDeviceIdentity } = await import('../main/device-identity.ts')
+  const { deviceId } = readDeviceIdentity()
+
+  return {
+    ...list,
+    devices: list.devices.map((device) =>
+      device.deviceId === deviceId
+        ? {
+            ...device,
+            metrics,
+            metricsStatus: metrics ? 'live' : 'waiting',
+            metricsReceivedAt: metrics ? new Date().toISOString() : null,
+          }
+        : device,
+    ),
+  }
 }
-export function createBox(label?: string): Promise<AgentDevice> {
-  return call('POST', '/agent/devices/boxes', label ? { label } : {}, { retry: false })
+export function createBox(label?: string, teamId?: string): Promise<AgentDevice> {
+  return call(
+    'POST',
+    '/agent/devices/boxes',
+    { ...(label ? { label } : {}), ...(teamId ? { teamId } : {}) },
+    { retry: false },
+  )
 }
-export function pauseBox(deviceId: string): Promise<{ box: BoxStatus }> {
+export function pauseBox(deviceId: string): Promise<AgentDevice> {
   return call('POST', `${box(deviceId)}/pause`, undefined, { retry: false })
 }
-export function resumeBox(deviceId: string): Promise<{ box: BoxStatus }> {
+export function resumeBox(deviceId: string): Promise<AgentDevice> {
   return call('POST', `${box(deviceId)}/resume`, undefined, { retry: false })
+}
+export function renameBox(deviceId: string, label: string): Promise<{ ok: true }> {
+  return call(
+    'PATCH',
+    `/agent/devices/${encodeURIComponent(deviceId)}`,
+    { label },
+    { retry: false },
+  )
+}
+export function boxDesktop(deviceId: string): Promise<{ url: string }> {
+  return call('POST', `${box(deviceId)}/desktop`, undefined, { retry: false })
+}
+export function boxJoinToken(): Promise<{
+  token: string
+  expiresAt: string
+  apiUrl: string | null
+}> {
+  return call('POST', '/agent/devices/join-tokens', { expiresInSec: 3600 }, { retry: false })
 }
 export function deleteBox(deviceId: string): Promise<{ ok: true }> {
   return call('DELETE', box(deviceId), undefined, { retry: false })
