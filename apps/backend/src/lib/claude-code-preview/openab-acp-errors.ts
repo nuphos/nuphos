@@ -90,10 +90,33 @@ export function isRuntimeAuthRequired(error: unknown): boolean {
  */
 const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
+/**
+ * Claude Code refuses a turn on a spent plan with its own one-line notice
+ * (`You've hit your session limit · resets 4:20am (UTC)`): the adapter streams
+ * it as the answer, then fails the prompt with `Internal error: <notice>`. The
+ * prefixes are the SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit.
+ */
+const CLAUDE_USAGE_LIMIT =
+  /^Internal error: ((?:You've hit your|You've reached your|You're out of|Your org is out of usage)[^\n]*)/mu
+
+/** Claude Code's own usage-limit notice, which already names the reset, or undefined. */
+export function claudeUsageLimitNotice(error: unknown): string | undefined {
+  for (let cause = error; cause instanceof Error; cause = cause.cause) {
+    const notice = CLAUDE_USAGE_LIMIT.exec(cause.message)?.[1]?.trim()
+
+    if (notice) return notice
+  }
+
+  return undefined
+}
+
 export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'
 
 /** The sentence a client shows for a provider that refuses to bill, or undefined. */
 export function runtimeUsageExhaustedMessage(error: unknown): string | undefined {
+  const notice = claudeUsageLimitNotice(error)
+
+  if (notice) return notice
   // A caller may wrap the gateway's refusal, so its causes are read too.
   let match: RegExpExecArray | null = null
   let cause = error
