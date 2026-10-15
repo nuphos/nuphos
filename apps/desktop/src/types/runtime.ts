@@ -18,6 +18,10 @@ export type LocalRuntimeSummary = {
   ownerUserId: string
   deviceId: string
   deviceLabel: string
+  /** Set for an extra agent beyond the device's default one of its provider. */
+  instanceId?: string
+  /** The host can run more than one agent per provider; any agent on the device reports it. */
+  agentInstances?: boolean
   /** The owner's own `claude` sign-in; null when their computer cannot tell. */
   signedIn: boolean | null
   /** Provider usage that computer reported; the backend normalizes it. */

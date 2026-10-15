@@ -1,3 +1,4 @@
+import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 // `local_exec` needs to know, per conversation, which devices are currently
 // selected AND online AND opted in — that set changes turn to turn (a device
 // can go offline mid-conversation), so it's resolved fresh on every MCP
@@ -32,21 +33,39 @@ export async function resolveAvailableLocalExecDevices(
   ])
   const selected = new Set(access.deviceIds)
 
-  // An offline Box stays usable: it is woken when a command is actually sent to it.
-  return options.devices
-    .filter((device) => selected.has(device.deviceId))
-    .flatMap((device) => {
-      if (device.available) return [{ deviceId: device.deviceId, label: device.label }]
-      if (!device.box?.ready) return []
+  // Resolve owners server-side; every actual dispatch and wake rechecks the actor.
+  const devices = await Promise.all(
+    options.devices
+      .filter((device) => selected.has(device.deviceId))
+      .map(async (device): Promise<LocalExecDevice | null> => {
+        if (!device.available && !device.box?.ready) return null
+        const target = await requireDeviceAccess(ctx.userId, ctx.teamId, device.deviceId, 'use')
 
-      return [
-        {
+        if (!target.allowLocalExec) return null
+
+        return {
           deviceId: device.deviceId,
           label: device.label,
-          wake: () => wakeBox(ctx.userId, device.deviceId),
-        },
-      ]
-    })
+          ownerUserId: target.userId,
+          ...(!device.available
+            ? {
+                wake: async () => {
+                  const current = await requireDeviceAccess(
+                    ctx.userId,
+                    ctx.teamId,
+                    device.deviceId,
+                    'use',
+                  )
+
+                  return current.allowLocalExec && wakeBox(current.userId, current.deviceId)
+                },
+              }
+            : {}),
+        }
+      }),
+  )
+
+  return devices.filter((device): device is LocalExecDevice => device !== null)
 }
 
 export async function localExecToolModule(ctx: PreviewToolContext): Promise<PreviewToolModule> {

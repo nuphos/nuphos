@@ -6,6 +6,8 @@ import type {
   AgentDevice,
   AgentDeviceList,
   AgentDeviceListOptions,
+  DeviceAgentInstance,
+  LocalAgentProvider,
 } from '../../src/api/device-types.ts'
 
 // Boxes are personal: the routes act on the signed-in user's own devices.
@@ -42,6 +44,19 @@ export function createBox(label?: string, teamId?: string): Promise<AgentDevice>
     '/agent/devices/boxes',
     { ...(label ? { label } : {}), ...(teamId ? { teamId } : {}) },
     { retry: false },
+  )
+}
+/** Add another agent on a device. A cold host can take most of a minute, so wait past the backend's own 60s. */
+export function createDeviceAgent(
+  deviceId: string,
+  teamId: string,
+  provider: LocalAgentProvider,
+): Promise<DeviceAgentInstance> {
+  return call(
+    'POST',
+    `/agent/devices/${encodeURIComponent(deviceId)}/agents`,
+    { teamId, provider },
+    { retry: false, timeoutMs: 65_000 },
   )
 }
 export function pauseBox(deviceId: string): Promise<AgentDevice> {

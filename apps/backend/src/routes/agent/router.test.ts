@@ -55,6 +55,9 @@ describe('device credentials on the agent routes', () => {
       '/agent/devices/d2/runtime-tunnel',
       '/agent/devices/d1/audit',
       '/agent/conversations',
+      '/agent/devices/d1/box/access',
+      '/agent/devices/d1/box/desktop',
+      '/agent/devices?teamId=another-team',
     ]) {
       expect((await app().request(path, bearer(CREDENTIAL))).status).toBe(401)
     }

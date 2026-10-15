@@ -126,8 +126,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       }),
     })
   },
-  createTunnel: (runtime, status, onChange) =>
+  createTunnel: (runtime, status, onChange, instances) =>
     new RuntimeTunnelClient({
+      instances,
       activity: sleep.taskActivity,
       connectBackend: () => {
         const token = authSession.current()
@@ -148,8 +149,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       ...localToolStreams,
       connectTerminal: createDockTerminalStream,
-      connectRuntime: (purpose, provider) => {
-        const running = runtime(provider)
+      connectRuntime: (purpose, provider, instanceId) => {
+        const running = runtime(provider, instanceId)
 
         if (!running) return null
         const key = purpose === 'control' ? running.controlKey : running.authKey
@@ -249,7 +250,6 @@ export function initLocalRuntime(): void {
   })
 }
 
-/** Resolves once openab has exited, so quitting never leaves it behind. */
 export function stopLocalRuntime(): Promise<void> {
   sleep.stopSleepPrevention()
   cancelLocalClaudeLogin()

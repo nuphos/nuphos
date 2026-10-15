@@ -69,7 +69,8 @@ export function runtimeDesktopEvents(
   deps: DeviceRuntimeSocketDeps = { bus: tunnelBus(), presence: runtimePresenceStore() },
 ): WSEvents {
   const { sessionId, display, viewer, ...device } = target
-  const stream = new DeviceRuntimeSocket({ ...device, purpose: 'vnc' }, deps)
+  // The viewer is the actor: revoking them closes this stream and nobody else's.
+  const stream = new DeviceRuntimeSocket({ ...device, actorId: viewer, purpose: 'vnc' }, deps)
   const input = clientInputFilter()
   let holding = false
   const close = () => {

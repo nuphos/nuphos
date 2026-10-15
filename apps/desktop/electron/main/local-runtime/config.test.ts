@@ -139,6 +139,9 @@ test('an explicit default Keychain override wins over a custom terminal config',
 
 test('tunnel sign-in uses bundled wrappers and each provider’s isolated credential directory', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'nuphos-login-wrappers-'))
+  // macOS keeps the user's HOME for the Keychain; openab's own HOME stays isolated.
+  const prefix =
+    process.platform === 'darwin' ? '/usr/bin/env HOME=/Users/me USERPROFILE=/Users/me ' : ''
 
   try {
     for (const provider of ['claude-code', 'codex'] as const) {
@@ -149,7 +152,7 @@ test('tunnel sign-in uses bundled wrappers and each provider’s isolated creden
 
       assert.equal(
         env.OPENAB_RUNTIME_LOGIN_COMMAND,
-        `${launch.nodeExecPath} ${wrapper}${provider === 'codex' ? ' --install' : ''}`,
+        `${prefix}${launch.nodeExecPath} ${wrapper}${provider === 'codex' ? ' --install' : ''}`,
       )
       assert.equal(env.AWS_SECRET_ACCESS_KEY, undefined)
       if (provider === 'codex') {
@@ -161,3 +164,24 @@ test('tunnel sign-in uses bundled wrappers and each provider’s isolated creden
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test(
+  'macOS sign-in without a usable HOME is left to the computer',
+  { skip: process.platform !== 'darwin' },
+  () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'nuphos-login-wrappers-'))
+
+    try {
+      writeFileSync(path.join(root, 'claude-login.mjs'), '')
+      const bundled = { ...launch, bundle: { ...launch.bundle, root } }
+
+      assert.equal(openabEnv(bundled).HOME, launch.openabHome)
+      assert.deepEqual(
+        agentLoginEnv({ ...bundled, env: { ...launch.env, HOME: '/Users/with space' } }),
+        {},
+      )
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  },
+)

@@ -27,7 +27,6 @@ import {
   unavailable,
 } from './box-instabox-client'
 
-import { BOX_DEV_RUNTIME_COMMAND } from './box-dev-runtime'
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { isDevicePresent } from './presence'
 import {
@@ -96,19 +95,19 @@ export async function createBox(
 ): Promise<AgentDevice> {
   const url = backendUrl()
   const deviceId = randomUUID()
-  const now = new Date()
   const registration = {
     deviceId,
     label,
     platform: 'linux',
     allowLocalExec: true,
-    box: { provider: 'instabox' as const, teamId },
+    box: { provider: 'instabox' as const, teamId, createdBy: userId },
   }
 
-  await insertBoxAgentDevice(userId, registration)
+  const created = await insertBoxAgentDevice(userId, registration)
+
   void order(userId, teamId, deviceId, label, url)
 
-  return { ...registration, userId, createdAt: now, updatedAt: now }
+  return created
 }
 
 async function order(
@@ -136,16 +135,10 @@ async function order(
       expiresInSec: JOIN_TOKEN_TTL_SEC,
     })
 
-    await sandbox.commands.run(BOX_INSTALL_COMMAND, {
-      envs: downloadEnv(),
-      timeoutMs: INSTALL_TIMEOUT_MS,
-    })
-    const runtime = config.box.devRuntime
-
-    // Staged in the foreground so a failure surfaces here; AGENT_COMMAND then reads the pin.
-    if (runtime)
-      await sandbox.commands.run(BOX_DEV_RUNTIME_COMMAND, {
-        envs: { NUPHOS_BOX_RUNTIME_URL: runtime.url, NUPHOS_BOX_RUNTIME_SHA256: runtime.sha256 },
+    // A configured template or snapshot already carries node, the agents and nuphos.
+    if (!config.box.template)
+      await sandbox.commands.run(BOX_INSTALL_COMMAND, {
+        envs: downloadEnv(),
         timeoutMs: INSTALL_TIMEOUT_MS,
       })
     await sandbox.commands.run(AGENT_COMMAND, {

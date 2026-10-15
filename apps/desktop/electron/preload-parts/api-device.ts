@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron'
 
-import type { AgentDeviceListOptions } from '../../src/api/device-types.ts'
+import type { AgentDeviceListOptions, LocalAgentProvider } from '../../src/api/device-types.ts'
 
 export const deviceApi = {
   onWindowFullScreenChanged: (cb: (fullScreen: boolean) => void) => {
@@ -42,5 +42,7 @@ export const deviceApi = {
   boxDelete: (deviceId: string) => ipcRenderer.invoke('box:delete', deviceId),
   boxDesktop: (deviceId: string) => ipcRenderer.invoke('box:desktop', deviceId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),
+  boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
+    ipcRenderer.invoke('box:createAgent', deviceId, teamId, provider),
   boxRename: (deviceId: string, label: string) => ipcRenderer.invoke('box:rename', deviceId, label),
 }

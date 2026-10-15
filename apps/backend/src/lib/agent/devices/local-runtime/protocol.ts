@@ -2,7 +2,8 @@ import { z } from 'zod'
 
 import { boxMetricsSchema } from '../metrics-schema'
 
-export type TunnelPurpose = 'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc'
+export type TunnelPurpose =
+  'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc' | 'instances'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
 
@@ -79,7 +80,26 @@ const localAgentStatusSchema = z.object({
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
 
+export const agentInstanceSchema = z.object({
+  instanceId: z.string().uuid(),
+  provider: z.enum(LOCAL_AGENT_PROVIDERS),
+  label: z.string().trim().min(1).max(200),
+})
+export type AgentInstance = z.infer<typeof agentInstanceSchema>
+export const localAgentInstanceStatusSchema = localAgentStatusSchema.merge(agentInstanceSchema)
+export type LocalAgentInstanceStatus = z.infer<typeof localAgentInstanceStatusSchema>
+
 export const localRuntimeStatusSchema = z.object({
+  agentInstances: z.boolean().optional(),
+  instances: z
+    .array(localAgentInstanceStatusSchema)
+    .max(100)
+    .refine(
+      (instances) =>
+        new Set(instances.map((instance) => instance.instanceId)).size === instances.length,
+      'Duplicate agent instance id',
+    )
+    .optional(),
   localExec: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
@@ -126,7 +146,13 @@ export type DesktopFrame = z.infer<typeof desktopFrameSchema>
 
 /** Backend → desktop over the tunnel WebSocket. */
 export type BackendFrame =
-  | { t: 'open'; s: string; purpose: TunnelPurpose; provider?: LocalAgentProvider }
+  | {
+      t: 'open'
+      s: string
+      purpose: TunnelPurpose
+      provider?: LocalAgentProvider
+      instanceId?: string
+    }
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string; reason?: string }
   | { t: 'ping' }
@@ -139,13 +165,18 @@ export type HolderMessage =
       s: string
       conn: string
       teamId: string
+      /** Who opened the stream; the tunnel's owner only routes it. */
+      actorId: string
       purpose: TunnelPurpose
       provider?: LocalAgentProvider
+      instanceId?: string
     }
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }
+  /** Close what one person opened; the tunnel and everyone else's streams stay. */
+  | { t: 'revoke-actor'; actorId: string }
   | { t: 'ping'; conn: string }
   | { t: 'metrics'; conn: string; leaseMs: number }
 

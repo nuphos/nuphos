@@ -1,3 +1,6 @@
+import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
+import { useIdentity } from '@/lib/test/doubles/identity'
+import type { TeamMembership } from '@/lib/identity/types'
 import { describe, expect, test } from 'bun:test'
 
 import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared'
@@ -68,6 +71,23 @@ const access: AgentCredentialAccess = {
   updatedAt: new Date(),
   updatedBy: 'u1',
 }
+
+const fixture = (deviceId: string) => ({
+  userId: 'u1',
+  deviceId,
+  label: deviceId,
+  platform: 'linux',
+  allowLocalExec: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...(deviceId === 'box' ? { box: { provider: 'instabox' as const, teamId: 't1' } } : {}),
+})
+
+useAgentDeviceStore({
+  getAgentDevice: (_owner, id) => Promise.resolve(fixture(id)),
+  listTeamBoxes: () => Promise.resolve([fixture('box')]),
+})
+useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'EDITOR' } as TeamMembership) })
 
 useCredentialOptions({ getAgentCredentialOptions: () => Promise.resolve(options) })
 useAgentSessionsShared({ getAgentCredentialAccess: () => Promise.resolve(access) })

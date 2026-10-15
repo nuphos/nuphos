@@ -9,8 +9,10 @@ export type AgentDeviceBox = {
   provider: 'instabox'
   /** Set once the machine is ordered; a row without one is still being created. */
   sandboxId?: string
-  /** The team it was ordered in, for the per-team cap. */
+  /** Asset scope; independent of the host's transport owner. */
   teamId: string
+  createdBy?: string
+  access?: { everyone: boolean; userIds: string[] }
 }
 
 export type AgentDevice = {
@@ -107,10 +109,19 @@ export async function insertJoinedAgentDevice(
 export async function insertBoxAgentDevice(
   userId: string,
   device: AgentDeviceRegistration & { box: AgentDeviceBox },
-): Promise<void> {
+): Promise<AgentDevice> {
   const now = new Date()
+  const created: AgentDevice = {
+    ...device,
+    userId,
+    box: { ...device.box, createdBy: userId, access: { everyone: false, userIds: [userId] } },
+    createdAt: now,
+    updatedAt: now,
+  }
 
-  await agentDevices().insertOne({ ...device, userId, createdAt: now, updatedAt: now })
+  await agentDevices().insertOne(created)
+
+  return created
 }
 
 /**
@@ -198,4 +209,23 @@ export async function isActiveTeamMember(userId: string, teamId: string): Promis
     )
 
   return Boolean(team?.members.some((m) => m.userId.equals(userObjectId) && !m.deletedAt))
+}
+
+/** Never infer a legacy Box's team from its owner. */
+export async function listTeamBoxes(teamId: string): Promise<AgentDevice[]> {
+  return agentDevices().find({ 'box.teamId': teamId }).toArray()
+}
+
+/** Replaces who may use a Box. Callers check `manage` first. */
+export async function setBoxAccess(
+  userId: string,
+  deviceId: string,
+  access: { everyone: boolean; userIds: string[] },
+): Promise<boolean> {
+  const result = await agentDevices().updateOne(
+    { userId, deviceId, box: { $exists: true } },
+    { $set: { 'box.access': access, updatedAt: new Date() } },
+  )
+
+  return result.matchedCount === 1
 }

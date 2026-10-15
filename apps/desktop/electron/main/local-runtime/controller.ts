@@ -4,12 +4,15 @@ import {
   HEALTHY_AFTER_MS,
   AGENT_HOME_UNAVAILABLE,
   INSTALL_HINT,
-  RESTART_BACKOFF_MS,
-  agentStatesOf,
+  prepareHomeFor,
+  scheduleAgentRestart,
+  stopAgentProcess,
+  runtimeStateOf,
   saveCli,
   tunnelStatusOf,
   userDir,
 } from './controller-types.ts'
+import { InstanceControllers } from './instance-controllers.ts'
 import { createUsageSampler } from './usage-sampler.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
@@ -22,6 +25,7 @@ import type {
 } from './controller-types.ts'
 
 export class LocalRuntimeController {
+  private readonly instances?: InstanceControllers
   private userId: string | null = null
   private readonly agents: Record<LocalAgentProvider, Agent> = {
     'claude-code': freshAgent(),
@@ -32,31 +36,42 @@ export class LocalRuntimeController {
   private online = false
   private superseded = false
   private readonly deps: LocalRuntimeControllerDeps
-  constructor(deps: LocalRuntimeControllerDeps) {
+  private readonly providers: readonly LocalAgentProvider[]
+  constructor(
+    deps: LocalRuntimeControllerDeps,
+    providers: readonly LocalAgentProvider[] = LOCAL_AGENT_PROVIDERS,
+    isolated = false,
+  ) {
+    this.providers = providers
+    if (!isolated)
+      this.instances = new InstanceControllers(
+        deps,
+        (childDeps, provider) => new LocalRuntimeController(childDeps, [provider], true),
+        () => {
+          this.changed()
+          this.tunnel?.sendStatus()
+        },
+      )
     this.deps = deps
     this.usage = createUsageSampler(
       this.agents,
       {
         ...deps,
         agentHome: (provider, env) =>
-          this.userId ? this.prepareHome(provider, this.userId, env) : undefined,
+          this.userId ? prepareHomeFor(this.deps, provider, this.userId, env) : undefined,
       },
       () => this.tunnel?.sendStatus(),
     )
   }
   state(): LocalRuntimeState {
-    const bundle = this.deps.bundle()
-    const userId = this.userId
-
-    return {
-      agents: agentStatesOf(this.agents, {
-        available: (provider) => bundle?.adapters[provider] !== undefined,
-        online: this.online,
-        superseded: this.superseded,
-      }),
-      workspace: userId ? userDir(this.deps.dataDir(), userId, 'workspace') : null,
-      userId,
-    }
+    return runtimeStateOf(
+      this.deps,
+      this.agents,
+      this.online,
+      this.superseded,
+      this.userId,
+      this.instances?.states(this.online),
+    )
   }
   async setUser(userId: string | null): Promise<void> {
     if (userId === this.userId) return
@@ -67,8 +82,9 @@ export class LocalRuntimeController {
     for (const provider of LOCAL_AGENT_PROVIDERS)
       this.agents[provider].cli = cached[provider] ?? null
     this.changed()
+    await this.instances?.load(userId)
     if (!userId) return
-    const launches = Promise.all(LOCAL_AGENT_PROVIDERS.map((provider) => this.launch(provider)))
+    const launches = Promise.all(this.providers.map((provider) => this.launch(provider)))
 
     await this.deps.registerDevice().catch(() => {})
     if (userId === this.userId) this.openTunnel()
@@ -76,7 +92,7 @@ export class LocalRuntimeController {
   }
   async refresh(
     restart = false,
-    providers: readonly LocalAgentProvider[] = LOCAL_AGENT_PROVIDERS,
+    providers: readonly LocalAgentProvider[] = this.providers,
   ): Promise<LocalRuntimeState> {
     const userId = this.userId
 
@@ -85,7 +101,7 @@ export class LocalRuntimeController {
 
     await Promise.all(
       providers.map(async (provider) => {
-        const agentHome = this.prepareHome(provider, userId, env)
+        const agentHome = prepareHomeFor(this.deps, provider, userId, env)
         const cli = await this.deps.probeCli(provider, env, agentHome)
 
         if (userId === this.userId) this.agents[provider].cli = cli
@@ -100,14 +116,11 @@ export class LocalRuntimeController {
         .filter((provider) => restart || !this.agents[provider].process)
         .map((provider) => this.launch(provider)),
     )
-    // After the launches, never before: `launch` stops the agent first, and a
-    // read in flight across that bump is thrown away as stale. An agent that
-    // was just started has already sampled, and the floor skips these.
-    await Promise.all(LOCAL_AGENT_PROVIDERS.map((provider) => this.usage.sample(provider, true)))
+    await Promise.all(this.providers.map((provider) => this.usage.sample(provider, true)))
+    await this.instances?.refresh(restart)
 
     return this.state()
   }
-  /** The network may have changed under a sleeping computer: dial now rather than after backoff. */
   reconnect(): void {
     this.tunnel?.reconnectNow()
   }
@@ -117,48 +130,49 @@ export class LocalRuntimeController {
     this.tunnel = undefined
     this.online = false
     this.superseded = false
-    await Promise.all(LOCAL_AGENT_PROVIDERS.map((provider) => this.stopAgent(provider)))
+    await Promise.all(this.providers.map((provider) => this.stopAgent(provider)))
+    await this.instances?.shutdown()
   }
   private changed(): void {
     this.deps.onChange?.()
   }
-
-  private prepareHome(provider: LocalAgentProvider, id: string, env: NodeJS.ProcessEnv) {
-    const dir = userDir(this.deps.dataDir(), id)
-    const workspace = userDir(this.deps.dataDir(), id, 'workspace')
-
-    return this.deps.prepareAgentHome(provider, dir, workspace, env)
+  private stopAgent(provider: LocalAgentProvider): Promise<void> {
+    return stopAgentProcess(this.agents[provider], () => {
+      this.tunnel?.sendStatus()
+      this.changed()
+    })
   }
-
-  private async stopAgent(provider: LocalAgentProvider): Promise<void> {
-    const agent = this.agents[provider]
-
-    agent.generation += 1
-    clearTimeout(agent.restartTimer)
-    agent.runtime = null
-    agent.models = undefined
-    agent.error = undefined
-    const process = agent.process
-
-    agent.process = undefined
-    this.tunnel?.sendStatus()
-    this.changed()
-    await process?.stop()
-  }
-
   private openTunnel(): void {
     this.tunnel ??= this.deps.createTunnel(
-      (provider) => this.agents[provider].runtime,
-      () => tunnelStatusOf(this.agents, this.deps.backendUrl),
+      (provider, instanceId) =>
+        instanceId !== undefined
+          ? (this.instances?.runtime(instanceId, provider) ?? null)
+          : this.agents[provider].runtime,
+      () => ({
+        ...this.status(),
+        ...(this.instances ? { instances: this.instances.status() } : {}),
+      }),
       (connected, superseded) => {
         this.online = connected
         this.superseded = superseded
         this.changed()
       },
+      (request) => this.instanceRequest(request),
     )
     this.tunnel.start()
   }
 
+  runtime(provider: LocalAgentProvider) {
+    return this.agents[provider].runtime
+  }
+  status() {
+    return tunnelStatusOf(this.agents, this.deps.backendUrl)
+  }
+  instanceRequest(request: unknown): Promise<unknown> {
+    if (!this.instances) return Promise.reject(new Error('Instance management unavailable'))
+
+    return this.instances.request(request, this.userId)
+  }
   private async launch(provider: LocalAgentProvider): Promise<void> {
     const userId = this.userId
 
@@ -178,7 +192,7 @@ export class LocalRuntimeController {
     const probedAt = Date.now()
 
     if (!current()) return
-    const agentHome = this.prepareHome(provider, userId, env)
+    const agentHome = prepareHomeFor(this.deps, provider, userId, env)
 
     const cli = await this.deps.probeCli(provider, env, agentHome)
 
@@ -201,7 +215,6 @@ export class LocalRuntimeController {
 
     await this.startProcess({ provider, userId, cliPath: agent.cli.path, env, current, agentHome })
   }
-
   private async startProcess(run: LocalAgentRun): Promise<void> {
     const agent = this.agents[run.provider]
     const bundle = this.deps.bundle()
@@ -245,7 +258,7 @@ export class LocalRuntimeController {
       return
     }
     if (!agent.runtime) {
-      this.scheduleRestart(run)
+      scheduleAgentRestart(agent, run, () => this.startProcess(run))
 
       return
     }
@@ -281,17 +294,7 @@ export class LocalRuntimeController {
       this.tunnel?.sendStatus()
       this.changed()
       if (Date.now() - startedAt > HEALTHY_AFTER_MS) agent.restartAttempt = 0
-      this.scheduleRestart(run)
+      scheduleAgentRestart(agent, run, () => this.startProcess(run))
     })
-  }
-
-  private scheduleRestart(run: Parameters<LocalRuntimeController['startProcess']>[0]): void {
-    const agent = this.agents[run.provider]
-    const delay = RESTART_BACKOFF_MS[Math.min(agent.restartAttempt, RESTART_BACKOFF_MS.length - 1)]
-
-    agent.restartAttempt += 1
-    agent.restartTimer = setTimeout(() => {
-      if (run.current()) void this.startProcess(run)
-    }, delay)
   }
 }

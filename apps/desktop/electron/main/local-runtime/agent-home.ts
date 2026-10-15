@@ -175,3 +175,26 @@ export function prepareAgentHome(
     ? prepareCodexHome(userDir, env)
     : prepareClaudeHome(userDir, workspace)
 }
+
+/** New instances own their authentication; never link or import the host login. */
+export function prepareIsolatedAgentHome(
+  provider: LocalAgentProvider,
+  userDir: string,
+  workspace: string,
+): string | undefined {
+  if (provider === 'claude-code') return prepareClaudeHome(userDir, workspace)
+  const home = path.join(userDir, 'codex-home')
+
+  try {
+    mkdirSync(home, { recursive: true, mode: 0o700 })
+    // A keychain store would be shared across instances; keep each login in its own home.
+    const config = path.join(home, 'config.toml')
+
+    if (!existsSync(config))
+      writeFileSync(config, 'cli_auth_credentials_store = "file"\n', { mode: 0o600 })
+
+    return home
+  } catch {
+    return undefined
+  }
+}

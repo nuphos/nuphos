@@ -176,8 +176,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       }),
     })
   },
-  createTunnel: (runtime, status, onChange) => {
+  createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
+      instances,
       sampleMetrics: readDeviceMetrics,
       connectBackend: () => {
         const fresh = deviceCredential?.credential ?? currentToken()
@@ -199,8 +200,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       connectExec: () => new LocalExecStream(),
       connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
-      connectRuntime: (purpose, provider) => {
-        const running = runtime(provider)
+      connectRuntime: (purpose, provider, instanceId) => {
+        const running = runtime(provider, instanceId)
 
         if (!running) return null
         const key = purpose === 'control' ? running.controlKey : running.authKey
@@ -276,13 +277,17 @@ console.log(
 )
 await controller.setUser(owner)
 setInterval(() => {
-  const { agents } = controller.state()
+  const { agents, instances = [] } = controller.state()
   const signedOut = LOCAL_AGENT_PROVIDERS.filter((p) => {
     const { online, cli } = agents[p]
 
     return online && cli?.installed === true && !cli.loggedIn
   })
 
-  if (!stopping && signedOut.length) void controller.refresh(false, signedOut)
+  // Added agents follow their own provider's refresh, which also probes every instance.
+  const instanceSignedOut = instances.some(({ cli }) => cli?.installed === true && !cli.loggedIn)
+
+  if (!stopping && (signedOut.length || instanceSignedOut))
+    void controller.refresh(false, signedOut)
 }, 30_000)
 await signInClaude(controller, dataDir, owner)

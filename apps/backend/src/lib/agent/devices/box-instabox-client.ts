@@ -6,7 +6,6 @@ import { InstaboxError } from '@insforge/instabox-sdk'
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 
-import { BOX_DEV_RUNTIME_ENV } from './box-dev-runtime'
 import { killMachine, listMachines } from './instabox-machines'
 
 /** Installing the CLI and the agents on a fresh machine. */
@@ -33,7 +32,7 @@ export const BOX_INSTALL_COMMAND = [
  * Starts the host, which keeps the Box's own credential. Run with `background: true`:
  * a foreground run would wait for the host, which never exits on its own.
  */
-export const AGENT_COMMAND = `${BOX_DEV_RUNTIME_ENV}; export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; pgrep -f "[h]ost.mjs" >/dev/null || exec setsid nuphos agent >> "$HOME/nuphos-agent.log" 2>&1 < /dev/null`
+export const AGENT_COMMAND = `export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; pgrep -f "[h]ost.mjs" >/dev/null || exec setsid nuphos agent >> "$HOME/nuphos-agent.log" 2>&1 < /dev/null`
 
 export function connection(timeoutMs: number) {
   const box = config.box.instabox

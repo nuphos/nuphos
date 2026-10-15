@@ -10,7 +10,7 @@ import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
 import { JoinDialog } from './BoxParts'
-import { boxAgents, machines, vanishedBoxes } from './boxPresentation'
+import { boxAgents, boxPollMs, machines, vanishedBoxes } from './boxPresentation'
 import { BoxRow } from './BoxRow'
 import { PanelHeading } from './RuntimePanel'
 import { useAgentDevices } from './useAgentDevices'
@@ -36,8 +36,11 @@ export function BoxSection({
   teamId,
   instances,
   onSelect,
+  canCreate,
 }: {
   teamId: string
+  /** Only the team's administrators make Boxes; the backend enforces it. */
+  canCreate: boolean
   instances: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
 }) {
@@ -50,7 +53,7 @@ export function BoxSection({
     list,
     error: loadError,
     reload,
-  } = useAgentDevices(() => 5_000, '', {
+  } = useAgentDevices((next) => boxPollMs(next.devices, false) || 5_000, '', {
     metrics: true,
     enabled: isActive,
   })
@@ -108,7 +111,7 @@ export function BoxSection({
             >
               Connect external Box
             </Button>
-            {list?.boxAvailable && (
+            {list?.boxAvailable && canCreate && (
               <Button type="submit" size="sm" variant="secondary" disabled={creating || !list}>
                 {creating ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

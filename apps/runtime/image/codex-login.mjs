@@ -137,6 +137,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         : {}),
       home: process.env.HOME ?? '/home/node',
       signal: controller.signal,
+      ...(process.env.CODEX_EXECUTABLE
+        ? { executable: process.env.CODEX_EXECUTABLE, args: [] }
+        : {}),
       install: process.argv.includes('--install'),
     })
   } catch {

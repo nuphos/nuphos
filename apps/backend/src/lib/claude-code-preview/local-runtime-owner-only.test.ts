@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { deviceAccessDeps } from '@/lib/agent/devices/box-access'
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
@@ -26,21 +27,22 @@ useRuntimeRegistry({
   listTeamRuntimes: async () => [],
   resolveTeamRuntimeEndpoints: async () => [],
 })
+const ownerComputer = {
+  userId: 'owner',
+  deviceId: 'mac-1',
+  label: 'MacBook',
+  platform: 'darwin',
+  allowLocalExec: false,
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+}
+
 useAgentDeviceStore({
-  listAgentDevicesForUser: async (userId) =>
-    userId === 'owner'
-      ? [
-          {
-            userId,
-            deviceId: 'mac-1',
-            label: 'MacBook',
-            platform: 'darwin',
-            allowLocalExec: false,
-            createdAt: new Date(0),
-            updatedAt: new Date(0),
-          },
-        ]
-      : [],
+  listAgentDevicesForUser: async (userId) => (userId === 'owner' ? [ownerComputer] : []),
+  // The access check looks the device up by its owner and id.
+  getAgentDevice: async (userId, deviceId) =>
+    userId === 'owner' && deviceId === 'mac-1' ? ownerComputer : null,
+  listTeamBoxes: async () => [],
   isActiveTeamMember: async (_userId, teamId) => teamId === TEAM,
 })
 
@@ -60,8 +62,29 @@ function conversation(userId: string): AgentConversation {
 }
 
 const notFound = { status: 404, code: 'runtime_not_found' }
+const originalAccessDeps = { ...deviceAccessDeps }
+
+afterEach(() => Object.assign(deviceAccessDeps, originalAccessDeps))
 
 beforeEach(async () => {
+  // Supply the ACL's exported dependency seam; it captures store functions
+  // before the module-level device-store test double is installed.
+  const own = {
+    userId: 'owner',
+    deviceId: 'mac-1',
+    label: 'MacBook',
+    platform: 'darwin',
+    allowLocalExec: false,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  }
+
+  Object.assign(deviceAccessDeps, {
+    getDevice: (userId: string) => Promise.resolve(userId === 'owner' ? own : null),
+    listDevices: (userId: string) => Promise.resolve(userId === 'owner' ? [own] : []),
+    listBoxes: () => Promise.resolve([]),
+    role: () => Promise.resolve(null),
+  })
   memory = portabilityDb()
   presence = createMemoryPresenceStore()
   await presence.claim('owner', 'mac-1', 'c1')

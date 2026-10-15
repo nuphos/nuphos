@@ -1,5 +1,6 @@
+import { listAccessibleDevices } from '@/lib/agent/devices/box-access'
 import { isDevicePresent } from '@/lib/agent/devices/presence'
-import { isActiveTeamMember, listAgentDevicesForUser } from '@/lib/agent/devices/store'
+import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { canUseAllowList } from '@/lib/byos/access'
 import { extractAwsAccountId } from '@/lib/byos/account'
 import { cachedAwsAccountAlias } from '@/lib/byos/aws'
@@ -22,14 +23,14 @@ export async function resolveDeviceOptions(
   teamId: string | undefined,
 ): Promise<AgentCredentialOptions['devices']> {
   if (!teamId || !(await isActiveTeamMember(userId, teamId))) return []
-  const devices = await listAgentDevicesForUser(userId)
+  const devices = await listAccessibleDevices(userId, teamId)
 
   return await Promise.all(
     devices.map(async (device) => ({
       deviceId: device.deviceId,
       label: device.label,
       platform: device.platform,
-      available: device.allowLocalExec && (await isDevicePresent(userId, device.deviceId)),
+      available: device.allowLocalExec && (await isDevicePresent(device.userId, device.deviceId)),
       // A Box with a machine can be woken when it is offline; a person's computer cannot.
       ...(device.box ? { box: { ready: Boolean(device.box.sandboxId) } } : {}),
     })),

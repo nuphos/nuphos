@@ -1,4 +1,5 @@
 import type { LocalAgentProvider } from './agent-cli.ts'
+import type { LocalModelCatalog } from './model-probe.ts'
 import type { StreamPurpose } from './tunnel-client.ts'
 
 export type BackendFrame =
@@ -7,6 +8,7 @@ export type BackendFrame =
       s: string
       purpose: StreamPurpose
       provider?: LocalAgentProvider
+      instanceId?: string
     }
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string; reason?: string }
@@ -22,4 +24,25 @@ export function parseFrame(raw: unknown): BackendFrame | null {
   } catch {
     return null
   }
+}
+
+/** Lists only the agents running right now; the owner sees exactly these. */
+export type LocalRuntimeTunnelStatus = {
+  agents: Partial<
+    Record<
+      LocalAgentProvider,
+      {
+        cli: { installed: boolean; loggedIn: boolean | null }
+        usage?: unknown
+        usageAt?: string
+        version?: string
+        models?: LocalModelCatalog
+      }
+    >
+  >
+  instances?: ({ instanceId: string; provider: LocalAgentProvider; label: string } & Partial<
+    NonNullable<LocalRuntimeTunnelStatus['agents']['codex']>
+  >)[]
+  backendUrl?: string
+  desktops?: { sessionId: string; display: number }[]
 }

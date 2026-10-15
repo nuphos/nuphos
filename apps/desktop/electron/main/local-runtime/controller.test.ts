@@ -6,7 +6,7 @@ import { LocalRuntimeController } from './controller.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
-import type { LocalRuntimeTunnelStatus } from './tunnel-client.ts'
+import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 
 const adapter = (provider: string) => ({
   entry: `/b/${provider}.js`,

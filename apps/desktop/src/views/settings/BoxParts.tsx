@@ -1,10 +1,13 @@
 import { Laptop, Monitor } from 'lucide-react'
 
+import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
 import type { AgentDevice } from '../../api'
+import type { RuntimeInstance } from '../../types/runtime'
 
 export type BoxJoin = { token: string; expiresAt: string; apiUrl: string | null }
 
@@ -81,5 +84,24 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
         </div>
       </div>
     </Modal>
+  )
+}
+
+/** Open the same agent details panel as the usage table. */
+export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
+  const label = AGENT_PROVIDER[agent.provider].label
+
+  return (
+    <li className="shrink-0">
+      <button
+        type="button"
+        title={label}
+        aria-label={`Open ${label} details`}
+        onClick={onSelect}
+        className="flex h-10 w-10 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
+      >
+        <AgentProviderIcon provider={agent.provider} className="h-5 w-5" />
+      </button>
+    </li>
   )
 }

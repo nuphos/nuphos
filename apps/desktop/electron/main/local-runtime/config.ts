@@ -153,6 +153,12 @@ export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string
   const cliEnv = agentCliEnv(launch)
 
   if (!existsSync(wrapper) || /\s/u.test(launch.nodeExecPath + wrapper)) return {}
+  // openab's own HOME is isolated; a macOS login still needs the user's Keychain.
+  const home = launch.env.HOME ?? ''
+
+  if (process.platform === 'darwin' && (!home || /\s/u.test(home))) return {}
+  const prefix =
+    process.platform === 'darwin' ? ['/usr/bin/env', `HOME=${home}`, `USERPROFILE=${home}`] : []
 
   return {
     ...cliEnv,
@@ -160,6 +166,7 @@ export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string
       ? { CODEX_EXECUTABLE: launch.cliPath, NUPHOS_CODEX_AUTH_DIRECTORY: launch.agentHome }
       : {}),
     OPENAB_RUNTIME_LOGIN_COMMAND: [
+      ...prefix,
       launch.nodeExecPath,
       wrapper,
       ...(launch.provider === 'codex' ? ['--install'] : []),

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { PassThrough } from 'node:stream'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { authorizeUrl, isAuthorizationCode, runClaudeLogin } from '../image/claude-login.mjs'
 
@@ -245,6 +248,57 @@ test(
         }),
         { reason: 'failed' },
       )
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  },
+)
+
+test(
+  'the CLI entrypoint keeps HOME and hands an added agent only its own config and Keychain dirs',
+  spawnsCli,
+  async () => {
+    const { home, script } = await fixture()
+    const configDir = join(home, 'instance-claude')
+    const credential = join(home, 'recorded.json')
+    const executable = join(home, 'claude')
+
+    try {
+      await writeFile(
+        executable,
+        `#!/bin/sh\nexec "${process.execPath}" "${script}" "${credential}" "$@"\n`,
+        {
+          mode: 0o755,
+        },
+      )
+      const child = spawn(
+        process.execPath,
+        [fileURLToPath(new URL('../image/claude-login.mjs', import.meta.url))],
+        {
+          env: {
+            PATH: process.env.PATH,
+            HOME: home,
+            CLAUDE_CODE_EXECUTABLE: executable,
+            CLAUDE_CONFIG_DIR: configDir,
+            CLAUDE_SECURESTORAGE_CONFIG_DIR: configDir,
+          },
+          stdio: ['pipe', 'pipe', 'inherit'],
+        },
+      )
+      const frames = []
+
+      for await (const line of createInterface({ input: child.stdout })) {
+        const frame = JSON.parse(line)
+
+        frames.push(frame.type)
+        if (frame.type === 'authorize') child.stdin.write('good-code#state\n')
+      }
+      assert.deepEqual(frames, ['authorize', 'authenticated'])
+      const stored = JSON.parse(await readFile(credential, 'utf8'))
+
+      assert.equal(stored.home, home)
+      assert.equal(stored.configDir, configDir)
+      assert.ok(stored.env.includes('CLAUDE_SECURESTORAGE_CONFIG_DIR'))
     } finally {
       await rm(home, { recursive: true, force: true })
     }

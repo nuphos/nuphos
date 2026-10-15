@@ -1,3 +1,5 @@
+import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 
 import { requireRuntimeInstance } from './runtime-catalog'
@@ -33,7 +35,20 @@ export type RuntimeLoginDeps<Target> = {
 /** Managed, self-hosted and local runtimes own their sign-in (a local one over its
  *  computer's tunnel, into the runtime's own config dir); a development runtime is
  *  signed in where it runs. */
+async function requireLocalLoginAccess(teamId: string, runtimeId: string, userId?: string) {
+  const ref = parseLocalRuntimeId(runtimeId)
+
+  if (ref) {
+    if (!userId) throw new AppError(404, 'runtime_not_found', 'Agent is not available')
+    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'manage')
+
+    if (device.userId !== ref.userId)
+      throw new AppError(404, 'runtime_not_found', 'Agent is not available')
+  }
+}
+
 export async function requireLoginInstance(teamId: string, runtimeId: string, userId?: string) {
+  await requireLocalLoginAccess(teamId, runtimeId, userId)
   const instance = await requireRuntimeInstance(teamId, runtimeId, userId)
 
   if (instance.kind !== 'external' && instance.kind !== 'managed' && instance.kind !== 'local')
@@ -190,6 +205,7 @@ export async function cancelRuntimeLogin(
   userId: string,
   attemptId: string,
 ): Promise<void> {
+  await requireLocalLoginAccess(teamId, runtimeId, userId)
   const doc = await readRuntimeLogin(teamId, runtimeId, userId)
 
   if (doc.attemptId !== attemptId)

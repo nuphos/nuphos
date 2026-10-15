@@ -14,14 +14,18 @@ import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
-import { MachineIcon } from './BoxParts'
-import { BOX_BADGE, boxActions, boxState, machineLine } from './boxPresentation'
+import { AgentTile, MachineIcon } from './BoxParts'
+import { BOX_BADGE, boxActions, boxState, machineLine, newAgentAction } from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { inputClasses } from './styles'
 
 import type { AgentDevice } from '../../api'
+import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
 
+const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex']
+
+/** One machine in the Boxes list: its state, its agents and what can be done to it. */
 export function BoxRow({
   thisComputer,
   teamId,
@@ -38,7 +42,9 @@ export function BoxRow({
   onChanged: () => void
 }) {
   const [busy, setBusy] = useState(false)
-  const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
+  // A runtime id: a just-created agent signs in once the catalog lists it.
+  const [signingIn, setSigningIn] = useState<string | null>(null)
+  const signingInAgent = agents.find((agent) => agent.id === signingIn)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
   const state = boxState(device)
@@ -56,6 +62,22 @@ export function BoxRow({
     } finally {
       setBusy(false)
     }
+  }
+
+  // An older host cannot add agents; the backend still refuses with 409 if this is stale.
+  const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
+  const addAgent = (provider: LocalAgentProvider) => {
+    const action = newAgentAction(agents, provider)
+
+    if (!action) return
+    if ('signIn' in action) return setSigningIn(action.signIn)
+    void run('Could not add agent', async () => {
+      const { runtimeId } = await api.boxCreateAgent(device.deviceId, teamId, provider)
+
+      // Details first; the sign-in opens over them once the catalog lists the new agent.
+      onSelect(runtimeId)
+      setSigningIn(runtimeId)
+    })
   }
 
   const dim = state === 'paused' || state === 'stopped'
@@ -212,29 +234,44 @@ export function BoxRow({
                 New Agent
               </MenuTrigger>
               <MenuContent align="start">
+                {PROVIDERS.map((provider) => (
+                  <MenuItem
+                    key={provider}
+                    disabled={busy || !newAgentAction(agents, provider)}
+                    icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
+                    onClick={() => addAgent(provider)}
+                  >
+                    {canAddAgents
+                      ? AGENT_PROVIDER[provider].label
+                      : `Sign in to ${AGENT_PROVIDER[provider].label}`}
+                  </MenuItem>
+                ))}
+                {!canAddAgents && (
+                  <MenuItem disabled>Update the Box host to add more agents</MenuItem>
+                )}
                 {agents
-                  .filter((agent) => agent.local?.signedIn !== true)
+                  .filter((agent) => agent.local?.instanceId && agent.local.signedIn !== true)
                   .map((agent) => (
                     <MenuItem
                       key={agent.id}
-                      icon={<AgentProviderIcon provider={agent.provider} className="h-4 w-4" />}
-                      onClick={() => setSigningIn(agent)}
+                      disabled={busy}
+                      onClick={() => {
+                        onSelect(agent.id)
+                        setSigningIn(agent.id)
+                      }}
                     >
-                      {AGENT_PROVIDER[agent.provider].label}
+                      Continue signing in to {agent.label} ({agent.local?.instanceId?.slice(0, 8)})
                     </MenuItem>
                   ))}
-                {agents.every((agent) => agent.local?.signedIn === true) && (
-                  <MenuItem disabled>All available agents are signed in</MenuItem>
-                )}
               </MenuContent>
             </Menu>
           </li>
         )}
       </ul>
-      {signingIn && (
+      {signingInAgent && (
         <RuntimeLoginDialog
           teamId={teamId}
-          instance={signingIn}
+          instance={signingInAgent}
           onClose={() => {
             setSigningIn(null)
             onChanged()
@@ -251,24 +288,6 @@ export function BoxRow({
         onConfirm={() => run('Could not delete Box', () => api.boxDelete(device.deviceId))}
         onClose={() => setConfirmDelete(false)}
       />
-    </li>
-  )
-}
-
-function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
-  const label = AGENT_PROVIDER[agent.provider].label
-
-  return (
-    <li className="shrink-0">
-      <button
-        type="button"
-        title={label}
-        aria-label={`Open ${label} details`}
-        onClick={onSelect}
-        className="flex h-10 w-10 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
-      >
-        <AgentProviderIcon provider={agent.provider} className="h-5 w-5" />
-      </button>
     </li>
   )
 }

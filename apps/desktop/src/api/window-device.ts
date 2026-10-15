@@ -3,6 +3,7 @@ import type {
   AgentDeviceList,
   AgentDeviceListOptions,
   BoxStatus,
+  DeviceAgentInstance,
   SleepPreferences,
   SleepState,
   DeviceExecAuditPage,
@@ -35,6 +36,11 @@ export type WindowDeviceApi = {
   boxPause(deviceId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string): Promise<{ ok: true }>
+  boxCreateAgent(
+    deviceId: string,
+    teamId: string,
+    provider: LocalAgentProvider,
+  ): Promise<DeviceAgentInstance>
   boxRename(deviceId: string, label: string): Promise<{ ok: true }>
   boxDesktop(deviceId: string): Promise<{ url: string }>
   boxJoinToken(): Promise<{ token: string; expiresAt: string; apiUrl: string | null }>

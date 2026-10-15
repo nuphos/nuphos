@@ -45,9 +45,12 @@ export function RuntimeActionsMenu({
         )}
         <MenuSeparator />
         <MenuItem onClick={onToggleEnabled}>{enabled ? 'Disable agent' : 'Enable agent'}</MenuItem>
-        <MenuItem destructive onClick={onRemove}>
-          Remove agent
-        </MenuItem>
+        {/* Removing a computer's agent is not supported yet; the runtime delete would act on its machine. */}
+        {instance.kind !== 'local' && (
+          <MenuItem destructive onClick={onRemove}>
+            Remove agent
+          </MenuItem>
+        )}
       </MenuContent>
     </Menu>
   )

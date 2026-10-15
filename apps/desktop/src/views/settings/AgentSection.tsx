@@ -48,8 +48,13 @@ export function AgentSection({
   const instances = visible.filter((instance) =>
     instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
   )
-  // Search does not close the panel, but a provider signing out removes it.
-  const selected = visible.find((instance) => instance.id === selectedId)
+  // Search does not close the panel, but a provider signing out removes it. An added
+  // agent opens before its sign-in, so the one the user selected stays reachable.
+  const selected = catalog.instances.find(
+    (instance) =>
+      instance.id === selectedId &&
+      (visibleAgent(instance) || instance.local?.instanceId !== undefined),
+  )
   // The control that opened the panel gets focus back when it closes.
   const opener = useRef<HTMLElement | null>(null)
   const close = () => {
@@ -111,7 +116,12 @@ export function AgentSection({
       )}
       <div className="min-h-0 flex-1 overflow-y-auto p-5 lg:p-8">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-          <BoxSection teamId={teamId} instances={catalog.instances} onSelect={select} />
+          <BoxSection
+            teamId={teamId}
+            instances={catalog.instances}
+            onSelect={select}
+            canCreate={isAdmin}
+          />
           {catalog.loading && instances.length === 0 && <AgentUsageSkeleton />}
           {!catalog.loading && !catalog.error && instances.length === 0 && (
             <p className="rounded-xl border border-dashed border-zGray-800 p-8 text-center text-sm text-tertiary">

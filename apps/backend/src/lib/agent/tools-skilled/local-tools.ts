@@ -10,6 +10,8 @@ import type { DeviceExecAuditInput } from '../devices/audit'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 
 export type LocalExecDevice = {
+  /** Persistent transport owner, distinct from the acting viewer of a Box. */
+  ownerUserId?: string
   deviceId: string
   label: string
   /** For a Box that is offline right now: resumes it and resolves once its tunnel is back. */
@@ -17,7 +19,7 @@ export type LocalExecDevice = {
 }
 
 export type LocalExecTurn = {
-  /** The acting user; devices are looked up under this user, so it is also the device owner. */
+  /** The acting user; a shared Box can have a different transport owner. */
   userId: string
   conversationOwnerUserId?: string
   teamId: string
@@ -148,7 +150,8 @@ export function createLocalExecTool(
     rest: Pick<DeviceExecAuditInput, 'outcome' | 'dispatchedAt' | 'exitCode' | 'reason'>,
   ) =>
     recordDeviceExecAudit({
-      ownerUserId: turn.userId,
+      ownerUserId:
+        devices.find((device) => device.deviceId === deviceId)?.ownerUserId ?? turn.userId,
       deviceId,
       actorUserId: turn.userId,
       conversationOwnerUserId: turn.conversationOwnerUserId ?? turn.userId,

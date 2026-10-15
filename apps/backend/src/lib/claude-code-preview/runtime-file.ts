@@ -20,12 +20,17 @@ const unavailable = () =>
     'The source agent is offline or does not support file preview.',
   )
 
-async function readLocalFile(teamId: string, runtimeId: string, input: string): Promise<string> {
+async function readLocalFile(
+  teamId: string,
+  actorId: string,
+  runtimeId: string,
+  input: string,
+): Promise<string> {
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (!ref) throw unavailable()
   const socket = new DeviceRuntimeSocket(
-    { ...ref, teamId, purpose: 'file' },
+    { ...ref, actorId, teamId, purpose: 'file' },
     { bus: tunnelBus(), presence: runtimePresenceStore() },
   )
 
@@ -131,7 +136,7 @@ async function runtimeFileOperation(
 
   try {
     if (instance.kind === 'local')
-      output = await readLocalFile(teamId, runtimeId, JSON.stringify(params))
+      output = await readLocalFile(teamId, userId, runtimeId, JSON.stringify(params))
     else {
       const client = await controlRegistry.acquire(teamId, endpoint)
 

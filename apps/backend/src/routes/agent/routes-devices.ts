@@ -7,6 +7,11 @@ import {
   listDeviceExecAudit,
 } from '@/lib/agent/devices/audit'
 import {
+  deviceAccessDeps,
+  requireDeviceAccess,
+  revokeBoxStreams,
+} from '@/lib/agent/devices/box-access'
+import {
   boxBackendUrl,
   boxDesktopUrl,
   boxState,
@@ -23,6 +28,7 @@ import {
   DEVICE_JOIN_TOKEN_MAX_TTL_SEC,
   issueDeviceJoinToken,
 } from '@/lib/agent/devices/join-tokens'
+import { readBoxMetrics } from '@/lib/agent/devices/box-metrics'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { isDevicePresent } from '@/lib/agent/devices/presence'
@@ -33,16 +39,21 @@ import {
   renameAgentDevice,
   revokeAgentDeviceCredential,
   upsertAgentDevice,
+  setBoxAccess,
 } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
+import { getTeamMembers } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 
 import { agent } from './router'
 import { createAgentDeviceBoxRoutes } from './routes-devices-box'
+import { createDeviceAgentRoutes } from './routes-device-agents'
+import { readTeamIdCandidate } from './team-scope'
 
 import type { DeviceExecAuditPage } from '@/lib/agent/devices/audit'
-import type { HolderMessage } from '@/lib/agent/devices/local-runtime/protocol'
+import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
 import type { BoxState } from '@/lib/agent/devices/box-instabox'
+import type { HolderMessage } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AgentDevice, AgentDeviceRegistration } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
 
@@ -74,6 +85,15 @@ const auditQuerySchema = z.object({
 })
 
 export type AgentDeviceRouteDependencies = {
+  access: DeviceAccessDeps
+  setBoxAccess: (
+    userId: string,
+    deviceId: string,
+    access: { everyone: boolean; userIds: string[] },
+  ) => Promise<boolean>
+  teamMembers: (teamId: string) => Promise<{ id: string; role: string }[]>
+  revokeStreams: (devices: AgentDevice[], actorIds: string[]) => Promise<void>
+  readMetrics: typeof readBoxMetrics
   upsertAgentDevice: (userId: string, device: AgentDeviceRegistration) => Promise<void>
   getAgentDevice: (userId: string, deviceId: string) => Promise<AgentDevice | null>
   listDeviceExecAudit: (
@@ -108,6 +128,11 @@ export type AgentDeviceRouteDependencies = {
 }
 
 const defaultDependencies: AgentDeviceRouteDependencies = {
+  access: deviceAccessDeps,
+  setBoxAccess,
+  teamMembers: (teamId) => getTeamMembers(teamId),
+  revokeStreams: revokeBoxStreams,
+  readMetrics: (userId, deviceId, demand) => readBoxMetrics(userId, deviceId, demand),
   upsertAgentDevice,
   getAgentDevice,
   issueJoinToken: issueDeviceJoinToken,
@@ -143,6 +168,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.route('/', createAgentDeviceBoxRoutes(deps))
+  routes.route('/', createDeviceAgentRoutes())
 
   routes.put('/devices', zv('json', deviceRegistrationSchema), async (c) => {
     await deps.upsertAgentDevice(c.get('userId'), c.req.valid('json'))
@@ -171,8 +197,14 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     '/devices/:deviceId/credential',
     zv('param', z.object({ deviceId: z.string().trim().min(1).max(128) })),
     async (c) => {
-      const userId = c.get('userId')
       const { deviceId } = c.req.valid('param')
+      const { userId } = await requireDeviceAccess(
+        c.get('userId'),
+        readTeamIdCandidate(c),
+        deviceId,
+        'manage',
+        deps.access,
+      )
 
       if (!(await deps.revokeCredential(userId, deviceId)))
         throw new AppError(404, 'credential_not_found', 'This device has no credential to revoke')
@@ -187,8 +219,14 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     zv('param', z.object({ deviceId: z.string().trim().min(1).max(128) })),
     zv('query', auditQuerySchema),
     async (c) => {
-      const userId = c.get('userId')
       const { deviceId } = c.req.valid('param')
+      const { userId } = await requireDeviceAccess(
+        c.get('userId'),
+        readTeamIdCandidate(c),
+        deviceId,
+        'manage',
+        deps.access,
+      )
       const { limit, before } = c.req.valid('query')
       const device = await deps.getAgentDevice(userId, deviceId)
 

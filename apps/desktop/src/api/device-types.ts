@@ -36,6 +36,14 @@ export type DeviceExecAuditPage = {
 /** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
 export type LocalAgentProvider = 'claude-code' | 'codex'
 
+/** One more agent of a provider on a device. `runtimeId` is the catalog's RuntimeInstance.id. */
+export type DeviceAgentInstance = {
+  instanceId: string
+  provider: LocalAgentProvider
+  label: string
+  runtimeId: string
+}
+
 export type AgentCliStatus =
   | { installed: false }
   | {

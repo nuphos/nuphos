@@ -1,11 +1,11 @@
 import type { RuntimeStatusView } from './runtimePresentation'
-import type { AgentDevice, BoxState, BoxStatus } from '../../api/device-types'
+import type { AgentDevice, BoxState, BoxStatus, LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
 
 export type BoxDevice = AgentDevice & { box: BoxStatus }
 
 // A Box being set up, or a cloud Box whose host is away, changes without the user acting.
-export const BOX_CREATING_POLL_MS = 2_000
+export const BOX_CREATING_POLL_MS = 1_000
 // A Box still creating after this long will not come up.
 export const BOX_SETUP_TIMEOUT_MS = 5 * 60_000
 
@@ -90,6 +90,17 @@ export function boxAgents(deviceId: string, instances: RuntimeInstance[]): Runti
   return instances.filter(
     (instance) => instance.kind === 'local' && instance.local?.deviceId === deviceId,
   )
+}
+
+/** What New Agent does for a provider: add an agent when the host can, else sign in the one it has. */
+export function newAgentAction(
+  agents: RuntimeInstance[],
+  provider: LocalAgentProvider,
+): { create: true } | { signIn: string } | null {
+  if (agents.some((agent) => agent.local?.agentInstances === true)) return { create: true }
+  const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
+
+  return idle ? { signIn: idle.id } : null
 }
 
 export type BoxSetupPhase = 'idle' | 'starting' | 'ready' | 'error' | 'timeout'

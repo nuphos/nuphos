@@ -10,6 +10,7 @@ import {
   boxes,
   boxPollMs,
   boxState,
+  newAgentAction,
   machineLine,
   machines,
   vanishedBoxes,
@@ -69,8 +70,8 @@ test('lists every cloud Box and each computer while its agents are connected', (
 test('polls only around a sign-in, while a Box starts, or while a running Box reconnects', () => {
   assert.equal(boxPollMs([box('a', 'running')], false), 0)
   assert.equal(boxPollMs([box('a', 'paused')], false), 0)
-  assert.equal(boxPollMs([box('a', 'creating')], false), 2_000)
-  assert.equal(boxPollMs([box('a', 'running', false)], false), 2_000)
+  assert.equal(boxPollMs([box('a', 'creating')], false), 1_000)
+  assert.equal(boxPollMs([box('a', 'running', false)], false), 1_000)
   assert.equal(boxPollMs([box('a', 'running')], true), 1_500)
 })
 
@@ -127,4 +128,27 @@ test('a machine reads as its OS and model', () => {
   assert.equal(machineLine(mac), 'macOS · MacBook Pro')
   assert.equal(machineLine({ ...mac, model: undefined }), 'macOS')
   assert.equal(machineLine(box('a', 'running')), 'Linux · instabox')
+})
+
+const local = (
+  id: string,
+  provider: RuntimeInstance['provider'],
+  signedIn: boolean | null,
+  agentInstances?: boolean,
+) =>
+  ({
+    id,
+    provider,
+    kind: 'local',
+    local: { deviceId: 'a', signedIn, agentInstances },
+  }) as RuntimeInstance
+
+test('New Agent adds an agent on a capable host, and only signs in the existing one on an older host', () => {
+  const old = [local('claude', 'claude-code', true), local('codex', 'codex', null)]
+  const capable = [local('claude', 'claude-code', true, true), local('codex', 'codex', null, true)]
+
+  assert.deepEqual(newAgentAction(capable, 'codex'), { create: true })
+  assert.deepEqual(newAgentAction(capable, 'claude-code'), { create: true })
+  assert.deepEqual(newAgentAction(old, 'codex'), { signIn: 'codex' })
+  assert.equal(newAgentAction(old, 'claude-code'), null)
 })

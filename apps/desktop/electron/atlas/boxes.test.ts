@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { mock, test } from 'node:test'
 
 const calls: string[] = []
+const bodies: unknown[] = []
+const options: unknown[] = []
 let samples = 0
 const metrics = {
   sampledAt: '2026-10-15T00:00:00Z',
@@ -24,8 +26,10 @@ const list = {
 
 mock.module('./client.ts', {
   namedExports: {
-    call: async (_method: string, path: string) => {
+    call: async (_method: string, path: string, body?: unknown, opts?: unknown) => {
       calls.push(path)
+      bodies.push(body)
+      options.push(opts)
 
       return list
     },
@@ -77,4 +81,13 @@ test('Box IPC forwards optional metrics demand without changing the default', as
   await boxChannels['box:listDevices']()
   assert.equal(calls.at(-1), '/agent/devices')
   assert.equal(samples, before)
+})
+
+test('adding an agent posts once and outlasts the backend 60s host wait', async () => {
+  const { boxChannels } = await import('../main/channels-box.ts')
+
+  await boxChannels['box:createAgent'](null, 'box/1', 'team-1', 'codex')
+  assert.equal(calls.at(-1), '/agent/devices/box%2F1/agents')
+  assert.deepEqual(bodies.at(-1), { teamId: 'team-1', provider: 'codex' })
+  assert.deepEqual(options.at(-1), { retry: false, timeoutMs: 65_000 })
 })
