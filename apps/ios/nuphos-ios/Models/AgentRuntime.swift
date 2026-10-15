@@ -38,6 +38,10 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     var isSelectable: Bool { status == .active && local?.signedIn != false }
 
+    /// A local agent runs on its owner's own computer (`local_<user>_<device>`).
+    /// Read from the id, so it holds while that computer is offline.
+    static func isLocalAgent(_ runtimeId: String?) -> Bool { runtimeId?.hasPrefix("local_") == true }
+
     var providerName: String { Provider.name(provider.rawValue) }
 
     /// A computer's agent is named for the computer; its provider goes in `subtitle`.
