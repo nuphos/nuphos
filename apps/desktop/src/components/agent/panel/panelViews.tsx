@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { api } from '../../../api'
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
@@ -32,7 +33,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     bypassBySession,
     conversationDropRef,
     dockCurrentSession,
-    currentUser,
     forkConversation,
     onDockToSidebar,
     handleMessageFeedback,
@@ -61,7 +61,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const editableSessionId =
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
   const foreignChat = Boolean(activeTab?.foreign)
-  const currentUserId = currentUser?.id
+  const currentUserId = useCurrentUser()?.id
   const editMessage = useMemo(
     () =>
       editableSessionId
