@@ -65,6 +65,26 @@ service-dependent and are not added to the self-hosted backend by this client.
 
 ## Tests
 
+### Unlinking an existing child chat
+
+The history list offers **Unlink** only for a loaded child whose API metadata
+reports `isOwner == true` and `readOnly != true`, in the selected workspace.
+Android asks for confirmation (iOS currently runs its context-menu action directly).
+Cancel sends no request. Confirm uses the existing owner-scoped
+`DELETE /agent/conversations/:id/parent?teamId=...` contract; it never deletes
+a chat or changes sharing permissions. Pending requests cannot repeat. Errors
+keep the original tree and allow retry. Confirmed success removes only the
+child's parent, preserving descendants, loaded pages, pins and drafts; all list
+sections and thread counts recompute together. Reads started before success are
+discarded, as are mutation results after workspace/account capability changes.
+
+`ConversationUnlinkTest` checks the HTTP contract and acknowledgement handling.
+`ConversationUnlinkFixtureDeviceTest` uses intercepted synthetic transport for
+confirmation/cancel, successful root promotion, denied/malformed responses,
+owner/read-only/root/workspace restrictions, duplicate submission, late results
+and account invalidation. It restores preferences and in-memory auth state.
+It does not exercise a successful mutation against a real account.
+
 ### Conversation App Links
 
 The app accepts `https://nuphos.ai/teams/{teamId}/agent/{conversationId}` with

@@ -57,6 +57,16 @@ object ConversationActions {
             listOf("teamId" to team), JsonValue.obj("teamId" to JsonValue.Str(team), "title" to JsonValue.Str(valid))))
         return json?.get("title")?.stringValue ?: throw NuphosApi.Failure.InvalidResponse
     }
+    /** Same owner-only contract as iOS; never deletes the conversation itself. */
+    suspend fun unlinkParent(token: String, team: String, session: String,
+        request: suspend (String, String, String, List<Pair<String, String>>, JsonValue?) -> String = AgentChatApi::send,
+    ) {
+        val response = JsonValue.parse(request("DELETE", "agent/conversations/${segment(session)}/parent", token,
+            listOf("teamId" to team), null))
+        require(response?.get("ok")?.boolValue == true && response["parentSessionId"] == JsonValue.Null) {
+            "Unlink was not confirmed."
+        }
+    }
     suspend fun archive(token: String, team: String, session: String, archived: Boolean) {
         val json = JsonValue.parse(AgentChatApi.send("PATCH", "agent/conversations/${segment(session)}/archive", token,
             listOf("teamId" to team), JsonValue.obj("teamId" to JsonValue.Str(team), "archived" to JsonValue.Bool(archived))))

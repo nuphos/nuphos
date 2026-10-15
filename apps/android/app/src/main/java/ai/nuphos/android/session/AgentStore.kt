@@ -159,6 +159,46 @@ class AgentStore(
         reload()
     }
 
+    var unlinkingSessionId: String? by mutableStateOf(null)
+        private set
+    var unlinkError: String? by mutableStateOf(null)
+        private set
+
+    fun canUnlink(row: AgentConversation): Boolean =
+        !disposed && hasAiAccess() && selectedTeam != null &&
+            (row.teamId == null || row.teamId == selectedTeam?.id) &&
+            row.isOwner == true && row.readOnly != true && !row.parentSessionId.isNullOrBlank()
+
+    fun clearUnlinkError() { unlinkError = null }
+
+    suspend fun unlinkParent(row: AgentConversation) {
+        val teamId = selectedTeam?.id ?: return
+        // Re-resolve the loaded row, rather than trusting a retained menu/confirmation.
+        val current = conversations.firstOrNull { it.sessionId == row.sessionId && (it.teamId ?: teamId) == teamId } ?: return
+        if (!canUnlink(current) || current.parentSessionId != row.parentSessionId || unlinkingSessionId != null) return
+        val revision = workspaceRevision
+        fun isCurrent() = !disposed && hasAiAccess() && workspaceRevision == revision && selectedTeam?.id == teamId
+        unlinkingSessionId = current.sessionId
+        unlinkError = null
+        try {
+            ConversationActions.unlinkParent(token, teamId, current.sessionId)
+            if (!isCurrent()) return
+            // Discard earlier reads so an old page cannot reattach the child. Keep all
+            // loaded pages, pins, descendants and drafts; every tree section derives here.
+            loadGeneration++
+            isLoadingMore = false
+            conversations = conversations.map {
+                if (it.sessionId == current.sessionId && (it.teamId ?: teamId) == teamId) it.copy(parentSessionId = null) else it
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (isCurrent()) unlinkError = e.message ?: "Could not unlink chat. Try again."
+        } finally {
+            if (isCurrent()) unlinkingSessionId = null
+        }
+    }
+
     var credentialCatalog: CredentialCatalog? by mutableStateOf(null)
         private set
     var credentialCatalogError: String? by mutableStateOf(null)
@@ -240,6 +280,8 @@ class AgentStore(
             val pick = loaded.firstOrNull { it.id == remembered } ?: loaded.firstOrNull()
             if (pick != selectedTeam) {
                 workspaceRevision++
+                unlinkingSessionId = null
+                unlinkError = null
                 selectedTeam = pick
                 resetHistory()
                 clearFavorites()
@@ -271,13 +313,19 @@ class AgentStore(
             val refreshed = saved.firstOrNull { it.id == old.id }
             if (refreshed == null) {
                 workspaceRevision++
+                unlinkingSessionId = null
+                unlinkError = null
                 selectedTeam = null
                 resetHistory()
                 clearFavorites()
                 credentialCatalog = null
                 restoreCredentialSelection()
             } else {
-                if (refreshed != old) workspaceRevision++
+                if (refreshed != old) {
+                    workspaceRevision++
+                    unlinkingSessionId = null
+                    unlinkError = null
+                }
                 selectedTeam = refreshed
             }
         }
@@ -290,6 +338,8 @@ class AgentStore(
         val verified = teams.firstOrNull { it.id == team.id } ?: return
         if (verified == selectedTeam) return
         workspaceRevision++
+        unlinkingSessionId = null
+        unlinkError = null
         membershipRequest++
         selectedTeam = verified
         resetHistory()
@@ -405,6 +455,8 @@ class AgentStore(
         disposed = true
         membershipRequest++
         workspaceRevision++
+        unlinkingSessionId = null
+        unlinkError = null
         resetHistory()
         clearFavorites()
         storeScope.coroutineContext[Job]?.cancel()
