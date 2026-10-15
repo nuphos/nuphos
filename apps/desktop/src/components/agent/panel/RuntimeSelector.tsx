@@ -5,6 +5,7 @@ import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, agentTier, groupAgentsByTier } from '../../../lib/agentName'
 import {
+  agentSignOut,
   quotaDetailLines,
   quotaSignedOut,
   quotaSummary,
@@ -64,6 +65,25 @@ export type RuntimeControl = {
     onConfirm: () => void
     onCancel: () => void
   }
+}
+
+/** How the selected agent's sign-in bears on the next message. */
+export function selectedAgentSignOut(control: RuntimeControl | undefined) {
+  const id = control?.value?.id
+
+  if (!id) return null
+
+  return agentSignOut(
+    control.options?.find((instance) => instance.id === id),
+    control.quotas?.get(id),
+  )
+}
+
+/** No agent to send to: none picked, disabled, or one certain to refuse the turn. */
+export function runtimeControlBlocksSend(control: RuntimeControl | undefined): boolean {
+  if (control?.onSelect && (!control.value || control.value.status === 'disabled')) return true
+
+  return selectedAgentSignOut(control) === 'blocked'
 }
 
 const QUOTA_TONE_CLASS: Record<QuotaTone, string> = {

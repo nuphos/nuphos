@@ -9,7 +9,7 @@ import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeMayAcceptLater } from './queuedAutoSend'
 import { ReadOnlyConversationNotice, SignedOutAgentNotice } from './ReadOnlyNotice'
-import { RuntimeSelector } from './RuntimeSelector'
+import { RuntimeSelector, runtimeControlBlocksSend } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
 import { useComposerMentions } from './useComposerMentions'
@@ -110,12 +110,7 @@ export function Composer({
   )
   const hero = variant === 'hero'
   const sendBlocked =
-    runtimeSendBlocked ||
-    modelControl.saving ||
-    Boolean(
-      runtimeControl?.onSelect &&
-      (!runtimeControl.value || runtimeControl.value.status === 'disabled'),
-    )
+    runtimeSendBlocked || modelControl.saving || runtimeControlBlocksSend(runtimeControl)
   const state = useComposerState({
     hero,
     firstRun,

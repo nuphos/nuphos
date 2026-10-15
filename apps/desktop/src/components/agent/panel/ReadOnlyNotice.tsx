@@ -5,12 +5,12 @@ import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
-import { quotaSignedOut } from '../../../lib/runtimeQuota'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
 import { ASK_ADMIN_TO_RECONNECT } from './AgentSetupRequiredCard'
 import { ConversationActivityBadges } from './historyRows'
+import { selectedAgentSignOut } from './RuntimeSelector'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 
 import type { RuntimeControl } from './RuntimeSelector'
@@ -76,14 +76,15 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
 }
 
 /** Said before the message goes, not after it fails: every turn on a signed-out
- *  agent dies in its first seconds. */
+ *  agent dies in its first seconds. A managed agent's composer also stops sending. */
 export function SignedOutAgentNotice({ control }: { control: RuntimeControl }) {
-  const { value, quotas, canUpdateTeamAgents: isTeamAdmin } = control
+  const { value, canUpdateTeamAgents: isTeamAdmin } = control
+  const signOut = selectedAgentSignOut(control)
   // Only an administrator can sign a team agent back in; a member gets the same
   // instruction the reauthentication card gives after a failed turn.
   const onSettings = isTeamAdmin ? control.onSettings : undefined
 
-  if (!value?.id || !quotaSignedOut(quotas?.get(value.id))) return null
+  if (!value || !signOut) return null
 
   return (
     <div
@@ -92,7 +93,10 @@ export function SignedOutAgentNotice({ control }: { control: RuntimeControl }) {
     >
       <KeyRound aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-400" />
       <span className="min-w-0 flex-1">
-        {value.label} is signed out, so messages will likely fail.{' '}
+        {value.label} is signed out,{' '}
+        {signOut === 'blocked'
+          ? 'so it cannot take messages until it is signed in again.'
+          : 'so messages will likely fail.'}{' '}
         {isTeamAdmin
           ? 'Sign it in again in Agent settings, or switch to another agent.'
           : `${ASK_ADMIN_TO_RECONNECT} Or switch to another agent.`}
