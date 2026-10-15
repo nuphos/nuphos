@@ -51,10 +51,10 @@ test('each Box state has a badge', () => {
 })
 
 test('only a running Box pauses; a paused or failed one resumes; a starting one cannot be deleted', () => {
-  assert.deepEqual(boxActions('running'), { pause: true, resume: false, remove: true })
-  assert.deepEqual(boxActions('paused'), { pause: false, resume: true, remove: true })
-  assert.deepEqual(boxActions('error'), { pause: false, resume: true, remove: true })
-  assert.deepEqual(boxActions('creating'), { pause: false, resume: false, remove: false })
+  assert.deepEqual(boxActions('running'), { pause: true, resume: false })
+  assert.deepEqual(boxActions('paused'), { pause: false, resume: true })
+  assert.deepEqual(boxActions('error'), { pause: false, resume: true })
+  assert.deepEqual(boxActions('creating'), { pause: false, resume: false })
 })
 
 test('a cloud Box is a Box; a computer is running while connected and stopped when not', () => {
@@ -190,5 +190,5 @@ test('a running Box reads Starting until its host connects, then Host offline af
   assert.equal(boxState(away(), now), 'hostOffline')
   assert.equal(boxState(box('a', 'running', true), now), 'running')
   assert.equal(BOX_BADGE.connecting.tone, 'pending')
-  assert.deepEqual(boxActions('hostOffline'), { pause: true, resume: false, remove: true })
+  assert.deepEqual(boxActions('hostOffline'), { pause: true, resume: false })
 })

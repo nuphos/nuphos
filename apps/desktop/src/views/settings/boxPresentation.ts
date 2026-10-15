@@ -33,16 +33,11 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   error: { label: "Didn't start", tone: 'error' },
 }
 
-/** What can be done to a Box in each state; a starting Box needs nothing from you. */
-export function boxActions(state: MachineState): {
-  pause: boolean
-  resume: boolean
-  remove: boolean
-} {
+/** What a Box's state allows besides Delete, which is always there. */
+export function boxActions(state: MachineState): { pause: boolean; resume: boolean } {
   return {
     pause: state === 'running' || state === 'connecting' || state === 'hostOffline',
     resume: state === 'paused' || state === 'error',
-    remove: state !== 'creating',
   }
 }
 

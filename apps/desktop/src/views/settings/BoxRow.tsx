@@ -52,7 +52,7 @@ export function BoxRow({
   const state = boxState(device)
   const cloud = device.box !== undefined
   const badge = BOX_BADGE[state]
-  const actions = cloud ? boxActions(state) : { pause: false, resume: false, remove: false }
+  const actions = cloud ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
   const act = (title: string, call: (deviceId: string, teamId: string) => Promise<unknown>) =>
     run(title, () => call(device.deviceId, teamId))
@@ -163,7 +163,8 @@ export function BoxRow({
                 Pause
               </MenuItem>
             )}
-            {actions.remove && (
+            {/* A Box can always be deleted, a stuck one most of all. */}
+            {cloud && (
               <>
                 <MenuSeparator />
                 <MenuItem destructive onClick={() => setConfirmDelete(true)}>
