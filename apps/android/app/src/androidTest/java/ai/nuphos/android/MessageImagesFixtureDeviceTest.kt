@@ -13,7 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.LocalActivity
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -66,7 +66,7 @@ class MessageImagesFixtureDeviceTest {
         val images = (1..5).map { image(it.toString()) }
         compose.setContent { NuphosTheme(darkTheme = false) {
             val view = LocalView.current
-            val activity = LocalContext.current as android.app.Activity
+            val activity = requireNotNull(LocalActivity.current)
             SideEffect { WindowCompat.getInsetsController(activity.window, view).apply {
                 isAppearanceLightStatusBars = true
                 isAppearanceLightNavigationBars = true
