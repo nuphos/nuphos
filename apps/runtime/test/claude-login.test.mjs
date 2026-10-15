@@ -12,17 +12,22 @@ const URL_LINE =
 
 // What `claude auth login --claudeai` does without a TTY in the pinned CLI: print the
 // manual URL, then read `code#state` lines from stdin and store the credential.
+// The credential path is the fixture's own argument, never derived from HOME: in
+// a managed runtime HOME is the runtime's real sign-in, and a test run there once
+// overwrote it (NUPS-1172).
 const FAKE_CLI = `
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { createInterface } from 'node:readline';
+const credential = process.argv[2];
 if (process.argv.slice(-3).join(' ') !== 'auth login --claudeai') process.exit(2);
 process.stdout.write('Opening browser to sign in\\u2026\\n' + ${JSON.stringify(URL_LINE)} + 'Paste code here if prompted > ');
 createInterface({ input: process.stdin }).on('line', (line) => {
   if (!line.includes('#')) process.exit(3);
   if (line !== 'good-code#state') process.exit(4);
   if (process.env.SKIP_WRITE !== '1') {
-    mkdirSync(process.env.HOME + '/.claude', { recursive: true });
-    writeFileSync(process.env.HOME + '/.claude/.credentials.json', JSON.stringify({ env: Object.keys(process.env) }));
+    mkdirSync(dirname(credential), { recursive: true });
+    writeFileSync(credential, JSON.stringify({ env: Object.keys(process.env) }));
   }
   process.stdout.write('Login successful.\\n');
   process.exit(0);
@@ -35,7 +40,7 @@ async function fixture() {
 
   await writeFile(script, FAKE_CLI)
 
-  return { home, script }
+  return { home, script, credential: join(home, '.claude', '.credentials.json') }
 }
 
 test('reads the authorize URL the pinned CLI prints and refuses any other destination', () => {
@@ -62,14 +67,14 @@ test('only a single code#state line is treated as an authorization code', () => 
 })
 
 test('the pasted code signs the runtime in and the credential never leaves it', async () => {
-  const { home, script } = await fixture()
+  const { home, script, credential } = await fixture()
   const input = new PassThrough()
   const frames = []
 
   try {
     await runClaudeLogin({
       executable: process.execPath,
-      args: [script],
+      args: [script, credential],
       home,
       input,
       emit: (frame) => {
@@ -84,7 +89,7 @@ test('the pasted code signs the runtime in and the credential never leaves it', 
       { type: 'authorize', url: URL_LINE.slice(URL_LINE.indexOf('https://')).trim() },
       { type: 'authenticated' },
     ])
-    const stored = JSON.parse(await readFile(join(home, '.claude', '.credentials.json'), 'utf8'))
+    const stored = JSON.parse(await readFile(credential, 'utf8'))
 
     assert.deepEqual(
       stored.env
@@ -98,13 +103,19 @@ test('the pasted code signs the runtime in and the credential never leaves it', 
 })
 
 test('a gateway that cannot relay the code fails at once instead of waiting 15 minutes', async () => {
-  const { home, script } = await fixture()
+  const { home, script, credential } = await fixture()
   const input = new PassThrough()
 
   input.end()
   try {
     await assert.rejects(
-      runClaudeLogin({ executable: process.execPath, args: [script], home, input, emit: () => {} }),
+      runClaudeLogin({
+        executable: process.execPath,
+        args: [script, credential],
+        home,
+        input,
+        emit: () => {},
+      }),
       { reason: 'input_unavailable' },
     )
   } finally {
@@ -113,14 +124,18 @@ test('a gateway that cannot relay the code fails at once instead of waiting 15 m
 })
 
 test('a CLI that exits cleanly without storing a credential is not a sign-in', async () => {
-  const { home, script } = await fixture()
+  const { home, script, credential } = await fixture()
   const input = new PassThrough()
 
   try {
     await assert.rejects(
       runClaudeLogin({
         executable: 'sh',
-        args: ['-c', `SKIP_WRITE=1 exec "${process.execPath}" "${script}" "$@"`, 'sh'],
+        args: [
+          '-c',
+          `SKIP_WRITE=1 exec "${process.execPath}" "${script}" "${credential}" "$@"`,
+          'sh',
+        ],
         home,
         input,
         emit: (frame) => {
