@@ -138,11 +138,16 @@ async function order(
     })
 
     // A configured template or snapshot already carries node, the agents and nuphos.
+    // The install is one long exec request, so it runs on a connection without the
+    // per-request cap: the exec request then waits as long as the command may run.
     if (!config.box.template)
-      await sandbox.commands.run(BOX_INSTALL_COMMAND, {
-        envs: downloadEnv(),
-        timeoutMs: INSTALL_TIMEOUT_MS,
-      })
+      await (
+        await Sandbox.connect(sandbox.sandboxId, {
+          ...connection(INSTALL_TIMEOUT_MS),
+          requestTimeoutMs: undefined,
+          resume: false,
+        })
+      ).commands.run(BOX_INSTALL_COMMAND, { envs: downloadEnv(), timeoutMs: INSTALL_TIMEOUT_MS })
     await sandbox.commands.run(AGENT_COMMAND, {
       envs: { ...downloadEnv(), NUPHOS_JOIN_TOKEN: token, NUPHOS_API_URL: url },
       background: true,

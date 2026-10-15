@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useInstaboxMachines } from '@/lib/test/doubles/instabox-machines'
 
@@ -20,7 +20,8 @@ useInstaboxMachines({
   },
 })
 
-const { boxBackendUrl, killBoxMachine } = await import('./box-instabox-client')
+const { boxBackendUrl, connection, CREATE_TIMEOUT_MS, killBoxMachine } =
+  await import('./box-instabox-client')
 const { config } = await import('@/config')
 const conn = { apiKey: 'test-key', requestTimeoutMs: 1_000, operationTimeoutMs: 1_000 }
 
@@ -77,5 +78,27 @@ describe('boxBackendUrl', () => {
     expect(boxBackendUrl()).toBeUndefined()
     config.agent.publicBackendUrl = 'http://localhost:3718'
     expect(boxBackendUrl()).toBeUndefined()
+  })
+})
+
+describe('connection', () => {
+  const saved = config.box.instabox
+
+  beforeEach(() => {
+    config.box.instabox = { apiKey: 'test-key' }
+  })
+  afterEach(() => {
+    config.box.instabox = saved
+  })
+
+  test('a long operation still caps each request, so one stalled poll cannot hang it', () => {
+    expect(connection(CREATE_TIMEOUT_MS)).toMatchObject({
+      requestTimeoutMs: 15_000,
+      operationTimeoutMs: CREATE_TIMEOUT_MS,
+    })
+  })
+
+  test('a short operation keeps its own shorter budget for both', () => {
+    expect(connection(5_000)).toMatchObject({ requestTimeoutMs: 5_000, operationTimeoutMs: 5_000 })
   })
 })

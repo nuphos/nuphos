@@ -16,6 +16,8 @@ export const INSTALL_TIMEOUT_MS = 9 * 60_000
 export const CREATE_TIMEOUT_MS = 3 * 60_000
 /** Anything on a turn's path: an instabox outage must not stall a conversation for long. */
 export const QUICK_TIMEOUT_MS = 30_000
+/** The most one HTTP request to instabox may take; long operations poll within their own budget. */
+const REQUEST_TIMEOUT_MS = 15_000
 
 /** Node 22 and the agents, then the CLI; idempotent, so a resume can run it again. */
 export const BOX_INSTALL_COMMAND = [
@@ -41,7 +43,12 @@ export function connection(timeoutMs: number) {
 
   if (!box) throw new AppError(503, 'box_unavailable', 'Boxes are not enabled on this deployment')
 
-  return { ...box, requestTimeoutMs: timeoutMs, operationTimeoutMs: timeoutMs }
+  // One stalled poll must not hold a whole operation: each request gets its own short budget.
+  return {
+    ...box,
+    requestTimeoutMs: Math.min(timeoutMs, REQUEST_TIMEOUT_MS),
+    operationTimeoutMs: timeoutMs,
+  }
 }
 
 export function boxesEnabled(): boolean {
