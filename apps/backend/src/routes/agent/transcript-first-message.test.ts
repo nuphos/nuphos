@@ -158,9 +158,11 @@ test('an import arriving in chunks appends each one until the first turn runs', 
     { ...imported, messageCount: 5 },
   ] as AgentConversation[]) {
     conversation = refused
+    // The stored count lets a retry tell a chunk it already sent from a refused one.
     expect(await (await put({ ...next, import: true })).json()).toEqual({
       ok: true,
       skipped: 'server_authoritative',
+      messageCount: refused.messageCount,
     })
   }
 })
