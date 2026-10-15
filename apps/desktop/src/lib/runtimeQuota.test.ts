@@ -5,6 +5,7 @@ import {
   formatResetsAt,
   quotaDetailLines,
   quotaNote,
+  quotaSignedOut,
   quotaSummary,
   quotaTone,
   quotaWindowTone,
@@ -104,4 +105,14 @@ test('an unavailable quota shows the reason the agent gave, and nothing else doe
     quotaNote(quota([{ id: 'seven_day', label: 'Weekly', usedPercent: 12, resetsAt: null }])),
     null,
   )
+})
+
+test('only the probe finding no sign-in reads as signed out', () => {
+  const signedOut: RuntimeQuota = { ...quota([], false), reason: 'Sign in required' }
+
+  assert.equal(quotaSignedOut(signedOut), true)
+  assert.equal(quotaSignedOut({ ...signedOut, reason: 'HTTP 401' }), false)
+  assert.equal(quotaSignedOut({ ...signedOut, reason: 'Usage lookup failed' }), false)
+  assert.equal(quotaSignedOut({ ...signedOut, available: true }), false)
+  assert.equal(quotaSignedOut(undefined), false)
 })

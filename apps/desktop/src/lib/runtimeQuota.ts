@@ -31,6 +31,14 @@ export function quotaNote(quota: RuntimeQuota | undefined): string | null {
   return quota.reason ?? null
 }
 
+/** The usage probe found no sign-in on the agent, the reading that also shows on the
+ *  Agents page. Turns there fail until it is signed in again. A self-hosted agent
+ *  signed in through `CLAUDE_CODE_OAUTH_TOKEN` reads the same, so this warns and
+ *  never blocks. */
+export function quotaSignedOut(quota: RuntimeQuota | undefined): boolean {
+  return quota?.available === false && quota.reason === 'Sign in required'
+}
+
 /** What is still unspent, floored so a nearly empty window never reads as more than it has. */
 export function quotaLeftPercent(window: RuntimeQuotaWindow): number {
   return Math.max(0, Math.min(100, Math.floor(100 - window.usedPercent)))

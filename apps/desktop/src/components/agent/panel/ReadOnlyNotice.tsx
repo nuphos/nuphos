@@ -1,16 +1,18 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { ExternalLink, Loader2 } from 'lucide-react'
+import { ExternalLink, KeyRound, Loader2 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
+import { quotaSignedOut } from '../../../lib/runtimeQuota'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
 import { ConversationActivityBadges } from './historyRows'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 
+import type { RuntimeControl } from './RuntimeSelector'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
 
 export function ReadOnlyConversationNotice({
@@ -69,5 +71,37 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
       <span>Open thread</span>
       <ExternalLink className="h-3 w-3" strokeWidth={1.8} />
     </Button>
+  )
+}
+
+/** Said before the message goes, not after it fails: every turn on a signed-out
+ *  agent dies in its first seconds. */
+export function SignedOutAgentNotice({ control }: { control: RuntimeControl }) {
+  const { value, quotas, onSettings } = control
+
+  if (!value?.id || !quotaSignedOut(quotas?.get(value.id))) return null
+
+  return (
+    <div
+      role="status"
+      className="mb-1.5 flex min-w-0 items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[12.5px] text-secondary"
+    >
+      <KeyRound aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+      <span className="min-w-0 flex-1">
+        {value.label} is signed out, so messages sent now will fail. Sign it in again, or switch to
+        another agent.
+      </span>
+      {onSettings && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-6 shrink-0 px-2 text-[12px]"
+          onClick={onSettings}
+        >
+          Agent settings
+        </Button>
+      )}
+    </div>
   )
 }
