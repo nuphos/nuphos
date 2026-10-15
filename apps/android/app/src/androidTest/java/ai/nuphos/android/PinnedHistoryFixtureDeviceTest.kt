@@ -178,6 +178,7 @@ class PinnedHistoryFixtureDeviceTest {
         compose.onNodeWithText("Unpin").performClick()
         compose.waitUntil(5_000) { requests.any { it.method == "PUT" } }
         assertTrue(JsonValue.parse(entries)!!.arrayValue!!.any { it["href"]?.stringValue == "/dashboard" })
+        compose.waitUntil(5_000) { store.favorites?.contains("beyond") == false }
         assertFalse(store.favorites!!.contains("beyond"))
     }
 

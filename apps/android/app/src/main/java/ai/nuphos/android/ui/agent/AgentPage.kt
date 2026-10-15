@@ -3,7 +3,6 @@ package ai.nuphos.android.ui.agent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -192,7 +191,7 @@ fun AgentPage(
                         for (section in ConversationNesting.Section.entries) {
                             val rows = tree.rows.filter { it.section == section }
                             if (rows.isNotEmpty() || (section == ConversationNesting.Section.Pinned && shortcuts.isNotEmpty())) {
-                                item(key = "section:$section") { Text(section.title, style = MaterialTheme.typography.titleSmall) }
+                                item(key = "section:$section") { Text(section.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
                             if (section == ConversationNesting.Section.Pinned) {
                                 items(shortcuts, key = { it.listKey }) { pin ->

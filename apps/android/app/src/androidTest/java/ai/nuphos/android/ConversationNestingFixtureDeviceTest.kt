@@ -2,6 +2,9 @@ package ai.nuphos.android
 
 import android.content.Context
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
@@ -16,7 +19,6 @@ import ai.nuphos.android.model.*
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.*
 import ai.nuphos.android.ui.agent.AgentPage
-import ai.nuphos.android.ui.chat.ConversationScreen
 import ai.nuphos.android.ui.theme.NuphosTheme
 import kotlinx.coroutines.*
 import okhttp3.*
@@ -27,10 +29,7 @@ import org.junit.Test
 import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
-import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /** Synthetic local transport only. The outer rule blocks the real Activity's reads. */
 @RunWith(AndroidJUnit4::class)
@@ -45,14 +44,7 @@ class ConversationNestingFixtureDeviceTest {
     private var savedAuth: Any? = null
     private var savedAuthToken: String? = null
     private var preferences: Map<String, *> = emptyMap<String, Any>()
-    @Volatile private var owner = true
-    @Volatile private var emptyHistory = false
-    @Volatile private var failFavorites = false
-    @Volatile private var holdNextA = false
-    private val held = CountDownLatch(1)
-    private val release = CountDownLatch(1)
-    @Volatile private var entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
-    private var revision = 1
+    private val entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, delegated: Boolean = true) =
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
 
@@ -72,33 +64,8 @@ class ConversationNestingFixtureDeviceTest {
             val client = OkHttpClient.Builder().addInterceptor { chain ->
                 val req = chain.request(); requests += req
                 val path = req.url.encodedPath
-                var code = 200
-                val text = when {
-                    path == "/teams/A/favorites" -> {
-                        val snapshot = entries
-                        if (holdNextA && req.method == "GET") {
-                            holdNextA = false; held.countDown()
-                            check(release.await(10, TimeUnit.SECONDS))
-                            """{"revision":1,"entries":[{"key":"agent-session:old","label":"Late A label"}]}"""
-                        } else if (failFavorites) { code = 503; "{}" }
-                        else if (req.method == "PUT") {
-                            val buffer = okio.Buffer(); req.body!!.writeTo(buffer)
-                            val body = JsonValue.parse(buffer.readUtf8())!!
-                            assertEquals(revision.toDouble(), body["expectedRevision"]?.numberValue)
-                            entries = Http.json.encodeToString(JsonValue.serializer(), body["entries"]!!)
-                            revision++
-                            """{"revision":$revision,"entries":$entries}"""
-                        } else """{"revision":$revision,"entries":$snapshot}"""
-                    }
-                    path == "/teams/B/favorites" -> """{"revision":1,"entries":[{"key":"agent-session:b","label":"Team B pin"}]}"""
-                    path == "/agent/conversations" -> if (emptyHistory) """{"conversations":[],"hasMore":false}""" else
-                        """{"conversations":[{"sessionId":"normal","teamId":"${req.url.queryParameter("teamId")}","title":"Normal history"}],"hasMore":false}"""
-                    path == "/agent/conversations/beyond" -> Http.json.encodeToString(AgentConversationDetail.serializer(), AgentConversationDetail(
-                        title = "Authorized archived detail", isOwner = owner, archivedAt = Instant.EPOCH,
-                        messages = listOf(ChatMessage(id = "saved", parts = listOf(ChatPart.Text(text = "Authorized fixture transcript"))))))
-                    path == "/agent/conversations/denied" -> { code = 403; """{"error":{"message":"Fixture access denied"}}""" }
-                    else -> { code = 404; "{}" }
-                }
+                val text = if (path == "/teams/A/favorites") """{"revision":1,"entries":$entries}""" else "{}"
+                val code = if (path == "/teams/A/favorites") 200 else 404
                 Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                     .body(text.toResponseBody(Http.jsonMedia)).build()
             }.build()
@@ -108,7 +75,6 @@ class ConversationNestingFixtureDeviceTest {
             }
         }
         override fun after() {
-            release.countDown()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 if (::store.isInitialized) store.disposeForConsent()
                 state(AiAccess, "state", false).value = savedAccess
@@ -136,7 +102,7 @@ class ConversationNestingFixtureDeviceTest {
             state(store, "selectedTeam").value = Team("A", "Fixture A")
             store.acceptMemberships(listOf(Team("A", "Fixture A"), Team("B", "Fixture B")))
             state(store, "phase").value = AgentStore.Phase.Loaded
-            state(store, "conversations").value = if (emptyHistory) emptyList<AgentConversation>() else listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
+            state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
                 AgentConversation("child", "A", "Synthetic child", parentSessionId = "normal"),
                 AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child"),
                 AgentConversation("mine", "A", "Synthetic own chat", isOwner = true),
@@ -144,7 +110,7 @@ class ConversationNestingFixtureDeviceTest {
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
-                NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
+                NuphosTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     val nav = rememberNavController()
                     NavHost(nav, startDestination = "history") {
                         composable("history") { AgentPage(false, {}, nav) }
@@ -152,7 +118,7 @@ class ConversationNestingFixtureDeviceTest {
                             androidx.compose.material3.Text("Opened synthetic ${back.arguments!!.getString("sessionId")!!}")
                         }
                     }
-                } }
+                } } }
             }
         }
         waitText("Synthetic parent")
@@ -161,6 +127,7 @@ class ConversationNestingFixtureDeviceTest {
 
     private fun shot(name: String) {
         compose.waitForIdle()
+        Thread.sleep(350)
         val bitmap = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         val file = java.io.File(app.getExternalFilesDir(null), "nesting-$name.png")
         file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
