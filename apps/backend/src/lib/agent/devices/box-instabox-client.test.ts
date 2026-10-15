@@ -20,7 +20,8 @@ useInstaboxMachines({
   },
 })
 
-const { killBoxMachine } = await import('./box-instabox-client')
+const { boxBackendUrl, killBoxMachine } = await import('./box-instabox-client')
+const { config } = await import('@/config')
 const conn = { apiKey: 'test-key', requestTimeoutMs: 1_000, operationTimeoutMs: 1_000 }
 
 describe('killBoxMachine', () => {
@@ -51,5 +52,30 @@ describe('killBoxMachine', () => {
     machines = [{ sandboxId: 'm_orphan' }]
     killFails = true
     await expect(killBoxMachine(conn, undefined, 'd1')).rejects.toThrow('instabox is down')
+  })
+})
+
+describe('boxBackendUrl', () => {
+  const saved = { backend: config.agent.publicBackendUrl, base: config.auth.publicBaseUrl }
+
+  beforeEach(() => {
+    config.agent.publicBackendUrl = saved.backend
+    config.auth.publicBaseUrl = saved.base
+  })
+
+  test('a Box dials the public backend URL when one is set, not the web URL', () => {
+    config.auth.publicBaseUrl = 'https://app.example.test'
+    config.agent.publicBackendUrl = 'https://api.example.test'
+    expect(boxBackendUrl()).toBe('https://api.example.test')
+  })
+
+  test('without one it falls back to the public URL, and never hands out localhost', () => {
+    config.agent.publicBackendUrl = undefined
+    config.auth.publicBaseUrl = 'https://app.example.test'
+    expect(boxBackendUrl()).toBe('https://app.example.test')
+    config.auth.publicBaseUrl = 'http://localhost:3718'
+    expect(boxBackendUrl()).toBeUndefined()
+    config.agent.publicBackendUrl = 'http://localhost:3718'
+    expect(boxBackendUrl()).toBeUndefined()
   })
 })

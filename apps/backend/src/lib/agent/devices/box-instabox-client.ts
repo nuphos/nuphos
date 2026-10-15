@@ -48,9 +48,9 @@ export function boxesEnabled(): boolean {
   return config.box.instabox !== null
 }
 
-/** Where a Box dials this backend from the internet: the deployment's public URL. */
+/** Where a Box dials this backend from the internet: its public backend URL, else the deployment's. */
 export function boxBackendUrl(): string | undefined {
-  const url = config.auth.publicBaseUrl
+  const url = config.agent.publicBackendUrl ?? config.auth.publicBaseUrl
 
   return /^https?:\/\/localhost(?::\d+)?$/u.test(url) ? undefined : url
 }
