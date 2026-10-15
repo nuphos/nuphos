@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, CircleCheck } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 
 import { SIDEBAR_ROW_CLASS } from '../SidebarNavItem'
 
@@ -29,7 +29,7 @@ export function DoneThreadsRow({
           onClick={() => toggleGroup(foldGroup(parentKey))}
           className={`${SIDEBAR_ROW_CLASS} group w-full flex items-center text-tertiary transition-colors hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary focus-visible:bg-[var(--sidebar-overlay-focus)] outline-none motion-reduce:transition-none`}
         >
-          <CircleCheck className="size-3.5 flex-shrink-0" strokeWidth={1.8} />
+          <Check className="size-3.5 flex-shrink-0" strokeWidth={2.25} />
           <span className="flex-1 truncate text-left text-[13px]">{String(count)} done</span>
           <Chevron className="size-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
         </button>

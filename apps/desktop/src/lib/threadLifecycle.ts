@@ -12,22 +12,28 @@ type Conversation = {
   runtimeState?: RuntimeExecution
 }
 
-/**
- * Still has work in flight: a turn, background tools, or a question waiting
- * on someone. Everything else counts as done.
- */
+export type ThreadState = 'running' | 'waiting' | 'done' | 'stopped'
+
+/** The states the in-chat thread badges show, read the same way so both places agree. */
+export function threadState(snapshot: RuntimeExecution | undefined): ThreadState {
+  if (runtimeTurnActive(snapshot))
+    return (snapshot?.permissionWaits ?? 0) > 0 ? 'waiting' : 'running'
+
+  return snapshot?.state === 'interrupted' || snapshot?.state === 'disconnected'
+    ? 'stopped'
+    : 'done'
+}
+
+/** Work still in flight, including background tools, so archiving never strands it. */
 export function threadRunning(snapshot: RuntimeExecution | undefined): boolean {
-  return (
-    runtimeTurnActive(snapshot) ||
-    runtimeBackgroundRunning(snapshot) ||
-    Boolean(snapshot?.requestPending)
-  )
+  const state = threadState(snapshot)
+
+  return state === 'running' || state === 'waiting' || runtimeBackgroundRunning(snapshot)
 }
 
 /**
  * The threads under a chat, split by whether they are finished. A thread with
- * a running thread of its own is not finished, so archiving can never strand
- * running work under an archived parent.
+ * a running thread of its own is not finished.
  */
 export function threadsUnder(
   sessionId: string,

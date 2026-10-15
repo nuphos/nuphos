@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { threadsUnder } from './threadLifecycle.ts'
+import { threadState, threadsUnder } from './threadLifecycle.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
 
@@ -13,7 +13,7 @@ test('finished threads are offered for archiving and running ones are kept', () 
     { sessionId: 'p' },
     { sessionId: 'done', parentSessionId: 'p', runtimeState: idle },
     { sessionId: 'busy', parentSessionId: 'p' },
-    { sessionId: 'waiting', parentSessionId: 'p', runtimeState: { ...idle, requestPending: true } },
+    { sessionId: 'waiting', parentSessionId: 'p', runtimeState: { ...busy(), permissionWaits: 1 } },
     { sessionId: 'other', parentSessionId: 'x' },
   ]
   const live = new Map([['busy', busy()]])
@@ -36,4 +36,12 @@ test('a thread whose own thread is still running is not finished', () => {
     finished: ['b1', 'b'],
     running: ['a1', 'a'],
   })
+})
+
+test('thread states match the in-chat badges', () => {
+  assert.equal(threadState(busy()), 'running')
+  assert.equal(threadState({ ...busy(), permissionWaits: 1 }), 'waiting')
+  assert.equal(threadState(idle), 'done')
+  assert.equal(threadState({ ...idle, state: 'interrupted' }), 'stopped')
+  assert.equal(threadState(undefined), 'done')
 })
