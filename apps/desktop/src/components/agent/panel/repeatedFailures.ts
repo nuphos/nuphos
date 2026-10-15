@@ -35,6 +35,7 @@ export function collapseRepeatedFailures(messages: Message[]): Message[] {
       out.push(message)
       continue
     }
+    // Identical lines, so the latest part (and its diagnostics) speaks for the hidden ones.
     const part = { ...failure, repeats: (last.part.repeats ?? 1) + 1 }
 
     out.splice(last.index, 1)

@@ -71,3 +71,24 @@ test('a Claude usage limit is one line: the streamed notice gives way to the int
   ).toEqual([])
   expect(classifyPreviewInterruption(error, false)).toEqual({ reason: 'error', message: notice })
 })
+
+test("only the gateway wrapper's first line names a usage limit", () => {
+  const memory = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You're out of memory",
+    -32603,
+  )
+  const quoted = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: boom\nInternal error: You've hit your session limit",
+    -32603,
+  )
+  const unwrapped = new Error("Internal error: You've hit your session limit")
+
+  for (const error of [memory, quoted, unwrapped]) {
+    expect(classifyPreviewInterruption(error, false).message).toBe(
+      'The agent failed before it could answer.',
+    )
+    expect(withoutFailureNotice("You've hit your session limit", error)).toBe(
+      "You've hit your session limit",
+    )
+  }
+})

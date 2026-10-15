@@ -93,21 +93,18 @@ const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 /**
  * Claude Code refuses a turn on a spent plan with its own one-line notice
  * (`You've hit your session limit · resets 4:20am (UTC)`): the adapter streams
- * it as the answer, then fails the prompt with `Internal error: <notice>`. The
- * prefixes are the SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit.
+ * it as the answer, then fails the prompt with `Internal error: <notice>`, which
+ * the gateway wraps under -32603. Only that wrapper's first line counts, and only
+ * the SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit.
  */
 const CLAUDE_USAGE_LIMIT =
-  /^Internal error: ((?:You've hit your|You've reached your|You're out of|Your org is out of usage)[^\n]*)/mu
+  /^\*\*Internal Error\*\* \(code: -32603\)\nInternal error: ((?:You've hit your|You've reached your|You're out of usage credits|Your org is out of usage)[^\n]*)/u
 
 /** Claude Code's own usage-limit notice, which already names the reset, or undefined. */
 export function claudeUsageLimitNotice(error: unknown): string | undefined {
-  for (let cause = error; cause instanceof Error; cause = cause.cause) {
-    const notice = CLAUDE_USAGE_LIMIT.exec(cause.message)?.[1]?.trim()
+  if (!(error instanceof OpenAbRpcError) || error.code !== -32603) return undefined
 
-    if (notice) return notice
-  }
-
-  return undefined
+  return CLAUDE_USAGE_LIMIT.exec(error.message)?.[1]?.trim()
 }
 
 export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'
