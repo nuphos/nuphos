@@ -1,11 +1,11 @@
 name: openab cache
 
 # Builds the openab binaries that release-desktop.yml and release-cli.yml ship,
-# once per prepare.mjs (it pins OPENAB_COMMIT and the cargo flags) and rustc,
-# attests them, and keeps them in a cache on main. A tag run can restore main's
-# caches but not another tag's, so this is what lets both releases skip cargo
-# (10-17 min per target). The releases ship a restored binary only if this
-# workflow's attestation from main vouches for it, and compile otherwise.
+# once per prepare.mjs (it pins OPENAB_COMMIT, the Rust toolchain and the cargo
+# flags), attests them, and keeps them in a cache on main. A tag run can restore
+# main's caches but not another tag's, so this is what lets both releases skip
+# cargo (10-17 min per target). The releases ship a restored binary only if
+# this workflow's attestation from main vouches for it, and compile otherwise.
 # Linux builds here on 22.04, the oldest glibc either release supports; the
 # Desktop AppImage still compiles on 24.04 when it misses.
 on:

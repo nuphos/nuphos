@@ -1,16 +1,16 @@
 name: openab binaries
 description: >-
-  Restores the openab binaries openab-cache.yml built for this prepare.mjs and
-  toolchain, and deletes any its attestation does not vouch for, so prepare.mjs
-  compiles those instead. The cache alone is not trusted: any job on main can
-  write a key this predictable.
+  Restores the openab binaries openab-cache.yml built for this prepare.mjs, and
+  deletes any its attestation does not vouch for, so prepare.mjs compiles those
+  instead. The cache alone is not trusted: any job on main can write a key this
+  predictable.
 inputs:
   source-ref:
     description: The ref whose openab-cache.yml run must have built the binaries.
     default: refs/heads/main
 outputs:
   key:
-    description: The cache key for this prepare.mjs, runner and rustc.
+    description: The cache key for this prepare.mjs and runner.
     value: ${{ steps.key.outputs.key }}
   hit:
     description: true when every restored binary is attested, and at least one was.
@@ -25,7 +25,7 @@ runs:
       shell: bash
       env:
         PREPARE: ${{ hashFiles('apps/desktop/local-runtime/prepare.mjs') }}
-      run: echo "key=openab-$RUNNER_OS-$RUNNER_ARCH-rustc-$(rustc --version | cut -d' ' -f2)-$PREPARE" >> "$GITHUB_OUTPUT"
+      run: echo "key=openab-$RUNNER_OS-$RUNNER_ARCH-$PREPARE" >> "$GITHUB_OUTPUT"
     # openab-cache.yml saves with these same paths.
     - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

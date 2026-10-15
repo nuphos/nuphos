@@ -31,6 +31,8 @@ import { findBrokenLinks } from './bundle-check.mjs'
 import { ATTACHMENT_JOB, bundleStamp, RUNTIME_DIR, RUNTIME_SOURCES } from './bundle-stamp.mjs'
 
 export const OPENAB_COMMIT = '9638d34991fb0d0b29dbbd635bd1240c7c670d5d'
+// openab pins no toolchain, so this keeps a runner image's rustc out of the build.
+const RUST_TOOLCHAIN = '1.99.0'
 
 /** One nuphos-runtime adapter per agent the desktop can run, patched as its image patches it. */
 export const ADAPTERS = {
@@ -144,10 +146,26 @@ function buildOpenab(target) {
     )
     run('git', ['checkout', '-q', 'FETCH_HEAD'], source)
   }
-  if (hasCommand('rustup')) run('rustup', ['target', 'add', triple], source)
+  const rustup = hasCommand('rustup')
+
+  if (rustup)
+    run(
+      'rustup',
+      ['toolchain', 'install', RUST_TOOLCHAIN, '--profile', 'minimal', '--target', triple],
+      source,
+    )
   run(
     'cargo',
-    ['build', '--release', '--locked', '--features', 'unified', '--target', triple],
+    [
+      ...(rustup ? [`+${RUST_TOOLCHAIN}`] : []),
+      'build',
+      '--release',
+      '--locked',
+      '--features',
+      'unified',
+      '--target',
+      triple,
+    ],
     source,
   )
 
