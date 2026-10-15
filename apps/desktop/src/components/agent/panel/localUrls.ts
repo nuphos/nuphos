@@ -39,6 +39,8 @@ export function localUrl(raw: string): LocalUrl | null {
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
   if (!LOCAL_HOST.test(url.hostname)) return null
+  // A chip would show and open a link with credentials in it; leave that one as text.
+  if (url.username || url.password) return null
   // A server bound to every interface is reached through loopback.
   if (url.hostname === '0.0.0.0' || url.hostname === '[::]') url.hostname = '127.0.0.1'
   const path = url.pathname === '/' ? '' : url.pathname

@@ -26,6 +26,11 @@ test('localUrl rejects remote hosts and non-web schemes', () => {
   assert.equal(localUrl('not a url'), null)
 })
 
+test('localUrl leaves a URL with credentials in it as text', () => {
+  assert.equal(localUrl('http://user:pass@localhost:3000/'), null)
+  assert.equal(localUrl('http://token@127.0.0.1:8080'), null)
+})
+
 test('isBareLocalLink keeps explicitly labelled links as links', () => {
   assert.equal(isBareLocalLink('http://localhost:5173/', 'http://localhost:5173'), true)
   assert.equal(isBareLocalLink('http://localhost:5173/', 'localhost:5173'), true)
