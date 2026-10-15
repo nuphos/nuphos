@@ -8,6 +8,8 @@ import { SidebarNavIcon, SidebarNavItem } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
 import { endChatDrag, startChatDrag } from './chat-drag'
+import { withDoneFolds } from './done-threads'
+import { DoneThreadsRow } from './done-threads-row'
 import { NestedRowBody } from './nest-guides'
 import { nestItems } from './nest-items'
 import { SessionRowSurface } from './SessionRowSurface'
@@ -64,10 +66,19 @@ export function SidebarRows({
   onSelect,
   onOpenKey,
 }: SidebarRowsContext & { items: Item[] }) {
+  const doneFolds = withDoneFolds(items, isGroupCollapsed)
+
   return (
     <>
-      {nestItems(items, (key) => isGroupCollapsed({ title: key })).map(
+      {nestItems(doneFolds.rows, (key) => isGroupCollapsed({ title: key })).map(
         ({ item, trail, hasChildren, hidden }) => {
+          const fold = doneFolds.foldOf(item)
+
+          if (fold) {
+            return (
+              <DoneThreadsRow key={item.key} fold={fold} trail={trail} toggleGroup={toggleGroup} />
+            )
+          }
           const Icon = item.icon
           const isActive =
             item.enabled &&

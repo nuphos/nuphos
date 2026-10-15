@@ -1,10 +1,11 @@
-import { CircleAlert, Loader2 } from 'lucide-react'
+import { CircleAlert, CircleCheck, Loader2 } from 'lucide-react'
 
 import {
   chatRowIndicator,
   newestRuntimeSnapshot,
   runtimeStateLabel,
 } from '../../lib/runtimeExecution'
+import { threadRunning } from '../../lib/threadLifecycle'
 
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
@@ -27,7 +28,16 @@ export function ChatRowStatus({
   const state = newestRuntimeSnapshot(conversation.runtimeState, runtimeState)
   const indicator = chatRowIndicator(state, unread)
 
-  if (indicator === 'none') return null
+  if (indicator === 'none') {
+    // A thread says whether its work is finished; a top-level chat shows nothing at rest.
+    if (!conversation.parentSessionId || threadRunning(state)) return null
+
+    return (
+      <span title="Done" className="flex-shrink-0 flex items-center text-tertiary">
+        <CircleCheck className="h-3.5 w-3.5" aria-label="Done" />
+      </span>
+    )
+  }
   if (indicator === 'turn' || indicator === 'error') {
     const Icon = indicator === 'turn' ? Loader2 : CircleAlert
 

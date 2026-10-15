@@ -176,7 +176,9 @@ export function SessionResources({
         const { icon, color } = resourceStyle(resource)
         let label = resource.title.split(/\s+/, 1)[0]
 
+        // In a row the color alone cannot say whether a PR is still open.
         if (resource.provider === 'github') label = `#${String(resource.number)}`
+        if (resource.provider === 'github' && !titlebar) label += ` ${resource.state}`
         else if (thread) label = resource.title
 
         return (

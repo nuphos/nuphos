@@ -79,7 +79,7 @@ export function SidebarItemContextMenu({
   favoriteMatch: (item: Item) => SidebarFavorite | undefined
   toggleFavorite: (item: Item) => void
   renameChat: (sessionId: string, title: string) => void
-  archiveChat: (sessionId: string) => Promise<void>
+  archiveChat: (sessionId: string) => void
   unlinkChat: (sessionId: string) => Promise<void>
   /** Present in team view; filing a chat is personal, so shared chats can be filed too. */
   projects?: SidebarProjectsController

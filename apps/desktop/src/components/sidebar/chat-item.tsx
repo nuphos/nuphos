@@ -1,4 +1,6 @@
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { newestRuntimeSnapshot } from '../../lib/runtimeExecution'
+import { threadRunning } from '../../lib/threadLifecycle'
 
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
@@ -53,7 +55,12 @@ export function chatSidebarItem({
     ...(readOnly ? { readOnlyChat: true } : {}),
     ...(readOnly && conversation.canManage ? { managedChat: true } : {}),
     ...(conversation.parentSessionId
-      ? { parentKey: `agent-session:${conversation.parentSessionId}` }
+      ? {
+          parentKey: `agent-session:${conversation.parentSessionId}`,
+          threadDone: !threadRunning(
+            newestRuntimeSnapshot(conversation.runtimeState, runtimeState),
+          ),
+        }
       : {}),
     href: pageLocationForNavigation(
       emptyNavigation({ kind: 'team', teamId }, 'team.agent', {

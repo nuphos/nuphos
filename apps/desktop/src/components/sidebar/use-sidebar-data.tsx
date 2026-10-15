@@ -1,4 +1,4 @@
-import { Archive, FileBox } from 'lucide-react'
+import { FileBox } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -11,6 +11,7 @@ import { customResourceNavigationKey } from '../../lib/customResourceNavigation'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { toast } from '../ui/toast'
 
+import { ArchiveRowButton } from './archive-row-button'
 import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
 import { ARCHIVE_IN_FLIGHT, visibleSidebarChats } from './local-archive-guard'
@@ -20,6 +21,7 @@ import {
   crdCacheKey,
   resizeDurationMs,
 } from './state'
+import { useArchiveOffer } from './use-archive-offer'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
 import type { Item, Section } from './types'
@@ -266,6 +268,12 @@ export function useSidebarChats({
 
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
+  const archive = useArchiveOffer({
+    conversations: agentSessions,
+    runtimeStates,
+    onArchive: (sessionId, threadIds) =>
+      void Promise.all([sessionId, ...threadIds].map((id) => archiveChat(id))),
+  })
   const chatItems: Item[] = agentSessions.map((conversation) =>
     chatSidebarItem({
       conversation,
@@ -273,23 +281,10 @@ export function useSidebarChats({
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),
       unread: unreadSessions.has(conversation.sessionId),
-      actions: (
-        <span
-          role="button"
-          aria-label="Archive chat"
-          title="Archive chat"
-          onClick={(e) => {
-            e.stopPropagation()
-            void archiveChat(conversation.sessionId)
-          }}
-          className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]"
-        >
-          <Archive className="w-3.5 h-3.5" strokeWidth={1.8} />
-        </span>
-      ),
+      actions: <ArchiveRowButton onArchive={() => archive.request(conversation.sessionId)} />,
     }),
   )
   const newChatActive = chatShown && !agentSessionId
 
-  return { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
+  return { chatItems, newChatActive, archive, unlinkChat, archivingIds }
 }

@@ -75,7 +75,7 @@ export function Sidebar({
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } = useSidebarChats({
+  const { chatItems, newChatActive, archive, unlinkChat, archivingIds } = useSidebarChats({
     teamId,
     agentSessionId,
     chatShown,
@@ -273,6 +273,7 @@ export function Sidebar({
           <SidebarHelpMenu onOpenShortcutsHelp={onOpenShortcutsHelp} />
         </div>
       </aside>
+      {archive.dialog}
       {renameTarget && (
         <RenameConversationDialog
           key={renameTarget.sessionId}
@@ -288,7 +289,7 @@ export function Sidebar({
           canFavorite={canFavorite}
           favoriteMatch={favoriteMatch}
           toggleFavorite={toggleFavorite}
-          archiveChat={archiveChat}
+          archiveChat={archive.request}
           unlinkChat={unlinkChat}
           renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
           projects={teamView ? projects : undefined}
