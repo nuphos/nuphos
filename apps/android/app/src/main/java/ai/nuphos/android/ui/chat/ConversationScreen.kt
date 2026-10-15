@@ -178,6 +178,17 @@ fun ConversationScreen(
         session.pollWhileIdle()
     }
 
+    // A separate read: resource failures never block transcript loading or the composer.
+    val resourcesAllowed = resumed && auth.aiAllowed && selectedTeamId == session.teamId && session.loaded && session.loadError == null
+    var refreshResources by remember(session) { mutableStateOf(0) }
+    LaunchedEffect(session, resourcesAllowed, auth.generation, AiAccess.revision, refreshResources) {
+        if (resourcesAllowed) session.refreshResources()
+        else session.linkedResources.invalidate(clear = resumed)
+    }
+    DisposableEffect(session) {
+        onDispose { session.linkedResources.invalidate() }
+    }
+
     var refreshBrowse by remember(session) { mutableStateOf(0) }
     LaunchedEffect(session, refreshBrowse) {
         if (browsingOnly && refreshBrowse > 0 && store.selectedTeam?.id == browsingTeamId) session.reloadFromServer()
@@ -226,6 +237,12 @@ fun ConversationScreen(
                 .padding(padding)
                 .consumeWindowInsets(padding),
         ) {
+            if (resourcesAllowed) SessionResourceStrip(
+                resources = session.linkedResources.resources,
+                loading = session.linkedResources.loading,
+                failed = session.linkedResources.failed,
+                onRefresh = { refreshResources++ },
+            )
             if (session.loaded && session.loadError == null) {
                 session.runtimeDeviceLabel?.let {
                     Text("Agent: $it", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
