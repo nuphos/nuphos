@@ -2,7 +2,6 @@ import { useEffect, useSyncExternalStore } from 'react'
 
 import { api } from '../../../api'
 import { createLimiter } from '../../../lib/limiter'
-
 import { reviewers } from '../../../views/github-repo/pullRequestStatus'
 
 import { githubRef } from './githubRefs'

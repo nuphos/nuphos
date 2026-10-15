@@ -178,12 +178,8 @@ export function threadToolModule(
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return shown(
-          publish,
-          ctx,
-          'create_thread',
-          parsed.data,
-          () => createAgentThread(ctx, parsed.data.prompt, parsed.data.title),
+        return shown(publish, ctx, 'create_thread', parsed.data, () =>
+          createAgentThread(ctx, parsed.data.prompt, parsed.data.title),
         )
       },
       send_message_to_thread: async (args) => {
@@ -191,12 +187,8 @@ export function threadToolModule(
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return shown(
-          publish,
-          ctx,
-          'send_message_to_thread',
-          parsed.data,
-          () => sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
+        return shown(publish, ctx, 'send_message_to_thread', parsed.data, () =>
+          sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
         )
       },
       archive_thread: async (args) => {
