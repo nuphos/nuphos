@@ -147,6 +147,10 @@ class ChatSession(
     var movingAgent by mutableStateOf(false)
         private set
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
+    fun sharingState() = SharingState(ai.nuphos.android.data.SessionSharingApi(token, teamId, sessionId, runtimeId)) {
+        canManage && isOwner && !browsingOnly
+    }
+
     val canMoveAgent get() = canManage && serverMetadataObserved && !isStreaming && !hasActiveRun &&
         !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
 
