@@ -33,15 +33,15 @@ export type WindowDeviceApi = {
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
   boxListDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList>
   boxCreate(label?: string, teamId?: string): Promise<AgentDevice>
-  boxPause(deviceId: string): Promise<{ box: BoxStatus }>
-  boxResume(deviceId: string): Promise<{ box: BoxStatus }>
-  boxDelete(deviceId: string): Promise<{ ok: true }>
+  boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
+  boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
+  boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>
   boxCreateAgent(
     deviceId: string,
     teamId: string,
     provider: LocalAgentProvider,
   ): Promise<DeviceAgentInstance>
-  boxRename(deviceId: string, label: string): Promise<{ ok: true }>
-  boxDesktop(deviceId: string): Promise<{ url: string }>
+  boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
+  boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }>
   boxJoinToken(): Promise<{ token: string; expiresAt: string; apiUrl: string | null }>
 }

@@ -17,7 +17,11 @@ const MAX_RETRY_MS = 30_000
 export function useAgentDevices(
   poll: (list: AgentDeviceList) => number,
   key = '',
-  { metrics = false, enabled = true }: { metrics?: boolean; enabled?: boolean } = {},
+  {
+    metrics = false,
+    enabled = true,
+    teamId,
+  }: { metrics?: boolean; enabled?: boolean; teamId?: string } = {},
 ) {
   const [state, setState] = useState<{
     key: string
@@ -81,7 +85,7 @@ export function useAgentDevices(
         return
       }
       const request = api
-        .boxListDevices({ metrics })
+        .boxListDevices({ metrics, teamId })
         .then(onSuccess, onError)
         .finally(() => {
           inFlight.current = null
@@ -102,7 +106,7 @@ export function useAgentDevices(
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [revision, key, metrics, enabled])
+  }, [revision, key, metrics, enabled, teamId])
 
   return {
     list: state?.key === key ? state.list : null,
@@ -111,7 +115,7 @@ export function useAgentDevices(
   }
 }
 
-/** Whether this backend can make Boxes; false until it says so. */
+/** Whether this backend can make Boxes; false until it says so. Needs no team. */
 export function useBoxAvailable(): boolean {
   return useAgentDevices(() => 0).list?.boxAvailable === true
 }

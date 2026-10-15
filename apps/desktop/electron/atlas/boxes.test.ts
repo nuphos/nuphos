@@ -76,6 +76,8 @@ test('Box IPC forwards optional metrics demand without changing the default', as
 
   await boxChannels['box:listDevices'](null, { metrics: true })
   assert.equal(calls.at(-1), '/agent/devices?metrics=true')
+  await boxChannels['box:listDevices'](null, { metrics: true, teamId: 'team 1' })
+  assert.equal(calls.at(-1), '/agent/devices?metrics=true&teamId=team+1')
   const before = samples
 
   await boxChannels['box:listDevices']()

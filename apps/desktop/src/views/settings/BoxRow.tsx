@@ -51,6 +51,9 @@ export function BoxRow({
   const cloud = device.box !== undefined
   const badge = BOX_BADGE[state]
   const actions = cloud ? boxActions(state) : { pause: false, resume: false, remove: false }
+  // Every Box action names the Box and the page's team.
+  const act = (title: string, call: (deviceId: string, teamId: string) => Promise<unknown>) =>
+    run(title, () => call(device.deviceId, teamId))
   const run = async (title: string, action: () => Promise<unknown>) => {
     setBusy(true)
     try {
@@ -112,7 +115,9 @@ export function BoxRow({
               // This computer keeps its name locally and re-registers with it, so rename it there.
               if (label && label !== device.label)
                 void run('Could not rename Box', () =>
-                  thisComputer ? api.deviceSetLabel(label) : api.boxRename(device.deviceId, label),
+                  thisComputer
+                    ? api.deviceSetLabel(label)
+                    : api.boxRename(device.deviceId, teamId, label),
                 )
             }}
           />
@@ -137,7 +142,7 @@ export function BoxRow({
               <MenuItem
                 onClick={() =>
                   void run('Could not open the desktop', async () => {
-                    const { url } = await api.boxDesktop(device.deviceId)
+                    const { url } = await api.boxDesktop(device.deviceId, teamId)
                     const href = pageLocationForNavigation(
                       emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
                         browserUrl: url,
@@ -153,18 +158,12 @@ export function BoxRow({
             )}
             <MenuItem onClick={() => setRenaming(device.label)}>Rename</MenuItem>
             {actions.resume && (
-              <MenuItem
-                onClick={() =>
-                  void run('Could not resume Box', () => api.boxResume(device.deviceId))
-                }
-              >
+              <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
                 {state === 'error' ? 'Retry' : 'Resume'}
               </MenuItem>
             )}
             {actions.pause && (
-              <MenuItem
-                onClick={() => void run('Could not pause Box', () => api.boxPause(device.deviceId))}
-              >
+              <MenuItem onClick={() => void act('Could not pause Box', api.boxPause)}>
                 Pause
               </MenuItem>
             )}
@@ -204,7 +203,7 @@ export function BoxRow({
             size="sm"
             variant="secondary"
             disabled={busy}
-            onClick={() => void run('Could not resume Box', () => api.boxResume(device.deviceId))}
+            onClick={() => void act('Could not resume Box', api.boxResume)}
           >
             <Play className="h-3 w-3" />
             {busy ? 'Resuming…' : 'Resume'}
@@ -290,7 +289,7 @@ export function BoxRow({
         description="This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos."
         destructive
         confirmLabel="Delete Box"
-        onConfirm={() => run('Could not delete Box', () => api.boxDelete(device.deviceId))}
+        onConfirm={() => act('Could not delete Box', api.boxDelete)}
         onClose={() => setConfirmDelete(false)}
       />
     </li>

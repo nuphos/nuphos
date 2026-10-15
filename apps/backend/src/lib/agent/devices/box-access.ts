@@ -67,6 +67,10 @@ export async function requireDeviceAccess(
   deps: DeviceAccessDeps = deviceAccessDeps,
 ): Promise<AgentDevice> {
   const own = await deps.getDevice(actorId, deviceId)
+
+  // A Box lives in a team: asking for your own without saying which is a client bug.
+  if (!teamId && own?.box)
+    throw new AppError(400, 'team_required', 'Pass the teamId of the Box’s team')
   const role = teamId ? await deps.role(actorId, teamId) : null
   // Query the requested team, never a global deviceId lookup or the owner's other teams.
   const candidates =

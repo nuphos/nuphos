@@ -56,6 +56,7 @@ export function BoxSection({
   } = useAgentDevices((next) => boxPollMs(next.devices, false) || 5_000, '', {
     metrics: true,
     enabled: isActive,
+    teamId,
   })
 
   useEffect(() => {

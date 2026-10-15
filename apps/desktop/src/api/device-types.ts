@@ -133,7 +133,8 @@ export type DeviceMetrics = {
 
 export type DeviceMetricsStatus = 'offline' | 'unsupported' | 'waiting' | 'stale' | 'live'
 
-export type AgentDeviceListOptions = { metrics?: boolean }
+/** `teamId` is the page's team: Boxes are listed only inside one. */
+export type AgentDeviceListOptions = { metrics?: boolean; teamId?: string }
 
 export type AgentDevice = {
   metricsStatus?: DeviceMetricsStatus

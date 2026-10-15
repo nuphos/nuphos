@@ -26,12 +26,13 @@ export const deviceApi = {
   localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
   boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
   boxCreate: (label?: string, teamId?: string) => window.api.boxCreate(label, teamId),
-  boxPause: (deviceId: string) => window.api.boxPause(deviceId),
-  boxResume: (deviceId: string) => window.api.boxResume(deviceId),
-  boxDelete: (deviceId: string) => window.api.boxDelete(deviceId),
-  boxDesktop: (deviceId: string) => window.api.boxDesktop(deviceId),
+  boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
+  boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
+  boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
+  boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
   boxJoinToken: () => window.api.boxJoinToken(),
   boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
     window.api.boxCreateAgent(deviceId, teamId, provider),
-  boxRename: (deviceId: string, label: string) => window.api.boxRename(deviceId, label),
+  boxRename: (deviceId: string, teamId: string, label: string) =>
+    window.api.boxRename(deviceId, teamId, label),
 }

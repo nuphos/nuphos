@@ -23,6 +23,7 @@ export function useBoxSetup(
     (next) =>
       boxSetupPhase(deviceId, next.devices, agents) === 'starting' ? BOX_CREATING_POLL_MS : 0,
     deviceId ?? '',
+    { teamId },
   )
   const devices = deviceId ? (list?.devices ?? null) : null
   const phase = boxSetupPhase(deviceId, devices, agents)

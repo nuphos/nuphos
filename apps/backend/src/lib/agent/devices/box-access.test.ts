@@ -39,3 +39,14 @@ test('ambiguous device IDs in the same team fail closed rather than selecting an
     }),
   ).rejects.toMatchObject({ status: 404 })
 })
+
+test('asking for your own Box without its team is a 400, not an empty answer', async () => {
+  await expect(
+    requireDeviceAccess('host', undefined, 'b1', 'use', {
+      getDevice: () => Promise.resolve(legacy),
+      listDevices: () => Promise.resolve([legacy]),
+      listBoxes: () => Promise.resolve([legacy]),
+      role: () => Promise.resolve('EDITOR'),
+    }),
+  ).rejects.toMatchObject({ status: 400, code: 'team_required' })
+})

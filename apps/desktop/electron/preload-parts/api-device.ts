@@ -37,12 +37,16 @@ export const deviceApi = {
   boxListDevices: (options?: AgentDeviceListOptions) =>
     ipcRenderer.invoke('box:listDevices', options),
   boxCreate: (label?: string, teamId?: string) => ipcRenderer.invoke('box:create', label, teamId),
-  boxPause: (deviceId: string) => ipcRenderer.invoke('box:pause', deviceId),
-  boxResume: (deviceId: string) => ipcRenderer.invoke('box:resume', deviceId),
-  boxDelete: (deviceId: string) => ipcRenderer.invoke('box:delete', deviceId),
-  boxDesktop: (deviceId: string) => ipcRenderer.invoke('box:desktop', deviceId),
+  boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),
+  boxResume: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('box:resume', deviceId, teamId),
+  boxDelete: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('box:delete', deviceId, teamId),
+  boxDesktop: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('box:desktop', deviceId, teamId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),
   boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
     ipcRenderer.invoke('box:createAgent', deviceId, teamId, provider),
-  boxRename: (deviceId: string, label: string) => ipcRenderer.invoke('box:rename', deviceId, label),
+  boxRename: (deviceId: string, teamId: string, label: string) =>
+    ipcRenderer.invoke('box:rename', deviceId, teamId, label),
 }

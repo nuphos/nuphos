@@ -33,11 +33,15 @@ export const boxChannels = {
     createBox(optionalString(label), optionalString(teamId)),
   'box:createAgent': (_e: unknown, deviceId: unknown, teamId: unknown, provider: unknown) =>
     createDeviceAgent(string(deviceId), string(teamId), agentProvider(provider)),
-  'box:pause': (_e: unknown, deviceId: unknown) => pauseBox(string(deviceId)),
-  'box:resume': (_e: unknown, deviceId: unknown) => resumeBox(string(deviceId)),
-  'box:delete': (_e: unknown, deviceId: unknown) => deleteBox(string(deviceId)),
-  'box:desktop': (_e: unknown, deviceId: unknown) => boxDesktop(string(deviceId)),
+  'box:pause': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    pauseBox(string(deviceId), string(teamId)),
+  'box:resume': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    resumeBox(string(deviceId), string(teamId)),
+  'box:delete': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    deleteBox(string(deviceId), string(teamId)),
+  'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    boxDesktop(string(deviceId), string(teamId)),
   'box:join-token': () => boxJoinToken(),
-  'box:rename': (_e: unknown, deviceId: unknown, label: unknown) =>
-    renameBox(string(deviceId), string(label)),
+  'box:rename': (_e: unknown, deviceId: unknown, teamId: unknown, label: unknown) =>
+    renameBox(string(deviceId), string(teamId), string(label)),
 }

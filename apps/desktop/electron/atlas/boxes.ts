@@ -10,13 +10,25 @@ import type {
   LocalAgentProvider,
 } from '../../src/api/device-types.ts'
 
-// Boxes are personal: the routes act on the signed-in user's own devices.
-const box = (deviceId: string) => `/agent/devices/${encodeURIComponent(deviceId)}/box`
+// Boxes belong to a team: every Box route is scoped to the page's team.
+const deviceRoute = (deviceId: string, teamId: string) =>
+  `/agent/devices/${encodeURIComponent(deviceId)}?teamId=${encodeURIComponent(teamId)}`
+const box = (deviceId: string, action: string, teamId: string) =>
+  `/agent/devices/${encodeURIComponent(deviceId)}/box${action}?teamId=${encodeURIComponent(teamId)}`
+
+function listQuery(metrics: boolean, teamId: string | undefined): string {
+  const query = new URLSearchParams()
+
+  if (metrics) query.set('metrics', 'true')
+  if (teamId) query.set('teamId', teamId)
+
+  return query.size ? `?${query.toString()}` : ''
+}
 
 export async function listAgentDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList> {
   const demand = options?.metrics === true
   const [list, metrics] = await Promise.all([
-    call<AgentDeviceList>('GET', demand ? '/agent/devices?metrics=true' : '/agent/devices'),
+    call<AgentDeviceList>('GET', `/agent/devices${listQuery(demand, options?.teamId)}`),
     demand ? readDeviceMetrics() : null,
   ])
 
@@ -59,22 +71,17 @@ export function createDeviceAgent(
     { retry: false, timeoutMs: 65_000 },
   )
 }
-export function pauseBox(deviceId: string): Promise<AgentDevice> {
-  return call('POST', `${box(deviceId)}/pause`, undefined, { retry: false })
+export function pauseBox(deviceId: string, teamId: string): Promise<AgentDevice> {
+  return call('POST', box(deviceId, '/pause', teamId), undefined, { retry: false })
 }
-export function resumeBox(deviceId: string): Promise<AgentDevice> {
-  return call('POST', `${box(deviceId)}/resume`, undefined, { retry: false })
+export function resumeBox(deviceId: string, teamId: string): Promise<AgentDevice> {
+  return call('POST', box(deviceId, '/resume', teamId), undefined, { retry: false })
 }
-export function renameBox(deviceId: string, label: string): Promise<{ ok: true }> {
-  return call(
-    'PATCH',
-    `/agent/devices/${encodeURIComponent(deviceId)}`,
-    { label },
-    { retry: false },
-  )
+export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
+  return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }
-export function boxDesktop(deviceId: string): Promise<{ url: string }> {
-  return call('POST', `${box(deviceId)}/desktop`, undefined, { retry: false })
+export function boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }> {
+  return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
 }
 export function boxJoinToken(): Promise<{
   token: string
@@ -83,6 +90,6 @@ export function boxJoinToken(): Promise<{
 }> {
   return call('POST', '/agent/devices/join-tokens', { expiresInSec: 3600 }, { retry: false })
 }
-export function deleteBox(deviceId: string): Promise<{ ok: true }> {
-  return call('DELETE', box(deviceId), undefined, { retry: false })
+export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true }> {
+  return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
 }
