@@ -1,14 +1,16 @@
 import { Dialog } from '@base-ui/react/dialog'
 import clsx from 'clsx'
-import { Box, Loader2, Server, X } from 'lucide-react'
+import { Box, Laptop, Loader2, Server, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { nextAddAgentStep } from './addAgentFlow'
+import { JoinDialog } from './BoxParts'
 import { boxSetupProblem } from './boxPresentation'
 import { ExternalRuntimeForm } from './ExternalRuntimeForm'
 import { ExternalRuntimePasswordForm } from './ExternalRuntimePasswordForm'
@@ -18,6 +20,7 @@ import { useBoxSetup } from './useBoxSetup'
 import { useBoxUsage } from './useBoxUsage'
 
 import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
+import type { BoxJoin } from './BoxParts'
 import type { RuntimeInstance } from '../../types/runtime'
 import type { ReactNode } from 'react'
 
@@ -145,6 +148,7 @@ export function AddAgentDialog({
   const boxAvailable = useBoxAvailable()
   const noPlan = useBoxUsage(teamId).usage?.limitVcpus === 0
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
+  const [join, setJoin] = useState<BoxJoin | null>(null)
   const go = (action: AddAgentAction) => setStep((current) => nextAddAgentStep(current, action))
   const added = (runtimeId: string) => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
@@ -152,6 +156,7 @@ export function AddAgentDialog({
     onClose()
   }
 
+  if (join) return <JoinDialog join={join} onClose={onClose} />
   if (signingIn)
     return (
       <RuntimeLoginDialog
@@ -195,6 +200,20 @@ export function AddAgentDialog({
                       onClose()
                       onOpenBilling?.()
                     }}
+                  />
+                )}
+                {boxAvailable && (
+                  <Choice
+                    icon={<Laptop className="h-4 w-4" />}
+                    title="Connect your own machine"
+                    description="Make a computer or server you run into a Box, with a one-time join command."
+                    onClick={() =>
+                      void api
+                        .boxJoinToken()
+                        .then(setJoin, (error: unknown) =>
+                          toast.apiError('Could not make a join command', error),
+                        )
+                    }
                   />
                 )}
                 <Choice

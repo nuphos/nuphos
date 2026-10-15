@@ -63,7 +63,7 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
     <Modal
       open
       onClose={onClose}
-      title="Connect an external Box"
+      title="Connect your own machine"
       description="Run this on the machine. The token works once and expires in an hour."
     >
       <div className="space-y-3 p-5">
