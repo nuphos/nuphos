@@ -56,8 +56,8 @@ class SharingFixtureDeviceTest {
         compose.runOnIdle { dark = true }
         snap("synthetic-owner-dark")
         compose.onNodeWithText("Role for Synthetic Viewer: Can reply").performScrollTo().performClick()
-        compose.onNodeWithText("Can view", useUnmergedTree = true).assertIsNotEnabled()
-        compose.onNodeWithText("Can manage", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Can view").assertIsNotEnabled()
+        compose.onNodeWithText("Can manage").performClick()
         compose.waitUntil { state.access!!.participants.last().role == "manage" }
         compose.onNodeWithText("Team access: Team can view and reply").performScrollTo().performClick()
         compose.onNodeWithText("Only people invited").performClick()
@@ -68,7 +68,7 @@ class SharingFixtureDeviceTest {
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(2, api.calls)
         compose.onNodeWithText("Synthetic Teammate").performScrollTo().performClick()
-        compose.onNodeWithText("Invite", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Invite").performClick()
         compose.waitUntil { state.added != null }
         compose.onNodeWithText("Undo invite").performScrollTo().performClick()
         compose.waitUntil { state.added == null }
