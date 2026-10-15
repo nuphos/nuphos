@@ -48,16 +48,6 @@ export function matchSlashOptions(
 }
 
 /**
- * What picking an agent command puts in the message: `/name `, then its hint
- * (selected, so typing replaces it). The agent runs it once the message is sent.
- */
-export function agentCommandText(command: AgentCommand): { text: string; hintStart: number } {
-  const prefix = `/${command.name} `
-
-  return { text: prefix + (command.hint ?? ''), hintStart: prefix.length }
-}
-
-/**
  * What a key does while the menu is open. Typed text such as `/model` is meant
  * for the agent, so Enter runs a command only after the arrows picked one; a
  * row highlighted by the pointer does not count.

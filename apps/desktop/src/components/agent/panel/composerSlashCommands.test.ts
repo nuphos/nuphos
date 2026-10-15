@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  agentCommandText,
   matchSlashCommands,
   matchSlashOptions,
   slashKeyAction,
@@ -70,9 +69,4 @@ test("the agent's commands come first, matched by name, then Nuphos actions", ()
   )
   assert.equal(matchSlashOptions(agent, commands, '').length, agent.length + commands.length)
   assert.equal(matchSlashOptions([], commands, 'f')[0]?.kind, 'nuphos')
-})
-
-test('an agent command is written into the message with its hint to type over', () => {
-  assert.deepEqual(agentCommandText(agent[0]!), { text: '/review branch', hintStart: 8 })
-  assert.deepEqual(agentCommandText(agent[1]!), { text: '/compact ', hintStart: 9 })
 })

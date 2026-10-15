@@ -1,12 +1,12 @@
 import { useContext, useState } from 'react'
 
 import {
-  agentCommandText,
   matchSlashOptions,
   slashKeyAction,
   slashQuery,
   SlashCommandsContext,
 } from './composerSlashCommands'
+import { insertTextIntoEditor } from './composerSerialize'
 import { SlashCommandPicker } from './SlashCommandPicker'
 
 import type { SlashCommand, SlashOption } from './composerSlashCommands'
@@ -87,19 +87,9 @@ export function useComposerSlashCommands(
 
       return
     }
-    const { text, hintStart } = agentCommandText(option.command)
-
-    el.textContent = text
-    const sel = window.getSelection()
-
-    if (el.firstChild && sel) {
-      const range = document.createRange()
-
-      range.setStart(el.firstChild, hintStart)
-      range.setEnd(el.firstChild, text.length)
-      sel.removeAllRanges()
-      sel.addRange(range)
-    }
+    // Only the text: the agent runs the command once the message is sent.
+    el.textContent = ''
+    insertTextIntoEditor(el, `/${option.command.name} `, { appendToEnd: true })
     onEdited()
   }
 
