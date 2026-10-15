@@ -450,6 +450,33 @@ describe('agent device routes', () => {
     expect(disconnected).toEqual([key('user-1', 'b1')])
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
+
+  test('DELETE closes the Box tunnel before its machine goes, and keeps the row if the kill fails', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    credentials.add(key('user-1', 'b1'))
+    const seen: string[] = []
+    let killFails = true
+    const box: BoxDeps = {
+      ...fakeBox([]),
+      destroy: async () => {
+        seen.push(`destroy after ${disconnected.length} disconnect(s)`)
+        if (killFails) throw new Error('instabox is down')
+      },
+    }
+    const app = buildApp(box)
+
+    expect(
+      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+    ).not.toBe(200)
+    expect(seen).toEqual(['destroy after 1 disconnect(s)'])
+    expect(credentials.has(key('user-1', 'b1'))).toBe(false)
+    expect(devices[key('user-1', 'b1')]).toBeDefined()
+    killFails = false
+    expect(
+      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+    ).toBe(200)
+    expect(devices[key('user-1', 'b1')]).toBeUndefined()
+  })
   test('Box routes deny a creator with use only, removed admins and cross-team calls before provider dispatch', async () => {
     const calls: string[] = []
     const target = boxDevice('user-1', 'b1')
