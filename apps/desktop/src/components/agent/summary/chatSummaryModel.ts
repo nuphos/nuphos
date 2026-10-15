@@ -1,6 +1,5 @@
 import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
 
-import type { AgentCredentialOptions } from '../../../api/agent-credential-types.ts'
 import type { AgentConversation } from '../../../api/agent-types.ts'
 import type { SessionResource } from '../../../api/session-resource-types.ts'
 import type { FileTransferGroup } from '../../../types/app-misc.ts'
@@ -95,30 +94,11 @@ export function splitFileName(fileName: string): [string, string] {
   return dot > 0 ? [fileName.slice(0, dot), fileName.slice(dot)] : [fileName, '']
 }
 
-/** The pickers live in the composer, which only a chat's managers see. */
-export function canPickCredentials(conversation: AgentConversation | undefined): boolean {
-  return conversation?.canManage !== false && conversation?.readOnly !== true
-}
-
 /** Connectors ticked for this chat, devices aside: those are shown with the runtime. */
 export function connectorCount(conversation: AgentConversation | undefined): number {
   return conversation?.credentialAccess
     ? countSelectedCredentials(conversation.credentialAccess)
     : 0
-}
-
-/** Names of the devices this chat may run commands on, in the order they were ticked. */
-export function deviceLabels(
-  conversation: AgentConversation | undefined,
-  devices: AgentCredentialOptions['devices'] | undefined,
-): string[] {
-  const ids = conversation?.credentialAccess?.deviceIds ?? []
-
-  return ids.flatMap((id) => {
-    const device = devices?.find((entry) => entry.deviceId === id)
-
-    return device ? [device.label] : []
-  })
 }
 
 /** The machine a runtime label names: "MacBook-Pro.local · Claude Code" → "MacBook-Pro.local". */
@@ -128,14 +108,4 @@ export function machineName(label: string | undefined, local: boolean): string {
   if (name) return name
 
   return local ? 'This computer' : 'Cloud runtime'
-}
-
-/** Devices other than the machine the chat already runs on, which gets one row for both. */
-export function otherDevices(
-  names: readonly string[],
-  machine: string,
-): { others: string[]; machineIsDevice: boolean } {
-  const others = names.filter((name) => name !== machine)
-
-  return { others, machineIsDevice: others.length < names.length }
 }

@@ -1,15 +1,6 @@
 import { clsx } from 'clsx'
-import {
-  ArrowUpRight,
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  Link2,
-  MoreVertical,
-} from 'lucide-react'
-import { useState } from 'react'
+import { ArrowUpRight, ExternalLink, Link2, MoreVertical } from 'lucide-react'
 
-import { useSectionOpen } from '../../../lib/chatSummaryPanel'
 import { copyLinkWithFeedback } from '../../../lib/copyLink'
 import { chatRowIndicator } from '../../../lib/runtimeExecution'
 import { resourceStyle } from '../../sidebar/sessionResourceStyle'
@@ -25,103 +16,21 @@ import type { SessionResource } from '../../../api/session-resource-types'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution'
 import type { ReactNode } from 'react'
 
-const SHOWN = 5
-
 export const sectionClass = 'rounded-xl border border-zGray-800 px-3.5 py-3'
 const focusClass =
   'outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-current'
 const hoverRowClass =
   '-mx-1.5 rounded-md px-1.5 transition-colors hover:bg-zGray-800/50 motion-reduce:transition-none'
-// Rows sit in a clipped, collapsible box, so their focus ring is drawn inside them.
 const rowFocusClass =
   'outline-none focus-visible:bg-zGray-800/50 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-zViolet-500/70'
 
-/** A titled block that collapses (remembered per window); past five rows it offers the rest. */
-export function SummarySection({ title, rows }: { title: string; rows: ReactNode[] }) {
-  const [open, toggle] = useSectionOpen(title)
-  const [all, setAll] = useState(false)
-  const hidden = rows.length - SHOWN
-
+/** A titled block of rows. */
+export function SummarySection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className={sectionClass} aria-label={title}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={toggle}
-        className={clsx(
-          'flex items-center gap-1 rounded text-[13px] font-medium text-main',
-          focusClass,
-        )}
-      >
-        {title}
-        <ChevronDown
-          aria-hidden
-          className={clsx(
-            'size-3.5 text-tertiary transition-transform duration-200 motion-reduce:transition-none',
-            !open && '-rotate-90',
-          )}
-        />
-      </button>
-      <div
-        inert={!open}
-        className={clsx(
-          'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-      >
-        <div className="-mx-1.5 min-h-0 overflow-hidden px-1.5">
-          <div className="flex flex-col gap-0.5 py-0.5 pt-2">
-            {all ? rows : rows.slice(0, SHOWN)}
-            {hidden > 0 && (
-              <button
-                type="button"
-                onClick={() => setAll((value) => !value)}
-                className={clsx(
-                  'mt-1 self-start rounded text-[13px] text-tertiary transition-colors hover:text-main',
-                  focusClass,
-                )}
-              >
-                {all ? 'Show less' : `Show ${String(hidden)} more`}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <h3 className="text-[13px] font-medium text-main">{title}</h3>
+      <div className="flex flex-col gap-0.5 pt-2">{children}</div>
     </section>
-  )
-}
-
-/** A one-line block that opens something else, its count on the right. */
-export function SummaryLink({
-  title,
-  value,
-  onClick,
-}: {
-  title: string
-  value: string
-  onClick?: () => void
-}) {
-  const body = (
-    <>
-      <span className="flex items-center gap-1 font-medium text-main">
-        {title}
-        {onClick && <ChevronRight aria-hidden className="size-3.5 text-tertiary" />}
-      </span>
-      <span className="text-tertiary">{value}</span>
-    </>
-  )
-  const layout = 'flex w-full items-center justify-between text-[13px]'
-
-  return onClick ? (
-    <button
-      type="button"
-      onClick={onClick}
-      className={clsx(sectionClass, layout, 'transition-colors hover:bg-zGray-800/40', focusClass)}
-    >
-      {body}
-    </button>
-  ) : (
-    <div className={clsx(sectionClass, layout)}>{body}</div>
   )
 }
 
