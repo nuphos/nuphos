@@ -34,7 +34,7 @@ const history = Array.from({ length: 40 }, (_, index) => ({
 
 type Put = { messages: typeof history; baseIndex: number | undefined }
 
-function recorder(answer: (put: Put) => { skipped?: string } = () => ({})) {
+function recorder(answer: (put: Put) => { skipped?: string; messageCount?: number } = () => ({})) {
   const puts: Put[] = []
 
   return {
@@ -68,20 +68,38 @@ test('a long import goes in requests that each stay under the budget', async () 
   )
 })
 
-test('a retry after a partial import goes through, skipping what is stored', async () => {
-  const { puts, put } = recorder((chunk) =>
-    chunk.baseIndex ? {} : { skipped: 'server_authoritative' },
-  )
+test('a retry after a partial import skips the stored chunk and sends the rest', async () => {
+  // The first attempt stored the first chunk; the server says so when it skips it.
+  let held = importChunks(history)[0]!.length
+  const { puts, put } = recorder((chunk) => {
+    if (!chunk.baseIndex && held > 0) return { skipped: 'server_authoritative', messageCount: held }
+    held += chunk.messages.length
+
+    return {}
+  })
 
   await importInChunks(history, put)
   assert.deepEqual(
-    puts.flatMap((chunk) => chunk.messages),
-    history,
+    puts.slice(1).flatMap((chunk) => chunk.messages),
+    history.slice(puts[0]!.messages.length),
   )
+})
+
+test('a retry the server refuses to append to is reported, not taken for success', async () => {
+  // An older server skips every chunk of an existing conversation without a count.
+  const { put } = recorder(() => ({ skipped: 'server_authoritative' }))
+
+  await assert.rejects(importInChunks(history, put), /could not be copied in full/)
 })
 
 test('a server that keeps only the first chunk is reported, not left half copied', async () => {
   const { put } = recorder((chunk) => (chunk.baseIndex ? { skipped: 'server_authoritative' } : {}))
 
   await assert.rejects(importInChunks(history, put), /could not be copied in full/)
+})
+
+test('a skipped single-chunk import is a retry of one that landed whole', async () => {
+  const { put } = recorder(() => ({ skipped: 'server_authoritative' }))
+
+  await assert.doesNotReject(importInChunks(history.slice(0, 1), put))
 })
