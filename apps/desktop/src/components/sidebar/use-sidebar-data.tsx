@@ -287,7 +287,11 @@ export function useSidebarChats({
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),
       unread: unreadSessions.has(conversation.sessionId),
-      actions: <ArchiveRowButton onArchive={() => archive.request(conversation.sessionId)} />,
+      // Same gate as the context menu: archiving is for the owner and managers.
+      actions:
+        !conversation.readOnly || conversation.canManage ? (
+          <ArchiveRowButton onArchive={() => archive.request(conversation.sessionId)} />
+        ) : undefined,
     }),
   )
   const newChatActive = chatShown && !agentSessionId
