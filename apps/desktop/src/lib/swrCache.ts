@@ -12,9 +12,12 @@
 // LRU so a long session hopping across many clusters/namespaces doesn't
 // accumulate unbounded row arrays.
 
+import { useCallback, useSyncExternalStore } from 'react'
+
 const MAX_ENTRIES = 64
 
 const cache = new Map<string, unknown>()
+const listeners = new Map<string, Set<() => void>>()
 
 export function readSwrCache<T>(key: string): T | undefined {
   const hit = cache.get(key)
@@ -35,4 +38,25 @@ export function writeSwrCache(key: string, value: unknown): void {
 
     if (oldest !== undefined) cache.delete(oldest)
   }
+  for (const listener of listeners.get(key) ?? []) listener()
+}
+
+/** The cached value for `key`, re-rendering only when someone writes it. */
+export function useSwrCache<T>(key: string): T | undefined {
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const set = listeners.get(key) ?? new Set()
+
+      set.add(listener)
+      listeners.set(key, set)
+
+      return () => {
+        set.delete(listener)
+        if (set.size === 0) listeners.delete(key)
+      }
+    },
+    [key],
+  )
+
+  return useSyncExternalStore(subscribe, () => cache.get(key) as T | undefined)
 }
