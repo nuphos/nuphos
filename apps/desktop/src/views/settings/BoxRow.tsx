@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Ellipsis, Play, Plus } from 'lucide-react'
+import { Ellipsis, Loader2, Play, Plus } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -14,9 +14,10 @@ import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
-import { AgentTile, LiveDot, MachineIcon } from './BoxParts'
+import { AddAgentStatus, AgentTile, LiveDot, MachineIcon } from './BoxParts'
 import { BOX_BADGE, boxActions, boxState, machineLine, newAgentAction } from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
+import { useAddBoxAgent } from './useAddBoxAgent'
 import { inputClasses } from './styles'
 
 import type { AgentDevice } from '../../api'
@@ -67,6 +68,14 @@ export function BoxRow({
     }
   }
 
+  const { adding, pending, add } = useAddBoxAgent(device.deviceId, teamId, (runtimeId) => {
+    // Details first; the sign-in opens over them once the catalog lists the new agent.
+    onSelect(runtimeId)
+    setSigningIn(runtimeId)
+    onChanged()
+    window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+  })
+  const AddIcon = pending ? Loader2 : Plus
   // An older host cannot add agents; the backend still refuses with 409 if this is stale.
   const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
   const addAgent = (provider: LocalAgentProvider) => {
@@ -74,13 +83,7 @@ export function BoxRow({
 
     if (!action) return
     if ('signIn' in action) return setSigningIn(action.signIn)
-    void run('Could not add agent', async () => {
-      const { runtimeId } = await api.boxCreateAgent(device.deviceId, teamId, provider)
-
-      // Details first; the sign-in opens over them once the catalog lists the new agent.
-      onSelect(runtimeId)
-      setSigningIn(runtimeId)
-    })
+    add(provider)
   }
 
   const dim = state === 'paused' || state === 'stopped'
@@ -228,9 +231,10 @@ export function BoxRow({
             <Menu>
               <MenuTrigger
                 aria-label={`New agent on ${device.label}`}
+                disabled={pending}
                 render={<Button size="sm" variant="secondary" className="h-10" />}
               >
-                <Plus className="h-3.5 w-3.5" />
+                <AddIcon className={clsx('h-3.5 w-3.5', pending && 'animate-spin')} />
                 New Agent
               </MenuTrigger>
               <MenuContent align="start">
@@ -268,6 +272,9 @@ export function BoxRow({
           </li>
         )}
       </ul>
+      {adding && (
+        <AddAgentStatus label={AGENT_PROVIDER[adding.provider].label} error={adding.error} />
+      )}
       {signingInAgent && (
         <RuntimeLoginDialog
           teamId={teamId}

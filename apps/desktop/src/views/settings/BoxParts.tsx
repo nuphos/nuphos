@@ -112,3 +112,16 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
 export function LiveDot() {
   return <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT.online}`} />
 }
+
+/** Under the agents while one is being added, or why it could not be. */
+export function AddAgentStatus({ label, error }: { label: string; error?: string }) {
+  return (
+    <p
+      role={error ? 'alert' : 'status'}
+      title={error}
+      className={`shrink-0 truncate text-[11px] leading-4 ${error ? 'text-error' : 'text-tertiary'}`}
+    >
+      {error ?? `Adding ${label}…`}
+    </p>
+  )
+}
