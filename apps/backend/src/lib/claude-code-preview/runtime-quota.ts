@@ -10,7 +10,6 @@ import { clampPercent, unavailable } from './runtime-quota-shape'
 import { RuntimeCapabilityError } from './team-openab-runtime'
 
 import type { RuntimeInstance } from './runtime-instances'
-import type { OpenAbProvider } from './runtime-provider'
 import type { RuntimeQuotaReading } from './runtime-quota-probe'
 import type { RuntimeQuota, RuntimeQuotaWindow } from './runtime-quota-shape'
 
@@ -169,6 +168,12 @@ const defaultDeps: RuntimeQuotaDeps = {
 
 type Held = { quota: RuntimeQuota; holdMs: number }
 
+/** The history is a by-product of a reading; losing a row must not cost the answer. */
+const record = (quota: RuntimeQuota, deps: RuntimeQuotaDeps) =>
+  void deps.record?.(quota).catch((error: unknown) => {
+    logError('agent.runtime_quota.record_failed', error, { runtime_id: quota.runtimeId })
+  })
+
 async function fetchUncached(
   teamId: string,
   instance: RuntimeInstance,
@@ -205,13 +210,7 @@ async function fetchUncached(
     fetchedAt,
   )
 
-  // The history is a by-product of this read; losing a row must not cost the answer.
-  void deps.record?.(quota).catch((error: unknown) => {
-    logError('agent.runtime_quota.record_failed', error, {
-      team_id: teamId,
-      runtime_id: instance.id,
-    })
-  })
+  record(quota, deps)
 
   return {
     quota: reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota,
@@ -222,7 +221,7 @@ async function fetchUncached(
 /** An agent on the owner's own computer reads its own account and reports the
  *  answer with its presence, so there is nothing for Nuphos to ask: normalize
  *  what arrived, the same way a probe's reading is normalized. */
-function localQuota(instance: RuntimeInstance): RuntimeQuota {
+function localQuota(instance: RuntimeInstance, deps: RuntimeQuotaDeps): RuntimeQuota {
   const usage = instance.local?.usage
 
   if (usage === undefined)
@@ -239,7 +238,12 @@ function localQuota(instance: RuntimeInstance): RuntimeQuota {
   // poll over the same body would push "resets in …" further out.
   const readAt = instance.local?.usageAt ?? new Date().toISOString()
 
-  return NORMALIZE[instance.provider as keyof typeof NORMALIZE](instance, usage, readAt)
+  const quota = NORMALIZE[instance.provider as keyof typeof NORMALIZE](instance, usage, readAt)
+
+  // Kept once per instant that computer read it; without one, every poll would add a row.
+  if (instance.local?.usageAt) record(quota, deps)
+
+  return quota
 }
 
 const cache = new Map<string, { expires: number; result: Promise<RuntimeQuota> }>()
@@ -266,7 +270,7 @@ export function fetchRuntimeQuota(
         `${runtimeLabel(instance.provider)} does not report usage`,
       ),
     )
-  if (instance.kind === 'local') return Promise.resolve(localQuota(instance))
+  if (instance.kind === 'local') return Promise.resolve(localQuota(instance, deps))
   if (instance.status === 'disabled')
     return Promise.resolve(unavailable(instance, new Date().toISOString(), 'Agent is disabled'))
   const key = `${teamId}:${instance.id}:${signIn}`

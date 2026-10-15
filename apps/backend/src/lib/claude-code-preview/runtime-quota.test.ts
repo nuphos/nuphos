@@ -365,3 +365,22 @@ test('each answer the provider gives is recorded once, not once per poll', async
   await fetchRuntimeQuota('t', claude, frozen, { ...deps, record })
   expect(recorded).toEqual(['claude-1'])
 })
+
+test('an agent on your own computer keeps its readings in the history like any other', async () => {
+  const { deps } = probing({ usage: {} })
+  const recorded: string[] = []
+  const record = (quota: { runtimeId: string; fetchedAt: string }) => {
+    recorded.push(`${quota.runtimeId}@${quota.fetchedAt}`)
+
+    return Promise.resolve()
+  }
+  const usage = { five_hour: { utilization: 5, resets_at: null } }
+
+  await fetchRuntimeQuota('t', onOwnComputer(usage, true, '2026-09-15T12:00:00.000Z'), Date.now, {
+    ...deps,
+    record,
+  })
+  // No instant to key it by, so nothing is kept rather than a row per poll.
+  await fetchRuntimeQuota('t', onOwnComputer(usage), Date.now, { ...deps, record })
+  expect(recorded).toEqual(['local-1@2026-09-15T12:00:00.000Z'])
+})

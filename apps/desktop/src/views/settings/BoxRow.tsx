@@ -233,9 +233,9 @@ export function BoxRow({
             <Menu>
               <MenuTrigger
                 aria-label={`New agent on ${device.label}`}
-                className="flex h-10 items-center gap-1 rounded-lg px-2 text-[11px] text-tertiary hover:bg-zGray-800/40 hover:text-main"
+                render={<Button size="sm" variant="secondary" />}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 New Agent
               </MenuTrigger>
               <MenuContent align="start">
