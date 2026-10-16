@@ -26,6 +26,12 @@ function matches(doc: Doc, filter: Doc): boolean {
 
 class FakeConversations {
   docs: Doc[] = []
+  failNext: 'updateOne' | 'updateMany' | null = null
+  private failIf(method: 'updateOne' | 'updateMany') {
+    if (this.failNext !== method) return
+    this.failNext = null
+    throw new Error('write failed')
+  }
   async findOne(filter: Doc) {
     const doc = this.docs.find((d) => matches(d, filter))
 
@@ -39,11 +45,13 @@ class FakeConversations {
     for (const key of Object.keys(update.$unset ?? {})) delete doc[key]
   }
   async updateOne(filter: Doc, update: { $set?: Doc; $unset?: Doc }) {
+    this.failIf('updateOne')
     const doc = this.docs.find((d) => matches(d, filter))
 
     if (doc) this.apply(doc, update)
   }
   async updateMany(filter: Doc, update: { $set?: Doc; $unset?: Doc }) {
+    this.failIf('updateMany')
     for (const doc of this.docs.filter((d) => matches(d, filter))) this.apply(doc, update)
   }
 }
@@ -86,6 +94,17 @@ describe('setConversationArchived', () => {
     await setConversationArchived('root', false)
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, true])
+  })
+
+  test('a restore retried after a failed write still restores the tree', async () => {
+    for (const method of ['updateMany', 'updateOne'] as const) {
+      await setConversationArchived('root', true)
+      conversations.failNext = method
+      await expect(setConversationArchived('root', false)).rejects.toThrow('write failed')
+      await setConversationArchived('root', false)
+
+      expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, false])
+    }
   })
 
   test('stops at a parentSessionId loop', async () => {
