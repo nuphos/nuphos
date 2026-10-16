@@ -6,6 +6,7 @@ import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
+import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
@@ -26,7 +27,6 @@ import {
   newAgentAction,
 } from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
-import { inputClasses } from './styles'
 
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
@@ -56,7 +56,7 @@ export function BoxRow({
   const [adding, setAdding] = useState<LocalAgentProvider | null>(null)
   const signingInAgent = agents.find((agent) => agent.id === signingIn)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState(false)
   const state = boxState(device)
   const cloud = device.box !== undefined
   const manage = canManage(device)
@@ -102,38 +102,23 @@ export function BoxRow({
     <li className="flex h-[220px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
       <div className="flex shrink-0 items-center gap-2">
         <MachineIcon device={device} />
-        {renaming === null ? (
-          <span
-            className="min-w-0 flex-1 truncate text-[13px] font-medium text-main"
-            title={device.label}
-          >
-            {device.label}
-          </span>
-        ) : (
-          <input
-            autoFocus
-            aria-label="Box name"
-            value={renaming}
-            maxLength={200}
-            className={clsx(inputClasses, 'h-7 min-w-0 flex-1 text-[13px]')}
-            onChange={(event) => setRenaming(event.target.value)}
-            onBlur={() => setRenaming(null)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setRenaming(null)
-              if (event.key !== 'Enter') return
-              const label = renaming.trim()
-
-              setRenaming(null)
-              // This computer keeps its name locally and re-registers with it, so rename it there.
-              if (label && label !== device.label)
-                void run('Could not rename Box', () =>
-                  thisComputer
-                    ? api.deviceSetLabel(label)
-                    : api.boxRename(device.deviceId, teamId, label),
-                )
-            }}
-          />
-        )}
+        <InlineRename
+          value={device.label}
+          canEdit={manage}
+          editing={renaming}
+          onEditingChange={setRenaming}
+          ariaLabel={cloud ? 'Box name' : 'Computer name'}
+          maxLength={200}
+          errorTitle={`Could not rename ${cloud ? 'Box' : 'computer'}`}
+          className="flex-1 text-[13px] font-medium text-main"
+          // This computer keeps its name locally and re-registers with it, so rename it there.
+          onSave={async (label) => {
+            await (thisComputer
+              ? api.deviceSetLabel(label)
+              : api.boxRename(device.deviceId, teamId, label))
+            changed()
+          }}
+        />
         <span
           role="status"
           className="flex shrink-0 items-center gap-1.5 text-[11px] text-tertiary"
@@ -156,7 +141,7 @@ export function BoxRow({
                   Open desktop
                 </MenuItem>
               )}
-              <MenuItem onClick={() => setRenaming(device.label)}>Rename</MenuItem>
+              <MenuItem onClick={() => setRenaming(true)}>Rename</MenuItem>
               {actions.resume && (
                 <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
                   {state === 'error' ? 'Retry' : 'Resume'}

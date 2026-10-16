@@ -4,9 +4,8 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
-import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { agentOffline } from './agentPresentation'
+import { agentName, agentOffline } from './agentPresentation'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
@@ -93,7 +92,7 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
 /** Open the same agent details panel as the usage table. */
 export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
   const offline = agentOffline(agent)
-  const label = `${AGENT_PROVIDER[agent.provider].label}${offline ? ' · Offline' : ''}`
+  const label = `${agentName(agent)}${offline ? ' · Offline' : ''}`
 
   return (
     <li className="shrink-0">
