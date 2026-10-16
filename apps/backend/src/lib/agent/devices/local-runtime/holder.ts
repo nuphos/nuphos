@@ -25,6 +25,8 @@ export type TunnelHolderDeps = {
   idleTimeoutMs?: number
   /** Keeps the agents a report shows signed in listed while the computer is offline. */
   recordAgents?: (userId: string, deviceId: string, status: LocalRuntimeStatus) => Promise<void>
+  /** Told when the tunnel opens or closes; must not throw. */
+  connectionChanged?: (userId: string, deviceId: string) => void
 }
 
 export type RuntimeTunnel = {
@@ -201,6 +203,7 @@ export async function attachRuntimeTunnel(
     throw error
   }
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
+  deps.connectionChanged?.(userId, deviceId)
 
   return {
     receive(raw) {
@@ -255,11 +258,13 @@ export async function attachRuntimeTunnel(
       }
     },
     closed() {
-      if (!ended)
+      if (!ended) {
         logEvent('info', 'agent.local_runtime.tunnel_closed', {
           user_id: userId,
           device_id: deviceId,
         })
+        deps.connectionChanged?.(userId, deviceId)
+      }
       end()
     },
   }

@@ -20,6 +20,7 @@ import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
+import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
 import { setupDiscordIndexes } from '@/lib/discord/store'
 import { setupDownloadLinkEmailIndexes } from '@/lib/download-link-email'
 import { setupEmailOtpIndexes } from '@/lib/email-otp'
@@ -69,6 +70,7 @@ export async function setupIndexes(): Promise<void> {
     ['runtime-login', setupRuntimeLoginIndexes],
     ['runtime-metrics', setupRuntimeMetricIndexes],
     ['runtime-quota-history', setupRuntimeQuotaHistoryIndexes],
+    ['box-usage-history', setupBoxUsageHistoryIndexes],
     ['runtime-image-audit', setupRuntimeImageAuditIndexes],
     ['invitations', setupInvitationIndexes],
     ['agent', setupAgentIndexes],

@@ -28,6 +28,7 @@ import {
   unavailable,
 } from './box-instabox-client'
 import { startWithinLimit } from './box-instabox-limit'
+import { noteBoxUsage } from './box-usage-history'
 
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { isDevicePresent } from './presence'
@@ -107,6 +108,8 @@ export async function createBox(
     insertBoxAgentDevice(userId, registration),
   )
 
+  noteBoxUsage(teamId)
+
   void order(userId, teamId, deviceId, label, url)
 
   return created
@@ -166,6 +169,7 @@ async function order(
     )
     await deleteDeviceJoinTokens(deviceId).catch(() => undefined)
     await deleteAgentDevice(userId, deviceId).catch(() => undefined)
+    noteBoxUsage(teamId)
   }
 }
 
@@ -181,6 +185,8 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
     const sandbox = await startWithinLimit(device.box.teamId, sandboxId, () =>
       Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
     )
+
+    noteBoxUsage(device.box.teamId)
 
     await sandbox.desktop.start()
     const { url } = await sandbox.desktop.streamUrl({ viewOnly: false, ttlSeconds: 15 * 60 })
@@ -218,6 +224,7 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
   } catch (error) {
     throw unavailable('Could not pause the Box', error)
   }
+  noteBoxUsage(device.box.teamId)
 
   return device
 }
@@ -246,6 +253,7 @@ export async function resumeBox(userId: string, deviceId: string): Promise<Agent
     if (error instanceof AppError) throw error
     throw unavailable('Could not resume the Box', error)
   }
+  noteBoxUsage(device.box.teamId)
 
   return device
 }
@@ -266,6 +274,7 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
     logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
     throw unavailable('Could not delete the Box', error)
   }
+  noteBoxUsage(device.box.teamId)
 }
 
 /**
