@@ -42,6 +42,8 @@ export type Item = {
   managedChat?: boolean
   /** The row this one nests under when both are in the same section. */
   parentKey?: string
+  /** A chat's last activity (ms), to order chats drawn from several lists. */
+  activeAt?: number
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
 }
@@ -57,6 +59,8 @@ export type Section = {
   loading?: boolean
   /** Default for a group with no persisted user preference. */
   defaultCollapsed?: boolean
+  /** The Projects group: each project's chats, rendered as folders. */
+  projects?: { id: string; name: string; items: Item[] }[]
 }
 
 export function isTeamIntegrationsActive(active: string): boolean {

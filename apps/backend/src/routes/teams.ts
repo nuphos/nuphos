@@ -44,6 +44,7 @@ import { resendIntegrationsRoutes } from '@/routes/resend-integrations'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
 import { sentryAccountsRoutes } from '@/routes/sentry-accounts'
 import { sidebarFavoritesRoutes } from '@/routes/sidebar-favorites'
+import { sidebarProjectsRoutes } from '@/routes/sidebar-projects'
 import { slackInstallationsRoutes } from '@/routes/slack-installations'
 import { sonarqubeIntegrationsRoutes } from '@/routes/sonarqube-integrations'
 import { tailscaleClientsRoutes } from '@/routes/tailscale-clients'
@@ -118,6 +119,7 @@ teamScoped.get(
   async (c) => c.json(await listBoxUsageHistory(c.get('teamId'), c.req.valid('query').range)),
 )
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
+teamScoped.route('/sidebar-projects', sidebarProjectsRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 

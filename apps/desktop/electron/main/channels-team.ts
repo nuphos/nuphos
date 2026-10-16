@@ -90,6 +90,13 @@ export const teamChannels = {
     entries: atlas.SidebarFavoriteEntry[],
     expectedRevision: number,
   ) => atlas.putSidebarFavorites(teamId, entries, expectedRevision),
+  'atlas:getSidebarProjects': (_e: unknown, teamId: string) => atlas.getSidebarProjects(teamId),
+  'atlas:putSidebarProjects': (
+    _e: unknown,
+    teamId: string,
+    projects: atlas.SidebarProjectEntry[],
+    expectedRevision: number,
+  ) => atlas.putSidebarProjects(teamId, projects, expectedRevision),
   'atlas:getHomeLayout': (_e: unknown, teamId: string) => atlas.getHomeLayout(teamId),
   'atlas:getTeamActivity': (_e: unknown, teamId: string, range: string) =>
     atlas.getTeamActivity(teamId, range),

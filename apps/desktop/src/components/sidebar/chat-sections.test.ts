@@ -68,3 +68,57 @@ test('a pinned shared conversation is listed once, under Pinned', () => {
 test('a parent cycle does not loop', () => {
   assert.deepEqual(build([row('a', 'b'), row('b', 'a')], [], []), { '': [], Chats: ['a', 'b'] })
 })
+
+test('a filed conversation and its threads move into their project', () => {
+  const chats = [row('agent-session:t', 'agent-session:p'), row('agent-session:p'), row('other')]
+  const sections = withChatSections(
+    [{ items: [] }, { title: 'Chats', items: chats }],
+    [],
+    [],
+    () => false,
+    [
+      { id: 'web', name: 'Web', sessionIds: ['p'] },
+      { id: 'empty', name: 'Empty', sessionIds: [] },
+    ],
+  )
+  const projects = sections.find((section) => section.title === 'Projects')?.projects
+
+  assert.deepEqual(
+    projects?.map(({ id, items }) => [id, items.map((item) => item.key)]),
+    [
+      ['web', ['agent-session:t', 'agent-session:p']],
+      ['empty', []],
+    ],
+  )
+  assert.deepEqual(layout(sections).Chats, ['other'])
+})
+
+test('Chats stays as a drop target while every chat is filed', () => {
+  const sections = withChatSections(
+    [{ items: [] }, { title: 'Chats', items: [row('agent-session:p')] }],
+    [],
+    [],
+    () => false,
+    [{ id: 'web', name: 'Web', sessionIds: ['p'] }],
+  )
+
+  assert.deepEqual(layout(sections).Chats, [])
+})
+
+test('a project lists its owned and shared chats together by activity', () => {
+  const owned = { ...row('agent-session:new'), activeAt: 2 }
+  const shared = { ...row('agent-session:old'), activeAt: 1 }
+  const sections = withChatSections(
+    [{ items: [] }, { title: 'Chats', items: [owned] }],
+    [],
+    [shared],
+    () => false,
+    [{ id: 'p', name: 'P', sessionIds: ['new', 'old'] }],
+  )
+  const project = sections.find((section) => section.title === 'Projects')?.projects?.[0]
+
+  assert.deepEqual(
+    project?.items.map((item) => item.key),
+    ['agent-session:new', 'agent-session:old'],
+  )
+})

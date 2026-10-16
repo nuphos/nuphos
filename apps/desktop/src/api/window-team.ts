@@ -43,6 +43,8 @@ import type {
   TeamActivityRange,
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
+  SidebarProjectCloudEntry,
+  SidebarProjectsCloudSnapshot,
 } from '../types/team.ts'
 
 export type WindowTeamApi = {
@@ -118,6 +120,12 @@ export type WindowTeamApi = {
     entries: SidebarFavoriteCloudEntry[],
     expectedRevision: number,
   ): Promise<SidebarFavoritesCloudSnapshot>
+  atlasGetSidebarProjects(teamId: string): Promise<SidebarProjectsCloudSnapshot>
+  atlasPutSidebarProjects(
+    teamId: string,
+    projects: SidebarProjectCloudEntry[],
+    expectedRevision: number,
+  ): Promise<SidebarProjectsCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasPutHomeLayout(

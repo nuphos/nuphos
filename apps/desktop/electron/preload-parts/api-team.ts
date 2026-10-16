@@ -28,6 +28,10 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:getSidebarFavorites', teamId),
   atlasPutSidebarFavorites: (teamId: string, entries: unknown[], expectedRevision: number) =>
     ipcRenderer.invoke('atlas:putSidebarFavorites', teamId, entries, expectedRevision),
+  atlasGetSidebarProjects: (teamId: string) =>
+    ipcRenderer.invoke('atlas:getSidebarProjects', teamId),
+  atlasPutSidebarProjects: (teamId: string, projects: unknown[], expectedRevision: number) =>
+    ipcRenderer.invoke('atlas:putSidebarProjects', teamId, projects, expectedRevision),
   atlasGetHomeLayout: (teamId: string) => ipcRenderer.invoke('atlas:getHomeLayout', teamId),
   atlasGetTeamActivity: (teamId: string, range: string) =>
     ipcRenderer.invoke('atlas:getTeamActivity', teamId, range),

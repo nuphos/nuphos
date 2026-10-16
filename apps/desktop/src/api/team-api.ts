@@ -12,6 +12,7 @@ import type {
 import type {
   HomeLayout,
   SidebarFavoriteCloudEntry,
+  SidebarProjectCloudEntry,
   TeamActivityRange,
   TeamRole,
 } from '../types/team.ts'
@@ -70,6 +71,12 @@ export const teamApi = {
     entries: SidebarFavoriteCloudEntry[],
     expectedRevision: number,
   ) => window.api.atlasPutSidebarFavorites(teamId, entries, expectedRevision),
+  atlasGetSidebarProjects: (teamId: string) => window.api.atlasGetSidebarProjects(teamId),
+  atlasPutSidebarProjects: (
+    teamId: string,
+    projects: SidebarProjectCloudEntry[],
+    expectedRevision: number,
+  ) => window.api.atlasPutSidebarProjects(teamId, projects, expectedRevision),
   atlasGetHomeLayout: (teamId: string) => window.api.atlasGetHomeLayout(teamId),
   atlasGetTeamActivity: (teamId: string, range: TeamActivityRange) =>
     window.api.atlasGetTeamActivity(teamId, range),

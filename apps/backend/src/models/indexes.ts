@@ -35,7 +35,12 @@ import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-noti
 import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
-import { teamHomeLayouts, teamInvitations, userTeamSidebarFavorites } from '@/models/team'
+import {
+  teamHomeLayouts,
+  teamInvitations,
+  userTeamSidebarFavorites,
+  userTeamSidebarProjects,
+} from '@/models/team'
 
 // Mongo 85/86 = an index with this name already exists under a different spec
 // — typically another branch's backend upgraded it on the shared replica set.
@@ -95,6 +100,7 @@ export async function setupIndexes(): Promise<void> {
     ['memory-ingest-events', setupMemoryIngestEventIndexes],
     ['preview-memory-activity', setupPreviewMemoryActivityIndexes],
     ['sidebar-favorites', setupSidebarFavoritesIndexes],
+    ['sidebar-projects', setupSidebarProjectsIndexes],
     ['home-layouts', setupHomeLayoutIndexes],
     ['push-devices', setupPushDeviceIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
@@ -123,6 +129,13 @@ async function setupSidebarFavoritesIndexes(): Promise<void> {
   await userTeamSidebarFavorites().createIndex(
     { teamId: 1, userId: 1 },
     { unique: true, name: 'user_team_sidebar_favorites_scope_unique' },
+  )
+}
+
+async function setupSidebarProjectsIndexes(): Promise<void> {
+  await userTeamSidebarProjects().createIndex(
+    { teamId: 1, userId: 1 },
+    { unique: true, name: 'user_team_sidebar_projects_scope_unique' },
   )
 }
 
