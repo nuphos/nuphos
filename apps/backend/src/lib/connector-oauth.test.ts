@@ -20,10 +20,12 @@ useModels({
         codeHash: string
         teamId: ObjectId
         requesterUserId: string
+        expiresAt: { $gt: Date }
       }) => {
         const doc = staged.get(filter._id)
         const match =
           doc &&
+          (doc.expiresAt as Date) > filter.expiresAt.$gt &&
           doc.codeHash === filter.codeHash &&
           String(doc.teamId) === String(filter.teamId) &&
           doc.requesterUserId === filter.requesterUserId
@@ -93,19 +95,19 @@ describe('claimConnectorOAuth', () => {
       provider: 'linear',
       state: 's3',
       teamId: TEAM,
-      requesterUserId: 'mallory',
+      requesterUserId: 'requester',
       draft: {},
       persist,
     })
   }
 
-  test('the requester cannot complete without the code the approving client received', async () => {
-    // Mallory started the flow in her team and sent the link to a victim; the
-    // victim's client got the code, Mallory only knows the state.
+  test('the requester cannot complete without the callback code', async () => {
+    // Knowing the state is not enough: only the client the provider redirected
+    // receives the code.
     await stage()
 
     await expect(
-      claimConnectorOAuth({ state: 's3', code: 'guess', teamId: TEAM, userId: 'mallory' }),
+      claimConnectorOAuth({ state: 's3', code: 'guess', teamId: TEAM, userId: 'requester' }),
     ).rejects.toMatchObject({ code: 'oauth_not_ready' })
   })
 
@@ -113,7 +115,7 @@ describe('claimConnectorOAuth', () => {
     const { code = '' } = await stage()
 
     await expect(
-      claimConnectorOAuth({ state: 's3', code, teamId: TEAM, userId: 'victim' }),
+      claimConnectorOAuth({ state: 's3', code, teamId: TEAM, userId: 'other-user' }),
     ).rejects.toMatchObject({ code: 'oauth_not_ready' })
   })
 
@@ -121,12 +123,30 @@ describe('claimConnectorOAuth', () => {
     const { code = '' } = await stage()
 
     expect(
-      await claimConnectorOAuth({ state: 's3', code, teamId: TEAM, userId: 'mallory' }),
+      await claimConnectorOAuth({ state: 's3', code, teamId: TEAM, userId: 'requester' }),
     ).toMatchObject({
       provider: 'linear',
     })
     await expect(
-      claimConnectorOAuth({ state: 's3', code, teamId: TEAM, userId: 'mallory' }),
+      claimConnectorOAuth({ state: 's3', code, teamId: TEAM, userId: 'requester' }),
+    ).rejects.toMatchObject({ code: 'oauth_not_ready' })
+  })
+
+  test('a grant staged for another team is not claimable', async () => {
+    const { code = '' } = await stage()
+
+    await expect(
+      claimConnectorOAuth({ state: 's3', code, teamId: new ObjectId(), userId: 'requester' }),
+    ).rejects.toMatchObject({ code: 'oauth_not_ready' })
+  })
+
+  test('an expired grant is not claimable', async () => {
+    const { code = '' } = await stage()
+    const doc = staged.get('s3')
+
+    if (doc) doc.expiresAt = new Date(Date.now() - 1000)
+    await expect(
+      claimConnectorOAuth({ state: 's3', code, teamId: TEAM, userId: 'requester' }),
     ).rejects.toMatchObject({ code: 'oauth_not_ready' })
   })
 })
