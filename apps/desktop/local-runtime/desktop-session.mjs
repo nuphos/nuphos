@@ -111,7 +111,8 @@ export function claimDisplay(pool, sessionId, size, pid = process.pid, manual = 
 
       return display
     } catch {
-      // Taken meanwhile; try the next one.
+      // Taken meanwhile: by this same session (two opens at once), it is ours; else try the next one.
+      if (readLock(pool, display)?.sessionId === sessionId) return display
     }
   }
 
@@ -268,7 +269,11 @@ export function reap(pool, now = Date.now()) {
   }
 }
 
-/** A desktop for `sessionId` held by `pid` (the host): the session's own if it has one. */
+/**
+ * A desktop for `sessionId` held by `pid` (the host): the session's own if it has one.
+ * If the backend stops waiting, or Xvnc fails after the lock is written, the slot
+ * stays manual and unwatched, so `reap` frees it after MANUAL_IDLE_MS.
+ */
 export async function open(pool, sessionId, pid) {
   const size = Number(process.env.NUPHOS_DESKTOP_POOL_SIZE) || os.cpus().length
   const display = claimDisplay(pool, sessionId, size, pid, true)
