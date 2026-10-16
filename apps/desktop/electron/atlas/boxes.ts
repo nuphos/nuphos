@@ -111,7 +111,10 @@ export function renameDeviceAgent(
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }
-export function boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }> {
+export function boxDesktop(
+  deviceId: string,
+  teamId: string,
+): Promise<{ url: string; label: string }> {
   return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
 }
 export function boxJoinToken(): Promise<{
@@ -123,6 +126,11 @@ export function boxJoinToken(): Promise<{
 }
 export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true }> {
   return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
+}
+
+/** Forgets an offline computer; the backend refuses Boxes and computers that are online. */
+export function removeDevice(deviceId: string, teamId: string): Promise<{ ok: true }> {
+  return call('DELETE', deviceRoute(deviceId, teamId), undefined, { retry: false })
 }
 
 export function getBoxUsage(teamId: string): Promise<BoxUsage> {

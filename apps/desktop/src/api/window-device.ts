@@ -38,6 +38,7 @@ export type WindowDeviceApi = {
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>
+  deviceRemove(deviceId: string, teamId: string): Promise<{ ok: true }>
   boxCreateAgent(
     deviceId: string,
     teamId: string,
@@ -51,7 +52,7 @@ export type WindowDeviceApi = {
     label: string,
   ): Promise<{ ok: true }>
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
-  boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }>
+  boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
   boxUsage(teamId: string): Promise<BoxUsage>
   boxBillingPage(teamId: string, vcpus?: number): Promise<{ url: string }>
   boxBillingSummary(teamId: string): Promise<BillingSummary>
