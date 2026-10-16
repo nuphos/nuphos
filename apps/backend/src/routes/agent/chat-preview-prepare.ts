@@ -193,6 +193,7 @@ export async function preparePreviewTurn(
     }),
     buildPreviewSystemPrompt({
       provider: args.endpoint.provider,
+      runtimeId: args.endpoint.runtimeId,
       userId: actorUserId,
       conversationOwnerUserId: userId,
       teamId,
