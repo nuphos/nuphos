@@ -112,7 +112,7 @@ export async function serializeConversationList<T extends ListedConversation>(
     // still means the turn is running.
     const probed =
       runtimeStates[index] ?? (activeRuns[index] ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
-    const runtimeState = withDesktops(probed, desktops[index])
+    const runtimeState = withDesktops(probed, desktops[index] ?? { tools: [], canOpen: false })
 
     return {
       ...serializeConversationForViewer(

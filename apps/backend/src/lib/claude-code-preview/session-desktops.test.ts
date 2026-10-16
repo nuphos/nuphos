@@ -6,6 +6,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { sessionDesktops, withSessionDesktops } from './session-desktops'
 
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
+import type { SessionExecutionState } from './runtime-execution-snapshot'
 
 // Run with: cd apps/backend && bun test src/lib/claude-code-preview/session-desktops.test.ts
 
@@ -38,7 +39,7 @@ describe('session desktops', () => {
         },
       ],
     })
-    const snapshot = { state: 'idle' as const, tools: [{ id: 't1' }] }
+    const snapshot: SessionExecutionState = { state: 'idle', tools: [{ id: 't1' }] }
 
     // No desktop yet, but its Box can open one.
     expect(await withSessionDesktops(snapshot, { sessionId: 's3', runtimeId }, label)).toEqual({
