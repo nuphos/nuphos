@@ -25,13 +25,9 @@ type RoleCarrier = { role?: unknown }
 export function windowTranscript<M extends RoleCarrier>(
   messages: M[],
   baseIndex: number | undefined,
-  /** An import creates the conversation from these turns: no stored prefix to window against. */
-  whole = false,
 ): TranscriptWindow<M> {
   const base = baseIndex && baseIndex > 0 ? Math.floor(baseIndex) : 0
   let lastUser = -1
-
-  if (whole) return { messages, baseIndex: base > 0 ? base : undefined, dropped: 0 }
 
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i]?.role === 'user') {

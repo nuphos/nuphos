@@ -63,13 +63,3 @@ test('rejects malformed stored-count payloads', () => {
   assert.equal(storedMessageCountFromDetails({ storedMessageCount: 1.5 }), undefined)
   assert.equal(storedMessageCountFromDetails({}), undefined)
 })
-
-test('an import keeps every message, since nothing is stored to window against', () => {
-  const messages = [u('u1'), a('a1'), u('u2'), a('a2')]
-
-  assert.deepEqual(windowTranscript(messages, undefined, true), {
-    messages,
-    baseIndex: undefined,
-    dropped: 0,
-  })
-})

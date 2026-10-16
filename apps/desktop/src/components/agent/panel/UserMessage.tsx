@@ -7,7 +7,8 @@ import { MessageResponse } from '../MessageResponse'
 import { PlanCard } from '../PlanTool'
 
 import { AgentEventMessage } from './AgentEventMessage'
-import { CopyMessageButton } from './messageActions'
+import { EditMessageForm } from './EditMessageForm'
+import { CopyMessageButton, EditMessageButton } from './messageActions'
 import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInline'
 import { renderAtlasMentionLink } from './messageInlineLinks'
 import { formatMessageTimestamp } from './streamText'
@@ -53,6 +54,7 @@ export const UserMessage = memo(
     onRejectPlan,
     canActOnPlans = false,
     onOpenNuphosLink,
+    onEdit,
     teamId,
   }: {
     message: Message
@@ -64,9 +66,12 @@ export const UserMessage = memo(
      *  This is what lets a historical plan be pulled into chat and executed. */
     canActOnPlans?: boolean
     onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
+    /** Re-runs the message with new text, in a fork of the chat. */
+    onEdit?: (messageId: string, text: string) => void
   }) => {
     const sendMotionRef = useSentMessageMotion(message.id)
     const [preview, setPreview] = useState<number | null>(null)
+    const [editing, setEditing] = useState(false)
     const renderLink = useCallback(
       (href: string, children: ReactNode) =>
         renderAtlasMentionLink(href, children, onOpenNuphosLink),
@@ -90,6 +95,9 @@ export const UserMessage = memo(
       .join('\n\n')
       .trim()
 
+    // Attachments can't be carried into the edit, so only text-only messages offer it.
+    const canEdit =
+      Boolean(onEdit && copyableText) && !images.length && !files.length && !uploads.length
     const source = message.metadata?.source
 
     if (message.metadata && (source === 'agent.thread' || source === 'agent.resource'))
@@ -164,7 +172,17 @@ export const UserMessage = memo(
             {uploads.map((p) => (
               <UploadedFilesCard key={p.groupId} part={p} teamId={teamId} />
             ))}
-            {textParts.length > 0 && (
+            {editing && onEdit && (
+              <EditMessageForm
+                text={copyableText}
+                onCancel={() => setEditing(false)}
+                onSend={(text) => {
+                  setEditing(false)
+                  onEdit(message.id, text)
+                }}
+              />
+            )}
+            {!editing && textParts.length > 0 && (
               <div className="user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words space-y-2">
                 {textParts.map((p, i) => (
                   <MessageResponse
@@ -180,13 +198,14 @@ export const UserMessage = memo(
                 ))}
               </div>
             )}
-            {(copyableText || typeof message.createdAt === 'number') && (
+            {!editing && (copyableText || typeof message.createdAt === 'number') && (
               <div className="-mt-1 flex min-h-7 items-center justify-end gap-1 opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity">
                 {typeof message.createdAt === 'number' && (
                   <span className="pr-0.5 text-[11px] text-tertiary tabular-nums">
                     {formatMessageTimestamp(message.createdAt)}
                   </span>
                 )}
+                {canEdit && <EditMessageButton onClick={() => setEditing(true)} />}
                 {copyableText && <CopyMessageButton text={copyableText} label="Copy message" />}
               </div>
             )}

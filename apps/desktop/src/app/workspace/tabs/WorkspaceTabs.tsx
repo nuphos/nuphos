@@ -1,6 +1,6 @@
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { SidebarToggleButton } from '../../../components/Sidebar'
 import { Kbd } from '../../../components/ui/kbd'
@@ -11,12 +11,14 @@ import { isPermanentSidebarPage } from '../../navItems'
 import { TabStripActions } from './TabStripActions'
 import { useTabDragEvents } from './useTabDragEvents'
 import { useTabDragPreview } from './useTabDragPreview'
+import { useClosingTab } from './useClosingTab'
 import { useTabStripFavorites } from './useTabStripFavorites'
 import { WorkspaceTabItem } from './WorkspaceTabItem'
 import { WorkspaceTabsContextMenu } from './WorkspaceTabsContextMenu'
 
 import type { TabContextMenuState, WorkspaceTabsProps } from './tabsTypes'
 import type { TabDropTarget } from './useTabDragPreview'
+import type { CSSProperties } from 'react'
 
 export function WorkspaceTabs({
   userId,
@@ -42,6 +44,7 @@ export function WorkspaceTabs({
   const [dragSlotWidth, setDragSlotWidth] = useState(0)
   const [tabDropSettling, setTabDropSettling] = useState(false)
   const [tabContextMenu, setTabContextMenu] = useState<TabContextMenuState | null>(null)
+  const closingTabRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   // Keep the close affordance on the final tab too. It deliberately calls the
   // same closeTab action as Cmd+W, whose single-tab branch replaces the tab
@@ -116,7 +119,58 @@ export function WorkspaceTabs({
   // Close immediately. The old two-phase path selected a fallback, rendered
   // every pane, waited for a 120 ms animation, then removed the tab and
   // rendered them all again. Heavy pages made that cosmetic delay much worse.
-  const handleClose = useCallback((id: string) => onClose(id), [onClose])
+  // The strip alone animates instead (useClosingTab), for every close path.
+  const [closingTab, clearClosingTab] = useClosingTab(tabs, activeTabId, tabRefs)
+
+  const tabItem = (
+    tab: WorkspaceTabsProps['tabs'][number],
+    selected = tab.id === activeTabId,
+    refs = tabRefs,
+    // The closing copy is a static snapshot: it never follows a drag.
+    ghost = false,
+  ) => (
+    <WorkspaceTabItem
+      key={tab.id}
+      tab={tab}
+      accounts={accounts}
+      databaseConnections={databaseConnectionsByTeam[tab.scope.teamId] ?? []}
+      selected={selected}
+      showClose={showClose}
+      dragging={!ghost && draggingTabId === tab.id}
+      dragOffsetX={dragOffsetX}
+      previewOffset={ghost ? undefined : tabPreviewOffsets.get(tab.id)}
+      isFavorited={isFavorited}
+      toggleFavorite={toggleFavorite}
+      handleClose={onClose}
+      handleTabPointerDown={handleTabPointerDown}
+      handleTabMouseDown={handleTabMouseDown}
+      clearTabDragState={clearTabDragState}
+      onSelect={onSelect}
+      tabRefs={refs}
+      tabPointerDragRef={tabPointerDragRef}
+      suppressTabClickRef={suppressTabClickRef}
+      setTabContextMenu={setTabContextMenu}
+    />
+  )
+  const tabItems = tabs.map((tab) => tabItem(tab))
+
+  if (closingTab) {
+    tabItems.splice(
+      Math.min(closingTab.index, tabItems.length),
+      0,
+      <div
+        key={`closing-${closingTab.tab.id}`}
+        className="t-tab-closing"
+        style={{ '--tab-closing-w': `${String(closingTab.width)}px` } as CSSProperties}
+        inert
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget) clearClosingTab()
+        }}
+      >
+        {tabItem(closingTab.tab, closingTab.selected, closingTabRefs, true)}
+      </div>,
+    )
+  }
 
   const contextMenuCanFavorite = tabContextMenu
     ? !isPermanentSidebarPage(tabContextMenu.appHref)
@@ -148,30 +202,7 @@ export function WorkspaceTabs({
         className="t-tab-strip flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden pl-2 scrollbar-none"
         data-drop-settling={tabDropSettling ? 'true' : undefined}
       >
-        {tabs.map((tab) => (
-          <WorkspaceTabItem
-            key={tab.id}
-            tab={tab}
-            accounts={accounts}
-            databaseConnections={databaseConnectionsByTeam[tab.scope.teamId] ?? []}
-            selected={tab.id === activeTabId}
-            showClose={showClose}
-            dragging={draggingTabId === tab.id}
-            dragOffsetX={dragOffsetX}
-            previewOffset={tabPreviewOffsets.get(tab.id)}
-            isFavorited={isFavorited}
-            toggleFavorite={toggleFavorite}
-            handleClose={handleClose}
-            handleTabPointerDown={handleTabPointerDown}
-            handleTabMouseDown={handleTabMouseDown}
-            clearTabDragState={clearTabDragState}
-            onSelect={onSelect}
-            tabRefs={tabRefs}
-            tabPointerDragRef={tabPointerDragRef}
-            suppressTabClickRef={suppressTabClickRef}
-            setTabContextMenu={setTabContextMenu}
-          />
-        ))}
+        {tabItems}
         <Tooltip
           content={
             <span className="inline-flex items-center gap-1.5">
@@ -209,7 +240,7 @@ export function WorkspaceTabs({
           onDuplicate={onDuplicate}
           onCopyPageUrl={onCopyPageUrl}
           toggleFavorite={toggleFavorite}
-          handleClose={handleClose}
+          handleClose={onClose}
           onCloseOthers={onCloseOthers}
           onDismiss={() => setTabContextMenu(null)}
         />

@@ -5,11 +5,12 @@ import type {
 } from './local-terminal-types'
 import type { Plan } from './plan-types.ts'
 import type { K8sWatchEvent, K8sWatchKind, K8sWatchSubscribeResult } from './watch-types.ts'
+import type { SessionShortcutAction } from '../lib/sessionShortcuts'
 import type { PodExecEvent, SshTerminalEvent } from '../types/aws-compute.ts'
 import type { PodPort } from '../types/k8s-core.ts'
 import type { PortForwardEvent, PortForwardInfo } from '../types/navigation.ts'
 
-/** Mirrors the AppShortcut union in electron/main/windows.ts. */
+/** Actions electron/main/windows.ts sends on `app:shortcut`. */
 export type AppShortcutAction =
   | 'search-sessions'
   | 'new-chat'
@@ -24,6 +25,7 @@ export type AppShortcutAction =
   | 'shortcuts-help'
   | 'reopen-closed-tab'
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
+  | SessionShortcutAction
 
 export type WindowShellApi = {
   acceptDockTerminal(id: string): Promise<boolean>
@@ -71,6 +73,8 @@ export type WindowShellApi = {
   onAgentEvent(cb: (payload: { streamId: string; event: unknown }) => void): () => void
   onAgentPlanUpdated(cb: (payload: { plan: Plan }) => void): () => void
   onAppShortcut(cb: (action: AppShortcutAction) => void): () => void
+  /** A visible chat owns the session shortcuts, so the main process may swallow them. */
+  setSessionShortcutsActive(active: boolean): void
   k8sStartPortForward(
     context: string,
     ns: string,

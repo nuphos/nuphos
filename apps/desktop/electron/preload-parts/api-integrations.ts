@@ -17,6 +17,8 @@ export const integrationsApi = {
 
     return () => ipcRenderer.off('app:shortcut', handler)
   },
+  setSessionShortcutsActive: (active: boolean) =>
+    ipcRenderer.send('app:sessionShortcutsActive', active),
   k8sStartPortForward: (
     ctx: string,
     ns: string,
