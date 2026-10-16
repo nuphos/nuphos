@@ -47,6 +47,8 @@ export const deviceApi = {
   boxDesktop: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:desktop', deviceId, teamId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),
+  openSessionDesktop: (teamId: string, sessionId: string) =>
+    ipcRenderer.invoke('box:openSessionDesktop', teamId, sessionId),
   boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
     ipcRenderer.invoke('box:createAgent', deviceId, teamId, provider),
   boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>

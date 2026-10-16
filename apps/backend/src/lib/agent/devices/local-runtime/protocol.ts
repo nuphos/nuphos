@@ -106,6 +106,8 @@ export const localRuntimeStatusSchema = z.object({
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
+  /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
+  desktopOpen: z.boolean().optional(),
   /** Desktops this computer runs for conversations (a Box: one X display per session). */
   desktops: z
     .array(

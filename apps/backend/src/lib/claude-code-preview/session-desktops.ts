@@ -17,29 +17,57 @@ type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefi
 const storedLabel: DeviceLabel = async (userId, deviceId) =>
   (await getAgentDevice(userId, deviceId))?.label
 
+/** The conversation's desktops, and whether its Box runs a desktop pool it could open one from. */
+export type SessionDesktops = {
+  tools: NonNullable<SessionExecutionState['tools']>
+  canOpen: boolean
+}
+
+const NONE: SessionDesktops = { tools: [], canOpen: false }
+
 /** Each entry's title names the machine and the display, e.g. "Box 1 · :3". */
 export async function sessionDesktops(
   conversation: DesktopOwner,
   deviceLabel = storedLabel,
-): Promise<NonNullable<SessionExecutionState['tools']>> {
+): Promise<SessionDesktops> {
   const ref = conversation.runtimeId ? parseLocalRuntimeId(conversation.runtimeId) : undefined
 
-  if (!ref) return []
-  const presence = await runtimePresenceStore().get(ref.userId, ref.deviceId)
-  const desktops = (presence?.status?.desktops ?? []).filter(
+  if (!ref) return NONE
+  // A host reports `desktops` only where it runs a desktop pool, and `desktopOpen`
+  // only from the bundle that opens one on request; older Boxes show no entry.
+  const status = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status
+  const canOpen = status?.desktopOpen === true
+  const desktops = (status?.desktops ?? []).filter(
     (desktop) => desktop.sessionId === conversation.sessionId,
   )
 
-  if (!desktops.length) return []
+  if (!desktops.length) return { tools: [], canOpen }
   const label = (await deviceLabel(ref.userId, ref.deviceId)) ?? 'Desktop'
 
-  return desktops.map((desktop) => ({
-    id: `desktop:${String(desktop.display)}`,
-    kind: 'desktop',
-    title: `${label} · :${String(desktop.display)}`,
-    status: 'running',
-    desktop: { display: desktop.display, deviceId: ref.deviceId },
-  }))
+  return {
+    canOpen,
+    tools: desktops.map((desktop) => ({
+      id: `desktop:${String(desktop.display)}`,
+      kind: 'desktop',
+      title: `${label} · :${String(desktop.display)}`,
+      status: 'running',
+      desktop: { display: desktop.display, deviceId: ref.deviceId },
+    })),
+  }
+}
+
+/** The snapshot with the conversation's desktops appended; unchanged when it has none and can open none. */
+export function withDesktops<T extends SessionExecutionState>(
+  snapshot: T,
+  { tools, canOpen }: SessionDesktops,
+): T {
+  if (!canOpen && !tools.length) return snapshot
+
+  return {
+    ...snapshot,
+    ...(canOpen && { canOpenDesktop: true }),
+    ...(tools.length && { tools: [...(snapshot.tools ?? []), ...tools] }),
+  }
 }
 
 export type BoxDesktop = { display: number; sessionId: string; title: string }
@@ -80,17 +108,12 @@ export async function boxDesktops(
     .sort((a, b) => a.display - b.display)
 }
 
-/** The snapshot with the conversation's desktops appended; unchanged when it has none. */
 export async function withSessionDesktops<T extends SessionExecutionState>(
   snapshot: T,
   conversation: DesktopOwner,
   deviceLabel = storedLabel,
 ): Promise<T> {
-  const desktops = await sessionDesktops(conversation, deviceLabel)
-
-  return desktops.length
-    ? { ...snapshot, tools: [...(snapshot.tools ?? []), ...desktops] }
-    : snapshot
+  return withDesktops(snapshot, await sessionDesktops(conversation, deviceLabel))
 }
 
 /**
@@ -99,7 +122,7 @@ export async function withSessionDesktops<T extends SessionExecutionState>(
  * desktop appears may miss it; the next one carries it.
  */
 export function desktopTracker(conversation: DesktopOwner) {
-  let known: NonNullable<SessionExecutionState['tools']> = []
+  let known = NONE
   let refreshing: Promise<void> | undefined
 
   return {
@@ -113,7 +136,7 @@ export function desktopTracker(conversation: DesktopOwner) {
           refreshing = undefined
         })
 
-      return known.length ? { ...snapshot, tools: [...(snapshot.tools ?? []), ...known] } : snapshot
+      return withDesktops(snapshot, known)
     },
   }
 }

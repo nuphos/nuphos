@@ -10,7 +10,7 @@ import { AssistantMessage } from './AssistantMessage'
 import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
-import { desktopsFromRuntimeState } from './shells'
+import { sessionDesktopsOf } from './shells'
 import { ShellsPanel } from './ShellsPanel'
 import { DEFERRED_MESSAGE_STYLE } from './status'
 import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
@@ -71,12 +71,8 @@ export function ConversationMessageList({
   useReportVisibleError(tab.error, 'agent_conversation_error')
   // The workspace turns these into dock tabs; a chat that leaves the screen is forgotten, not closed.
   useEffect(() => {
-    if (teamId)
-      publishSessionDesktops(tab.sessionId, {
-        teamId,
-        desktops: desktopsFromRuntimeState(tab.runtimeState),
-      })
-  }, [tab.sessionId, teamId, tab.runtimeState])
+    if (teamId) publishSessionDesktops(tab.sessionId, sessionDesktopsOf(teamId, tab))
+  }, [tab.sessionId, teamId, tab.runtimeState, tab.foreign])
   useEffect(() => () => publishSessionDesktops(tab.sessionId, null), [tab.sessionId])
   const downloadsByMessage = useTransferDownloads(tab, teamId)
   const messages = useMemo(() => collapseRepeatedFailures(tab.messages), [tab.messages])

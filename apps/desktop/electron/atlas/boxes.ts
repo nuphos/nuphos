@@ -124,6 +124,18 @@ export function boxDesktop(
 ): Promise<{ url: string; label: string }> {
   return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
 }
+/** Has the conversation's Box hold a desktop for it: its own when it has one. */
+export function openSessionDesktop(
+  teamId: string,
+  sessionId: string,
+): Promise<{ display: number }> {
+  return call(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/runtime-desktop/${encodeURIComponent(sessionId)}`,
+    undefined,
+    { retry: false },
+  )
+}
 export function boxJoinToken(): Promise<{
   token: string
   expiresAt: string

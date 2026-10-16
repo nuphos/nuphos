@@ -37,6 +37,8 @@ export type SessionExecutionState = {
     desktop?: { display: number; deviceId: string }
   }[]
   actions?: { send: boolean; cancel: boolean; steer: boolean; reply?: boolean }
+  /** Its Box runs a desktop pool, so the owner can open the conversation's desktop by hand. */
+  canOpenDesktop?: boolean
   epoch?: string
   revision?: number
 }

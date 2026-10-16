@@ -11,19 +11,24 @@ import type { AgentInstance, RemovableAgent } from './protocol'
 import type { DeviceRuntimeSocketDeps } from './socket'
 
 const responseSchema = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), instance: agentInstanceSchema.optional() }),
+  z.object({
+    ok: z.literal(true),
+    instance: agentInstanceSchema.optional(),
+    display: z.number().int().min(2).max(255).optional(),
+  }),
   z.object({ ok: z.literal(false), error: z.string().max(500) }),
 ])
 
 type Target = { userId: string; actorId: string; deviceId: string; teamId: string }
 type Options = { deps?: DeviceRuntimeSocketDeps; timeoutMs?: number }
+type Answer = { instance?: AgentInstance; display?: number }
 
 /** One request over the device's own tunnel; the host answers once and closes. */
 function requestInstances(
   target: Target,
-  body: { method: 'create' | 'commit' | 'remove' } & Record<string, unknown>,
+  body: { method: 'create' | 'commit' | 'remove' | 'desktop' } & Record<string, unknown>,
   options: Options,
-): Promise<AgentInstance | undefined> {
+): Promise<Answer> {
   const socket = new DeviceRuntimeSocket(
     { ...target, purpose: 'instances' },
     options.deps ?? { bus: tunnelBus(), presence: runtimePresenceStore() },
@@ -31,7 +36,7 @@ function requestInstances(
 
   return new Promise((resolve, reject) => {
     let settled = false
-    const finish = (error?: Error, result?: AgentInstance) => {
+    const finish = (error?: Error, result: Answer = {}) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
@@ -64,7 +69,7 @@ function requestInstances(
             (body.provider && response.instance.provider !== body.provider))
         )
           throw new Error('The Box returned a different agent instance')
-        finish(undefined, response.instance)
+        finish(undefined, response)
       } catch {
         finish(
           new AppError(
@@ -86,7 +91,11 @@ export async function createLocalAgentInstance(
   instance: AgentInstance,
   options: Options = {},
 ): Promise<AgentInstance> {
-  const created = await requestInstances(target, { method: 'create', ...instance }, options)
+  const { instance: created } = await requestInstances(
+    target,
+    { method: 'create', ...instance },
+    options,
+  )
 
   if (!created)
     throw new AppError(
@@ -115,4 +124,27 @@ export async function removeLocalAgentInstance(
 ): Promise<void> {
   // Stopping a starting agent first waits for it, so allow more than a request.
   await requestInstances(target, { method: 'remove', ...agent }, { timeoutMs: 45_000, ...options })
+}
+
+/** Has the Box hold a desktop for the session, its own if it has one; answers the display. */
+export async function openLocalDesktop(
+  target: Target,
+  sessionId: string,
+  options: Options = {},
+): Promise<number> {
+  // Bringing up Xvnc and XFCE takes seconds.
+  const { display } = await requestInstances(
+    target,
+    { method: 'desktop', sessionId },
+    { timeoutMs: 30_000, ...options },
+  )
+
+  if (display === undefined)
+    throw new AppError(
+      502,
+      'agent_instance_invalid_response',
+      'The Box returned an invalid answer.',
+    )
+
+  return display
 }

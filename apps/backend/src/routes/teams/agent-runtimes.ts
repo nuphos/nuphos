@@ -24,6 +24,7 @@ import { claudeCodePreviewRuntimeStatus } from '@/lib/claude-code-preview/runtim
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
 import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import {
+  openRuntimeDesktop,
   runtimeDesktopEvents,
   runtimeDesktopTarget,
 } from '@/lib/claude-code-preview/runtime-desktop'
@@ -86,6 +87,10 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       runtimeTerminalEvents(target, { cols: c.req.query('cols'), rows: c.req.query('rows') }),
     )
   })
+
+  teamScoped.post('/runtime-desktop/:sessionId', async (c) =>
+    c.json(await openRuntimeDesktop(c.get('teamId'), c.get('userId'), c.req.param('sessionId'))),
+  )
 
   teamScoped.get('/runtime-desktop/:sessionId/:display', async (c) => {
     const target = await runtimeDesktopTarget(

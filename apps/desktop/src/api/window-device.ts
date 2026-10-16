@@ -55,6 +55,7 @@ export type WindowDeviceApi = {
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
   boxSetAccess(deviceId: string, teamId: string, access: BoxAccess): Promise<unknown>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
+  openSessionDesktop(teamId: string, sessionId: string): Promise<{ display: number }>
   boxUsage(teamId: string): Promise<BoxUsage>
   boxBillingPage(teamId: string, vcpus?: number): Promise<{ url: string }>
   boxBillingSummary(teamId: string): Promise<BillingSummary>

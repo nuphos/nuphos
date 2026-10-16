@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { connect } from 'node:net'
 import path from 'node:path'
 
@@ -11,6 +11,8 @@ type Listener = (event: SocketEvent) => void
 const VNC_BASE_PORT = 5900
 /** The computer-use proxy forgets a human owner 30 s after the last renewal. */
 const CONTROL_RENEW_MS = 20_000
+/** Well inside the reaper's grace for a desktop opened by hand (desktop-session.mjs). */
+const WATCHING_MS = 60_000
 
 /**
  * One viewer of one session's desktop, multiplexed on the device tunnel like
@@ -30,6 +32,7 @@ export class VncStream implements SocketLike {
   private control = ''
   private viewer = ''
   private renew: ReturnType<typeof setInterval> | undefined
+  private watching: ReturnType<typeof setInterval> | undefined
   private readonly pool: string
   private readonly port: (display: number) => number
 
@@ -93,6 +96,18 @@ export class VncStream implements SocketLike {
     if (this.holder(display) !== sessionId) throw new Error('Not this session’s display')
     this.viewer = viewer.replace(/[^\w-]/gu, '')
     this.control = path.join(this.pool, `${String(display)}.xdg`, 'instabox-control')
+    // Someone is watching: a desktop opened by hand is not idle.
+    const lock = path.join(this.pool, `${String(display)}.lock`)
+    const touch = () => {
+      try {
+        utimesSync(lock, new Date(), new Date())
+      } catch {
+        // The desktop is gone; the stream ends with its socket.
+      }
+    }
+
+    touch()
+    this.watching = setInterval(touch, WATCHING_MS)
     const socket = connect(this.port(display), '127.0.0.1')
 
     this.socket = socket
@@ -124,6 +139,7 @@ export class VncStream implements SocketLike {
     if (this.readyState === 3) return
     this.readyState = 3
     if (this.renew) this.handOver(false)
+    clearInterval(this.watching)
     this.socket?.destroy()
     this.emit('close', { code: 1000 })
     this.listeners.clear()

@@ -7,7 +7,7 @@ import { holderChannel, streamChannel } from '@/lib/agent/devices/local-runtime/
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 
-import { runtimeDesktopEvents, runtimeDesktopTarget } from './runtime-desktop'
+import { openRuntimeDesktop, runtimeDesktopEvents, runtimeDesktopTarget } from './runtime-desktop'
 
 import type { HolderMessage, LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 import type { WSContext, WSEvents } from 'hono/ws'
@@ -31,6 +31,7 @@ const bus = createLocalTunnelBus()
 const status = {
   agents: {},
   desktops: [{ display: 2, sessionId: 'chat' }],
+  desktopOpen: true,
 } as unknown as LocalRuntimeStatus
 
 beforeEach(async () => {
@@ -62,6 +63,54 @@ test('only the owner reaches a display the Box reports as this conversation’s'
   await expect(runtimeDesktopTarget('team', 'owner', 'chat', '2', presence)).rejects.toThrow(
     'not found',
   )
+})
+
+test('opening by hand asks the Box once, and only for a session holding no desktop', async () => {
+  const opened: unknown[] = []
+  const open = async (target: unknown, sessionId: string) => {
+    opened.push([target, sessionId])
+
+    return 3
+  }
+
+  // Already holds :2 — answered from presence, no claim.
+  expect(await openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).toEqual({
+    display: 2,
+  })
+  expect(opened).toEqual([])
+  await presence.put('owner', 'box', {
+    conn: 'conn',
+    status: { ...status, desktops: [] },
+    seenAt: Date.now(),
+  })
+  expect(await openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).toEqual({
+    display: 3,
+  })
+  expect(opened).toEqual([
+    [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, 'chat'],
+  ])
+  // A Box on an older bundle has a pool but cannot open one on request.
+  await presence.put('owner', 'box', {
+    conn: 'conn',
+    status: { ...status, desktops: [], desktopOpen: undefined },
+    seenAt: Date.now(),
+  })
+  await expect(openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).rejects.toThrow(
+    'not found',
+  )
+  // Not the owner, or a host without a desktop pool: nothing to open.
+  await expect(openRuntimeDesktop('team', 'mate', 'chat', { presence, open })).rejects.toThrow(
+    'not found',
+  )
+  await presence.put('owner', 'box', {
+    conn: 'conn',
+    status: { agents: {} } as unknown as LocalRuntimeStatus,
+    seenAt: Date.now(),
+  })
+  await expect(openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).rejects.toThrow(
+    'not found',
+  )
+  expect(opened).toHaveLength(1)
 })
 
 const b64 = (bytes: number[] | Buffer) => Buffer.from(bytes).toString('base64')

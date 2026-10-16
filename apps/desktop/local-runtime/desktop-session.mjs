@@ -11,6 +11,13 @@
 //   desktop-session.mjs serve            env: NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL, NUPHOS_DESKTOP_POOL_SIZE, HOME
 //   desktop-session.mjs reap <pool>
 //   desktop-session.mjs list <pool>      JSON [{display, sessionId, since}]
+//   desktop-session.mjs open <pool> <sessionId> <pid>   prints the display
+//
+// `open` is a desktop the conversation's owner asked for by hand. Its lock
+// names the host's pid and is marked manual: it lives while someone watches it
+// (vnc-stream.ts touches the lock) and `reap` frees it after MANUAL_IDLE_MS
+// without a viewer. The session's own `serve` adopts it, so from then on it
+// follows the agent like any other.
 
 import { spawn, spawnSync } from 'node:child_process'
 import {
@@ -20,6 +27,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
   closeSync,
 } from 'node:fs'
@@ -35,6 +43,7 @@ const FIRST_DISPLAY = 2
 const GEOMETRY = '1280x800'
 const PROXY = '/usr/local/bin/instabox-computer-use-proxy'
 const SERVER = '/usr/local/bin/open-computer-use'
+export const MANUAL_IDLE_MS = 10 * 60_000
 
 export const lockFile = (pool, display) => path.join(pool, `${String(display)}.lock`)
 export const xdgDir = (pool, display) => path.join(pool, `${String(display)}.xdg`)
@@ -71,8 +80,8 @@ export function listDesktops(pool) {
     .map(({ display, sessionId, since }) => ({ display, sessionId, since }))
 }
 
-const lockEntry = (sessionId, pid) =>
-  JSON.stringify({ sessionId, pid, since: new Date().toISOString() })
+const lockEntry = (sessionId, pid, manual) =>
+  JSON.stringify({ sessionId, pid, since: new Date().toISOString(), ...(manual && { manual }) })
 
 /**
  * The session's display: its own if it already holds one, else the lowest free
@@ -80,28 +89,30 @@ const lockEntry = (sessionId, pid) =>
  * until `reap` frees it, so two sessions starting together cannot tear down
  * each other's fresh claim.
  */
-export function claimDisplay(pool, sessionId, size, pid = process.pid) {
+export function claimDisplay(pool, sessionId, size, pid = process.pid, manual = false) {
   mkdirSync(pool, { recursive: true, mode: 0o700 })
   for (let display = FIRST_DISPLAY; display < FIRST_DISPLAY + size; display++) {
     const held = readLock(pool, display)
 
     if (held?.sessionId === sessionId) {
-      // Its own slot, perhaps from a run that died: the lock names this process now.
-      // (A reap that read the dead pid just before may still clear it; rare, and the
-      // next claim takes a fresh slot.)
-      if (!alive(held.pid)) writeFileSync(lockFile(pool, display), lockEntry(sessionId, pid))
+      // Its own slot, perhaps from a run that died or opened by hand: the agent's
+      // server takes it over. (A reap that read the dead pid just before may still
+      // clear it; rare, and the next claim takes a fresh slot.)
+      if (!alive(held.pid) || (held.manual && !manual))
+        writeFileSync(lockFile(pool, display), lockEntry(sessionId, pid))
 
       return display
     }
     try {
       const fd = openSync(lockFile(pool, display), 'wx', 0o600)
 
-      writeFileSync(fd, lockEntry(sessionId, pid))
+      writeFileSync(fd, lockEntry(sessionId, pid, manual))
       closeSync(fd)
 
       return display
     } catch {
-      // Taken meanwhile; try the next one.
+      // Taken meanwhile: by this same session (two opens at once), it is ours; else try the next one.
+      if (readLock(pool, display)?.sessionId === sessionId) return display
     }
   }
 
@@ -234,8 +245,8 @@ async function serve() {
   proxy.on('exit', end)
 }
 
-/** Displays whose session is gone, and Xvnc servers (:2 and up) that no session holds. */
-export function reap(pool) {
+/** Displays whose session is gone, ones opened by hand nobody watched lately, and Xvnc servers (:2 and up) that no session holds. */
+export function reap(pool, now = Date.now()) {
   const held = new Set()
 
   if (existsSync(pool))
@@ -244,7 +255,9 @@ export function reap(pool) {
       const display = Number(name.slice(0, -5))
       const lock = readLock(pool, display)
 
-      if (lock && alive(lock.pid)) held.add(display)
+      const idle = lock?.manual && now - statSync(lockFile(pool, display)).mtimeMs > MANUAL_IDLE_MS
+
+      if (lock && alive(lock.pid) && !idle) held.add(display)
       else teardown(pool, display)
     }
   const running = spawnSync('pgrep', ['-a', '-x', 'Xvnc'], { encoding: 'utf8' }).stdout ?? ''
@@ -256,15 +269,34 @@ export function reap(pool) {
   }
 }
 
-const [command, argument] = process.argv.slice(2)
+/**
+ * A desktop for `sessionId` held by `pid` (the host): the session's own if it has one.
+ * If the backend stops waiting, or Xvnc fails after the lock is written, the slot
+ * stays manual and unwatched, so `reap` frees it after MANUAL_IDLE_MS.
+ */
+export async function open(pool, sessionId, pid) {
+  const size = Number(process.env.NUPHOS_DESKTOP_POOL_SIZE) || os.cpus().length
+  const display = claimDisplay(pool, sessionId, size, pid, true)
+
+  if (display === null) throw new Error(`This Box has no free desktop (${String(size)} in use).`)
+  await startDisplay(pool, display, path.join(xdgDir(pool, display), 'home'))
+
+  return display
+}
+
+const [command, argument, ...rest] = process.argv.slice(2)
 
 if (command === 'serve') await serve()
 else if (command === 'reap') reap(argument ?? process.env.NUPHOS_DESKTOP_POOL)
+else if (command === 'open')
+  process.stdout.write(`${String(await open(argument, rest[0], Number(rest[1])))}\n`)
 else if (command === 'list')
   process.stdout.write(
     `${JSON.stringify(listDesktops(argument ?? process.env.NUPHOS_DESKTOP_POOL))}\n`,
   )
 else if (command !== undefined) {
-  process.stderr.write('usage: desktop-session.mjs serve | reap <pool> | list <pool>\n')
+  process.stderr.write(
+    'usage: desktop-session.mjs serve | reap <pool> | list <pool> | open <pool> <sessionId> <pid>\n',
+  )
   process.exit(2)
 }

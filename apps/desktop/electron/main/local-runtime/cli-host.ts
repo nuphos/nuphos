@@ -1,5 +1,4 @@
-// `nuphos agent`: this computer's local agents without Electron, on the user's own Node
-// next to the staged openab and adapters, with the Box's credential or the shared session.
+// `nuphos agent`: local agents on Node beside the staged openab, without Electron.
 
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -24,7 +23,12 @@ import { prepareAgentHome } from './agent-home.ts'
 import { agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { signInClaude } from './cli-sign-in.ts'
-import { enableDesktopPool, listDesktops, watchDesktops } from './desktop-pool.ts'
+import {
+  enableDesktopPool,
+  desktopStatus,
+  watchDesktops,
+  withDesktopRequests,
+} from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
@@ -179,7 +183,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   },
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
-      instances,
+      instances: desktopPool
+        ? withDesktopRequests(desktopWrapper, desktopPool, instances)
+        : instances,
       sampleMetrics: readDeviceMetrics,
       connectBackend: () => {
         const fresh = deviceCredential?.credential ?? currentToken()
@@ -215,7 +221,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       // Which sessions hold a desktop here rides along with the agents' status.
       status: () => ({
         ...status(),
-        ...(desktopPool ? { desktops: listDesktops(desktopWrapper, desktopPool) } : {}),
+        ...(desktopPool ? desktopStatus(desktopWrapper, desktopPool) : {}),
       }),
       onChange: (connected, superseded) => {
         onChange(connected, superseded)

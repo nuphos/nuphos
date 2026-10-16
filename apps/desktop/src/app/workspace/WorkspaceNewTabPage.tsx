@@ -15,6 +15,7 @@ import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 
 import { browserAddressOption } from './browserAddressOption'
 import { HistoryIcon, LauncherIcon, NewTabGroupSection, NewTabOptionRow } from './NewTabOptions'
+import { useSessionDesktopItems } from './useSessionDesktopItems'
 
 import type { Item, Section } from '../../components/sidebar/types'
 import type { DockHistoryEntry } from '../../lib/dockHistory'
@@ -57,6 +58,7 @@ export function WorkspaceNewTabPage({
   const searchRef = useRef<HTMLInputElement>(null)
   const { conversationId } = useWorkspaceTab()
   const history = useDockHistory(userId, teamId)
+  const desktopItems = useSessionDesktopItems(teamId, conversationId)
 
   useEffect(() => {
     if (!focusSearch) return
@@ -132,7 +134,7 @@ export function WorkspaceNewTabPage({
   const groups: OptionGroup[] = [
     { title: 'Recent', options: recent.slice(0, RECENT_LIMIT) },
     { title: 'Favorites', favorites: true, options: itemOptions(favoriteItems) },
-    { title: 'Workspace', options: itemOptions(workspaceItems) },
+    { title: 'Workspace', options: itemOptions([...workspaceItems, ...desktopItems]) },
     ...liveSections.map((section) => ({
       title: section.title ?? '',
       options: itemOptions(section.items),
