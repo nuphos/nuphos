@@ -108,6 +108,13 @@ export function renameDeviceAgent(
     { retry: false },
   )
 }
+export function setBoxAccess(
+  deviceId: string,
+  teamId: string,
+  access: { everyone: boolean; userIds: string[] },
+): Promise<unknown> {
+  return call('PUT', box(deviceId, '/access', teamId), access, { retry: false })
+}
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }

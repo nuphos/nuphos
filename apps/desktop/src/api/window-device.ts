@@ -3,6 +3,7 @@ import type {
   AgentDeviceList,
   AgentDeviceListOptions,
   BillingSummary,
+  BoxAccess,
   BoxStatus,
   BoxUsage,
   DeviceAgentInstance,
@@ -52,6 +53,7 @@ export type WindowDeviceApi = {
     label: string,
   ): Promise<{ ok: true }>
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
+  boxSetAccess(deviceId: string, teamId: string, access: BoxAccess): Promise<unknown>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
   boxUsage(teamId: string): Promise<BoxUsage>
   boxBillingPage(teamId: string, vcpus?: number): Promise<{ url: string }>

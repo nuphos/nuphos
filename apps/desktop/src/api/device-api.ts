@@ -1,5 +1,6 @@
 import type {
   AgentDeviceListOptions,
+  BoxAccess,
   LocalAgentProvider,
   LocalRuntimeState,
   SleepPreferences,
@@ -40,6 +41,8 @@ export const deviceApi = {
     window.api.boxRenameAgent(deviceId, teamId, agent, label),
   boxRename: (deviceId: string, teamId: string, label: string) =>
     window.api.boxRename(deviceId, teamId, label),
+  boxSetAccess: (deviceId: string, teamId: string, access: BoxAccess) =>
+    window.api.boxSetAccess(deviceId, teamId, access),
   boxUsage: (teamId: string) => window.api.boxUsage(teamId),
   boxBillingPage: (teamId: string, vcpus?: number) => window.api.boxBillingPage(teamId, vcpus),
   boxBillingSummary: (teamId: string) => window.api.boxBillingSummary(teamId),

@@ -1,6 +1,7 @@
 import type { RuntimeStatusView } from './runtimePresentation'
 import type {
   AgentDevice,
+  BoxAccess,
   BoxState,
   BoxStatus,
   BoxUsage,
@@ -119,6 +120,26 @@ export function machineLine(device: AgentDevice): string {
   if (device.box) return `${os} · instabox`
 
   return device.model ? `${os} · ${device.model}` : os
+}
+
+/** Choosing who may use a Box is for its managers; a computer is only ever its owner's. */
+export function canShareBox(device: AgentDevice): boolean {
+  return device.box !== undefined && canManage(device)
+}
+
+/** What Save sends: everyone, or exactly the chosen members (admins need no entry). */
+export function accessPayload(everyone: boolean, chosen: Iterable<string>): BoxAccess {
+  return { everyone, userIds: everyone ? [] : [...chosen] }
+}
+
+/** A manager's view of who may use a Box; null for a computer or a viewer who only uses it. */
+export function accessHint(device: AgentDevice): string | null {
+  const access = device.box?.access
+
+  if (!access || !canManage(device)) return null
+  if (access.everyone) return 'Everyone'
+
+  return access.userIds.length ? `Shared with ${String(access.userIds.length)}` : 'Admins only'
 }
 
 /** Boxes that were creating and are gone: #355 drops a Box whose machine could not be made. */

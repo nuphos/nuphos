@@ -55,6 +55,11 @@ export const deviceApi = {
     ipcRenderer.invoke('box:renameAgent', deviceId, teamId, agent, label),
   boxRename: (deviceId: string, teamId: string, label: string) =>
     ipcRenderer.invoke('box:rename', deviceId, teamId, label),
+  boxSetAccess: (
+    deviceId: string,
+    teamId: string,
+    access: { everyone: boolean; userIds: string[] },
+  ) => ipcRenderer.invoke('box:setAccess', deviceId, teamId, access),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),
   boxBillingPage: (teamId: string, vcpus?: number) =>
     ipcRenderer.invoke('box:billingPage', teamId, vcpus),

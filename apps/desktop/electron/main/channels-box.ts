@@ -10,13 +10,18 @@ import {
   removeDevice,
   getBoxUsage,
   renameBox,
+  setBoxAccess,
   renameDeviceAgent,
   listAgentDevices,
   pauseBox,
   resumeBox,
 } from '../atlas/boxes.ts'
 
-import type { AgentDeviceListOptions, LocalAgentProvider } from '../../src/api/device-types.ts'
+import type {
+  AgentDeviceListOptions,
+  BoxAccess,
+  LocalAgentProvider,
+} from '../../src/api/device-types.ts'
 
 function string(value: unknown): string {
   if (typeof value !== 'string') throw new TypeError('Expected a string')
@@ -28,6 +33,18 @@ function agentProvider(value: unknown): LocalAgentProvider {
     throw new TypeError('Expected an agent provider')
 
   return value
+}
+function boxAccess(value: unknown): BoxAccess {
+  const access = value as Partial<BoxAccess> | null
+
+  if (
+    typeof access?.everyone !== 'boolean' ||
+    !Array.isArray(access.userIds) ||
+    !access.userIds.every((id) => typeof id === 'string')
+  )
+    throw new TypeError('Expected a Box access list')
+
+  return { everyone: access.everyone, userIds: access.userIds }
 }
 function optionalString(value: unknown): string | undefined {
   return value === undefined ? undefined : string(value)
@@ -63,6 +80,8 @@ export const boxChannels = {
   'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     boxDesktop(string(deviceId), string(teamId)),
   'box:join-token': () => boxJoinToken(),
+  'box:setAccess': (_e: unknown, deviceId: unknown, teamId: unknown, access: unknown) =>
+    setBoxAccess(string(deviceId), string(teamId), boxAccess(access)),
   'box:rename': (_e: unknown, deviceId: unknown, teamId: unknown, label: unknown) =>
     renameBox(string(deviceId), string(teamId), string(label)),
 }
