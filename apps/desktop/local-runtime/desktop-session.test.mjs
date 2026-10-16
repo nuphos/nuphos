@@ -218,4 +218,9 @@ test('launch_app starts the app on the session’s display and reports one that 
   await launch(2, 'no-such-app-xyz', [])
   assert.equal(sent[1].result.isError, true)
   assert.match(sent[1].result.content[0].text, /Could not start no-such-app-xyz: .*ENOENT/u)
+  // Malformed arguments answer that call with an error; the next call still works.
+  await launch(3, 'sh', null)
+  assert.equal(sent[2].result.isError, true)
+  await launch(4, 'true', [])
+  assert.equal(sent[3].result.content[0].text, 'Started true on display :5.')
 })

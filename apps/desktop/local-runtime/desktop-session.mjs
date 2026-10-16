@@ -330,9 +330,15 @@ export function desktopRelay({ send, start, desktop }) {
         handshake.push({ ...message, id: REPLAY_ID })
       } else if (message.method === 'notifications/initialized') handshake.push(message)
       else if (message.method === 'tools/list') ids.list.add(message.id)
-      queue = queue.then(() =>
-        message.method === 'tools/call' ? call(message) : server.send(message),
-      )
+      // What one message breaks stays its own: a call answers with the error, the queue goes on.
+      queue = queue
+        .then(() => (message.method === 'tools/call' ? call(message) : server.send(message)))
+        .catch((error) => {
+          if (message.method === 'tools/call')
+            send(
+              toolResult(message.id, error instanceof Error ? error.message : String(error), true),
+            )
+        })
 
       return queue
     },
