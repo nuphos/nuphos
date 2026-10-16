@@ -63,6 +63,9 @@ export function patchDesktopAdapter(source, provider) {
     const handoffs = patched.match(CODEX_HANDOFF)?.length ?? 0
 
     if (handoffs !== 3) throw new Error('Desktop adapter patch anchor moved: Codex MCP servers')
+    // The injected server takes the session's HOME from the runtime patch's inlined helper.
+    if (!patched.includes('function nuphosSessionHomeEnv('))
+      throw new Error('Desktop adapter patch anchor moved: Codex nuphosSessionHomeEnv')
     patched = patched.replace(
       CODEX_HANDOFF,
       (_, fallback = '') =>
