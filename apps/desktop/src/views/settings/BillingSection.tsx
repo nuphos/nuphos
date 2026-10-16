@@ -1,11 +1,18 @@
-import { ArrowUpRight, Box, CalendarDays, Info, Lock } from 'lucide-react'
+import { AlertCircle, Box, CalendarDays, Info, Lock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { Button } from '../../components/ui/button'
-
-import { openBilling } from './billing'
-import { CARD, InUse, Invoices, LimitCallout, Pill, PlansTable } from './BillingParts'
+import { useOpenBilling } from './billing'
+import { NoPlan } from './BillingNoPlan'
+import {
+  BillingButton,
+  CARD,
+  InUse,
+  Invoices,
+  LimitCallout,
+  Pill,
+  PlansTable,
+} from './BillingParts'
 import { blockedStart, boxRows, planDetail, renewal, statusTone } from './billingPresentation'
 import { BOX_PLANS } from './boxPresentation'
 import { BoxUsageChart } from './BoxUsageChart'
@@ -13,16 +20,17 @@ import { SectionHeader } from './shared'
 import { useAgentDevices } from './useAgentDevices'
 import { useBoxUsage } from './useBoxUsage'
 
+import type { OpenBilling } from './billing'
 import type { BillingSummary, BoxUsage } from '../../api/device-types'
 
 function PlanCard({
-  teamId,
+  billing,
   isAdmin,
   usage,
   summary,
   error,
 }: {
-  teamId: string
+  billing: OpenBilling
   isAdmin: boolean
   usage: BoxUsage
   summary: BillingSummary | null
@@ -40,10 +48,9 @@ function PlanCard({
         {plan && <span className="text-[14px] text-secondary">{planDetail(plan)}</span>}
         {billed && <Pill tone={statusTone(billed.status)}>{billed.status.replace('_', ' ')}</Pill>}
         {isAdmin && usage.billingUrl && (
-          <Button size="sm" className="ml-auto" onClick={() => void openBilling(teamId)}>
+          <BillingButton billing={billing} className="ml-auto">
             Manage billing
-            <ArrowUpRight size={13} />
-          </Button>
+          </BillingButton>
         )}
       </div>
       <p className="flex items-center gap-2 text-secondary">
@@ -52,10 +59,17 @@ function PlanCard({
       </p>
       {isAdmin ? (
         <>
-          <p className="flex items-center gap-2 text-tertiary">
-            <CalendarDays size={14} />
-            {renewal(billed, error)}
-          </p>
+          {error && !billed ? (
+            <p className="flex items-center gap-2 text-warning">
+              <AlertCircle size={14} />
+              {error}
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 text-tertiary">
+              <CalendarDays size={14} />
+              {renewal(billed, error)}
+            </p>
+          )}
           {usage.billingUrl && (
             <p className="text-[12px] text-tertiary">
               Manage billing opens the Stripe portal in your browser: change plan, update card,
@@ -73,61 +87,16 @@ function PlanCard({
   )
 }
 
-function NoPlan({ teamId, isAdmin, usage }: { teamId: string; isAdmin: boolean; usage: BoxUsage }) {
-  const [selected, setSelected] = useState(BOX_PLANS[1].vcpus)
-  const canBuy = isAdmin && usage.billingUrl !== null
-
-  return (
-    <>
-      <section className={CARD}>
-        <div className="flex items-center gap-2.5">
-          <h2 className="text-[20px] font-semibold text-main">No plan yet</h2>
-          {usage.limitVcpus === 0 && <Pill tone="warning">Boxes can&apos;t start</Pill>}
-        </div>
-        <p className="text-secondary">
-          A plan sets how much vCPU your team&apos;s running Boxes can use in total. Each Box counts
-          at its own size while running; paused Boxes use none. At the limit, running Boxes keep
-          running and starting one that doesn&apos;t fit is refused until a Box is paused or the
-          plan is upgraded.
-        </p>
-      </section>
-      <section className="flex flex-col gap-3">
-        <h2 className="text-[13px] font-semibold text-main">In use now</h2>
-        <BoxUsageChart teamId={teamId} showLimit={false} />
-      </section>
-      <section className="flex flex-col gap-3">
-        <h2 className="text-[13px] font-semibold text-main">Plans</h2>
-        <PlansTable
-          current={null}
-          selected={selected}
-          onSelect={canBuy ? setSelected : undefined}
-        />
-        {canBuy ? (
-          <div className="flex items-center gap-3">
-            <Button size="sm" onClick={() => void openBilling(teamId, selected)}>
-              Choose plan
-              <ArrowUpRight size={13} />
-            </Button>
-            <span className="text-[12px] text-tertiary">
-              Opens Stripe Checkout in your browser. Billed monthly, cancel anytime.
-            </span>
-          </div>
-        ) : (
-          <p className="text-[12px] text-tertiary">Ask a team administrator to choose a plan.</p>
-        )}
-      </section>
-    </>
-  )
-}
-
 function Subscribed({
   teamId,
+  billing,
   isAdmin,
   usage,
   summary,
   error,
 }: {
   teamId: string
+  billing: OpenBilling
   isAdmin: boolean
   usage: BoxUsage
   summary: BillingSummary | null
@@ -139,9 +108,9 @@ function Subscribed({
 
   return (
     <>
-      <PlanCard teamId={teamId} isAdmin={isAdmin} usage={usage} summary={summary} error={error} />
+      <PlanCard billing={billing} isAdmin={isAdmin} usage={usage} summary={summary} error={error} />
       {blocked && (
-        <LimitCallout teamId={teamId} isAdmin={isAdmin} usage={usage} message={blocked} />
+        <LimitCallout billing={billing} isAdmin={isAdmin} usage={usage} message={blocked} />
       )}
       <section className="flex flex-col gap-3">
         <InUse usage={usage} rows={rows} blocked={blocked !== null} />
@@ -174,7 +143,8 @@ function Subscribed({
  * Stripe portal; other members see the plan and its use.
  */
 export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: boolean }) {
-  const { usage } = useBoxUsage(teamId)
+  const { usage, watch } = useBoxUsage(teamId)
+  const billing = useOpenBilling(teamId, watch)
   const [summary, setSummary] = useState<BillingSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
   const billed = isAdmin && Boolean(usage?.billingUrl)
@@ -195,7 +165,7 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
     return () => {
       cancelled = true
     }
-  }, [teamId, billed, usage])
+  }, [teamId, billed, usage?.subscribed, usage?.limitVcpus])
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -208,6 +178,7 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
         {usage && usage.limitVcpus !== null && usage.subscribed && (
           <Subscribed
             teamId={teamId}
+            billing={billing}
             isAdmin={isAdmin}
             usage={usage}
             summary={summary}
@@ -215,7 +186,7 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
           />
         )}
         {usage && usage.limitVcpus !== null && !usage.subscribed && (
-          <NoPlan teamId={teamId} isAdmin={isAdmin} usage={usage} />
+          <NoPlan teamId={teamId} billing={isAdmin && usage.billingUrl ? billing : null} />
         )}
       </div>
     </div>

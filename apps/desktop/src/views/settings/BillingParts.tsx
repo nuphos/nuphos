@@ -1,15 +1,16 @@
 import clsx from 'clsx'
-import { AlertTriangle, ArrowUpRight, Box, Users } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, Box, Loader2, Users } from 'lucide-react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 
-import { openBilling } from './billing'
 import { date, money, planDetail, statusTone } from './billingPresentation'
 import { BOX_PLANS } from './boxPresentation'
 
+import type { OpenBilling } from './billing'
 import type { BoxRow } from './billingPresentation'
 import type { BillingSummary, BoxUsage } from '../../api/device-types'
+import type { ReactNode } from 'react'
 
 export const CARD =
   'flex flex-col gap-2.5 rounded-[10px] border border-white/[0.09] bg-zGray-850 p-5 text-[13px]'
@@ -34,13 +35,46 @@ export function Pill({
     </span>
   )
 }
+/** Opens Checkout for `vcpus`, or the portal; disabled with "Opening…" while any billing page is on its way. */
+export function BillingButton({
+  billing,
+  vcpus,
+  className,
+  children,
+}: {
+  billing: OpenBilling
+  vcpus?: number
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <Button
+      size="sm"
+      className={className}
+      disabled={billing.opening !== null}
+      onClick={() => billing.open(vcpus)}
+    >
+      {billing.opening === (vcpus ?? 0) ? (
+        <>
+          <Loader2 size={13} className="animate-spin" />
+          Opening…
+        </>
+      ) : (
+        <>
+          {children}
+          <ArrowUpRight size={13} />
+        </>
+      )}
+    </Button>
+  )
+}
 export function LimitCallout({
-  teamId,
+  billing,
   isAdmin,
   usage,
   message,
 }: {
-  teamId: string
+  billing: OpenBilling
   isAdmin: boolean
   usage: BoxUsage
   message: string
@@ -61,10 +95,7 @@ export function LimitCallout({
       {next &&
         (isAdmin && usage.billingUrl ? (
           <div className="flex items-center gap-3">
-            <Button size="sm" onClick={() => void openBilling(teamId)}>
-              Upgrade to {next.name}
-              <ArrowUpRight size={13} />
-            </Button>
+            <BillingButton billing={billing}>Upgrade to {next.name}</BillingButton>
             <span className="text-[12px] text-tertiary">
               {next.name} · {planDetail(next)}
             </span>
@@ -144,77 +175,37 @@ export function InUse({
   )
 }
 
-/** The three plans. Before a subscription one is picked here; after, the portal changes it. */
-export function PlansTable({
-  current,
-  selected,
-  onSelect,
-}: {
-  current: number | null
-  selected?: number
-  onSelect?: (vcpus: number) => void
-}) {
+/** The three plans, the team's current one marked; the portal changes it. */
+export function PlansTable({ current }: { current: number | null }) {
   return (
-    <div
-      role={onSelect ? 'radiogroup' : undefined}
-      aria-label="Box plan"
-      className="overflow-hidden rounded-lg border border-white/[0.09] text-[13px]"
-    >
+    <div className="overflow-hidden rounded-lg border border-white/[0.09] text-[13px]">
       <div className="flex px-3.5 py-2 text-[11px] font-medium text-tertiary">
         <span className="w-40">Plan</span>
         <span className="flex-1">Running vCPU</span>
         <span>Price</span>
       </div>
-      {BOX_PLANS.map(({ name, vcpus, usdPerMonth }) => {
-        const marked = vcpus === current || vcpus === selected
-        const cells = (
-          <>
-            <span className="flex w-40 items-center gap-2">
-              {onSelect && (
-                <span
-                  className={clsx(
-                    'flex h-3.5 w-3.5 items-center justify-center rounded-full border-[1.5px]',
-                    marked ? 'border-zViolet-500 bg-zViolet-500' : 'border-zGray-400',
-                  )}
-                >
-                  {marked && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-                </span>
-              )}
-              <span className="font-medium text-main">{name}</span>
-              {vcpus === current && (
-                <span className="rounded-full bg-zViolet-accent/15 px-2 py-0.5 text-[11px] text-zViolet-accent">
-                  Current
-                </span>
-              )}
-            </span>
-            <span className="flex-1 text-secondary">Up to {vcpus} vCPU</span>
-            <span className="font-medium text-main">
-              ${usdPerMonth} <span className="text-[12px] font-normal text-tertiary">/ month</span>
-            </span>
-          </>
-        )
-        const rowClass = clsx(
-          'flex h-10 w-full items-center border-t border-white/[0.09] px-3.5 text-left',
-          marked && 'bg-zViolet-500/[0.08]',
-        )
-
-        return onSelect ? (
-          <button
-            key={vcpus}
-            type="button"
-            role="radio"
-            aria-checked={marked}
-            onClick={() => onSelect(vcpus)}
-            className={rowClass}
-          >
-            {cells}
-          </button>
-        ) : (
-          <div key={vcpus} className={rowClass}>
-            {cells}
-          </div>
-        )
-      })}
+      {BOX_PLANS.map(({ name, vcpus, usdPerMonth }) => (
+        <div
+          key={vcpus}
+          className={clsx(
+            'flex h-10 w-full items-center border-t border-white/[0.09] px-3.5',
+            vcpus === current && 'bg-zViolet-500/[0.08]',
+          )}
+        >
+          <span className="flex w-40 items-center gap-2">
+            <span className="font-medium text-main">{name}</span>
+            {vcpus === current && (
+              <span className="rounded-full bg-zViolet-accent/15 px-2 py-0.5 text-[11px] text-zViolet-accent">
+                Current
+              </span>
+            )}
+          </span>
+          <span className="flex-1 text-secondary">Up to {vcpus} vCPU</span>
+          <span className="font-medium text-main">
+            ${usdPerMonth} <span className="text-[12px] font-normal text-tertiary">/ month</span>
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

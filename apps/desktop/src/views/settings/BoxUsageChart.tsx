@@ -3,6 +3,7 @@ import { Area, AreaChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } fro
 
 import { api } from '../../api'
 
+import { chartTicks, tickLabel } from './billingPresentation'
 import { ACCENT, CAPACITY, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
@@ -24,9 +25,21 @@ const timeLabel = (at: number, range: RuntimeQuotaHistoryRange) =>
       : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' },
   )
 
-/** The team's running Box vCPUs over time, with its plan limit as a dashed step line. */
-export function BoxUsageChart({ teamId, showLimit }: { teamId: string; showLimit: boolean }) {
-  const [range, setRange] = useState<RuntimeQuotaHistoryRange>('7d')
+/**
+ * The team's running Box vCPUs over time, with its plan limit as a dashed step line.
+ * `pastOnly` shows nothing until some Box has run in the last 30 days.
+ */
+export function BoxUsageChart({
+  teamId,
+  showLimit,
+  pastOnly = false,
+}: {
+  teamId: string
+  showLimit: boolean
+  pastOnly?: boolean
+}) {
+  const [range, setRange] = useState<RuntimeQuotaHistoryRange>(pastOnly ? '30d' : '7d')
+  const [used, setUsed] = useState(false)
   const [points, setPoints] = useState<Point[] | null>(null)
 
   useEffect(() => {
@@ -34,10 +47,11 @@ export function BoxUsageChart({ teamId, showLimit }: { teamId: string; showLimit
 
     api.boxUsageHistory(teamId, range).then(
       ({ points: next }) => {
-        if (!cancelled)
-          setPoints(
-            next.map((p) => ({ at: Date.parse(p.at), used: p.usedVcpus, limit: p.limitVcpus })),
-          )
+        if (cancelled) return
+        setPoints(
+          next.map((p) => ({ at: Date.parse(p.at), used: p.usedVcpus, limit: p.limitVcpus })),
+        )
+        if (next.some((p) => p.usedVcpus > 0)) setUsed(true)
       },
       () => {
         /* History is decoration; keep whatever was shown before. */
@@ -50,6 +64,9 @@ export function BoxUsageChart({ teamId, showLimit }: { teamId: string; showLimit
   }, [teamId, range])
 
   const empty = points?.every((p) => p.used === 0) ?? false
+
+  if (pastOnly && !used) return null
+  const span = points && points.length > 0 ? [points[0].at, points[points.length - 1].at] : null
 
   return (
     <section>
@@ -102,13 +119,8 @@ export function BoxUsageChart({ teamId, showLimit }: { teamId: string; showLimit
                   tick={TICK}
                   tickLine={false}
                   axisLine={false}
-                  minTickGap={40}
-                  tickFormatter={(at: number) =>
-                    new Date(at).toLocaleString(
-                      undefined,
-                      range === '1d' ? { hour: 'numeric' } : { month: 'short', day: 'numeric' },
-                    )
-                  }
+                  ticks={span ? chartTicks(span[0], span[1], range) : undefined}
+                  tickFormatter={(at: number) => tickLabel(at, range)}
                 />
                 <YAxis
                   width={24}

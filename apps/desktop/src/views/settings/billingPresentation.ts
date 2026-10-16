@@ -71,3 +71,26 @@ export function renewal(plan: BillingSummary['plan'] | undefined, error: string 
 
   return `${plan.cancelAt ? 'Ends' : 'Renews'} ${date(plan.cancelAt ?? plan.currentPeriodEnd)}${card}`
 }
+
+/** The usage chart's axis ticks: every 4 hours for 24h, local midnights for 7d (daily) and 30d (every 5 days). */
+export function chartTicks(from: number, to: number, range: '1d' | '7d' | '30d'): number[] {
+  const at = new Date(from)
+  const ticks: number[] = []
+
+  if (range === '1d') at.setHours(Math.ceil(at.getHours() / 4) * 4, 0, 0, 0)
+  else at.setHours(24, 0, 0, 0)
+  while (at.getTime() <= to) {
+    ticks.push(at.getTime())
+    if (range === '1d') at.setHours(at.getHours() + 4)
+    else at.setDate(at.getDate() + (range === '7d' ? 1 : 5))
+  }
+
+  return ticks
+}
+
+/** A tick's label: a time of day for 24h, a date otherwise. */
+export const tickLabel = (at: number, range: '1d' | '7d' | '30d') =>
+  new Date(at).toLocaleString(
+    undefined,
+    range === '1d' ? { hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric' },
+  )

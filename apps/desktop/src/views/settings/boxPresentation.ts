@@ -192,9 +192,28 @@ export function boxSetupProblem(phase: BoxSetupPhase): string | null {
 
 /** The plans the billing service sells, smallest first; `vcpus` keys the billing service's nuphos_box_<vcpus>vcpu_monthly price. */
 export const BOX_PLANS = [
-  { name: 'Starter', vcpus: 4, usdPerMonth: 20 },
-  { name: 'Pro', vcpus: 12, usdPerMonth: 50 },
-  { name: 'Scale', vcpus: 24, usdPerMonth: 100 },
+  {
+    name: 'Starter',
+    vcpus: 4,
+    usdPerMonth: 20,
+    example: 'e.g. one 4 vCPU Box, or two 2 vCPU Boxes',
+    perks: ['Your agents keep working while your laptop sleeps', 'A full desktop in every Box'],
+  },
+  {
+    name: 'Pro',
+    vcpus: 12,
+    usdPerMonth: 50,
+    recommended: true,
+    example: 'e.g. an 8 vCPU build Box next to two 2 vCPU Boxes',
+    perks: ['Room for a build Box beside everyday ones', 'Share Boxes with your teammates'],
+  },
+  {
+    name: 'Scale',
+    vcpus: 24,
+    usdPerMonth: 100,
+    example: 'e.g. three 8 vCPU build Boxes at once',
+    perks: ['Many agents working in parallel', 'Boxes for the whole team at once'],
+  },
 ]
 
 /** Why the team's vCPU limit keeps a new Box from starting; null when one can start. */
