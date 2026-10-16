@@ -36,13 +36,8 @@ const devices = new FakeCollection()
 
 useDb({ db: (() => ({ collection: () => devices })) as unknown as typeof dbActual.db })
 
-const {
-  getAgentDevice,
-  recordDeviceAgents,
-  renameAgentDevice,
-  renameDeviceAgent,
-  upsertAgentDevice,
-} = await import('./store')
+const { getAgentDevice, renameAgentDevice, upsertAgentDevice } = await import('./store')
+const { recordDeviceAgents, renameDeviceAgent } = await import('./agent-registry-store')
 
 const registration = {
   deviceId: 'mac-1',

@@ -6,8 +6,10 @@ import { AppError } from '@/lib/errors'
 /** Machine states that use their vCPUs. */
 const RUNNING_STATES = new Set(['creating', 'starting', 'running', 'resuming'])
 
+export const isRunning = (state: string) => RUNNING_STATES.has(state)
+
 export function runningVcpus(machines: { state: string; vcpus: number }[]): number {
-  return machines.reduce((sum, m) => sum + (RUNNING_STATES.has(m.state) ? m.vcpus : 0), 0)
+  return machines.reduce((sum, m) => sum + (isRunning(m.state) ? m.vcpus : 0), 0)
 }
 
 /** Refuses starting a Box of `vcpus` when the team's running Boxes would pass `limit`. */

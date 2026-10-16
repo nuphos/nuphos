@@ -63,6 +63,8 @@ export const deviceApi = {
     access: { everyone: boolean; userIds: string[] },
   ) => ipcRenderer.invoke('box:setAccess', deviceId, teamId, access),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),
+  boxUsageHistory: (teamId: string, range: string) =>
+    ipcRenderer.invoke('box:usageHistory', teamId, range),
   boxBillingPage: (teamId: string, vcpus?: number) =>
     ipcRenderer.invoke('box:billingPage', teamId, vcpus),
   boxBillingSummary: (teamId: string) => ipcRenderer.invoke('box:billingSummary', teamId),

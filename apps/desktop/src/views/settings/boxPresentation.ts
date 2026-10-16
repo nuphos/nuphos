@@ -106,13 +106,13 @@ export function boxState(device: AgentDevice, now = Date.now()): MachineState {
  * not at all (actions and a returning window reload the list).
  */
 export function boxPollMs(devices: AgentDevice[], signingIn: boolean): number {
-  const states = devices.map((device) => boxState(device))
+  const states = new Set(devices.map((device) => boxState(device)))
 
-  if (states.some((state) => setupStates.has(state))) return BOX_CREATING_POLL_MS
+  if ([...states].some((state) => setupStates.has(state))) return BOX_CREATING_POLL_MS
   if (signingIn) return 1_500
   if (devices.some((device) => device.online)) return BOX_METRICS_POLL_MS
 
-  return states.includes('hostOffline') ? BOX_OFFLINE_POLL_MS : 0
+  return states.has('hostOffline') ? BOX_OFFLINE_POLL_MS : 0
 }
 
 const OS_LABEL: Record<string, string> = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' }
@@ -211,11 +211,30 @@ export function boxSetupProblem(phase: BoxSetupPhase): string | null {
   return null
 }
 
-/** The plans the billing service sells, smallest first. */
+/** The plans the billing service sells, smallest first; `vcpus` keys the billing service's nuphos_box_<vcpus>vcpu_monthly price. */
 export const BOX_PLANS = [
-  { vcpus: 4, usdPerMonth: 20 },
-  { vcpus: 12, usdPerMonth: 50 },
-  { vcpus: 24, usdPerMonth: 100 },
+  {
+    name: 'Starter',
+    vcpus: 4,
+    usdPerMonth: 20,
+    example: 'e.g. one 4 vCPU Box, or two 2 vCPU Boxes',
+    perks: ['Your agents keep working while your laptop sleeps', 'A full desktop in every Box'],
+  },
+  {
+    name: 'Pro',
+    vcpus: 12,
+    usdPerMonth: 50,
+    recommended: true,
+    example: 'e.g. an 8 vCPU build Box next to two 2 vCPU Boxes',
+    perks: ['Room for a build Box beside everyday ones', 'Share Boxes with your teammates'],
+  },
+  {
+    name: 'Scale',
+    vcpus: 24,
+    usdPerMonth: 100,
+    example: 'e.g. three 8 vCPU build Boxes at once',
+    perks: ['Many agents working in parallel', 'Boxes for the whole team at once'],
+  },
 ]
 
 /** Why the team's vCPU limit keeps a new Box from starting; null when one can start. */

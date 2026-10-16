@@ -12,7 +12,7 @@ import { AppError } from '@/lib/errors'
 import { teams } from '@/lib/identity/shared'
 
 import { BOX_TEMPLATE, QUICK_TIMEOUT_MS, connection, unavailable } from './box-instabox-client'
-import { assertWithinLimit, runningVcpus } from './box-vcpu'
+import { assertWithinLimit, isRunning, runningVcpus } from './box-vcpu'
 import { countTeamBoxesOrdering } from './store'
 
 import type { Template } from '@insforge/instabox-sdk'
@@ -81,7 +81,7 @@ export async function teamBoxUsage(teamId: string, resumed?: string) {
   const self = machines.find((machine) => machine.sandboxId === resumed)
   const boxVcpus = self?.vcpus ?? (await newBoxVcpus())
 
-  return { self, boxVcpus, usedVcpus: runningVcpus(machines) + ordering * boxVcpus }
+  return { machines, self, boxVcpus, usedVcpus: runningVcpus(machines) + ordering * boxVcpus }
 }
 
 /** How long a start may hold the team's start lease if it never releases it. */
@@ -153,6 +153,10 @@ export async function boxUsageView(teamId: string) {
     subscribed: own,
     usedVcpus: usage?.usedVcpus ?? null,
     boxVcpus: usage?.boxVcpus ?? null,
+    /** Every Box of the team with its own size; `running` ones count against the limit. */
+    boxes: (usage?.machines ?? [])
+      .filter((machine) => machine.state !== 'deleted')
+      .map(({ sandboxId, state, vcpus }) => ({ sandboxId, vcpus, running: isRunning(state) })),
     billingUrl: config.box.billingUrl ?? null,
   }
 }

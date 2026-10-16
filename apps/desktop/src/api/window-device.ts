@@ -6,6 +6,7 @@ import type {
   BoxAccess,
   BoxStatus,
   BoxUsage,
+  BoxUsageHistory,
   DeviceAgentInstance,
   SleepPreferences,
   SleepState,
@@ -57,6 +58,7 @@ export type WindowDeviceApi = {
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
   openSessionDesktop(teamId: string, sessionId: string): Promise<{ display: number }>
   boxUsage(teamId: string): Promise<BoxUsage>
+  boxUsageHistory(teamId: string, range: '1d' | '7d' | '30d'): Promise<BoxUsageHistory>
   boxBillingPage(teamId: string, vcpus?: number): Promise<{ url: string }>
   boxBillingSummary(teamId: string): Promise<BillingSummary>
   boxJoinToken(): Promise<{ token: string; expiresAt: string; apiUrl: string | null }>

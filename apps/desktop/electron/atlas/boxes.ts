@@ -9,6 +9,7 @@ import type {
   AgentDeviceListOptions,
   BillingSummary,
   BoxUsage,
+  BoxUsageHistory,
   DeviceAgentInstance,
   LocalAgentProvider,
 } from '../../src/api/device-types.ts'
@@ -154,6 +155,13 @@ export function removeDevice(deviceId: string, teamId: string): Promise<{ ok: tr
 
 export function getBoxUsage(teamId: string): Promise<BoxUsage> {
   return call('GET', `/teams/${encodeURIComponent(teamId)}/box-usage`)
+}
+
+export function getBoxUsageHistory(
+  teamId: string,
+  range: '1d' | '7d' | '30d',
+): Promise<BoxUsageHistory> {
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/box-usage/history?range=${range}`)
 }
 
 /** What the billing service's errors (`{ error }` only) mean to the user. */

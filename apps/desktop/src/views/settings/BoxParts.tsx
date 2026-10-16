@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline } from './agentPresentation'
 import { accessHint, machineLine, newAgentAction, seenFrom } from './boxPresentation'

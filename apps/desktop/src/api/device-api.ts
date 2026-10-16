@@ -46,6 +46,8 @@ export const deviceApi = {
   boxSetAccess: (deviceId: string, teamId: string, access: BoxAccess) =>
     window.api.boxSetAccess(deviceId, teamId, access),
   boxUsage: (teamId: string) => window.api.boxUsage(teamId),
+  boxUsageHistory: (teamId: string, range: '1d' | '7d' | '30d') =>
+    window.api.boxUsageHistory(teamId, range),
   boxBillingPage: (teamId: string, vcpus?: number) => window.api.boxBillingPage(teamId, vcpus),
   boxBillingSummary: (teamId: string) => window.api.boxBillingSummary(teamId),
 }
