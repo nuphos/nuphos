@@ -9,7 +9,8 @@ import { machineState } from './instabox-machines'
 import type { AgentDevice } from './store'
 
 /** `error` means instabox could not say; `gone` that it no longer has the machine. */
-export type BoxState = 'creating' | 'running' | 'paused' | 'error'
+/** `connecting`: the machine runs but its host has not joined yet. */
+export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
 /** A state read for a listing: an outage must not stall the devices page. */
 const READ_TIMEOUT_MS = 5_000
@@ -34,8 +35,8 @@ export async function boxState(device: AgentDevice, online: boolean): Promise<Bo
   if (read !== cached?.read) stateReads.set(sandboxId, { at: Date.now(), read })
   const state = await read
 
-  // A running machine whose host has never connected is still being set up, not offline.
-  return state === 'running' && !device.lastSeenAt ? 'creating' : state
+  // A running machine whose host has never joined is waiting for it, not offline.
+  return state === 'running' && !device.lastSeenAt ? 'connecting' : state
 }
 
 async function readMachineState(sandboxId: string): Promise<BoxState | 'gone'> {

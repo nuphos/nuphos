@@ -14,14 +14,16 @@ const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
   local: 'Computer',
 }
 
-/** A computer's agent is named by its provider; Runs on says which computer. */
+/** A computer's agent goes by its own name, else its provider's; Runs on says which computer. */
 export function agentName(instance: RuntimeInstance): string {
-  return instance.kind === 'local' ? AGENT_PROVIDER[instance.provider].label : instance.label
+  return instance.kind === 'local'
+    ? (instance.local?.agentLabel ?? AGENT_PROVIDER[instance.provider].label)
+    : instance.label
 }
 
 /** A computer's agent whose computer is away: still listed, shown offline. */
 export function agentOffline(instance: RuntimeInstance): boolean {
-  return instance.local?.online === false
+  return instance.notReady === true || instance.local?.online === false
 }
 
 export function agentRunsOn(instance: RuntimeInstance, currentDeviceId?: string): string {

@@ -20,13 +20,14 @@ export const BOX_OFFLINE_POLL_MS = 30_000
 export const BOX_SETUP_TIMEOUT_MS = 5 * 60_000
 /**
  * A cloud Box's state, or, for a computer, `stopped` while its agents are not connected.
- * A running Box whose host has dropped is `hostOffline`; until its host first connects the
- * backend reports it `creating`.
+ * A Box is `creating` until instabox has its machine, `connecting` until its host first joins,
+ * and `hostOffline` when a host that joined has dropped.
  */
 export type MachineState = BoxState | 'stopped' | 'hostOffline'
 
 export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   creating: { label: 'Starting', tone: 'pending' },
+  connecting: { label: 'Connecting', tone: 'pending' },
   running: { label: 'Running', tone: 'online' },
   hostOffline: { label: 'Host offline', tone: 'pending' },
   paused: { label: 'Paused', tone: 'off' },
@@ -72,7 +73,7 @@ export function removal(device: AgentDevice) {
 /** What a Box's state allows besides Delete, which is always there. */
 export function boxActions(state: MachineState): { pause: boolean; resume: boolean } {
   return {
-    pause: state === 'running' || state === 'hostOffline',
+    pause: state === 'running' || state === 'connecting' || state === 'hostOffline',
     // Resuming restarts the host, which brings back one that dropped.
     resume: state === 'paused' || state === 'error' || state === 'hostOffline',
   }
@@ -83,13 +84,16 @@ export function boxes(devices: AgentDevice[]): BoxDevice[] {
   return devices.filter((device): device is BoxDevice => device.box !== undefined)
 }
 
+/** A Box being set up: its machine is being made, or its host has not joined yet. */
+const setupStates = new Set<MachineState>(['creating', 'connecting'])
+
 /** Derived, never stored: a cloud Box's state is instabox's; a computer is running while connected. */
 export function boxState(device: AgentDevice, now = Date.now()): MachineState {
   if (!device.box) return device.online ? 'running' : 'stopped'
   const { state } = device.box
 
-  // A Box still starting long after it was made will not come up: it didn't start.
-  if (state === 'creating')
+  // A Box still being set up long after it was made will not come up: it didn't start.
+  if (setupStates.has(state))
     return now - Date.parse(device.createdAt ?? '') > BOX_SETUP_TIMEOUT_MS ? 'error' : state
 
   return state === 'running' && !device.online ? 'hostOffline' : state
@@ -103,7 +107,7 @@ export function boxState(device: AgentDevice, now = Date.now()): MachineState {
 export function boxPollMs(devices: AgentDevice[], signingIn: boolean): number {
   const states = new Set(devices.map((device) => boxState(device)))
 
-  if (states.has('creating')) return BOX_CREATING_POLL_MS
+  if ([...states].some((state) => setupStates.has(state))) return BOX_CREATING_POLL_MS
   if (signingIn) return 1_500
   if (devices.some((device) => device.online)) return BOX_METRICS_POLL_MS
 

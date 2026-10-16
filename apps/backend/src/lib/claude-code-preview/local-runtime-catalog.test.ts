@@ -5,6 +5,7 @@ import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
+import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 
@@ -69,6 +70,45 @@ describe('local runtime catalog', () => {
       local: { ownerUserId: 'owner', deviceId: 'mac-1', signedIn: true },
     })
     expect(await listOwnLocalRuntimes('t2', 'owner', deps)).toEqual([])
+  })
+
+  test('an agent is listed under the name in its registry, not the one its computer reports', async () => {
+    const work = '11111111-1111-4111-8111-111111111111'
+    const named = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [
+        { provider: 'claude-code', label: 'Main', signedIn: true },
+        { provider: 'claude-code', instanceId: work, label: 'Review', signedIn: true },
+      ] as RegisteredAgent[],
+    }
+    const cli = { cli: { installed: true, loggedIn: true } }
+
+    presence = {
+      ...online(),
+      status: {
+        agents: { 'claude-code': cli },
+        instances: [{ instanceId: work, provider: 'claude-code', label: 'Claude Code', ...cli }],
+      },
+    }
+    const listed = await listOwnLocalRuntimes('t1', 'owner', {
+      ...deps,
+      access: { ...deps.access, listDevices: async () => [named] },
+    })
+
+    expect(listed.map(({ label, local }) => [label, local.agentLabel, local.online])).toEqual([
+      ['Main in Olivia’s MacBook', 'Main', true],
+      ['Review in Olivia’s MacBook', 'Review', true],
+    ])
+
+    // A cleared name is the provider's, whatever the computer reports.
+    named.agents[1] = { provider: 'claude-code', instanceId: work, signedIn: true }
+    const cleared = await listOwnLocalRuntimes('t1', 'owner', {
+      ...deps,
+      access: { ...deps.access, listDevices: async () => [named] },
+    })
+
+    expect(cleared[1]).toMatchObject({ label: 'Claude Code in Olivia’s MacBook' })
+    expect(cleared[1]?.local.agentLabel).toBeUndefined()
   })
 
   test('a teammate never sees another member’s local agent', async () => {

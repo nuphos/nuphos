@@ -31,8 +31,14 @@ const box = (sandboxId: string, lastSeenAt?: Date): AgentDevice =>
   }) as AgentDevice
 
 describe('a running Box whose host is away', () => {
-  test('is still starting until its host has connected once', async () => {
-    expect(await boxState(box('never'), false)).toBe('creating')
+  test('is connecting until its host has joined once', async () => {
+    expect(await boxState(box('never'), false)).toBe('connecting')
+  })
+
+  test('is starting while instabox has not made the machine yet', async () => {
+    expect(
+      await boxState({ ...box('none'), box: { provider: 'instabox' } } as AgentDevice, false),
+    ).toBe('creating')
   })
 
   test('reads offline once its host has connected and then dropped', async () => {

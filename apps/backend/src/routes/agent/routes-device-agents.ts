@@ -11,7 +11,7 @@ import {
 } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
-import { isActiveTeamMember, removeDeviceAgent } from '@/lib/agent/devices/store'
+import { isActiveTeamMember, removeDeviceAgent, renameDeviceAgent } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { isTeamIdShape } from '@/lib/team-id'
 import { zv } from '@/lib/validate'
@@ -29,6 +29,12 @@ const createSchema = z.object({
   instanceId: z.string().uuid().optional(),
 })
 
+// An empty label gives the agent back its default name.
+const renameSchema = z.object({
+  teamId: z.string().trim().min(1).max(64).optional(),
+  label: z.string().trim().max(100),
+})
+
 export type DeviceAgentRouteDeps = {
   requireAccess: typeof requireDeviceAccess
   isMember: typeof isActiveTeamMember
@@ -36,6 +42,7 @@ export type DeviceAgentRouteDeps = {
   createInstance: typeof createLocalAgentInstance
   removeInstance: typeof removeLocalAgentInstance
   forgetAgent: typeof removeDeviceAgent
+  renameAgent: typeof renameDeviceAgent
 }
 
 export function createDeviceAgentRoutes(
@@ -46,19 +53,30 @@ export function createDeviceAgentRoutes(
     createInstance: createLocalAgentInstance,
     removeInstance: removeLocalAgentInstance,
     forgetAgent: removeDeviceAgent,
+    renameAgent: renameDeviceAgent,
   },
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
-  /** Adding or removing an agent manages the Box, and needs a host that supports it. */
-  const managedDevice = async (c: Context<{ Variables: AuthVariables }>, candidate?: string) => {
+  const managed = async (c: Context<{ Variables: AuthVariables }>, candidate?: string) => {
     const userId = c.get('userId')
     const deviceId = c.req.param('deviceId') ?? ''
     const teamId = readTeamIdCandidate(c, candidate)
 
     if (!teamId || !isTeamIdShape(teamId) || !(await deps.isMember(userId, teamId)))
       throw new AppError(404, 'device_not_found', 'Device is not available in this team')
-    const device = await deps.requireAccess(userId, teamId, deviceId, 'manage')
+
+    return {
+      userId,
+      deviceId,
+      teamId,
+      device: await deps.requireAccess(userId, teamId, deviceId, 'manage'),
+    }
+  }
+
+  /** Adding or removing an agent manages the Box, and needs a host that supports it. */
+  const managedDevice = async (c: Context<{ Variables: AuthVariables }>, candidate?: string) => {
+    const { userId, deviceId, teamId, device } = await managed(c, candidate)
     const presence = await deps.getPresence(device.userId, deviceId)
 
     if (presence?.status?.agentInstances !== true)
@@ -88,6 +106,18 @@ export function createDeviceAgentRoutes(
       },
       201,
     )
+  })
+
+  // Names live in the device's agent registry, so this works with the computer offline.
+  // `:agent` is an added agent's instance id, or the provider for the computer's own.
+  routes.patch('/devices/:deviceId/agents/:agent', zv('json', renameSchema), async (c) => {
+    const { teamId, label } = c.req.valid('json')
+    const { device, deviceId } = await managed(c, teamId)
+
+    if (!(await deps.renameAgent(device.userId, deviceId, c.req.param('agent'), label)))
+      throw new AppError(404, 'agent_not_found', 'This agent is not registered on that computer.')
+
+    return c.json({ ok: true })
   })
 
   // A default agent (no instance id) is the computer's own and cannot be removed.

@@ -6,6 +6,7 @@ export type RegisteredAgent = {
   provider: LocalAgentProvider
   /** Absent for the computer's own default agent of that provider. */
   instanceId?: string
+  /** The name a person gave it; a report only names an agent that joins without one. */
   label?: string
   /** What the computer last reported; kept while it is offline. */
   signedIn: boolean | null
@@ -13,6 +14,18 @@ export type RegisteredAgent = {
 
 export const registryKey = (agent: Pick<RegisteredAgent, 'provider' | 'instanceId'>) =>
   agent.instanceId ?? agent.provider
+
+/** An agent as a report shows it now. Once registered, its name is the registry's alone:
+ *  a report names only an agent that joins, so a cleared name stays cleared. */
+export function withReport(
+  known: RegisteredAgent | undefined,
+  reported: RegisteredAgent,
+): RegisteredAgent {
+  if (!known) return reported
+  const { label: _reported, ...rest } = reported
+
+  return { ...known, ...rest }
+}
 
 /** What one status report says about each agent, pending sign-ins excluded. */
 export function reportedAgents(status: LocalRuntimeStatus | undefined): RegisteredAgent[] {
@@ -33,8 +46,8 @@ export function reportedAgents(status: LocalRuntimeStatus | undefined): Register
   ]
 }
 
-/** Registered agents get the latest report; an agent seen signed in for the first time
- *  joins. Nothing leaves here. Returns null when nothing changed. */
+/** Registered agents get the latest report, but keep their name; an agent seen signed in
+ *  for the first time joins. Nothing leaves here. Returns null when nothing changed. */
 export function mergeAgentRegistry(
   registered: RegisteredAgent[],
   reported: RegisteredAgent[],
@@ -43,11 +56,28 @@ export function mergeAgentRegistry(
 
   for (const agent of reported) {
     const key = registryKey(agent)
+    const known = merged.get(key)
 
-    if (merged.has(key) || agent.signedIn === true)
-      merged.set(key, { ...merged.get(key), ...agent })
+    if (known || agent.signedIn === true) merged.set(key, withReport(known, agent))
   }
   const next = [...merged.values()]
 
   return JSON.stringify(next) === JSON.stringify(registered) ? null : next
+}
+
+/** Names a registered agent; an empty label gives it back its default name.
+ *  Returns null when no such agent is registered. */
+export function renameRegisteredAgent(
+  registered: RegisteredAgent[],
+  key: string,
+  label: string,
+): RegisteredAgent[] | null {
+  if (!registered.some((agent) => registryKey(agent) === key)) return null
+
+  return registered.map((agent) => {
+    if (registryKey(agent) !== key) return agent
+    const { label: _previous, ...rest } = agent
+
+    return label ? { ...rest, label } : rest
+  })
 }

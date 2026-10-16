@@ -94,6 +94,21 @@ export function pauseBox(deviceId: string, teamId: string): Promise<AgentDevice>
 export function resumeBox(deviceId: string, teamId: string): Promise<AgentDevice> {
   return call('POST', box(deviceId, '/resume', teamId), undefined, { retry: false })
 }
+/** `agent` is an added agent's instance id, or the provider for the computer's own. An
+ *  empty label gives it back its default name. */
+export function renameDeviceAgent(
+  deviceId: string,
+  teamId: string,
+  agent: string,
+  label: string,
+): Promise<{ ok: true }> {
+  return call(
+    'PATCH',
+    `/agent/devices/${encodeURIComponent(deviceId)}/agents/${encodeURIComponent(agent)}`,
+    { teamId, label },
+    { retry: false },
+  )
+}
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }

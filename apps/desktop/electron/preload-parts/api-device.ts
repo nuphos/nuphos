@@ -51,6 +51,8 @@ export const deviceApi = {
     ipcRenderer.invoke('box:createAgent', deviceId, teamId, provider),
   boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>
     ipcRenderer.invoke('box:removeAgent', deviceId, teamId, instanceId),
+  boxRenameAgent: (deviceId: string, teamId: string, agent: string, label: string) =>
+    ipcRenderer.invoke('box:renameAgent', deviceId, teamId, agent, label),
   boxRename: (deviceId: string, teamId: string, label: string) =>
     ipcRenderer.invoke('box:rename', deviceId, teamId, label),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),
