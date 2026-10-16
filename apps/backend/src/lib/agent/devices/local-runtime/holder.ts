@@ -2,12 +2,16 @@ import { randomUUID } from 'node:crypto'
 
 import { logEvent } from '@/lib/observability'
 
+import { reportedAgents } from '../agent-registry'
+
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson, streamChannel } from './protocol'
 
+import type { BoxMetrics } from '../metrics-schema'
 import type { TunnelBus } from './bus'
 import type { LocalRuntimePresenceStore } from './presence'
 import type { BackendFrame, HolderMessage, LocalRuntimeStatus, StreamMessage } from './protocol'
+import type { RequestOrigin } from '@/lib/request-origin'
 
 export type TunnelConnection = {
   send(frame: BackendFrame): void
@@ -20,6 +24,15 @@ export type TunnelHolderDeps = {
   isMember: (userId: string, teamId: string) => Promise<boolean>
   heartbeatMs?: number
   idleTimeoutMs?: number
+  /** Keeps the agents a report shows signed in listed while the computer is offline. */
+  recordAgents?: (
+    userId: string,
+    deviceId: string,
+    status: LocalRuntimeStatus,
+    from?: RequestOrigin,
+  ) => Promise<void>
+  /** Told when the tunnel opens or closes; must not throw. */
+  connectionChanged?: (userId: string, deviceId: string) => void
 }
 
 export type RuntimeTunnel = {
@@ -46,9 +59,13 @@ export async function attachRuntimeTunnel(
   deps: TunnelHolderDeps,
 ): Promise<RuntimeTunnel> {
   const conn = randomUUID()
-  const streams = new Set<string>()
+  const streams = new Map<string, string>()
   const channel = holderChannel(userId, deviceId)
   let status: LocalRuntimeStatus | undefined
+  let recorded: string | undefined
+  let metrics: BoxMetrics | undefined
+  let metricsReceivedAt: number | undefined
+  let metricsLeaseUntil = 0
   let lastFrameAt = Date.now()
   let ended = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
@@ -58,7 +75,12 @@ export async function attachRuntimeTunnel(
     deps.bus.publish(streamChannel(s), JSON.stringify(message)).catch(() => {})
   const refreshPresence = () =>
     deps.presence
-      .put(userId, deviceId, { conn, ...(status ? { status } : {}), seenAt: Date.now() })
+      .put(userId, deviceId, {
+        conn,
+        ...(status ? { status } : {}),
+        ...(metrics ? { metrics, metricsReceivedAt } : {}),
+        seenAt: Date.now(),
+      })
       .then((updated) => {
         if (!updated && !ended) {
           end()
@@ -76,30 +98,29 @@ export async function attachRuntimeTunnel(
     clearInterval(heartbeat)
     heartbeat = undefined
     unsubscribe()
-    for (const s of streams)
+    for (const s of streams.keys())
       void toStream(s, { t: 'close', reason: 'The computer running this agent disconnected' })
     streams.clear()
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
   }
 
   const openStream = async (message: Extract<HolderMessage, { t: 'open' }>) => {
-    const allowed = await deps.isMember(userId, message.teamId).catch(() => false)
+    // The person acting must still be in the team; the owner's membership is irrelevant.
+    const allowed = await deps.isMember(message.actorId, message.teamId).catch(() => false)
 
     if (ended) return
     if (!allowed) {
-      await toStream(message.s, {
-        t: 'close',
-        reason: 'The owner of this agent is not in this team',
-      })
+      await toStream(message.s, { t: 'close', reason: 'You are not in this team' })
 
       return
     }
-    streams.add(message.s)
+    streams.set(message.s, message.actorId)
     connection.send({
       t: 'open',
       s: message.s,
       purpose: message.purpose,
       provider: message.provider,
+      ...(message.instanceId ? { instanceId: message.instanceId } : {}),
     })
   }
 
@@ -119,8 +140,30 @@ export async function attachRuntimeTunnel(
         connection.close(TUNNEL_CLOSE_REVOKED, 'This computer was disconnected from Nuphos')
 
         return
+      case 'revoke-actor':
+        for (const [s, actorId] of streams)
+          if (actorId === message.actorId) {
+            streams.delete(s)
+            connection.send({ t: 'close', s })
+            void toStream(s, {
+              t: 'close',
+              code: 4003,
+              reason: 'Your access to this Box was removed',
+            })
+          }
+
+        return
       case 'ping':
         if (message.conn === conn) connection.send({ t: 'ping' })
+
+        return
+      case 'metrics':
+        if (message.conn === conn && Number.isFinite(message.leaseMs)) {
+          const leaseMs = Math.min(12_000, Math.max(0, message.leaseMs))
+
+          metricsLeaseUntil = Date.now() + leaseMs
+          connection.send({ t: 'metrics', leaseMs })
+        }
 
         return
       case 'open':
@@ -166,6 +209,7 @@ export async function attachRuntimeTunnel(
     throw error
   }
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
+  deps.connectionChanged?.(userId, deviceId)
 
   return {
     receive(raw) {
@@ -176,10 +220,34 @@ export async function attachRuntimeTunnel(
       const frame = parsed.data
 
       switch (frame.t) {
-        case 'status':
-          status = frame.status
+        case 'metrics':
+          if (Date.now() >= metricsLeaseUntil) return
+          metrics = frame.metrics
+          metricsReceivedAt = Date.now()
+          void refreshPresence()
 
           return
+        case 'status': {
+          const reported = frame.status
+
+          status = reported
+          // Only a changed agent list is written, not every status report.
+          const agents = JSON.stringify(reportedAgents(reported))
+
+          if (deps.recordAgents && agents !== recorded) {
+            const record = deps.recordAgents
+
+            recorded = agents
+            // Present first, then noted as seen: a Box never reads offline before it joined.
+            void refreshPresence()
+              .then(() => record(userId, deviceId, reported))
+              .catch(() => {
+                recorded = undefined
+              })
+          }
+
+          return
+        }
         case 'pong':
           lastFrameAt = Date.now()
           void refreshPresence()
@@ -203,11 +271,13 @@ export async function attachRuntimeTunnel(
       }
     },
     closed() {
-      if (!ended)
+      if (!ended) {
         logEvent('info', 'agent.local_runtime.tunnel_closed', {
           user_id: userId,
           device_id: deviceId,
         })
+        deps.connectionChanged?.(userId, deviceId)
+      }
       end()
     },
   }

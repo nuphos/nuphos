@@ -19,6 +19,7 @@ export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart })
       <span>
         <span className="font-medium text-secondary">{HEADLINE[part.reason]}</span>
         {detail && <> {detail}</>}
+        {part.repeats && <span className="tabular-nums"> ×{part.repeats}</span>}
       </span>
     </div>
   )

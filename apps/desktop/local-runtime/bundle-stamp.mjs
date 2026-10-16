@@ -7,17 +7,25 @@ const here = dirname(fileURLToPath(import.meta.url))
 
 export const PATCH_SOURCES = [
   'adapter-patches.mjs',
+  'box-desktop-mcp.mjs',
   'skills-sync.mjs',
   'claude-session-env.mjs',
   'computer-use-permission.mjs',
 ]
-export const STAMP_SOURCES = ['prepare.mjs', 'computer-use-permission.swift', ...PATCH_SOURCES]
+export const STAMP_SOURCES = [
+  'prepare.mjs',
+  'computer-use-permission.swift',
+  'desktop-session.mjs',
+  ...PATCH_SOURCES,
+]
 /** The backend's fixed attachment program, which the local runtime runs as its own job. */
 export const ATTACHMENT_JOB = '../../backend/src/lib/claude-code-preview/attachment-job.mjs'
 /** The runtime image's adapters, staged as the image stages them. */
 export const RUNTIME_DIR = join(here, '../../runtime/image')
 export const RUNTIME_SOURCES = [
   'runtime-defaults.mjs',
+  'claude-login.mjs',
+  'codex-login.mjs',
   'reply-images.mjs',
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',

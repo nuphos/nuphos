@@ -1,8 +1,11 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
+import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
 import { ACTIVITY_RANGES, getTeamActivity } from '@/lib/agent/team-activity'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
+import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
@@ -100,6 +103,20 @@ teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) =>
 )
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
+// The team's Box vCPU limit and use, for the Boxes section.
+teamScoped.get('/box-usage', async (c) => c.json(await boxUsageView(c.get('teamId'))))
+teamScoped.get(
+  '/box-usage/history',
+  zv(
+    'query',
+    z.object({
+      range: z
+        .enum(Object.keys(QUOTA_HISTORY_RANGES) as [keyof typeof QUOTA_HISTORY_RANGES])
+        .default('1d'),
+    }),
+  ),
+  async (c) => c.json(await listBoxUsageHistory(c.get('teamId'), c.req.valid('query').range)),
+)
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
 teamScoped.route('/instructions', instructionsRoutes)

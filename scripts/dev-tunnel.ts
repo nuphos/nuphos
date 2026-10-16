@@ -7,6 +7,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import { pushEvent } from './dev-event-log.ts'
+import { spawnQuickTunnel } from './dev-quick-tunnel.ts'
 import { signalGroup } from './dev-shutdown.ts'
 import { LOG_ROOT } from './dev-workspace.ts'
 
@@ -185,32 +186,9 @@ async function startQuickTunnel(port: number): Promise<string | null> {
   tunnel.status = 'starting'
   tunnel.note = 'starting…'
   pushEvent(tunnel, 'starting quick tunnel (trycloudflare)…')
-  const child = spawn(
-    'cloudflared',
-    ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate', '--no-prechecks'],
-    { detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
-  )
+  const { proc, url } = await spawnQuickTunnel(port)
 
-  tunnel.proc = child
-  const url = await new Promise<string | null>((resolve) => {
-    let settled = false
-    const finish = (v: string | null) => {
-      if (!settled) {
-        settled = true
-        resolve(v)
-      }
-    }
-    const onData = (chunk: Buffer) => {
-      const m = chunk.toString().match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)
-
-      if (m) finish(m[0])
-    }
-
-    child.stdout?.on('data', onData)
-    child.stderr?.on('data', onData)
-    setTimeout(() => finish(null), 20_000)
-  })
-
+  tunnel.proc = proc
   applyQuickTunnelResult(url)
 
   return url

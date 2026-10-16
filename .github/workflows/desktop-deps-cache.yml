@@ -1,0 +1,36 @@
+name: Desktop deps cache
+
+# CI's Desktop job restores its pnpm store through setup-node. A cache saved on
+# a PR or a merge-queue ref is readable only by that ref; only main's is shared.
+# CI never runs on main, so every queue entry and every PR's first run missed
+# and saved its own copy. This keeps the one copy they can all restore.
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/desktop/pnpm-lock.yaml
+      - .github/workflows/desktop-deps-cache.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    # The cache key carries the OS and arch, so this must match CI's runner.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Fill the pnpm store
+        working-directory: apps/desktop
+        run: pnpm install --frozen-lockfile --ignore-scripts

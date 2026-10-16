@@ -1,4 +1,5 @@
 import type { RuntimeExecution } from '../../../lib/runtimeExecution'
+import type { SessionDesktop, SessionDesktops } from '../../../lib/sessionDesktops'
 
 export type ShellEntry = {
   id: string
@@ -21,4 +22,25 @@ export function shellsFromRuntimeState(snapshot: RuntimeExecution | undefined): 
         ]
       : [],
   )
+}
+
+/** This session's desktops, by X display and the title the backend gives them, in wire order. */
+export function desktopsFromRuntimeState(snapshot: RuntimeExecution | undefined): SessionDesktop[] {
+  return (snapshot?.tools ?? []).flatMap((tool) =>
+    tool.desktop
+      ? [{ display: tool.desktop.display, title: tool.title ?? `:${String(tool.desktop.display)}` }]
+      : [],
+  )
+}
+
+/** What the dock gets for a conversation: its desktops, and "Desktop" only for its owner, the one the Box admits. */
+export function sessionDesktopsOf(
+  teamId: string,
+  tab: { runtimeState?: RuntimeExecution; foreign?: boolean },
+): SessionDesktops {
+  return {
+    teamId,
+    desktops: desktopsFromRuntimeState(tab.runtimeState),
+    canOpen: tab.runtimeState?.canOpenDesktop === true && !tab.foreign,
+  }
 }

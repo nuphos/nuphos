@@ -136,3 +136,16 @@ describe('getConversations shared scope', () => {
     expect(query.archivedAt).toEqual({ $exists: false })
   })
 })
+
+// list_recent_conversations children:true — an agent's own sub-agents.
+describe('getConversations parentSessionId filter', () => {
+  test("lists only the viewer's conversations nested under the parent", async () => {
+    expect(await queryFor({ teamId: TEAM, scope: 'mine', parentSessionId: 'parent' })).toEqual({
+      teamId: TEAM,
+      ...READABLE,
+      userId: VIEWER,
+      parentSessionId: 'parent',
+      ...NO_TRIGGER_RUNS,
+    })
+  })
+})

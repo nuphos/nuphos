@@ -30,10 +30,12 @@ export function usePaneOrder(
 
     // The current session's browser tabs render whether or not they have been
     // opened, exactly as its other tabs do.
-    for (const tab of tabs) if (tab.active === 'team.browser') browserTabs.set(tab.id, tab)
+    for (const tab of tabs)
+      if (tab.active === 'team.browser' || tab.active === 'team.desktop')
+        browserTabs.set(tab.id, tab)
 
     return [
-      ...tabs.filter((tab) => tab.active !== 'team.browser'),
+      ...tabs.filter((tab) => tab.active !== 'team.browser' && tab.active !== 'team.desktop'),
       ...orderBrowserPanes([...browserTabs.values()]),
     ]
   }, [buckets, tabs])

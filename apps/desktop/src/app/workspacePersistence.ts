@@ -170,13 +170,25 @@ export function withRenamedPage(snapshot: LegacyNavigationSnapshot): NavigationS
 
 const RENAMED_PAGE_TITLES: Record<string, string> = { 'Cost Management': 'Dashboards' }
 
+/**
+ * A desktop is always a session's display or a Box. Before desktops named their
+ * Box, a Box desktop held only its short-lived link, which names no Box: such an
+ * entry has nothing to reconnect to and is dropped.
+ */
+function hasDesktopTarget(snapshot: NavigationSnapshot): boolean {
+  return snapshot.active !== 'team.desktop' || Boolean(snapshot.filter)
+}
+
 export function restorePersistedTab(persisted: PersistedWorkspaceTab): WorkspaceTabState | null {
-  const navHistory = (Array.isArray(persisted.navHistory) ? persisted.navHistory : [])
+  const entries = (Array.isArray(persisted.navHistory) ? persisted.navHistory : [])
     .map(withRenamedPage)
     .map(withKnownConnectorDetail)
+  const navHistory = entries.filter(hasDesktopTarget)
+  const current = Math.min(Math.max(0, persisted.navHistoryIndex ?? 0), entries.length - 1)
 
-  if (navHistory.length === 0) return null
-  const index = Math.min(Math.max(0, persisted.navHistoryIndex ?? 0), navHistory.length - 1)
+  // A tab whose current page was a targetless desktop goes with it.
+  if (navHistory.length === 0 || !hasDesktopTarget(entries[current])) return null
+  const index = entries.slice(0, current).filter(hasDesktopTarget).length
   const snapshot = navHistory[index]
   const teamId = snapshot?.scope?.teamId
 

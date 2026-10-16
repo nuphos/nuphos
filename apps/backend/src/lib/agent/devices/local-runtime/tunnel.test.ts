@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 
 import { localRuntimeUrl } from './address'
 import { createLocalTunnelBus } from './bus'
+import { holderChannel } from './protocol'
 import { attachRuntimeTunnel, TUNNEL_CLOSE_SUPERSEDED } from './holder'
 import { createMemoryPresenceStore } from './presence'
 import { processSingleton } from './singleton'
@@ -40,6 +41,8 @@ async function connectDesktop(
   teams: Set<string>,
   options: {
     echo?: boolean
+    /** Active members by team; any user when absent. */
+    members?: Map<string, Set<string>>
     heartbeatMs?: number
     idleTimeoutMs?: number
   } = {},
@@ -63,7 +66,8 @@ async function connectDesktop(
     {
       bus,
       presence,
-      isMember: async (_u, teamId) => teams.has(teamId),
+      isMember: async (u, teamId) =>
+        teams.has(teamId) && (options.members?.get(teamId)?.has(u) ?? true),
       heartbeatMs: options.heartbeatMs ?? 60_000,
       ...(options.idleTimeoutMs ? { idleTimeoutMs: options.idleTimeoutMs } : {}),
     },
@@ -82,9 +86,14 @@ async function connectDesktop(
   return desktop
 }
 
-function openStream(bus: TunnelBus, presence: LocalRuntimePresenceStore, teamId: string) {
+function openStream(
+  bus: TunnelBus,
+  presence: LocalRuntimePresenceStore,
+  teamId: string,
+  actorId = owner.userId,
+) {
   const socket = openLocalRuntimeSocket(
-    localRuntimeUrl(owner, teamId),
+    localRuntimeUrl(owner, teamId, actorId),
     ['openab.bearer.transport', 'acp.v1'],
     { bus, presence, livenessMs: 60_000 },
   )
@@ -123,6 +132,48 @@ describe('local runtime tunnel', () => {
 
     expect(events.map((event) => event.type)).toEqual(['close'])
     expect(desktop.frames.filter((frame) => frame.t === 'open')).toEqual([])
+  })
+
+  test('the actor’s membership decides, not the transport owner’s', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    // The owner (who ordered the Box) left the team; a member still in it may open a stream.
+    const members = new Map([['t1', new Set(['alice'])]])
+
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true, members })
+    const alice = openStream(bus, presence, 't1', 'alice')
+    const gone = openStream(bus, presence, 't1', owner.userId)
+
+    await eventually(() => alice.events.some((event) => event.type === 'open'))
+    await eventually(() => gone.events.some((event) => event.type === 'close'))
+    expect(gone.events.map((event) => event.type)).toEqual(['close'])
+  })
+
+  test('revoking one person closes only their streams; the tunnel and others stay', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    const alice = openStream(bus, presence, 't1', 'alice')
+    const bob = openStream(bus, presence, 't1', 'bob')
+
+    await eventually(() => alice.events.some((event) => event.type === 'open'))
+    await eventually(() => bob.events.some((event) => event.type === 'open'))
+    await bus.publish(
+      holderChannel(owner.userId, owner.deviceId),
+      JSON.stringify({ t: 'revoke-actor', actorId: 'alice' }),
+    )
+    await eventually(() => alice.events.some((event) => event.type === 'close'))
+    // Later input from the revoked stream never reaches the computer.
+    const before = desktop.frames.length
+
+    alice.socket.close()
+    bob.socket.send('still here')
+    await eventually(() => bob.events.some((event) => event.type === 'message'))
+
+    expect(alice.events.find((event) => event.type === 'close')?.reason).toContain('removed')
+    expect(desktop.frames.slice(before).filter((frame) => frame.t === 'data')).toHaveLength(1)
+    expect(desktop.closed).toBeUndefined()
+    expect(bob.events.some((event) => event.type === 'close')).toBe(false)
   })
 
   test('an offline computer fails the connection instead of hanging', async () => {
@@ -257,4 +308,39 @@ test('losing the command bus also loses heartbeat and takes the device offline',
   desktop.send({ t: 'status', status: { agents: {}, localExec: true } })
   await eventually(() => desktop.closed !== undefined)
   expect(await presence.get(owner.userId, owner.deviceId)).toBeNull()
+})
+
+test('a status report records the signed-in agents once, not on every repeat', async () => {
+  const records: unknown[] = []
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send() {}, close() {} },
+    {
+      bus: createLocalTunnelBus(),
+      presence: createMemoryPresenceStore(),
+      isMember: async () => true,
+      recordAgents: async (userId, deviceId, status) => {
+        records.push([userId, deviceId, Object.keys(status.agents)])
+      },
+    },
+  )
+
+  tunnels.push(tunnel)
+  const report = (loggedIn: boolean) =>
+    tunnel.receive(
+      JSON.stringify({
+        t: 'status',
+        status: { agents: { 'claude-code': { cli: { installed: true, loggedIn } } } },
+      }),
+    )
+
+  report(true)
+  report(true)
+  report(false)
+  await eventually(() => records.length === 2)
+  expect(records).toEqual([
+    ['u1', 'd1', ['claude-code']],
+    ['u1', 'd1', ['claude-code']],
+  ])
 })

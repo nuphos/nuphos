@@ -10,12 +10,15 @@ import { markDirty, pushEvent } from './dev-event-log.ts'
 import { localBackendEnv } from './dev-local-stack-env.ts'
 import { managedBackendEnv } from './dev-managed-env.ts'
 import { findFreePort, releasePort } from './dev-ports.ts'
+import { storageTunnelUrl } from './dev-quick-tunnel.ts'
 import { backend, ensureDeps, openLog, startTiming, writeRaw } from './dev-services.ts'
 import { isQuitting } from './dev-shutdown.ts'
-import { setupTunnel } from './dev-tunnel.ts'
+import { setupTunnel, tunnel } from './dev-tunnel.ts'
 import { BACKEND_DIR, BASE_BACKEND_PORT, MAIN_ROOT } from './dev-workspace.ts'
 
 import type { LocalStack } from './dev-local-stack-env.ts'
+
+let tunnelPort: number | null = null
 
 // Port-race recovery: if a parallel worktree grabbed our chosen port between
 // probe and bind, the backend exits EADDRINUSE — we pick a fresh port and retry.
@@ -174,10 +177,16 @@ export async function startBackend(local: LocalStack, managedContext: string | n
   if (backend.port) releasePort(backend.port) // give up the port that was taken
   assignBackendPort(await findFreePort(probeFrom))
   const baseEnv = backendEnv()
-  // Self-hosted runtimes and remote sandboxes need a public URL for *this*
-  // backend, never PROD. Named tunnels resolve instantly; a quick tunnel adds a
-  // few seconds while its URL is minted.
-  const tunnelUrl = await setupTunnel(backend.port)
+  // Runtimes and Boxes need a public URL for *this* backend, never PROD. A restart on the
+  // same port keeps a live quick tunnel, since Boxes were already handed its URL.
+  const alive = tunnel.proc?.exitCode === null && tunnel.proc.signalCode === null
+  const keep =
+    alive && tunnel.kind === 'quick' && tunnel.url !== null && tunnelPort === backend.port
+  const tunnelUrl = keep ? tunnel.url : await setupTunnel(backend.port)
+
+  tunnelPort = backend.port
+  // Boxes upload and fetch skills through presigned URLs, so they must not name 127.0.0.1.
+  const storageUrl = await storageTunnelUrl(local.rustfsPort)
   const child = spawn('bun', ['run', 'dev'], {
     cwd: BACKEND_DIR,
     env: {
@@ -189,6 +198,9 @@ export async function startBackend(local: LocalStack, managedContext: string | n
       FORCE_COLOR: '1',
       NUPHOS_BACKEND_URL: `http://host.docker.internal:${String(backend.port)}`,
       NUPHOS_PUBLIC_BACKEND_URL: tunnelUrl ?? '',
+      ...(storageUrl
+        ? { NUPHOS_FILE_TRANSFER_S3_ENDPOINT: storageUrl, ATLAS_SKILLS_S3_ENDPOINT: storageUrl }
+        : {}),
     },
     detached: true, // new process group so quit() can kill the whole tree
     stdio: ['ignore', 'pipe', 'pipe'],

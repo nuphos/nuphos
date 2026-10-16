@@ -1,6 +1,8 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { revokeTeamBoxStreams } from '@/lib/agent/devices/box-access'
+import { dropFromTeamBoxAccess } from '@/lib/agent/devices/store'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
 import { AppError } from '@/lib/errors'
@@ -173,6 +175,9 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
       const result = await updateTeamMemberRole(c.get('teamId'), memberId, role, c.get('userId'))
 
       if (result.kind === 'updated') {
+        // A demoted administrator keeps only what the Boxes' access lists give them.
+        if (role !== 'ADMINISTRATOR') await revokeTeamBoxStreams(c.get('teamId'), memberId)
+
         return c.json({ member: result.member })
       }
       if (result.kind === 'team_not_found' || result.kind === 'member_not_found') {
@@ -201,6 +206,9 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     const result = await removeUserFromTeam(c.get('teamId'), memberId, c.get('userId'))
 
     if (result === 'removed') {
+      await revokeTeamBoxStreams(c.get('teamId'), memberId)
+      await dropFromTeamBoxAccess(c.get('teamId'), memberId)
+
       return c.body(null, 204)
     }
     if (result === 'team_not_found' || result === 'member_not_found') {
@@ -238,6 +246,9 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     const result = await leaveTeam(c.get('teamId'), c.get('userId'))
 
     if (result === 'left') {
+      await revokeTeamBoxStreams(c.get('teamId'), c.get('userId'))
+      await dropFromTeamBoxAccess(c.get('teamId'), c.get('userId'))
+
       return c.body(null, 204)
     }
     if (result === 'team_not_found' || result === 'member_not_found') {

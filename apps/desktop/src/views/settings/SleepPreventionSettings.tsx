@@ -1,8 +1,8 @@
-import { Switch } from '@base-ui/react/switch'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { AppSelect } from '../../components/ui/select'
+import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 
 import { LOCAL_AGENT_CARD } from './LocalAgentCard'
@@ -60,14 +60,11 @@ export function SleepPreventionSettings({
       />
       <label className="flex items-center justify-between gap-3 text-[12px] text-secondary">
         Only while connected to power
-        <Switch.Root
+        <Switch
           checked={current.onlyOnAC}
           disabled={saving}
-          onCheckedChange={(onlyOnAC) => void save({ ...current, onlyOnAC })}
-          className="relative h-5 w-9 shrink-0 rounded-full bg-zGray-700 data-[checked]:bg-zViolet-500 disabled:opacity-50"
-        >
-          <Switch.Thumb className="block h-4 w-4 translate-x-0.5 rounded-full bg-white data-[checked]:translate-x-[18px]" />
-        </Switch.Root>
+          onChange={(onlyOnAC) => void save({ ...current, onlyOnAC })}
+        />
       </label>
       <p role="status" className="text-[12px] text-secondary">
         {STATUS[current.reason]}

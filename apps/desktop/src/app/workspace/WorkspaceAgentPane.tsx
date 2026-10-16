@@ -140,6 +140,7 @@ export function WorkspaceAgentPane({
   }, [workspaceExpanded])
 
   if (!teamId) return null
+  const mayRename = currentHeading.canRename === true
 
   return (
     <main
@@ -179,7 +180,7 @@ export function WorkspaceAgentPane({
               sessionId={selectedSessionId}
               teamId={teamId}
               title={currentHeading.title}
-              canRename={currentHeading.canRename === true}
+              canRename={mayRename}
               editing={renamingSessionId === selectedSessionId}
               onEditingChange={(editing) =>
                 setRenamingSessionId((current) =>
@@ -204,10 +205,8 @@ export function WorkspaceAgentPane({
               teamId={teamId}
               title={currentHeading.title}
               currentUserId={user.id}
-              canManage={currentHeading.canRename === true}
-              warnLocalAgent={
-                currentHeading.canRename === true && isLocalAgentRuntime(currentHeading.runtimeId)
-              }
+              canManage={mayRename}
+              warnLocalAgent={mayRename && isLocalAgentRuntime(currentHeading.runtimeId)}
             />
           )}
           {selectedSessionId && currentHeading.saved !== false && (
@@ -217,8 +216,9 @@ export function WorkspaceAgentPane({
               teamId={teamId}
               userId={user.id}
               title={currentHeading.title}
-              canRename={currentHeading.canRename === true}
+              canRename={mayRename}
               canArchive={currentHeading.canArchive === true}
+              shortcutsActive={ws.chatShortcutsLive && !ws.mainPageOpen && !workspaceExpanded}
               onRename={() => setRenamingSessionId(selectedSessionId)}
               onFork={() => setAgentSidebarPendingFork(selectedSessionId)}
               canFork={!selectedSessionReadOnly}

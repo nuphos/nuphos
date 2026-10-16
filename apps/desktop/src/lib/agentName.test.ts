@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentName, agentTier, defaultAgent, groupAgentsByTier } from './agentName.ts'
+import {
+  agentName,
+  agentTier,
+  defaultAgent,
+  groupAgentsByTier,
+  listedAgents,
+  usable,
+} from './agentName.ts'
 
 const me = { userId: 'u1', deviceId: 'mac' }
 const here = {
@@ -25,45 +32,61 @@ test('this computer is Local, my other computers are Remote, team agents are Clo
   assert.equal(agentTier(here, null), 'remote')
 })
 
-test('a local agent is named for its computer', () => {
-  assert.equal(agentName(here, me), 'Local')
-  assert.equal(agentName(studio, me), 'Studio')
+test('every agent goes by its own label', () => {
+  assert.equal(agentName(here, me), 'MacBook · Claude Code')
+  assert.equal(agentName(studio, me), 'Studio · Claude Code')
   assert.equal(agentName(managed, me), 'Team Claude')
+  assert.equal(
+    agentName({ id: 'local_u1_studio_codex', label: 'Studio · Codex' }, me),
+    'Studio · Codex',
+  )
 })
 
-test('a conversation stamped with only an id and label still reads by its computer', () => {
-  assert.equal(agentName({ id: 'local_u1_mac', label: 'MacBook · Claude Code' }, me), 'Local')
-  assert.equal(agentName({ id: 'local_u1_studio_codex', label: 'Studio · Codex' }, me), 'Studio')
-})
-
-test('the picker groups agents Local, Remote, Cloud and leaves out empty sections', () => {
+test('the picker lists every agent in one untitled group', () => {
   const groups = groupAgentsByTier([managed, studio, here, external, hereCodex], me)
 
   assert.deepEqual(
     groups.map((group) => [group.title, group.agents.map((agent) => agent.id)]),
-    [
-      ['This computer', ['local_u1_mac', 'local_u1_mac_codex']],
-      ['My computers', ['local_u1_studio']],
-      ['Cloud', ['rt-1', 'rt-2']],
-    ],
-  )
-  assert.deepEqual(
-    groupAgentsByTier([managed], me).map((group) => group.tier),
-    ['cloud'],
+    [['', ['rt-1', 'local_u1_studio', 'local_u1_mac', 'rt-2', 'local_u1_mac_codex']]],
   )
   assert.deepEqual(groupAgentsByTier([], me), [])
 })
 
-test('a new conversation defaults to this computer when its agent is ready', () => {
+test('a new conversation starts on the usable agent with the most quota left', () => {
   const cloud = { ...managed, status: 'active' as const }
   const local = { ...here, status: 'active' as const }
   const remote = { ...studio, status: 'active' as const }
+  const used = new Map([
+    ['rt-1', 80],
+    ['local_u1_mac', 40],
+  ])
 
-  assert.equal(defaultAgent([cloud, remote, local], me)?.id, 'local_u1_mac')
+  assert.equal(defaultAgent([cloud, remote, local], me)?.id, 'rt-1')
+  assert.equal(defaultAgent([cloud, local], me, (agent) => used.get(agent.id))?.id, 'local_u1_mac')
   assert.equal(
-    defaultAgent([cloud, { ...local, local: { ...local.local, signedIn: false } }], me)?.id,
-    'rt-1',
+    defaultAgent([cloud, remote, local], me, (agent) => used.get(agent.id))?.id,
+    'local_u1_studio',
   )
-  assert.equal(defaultAgent([remote], me), undefined)
+  assert.equal(
+    defaultAgent([{ ...local, local: { ...local.local, signedIn: false } }], me),
+    undefined,
+  )
   assert.equal(defaultAgent([{ ...cloud, status: 'disabled' as const }], me), undefined)
+})
+
+test('one rule decides what the picker lists and what a new conversation starts on', () => {
+  const ready = { id: 'a', label: 'Ready', status: 'active' as const }
+  const starting = { ...ready, id: 'b', notReady: true }
+  const disabled = { ...ready, id: 'c', status: 'disabled' as const }
+  const signedIn = { ...here, status: 'active' as const }
+  const signedOut = { ...signedIn, id: 'd', local: { ...here.local, signedIn: false } }
+
+  assert.deepEqual(listedAgents([ready, starting, disabled, signedIn, signedOut]), [
+    ready,
+    signedIn,
+  ])
+  assert.deepEqual(listedAgents([starting, disabled, signedOut]), [])
+  // A not-ready agent is never the default, however much quota it has left.
+  assert.equal(defaultAgent([starting, ready], me, (agent) => (agent.id === 'b' ? 0 : 90))?.id, 'a')
+  assert.equal(usable(starting), false)
 })

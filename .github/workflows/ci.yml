@@ -307,16 +307,17 @@ jobs:
         working-directory: apps/desktop
         run: pnpm exec vite build
       # Staging and electron-builder cost ~3.5 minutes and have not caught
-      # anything the steps above missed, so they run only when a packaging input
-      # changed. The merge queue uses the same filter against the queue's base,
-      # so nothing that can break the package lands without being packaged.
+      # anything the steps above missed, so they run only in the merge queue and
+      # only when a packaging input changed against the queue's base. Nothing
+      # that can break the package lands without being packaged; a PR still
+      # reports this required check, just without the package.
       - name: Stage the local agent adapter
-        if: needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'merge_group' && needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
-        if: needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'merge_group' && needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:

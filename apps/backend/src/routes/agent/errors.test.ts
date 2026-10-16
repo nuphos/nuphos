@@ -32,6 +32,19 @@ test('a provider out of usage reaches clients as a named product state', () => {
   )
 })
 
+test('a Claude usage limit reaches clients as its own notice', () => {
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 4:20am (UTC)\n\n_The agent did not return any error details. Please check the agent's own logs for more information._",
+      -32603,
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_usage_exhausted')
+  expect(frame.errorText).toBe("You've hit your session limit · resets 4:20am (UTC)")
+})
+
 test('other ACP refusals keep their diagnostics and stay uncoded', () => {
   const frame = agentStreamErrorFrame(new OpenAbRpcError('Runtime is busy', -32005), undefined)
 

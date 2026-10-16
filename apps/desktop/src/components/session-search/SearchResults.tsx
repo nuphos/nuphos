@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 
 import { isMac } from '../../lib/platform'
 import { searchKeyAction } from '../../lib/searchKeyboard'
@@ -6,6 +6,8 @@ import { searchMatch } from '../../lib/searchMatch'
 import { relativeTimeFromNow } from '../agent/panel/textUtils'
 import { Avatar } from '../Avatar'
 
+import { PaletteCommandRows } from './PaletteCommandRows'
+import { matchPaletteCommands } from './paletteCommands'
 import { SearchResultRow } from './SearchResultRow'
 import { useSearchResults } from './useSearchResults'
 
@@ -24,6 +26,7 @@ export function SearchResults({
   loadPeople,
   onChoosePerson,
   onOpen,
+  onCommand,
 }: {
   teamId: string
   userId: string
@@ -36,32 +39,44 @@ export function SearchResults({
   loadPeople: () => Promise<TeamMember[]>
   onChoosePerson: (person: TeamMember) => void
   onOpen: (sessionId: string, beside: boolean) => void
+  onCommand: (id: string) => void
 }) {
   const results = useSearchResults(teamId, userId, mode, query, loadPeople, owner?.id)
   const [selected, setSelected] = useState(0)
   const listId = useId()
-  const count = mode === 'people' ? results.people.length : results.sessions.length
-  const selectedIndex = Math.min(selected, Math.max(0, count - 1))
+  const commands = useMemo(
+    () => (mode === 'sessions' && !owner ? matchPaletteCommands(query) : []),
+    [mode, owner, query],
+  )
+  const resultCount = mode === 'people' ? results.people.length : results.sessions.length
   const busy = pending || results.loading
-  const activeId = !busy && count > 0 ? `${listId}-${selectedIndex}` : undefined
+  // Commands are local, so they stay usable while only the sessions load.
+  const count = commands.length + (busy ? 0 : resultCount)
+  const selectedIndex = Math.min(selected, Math.max(0, count - 1))
+  const activeId = count > 0 ? `${listId}-${selectedIndex}` : undefined
 
   useEffect(() => {
     const input = inputRef.current
 
     if (!input) return
-    input.setAttribute('aria-controls', listId)
+    input.setAttribute('aria-controls', `${listId}-commands ${listId}`)
     if (activeId) input.setAttribute('aria-activedescendant', activeId)
     else input.removeAttribute('aria-activedescendant')
     document.getElementById(activeId ?? '')?.scrollIntoView({ block: 'nearest' })
     function onKey(event: KeyboardEvent) {
-      const action = searchKeyAction(event, busy, count, isMac)
+      const action = searchKeyAction(event, false, count, isMac)
 
       if (!action) return
       event.preventDefault()
       if (action === 'next' || action === 'previous') {
         setSelected((previous) => (previous + (action === 'next' ? 1 : -1) + count) % count)
-      } else if (mode === 'people') onChoosePerson(results.people[selectedIndex])
-      else onOpen(results.sessions[selectedIndex].conversation.sessionId, action === 'beside')
+      } else if (selectedIndex < commands.length) onCommand(commands[selectedIndex].id)
+      else if (mode === 'people') onChoosePerson(results.people[selectedIndex])
+      else {
+        const { conversation } = results.sessions[selectedIndex - commands.length]
+
+        onOpen(conversation.sessionId, action === 'beside')
+      }
     }
     input.addEventListener('keydown', onKey)
 
@@ -72,12 +87,13 @@ export function SearchResults({
     }
   }, [
     activeId,
-    busy,
+    commands,
     count,
     inputRef,
     listId,
     mode,
     onChoosePerson,
+    onCommand,
     onOpen,
     results.people,
     results.sessions,
@@ -95,17 +111,27 @@ export function SearchResults({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+      {commands.length > 0 && (
+        <PaletteCommandRows
+          listId={listId}
+          commands={commands}
+          query={query}
+          selectedIndex={selectedIndex}
+          onSelect={setSelected}
+          onRun={(command) => onCommand(command.id)}
+        />
+      )}
       <div className="flex h-8 items-center justify-between gap-3 px-4 text-xs text-secondary">
         <span className="truncate font-medium">{heading}</span>
         {!busy && (
           <span className="shrink-0 text-secondary">
-            {count}
+            {resultCount}
             {results.hasMore ? '+' : ''}{' '}
             {mode === 'people'
-              ? count === 1
+              ? resultCount === 1
                 ? 'person'
                 : 'people'
-              : count === 1
+              : resultCount === 1
                 ? 'result'
                 : 'results'}
           </span>
@@ -145,7 +171,7 @@ export function SearchResults({
           results.sessions.map(({ conversation, openedAt }, index) => (
             <SearchResultRow
               key={conversation.sessionId}
-              id={`${listId}-${index}`}
+              id={`${listId}-${commands.length + index}`}
               preview={
                 conversation.title &&
                 !searchMatch(conversation.title, query) &&
@@ -156,15 +182,15 @@ export function SearchResults({
               title={conversation.title || conversation.firstMessage || 'Untitled session'}
               subtitle={`${conversation.owner?.name || conversation.owner?.email || 'Unknown member'} · ${openedAt ? 'Opened' : 'Updated'} ${relativeTimeFromNow(openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt)}`}
               query={query}
-              selected={index === selectedIndex}
-              onSelect={() => setSelected(index)}
+              selected={commands.length + index === selectedIndex}
+              onSelect={() => setSelected(commands.length + index)}
               onOpen={(beside) => onOpen(conversation.sessionId, beside)}
             />
           ))}
       </div>
       <div role="status" className="px-4 text-sm text-secondary">
         {busy && <p className="py-5">Searching…</p>}
-        {!busy && !results.error && count === 0 && (
+        {!busy && !results.error && resultCount === 0 && (
           <p className="py-5">
             {results.recent
               ? 'Sessions you open will appear here. Type to search your team.'

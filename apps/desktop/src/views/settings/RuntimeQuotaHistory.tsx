@@ -66,7 +66,6 @@ export function RuntimeQuotaHistory({
   }, [teamId, range])
 
   const rows = loaded ? quotaHistoryRows(loaded.series, instances, loaded.range, loaded.nowMs) : []
-  const rowById = new Map(rows.map((row) => [row.instance.id, row]))
   const shownRange = loaded?.range ?? range
 
   return (
@@ -110,7 +109,6 @@ export function RuntimeQuotaHistory({
           <span>Agent</span>
           <span className="hidden @3xl:block">Runs on</span>
           <span>Usage</span>
-          <span className="hidden @3xl:block">Last {QUOTA_HISTORY_RANGES[shownRange].label}</span>
           <span />
         </div>
         {instances.map((instance) => (
@@ -118,7 +116,6 @@ export function RuntimeQuotaHistory({
             key={instance.id}
             instance={instance}
             quota={quotas.get(instance.id)}
-            row={rowById.get(instance.id)}
             selected={selectedId === instance.id}
             onSelect={onSelect}
           />

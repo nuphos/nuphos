@@ -109,8 +109,10 @@ export async function listRuntimeInstances(
 
 /**
  * Flags registered agents a conversation cannot reach right now, by the same
- * lookup a move makes, so a picker can disable them up front instead of failing
- * on click. Kept out of listRuntimeInstances, which the chat path also calls:
+ * chat (transport) lookup a move makes, so a picker can disable them up front
+ * instead of failing on click. A missing control key only means usage cannot be
+ * read (the Usage reading marks that `offline`); such an agent still chats, so it
+ * stays ready. Kept out of listRuntimeInstances, which the chat path also calls:
  * resolving endpoints may read runtime keys, and only the picker needs this.
  */
 export async function withRuntimeReadiness(

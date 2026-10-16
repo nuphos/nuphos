@@ -3,10 +3,13 @@ import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
 import { createAgentDeviceRoutes } from '@/routes/agent/routes-devices'
+import { nextBoxLabel } from '@/routes/agent/routes-devices-box'
 
 import type { DeviceExecAuditEntry } from '@/lib/agent/devices/audit'
 import type { AgentDeviceRegistration, AgentDevice } from '@/lib/agent/devices/store'
+import type { NuphosTeamRole } from '@/lib/identity/types'
 import type { AuthVariables } from '@/middleware/auth'
+import type { AgentDeviceRouteDependencies } from '@/routes/agent/routes-devices'
 
 let upserted: { userId: string; device: AgentDeviceRegistration }[]
 let devices: Record<string, AgentDevice>
@@ -15,12 +18,23 @@ let auditQueries: { ownerUserId: string; deviceId: string; limit: number; cursor
 let issued: { userId: string; options: { label?: string; expiresInSec?: number } }[]
 let credentials: Set<string>
 let disconnected: string[]
+let role: NuphosTeamRole | null
+let revoked: { deviceIds: string[]; actorIds: string[] }[]
+let metricsReads: string[]
+let onlineNow = false
+const members = [
+  { id: 'user-1', role: 'ADMINISTRATOR' },
+  { id: 'alice', role: 'EDITOR' },
+  { id: 'bob', role: 'EDITOR' },
+]
 
 function key(userId: string, deviceId: string): string {
   return `${userId}:${deviceId}`
 }
 
-function buildApp() {
+type BoxDeps = NonNullable<AgentDeviceRouteDependencies['box']>
+
+function buildApp(box: BoxDeps | null = null) {
   const app = new Hono<{ Variables: AuthVariables }>()
 
   app.use('*', async (c, next) => {
@@ -30,6 +44,28 @@ function buildApp() {
   app.route(
     '/agent',
     createAgentDeviceRoutes({
+      access: {
+        getDevice: async (owner, id) => devices[key(owner, id)] ?? null,
+        listDevices: async (owner) => Object.values(devices).filter((d) => d.userId === owner),
+        listBoxes: async (team) => Object.values(devices).filter((d) => d.box?.teamId === team),
+        role: async (_actor, team) => (team === 'team-1' ? role : null),
+      },
+      setBoxAccess: async (userId, deviceId, access) => {
+        const device = devices[key(userId, deviceId)]
+
+        if (device?.box) device.box.access = access
+
+        return Boolean(device?.box)
+      },
+      readMetrics: async (owner, deviceId, demand) => {
+        metricsReads.push(`${owner}:${deviceId}:${String(demand)}`)
+
+        return { metrics: null, metricsStatus: 'waiting', metricsReceivedAt: null }
+      },
+      teamMembers: async (team) => (team === 'team-1' ? members : []),
+      revokeStreams: async (targets, actorIds) => {
+        revoked.push({ deviceIds: targets.map((d) => d.deviceId), actorIds })
+      },
       upsertAgentDevice: async (userId, device) => {
         upserted.push({ userId, device })
         devices[key(userId, device.deviceId)] = {
@@ -40,6 +76,18 @@ function buildApp() {
         }
       },
       getAgentDevice: async (userId, deviceId) => devices[key(userId, deviceId)] ?? null,
+      listDevices: async (userId) => Object.values(devices).filter((d) => d.userId === userId),
+      isOnline: async () => onlineNow,
+      deleteDevice: async (userId, deviceId) => delete devices[key(userId, deviceId)],
+      renameDevice: async (userId, deviceId, label) => {
+        const device = devices[key(userId, deviceId)]
+
+        if (device) device.label = label
+
+        return device !== undefined
+      },
+      publicUrl: () => 'https://nuphos.example',
+      box,
       listDeviceExecAudit: async (ownerUserId, deviceId, options) => {
         auditQueries.push({ ownerUserId, deviceId, ...options })
         const entries = auditEntries.filter(
@@ -56,6 +104,9 @@ function buildApp() {
       },
       conversationTitlesFor: async (sessionIds) =>
         new Map(sessionIds.map((id) => [id, `Title ${id}`])),
+      boxDesktops: async (owner, deviceId, viewer, team) => [
+        { display: 2, sessionId: `${owner}:${deviceId}:${viewer}:${String(team)}`, title: 'Fix' },
+      ],
       issueJoinToken: async (userId, options) => {
         issued.push({ userId, options })
 
@@ -73,6 +124,7 @@ function buildApp() {
 }
 
 beforeEach(() => {
+  role = 'ADMINISTRATOR'
   upserted = []
   devices = {}
   auditEntries = []
@@ -80,6 +132,9 @@ beforeEach(() => {
   issued = []
   credentials = new Set()
   disconnected = []
+  revoked = []
+  metricsReads = []
+  onlineNow = false
 })
 
 function auditEntry(overrides: Partial<DeviceExecAuditEntry>): DeviceExecAuditEntry {
@@ -116,6 +171,31 @@ function registerDevice(userId: string, deviceId: string) {
 }
 
 describe('agent device routes', () => {
+  test('DELETE /agent/devices/:id removes an offline computer of the caller only', async () => {
+    const remove = (deviceId: string) =>
+      buildApp().request(`/agent/devices/${deviceId}?teamId=team-1`, { method: 'DELETE' })
+
+    registerDevice('user-1', 'gone')
+    registerDevice('user-1', 'live')
+    registerDevice('user-1', 'b1')
+    devices[key('user-1', 'b1')]!.box = { provider: 'instabox', teamId: 'team-1' }
+    registerDevice('someone-else', 'theirs')
+
+    expect((await remove('gone')).status).toBe(200)
+    expect(devices[key('user-1', 'gone')]).toBeUndefined()
+    expect(disconnected).toEqual([key('user-1', 'gone')])
+    expect((await remove('b1')).status).toBe(400)
+    expect((await remove('theirs')).status).toBe(404)
+    onlineNow = true
+    const online = await remove('live')
+
+    expect(online.status).toBe(409)
+    expect(await online.json()).toMatchObject({ error: { code: 'device_online' } })
+    expect(new Set(Object.keys(devices))).toEqual(
+      new Set([key('user-1', 'live'), key('user-1', 'b1'), key('someone-else', 'theirs')]),
+    )
+  })
+
   test('PUT /agent/devices upserts for the signed-in user', async () => {
     const app = buildApp()
     const response = await app.request('/agent/devices', {
@@ -201,6 +281,7 @@ describe('agent device routes', () => {
     expect(await response.json()).toEqual({
       token: 'nbj_test',
       expiresAt: '2026-10-14T12:15:00.000Z',
+      apiUrl: 'https://nuphos.example',
     })
     expect(issued).toEqual([
       { userId: 'user-1', options: { label: 'build box', expiresInSec: 900 } },
@@ -219,6 +300,7 @@ describe('agent device routes', () => {
   })
 
   test('DELETE .../credential revokes the caller own device and drops its tunnel', async () => {
+    registerDevice('user-1', 'd1')
     credentials.add(key('user-1', 'd1'))
     const response = await buildApp().request('/agent/devices/d1/credential', { method: 'DELETE' })
 
@@ -233,5 +315,444 @@ describe('agent device routes', () => {
     expect(response.status).toBe(404)
     expect(disconnected).toEqual([])
     expect(credentials.has(key('user-2', 'd1'))).toBe(true)
+  })
+
+  function boxDevice(userId: string, deviceId: string) {
+    return {
+      userId,
+      deviceId,
+      label: 'Box',
+      platform: 'linux',
+      allowLocalExec: true,
+      box: { provider: 'instabox' as const, sandboxId: `m_${deviceId}`, teamId: 'team-1' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  }
+
+  let machineState: 'running' | 'paused' = 'paused'
+
+  function fakeBox(calls: string[]): BoxDeps {
+    return {
+      create: async (userId, teamId, label) => {
+        calls.push(`create ${teamId} ${label}`)
+        devices[key(userId, 'b1')] = { ...boxDevice(userId, 'b1'), label }
+
+        return devices[key(userId, 'b1')]!
+      },
+      pause: async (userId, deviceId) => {
+        calls.push(`pause ${deviceId}`)
+        machineState = 'paused'
+
+        return boxDevice(userId, deviceId)
+      },
+      resume: async (userId, deviceId) => {
+        calls.push(`resume ${deviceId}`)
+        machineState = 'running'
+
+        return boxDevice(userId, deviceId)
+      },
+      destroy: async (_userId, deviceId) => {
+        calls.push(`destroy ${deviceId}`)
+      },
+      desktop: async (_userId, deviceId) => `https://desktop.example/${deviceId}`,
+      heal: (_userId, deviceId) => {
+        calls.push(`heal ${deviceId}`)
+      },
+      available: () => true,
+      state: async (device, online) =>
+        !device.box?.sandboxId ? 'creating' : online ? 'running' : machineState,
+    }
+  }
+
+  test('PUT /agent/devices never rewrites a Box row, even for its creator', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const response = await buildApp().request('/agent/devices', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: 'b1',
+        label: 'x',
+        platform: 'darwin',
+        allowLocalExec: true,
+      }),
+    })
+
+    expect(response.status).toBe(409)
+    expect(upserted).toEqual([])
+    expect(devices[key('user-1', 'b1')]?.platform).toBe('linux')
+  })
+
+  test('GET /devices lists the caller devices with their Box state and never the credential', async () => {
+    devices[key('user-1', 'b1')] = {
+      ...boxDevice('user-1', 'b1'),
+      credentialHash: 'secret-hash',
+    }
+    devices[key('user-2', 'b2')] = boxDevice('user-2', 'b2')
+    const response = await buildApp(fakeBox([])).request('/agent/devices?teamId=team-1')
+    const body = (await response.json()) as {
+      boxAvailable: boolean
+      devices: Record<string, unknown>[]
+    }
+
+    expect(response.status).toBe(200)
+    expect(body.boxAvailable).toBe(true)
+    expect(body.devices).toHaveLength(2)
+    expect(body.devices[0]).toMatchObject({
+      deviceId: 'b1',
+      online: false,
+      box: { state: 'paused' },
+    })
+    expect(JSON.stringify(body)).not.toContain('secret-hash')
+    const plain = (await (await buildApp().request('/agent/devices?teamId=team-1')).json()) as {
+      boxAvailable: boolean
+    }
+
+    expect(plain.boxAvailable).toBe(false)
+  })
+
+  test("GET /devices gives an online Box the viewer's session displays; an offline one none", async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const list = async () =>
+      (await (await buildApp(fakeBox([])).request('/agent/devices?teamId=team-1')).json()) as {
+        devices: { desktops?: unknown }[]
+      }
+
+    expect((await list()).devices[0]?.desktops).toBeUndefined()
+    onlineNow = true
+    expect((await list()).devices[0]?.desktops).toEqual([
+      { display: 2, sessionId: 'user-1:b1:user-1:team-1', title: 'Fix' },
+    ])
+  })
+
+  test('an unnamed Box counts up from the highest "Box N" the caller has', () => {
+    expect(nextBoxLabel([])).toBe('Box 1')
+    expect(nextBoxLabel(['Box 3', 'Build box', 'Box 1'])).toBe('Box 4')
+    expect(nextBoxLabel(['Box 10'])).toBe('Box 11')
+  })
+
+  test('PATCH /devices/:deviceId renames the caller device and only theirs', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    devices[key('user-2', 'b2')] = boxDevice('user-2', 'b2')
+    const app = buildApp(fakeBox([]))
+    const renamed = await app.request('/agent/devices/b1?teamId=team-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label: 'Build box' }),
+    })
+
+    expect(renamed.status).toBe(200)
+    expect(devices[key('user-1', 'b1')]?.label).toBe('Build box')
+    const other = await app.request('/agent/devices/b2?teamId=team-other', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label: 'Mine now' }),
+    })
+
+    expect(other.status).toBe(404)
+    expect(devices[key('user-2', 'b2')]?.label).toBe('Box')
+  })
+
+  test('listing a running offline Box never heals or restarts its host', async () => {
+    const calls: string[] = []
+
+    machineState = 'running'
+    devices[key('user-1', 'b1')] = { ...boxDevice('user-1', 'b1'), credentialHash: 'h' }
+    devices[key('user-1', 'b3')] = boxDevice('user-1', 'b3')
+    await buildApp(fakeBox(calls)).request('/agent/devices?teamId=team-1')
+    // b3 never joined: nothing to restart there.
+    expect(calls).toEqual([])
+  })
+
+  test('POST /devices/boxes is 503 without a Box provider', async () => {
+    const response = await buildApp().request('/agent/devices/boxes', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    })
+
+    expect(response.status).toBe(503)
+  })
+
+  test('POST /devices/boxes needs a team the caller belongs to', async () => {
+    const calls: string[] = []
+    const response = await buildApp(fakeBox(calls)).request('/agent/devices/boxes', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label: 'Build box' }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(calls).toEqual([])
+  })
+
+  test('Box pause, resume and delete go through the provider for the caller device', async () => {
+    const calls: string[] = []
+    const app = buildApp(fakeBox(calls))
+
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    credentials.add(key('user-1', 'b1'))
+    const paused = await app.request('/agent/devices/b1/box/pause?teamId=team-1', {
+      method: 'POST',
+    })
+
+    expect(paused.status).toBe(200)
+    expect(await paused.json()).toMatchObject({ deviceId: 'b1', box: { state: 'paused' } })
+    const resumed = await app.request('/agent/devices/b1/box/resume?teamId=team-1', {
+      method: 'POST',
+    })
+
+    expect(await resumed.json()).toMatchObject({ box: { state: 'running' } })
+    const removed = await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })
+
+    expect(removed.status).toBe(200)
+    expect(calls).toEqual(['pause b1', 'resume b1', 'destroy b1'])
+    expect(disconnected).toEqual([key('user-1', 'b1')])
+    expect(devices[key('user-1', 'b1')]).toBeUndefined()
+  })
+
+  test('DELETE closes the Box tunnel before its machine goes, and keeps the row if the kill fails', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    credentials.add(key('user-1', 'b1'))
+    const seen: string[] = []
+    let killFails = true
+    const box: BoxDeps = {
+      ...fakeBox([]),
+      destroy: async () => {
+        seen.push(`destroy after ${disconnected.length} disconnect(s)`)
+        if (killFails) throw new Error('instabox is down')
+      },
+    }
+    const app = buildApp(box)
+
+    expect(
+      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+    ).not.toBe(200)
+    expect(seen).toEqual(['destroy after 1 disconnect(s)'])
+    expect(credentials.has(key('user-1', 'b1'))).toBe(false)
+    expect(devices[key('user-1', 'b1')]).toBeDefined()
+    killFails = false
+    expect(
+      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+    ).toBe(200)
+    expect(devices[key('user-1', 'b1')]).toBeUndefined()
+  })
+  test('Box routes deny a creator with use only, removed admins and cross-team calls before provider dispatch', async () => {
+    const calls: string[] = []
+    const target = boxDevice('user-1', 'b1')
+
+    devices[key('user-1', 'b1')] = target
+    const app = buildApp(fakeBox(calls))
+
+    for (const currentRole of ['EDITOR', null] as const) {
+      role = currentRole
+      for (const action of ['pause', 'resume', 'desktop']) {
+        const result = await app.request(`/agent/devices/b1/box/${action}?teamId=team-1`, {
+          method: 'POST',
+        })
+
+        expect(result.status).toBe(404)
+      }
+      expect(
+        (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+      ).toBe(404)
+    }
+    role = 'ADMINISTRATOR'
+    expect(
+      (await app.request('/agent/devices/b1/box/pause?teamId=team-2', { method: 'POST' })).status,
+    ).toBe(404)
+    expect(calls).toEqual([])
+    expect(devices[key('user-1', 'b1')]).toBe(target)
+  })
+
+  test('only an administrator of the Box’s team sets its access; those who lose it have their streams closed', async () => {
+    devices[key('host-owner', 'b1')] = {
+      ...boxDevice('host-owner', 'b1'),
+      box: {
+        provider: 'instabox',
+        sandboxId: 'm_b1',
+        teamId: 'team-1',
+        access: { everyone: true, userIds: [] },
+      },
+    }
+    const app = buildApp(fakeBox([]))
+    const put = (body: unknown, team = 'team-1') =>
+      app.request(`/agent/devices/b1/box/access?teamId=${team}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+    for (const currentRole of ['EDITOR', null] as const) {
+      role = currentRole
+      expect((await put({ everyone: false, userIds: ['alice'] })).status).toBe(404)
+    }
+    role = 'ADMINISTRATOR'
+    expect((await put({ everyone: false, userIds: ['alice'] }, 'team-2')).status).toBe(404)
+    expect(revoked).toEqual([])
+
+    // A non-member (someone who left, or another team's user) is dropped, not stored.
+    const ok = await put({ everyone: false, userIds: ['alice', 'alice', 'outsider'] })
+
+    expect(ok.status).toBe(200)
+    expect(devices[key('host-owner', 'b1')]?.box?.access).toEqual({
+      everyone: false,
+      userIds: ['alice'],
+    })
+    // Bob lost access; Alice kept it and the administrator never depended on the list.
+    expect(revoked).toEqual([{ deviceIds: ['b1'], actorIds: ['bob'] }])
+  })
+
+  test('the device list tells each viewer their level, and only managers see the access list', async () => {
+    devices[key('host-owner', 'b1')] = {
+      ...boxDevice('host-owner', 'b1'),
+      box: {
+        provider: 'instabox',
+        sandboxId: 'm_b1',
+        teamId: 'team-1',
+        access: { everyone: true, userIds: [] },
+      },
+    }
+    const app = buildApp(fakeBox([]))
+    const list = async () =>
+      (await (await app.request('/agent/devices?teamId=team-1')).json()) as {
+        canCreateBox: boolean
+        devices: { access: string; box?: { access?: unknown } }[]
+      }
+
+    machineState = 'running'
+    const admin = await list()
+
+    expect(admin.canCreateBox).toBe(true)
+    expect(admin.devices[0]).toMatchObject({
+      access: 'manage',
+      box: { access: { everyone: true } },
+    })
+    role = 'EDITOR'
+    const member = await list()
+
+    expect(member.canCreateBox).toBe(false)
+    expect(member.devices[0]?.access).toBe('use')
+    expect(member.devices[0]?.box?.access).toBeUndefined()
+  })
+
+  test('only managers see when and from where a machine was last online', async () => {
+    devices[key('host-owner', 'b1')] = {
+      ...boxDevice('host-owner', 'b1'),
+      box: {
+        provider: 'instabox',
+        sandboxId: 'm_b1',
+        teamId: 'team-1',
+        access: { everyone: true, userIds: [] },
+      },
+      lastSeenAt: new Date('2026-10-16T12:00:00Z'),
+      lastSeen: { ip: '203.0.113.7', city: 'Taipei', country: 'TW' },
+    }
+    const app = buildApp(fakeBox([]))
+    const list = async () =>
+      (
+        (await (await app.request('/agent/devices?teamId=team-1')).json()) as {
+          devices: Record<string, unknown>[]
+        }
+      ).devices[0]
+
+    machineState = 'running'
+    expect(await list()).toMatchObject({
+      lastSeenAt: '2026-10-16T12:00:00.000Z',
+      lastSeen: { ip: '203.0.113.7', city: 'Taipei', country: 'TW' },
+    })
+    role = 'EDITOR'
+    const member = await list()
+
+    expect(member?.lastSeenAt).toBeUndefined()
+    expect(JSON.stringify(member)).not.toContain('203.0.113.7')
+  })
+
+  test('metrics are read and demanded only for Boxes the viewer may use, under the transport owner', async () => {
+    const box = (deviceId: string, userIds: string[]) => ({
+      ...boxDevice('host-owner', deviceId),
+      box: {
+        provider: 'instabox' as const,
+        sandboxId: `m_${deviceId}`,
+        teamId: 'team-1',
+        access: { everyone: false, userIds },
+      },
+    })
+
+    devices[key('host-owner', 'mine')] = box('mine', ['user-1'])
+    devices[key('host-owner', 'theirs')] = box('theirs', ['alice'])
+    onlineNow = true
+    machineState = 'running'
+    role = 'EDITOR'
+    const app = buildApp(fakeBox([]))
+
+    await app.request('/agent/devices?teamId=team-1&metrics=true')
+    // Another team, or a removed member, demands nothing.
+    await app.request('/agent/devices?teamId=team-2&metrics=true')
+    role = null
+    await app.request('/agent/devices?teamId=team-1&metrics=true')
+
+    expect(metricsReads).toEqual(['host-owner:mine:true'])
+  })
+
+  test('admin dispatch uses the Box transport owner, never the viewing admin', async () => {
+    devices[key('host-owner', 'b1')] = boxDevice('host-owner', 'b1')
+    const owners: string[] = []
+    const provider = fakeBox([])
+
+    provider.pause = async (owner, id) => {
+      owners.push(owner)
+
+      return devices[key(owner, id)]!
+    }
+    const result = await buildApp(provider).request('/agent/devices/b1/box/pause?teamId=team-1', {
+      method: 'POST',
+    })
+
+    expect(result.status).toBe(200)
+    expect(owners).toEqual(['host-owner'])
+  })
+
+  test('list omits legacy Boxes from other creators, missing-team rows and revoked viewers', async () => {
+    role = 'EDITOR'
+    devices[key('host-owner', 'b1')] = boxDevice('host-owner', 'b1')
+    const target = devices[key('host-owner', 'b1')]!
+
+    target.box!.access = { everyone: false, userIds: ['user-1'] }
+    const app = buildApp(fakeBox([]))
+    const list = async () =>
+      (await (await app.request('/agent/devices?teamId=team-1')).json()) as { devices: unknown[] }
+
+    expect((await list()).devices).toHaveLength(1)
+    target.box!.access.userIds = []
+    expect((await list()).devices).toHaveLength(0)
+    delete target.box!.access
+    expect((await list()).devices).toHaveLength(0)
+    role = 'ADMINISTRATOR'
+    target.box!.teamId = ''
+    expect((await list()).devices).toHaveLength(0)
+    target.box!.teamId = 'team-1'
+    role = null
+    expect((await list()).devices).toHaveLength(0)
+  })
+  test('Box create rejects ordinary members, removed admins and admins of other teams', async () => {
+    const calls: string[] = []
+    const app = buildApp(fakeBox(calls))
+    const create = (teamId: string) =>
+      app.request('/agent/devices/boxes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ teamId }),
+      })
+
+    role = 'EDITOR'
+    expect((await create('team-1')).status).toBe(403)
+    role = null
+    expect((await create('team-1')).status).toBe(403)
+    role = 'ADMINISTRATOR'
+    expect((await create('team-2')).status).toBe(403)
+    expect(calls).toEqual([])
+    expect((await create('team-1')).status).toBe(201)
+    expect(calls).toHaveLength(1)
   })
 })

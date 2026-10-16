@@ -2,9 +2,10 @@ import { BrowserWindow } from 'electron'
 
 import { acceptDockTerminal } from '../agent/dock-terminal'
 import { localTerminals } from '../local-terminal'
+import { runtimeDesktops } from '../runtime-desktop'
 import { runtimeTerminals } from '../runtime-terminal'
 
-import type { TerminalTarget } from '../../src/api/local-terminal-types'
+import type { DesktopTarget, TerminalTarget } from '../../src/api/local-terminal-types'
 import type { IpcMainInvokeEvent } from 'electron'
 
 function owner(event: IpcMainInvokeEvent) {
@@ -55,4 +56,10 @@ export const localTerminalChannels = {
     terminals(event, id).resize(owner(event), id, cols, rows),
   'local-terminal:close': (event: IpcMainInvokeEvent, id: string) =>
     terminals(event, id).close(owner(event), id),
+  'runtime-desktop:start': (event: IpcMainInvokeEvent, id: string, target: DesktopTarget) =>
+    runtimeDesktops.start(owner(event), id, target),
+  'runtime-desktop:input': (event: IpcMainInvokeEvent, id: string, data: string) =>
+    runtimeDesktops.input(owner(event), id, data),
+  'runtime-desktop:close': (event: IpcMainInvokeEvent, id: string) =>
+    runtimeDesktops.close(owner(event), id),
 }

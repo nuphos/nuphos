@@ -1,9 +1,5 @@
-// `nuphos agent`: this computer's local agents without Electron. The CLI runs
-// this bundled file on the user's own Node, next to the staged openab and
-// adapters. It connects either with this computer's own credential, from
-// `nuphos agent --join <token>`, or with the session the CLI and the desktop share.
+// `nuphos agent`: local agents on Node beside the staged openab, without Electron.
 
-import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -20,25 +16,31 @@ import {
   readMachineKey,
   stableDeviceId,
 } from '../device-identity-core.ts'
+import { readDeviceMetrics } from '../device-metrics.ts'
 
-import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
-import { agentCliEnv, agentEnv, readBundle } from './config.ts'
+import { agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
-import { deviceCredentialFor, exitRevoked, tunnelUrlFor } from './device-credential.ts'
+import { signInClaude } from './cli-sign-in.ts'
+import {
+  enableDesktopPool,
+  desktopStatus,
+  watchDesktops,
+  withDesktopRequests,
+} from './desktop-pool.ts'
+import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
+import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
-// Apart from the desktop's, so both can run on one computer as two devices, each
-// with its own runtime tunnel; the device id itself comes from the machine.
-// The CLI sets it, so its default lives in one place (agent.rs).
 const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
 
 if (!dataDir) {
@@ -91,6 +93,11 @@ function currentToken(): string | null {
   }
 }
 
+// A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
+const desktopPool = enableDesktopPool(bundleRoot, dataDir)
+const desktopWrapper = path.join(bundleRoot, 'desktop-session.mjs')
+
+if (desktopPool) console.log('Each session gets its own desktop on this computer.')
 const deviceCredential = await deviceCredentialFor({
   dataDir,
   apiUrl: apiUrl(),
@@ -98,7 +105,6 @@ const deviceCredential = await deviceCredentialFor({
   joinToken: process.env.NUPHOS_JOIN_TOKEN?.trim() || undefined,
   headers: { 'x-atlas-client': clientVersion },
 })
-// A joined computer is the device the backend registered for it.
 const deviceId = deviceCredential?.deviceId ?? device.deviceId
 const token = deviceCredential ? null : currentToken()
 const owner = deviceCredential?.userId ?? (token ? unverifiedTokenSubject(token) : undefined)
@@ -114,6 +120,7 @@ if (!bundle()) {
 
 const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle,
+  ownsMachine: ownsMachine(deviceCredential),
   dataDir: () => dataDir,
   nodeExecPath: process.execPath,
   backendUrl: apiUrl(),
@@ -139,7 +146,6 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   },
   onChange: report,
   prepareAgentHome,
-  // Joining already registered it.
   registerDevice: async () => {
     if (deviceCredential) return
     await callJson('PUT', '/agent/devices', {
@@ -175,8 +181,12 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       }),
     })
   },
-  createTunnel: (runtime, status, onChange) =>
-    new RuntimeTunnelClient({
+  createTunnel: (runtime, status, onChange, instances) => {
+    tunnel = new RuntimeTunnelClient({
+      instances: desktopPool
+        ? withDesktopRequests(desktopWrapper, desktopPool, instances)
+        : instances,
+      sampleMetrics: readDeviceMetrics,
       connectBackend: () => {
         const fresh = deviceCredential?.credential ?? currentToken()
 
@@ -196,8 +206,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         return workspace ? new LocalFileStream(workspace) : null
       },
       connectExec: () => new LocalExecStream(),
-      connectRuntime: (purpose, provider) => {
-        const running = runtime(provider)
+      connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
+      connectRuntime: (purpose, provider, instanceId) => {
+        const running = runtime(provider, instanceId)
 
         if (!running) return null
         const key = purpose === 'control' ? running.controlKey : running.authKey
@@ -207,11 +218,26 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
           'acp.v1',
         ])
       },
-      status,
-      onChange,
-    }),
+      // Which sessions hold a desktop here rides along with the agents' status.
+      status: () => ({
+        ...status(),
+        ...(desktopPool ? desktopStatus(desktopWrapper, desktopPool) : {}),
+      }),
+      onChange: (connected, superseded) => {
+        onChange(connected, superseded)
+        if (superseded) stop('Another Nuphos app on this computer took over the local agent.')
+      },
+    })
+
+    return tunnel
+  },
   log,
 })
+
+let tunnel: RuntimeTunnelClient | undefined
+
+// A desktop appearing or going changes the status; the pool directory says when.
+if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
 
 /** One line per agent whenever what the user would see changes. */
 function report(): void {
@@ -236,32 +262,6 @@ function report(): void {
   console.log(`${new Date().toLocaleTimeString()} ${device.label}\n${summary}`)
 }
 
-/** Sign in only when the same credential store used by the agent is not authenticated. */
-async function signInClaude(ownerId: string): Promise<void> {
-  const cli = controller.state().agents['claude-code'].cli
-
-  if (!cli?.installed || cli.loggedIn || !process.stdin.isTTY) return
-  const cliPath = findAgentCli('claude-code', process.env)
-  const userDir = path.join(dataDir, 'users', ownerId)
-  const agentHome = prepareAgentHome('claude-code', userDir, path.join(userDir, 'workspace'))
-
-  if (!cliPath || !agentHome) return
-  console.log(
-    process.platform === 'darwin'
-      ? 'Sign Claude Code in for Nuphos (updates the Claude login used by your terminal):'
-      : 'Sign Claude Code in for Nuphos (a separate sign-in from your own terminal):',
-  )
-  await new Promise((resolve) => {
-    spawn(cliPath, ['auth', 'login', '--claudeai'], {
-      env: agentCliEnv({ provider: 'claude-code', env: process.env, cliPath, agentHome }),
-      stdio: 'inherit',
-    })
-      .on('exit', resolve)
-      .on('error', resolve)
-  })
-  await controller.refresh(true, ['claude-code'])
-}
-
 function stop(message = 'Stopping the local agents…'): void {
   if (stopping) process.exit(130)
   stopping = true
@@ -269,10 +269,7 @@ function stop(message = 'Stopping the local agents…'): void {
   void controller.shutdown().then(() => process.exit(0))
 }
 
-// Signed in with the session, the agents follow it, as the desktop's do: signed
-// out here or in the app (the same cli.yaml), or signed in as someone else, they
-// stop. Logging out does not revoke the token, so an open tunnel would otherwise
-// keep serving. A joined computer stops when its own credential is revoked.
+// With a session the agents follow it (signed out or switched user: stop); a Box stops on revocation.
 if (!deviceCredential)
   setInterval(() => {
     const fresh = currentToken()
@@ -280,11 +277,24 @@ if (!deviceCredential)
     if (!stopping && (!fresh || unverifiedTokenSubject(fresh) !== owner))
       stop('Signed out of Nuphos; stopping the local agents.')
   }, 2_000)
-// A closed terminal or a dropped SSH session stops them too.
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => stop())
 console.log(`Running this computer's agents for Nuphos as "${device.label}". Press Ctrl-C to stop.`)
 console.log(
   'Conversations you move onto this computer can be continued by anyone in that team, and their messages run commands here.',
 )
 await controller.setUser(owner)
-await signInClaude(owner)
+setInterval(() => {
+  const { agents, instances = [] } = controller.state()
+  const signedOut = LOCAL_AGENT_PROVIDERS.filter((p) => {
+    const { online, cli } = agents[p]
+
+    return online && cli?.installed === true && !cli.loggedIn
+  })
+
+  // Added agents follow their own provider's refresh, which also probes every instance.
+  const instanceSignedOut = instances.some(({ cli }) => cli?.installed === true && !cli.loggedIn)
+
+  if (!stopping && (signedOut.length || instanceSignedOut))
+    void controller.refresh(false, signedOut)
+}, 30_000)
+await signInClaude(controller, dataDir, owner)

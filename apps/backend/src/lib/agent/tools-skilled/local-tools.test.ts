@@ -289,4 +289,33 @@ describe('shared dock terminal authorization', () => {
     ).toHaveProperty('error')
     expect(dispatchCalls).toEqual([])
   })
+
+  test('write submits exactly once whatever line ending the model sends', async () => {
+    dispatchOutcome = { status: 'ok', result: { stdout: '{}', stderr: '', exitCode: 0 } }
+    const tool = createLocalTerminalTool(twoDevices, turn) as ExecTool
+
+    for (const data of ['ls', 'ls\\r', 'ls\r', 'ls\n', 'ls\r\n', 'ls\\r\\n']) {
+      expect(
+        await tool.execute(
+          { label: 'run', action: 'write', terminalId: 'tab-1', device: 'd1', data },
+          {},
+        ),
+      ).toEqual({})
+    }
+
+    expect(dispatchCalls.map((call) => JSON.parse(call.command).data)).toEqual(
+      Array(6).fill('ls\r'),
+    )
+  })
+})
+
+test('shared Box audit preserves the actor separately from its transport owner', async () => {
+  const tool = createLocalExecTool(
+    [{ deviceId: 'd1', label: 'Shared', ownerUserId: 'host-owner' }],
+    turn,
+  ) as ExecTool
+
+  await tool.execute({ label: 'run', command: 'echo hi' }, {})
+  expect(audits[0]).toMatchObject({ ownerUserId: 'host-owner', actorUserId: 'u1' })
+  expect(dispatchCalls[0]?.userId).toBe('u1')
 })

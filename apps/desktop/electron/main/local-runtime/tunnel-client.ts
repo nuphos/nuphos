@@ -1,35 +1,15 @@
+import { InstanceStreams } from './instance-streams.ts'
+import { createMetricsLease } from './metrics-lease.ts'
+import { parseFrame } from './tunnel-protocol.ts'
+
 import type { LocalAgentProvider } from './agent-cli.ts'
-import type { LocalModelCatalog } from './model-probe.ts'
+import type { BackendFrame, LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
+import type { DeviceMetrics } from '../../../src/api/device-types.ts'
 
 export type TunnelPurpose = 'transport' | 'control'
-
-/** Lists only the agents running right now; the owner sees exactly these. */
-export type LocalRuntimeTunnelStatus = {
-  agents: Partial<
-    Record<
-      LocalAgentProvider,
-      {
-        cli: { installed: boolean; loggedIn: boolean | null }
-        usage?: unknown
-        usageAt?: string
-        version?: string
-        models?: LocalModelCatalog
-      }
-    >
-  >
-  backendUrl?: string
-}
-
-type BackendFrame =
-  | {
-      t: 'open'
-      s: string
-      purpose: TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua'
-      provider?: LocalAgentProvider
-    }
-  | { t: 'data'; s: string; d: string }
-  | { t: 'close'; s: string; reason?: string }
-  | { t: 'ping' }
+/** What a backend stream may ask this computer for: an agent, one of its local tools, or its agent inventory. */
+export type StreamPurpose =
+  TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc' | 'instances'
 
 export type SocketEvent = { data?: unknown; code?: number }
 
@@ -45,18 +25,25 @@ export type TunnelClientDeps = {
   /** Opens the WebSocket to the backend's tunnel route, authenticated as the signed-in user. */
   connectBackend: () => SocketLike
   /** Opens one ACP WebSocket to that agent's loopback openab with the key for `purpose`. */
-  connectRuntime: (purpose: TunnelPurpose, provider: LocalAgentProvider) => SocketLike | null
+  connectRuntime: (
+    purpose: TunnelPurpose,
+    provider: LocalAgentProvider,
+    instanceId?: string,
+  ) => SocketLike | null
+  instances?: (request: unknown) => Promise<unknown>
   connectFile?: () => SocketLike | null
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
+  connectVnc?: () => SocketLike
   activity?: {
     open(id: string, purpose: string): void
     data(id: string, raw: string, incoming: boolean): void
     close(id: string): void
     clear(): void
   }
+  sampleMetrics?: () => Promise<DeviceMetrics | null>
   status: () => LocalRuntimeTunnelStatus
   /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
   onChange?: (connected: boolean, superseded: boolean) => void
@@ -76,25 +63,16 @@ export function tunnelReconnectDelayMs(attempt: number): number {
   return RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)]
 }
 
-function parseFrame(raw: unknown): BackendFrame | null {
-  if (typeof raw !== 'string') return null
-  try {
-    const frame = JSON.parse(raw) as BackendFrame
-
-    return typeof frame === 'object' && typeof frame.t === 'string' ? frame : null
-  } catch {
-    return null
-  }
-}
-
 /**
  * Keeps exactly one tunnel to the backend open while started, reconnecting with
  * backoff whenever it closes, and relays each stream the backend opens to the
  * runtime on loopback. The runtime itself never listens beyond 127.0.0.1.
  */
 export class RuntimeTunnelClient {
+  private readonly instanceStreams: InstanceStreams
   private socket: SocketLike | undefined
   private readonly streams = new Map<string, { runtime: SocketLike; pending: string[] }>()
+  private readonly metrics: ReturnType<typeof createMetricsLease>
   private running = false
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
@@ -103,6 +81,10 @@ export class RuntimeTunnelClient {
 
   constructor(deps: TunnelClientDeps) {
     this.deps = deps
+    this.instanceStreams = new InstanceStreams(deps.instances, (frame) => this.send(frame))
+    this.metrics = createMetricsLease(deps.sampleMetrics, (metrics) =>
+      this.send({ t: 'metrics', metrics }),
+    )
   }
 
   start(): void {
@@ -132,6 +114,8 @@ export class RuntimeTunnelClient {
       t: 'status',
       status: {
         ...this.deps.status(),
+        agentInstances: Boolean(this.deps.instances),
+        localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
@@ -140,10 +124,12 @@ export class RuntimeTunnelClient {
   }
 
   private drop(): void {
+    this.metrics.stop()
     clearTimeout(this.reconnectTimer)
     clearTimeout(this.idleTimer)
     for (const { runtime } of this.streams.values()) runtime.close()
     this.streams.clear()
+    this.instanceStreams.clear()
     this.deps.activity?.clear()
     const socket = this.socket
 
@@ -224,15 +210,20 @@ export class RuntimeTunnelClient {
 
   private handle(frame: BackendFrame): void {
     switch (frame.t) {
+      case 'metrics':
+        this.metrics.renew(frame.leaseMs)
+
+        return
       case 'ping':
         this.send({ t: 'pong' })
 
         return
       case 'open':
-        this.open(frame.s, frame.purpose, frame.provider ?? 'claude-code')
+        this.open(frame.s, frame.purpose, frame.provider ?? 'claude-code', frame.instanceId)
 
         return
       case 'data': {
+        if (this.instanceStreams.data(frame.s, frame.d)) return
         const stream = this.streams.get(frame.s)
 
         if (stream) this.deps.activity?.data(frame.s, frame.d, true)
@@ -242,6 +233,7 @@ export class RuntimeTunnelClient {
         return
       }
       case 'close':
+        this.instanceStreams.close(frame.s)
         this.deps.activity?.close(frame.s)
         this.streams.get(frame.s)?.runtime.close()
         this.streams.delete(frame.s)
@@ -250,20 +242,28 @@ export class RuntimeTunnelClient {
 
   private open(
     s: string,
-    purpose: TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua',
+    purpose: StreamPurpose,
     provider: LocalAgentProvider,
+    instanceId?: string,
   ): void {
-    if (this.streams.has(s)) return
+    if (this.streams.has(s) || this.instanceStreams.has(s)) return
+    if (purpose === 'instances') {
+      this.instanceStreams.open(s)
+
+      return
+    }
+    const { connectTerminal, connectFile, connectExec, connectCua, connectVnc } = this.deps
+    const local = {
+      terminal: connectTerminal,
+      file: connectFile,
+      exec: connectExec,
+      cua: connectCua,
+      vnc: connectVnc,
+    }
     const runtime =
-      purpose === 'terminal'
-        ? this.deps.connectTerminal?.()
-        : purpose === 'file'
-          ? this.deps.connectFile?.()
-          : purpose === 'exec'
-            ? this.deps.connectExec?.()
-            : purpose === 'cua'
-              ? this.deps.connectCua?.()
-              : this.deps.connectRuntime(purpose, provider)
+      purpose === 'transport' || purpose === 'control'
+        ? this.deps.connectRuntime(purpose, provider, instanceId)
+        : local[purpose]?.()
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

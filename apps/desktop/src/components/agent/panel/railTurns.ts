@@ -4,7 +4,7 @@ import type { Message } from './model'
 export const MIN_RAIL_TURNS = 4
 
 const TITLE_MAX = 80
-const PREVIEW_MAX = 180
+const PREVIEW_MAX = 240
 
 export type RailTurn = {
   /** The user message id, also its `data-message-id` in the transcript. */
@@ -25,27 +25,41 @@ function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 }
 
-/** First non-empty line, without markdown heading or list markers. */
+/**
+ * Inline markdown as the text a reader sees: links and images keep their
+ * label, and emphasis, strike and code markers go. Underscores inside words
+ * (snake_case) stay.
+ */
+export function plainInline(text: string): string {
+  return text
+    .replace(/\]\([^)]*\)/g, ']')
+    .replace(/!?\[([^[\]]*)\]/g, '$1')
+    .replace(/\*\*([^*\n]+)\*\*|__([^_\n]+)__|~~([^~\n]+)~~/g, '$1$2$3')
+    .replace(/(?<![\w*])[*_]([^\s*_][^*_\n]*?)[*_](?![\w*])/g, '$1')
+    .replace(/`+/g, '')
+}
+
+/** First non-empty line as plain text, without heading or list markers. */
 export function firstLine(text: string): string {
   const line = text
     .split('\n')
     .map((l) => l.replace(/^\s*(?:#{1,6}\s+|[-*>]\s+|\d+\.\s+)/, '').trim())
     .find(Boolean)
 
-  return clip(line ?? '', TITLE_MAX)
+  return clip(plainInline(line ?? ''), TITLE_MAX)
 }
 
 /** Assistant prose flattened to one line: no code blocks or markdown syntax. */
 export function previewText(text: string): string {
   // Even segments sit outside code fences; an unclosed fence drops its tail.
-  const flat = text
-    .split('```')
-    .filter((_, i) => i % 2 === 0)
-    .join(' ')
-    // Links and images keep their label: drop the "(url)" and the brackets.
-    .replace(/\]\([^)]*\)/g, ']')
-    .replace(/!\[/g, '[')
-    .replace(/[[\]`*_#>|]/g, '')
+  const flat = plainInline(
+    text
+      .split('```')
+      .filter((_, i) => i % 2 === 0)
+      .join(' '),
+  )
+    .replace(/^[ \t]*(?:#{1,6}|[-*>]|\d+\.)[ \t]+/gm, '')
+    .replace(/[#>|]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
 

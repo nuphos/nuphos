@@ -16,6 +16,7 @@ export function useRuntimeLogin(
   teamId: string,
   instance: RuntimeInstance,
   onConnected: () => void,
+  immediate = false,
 ) {
   const [login, setLogin] = useState<RuntimeLoginStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -75,14 +76,14 @@ export function useRuntimeLogin(
       )
     }
 
-    if (request.current) start()
+    if (request.current || immediate) start()
     else whenReachable()
 
     return () => {
       stopped = true
       clearTimeout(timer)
     }
-  }, [teamId, instance.id, retry, complete])
+  }, [teamId, instance.id, retry, complete, immediate])
 
   /** Cancels an attempt still in progress. False when cancelling failed and the caller should stay. */
   async function cancel(): Promise<boolean> {

@@ -63,7 +63,49 @@ No backend or iOS changes are needed for this contribution. The public backend
 contains the API contracts used by the app. Managed cloud operations remain
 service-dependent and are not added to the self-hosted backend by this client.
 
+### Composer drafts and Agent usage
+
+Text drafts persist in app-private storage, separately for each account, workspace,
+existing conversation, and the new-conversation composer. Sending clears only the
+submitted draft; sign-out, identity replacement and consent withdrawal remove
+that account's drafts. Attachments remain temporary and are not restored after
+leaving the composer or restarting the process. Draft preferences are explicitly excluded from cloud backup, device-to-device
+transfer, and legacy full backup by the XML backup rules.
+
+The Agent chip remains visible beside Send. New conversations open the Agent
+picker; existing conversations show their assigned Agent and open its usage details
+and a Switch agent list. Owners and managers can switch idle conversations; only
+owners can select local or self-hosted agents. Moving to a personal computer
+requires confirmation. Signed-out, disabled, and deleting agents cannot be chosen.
+Same-provider Cloud moves try to preserve the workspace, falling back to history
+only for `workspace_unavailable`; cross-provider and local moves use history.
+Drafts and history remain in the same conversation. Failed moves keep the current
+agent until a server refresh confirms its placement.
+Usage uses the shared `GET /teams/:id/agent-runtimes/quota` snapshot, refreshed every
+minute only while the screen is resumed. Missing or failed quota reads show
+`Usage unavailable` and never prevent sending.
+
 ## Tests
+
+### Unlinking an existing child chat
+
+The history list offers **Unlink** only for a loaded child whose API metadata
+reports `isOwner == true` and `readOnly != true`, in the selected workspace.
+Android asks for confirmation (iOS currently runs its context-menu action directly).
+Cancel sends no request. Confirm uses the existing owner-scoped
+`DELETE /agent/conversations/:id/parent?teamId=...` contract; it never deletes
+a chat or changes sharing permissions. Pending requests cannot repeat. Errors
+keep the original tree and allow retry. Confirmed success removes only the
+child's parent, preserving descendants, loaded pages, pins and drafts; all list
+sections and thread counts recompute together. Reads started before success are
+discarded, as are mutation results after workspace/account capability changes.
+
+`ConversationUnlinkTest` checks the HTTP contract and acknowledgement handling.
+`ConversationUnlinkFixtureDeviceTest` uses intercepted synthetic transport for
+confirmation/cancel, successful root promotion, denied/malformed responses,
+owner/read-only/root/workspace restrictions, duplicate submission, late results
+and account invalidation. It restores preferences and in-memory auth state.
+It does not exercise a successful mutation against a real account.
 
 ### Conversation App Links
 

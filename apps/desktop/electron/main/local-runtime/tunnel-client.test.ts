@@ -336,3 +336,46 @@ test('task activity follows real prompt frames, concurrent streams and disconnec
     client.stop()
   }
 })
+
+test('instance RPC shares the tunnel and returns one result then closes', async () => {
+  const backend = new FakeSocket()
+  const requests: unknown[] = []
+  const routes: unknown[] = []
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => backend,
+    connectRuntime: (_purpose, _provider, instanceId) => {
+      routes.push(instanceId)
+
+      return null
+    },
+    instances: async (request) => {
+      requests.push(request)
+
+      return { instance: request }
+    },
+    status: () => ({ agents: {} }),
+  })
+
+  client.start()
+  backend.emit('open')
+  const emit = (frame: object) => backend.emit('message', { data: JSON.stringify(frame) })
+  const frames = () => backend.sent.map((raw) => JSON.parse(raw))
+
+  assert.equal(frames()[0].status.agentInstances, true)
+  emit({ t: 'open', s: 'create', purpose: 'instances' })
+  emit({ t: 'data', s: 'create', d: JSON.stringify({ method: 'create', instanceId: 'mock' }) })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(requests, [{ method: 'create', instanceId: 'mock' }])
+  assert.deepEqual(frames().slice(-2), [
+    { t: 'data', s: 'create', d: JSON.stringify({ ok: true, instance: requests[0] }) },
+    { t: 'close', s: 'create' },
+  ])
+  emit({ t: 'open', s: 'unknown', purpose: 'control', provider: 'codex', instanceId: 'unknown' })
+  assert.deepEqual(routes, ['unknown'])
+  assert.equal(frames().at(-1).t, 'close')
+  emit({ t: 'open', s: 'bad', purpose: 'instances' })
+  emit({ t: 'data', s: 'bad', d: '{' })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(JSON.parse(frames().at(-2).d).ok, false)
+  client.stop()
+})

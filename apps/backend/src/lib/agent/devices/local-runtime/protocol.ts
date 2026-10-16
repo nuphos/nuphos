@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
-export type TunnelPurpose = 'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua'
+import { boxMetricsSchema } from '../metrics-schema'
+
+export type TunnelPurpose =
+  'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc' | 'instances'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
 
@@ -77,10 +80,44 @@ const localAgentStatusSchema = z.object({
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
 
+export const agentInstanceSchema = z.object({
+  instanceId: z.string().uuid(),
+  provider: z.enum(LOCAL_AGENT_PROVIDERS),
+  label: z.string().trim().min(1).max(200),
+  /** Pending until its first sign-in; only ready agents are listed. Absent from older hosts. */
+  state: z.enum(['pending', 'ready']).optional(),
+})
+export type AgentInstance = z.infer<typeof agentInstanceSchema>
+export const localAgentInstanceStatusSchema = localAgentStatusSchema.merge(agentInstanceSchema)
+export type LocalAgentInstanceStatus = z.infer<typeof localAgentInstanceStatusSchema>
+
 export const localRuntimeStatusSchema = z.object({
+  agentInstances: z.boolean().optional(),
+  instances: z
+    .array(localAgentInstanceStatusSchema)
+    .max(100)
+    .refine(
+      (instances) =>
+        new Set(instances.map((instance) => instance.instanceId)).size === instances.length,
+      'Duplicate agent instance id',
+    )
+    .optional(),
   localExec: z.boolean().optional(),
+  localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
+  /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
+  desktopOpen: z.boolean().optional(),
+  /** Desktops this computer runs for conversations (a Box: one X display per session). */
+  desktops: z
+    .array(
+      z.object({
+        display: z.number().int().min(2).max(255),
+        sessionId: z.string().min(1).max(128),
+      }),
+    )
+    .max(64)
+    .optional(),
   agents: z.object({
     'claude-code': localAgentStatusSchema.optional(),
     codex: localAgentStatusSchema.optional(),
@@ -97,6 +134,7 @@ const payload = z.string().max(8 * 1024 * 1024)
 /** Desktop → backend over the tunnel WebSocket. */
 export const desktopFrameSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('status'), status: localRuntimeStatusSchema }),
+  z.object({ t: z.literal('metrics'), metrics: boxMetricsSchema }),
   z.object({ t: z.literal('opened'), s: streamIdSchema }),
   z.object({ t: z.literal('data'), s: streamIdSchema, d: payload }),
   z.object({
@@ -112,10 +150,17 @@ export type DesktopFrame = z.infer<typeof desktopFrameSchema>
 
 /** Backend → desktop over the tunnel WebSocket. */
 export type BackendFrame =
-  | { t: 'open'; s: string; purpose: TunnelPurpose; provider?: LocalAgentProvider }
+  | {
+      t: 'open'
+      s: string
+      purpose: TunnelPurpose
+      provider?: LocalAgentProvider
+      instanceId?: string
+    }
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string; reason?: string }
   | { t: 'ping' }
+  | { t: 'metrics'; leaseMs: number }
 
 /** Any replica → the replica holding the device's tunnel. */
 export type HolderMessage =
@@ -124,14 +169,20 @@ export type HolderMessage =
       s: string
       conn: string
       teamId: string
+      /** Who opened the stream; the tunnel's owner only routes it. */
+      actorId: string
       purpose: TunnelPurpose
       provider?: LocalAgentProvider
+      instanceId?: string
     }
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }
+  /** Close what one person opened; the tunnel and everyone else's streams stay. */
+  | { t: 'revoke-actor'; actorId: string }
   | { t: 'ping'; conn: string }
+  | { t: 'metrics'; conn: string; leaseMs: number }
 
 /** The holder → the replica that opened one stream. */
 export type StreamMessage =
@@ -152,3 +203,6 @@ export function parseJson<T>(raw: string): T | undefined {
     return undefined
   }
 }
+
+/** An added agent by its instance id, or a Box's default agent by its provider. */
+export type RemovableAgent = { instanceId: string } | { provider: LocalAgentProvider }

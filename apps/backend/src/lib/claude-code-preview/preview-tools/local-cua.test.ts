@@ -67,6 +67,7 @@ function deps(overrides: Partial<LocalCuaDeps>): LocalCuaDeps {
   return {
     devices: async () => [{ deviceId: 'mac', label: 'MacBook' }],
     isMember: async () => true,
+    owner: async () => 'host-owner',
     connect: fakeDevice(() => {}).connect,
     approve: async () => true,
     publish: async () => {},
@@ -189,5 +190,41 @@ describe('local_cua', () => {
 
     expect(result.isError).toBe(true)
     expect(outcomes).toEqual(['device_offline'])
+  })
+
+  test('an actor without use on the device gets an error and nothing reaches the device', async () => {
+    const device = fakeDevice(() => {})
+    const result = await createLocalCuaHandler(
+      ctx,
+      deps({ owner: async () => null, connect: device.connect }),
+    )({ code: 'await cua.getState()' })
+
+    expect(result.isError).toBe(true)
+    expect(device.sockets).toHaveLength(0)
+  })
+
+  test('the stream routes to the transport owner and carries the actor separately', async () => {
+    const seen: string[] = []
+    const device = fakeDevice((message, socket) => {
+      if (message.t === 'call') socket.emit('message', { t: 'result', result: { content: [] } })
+    })
+    const audits: Record<string, unknown>[] = []
+
+    await createLocalCuaHandler(
+      ctx,
+      deps({
+        connect: (_ctx, _deviceId, owner) => {
+          seen.push(owner)
+
+          return device.connect()
+        },
+        audit: async (entry) => {
+          audits.push(entry as Record<string, unknown>)
+        },
+      }),
+    )({ code: 'await cua.getState()' })
+
+    expect(seen).toEqual(['host-owner'])
+    expect(audits[0]).toMatchObject({ ownerUserId: 'host-owner', actorUserId: ctx.userId })
   })
 })

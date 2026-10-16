@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  rmSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -52,6 +53,11 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
   return true
 }
 
+/** The computer user's own Codex home, whose login the default Codex agent links to. */
+export function codexOwnerHome(env: NodeJS.ProcessEnv = process.env): string {
+  return env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
+}
+
 /**
  * A CODEX_HOME that holds only links to the user's own login and the Codex
  * App's Computer Use plugin, so Codex serving Nuphos never loads their
@@ -66,13 +72,14 @@ export function prepareCodexHome(
   userDir: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const ownerHome = env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
+  const ownerHome = codexOwnerHome(env)
   const home = path.join(userDir, 'codex-home')
   const config = path.join(home, 'config.toml')
 
   try {
     mkdirSync(home, { recursive: true, mode: 0o700 })
-    if (!linkFrom(ownerHome, home, 'auth.json')) return undefined
+    // Without the owner's login Codex still runs, signed out, so it can be signed in from Nuphos.
+    linkFrom(ownerHome, home, 'auth.json')
     // Codex skips an enabled plugin that is not installed, so users without the App are unaffected.
     if (
       linkFrom(ownerHome, home, CUA_PLUGIN_CACHE) &&
@@ -109,7 +116,7 @@ export function prepareCodexHome(
         },
       )
 
-    return existsSync(path.join(ownerHome, 'auth.json')) ? home : undefined
+    return home
   } catch {
     return undefined
   }
@@ -164,6 +171,22 @@ export function prepareClaudeHome(userDir: string, workspace: string): string | 
   }
 }
 
+/**
+ * Deletes a default agent's home, and for Codex the login that home links to, so the next
+ * launch finds nothing to link. Only for a Box, whose whole computer is Nuphos's.
+ */
+export function deleteDefaultLogin(
+  provider: LocalAgentProvider,
+  userDir: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  rmSync(path.join(userDir, provider === 'codex' ? 'codex-home' : 'claude-home'), {
+    recursive: true,
+    force: true,
+  })
+  if (provider === 'codex') rmSync(path.join(codexOwnerHome(env), 'auth.json'), { force: true })
+}
+
 export function prepareAgentHome(
   provider: LocalAgentProvider,
   userDir: string,
@@ -173,4 +196,27 @@ export function prepareAgentHome(
   return provider === 'codex'
     ? prepareCodexHome(userDir, env)
     : prepareClaudeHome(userDir, workspace)
+}
+
+/** New instances own their authentication; never link or import the host login. */
+export function prepareIsolatedAgentHome(
+  provider: LocalAgentProvider,
+  userDir: string,
+  workspace: string,
+): string | undefined {
+  if (provider === 'claude-code') return prepareClaudeHome(userDir, workspace)
+  const home = path.join(userDir, 'codex-home')
+
+  try {
+    mkdirSync(home, { recursive: true, mode: 0o700 })
+    // A keychain store would be shared across instances; keep each login in its own home.
+    const config = path.join(home, 'config.toml')
+
+    if (!existsSync(config))
+      writeFileSync(config, 'cli_auth_credentials_store = "file"\n', { mode: 0o600 })
+
+    return home
+  } catch {
+    return undefined
+  }
 }

@@ -31,6 +31,8 @@ import { findBrokenLinks } from './bundle-check.mjs'
 import { ATTACHMENT_JOB, bundleStamp, RUNTIME_DIR, RUNTIME_SOURCES } from './bundle-stamp.mjs'
 
 export const OPENAB_COMMIT = '9638d34991fb0d0b29dbbd635bd1240c7c670d5d'
+// openab pins no toolchain, so this keeps a runner image's rustc out of the build.
+const RUST_TOOLCHAIN = '1.99.0'
 
 /** One nuphos-runtime adapter per agent the desktop can run, patched as its image patches it. */
 export const ADAPTERS = {
@@ -119,9 +121,20 @@ async function buildAdapter(provider) {
 function buildOpenab(target) {
   const triple = RUST_TARGETS[target]
 
-  if (!triple || !hasCommand('cargo')) return null
+  if (!triple) return null
   const source = join(homedir(), '.cache', 'nuphos', `openab-${OPENAB_COMMIT}`)
+  const binary = join(
+    source,
+    'target',
+    triple,
+    'release',
+    target.startsWith('win32') ? 'openab.exe' : 'openab',
+  )
 
+  // The source is pinned, so a built binary is final. Release jobs restore it
+  // from the cache openab-cache.yml fills, and compile only on a miss.
+  if (existsSync(binary)) return binary
+  if (!hasCommand('cargo')) return null
   if (!existsSync(join(source, 'Cargo.toml'))) {
     rmSync(source, { recursive: true, force: true })
     mkdirSync(source, { recursive: true })
@@ -133,20 +146,30 @@ function buildOpenab(target) {
     )
     run('git', ['checkout', '-q', 'FETCH_HEAD'], source)
   }
-  if (hasCommand('rustup')) run('rustup', ['target', 'add', triple], source)
+  const rustup = hasCommand('rustup')
+
+  if (rustup)
+    run(
+      'rustup',
+      ['toolchain', 'install', RUST_TOOLCHAIN, '--profile', 'minimal', '--target', triple],
+      source,
+    )
   run(
     'cargo',
-    ['build', '--release', '--locked', '--features', 'unified', '--target', triple],
+    [
+      ...(rustup ? [`+${RUST_TOOLCHAIN}`] : []),
+      'build',
+      '--release',
+      '--locked',
+      '--features',
+      'unified',
+      '--target',
+      triple,
+    ],
     source,
   )
 
-  return join(
-    source,
-    'target',
-    triple,
-    'release',
-    target.startsWith('win32') ? 'openab.exe' : 'openab',
-  )
+  return binary
 }
 
 export async function prepare({ targets, openab, skipOpenab, require }) {
@@ -168,6 +191,14 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         filter: (path) => !path.endsWith('.complete'),
       })
     cpSync(join(RUNTIME_DIR, ATTACHMENT_JOB), join(out, 'attachment-job.mjs'))
+    // Claude's sign-in wrapper openab runs on request from Nuphos, the one the runtime image ships.
+    cpSync(join(RUNTIME_DIR, 'claude-login.mjs'), join(out, 'claude-login.mjs'))
+    cpSync(join(RUNTIME_DIR, 'codex-login.mjs'), join(out, 'codex-login.mjs'))
+    // A desktop per session on a Linux Box: the MCP wrapper Claude runs there.
+    cpSync(
+      join(desktopDir, 'local-runtime', 'desktop-session.mjs'),
+      join(out, 'desktop-session.mjs'),
+    )
     if (target.startsWith('darwin')) {
       const arch = target.endsWith('arm64') ? 'arm64' : 'x86_64'
 

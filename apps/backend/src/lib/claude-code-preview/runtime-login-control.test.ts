@@ -1,10 +1,10 @@
-import { expect, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
 import { AppError } from '@/lib/errors'
 
 import { OpenAbRpcError } from './openab-acp-errors'
 import { OpenAbAcpLifecycle } from './openab-acp-lifecycle'
-import { driveControlRuntimeLogin } from './runtime-login-control'
+import { acquireStarting, driveControlRuntimeLogin } from './runtime-login-control'
 
 import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc } from './runtime-login-store'
@@ -227,4 +227,39 @@ test('a closed control connection ends the sign-in it was carrying', async () =>
   await Promise.resolve()
   channel.close()
   await expect(login).rejects.toMatchObject({ status: 503, code: 'runtime_login_interrupted' })
+})
+
+describe('signing in an agent that is still starting', () => {
+  const instance = '11111111-1111-4111-8111-111111111111'
+  const added = { runtimeId: `local_owner_box_codex_${instance}` } as never
+  const shared = { runtimeId: 'shared-runtime' } as never
+
+  test('an added agent retries its connection until it comes up', async () => {
+    let attempts = 0
+    const client = await acquireStarting('team', added, new AbortController().signal, async () => {
+      attempts++
+      if (attempts < 3) throw new Error('The local agent is not running')
+
+      return 'client' as never
+    })
+
+    expect(client).toBe('client' as never)
+    expect(attempts).toBe(3)
+  })
+
+  test('any other runtime fails at once, and a cancelled sign-in stops retrying', async () => {
+    let attempts = 0
+    const fail = async () => {
+      attempts++
+      throw new Error('down')
+    }
+    const cancelled = new AbortController()
+
+    cancelled.abort()
+    await expect(
+      acquireStarting('team', shared, new AbortController().signal, fail),
+    ).rejects.toThrow('down')
+    await expect(acquireStarting('team', added, cancelled.signal, fail)).rejects.toThrow('down')
+    expect(attempts).toBe(2)
+  })
 })

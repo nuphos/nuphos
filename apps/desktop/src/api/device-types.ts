@@ -36,6 +36,16 @@ export type DeviceExecAuditPage = {
 /** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
 export type LocalAgentProvider = 'claude-code' | 'codex'
 
+/** One more agent of a provider on a device. `runtimeId` is the catalog's RuntimeInstance.id. */
+export type DeviceAgentInstance = {
+  instanceId: string
+  provider: LocalAgentProvider
+  label: string
+  runtimeId: string
+  /** Exists only once signed in; until then the Box holds it pending. */
+  state?: 'pending'
+}
+
 export type AgentCliStatus =
   | { installed: false }
   | {
@@ -100,4 +110,100 @@ export type LocalRuntimeActivityEntry = {
 export type LocalRuntimeActivityPage = {
   entries: LocalRuntimeActivityEntry[]
   nextCursor: string | null
+}
+
+/** `connecting`: the machine runs but its host has not joined yet. */
+export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
+
+/** A Box: a device Nuphos runs in a sandbox for its owner. */
+/** Who may use a Box besides the team's admins, who always may. */
+export type BoxAccess = { everyone: boolean; userIds: string[] }
+
+export type BoxStatus = {
+  provider: 'instabox'
+  /** Only for those who manage the Box. */
+  access?: BoxAccess
+  /** Set once the machine exists. */
+  sandboxId?: string
+  state: BoxState
+}
+
+/** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
+export type DeviceMetrics = {
+  sampledAt: string
+  cpuPercent: number
+  memory: { used: number; total: number }
+  disk: { used: number; total: number }
+}
+
+export type DeviceMetricsStatus = 'offline' | 'unsupported' | 'waiting' | 'stale' | 'live'
+
+/** `teamId` is the page's team: Boxes are listed only inside one. */
+export type AgentDeviceListOptions = { metrics?: boolean; teamId?: string }
+
+export type AgentDevice = {
+  metricsStatus?: DeviceMetricsStatus
+  metricsReceivedAt?: string | null
+  metrics?: DeviceMetrics | null
+  deviceId: string
+  label: string
+  platform: string
+  model?: string
+  createdAt?: string
+  allowLocalExec?: boolean
+  online?: boolean
+  /** What the viewer may do: 'use' runs its agents; 'manage' also changes or deletes it. */
+  access?: 'use' | 'manage'
+  /** For managers: when and from where the host last reported in. */
+  lastSeenAt?: string
+  lastSeen?: { ip: string; city?: string; country?: string } | null
+  box?: BoxStatus
+  /** A Box's displays of the viewer's own conversations, besides its own :1. */
+  desktops?: { display: number; sessionId: string; title: string }[]
+}
+
+export type AgentDeviceList = {
+  devices: AgentDevice[]
+  /** False or missing when this backend cannot create Boxes. */
+  boxAvailable?: boolean
+}
+
+/** The team's Box vCPU limit and use, from the backend. */
+export type BoxUsage = {
+  /** Null when unlimited. */
+  limitVcpus: number | null
+  /** Whether the limit comes from the team's own subscription. */
+  subscribed: boolean
+  usedVcpus: number | null
+  boxVcpus: number | null
+  /** Every Box of the team with its own size; `running` ones count against the limit. */
+  boxes?: { sandboxId: string; vcpus: number; running: boolean }[]
+  /** The billing service; null when this deployment has none. */
+  billingUrl: string | null
+}
+
+/** The team's running Box vCPUs and its limit over a range, as a step series. */
+export type BoxUsageHistory = {
+  from: string
+  to: string
+  points: { at: string; usedVcpus: number; limitVcpus: number | null }[]
+}
+
+/** The billing service's read-only summary for the Billing section. */
+export type BillingSummary = {
+  plan: {
+    vcpus: number
+    status: string
+    currentPeriodEnd: string | null
+    cancelAt: string | null
+    card: { brand: string; last4: string } | null
+  } | null
+  invoices: {
+    number: string | null
+    total: number
+    currency: string
+    status: string | null
+    created: string | null
+    url: string | null
+  }[]
 }

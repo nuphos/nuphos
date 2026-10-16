@@ -82,3 +82,23 @@ test('the stamp follows the runtime image adapters it stages', () => {
 test('every staged runtime source exists in this repository', () => {
   for (const file of RUNTIME_SOURCES) assert.ok(existsSync(join(RUNTIME_DIR, file)), file)
 })
+
+test('desktop and login source changes invalidate a previously staged bundle', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'desktop-stamp-'))
+  const runtimeDir = join(mkdtempSync(join(tmpdir(), 'login-stamp-')), 'runtime', 'image')
+  for (const file of STAMP_SOURCES) writeFileSync(join(dir, file), `// ${file}`)
+  for (const file of RUNTIME_SOURCES) {
+    mkdirSync(dirname(join(runtimeDir, file)), { recursive: true })
+    writeFileSync(join(runtimeDir, file), `// ${file}`)
+  }
+  for (const [base, file] of [
+    [dir, 'box-desktop-mcp.mjs'],
+    [dir, 'desktop-session.mjs'],
+    [runtimeDir, 'claude-login.mjs'],
+    [runtimeDir, 'codex-login.mjs'],
+  ]) {
+    const before = bundleStamp(dir, runtimeDir)
+    writeFileSync(join(base, file), '// changed implementation')
+    assert.notEqual(bundleStamp(dir, runtimeDir), before, file)
+  }
+})

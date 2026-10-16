@@ -53,7 +53,9 @@ function isLinearIssueDetail(active: string, linearNav: LinearNavState | null): 
 const UNFILTERABLE_PAGE_KEYS = new Set([
   'team.new-tab',
   'team.browser',
+  'team.desktop',
   'team.terminal',
+  'team.desktop',
   'team.files',
   'team.agent',
   // Cloudflare IAM is a status panel: summary card, warnings and granted-scope

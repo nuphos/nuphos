@@ -16,6 +16,7 @@ import * as gitlabInstall from './gitlab-install'
 import * as jiraInstall from './jira-install'
 import * as k8s from './k8s'
 import * as linearInstall from './linear-install'
+import { runtimeDesktops } from './runtime-desktop'
 import { runtimeTerminals } from './runtime-terminal'
 import { localTerminals } from './local-terminal'
 import { registerAppProtocolHandler, registerAppScheme } from './main/app-protocol'
@@ -29,6 +30,7 @@ import { cloudOpsChannels } from './main/channels-cloud-ops'
 import { cloudflareChannels } from './main/channels-cloudflare'
 import { cloudflareAppsChannels } from './main/channels-cloudflare-apps'
 import { connectChannels } from './main/channels-connect'
+import { boxChannels } from './main/channels-box'
 import { deviceChannels } from './main/channels-device'
 import { gitChannels } from './main/channels-git'
 import { instructionsChannels } from './main/channels-instructions'
@@ -187,6 +189,7 @@ app.on('before-quit', (e) => {
     terminal.closeAllSshSessions()
     localTerminals.closeAll()
     runtimeTerminals.closeAll()
+    runtimeDesktops.closeAll()
     // Closes exec sessions and triggers deletion of any node-shell pods.
     podExec.closeAllPodExecSessions()
     stopUpdatePolling()
@@ -288,6 +291,7 @@ const channels = {
   ...agentReadChannels,
   ...instructionsChannels,
   ...deviceChannels,
+  ...boxChannels,
 } as const
 
 for (const [name, handler] of Object.entries(channels)) {

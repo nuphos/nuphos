@@ -1,0 +1,73 @@
+name: openab binaries
+description: >-
+  Restores the openab binaries openab-cache.yml built for this prepare.mjs, and
+  deletes any its attestation does not vouch for, so prepare.mjs compiles those
+  instead. The cache alone is not trusted: any job on main can write a key this
+  predictable.
+inputs:
+  source-ref:
+    description: The ref whose openab-cache.yml run must have built the binaries.
+    default: refs/heads/main
+outputs:
+  key:
+    description: The cache key for this prepare.mjs and runner.
+    value: ${{ steps.key.outputs.key }}
+  hit:
+    description: true when every restored binary is attested, and at least one was.
+    value: ${{ steps.verify.outputs.hit }}
+  rejected:
+    description: How many restored binaries failed verification and were deleted.
+    value: ${{ steps.verify.outputs.rejected }}
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        PREPARE: ${{ hashFiles('apps/desktop/local-runtime/prepare.mjs') }}
+      run: echo "key=openab-$RUNNER_OS-$RUNNER_ARCH-$PREPARE" >> "$GITHUB_OUTPUT"
+    # openab-cache.yml saves with these same paths.
+    - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        key: ${{ steps.key.outputs.key }}
+        path: |
+          ~/.cache/nuphos/openab-*/target/*/release/openab
+          ~/.cache/nuphos/openab-*/target/*/release/openab.exe
+    - id: verify
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        SOURCE_REF: ${{ inputs.source-ref }}
+      run: |
+        set -uo pipefail
+        # The attestation says openab-cache.yml built the binary; this also
+        # requires it built it from this prepare.mjs, so an older openab
+        # cannot be swapped in under the current key.
+        want=$(git rev-parse HEAD:apps/desktop/local-runtime/prepare.mjs)
+        verified=0 rejected=0
+        # One glob, filtered by name: Git Bash on Windows matches `openab` to
+        # openab.exe, which gh then cannot open.
+        for bin in ~/.cache/nuphos/openab-*/target/*/release/openab*; do
+          case "$bin" in */openab | */openab.exe) ;; *) continue ;; esac
+          ok=false
+          for sha in $(gh attestation verify "$bin" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openab-cache.yml" \
+            --source-ref "$SOURCE_REF" --format json \
+            --jq '.[].verificationResult.signature.certificate.sourceRepositoryDigest' | sort -u); do
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/contents/apps/desktop/local-runtime/prepare.mjs?ref=$sha" --jq .sha)" = "$want" ]; then
+              ok=true
+              break
+            fi
+          done
+          if $ok; then
+            echo "verified $bin"
+            verified=$((verified + 1))
+          else
+            echo "::warning::$bin is not attested by openab-cache.yml on $SOURCE_REF for this prepare.mjs; compiling it instead"
+            rm -f "$bin"
+            rejected=$((rejected + 1))
+          fi
+        done
+        [ "$verified" -gt 0 ] && [ "$rejected" -eq 0 ] && hit=true || hit=false
+        echo "hit=$hit" >> "$GITHUB_OUTPUT"
+        echo "rejected=$rejected" >> "$GITHUB_OUTPUT"
