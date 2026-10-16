@@ -32,6 +32,8 @@ export const deviceApi = {
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
   boxJoinToken: () => window.api.boxJoinToken(),
+  openSessionDesktop: (teamId: string, sessionId: string) =>
+    window.api.openSessionDesktop(teamId, sessionId),
   boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
     window.api.boxCreateAgent(deviceId, teamId, provider),
   boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>

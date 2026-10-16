@@ -1,5 +1,10 @@
 import { emptyNavigation } from '../../lib/app-routes/parseShared.ts'
-import { desktopTabId, planDesktopTabs, readSessionDesktops } from '../../lib/sessionDesktops.ts'
+import {
+  desktopTabId,
+  planDesktopTabs,
+  readDesktopFocus,
+  readSessionDesktops,
+} from '../../lib/sessionDesktops.ts'
 import { createWorkspaceTabFromNavigation } from '../workspaceTabFactory.ts'
 
 import { selectBucket } from './store/workspaceState.ts'
@@ -30,4 +35,12 @@ export function syncDesktopTabs(store: WorkspaceStore): void {
       options: { openDock: true },
     })
   }
+  const focus = readDesktopFocus()
+
+  if (focus)
+    store.dispatch({
+      type: 'activateTab',
+      sessionKey: focus.sessionId,
+      tabId: desktopTabId(focus.sessionId, focus.display),
+    })
 }

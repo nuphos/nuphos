@@ -27,6 +27,49 @@ export function listDesktops(wrapper: string, pool: string): SessionDesktop[] {
   }
 }
 
+/** Opens a desktop for `sessionId` by hand, held by this host; the session's own when it has one. */
+export function openDesktop(wrapper: string, pool: string, sessionId: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [wrapper, 'open', pool, sessionId, String(process.pid)], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let out = ''
+    let err = ''
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      out += chunk.toString()
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      err += chunk.toString()
+    })
+    child.on('error', reject)
+    child.on('exit', (code) => {
+      const display = Number(out.trim())
+
+      if (code === 0 && Number.isInteger(display)) resolve(display)
+      else reject(new Error(/Error: (.+)/u.exec(err)?.[1] ?? 'The desktop did not start'))
+    })
+  })
+}
+
+/** The backend's one-shot requests on a Box: agent instances, and a desktop the owner opens by hand. */
+export function withDesktopRequests(
+  wrapper: string,
+  pool: string,
+  instances?: (request: unknown) => Promise<unknown>,
+): (request: unknown) => Promise<unknown> {
+  return (request) => {
+    const { method, sessionId } = (request ?? {}) as { method?: unknown; sessionId?: unknown }
+
+    if (method !== 'desktop')
+      return instances?.(request) ?? Promise.reject(new Error('Instance management unavailable'))
+    if (typeof sessionId !== 'string' || !sessionId)
+      return Promise.reject(new Error('A desktop needs its session'))
+
+    return openDesktop(wrapper, pool, sessionId).then((display) => ({ display }))
+  }
+}
+
 /** Returns the pool directory, or null where this computer cannot host desktops. */
 // TODO(team Box): a Box shared by a team runs every session as the same OS user,
 // so this pool must stay off there until sessions get Unix users of their own.

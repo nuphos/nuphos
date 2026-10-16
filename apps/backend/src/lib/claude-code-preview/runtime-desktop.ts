@@ -16,6 +16,7 @@
 import { getReadableConversation } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
+import { openLocalDesktop } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { AppError } from '@/lib/errors'
@@ -41,6 +42,26 @@ export type RuntimeDesktopTarget = {
 
 const notFound = () => new AppError(404, 'not_found', 'Conversation desktop not found')
 
+/** The conversation's Box, for its owner, with the desktops that Box reports; none where it has no pool. */
+async function ownedDesktopHost(
+  teamId: string,
+  userId: string,
+  sessionId: string,
+  presence: ReturnType<typeof runtimePresenceStore>,
+) {
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
+  const runtimeId = conversation?.runtimeId
+  const ref = runtimeId ? parseLocalRuntimeId(runtimeId) : undefined
+
+  if (!runtimeId || !ref || conversation?.userId !== userId || conversation.teamId !== teamId)
+    throw notFound()
+  // The same access the runtime terminal requires; a local runtime admits only its owner.
+  await requireRuntimeInstance(teamId, runtimeId, userId)
+  const desktops = (await presence.get(ref.userId, ref.deviceId))?.status?.desktops
+
+  return { ref, desktops }
+}
+
 /** The owner of the conversation, for a display the Box reports as this session's. */
 export async function runtimeDesktopTarget(
   teamId: string,
@@ -50,20 +71,40 @@ export async function runtimeDesktopTarget(
   presence = runtimePresenceStore(),
 ): Promise<RuntimeDesktopTarget> {
   const display = Number(displayParam)
-  const conversation = await getReadableConversation(sessionId, userId, teamId)
-  const runtimeId = conversation?.runtimeId
-  const ref = runtimeId ? parseLocalRuntimeId(runtimeId) : undefined
-
-  if (!runtimeId || !ref || conversation?.userId !== userId || conversation.teamId !== teamId)
-    throw notFound()
-  // The same access the runtime terminal requires; a local runtime admits only its owner.
-  await requireRuntimeInstance(teamId, runtimeId, userId)
-  const desktops = (await presence.get(ref.userId, ref.deviceId))?.status?.desktops ?? []
+  const { ref, desktops = [] } = await ownedDesktopHost(teamId, userId, sessionId, presence)
 
   if (!desktops.some((desktop) => desktop.display === display && desktop.sessionId === sessionId))
     throw notFound()
 
   return { userId: ref.userId, deviceId: ref.deviceId, teamId, sessionId, display, viewer: userId }
+}
+
+/**
+ * The owner opens the conversation's desktop by hand: the Box claims a display
+ * from the same pool the agent's desktop tool does, or answers the one the
+ * session already holds. It then shows up in the runtime snapshot like any other.
+ */
+export async function openRuntimeDesktop(
+  teamId: string,
+  userId: string,
+  sessionId: string,
+  deps: { presence?: ReturnType<typeof runtimePresenceStore>; open?: typeof openLocalDesktop } = {},
+): Promise<{ display: number }> {
+  const { ref, desktops } = await ownedDesktopHost(
+    teamId,
+    userId,
+    sessionId,
+    deps.presence ?? runtimePresenceStore(),
+  )
+
+  // A host reports `desktops` only where it runs a desktop pool.
+  if (!desktops) throw notFound()
+  const held = desktops.find((desktop) => desktop.sessionId === sessionId)
+
+  if (held) return { display: held.display }
+  const target = { userId: ref.userId, actorId: userId, deviceId: ref.deviceId, teamId }
+
+  return { display: await (deps.open ?? openLocalDesktop)(target, sessionId) }
 }
 
 /** Relays the client's frames to one `vnc` stream on the Box's tunnel and back. */

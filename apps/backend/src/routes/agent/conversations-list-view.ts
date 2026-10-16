@@ -10,7 +10,7 @@ import { liveAttachment } from '@/lib/agent/db/shared'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
-import { sessionDesktops } from '@/lib/claude-code-preview/session-desktops'
+import { sessionDesktops, withDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { READY_FOR_NEXT_MESSAGE } from '@/lib/claude-code-preview/session-execution-state'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadsBySessionIds } from '@/lib/slack/agent-bot'
@@ -112,9 +112,7 @@ export async function serializeConversationList<T extends ListedConversation>(
     // still means the turn is running.
     const probed =
       runtimeStates[index] ?? (activeRuns[index] ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
-    const runtimeState = desktops[index]?.length
-      ? { ...probed, tools: [...(probed.tools ?? []), ...desktops[index]] }
-      : probed
+    const runtimeState = withDesktops(probed, desktops[index])
 
     return {
       ...serializeConversationForViewer(

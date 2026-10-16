@@ -24,7 +24,12 @@ import { prepareAgentHome } from './agent-home.ts'
 import { agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { signInClaude } from './cli-sign-in.ts'
-import { enableDesktopPool, listDesktops, watchDesktops } from './desktop-pool.ts'
+import {
+  enableDesktopPool,
+  listDesktops,
+  watchDesktops,
+  withDesktopRequests,
+} from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
@@ -178,7 +183,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   },
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
-      instances,
+      instances: desktopPool
+        ? withDesktopRequests(desktopWrapper, desktopPool, instances)
+        : instances,
       sampleMetrics: readDeviceMetrics,
       connectBackend: () => {
         const fresh = deviceCredential?.credential ?? currentToken()

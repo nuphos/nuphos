@@ -71,7 +71,8 @@ export function ConversationMessageList({
     if (teamId)
       publishSessionDesktops(tab.sessionId, {
         teamId,
-        desktops: desktopsFromRuntimeState(tab.runtimeState),
+        displays: desktopsFromRuntimeState(tab.runtimeState),
+        canOpen: tab.runtimeState?.canOpenDesktop === true,
       })
   }, [tab.sessionId, teamId, tab.runtimeState])
   useEffect(() => () => publishSessionDesktops(tab.sessionId, null), [tab.sessionId])

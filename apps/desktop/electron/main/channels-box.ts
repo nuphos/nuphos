@@ -3,6 +3,7 @@ import {
   boxBillingSummary,
   boxDesktop,
   boxJoinToken,
+  openSessionDesktop,
   createBox,
   createDeviceAgent,
   removeDeviceAgent,
@@ -55,6 +56,8 @@ export const boxChannels = {
   'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     boxDesktop(string(deviceId), string(teamId)),
   'box:join-token': () => boxJoinToken(),
+  'box:openSessionDesktop': (_e: unknown, teamId: unknown, sessionId: unknown) =>
+    openSessionDesktop(string(teamId), string(sessionId)),
   'box:rename': (_e: unknown, deviceId: unknown, teamId: unknown, label: unknown) =>
     renameBox(string(deviceId), string(teamId), string(label)),
 }

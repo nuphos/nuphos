@@ -96,11 +96,20 @@ export function resumeBox(deviceId: string, teamId: string): Promise<AgentDevice
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }
-export function boxDesktop(
-  deviceId: string,
-  teamId: string,
-): Promise<{ url: string; label: string }> {
+export function boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }> {
   return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
+}
+/** Has the conversation's Box hold a desktop for it: its own when it has one. */
+export function openSessionDesktop(
+  teamId: string,
+  sessionId: string,
+): Promise<{ display: number }> {
+  return call(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/runtime-desktop/${encodeURIComponent(sessionId)}`,
+    undefined,
+    { retry: false },
+  )
 }
 export function boxJoinToken(): Promise<{
   token: string

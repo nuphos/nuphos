@@ -3,13 +3,13 @@
 // session opens a desktop and goes when the desktop is torn down, the way a
 // shell tab follows its PTY. Nothing is persisted; the snapshot is the source.
 
-/** `title` names the machine and the display, e.g. "Box 1 · :3". */
-export type SessionDesktop = { display: number; title: string }
-export type SessionDesktops = { teamId: string; desktops: SessionDesktop[] }
+/** `canOpen`: its Box runs a desktop pool, so the owner may open one by hand. */
+export type SessionDesktops = { teamId: string; displays: number[]; canOpen?: boolean }
 
 const DESKTOP_PAGE = 'team.desktop'
 const bySession = new Map<string, SessionDesktops>()
 const listeners = new Set<() => void>()
+let focus: { sessionId: string; display: number } | null = null
 
 export function desktopTabId(sessionId: string, display: number): string {
   return `desktop:${sessionId}:${String(display)}`
@@ -20,13 +20,30 @@ export function publishSessionDesktops(sessionId: string, desktops: SessionDeskt
   const before = bySession.get(sessionId)
   const same = desktops
     ? before?.teamId === desktops.teamId &&
-      JSON.stringify(before.desktops) === JSON.stringify(desktops.desktops)
+      String(before.displays) === String(desktops.displays) &&
+      before.canOpen === desktops.canOpen
     : !before
 
   if (same) return
   if (desktops) bySession.set(sessionId, desktops)
   else bySession.delete(sessionId)
   for (const notify of listeners) notify()
+}
+
+/** Brings a session's desktop tab to the front, in whichever workspace holds it. */
+export function focusSessionDesktop(sessionId: string, display: number): void {
+  focus = { sessionId, display }
+  for (const notify of listeners) notify()
+  focus = null
+}
+
+/** The tab a `focusSessionDesktop` call is bringing forward, only while it notifies. */
+export function readDesktopFocus(): { sessionId: string; display: number } | null {
+  return focus
+}
+
+export function canOpenSessionDesktop(sessionId: string | null | undefined): boolean {
+  return Boolean(sessionId && bySession.get(sessionId)?.canOpen)
 }
 
 export function subscribeSessionDesktops(listener: () => void): () => void {
@@ -41,11 +58,6 @@ export function readSessionDesktops(): ReadonlyMap<string, SessionDesktops> {
   return bySession
 }
 
-/** The title the session's snapshot gives a display, while it still holds it. */
-export function sessionDesktopTitle(sessionId: string, display: number): string | undefined {
-  return bySession.get(sessionId)?.desktops.find((desktop) => desktop.display === display)?.title
-}
-
 export type DesktopTabPlan = {
   open: { sessionId: string; teamId: string; display: number }[]
   close: string[]
@@ -58,9 +70,8 @@ export function planDesktopTabs(
 ): DesktopTabPlan {
   const plan: DesktopTabPlan = { open: [], close: [] }
 
-  for (const [sessionId, { teamId, desktops }] of sessions) {
+  for (const [sessionId, { teamId, displays }] of sessions) {
     const tabs = tabsOf(sessionId)
-    const displays = desktops.map((desktop) => desktop.display)
     const wanted = new Set(displays.map((display) => desktopTabId(sessionId, display)))
 
     for (const tab of tabs) {

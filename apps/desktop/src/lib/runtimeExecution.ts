@@ -36,6 +36,8 @@ export type RuntimeExecution = {
     desktop?: { display: number; deviceId: string }
   }[]
   actions?: { send: boolean; cancel: boolean; steer: boolean; reply?: boolean }
+  /** Its Box runs a desktop pool: the owner can open this session's desktop by hand. */
+  canOpenDesktop?: boolean
   epoch?: string
   revision?: number
   observedAt?: number

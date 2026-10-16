@@ -6,52 +6,61 @@
 
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { getAgentDevice } from '@/lib/agent/devices/store'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 
 export type DesktopOwner = { sessionId: string; runtimeId?: string | null }
-type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefined>
 
-const storedLabel: DeviceLabel = async (userId, deviceId) =>
-  (await getAgentDevice(userId, deviceId))?.label
-
-/** Each entry's title names the machine and the display, e.g. "Box 1 · :3". */
-export async function sessionDesktops(
-  conversation: DesktopOwner,
-  deviceLabel = storedLabel,
-): Promise<NonNullable<SessionExecutionState['tools']>> {
-  const ref = conversation.runtimeId ? parseLocalRuntimeId(conversation.runtimeId) : undefined
-
-  if (!ref) return []
-  const presence = await runtimePresenceStore().get(ref.userId, ref.deviceId)
-  const desktops = (presence?.status?.desktops ?? []).filter(
-    (desktop) => desktop.sessionId === conversation.sessionId,
-  )
-
-  if (!desktops.length) return []
-  const label = (await deviceLabel(ref.userId, ref.deviceId)) ?? 'Desktop'
-
-  return desktops.map((desktop) => ({
-    id: `desktop:${String(desktop.display)}`,
-    kind: 'desktop',
-    title: `${label} · :${String(desktop.display)}`,
-    status: 'running',
-    desktop: { display: desktop.display, deviceId: ref.deviceId },
-  }))
+/** The conversation's desktops, and whether its Box runs a desktop pool it could open one from. */
+export type SessionDesktops = {
+  tools: NonNullable<SessionExecutionState['tools']>
+  canOpen: boolean
 }
 
-/** The snapshot with the conversation's desktops appended; unchanged when it has none. */
+const NONE: SessionDesktops = { tools: [], canOpen: false }
+
+export async function sessionDesktops(conversation: DesktopOwner): Promise<SessionDesktops> {
+  const ref = conversation.runtimeId ? parseLocalRuntimeId(conversation.runtimeId) : undefined
+
+  if (!ref) return NONE
+  // A host reports `desktops` only where it runs a desktop pool.
+  const desktops = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status?.desktops
+
+  if (!desktops) return NONE
+
+  return {
+    canOpen: true,
+    tools: desktops
+      .filter((desktop) => desktop.sessionId === conversation.sessionId)
+      .map((desktop) => ({
+        id: `desktop:${String(desktop.display)}`,
+        kind: 'desktop',
+        title: 'Desktop',
+        status: 'running',
+        desktop: { display: desktop.display, deviceId: ref.deviceId },
+      })),
+  }
+}
+
+/** The snapshot with the conversation's desktops appended; unchanged when its Box has no pool. */
+export function withDesktops<T extends SessionExecutionState>(
+  snapshot: T,
+  { tools, canOpen }: SessionDesktops,
+): T {
+  if (!canOpen) return snapshot
+
+  return {
+    ...snapshot,
+    canOpenDesktop: true,
+    ...(tools.length && { tools: [...(snapshot.tools ?? []), ...tools] }),
+  }
+}
+
 export async function withSessionDesktops<T extends SessionExecutionState>(
   snapshot: T,
   conversation: DesktopOwner,
-  deviceLabel = storedLabel,
 ): Promise<T> {
-  const desktops = await sessionDesktops(conversation, deviceLabel)
-
-  return desktops.length
-    ? { ...snapshot, tools: [...(snapshot.tools ?? []), ...desktops] }
-    : snapshot
+  return withDesktops(snapshot, await sessionDesktops(conversation))
 }
 
 /**
@@ -60,7 +69,7 @@ export async function withSessionDesktops<T extends SessionExecutionState>(
  * desktop appears may miss it; the next one carries it.
  */
 export function desktopTracker(conversation: DesktopOwner) {
-  let known: NonNullable<SessionExecutionState['tools']> = []
+  let known = NONE
   let refreshing: Promise<void> | undefined
 
   return {
@@ -74,7 +83,7 @@ export function desktopTracker(conversation: DesktopOwner) {
           refreshing = undefined
         })
 
-      return known.length ? { ...snapshot, tools: [...(snapshot.tools ?? []), ...known] } : snapshot
+      return withDesktops(snapshot, known)
     },
   }
 }
