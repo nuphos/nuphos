@@ -233,10 +233,10 @@ export async function resumeBox(userId: string, deviceId: string): Promise<Agent
   const url = backendUrl()
 
   try {
-    const sandbox = await Sandbox.connect(sandboxId, {
-      ...connection(QUICK_TIMEOUT_MS),
-      resume: true,
-    })
+    // Resume, wake and heal all start a machine, so they count against the team's limit.
+    const sandbox = await startWithinLimit(device.box.teamId, sandboxId, () =>
+      Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
+    )
 
     await sandbox.commands.run(AGENT_COMMAND, {
       envs: { ...downloadEnv(), NUPHOS_API_URL: url },

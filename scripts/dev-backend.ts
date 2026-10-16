@@ -179,7 +179,8 @@ export async function startBackend(local: LocalStack, managedContext: string | n
   // Runtimes and Boxes need a public URL for *this* backend, never PROD. A restart on the
   // same port keeps a live quick tunnel, since Boxes were already handed its URL.
   const alive = tunnel.proc?.exitCode === null && tunnel.proc.signalCode === null
-  const keep = alive && tunnel.kind === 'quick' && tunnelPort === backend.port
+  const keep =
+    alive && tunnel.kind === 'quick' && tunnel.url !== null && tunnelPort === backend.port
   const tunnelUrl = keep ? tunnel.url : await setupTunnel(backend.port)
 
   tunnelPort = backend.port

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentName, agentTier, defaultAgent, groupAgentsByTier } from './agentName.ts'
+import { agentName, agentTier, defaultAgent, groupAgentsByTier, listedAgents } from './agentName.ts'
 
 const me = { userId: 'u1', deviceId: 'mac' }
 const here = {
@@ -65,4 +65,13 @@ test('a new conversation starts on the usable agent with the most quota left', (
     undefined,
   )
   assert.equal(defaultAgent([{ ...cloud, status: 'disabled' as const }], me), undefined)
+})
+
+test('the picker leaves out agents that are not ready, except the selected one', () => {
+  const ready = { id: 'a', label: 'Ready' }
+  const starting = { id: 'b', label: 'Starting', notReady: true }
+
+  assert.deepEqual(listedAgents([ready, starting], 'a'), [ready])
+  assert.deepEqual(listedAgents([ready, starting], 'b'), [ready, starting])
+  assert.deepEqual(listedAgents([ready, starting], undefined), [ready])
 })
