@@ -8,6 +8,8 @@ import {
   runtimeAllows,
   runtimeBackgroundRunning,
   runtimeTurnActive,
+  runtimeStateLabel,
+  runtimeStatusLabel,
   chatRowIndicator,
 } from './runtimeExecution.ts'
 
@@ -133,6 +135,15 @@ test('a slow or failed list poll keeps every row on its last known state', () =>
     'background',
   )
   assert.equal(chatRowIndicator({ ...observed('idle', 'idle'), observedAt: stale }, false), 'none')
+
+  const failed = { ...observed('idle', 'failed'), label: 'Agent failed', observedAt: stale }
+
+  assert.equal(runtimeStateLabel(failed), 'Agent failed')
+  assert.equal(runtimeStatusLabel(failed), 'Connection lost — agent status unavailable')
+  assert.equal(
+    runtimeStateLabel({ state: 'disconnected', observedAt: performance.now() }),
+    'Connection lost — agent status unavailable',
+  )
 })
 
 test('a lost runtime observation never leaves background work showing', () => {

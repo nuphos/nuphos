@@ -41,12 +41,7 @@ export type RuntimeExecution = {
 
 /** A transport, a buffered frame, and a tool card cannot authorize execution. */
 export function runtimeIsExecuting(snapshot: RuntimeExecution | undefined): boolean {
-  return (
-    snapshot?.state === 'active' &&
-    typeof snapshot.observedAt === 'number' &&
-    performance.now() - snapshot.observedAt >= 0 &&
-    performance.now() - snapshot.observedAt < 12_000
-  )
+  return snapshot?.state === 'active' && runtimeSnapshotFresh(snapshot)
 }
 
 /**
@@ -145,7 +140,14 @@ export function runtimeAllows(
 }
 
 export function runtimeStatusLabel(snapshot: RuntimeExecution | undefined): string {
-  if (!snapshot || !runtimeSnapshotFresh(snapshot) || snapshot.state === 'disconnected')
+  return runtimeSnapshotFresh(snapshot)
+    ? runtimeStateLabel(snapshot)
+    : 'Connection lost — agent status unavailable'
+}
+
+/** The last known state's own label, for sidebar rows that do not care how old it is. */
+export function runtimeStateLabel(snapshot: RuntimeExecution | undefined): string {
+  if (!snapshot || snapshot.state === 'disconnected')
     return 'Connection lost — agent status unavailable'
   if (snapshot.schemaVersion !== 2) return 'Agent status unavailable — agent update required'
 

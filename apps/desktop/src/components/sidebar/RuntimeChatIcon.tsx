@@ -3,7 +3,7 @@ import { Loader2, MessageSquare, CircleAlert } from 'lucide-react'
 import {
   newestRuntimeSnapshot,
   runtimeTurnActive,
-  runtimeStatusLabel,
+  runtimeStateLabel,
 } from '../../lib/runtimeExecution'
 import { AgentProviderIcon } from '../agent/panel/icons'
 
@@ -21,8 +21,8 @@ export function RuntimeChatIcon({
 
   if (runtimeTurnActive(state)) {
     return (
-      <span title={runtimeStatusLabel(state)}>
-        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label={runtimeStatusLabel(state)} />
+      <span title={runtimeStateLabel(state)}>
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label={runtimeStateLabel(state)} />
       </span>
     )
   }
@@ -32,8 +32,8 @@ export function RuntimeChatIcon({
       ['failed', 'resume_failed', 'stopped'].includes(state?.phase ?? ''))
   ) {
     return (
-      <span title={runtimeStatusLabel(state)}>
-        <CircleAlert className="h-3.5 w-3.5" aria-label={runtimeStatusLabel(state)} />
+      <span title={runtimeStateLabel(state)}>
+        <CircleAlert className="h-3.5 w-3.5" aria-label={runtimeStateLabel(state)} />
       </span>
     )
   }
