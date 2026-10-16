@@ -49,18 +49,31 @@ export function patchAdapter(source, helper) {
       '      _meta: { steering: { supported: true } },\n' + initializeAnchor,
     )
 
-  // thread/resume ignores a new config while a subscription holds the loaded
-  // thread, which kept the previous actor's environment after a teammate's
-  // load. Release this connection's subscription first: the app-server then
-  // rebuilds an idle thread with the config this load carries.
+  // A teammate's load must reach a thread this process already holds; see
+  // nuphosReleaseMovedThread. New threads record the home they started in.
   const resumeCall = '    const response = await this.codexClient.threadResume({'
-  if (withSteering.split(resumeCall).length !== 3)
-    throw new Error('Expected Codex load and resume thread handoffs')
-  const resubscribing = withSteering.replaceAll(
-    resumeCall,
-    '    await this.codexClient.threadUnsubscribe({ threadId: request.sessionId }).catch(() => {});\n' +
-      resumeCall,
+  const startCall = '    const response = await this.codexClient.threadStart({'
+  const startAnchor =
+    '      cwd: request.cwd\n    });\n    const codexModels = await this.fetchAvailableModels();\n    if (codexModels.length === 0) {'
+  if (
+    withSteering.split(resumeCall).length !== 3 ||
+    withSteering.split(startCall).length !== 2 ||
+    withSteering.split(startAnchor).length !== 2
   )
+    throw new Error('Expected Codex start, load and resume thread handoffs')
+  const resubscribing = withSteering
+    .replaceAll(
+      resumeCall,
+      '    await nuphosReleaseMovedThread(this.codexClient, request.sessionId, request._meta);\n' +
+        resumeCall,
+    )
+    .replace(
+      startAnchor,
+      startAnchor.replace(
+        '    });\n',
+        '    });\n    nuphosRememberThreadHome(response.thread.id, request._meta);\n',
+      ),
+    )
 
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.

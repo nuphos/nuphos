@@ -100,6 +100,11 @@ try {
   const created = await rpc('session/new', args('actor-a'))
 
   await rpc('session/load', { ...args('actor-b'), sessionId: created.sessionId })
+  // A teammate's load moves the session home; the owner's reload above did not.
+  const teammate = args('actor-c')
+
+  teammate._meta['ai.nuphos/codex'].env.NUPHOS_SESSION_ACTOR = 'teammate'
+  await rpc('session/load', { ...teammate, sessionId: created.sessionId })
   const config = async (configId, value) =>
     rpc('session/set_config_option', { sessionId: created.sessionId, configId, value })
   const second = await config('model', 'smoke-second')
@@ -130,12 +135,21 @@ try {
   const start = calls.find((c) => c.method === 'thread/start')
   const resume = calls.find((c) => c.method === 'thread/resume')
 
-  // A loaded thread keeps its config while subscribed, so the load releases it first.
-  const release = calls.findIndex(
-    (c) => c.method === 'thread/unsubscribe' && c.params.threadId === created.sessionId,
-  )
+  // App Server ignores a subscribed resume's config, so only a load that moves
+  // the session home releases the thread first; the owner's reload keeps it.
+  const resumes = calls.filter((c) => c.method === 'thread/resume')
+  const releases = calls
+    .map((c, at) => (c.method === 'thread/unsubscribe' ? at : -1))
+    .filter((at) => at >= 0)
 
-  assert.ok(release > calls.indexOf(start) && release < calls.indexOf(resume))
+  assert.equal(resumes.length, 2)
+  assert.equal(releases.length, 1)
+  assert.equal(calls[releases[0]].params.threadId, created.sessionId)
+  assert.ok(releases[0] > calls.indexOf(resumes[0]) && releases[0] < calls.indexOf(resumes[1]))
+  assert.notEqual(
+    resumes[1].params.config.shell_environment_policy.set.HOME,
+    resume.params.config.shell_environment_policy.set.HOME,
+  )
 
   assert.notEqual(start.params.config.shell_environment_policy.set.HOME, base)
   assert.equal(
