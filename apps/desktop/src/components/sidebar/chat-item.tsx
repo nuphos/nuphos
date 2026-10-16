@@ -1,7 +1,7 @@
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 
 import { chatRowIcon } from './chat-row-icon'
-import { ChatRowStatusDot } from './ChatRowStatusDot'
+import { ChatRowStatus } from './ChatRowStatus'
 import { SessionResources } from './SessionResources'
 
 import type { Item } from './types'
@@ -35,7 +35,7 @@ export function chatSidebarItem({
   return {
     key: `agent-session:${conversation.sessionId}`,
     label: conversation.title || conversation.firstMessage || 'Untitled chat',
-    ...chatRowIcon(conversation, runtimeState),
+    ...chatRowIcon(conversation),
     description: (
       <SessionResources
         sessionId={conversation.sessionId}
@@ -56,15 +56,10 @@ export function chatSidebarItem({
       }),
     ).href,
     trailing: (
-      <ChatRowStatusDot conversation={conversation} runtimeState={runtimeState} unread={unread} />
+      <ChatRowStatus conversation={conversation} runtimeState={runtimeState} unread={unread} />
     ),
     foldedStatus: (
-      <ChatRowStatusDot
-        conversation={conversation}
-        runtimeState={runtimeState}
-        unread={unread}
-        showTurn
-      />
+      <ChatRowStatus conversation={conversation} runtimeState={runtimeState} unread={unread} />
     ),
     actions,
   }

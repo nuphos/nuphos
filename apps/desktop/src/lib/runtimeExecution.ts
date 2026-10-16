@@ -61,14 +61,20 @@ export function runtimeBackgroundRunning(snapshot: RuntimeExecution | undefined)
   )
 }
 
-export type ChatRowIndicator = 'turn' | 'background' | 'unread' | 'none'
+export type ChatRowIndicator = 'turn' | 'error' | 'background' | 'unread' | 'none'
 
-/** A running turn outranks background work, which outranks an unread reply. */
+/** A running turn outranks a stopped runtime, then background work, then an unread reply. */
 export function chatRowIndicator(
   snapshot: RuntimeExecution | undefined,
   unread: boolean,
 ): ChatRowIndicator {
   if (runtimeTurnActive(snapshot)) return 'turn'
+  if (
+    snapshot &&
+    (!['idle', 'dormant'].includes(snapshot.state) ||
+      ['failed', 'resume_failed', 'stopped'].includes(snapshot.phase ?? ''))
+  )
+    return 'error'
   if (runtimeBackgroundRunning(snapshot)) return 'background'
 
   return unread ? 'unread' : 'none'

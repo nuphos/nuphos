@@ -110,6 +110,13 @@ test('background work after the turn ended is its own state, not a running turn'
   assert.equal(chatRowIndicator(background, true), 'background')
 })
 
+test('a stopped runtime shows the error indicator; a missing snapshot does not', () => {
+  for (const state of ['disconnected', 'interrupted', 'unknown', 'unsupported'] as const)
+    assert.equal(chatRowIndicator({ state, observedAt: performance.now() }, false), 'error')
+  assert.equal(chatRowIndicator(observed('dormant', 'dormant'), false), 'none')
+  assert.equal(chatRowIndicator(undefined, false), 'none')
+})
+
 test('an idle conversation shows only its unread state', () => {
   assert.equal(chatRowIndicator(observed('idle', 'idle'), true), 'unread')
   assert.equal(chatRowIndicator(observed('idle', 'idle'), false), 'none')
@@ -119,8 +126,9 @@ test('an idle conversation shows only its unread state', () => {
 test('background work clears when tools finish, fail or are cancelled', () => {
   for (const phase of ['idle', 'failed', 'cancelled', 'dormant']) {
     assert.equal(runtimeBackgroundRunning(observed('idle', phase)), false)
-    assert.equal(chatRowIndicator(observed('idle', phase), true), 'unread')
   }
+  assert.equal(chatRowIndicator(observed('idle', 'cancelled'), true), 'unread')
+  assert.equal(chatRowIndicator(observed('idle', 'failed'), true), 'error')
 })
 
 test('a slow or failed list poll keeps every row on its last known state', () => {
@@ -158,7 +166,7 @@ test('a lost runtime observation never leaves background work showing', () => {
       }),
       false,
     ),
-    'none',
+    'error',
   )
 })
 
@@ -167,6 +175,5 @@ test('a paused automatic continuation is neither a running turn nor background w
 
   assert.equal(runtimeTurnActive(paused), false)
   assert.equal(runtimeBackgroundRunning(paused), false)
-  assert.equal(chatRowIndicator(paused, false), 'none')
-  assert.equal(chatRowIndicator(paused, true), 'unread')
+  assert.equal(chatRowIndicator(paused, false), 'error')
 })
