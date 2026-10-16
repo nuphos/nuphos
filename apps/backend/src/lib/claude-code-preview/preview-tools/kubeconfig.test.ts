@@ -75,6 +75,7 @@ describe('get_kubeconfig', () => {
     expect(payload.kubeconfig).toContain('OPENAB_CREDENTIALS_DIR/NUPHOS_TOKEN')
     expect(payload.kubeconfig).not.toMatch(/eyJ[\w-]+\.[\w-]+\./)
     expect(payload.kubeconfig).not.toContain('env:')
+    expect(payload.kubeconfig).toContain('--fail-with-body')
     // Positional args mirror get-credential.sh's contract (YAML may quote).
     for (const arg of ['aws', 'team-1', '123456789012', 'prod', 'us-east-1']) {
       expect(payload.kubeconfig).toMatch(new RegExp(`- "?${arg}"?\\n`))
