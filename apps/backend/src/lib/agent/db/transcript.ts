@@ -3,8 +3,7 @@ import { fallbackTitle } from '../title-fallback'
 import { readableByFilter } from './access'
 import { upsertConversationShell } from './conversations'
 import { agentConversations, agentMessages, escapeRegExp, withTeamScope } from './shared'
-import { preserveRuntimeToolResults } from './transcript-runtime-tool-results'
-import { withoutToolOutputs } from './transcript-tool-output'
+import { messageWrites, STORED_MESSAGE_FIELDS } from './transcript-message-writes'
 import { withTranscriptWriteLock } from './transcript-write-lock'
 
 import type { AgentConversation, AgentMessage } from './shared'
@@ -52,6 +51,9 @@ export async function syncConversationTranscriptUnlocked(
   })
 
   let runtimeToolParts: unknown[] = []
+  // Stored docs already at their incoming index; rewriting an identical one is
+  // most of a long conversation's turn (every message, every send).
+  const storedAt = new Map<number, AgentMessage>()
   const attribution = new Map<
     string,
     { metadata: MessageMetadata; role: 'user' | 'assistant'; parts: unknown[] }
@@ -73,7 +75,7 @@ export async function syncConversationTranscriptUnlocked(
     const existingMessages = await agentMessages()
       .find(
         { sessionId: data.sessionId, userId: data.userId },
-        { projection: { _id: 1, index: 1, messageId: 1, role: 1, parts: 1, metadata: 1 } },
+        { projection: STORED_MESSAGE_FIELDS },
       )
       .toArray()
 
@@ -96,6 +98,8 @@ export async function syncConversationTranscriptUnlocked(
         incomingMessageId !== message.messageId ||
         incomingIndex !== message.index
 
+      if (!stale) storedAt.set(message.index, message)
+
       return stale ? [message._id] : []
     })
 
@@ -104,51 +108,9 @@ export async function syncConversationTranscriptUnlocked(
     }
   }
 
-  if (data.messages.length > 0) {
-    await agentMessages().bulkWrite(
-      data.messages.map((message, index) => ({
-        updateOne: {
-          filter: {
-            sessionId: data.sessionId,
-            userId: data.userId,
-            index,
-          },
-          update: {
-            $set: {
-              ...(attribution.get(message.id) || message.metadata
-                ? { metadata: attribution.get(message.id)?.metadata ?? message.metadata }
-                : {}),
-              messageId: message.id,
-              role: attribution.get(message.id)?.role ?? message.role,
-              parts: withoutToolOutputs(
-                preserveRuntimeToolResults(
-                  attribution.get(message.id)?.role === 'user'
-                    ? attribution.get(message.id)!.parts
-                    : message.parts,
-                  runtimeToolParts,
-                ),
-              ),
-              // Only ever set, never unset: a re-sync that rebuilt history
-              // without the bridge context must not erase where the message
-              // originally came from.
-              ...(message.origin ? { origin: message.origin } : {}),
-              ...(message.turnOrigin === 'autonomous' ? { turnOrigin: 'autonomous' } : {}),
-              ...(message.turnKind === 'plan-approval' ? { turnKind: 'plan-approval' } : {}),
-              updatedAt: now,
-            },
-            $setOnInsert: {
-              sessionId: data.sessionId,
-              userId: data.userId,
-              index,
-              createdAt: now,
-            },
-          },
-          upsert: true,
-        },
-      })),
-      { ordered: false },
-    )
-  }
+  const writes = messageWrites(data, { attribution, runtimeToolParts, storedAt, now })
+
+  if (writes.length > 0) await agentMessages().bulkWrite(writes, { ordered: false })
 
   const set: Record<string, unknown> = {
     firstMessage: data.firstMessage.slice(0, 500),
