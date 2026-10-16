@@ -65,6 +65,10 @@ async function deviceView(
     online,
     access: level,
     createdAt: device.createdAt.toISOString(),
+    // The IP is personal data: only for those who manage the machine.
+    ...(level === 'manage' && device.lastSeenAt
+      ? { lastSeenAt: device.lastSeenAt.toISOString(), lastSeen: device.lastSeen ?? null }
+      : {}),
     ...(device.box && state
       ? {
           box: {

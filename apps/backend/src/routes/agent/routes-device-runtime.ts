@@ -14,6 +14,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { getAgentDevice, isActiveTeamMember, recordDeviceAgents } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
+import { requestOrigin } from '@/lib/request-origin'
 import { getTeamMembers } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { zv } from '@/lib/validate'
@@ -136,9 +137,18 @@ export function createDeviceRuntimeRoutes(
     if (c.req.header('upgrade')?.toLowerCase() !== 'websocket')
       throw new AppError(426, 'upgrade_required', 'Connect with a WebSocket')
 
+    const from = requestOrigin((name) => c.req.header(name))
+    const { recordAgents } = deps.holder
+
     return upgradeWebSocket(
       c as unknown as Context,
-      runtimeTunnelEvents(userId, deviceId, deps.holder),
+      runtimeTunnelEvents(userId, deviceId, {
+        ...deps.holder,
+        // Seen from where this connection came from.
+        ...(recordAgents
+          ? { recordAgents: (owner, id, status) => recordAgents(owner, id, status, from) }
+          : {}),
+      }),
     )
   })
 

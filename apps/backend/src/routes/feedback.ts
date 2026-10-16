@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 
 import { feedbackRequestSchema } from '@/lib/api/feedback'
 import { consumeFeedbackRateLimit, saveFeedbackReport } from '@/lib/feedback'
+import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 
 import type { FeedbackRateLimitResult, FeedbackReport } from '@/lib/feedback'
@@ -17,7 +18,8 @@ export function createFeedbackRoutes(dependencies: Dependencies) {
   const routes = new Hono()
 
   routes.post('/', zv('json', feedbackRequestSchema), async (c) => {
-    const ip = clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For'))
+    const ip =
+      clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')) ?? 'unknown'
     const result = await dependencies.consume(ip)
 
     if (result === 'limited') return c.json({ error: 'rate_limited' }, 429)
@@ -33,13 +35,3 @@ export const feedbackRoutes = createFeedbackRoutes({
   consume: consumeFeedbackRateLimit,
   save: saveFeedbackReport,
 })
-
-// Hosted Nuphos sits behind Cloudflare, which sets CF-Connecting-IP. The origin
-// is also reachable directly, so the value is advisory: a caller bypassing
-// Cloudflare can forge it. Without Cloudflare (self-hosted) fall back to the
-// right-most X-Forwarded-For hop. The global quota bounds either case.
-function clientIp(cfConnectingIp: string | undefined, forwardedFor: string | undefined): string {
-  const candidates = [cfConnectingIp, ...(forwardedFor?.split(',').toReversed() ?? [])]
-
-  return candidates.map((value) => value?.trim()).find(Boolean) ?? 'unknown'
-}

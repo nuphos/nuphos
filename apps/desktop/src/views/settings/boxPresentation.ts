@@ -125,6 +125,14 @@ export function machineLine(device: AgentDevice): string {
   return device.model ? `${os} · ${device.model}` : os
 }
 
+/** "Taipei, TW · 1.2.3.4" for a manager; null when the viewer may not see it or it never reported. */
+export function seenFrom(device: AgentDevice): string | null {
+  if (!device.lastSeen) return null
+  const place = [device.lastSeen.city, device.lastSeen.country].filter(Boolean).join(', ')
+
+  return [place, device.lastSeen.ip].filter(Boolean).join(' · ')
+}
+
 /** Boxes that were creating and are gone: #355 drops a Box whose machine could not be made. */
 export function vanishedBoxes(previous: AgentDevice[], next: AgentDevice[]): BoxDevice[] {
   const ids = new Set(next.map((device) => device.deviceId))

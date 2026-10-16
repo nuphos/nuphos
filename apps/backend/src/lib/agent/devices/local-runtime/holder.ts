@@ -11,6 +11,7 @@ import type { BoxMetrics } from '../metrics-schema'
 import type { TunnelBus } from './bus'
 import type { LocalRuntimePresenceStore } from './presence'
 import type { BackendFrame, HolderMessage, LocalRuntimeStatus, StreamMessage } from './protocol'
+import type { RequestOrigin } from '@/lib/request-origin'
 
 export type TunnelConnection = {
   send(frame: BackendFrame): void
@@ -24,7 +25,12 @@ export type TunnelHolderDeps = {
   heartbeatMs?: number
   idleTimeoutMs?: number
   /** Keeps the agents a report shows signed in listed while the computer is offline. */
-  recordAgents?: (userId: string, deviceId: string, status: LocalRuntimeStatus) => Promise<void>
+  recordAgents?: (
+    userId: string,
+    deviceId: string,
+    status: LocalRuntimeStatus,
+    from?: RequestOrigin,
+  ) => Promise<void>
   /** Told when the tunnel opens or closes; must not throw. */
   connectionChanged?: (userId: string, deviceId: string) => void
 }
