@@ -406,7 +406,8 @@ final class AgentStore {
                 await loadMore()
             }
         } catch {
-            guard generation == loadGeneration else { return }
+            // A search keystroke cancels this load before its replacement starts.
+            guard generation == loadGeneration, !Task.isCancelled else { return }
             phase = .failed(error.localizedDescription)
         }
     }
