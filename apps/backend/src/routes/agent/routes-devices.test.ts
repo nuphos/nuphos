@@ -104,6 +104,9 @@ function buildApp(box: BoxDeps | null = null) {
       },
       conversationTitlesFor: async (sessionIds) =>
         new Map(sessionIds.map((id) => [id, `Title ${id}`])),
+      boxDesktops: async (owner, deviceId, viewer, team) => [
+        { display: 2, sessionId: `${owner}:${deviceId}:${viewer}:${String(team)}`, title: 'Fix' },
+      ],
       issueJoinToken: async (userId, options) => {
         issued.push({ userId, options })
 
@@ -406,6 +409,20 @@ describe('agent device routes', () => {
     }
 
     expect(plain.boxAvailable).toBe(false)
+  })
+
+  test("GET /devices gives an online Box the viewer's session displays; an offline one none", async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const list = async () =>
+      (await (await buildApp(fakeBox([])).request('/agent/devices?teamId=team-1')).json()) as {
+        devices: { desktops?: unknown }[]
+      }
+
+    expect((await list()).devices[0]?.desktops).toBeUndefined()
+    onlineNow = true
+    expect((await list()).devices[0]?.desktops).toEqual([
+      { display: 2, sessionId: 'user-1:b1:user-1:team-1', title: 'Fix' },
+    ])
   })
 
   test('an unnamed Box counts up from the highest "Box N" the caller has', () => {

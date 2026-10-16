@@ -153,6 +153,8 @@ export type AgentDevice = {
   lastSeenAt?: string
   lastSeen?: { ip: string; city?: string; country?: string } | null
   box?: BoxStatus
+  /** A Box's displays of the viewer's own conversations, besides its own :1. */
+  desktops?: { display: number; sessionId: string; title: string }[]
 }
 
 export type AgentDeviceList = {
