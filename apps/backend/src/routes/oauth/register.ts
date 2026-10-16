@@ -28,13 +28,13 @@ export function registerOauthRegisterRoute(oauthRoutes: Hono) {
       )
     }
 
-    // Shown on the consent page: keep it short and printable.
+    // Shown on the consent page: keep it short and printable. Counted in code
+    // points so the cap never splits a surrogate pair.
     const clientName =
       typeof body?.client_name === 'string'
-        ? body.client_name
-            .replace(/[\p{Cc}\p{Cf}]/gu, '')
-            .trim()
-            .slice(0, 100) || null
+        ? Array.from(body.client_name.replace(/[\p{Cc}\p{Cf}]/gu, '').trim())
+            .slice(0, 100)
+            .join('') || null
         : null
     const client = await registerClient({ clientName, redirectUris, scope: MCP_SCOPE })
 

@@ -1,4 +1,4 @@
-import { escapeHtml } from '@/routes/oauth/shared'
+import { escapeHtml, isLoopbackHost } from '@/routes/oauth/shared'
 
 import type { AuthorizeParams } from '@/routes/oauth/authorize-validate'
 
@@ -9,9 +9,9 @@ const KNOWN_CLIENT_HOSTS = new Set(['claude.ai', 'claude.com', 'chatgpt.com'])
 /** Where the authorization code goes, so a look-alike app name cannot hide it. */
 export function redirectNotice(redirectUri: string): string {
   const { hostname, host } = new URL(redirectUri)
-  const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
 
-  if (loopback) return '<p class="dest">Returns to an app on <b>this computer</b>.</p>'
+  if (isLoopbackHost(hostname))
+    return '<p class="dest">Returns to an app on <b>this computer</b>.</p>'
   const known = KNOWN_CLIENT_HOSTS.has(hostname)
   const warning = known
     ? ''

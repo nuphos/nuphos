@@ -21,7 +21,7 @@ export function resourceUrl(): string {
   return mcpResourceUrl(baseUrl())
 }
 
-function isLoopbackHost(hostname: string): boolean {
+export function isLoopbackHost(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
 }
 
