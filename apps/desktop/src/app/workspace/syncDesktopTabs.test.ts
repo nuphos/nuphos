@@ -11,7 +11,10 @@ test('a desktop tab appears in the session dock when the desktop opens and goes 
   const store = createWorkspaceStore(createWorkspaceState())
 
   store.actions.retainTeams(['team-a'], 'team-a')
-  publishSessionDesktops('chat', { teamId: 'team-a', displays: [3] })
+  publishSessionDesktops('chat', {
+    teamId: 'team-a',
+    desktops: [{ display: 3, title: 'Box 1 · :3' }],
+  })
   syncDesktopTabs(store)
   const dock = selectBucket(store.getState(), 'chat')
 
@@ -23,7 +26,7 @@ test('a desktop tab appears in the session dock when the desktop opens and goes 
   // The same snapshot again changes nothing.
   syncDesktopTabs(store)
   assert.equal(selectBucket(store.getState(), 'chat').tabs.length, 1)
-  publishSessionDesktops('chat', { teamId: 'team-a', displays: [] })
+  publishSessionDesktops('chat', { teamId: 'team-a', desktops: [] })
   syncDesktopTabs(store)
   assert.equal(selectBucket(store.getState(), 'chat').tabs.length, 0)
   publishSessionDesktops('chat', null)

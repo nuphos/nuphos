@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb'
 
 import { db } from '@/lib/db'
 
-import { mergeAgentRegistry, reportedAgents } from './agent-registry'
+import { mergeAgentRegistry, renameRegisteredAgent, reportedAgents } from './agent-registry'
 
 import type { RegisteredAgent } from './agent-registry'
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
@@ -267,6 +267,20 @@ export async function recordDeviceAgents(
     { userId, deviceId },
     { $set: { lastSeenAt: new Date(), ...(next ? { agents: next } : {}) } },
   )
+}
+
+export async function renameDeviceAgent(
+  userId: string,
+  deviceId: string,
+  key: string,
+  label: string,
+): Promise<boolean> {
+  const device = await agentDevices().findOne({ userId, deviceId }, { projection: { agents: 1 } })
+  const next = renameRegisteredAgent(device?.agents ?? [], key, label)
+
+  if (next) await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
+
+  return next !== null
 }
 
 export async function removeDeviceAgent(

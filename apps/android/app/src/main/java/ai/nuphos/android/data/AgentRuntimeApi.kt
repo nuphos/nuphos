@@ -49,6 +49,7 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
         val list = execute(path, "GET", expected = 200)["runtimes"] as? JsonArray ?: throw NuphosApi.Failure.InvalidResponse
         return list.map(::decodeRuntime).also { if (it.map { item -> item.id }.distinct().size != it.size) throw NuphosApi.Failure.InvalidResponse }
     }
+    suspend fun quotas(): Map<String, RuntimeQuota> = decodeRuntimeQuotas(execute("$path/quota", "GET", expected = 200))
     override suspend fun create(provider: String, label: String?): AgentRuntime {
         require(provider in setOf("claude-code", "codex"))
         val trimmed = label?.trim(); require(trimmed == null || trimmed.length in 1..120)
