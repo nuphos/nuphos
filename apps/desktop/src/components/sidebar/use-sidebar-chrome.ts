@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 import {
   DEFAULT_COLLAPSED_GROUPS,
@@ -7,10 +7,11 @@ import {
   MIN_SIDEBAR_WIDTH,
   SIDEBAR_WIDTH_KEY,
   loadGroupState,
-  writeGroupState,
+  readGroupStateRaw,
+  subscribeGroupState,
+  writeGroupFold,
 } from './state'
 
-import type { GroupState } from './state'
 import type { Section } from './types'
 import type { UIEvent } from 'react'
 
@@ -34,23 +35,21 @@ export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collap
     setPeekCollapsed(collapsed)
     setPeek(false)
   }
-  const [groupState, setGroupState] = useState<GroupState>(() => {
-    if (typeof window === 'undefined') return {}
-
-    return loadGroupState(teamId)
-  })
+  // Read straight from storage, never from a copy: the only thing that changes
+  // a fold is the user's own toggle, in this window or another.
+  const groupStateRaw = useSyncExternalStore(subscribeGroupState, readGroupStateRaw, () => null)
+  const groupState = useMemo(() => loadGroupState(teamId, groupStateRaw), [teamId, groupStateRaw])
   // Ephemeral expansion of the always-folded integration groups: lives only
   // in memory and resets on team switch, so those groups are folded at rest.
   const [openedIntegrationGroups, setOpenedIntegrationGroups] = useState<Set<string>>(
     () => new Set(),
   )
-  // Re-seed team-scoped state on team switch during render — the documented
-  // "storing information from previous renders" pattern (cf. SidebarNavStack).
+  // Reset on team switch during render — the documented "storing information
+  // from previous renders" pattern (cf. SidebarNavStack).
   const [seededTeamId, setSeededTeamId] = useState(teamId)
 
   if (seededTeamId !== teamId) {
     setSeededTeamId(teamId)
-    setGroupState(loadGroupState(teamId))
     setOpenedIntegrationGroups(new Set())
   }
   const isGroupCollapsed = useCallback(
@@ -88,10 +87,6 @@ export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collap
     localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width))
   }, [width])
 
-  useEffect(() => {
-    writeGroupState(teamId, groupState)
-  }, [groupState, teamId])
-
   const toggleGroup = useCallback(
     (section: Pick<Section, 'title' | 'defaultCollapsed'>) => {
       // Only a titled section has a header to toggle from.
@@ -110,12 +105,9 @@ export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collap
 
         return
       }
-      setGroupState((prev) => ({
-        ...prev,
-        [title]: isGroupCollapsed(section) ? 'open' : 'closed',
-      }))
+      writeGroupFold(teamId, title, isGroupCollapsed(section) ? 'open' : 'closed')
     },
-    [isGroupCollapsed],
+    [isGroupCollapsed, teamId],
   )
 
   // Overlay scrollbar: the nav thumb is hidden by default (see `.scrollbar-overlay`
