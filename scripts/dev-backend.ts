@@ -10,6 +10,7 @@ import { markDirty, pushEvent } from './dev-event-log.ts'
 import { localBackendEnv } from './dev-local-stack-env.ts'
 import { managedBackendEnv } from './dev-managed-env.ts'
 import { findFreePort, releasePort } from './dev-ports.ts'
+import { storageTunnelUrl } from './dev-quick-tunnel.ts'
 import { backend, ensureDeps, openLog, startTiming, writeRaw } from './dev-services.ts'
 import { isQuitting } from './dev-shutdown.ts'
 import { setupTunnel, tunnel } from './dev-tunnel.ts'
@@ -179,10 +180,13 @@ export async function startBackend(local: LocalStack, managedContext: string | n
   // Runtimes and Boxes need a public URL for *this* backend, never PROD. A restart on the
   // same port keeps a live quick tunnel, since Boxes were already handed its URL.
   const alive = tunnel.proc?.exitCode === null && tunnel.proc.signalCode === null
-  const keep = alive && tunnel.kind === 'quick' && tunnelPort === backend.port
+  const keep =
+    alive && tunnel.kind === 'quick' && tunnel.url !== null && tunnelPort === backend.port
   const tunnelUrl = keep ? tunnel.url : await setupTunnel(backend.port)
 
   tunnelPort = backend.port
+  // Boxes upload and fetch skills through presigned URLs, so they must not name 127.0.0.1.
+  const storageUrl = await storageTunnelUrl(local.rustfsPort)
   const child = spawn('bun', ['run', 'dev'], {
     cwd: BACKEND_DIR,
     env: {
@@ -194,6 +198,9 @@ export async function startBackend(local: LocalStack, managedContext: string | n
       FORCE_COLOR: '1',
       NUPHOS_BACKEND_URL: `http://host.docker.internal:${String(backend.port)}`,
       NUPHOS_PUBLIC_BACKEND_URL: tunnelUrl ?? '',
+      ...(storageUrl
+        ? { NUPHOS_FILE_TRANSFER_S3_ENDPOINT: storageUrl, ATLAS_SKILLS_S3_ENDPOINT: storageUrl }
+        : {}),
     },
     detached: true, // new process group so quit() can kill the whole tree
     stdio: ['ignore', 'pipe', 'pipe'],

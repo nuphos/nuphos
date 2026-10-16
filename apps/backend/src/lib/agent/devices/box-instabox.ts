@@ -28,6 +28,7 @@ import {
   unavailable,
 } from './box-instabox-client'
 import { startWithinLimit } from './box-instabox-limit'
+import { noteBoxUsage } from './box-usage-history'
 
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { isDevicePresent } from './presence'
@@ -166,6 +167,7 @@ async function order(
     )
     await deleteDeviceJoinTokens(deviceId).catch(() => undefined)
     await deleteAgentDevice(userId, deviceId).catch(() => undefined)
+    noteBoxUsage(teamId)
   }
 }
 
@@ -233,10 +235,10 @@ export async function resumeBox(userId: string, deviceId: string): Promise<Agent
   const url = backendUrl()
 
   try {
-    const sandbox = await Sandbox.connect(sandboxId, {
-      ...connection(QUICK_TIMEOUT_MS),
-      resume: true,
-    })
+    // Resume, wake and heal all start a machine, so they count against the team's limit.
+    const sandbox = await startWithinLimit(device.box.teamId, sandboxId, () =>
+      Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
+    )
 
     await sandbox.commands.run(AGENT_COMMAND, {
       envs: { ...downloadEnv(), NUPHOS_API_URL: url },
@@ -266,6 +268,8 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
     logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
     throw unavailable('Could not delete the Box', error)
   }
+  // Its tunnel closed before the kill, while the machine still ran.
+  noteBoxUsage(device.box.teamId)
 }
 
 /**

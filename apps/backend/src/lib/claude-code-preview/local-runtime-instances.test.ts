@@ -134,9 +134,17 @@ describe('multiple instances of one provider', () => {
     const wrongProvider = localRuntimeId({ ...ref, provider: 'codex', instanceId: a })
 
     for (const id of [missing, wrongProvider]) {
+      // Chat needs the agent in the computer's report; sign-in goes to that exact agent
+      // (the host refuses an id it does not have) and never to the provider's default.
       await expect(
-        resolveLocalRuntimeEndpoint('team', id, 'owner', 'login', deps),
+        resolveLocalRuntimeEndpoint('team', id, 'owner', 'transport', deps),
       ).rejects.toMatchObject({ code: 'runtime_offline' })
+      const login = await resolveLocalRuntimeEndpoint('team', id, 'owner', 'login', deps)
+
+      expect(parseLocalRuntimeUrl(login.url)).toMatchObject({
+        instanceId: parseLocalRuntimeId(id)?.instanceId,
+        provider: parseLocalRuntimeId(id)?.provider,
+      })
       expect((await localRuntimeModels(id, undefined, deps)).models).toEqual([])
     }
     await expect(
@@ -313,5 +321,25 @@ describe('a computer that went offline', () => {
       expect.arrayContaining([localRuntimeId(ref), localRuntimeId({ ...ref, instanceId: a })]),
     )
     expect(new Set(back.map(({ id }) => id)).size).toBe(back.length)
+  })
+})
+
+describe('signing in an agent the computer has not reported yet', () => {
+  const added = localRuntimeId({ ...ref, instanceId: '44444444-4444-4444-8444-444444444444' })
+
+  test('login right after create reaches the computer before its next report', async () => {
+    const endpoint = await resolveLocalRuntimeEndpoint('team', added, 'owner', 'login', deps)
+
+    expect(endpoint).toMatchObject({ runtimeId: added, authKey: 'control' })
+  })
+
+  test('a computer that is not connected still refuses the sign-in as offline', async () => {
+    await expect(
+      resolveLocalRuntimeEndpoint('team', added, 'owner', 'login', {
+        ...deps,
+        getPresence: async () => null,
+        wakeDevice: async () => undefined,
+      }),
+    ).rejects.toMatchObject({ code: 'runtime_offline' })
   })
 })
