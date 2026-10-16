@@ -46,9 +46,7 @@ export function useWorkspaceTakeover(a: Args) {
     setOnboardingActive,
     setOnboardingForced,
     setLandingCelebration,
-    setOnboardingStep,
     setOnboardingStepNonce,
-    setOnboardingPlatform,
     switchTeam,
   } = a
 
@@ -196,40 +194,28 @@ export function useWorkspaceTakeover(a: Args) {
     setOnboardingForced(false)
   }, [markPendingInvitationsSeen, setOnboardingActive, setOnboardingForced])
 
-  // Dev-only console hook: `onboarding()` (re-)enters the flow,
-  // `onboarding.step(1|2|3|4|5)` jumps straight to a step (1=intro/demo,
-  // 2=create workspace, 3=security briefing, 4=connect cloud, 5=connect
-  // Slack), and `onboarding.platform('mac'|'windows')` switches the Slack
-  // demo stage's OS chrome — works whether or not the account already has
-  // teams, and even while the overlay is already open.
+  // Dev-only console hook: `onboarding()` (re-)enters the flow — works whether
+  // or not the account already has teams, and even while the overlay is
+  // already open.
   useEffect(() => {
     if (!paneActive || !import.meta.env.DEV) return
-    const enter = (step: number) => {
-      setOnboardingForced(true)
-      setOnboardingStep(Math.min(5, Math.max(1, Math.round(step))) || 1)
-      setOnboardingStepNonce((n) => n + 1)
-      setOnboardingActive(true)
-    }
-
     type OnboardingDevHook = (() => void) & {
-      step: (step: number) => void
-      platform: (p: string) => void
       confetti: () => void
       firstRun: (on?: boolean) => void
     }
-    const hook = (() => enter(1)) as OnboardingDevHook
+    const hook = (() => {
+      setOnboardingForced(true)
+      setOnboardingStepNonce((n) => n + 1)
+      setOnboardingActive(true)
+    }) as OnboardingDevHook
 
-    hook.step = (step: number) => enter(step)
-    hook.platform = (p: string) => {
-      setOnboardingPlatform(/^win/i.test(p) ? 'windows' : 'mac')
-    }
     // Replay the celebration on demand, without having to actually create or
     // join a workspace.
     hook.confetti = () => setLandingCelebration(true)
     hook.firstRun = (on = true) => setFirstRunDevForced(on)
     ;(window as unknown as { onboarding?: OnboardingDevHook }).onboarding = hook
     console.info(
-      '[onboarding] dev controls: onboarding() to enter · onboarding.step(1|2|3|4|5) to jump (1=demo, 2=create workspace, 3=security briefing, 4=connect cloud, 5=connect Slack) · onboarding.platform("mac"|"windows") to switch the Slack demo stage OS · onboarding.confetti() to replay the landing celebration · onboarding.firstRun() to show the unbound Agent home despite bound clouds (firstRun(false) to clear)',
+      '[onboarding] dev controls: onboarding() to enter · onboarding.confetti() to replay the landing celebration · onboarding.firstRun() to show the unbound Agent home despite bound clouds (firstRun(false) to clear)',
     )
 
     return () => {
@@ -241,8 +227,6 @@ export function useWorkspaceTakeover(a: Args) {
     setLandingCelebration,
     setOnboardingActive,
     setOnboardingForced,
-    setOnboardingPlatform,
-    setOnboardingStep,
     setOnboardingStepNonce,
   ])
 

@@ -18,7 +18,6 @@ import { selectAllResidentTabs, selectCurrentBucket } from './store/workspaceSta
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
 import type { WorkspaceShellStateResult } from './useWorkspaceShellState'
 import type { WorkspaceProps } from './workspaceProps'
-import type { OnboardingStagePlatform } from '../../views/onboarding/flow/shared'
 
 type Args = WorkspaceProps & WorkspaceShellStateResult & WorkspaceActiveTabResult
 
@@ -49,16 +48,9 @@ export function useWorkspaceTabSync(a: Args) {
   // mid-way). `forced` means dev-opened, so it is dismissable.
   const [onboardingActive, setOnboardingActive] = useState(false)
   const [onboardingForced, setOnboardingForced] = useState(false)
-  // The step the overlay should open on (1=intro, 2=workspace, 3=connect) and a
-  // nonce bumped on every dev `onboarding()/onboarding.step()` call so the flow
-  // remounts and honors the jump even when it's already open.
-  const [onboardingStep, setOnboardingStep] = useState(1)
+  // Bumped on every dev `onboarding()` call so the flow remounts from the
+  // start even when it's already open.
   const [onboardingStepNonce, setOnboardingStepNonce] = useState(0)
-  // OS chrome for the onboarding Slack demo stage — defaults to the host OS,
-  // overridable in dev via `onboarding.platform('mac'|'windows')`.
-  const [onboardingPlatform, setOnboardingPlatform] = useState<OnboardingStagePlatform>(() =>
-    /windows/i.test(navigator.userAgent) ? 'windows' : 'mac',
-  )
   // One-shot confetti celebrating the acquisition of a new workspace — set by
   // every action that gains one (creating a team in onboarding or the picker,
   // accepting an invitation, joining a discoverable team), for owner and
@@ -229,12 +221,8 @@ export function useWorkspaceTabSync(a: Args) {
     setOnboardingActive,
     onboardingForced,
     setOnboardingForced,
-    onboardingStep,
-    setOnboardingStep,
     onboardingStepNonce,
     setOnboardingStepNonce,
-    onboardingPlatform,
-    setOnboardingPlatform,
     landingCelebration,
     setLandingCelebration,
     updateTab,

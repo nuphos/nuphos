@@ -1,7 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useRef, useState } from 'react'
-
-import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 
 // A piece of an agent message: plain text, or text with its own classes (e.g.
 // the violet "workspace" or the bold workspace name).
@@ -27,28 +25,25 @@ function flattenStreamWords(segments: StreamSegment[]): { w: string; cls?: strin
 
 // Assistant message that streams in word by word, like the real agent typing —
 // each word enters with the shared Streamdown motion (sd-atlas-stream-in) and
-// a blinking caret trails the text until it finishes. `skip` renders the full
-// text statically (history on dev jumps shouldn't re-type itself); reduced
-// motion shows the text at once but keeps the sequence pacing via onDone.
+// a blinking caret trails the text until it finishes. Reduced motion shows the
+// text at once but keeps the sequence pacing via onDone.
 // NOTE: `onDone` is an effect dependency — pass a stable (useCallback) ref.
 export function StreamText({
   segments,
   reduce,
-  skip = false,
   startDelay = 0,
   onDone,
 }: {
   segments: StreamSegment[]
   reduce: boolean
-  skip?: boolean
   /** ms before the first word appears — the agent's "thinking" beat. */
   startDelay?: number
-  /** Fires once, a beat after the last word lands (immediately when skipped). */
+  /** Fires once, a beat after the last word lands. */
   onDone?: () => void
 }) {
   const words = flattenStreamWords(segments)
   const total = words.length
-  const [count, setCount] = useState(() => (skip || reduce ? total : 0))
+  const [count, setCount] = useState(() => (reduce ? total : 0))
   const done = count >= total
 
   useEffect(() => {
@@ -62,12 +57,7 @@ export function StreamText({
       )
     }
 
-    if (skip) {
-      at(0, () => {
-        setCount(total)
-        onDone?.()
-      })
-    } else if (reduce) {
+    if (reduce) {
       at(0, () => setCount(total))
       at(350, () => onDone?.())
     } else {
@@ -81,7 +71,7 @@ export function StreamText({
       cancelled = true
       timers.forEach((t) => window.clearTimeout(t))
     }
-  }, [total, skip, reduce, startDelay, onDone])
+  }, [total, reduce, startDelay, onDone])
 
   return (
     <div
@@ -92,7 +82,7 @@ export function StreamText({
           key={i}
           className={t.cls}
           style={
-            skip || reduce
+            reduce
               ? undefined
               : { animation: 'sd-atlas-stream-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both' }
           }
@@ -100,52 +90,6 @@ export function StreamText({
           {t.w}
         </span>
       ))}
-    </div>
-  )
-}
-
-// Keeps a growing block in view while it writes itself. The onboarding
-// transcript deliberately never scrolls on the user's behalf — they read from
-// the top and move at their own pace — but the stretch after an approval is
-// the agent talking, unprompted, past the bottom of the panel. Following it
-// there is the difference between watching a reply and missing one. Stops the
-// moment the block stops growing (`active` false), handing the scroller back.
-export function FollowGrowth({
-  reduce,
-  active,
-  children,
-}: {
-  reduce: boolean
-  active: boolean
-  children: ReactNode
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const node = ref.current
-
-    if (!node || !active) return
-    const scroller = node.closest('[data-transcript-scroll]')
-
-    if (!scroller) return
-    const follow = () => {
-      const target = scroller.scrollHeight - scroller.clientHeight
-
-      if (target - scroller.scrollTop <= 0) return
-      scroller.scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' })
-    }
-
-    follow()
-    const ro = new ResizeObserver(follow)
-
-    ro.observe(node)
-
-    return () => ro.disconnect()
-  }, [active, reduce])
-
-  return (
-    <div ref={ref} className="space-y-3">
-      {children}
     </div>
   )
 }
