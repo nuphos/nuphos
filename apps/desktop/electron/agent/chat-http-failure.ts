@@ -61,6 +61,14 @@ function handleTranscriptWindowRejection(
   return 'retry'
 }
 
+// A send that failed in transport before the backend stored the conversation
+// leaves nothing to resume: the reconnect's resume POST gets a 404.
+function isMissingResumeTarget(status: number, code: string | undefined): boolean {
+  return (
+    (status === 409 && code === 'stream_not_resumable') || (status === 404 && code === 'not_found')
+  )
+}
+
 /** Handle a non-OK chat POST response: 'retry' re-enters the loop, 'stop' ends the turn. */
 export async function handleChatHttpFailure(
   ctx: ChatStreamCtx,
@@ -90,8 +98,7 @@ export async function handleChatHttpFailure(
   }
 
   if (
-    res.status === 409 &&
-    httpError.code === 'stream_not_resumable' &&
+    isMissingResumeTarget(res.status, httpError.code) &&
     shouldResume &&
     state.resumeFrom === 0 &&
     !explicitResume &&

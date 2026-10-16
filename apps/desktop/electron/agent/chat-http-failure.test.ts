@@ -161,3 +161,47 @@ test('a revoked token in a gateway response stops before consuming any retry bud
   assert.equal(emitted.length, 1)
   assert.equal((emitted[0] as { type: string }).type, 'agent-setup-required')
 })
+
+function resumeAfterReconnect(state: ReturnType<typeof createChatStreamState>, response: Response) {
+  return handleChatHttpFailure(
+    {
+      streamId: 'stream-1',
+      sessionId: 'session-1',
+      explicitResume: false,
+      signal: new AbortController().signal,
+      state,
+      emit: () => {},
+      noteFirstFrame: () => {},
+    },
+    response,
+    true,
+  )
+}
+
+const conversationNotFound = () =>
+  new Response(
+    JSON.stringify({ error: { code: 'not_found', message: 'Conversation not found' } }),
+    {
+      status: 404,
+    },
+  )
+
+test('a reconnect that finds no stored conversation sends the turn again as a fresh start', async () => {
+  const state = createChatStreamState(0)
+
+  state.reconnectAttempts = 1
+
+  assert.equal(await resumeAfterReconnect(state, conversationNotFound()), 'retry')
+  assert.equal(state.forceFreshStart, true)
+  assert.equal(state.reconnectAttempts, 0)
+})
+
+test('a fresh start that still finds no conversation surfaces the error', async () => {
+  const state = createChatStreamState(0)
+
+  state.reconnectAttempts = 1
+  await resumeAfterReconnect(state, conversationNotFound())
+  state.reconnectAttempts = 1
+
+  assert.equal(await resumeAfterReconnect(state, conversationNotFound()), 'stop')
+})
