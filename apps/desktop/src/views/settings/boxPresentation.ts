@@ -39,6 +39,30 @@ export function canManage(device: AgentDevice): boolean {
   return device.access !== 'use'
 }
 
+/**
+ * How a machine leaves the list: a Box is deleted, any time; a computer is only forgotten once
+ * offline, since online it would register again. Null when it cannot be removed now.
+ */
+export function removal(device: AgentDevice) {
+  if (device.box)
+    return {
+      action: 'Delete',
+      confirm: 'Delete Box',
+      error: 'Could not delete Box',
+      description:
+        "This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos.",
+    }
+  if (device.online) return null
+
+  return {
+    action: 'Remove computer',
+    confirm: 'Remove computer',
+    error: 'Could not remove computer',
+    description:
+      'This removes the computer and its agents from Nuphos. Opening Nuphos on it registers it again. Your conversation history stays in Nuphos.',
+  }
+}
+
 /** What a Box's state allows besides Delete, which is always there. */
 export function boxActions(state: MachineState): { pause: boolean; resume: boolean } {
   return {

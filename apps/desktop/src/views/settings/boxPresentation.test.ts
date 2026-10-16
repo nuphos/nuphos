@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  removal,
   BOX_BADGE,
   boxActions,
   canManage,
@@ -191,4 +192,16 @@ test('a member who may only use a Box gets none of the controls the backend refu
   assert.equal(canManage({ ...box('a', 'running'), access: 'use' }), false)
   assert.equal(canManage({ ...box('a', 'running'), access: 'manage' }), true)
   assert.equal(canManage(box('a', 'running')), true, 'your own machine, no access field')
+})
+
+test('a Box can always be deleted; a computer can be removed only while offline', () => {
+  const computer = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
+
+  assert.equal(removal({ ...computer, online: false })?.action, 'Remove computer')
+  assert.equal(removal({ ...computer, online: true }), null)
+  for (const online of [true, false])
+    assert.equal(
+      removal({ ...computer, online, box: { provider: 'instabox' } } as AgentDevice)?.action,
+      'Delete',
+    )
 })

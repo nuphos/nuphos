@@ -21,6 +21,7 @@ import {
   boxActions,
   boxState,
   canManage,
+  removal,
   machineLine,
   newAgentAction,
 } from './boxPresentation'
@@ -59,6 +60,7 @@ export function BoxRow({
   const state = boxState(device)
   const cloud = device.box !== undefined
   const manage = canManage(device)
+  const remove = removal(device)
   const badge = BOX_BADGE[state]
   const actions = cloud ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
@@ -172,12 +174,11 @@ export function BoxRow({
                   Pause
                 </MenuItem>
               )}
-              {/* A Box can always be deleted, a stuck one most of all. */}
-              {cloud && (
+              {remove && (
                 <>
                   <MenuSeparator />
                   <MenuItem destructive onClick={() => setConfirmDelete(true)}>
-                    Delete
+                    {remove.action}
                   </MenuItem>
                 </>
               )}
@@ -286,12 +287,12 @@ export function BoxRow({
         />
       )}
       <ConfirmDialog
-        open={confirmDelete}
-        title={`Delete ${device.label}?`}
-        description="This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos."
+        open={confirmDelete && remove !== null}
+        title={`${cloud ? 'Delete' : 'Remove'} ${device.label}?`}
+        description={remove?.description}
         destructive
-        confirmLabel="Delete Box"
-        onConfirm={() => act('Could not delete Box', api.boxDelete)}
+        confirmLabel={remove?.confirm}
+        onConfirm={() => act(remove?.error ?? '', cloud ? api.boxDelete : api.deviceRemove)}
         onClose={() => setConfirmDelete(false)}
       />
     </li>
