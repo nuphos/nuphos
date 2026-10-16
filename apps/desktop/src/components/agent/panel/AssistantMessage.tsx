@@ -2,12 +2,9 @@ import { memo } from 'react'
 
 import { normalizeRecallFirstOrder, recallLeadCount } from '../../../lib/agentMessagePartOrder'
 import { MessageResponse } from '../MessageResponse'
-import { PermissionGrantCard } from '../PermissionGrantCard'
 import { isPlanProposalToolName } from '../planReference'
 
-import { extractProposalIdFromOutput } from './applyEvent'
 import { renderCardToolPart } from './cardToolParts'
-import { ConnectToolPart } from './ConnectCard'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
@@ -18,9 +15,9 @@ import { steeringMessage } from './steering'
 import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
 import { StoppedTurnEnding } from './StoppedTurnEnding'
 import { assistantPartKey, lastVisiblePartIndex, turnWorkSeconds } from './streamText'
-import { AssistantPlanPart, ChartToolPart } from './toolParts'
+import { AssistantPlanPart } from './toolParts'
 import { ToolPartView } from './ToolPartView'
-import { foldedTurnLayout, isConnectCardPart, turnDisplayParts } from './toolRuns'
+import { foldedTurnLayout, turnDisplayParts } from './toolRuns'
 import { DownloadFilesCard } from './transferCards'
 import { turnFoldSplitIndex } from './turnFold'
 import { TurnInterruptedPartView } from './TurnInterruptedPartView'
@@ -180,40 +177,15 @@ export const AssistantMessage = memo(
       // `skill` tool calls are setup noise (the input is just a skill name,
       // the output is the entire SKILL.md). Don't render them.
       if (p.type === 'tool' && p.toolName !== 'skill') {
-        const card = renderCardToolPart(p, partKey, teamId, onOpenNuphosLink)
+        const card = renderCardToolPart(p, partKey, {
+          teamId,
+          onOpen: onOpenNuphosLink,
+          now,
+          canAct: isLatestReply && !streaming && canActOnPlans,
+          canApprove: isTeamAdmin && canActOnPlans,
+        })
 
         if (card) return card
-        if (p.toolName === 'render_chart') {
-          return <ChartToolPart key={partKey} part={p} now={now} />
-        }
-        if (isConnectCardPart(p)) {
-          return (
-            <ConnectToolPart
-              key={partKey}
-              part={p}
-              now={now}
-              teamId={teamId}
-              canAct={isLatestReply && !streaming && canActOnPlans}
-            />
-          )
-        }
-        if (p.toolName === 'propose_permission_grant') {
-          const proposalId = extractProposalIdFromOutput(p.output)
-
-          if (proposalId) {
-            return (
-              <PermissionGrantCard
-                key={partKey}
-                proposalId={proposalId}
-                teamId={teamId}
-                canApprove={isTeamAdmin && canActOnPlans}
-                toolCallId={p.toolCallId}
-              />
-            )
-          }
-          // No proposalId yet (still streaming) or the tool errored — fall
-          // through to the generic tool view.
-        }
         if (isPlanProposalToolName(p.toolName) || p.toolName === 'plan') {
           return (
             <AssistantPlanPart
