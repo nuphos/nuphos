@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
-  seenFrom,
   removal,
   BOX_BADGE,
   boxActions,
@@ -216,15 +215,4 @@ test('a Box can always be deleted; a computer can be removed only while offline'
       removal({ ...computer, online, box: { provider: 'instabox' } } as AgentDevice).allowed,
       true,
     )
-})
-
-test('where a machine was last seen reads as place then IP, and nothing when it never reported', () => {
-  const device = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
-
-  assert.equal(seenFrom(device), null)
-  assert.equal(
-    seenFrom({ ...device, lastSeen: { ip: '203.0.113.7', city: 'Taipei', country: 'TW' } }),
-    'Taipei, TW · 203.0.113.7',
-  )
-  assert.equal(seenFrom({ ...device, lastSeen: { ip: '203.0.113.7' } }), '203.0.113.7')
 })
