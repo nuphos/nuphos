@@ -135,3 +135,10 @@ test('a self-hosted agent the backend cannot reach reads offline, the same signa
   assert.equal(agentOffline({ ...selfHosted, notReady: true }), true)
   assert.equal(agentOffline(selfHosted), false)
 })
+
+test("a computer's agent goes by the name given to it, else its provider's", () => {
+  const agent = local('a', 'mac', true)
+
+  assert.equal(agentName(agent), 'Codex')
+  assert.equal(agentName({ ...agent, local: { ...agent.local!, agentLabel: 'Review' } }), 'Review')
+})
