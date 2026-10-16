@@ -15,13 +15,14 @@ export function doneFoldKey(parentKey: string): string {
  * Moves each chat's finished threads behind one "N done" row placed after its
  * running threads, so finished work stops piling up while running work stays
  * on top. A thread counts as finished only with all of its own threads
- * finished too, and the open chat never hides. Open folds list their threads
- * after the row; closed ones leave them out.
+ * finished too. Open folds list their threads after the row; closed ones leave
+ * them out and the row takes the highlight of an open chat inside, the way a
+ * folded parent does. Only the user's click opens a fold (#432).
  */
 export function foldDoneThreads<T extends Row>(
   items: readonly T[],
   isOpen: (parentKey: string) => boolean,
-  foldRow: (parentKey: string, count: number, open: boolean) => T,
+  foldRow: (parentKey: string, count: number, open: boolean, active: boolean) => T,
 ): T[] {
   const keys = new Set(items.map((item) => item.key))
   const kids = new Map<string, T[]>()
@@ -32,7 +33,6 @@ export function foldDoneThreads<T extends Row>(
   }
   const settled = (item: T, seen = new Set<string>()): boolean =>
     Boolean(item.threadDone) &&
-    !item.active &&
     !seen.has(item.key) &&
     (kids.get(item.key) ?? []).every((kid) => settled(kid, new Set(seen).add(item.key)))
   const subtree = (item: T): T[] => [item, ...(kids.get(item.key) ?? []).flatMap(subtree)]
@@ -46,7 +46,9 @@ export function foldDoneThreads<T extends Row>(
       const open = isOpen(item.key)
 
       for (const row of rows) hidden.add(row.key)
-      folds.push(foldRow(item.key, done.length, open), ...(open ? rows : []))
+      const active = !open && rows.some((row) => row.active)
+
+      folds.push(foldRow(item.key, done.length, open, active), ...(open ? rows : []))
     }
     for (const kid of kids.get(item.key) ?? []) if (!hidden.has(kid.key)) visit(kid)
   }
@@ -58,7 +60,7 @@ export function foldDoneThreads<T extends Row>(
 }
 
 export type GroupState = Pick<Section, 'title' | 'defaultCollapsed'>
-export type DoneFold = { parentKey: string; count: number; open: boolean }
+export type DoneFold = { parentKey: string; count: number; open: boolean; active: boolean }
 
 // Finished threads start folded; opening a fold is remembered like any group.
 export const foldGroup = (parentKey: string): GroupState => ({
@@ -75,14 +77,15 @@ export function withDoneFolds(
   const rows = foldDoneThreads(
     items,
     (parentKey) => !isGroupCollapsed(foldGroup(parentKey)),
-    (parentKey, count, open) => {
-      folds.set(doneFoldKey(parentKey), { parentKey, count, open })
+    (parentKey, count, open, active) => {
+      folds.set(doneFoldKey(parentKey), { parentKey, count, open, active })
 
       return {
         key: doneFoldKey(parentKey),
         label: `${String(count)} done`,
         parentKey,
         enabled: true,
+        active,
       }
     },
   )

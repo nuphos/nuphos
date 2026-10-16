@@ -11,8 +11,8 @@ const thread = (key: string, parentKey: string, threadDone = true): Row => ({
   parentKey,
   threadDone,
 })
-const fold = (parentKey: string, count: number, open: boolean): Row => ({
-  key: `fold:${parentKey}:${count}:${open ? 'open' : 'closed'}`,
+const fold = (parentKey: string, count: number, open: boolean, active: boolean): Row => ({
+  key: `fold:${parentKey}:${count}:${open ? 'open' : 'closed'}${active ? ':active' : ''}`,
   parentKey,
 })
 const layout = (rows: Row[], open = false) =>
@@ -37,16 +37,23 @@ test('one finished thread stays visible on its own', () => {
   assert.deepEqual(layout([{ key: 'p' }, thread('a', 'p')]), ['p', '  a'])
 })
 
-test('a thread with running work under it, or the open chat, is not folded', () => {
+test('a finished thread with a running thread under it stays out of the done fold', () => {
   const rows = [
     { key: 'p' },
     thread('a', 'p'),
     thread('a1', 'a', false),
-    { ...thread('b', 'p'), active: true },
+    thread('b', 'p'),
     thread('c', 'p'),
   ]
 
-  assert.deepEqual(layout(rows), ['p', '  a', '    a1', '  b', '  c'])
+  assert.deepEqual(layout(rows), ['p', '  a', '    a1', '  fold:p:2:closed'])
+})
+
+test('the open chat folds like any finished thread, and its closed fold takes the highlight', () => {
+  const rows = [{ key: 'p' }, { ...thread('b', 'p'), active: true }, thread('c', 'p')]
+
+  assert.deepEqual(layout(rows), ['p', '  fold:p:2:closed:active'])
+  assert.deepEqual(layout(rows, true), ['p', '  fold:p:2:open', '  b', '  c'])
 })
 
 test('a folded thread takes its own finished threads with it', () => {
