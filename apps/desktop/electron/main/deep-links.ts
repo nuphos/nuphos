@@ -141,7 +141,7 @@ export function handleDeepLink(url: string) {
   }
   if (posthogInstall.isCallbackUrl(url)) {
     captureMain('deep_link_opened', { kind: 'posthog_callback' })
-    posthogInstall.handleCallback(url)
+    void posthogInstall.handleCallback(url)
 
     return
   }
