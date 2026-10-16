@@ -1,9 +1,10 @@
 // What a client sees of a Box's machine. Nothing is stored: the device's
 // presence says running, and instabox says the rest.
 
-import { InstaboxError, Sandbox } from '@insforge/instabox-sdk'
+import { InstaboxError } from '@insforge/instabox-sdk'
 
 import { connection } from './box-instabox-client'
+import { machineState } from './instabox-machines'
 
 import type { AgentDevice } from './store'
 
@@ -39,11 +40,7 @@ export async function boxState(device: AgentDevice, online: boolean): Promise<Bo
 
 async function readMachineState(sandboxId: string): Promise<BoxState | 'gone'> {
   try {
-    const sandbox = await Sandbox.connect(sandboxId, {
-      ...connection(READ_TIMEOUT_MS),
-      resume: false,
-    })
-    const { state } = await sandbox.getInfo()
+    const state = await machineState(connection(READ_TIMEOUT_MS), sandboxId)
 
     return state === 'running' || state === 'starting' ? 'running' : 'paused'
   } catch (error) {
