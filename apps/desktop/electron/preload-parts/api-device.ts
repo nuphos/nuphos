@@ -42,6 +42,8 @@ export const deviceApi = {
     ipcRenderer.invoke('box:resume', deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:delete', deviceId, teamId),
+  deviceRemove: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('box:removeDevice', deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:desktop', deviceId, teamId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),

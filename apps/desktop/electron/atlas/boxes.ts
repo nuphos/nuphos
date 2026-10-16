@@ -110,6 +110,11 @@ export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true 
   return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
 }
 
+/** Forgets an offline computer; the backend refuses Boxes and computers that are online. */
+export function removeDevice(deviceId: string, teamId: string): Promise<{ ok: true }> {
+  return call('DELETE', deviceRoute(deviceId, teamId), undefined, { retry: false })
+}
+
 export function getBoxUsage(teamId: string): Promise<BoxUsage> {
   return call('GET', `/teams/${encodeURIComponent(teamId)}/box-usage`)
 }

@@ -23,6 +23,7 @@ test('Box IPC channels scope the list and every Box action to the page team', as
   await boxChannels['box:pause'](null, 'dev/1', 'team-1')
   await boxChannels['box:resume'](null, 'dev/1', 'team-1')
   await boxChannels['box:delete'](null, 'dev/1', 'team-1')
+  await boxChannels['box:removeDevice'](null, 'dev/1', 'team-1')
   await boxChannels['box:desktop'](null, 'dev/1', 'team-1')
   await boxChannels['box:rename'](null, 'dev/1', 'team-1', 'Build Box')
   await boxChannels['box:createAgent'](null, 'dev/1', 'team-1', 'codex')
@@ -37,6 +38,7 @@ test('Box IPC channels scope the list and every Box action to the page team', as
       ['POST', '/agent/devices/dev%2F1/box/pause?teamId=team-1', undefined],
       ['POST', '/agent/devices/dev%2F1/box/resume?teamId=team-1', undefined],
       ['DELETE', '/agent/devices/dev%2F1/box?teamId=team-1', undefined],
+      ['DELETE', '/agent/devices/dev%2F1?teamId=team-1', undefined],
       ['POST', '/agent/devices/dev%2F1/box/desktop?teamId=team-1', undefined],
       ['PATCH', '/agent/devices/dev%2F1?teamId=team-1', { label: 'Build Box' }],
       ['POST', '/agent/devices/dev%2F1/agents', { teamId: 'team-1', provider: 'codex' }],

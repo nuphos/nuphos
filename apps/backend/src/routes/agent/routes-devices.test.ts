@@ -168,6 +168,30 @@ function registerDevice(userId: string, deviceId: string) {
 }
 
 describe('agent device routes', () => {
+  test('DELETE /agent/devices/:id removes an offline computer of the caller only', async () => {
+    const remove = (deviceId: string) =>
+      buildApp().request(`/agent/devices/${deviceId}?teamId=team-1`, { method: 'DELETE' })
+
+    registerDevice('user-1', 'gone')
+    registerDevice('user-1', 'live')
+    registerDevice('user-1', 'b1')
+    devices[key('user-1', 'b1')]!.box = { provider: 'instabox', teamId: 'team-1' }
+    registerDevice('someone-else', 'theirs')
+
+    expect((await remove('gone')).status).toBe(200)
+    expect(devices[key('user-1', 'gone')]).toBeUndefined()
+    expect((await remove('b1')).status).toBe(400)
+    expect((await remove('theirs')).status).toBe(404)
+    onlineNow = true
+    const online = await remove('live')
+
+    expect(online.status).toBe(409)
+    expect(await online.json()).toMatchObject({ error: { code: 'device_online' } })
+    expect(Object.keys(devices).sort()).toEqual(
+      [key('user-1', 'live'), key('user-1', 'b1'), key('someone-else', 'theirs')].sort(),
+    )
+  })
+
   test('PUT /agent/devices upserts for the signed-in user', async () => {
     const app = buildApp()
     const response = await app.request('/agent/devices', {
