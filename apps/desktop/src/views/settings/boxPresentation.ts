@@ -54,10 +54,15 @@ export function boxes(devices: AgentDevice[]): BoxDevice[] {
 }
 
 /** Derived, never stored: a cloud Box's state is instabox's; a computer is running while connected. */
-export function boxState(device: AgentDevice): MachineState {
+export function boxState(device: AgentDevice, now = Date.now()): MachineState {
   if (!device.box) return device.online ? 'running' : 'stopped'
+  const { state } = device.box
 
-  return device.box.state === 'running' && !device.online ? 'hostOffline' : device.box.state
+  // A Box still starting long after it was made will not come up: it didn't start.
+  if (state === 'creating')
+    return now - Date.parse(device.createdAt ?? '') > BOX_SETUP_TIMEOUT_MS ? 'error' : state
+
+  return state === 'running' && !device.online ? 'hostOffline' : state
 }
 
 /**
@@ -66,7 +71,7 @@ export function boxState(device: AgentDevice): MachineState {
  * not at all (actions and a returning window reload the list).
  */
 export function boxPollMs(devices: AgentDevice[], signingIn: boolean): number {
-  const states = devices.map(boxState)
+  const states = devices.map((device) => boxState(device))
 
   if (states.includes('creating')) return BOX_CREATING_POLL_MS
   if (signingIn) return 1_500

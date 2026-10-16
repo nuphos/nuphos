@@ -33,7 +33,10 @@ export type AgentDevice = {
   /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
   credentialHash?: string
   credentialIssuedAt?: Date
-  /** When its host last reported in; absent until it has connected once. */
+  /**
+   * When its host reported in: set on its first report of each connection and when its agent
+   * list changes. Absent means it has never joined; a Box is still starting until then.
+   */
   lastSeenAt?: Date
   createdAt: Date
   updatedAt: Date

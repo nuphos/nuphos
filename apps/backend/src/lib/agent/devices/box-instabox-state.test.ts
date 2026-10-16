@@ -1,20 +1,22 @@
-import { describe, expect, mock, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+
+import { useInstaboxMachines } from '@/lib/test/doubles/instabox-machines'
 
 import type { AgentDevice } from './store'
 
-class InstaboxError extends Error {
-  constructor(readonly status: number) {
-    super(`instabox ${status}`)
-  }
-}
-
-void mock.module('@insforge/instabox-sdk', () => ({
-  InstaboxError,
-  Sandbox: { connect: async () => ({ getInfo: async () => ({ state: 'running' }) }) },
-}))
-void mock.module('./box-instabox-client', () => ({ connection: () => ({}) }))
+// instabox reports every machine running; nothing here talks to a network.
+useInstaboxMachines({ machineState: () => Promise.resolve('running') })
 
 const { boxState } = await import('./box-instabox-state')
+const { config } = await import('@/config')
+const saved = config.box.instabox
+
+beforeAll(() => {
+  config.box.instabox = { apiKey: 'test-key' } as typeof config.box.instabox
+})
+afterAll(() => {
+  config.box.instabox = saved
+})
 
 const box = (sandboxId: string, lastSeenAt?: Date): AgentDevice =>
   ({
