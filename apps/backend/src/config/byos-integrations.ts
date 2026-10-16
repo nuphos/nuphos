@@ -96,18 +96,13 @@ export function byosIntegrationsConfig() {
         optional('LINODE_BYOK_ENCRYPTION_KEY') ??
         optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
       encryptionKeyId: 'default',
-      // Public-integration (partner) OAuth app — scaffold only. The
-      // client_credentials bind path (team pastes its own Manage Vanta app's
-      // client_id/secret) needs none of this. Set these once the Vanta public
-      // integration is approved to enable the "click to authorize" flow.
+      // Vanta public-integration (partner) OAuth app, used only to refresh
+      // tokens on 'oauth' bindings. Nothing creates those yet: the authorize
+      // flow will return, with a confirmed bind step, once the partner
+      // integration is approved. client_credentials bindings need none of this.
       oauth: {
         clientId: optional('VANTA_OAUTH_CLIENT_ID'),
         clientSecret: optional('VANTA_OAUTH_CLIENT_SECRET'),
-        // Public HTTPS URL of the backend's /vanta-app/setup callback; must
-        // match the redirect URI registered on the Vanta public integration.
-        setupRedirect: optional('VANTA_OAUTH_SETUP_REDIRECT'),
-        // Scope requested on the public-integration (connector) flow — scaffold.
-        scopes: optional('VANTA_OAUTH_SCOPES') ?? 'connectors.self:read-resource',
       },
     },
     secureframe: {

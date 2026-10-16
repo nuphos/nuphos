@@ -1,12 +1,7 @@
 import { config } from '@/config'
 import { decryptVantaSecret, encryptVantaSecret } from '@/lib/byos/secrets'
 import { tokenStillFresh } from '@/lib/byos/token-freshness'
-import {
-  AUTH_URL,
-  mintVantaClientCredentialsToken,
-  tokenRequest,
-  VantaApiError,
-} from '@/lib/byos/vanta-core'
+import { mintVantaClientCredentialsToken, tokenRequest, VantaApiError } from '@/lib/byos/vanta-core'
 import { teamByosBindings } from '@/models'
 
 import type { MintedToken } from '@/lib/byos/vanta-core'
@@ -20,9 +15,6 @@ export {
 } from '@/lib/byos/vanta-core'
 export { listVantaTests, VANTA_INFRA_CATEGORIES } from '@/lib/byos/vanta-tests'
 export type { VantaTest } from '@/lib/byos/vanta-tests'
-
-// Scope for the public-integration (connector) flow — scaffold.
-const OAUTH_DEFAULT_SCOPE = config.byos.vanta.oauth.scopes
 
 // ── Access-token cache + concurrency guard ─────────────────────────────────
 // Vanta allows only ONE active access token per app — re-minting revokes the
@@ -103,51 +95,6 @@ export function getVantaOAuthClient(): { clientId: string; clientSecret: string 
   if (!clientId || !clientSecret) return null
 
   return { clientId, clientSecret }
-}
-
-export function getVantaOAuthSetupRedirect(): string | null {
-  return config.byos.vanta.oauth.setupRedirect ?? null
-}
-
-export function isVantaOAuthConfigured(): boolean {
-  return !!getVantaOAuthClient() && !!getVantaOAuthSetupRedirect()
-}
-
-export function buildVantaAuthorizeUrl({
-  clientId,
-  redirectUri,
-  state,
-  scope,
-}: {
-  clientId: string
-  redirectUri: string
-  state: string
-  scope?: string
-}): string {
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope: scope ?? OAUTH_DEFAULT_SCOPE,
-    state,
-  })
-
-  return `${AUTH_URL}?${params.toString()}`
-}
-
-export async function exchangeVantaCodeForTokens(
-  clientId: string,
-  clientSecret: string,
-  code: string,
-  redirectUri: string,
-): Promise<MintedToken> {
-  return tokenRequest({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: redirectUri,
-    client_id: clientId,
-    client_secret: clientSecret,
-  })
 }
 
 async function refreshVantaOAuthToken(

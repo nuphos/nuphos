@@ -3,7 +3,6 @@ export const API_BASE = 'https://api.vanta.com'
 const TOKEN_URL = `${API_BASE}/oauth/token`
 
 // Authorize endpoint for the public-integration (authorization_code) flow.
-export const AUTH_URL = 'https://app.vanta.com/oauth/authorize'
 // Read scope for the client_credentials (Manage Vanta) flow.
 const READ_SCOPE = 'vanta-api.all:read'
 

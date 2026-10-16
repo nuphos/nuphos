@@ -48,38 +48,6 @@ export type CloudflareOAuthResult = {
 
 export const cloudflareOAuthResult = (): Collection<CloudflareOAuthResult> =>
   db().collection<CloudflareOAuthResult>('cloudflare_oauth_result')
-
-// ── Vanta public-integration OAuth (scaffold) ──
-// Only exercised once VANTA_OAUTH_* is configured (Vanta partner approved).
-// The client_credentials bind path does not touch these collections.
-export type VantaPendingOAuth = {
-  // The state token returned to the desktop and echoed back by Vanta.
-  _id: string
-  teamId: ObjectId
-  requesterUserId: string
-  // Mongo TTL index removes expired pending records once expiresAt passes.
-  expiresAt: Date
-}
-
-export const vantaPendingOAuth = (): Collection<VantaPendingOAuth> =>
-  db().collection<VantaPendingOAuth>('vanta_oauth_pending')
-
-/**
- * Result of a completed Vanta OAuth callback, keyed by the same `state` token
- * the desktop holds (mirrors CloudflareOAuthResult). Non-sensitive metadata
- * only; a Mongo TTL index reaps it.
- */
-export type VantaOAuthResult = {
-  _id: string
-  teamId: ObjectId
-  bindingId: ObjectId
-  orgDisplayName: string | null
-  expiresAt: Date
-}
-
-export const vantaOAuthResult = (): Collection<VantaOAuthResult> =>
-  db().collection<VantaOAuthResult>('vanta_oauth_result')
-
 export type LinearPendingOAuth = {
   // The state token returned to the desktop and echoed back by Linear.
   _id: string
