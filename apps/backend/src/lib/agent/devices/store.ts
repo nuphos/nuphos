@@ -1,5 +1,3 @@
-import { ObjectId } from 'mongodb'
-
 import { db } from '@/lib/db'
 
 import { mergeAgentRegistry, renameRegisteredAgent, reportedAgents } from './agent-registry'
@@ -8,6 +6,8 @@ import type { RegisteredAgent } from './agent-registry'
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
 import type { Collection } from 'mongodb'
 import type { RequestOrigin } from '@/lib/request-origin'
+
+export { isActiveTeamMember } from './team-membership'
 
 /** A cloud machine Nuphos created for this device; absent for a person's own computer. Its state is never stored: instabox and presence know it. */
 export type AgentDeviceBox = {
@@ -213,24 +213,6 @@ export async function deleteAgentDevice(userId: string, deviceId: string): Promi
   const result = await agentDevices().deleteOne({ userId, deviceId })
 
   return result.deletedCount > 0
-}
-
-type TeamMembershipDoc = {
-  members: { userId: ObjectId; deletedAt?: Date }[]
-}
-
-/** Local agents and local exec follow their owner into any team they currently belong to. */
-export async function isActiveTeamMember(userId: string, teamId: string): Promise<boolean> {
-  if (!ObjectId.isValid(userId) || !ObjectId.isValid(teamId)) return false
-  const userObjectId = new ObjectId(userId)
-  const team = await db()
-    .collection<TeamMembershipDoc>('teams')
-    .findOne(
-      { _id: new ObjectId(teamId), deletedAt: { $exists: false } },
-      { projection: { members: 1 } },
-    )
-
-  return Boolean(team?.members.some((m) => m.userId.equals(userObjectId) && !m.deletedAt))
 }
 
 /** Never infer a legacy Box's team from its owner. */
