@@ -68,26 +68,32 @@ function sanitizeToolTerminal(tool: Record<string, unknown>): Record<string, unk
   return rest
 }
 
-const MAX_COMMANDS = 200
+// The list rides on every runtime_state push and in the list cache, so it stays
+// small: at most 100 entries of about 360 characters each.
+const MAX_COMMANDS = 100
+const MAX_DESCRIPTION = 200
+const MAX_HINT = 100
 // What a client inserts as `/<name> `: no spaces, nothing that could start markup.
 const COMMAND_NAME = /^\w[\w:.-]{0,63}$/
 
-// The list is the agent's to define, so it is only shaped here: an unusable
-// entry is dropped and long text is cut, never the whole snapshot.
+// The list is the agent's to define, so it is only shaped here: an unusable or
+// repeated entry is dropped and long text is cut, never the whole snapshot.
 function sanitizeCommands(value: unknown): AgentCommand[] | undefined {
   if (!Array.isArray(value)) return undefined
+  const seen = new Set<string>()
 
-  return value.slice(0, MAX_COMMANDS).flatMap((entry) => {
-    if (!entry || typeof entry !== 'object') return []
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || seen.size >= MAX_COMMANDS) return []
     const { name, description, hint } = entry as Record<string, unknown>
 
-    if (typeof name !== 'string' || !COMMAND_NAME.test(name)) return []
+    if (typeof name !== 'string' || !COMMAND_NAME.test(name) || seen.has(name)) return []
+    seen.add(name)
 
     return [
       {
         name,
-        description: typeof description === 'string' ? description.slice(0, 500) : '',
-        ...(typeof hint === 'string' && hint.trim() ? { hint: hint.slice(0, 200) } : {}),
+        description: typeof description === 'string' ? description.slice(0, MAX_DESCRIPTION) : '',
+        ...(typeof hint === 'string' && hint.trim() ? { hint: hint.slice(0, MAX_HINT) } : {}),
       },
     ]
   })
