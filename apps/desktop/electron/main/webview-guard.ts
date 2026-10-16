@@ -1,13 +1,16 @@
-import { app, session, shell } from 'electron'
+import { app, session } from 'electron'
 
 import { CHANGELOG_PAGE_PREFIX } from './changelog-feed.ts'
+import { openExternal } from './open-external.ts'
 
 function isHttp(url: string) {
   return /^https?:\/\//i.test(url)
 }
 
 function openExternally(url: string) {
-  if (isHttp(url)) void shell.openExternal(url)
+  openExternal(url).catch((e: unknown) => {
+    console.error('[open-external]', url, e)
+  })
 }
 
 /** Browser guests use an isolated persistent session; the reader stays restricted. */

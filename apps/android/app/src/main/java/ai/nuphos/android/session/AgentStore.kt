@@ -300,6 +300,24 @@ class AgentStore(
         storeScope.launch { reload() }
     }
 
+    /** Fresh, read-only catalog for composer suggestions; never prune or persist IAM here. */
+    suspend fun mentionableComputers(teamId: String): List<CredentialCatalog.Item> {
+        if (!hasAiAccess() || disposed || selectedTeam?.id != teamId) return emptyList()
+        val revision = workspaceRevision
+        val catalog = NuphosApi.credentialOptions(token, teamId)
+        if (!hasAiAccess() || disposed || selectedTeam?.id != teamId || workspaceRevision != revision) return emptyList()
+        return catalog.allItems.filter { it.provider.optionsKey == "devices" }
+    }
+
+    /** Same bounded scope=mine search as iOS, independent of history filters. */
+    suspend fun mentionableSessions(teamId: String, query: String): List<AgentConversation> {
+        if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
+        val page = NuphosApi.conversations(token = token, teamId = teamId, limit = 6,
+            scope = ConversationScope.Mine, search = query)
+        if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
+        return page.conversations
+    }
+
     suspend fun reload() {
         val team = selectedTeam
         if (team == null) {

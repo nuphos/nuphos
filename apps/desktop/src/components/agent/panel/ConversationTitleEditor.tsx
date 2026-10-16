@@ -3,9 +3,12 @@ import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { announceChatTitle } from '../../../lib/chatTitleEvents'
+import { sessionShortcutCombo } from '../../../lib/sessionShortcuts'
 import { Modal } from '../../Modal'
 import { Button } from '../../ui/button'
+import { ShortcutLabel } from '../../ui/shortcut-hint'
 import { toast } from '../../ui/toast'
+import { Tooltip } from '../../ui/tooltip'
 
 export function ConversationTitleInput({
   sessionId,
@@ -163,16 +166,21 @@ export function EditableConversationTitle({
     )
 
   return (
-    <button
-      type="button"
-      title="Rename chat"
-      aria-label={`Rename chat: ${title}`}
-      onClick={() => setEditing(true)}
-      className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-zGray-800/60"
+    <Tooltip
+      side="bottom"
+      triggerClassName="min-w-0"
+      content={<ShortcutLabel label="Rename chat" combo={sessionShortcutCombo('rename-chat')} />}
     >
-      <span className="truncate">{title}</span>
-      <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
-    </button>
+      <button
+        type="button"
+        aria-label={`Rename chat: ${title}`}
+        onClick={() => setEditing(true)}
+        className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-zGray-800/60"
+      >
+        <span className="truncate">{title}</span>
+        <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+      </button>
+    </Tooltip>
   )
 }
 
