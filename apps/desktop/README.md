@@ -42,6 +42,19 @@ conversation and relays each call over the device tunnel; the App's per-app
 approval prompts appear as the conversation's approval card, and an app allowed
 once stays allowed for that conversation.
 
+### Box desktops and snapshots
+
+On a Linux Box every conversation gets a `nuphos-desktop` MCP server
+(`local-runtime/desktop-session.mjs`). It claims a display from the pool on its
+first tool call, not when the session starts. Agents open apps from the XFCE
+panel's launchers; their desktop guidance is in the backend runtime prompt, so a
+snapshot's `AGENTS.md` needs none. A Box snapshot is built by hand:
+
+1. Create a Box from the current snapshot (`NUPHOS_BOX_TEMPLATE`).
+2. Run `nuphos update` on it and check the runtime bundle version under `~/.local/share/nuphos/runtime`.
+3. Run instabox `createSnapshot` on that machine.
+4. Point `NUPHOS_BOX_TEMPLATE` at the new id, dev before prod.
+
 ## Local production build (unsigned)
 
 ```bash

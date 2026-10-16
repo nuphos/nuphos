@@ -14,6 +14,7 @@ import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
 import { useComposerMentions } from './useComposerMentions'
+import { useComposerSlashCommands } from './useComposerSlashCommands'
 import { useComposerState } from './useComposerState'
 import { useSessionConfig } from './useSessionConfig'
 
@@ -43,7 +44,6 @@ export function Composer({
   bypassControl,
   pendingSeed,
   onSeedConsumed,
-  firstRun = false,
   autoFocus = false,
   sidebar = false,
   dropRegisterRef,
@@ -76,8 +76,6 @@ export function Composer({
   bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void
-  /** No cloud connected — the example prompts must stay answerable read-only. */
-  firstRun?: boolean
   autoFocus?: boolean
   /** Docked sidebar variant: matches the left content card's larger radius. */
   sidebar?: boolean
@@ -117,7 +115,6 @@ export function Composer({
     runtimeSendBlocked || modelControl.saving || runtimeControlBlocksSend(runtimeControl)
   const state = useComposerState({
     hero,
-    firstRun,
     readOnly,
     readOnlyPlaceholder,
     streaming,
@@ -127,6 +124,15 @@ export function Composer({
 
   useComposerDraft(state, readOnly ? undefined : draftKey)
   const mentions = useComposerMentions(state.ref, state.syncEmpty, mentionScope, credentialSelector)
+  const slash = useComposerSlashCommands(
+    state.ref,
+    state.composingRef,
+    state.syncEmpty,
+    modelSession && modelControl.data?.status !== 'unsupported'
+      ? () => modelControl.setOpen(true)
+      : undefined,
+    runtimeState?.commands,
+  )
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,
@@ -138,26 +144,6 @@ export function Composer({
     recall,
   })
   const { filePaths, isEmpty } = state
-
-  function removeAttachment(filePath: string) {
-    state.setFilePaths((prev) => prev.filter((path) => path !== filePath))
-    state.setFolderPaths((prev) => {
-      if (!prev.has(filePath)) return prev
-      const next = new Set(prev)
-
-      next.delete(filePath)
-
-      return next
-    })
-    state.setImageThumbs((prev) => {
-      if (!(filePath in prev)) return prev
-      const next = { ...prev }
-
-      delete next[filePath]
-
-      return next
-    })
-  }
 
   const sendDisabled = sendBlocked || (isEmpty && filePaths.length === 0) || streaming || readOnly
 
@@ -184,46 +170,38 @@ export function Composer({
         <div
           className={clsx(
             'relative',
-            // First-run keeps the pre-#629 flat look: a plain outlined box on
-            // the white canvas, no shadow, no raised surface. The composer is
-            // the whole page there, and a floating surface with nothing to
-            // float above reads as detached rather than raised. Its 12px
-            // radius also matches the connector tray tucked underneath.
-            hero && firstRun
-              ? 'transition-colors border bg-zGray-900/60 backdrop-blur border-zGray-800/80 focus-within:border-zGray-700 rounded-xl px-4 pt-3.5 pb-2.5'
+            // Both variants share the same self-contained input-box
+            // look; the in-conversation (compact) composer is just a
+            // tighter version of the hero box instead of a full-width
+            // bottom strip. Opaque, not a translucent tint: the
+            // composer only reads as a surface if it holds its own
+            // value against the canvas.
+            'surface-raised composer-surface bg-composer',
+            hero
+              ? 'rounded-[24px] px-5 pt-4 pb-3'
               : clsx(
-                  // Both variants share the same self-contained input-box
-                  // look; the in-conversation (compact) composer is just a
-                  // tighter version of the hero box instead of a full-width
-                  // bottom strip. Opaque, not a translucent tint: the
-                  // composer only reads as a surface if it holds its own
-                  // value against the canvas.
-                  'surface-raised composer-surface bg-composer',
-                  hero
-                    ? 'rounded-[24px] px-5 pt-4 pb-3'
-                    : clsx(
-                        'px-3 pt-2.5 pb-2',
-                        // Docked, it reads as part of the same surface as the
-                        // content card beside it, so it takes that card's
-                        // corner exactly: `rounded-lg`, and the plain round
-                        // shape too. `surface-raised` would otherwise curve it
-                        // as a squircle, which at the same radius starts
-                        // bending further from the corner and reads as the
-                        // larger of the two. Page mode sits between that and
-                        // the hero.
-                        sidebar ? 'rounded-lg [corner-shape:round]' : 'rounded-[14px]',
-                      ),
+                  'px-3 pt-2.5 pb-2',
+                  // Docked, it reads as part of the same surface as the
+                  // content card beside it, so it takes that card's
+                  // corner exactly: `rounded-lg`, and the plain round
+                  // shape too. `surface-raised` would otherwise curve it
+                  // as a squircle, which at the same radius starts
+                  // bending further from the corner and reads as the
+                  // larger of the two. Page mode sits between that and
+                  // the hero.
+                  sidebar ? 'rounded-lg [corner-shape:round]' : 'rounded-[14px]',
                 ),
           )}
         >
           {mentions.ui}
           {!readOnly && runtimeControl && <SignedOutAgentNotice control={runtimeControl} />}
+          {slash.ui}
           {filePaths.length > 0 && (
             <AttachmentChips
               filePaths={filePaths}
               folderPaths={state.folderPaths}
               imageThumbs={state.imageThumbs}
-              onRemove={removeAttachment}
+              onRemove={state.removeAttachment}
             />
           )}
           {readOnly ? (
@@ -244,13 +222,17 @@ export function Composer({
               onInput={() => {
                 state.syncEmpty()
                 mentions.onInput()
+                slash.onInput()
               }}
               onKeyDown={(e) => {
-                if (!mentions.onKeyDown(e)) actions.onKeyDown(e)
+                if (!slash.onKeyDown(e) && !mentions.onKeyDown(e)) actions.onKeyDown(e)
               }}
               onPaste={actions.onPaste}
               onCompositionStart={state.onCompositionStart}
-              onCompositionEnd={state.onCompositionEnd}
+              onCompositionEnd={() => {
+                state.onCompositionEnd()
+                slash.onInput()
+              }}
             />
           )}
           <div className="flex items-end gap-2 mt-1 min-w-0">

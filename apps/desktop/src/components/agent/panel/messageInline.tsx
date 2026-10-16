@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { renderMentionChip } from '../../../lib/atlasLinkMention'
 
 import { fileNameFromPath } from './textUtils'
+import { MEDIA_BOX } from './transferDownloads'
 
 export function AtlasMentionInline({
   url,
@@ -45,7 +46,7 @@ export function AtlasMentionInline({
   return <span ref={hostRef} />
 }
 
-const THUMB_SIZE = { sm: 'h-12 w-12', md: 'h-20 w-20' } as const
+const THUMB_SIZE = { sm: 'h-12 w-12', md: MEDIA_BOX } as const
 
 // Shared thumbnail for image attachments — used both in the composer (with a
 // remove button) and in sent messages. Clicking calls `onOpen`; the caller owns
@@ -62,24 +63,14 @@ export function ImageAttachmentThumb({
   fileName: string
   onRemove?: () => void
   onOpen?: () => void
-  /** `lg` shows the whole image at its own proportions, for a lone screenshot worth reading inline. */
-  size?: keyof typeof THUMB_SIZE | 'lg'
+  /** `md` is the shared media preview box. */
+  size?: keyof typeof THUMB_SIZE
   onError?: () => void
 }) {
-  const large = size === 'lg'
-
   return (
     // Outer wrapper is not clipped so the remove badge can straddle the corner.
-    <div
-      className={clsx('relative flex-shrink-0', large ? 'max-w-full' : THUMB_SIZE[size])}
-      title={fileName}
-    >
-      <div
-        className={clsx(
-          'overflow-hidden rounded-lg border border-zGray-800 bg-zGray-900',
-          large ? 'min-h-12 min-w-12' : 'h-full w-full',
-        )}
-      >
+    <div className={clsx('relative flex-shrink-0', THUMB_SIZE[size])} title={fileName}>
+      <div className="h-full w-full overflow-hidden rounded-lg border border-zGray-800 bg-zGray-900">
         {url ? (
           <button
             type="button"
@@ -90,7 +81,7 @@ export function ImageAttachmentThumb({
               src={url}
               alt={fileName}
               onError={onError}
-              className={large ? 'block max-h-72 max-w-full' : 'h-full w-full object-cover'}
+              className="h-full w-full object-cover"
             />
           </button>
         ) : (
@@ -117,6 +108,8 @@ export function ImageAttachmentThumb({
 export type LightboxImage = {
   url: string
   fileName: string
+  /** Played with controls instead of shown as a still. */
+  video?: boolean
 }
 
 const STEP_KEYS: Record<string, number> = {
@@ -178,11 +171,21 @@ export function ImageLightbox({
         >
           {image && (
             <>
-              <img
-                src={image.url}
-                alt={image.fileName}
-                className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-              />
+              {image.video ? (
+                <video
+                  key={image.url}
+                  src={image.url}
+                  controls
+                  autoPlay
+                  className="max-h-full max-w-full rounded-lg bg-black shadow-2xl"
+                />
+              ) : (
+                <img
+                  src={image.url}
+                  alt={image.fileName}
+                  className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+                />
+              )}
               {count > 1 && (
                 <>
                   <button

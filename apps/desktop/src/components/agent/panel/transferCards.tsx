@@ -154,6 +154,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
         <TransferPreviews
           teamId={teamId}
           groupId={group.groupId}
+          expected={ready.filter((f) => previewKind(f)).length}
           onDownload={(f) => void downloadOne(f.id, f.fileName)}
         >
           {(previewed) => fileRows(filesBesidePreviews(group.files, previewed))}
@@ -191,10 +192,15 @@ export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; 
 
   return (
     <div className="flex max-w-[480px] flex-col items-end self-end">
-      <TransferPreviews teamId={previewTeam} groupId={part.groupId} alignEnd>
+      <TransferPreviews
+        teamId={previewTeam}
+        groupId={part.groupId}
+        expected={part.files.filter((f) => mediaKind(f.fileName)).length}
+        alignEnd
+      >
         {(images, videos) => {
-          const rows = filesBesidePreviews(part.files, images).filter(
-            (f) => !videos?.has(f.fileName),
+          const rows = filesBesidePreviews(part.files, images).filter((f) =>
+            videos ? !videos.has(f.fileName) : mediaKind(f.fileName) !== 'video',
           )
 
           return rows.length > 0 && <UploadedFilesList part={part} rows={rows} />

@@ -14,7 +14,7 @@ const tabsOf = (tabs: Record<string, { id: string; active: string }[]>) => (sess
   tabs[sessionId] ?? []
 const d = (display: number) => ({ display, title: `Box 1 · :${String(display)}` })
 
-test('opens a tab per desktop a session holds and closes the ones it lost', () => {
+test('opens a tab for each desktop asked for that has none, and closes the ones a session lost', () => {
   const sessions = new Map([
     ['s1', { teamId: 't', desktops: [d(2), d(4)] }],
     ['s2', { teamId: 't', desktops: [] }],
@@ -32,6 +32,12 @@ test('opens a tab per desktop a session holds and closes the ones it lost', () =
       // Not published (its chat is off screen): untouched even though it has a desktop tab.
       s3: [{ id: desktopTabId('s3', 2), active: 'team.desktop' }],
     }),
+    [
+      { sessionId: 's1', display: 2 },
+      { sessionId: 's1', display: 4 },
+      // Its session is not published: no team to open it in.
+      { sessionId: 's3', display: 7 },
+    ],
   )
 
   assert.deepEqual(plan, {

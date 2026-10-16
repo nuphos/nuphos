@@ -110,6 +110,13 @@ object NuphosApi {
         transport = client,
     )
 
+    /** Same endpoint and team scope as iOS; a denial must not sign out the chat. */
+    suspend fun sessionResources(token: String, teamId: String, sessionId: String): List<ai.nuphos.android.model.SessionResource> =
+        get<ai.nuphos.android.model.SessionResourcesEnvelope>(
+            "agent/conversations/$sessionId/resources", token, listOf("teamId" to teamId),
+            timeoutSeconds = 12, forbiddenIsUnauthorized = false,
+        ).resources
+
     suspend fun credentialOptions(token: String, teamId: String): CredentialCatalog {
         val json: JsonValue = get("agent/credential-options", token, listOf("teamId" to teamId), timeoutSeconds = 20)
         return CredentialCatalog(json["options"] ?: json)

@@ -1,14 +1,10 @@
 import clsx from 'clsx'
-import { WandSparkles } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-
-import { track } from '../../../lib/analytics'
-import { ONBOARDING_EXTRA_STEPS_ENABLED } from '../../../views/onboarding/onboardingSteps'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
 import { successfulTurns } from './endEventEffects'
-import { ConnectorStrip, StarStrip } from './hero'
+import { StarStrip } from './hero'
 import { RevealedHistoryBlock } from './historyRows'
 import { AgentHomeAnimation, COMPOSER_REVEAL_MS, DelayedPanelReveal } from './homeAnimation'
 import { HomeWidgets } from './HomeWidgets'
@@ -61,7 +57,6 @@ export function AgentHomePage({
   autoFocusComposer = false,
   dropRegisterRef,
   unbound = false,
-  onStartConnect,
   teamId,
   starterSuggestions = [],
   starterSuggestionsLoading = false,
@@ -96,12 +91,10 @@ export function AgentHomePage({
   // with a step-by-step connect guide and the Recent list is hidden.
   /** No integrations bound yet — starter suggestions stay off, nothing else. */
   unbound?: boolean
-  /** Starts the read-only connect flow for the cloud the user picked. */
-  onStartConnect?: () => void
   /** Whether the page is in view; each time it comes back, the entrance replays. */
   shown?: boolean
   newChatRequest?: number
-  /** Scopes the connector strip's dismissal. Undefined outside a team. */
+  /** Scopes the composer draft and mentions. Undefined outside a team. */
   teamId?: string
   // LLM-generated starter questions tailored to the team's connected resources.
   // Empty (and not loading) → the block is hidden.
@@ -124,23 +117,10 @@ export function AgentHomePage({
   }, [shown, newChatRequest])
 
   const entranceKey = useEntranceCount(shown)
-  const firstRun = unbound && ONBOARDING_EXTRA_STEPS_ENABLED
-  const handleStartConnect = useCallback(() => onStartConnect?.(), [onStartConnect])
-  // Per team, so dismissing it for one workspace doesn't hide it in another
-  // that genuinely has nothing connected.
-  const [stripDismissed, dismissStrip] = useStickyDismiss(
-    teamId ? `nuphos.agent.connectStrip.dismissed.${teamId}` : null,
-  )
-  // Asked once the agent has finished a few turns cleanly, never during
-  // first run. Starring and "not now" both retire it for good.
+  // Asked once the agent has finished a few turns cleanly. Starring and
+  // "not now" both retire it for good.
   const [starDismissed, dismissStar] = useStickyDismiss('nuphos.agent.starStrip.dismissed')
-  const showStar = !firstRun && !starDismissed && successfulTurns() >= 5
-
-  // The funnel starts here: how many teams saw the first-run page at all,
-  // against how many went on to bind. Once per mount of the unbound page.
-  useEffect(() => {
-    if (firstRun) track('agent_first_run_home_viewed')
-  }, [firstRun])
+  const showStar = !starDismissed && successfulTurns() >= 5
 
   return (
     // A size container, so the block above can measure half of what is visible.
@@ -166,11 +146,11 @@ export function AgentHomePage({
                   so the composer visibly presses down on the tray. In the
                   corner notches the rounded backing doesn't reach, the
                   tray's grey shows: that's the emerging-from-behind look,
-                  not a leak. Off the first run only the star strip brings it. */}
+                  not a leak. Only the star strip brings it. */}
               <div
                 className={clsx(
                   'relative z-10',
-                  (firstRun || showStar) &&
+                  showStar &&
                     'rounded-xl bg-appBg shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)]',
                 )}
               >
@@ -185,7 +165,6 @@ export function AgentHomePage({
                   bypassControl={bypassControl}
                   pendingSeed={pendingSeed}
                   onSeedConsumed={onSeedConsumed}
-                  firstRun={firstRun}
                   autoFocus={autoFocusComposer && shown}
                   dropRegisterRef={dropRegisterRef}
                   draftKey={composerDraftKey(teamId)}
@@ -193,22 +172,6 @@ export function AgentHomePage({
                   mentionScope={teamId ? { teamId } : undefined}
                 />
               </div>
-              {firstRun && !stripDismissed && (
-                <ConnectorStrip
-                  message="Start with billing read-only and see where your cloud spend is going."
-                  action={
-                    <>
-                      <WandSparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
-                      Walk me through it
-                    </>
-                  }
-                  onAction={handleStartConnect}
-                  onDismiss={() => {
-                    track('agent_first_run_strip_dismissed')
-                    dismissStrip()
-                  }}
-                />
-              )}
               {showStar && <StarStrip onDone={dismissStar} />}
             </div>
           </DelayedPanelReveal>

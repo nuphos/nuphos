@@ -18,11 +18,13 @@ import {
   adoptRuntimeHandoff,
   adoptRuntimeHandoffs,
   claimRuntimeHandoffs,
+  publishRuntimeHandoffs,
+  queueRuntimeHandoff,
 } from './runtime-handoff'
 
 import type { OpenAbSessionUpdate } from './openab-acp-client'
 import type { RuntimeHandoff } from './runtime-handoff'
-import type { TeamPreviewClient } from './team-openab-runtime'
+import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
 const endpoint = {
   url: 'wss://runtime.invalid/acp',
@@ -68,6 +70,11 @@ useRedis({
       get: async () => (activeStream || restoredOwner ? 'live-replica' : null),
       eval: async (_script: string, _count: number, _key: string, field: string, raw: string) =>
         stored.get(field) === raw && stored.delete(field) ? 1 : 0,
+      hset: async (_key: string, fields: Record<string, string>) => {
+        for (const [field, value] of Object.entries(fields)) stored.set(field, value)
+
+        return Object.keys(fields).length
+      },
       hsetnx: async (_key: string, field: string, value: string) => {
         if (stored.has(field)) return 0
         stored.set(field, value)
@@ -127,8 +134,39 @@ beforeEach(() => {
 afterEach(() => {
   acquire.mockRestore()
   sessionsByConversation.get('team:conv')?.stopObserving?.()
-  sessionsByConversation.delete('team:conv')
+  sessionsByConversation.clear()
 })
+
+/** A session this replica holds while no turn of it runs here. */
+function hold(conversationId: string, state: Promise<Record<string, unknown>>) {
+  const closed: string[] = []
+
+  sessionsByConversation.set(`team:${conversationId}`, {
+    teamId: 'team',
+    conversationId,
+    userId: 'actor',
+    conversationOwnerUserId: 'owner',
+    locale: 'en-US',
+    openabSessionId: `sess_${conversationId}`,
+    client: {
+      getSessionExecutionState: () => state,
+      close: () => closed.push(conversationId),
+    } as unknown as TeamPreviewClient,
+  } as TeamSession)
+
+  return closed
+}
+
+const snapshot = {
+  schemaVersion: 2,
+  epoch: 'e',
+  revision: 0,
+  label: '',
+  tools: [],
+  actions: { send: false, cancel: false, steer: false },
+}
+
+const published = () => [...stored.keys()].sort((a, b) => a.localeCompare(b))
 
 test('exactly one replica claims a handoff, and only once the old connection had time to go', async () => {
   const now = Date.now()
@@ -257,4 +295,109 @@ test('crash adoption skips an owner restored after failover without its active g
   await adoptRuntimeHandoff({ ...handoff(Date.now()), abandonedStreamId: 'dead-stream' })
   expect(loads).toEqual([])
   expect(acquire).not.toHaveBeenCalled()
+})
+
+test('shutdown hands on a session whose runtime still owns work, and leaves idle ones and user turns', async () => {
+  hold(
+    'parked',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'resume_disconnected',
+    }),
+  )
+  hold(
+    'continuing',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'resuming',
+    }),
+  )
+  hold(
+    'waiting',
+    Promise.resolve({
+      ...snapshot,
+      state: 'idle',
+      phase: 'background_tools',
+    }),
+  )
+  hold('idle', Promise.resolve({ ...snapshot, state: 'idle', phase: 'idle' }))
+  hold(
+    'dormant',
+    Promise.resolve({
+      ...snapshot,
+      state: 'dormant',
+      phase: 'dormant',
+    }),
+  )
+  hold(
+    'turn-elsewhere',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'working',
+    }),
+  )
+  hold('gone', Promise.reject(new Error('connection closed')))
+
+  expect(await publishRuntimeHandoffs()).toBe(3)
+  expect(published()).toEqual(['team:continuing', 'team:parked', 'team:waiting'])
+  expect(JSON.parse(stored.get('team:parked')!)).toMatchObject({
+    ownerUserId: 'owner',
+    actorUserId: 'actor',
+    locale: 'en-US',
+  })
+})
+
+test('a session already handed off for its turn is handed off once', async () => {
+  hold(
+    'conv',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'working',
+    }),
+  )
+  queueRuntimeHandoff({
+    teamId: 'team',
+    conversationId: 'conv',
+    ownerUserId: 'owner',
+    actorUserId: 'turn-actor',
+    locale: 'zh-TW',
+  })
+
+  expect(await publishRuntimeHandoffs()).toBe(1)
+  expect(JSON.parse(stored.get('team:conv')!)).toMatchObject({ actorUserId: 'turn-actor' })
+})
+
+test('a runtime that never answers does not hold up shutdown', async () => {
+  hold('hung', new Promise(() => {}))
+  const started = Date.now()
+
+  expect(await publishRuntimeHandoffs()).toBe(0)
+  expect(Date.now() - started).toBeLessThan(2_000)
+})
+
+test('concurrent resumes of a handed-off session load it once', async () => {
+  await Promise.all([
+    adoptRuntimeHandoff(handoff(Date.now())),
+    adoptRuntimeHandoff(handoff(Date.now())),
+  ])
+
+  expect(loads).toEqual([{ session: 'sess_live', servers: expect.any(Array) }])
+})
+
+test('an adopter that held the session before resumes it instead of reusing the stale entry', async () => {
+  hold(
+    'conv',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'resume_disconnected',
+    }),
+  )
+  await adoptRuntimeHandoff(handoff(Date.now()))
+
+  expect(loads).toEqual([{ session: 'sess_live', servers: expect.any(Array) }])
 })

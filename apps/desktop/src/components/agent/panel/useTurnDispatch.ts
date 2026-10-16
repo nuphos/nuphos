@@ -8,7 +8,7 @@ import { toast } from '../../ui/toast'
 import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
-import { HOME_TAB_ID, emitFirstRunConvo } from './model'
+import { HOME_TAB_ID } from './model'
 import {
   markAutoSend,
   nextAutoSend,
@@ -221,7 +221,6 @@ export function useTurnDispatch(acc: Acc) {
           { turnKind, currentUser },
         )
 
-        emitFirstRunConvo('asked')
         startChatWith(
           title,
           buildUserMsg(filePaths.length > 0 ? optimisticPart() : null),
@@ -263,7 +262,6 @@ export function useTurnDispatch(acc: Acc) {
 
         return
       }
-      emitFirstRunConvo('asked')
       void dispatchTurn(activeId, trimmed, filePaths, turnKind)
     },
     [activeId, startChatWith, dispatchTurn, sendSteering, queueUntilSendable, teamId, currentUser],

@@ -15,9 +15,6 @@ import { useResetOnKey } from './useResetOnKey'
 import type { Provider } from './bind-account/constants'
 
 export { StepList, ConsoleLink, CopyableValue, Field } from './bind-account/shared'
-export { AwsWizardStepContent } from './bind-account/aws-steps'
-export { AzureWizardStepContent } from './bind-account/azure-steps'
-export { GcpWizardStepContent } from './bind-account/gcp-steps'
 
 type Props = {
   open: boolean
@@ -26,10 +23,6 @@ type Props = {
   onClose: () => void
   onBound: () => void
   onOpenAgentChat?: (prompt: string) => void
-  /** This bind is the team's first, driven by the guide. The permissions step
-   *  then asks for cost read-only and nothing else, rather than laying out the
-   *  usual menu that ends at AdministratorAccess. */
-  firstRun?: boolean
 }
 
 export function BindAccountDialog({
@@ -39,7 +32,6 @@ export function BindAccountDialog({
   onClose,
   onBound,
   onOpenAgentChat,
-  firstRun = false,
 }: Props) {
   const st = useBindAccountState(initialProvider)
 
@@ -112,13 +104,11 @@ export function BindAccountDialog({
             check={cliCheck}
             onOpenAgentChat={onOpenAgentChat}
             onStarted={close}
-            firstRun={firstRun}
           />
         ) : (
           <BindDialogBody
             st={st}
             teamId={teamId}
-            firstRun={firstRun}
             onConnectCloudflare={(scopes) => void connectCloudflareOAuth(scopes)}
           />
         )}

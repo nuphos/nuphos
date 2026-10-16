@@ -2,6 +2,7 @@ import { emptyNavigation } from '../../lib/app-routes/parseShared.ts'
 import {
   desktopTabId,
   planDesktopTabs,
+  readAppearedDesktops,
   readDesktopFocus,
   readSessionDesktops,
 } from '../../lib/sessionDesktops.ts'
@@ -11,12 +12,17 @@ import { selectBucket } from './store/workspaceState.ts'
 
 import type { WorkspaceStore } from './store/workspaceStore.ts'
 
-/** Opens a dock tab for every desktop a session on screen holds and closes the ones it no longer does. */
+/**
+ * Opens a dock tab for a desktop that just appeared, or one being brought forward,
+ * and closes the tabs of desktops a session on screen no longer holds.
+ */
 export function syncDesktopTabs(store: WorkspaceStore): void {
   const state = store.getState()
+  const focus = readDesktopFocus()
   const plan = planDesktopTabs(
     readSessionDesktops(),
     (sessionId) => selectBucket(state, sessionId).tabs,
+    [...readAppearedDesktops(), ...(focus ? [focus] : [])],
   )
 
   for (const tabId of plan.close) store.actions.closeTab(tabId)
@@ -35,8 +41,6 @@ export function syncDesktopTabs(store: WorkspaceStore): void {
       options: { openDock: true },
     })
   }
-  const focus = readDesktopFocus()
-
   if (focus)
     store.dispatch({
       type: 'activateTab',

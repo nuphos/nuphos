@@ -2,7 +2,6 @@ import { Profiler } from 'react'
 
 import { WorkspaceTabs } from '../../app/workspace/tabs/WorkspaceTabs'
 import { reportShellRender } from '../../lib/tabSwitchLog'
-import { ONBOARDING_EXTRA_STEPS_ENABLED } from '../../views/onboarding/onboardingSteps'
 
 import type { WorkspaceController } from './useWorkspaceController'
 
@@ -14,10 +13,7 @@ export function WorkspaceTabStrip({ ws, userId }: { ws: WorkspaceController; use
     workspaceActions,
     sidebarCollapsed,
     toggleSidebarCollapsed,
-    firstRunPanelOpen,
-    startFirstRunConnect,
     accounts,
-    firstRunCloudUnbound,
     copyLink,
     newTab,
     closeTab,
@@ -43,8 +39,6 @@ export function WorkspaceTabStrip({ ws, userId }: { ws: WorkspaceController; use
         onCopyPageUrl={copyLink}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebarCollapse={toggleSidebarCollapsed}
-        firstRunConnectAvailable={ONBOARDING_EXTRA_STEPS_ENABLED && firstRunCloudUnbound}
-        onStartFirstRunConnect={firstRunPanelOpen ? undefined : startFirstRunConnect}
       />
     </Profiler>
   )

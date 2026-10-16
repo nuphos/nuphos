@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 // A desktop per conversation on a Linux Box. Claude Code runs this as the
-// session's `computer-use` MCP server (see box-desktop-mcp.mjs): it takes a
-// display from the pool, brings up Xvnc + XFCE on it under the session's HOME,
-// then execs instabox's computer-use MCP (open-computer-use behind its proxy)
-// with DISPLAY set, so screenshots, input and the browser profile are the
-// session's own. When Claude Code ends the session the server dies with it and
-// the display is torn down. `reap` (run by the host) removes displays whose
-// owner is gone. Display :1 is instabox's own and is never touched.
+// session's `nuphos-desktop` MCP server (see box-desktop-mcp.mjs), relaying to
+// instabox's computer-use MCP (open-computer-use behind its proxy). Agents start
+// every MCP server with the session, so the desktop waits for the first tool
+// call: until then the server runs without a display, which is enough to list
+// its tools. That call takes a display from the pool, brings up Xvnc + XFCE on
+// it under the session's HOME and restarts the server there, so screenshots,
+// input and the browser profile are the session's own. When the agent ends the
+// session the server dies with it and the display is torn down. `reap` (run by
+// the host) removes displays whose owner is gone. Display :1 is instabox's own and is never touched.
 //
 //   desktop-session.mjs serve            env: NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL, NUPHOS_DESKTOP_POOL_SIZE, HOME
 //   desktop-session.mjs reap <pool>
@@ -153,6 +155,9 @@ export async function startDisplay(pool, display, home) {
     GDK_BACKEND: 'x11',
     XDG_SESSION_TYPE: 'x11',
     LANG: process.env.LANG ?? 'C.UTF-8',
+    // Chromium shows its windows to the computer-use server only with this; XFCE
+    // turns the desktop's own accessibility switch back off as it starts.
+    ACCESSIBILITY_ENABLED: '1',
   }
   const detached = (command, args) =>
     spawn(command, args, { env, detached: true, stdio: 'ignore' }).unref()
@@ -206,43 +211,160 @@ function xfceRunning(display) {
   return (out.stdout ?? '').includes('yes')
 }
 
+const REPLAY_ID = 'nuphos-desktop-replay'
+
+const toolError = (id, text) => ({
+  jsonrpc: '2.0',
+  id,
+  result: { content: [{ type: 'text', text }], isError: true },
+})
+
+/** Hands each JSON line of `stream` to `onLine`. */
+function lines(stream, onLine) {
+  let rest = ''
+
+  stream.setEncoding('utf8')
+  stream.on('data', (chunk) => {
+    const parts = (rest + chunk).split('\n')
+
+    rest = parts.pop() ?? ''
+    for (const line of parts) {
+      let message
+
+      try {
+        message = JSON.parse(line)
+      } catch {
+        continue // Not a JSON-RPC message; MCP stdio carries nothing else.
+      }
+      onLine(message)
+    }
+  })
+}
+
+/**
+ * The MCP traffic between the agent (`send` writes to it) and the computer-use
+ * server, which `start(env)` runs: first without a display, then on the one
+ * `desktop()` brings up for the first tool call. The server is told the
+ * handshake again after the switch.
+ */
+export function desktopRelay({ send, start, desktop }) {
+  const handshake = []
+  let server = start(null)
+  let ready = null
+  let switching = null
+
+  const fromServer = (message) => {
+    if (message.id !== REPLAY_ID) send(message)
+  }
+  const call = async (message) => {
+    try {
+      ready ??= await (switching ??= desktop().finally(() => {
+        switching = null
+      }))
+    } catch (error) {
+      send(toolError(message.id, error instanceof Error ? error.message : String(error)))
+
+      return
+    }
+    if (server.env !== ready.env) {
+      server.kill()
+      server = start(ready.env)
+      server.onMessage(fromServer)
+      for (const line of handshake) server.send(line)
+    }
+    server.send(message)
+  }
+  let queue = Promise.resolve()
+
+  server.onMessage(fromServer)
+
+  return {
+    /** One message from the agent, in order: calls wait for the desktop, the rest go on. */
+    receive(message) {
+      if (message.method === 'initialize') handshake.push({ ...message, id: REPLAY_ID })
+      else if (message.method === 'notifications/initialized') handshake.push(message)
+      queue = queue.then(() =>
+        message.method === 'tools/call' ? call(message) : server.send(message),
+      )
+
+      return queue
+    },
+    get display() {
+      return ready?.display ?? null
+    },
+    server: () => server,
+  }
+}
+
+/** The computer-use server as a child process, on `env`'s display or none. */
+function computerUse(env) {
+  const child = spawn('python3', ['-I', PROXY, '--', SERVER, 'mcp'], {
+    env: {
+      PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+      HOME: process.env.HOME,
+      ...env,
+      OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS: '1',
+      NO_AT_BRIDGE: '0',
+    },
+    stdio: ['pipe', 'pipe', 'inherit'],
+  })
+
+  return {
+    env,
+    child,
+    send: (message) => child.stdin.write(`${JSON.stringify(message)}\n`),
+    onMessage: (handle) => lines(child.stdout, handle),
+    kill: () => {
+      child.removeAllListeners('exit')
+      child.kill('SIGTERM')
+    },
+  }
+}
+
 async function serve() {
   const { NUPHOS_SESSION_ID: sessionId, NUPHOS_DESKTOP_POOL: pool, HOME: home } = process.env
   const size = Number(process.env.NUPHOS_DESKTOP_POOL_SIZE) || os.cpus().length
 
   if (!sessionId || !pool || !home)
     throw new Error('desktop-session: NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL and HOME are required')
-  const display = claimDisplay(pool, sessionId, size)
-
-  if (display === null) {
-    // No slot: answer the agent's first request with an MCP error instead of hanging.
-    process.stdin.on('data', (chunk) => {
-      for (const line of String(chunk).split('\n')) {
-        const id = /"id"\s*:\s*("[^"]*"|\d+)/u.exec(line)?.[1]
-
-        if (id)
-          process.stdout.write(
-            `${JSON.stringify({ jsonrpc: '2.0', id: JSON.parse(id), error: { code: -32000, message: `This Box has no free desktop (${String(size)} in use); wait for a session to end or use another Box.` } })}\n`,
-          )
-      }
-    })
-
-    return
-  }
-  const env = await startDisplay(pool, display, home)
-  const proxy = spawn('python3', ['-I', PROXY, '--', SERVER, 'mcp'], {
-    env: { ...env, OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS: '1', NO_AT_BRIDGE: '0' },
-    stdio: 'inherit',
-  })
+  let relay
   const end = () => {
-    proxy.kill('SIGTERM')
-    teardown(pool, display)
+    relay?.server().kill()
+    if (relay?.display != null) teardown(pool, relay.display)
     process.exit(0)
   }
+  const watched = (env) => {
+    const server = computerUse(env)
 
-  // stdin belongs to the proxy (inherited); it exits when Claude Code closes it.
+    server.child.on('exit', end)
+
+    return server
+  }
+
+  relay = desktopRelay({
+    send: (message) => process.stdout.write(`${JSON.stringify(message)}\n`),
+    start: watched,
+    desktop: async () => {
+      const display = claimDisplay(pool, sessionId, size)
+
+      if (display === null)
+        throw new Error(
+          `All ${String(size)} desktops on this Box are in use; one frees when its conversation ends.`,
+        )
+      try {
+        return { display, env: await startDisplay(pool, display, home) }
+      } catch (error) {
+        teardown(pool, display)
+        throw error
+      }
+    },
+  })
+  lines(process.stdin, (message) => {
+    void relay.receive(message)
+  })
+  // The agent closing stdin ends the session's desktop.
+  process.stdin.on('end', end)
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, end)
-  proxy.on('exit', end)
 }
 
 /** Displays whose session is gone, ones opened by hand nobody watched lately, and Xvnc servers (:2 and up) that no session holds. */

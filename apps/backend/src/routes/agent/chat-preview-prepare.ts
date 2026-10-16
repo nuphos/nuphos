@@ -15,12 +15,8 @@ import {
   parseMessageMetadata,
   renderAttributedMessage,
 } from '@/lib/agent/message-metadata'
-import {
-  drainPendingUserMessages,
-  enqueuePendingUserMessage,
-  renderInjectedUserMessages,
-  TRANSCRIPT_SOURCES,
-} from '@/lib/agent/pending-messages'
+import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
+import { takeTurnQueue } from '@/lib/agent/pending-queue'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
 import { recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
@@ -211,10 +207,13 @@ export async function preparePreviewTurn(
       return undefined
     }),
     previewCompactionSummary(sessionId, userId),
-    drainTurnQueue(userId, sessionId, actorUserId, args.channelTurn).then(markCarried(requestId)),
+    takeTurnQueue(userId, sessionId, actorUserId, args.channelTurn).then(markCarried(requestId)),
   ])
   // A channel that syncs its thread into the transcript may already hold a queued message.
   const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
+
+  // What this turn took from the queue has reached the agent; a retract can tell.
+  args.run.queuedMessageIds = carried.map((entry) => entry.id)
   const messages = turnPromptMessages(args.messages, args.resume)
   const inputs = turnInputMessages(messages)
   const images = args.resume ? [] : inputs.flatMap((m) => promptImages(m.parts))
@@ -262,21 +261,6 @@ export async function preparePreviewTurn(
   }
 }
 
-/** A channel message is answered in its channel, so only a turn there takes it. */
-export function drainTurnQueue(
-  userId: string,
-  sessionId: string,
-  actorUserId: string,
-  channelTurn?: boolean,
-) {
-  return drainPendingUserMessages(
-    userId,
-    sessionId,
-    actorUserId,
-    channelTurn ? undefined : TRANSCRIPT_SOURCES,
-  )
-}
-
 /** The carried queue as transcript messages (empty when nothing was queued). */
 export function carriedUserMessages(carried: PendingUserMessage[]): UIMessage[] {
   return carried.map((entry) => ({
@@ -285,16 +269,4 @@ export function carriedUserMessages(carried: PendingUserMessage[]): UIMessage[] 
     metadata: entry.metadata,
     parts: [{ type: 'text', text: entry.renderedText }],
   }))
-}
-
-/**
- * A refused turn never reached the agent. When its client resends the message, the
- * queued messages it drained go back on the queue for that resent turn.
- */
-export async function requeueCarried(
-  userId: string,
-  sessionId: string,
-  carried: PendingUserMessage[],
-) {
-  for (const entry of carried) await enqueuePendingUserMessage(userId, sessionId, entry)
 }

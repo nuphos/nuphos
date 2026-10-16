@@ -1,5 +1,7 @@
 import { runtimeIsExecuting } from '../../../lib/runtimeExecution.ts'
 
+import { firstMessageNewerThan } from './messagePlacement.ts'
+
 import type { Message, Tab } from './model'
 import type { FileTransferFile, FileTransferGroup } from '../../../types'
 
@@ -16,25 +18,23 @@ export function shouldLoadTransferDownloads(tab: Tab | undefined): tab is Tab {
 /**
  * Which assistant message each download card belongs under. The transfer store
  * is the source of truth for these cards — they are never written into the
- * transcript — so the anchor is derived from times instead: a group is pushed
- * while a turn runs, and that turn's assistant message is stamped when the turn
- * ends, so the group belongs to the earliest assistant message stamped at or
- * after it. Groups newer than every stamp belong to the last assistant message —
- * the turn that just finished, whose stored time the client does not hold until
- * the next transcript read. Until then several turns' cards can sit under that
- * last reply; they move to their own turns once the stamps arrive.
+ * transcript — so each is placed by its push time, with the same rule as
+ * timeline events (firstMessageNewerThan): the card belongs to the assistant
+ * message at that slot, or else to the nearest one before it. A group pushed
+ * while a turn runs sits after the message that starts the turn (the user
+ * message, or an autonomous reply's own start stamp) and before the next
+ * turn's, so it lands on that turn's reply whether or not the client holds the
+ * reply's stored time yet, and does not move once it does. A group older than
+ * the first loaded message waits for earlier history; with none to wait for it
+ * goes to the first reply rather than nowhere — a client clock seconds ahead
+ * can stamp the first message after the push.
  */
 export function anchorDownloadGroups(
   messages: readonly Message[],
   groups: readonly FileTransferGroup[],
+  hasEarlier = false,
 ): Map<string, FileTransferGroup[]> {
-  const anchors = messages.flatMap((m) =>
-    m.role === 'assistant' ? [{ id: m.id, createdAt: m.createdAt }] : [],
-  )
   const byMessage = new Map<string, FileTransferGroup[]>()
-  const last = anchors.at(-1)
-
-  if (!last) return byMessage
   const ordered = [...groups].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 
   for (const group of ordered) {
@@ -50,8 +50,15 @@ export function anchorDownloadGroups(
       )
     )
       continue
-    const pushedAt = Date.parse(group.createdAt)
-    const anchor = anchors.find((a) => a.createdAt !== undefined && a.createdAt >= pushedAt) ?? last
+    const index = firstMessageNewerThan(messages, Date.parse(group.createdAt))
+
+    if (index === 0 && hasEarlier) continue
+    const slot = index < 0 ? messages.length : index + 1
+    const anchor =
+      messages.slice(0, slot).findLast((m) => m.role === 'assistant') ??
+      messages.slice(slot).find((m) => m.role === 'assistant')
+
+    if (!anchor) continue
     const list = byMessage.get(anchor.id) ?? []
 
     list.push(group)
@@ -60,6 +67,10 @@ export function anchorDownloadGroups(
 
   return byMessage
 }
+
+// The one square every inline image and video preview gets, loading or loaded,
+// so media never resizes the transcript when it arrives. The preview opens full size.
+export const MEDIA_BOX = 'h-20 w-20'
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|svg)$/i
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm)$/i

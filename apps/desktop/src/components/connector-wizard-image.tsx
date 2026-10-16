@@ -8,41 +8,13 @@ import { createPortal } from 'react-dom'
 export function WizardExampleImage({
   src,
   alt,
-  label = 'Example',
   objectPosition = 'left top',
-  layout = 'column',
-  fit = 'natural',
-  aspectRatio,
-  className,
 }: {
   src: string
   alt: string
-  /** `null` drops the caption — for a shot inside a block that is already
-   *  captioned as a whole. */
-  label?: string | null
   /** CSS object-position for the cropped thumbnail — point it at the part of the
    *  screenshot that matters (default top-left, where most forms live). */
   objectPosition?: string
-  /**
-   * `column` crops to fill a fixed-width sidebar column beside the instructions.
-   * `block` shows the whole screenshot at its own aspect ratio, for a narrow
-   * single-column layout (the first-run dock) where cropping would hide the very
-   * fields the step is about.
-   */
-  layout?: 'column' | 'block'
-  /**
-   * `natural` lets a `block` shot set its own height from its own proportions.
-   * `cover` crops it to fill `aspectRatio` instead — for a row of shots, where
-   * ragged heights read as a layout bug rather than as three different
-   * screenshots. `column` always covers.
-   */
-  fit?: 'natural' | 'cover'
-  /** The box the shot is drawn in. In `natural` fit it only reserves space
-   *  before the image loads, so the step doesn't jump under the pointer; in
-   *  `cover` it is the crop. CSS syntax, e.g. `'640 / 720'`. */
-  aspectRatio?: string
-  /** Extra classes for the outer wrapper — grid placement, mostly. */
-  className?: string
 }) {
   // Two-phase mount so the lightbox can animate on BOTH open and close, driven
   // by the transitions-dev `t-modal` transition (scale-up in, softer scale-down
@@ -86,38 +58,23 @@ export function WizardExampleImage({
     }
   }, [mounted, phase])
 
-  const block = layout === 'block'
-  const cover = !block || fit === 'cover'
-
   return (
-    <div className={clsx('flex flex-col', !block && 'h-full', className)}>
-      {label !== null && (
-        <div className="mb-1 text-[11px] uppercase tracking-wider text-tertiary">{label}</div>
-      )}
+    <div className="flex h-full flex-col">
+      <div className="mb-1 text-[11px] uppercase tracking-wider text-tertiary">Example</div>
       <button
         type="button"
         onClick={openLightbox}
         title="Click to enlarge"
-        className={clsx(
-          'relative cursor-zoom-in overflow-hidden rounded-md border border-zGray-800 transition-colors hover:border-zGray-600',
-          block ? 'w-full' : 'min-h-[220px] flex-1',
-        )}
-        style={block ? { aspectRatio } : undefined}
+        className="relative min-h-[220px] flex-1 cursor-zoom-in overflow-hidden rounded-md border border-zGray-800 transition-colors hover:border-zGray-600"
       >
-        {cover ? (
-          /* Cropped to fill the box, anchored at objectPosition (default
-             top-left, where these screenshots keep their subject). */
-          <img
-            src={src}
-            alt={alt}
-            style={{ objectPosition }}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        ) : (
-          // Whole screenshot, scaled to the column. It stays small here — the
-          // lightbox is where it gets read.
-          <img src={src} alt={alt} className="block h-auto w-full" />
-        )}
+        {/* Cropped to fill the box, anchored at objectPosition (default
+            top-left, where these screenshots keep their subject). */}
+        <img
+          src={src}
+          alt={alt}
+          style={{ objectPosition }}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
       </button>
       {mounted &&
         // Portal to body + z above the Modal backdrop (z-50) so it covers the

@@ -120,6 +120,7 @@ aliyunAccountScoped.get('/', (c) => {
 // — gated by the binding's member allow-list above. Assumes the role fresh; the
 // securityToken accompanies the temporary AccessKeyId/Secret. `defaultRegion`
 // lets the CLI setup pick a region the credentials authenticate against.
+aliyunAccountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 aliyunAccountScoped.get('/credentials', async (c) => {
   const handle = await aliyunHandleFor(c.get('aliyunBinding'), c.get('teamId'))
 
@@ -163,6 +164,10 @@ aliyunAccountScoped.get('/swas-instances', async (c) => {
 })
 
 // `:clusterId` is the ACK cluster id.
+aliyunAccountScoped.use(
+  '/clusters/:clusterId/kubeconfig',
+  requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+)
 aliyunAccountScoped.get('/clusters/:clusterId/kubeconfig', async (c) => {
   const clusterId = c.req.param('clusterId')
   const handle = await aliyunHandleFor(c.get('aliyunBinding'), c.get('teamId'))

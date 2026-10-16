@@ -82,7 +82,7 @@ useTriggerRunExecute({
 })
 
 const { executeTrigger } = await import('./trigger-executor')
-const { startQueuedTurn } = await import('./conversation-turn')
+const { startQueuedTurn } = await import('./queued-turn')
 const { installQueuedTurnStarter } = await import('./session-released')
 
 installQueuedTurnStarter(startQueuedTurn)

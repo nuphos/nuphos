@@ -1,62 +1,28 @@
-import { concreteModelChoices, isDefaultModel } from '../../../lib/modelChoices'
+import { Popover } from '@base-ui/react/popover'
+import clsx from 'clsx'
+import { ChevronDown, Loader2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
-import { ChevronDown, ChevronLeft, Loader2, RefreshCw, Zap } from 'lucide-react'
+import { effortLabel } from '../../../lib/configLabels'
+import { effortResetValue, effortStops } from '../../../lib/effortStops'
+import { Kbd } from '../../ui/kbd'
+import { Menu, MenuContent } from '../../ui/menu'
+import { Tooltip } from '../../ui/tooltip'
 
+import { ModelChipLabel } from './ModelChipLabel'
+import { ModelEffortPanel } from './ModelEffortPanel'
+import { ModelFooter, ModelMenuFooter } from './ModelFooter'
+import { ModelMenu } from './ModelMenu'
 import {
-  Menu,
-  MenuContent,
-  MenuItem,
-  MenuSeparator,
-  MenuSubmenu,
-  MenuSubmenuTrigger,
-  MenuTrigger,
-} from '../../ui/menu'
+  composerOf,
+  EFFORT_SHORTCUT,
+  effortName,
+  modelHint,
+  modelName,
+  ownsShortcut,
+} from './modelSelectorParts'
 
 import type { useSessionConfig } from './useSessionConfig'
-import type { SessionConfigOption, SessionConfigState } from '../../../api/session-config-types'
-
-function currentLabel(option: SessionConfigOption) {
-  if (option.kind === 'model') {
-    const { current, label } = concreteModelChoices(
-      option.options.map((choice) => ({ ...choice, id: choice.value })),
-      option.currentValue,
-    )
-
-    return label ?? current ?? ''
-  }
-  if (option.kind === 'effort' && option.currentValue === 'default') return ''
-
-  return (
-    option.options.find((choice) => choice.value === option.currentValue)?.name ??
-    option.currentValue
-  )
-}
-
-/** Show the model whenever one is known; "unavailable" means the agent is offline. */
-function modelLabel(
-  model: SessionConfigOption | undefined,
-  status: SessionConfigState['status'] | undefined,
-) {
-  if (model) return currentLabel(model)
-  if (status === 'offline') return 'Model unavailable'
-
-  return ''
-}
-
-function modelHint(
-  status: SessionConfigState['status'] | undefined,
-  hasModel: boolean,
-  busy: boolean,
-  stalled: boolean,
-) {
-  if (status === 'offline')
-    return 'This agent is offline. Model settings return when it reconnects.'
-  if (busy && stalled)
-    return "This agent hasn't responded in a while — it may be stuck. Try reconnecting below."
-  if (busy) return 'Changes apply after this reply.'
-  if (status === 'dormant' && !hasModel)
-    return 'Send a message to start this session before changing model settings.'
-}
 
 export type ModelControl = Pick<
   ReturnType<typeof useSessionConfig>,
@@ -73,18 +39,25 @@ export function ModelSelector({
   streaming: boolean
 }) {
   const { data, loading, slow, saving, error, stalled } = control
+  const [view, setView] = useState<'effort' | 'models'>('effort')
+  const chipRef = useRef<HTMLButtonElement>(null)
+  const sliderRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const options = data?.options.map((option) => {
     const queued = control.queued?.find((selection) => selection.configId === option.id)
 
     return queued ? { ...option, currentValue: queued.value } : option
   })
   const model = options?.find((option) => option.kind === 'model')
+  const effort = options?.find((option) => option.kind === 'effort')
+  const fast = options?.find((option) => option.kind === 'fast')
   const status = data?.status
   const busy = status === 'busy' || streaming
-
-  // A runtime that exposes no model controls gets no picker at all.
-  if (status === 'unsupported') return null
-  const label = modelLabel(model, status)
+  const name = model ? modelName(model) : status === 'offline' ? 'Model unavailable' : ''
+  const level = effortName(effort)
+  const effortLevels = [
+    ...new Set([level, ...effortStops(effort?.options ?? []).map((choice) => effortLabel(choice))]),
+  ].filter(Boolean)
   const blocked =
     disabled ||
     saving ||
@@ -93,104 +66,183 @@ export function ModelSelector({
     (status !== 'ready' && status !== 'dormant' && status !== 'busy')
   const hint = modelHint(status, Boolean(model), busy, stalled)
 
+  const setOpen = control.setOpen
+  const open = control.open
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        !event.ctrlKey ||
+        !event.shiftKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.code !== 'KeyM'
+      )
+        return
+      const chip = chipRef.current
+
+      // ⌃⇧M again closes it, wherever focus went inside the popover.
+      if (open) {
+        event.preventDefault()
+        setOpen(false)
+
+        return
+      }
+      if (!chip?.isConnected || !ownsShortcut(chip)) return
+      event.preventDefault()
+      setView(effort ? 'effort' : 'models')
+      setOpen(true)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [effort, open, setOpen])
+
+  // Effort is a popover, since a slider is not a menu item; the model list is a
+  // menu. Both hang off the chip, and one open flag shows whichever view is on.
+  const showModels = view === 'models' || !effort
+  const modelsOpen = control.open && showModels && Boolean(model)
+  const effortOpen = control.open && !modelsOpen
+
+  // A runtime that exposes no model controls gets no picker at all.
+  if (status === 'unsupported') return null
+  const select = (configId: string, value: string) => control.select({ configId, value })
+  const pickModel = (value: string) => {
+    if (!model) return
+    if (value !== model.currentValue) select(model.id, value)
+    control.setOpen(false)
+  }
+  const footer = {
+    lines: [
+      (loading || slow) &&
+        !error &&
+        (slow ? 'The agent is reconnecting. This may take a moment.' : 'Getting model settings…'),
+      error,
+      error && model && 'Showing last synced settings.',
+      control.queued ? 'Selected for the next reply.' : hint,
+      disabled &&
+        !busy &&
+        status === 'ready' &&
+        'Available when this conversation is ready for your next message.',
+    ].filter((line): line is string => Boolean(line)),
+    error: error ?? undefined,
+    onRetry: error || stalled ? control.refresh : undefined,
+    retrying: loading || saving,
+  }
+  // Closing returns to the message box, so typing carries on; switching views
+  // leaves focus to the view that opens.
+  const finalFocus = () =>
+    !control.open &&
+    (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
+
   return (
-    <Menu open={control.open} onOpenChange={control.setOpen}>
-      <MenuTrigger
-        aria-label={`Model settings: ${label}`}
-        className="flex h-7 min-w-0 max-w-48 items-center gap-1 rounded-full px-2 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main"
+    <>
+      <Popover.Root
+        open={effortOpen}
+        onOpenChange={(next) => {
+          if (next) setView(effort ? 'effort' : 'models')
+          control.setOpen(next)
+        }}
+        // Arrow keys move the effort slider as soon as it shows.
+        onOpenChangeComplete={(shown) => {
+          if (shown) sliderRef.current?.focus()
+        }}
       >
-        {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-        {label ? (
-          <span className="truncate">{label}</span>
-        ) : (
-          <span
-            aria-label="Loading model"
-            className="h-3 w-24 animate-pulse rounded bg-zGray-700/60 motion-reduce:animate-none"
-          />
-        )}
-        {data?.options.some((option) => option.kind === 'fast' && option.currentValue === 'on') && (
-          <Zap className="h-3 w-3 shrink-0" />
-        )}
-        <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
-      </MenuTrigger>
-      <MenuContent side="top" align="end" className="w-72">
-        {(loading || slow) && !error && (
-          <p role="status" className="flex items-center gap-2 px-2.5 py-2 text-xs text-tertiary">
-            {!slow && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {slow
-              ? 'The agent is reconnecting. This may take a moment.'
-              : 'Getting model settings…'}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="px-2.5 py-2 text-xs text-error">
-            {error}
-          </p>
-        )}
-        {error && model && (
-          <p className="px-2.5 pb-2 text-[11px] text-tertiary">Showing last synced settings.</p>
-        )}
-        {control.queued && (
-          <p className="px-2.5 py-2 text-xs text-tertiary">Selected for the next reply.</p>
-        )}
-        {!control.queued && hint && <p className="px-2.5 py-2 text-xs text-tertiary">{hint}</p>}
-        {disabled && !busy && status === 'ready' && (
-          <p className="px-2.5 py-2 text-xs text-tertiary">
-            Available when this conversation is ready for your next message.
-          </p>
-        )}
-        {options?.map((option) => (
-          <MenuSubmenu key={option.id}>
-            <MenuSubmenuTrigger
-              disabled={blocked}
-              chevron={<ChevronLeft className="h-3 w-3 opacity-60" />}
-            >
-              <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                <span>
-                  {option.kind === 'model' ? 'Model' : option.kind === 'effort' ? 'Effort' : 'Fast'}
-                </span>
-                <span className="truncate text-xs text-tertiary">{currentLabel(option)}</span>
-              </span>
-            </MenuSubmenuTrigger>
-            <MenuContent side="left" align="end" className="max-h-80 w-72">
-              {option.options
-                .filter(
-                  (choice) => option.kind === 'fast' || !isDefaultModel(choice.value, choice.name),
-                )
-                .map((choice) => (
-                  <MenuItem
-                    key={choice.value}
-                    selected={choice.value === option.currentValue}
-                    disabled={blocked}
-                    closeOnClick={false}
-                    onClick={() => control.select({ configId: option.id, value: choice.value })}
-                  >
-                    {choice.name}
-                  </MenuItem>
-                ))}
-            </MenuContent>
-          </MenuSubmenu>
-        ))}
-        {(error || stalled) && (
-          <>
-            <MenuSeparator />
-            <MenuItem
-              icon={
-                loading || saving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5" />
+        <Tooltip
+          content={
+            <span className="flex items-center gap-2">
+              Select effort <Kbd combo={EFFORT_SHORTCUT} />
+            </span>
+          }
+          disabled={control.open || !effort}
+          triggerClassName="min-w-0"
+        >
+          <Popover.Trigger
+            ref={chipRef}
+            data-model-chip=""
+            aria-label={`Model settings: ${[name, level].filter(Boolean).join(' ')}${fast?.currentValue === 'on' ? ', fast mode on' : ''}`}
+            // A filled pill at rest, so opening it changes nothing but the text.
+            className="flex h-8 min-w-0 max-w-64 items-center gap-1 rounded-full bg-zGray-800/60 pl-2.5 pr-2 text-[13px] text-main outline-none transition-colors hover:bg-zGray-800 focus-visible:bg-zGray-800"
+          >
+            {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+            <ModelChipLabel
+              name={name}
+              level={level}
+              levels={effortLevels}
+              choosingEffort={effortOpen && Boolean(effort)}
+              fast={fast?.currentValue === 'on'}
+            />
+            <ChevronDown size={14} strokeWidth={1.8} className="shrink-0 text-tertiary" />
+          </Popover.Trigger>
+        </Tooltip>
+        <Popover.Portal>
+          <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
+            <Popover.Popup
+              finalFocus={finalFocus}
+              className={(state) =>
+                clsx(
+                  't-dropdown w-72 rounded-xl border border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+                  state.open && 'is-open',
+                  state.transitionStatus === 'ending' && 'is-closing',
                 )
               }
-              disabled={saving || loading}
-              closeOnClick={false}
-              onClick={control.refresh}
+              style={{ transformOrigin: 'bottom center' }}
             >
-              Retry connection
-            </MenuItem>
-          </>
-        )}
-      </MenuContent>
-    </Menu>
+              {!showModels && effort && model && (
+                <ModelEffortPanel
+                  effort={effort}
+                  fast={fast}
+                  modelName={name}
+                  resetValue={effortResetValue(effort.options)}
+                  blocked={blocked && !saving}
+                  saving={saving}
+                  sliderRef={sliderRef}
+                  onSelect={select}
+                  onOpenModels={() => setView('models')}
+                />
+              )}
+              <ModelFooter {...footer} divided={Boolean(model)} />
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+      <Menu
+        open={modelsOpen}
+        onOpenChange={(next, details) => {
+          // This menu has no trigger of its own. Base UI still reports trigger and
+          // sibling closes when "More models" opens or the view steps back to
+          // effort; neither is the user closing it.
+          if (details.reason === 'trigger-hover' || details.reason === 'sibling-open') return
+          // Escape from the model list steps back to effort; a second one closes.
+          if (!next && details.reason === 'escape-key' && effort) setView('effort')
+          else control.setOpen(next)
+        }}
+        // Start on the current model, so ↑/↓ move from where the user is.
+        onOpenChangeComplete={(shown) => {
+          if (shown) menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+        }}
+      >
+        <MenuContent
+          ref={menuRef}
+          anchor={chipRef}
+          side="top"
+          align="center"
+          sideOffset={8}
+          finalFocus={finalFocus}
+          className="w-72 rounded-xl"
+        >
+          {model && (
+            <ModelMenu
+              model={model}
+              blocked={blocked}
+              onSelect={pickModel}
+              onBack={effort ? () => setView('effort') : undefined}
+              footer={<ModelMenuFooter {...footer} />}
+            />
+          )}
+        </MenuContent>
+      </Menu>
+    </>
   )
 }

@@ -1,4 +1,19 @@
+import type { AgentCredentialAccess } from './db/shared'
 import type { MessageMetadata } from './message-metadata'
+import type { UIMessage } from 'ai'
+
+/** An app send the backend queued. It runs later as its sender's own chat turn,
+ *  on the stream the sender's device opened, so only that device runs its tools. */
+export type QueuedChatTurn = {
+  streamId: string
+  message: UIMessage
+  locale: string
+  localTools: boolean
+  kubeContext?: string
+  diagramId?: string
+  currentUrl?: string | null
+  credentialAccess?: AgentCredentialAccess
+}
 
 export type PendingUserMessage = {
   id: string
@@ -10,6 +25,10 @@ export type PendingUserMessage = {
   renderedText: string
   source: string
   receivedAt: string
+  /** Set for an app send: the turn it starts is a chat turn, never folded into another. */
+  chat?: QueuedChatTurn
+  /** Times a turn took this message and could not run it. */
+  attempts?: number
 }
 
 // A resource wake-up is only "<event> on <PR>"; the session reads the PR itself.

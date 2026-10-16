@@ -57,9 +57,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
     teamsLoaded,
     onboardingActive,
     onboardingForced,
-    onboardingStep,
-    onboardingStepNonce,
-    onboardingPlatform,
+    onboardingNonce,
     landingCelebration,
     setLandingCelebration,
     loadTeams,
@@ -114,10 +112,8 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
     return (
       <>
         <OnboardingFlow
-          key={`onboarding-${String(onboardingStepNonce)}`}
+          key={`onboarding-${String(onboardingNonce)}`}
           user={user}
-          currentTeamId={scope?.teamId ?? null}
-          initialStep={onboardingStep}
           dismissable={onboardingForced}
           onClose={closeOnboarding}
           onCreateWorkspace={createWorkspaceForOnboarding}
@@ -126,7 +122,6 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           onJoinDiscoverableTeam={joinDiscoverableTeam}
           onLogout={handleLogout}
           onFinish={finishOnboarding}
-          demoPlatform={onboardingPlatform}
         />
       </>
     )

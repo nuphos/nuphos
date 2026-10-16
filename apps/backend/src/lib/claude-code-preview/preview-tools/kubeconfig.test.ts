@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { useAgentKubeconfig } from '@/lib/test/doubles/agent-kubeconfig'
+import { useCredentialRole } from '@/lib/test/doubles/byos-credential-role'
 
 import type { AgentClusterContext } from '@/lib/byos/agent-kubeconfig'
 
@@ -20,12 +20,16 @@ useAgentKubeconfig({
   },
 })
 
+let canMint = true
+
+useCredentialRole({ canMintCredentials: () => Promise.resolve(canMint) })
+
 const { kubeconfigToolModule } = await import('./kubeconfig')
 
 const ctx = { userId: 'user-1', teamId: 'team-1', sessionId: 'conv-1', locale: 'en' }
 
 function getKubeconfig(args: Record<string, unknown> = {}) {
-  const handler = kubeconfigToolModule('https://backend.example', {
+  const handler = kubeconfigToolModule({
     getCredentialAccess: () => Promise.resolve({}),
   }).handlers(ctx).get_kubeconfig
 
@@ -35,6 +39,16 @@ function getKubeconfig(args: Record<string, unknown> = {}) {
 }
 
 describe('get_kubeconfig', () => {
+  test('tells a viewer that cluster access needs the Editor role', async () => {
+    contexts = []
+    canMint = false
+    const result = await getKubeconfig()
+
+    canMint = true
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('Editor or Administrator')
+  })
+
   test('reports when the selection reaches no clusters', async () => {
     contexts = []
     const result = await getKubeconfig()
@@ -50,7 +64,7 @@ describe('get_kubeconfig', () => {
     expect(lastFresh).toBe(true)
   })
 
-  test('rewrites exec contexts to the inline scoped-token plugin', async () => {
+  test('rewrites exec contexts to a plugin that carries no Nuphos credential', async () => {
     contexts = [
       {
         contextName: 'aws/123456789012/prod',
@@ -69,19 +83,14 @@ describe('get_kubeconfig', () => {
     const payload = result.structuredContent as { contexts: string[]; kubeconfig: string }
 
     expect(payload.contexts).toEqual(['aws/123456789012/prod', 'linode/acc/lke1'])
-    // The exec context calls back with the scoped token, never a skills script
-    // or a general bearer.
+    // The exec context calls back with the running turn's own token, never a
+    // skills script, a general bearer, or a token written into the file.
     expect(payload.kubeconfig).toContain('exec-credential')
     expect(payload.kubeconfig).not.toContain('get-credential.sh')
-    expect(payload.kubeconfig).toContain('NUPHOS_KUBE_TOKEN')
-    const token = /name: NUPHOS_KUBE_TOKEN\s+value: (\S+)/.exec(payload.kubeconfig)?.[1]
-
-    expect(token).toBeDefined()
-    expect(verifyPreviewMcpToken(token ?? '')).toMatchObject({
-      sub: 'user-1',
-      sid: 'conv-1',
-      tid: 'team-1',
-    })
+    expect(payload.kubeconfig).toContain('OPENAB_CREDENTIALS_DIR/NUPHOS_TOKEN')
+    expect(payload.kubeconfig).not.toMatch(/eyJ[\w-]+\.[\w-]+\./)
+    expect(payload.kubeconfig).not.toContain('env:')
+    expect(payload.kubeconfig).toContain('--fail-with-body')
     // Positional args mirror get-credential.sh's contract (YAML may quote).
     for (const arg of ['aws', 'team-1', '123456789012', 'prod', 'us-east-1']) {
       expect(payload.kubeconfig).toMatch(new RegExp(`- "?${arg}"?\\n`))

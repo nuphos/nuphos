@@ -114,6 +114,7 @@ export function registerAwsResourceRoutes(
     return c.json(preview)
   })
 
+  accountScoped.use('/clusters/:name/kubeconfig', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   accountScoped.get('/clusters/:name/kubeconfig', async (c) => {
     const name = c.req.param('name')
     const roleArn = c.get('awsRoleArn')

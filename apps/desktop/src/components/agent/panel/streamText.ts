@@ -141,17 +141,6 @@ export function turnWorkSeconds(parts: Part[]): number | null {
   return Math.max(0, Math.round((end - start) / 1000))
 }
 
-// Client-side stand-in for the backend's first-persisted time (turn end):
-// stamps the just-finished turn's assistant message so the hover timestamp
-// renders without a reload.
-export function stampAssistantTurnEnd(messages: Message[]): Message[] {
-  const last = messages[messages.length - 1]
-
-  if (last?.role !== 'assistant' || last.createdAt) return messages
-
-  return [...messages.slice(0, -1), { ...last, createdAt: Date.now() }]
-}
-
 export function formatMessageTimestamp(ms: number): string {
   const d = new Date(ms)
   const now = new Date()

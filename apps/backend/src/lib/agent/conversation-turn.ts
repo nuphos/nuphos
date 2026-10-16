@@ -1,14 +1,8 @@
 import { signNuphosToken } from '@/lib/identity'
-import { logEvent } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import {
-  buildPendingUserMessage,
-  drainPendingUserMessages,
-  hasPendingUserMessage,
-  TRANSCRIPT_SOURCES,
-} from './pending-messages'
+import { agentMessages, getConversationWithMessages } from './db'
+import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -41,18 +35,17 @@ export async function executeConversationTurn(...args: TurnArgs): Promise<void> 
 
 /**
  * Hands the message to the target: 'started' when it took the run (`run` settles
- * with the turn's finish reason), 'delivered' when it was queued behind the
- * target's active turn. A queued message runs when that turn releases the session.
+ * with the turn's finish reason), 'queued' when it waits behind the turns ahead
+ * of it. It runs as its own turn, never folded into another sender's.
  */
 export async function startConversationTurn(
   ...[data, target, renderedText, source, metadata]: TurnArgs
-): Promise<{ status: 'started' | 'delivered'; run: Promise<string | undefined> }> {
+): Promise<{ status: 'started' | 'queued'; run: Promise<string | undefined> }> {
   // Also the answer for a redelivery already accepted, not only for a busy target.
-  const delivered = { status: 'delivered' as const, run: Promise.resolve(undefined) }
+  const queued = { status: 'queued' as const, run: Promise.resolve(undefined) }
 
   // A stalled queue delivery may have reached an active turn before its ACK.
-  if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId))
-    return delivered
+  if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId)) return queued
 
   if (
     await agentMessages().findOne(
@@ -64,7 +57,7 @@ export async function startConversationTurn(
       { projection: { _id: 1 } },
     )
   )
-    return delivered
+    return queued
   const claim = await turnRunner.claimAgentRunOrEnqueue({
     userId: data.userId,
     sessionId: data.targetSessionId,
@@ -80,7 +73,7 @@ export async function startConversationTurn(
   })
 
   if (claim.mode === 'dropped') throw new Error('Thread message could not be queued.')
-  if (claim.mode === 'queued') return delivered
+  if (claim.mode === 'queued') return queued
 
   const run = async (): Promise<string | undefined> => {
     try {
@@ -99,49 +92,8 @@ export async function startConversationTurn(
   return { status: 'started', run: run() }
 }
 
-/**
- * Runs what a session queued while it was busy. Called whenever the session is
- * released, so a message accepted for a turn that ended without reading it
- * starts the next turn instead of waiting for one that may never come.
- */
-export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
-  const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
-
-  // The holder runs this again when it lets go.
-  if (!release) return
-  try {
-    const carried = await drainPendingUserMessages(userId, sessionId, userId, TRANSCRIPT_SOURCES)
-    const target = carried.length ? await getConversationBySessionId(sessionId) : null
-    const first = carried[0]
-
-    if (!first) return
-    if (!target?.teamId) {
-      logEvent('warn', 'agent.pending_messages.queued_turn_dropped', {
-        user_id: userId,
-        session_id: sessionId,
-        message_ids: carried.map((message) => message.id),
-      })
-
-      return
-    }
-
-    await runTurn(
-      {
-        userId,
-        teamId: target.teamId,
-        targetSessionId: sessionId,
-        locale: target.metadata?.locale,
-      },
-      target,
-      first.source,
-      carried,
-    )
-  } finally {
-    release()
-  }
-}
-
-async function runTurn(
+/** Runs a turn for messages delivered to a conversation, after its history. */
+export async function runTurn(
   data: Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & { locale?: string },
   target: AgentConversation,
   source: string,

@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireGrafanaInstance } from '@/middleware/auth'
+import { requireTeamRole, requireGrafanaInstance, requireGrafanaWriteRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables, GrafanaInstanceVariables } from '@/middleware/auth'
@@ -237,7 +237,7 @@ export function toGrafanaProxyResponse(upstreamRes: Response): Response {
   })
 }
 
-instanceScoped.all('/proxy/*', async (c) => {
+instanceScoped.all('/proxy/*', requireGrafanaWriteRole(), async (c) => {
   const proxyMarker = '/proxy/'
   const idx = c.req.path.indexOf(proxyMarker)
 

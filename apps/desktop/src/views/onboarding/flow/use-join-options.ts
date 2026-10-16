@@ -3,7 +3,6 @@ import { useCallback, useEffect } from 'react'
 import { api } from '../../../api'
 import { toast } from '../../../components/ui/toast'
 import { useResetOnKey } from '../../useResetOnKey'
-import { afterWorkspace } from '../onboardingSteps'
 
 import type { ChatStep } from './shared'
 import type { AtlasTeam, DiscoverableTeam, TeamInvitation } from '../../../types'
@@ -58,12 +57,10 @@ export function useJoinOptionsSync({
 
 export function useWorkspaceActions({
   workspaceName,
-  setWorkspaceName,
   creating,
   setCreating,
   setChatStep,
   onCreateWorkspace,
-  setTeamId,
   onAcceptInvitation,
   onJoinDiscoverableTeam,
   setActingInvitationId,
@@ -78,17 +75,14 @@ export function useWorkspaceActions({
   setJoinedTeams,
   setJoiningTeamId,
   joinedTeams,
-  setJoinedExisting,
   onCreated,
   onFinish,
 }: {
   workspaceName: string
-  setWorkspaceName: Dispatch<SetStateAction<string>>
   creating: boolean
   setCreating: Dispatch<SetStateAction<boolean>>
   setChatStep: Dispatch<SetStateAction<ChatStep>>
   onCreateWorkspace: (name: string) => Promise<AtlasTeam>
-  setTeamId: Dispatch<SetStateAction<string | null>>
   onAcceptInvitation?: (invitationId: string) => Promise<string>
   onJoinDiscoverableTeam?: (teamId: string) => Promise<void>
   setActingInvitationId: Dispatch<SetStateAction<string | null>>
@@ -103,7 +97,6 @@ export function useWorkspaceActions({
   setJoinedTeams: Dispatch<SetStateAction<{ id: string; name: string }[]>>
   setJoiningTeamId: Dispatch<SetStateAction<string | null>>
   joinedTeams: { id: string; name: string }[]
-  setJoinedExisting: Dispatch<SetStateAction<boolean>>
   /** A new workspace exists and is ready for its agent setup. */
   onCreated: (team: AtlasTeam) => void
   onFinish: (teamId: string | null) => void
@@ -115,18 +108,14 @@ export function useWorkspaceActions({
     setCreating(true)
     setChatStep('creating')
     try {
-      const team = await onCreateWorkspace(name)
-
-      setTeamId(team.id)
-      if (afterWorkspace() === 'finish') onCreated(team)
-      else setChatStep('security')
+      onCreated(await onCreateWorkspace(name))
     } catch (e) {
       toast.apiError('Could not create workspace', e)
       setChatStep('workspace')
     } finally {
       setCreating(false)
     }
-  }, [workspaceName, creating, setCreating, setChatStep, onCreateWorkspace, setTeamId, onCreated])
+  }, [workspaceName, creating, setCreating, setChatStep, onCreateWorkspace, onCreated])
 
   // Picking a card is a pure selection — nothing is joined until Continue
   // commits the whole set, so changing one's mind before that costs nothing.
@@ -240,15 +229,7 @@ export function useWorkspaceActions({
     setCommitting(false)
 
     if (failures > 0 || joined.length === 0) return
-    const primary = joined[0]
-
-    setTeamId(primary.id)
-    setWorkspaceName(
-      joined.length > 1 ? `${primary.name} +${String(joined.length - 1)} more` : primary.name,
-    )
-    setJoinedExisting(true)
-    if (afterWorkspace() === 'finish') onFinish(primary.id)
-    else setChatStep('security')
+    onFinish(joined[0].id)
   }, [
     committing,
     creating,
@@ -265,10 +246,7 @@ export function useWorkspaceActions({
     setSelectedInvitationIds,
     setSelectedTeamIds,
     setCommitting,
-    setTeamId,
-    setWorkspaceName,
-    setJoinedExisting,
-    setChatStep,
+    onFinish,
   ])
 
   return {

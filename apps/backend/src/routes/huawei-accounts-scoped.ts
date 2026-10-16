@@ -118,6 +118,7 @@ huaweiAccountScoped.get('/', (c) => {
 // The team's own short-lived credentials for the sandbox/agent (hw-api.py,
 // the SDKs, Terraform) — gated by the binding's member allow-list above.
 // Federates fresh; the security token accompanies the temporary AK/SK.
+huaweiAccountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 huaweiAccountScoped.get('/credentials', async (c) => {
   const handle = await huaweiHandleFor(c.get('huaweiBinding'), c.get('teamId'))
 

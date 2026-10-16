@@ -18,6 +18,7 @@ import type { FileTransferGroup } from '../../../types'
 export function useTransferDownloads(
   tab: Tab,
   teamId: string | undefined,
+  hasEarlier: boolean,
 ): Map<string, FileTransferGroup[]> {
   const executing = runtimeIsExecuting(tab.runtimeState)
   const [loaded, setLoaded] = useState<{ sessionId: string; groups: FileTransferGroup[] } | null>(
@@ -47,7 +48,11 @@ export function useTransferDownloads(
 
   return useMemo(
     () =>
-      anchorDownloadGroups(tab.messages, loaded?.sessionId === tab.sessionId ? loaded.groups : []),
-    [tab.messages, tab.sessionId, loaded],
+      anchorDownloadGroups(
+        tab.messages,
+        loaded?.sessionId === tab.sessionId ? loaded.groups : [],
+        hasEarlier,
+      ),
+    [tab.messages, tab.sessionId, loaded, hasEarlier],
   )
 }

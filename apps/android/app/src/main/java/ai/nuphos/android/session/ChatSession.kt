@@ -48,6 +48,9 @@ class ChatSession(
     private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime, String?) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
 ) {
+    val linkedResources = SessionResourcesStore { NuphosApi.sessionResources(token, teamId, sessionId) }
+    suspend fun refreshResources() = linkedResources.refresh { hasAiAccess && loaded && loadError == null }
+
     var runtimeDeviceLabel by mutableStateOf(creationRuntimeBinding?.displayLabel?.takeIf { it.isNotBlank() })
         private set
     var runtimeId by mutableStateOf(creationRuntimeBinding?.runtimeId)
@@ -1273,6 +1276,7 @@ class ChatSession(
 
     /** Revoke local work and unsent copies without cancelling the server run. */
     fun disposeForConsent() {
+        linkedResources.invalidate()
         recallRows = emptySet()
         readTranscript = null
         readGeneration++
@@ -1311,6 +1315,7 @@ class ChatSession(
     /** Release this view's local jobs without cancelling the server run. */
     fun disposeBrowsing() {
         if (browsingOnly) {
+            linkedResources.invalidate()
             recallRows = emptySet()
             detailLoadGeneration++
             transportGeneration++

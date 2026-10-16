@@ -34,6 +34,7 @@ import { resendScoped, sentryScoped } from '@/routes/agent-sessions/resend-sentr
 import { tailscaleScoped } from '@/routes/agent-sessions/tailscale'
 import { uptimeKumaScoped } from '@/routes/agent-sessions/uptime-kuma'
 import { zeaburScoped } from '@/routes/agent-sessions/zeabur'
+import { requireCloudCredentialRole } from '@/routes/agent-sessions/shared'
 import { fileTransfersRoutes } from '@/routes/file-transfers'
 import { conversationTeamApiPathAllowed } from '@/routes/teams/conversation-api-routes'
 
@@ -126,6 +127,7 @@ agentSessions.use('/:sessionId/*', async (c, next) => {
 const teamScoped = new Hono<{ Variables: AgentVars & TeamAuthVariables }>()
 
 teamScoped.use('*', requireTeamMember())
+teamScoped.use('*', requireCloudCredentialRole())
 
 // The Claude Code OpenAB runtime's credentials MCP lists what the
 // conversation has selected (live, so mid-conversation changes reflect), then

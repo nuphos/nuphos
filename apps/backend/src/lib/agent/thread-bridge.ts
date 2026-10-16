@@ -65,7 +65,7 @@ function receipt(
   actor: ThreadActor,
   threadId: string,
   messageId: string,
-  status: 'started' | 'delivered',
+  status: 'started' | 'queued',
 ) {
   return {
     status,

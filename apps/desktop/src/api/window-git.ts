@@ -5,6 +5,8 @@ import type {
   GithubMergeMethod,
   GithubPRDetail,
   GithubPullRef,
+  GithubRefKey,
+  GithubRefSummary,
   GithubReviewEvent,
 } from '../types/github-pr-detail.ts'
 import type {
@@ -53,6 +55,7 @@ export type WindowGitApi = {
     pullNumber: number,
   ): Promise<GithubPRDetail>
   githubCliViewer(): Promise<GithubCliViewer | null>
+  githubCliRefSummary(ref: GithubRefKey): Promise<GithubRefSummary | null>
   githubCliComment(pull: GithubPullRef, body: string): Promise<GithubCliResult>
   githubCliReview(
     pull: GithubPullRef,

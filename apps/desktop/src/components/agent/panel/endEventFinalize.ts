@@ -3,7 +3,8 @@ import { trackError } from '../../../lib/analytics'
 
 import { finalizeIncompleteTools } from './clientTools'
 import { describeStallCause, stallContextLine, INTERRUPTED_TOOL_MESSAGE } from './stall'
-import { hasRenderableAssistantContent, stampAssistantTurnEnd } from './streamText'
+import { stampAssistantTurnEnd } from './messagePlacement'
+import { hasRenderableAssistantContent } from './streamText'
 
 import type { PanelCtx } from './ctx'
 import type { EndDecision } from './endEventDecision'

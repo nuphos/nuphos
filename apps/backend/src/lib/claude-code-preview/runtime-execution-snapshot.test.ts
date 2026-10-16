@@ -101,3 +101,53 @@ test('one malformed terminal does not discard an unrelated live tool', () => {
     { id: 't2' },
   ])
 })
+
+test("the agent's slash commands pass through, shaped for a picker", () => {
+  const snapshot = {
+    ...lifecycleSnapshot([]),
+    commands: [
+      { name: 'review', description: 'Review the diff', hint: 'branch' },
+      { name: 'compact', description: 'Compact the context' },
+      { name: 'two words', description: 'not a command name' },
+      { name: '<img>', description: 'markup' },
+      { description: 'no name' },
+      'not an object',
+      { name: 'long', description: 'x'.repeat(2_000) },
+    ],
+  }
+
+  expect(parseSessionExecutionState(snapshot).commands).toEqual([
+    { name: 'review', description: 'Review the diff', hint: 'branch' },
+    { name: 'compact', description: 'Compact the context' },
+    { name: 'long', description: 'x'.repeat(200) },
+  ])
+})
+
+test('a snapshot without commands, or with a malformed list, has none', () => {
+  expect(parseSessionExecutionState(lifecycleSnapshot([])).commands).toBeUndefined()
+  expect(
+    parseSessionExecutionState({ ...lifecycleSnapshot([]), commands: null }).commands,
+  ).toBeUndefined()
+  expect(
+    parseSessionExecutionState({ ...lifecycleSnapshot([]), commands: 'review' }).commands,
+  ).toBeUndefined()
+})
+
+test('a repeated name keeps its first entry, and the list stops at 100', () => {
+  const many = Array.from({ length: 150 }, (_, index) => ({
+    name: `c${String(index)}`,
+    description: '',
+  }))
+  const commands = parseSessionExecutionState({
+    ...lifecycleSnapshot([]),
+    commands: [
+      { name: 'review', description: 'first' },
+      { name: 'review', description: 'again' },
+      ...many,
+    ],
+  }).commands
+
+  expect(commands?.[0]).toEqual({ name: 'review', description: 'first' })
+  expect(commands?.filter((command) => command.name === 'review')).toHaveLength(1)
+  expect(commands).toHaveLength(100)
+})

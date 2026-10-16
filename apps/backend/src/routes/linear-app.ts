@@ -179,7 +179,10 @@ linearAppRoutes.get('/setup', async (c) => {
 type LinearWebhookPayload = {
   type?: string
   action?: string
+  webhookTimestamp?: number
 }
+
+const LINEAR_MAX_SKEW_MS = 60_000
 
 // Issue events refresh linked session tags; agent wakeups from Linear are not
 // implemented, so every other event is only acknowledged.
@@ -203,6 +206,17 @@ linearAppRoutes.post('/webhook', async (c) => {
     throw new AppError(400, 'invalid_payload', 'Webhook body is not valid JSON')
   }
 
+  // Linear signs webhookTimestamp (ms) and recommends rejecting anything older
+  // than a minute, so a captured request cannot be replayed later.
+  const skew = Math.abs(Date.now() - Number(payload.webhookTimestamp))
+
+  if (Number.isNaN(skew) || skew > LINEAR_MAX_SKEW_MS) {
+    throw new AppError(
+      401,
+      'stale_webhook',
+      'Linear webhook timestamp is outside the allowed window',
+    )
+  }
   await applyLinearIssueWebhook(payload)
   logEvent('info', 'linear.webhook.acknowledged', {
     type: payload.type ?? 'unknown',

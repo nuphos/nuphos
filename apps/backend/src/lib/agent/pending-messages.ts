@@ -23,12 +23,12 @@ export const PENDING_TTL_SEC = 60 * 60
 export const PENDING_MAX = 10
 const PENDING_TEXT_CHARS = 4_000
 
-function pendingKey(userId: string, sessionId: string): string {
+export function pendingKey(userId: string, sessionId: string): string {
   return `atlas:agentrun-pending:${userId}:${sessionId}`
 }
 
 // Never fall back here on Redis errors: another replica may own the run.
-const localQueues = new Map<string, PendingUserMessage[]>()
+export const localQueues = new Map<string, PendingUserMessage[]>()
 
 function takeLocal(key: string): PendingUserMessage[] {
   const queue = localQueues.get(key) ?? []

@@ -1,4 +1,3 @@
-import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
 import { Laptop, MessageSquare } from 'lucide-react'
 import { useId } from 'react'
@@ -7,8 +6,10 @@ import { Avatar } from '../../Avatar'
 
 import { deviceDetail } from './composerMention'
 import { optionKey } from './composerMentionChips'
+import { ComposerPicker, ComposerPickerRow } from './composerPicker'
 
 import type { MentionOption } from './composerMentionChips'
+import type { Popover } from '@base-ui/react/popover'
 import type { ReactNode } from 'react'
 
 function Row({ icon, label, detail }: { icon: ReactNode; label: string; detail?: string }) {
@@ -97,62 +98,35 @@ export function MentionPicker({
     .filter((section) => section.rows.length > 0)
 
   return (
-    <Popover.Root
+    <ComposerPicker
       open={options.length > 0}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
+      anchor={anchor}
+      className="w-[280px]"
+      onClose={onClose}
     >
-      <Popover.Portal>
-        <Popover.Positioner
-          anchor={anchor}
-          side="top"
-          align="start"
-          sideOffset={6}
-          className="z-[1000]"
-        >
-          <Popover.Popup
-            role="listbox"
-            initialFocus={false}
-            finalFocus={false}
-            style={{ transformOrigin: 'var(--transform-origin)' }}
-            className="t-dropdown is-open w-[280px] max-h-[var(--available-height)] overflow-auto rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none"
+      {sections.map(({ kind, rows }, sectionIndex) => (
+        <div key={kind} role="group" aria-labelledby={`${headingId}-${kind}`}>
+          <div
+            id={`${headingId}-${kind}`}
+            className={clsx(
+              'px-2 pb-1 text-[11px] font-medium text-tertiary',
+              sectionIndex === 0 ? 'pt-1' : 'pt-2',
+            )}
           >
-            {sections.map(({ kind, rows }, sectionIndex) => (
-              <div key={kind} role="group" aria-labelledby={`${headingId}-${kind}`}>
-                <div
-                  id={`${headingId}-${kind}`}
-                  className={clsx(
-                    'px-2 pb-1 text-[11px] font-medium text-tertiary',
-                    sectionIndex === 0 ? 'pt-1' : 'pt-2',
-                  )}
-                >
-                  {SECTION_TITLES[kind]}
-                </div>
-                {rows.map(({ option, index }) => (
-                  <div
-                    key={optionKey(option)}
-                    role="option"
-                    aria-selected={index === active}
-                    className={clsx(
-                      'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px]',
-                      index === active && 'bg-zGray-800/60',
-                    )}
-                    // Keep focus (and the caret) in the editor.
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      onSelect(option)
-                    }}
-                    onMouseEnter={() => onActive(index)}
-                  >
-                    <MentionOptionRow option={option} devices={allDevices} />
-                  </div>
-                ))}
-              </div>
-            ))}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+            {SECTION_TITLES[kind]}
+          </div>
+          {rows.map(({ option, index }) => (
+            <ComposerPickerRow
+              key={optionKey(option)}
+              selected={index === active}
+              onSelect={() => onSelect(option)}
+              onActive={() => onActive(index)}
+            >
+              <MentionOptionRow option={option} devices={allDevices} />
+            </ComposerPickerRow>
+          ))}
+        </div>
+      ))}
+    </ComposerPicker>
   )
 }

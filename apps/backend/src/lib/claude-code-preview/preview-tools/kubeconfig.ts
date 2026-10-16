@@ -1,42 +1,42 @@
 // Kubeconfig bootstrap for the Claude Code runtime: the same multi-cluster
 // resolution the classic sandbox gets from sync-clusters.sh, rendered for a
 // pod that has no skills directory and no general Nuphos bearer. Short-lived
-// EKS/GKE credentials are fetched by an inline exec plugin carrying the
-// conversation's scoped preview-MCP token — useless outside this
-// conversation's own vending mount.
-import { config as appConfig } from '@/config'
+// EKS/GKE credentials are fetched by an inline exec plugin that authorizes with
+// the conversation token of whichever turn runs kubectl, so the file itself
+// holds no Nuphos credential.
 import { agentSessionClusterContexts } from '@/lib/byos/agent-kubeconfig'
 import { renderAgentKubeconfig } from '@/lib/byos/agent-kubeconfig'
+import { canMintCredentials } from '@/lib/byos/credential-role'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
-
-import { mintPreviewMcpToken } from '../mcp-token'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
 import type { AgentCredentialAccess } from '@/lib/agent/db'
 import type { AgentRef } from '@/lib/agents/identity'
 import type { AgentClusterContext } from '@/lib/byos/agent-kubeconfig'
 
-const TOKEN_TTL_SEC = 24 * 60 * 60
-
 // Positional args mirror get-credential.sh: provider, teamId, account,
-// cluster, region. Base/session/token ride exec `env` entries so the script
-// stays constant.
+// cluster, region. Backend URL, session and token come from the turn's own
+// environment; the runtime keeps the current token in OPENAB_CREDENTIALS_DIR.
 const EXEC_SCRIPT = [
   'set -eu',
   'p="$1"; t="$2"; a="$3"; c="$4"; r="${5:-}"',
+  'k="${NUPHOS_TOKEN:-}"',
+  'if [ -n "${OPENAB_CREDENTIALS_DIR:-}" ] && [ -r "$OPENAB_CREDENTIALS_DIR/NUPHOS_TOKEN" ]; then IFS= read -r k <"$OPENAB_CREDENTIALS_DIR/NUPHOS_TOKEN" || true; fi',
+  '[ -n "$k" ] || { echo "no Nuphos conversation token in this environment" >&2; exit 1; }',
+  '[ -n "${NUPHOS_BACKEND_URL:-}" ] && [ -n "${NUPHOS_SESSION_ID:-}" ] || { echo "NUPHOS_BACKEND_URL and NUPHOS_SESSION_ID are required" >&2; exit 1; }',
   'case "$p" in',
   '  aws) path="aws-accounts/$a/clusters/$c/exec-credential${r:+?region=$r}" ;;',
   '  gcp) path="gcp-projects/$a/clusters/$c/exec-credential${r:+?location=$r}" ;;',
   '  *) echo "unknown provider: $p" >&2; exit 1 ;;',
   'esac',
-  'exec curl -sS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $NUPHOS_KUBE_TOKEN" "$NUPHOS_KUBE_BASE/agent-sessions/$NUPHOS_KUBE_SESSION/teams/$t/$path"',
+  'b="${NUPHOS_BACKEND_URL%/}"',
+  'exec curl -sS --fail-with-body --connect-timeout 10 --max-time 30 -H @- "$b/agent-sessions/$NUPHOS_SESSION_ID/teams/$t/$path" <<EOF',
+  'Authorization: Bearer $k',
+  'EOF',
 ].join('\n')
 
-function withInlineExec(
-  contexts: AgentClusterContext[],
-  args: { base: string; sessionId: string; token: string },
-): AgentClusterContext[] {
+function withInlineExec(contexts: AgentClusterContext[]): AgentClusterContext[] {
   return contexts.map((ctx) => {
     if (!ctx.execArgs) return ctx
     const { execArgs, ...rest } = ctx
@@ -48,11 +48,6 @@ function withInlineExec(
           apiVersion: 'client.authentication.k8s.io/v1',
           command: 'bash',
           args: ['-c', EXEC_SCRIPT, 'nuphos-exec-credential', ...execArgs],
-          env: [
-            { name: 'NUPHOS_KUBE_BASE', value: args.base },
-            { name: 'NUPHOS_KUBE_SESSION', value: args.sessionId },
-            { name: 'NUPHOS_KUBE_TOKEN', value: args.token },
-          ],
           interactiveMode: 'Never',
           provideClusterInfo: false,
         },
@@ -62,7 +57,6 @@ function withInlineExec(
 }
 
 export function kubeconfigToolModule(
-  baseUrl?: string,
   dependencies: {
     getCredentialAccess: (
       agent: AgentRef,
@@ -81,8 +75,7 @@ export function kubeconfigToolModule(
           'to ~/.kube/config with mode 0600 and pass --context <name> on every ' +
           'kubectl/helm call — current-context is deliberately unset. ' +
           'Credentials renew themselves; if kubectl starts failing with ' +
-          'authentication errors (the embedded grant lasts ~24h), call this ' +
-          'tool again and rewrite the file.',
+          'authentication errors, call this tool again and rewrite the file.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -105,9 +98,6 @@ export function kubeconfigToolModule(
     ],
     handlers: (ctx: PreviewToolContext) => ({
       get_kubeconfig: async (args) => {
-        const base = baseUrl ?? appConfig.agent.backendUrl
-
-        if (!base) return toolError('The backend has no reachable base URL configured.')
         const agent = {
           userId: ctx.userId,
           sessionId: ctx.sessionId,
@@ -123,6 +113,15 @@ export function kubeconfigToolModule(
         })
 
         if (!resolved || resolved.contexts.length === 0) {
+          const principals = [ctx.userId, ctx.conversationOwnerUserId ?? ctx.userId]
+
+          if (!(await canMintCredentials(ctx.teamId, principals))) {
+            return toolError(
+              'Kubernetes access needs the Editor or Administrator team role for both the ' +
+                'sender and the conversation owner.',
+            )
+          }
+
           return toolResult({
             contexts: [],
             message:
@@ -130,19 +129,7 @@ export function kubeconfigToolModule(
               'selected for this conversation.',
           })
         }
-        const token = mintPreviewMcpToken({
-          userId: ctx.userId,
-          conversationOwnerUserId: ctx.conversationOwnerUserId,
-          sessionId: ctx.sessionId,
-          teamId: resolved.teamId,
-          apiOrigin: base,
-          ttlSec: TOKEN_TTL_SEC,
-        })
-        const contexts = withInlineExec(resolved.contexts, {
-          base: base.endsWith('/') ? base.slice(0, -1) : base,
-          sessionId: ctx.sessionId,
-          token,
-        })
+        const contexts = withInlineExec(resolved.contexts)
 
         return toolResult({
           contexts: contexts.map((item) => item.contextName),

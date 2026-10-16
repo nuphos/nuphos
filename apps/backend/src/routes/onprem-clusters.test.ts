@@ -216,6 +216,16 @@ describe('GET /onprem-clusters/:id/access', () => {
       error: { code: 'onprem_cluster_has_no_credential' },
     })
   })
+
+  test('rejects a member outside the cluster allow-list', async () => {
+    storedDoc = storedCluster({
+      encryptedKubeconfig: { ciphertext: 'encrypted' },
+      access: { memberAllowList: ['someone-else'] },
+    })
+    const response = await app().request(`/${CLUSTER_ID}/access`)
+
+    expect(response.status).toBe(403)
+  })
 })
 
 describe('GET /onprem-clusters/:id/kubeconfig', () => {

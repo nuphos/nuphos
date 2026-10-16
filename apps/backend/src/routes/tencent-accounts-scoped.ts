@@ -123,6 +123,7 @@ tencentAccountScoped.get('/', (c) => {
 // gated by the binding's member allow-list above. Assumes the role fresh; the
 // token accompanies the temporary secretId/secretKey. `defaultRegion` lets the
 // CLI setup pick a region the credentials authenticate against.
+tencentAccountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 tencentAccountScoped.get('/credentials', async (c) => {
   const handle = await tencentHandleFor(c.get('tencentBinding'), c.get('teamId'))
 
@@ -156,6 +157,10 @@ tencentAccountScoped.get('/cvm-instances', async (c) => {
 })
 
 // `:clusterId` is the TKE cluster id (cls-xxxx).
+tencentAccountScoped.use(
+  '/clusters/:clusterId/kubeconfig',
+  requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+)
 tencentAccountScoped.get('/clusters/:clusterId/kubeconfig', async (c) => {
   const clusterId = c.req.param('clusterId')
   const handle = await tencentHandleFor(c.get('tencentBinding'), c.get('teamId'))

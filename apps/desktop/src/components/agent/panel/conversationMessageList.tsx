@@ -74,7 +74,7 @@ export function ConversationMessageList({
     if (teamId) publishSessionDesktops(tab.sessionId, sessionDesktopsOf(teamId, tab))
   }, [tab.sessionId, teamId, tab.runtimeState, tab.foreign])
   useEffect(() => () => publishSessionDesktops(tab.sessionId, null), [tab.sessionId])
-  const downloadsByMessage = useTransferDownloads(tab, teamId)
+  const downloadsByMessage = useTransferDownloads(tab, teamId, hasEarlier)
   const messages = useMemo(() => collapseRepeatedFailures(tab.messages), [tab.messages])
   const timeline = placeTimelineEvents(messages, tab.timelineEvents, hasEarlier)
   // Events newer than the moment this session was opened animate in; the ones

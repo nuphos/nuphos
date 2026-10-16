@@ -1,17 +1,17 @@
 import { config } from '@/config'
 import { assumeRoleAsConnector, sanitizeSessionName } from '@/lib/byos/aws'
 import { AppError } from '@/lib/errors'
+import { requireTeamRole } from '@/middleware/auth'
 
 import type { AwsAccountVariables } from '@/middleware/auth'
 import type { Hono } from 'hono'
 
-/** Team-scoped credential export declared by the public API contract. Cost
- * panel sandboxes are durable dashboard jobs rather than agent conversations,
- * so they authenticate as the script author and use this route instead of the
- * `/agent-sessions/:sessionId/...` variant. */
+/** Team-scoped credential export declared by the public API contract. Minting
+ * cloud credentials is write-level, so viewers are excluded. */
 export function registerAwsCredentialRoutes(
   accountScoped: Hono<{ Variables: AwsAccountVariables }>,
 ): void {
+  accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   accountScoped.get('/credentials', async (c) => {
     const binding = c.get('awsBinding')
 

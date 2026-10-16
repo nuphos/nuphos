@@ -288,6 +288,23 @@ test('a runtime catalog becomes session options; picks it no longer offers fall 
   expect(catalogSessionConfig({ models: [] }, {})).toEqual([])
 })
 
+test('a catalog model keeps its description, so a family name can show its version', () => {
+  const [model] = catalogSessionConfig(
+    {
+      models: [
+        { id: 'opus', name: 'Opus', description: 'Opus 5.5 · For complex work' },
+        { id: 'sonnet', name: 'Sonnet' },
+      ],
+    },
+    {},
+  )
+
+  expect(model?.options).toEqual([
+    { value: 'opus', name: 'Opus', description: 'Opus 5.5 · For complex work' },
+    { value: 'sonnet', name: 'Sonnet' },
+  ])
+})
+
 test('picks the runtime no longer offers are dropped, and a stale model is read again without it', async () => {
   const requested: (string | undefined)[] = []
   const catalogFor = async (model?: string) => {
