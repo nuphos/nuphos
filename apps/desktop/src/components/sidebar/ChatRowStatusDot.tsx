@@ -1,6 +1,4 @@
-import { chatRowIndicator } from '../../lib/runtimeExecution'
-
-import { useRuntimeObservation } from './useRuntimeObservation'
+import { chatRowIndicator, newestRuntimeSnapshot } from '../../lib/runtimeExecution'
 
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
@@ -23,7 +21,10 @@ export function ChatRowStatusDot({
   /** A running turn is normally the row's spinner icon; a folded parent has to show it here. */
   showTurn?: boolean
 }) {
-  const indicator = chatRowIndicator(useRuntimeObservation(conversation, runtimeState), unread)
+  const indicator = chatRowIndicator(
+    newestRuntimeSnapshot(conversation.runtimeState, runtimeState),
+    unread,
+  )
 
   if (indicator === 'none' || (indicator === 'turn' && !showTurn)) return null
   const { label, color } = DOTS[indicator]

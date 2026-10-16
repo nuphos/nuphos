@@ -1,13 +1,11 @@
 import { Loader2, MessageSquare, CircleAlert } from 'lucide-react'
 
 import {
+  newestRuntimeSnapshot,
   runtimeTurnActive,
   runtimeStatusLabel,
-  runtimeSnapshotFresh,
 } from '../../lib/runtimeExecution'
 import { AgentProviderIcon } from '../agent/panel/icons'
-
-import { useRuntimeObservation } from './useRuntimeObservation'
 
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
@@ -19,7 +17,7 @@ export function RuntimeChatIcon({
   conversation: AgentConversation
   runtimeState: RuntimeExecution | undefined
 }) {
-  const state = useRuntimeObservation(conversation, runtimeState)
+  const state = newestRuntimeSnapshot(conversation.runtimeState, runtimeState)
 
   if (runtimeTurnActive(state)) {
     return (
@@ -30,8 +28,7 @@ export function RuntimeChatIcon({
   }
   if (
     conversation.claudeCodeRuntimeAttached &&
-    (!runtimeSnapshotFresh(state) ||
-      !['idle', 'dormant'].includes(state?.state ?? '') ||
+    (!['idle', 'dormant'].includes(state?.state ?? '') ||
       ['failed', 'resume_failed', 'stopped'].includes(state?.phase ?? ''))
   ) {
     return (

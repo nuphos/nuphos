@@ -49,16 +49,18 @@ export function runtimeIsExecuting(snapshot: RuntimeExecution | undefined): bool
   )
 }
 
-/** A user-visible turn, including a queued or running automatic continuation. */
+/**
+ * A user-visible turn, including a queued or running automatic continuation.
+ * Sidebar rows show the last known state; how old it is says nothing about the session.
+ */
 export function runtimeTurnActive(snapshot: RuntimeExecution | undefined): boolean {
-  return runtimeIsExecuting(snapshot) && snapshot?.phase !== 'resume_disconnected'
+  return snapshot?.state === 'active' && snapshot.phase !== 'resume_disconnected'
 }
 
 /** The turn ended while runtime-owned background tools or tasks keep running. */
 export function runtimeBackgroundRunning(snapshot: RuntimeExecution | undefined): boolean {
   return (
     !runtimeTurnActive(snapshot) &&
-    runtimeSnapshotFresh(snapshot) &&
     snapshot?.schemaVersion === 2 &&
     snapshot.phase === 'background_tools'
   )

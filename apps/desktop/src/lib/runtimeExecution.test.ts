@@ -121,14 +121,23 @@ test('background work clears when tools finish, fail or are cancelled', () => {
   }
 })
 
-test('a lost or stale runtime observation never leaves background work showing', () => {
-  const background = observed('idle', 'background_tools')
+test('a slow or failed list poll keeps every row on its last known state', () => {
+  const stale = performance.now() - 60_000
 
   assert.equal(
-    runtimeBackgroundRunning({ ...background, observedAt: performance.now() - 12_001 }),
-    false,
+    chatRowIndicator({ ...observed('active', 'thinking'), observedAt: stale }, false),
+    'turn',
   )
-  assert.equal(runtimeBackgroundRunning({ ...background, observedAt: undefined }), false)
+  assert.equal(
+    chatRowIndicator({ ...observed('idle', 'background_tools'), observedAt: stale }, false),
+    'background',
+  )
+  assert.equal(chatRowIndicator({ ...observed('idle', 'idle'), observedAt: stale }, false), 'none')
+})
+
+test('a lost runtime observation never leaves background work showing', () => {
+  const background = observed('idle', 'background_tools')
+
   assert.equal(runtimeBackgroundRunning({ ...background, schemaVersion: 1 }), false)
   assert.equal(
     chatRowIndicator(
