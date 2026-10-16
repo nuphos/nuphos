@@ -199,13 +199,15 @@ export async function resolveLocalRuntimeEndpoint(
   const presence = found ?? (await deps.wakeDevice(ref.userId, ref.deviceId)) ?? null
   const agent = reportedLocalAgent(presence?.status, ref)
 
-  if (!presence || !agent)
+  // Signing in needs only the computer: an agent added a moment ago may not be in its last
+  // report yet, and the host's own sign-in answers for it (the login retries while it starts).
+  if (!presence || (!agent && purpose !== 'login'))
     throw new AppError(
       409,
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
     )
-  if (agent.cli.loggedIn === false && purpose !== 'login')
+  if (agent?.cli.loggedIn === false && purpose !== 'login')
     throw new AppError(
       409,
       'runtime_login_required',

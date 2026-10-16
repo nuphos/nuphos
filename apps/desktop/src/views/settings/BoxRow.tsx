@@ -16,7 +16,14 @@ import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
 import { BoxAgentSignIn } from './BoxAgentSignIn'
 import { AgentTile, LiveDot, MachineIcon } from './BoxParts'
-import { BOX_BADGE, boxActions, boxState, machineLine, newAgentAction } from './boxPresentation'
+import {
+  BOX_BADGE,
+  boxActions,
+  boxState,
+  canManage,
+  machineLine,
+  newAgentAction,
+} from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { inputClasses } from './styles'
 
@@ -51,6 +58,7 @@ export function BoxRow({
   const [renaming, setRenaming] = useState<string | null>(null)
   const state = boxState(device)
   const cloud = device.box !== undefined
+  const manage = canManage(device)
   const badge = BOX_BADGE[state]
   const actions = cloud ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
@@ -125,55 +133,57 @@ export function BoxRow({
           {badge.tone === 'online' && <LiveDot />}
           {badge.label}
         </span>
-        <Menu>
-          <MenuTrigger
-            aria-label={`Manage ${device.label}`}
-            disabled={busy}
-            className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
-          >
-            <Ellipsis className="h-4 w-4" />
-          </MenuTrigger>
-          <MenuContent align="end">
-            {cloud && state === 'running' && (
-              <MenuItem
-                onClick={() =>
-                  void run('Could not open the desktop', async () => {
-                    const { url } = await api.boxDesktop(device.deviceId, teamId)
-                    const href = pageLocationForNavigation(
-                      emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
-                        browserUrl: url,
-                      }),
-                    ).href
+        {manage && (
+          <Menu>
+            <MenuTrigger
+              aria-label={`Manage ${device.label}`}
+              disabled={busy}
+              className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
+            >
+              <Ellipsis className="h-4 w-4" />
+            </MenuTrigger>
+            <MenuContent align="end">
+              {cloud && state === 'running' && (
+                <MenuItem
+                  onClick={() =>
+                    void run('Could not open the desktop', async () => {
+                      const { url } = await api.boxDesktop(device.deviceId, teamId)
+                      const href = pageLocationForNavigation(
+                        emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
+                          browserUrl: url,
+                        }),
+                      ).href
 
-                    window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
-                  })
-                }
-              >
-                Open desktop
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => setRenaming(device.label)}>Rename</MenuItem>
-            {actions.resume && (
-              <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
-                {state === 'error' ? 'Retry' : 'Resume'}
-              </MenuItem>
-            )}
-            {actions.pause && (
-              <MenuItem onClick={() => void act('Could not pause Box', api.boxPause)}>
-                Pause
-              </MenuItem>
-            )}
-            {/* A Box can always be deleted, a stuck one most of all. */}
-            {cloud && (
-              <>
-                <MenuSeparator />
-                <MenuItem destructive onClick={() => setConfirmDelete(true)}>
-                  Delete
+                      window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
+                    })
+                  }
+                >
+                  Open desktop
                 </MenuItem>
-              </>
-            )}
-          </MenuContent>
-        </Menu>
+              )}
+              <MenuItem onClick={() => setRenaming(device.label)}>Rename</MenuItem>
+              {actions.resume && (
+                <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
+                  {state === 'error' ? 'Retry' : 'Resume'}
+                </MenuItem>
+              )}
+              {actions.pause && (
+                <MenuItem onClick={() => void act('Could not pause Box', api.boxPause)}>
+                  Pause
+                </MenuItem>
+              )}
+              {/* A Box can always be deleted, a stuck one most of all. */}
+              {cloud && (
+                <>
+                  <MenuSeparator />
+                  <MenuItem destructive onClick={() => setConfirmDelete(true)}>
+                    Delete
+                  </MenuItem>
+                </>
+              )}
+            </MenuContent>
+          </Menu>
+        )}
       </div>
       <div
         title={machineLine(device)}
@@ -184,7 +194,7 @@ export function BoxRow({
       >
         {thisComputer ? 'This computer' : machineLine(device)}
       </div>
-      {state === 'paused' ? (
+      {manage && (state === 'paused' || state === 'hostOffline') ? (
         <div className="mt-auto pb-1">
           <Button
             size="sm"
@@ -205,7 +215,7 @@ export function BoxRow({
       )}
       <ul
         className={clsx(
-          state === 'paused' || state === 'connecting' || state === 'hostOffline'
+          state === 'paused' || state === 'hostOffline'
             ? 'hidden'
             : 'mt-auto flex shrink-0 items-center gap-2 overflow-x-auto pb-1',
           dim && 'opacity-50',
@@ -220,7 +230,7 @@ export function BoxRow({
               .map((agent) => (
                 <AgentTile key={agent.id} agent={agent} onSelect={() => onSelect(agent.id)} />
               ))}
-        {!dim && !starting && (
+        {manage && !dim && !starting && (
           <li className="shrink-0">
             <Menu>
               <MenuTrigger

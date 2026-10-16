@@ -158,4 +158,24 @@ describe('device join tokens', () => {
     expect(await redeemDeviceJoinToken(again, MACHINE)).toBeNull()
     expect(collection('agent_devices').docs).toHaveLength(1)
   })
+
+  test('a Box token still joins after the creator signs out everywhere or is gone', async () => {
+    for (const [creator, deviceId] of [
+      ['u1', 'box-1'],
+      ['departed', 'box-2'],
+    ] as const) {
+      await collection('agent_devices').insertOne({
+        userId: creator,
+        deviceId,
+        label: 'Box',
+        platform: 'linux',
+        allowLocalExec: true,
+        box: { provider: 'instabox', sandboxId: `m_${deviceId}`, teamId: 't1' },
+      })
+      const { token } = await issueDeviceJoinToken(creator, { deviceId, expiresInSec: 3600 })
+
+      signedOutEverywhereAt = new Date(Date.now() + 1000)
+      expect((await redeemDeviceJoinToken(token, MACHINE))?.deviceId).toBe(deviceId)
+    }
+  })
 })

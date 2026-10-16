@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentName, agentTier, defaultAgent, groupAgentsByTier } from './agentName.ts'
+import {
+  agentName,
+  agentTier,
+  defaultAgent,
+  groupAgentsByTier,
+  listedAgents,
+  usable,
+} from './agentName.ts'
 
 const me = { userId: 'u1', deviceId: 'mac' }
 const here = {
@@ -65,4 +72,21 @@ test('a new conversation starts on the usable agent with the most quota left', (
     undefined,
   )
   assert.equal(defaultAgent([{ ...cloud, status: 'disabled' as const }], me), undefined)
+})
+
+test('one rule decides what the picker lists and what a new conversation starts on', () => {
+  const ready = { id: 'a', label: 'Ready', status: 'active' as const }
+  const starting = { ...ready, id: 'b', notReady: true }
+  const disabled = { ...ready, id: 'c', status: 'disabled' as const }
+  const signedIn = { ...here, status: 'active' as const }
+  const signedOut = { ...signedIn, id: 'd', local: { ...here.local, signedIn: false } }
+
+  assert.deepEqual(listedAgents([ready, starting, disabled, signedIn, signedOut]), [
+    ready,
+    signedIn,
+  ])
+  assert.deepEqual(listedAgents([starting, disabled, signedOut]), [])
+  // A not-ready agent is never the default, however much quota it has left.
+  assert.equal(defaultAgent([starting, ready], me, (agent) => (agent.id === 'b' ? 0 : 90))?.id, 'a')
+  assert.equal(usable(starting), false)
 })

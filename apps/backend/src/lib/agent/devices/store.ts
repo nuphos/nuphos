@@ -33,6 +33,11 @@ export type AgentDevice = {
   /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
   credentialHash?: string
   credentialIssuedAt?: Date
+  /**
+   * When its host reported in: set on its first report of each connection and when its agent
+   * list changes. Absent means it has never joined; a Box is still starting until then.
+   */
+  lastSeenAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -244,7 +249,10 @@ export async function setBoxAccess(
   return result.matchedCount === 1
 }
 
-/** Keeps the agents a status report shows signed in listed after the computer goes offline. */
+/**
+ * Notes that the host reported in, and keeps the agents a status report shows signed in
+ * listed after the computer goes offline.
+ */
 export async function recordDeviceAgents(
   userId: string,
   deviceId: string,
@@ -255,7 +263,10 @@ export async function recordDeviceAgents(
   if (!device) return
   const next = mergeAgentRegistry(device.agents ?? [], reportedAgents(status))
 
-  if (next) await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
+  await agentDevices().updateOne(
+    { userId, deviceId },
+    { $set: { lastSeenAt: new Date(), ...(next ? { agents: next } : {}) } },
+  )
 }
 
 /** False when the device or the agent is not registered. */
@@ -280,4 +291,12 @@ export async function removeDeviceAgent(
   instanceId: string,
 ): Promise<void> {
   await agentDevices().updateOne({ userId, deviceId }, { $pull: { agents: { instanceId } } })
+}
+
+/** Someone who left the team leaves every one of its Box access lists. */
+export async function dropFromTeamBoxAccess(teamId: string, userId: string): Promise<void> {
+  await agentDevices().updateMany(
+    { 'box.teamId': teamId, 'box.access.userIds': userId },
+    { $pull: { 'box.access.userIds': userId } },
+  )
 }
