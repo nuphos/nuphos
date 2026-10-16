@@ -43,8 +43,12 @@ export function createUsageSampler(
     timer ??= setInterval(() => {
       for (const p of LOCAL_AGENT_PROVIDERS) void sample(p)
     }, USAGE_SAMPLE_MS).unref()
-    if (agent.cli?.loggedIn === false) signedOut.add(provider)
-    if (!agent.cli?.installed || agent.cli.loggedIn === false) return
+    if (!agent.cli?.installed) return
+    if (agent.cli.loggedIn === false) {
+      signedOut.add(provider)
+
+      return
+    }
     const floor = signedOut.has(provider) ? USAGE_SIGN_IN_FLOOR_MS : USAGE_SAMPLE_MS
 
     if (attempt.inFlight || now() - attempt.at < floor) return
