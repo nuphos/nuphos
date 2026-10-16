@@ -123,7 +123,7 @@ const MAX_REASON_CHARS = 500
  *  not ask. `asked` marks a failure the provider itself answered, which is the
  *  only kind worth holding on to — the rest cost nothing to ask again. */
 export type RuntimeQuotaReading =
-  { usage?: unknown; plan?: string } | { error: string; asked?: boolean }
+  { usage?: unknown; plan?: string } | { error: string; asked?: boolean; offline?: true }
 
 export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
   const index = stdout.lastIndexOf(RUNTIME_QUOTA_SENTINEL)
@@ -170,7 +170,7 @@ export async function probeRuntimeQuota(
   )
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === instance.id)
 
-  if (!endpoint) return { error: 'Agent is offline' }
+  if (!endpoint) return { error: 'Agent is offline', offline: true }
   const client = await controlRegistry.acquire(teamId, endpoint)
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes(PROBE_JOB))

@@ -17,9 +17,9 @@ useRuntimeRegistry({
       ? []
       : [
           { runtimeId: `ready-${provider}`, url: 'wss://ready/acp', authKey: 'k' },
-          // Holds a chat key but no control key: its Usage reads "Agent is offline".
+          // Holds a chat key but no control key: it chats, but its usage cannot be read.
           ...(purpose === 'transport'
-            ? [{ runtimeId: 'transport-only', url: 'wss://ready/acp', authKey: 'k' }]
+            ? [{ runtimeId: 'chat-key-only', url: 'wss://ready/acp', authKey: 'k' }]
             : []),
         ],
 })
@@ -39,7 +39,6 @@ test('only an enabled registered agent without a reachable endpoint is flagged',
     agent('ready-antigravity', 'external', 'active', 'antigravity'),
     agent('starting', 'managed'),
     agent('elsewhere', 'external'),
-    agent('transport-only', 'external'),
     agent('off', 'managed', 'disabled'),
     agent('local:me', 'local'),
   ])
@@ -47,6 +46,11 @@ test('only an enabled registered agent without a reachable endpoint is flagged',
   expect(flagged.filter((instance) => instance.notReady).map((instance) => instance.id)).toEqual([
     'starting',
     'elsewhere',
-    'transport-only',
   ])
+})
+
+test('an agent with a chat key but no control key stays selectable', async () => {
+  const [chatOnly] = await withRuntimeReadiness('team', [agent('chat-key-only', 'external')])
+
+  expect(chatOnly?.notReady).toBeUndefined()
 })
