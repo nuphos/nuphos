@@ -5,10 +5,19 @@ export function isClaudeCatalog(choices: Choice[]): boolean {
   return choices.some((choice) => /^(?:claude-|opus|sonnet|haiku|fable)/i.test(choice.value))
 }
 
-function familyVersion(label: string) {
-  const match = /^([a-z]+)\s+(\d+(?:\.\d+)*)$/i.exec(label.trim())
+/** A bare family name ("Opus") is Claude's alias for that family's newest
+ *  model, so it ranks above any numbered version. */
+const ALIAS = [Infinity]
 
-  return match ? { family: match[1].toLowerCase(), version: match[2].split('.').map(Number) } : null
+function familyVersion(label: string) {
+  const match = /^([a-z]+)(?:\s+(\d+(?:\.\d+)*))?$/i.exec(label.trim())
+
+  if (!match) return null
+
+  return {
+    family: match[1].toLowerCase(),
+    version: match[2] ? match[2].split('.').map(Number) : ALIAS,
+  }
 }
 
 function newer(a: number[], b: number[]) {
@@ -21,7 +30,8 @@ function newer(a: number[], b: number[]) {
 /**
  * Claude's menu: the newest model of each family first, in the order the
  * families first appear, and everything else under "More models" in the
- * runtime's order. Labels must already carry the version ("Opus 5.5").
+ * runtime's order. A label without a version ("Opus", from a backend that
+ * does not pass descriptions through) still leads its family.
  */
 export function claudeModelGroups<T extends Choice>(choices: T[], label: (choice: T) => string) {
   const best = new Map<string, { choice: T; version: number[] }>()
