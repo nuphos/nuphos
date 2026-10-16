@@ -9,7 +9,6 @@ import {
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
-import { markCarried } from '@/lib/agent/retract-marks'
 import {
   attributionHeader,
   parseMessageMetadata,
@@ -17,6 +16,7 @@ import {
 } from '@/lib/agent/message-metadata'
 import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
+import { markCarried } from '@/lib/agent/retract-marks'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
 import { recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
