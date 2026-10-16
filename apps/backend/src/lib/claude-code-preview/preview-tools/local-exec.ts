@@ -39,9 +39,15 @@ export async function resolveAvailableLocalExecDevices(
       .filter((device) => selected.has(device.deviceId))
       .map(async (device): Promise<LocalExecDevice | null> => {
         if (!device.available && !device.box?.ready) return null
-        const target = await requireDeviceAccess(ctx.userId, ctx.teamId, device.deviceId, 'use')
+        // A device removed or unshared since the list was read is just not offered.
+        const target = await requireDeviceAccess(
+          ctx.userId,
+          ctx.teamId,
+          device.deviceId,
+          'use',
+        ).catch(() => null)
 
-        if (!target.allowLocalExec) return null
+        if (!target?.allowLocalExec) return null
 
         return {
           deviceId: device.deviceId,

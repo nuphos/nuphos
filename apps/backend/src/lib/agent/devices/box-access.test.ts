@@ -50,3 +50,38 @@ test('asking for your own Box without its team is a 400, not an empty answer', a
     }),
   ).rejects.toMatchObject({ status: 400, code: 'team_required' })
 })
+
+test('a Box stays with its team after its creator leaves: admins manage, outsiders get nothing', async () => {
+  const box: AgentDevice = {
+    ...legacy,
+    userId: 'creator',
+    box: {
+      provider: 'instabox',
+      teamId: 't1',
+      createdBy: 'creator',
+      access: { everyone: false, userIds: ['creator', 'mate'] },
+    },
+  }
+  // The creator has left t1; admin and mate remain.
+  const roles: Record<string, 'ADMINISTRATOR' | 'EDITOR'> = {
+    admin: 'ADMINISTRATOR',
+    mate: 'EDITOR',
+  }
+  const deps = {
+    getDevice: () => Promise.resolve(null),
+    listDevices: () => Promise.resolve([]),
+    listBoxes: (team: string) => Promise.resolve(team === 't1' ? [box] : []),
+    role: (actor: string, team: string) =>
+      Promise.resolve(team === 't1' ? (roles[actor] ?? null) : null),
+  }
+
+  expect(await requireDeviceAccess('admin', 't1', 'b1', 'manage', deps)).toBe(box)
+  expect(await requireDeviceAccess('mate', 't1', 'b1', 'use', deps)).toBe(box)
+  for (const actor of ['creator', 'stranger'])
+    await expect(requireDeviceAccess(actor, 't1', 'b1', 'use', deps)).rejects.toMatchObject({
+      status: 404,
+    })
+  await expect(requireDeviceAccess('admin', 't2', 'b1', 'use', deps)).rejects.toMatchObject({
+    status: 404,
+  })
+})

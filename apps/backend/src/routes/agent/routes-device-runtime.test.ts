@@ -195,6 +195,39 @@ describe('device runtime tunnel route', () => {
     expect(await closed).toBe(4003)
   })
 
+  test('a Box tunnel opens only with the Box credential, never its creator session', async () => {
+    const box = {
+      userId: 'owner',
+      deviceId: 'd1',
+      label: 'Box 1',
+      platform: 'linux',
+      allowLocalExec: true,
+      box: { provider: 'instabox' as const, teamId: 't1' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    const routeDeps = deps({
+      getAgentDevice: (userId, deviceId) =>
+        Promise.resolve(userId === 'owner' && deviceId === 'd1' ? box : null),
+    })
+    const host = serve('owner', routeDeps)
+    const upgrade = { upgrade: 'websocket', connection: 'upgrade' }
+
+    for (const path of ['runtime-tunnel', 'runtime-activity']) {
+      const session = await fetch(`http://${host}/agent/devices/d1/${path}`, {
+        headers: { ...upgrade, authorization: 'Bearer session-jwt' },
+      })
+
+      expect(session.status).toBe(404)
+    }
+    // The Box's own credential (admitted for this path only by the router) gets past access.
+    const asBox = await fetch(`http://${host}/agent/devices/d1/runtime-tunnel`, {
+      headers: { authorization: 'Bearer nbx_secret' },
+    })
+
+    expect(asBox.status).toBe(426)
+  })
+
   test('another user cannot hold a tunnel for a computer they do not own', async () => {
     const host = serve('intruder')
     const res = await fetch(`http://${host}/agent/devices/d1/runtime-tunnel`, {
