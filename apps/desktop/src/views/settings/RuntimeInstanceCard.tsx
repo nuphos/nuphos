@@ -212,7 +212,7 @@ export function RuntimeInstanceCard({
                       instance.local.deviceId,
                       teamId,
                       instance.local.instanceId ?? instance.provider,
-                      input.label,
+                      input.label ?? '',
                     )
                   : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label: input.label }))
                 setEditing(false)
