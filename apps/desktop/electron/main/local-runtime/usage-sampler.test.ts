@@ -71,12 +71,38 @@ test('a sign-in earns a read without waiting out the interval', async () => {
 
   await h.usage.sample('claude-code')
   assert.equal(reads, 1)
+  h.agents['claude-code'].cli = { installed: true, path: '/bin/x', loggedIn: false }
+  await h.usage.sample('claude-code')
+  h.agents['claude-code'].cli = { installed: true, path: '/bin/x', loggedIn: true }
   // Check clicked straight away: still inside the short floor.
-  await h.usage.sample('claude-code', true)
+  await h.usage.sample('claude-code')
   assert.equal(reads, 1)
   h.advance(USAGE_SIGN_IN_FLOOR_MS)
-  await h.usage.sample('claude-code', true)
+  await h.usage.sample('claude-code')
   assert.equal(reads, 2)
+  // The sign-in is spent: the next read waits out the full interval.
+  h.advance(USAGE_SIGN_IN_FLOOR_MS)
+  await h.usage.sample('claude-code')
+  assert.equal(reads, 2)
+})
+
+test('a signed-out agent does not shorten the signed-in one’s interval', async () => {
+  let reads = 0
+  const h = sampler(() => {
+    reads += 1
+
+    return Promise.resolve({ seven_day: { utilization: 1 } })
+  })
+
+  h.agents.codex.cli = { installed: true, path: '/bin/x', loggedIn: false }
+  await h.usage.sample('claude-code')
+  // The 30 s signed-out watch refreshes and samples every provider, for hours.
+  for (let tick = 0; tick < 10; tick++) {
+    h.advance(USAGE_SIGN_IN_FLOOR_MS)
+    await h.usage.sample('claude-code')
+    await h.usage.sample('codex')
+  }
+  assert.equal(reads, 1)
 })
 
 test('two overlapping reads become one', async () => {

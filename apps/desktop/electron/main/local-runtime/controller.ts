@@ -116,7 +116,7 @@ export class LocalRuntimeController {
         .filter((provider) => restart || !this.agents[provider].process)
         .map((provider) => this.launch(provider)),
     )
-    await Promise.all(this.providers.map((provider) => this.usage.sample(provider, true)))
+    await Promise.all(this.providers.map((provider) => this.usage.sample(provider)))
     await this.instances?.refresh(restart)
 
     return this.state()
