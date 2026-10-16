@@ -4,7 +4,13 @@ import { api } from '../../../api'
 import { acceptRuntimeSnapshot, runtimeStatusLabel } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
-import { nextAutoSend, pumpAutoSend, stopAutoSend, withoutQueued } from './queuedAutoSend'
+import {
+  nextAutoSend,
+  pumpAutoSend,
+  stillQueued,
+  stopAutoSend,
+  withoutQueued,
+} from './queuedAutoSend'
 
 import type { PanelCtx } from './ctx'
 import type { QueuedMessage, Tab } from './model'
@@ -72,7 +78,15 @@ export function useQueuedAutoSend({
       onRuntimeState: (tabId: string, snapshot: RuntimeExecution) =>
         setTabs(withRuntimeState(tabId, snapshot)),
       dispatch: async (tabId: string, item: QueuedMessage) => {
-        if (stopped) return
+        // The probe was a round-trip; the message may have been taken back during it.
+        if (
+          stopped ||
+          !stillQueued(
+            tabsRef.current.find((t) => t.id === tabId),
+            item.id,
+          )
+        )
+          return
         setTabs(dequeue(tabId, item.id))
         await dispatchTurn(tabId, item.text, item.filePaths, item.turnKind)
       },

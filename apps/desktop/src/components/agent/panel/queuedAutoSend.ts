@@ -83,6 +83,11 @@ export function markAutoSend(tab: Tab, queuedId: string): Tab {
   }
 }
 
+/** Still waiting to send: Esc or the strip's remove may have taken it out meanwhile. */
+export function stillQueued(tab: Pick<Tab, 'queued'> | undefined, queuedId: string): boolean {
+  return Boolean(tab?.queued?.some((item) => item.id === queuedId))
+}
+
 export function withoutQueued(tab: Tab, queuedId: string): Tab {
   return { ...tab, queued: tab.queued?.filter((item) => item.id !== queuedId) }
 }

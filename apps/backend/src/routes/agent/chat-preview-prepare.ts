@@ -9,6 +9,7 @@ import {
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
+import { markCarried } from '@/lib/agent/retract-marks'
 import {
   attributionHeader,
   parseMessageMetadata,
@@ -210,7 +211,7 @@ export async function preparePreviewTurn(
       return undefined
     }),
     previewCompactionSummary(sessionId, userId),
-    drainTurnQueue(userId, sessionId, actorUserId, args.channelTurn),
+    drainTurnQueue(userId, sessionId, actorUserId, args.channelTurn).then(markCarried(requestId)),
   ])
   // A channel that syncs its thread into the transcript may already hold a queued message.
   const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))

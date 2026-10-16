@@ -10,9 +10,15 @@ import {
   sentHistory,
   withoutRetracted,
 } from './composerRecall.ts'
-import { rememberDispatchedDraft } from './queuedAutoSend.ts'
+import {
+  pumpAutoSend,
+  rememberDispatchedDraft,
+  stillQueued,
+  withoutQueued,
+} from './queuedAutoSend.ts'
 
-import type { Message, QueuedMessage } from './model.ts'
+import type { Message, QueuedMessage, Tab } from './model.ts'
+import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 
 const said = (id: string, role: Message['role'], text: string, sender?: string): Message => ({
   id,
@@ -172,4 +178,30 @@ test('a taken-back message leaves the transcript with the empty turn after it', 
 
   assert.deepEqual(withoutRetracted({ messages }, 'm1').messages, [messages[0]])
   assert.deepEqual(withoutRetracted({ messages }, 'gone').messages, messages)
+})
+
+test('a queued message taken back while its send was being probed is not sent', async () => {
+  let current = {
+    id: 't1',
+    sessionId: 's1',
+    streaming: false,
+    queued: [queued('q1', { autoSend: true })],
+  } as unknown as Tab
+  const sent: string[] = []
+
+  await pumpAutoSend(current, {
+    probe: () => {
+      current = withoutQueued(current, 'q1') // Esc during the round-trip
+      const ready = { schemaVersion: 2, actions: { send: true }, observedAt: performance.now() }
+
+      return Promise.resolve(ready as unknown as RuntimeExecution)
+    },
+    onRuntimeState: () => {},
+    onNeverSendable: () => {},
+    // The same check useQueuedAutoSend's dispatch makes.
+    dispatch: (_tabId, item) => {
+      if (stillQueued(current, item.id)) sent.push(item.id)
+    },
+  })
+  assert.deepEqual(sent, [])
 })

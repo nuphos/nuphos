@@ -1,4 +1,5 @@
 import './routes-conversation-runtime'
+import './routes-message-retract'
 
 import {
   buildConversationOwnerMap,
