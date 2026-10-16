@@ -27,11 +27,16 @@ import {
   posthogPendingOAuth,
   sentryPendingOAuth,
   slackPendingOAuth,
+  connectorOAuthReady,
 } from '@/models/oauth'
 import { teamByosBindings } from '@/models/team'
 
 export async function setupCoreIndexes(): Promise<void> {
   // _id is auto-indexed; nothing to set up here.
+  await connectorOAuthReady().createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: 'connector_oauth_ready_ttl' },
+  )
   await gitlabPendingOAuth().createIndex(
     { expiresAt: 1 },
     { expireAfterSeconds: 0, name: 'gitlab_oauth_pending_ttl' },

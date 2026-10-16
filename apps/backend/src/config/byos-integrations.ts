@@ -171,6 +171,11 @@ export function byosIntegrationsConfig() {
         optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
       encryptionKeyId: 'default',
     },
+    // When on, connector OAuth callbacks only stage the grant; the binding is
+    // written once the requester's own client calls complete-oauth, so a
+    // victim approving an attacker's link cannot bind into the attacker's team.
+    // Off until Desktop, iOS and Android builds that call complete-oauth ship.
+    connectorOAuthDeferredBind: bool('CONNECTOR_OAUTH_DEFERRED_BIND', false),
     linear: {
       // OAuth2 app the team authorises against. Linear has a single hosted
       // instance, so unlike GitLab there are no per-binding client overrides.

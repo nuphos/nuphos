@@ -8,6 +8,7 @@ import {
   getSetupRedirect,
   invalidateSentryAccessToken,
 } from '@/lib/byos/sentry'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { sentryPendingOAuth, teamByosBindings } from '@/models'
@@ -101,21 +102,8 @@ sentryAppRoutes.get('/setup', async (c) => {
       error_description: 'Sentry did not return the authorising account',
     })
   }
-  const accountLabel = account.name ?? account.email ?? `Sentry user ${account.userId}`
 
-  // Re-binding the same Sentry account replaces the existing binding's
-  // credentials instead of accumulating duplicates. The original binding id is
-  // preserved.
-  const existingDoc = await teamByosBindings().findOne(
-    { _id: pending.teamId },
-    { projection: { sentryAccounts: 1 } },
-  )
-  const existing = (existingDoc?.sentryAccounts ?? []).find((a) => a.userId === account.userId)
-
-  const bindingId = existing?.id ?? new ObjectId()
-  const binding: SentryAccountBinding = {
-    id: bindingId,
-    label: existing?.label ?? accountLabel,
+  const draft: SentryBindingDraft = {
     userId: account.userId,
     userName: account.name,
     userEmail: account.email,
@@ -123,22 +111,58 @@ sentryAppRoutes.get('/setup', async (c) => {
     encryptedAccessToken: encryptSentrySecret(tokens.accessToken),
     encryptedRefreshToken: tokens.refreshToken ? encryptSentrySecret(tokens.refreshToken) : null,
     accessTokenExpiresAt: tokens.expiresAt,
+  }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'sentry',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistSentryBinding,
+    }),
+  )
+})
+
+type SentryBindingDraft = Omit<SentryAccountBinding, 'id' | 'label' | 'createdAt' | 'access'>
+
+// Re-binding the same Sentry account replaces the existing binding's
+// credentials instead of accumulating duplicates. The original binding id is
+// preserved.
+export async function persistSentryBinding(
+  teamId: ObjectId,
+  draft: SentryBindingDraft,
+): Promise<Record<string, string>> {
+  const accountLabel = draft.userName ?? draft.userEmail ?? `Sentry user ${draft.userId}`
+  const existingDoc = await teamByosBindings().findOne(
+    { _id: teamId },
+    { projection: { sentryAccounts: 1 } },
+  )
+  const existing = (existingDoc?.sentryAccounts ?? []).find((a) => a.userId === draft.userId)
+
+  const bindingId = existing?.id ?? new ObjectId()
+  const binding: SentryAccountBinding = {
+    ...draft,
+    id: bindingId,
+    label: existing?.label ?? accountLabel,
     createdAt: existing?.createdAt ?? new Date(),
     ...(existing?.access ? { access: existing.access } : {}),
   }
 
   if (existing) {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       { $set: { 'sentryAccounts.$[el]': binding, updatedAt: new Date() } },
       { arrayFilters: [{ 'el.id': existing.id }] },
     )
     // Re-bind reuses the binding id but stores fresh tokens; drop the cached
     // access token so the next handout doesn't serve the pre-reconnect one.
-    invalidateSentryAccessToken(pending.teamId, bindingId)
+    invalidateSentryAccessToken(teamId, bindingId)
   } else {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       {
         $push: { sentryAccounts: binding },
         $set: { updatedAt: new Date() },
@@ -157,10 +181,9 @@ sentryAppRoutes.get('/setup', async (c) => {
     )
   }
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: bindingId.toHexString(),
-    team_id: pending.teamId.toHexString(),
+    team_id: teamId.toHexString(),
     account_name: accountLabel,
-  })
-})
+  }
+}

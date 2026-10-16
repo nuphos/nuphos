@@ -9,6 +9,7 @@ import {
   invalidateAccessToken,
 } from '@/lib/byos/jira'
 import { encryptJiraSecret } from '@/lib/byos/secrets'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { jiraPendingOAuth, teamByosBindings } from '@/models'
@@ -129,18 +130,7 @@ jiraAppRoutes.get('/setup', async (c) => {
     })
   }
 
-  // Re-binding the same site replaces the existing binding's credentials
-  // instead of accumulating duplicates. The original binding id is preserved.
-  const existingDoc = await teamByosBindings().findOne(
-    { _id: pending.teamId },
-    { projection: { jiraSites: 1 } },
-  )
-  const existing = existingDoc?.jiraSites?.find((s) => s.cloudId === site.id)
-
-  const bindingId = existing?.id ?? new ObjectId()
-  const binding: JiraSiteBinding = {
-    id: bindingId,
-    label: existing?.label ?? site.name,
+  const draft: JiraBindingDraft = {
     cloudId: site.id,
     siteName: site.name,
     siteUrl: site.url,
@@ -150,22 +140,56 @@ jiraAppRoutes.get('/setup', async (c) => {
     encryptedAccessToken: encryptJiraSecret(tokens.accessToken),
     encryptedRefreshToken: tokens.refreshToken ? encryptJiraSecret(tokens.refreshToken) : null,
     accessTokenExpiresAt: tokens.expiresAt,
+  }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'jira',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistJiraBinding,
+    }),
+  )
+})
+
+type JiraBindingDraft = Omit<JiraSiteBinding, 'id' | 'label' | 'createdAt' | 'access'>
+
+// Re-binding the same site replaces the existing binding's credentials
+// instead of accumulating duplicates. The original binding id is preserved.
+export async function persistJiraBinding(
+  teamId: ObjectId,
+  draft: JiraBindingDraft,
+): Promise<Record<string, string>> {
+  const existingDoc = await teamByosBindings().findOne(
+    { _id: teamId },
+    { projection: { jiraSites: 1 } },
+  )
+  const existing = existingDoc?.jiraSites?.find((s) => s.cloudId === draft.cloudId)
+
+  const bindingId = existing?.id ?? new ObjectId()
+  const binding: JiraSiteBinding = {
+    ...draft,
+    id: bindingId,
+    label: existing?.label ?? draft.siteName,
     createdAt: existing?.createdAt ?? new Date(),
     ...(existing?.access ? { access: existing.access } : {}),
   }
 
   if (existing) {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       { $set: { 'jiraSites.$[el]': binding, updatedAt: new Date() } },
       { arrayFilters: [{ 'el.id': existing.id }] },
     )
     // The binding id is reused, so the superseded grant's token is still sitting
     // in the handout cache under this key.
-    invalidateAccessToken(pending.teamId, existing.id)
+    invalidateAccessToken(teamId, existing.id)
   } else {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       {
         $push: { jiraSites: binding },
         $set: { updatedAt: new Date() },
@@ -183,10 +207,9 @@ jiraAppRoutes.get('/setup', async (c) => {
     )
   }
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: bindingId.toHexString(),
-    team_id: pending.teamId.toHexString(),
-    site_name: site.name,
-  })
-})
+    team_id: teamId.toHexString(),
+    site_name: draft.siteName,
+  }
+}

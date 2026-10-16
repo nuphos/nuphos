@@ -160,3 +160,22 @@ export type PosthogPendingOAuth = {
 
 export const posthogPendingOAuth = (): Collection<PosthogPendingOAuth> =>
   db().collection<PosthogPendingOAuth>('posthog_oauth_pending')
+
+/**
+ * A connector grant the provider approved, staged until the requester's own
+ * client completes it. `binding` is the provider's binding draft with tokens
+ * already encrypted; `persist` for `provider` writes it. TTL-reaped.
+ */
+export type ConnectorOAuthReady = {
+  _id: string
+  /** sha256 of the one-time code delivered only to the approving client. */
+  codeHash: string
+  provider: string
+  teamId: ObjectId
+  requesterUserId: string
+  binding: Record<string, unknown>
+  expiresAt: Date
+}
+
+export const connectorOAuthReady = (): Collection<ConnectorOAuthReady> =>
+  db().collection<ConnectorOAuthReady>('connector_oauth_ready')

@@ -11,6 +11,7 @@ import {
   verifyWebhookToken,
 } from '@/lib/byos/gitlab'
 import { decryptGitlabSecret, encryptGitlabSecret } from '@/lib/byos/secrets'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { gitlabPendingOAuth, teamByosBindings } from '@/models'
@@ -136,20 +137,7 @@ gitlabAppRoutes.get('/setup', async (c) => {
     })
   }
 
-  // Re-binding the same GitLab account (same host + user id) replaces the
-  // existing binding's credentials instead of accumulating duplicates. The
-  // original binding id is preserved so references stay valid.
-  const existingDoc = await teamByosBindings().findOne(
-    { _id: pending.teamId },
-    { projection: { gitlabAccounts: 1 } },
-  )
-  const existing = existingDoc?.gitlabAccounts?.find(
-    (a) => a.hostUrl === pending.hostUrl && a.accountId === user.id,
-  )
-
-  const bindingId = existing?.id ?? new ObjectId()
-  const binding: GitlabBinding = {
-    id: bindingId,
+  const draft: GitlabBindingDraft = {
     hostUrl: pending.hostUrl,
     accountId: user.id,
     username: user.username,
@@ -161,12 +149,48 @@ gitlabAppRoutes.get('/setup', async (c) => {
     encryptedAccessToken: encryptGitlabSecret(tokens.accessToken),
     encryptedRefreshToken: tokens.refreshToken ? encryptGitlabSecret(tokens.refreshToken) : null,
     accessTokenExpiresAt: tokens.expiresAt,
+  }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'gitlab',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistGitlabBinding,
+    }),
+  )
+})
+
+type GitlabBindingDraft = Omit<GitlabBinding, 'id' | 'createdAt' | 'access'>
+
+// Re-binding the same GitLab account (same host + user id) replaces the
+// existing binding's credentials instead of accumulating duplicates. The
+// original binding id is preserved so references stay valid.
+export async function persistGitlabBinding(
+  teamId: ObjectId,
+  draft: GitlabBindingDraft,
+): Promise<Record<string, string>> {
+  const existingDoc = await teamByosBindings().findOne(
+    { _id: teamId },
+    { projection: { gitlabAccounts: 1 } },
+  )
+  const existing = existingDoc?.gitlabAccounts?.find(
+    (a) => a.hostUrl === draft.hostUrl && a.accountId === draft.accountId,
+  )
+
+  const bindingId = existing?.id ?? new ObjectId()
+  const binding: GitlabBinding = {
+    ...draft,
+    id: bindingId,
     createdAt: existing?.createdAt ?? new Date(),
   }
 
   if (existing) {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       {
         $set: { 'gitlabAccounts.$[el]': binding, updatedAt: new Date() },
       },
@@ -175,10 +199,10 @@ gitlabAppRoutes.get('/setup', async (c) => {
     // The binding id is reused, so the superseded grant's token is still sitting
     // in the handout cache under this key — including a re-bind done purely to
     // widen scopes, which would otherwise silently keep the old scopes.
-    evictCachedAccessToken(pending.teamId, existing.id)
+    evictCachedAccessToken(teamId, existing.id)
   } else {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       {
         $push: { gitlabAccounts: binding },
         $set: { updatedAt: new Date() },
@@ -194,14 +218,13 @@ gitlabAppRoutes.get('/setup', async (c) => {
     )
   }
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: bindingId.toHexString(),
-    team_id: pending.teamId.toHexString(),
-    host_url: pending.hostUrl,
-    username: user.username,
-  })
-})
+    team_id: teamId.toHexString(),
+    host_url: draft.hostUrl,
+    username: draft.username,
+  }
+}
 
 type GitlabWebhookPayload = {
   object_kind?: string
