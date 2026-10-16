@@ -149,6 +149,8 @@ export type AgentDevice = {
   /** What the viewer may do: 'use' runs its agents; 'manage' also changes or deletes it. */
   access?: 'use' | 'manage'
   box?: BoxStatus
+  /** A Box's displays of the viewer's own conversations, besides its own :1. */
+  desktops?: { display: number; sessionId: string; title: string }[]
 }
 
 export type AgentDeviceList = {
