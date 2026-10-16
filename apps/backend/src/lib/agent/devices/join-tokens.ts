@@ -79,7 +79,7 @@ export async function issueDeviceJoinToken(
 export async function redeemDeviceJoinToken(
   token: string,
   device: Pick<AgentDeviceRegistration, 'label' | 'platform'>,
-): Promise<{ userId: string; deviceId: string; credential: string } | null> {
+): Promise<{ userId: string; deviceId: string; credential: string; box?: true } | null> {
   if (!token.startsWith(DEVICE_JOIN_TOKEN_PREFIX)) return null
   const now = new Date()
   const used = await joinTokens().findOneAndUpdate(
@@ -97,7 +97,8 @@ export async function redeemDeviceJoinToken(
     if (!(await claimBoxAgentDevice(used.userId, used.deviceId, device.platform, credentialHash)))
       return null
 
-    return { userId: used.userId, deviceId: used.deviceId, credential }
+    // Said by the server, so a host knows it is a Box only when it is one.
+    return { userId: used.userId, deviceId: used.deviceId, credential, box: true }
   }
   // A person's machine: a token issued before "sign out everywhere" died with the sessions.
   if (!(await getNuphosUserForCredential(used.userId, used.createdAt))) return null

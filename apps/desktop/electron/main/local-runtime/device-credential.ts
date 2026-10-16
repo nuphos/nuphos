@@ -10,7 +10,13 @@ export type DeviceCredential = {
   userId: string
   deviceId: string
   credential: string
+  /** The backend joined this computer as a Box; a person's computer never has it. */
+  box?: true
 }
+
+/** Only a Box is Nuphos's whole computer, so only there may its default agents' logins go. */
+export const ownsMachine = (credential: DeviceCredential | null): boolean =>
+  credential?.box === true
 
 export type JoinRequest = { token: string; label: string; platform: string }
 

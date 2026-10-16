@@ -7,7 +7,7 @@ import { runtimePresenceStore } from './presence'
 import { agentInstanceSchema } from './protocol'
 import { DeviceRuntimeSocket } from './socket'
 
-import type { AgentInstance } from './protocol'
+import type { AgentInstance, RemovableAgent } from './protocol'
 import type { DeviceRuntimeSocketDeps } from './socket'
 
 const responseSchema = z.discriminatedUnion('ok', [
@@ -107,16 +107,12 @@ export async function commitLocalAgentInstance(
   await requestInstances(target, { method: 'commit', instanceId }, options)
 }
 
-/** Stops an added agent and deletes what it stored. Removing a gone agent succeeds. */
+/** Stops an agent and deletes what it stored. Removing a gone agent succeeds. */
 export async function removeLocalAgentInstance(
   target: Target,
-  instanceId: string,
+  agent: RemovableAgent,
   options: Options = {},
 ): Promise<void> {
   // Stopping a starting agent first waits for it, so allow more than a request.
-  await requestInstances(
-    target,
-    { method: 'remove', instanceId },
-    { timeoutMs: 45_000, ...options },
-  )
+  await requestInstances(target, { method: 'remove', ...agent }, { timeoutMs: 45_000, ...options })
 }

@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentName, agentOffline, agentRunsOn, visibleAgent } from './agentPresentation.ts'
+import {
+  agentName,
+  agentOffline,
+  agentRunsOn,
+  localRemovalId,
+  visibleAgent,
+} from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime.ts'
@@ -144,6 +150,19 @@ test('a self-hosted agent reads offline only when its Usage reading could not re
   assert.equal(agentOffline(selfHosted, quota(false)), false, 'no usage is not offline')
   // Picking it for a conversation follows readiness, not the dot.
   assert.equal(agentOffline({ ...selfHosted, notReady: true }), false)
+})
+
+test("a Box's default agent can be removed; a person's computer's default cannot", () => {
+  const computer = local('mac-codex', 'mac', true)
+  const box = { ...computer, local: { ...computer.local!, box: { state: 'running' } } }
+
+  assert.equal(localRemovalId(computer), undefined)
+  assert.equal(localRemovalId(box as RuntimeInstance), 'codex')
+  assert.equal(
+    localRemovalId({ ...computer, local: { ...computer.local!, instanceId: 'id-1' } }),
+    'id-1',
+  )
+  assert.equal(localRemovalId({ ...computer, kind: 'managed', local: undefined }), undefined)
 })
 
 test("a computer's agent goes by the name given to it, else its provider's", () => {

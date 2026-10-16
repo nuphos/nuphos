@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  rmSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -52,6 +53,11 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
   return true
 }
 
+/** The computer user's own Codex home, whose login the default Codex agent links to. */
+export function codexOwnerHome(env: NodeJS.ProcessEnv = process.env): string {
+  return env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
+}
+
 /**
  * A CODEX_HOME that holds only links to the user's own login and the Codex
  * App's Computer Use plugin, so Codex serving Nuphos never loads their
@@ -66,7 +72,7 @@ export function prepareCodexHome(
   userDir: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const ownerHome = env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
+  const ownerHome = codexOwnerHome(env)
   const home = path.join(userDir, 'codex-home')
   const config = path.join(home, 'config.toml')
 
@@ -163,6 +169,22 @@ export function prepareClaudeHome(userDir: string, workspace: string): string | 
   } catch {
     return undefined
   }
+}
+
+/**
+ * Deletes a default agent's home, and for Codex the login that home links to, so the next
+ * launch finds nothing to link. Only for a Box, whose whole computer is Nuphos's.
+ */
+export function deleteDefaultLogin(
+  provider: LocalAgentProvider,
+  userDir: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  rmSync(path.join(userDir, provider === 'codex' ? 'codex-home' : 'claude-home'), {
+    recursive: true,
+    force: true,
+  })
+  if (provider === 'codex') rmSync(path.join(codexOwnerHome(env), 'auth.json'), { force: true })
 }
 
 export function prepareAgentHome(

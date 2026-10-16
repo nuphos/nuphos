@@ -47,7 +47,8 @@ export type AgentDeviceRegistration = Pick<
   'deviceId' | 'label' | 'platform' | 'model' | 'allowLocalExec'
 >
 
-const agentDevices = (): Collection<AgentDevice> => db().collection<AgentDevice>('agent_devices')
+export const agentDevices = (): Collection<AgentDevice> =>
+  db().collection<AgentDevice>('agent_devices')
 
 export async function setupAgentDeviceIndexes(): Promise<void> {
   const collection = agentDevices()
@@ -281,14 +282,6 @@ export async function renameDeviceAgent(
   if (next) await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
 
   return next !== null
-}
-
-export async function removeDeviceAgent(
-  userId: string,
-  deviceId: string,
-  instanceId: string,
-): Promise<void> {
-  await agentDevices().updateOne({ userId, deviceId }, { $pull: { agents: { instanceId } } })
 }
 
 /** Someone who left the team leaves every one of its Box access lists. */
