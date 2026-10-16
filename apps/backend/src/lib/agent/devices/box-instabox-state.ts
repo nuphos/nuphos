@@ -23,18 +23,18 @@ const stateReads = new Map<string, { at: number; read: Promise<BoxState | 'gone'
  * Clients poll, so one read per machine is shared for a few seconds.
  */
 export async function boxState(device: AgentDevice, online: boolean): Promise<BoxState | 'gone'> {
-  // No machine yet, or a machine whose host has never joined: still setting up.
-  if (!device.box?.sandboxId || !device.credentialHash) return 'creating'
+  if (!device.box?.sandboxId) return 'creating'
   if (online) return 'running'
   const { sandboxId } = device.box
   const cached = stateReads.get(sandboxId)
+  const read =
+    cached && Date.now() - cached.at < STATE_CACHE_MS ? cached.read : readMachineState(sandboxId)
 
-  if (cached && Date.now() - cached.at < STATE_CACHE_MS) return cached.read
-  const read = readMachineState(sandboxId)
+  if (read !== cached?.read) stateReads.set(sandboxId, { at: Date.now(), read })
+  const state = await read
 
-  stateReads.set(sandboxId, { at: Date.now(), read })
-
-  return read
+  // A running machine whose host has never connected is still being set up, not offline.
+  return state === 'running' && !device.lastSeenAt ? 'creating' : state
 }
 
 async function readMachineState(sandboxId: string): Promise<BoxState | 'gone'> {
