@@ -69,6 +69,15 @@ export function parkRefusedTurn(tab: Tab, draft: SendDraft | undefined): Tab {
   }
 }
 
+/**
+ * A fork whose history import failed: its message goes back to the front of
+ * the queue, and nothing auto-sends, so a follow-up never overtakes it and the
+ * person decides when to try again.
+ */
+export function parkFailedForkImport(tab: Tab, draft: SendDraft | undefined, error: string): Tab {
+  return { ...stopAutoSend(parkRefusedTurn(tab, draft)), error }
+}
+
 export function nextAutoSend(tab: Tab): QueuedMessage | undefined {
   return tab.queued?.find((item) => item.autoSend && !item.steering)
 }

@@ -33,7 +33,7 @@ import {
   resolveVerifiedTeamId,
 } from './team-scope'
 import { getFirstTranscriptMessage, normalizeTranscriptMessages } from './transcript'
-import { isTranscriptImport } from './transcript-import'
+import { importedCount, isTranscriptImport } from './transcript-import'
 
 const parentBody = z
   .object({ parentSessionId: z.string().min(1).nullable(), teamId: z.string().optional() })
@@ -234,7 +234,7 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
     !importing &&
     isServerAuthoritativeTranscript(existing, instance?.provider ?? body.agentRuntime)
   ) {
-    return c.json({ ok: true, skipped: 'server_authoritative' })
+    return c.json({ ok: true, skipped: 'server_authoritative', ...importedCount(body, existing) })
   }
   if (baseIndex > 0) {
     // Same suffix protocol as /chat: hydrate the stored prefix so the sync

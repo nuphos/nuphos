@@ -24,3 +24,11 @@ export function isTranscriptImport(
     !existing.claudeCodePreview
   )
 }
+
+/** For a skipped import chunk: how much history is stored, so a retry can tell a stored chunk from a refused one. */
+export function importedCount(
+  body: { import?: unknown },
+  existing: Pick<AgentConversation, 'messageCount'> | null,
+): { messageCount?: number } {
+  return body.import === true && existing ? { messageCount: existing.messageCount } : {}
+}

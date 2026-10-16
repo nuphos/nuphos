@@ -39,7 +39,6 @@ before(async () => {
       supersedePendingApprovals: (messages: Message[]) => messages,
     },
   })
-  mock.module('./queuedAutoSend.ts', { namedExports: { rememberDispatchedDraft: () => {} } })
   mock.module('./stall.ts', {
     namedExports: { INTERRUPTED_TOOL_MESSAGE: 'interrupted', newAgentStreamId: randomUUID },
   })
@@ -166,6 +165,11 @@ test('a failed import does not start the turn and surfaces the error', async () 
   )
   assert.equal(state.tabs()[0].streaming, false)
   assert.equal(state.tabs()[0].error, 'import failed')
+  // The message never had a turn: it waits at the front of the queue, sent by nobody but the person.
+  assert.deepEqual(
+    state.tabs()[0].queued?.map((item) => [item.text, item.autoSend]),
+    [['follow-up', false]],
+  )
   // Still a fork the server hasn't stored, so the next send imports again.
   assert.equal(state.tabs()[0].unsaved, true)
 
