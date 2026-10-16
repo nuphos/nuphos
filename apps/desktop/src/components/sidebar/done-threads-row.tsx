@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 
 import { SIDEBAR_ROW_CLASS } from '../SidebarNavItem'
@@ -9,7 +10,7 @@ import type { DoneFold, GroupState } from './done-threads'
 
 /** The "N done" row standing in for a chat's finished threads; toggles them open. */
 export function DoneThreadsRow({
-  fold: { parentKey, count, open },
+  fold: { parentKey, count, open, active },
   trail,
   toggleGroup,
 }: {
@@ -27,7 +28,15 @@ export function DoneThreadsRow({
           aria-expanded={open}
           aria-label={`${open ? 'Hide' : 'Show'} ${String(count)} finished threads`}
           onClick={() => toggleGroup(foldGroup(parentKey))}
-          className={`${SIDEBAR_ROW_CLASS} group w-full flex items-center text-tertiary transition-colors hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary focus-visible:bg-[var(--sidebar-overlay-focus)] outline-none motion-reduce:transition-none`}
+          // A closed fold hiding the open chat stands in for it, like a folded parent.
+          aria-current={active ? 'page' : undefined}
+          className={clsx(
+            SIDEBAR_ROW_CLASS,
+            'group w-full flex items-center transition-colors focus-visible:bg-[var(--sidebar-overlay-focus)] outline-none motion-reduce:transition-none',
+            active
+              ? 'bg-[var(--sidebar-overlay-active)] text-main'
+              : 'text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary',
+          )}
         >
           <Check className="size-3.5 flex-shrink-0" strokeWidth={2.25} />
           <span className="flex-1 truncate text-left text-[13px]">{String(count)} done</span>
