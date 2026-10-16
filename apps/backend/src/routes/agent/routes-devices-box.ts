@@ -231,10 +231,10 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       const next = c.req.valid('json')
       const members = await deps.teamMembers(device.box?.teamId ?? '')
       const memberIds = new Set(members.map((member) => member.id))
-
-      if (next.userIds.some((id) => !memberIds.has(id)))
-        throw new AppError(400, 'not_a_member', 'Only active members of this team can be added')
-      const access = { everyone: next.everyone, userIds: [...new Set(next.userIds)] }
+      const access = {
+        everyone: next.everyone,
+        userIds: [...new Set(next.userIds.filter((id) => memberIds.has(id)))],
+      }
 
       if (!(await deps.setBoxAccess(device.userId, device.deviceId, access)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
