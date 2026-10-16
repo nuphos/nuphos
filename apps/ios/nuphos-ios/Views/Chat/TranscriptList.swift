@@ -145,11 +145,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         // which would show new rows at their estimated size for that frame.
         // Commit the position in the same turn as the change.
         collection.layoutIfNeeded()
-        if sent, let id = extendedID {
-            restore(id: id, edge: .top, offset: 0)
-            positioned = true
-        } else if !positioned || following {
-            positionAtEnd()
+        if sent || !positioned || following {
+            UIView.performWithoutAnimation { positionAtEnd() }
         } else if let anchor {
             restore(id: anchor.id, edge: .top, offset: anchor.offset)
         }
@@ -178,14 +175,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let size = collection.bounds.size
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size
-        if !positioned, let id = extendedID {
-            restore(id: id, edge: .top, offset: 0)
-            positioned = true
-        } else if !positioned {
-            positionAtEnd()
-        } else if following, let last = rows.indices.last {
+        if !positioned || following {
             // Inside the keyboard's animation, so the rows travel with it.
-            layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
+            positionAtEnd()
         }
         animatePendingSend()
     }
@@ -213,9 +205,13 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         cell.layer.add(arrival, forKey: "sent-arrival")
     }
 
+    /// The end of the content. While a reply still fits below a just-sent
+    /// message, the room reserved for it puts that message at the top.
     private func positionAtEnd() {
-        guard collection.bounds.height > 0, let last = rows.last else { return }
-        restore(id: last.id, edge: .bottom, offset: 0)
+        guard collection.bounds.height > 0, let last = rows.indices.last else { return }
+        layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
+        let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
+        if collection.contentOffset.y < end { collection.contentOffset.y = end }
         positioned = true
     }
 
@@ -242,8 +238,6 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     }
 
     @objc private func showLatest() {
-        extendedID = nil
-        layout.settings.indexPathForExtendedLayout = nil
         following = true
         positionAtEnd()
         updateLatestButton()
@@ -305,6 +299,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
              .assistantText(id: "answer.\(index)", messageId: "a\(index)",
                             text: String(repeating: "Paragraph **\(index)** with a [link](https://example.com). A long response must preserve the reading position.\n\n", count: index == 39 ? 60 : 6), streaming: false)]
         }
+        let fixture0 = fixture
         func apply(_ submitted: String? = nil) {
             update(rows: fixture, submittedRowID: submitted, sessionID: "scroll-regression", content: render)
         }
@@ -401,6 +396,51 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let expandedHeight = layout.layoutAttributesForItem(at: cardPath)?.size.height ?? 0
         check("step_anchor", initialY.isFinite && stepDrift < 1 && expandedHeight > 300,
               "maxTitleDrift=\(stepDrift) expandedHeight=\(expandedHeight)")
+        // A send puts the question at the top; the reply streams into the room
+        // below it, then keeps the end in view. A touch while it streams must
+        // never move the transcript back down, wherever the reader was.
+        func y(of id: String) -> CGFloat {
+            guard let index = rows.firstIndex(where: { $0.id == id }),
+                  let attributes = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0)) else { return .infinity }
+            return attributes.frame.minY - collection.bounds.minY - collection.adjustedContentInset.top
+        }
+        func touch() {
+            scrollViewWillBeginDragging(collection)
+            scrollViewDidEndDragging(collection, willDecelerate: false)
+        }
+        func sendAndStream(_ name: String) async {
+            let question = "user.\(name)", answer = "answer.\(name)"
+            fixture.append(.user(id: question, messageId: name, text: "Send while \(name)", images: []))
+            apply(question)
+            await pause()
+            let pinned = y(of: question)
+            var lastOffset = collection.contentOffset.y, backward: CGFloat = 0
+            let probe = TranscriptFrameProbe { [unowned self] in
+                backward = max(backward, lastOffset - collection.contentOffset.y)
+                lastOffset = collection.contentOffset.y
+            }
+            fixture.append(.assistantText(id: answer, messageId: name, text: "", streaming: true))
+            for step in 1...30 {
+                fixture[fixture.count - 1] = .assistantText(id: answer, messageId: name,
+                    text: String(repeating: "Streaming paragraph with **bold text**.\n\n", count: step), streaming: true)
+                apply(question)
+                if step == 4 { touch() }
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            await pause()
+            probe.stop()
+            check("pinned_stream_\(name)", abs(pinned - 12) < 1 && backward < 1 && nearBottom,
+                  "pinnedY=\(pinned) maxBackward=\(backward) nearBottom=\(nearBottom)")
+        }
+        fixture = fixture0
+        apply()
+        showLatest()
+        await pause()
+        await sendAndStream("bottom")
+        restore(id: "user.20", edge: .top, offset: 0)
+        touch()
+        await pause()
+        await sendAndStream("up")
         check("suite_complete", true, "")
     }
     #endif

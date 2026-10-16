@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { BACKGROUND_WORK_LOST_NOTICE, BACKGROUND_WORK_UNCERTAIN_NOTICE } from './background-work'
-import { OpenAbConnectionLostError } from './openab-acp-errors'
+import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import {
   INTERRUPTED_TOOL_ERROR,
   classifyPreviewInterruption,
@@ -407,4 +407,18 @@ test('a provider out of usage keeps its reason in the transcript', () => {
     message:
       'This agent’s provider account has no usage left (Grok Build usage balance exhausted). Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.',
   })
+})
+
+test('a signed-out runtime keeps the sign-in action in the transcript', () => {
+  const refusal = new OpenAbRpcError(
+    '**Server Error** (code: -32000)\nAuthentication required',
+    -32603,
+  )
+
+  expect(classifyPreviewInterruption(refusal, false)).toEqual({
+    reason: 'error',
+    message:
+      'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.',
+  })
+  expect(classifyPreviewInterruption(refusal, true).reason).toBe('cancelled')
 })

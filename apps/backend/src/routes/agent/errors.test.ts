@@ -51,3 +51,30 @@ test('the implementation-defined -32000 bucket alone does not mean signed out', 
   expect(frame.errorCode).toBeUndefined()
   expect(frame.errorText).toContain('Session store is unavailable')
 })
+
+test('the gateway relaying the sign-out refusal as -32603 is still a sign-out', () => {
+  // Observed in production: openab answers session/prompt with JSON-RPC -32603
+  // and keeps the adapter's -32000 only in the message wrapper.
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError('**Server Error** (code: -32000)\nAuthentication required', -32603),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_auth_required')
+  expect(frame.errorText).toContain('Sign the agent in again')
+})
+
+test('a -32000 quoted outside the leading wrapper is not the adapter code', () => {
+  // Only openab-core's `**<Label>** (code: N)\n` prefix names the adapter's
+  // code; a tool or provider quoting one in its own text keeps its diagnostics.
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nMCP server github failed (code: -32000): Authentication required',
+      -32603,
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBeUndefined()
+  expect(frame.errorText).toContain('MCP server github failed')
+})

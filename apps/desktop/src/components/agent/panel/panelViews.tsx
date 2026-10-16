@@ -8,6 +8,7 @@ import { PermissionResumeContext } from '../permissionResumeContext'
 
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
+import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
@@ -76,57 +77,66 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
           <div className="relative grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr_auto]">
             {/* Keep the transcript above the composer as its height changes. */}
             <div className="col-start-1 row-start-1 flex min-h-0 flex-col overflow-hidden">
-              <Conversation
-                tab={activeTab}
-                visible={c.visible && c.showingConversationPage}
-                teamId={teamId}
-                isTeamAdmin={isTeamAdmin}
-                currentUrl={url}
-                sidebar={isSidebarMode}
-                onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
-                onMessageFeedback={handleMessageFeedback}
-                // Only show docking where a sidebar host exists.
-                onDockToSidebar={
-                  variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
-                }
-                onStop={stopActive}
-                onApprovePlan={(planId) => {
-                  if (activeTab.readOnly) return
-                  track('agent_plan_approved', {
-                    plan_id: planId,
-                    surface: 'inline_card',
-                  })
-                  // Persist approval; the usePlan poll reflects the new status.
-                  void api
-                    .agentUpdatePlan(planId, { status: 'approved' }, teamId)
-                    .then((updated) => {
-                      // A vote may leave the plan proposed under a team quorum. Only
-                      // the request that completes the gate resumes Agent execution.
-                      // Slack-bound conversations execute through the backend's plan
-                      // resume in the bound thread — sending a proceed turn here too
-                      // would race it and could run the plan twice.
-                      if (updated.status === 'approved' && !activeTab.slackThread) {
-                        void sendInActive(
-                          `Approved plan #${planId} — please proceed with plan #${planId}.`,
-                          [],
-                          'plan-approval',
-                        )
-                      }
+              <ConnectCardContext.Provider
+                value={{
+                  credentials: activeTab.readOnly
+                    ? undefined
+                    : visibleConversationCredentialSelector,
+                  send: (text) => void sendInActive(text),
+                }}
+              >
+                <Conversation
+                  tab={activeTab}
+                  visible={c.visible && c.showingConversationPage}
+                  teamId={teamId}
+                  isTeamAdmin={isTeamAdmin}
+                  currentUrl={url}
+                  sidebar={isSidebarMode}
+                  onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
+                  onMessageFeedback={handleMessageFeedback}
+                  // Only show docking where a sidebar host exists.
+                  onDockToSidebar={
+                    variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
+                  }
+                  onStop={stopActive}
+                  onApprovePlan={(planId) => {
+                    if (activeTab.readOnly) return
+                    track('agent_plan_approved', {
+                      plan_id: planId,
+                      surface: 'inline_card',
                     })
-                    .catch((err: unknown) => {
-                      console.warn('[plan] failed to mark approved', err)
-                      toast.apiError('Could not approve plan', err, {
-                        fallback: 'The plan was not approved. Please try again.',
+                    // Persist approval; the usePlan poll reflects the new status.
+                    void api
+                      .agentUpdatePlan(planId, { status: 'approved' }, teamId)
+                      .then((updated) => {
+                        // A vote may leave the plan proposed under a team quorum. Only
+                        // the request that completes the gate resumes Agent execution.
+                        // Slack-bound conversations execute through the backend's plan
+                        // resume in the bound thread — sending a proceed turn here too
+                        // would race it and could run the plan twice.
+                        if (updated.status === 'approved' && !activeTab.slackThread) {
+                          void sendInActive(
+                            `Approved plan #${planId} — please proceed with plan #${planId}.`,
+                            [],
+                            'plan-approval',
+                          )
+                        }
                       })
-                    })
-                }}
-                onRejectPlan={(planId, reason, mode) => {
-                  void handleRejectPlan(planId, reason, mode, 'the plan')
-                }}
-                activePlanCanAct={activePlanCanAct}
-                onOpenNuphosLink={onOpenNuphosLink}
-                onOpenAgentSettings={onOpenAgentSettings}
-              />
+                      .catch((err: unknown) => {
+                        console.warn('[plan] failed to mark approved', err)
+                        toast.apiError('Could not approve plan', err, {
+                          fallback: 'The plan was not approved. Please try again.',
+                        })
+                      })
+                  }}
+                  onRejectPlan={(planId, reason, mode) => {
+                    void handleRejectPlan(planId, reason, mode, 'the plan')
+                  }}
+                  activePlanCanAct={activePlanCanAct}
+                  onOpenNuphosLink={onOpenNuphosLink}
+                  onOpenAgentSettings={onOpenAgentSettings}
+                />
+              </ConnectCardContext.Provider>
             </div>
             <div className="col-start-1 row-start-2 z-10">
               {activeTab.queued && activeTab.queued.length > 0 && (

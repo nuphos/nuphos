@@ -19,10 +19,12 @@ export const TeamHomeBindFlow = forwardRef<
   TeamHomeBindFlowHandle,
   {
     teamId: string
-    onOpenAgentChat: (prompt: string) => void
-    onOpenSettingsSection: (section: string) => void
+    onOpenAgentChat?: (prompt: string) => void
+    onOpenSettingsSection?: (section: string) => void
     onChanged: () => void
     onFocusConnector?: (detail: FocusedConnector) => void
+    // Fires when the last open bind dialog closes, bound or not.
+    onDialogsClosed?: () => void
     addIntegrationOpen?: boolean
     onAddIntegrationOpenChange?: (open: boolean) => void
     slackBindRequested?: boolean
@@ -34,6 +36,7 @@ export const TeamHomeBindFlow = forwardRef<
     onOpenAgentChat,
     onChanged,
     onFocusConnector,
+    onDialogsClosed,
     addIntegrationOpen,
     onAddIntegrationOpenChange,
     slackBindRequested = false,
@@ -146,6 +149,7 @@ export const TeamHomeBindFlow = forwardRef<
         onOpenAgentChat={onOpenAgentChat}
         onChanged={onChanged}
         onFocusConnector={onFocusConnector}
+        onDialogsClosed={onDialogsClosed}
         bindProvider={bindProvider}
         setBindProvider={setBindProvider}
         bindGithubOpen={bindGithubOpen}

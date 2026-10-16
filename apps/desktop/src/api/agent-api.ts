@@ -159,6 +159,7 @@ export const agentApi = {
     title: string
     messages: AgentPersistedMessage[]
     baseIndex?: number
+    import?: boolean
   }) => window.api.agentSyncConversationTranscript(args),
   agentDeleteConversation: (sessionId: string, teamId?: string) =>
     window.api.agentDeleteConversation(sessionId, teamId),

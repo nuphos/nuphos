@@ -60,10 +60,25 @@ export const RUNTIME_AUTH_REQUIRED_CODE = 'runtime_auth_required'
 export const RUNTIME_AUTH_REQUIRED_MESSAGE =
   'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.'
 
+/**
+ * The gateway relays an adapter refusal as JSON-RPC -32603 (internal error) and
+ * keeps the adapter's own code only in the leading wrapper openab-core's
+ * `format_coded_error` emits: `**<Label>** (code: N)\n<message>`. Only that
+ * shape, and only under the gateway's -32603, names the adapter's code; a
+ * `(code: N)` quoted anywhere else in a message is some other producer's.
+ */
+const ACP_WRAPPED_CODE = /^\*\*[^*\n]+\*\* \(code: (-?\d+)\)\n/u
+
+function acpErrorCode(error: OpenAbRpcError): number | undefined {
+  const wrapped = error.code === -32603 ? ACP_WRAPPED_CODE.exec(error.message) : null
+
+  return wrapped ? Number(wrapped[1]) : error.code
+}
+
 export function isRuntimeAuthRequired(error: unknown): boolean {
   return (
     error instanceof OpenAbRpcError &&
-    error.code === ACP_AUTH_REQUIRED_CODE &&
+    acpErrorCode(error) === ACP_AUTH_REQUIRED_CODE &&
     error.message.includes(ACP_AUTH_REQUIRED_MESSAGE)
   )
 }
@@ -93,6 +108,13 @@ export function runtimeUsageExhaustedMessage(error: unknown): string | undefined
   const detail = reason ? ` (${reason})` : ''
 
   return `This agent’s provider account has no usage left${detail}. Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.`
+}
+
+/** The sentence for a runtime that cannot bill a turn — signed out or out of usage — or undefined. */
+export function runtimeProductStateMessage(error: unknown): string | undefined {
+  return isRuntimeAuthRequired(error)
+    ? RUNTIME_AUTH_REQUIRED_MESSAGE
+    : runtimeUsageExhaustedMessage(error)
 }
 
 export function isSessionOutputSinkUnavailable(error: unknown): boolean {

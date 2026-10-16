@@ -182,6 +182,7 @@ export type WindowAgentApi = {
     title: string
     messages: AgentPersistedMessage[]
     baseIndex?: number
+    import?: boolean
   }): Promise<void>
   agentDeleteConversation(sessionId: string, teamId?: string): Promise<void>
   agentSendMessageFeedback(args: {

@@ -4,7 +4,7 @@
 // preview-history-preamble.ts (this file sits at the max-lines limit).
 
 import { CodexTurnFailedError } from './codex-turn-failure'
-import { OpenAbConnectionLostError, runtimeUsageExhaustedMessage } from './openab-acp-errors'
+import { OpenAbConnectionLostError, runtimeProductStateMessage } from './openab-acp-errors'
 import { attributeReceipt } from './steering-receipt'
 
 import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
@@ -48,9 +48,10 @@ export function classifyPreviewInterruption(
     (error instanceof CodexTurnFailedError || error instanceof OpenAbConnectionLostError)
   )
     return { reason: 'error', message: error.userMessage }
-  const usageExhausted = aborted ? undefined : runtimeUsageExhaustedMessage(error)
+  // A signed-out or out-of-usage runtime is a product state: the transcript names the action.
+  const productState = aborted ? undefined : runtimeProductStateMessage(error)
 
-  if (usageExhausted) return { reason: 'error', message: usageExhausted }
+  if (productState) return { reason: 'error', message: productState }
   const lower = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
   if (!aborted && (lower.includes('enospc') || lower.includes('no space left on device'))) {

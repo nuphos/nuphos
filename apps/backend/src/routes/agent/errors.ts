@@ -1,8 +1,8 @@
 import {
   isRuntimeAuthRequired,
   RUNTIME_AUTH_REQUIRED_CODE,
-  RUNTIME_AUTH_REQUIRED_MESSAGE,
   RUNTIME_USAGE_EXHAUSTED_CODE,
+  runtimeProductStateMessage,
   runtimeUsageExhaustedMessage,
 } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AppError } from '@/lib/errors'
@@ -79,13 +79,12 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function formatAgentStreamError(error: unknown): string {
-  // A signed-out runtime is a product state with its own sign-in UI, not a
-  // transport failure. Every client — including those that do not read
-  // errorCode yet — gets the sentence instead of the gateway's -32000 wrapper.
-  if (isRuntimeAuthRequired(error)) return RUNTIME_AUTH_REQUIRED_MESSAGE
-  const usageExhausted = runtimeUsageExhaustedMessage(error)
+  // A signed-out or out-of-usage runtime is a product state with its own UI,
+  // not a transport failure. Every client — including those that do not read
+  // errorCode yet — gets the sentence instead of the gateway's wrapper.
+  const productState = runtimeProductStateMessage(error)
 
-  if (usageExhausted) return usageExhausted
+  if (productState) return productState
   const message = getErrorMessage(error)
 
   // The Bedrock provider sometimes prefixes messages with a literal

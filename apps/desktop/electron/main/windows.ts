@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { BrowserWindow, ipcMain, shell } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
@@ -9,28 +9,17 @@ import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
+import { liveSessionShortcut } from './session-shortcuts'
 import { APP_NAME, isDev } from './env'
+import { openExternal } from './open-external'
 import { TITLEBAR_ROW_H, titleBarOverlayFor } from './window-titlebar'
+
+import type { AppShortcutAction as AppShortcut } from '../../src/api/window-shell'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const appWindows = new Set<BrowserWindow>()
 const appWindowFocusOrder: BrowserWindow[] = []
-
-type AppShortcut =
-  | 'search-sessions'
-  | 'new-chat'
-  | 'new-tab'
-  | 'close-tab'
-  | 'previous-tab'
-  | 'next-tab'
-  | 'open-settings'
-  | 'open-team-settings'
-  | 'toggle-sidebar'
-  | 'toggle-dock-expanded'
-  | 'shortcuts-help'
-  | 'reopen-closed-tab'
-  | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
 
 function rememberAppWindowFocus(win: BrowserWindow) {
   const index = appWindowFocusOrder.indexOf(win)
@@ -204,7 +193,7 @@ export function createWindow(): BrowserWindow {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url).catch((e: unknown) => {
+    openExternal(url).catch((e: unknown) => {
       console.error('[open-external]', url, e)
     })
 
@@ -230,6 +219,16 @@ export function createWindow(): BrowserWindow {
     const key = input.key.toLowerCase()
     const code = input.code
     const commandOrControl = input.meta || input.control
+    // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, so they run
+    // before the ⌥ bail-out below.
+    const sessionAction = liveSessionShortcut(win.webContents, input)
+
+    if (sessionAction) {
+      event.preventDefault()
+      win.webContents.send('app:shortcut', sessionAction)
+
+      return
+    }
 
     if (!commandOrControl || input.alt) return
 

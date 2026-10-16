@@ -10,10 +10,11 @@ import {
   Pin,
   PinOff,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
+import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
 import {
   addSidebarFavorite,
   favoriteIdentity,
@@ -31,6 +32,7 @@ import {
   MenuSubmenuTrigger,
   MenuTrigger,
 } from '../ui/menu'
+import { ShortcutHint } from '../ui/shortcut-hint'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
 
@@ -44,6 +46,8 @@ type Props = {
   title: string
   canRename: boolean
   canArchive: boolean
+  /** This pane owns the keyboard: its chat is the one the shortcuts act on. */
+  shortcutsActive: boolean
   onRename: () => void
   /** Opens a writable copy of this chat (the Plans page's fork path). */
   onFork: () => void
@@ -78,6 +82,7 @@ export function SessionHeaderMenu({
   title,
   canRename,
   canArchive,
+  shortcutsActive,
   onRename,
   onFork,
   canFork,
@@ -109,6 +114,29 @@ export function SessionHeaderMenu({
     })
   }
 
+  // ⌥⌘R, ⌥⌘P, ⇧⌘C and ⇧⌘A run the same actions as the menu items below.
+  const onShortcut = useRef<((action: string) => void) | null>(null)
+
+  useLayoutEffect(() => {
+    onShortcut.current = (action) => {
+      if (action === 'rename-chat' && canRename) onRename()
+      else if (action === 'toggle-pin-chat') togglePin()
+      else if (action === 'copy-chat-link') copy(agentSessionUrl(teamId, sessionId), 'Link')
+      else if (action === 'archive-chat' && canArchive && !archiving) void archive()
+    }
+  })
+  useEffect(() => {
+    if (!shortcutsActive || typeof window.api.onAppShortcut !== 'function') return
+    // The main process swallows these combos only while a visible chat owns them.
+    window.api.setSessionShortcutsActive(true)
+    const off = window.api.onAppShortcut((action) => onShortcut.current?.(action))
+
+    return () => {
+      off()
+      window.api.setSessionShortcutsActive(false)
+    }
+  }, [shortcutsActive])
+
   return (
     <Menu
       onOpenChangeComplete={(open) => {
@@ -125,10 +153,11 @@ export function SessionHeaderMenu({
           <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
         </MenuTrigger>
       </Tooltip>
-      <MenuContent align="end" className="w-[200px]">
+      <MenuContent align="end" className="w-max min-w-[200px]">
         {canRename && (
           <MenuItem
             icon={<Pencil className="h-3.5 w-3.5" />}
+            hint={<ShortcutHint combo={sessionShortcutCombo('rename-chat')} className="pl-4" />}
             onClick={() => {
               renameOnClose.current = true
             }}
@@ -138,6 +167,7 @@ export function SessionHeaderMenu({
         )}
         <MenuItem
           icon={pin ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+          hint={<ShortcutHint combo={sessionShortcutCombo('toggle-pin-chat')} className="pl-4" />}
           onClick={togglePin}
         >
           {favoriteToggleTitle(true, Boolean(pin))}
@@ -154,9 +184,12 @@ export function SessionHeaderMenu({
           >
             Copy
           </MenuSubmenuTrigger>
-          <MenuContent align="start" className="w-[180px]">
+          <MenuContent align="start" className="w-max min-w-[180px]">
             <MenuItem
               icon={<Link2 className="h-3.5 w-3.5" />}
+              hint={
+                <ShortcutHint combo={sessionShortcutCombo('copy-chat-link')} className="pl-4" />
+              }
               onClick={() => copy(agentSessionUrl(teamId, sessionId), 'Link')}
             >
               Link
@@ -174,6 +207,7 @@ export function SessionHeaderMenu({
             <MenuSeparator />
             <MenuItem
               icon={<Archive className="h-3.5 w-3.5" />}
+              hint={<ShortcutHint combo={sessionShortcutCombo('archive-chat')} className="pl-4" />}
               disabled={archiving}
               onClick={() => void archive()}
             >

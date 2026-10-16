@@ -21,6 +21,7 @@ import { isDev } from './env'
 import { importLocalSession } from '../agent/local-session-import'
 
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
+import { openExternal } from './open-external'
 import { writePersistedThemeSource } from './theme'
 import { autoUpdater, checkForUpdatesOnce, getUpdaterState, setUpdaterState } from './updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
@@ -97,14 +98,7 @@ export const appChannels = {
 
     if (error) throw new Error(error)
   },
-  'app:openExternal': async (_e: unknown, url: string) => {
-    const parsed = new URL(url)
-
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      throw new Error('Only http and https URLs can be opened externally.')
-    }
-    await shell.openExternal(parsed.toString())
-  },
+  'app:openExternal': (_e: unknown, url: string) => openExternal(url),
   'app:openSsh': async (_e: unknown, url: string) => {
     const parsed = new URL(url)
 

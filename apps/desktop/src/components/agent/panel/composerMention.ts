@@ -47,3 +47,14 @@ export function matchDevices(
 
   return devices.filter((device) => device.label.toLowerCase().includes(needle)).slice(0, limit)
 }
+
+/** What tells a device apart in the @ menu: nothing when its label is unique,
+ *  otherwise its status and the end of its id. */
+export function deviceDetail(
+  device: AgentCredentialOptions['devices'][number],
+  devices: AgentCredentialOptions['devices'],
+): string {
+  if (devices.filter((other) => other.label === device.label).length < 2) return ''
+
+  return `${device.available === false ? 'Offline' : 'Online'} · ${device.deviceId.slice(-4)}`
+}

@@ -9,7 +9,13 @@ import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID, emitFirstRunConvo } from './model'
-import { markAutoSend, nextAutoSend, queueAutoSend, runtimeMayAcceptLater } from './queuedAutoSend'
+import {
+  markAutoSend,
+  nextAutoSend,
+  queueAutoSend,
+  runtimeMayAcceptLater,
+  sendsAsNewSession,
+} from './queuedAutoSend'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
 import { useSteering } from './useSteering'
@@ -235,7 +241,8 @@ export function useTurnDispatch(acc: Acc) {
       }
       const replying = runtimeAllows(tab.runtimeState, 'reply')
 
-      const sendable = runtimeAllows(tab.runtimeState, 'send')
+      const newSession = sendsAsNewSession(tab)
+      const sendable = newSession || runtimeAllows(tab.runtimeState, 'send')
 
       if (!replying && !sendable && !runtimeMayAcceptLater(tab.runtimeState)) {
         toast.error(runtimeStatusLabel(tab.runtimeState))
@@ -244,7 +251,9 @@ export function useTurnDispatch(acc: Acc) {
       }
       // An automatic turn must not trust a snapshot that may be seconds old,
       // and nothing may overtake a message that is already waiting.
-      if (!replying && (!sendable || turnKind === 'plan-approval' || nextAutoSend(tab))) {
+      const staleApproval = turnKind === 'plan-approval' && !newSession
+
+      if (!replying && (!sendable || staleApproval || nextAutoSend(tab))) {
         queueUntilSendable(activeId, trimmed, filePaths, turnKind)
 
         return
