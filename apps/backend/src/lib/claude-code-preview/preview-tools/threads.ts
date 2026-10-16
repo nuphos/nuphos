@@ -96,6 +96,7 @@ export function threadToolModule(): PreviewToolModule {
           'Archive a Nuphos conversation you own in this team, or restore it with archived=false. ' +
           'Use when its work is done or the user asks; the current conversation counts too. ' +
           'Archiving hides it and stops resource-event wakeups, but does not stop a running turn. ' +
+          'Its sub-agent threads, recursively, are archived and restored with it. ' +
           'A new human message restores it. Use threadId from create_thread or session_id from ' +
           'list_recent_conversations.',
         inputSchema: toolInputJsonSchema(archive),
