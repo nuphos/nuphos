@@ -18,6 +18,7 @@ export type TurnRunner = {
   admitChannelTurn: AgentRoutes['admitChannelTurn']
   claimAgentRunForSession: AgentRoutes['claimAgentRunForSession']
   hasActiveAgentRunForSession: AgentRoutes['hasActiveAgentRunForSession']
+  launchQueuedChatTurn: AgentRoutes['launchQueuedChatTurn']
 }
 
 let installed: Partial<TurnRunner> | null = null
@@ -25,7 +26,7 @@ let installed: Partial<TurnRunner> | null = null
 async function resolve<K extends keyof TurnRunner>(name: K): Promise<TurnRunner[K]> {
   const override = installed?.[name]
 
-  if (override) return override as TurnRunner[K]
+  if (override) return override
 
   return (await import('@/routes/agent'))[name]
 }
@@ -38,6 +39,8 @@ export const turnRunner: TurnRunner = {
     (await resolve('claimAgentRunForSession'))(userId, sessionId),
   hasActiveAgentRunForSession: async (userId, sessionId) =>
     (await resolve('hasActiveAgentRunForSession'))(userId, sessionId),
+  launchQueuedChatTurn: async (conversation, item, release) =>
+    (await resolve('launchQueuedChatTurn'))(conversation, item, release),
 }
 
 /**

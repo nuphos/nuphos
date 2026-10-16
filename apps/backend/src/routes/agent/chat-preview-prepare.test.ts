@@ -9,9 +9,9 @@ import {
   enqueuePendingUserMessage,
   hasPendingUserMessage,
 } from '@/lib/agent/pending-messages'
+import { takeTurnQueue } from '@/lib/agent/pending-queue'
 
 import {
-  drainTurnQueue,
   lastUserMessageText,
   resumeMessage,
   turnPrompt,
@@ -253,9 +253,9 @@ test('a transcript turn leaves a queued Slack message for the Slack turn', async
   await enqueuePendingUserMessage('owner', 'queued', thread)
   await enqueuePendingUserMessage('owner', 'queued', slack)
 
-  expect((await drainTurnQueue('owner', 'queued', 'owner')).map((m) => m.id)).toEqual([thread.id])
+  expect((await takeTurnQueue('owner', 'queued', 'owner')).map((m) => m.id)).toEqual([thread.id])
   expect(await hasPendingUserMessage('owner', 'queued', slack.id)).toBe(true)
-  expect((await drainTurnQueue('owner', 'queued', 'owner', true)).map((m) => m.id)).toEqual([
+  expect((await takeTurnQueue('owner', 'queued', 'owner', true)).map((m) => m.id)).toEqual([
     slack.id,
   ])
 })

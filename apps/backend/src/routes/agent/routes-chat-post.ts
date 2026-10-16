@@ -12,6 +12,7 @@ import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { admitPreviewTurn } from './chat-preview-steering'
+import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import {
   buildSlackBoundTurnPlan,
@@ -137,12 +138,25 @@ agent.post('/chat', async (c) => {
 
       return attached ?? (await resumeFromRedisOrThrow(resumeParams))
     }
-    await admitRuntimeChat(runtimeSnapshot, {
-      attached: conversationForResume?.claudeCodePreview ? conversationForResume : undefined,
-      replying: Boolean(body.resumeReason),
-      read: conversationExecutionState,
+    const queue = await admitQueueableChat({
+      ...resumeParams,
+      conversation: conversationForResume,
+      clientView,
+      snapshot: runtimeSnapshot,
+      slackBound: Boolean(slackThread),
+      credentialAccess: requestedCredentialAccess?.access,
+      context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
     })
-    if (!runtimeOwnsAdmission) {
+
+    if (queue?.mode === 'queued') return c.json({ status: 'queued', streamId }, 202)
+    if (queue) releaseAgentRunClaim = queue.release
+    else
+      await admitRuntimeChat(runtimeSnapshot, {
+        attached: conversationForResume?.claudeCodePreview ? conversationForResume : undefined,
+        replying: Boolean(body.resumeReason),
+        read: conversationExecutionState,
+      })
+    if (!queue && !runtimeOwnsAdmission) {
       // Park onto this conversation's running turn, or claim the session before
       // launching one.
       const admission = await admitPreviewTurn(

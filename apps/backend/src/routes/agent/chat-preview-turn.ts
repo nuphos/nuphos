@@ -15,7 +15,7 @@ import {
   handedOff,
   lostToReattach,
 } from './chat-preview-handoff'
-import { carriedUserMessages, preparePreviewTurn, requeueCarried } from './chat-preview-prepare'
+import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
 import { handlePreviewToolUpdate } from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
@@ -27,6 +27,7 @@ import type { UIMessage } from 'ai'
 
 import { config } from '@/config'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
+import { requeueTurnQueue } from '@/lib/agent/pending-queue'
 import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
 import {
   previewRuntimeObservability,
@@ -244,8 +245,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
       return 'connection-lost'
     }
-    if (args.clientResendsRefusal && isRuntimeRefusal(err))
-      await requeueCarried(userId, sessionId, prepared.carried)
+    if ((args.clientResendsRefusal || args.queued) && isRuntimeRefusal(err))
+      await requeueTurnQueue(userId, sessionId, prepared.carried, args.queued)
     else await persistInterrupted(err)
 
     state.unbind()
@@ -270,8 +271,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     return
   }
   pauses.abort()
-  // Runtime completion is authoritative; partial/late tool cards cannot cause
-  // backend cancellation or another prompt after completion.
+  // Runtime completion is authoritative: late tool cards cause no cancel or re-prompt.
   if (acc.text) answers.push(acc.text)
 
   await prepared.openPromptSuggestion()

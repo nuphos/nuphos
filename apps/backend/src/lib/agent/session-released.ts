@@ -1,7 +1,7 @@
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError } from '@/lib/observability'
 
-import { hasPendingUserMessages, TRANSCRIPT_SOURCES } from './pending-messages'
+import { hasQueuedTranscriptMessage } from './pending-queue'
 
 type QueuedTurnStarter = (userId: string, sessionId: string) => Promise<void>
 
@@ -22,7 +22,7 @@ export function sessionReleased(userId: string, sessionId: string): void {
   // A draining replica cannot start a run; the queue waits for the next turn.
   if (!start || isShuttingDown()) return
   void (async () => {
-    if (await hasPendingUserMessages(userId, sessionId, userId, TRANSCRIPT_SOURCES)) {
+    if (await hasQueuedTranscriptMessage(userId, sessionId)) {
       await start(userId, sessionId)
     }
   })().catch((error: unknown) => {
@@ -31,4 +31,22 @@ export function sessionReleased(userId: string, sessionId: string): void {
       session_id: sessionId,
     })
   })
+}
+
+const RETRY_MS = 2_000
+const retries = new Set<string>()
+
+/**
+ * The runtime is busy with work that holds no backend claim. Look again
+ * shortly; the queue's own expiry bounds how long this keeps trying.
+ */
+export function retryQueuedTurn(userId: string, sessionId: string): void {
+  const key = `${userId}:${sessionId}`
+
+  if (retries.has(key)) return
+  retries.add(key)
+  setTimeout(() => {
+    retries.delete(key)
+    sessionReleased(userId, sessionId)
+  }, RETRY_MS).unref()
 }

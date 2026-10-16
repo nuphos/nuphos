@@ -1,19 +1,18 @@
+import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import {
-  buildPendingUserMessage,
-  drainPendingUserMessages,
-  hasPendingUserMessage,
-  TRANSCRIPT_SOURCES,
-} from './pending-messages'
+import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
+import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
+import { retryQueuedTurn } from './session-released'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { PendingUserMessage } from './pending-messages'
+import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { UIMessage } from 'ai'
 
 type ConversationTurn = {
@@ -100,31 +99,48 @@ export async function startConversationTurn(
 }
 
 /**
- * Runs what a session queued while it was busy. Called whenever the session is
- * released, so a message accepted for a turn that ended without reading it
- * starts the next turn instead of waiting for one that may never come.
+ * Starts the next turn from the session queue. Called whenever the session is
+ * released, so whatever arrived first, a person's message or an agent's, runs
+ * next, and a message accepted for a turn that ended without reading it does
+ * not wait for one that may never come.
  */
 export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
-  const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
+  const target = await getConversationBySessionId(sessionId)
 
   // The holder runs this again when it lets go.
+  if (await turnRunner.hasActiveAgentRunForSession(userId, sessionId)) return
+  // Runtime-owned work (an automatic continuation) holds no backend claim.
+  if (target?.claudeCodePreview && !runtimeAccepts(await conversationExecutionState(target))) {
+    retryQueuedTurn(userId, sessionId)
+
+    return
+  }
+  const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
+
   if (!release) return
+  let handedOff = false
+
   try {
-    const carried = await drainPendingUserMessages(userId, sessionId, userId, TRANSCRIPT_SOURCES)
-    const target = carried.length ? await getConversationBySessionId(sessionId) : null
-    const first = carried[0]
+    const queue = await listPendingUserMessages(userId, sessionId)
+    const head = await takePendingUserMessages(userId, sessionId, queueHead(queue, userId))
+    const first = head[0]
 
     if (!first) return
     if (!target?.teamId) {
       logEvent('warn', 'agent.pending_messages.queued_turn_dropped', {
         user_id: userId,
         session_id: sessionId,
-        message_ids: carried.map((message) => message.id),
+        message_ids: head.map((message) => message.id),
       })
 
       return
     }
+    if (first.chat) {
+      await turnRunner.launchQueuedChatTurn(target, { ...first, chat: first.chat }, release)
+      handedOff = true
 
+      return
+    }
     await runTurn(
       {
         userId,
@@ -134,12 +150,15 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
       },
       target,
       first.source,
-      carried,
+      head,
     )
   } finally {
-    release()
+    if (!handedOff) release()
   }
 }
+
+const runtimeAccepts = (state: SessionExecutionState) =>
+  state.schemaVersion !== 2 || state.actions?.send === true
 
 async function runTurn(
   data: Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & { locale?: string },
