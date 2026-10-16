@@ -56,7 +56,7 @@ export function BoxSection({
     list,
     error: loadError,
     reload,
-  } = useAgentDevices((next) => boxPollMs(next.devices, false) || 5_000, '', {
+  } = useAgentDevices((next) => boxPollMs(next.devices, false), '', {
     metrics: true,
     enabled: isActive,
     teamId,

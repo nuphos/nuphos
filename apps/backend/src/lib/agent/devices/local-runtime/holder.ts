@@ -219,15 +219,22 @@ export async function attachRuntimeTunnel(
 
           return
         case 'status': {
-          status = frame.status
+          const reported = frame.status
+
+          status = reported
           // Only a changed agent list is written, not every status report.
-          const agents = JSON.stringify(reportedAgents(status))
+          const agents = JSON.stringify(reportedAgents(reported))
 
           if (deps.recordAgents && agents !== recorded) {
+            const record = deps.recordAgents
+
             recorded = agents
-            void deps.recordAgents(userId, deviceId, status).catch(() => {
-              recorded = undefined
-            })
+            // Present first, then noted as seen: a Box never reads offline before it joined.
+            void refreshPresence()
+              .then(() => record(userId, deviceId, reported))
+              .catch(() => {
+                recorded = undefined
+              })
           }
 
           return
