@@ -9,6 +9,7 @@ import { claudeModelGroups } from '../../../lib/modelGroups'
 
 import { focusCurrentRow, menuKeyDown } from './menuKeys'
 import { FG_TERTIARY, MENU_ROW, SURFACE } from './modelControlStyles'
+import { fastUnavailableReason } from './modelSelectorParts'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
 
@@ -89,6 +90,7 @@ export function ClaudeModelList({
   )
   const { latest, older } = claudeModelGroups(choices, modelChoiceLabel)
   const fastOn = fast?.currentValue === 'on'
+  const fastReason = fastUnavailableReason(fast)
 
   // Number keys pick a model while this menu is open, as in Claude.
   useEffect(() => {
@@ -214,17 +216,30 @@ export function ClaudeModelList({
             data-menu-row=""
             role="menuitemcheckbox"
             aria-checked={fastOn}
+            aria-disabled={fastReason ? true : undefined}
             disabled={blocked}
-            onClick={() => onSelectFast(fastOn ? 'off' : 'on')}
-            className={clsx(MENU_ROW, 'h-[31.5px] items-center pr-[9.5px]')}
+            onClick={fastReason ? undefined : () => onSelectFast(fastOn ? 'off' : 'on')}
+            className={clsx(
+              MENU_ROW,
+              'shrink-0 items-center py-[6px] pr-[9.5px]',
+              fastReason && 'cursor-default hover:bg-transparent',
+            )}
           >
-            <span className="flex-1">Fast mode</span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="leading-[19.5px]">Fast mode</span>
+              {fastReason && (
+                <span className={clsx('text-[12px] leading-[16px]', FG_TERTIARY)}>
+                  {fastReason.detail}
+                </span>
+              )}
+            </span>
             {/* The app's Switch, drawn inside the row so the whole row toggles. */}
             <span
               aria-hidden
               className={clsx(
-                'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                'relative ml-[10px] inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
                 fastOn ? 'bg-zViolet-500' : 'bg-zGray-700',
+                fastReason && 'opacity-50',
               )}
             >
               <span

@@ -14,6 +14,7 @@ import {
   HOVER_FILL,
 } from './modelControlStyles'
 import { HintTooltip } from './modelControlParts'
+import { fastUnavailableReason } from './modelSelectorParts'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
 
@@ -114,6 +115,7 @@ export function ModelEffortPanel({
   const current = index >= 0 ? stops[index] : undefined
   const fraction = stopFraction(stops.length, index)
   const fastOn = fast?.currentValue === 'on'
+  const fastReason = fastUnavailableReason(fast)
   const resetLevel =
     resetValue && stops.find((stop) => stop.value === resolvedEffort(effort.options, resetValue))
   const resetHint = !resetValue
@@ -127,15 +129,21 @@ export function ModelEffortPanel({
   return (
     <div className="relative px-[13.5px] pb-[13.5px] pt-[11px]">
       {fast && (
-        <IconButton
-          label={fastOn ? 'Turn off fast mode' : 'Turn on fast mode'}
-          pressed={fastOn}
-          disabled={blocked || saving}
-          onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
-          className={clsx('left-[5.5px]', fastOn ? ACCENT_TEXT : FG_TERTIARY)}
+        <HintTooltip
+          label={fastReason?.tooltip ?? (fastOn ? 'Fast mode is on' : 'Fast mode')}
+          side="top"
         >
-          <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
-        </IconButton>
+          <IconButton
+            label={fastReason?.tooltip ?? (fastOn ? 'Turn off fast mode' : 'Turn on fast mode')}
+            pressed={fastOn}
+            disabled={blocked || saving}
+            inert={Boolean(fastReason)}
+            onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
+            className={clsx('left-[5.5px]', fastOn ? ACCENT_TEXT : FG_TERTIARY)}
+          >
+            <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
+          </IconButton>
+        </HintTooltip>
       )}
       <HintTooltip label={resetHint} side="top">
         <IconButton
