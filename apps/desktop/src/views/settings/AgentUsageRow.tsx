@@ -66,12 +66,12 @@ export function AgentUsageRow({
         <span
           className={clsx(
             'h-1.5 w-1.5 rounded-full',
-            instance.status === 'active' && !agentOffline(instance)
+            instance.status === 'active' && !agentOffline(instance, quota)
               ? STATUS_DOT.online
               : STATUS_DOT.off,
           )}
         />
-        {agentRunsOn(instance, thisComputer?.deviceId)}
+        {agentRunsOn(instance, thisComputer?.deviceId, quota)}
       </span>
       <span className="min-w-0 space-y-1">
         {windows.length === 0 ? (

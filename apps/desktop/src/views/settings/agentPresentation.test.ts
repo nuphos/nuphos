@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import { agentName, agentOffline, agentRunsOn, visibleAgent } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
 
-import type { RuntimeInstance } from '../../types/runtime.ts'
+import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime.ts'
 
 function local(id: string, deviceId: string, signedIn: boolean | null): RuntimeInstance {
   return {
@@ -121,6 +121,29 @@ test("an away computer's signed-in agent stays visible and reads Offline", () =>
   assert.equal(agentRunsOn(away), 'Box 1 · Offline')
   assert.equal(agentOffline(back), false)
   assert.equal(agentRunsOn(back), 'Box 1')
+})
+
+test('a self-hosted agent reads offline only when its Usage reading could not reach it', () => {
+  const selfHosted = {
+    id: 'r',
+    kind: 'external',
+    provider: 'claude-code',
+    status: 'active',
+    label: 'localhost',
+  } as RuntimeInstance
+  const quota = (offline: boolean) =>
+    ({
+      runtimeId: 'r',
+      available: false,
+      windows: [],
+      ...(offline ? { offline: true } : {}),
+    }) as RuntimeQuota
+
+  assert.equal(agentOffline(selfHosted, quota(true)), true)
+  assert.equal(agentRunsOn(selfHosted, undefined, quota(true)), 'Self-hosted · Offline')
+  assert.equal(agentOffline(selfHosted, quota(false)), false, 'no usage is not offline')
+  // Picking it for a conversation follows readiness, not the dot.
+  assert.equal(agentOffline({ ...selfHosted, notReady: true }), false)
 })
 
 test("a computer's agent goes by the name given to it, else its provider's", () => {

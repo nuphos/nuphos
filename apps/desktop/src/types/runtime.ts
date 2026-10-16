@@ -111,6 +111,8 @@ export type RuntimeQuota = {
   fetchedAt: string
   available: boolean
   reason?: string
+  /** The agent could not be reached to ask; the Agents page shows it offline. */
+  offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
 }
