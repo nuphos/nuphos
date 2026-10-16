@@ -355,6 +355,15 @@ class AgentStore(
         storeScope.launch { reload() }
     }
 
+    /** Same bounded scope=mine search as iOS, independent of history filters. */
+    suspend fun mentionableSessions(teamId: String, query: String): List<AgentConversation> {
+        if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
+        val page = NuphosApi.conversations(token = token, teamId = teamId, limit = 6,
+            scope = ConversationScope.Mine, search = query)
+        if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
+        return page.conversations
+    }
+
     suspend fun reload() {
         val team = selectedTeam
         if (team == null) {

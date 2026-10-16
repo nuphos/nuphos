@@ -324,6 +324,11 @@ fun ConversationScreen(
                     draftAccount?.let { draftAuth.composerDrafts.bind(it, draftTeam, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(sessionId), ai.nuphos.android.session.AiAccess.bind(draftAuth.token.orEmpty())) }
                 }
                 ChatComposer(
+                    mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
+                        SessionMentionSource(draftTeam, sessionId) { query ->
+                            store.mentionableSessions(draftTeam, query)
+                        }
+                    },
                     draft = draft,
                     draftingEnabled = draft != null && draftAuth.aiAllowed && store.selectedTeam != null,
                     isStreaming = session.isStreaming && !session.isNative,
