@@ -98,6 +98,16 @@ describe('local runtime catalog', () => {
       ['Main in Olivia’s MacBook', 'Main', true],
       ['Review in Olivia’s MacBook', 'Review', true],
     ])
+
+    // A cleared name is the provider's, whatever the computer reports.
+    named.agents[1] = { provider: 'claude-code', instanceId: work, signedIn: true }
+    const cleared = await listOwnLocalRuntimes('t1', 'owner', {
+      ...deps,
+      access: { ...deps.access, listDevices: async () => [named] },
+    })
+
+    expect(cleared[1]).toMatchObject({ label: 'Claude Code in Olivia’s MacBook' })
+    expect(cleared[1]?.local.agentLabel).toBeUndefined()
   })
 
   test('a teammate never sees another member’s local agent', async () => {
