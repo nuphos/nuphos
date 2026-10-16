@@ -24,6 +24,7 @@ export async function sessionConfigRestoreContext(
   const provider = runtimeProvider(conversation.agentRuntime)
   const systemPrompt = await buildPreviewSystemPrompt({
     provider,
+    runtimeId: conversation.runtimeId,
     userId: conversation.userId,
     teamId,
     sessionId: conversation.sessionId,
