@@ -7,8 +7,11 @@
 // route drops their input messages until then, whatever their client does, and
 // the host turns the frame into the lock that pauses the agent's input tools on
 // that display. The stream closing hands it back. Links carry ids only: the
-// route is the authorization, and a Box runs one person's conversations only (a
-// local runtime is its owner's).
+// route is the authorization, and it admits only the conversation's owner. That
+// does not isolate desktops on a shared Box: every session there runs as one Unix
+// user against an X server and VNC without authentication, so any agent on the
+// Box can reach another session's display. The team accepts this until each
+// session gets its own Unix user (see the host's desktop-session.mjs).
 
 import { getReadableConversation } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'

@@ -87,19 +87,21 @@ export async function redeemDeviceJoinToken(
     { $set: { usedAt: now } },
   )
 
-  // A token issued before "sign out everywhere" died with the sessions.
-  if (!used || !(await getNuphosUserForCredential(used.userId, used.createdAt))) return null
+  if (!used) return null
   const credential = secret(DEVICE_CREDENTIAL_PREFIX)
   const credentialHash = hashDeviceSecret(credential)
 
   if (used.deviceId) {
-    // A Box: the token was made for this row and the row has no credential yet.
+    // A Box: the server made the token for this team-owned row, which has no credential yet;
+    // no person's sessions void it.
     if (!(await claimBoxAgentDevice(used.userId, used.deviceId, device.platform, credentialHash)))
       return null
 
     // Said by the server, so a host knows it is a Box only when it is one.
     return { userId: used.userId, deviceId: used.deviceId, credential, box: true }
   }
+  // A person's machine: a token issued before "sign out everywhere" died with the sessions.
+  if (!(await getNuphosUserForCredential(used.userId, used.createdAt))) return null
   const deviceId = randomUUID()
 
   await joinTokens().updateOne({ _id: used._id }, { $set: { deviceId } })

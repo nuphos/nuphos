@@ -48,10 +48,16 @@ export function groupAgentsByTier<T extends NamedAgent>(
   return agents.length ? [{ tier: 'local' as const, title: '', agents: [...agents] }] : []
 }
 
-type SelectableAgent = NamedAgent & { status: 'active' | 'disabled' }
+type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
 
-function usable(agent: SelectableAgent): boolean {
-  return agent.status === 'active' && agent.local?.signedIn !== false
+/** The one rule for an agent a conversation can run on: active, ready and signed in. */
+export function usable(agent: SelectableAgent): boolean {
+  return agent.status === 'active' && !agent.notReady && agent.local?.signedIn !== false
+}
+
+/** The picker offers only usable agents, the selected one included. */
+export function listedAgents<T extends SelectableAgent>(agents: readonly T[]): T[] {
+  return agents.filter(usable)
 }
 
 /** A new conversation starts on the usable agent with the most quota left; unknown counts as full. */

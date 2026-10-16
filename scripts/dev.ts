@@ -17,6 +17,7 @@ import { isLocalContextName } from './dev-managed-env.ts'
 import { startManagedAgents } from './dev-managed.ts'
 import { DEV_OPTIONS } from './dev-options.ts'
 import { releaseAllPorts } from './dev-ports.ts'
+import { stopStorageTunnel } from './dev-quick-tunnel.ts'
 import { OPEN_MENU, menuKey, quitPlan, quitSummary, quitMenuView } from './dev-quit.ts'
 import { acquireResetLock, resetInProgress, resetMessage, runReset } from './dev-reset.ts'
 import { copyRuntimePassword, startLocalRuntime } from './dev-runtime.ts'
@@ -61,6 +62,7 @@ async function quit(code = 0, choice: QuitChoice = 'processes'): Promise<void> {
   let plan = quitPlan(choice, facts)
 
   stopTunnel()
+  stopStorageTunnel()
   if (plan.killTunnel) stopOwnNamedTunnel()
   process.stdout.write(`\n  ${BOLD}▲ nuphos dev${RESET} ${DIM}shutting down…${RESET}\n`)
   const stopped: string[] = []

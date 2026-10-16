@@ -18,9 +18,10 @@ export type DeviceCredentialAuthDeps = {
 
 /**
  * A device credential from `nuphos agent --join` opens that device's own
- * runtime tunnel as its owner, and nothing else, until it is revoked or the
- * owner signs out everywhere; every other credential goes through the ordinary
- * session check.
+ * runtime tunnel, and nothing else, until it is revoked. A person's computer
+ * also stops when they sign out everywhere. A Box belongs to its team, so no
+ * person's sessions take it offline. Every other credential goes through the
+ * ordinary session check.
  */
 export function requireAuthOrDeviceCredential(
   deps: DeviceCredentialAuthDeps = {
@@ -33,15 +34,22 @@ export function requireAuthOrDeviceCredential(
 
     if (!header?.startsWith(`Bearer ${DEVICE_CREDENTIAL_PREFIX}`)) return requireAuth(c, next)
     const device = await deps.findDevice(hashDeviceSecret(header.slice('Bearer '.length)))
-    const user =
-      device?.credentialIssuedAt && (await deps.getUser(device.userId, device.credentialIssuedAt))
 
     if (
       !device ||
-      !user ||
       c.req.path !== `/agent/devices/${encodeURIComponent(device.deviceId)}/runtime-tunnel`
     )
       throw new AppError(401, 'unauthorized', 'Invalid device credential')
+    // A Box's userId only keys its row; the tunnel names no person.
+    if (device.box) {
+      c.set('userId', device.userId)
+
+      return next()
+    }
+    const user =
+      device.credentialIssuedAt && (await deps.getUser(device.userId, device.credentialIssuedAt))
+
+    if (!user) throw new AppError(401, 'unauthorized', 'Invalid device credential')
     c.set('userId', user.id)
     c.set('userEmail', user.email)
     c.set('userName', user.name)
