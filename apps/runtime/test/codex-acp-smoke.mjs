@@ -130,6 +130,13 @@ try {
   const start = calls.find((c) => c.method === 'thread/start')
   const resume = calls.find((c) => c.method === 'thread/resume')
 
+  // A loaded thread keeps its config while subscribed, so the load releases it first.
+  const release = calls.findIndex(
+    (c) => c.method === 'thread/unsubscribe' && c.params.threadId === created.sessionId,
+  )
+
+  assert.ok(release > calls.indexOf(start) && release < calls.indexOf(resume))
+
   assert.notEqual(start.params.config.shell_environment_policy.set.HOME, base)
   assert.equal(
     start.params.config.shell_environment_policy.set.HOME,

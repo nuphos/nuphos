@@ -45,6 +45,7 @@ jobs:
           node test/codex-acp-smoke.mjs image/codex-acp/node_modules/@agentclientprotocol/codex-acp/dist/index.js
           node --test test/codex-steering.test.mjs test/codex-steering-smoke.mjs
           node test/codex-shell-env-smoke.mjs image/codex-acp/node_modules/.bin/codex
+          node test/codex-resume-env-smoke.mjs image/codex-acp/node_modules/.bin/codex
       - name: Set up Buildx
         if: steps.update.outputs.changed == 'true'
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0

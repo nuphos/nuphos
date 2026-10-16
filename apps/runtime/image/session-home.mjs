@@ -18,9 +18,12 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
   }
   const runtimeHome = runtimeEnv.HOME || runtimeEnv.USERPROFILE || nuphosHostHome()
   const root = nuphosJoin(runtimeHome, '.nuphos', 'session-homes')
+  const hash = (value) => nuphosHomeHash('sha256').update(value).digest('hex')
+  // <conversation> for the owner, <conversation>.<actor> for a teammate, so
+  // reclaiming a conversation finds every home it left from its ID alone.
   const actor = sessionEnv.NUPHOS_SESSION_ACTOR
-  const key = typeof actor === 'string' && actor ? `${id}\0${actor}` : id
-  const home = nuphosJoin(root, nuphosHomeHash('sha256').update(key).digest('hex'))
+  const name = typeof actor === 'string' && actor ? `${hash(id)}.${hash(actor)}` : hash(id)
+  const home = nuphosJoin(root, name)
   for (const dir of [root, home]) {
     nuphosMkdir(dir, { recursive: true, mode: 0o700 })
     if (!nuphosLstat(dir).isDirectory()) throw new Error('Session home must be a directory')

@@ -92,6 +92,8 @@ test('a teammate acting in a conversation gets their own HOME, the owner keeps t
   const other = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'c', NUPHOS_SESSION_ACTOR: 'h' }, host)
   put(owner.KUBECONFIG, 'owner')
   assert.notEqual(owner.HOME, guest.HOME)
+  // Named under the conversation, so reclaiming it finds every teammate's home.
+  assert.match(guest.HOME, new RegExp(`^${owner.HOME}\\.[0-9a-f]{64}$`))
   assert.notEqual(guest.HOME, other.HOME)
   assert.throws(() => readFileSync(guest.KUBECONFIG), { code: 'ENOENT' })
   assert.deepEqual(

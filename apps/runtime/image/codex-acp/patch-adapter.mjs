@@ -1,5 +1,6 @@
 // codex-acp 1.1.4 has no session-scoped instructions/environment extension.
-// Patch only the three config handoffs in the locked upstream bundle. Fail
+// Patch the three config handoffs, and release the thread before a load or
+// resume so its config applies, in the locked upstream bundle. Fail
 // the build if its bytes change, so adapter upgrades require a reviewed port.
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -48,10 +49,23 @@ export function patchAdapter(source, helper) {
       '      _meta: { steering: { supported: true } },\n' + initializeAnchor,
     )
 
+  // thread/resume ignores a new config while a subscription holds the loaded
+  // thread, which kept the previous actor's environment after a teammate's
+  // load. Release this connection's subscription first: the app-server then
+  // rebuilds an idle thread with the config this load carries.
+  const resumeCall = '    const response = await this.codexClient.threadResume({'
+  if (withSteering.split(resumeCall).length !== 3)
+    throw new Error('Expected Codex load and resume thread handoffs')
+  const resubscribing = withSteering.replaceAll(
+    resumeCall,
+    '    await this.codexClient.threadUnsubscribe({ threadId: request.sessionId }).catch(() => {});\n' +
+      resumeCall,
+  )
+
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.
   return patchRuntimeDefaults(
-    withSteering
+    resubscribing
       .replace(
         'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
         'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',

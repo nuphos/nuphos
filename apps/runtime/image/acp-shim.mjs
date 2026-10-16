@@ -181,7 +181,8 @@ export function runShim({
   const transforms = new Map()
   let initialize
   let agent
-  let bound = false
+  // The session home the agent was last started in; null until a session binds it.
+  let boundHome = null
   let nextId = 0
 
   const start = (env) => {
@@ -308,11 +309,13 @@ export function runShim({
 
   const openSession = async (message) => {
     const context = sessionContext(message.params)
-    if (!bound && context?.env) {
-      // The agent answered initialize under the runtime's own env; give it this
-      // session's before it opens one. The client already holds that answer.
-      bound = true
-      start(agentEnv(provider, context, runtimeEnv))
+    const env = context?.env ? agentEnv(provider, context, runtimeEnv) : undefined
+    if (env && (env.NUPHOS_SESSION_HOME ?? '') !== boundHome) {
+      // The agent runs under the runtime's own env, or the previous actor's when
+      // a teammate now acts in the conversation; restart it under this one's
+      // before it opens the session. The client already holds the initialize answer.
+      boundHome = env.NUPHOS_SESSION_HOME ?? ''
+      start(env)
       if (initialize) await request('initialize', initialize.params)
     }
     await nuphosSyncRuntimeSkills(message.params)
