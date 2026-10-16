@@ -57,7 +57,17 @@ fun CredentialPickerSheet(
                 catalog.sections.forEach { section ->
                     val rows = section.items.filter { !it.unavailable || selection.contains(it) }
                     if (rows.isEmpty()) return@forEach
-                    item { Text(section.provider.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.primary) }
+                    item {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text(section.provider.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 8.dp))
+                            if (section.provider.optionsKey == "devices") {
+                                val allSelected = selection.containsAllComputers(catalog)
+                                TextButton(onClick = {
+                                    onSelectionChange(if (allSelected) selection.clearComputers() else selection.selectAllComputers(catalog))
+                                }) { Text(if (allSelected) "Clear all" else "Select all") }
+                            }
+                        }
+                    }
                     if (section.provider.optionsKey == "devices") {
                         item { Text("Allow this conversation to operate the computers you select.", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
                     }

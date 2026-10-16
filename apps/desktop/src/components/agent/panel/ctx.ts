@@ -239,7 +239,10 @@ export type PanelCtx = {
     opts?: { forceReadOnly?: boolean },
   ) => Promise<void>
   loadEarlierMessages: (tabId: string) => Promise<void>
-  forkConversation: (sourceSessionId: string) => Promise<void>
+  forkConversation: (
+    sourceSessionId: string,
+    edit?: { messageId: string; text: string },
+  ) => Promise<void>
 }
 
 export type PanelRenderState = {

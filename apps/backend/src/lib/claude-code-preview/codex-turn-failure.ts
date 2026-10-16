@@ -1,3 +1,5 @@
+import { claudeUsageLimitNotice } from './openab-acp-errors'
+
 import type { UIMessage } from 'ai'
 
 const GENERIC_FAILURE = 'The model provider ended this turn with an error.'
@@ -22,9 +24,14 @@ export class CodexTurnFailedError extends Error {
 
 /** Removes the adapter's failure notice from the answer text it was streamed into. */
 export function withoutFailureNotice(text: string, error: unknown): string {
-  return error instanceof CodexTurnFailedError && error.notice && text.endsWith(error.notice)
-    ? text.slice(0, -error.notice.length)
-    : text
+  // Claude Code streams its usage-limit notice too; the interruption line repeats it.
+  const notice =
+    error instanceof CodexTurnFailedError ? error.notice : claudeUsageLimitNotice(error)
+
+  if (!notice) return text
+  const trimmed = text.trimEnd()
+
+  return trimmed.endsWith(notice.trimEnd()) ? trimmed.slice(0, -notice.trimEnd().length) : text
 }
 
 export function partsWithoutFailureNotice(

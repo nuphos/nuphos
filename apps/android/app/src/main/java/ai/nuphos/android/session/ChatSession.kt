@@ -49,6 +49,8 @@ class ChatSession(
 ) {
     var runtimeDeviceLabel by mutableStateOf(creationRuntimeBinding?.displayLabel?.takeIf { it.isNotBlank() })
         private set
+    var runtimeId by mutableStateOf(creationRuntimeBinding?.runtimeId)
+        private set
     private var serverMetadataObserved = false
     val outgoingCreationBinding get() = creationRuntimeBinding.takeUnless { serverMetadataObserved }
     var title by mutableStateOf(title)
@@ -638,6 +640,7 @@ class ChatSession(
         canCancelRun = detail.canCancelRun ?: false
         canRespondToRun = detail.canRespondToRun ?: false
         serverMetadataObserved = true
+        runtimeId = detail.runtimeId
         agentRuntime = detail.agentRuntime
         runtimeDeviceLabel = detail.runtimeLabel?.takeIf { it.isNotBlank() }
         detail.runtimeState?.let { receiveRuntime(it, observedAt) }

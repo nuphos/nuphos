@@ -43,7 +43,11 @@ fun NuphosRoot(auth: AuthSession) {
                 targetState = when (auth.state) {
                     AuthSession.State.Restoring -> "restoring"
                     is AuthSession.State.SignedOut, AuthSession.State.SigningIn -> "login"
-                    is AuthSession.State.SignedIn -> if (auth.aiAllowed) "home" else "consent"
+                    is AuthSession.State.SignedIn -> when {
+                        auth.aiAllowed -> "home"
+                        auth.consentBusy && auth.consentVersion == null -> "restoring"
+                        else -> "consent"
+                    }
                 },
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
                 label = "auth",

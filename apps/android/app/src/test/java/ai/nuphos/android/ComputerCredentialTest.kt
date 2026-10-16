@@ -51,4 +51,29 @@ class ComputerCredentialTest {
         assertEquals(listOf("macOS", "macOS · Unavailable"), computers.map { it.detail })
         assertEquals(listOf(false, true), computers.map { it.unavailable })
     }
+    @Test fun selectAllAddsOnlyUsableComputersAndPreservesExistingAccess() {
+        val mixed = CredentialCatalog(JsonValue.parse("""{
+            "devices":[{"deviceId":"online","available":true},{"deviceId":"legacy"},
+                       {"deviceId":"selected-offline","available":false},{"deviceId":"hidden-offline","available":false}],
+            "awsRoles":[{"roleId":"new-cloud"}]
+        }""")!!)
+        val saved = CredentialSelection(JsonValue.parse("""{"deviceIds":["selected-offline"],"awsRoleIds":["existing-cloud"]}""")!!)
+        val all = saved.selectAllComputers(mixed)
+        assertEquals(setOf("online", "legacy", "selected-offline"), all.ids["deviceIds"])
+        assertEquals(setOf("existing-cloud"), all.ids["awsRoleIds"])
+        assertTrue(all.containsAllComputers(mixed))
+        assertEquals(all, all.selectAllComputers(mixed))
+        val cleared = all.clearComputers()
+        assertTrue(cleared.ids["deviceIds"]!!.isEmpty())
+        assertEquals(setOf("existing-cloud"), cleared.ids["awsRoleIds"])
+        assertFalse(cleared.containsAllComputers(mixed))
+        assertEquals(setOf("online", "legacy"), cleared.selectAllComputers(mixed).ids["deviceIds"])
+    }
+
+    @Test fun emptyAndUnavailableOnlyCatalogsAreNeverAllSelected() {
+        assertFalse(CredentialSelection().containsAllComputers(CredentialCatalog(emptyList())))
+        val offline = CredentialCatalog(JsonValue.parse("""{"devices":[{"deviceId":"offline","available":false}]}""")!!)
+        assertFalse(CredentialSelection().containsAllComputers(offline))
+        assertTrue(CredentialSelection().selectAllComputers(offline).isEmpty)
+    }
 }
