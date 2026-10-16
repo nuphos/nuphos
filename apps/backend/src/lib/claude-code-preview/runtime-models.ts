@@ -9,6 +9,7 @@ import { controlRegistry } from './agent-chat-registry'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
+import { resolveDefaultModel } from './runtime-default-model'
 import { execRuntimeCommand } from './runtime-login-exec'
 import { localRuntimeModels } from './local-runtime-catalog'
 import { createRuntimeModelCatalog } from './runtime-model-cache'
@@ -247,5 +248,6 @@ async function discoverModels(
 
 export const runtimeModelCatalog = createRuntimeModelCatalog({
   requireInstance: requireRuntimeInstance,
-  discover: discoverModels,
+  discover: async (teamId, instance, model) =>
+    resolveDefaultModel(await discoverModels(teamId, instance, model)),
 })
