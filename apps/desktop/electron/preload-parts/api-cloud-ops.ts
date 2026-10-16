@@ -285,6 +285,8 @@ export const cloudOpsApi = {
     ipcRenderer.invoke('agent:markConversationRead', sessionId, seq, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:cancelRuntime', sessionId, teamId),
+  agentRetractMessage: (sessionId: string, messageId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:retractMessage', sessionId, messageId, teamId),
   agentSteerConversation: (sessionId: string, text: string, teamId?: string, groupId?: string) =>
     ipcRenderer.invoke('agent:steerConversation', sessionId, text, teamId, groupId),
   agentSlackPickup: (sessionId: string, teamId?: string) =>

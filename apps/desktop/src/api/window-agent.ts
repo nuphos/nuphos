@@ -139,6 +139,11 @@ export type WindowAgentApi = {
     teamId?: string,
   ): Promise<{ activitySeq: number; readSeq: number; unread: boolean }>
   agentCancelRuntime(sessionId: string, teamId?: string): Promise<{ ok: boolean; status: string }>
+  agentRetractMessage(
+    sessionId: string,
+    messageId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean }>
   agentSteerConversation(
     sessionId: string,
     text: string,
