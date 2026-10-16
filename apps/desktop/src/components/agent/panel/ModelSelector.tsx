@@ -209,7 +209,6 @@ export function ModelSelector({
                 ) : (
                   <ModelListPanel
                     model={model}
-                    offerDefault={status === 'dormant'}
                     blocked={blocked}
                     onSelect={pickModel}
                     onBack={effort ? () => setView('effort') : undefined}
