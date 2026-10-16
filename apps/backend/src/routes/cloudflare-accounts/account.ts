@@ -91,6 +91,7 @@ export function registerCloudflareAccountRoutes(
     return c.body(null, 204)
   })
 
+  accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   accountScoped.get('/credentials', (c) => {
     // OAuth access tokens stay server-side — they are broader than a scoped API
     // token and the backend already proxies every Cloudflare call. Only legacy

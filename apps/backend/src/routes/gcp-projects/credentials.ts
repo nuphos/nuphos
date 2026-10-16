@@ -33,6 +33,7 @@ export function registerGcpCredentialRoutes(
     },
   )
 
+  projectScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   projectScoped.get('/credentials', async (c) => {
     // Permission-admin SAs hold project IAM-write (escalation) power, so their
     // token must NEVER be exported here — not even to administrators. Admins edit
@@ -82,6 +83,7 @@ export function registerGcpCredentialRoutes(
 export function registerGkeKubeconfigRoute(
   projectScoped: Hono<{ Variables: GcpProjectVariables }>,
 ): void {
+  projectScoped.use('/clusters/:name/kubeconfig', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   projectScoped.get('/clusters/:name/kubeconfig', async (c) => {
     const name = c.req.param('name')
     const handle = handleFor(c)

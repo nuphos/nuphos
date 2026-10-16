@@ -88,3 +88,22 @@ export function requireTeamRole(
     await next()
   }
 }
+
+/** Reads, plus the datasource query endpoint, which is a POST but changes nothing. */
+export function isGrafanaRead(method: string, upstreamPath: string): boolean {
+  return (
+    method === 'GET' || method === 'HEAD' || (method === 'POST' && upstreamPath === 'api/ds/query')
+  )
+}
+
+/** The Grafana proxy runs as the admin-bound service account, so viewers may only read. */
+export function requireGrafanaWriteRole(): MiddlewareHandler<{ Variables: TeamAuthVariables }> {
+  return async (c, next) => {
+    const upstreamPath = c.req.path.slice(c.req.path.indexOf('/proxy/') + '/proxy/'.length)
+
+    if (!isGrafanaRead(c.req.method, upstreamPath) && c.get('teamRole') === 'VIEWER') {
+      throw new AppError(403, 'forbidden', 'Requires one of: ADMINISTRATOR, EDITOR')
+    }
+    await next()
+  }
+}

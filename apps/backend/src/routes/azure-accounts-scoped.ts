@@ -117,6 +117,7 @@ azureAccountScoped.get('/', (c) => {
 
 // The team's own short-lived ARM access token for the sandbox/agent (az / ARM
 // REST) — gated by the binding's member allow-list above. Minted fresh.
+azureAccountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 azureAccountScoped.get('/credentials', async (c) => {
   // Permission-admin bindings hold RBAC-write (escalation) power, so their token
   // must NEVER be exported — not even to administrators. Admins widen RBAC only
@@ -161,6 +162,10 @@ azureAccountScoped.get('/role-assignments', async (c) => {
 
 // `:clusterName` is the AKS managed cluster name; `resourceGroup` disambiguates
 // same-named clusters across resource groups (falls back to a lookup by name).
+azureAccountScoped.use(
+  '/clusters/:clusterName/kubeconfig',
+  requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+)
 azureAccountScoped.get('/clusters/:clusterName/kubeconfig', async (c) => {
   const clusterName = c.req.param('clusterName')
   const handle = await azureHandleFor(c.get('azureBinding'), c.get('teamId'))

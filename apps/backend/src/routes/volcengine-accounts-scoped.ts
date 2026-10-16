@@ -122,6 +122,7 @@ volcengineAccountScoped.get('/', (c) => {
 // gated by the binding's member allow-list above. Assumes the role fresh; the
 // SessionToken accompanies the temporary AK/SK. `defaultRegion` lets the CLI
 // setup pick a region the credentials can authenticate against.
+volcengineAccountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 volcengineAccountScoped.get('/credentials', async (c) => {
   const handle = await volcengineHandleFor(c.get('volcengineBinding'), c.get('teamId'))
 
@@ -155,6 +156,10 @@ volcengineAccountScoped.get('/ecs-instances', async (c) => {
 })
 
 // `:clusterId` is the VKE cluster id.
+volcengineAccountScoped.use(
+  '/clusters/:clusterId/kubeconfig',
+  requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+)
 volcengineAccountScoped.get('/clusters/:clusterId/kubeconfig', async (c) => {
   const clusterId = c.req.param('clusterId')
   const handle = await volcengineHandleFor(c.get('volcengineBinding'), c.get('teamId'))

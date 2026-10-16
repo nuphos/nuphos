@@ -1,6 +1,6 @@
 import { agentConversations } from '@/lib/agent/db'
+import { canMintCredentials } from '@/lib/byos/credential-role'
 import { relayConfigured, relayProxyUrl } from '@/lib/byos/relay-token'
-import { getTeamMembership } from '@/lib/identity'
 import { parseObjectId } from '@/lib/objectid'
 import { teamByosBindings } from '@/models'
 
@@ -56,9 +56,9 @@ export async function agentSessionClusterContexts(
 
   if (!conversation?.teamId) return null
 
-  const membership = await getTeamMembership(userId, conversation.teamId)
-
-  if (!membership) return null
+  if (!(await canMintCredentials(conversation.teamId, [userId, conversationOwnerUserId]))) {
+    return null
+  }
 
   const bindingsDoc = await teamByosBindings().findOne(
     { _id: parseObjectId(conversation.teamId, 'teamId') },

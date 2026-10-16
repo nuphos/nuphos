@@ -6,7 +6,8 @@
 // holds no Nuphos credential.
 import { agentSessionClusterContexts } from '@/lib/byos/agent-kubeconfig'
 import { renderAgentKubeconfig } from '@/lib/byos/agent-kubeconfig'
-import { toolResult } from '@/lib/mcp/protocol'
+import { canMintCredentials } from '@/lib/byos/credential-role'
+import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
@@ -112,6 +113,15 @@ export function kubeconfigToolModule(
         })
 
         if (!resolved || resolved.contexts.length === 0) {
+          const principals = [ctx.userId, ctx.conversationOwnerUserId ?? ctx.userId]
+
+          if (!(await canMintCredentials(ctx.teamId, principals))) {
+            return toolError(
+              'Kubernetes access needs the Editor or Administrator team role for both the ' +
+                'sender and the conversation owner.',
+            )
+          }
+
           return toolResult({
             contexts: [],
             message:

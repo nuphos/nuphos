@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { useAgentKubeconfig } from '@/lib/test/doubles/agent-kubeconfig'
+import { useCredentialRole } from '@/lib/test/doubles/byos-credential-role'
 
 import type { AgentClusterContext } from '@/lib/byos/agent-kubeconfig'
 
@@ -19,6 +20,10 @@ useAgentKubeconfig({
   },
 })
 
+let canMint = true
+
+useCredentialRole({ canMintCredentials: () => Promise.resolve(canMint) })
+
 const { kubeconfigToolModule } = await import('./kubeconfig')
 
 const ctx = { userId: 'user-1', teamId: 'team-1', sessionId: 'conv-1', locale: 'en' }
@@ -34,6 +39,16 @@ function getKubeconfig(args: Record<string, unknown> = {}) {
 }
 
 describe('get_kubeconfig', () => {
+  test('tells a viewer that cluster access needs the Editor role', async () => {
+    contexts = []
+    canMint = false
+    const result = await getKubeconfig()
+
+    canMint = true
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('Editor or Administrator')
+  })
+
   test('reports when the selection reaches no clusters', async () => {
     contexts = []
     const result = await getKubeconfig()

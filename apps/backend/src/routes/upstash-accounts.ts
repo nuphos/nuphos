@@ -209,6 +209,7 @@ accountScoped.get('/databases', requireUpstashMemberAccess(), async (c) => {
 // sandbox exchanges its NUPHOS_TOKEN for the binding's Upstash key and talks to
 // api.upstash.com directly. Gated by the per-binding member allow-list. Upstash
 // is a full read/write surface the agent drives itself, so it needs the raw key.
+accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 accountScoped.get('/credentials', requireUpstashMemberAccess(), (c) => {
   const binding = c.get('upstashBinding')
   const creds = credentialsFromBinding(binding)
