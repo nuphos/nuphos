@@ -2,15 +2,18 @@ const EFFORT_LABELS: Record<string, string> = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
-  xhigh: 'Extra high',
+  xhigh: 'Extra High',
   max: 'Max',
 }
 
 /** Some runtimes name a model by family ("Opus") and put the version only in
- *  its description ("Opus 5.5 · …"); show the versioned name when present. */
+ *  its description ("Opus 5.5 · …"); show the versioned name when present.
+ *  Codex names models "GPT-6.1-Sol", which Codex desktop shows as "GPT-6.1 Sol". */
 export function modelChoiceLabel(choice: { name: string; description?: string }): string {
   const name = choice.name.trim()
+  const gpt = /^(GPT-\d[\d.]*)-([a-z]+)$/i.exec(name)
 
+  if (gpt) return `${gpt[1]} ${gpt[2]}`
   if (!/^[A-Za-z]+$/.test(name)) return choice.name
   const versioned = choice.description?.match(new RegExp(`^${name}\\s+\\d[\\w.]*`, 'i'))
 
