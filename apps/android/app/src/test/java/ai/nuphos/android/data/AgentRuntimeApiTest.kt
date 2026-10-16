@@ -20,6 +20,17 @@ class AgentRuntimeApiTest {
     }.build())
     private fun payload() = Buffer().also { requests.last().body!!.writeTo(it) }.readUtf8()
     private fun login(state: String = "awaiting_authorization") = """{"attemptId":"$attemptId","state":"$state","expiresAt":"2030-01-01T00:00:00Z","verificationUri":"https://example.test/device","userCode":"SYNTHETIC","authorizationUrl":"https://example.test/claude","codeSubmitted":true}"""
+    @Test fun quotaSnapshotKeepsWindowsAndSkipsMalformedEntries() = runTest {
+        response = """{"quotas":[{"runtimeId":"saved-id","available":true,"windows":[{"label":"5h","usedPercent":12.5,"resetsAt":"2030-01-01T00:00:00Z"},{"label":"7d","usedPercent":80}]},{"runtimeId":"offline","available":false,"reason":"Offline","windows":[]},{"runtimeId":"bad","available":true,"windows":[{"label":"bad","usedPercent":-1}]}]}"""
+        val quotas = api.quotas()
+        assertEquals(setOf("saved-id", "offline"), quotas.keys)
+        assertEquals(12.5, quotas.getValue("saved-id").windows.first().usedPercent, 0.0)
+        assertEquals("2030-01-01T00:00:00Z", quotas.getValue("saved-id").windows.first().resetsAt)
+        assertFalse(quotas.getValue("offline").available)
+        assertEquals("/teams/507f1f77bcf86cd799439011/agent-runtimes/quota", requests.last().url.encodedPath)
+        response = "{}"
+        try { api.quotas(); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
+    }
     @Test fun catalogAndRawCreateUseExactPayloadAndIgnoreDefaults() = runTest {
         assertTrue(api.catalog().single().selectable)
         status = 201; response = runtime

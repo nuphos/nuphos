@@ -8,7 +8,8 @@ import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeMayAcceptLater } from './queuedAutoSend'
-import { ReadOnlyConversationNotice } from './ReadOnlyNotice'
+import { ReadOnlyConversationNotice, SignedOutAgentNotice } from './ReadOnlyNotice'
+import { runtimeControlBlocksSend } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
@@ -110,12 +111,7 @@ export function Composer({
   )
   const hero = variant === 'hero'
   const sendBlocked =
-    runtimeSendBlocked ||
-    modelControl.saving ||
-    Boolean(
-      runtimeControl?.onSelect &&
-      (!runtimeControl.value || runtimeControl.value.status === 'disabled'),
-    )
+    runtimeSendBlocked || modelControl.saving || runtimeControlBlocksSend(runtimeControl)
   const state = useComposerState({
     hero,
     firstRun,
@@ -217,6 +213,7 @@ export function Composer({
           )}
         >
           {mentions.ui}
+          {!readOnly && runtimeControl && <SignedOutAgentNotice control={runtimeControl} />}
           {filePaths.length > 0 && (
             <AttachmentChips
               filePaths={filePaths}

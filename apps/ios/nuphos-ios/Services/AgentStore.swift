@@ -533,6 +533,7 @@ final class AgentStore {
     /// Search is server-backed; debounce like the desktop (250 ms).
     private func scheduleSearch() {
         searchTask?.cancel()
+        loadGeneration += 1 // Results for the old query are stale, including the load just cancelled.
         searchTask = Task {
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }

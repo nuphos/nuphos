@@ -1,4 +1,4 @@
-import type { RuntimeQuota, RuntimeQuotaWindow } from '../types/runtime'
+import type { RuntimeInstance, RuntimeQuota, RuntimeQuotaWindow } from '../types/runtime'
 
 export type QuotaTone = 'ok' | 'warning' | 'exhausted'
 
@@ -29,6 +29,27 @@ export function quotaNote(quota: RuntimeQuota | undefined): string | null {
   if (!quota || quota.available) return null
 
   return quota.reason ?? null
+}
+
+/** The usage probe found no sign-in on the agent (the Agents page shows it as the
+ *  Usage stat). Turns there fail until it is signed in again. A self-hosted agent
+ *  signed in through `CLAUDE_CODE_OAUTH_TOKEN` reads the same, so this warns and
+ *  never blocks. The reason is produced by the backend's runtime-quota-probe.ts. */
+export function quotaSignedOut(quota: RuntimeQuota | undefined): boolean {
+  return quota?.available === false && quota.reason === 'Sign in required'
+}
+
+/** What a signed-out reading means for sending. Nuphos provisions a managed agent
+ *  without `CLAUDE_CODE_OAUTH_TOKEN`, so its reading is certain and every message
+ *  would fail: `blocked`. Any other agent may carry a token the probe cannot see:
+ *  `likely`, which only warns. */
+export function agentSignOut(
+  instance: Pick<RuntimeInstance, 'kind'> | undefined,
+  quota: RuntimeQuota | undefined,
+): 'blocked' | 'likely' | null {
+  if (!quotaSignedOut(quota)) return null
+
+  return instance?.kind === 'managed' ? 'blocked' : 'likely'
 }
 
 /** What is still unspent, floored so a nearly empty window never reads as more than it has. */

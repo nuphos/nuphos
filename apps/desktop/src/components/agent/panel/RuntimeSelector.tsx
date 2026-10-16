@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react'
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, groupAgentsByTier, listedAgents } from '../../../lib/agentName'
-import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
+import {
+  quotaDetailLines,
+  quotaSignedOut,
+  quotaSummary,
+  quotaTone,
+} from '../../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import {
@@ -91,9 +96,10 @@ export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefi
   )
 }
 
-function runtimeOptionNote(instance: RuntimeInstance): string {
+function runtimeOptionNote(instance: RuntimeInstance, quota?: RuntimeQuota): string {
   if (instance.deletion) return ' · Being removed'
   if (instance.starting) return ' · Starting…'
+  if (quotaSignedOut(quota)) return ' · Sign in required'
 
   return ''
 }
@@ -154,7 +160,9 @@ export function RuntimeSelector({
       )}
       {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
-      {usageLoading ? (
+      {!unavailable && quotaSignedOut(selectedQuota) ? (
+        <span className="shrink-0 text-amber-400">· Sign in required</span>
+      ) : usageLoading ? (
         <span
           aria-label="Loading usage"
           role="status"
@@ -227,7 +235,7 @@ export function RuntimeSelector({
                         </span>
                         <span className="text-[11px] text-tertiary">
                           {AGENT_PROVIDER[instance.provider].label}
-                          {runtimeOptionNote(instance)}
+                          {runtimeOptionNote(instance, quotas?.get(instance.id))}
                           <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
                         </span>
                       </span>
