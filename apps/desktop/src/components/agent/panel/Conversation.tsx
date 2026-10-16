@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { ArrowDownToLine, PanelRightOpen } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { msUntilRuntimeStale } from '../../../lib/runtimeExecution'
+
 import { FeedbackCommentDialog } from './conversationBanners'
 import { ConversationMessageList } from './conversationMessageList'
 import {
@@ -127,6 +129,16 @@ export function Conversation({
       window.clearInterval(interval)
     }
   }, [hasRunningTool, statusLabel])
+
+  // A reading that is never replaced must still render as stale when it expires.
+  useEffect(() => {
+    const ms = msUntilRuntimeStale(tab.runtimeState)
+
+    if (ms === null) return
+    const timer = window.setTimeout(() => setNow(Date.now()), ms)
+
+    return () => window.clearTimeout(timer)
+  }, [tab.runtimeState])
 
   // Reserve space above the messages for the floating page-mode controls.
   const hasHeaderOverlay = Boolean(onDockToSidebar)

@@ -127,11 +127,15 @@ export function newestRuntimeSnapshot(
 
 /** Observation freshness is a connection property, never a fabricated runtime transition. */
 export function runtimeSnapshotFresh(snapshot: RuntimeExecution | undefined): boolean {
-  return (
-    typeof snapshot?.observedAt === 'number' &&
-    performance.now() - snapshot.observedAt >= 0 &&
-    performance.now() - snapshot.observedAt < 12_000
-  )
+  return msUntilRuntimeStale(snapshot) !== null
+}
+
+/** How long a fresh snapshot stays fresh; null once it is stale or was never observed. */
+export function msUntilRuntimeStale(snapshot: RuntimeExecution | undefined): number | null {
+  if (typeof snapshot?.observedAt !== 'number') return null
+  const age = performance.now() - snapshot.observedAt
+
+  return age >= 0 && age < 12_000 ? 12_000 - age : null
 }
 
 export function runtimeAllows(

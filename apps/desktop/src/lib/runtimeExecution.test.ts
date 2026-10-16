@@ -11,6 +11,7 @@ import {
   runtimeStateLabel,
   runtimeStatusLabel,
   chatRowIndicator,
+  msUntilRuntimeStale,
 } from './runtimeExecution.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
@@ -176,4 +177,18 @@ test('a paused automatic continuation is neither a running turn nor background w
   assert.equal(runtimeTurnActive(paused), false)
   assert.equal(runtimeBackgroundRunning(paused), false)
   assert.equal(chatRowIndicator(paused, false), 'error')
+})
+
+test('a reading nobody replaces expires on its own deadline, then reads as Connection lost', () => {
+  const idle = { state: 'idle' as const, schemaVersion: 2, observedAt: performance.now() - 4_000 }
+  const ms = msUntilRuntimeStale(idle)
+
+  assert.ok(ms !== null && ms > 7_900 && ms <= 8_000)
+  assert.notEqual(runtimeStatusLabel(idle), 'Connection lost — agent status unavailable')
+
+  const expired = { ...idle, observedAt: performance.now() - 12_000 }
+
+  assert.equal(msUntilRuntimeStale(expired), null)
+  assert.equal(runtimeStatusLabel(expired), 'Connection lost — agent status unavailable')
+  assert.equal(msUntilRuntimeStale({ state: 'idle' }), null)
 })
