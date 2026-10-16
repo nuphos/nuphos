@@ -7,21 +7,10 @@ import { withRuntimeReadiness } from './runtime-catalog'
 import type { RuntimeInstance } from './runtime-instances'
 
 useRuntimeRegistry({
-  resolveTeamRuntimeEndpoints: async (
-    _teamId: string,
-    _kube: unknown,
-    provider = 'claude-code',
-    purpose = 'transport',
-  ) =>
+  resolveTeamRuntimeEndpoints: async (_teamId: string, _kube: unknown, provider = 'claude-code') =>
     provider === 'codex'
       ? []
-      : [
-          { runtimeId: `ready-${provider}`, url: 'wss://ready/acp', authKey: 'k' },
-          // Holds a chat key but no control key: its Usage reads "Agent is offline".
-          ...(purpose === 'transport'
-            ? [{ runtimeId: 'transport-only', url: 'wss://ready/acp', authKey: 'k' }]
-            : []),
-        ],
+      : [{ runtimeId: `ready-${provider}`, url: 'wss://ready/acp', authKey: 'k' }],
 })
 
 const agent = (
@@ -39,7 +28,6 @@ test('only an enabled registered agent without a reachable endpoint is flagged',
     agent('ready-antigravity', 'external', 'active', 'antigravity'),
     agent('starting', 'managed'),
     agent('elsewhere', 'external'),
-    agent('transport-only', 'external'),
     agent('off', 'managed', 'disabled'),
     agent('local:me', 'local'),
   ])
@@ -47,6 +35,5 @@ test('only an enabled registered agent without a reachable endpoint is flagged',
   expect(flagged.filter((instance) => instance.notReady).map((instance) => instance.id)).toEqual([
     'starting',
     'elsewhere',
-    'transport-only',
   ])
 })

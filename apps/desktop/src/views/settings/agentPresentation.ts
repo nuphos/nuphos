@@ -1,6 +1,6 @@
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
-import type { RuntimeInstance } from '../../types/runtime'
+import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /** The overview shows local providers only after sign-in; team runtimes remain visible. */
 export function visibleAgent(instance: RuntimeInstance): boolean {
@@ -21,12 +21,19 @@ export function agentName(instance: RuntimeInstance): string {
     : instance.label
 }
 
-/** A computer's agent whose computer is away: still listed, shown offline. */
-export function agentOffline(instance: RuntimeInstance): boolean {
-  return instance.notReady === true || instance.local?.online === false
+/**
+ * Shown offline: a computer's agent whose computer is away, or any agent its Usage reading
+ * could not reach. Whether it can be picked for a conversation is the catalog's `notReady`.
+ */
+export function agentOffline(instance: RuntimeInstance, quota?: RuntimeQuota): boolean {
+  return instance.local?.online === false || quota?.offline === true
 }
 
-export function agentRunsOn(instance: RuntimeInstance, currentDeviceId?: string): string {
+export function agentRunsOn(
+  instance: RuntimeInstance,
+  currentDeviceId?: string,
+  quota?: RuntimeQuota,
+): string {
   const local = instance.local
   let where = RUNS_ON[instance.kind]
 
@@ -37,5 +44,5 @@ export function agentRunsOn(instance: RuntimeInstance, currentDeviceId?: string)
 
   if (instance.status !== 'active') return `${where} · Disabled`
 
-  return agentOffline(instance) ? `${where} · Offline` : where
+  return agentOffline(instance, quota) ? `${where} · Offline` : where
 }

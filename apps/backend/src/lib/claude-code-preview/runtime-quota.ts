@@ -200,10 +200,14 @@ async function fetchUncached(
 
     return retry('Usage lookup failed')
   }
-  if ('error' in reading)
-    return reading.asked === true
-      ? { quota: unavailable(instance, fetchedAt, reading.error), holdMs: PROVIDER_HOLD_MS }
-      : retry(reading.error)
+  if ('error' in reading) {
+    const held =
+      reading.asked === true
+        ? { quota: unavailable(instance, fetchedAt, reading.error), holdMs: PROVIDER_HOLD_MS }
+        : retry(reading.error)
+
+    return reading.offline ? { ...held, quota: { ...held.quota, offline: true } } : held
+  }
   const quota = NORMALIZE[instance.provider as keyof typeof NORMALIZE](
     instance,
     reading.usage,

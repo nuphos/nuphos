@@ -312,6 +312,17 @@ test('what the provider answered is held for ten minutes', async () => {
   expect(limited.calls()).toBe(2)
 })
 
+test('an agent the probe could not reach is marked offline; another failure is not', async () => {
+  const unreachable = probing({ error: 'Agent is offline', offline: true })
+  const failed = probing({ error: 'The agent reported no usage' })
+
+  const away = { ...claude, id: 'claude-away' }
+  const silent = { ...claude, id: 'claude-silent' }
+
+  expect((await fetchRuntimeQuota('t', away, () => 0, unreachable.deps)).offline).toBe(true)
+  expect((await fetchRuntimeQuota('t', silent, () => 0, failed.deps)).offline).toBeUndefined()
+})
+
 test('a failure the provider never saw is retried in seconds', async () => {
   let clock = 1_000
   const now = () => clock
