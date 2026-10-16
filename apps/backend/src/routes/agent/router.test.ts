@@ -12,7 +12,7 @@ import type { AuthVariables } from '@/middleware/auth'
 const CREDENTIAL = 'nbx_secret'
 const USER = { id: 'owner', email: 'o@example.com', name: 'Owner' } as NuphosUser
 
-function app(user: NuphosUser | null = USER) {
+function app(user: NuphosUser | null = USER, box = false) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.use(
@@ -24,6 +24,7 @@ function app(user: NuphosUser | null = USER) {
               userId: 'owner',
               deviceId: 'd1',
               credentialIssuedAt: new Date('2026-10-14T00:00:00Z'),
+              ...(box ? { box: { provider: 'instabox', teamId: 't1' } } : {}),
             } as AgentDevice)
           : null,
       getUser: async (id, issuedAt) =>
@@ -78,5 +79,24 @@ describe('device credentials on the agent routes', () => {
       (await app().request('/agent/devices/d1/runtime-tunnel', bearer(CREDENTIAL))).status,
     ).toBe(401)
     signedOutEverywhereAt = new Date(0)
+  })
+
+  test('a Box credential outlives its creator signing out everywhere or leaving', async () => {
+    signedOutEverywhereAt = new Date('2026-10-15T00:00:00Z')
+    for (const res of [
+      await app(USER, true).request('/agent/devices/d1/runtime-tunnel', bearer(CREDENTIAL)),
+      await app(null, true).request('/agent/devices/d1/runtime-tunnel', bearer(CREDENTIAL)),
+    ]) {
+      expect(res.status).toBe(200)
+      expect(await res.text()).toBe('owner')
+    }
+    signedOutEverywhereAt = new Date(0)
+    // Still only its own tunnel, and nothing once revoked.
+    expect(
+      (await app(USER, true).request('/agent/devices/d1/audit', bearer(CREDENTIAL))).status,
+    ).toBe(401)
+    expect(
+      (await app(USER, true).request('/agent/devices/d1/runtime-tunnel', bearer('nbx_old'))).status,
+    ).toBe(401)
   })
 })

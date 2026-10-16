@@ -273,3 +273,11 @@ export async function removeDeviceAgent(
 ): Promise<void> {
   await agentDevices().updateOne({ userId, deviceId }, { $pull: { agents: { instanceId } } })
 }
+
+/** Someone who left the team leaves every one of its Box access lists. */
+export async function dropFromTeamBoxAccess(teamId: string, userId: string): Promise<void> {
+  await agentDevices().updateMany(
+    { 'box.teamId': teamId, 'box.access.userIds': userId },
+    { $pull: { 'box.access.userIds': userId } },
+  )
+}

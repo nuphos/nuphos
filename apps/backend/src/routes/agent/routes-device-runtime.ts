@@ -10,6 +10,7 @@ import {
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { getAgentDevice, isActiveTeamMember, recordDeviceAgents } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
@@ -109,8 +110,16 @@ export function createDeviceRuntimeRoutes(
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
-  async function requireOwnDevice(userId: string, deviceId: string): Promise<void> {
-    if (!(await deps.getAgentDevice(userId, deviceId)))
+  // A Box is no one's own computer: only its host, signed in with the Box's own device
+  // credential (which the router admits on this tunnel alone), reaches its row here.
+  async function requireOwnDevice(
+    authorization: string | undefined,
+    userId: string,
+    deviceId: string,
+  ): Promise<void> {
+    const device = await deps.getAgentDevice(userId, deviceId)
+
+    if (!device || (device.box && !authorization?.startsWith(`Bearer ${DEVICE_CREDENTIAL_PREFIX}`)))
       throw new AppError(404, 'device_not_found', 'Device is not registered')
   }
 
@@ -119,7 +128,7 @@ export function createDeviceRuntimeRoutes(
     const userId = c.get('userId')
     const { deviceId } = c.req.valid('param')
 
-    await requireOwnDevice(userId, deviceId)
+    await requireOwnDevice(c.req.header('Authorization'), userId, deviceId)
     if (c.req.header('upgrade')?.toLowerCase() !== 'websocket')
       throw new AppError(426, 'upgrade_required', 'Connect with a WebSocket')
 
@@ -138,7 +147,7 @@ export function createDeviceRuntimeRoutes(
       const { deviceId } = c.req.valid('param')
       const { limit, before } = c.req.valid('query')
 
-      await requireOwnDevice(userId, deviceId)
+      await requireOwnDevice(c.req.header('Authorization'), userId, deviceId)
       const page = await deps.listActivity(userId, deviceId, {
         limit,
         ...(before ? { cursor: before } : {}),
