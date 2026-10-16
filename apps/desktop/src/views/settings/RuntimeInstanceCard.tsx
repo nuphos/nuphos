@@ -205,7 +205,8 @@ export function RuntimeInstanceCard({
                 ...previous,
                 runtimeUpdate: {
                   ...previous.runtimeUpdate,
-                  state: 'waiting',
+                  // A managed agent's update waits for its conversations; a Box's starts now.
+                  state: instance.kind === 'local' ? 'updating' : 'waiting',
                   targetVersion: result.version,
                   releaseUrl:
                     previous.runtimeUpdate?.releaseUrl ??
