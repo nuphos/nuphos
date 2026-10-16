@@ -23,6 +23,7 @@ import { settingsBackTarget } from './types'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
+import { useSidebarProjects } from './use-sidebar-projects'
 import { useSidebarSharedChats } from './use-sidebar-shared-chats'
 import { sectionsFor, sidebarView } from './view'
 
@@ -74,7 +75,7 @@ export function Sidebar({
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } = useSidebarChats({
+  const { chatItems, newChatActive, archive, unlinkChat, archivingIds } = useSidebarChats({
     teamId,
     agentSessionId,
     chatShown,
@@ -124,9 +125,9 @@ export function Sidebar({
     })
 
   const [itemMenu, setItemMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
-
+  const projects = useSidebarProjects({ userId: user?.id ?? '', teamId })
   const renderSections = teamView
-    ? withChatSections(sections, pinnedChatItems, sharedChatItems, favoriteMatch)
+    ? withChatSections(sections, pinnedChatItems, sharedChatItems, favoriteMatch, projects.list)
     : [...sections]
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
@@ -137,10 +138,7 @@ export function Sidebar({
     ? renderSections
     : renderSections.filter(
         (section, index) =>
-          index === 0 ||
-          section.title === 'Pinned' ||
-          section.title === 'Shared' ||
-          section.title === 'Chats',
+          index === 0 || ['Pinned', 'Projects', 'Shared', 'Chats'].includes(section.title ?? ''),
       )
 
   const showSidebar = !collapsed || peek
@@ -242,6 +240,7 @@ export function Sidebar({
               onItemMenu={setItemMenu}
               onSelect={onSelect}
               onOpenKey={onOpenKey}
+              projects={teamView ? projects : undefined}
             />
           </SidebarNavStack>
         </nav>
@@ -274,6 +273,7 @@ export function Sidebar({
           <SidebarHelpMenu onOpenShortcutsHelp={onOpenShortcutsHelp} />
         </div>
       </aside>
+      {archive.dialog}
       {renameTarget && (
         <RenameConversationDialog
           key={renameTarget.sessionId}
@@ -289,9 +289,10 @@ export function Sidebar({
           canFavorite={canFavorite}
           favoriteMatch={favoriteMatch}
           toggleFavorite={toggleFavorite}
-          archiveChat={archiveChat}
+          archiveChat={archive.request}
           unlinkChat={unlinkChat}
           renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
+          projects={teamView ? projects : undefined}
         />
       )}
     </>

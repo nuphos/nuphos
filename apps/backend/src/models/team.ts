@@ -165,6 +165,27 @@ export type UserTeamSidebarFavorites = {
   updatedAt: Date
 }
 
+export type SidebarProject = {
+  id: string
+  name: string
+  /** Chats filed here. A chat sits in at most one project. */
+  sessionIds: string[]
+}
+
+/**
+ * One person's sidebar projects in one team. Personal like favorites: filing a
+ * shared chat never moves it for its other participants.
+ */
+export type UserTeamSidebarProjects = {
+  _id: ObjectId
+  teamId: ObjectId
+  userId: string
+  projects: SidebarProject[]
+  revision: number
+  createdAt: Date
+  updatedAt: Date
+}
+
 /**
  * Which cards a team's home page shows. A document with a `userId` is that
  * person's layout, synced across their machines; the one with `userId: null`
@@ -198,6 +219,9 @@ export const teamInvitations = (): Collection<TeamInvitation> =>
 
 export const userTeamSidebarFavorites = (): Collection<UserTeamSidebarFavorites> =>
   db().collection<UserTeamSidebarFavorites>('user_team_sidebar_favorites')
+
+export const userTeamSidebarProjects = (): Collection<UserTeamSidebarProjects> =>
+  db().collection<UserTeamSidebarProjects>('user_team_sidebar_projects')
 
 export const teamHomeLayouts = (): Collection<TeamHomeLayout> =>
   db().collection<TeamHomeLayout>('team_home_layouts')

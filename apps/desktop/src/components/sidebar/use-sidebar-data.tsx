@@ -1,4 +1,4 @@
-import { Archive, FileBox } from 'lucide-react'
+import { FileBox } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -8,9 +8,11 @@ import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
 import { customResourceNavigationKey } from '../../lib/customResourceNavigation'
+import { archiveWithThreads } from '../../lib/archiveWithThreads'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { toast } from '../ui/toast'
 
+import { ArchiveRowButton } from './archive-row-button'
 import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
 import { ARCHIVE_IN_FLIGHT, visibleSidebarChats } from './local-archive-guard'
@@ -20,6 +22,7 @@ import {
   crdCacheKey,
   resizeDurationMs,
 } from './state'
+import { archiveTitle, useArchiveOffer } from './use-archive-offer'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
 import type { Item, Section } from './types'
@@ -201,10 +204,10 @@ export function useSidebarChats({
     onArchived,
   })
   const archiveChat = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string): Promise<boolean> => {
       // Re-entrancy guard: a second click while the first archive is in
       // flight would duplicate the PATCH and the refresh.
-      if (locallyArchivedRef.current.has(sessionId)) return
+      if (locallyArchivedRef.current.has(sessionId)) return false
       // Collapse the row while the PATCH is in flight; on success remove it
       // for real, on failure flip data-open back so the row visibly expands
       // again — a clear "archive failed" instead of a silent reappear.
@@ -229,11 +232,10 @@ export function useSidebarChats({
 
         return next
       })
-      if (ok) {
-        announceChatArchived({ sessionId, teamId })
-      } else {
-        toast.error('Could not archive chat')
-      }
+      // The caller reports the outcome once for the whole action.
+      if (ok) announceChatArchived({ sessionId, teamId })
+
+      return ok
     },
     [teamId],
   )
@@ -266,6 +268,18 @@ export function useSidebarChats({
 
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
+  const archive = useArchiveOffer({
+    conversations: agentSessions,
+    runtimeStates,
+    onArchive: (sessionId, threadIds) =>
+      archiveWithThreads({
+        sessionId,
+        threadIds,
+        title: archiveTitle(agentSessions, sessionId),
+        teamId,
+        archiveOne: archiveChat,
+      }),
+  })
   const chatItems: Item[] = agentSessions.map((conversation) =>
     chatSidebarItem({
       conversation,
@@ -273,23 +287,14 @@ export function useSidebarChats({
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),
       unread: unreadSessions.has(conversation.sessionId),
-      actions: (
-        <span
-          role="button"
-          aria-label="Archive chat"
-          title="Archive chat"
-          onClick={(e) => {
-            e.stopPropagation()
-            void archiveChat(conversation.sessionId)
-          }}
-          className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]"
-        >
-          <Archive className="w-3.5 h-3.5" strokeWidth={1.8} />
-        </span>
-      ),
+      // Same gate as the context menu: archiving is for the owner and managers.
+      actions:
+        !conversation.readOnly || conversation.canManage ? (
+          <ArchiveRowButton onArchive={() => archive.request(conversation.sessionId)} />
+        ) : undefined,
     }),
   )
   const newChatActive = chatShown && !agentSessionId
 
-  return { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
+  return { chatItems, newChatActive, archive, unlinkChat, archivingIds }
 }

@@ -6,6 +6,8 @@ import {
   runtimeStateLabel,
 } from '../../lib/runtimeExecution'
 
+import { ThreadStateIcon } from './thread-state-icon'
+
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
@@ -27,6 +29,8 @@ export function ChatRowStatus({
   const state = newestRuntimeSnapshot(conversation.runtimeState, runtimeState)
   const indicator = chatRowIndicator(state, unread)
 
+  // A thread shows where its work stands, the way its badge in the chat does.
+  if (conversation.parentSessionId) return <ThreadStateIcon snapshot={state} />
   if (indicator === 'none') return null
   if (indicator === 'turn' || indicator === 'error') {
     const Icon = indicator === 'turn' ? Loader2 : CircleAlert

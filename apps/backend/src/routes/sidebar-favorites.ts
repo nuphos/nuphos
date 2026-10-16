@@ -1,16 +1,9 @@
-import { Hono } from 'hono'
-import { MongoServerError, ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { AppError } from '@/lib/errors'
-import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
 import { userTeamSidebarFavorites } from '@/models'
+import { sidebarDocumentRoutes } from '@/routes/sidebar-document'
 
-import type { TeamAuthVariables } from '@/middleware/auth'
-import type { UserTeamSidebarFavorites } from '@/models'
-
-export const sidebarFavoritesRoutes = new Hono<{ Variables: TeamAuthVariables }>()
+import type { Collection } from 'mongodb'
 
 const favoriteSchema = z
   .object({
@@ -46,68 +39,12 @@ const replaceSchema = z
     }
   })
 
-function serializeFavorites(doc: UserTeamSidebarFavorites | null) {
-  return {
-    entries: doc?.entries ?? [],
-    revision: doc?.revision ?? 0,
-    updatedAt: doc?.updatedAt.toISOString() ?? null,
-  }
-}
-
-sidebarFavoritesRoutes.get('/', async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const userId = c.get('userId')
-  const doc = await userTeamSidebarFavorites().findOne({ teamId, userId })
-
-  return c.json(serializeFavorites(doc))
-})
-
-sidebarFavoritesRoutes.put('/', zv('json', replaceSchema), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const userId = c.get('userId')
-  const { entries, expectedRevision } = c.req.valid('json')
-  const collection = userTeamSidebarFavorites()
-  const now = new Date()
-  let saved: UserTeamSidebarFavorites | null = null
-
-  if (expectedRevision === 0) {
-    const doc: UserTeamSidebarFavorites = {
-      _id: new ObjectId(),
-      teamId,
-      userId,
-      entries,
-      revision: 1,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    try {
-      await collection.insertOne(doc)
-      saved = doc
-    } catch (error) {
-      if (!(error instanceof MongoServerError) || error.code !== 11000) throw error
-    }
-  } else {
-    saved = await collection.findOneAndUpdate(
-      { teamId, userId, revision: expectedRevision },
-      {
-        $set: { entries, updatedAt: now },
-        $inc: { revision: 1 },
-      },
-      { returnDocument: 'after' },
-    )
-  }
-
-  if (!saved) {
-    const current = await collection.findOne({ teamId, userId })
-
-    throw new AppError(
-      409,
-      'sidebar_favorites_changed',
-      'Favorites changed concurrently; refresh and retry',
-      serializeFavorites(current),
-    )
-  }
-
-  return c.json(serializeFavorites(saved))
+export const sidebarFavoritesRoutes = sidebarDocumentRoutes({
+  field: 'entries',
+  collection: () => userTeamSidebarFavorites() as unknown as Collection,
+  schema: replaceSchema,
+  conflict: {
+    code: 'sidebar_favorites_changed',
+    message: 'Favorites changed concurrently; refresh and retry',
+  },
 })
