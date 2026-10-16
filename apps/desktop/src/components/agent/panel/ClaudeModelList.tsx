@@ -8,8 +8,8 @@ import { concreteModelChoices } from '../../../lib/modelChoices'
 import { claudeModelGroups } from '../../../lib/modelGroups'
 
 import { focusCurrentRow, menuKeyDown } from './menuKeys'
+import { HintTooltip } from './modelControlParts'
 import { FG_TERTIARY, MENU_ROW, SURFACE } from './modelControlStyles'
-import { fastUnavailableReason } from './modelSelectorParts'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
 
@@ -32,7 +32,7 @@ function ModelRow({
   blocked: boolean
   onSelect: (value: string) => void
 }) {
-  return (
+  const row = (
     <button
       type="button"
       data-menu-row=""
@@ -56,25 +56,30 @@ function ModelRow({
       )}
     </button>
   )
+
+  // The description sits beside the row, as in Codex's list.
+  return choice.description ? (
+    <HintTooltip label={choice.description} side="right" sideOffset={17.6} description>
+      {row}
+    </HintTooltip>
+  ) : (
+    row
+  )
 }
 
 /**
- * Claude's model menu: the newest model of each family, numbered 1–4 for the
- * keyboard, older ones under "More models", then Fast mode.
+ * Claude chats' model list, in the Codex list's layout: the newest model of
+ * each family numbered 1–4 for the keyboard, and older ones under "More models".
  */
 export function ClaudeModelList({
   model,
-  fast,
   blocked,
   onSelect,
-  onSelectFast,
   onBack,
 }: {
   model: SessionConfigOption
-  fast?: SessionConfigOption
   blocked: boolean
   onSelect: (value: string) => void
-  onSelectFast: (value: 'on' | 'off') => void
   /** Back to the effort view. */
   onBack?: () => void
 }) {
@@ -89,8 +94,6 @@ export function ClaudeModelList({
     model.currentValue,
   )
   const { latest, older } = claudeModelGroups(choices, modelChoiceLabel)
-  const fastOn = fast?.currentValue === 'on'
-  const fastReason = fastUnavailableReason(fast)
 
   // Number keys pick a model while this menu is open, as in Claude.
   useEffect(() => {
@@ -114,7 +117,7 @@ export function ClaudeModelList({
   return (
     <div
       ref={listRef}
-      className="flex flex-col p-[5px]"
+      className="flex max-h-[min(360px,var(--available-height))] flex-col overflow-y-auto px-[5px] pb-[3.5px] pt-[5px]"
       onKeyDown={(event) =>
         menuKeyDown(event, {
           onBack,
@@ -127,6 +130,9 @@ export function ClaudeModelList({
         })
       }
     >
+      <p className={clsx('px-[9px] pb-[5px] pt-[6px] text-[13px] leading-[18px]', FG_TERTIARY)}>
+        Select model
+      </p>
       {latest.map((choice, index) => (
         <ModelRow
           key={choice.id}
@@ -174,6 +180,10 @@ export function ClaudeModelList({
                 align="start"
                 sideOffset={10}
                 alignOffset={-5}
+                // Keep the first row level with "More models"; when there is no
+                // room below, line the last row up with it instead of sliding over
+                // the composer.
+                collisionAvoidance={{ side: 'flip', align: 'flip', fallbackAxisSide: 'none' }}
                 className="z-[1001]"
               >
                 <Popover.Popup
@@ -206,50 +216,6 @@ export function ClaudeModelList({
               </Popover.Positioner>
             </Popover.Portal>
           </Popover.Root>
-        </>
-      )}
-      {fast && (
-        <>
-          <Separator />
-          <button
-            type="button"
-            data-menu-row=""
-            role="menuitemcheckbox"
-            aria-checked={fastOn}
-            aria-disabled={fastReason ? true : undefined}
-            disabled={blocked}
-            onClick={fastReason ? undefined : () => onSelectFast(fastOn ? 'off' : 'on')}
-            className={clsx(
-              MENU_ROW,
-              'shrink-0 items-center py-[6px] pr-[9.5px]',
-              fastReason && 'cursor-default hover:bg-transparent',
-            )}
-          >
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="leading-[19.5px]">Fast mode</span>
-              {fastReason && (
-                <span className={clsx('text-[12px] leading-[16px]', FG_TERTIARY)}>
-                  {fastReason.detail}
-                </span>
-              )}
-            </span>
-            {/* The app's Switch, drawn inside the row so the whole row toggles. */}
-            <span
-              aria-hidden
-              className={clsx(
-                'relative ml-[10px] inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
-                fastOn ? 'bg-zViolet-500' : 'bg-zGray-700',
-                fastReason && 'opacity-50',
-              )}
-            >
-              <span
-                className={clsx(
-                  'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
-                  fastOn ? 'translate-x-[18px]' : 'translate-x-0.5',
-                )}
-              />
-            </span>
-          </button>
         </>
       )}
     </div>

@@ -91,7 +91,13 @@ export function ModelListPanel({
         )
 
         return choice.description ? (
-          <HintTooltip key={choice.id} label={choice.description} side="right" sideOffset={18}>
+          <HintTooltip
+            key={choice.id}
+            label={choice.description}
+            side="right"
+            sideOffset={17.6}
+            description
+          >
             {row}
           </HintTooltip>
         ) : (
