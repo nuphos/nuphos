@@ -4,12 +4,14 @@
 // The release that frees the session starts the next one (startQueuedTurn).
 import { randomUUID } from 'node:crypto'
 
+import { agentMessages } from '@/lib/agent/db'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { buildPendingUserMessage, enqueuePendingUserMessage } from '@/lib/agent/pending-messages'
 import { hasQueuedTranscriptMessage } from '@/lib/agent/pending-queue'
 import { sessionReleased } from '@/lib/agent/session-released'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
+import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
@@ -68,30 +70,47 @@ function messageText(message: UIMessage): string {
     .join('\n\n')
 }
 
-/** A `serverQueue` client's new message; continuations and replies keep the older admission. */
-function queueable({ body, conversation, ...args }: QueueableChat): AgentConversation | null {
+// A queued id is shown to everyone in the conversation and removed by value.
+const QUEUED_ID = /^[\w-]{1,128}$/
+// Attachments are references; this bounds what one waiting message stores.
+const MAX_QUEUED_MESSAGE_CHARS = 256_000
+
+/** A new message, not a continuation, reply or Slack-bound turn, in an existing conversation. */
+function freshSend({ body, conversation, ...args }: QueueableChat): AgentConversation | null {
   const fresh =
     !args.readOnlyResume && !body.resume && !body.resumeReason && !body.continueAfterInterruption
 
-  if (body.clientCapabilities?.serverQueue !== true || !fresh || args.slackBound) return null
-  if (!conversation || args.clientView.at(-1)?.role !== 'user') return null
+  if (!fresh || args.slackBound || args.clientView.at(-1)?.role !== 'user') return null
 
-  // Without an authoritative runtime status the earlier admission answers 503.
-  return conversation.claudeCodePreview && args.snapshot?.schemaVersion !== 2 ? null : conversation
+  return conversation
 }
 
 /**
  * The session claim when the message runs now, 'queued' when it waits. Null
- * leaves the request to the older admission (other clients, continuations,
- * replies, Slack-bound and new conversations).
+ * leaves the request to the older admission (continuations, replies,
+ * Slack-bound and new conversations), which an older client's new message
+ * also takes once nothing waits ahead of it.
  */
 export async function admitQueueableChat(
   args: QueueableChat,
 ): Promise<{ mode: 'run'; release: () => void } | { mode: 'queued' } | null> {
-  const conversation = queueable(args)
+  const conversation = freshSend(args)
   const message = args.clientView.at(-1)
 
   if (!conversation || !message) return null
+  if (args.body.clientCapabilities?.serverQueue !== true) {
+    // An older client resends a refused message, so it waits its turn too.
+    if (await hasQueuedTranscriptMessage(args.runOwnerUserId, conversation.sessionId))
+      throw refusal('Messages sent earlier are still waiting for the agent')
+
+    return null
+  }
+  // Without an authoritative runtime status the earlier admission answers 503.
+  if (conversation.claudeCodePreview && args.snapshot?.schemaVersion !== 2) return null
+  if (!QUEUED_ID.test(message.id))
+    throw new AppError(400, 'invalid_request', 'A message id may use letters, digits, - and _')
+  if (JSON.stringify(message).length > MAX_QUEUED_MESSAGE_CHARS)
+    throw new AppError(413, 'message_too_large', 'This message is too large to send')
   const owner = args.runOwnerUserId
   const sessionId = conversation.sessionId
   // Nothing overtakes a message that is already waiting.
@@ -154,6 +173,17 @@ export async function launchQueuedChatTurn(
   const actorUserId = item.actorUserId ?? conversation.userId
 
   if (!teamId) throw new Error('A queued message lost its conversation team.')
+  // A redelivered or already answered message must not run twice.
+  if (
+    await agentMessages().findOne(
+      { sessionId, userId: conversation.userId, messageId: item.id },
+      { projection: { _id: 1 } },
+    )
+  ) {
+    releaseClaim()
+
+    return
+  }
   const body: AgentChatBody = {
     id: sessionId,
     teamId,

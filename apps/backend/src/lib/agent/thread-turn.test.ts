@@ -3,7 +3,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import { executeConversationTurn, startQueuedTurn } from './conversation-turn'
+import { executeConversationTurn } from './conversation-turn'
+import { startQueuedTurn } from './queued-turn'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,

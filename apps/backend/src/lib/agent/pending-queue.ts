@@ -7,7 +7,6 @@ import { withRedis } from '@/lib/redis'
 import { TRANSCRIPT_SOURCES } from './pending-message-types'
 import {
   drainPendingUserMessages,
-  enqueuePendingUserMessage,
   localQueues,
   PENDING_TTL_SEC,
   pendingKey,
@@ -58,8 +57,10 @@ export async function hasQueuedTranscriptMessage(userId: string, sessionId: stri
 /**
  * The messages the next turn answers: the oldest transcript message, plus the
  * agent messages right behind it from the same actor. An app send always runs
- * alone, as its sender's own chat turn. A channel message stays where it is.
- * With `actorUserId`, only a head that actor's turn may fold in.
+ * alone, as its sender's own chat turn. A channel message stays where it is,
+ * and so does an older client's steering message from a teammate: only that
+ * teammate's own turn may answer it. With `actorUserId`, only a head that
+ * actor's turn may fold in.
  */
 export function queueHead(
   queue: readonly PendingUserMessage[],
@@ -67,7 +68,13 @@ export function queueHead(
   actorUserId?: string,
 ): PendingUserMessage[] {
   const actorOf = (message: PendingUserMessage) => message.actorUserId ?? ownerUserId
-  const waiting = queue.filter(isTranscriptMessage)
+  const waiting = queue.filter(
+    (message) =>
+      isTranscriptMessage(message) &&
+      (message.chat !== undefined ||
+        actorOf(message) === ownerUserId ||
+        actorOf(message) === actorUserId),
+  )
   const first = waiting[0]
 
   if (!first || (actorUserId && actorOf(first) !== actorUserId)) return []
@@ -82,7 +89,10 @@ export function queueHead(
   return head
 }
 
-/** Remove exactly these messages; one a concurrent drain took first is left out. */
+/**
+ * Remove exactly these messages. Each stored entry is removed by its own value,
+ * so of two drains racing for one message only one gets it.
+ */
 export async function takePendingUserMessages(
   userId: string,
   sessionId: string,
@@ -91,35 +101,23 @@ export async function takePendingUserMessages(
   if (messages.length === 0) return []
   const key = pendingKey(userId, sessionId)
   const ids = new Set(messages.map((message) => message.id))
+  const taken = new Set<string>()
   const local = localQueues.get(key) ?? []
-  const takenLocal = local.filter((message) => ids.has(message.id))
   const remaining = local.filter((message) => !ids.has(message.id))
 
+  for (const message of local) if (ids.has(message.id)) taken.add(message.id)
   if (remaining.length > 0) localQueues.set(key, remaining)
   else localQueues.delete(key)
-  const taken = await tryRedis((c) =>
-    c.eval(
-      `
-        local taken = {}
-        for _, raw in ipairs(redis.call('LRANGE', KEYS[1], 0, -1)) do
-          local ok, item = pcall(cjson.decode, raw)
-          if ok and type(item) == 'table' and string.find(ARGV[1], '|' .. tostring(item.id) .. '|', 1, true) then
-            if redis.call('LREM', KEYS[1], 1, raw) == 1 then table.insert(taken, raw) end
-          end
-        end
-        return taken
-      `,
-      1,
-      key,
-      `|${[...ids].join('|')}|`,
-    ),
-  )
-  const takenIds = new Set([
-    ...takenLocal.map((message) => message.id),
-    ...(Array.isArray(taken) ? taken : []).map(parse).flatMap((m) => (m ? [m.id] : [])),
-  ])
+  const raw = await tryRedis((c) => c.lrange(key, 0, -1))
 
-  return messages.filter((message) => takenIds.has(message.id))
+  for (const value of Array.isArray(raw) ? raw : []) {
+    const id = parse(value)?.id
+
+    if (!id || !ids.has(id) || taken.has(id)) continue
+    if ((await tryRedis((c) => c.lrem(key, 1, value))) === 1) taken.add(id)
+  }
+
+  return messages.filter((message) => taken.has(message.id))
 }
 
 /** Put messages a refused turn took back at the front, in their order. */
@@ -138,10 +136,10 @@ export async function requeuePendingAtHead(
   }
   const raws = [...messages].reverse().map((message) => JSON.stringify(message))
 
+  // The list keeps its expiry; it is set only if the list had emptied.
   await tryRedis(async (c) => {
     await c.lpush(key, ...raws)
-
-    return c.expire(key, PENDING_TTL_SEC)
+    if ((await c.ttl(key)) < 0) await c.expire(key, PENDING_TTL_SEC)
   })
 }
 
@@ -160,15 +158,4 @@ export async function takeTurnQueue(
   const queue = await listPendingUserMessages(userId, sessionId)
 
   return takePendingUserMessages(userId, sessionId, queueHead(queue, userId, actorUserId))
-}
-
-/** A refused turn never reached the agent: what it took goes back where it was. */
-export async function requeueTurnQueue(
-  userId: string,
-  sessionId: string,
-  carried: PendingUserMessage[],
-  queued?: PendingUserMessage,
-): Promise<void> {
-  if (queued) return requeuePendingAtHead(userId, sessionId, [queued, ...carried])
-  for (const entry of carried) await enqueuePendingUserMessage(userId, sessionId, entry)
 }

@@ -27,7 +27,7 @@ import type { UIMessage } from 'ai'
 
 import { config } from '@/config'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
-import { requeueTurnQueue } from '@/lib/agent/pending-queue'
+import { requeueTurnQueue } from '@/lib/agent/session-released'
 import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
 import {
   previewRuntimeObservability,

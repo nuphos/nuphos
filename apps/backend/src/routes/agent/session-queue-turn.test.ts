@@ -177,3 +177,26 @@ test('everyone in the conversation sees the queue; only the sender takes a messa
   expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
   expect((await request(`/conversations/${SESSION}/queue/mine`, 'DELETE')).status).toBe(404)
 })
+
+test("an older client's new message waits behind the queue: refused, so it resends", async () => {
+  const done = busy()
+
+  await admit('first')
+  done()
+  await expect(
+    admit('legacy', { body: { id: SESSION, messages: [message('legacy')] } }),
+  ).rejects.toMatchObject({
+    code: 'runtime_not_accepting_message',
+  })
+})
+
+test('a message id that could match another message is refused', async () => {
+  const id = 'x|victim'
+
+  await expect(
+    admit(id, {
+      clientView: [message(id)],
+      body: { id: SESSION, messages: [message(id)], clientCapabilities: { serverQueue: true } },
+    }),
+  ).rejects.toMatchObject({ status: 400 })
+})

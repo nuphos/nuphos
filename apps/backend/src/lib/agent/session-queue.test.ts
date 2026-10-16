@@ -1,17 +1,24 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { config } from '@/config'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useRedis } from '@/lib/test/doubles/redis'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
-import { startQueuedTurn } from './conversation-turn'
+import { startQueuedTurn } from './queued-turn'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,
   enqueuePendingUserMessage,
 } from './pending-messages'
-import { listPendingUserMessages, queueHead, requeueTurnQueue } from './pending-queue'
-import { installQueuedTurnStarter, sessionReleased } from './session-released'
+import {
+  listPendingUserMessages,
+  queueHead,
+  requeuePendingAtHead,
+  takePendingUserMessages,
+} from './pending-queue'
+import { installQueuedTurnStarter, requeueTurnQueue, sessionReleased } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -31,7 +38,18 @@ let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const launched: PendingUserMessage[] = []
 
-useIdentity({ signNuphosToken: () => 'test-token' })
+let member = true
+let fakeRedis: unknown = null
+
+useRedis({
+  withRedis: (async (op: (client: unknown) => unknown) =>
+    fakeRedis ? op(fakeRedis) : null) as never,
+})
+
+useIdentity({
+  signNuphosToken: () => 'test-token',
+  getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null),
+})
 useAgentDb({
   getConversationBySessionId: async () => ({ ...conversation, claudeCodePreview: {} as never }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
@@ -71,6 +89,7 @@ const waiting = async () =>
   (await listPendingUserMessages(OWNER, SESSION)).map((message) => message.renderedText)
 
 beforeEach(() => {
+  member = true
   runtimeSend = true
   released = 0
   runs.length = 0
@@ -170,11 +189,143 @@ test("releasing the session starts the queue for a teammate's message too", asyn
     started.push(sessionId)
   })
   try {
-    await queue(human('from a teammate', 'teammate'))
-    sessionReleased(OWNER, SESSION)
+    await enqueuePendingUserMessage(OWNER, 'released-session', human('from a teammate', 'teammate'))
+    sessionReleased(OWNER, 'released-session')
     await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(started).toEqual([SESSION])
+    expect(started).toEqual(['released-session'])
   } finally {
     installQueuedTurnStarter(startQueuedTurn)
+    await clearPendingUserMessages(OWNER, 'released-session')
+  }
+})
+
+test("an older client's steering message from a teammate never runs as the owner", async () => {
+  const legacy = buildPendingUserMessage({
+    renderedText: 'teammate steer',
+    source: 'app',
+    actorUserId: 'teammate',
+  })
+
+  await queue(legacy, agent('owner agent'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(runs).toHaveLength(1)
+  expect(runs[0]?.messages.map((message) => message.parts)).toEqual([
+    [{ type: 'text', text: 'owner agent' }],
+  ])
+  expect(await waiting()).toEqual(['teammate steer'])
+})
+
+test('a launch that fails puts the message back at the head, counted', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+    },
+    launchQueuedChatTurn: async () => {
+      throw new Error('runtime lookup failed')
+    },
+  })
+  await queue(human('retry me'), agent('behind'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  const [head] = await listPendingUserMessages(OWNER, SESSION)
+
+  expect(await waiting()).toEqual(['retry me', 'behind'])
+  expect(head?.attempts).toBe(1)
+  expect(released).toBe(1)
+})
+
+test('a message refused too often, or waiting too long, is dropped instead of retried', async () => {
+  await queue(
+    { ...human('refused'), attempts: 5 },
+    { ...agent('old'), receivedAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched.map((item) => item.renderedText)).toEqual(['next'])
+  expect(await waiting()).toEqual([])
+})
+
+test("a sender who left the conversation's team is not spoken for", async () => {
+  member = false
+  await queue(human('gone', 'teammate'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched).toHaveLength(0)
+  expect(await waiting()).toEqual([])
+})
+
+test('two releases racing for one session start its head once', async () => {
+  let held = false
+
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => {
+      if (held) return null
+      held = true
+
+      return () => {
+        held = false
+      }
+    },
+    launchQueuedChatTurn: async (_conversation, item) => {
+      launched.push(item)
+    },
+  })
+  await queue(human('once'), human('twice'))
+  await Promise.all([startQueuedTurn(OWNER, SESSION), startQueuedTurn(OWNER, SESSION)])
+
+  expect(launched.map((item) => item.renderedText)).toEqual(['once'])
+})
+
+test('with Redis, a take removes exactly its own messages and a requeue keeps the expiry', async () => {
+  const list: string[] = []
+  const expiries: number[] = []
+  let ttl = 600
+  const client = {
+    lrange: async () => [...list],
+    lrem: async (_key: string, _count: number, value: string) => {
+      const index = list.indexOf(value)
+
+      if (index < 0) return 0
+      list.splice(index, 1)
+
+      return 1
+    },
+    lpush: async (_key: string, ...values: string[]) => list.unshift(...values),
+    ttl: async () => ttl,
+    expire: async (_key: string, seconds: number) => expiries.push(seconds),
+  }
+  const enabled = config.redis.enabled
+
+  fakeRedis = client
+  config.redis.enabled = true
+  try {
+    const victim = { ...human('victim', 'teammate'), id: 'victim' }
+    const attacker = { ...human('mine'), id: 'x|victim|' }
+
+    list.push(JSON.stringify(victim), JSON.stringify(attacker))
+    expect((await takePendingUserMessages(OWNER, SESSION, [attacker])).map((m) => m.id)).toEqual([
+      'x|victim|',
+    ])
+    expect(list.map((raw) => (JSON.parse(raw) as PendingUserMessage).id)).toEqual(['victim'])
+    // A second take of the same message finds nothing.
+    expect(await takePendingUserMessages(OWNER, SESSION, [attacker])).toEqual([])
+    await requeuePendingAtHead(OWNER, SESSION, [attacker])
+    expect(list.map((raw) => (JSON.parse(raw) as PendingUserMessage).id)).toEqual([
+      'x|victim|',
+      'victim',
+    ])
+    expect(expiries).toEqual([])
+    // A list that had emptied lost its expiry; the requeue sets it again.
+    list.length = 0
+    ttl = -2
+    await requeuePendingAtHead(OWNER, SESSION, [attacker])
+    expect(expiries).toEqual([3600])
+  } finally {
+    fakeRedis = null
+    config.redis.enabled = enabled
   }
 })

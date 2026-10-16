@@ -27,6 +27,8 @@ export type PendingUserMessage = {
   receivedAt: string
   /** Set for an app send: the turn it starts is a chat turn, never folded into another. */
   chat?: QueuedChatTurn
+  /** Times a turn took this message and could not run it. */
+  attempts?: number
 }
 
 // A resource wake-up is only "<event> on <PR>"; the session reads the PR itself.
