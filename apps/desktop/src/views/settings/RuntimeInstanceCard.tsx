@@ -206,7 +206,15 @@ export function RuntimeInstanceCard({
               instance={instance}
               onCancel={() => setEditing(false)}
               onSave={async (input) => {
-                await api.atlasUpdateRuntimeInstance(teamId, instance.id, { label: input.label })
+                // A computer's agent is not a team runtime: its name lives on that computer's row.
+                await (instance.local
+                  ? api.boxRenameAgent(
+                      instance.local.deviceId,
+                      teamId,
+                      instance.local.instanceId ?? instance.provider,
+                      input.label,
+                    )
+                  : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label: input.label }))
                 setEditing(false)
                 changed()
               }}

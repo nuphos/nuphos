@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { toast } from '../../components/ui/toast'
 
+import { agentName } from './agentPresentation'
 import { Field } from './shared'
 import { inputClasses } from './styles'
 
@@ -18,7 +19,7 @@ export function RuntimeInstanceForm({
   onSave: (input: RuntimeInstanceEdit) => Promise<void>
   onCancel: () => void
 }) {
-  const [label, setLabel] = useState(instance.label)
+  const [label, setLabel] = useState(agentName(instance))
   const [saving, setSaving] = useState(false)
   const cannotSave = saving || !label.trim()
 

@@ -71,6 +71,35 @@ describe('local runtime catalog', () => {
     expect(await listOwnLocalRuntimes('t2', 'owner', deps)).toEqual([])
   })
 
+  test('an agent is listed under the name in its registry, not the one its computer reports', async () => {
+    const work = '11111111-1111-4111-8111-111111111111'
+    const named = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [
+        { provider: 'claude-code' as const, label: 'Main', signedIn: true },
+        { provider: 'claude-code' as const, instanceId: work, label: 'Review', signedIn: true },
+      ],
+    }
+    const cli = { cli: { installed: true, loggedIn: true } }
+
+    presence = {
+      ...online(),
+      status: {
+        agents: { 'claude-code': cli },
+        instances: [{ instanceId: work, provider: 'claude-code', label: 'Claude Code', ...cli }],
+      },
+    }
+    const listed = await listOwnLocalRuntimes('t1', 'owner', {
+      ...deps,
+      access: { ...deps.access, listDevices: async () => [named] },
+    })
+
+    expect(listed.map(({ label, local }) => [label, local.agentLabel, local.online])).toEqual([
+      ['Main in Olivia’s MacBook', 'Main', true],
+      ['Review in Olivia’s MacBook', 'Review', true],
+    ])
+  })
+
   test('a teammate never sees another member’s local agent', async () => {
     expect(await listOwnLocalRuntimes('t1', 'teammate', deps)).toEqual([])
   })

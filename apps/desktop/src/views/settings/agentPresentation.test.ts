@@ -122,3 +122,10 @@ test("an away computer's signed-in agent stays visible and reads Offline", () =>
   assert.equal(agentOffline(back), false)
   assert.equal(agentRunsOn(back), 'Box 1')
 })
+
+test("a computer's agent goes by the name given to it, else its provider's", () => {
+  const agent = local('a', 'mac', true)
+
+  assert.equal(agentName(agent), 'Codex')
+  assert.equal(agentName({ ...agent, local: { ...agent.local!, agentLabel: 'Review' } }), 'Review')
+})

@@ -3,7 +3,7 @@ import {
   listAccessibleDevices,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
-import { registryKey, reportedAgents } from '@/lib/agent/devices/agent-registry'
+import { registryKey, reportedAgents, withReport } from '@/lib/agent/devices/agent-registry'
 import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import {
   localRuntimeId,
@@ -32,6 +32,8 @@ export type LocalRuntimeSummary = {
   ownerUserId: string
   deviceId: string
   deviceLabel: string
+  /** The agent's own name; absent while it has its provider's. */
+  agentLabel?: string
   instanceId?: string
   agentInstances?: boolean
   /** Whether the computer reports this agent right now. */
@@ -107,7 +109,7 @@ export async function listOwnLocalRuntimes(
       const known = new Map<string, RegisteredAgent>()
 
       for (const agent of [...(device.agents ?? []), ...reportedAgents(presence?.status)])
-        known.set(registryKey(agent), { ...known.get(registryKey(agent)), ...agent })
+        known.set(registryKey(agent), withReport(known.get(registryKey(agent)), agent))
       const running = [...known.values()]
 
       return Promise.all(
@@ -132,6 +134,7 @@ export async function listOwnLocalRuntimes(
               ownerUserId: device.userId,
               deviceId: device.deviceId,
               deviceLabel: device.label,
+              ...(label ? { agentLabel: label } : {}),
               agentInstances: presence?.status?.agentInstances === true,
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(instanceId ? { instanceId } : {}),
