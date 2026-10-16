@@ -42,7 +42,6 @@ export function ModelSelector({
   const [view, setView] = useState<'effort' | 'models'>('effort')
   const chipRef = useRef<HTMLButtonElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
-  const [initialEffort, setInitialEffort] = useState<Record<string, string>>({})
   const options = data?.options.map((option) => {
     const queued = control.queued?.find((selection) => selection.configId === option.id)
 
@@ -65,11 +64,7 @@ export function ModelSelector({
     slow ||
     (status !== 'ready' && status !== 'dormant' && status !== 'busy')
   const hint = modelHint(status, Boolean(model), busy, stalled)
-  const effortKey = model?.currentValue ?? ''
 
-  // Reset falls back to the level each model started on in this chat.
-  if (effort && !(effortKey in initialEffort))
-    setInitialEffort({ ...initialEffort, [effortKey]: effort.currentValue })
   const setOpen = control.setOpen
   const open = control.open
 
@@ -188,7 +183,7 @@ export function ModelSelector({
                   effort={effort}
                   fast={fast}
                   modelName={name}
-                  resetValue={effortResetValue(effort.options, initialEffort[effortKey])}
+                  resetValue={effortResetValue(effort.options)}
                   blocked={blocked && !saving}
                   saving={saving}
                   sliderRef={sliderRef}

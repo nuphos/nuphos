@@ -18,12 +18,10 @@ export function resolvedEffort(
   return level && choices.some((choice) => choice.value === level) ? level : current
 }
 
-/** Where ↺ returns: the runtime's own "default" level when it offers one,
- *  otherwise the level it started with, if that is still offered. */
-export function effortResetValue(choices: Choice[], initial?: string): string | undefined {
-  if (choices.some((choice) => choice.value === 'default')) return 'default'
-
-  return initial && choices.some((choice) => choice.value === initial) ? initial : undefined
+/** Where ↺ returns: the runtime's own "default" level. A runtime that names
+ *  none gets no reset, rather than one that guesses a baseline. */
+export function effortResetValue(choices: Choice[]): string | undefined {
+  return choices.some((choice) => choice.value === 'default') ? 'default' : undefined
 }
 
 /** How far along the track a stop sits, from 0 (first) to 1 (last). */

@@ -1,7 +1,7 @@
 import { Slider } from '@base-ui/react/slider'
 import clsx from 'clsx'
 import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 
 import { effortLabel } from '../../../lib/configLabels'
 import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
@@ -100,27 +100,38 @@ export function ModelEffortPanel({
   // A draft only holds until the runtime reports a different level.
   const [draft, setDraft] = useState<{ index: number; from: string }>()
   const [wasSaving, setWasSaving] = useState(saving)
+  // The last stop the slider came to rest on, waiting for a save to finish.
+  const [queued, setQueued] = useState<string>()
 
   // Drop a draft once the runtime reports any change, or once a save ends
-  // either way, so a failed change never lingers on the slider.
+  // with nothing left to send, so a failed change never lingers on the slider.
   if (wasSaving !== saving) {
     setWasSaving(saving)
-    if (!saving && draft) setDraft(undefined)
+    if (!saving && draft && !queued) setDraft(undefined)
   }
   if (draft && draft.from !== effort.currentValue) setDraft(undefined)
   const index = draft?.from === effort.currentValue ? draft.index : committed
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => () => clearTimeout(pending.current), [])
+  // A change made while another is saving would be dropped; send it after.
+  const sendQueued = useEffectEvent(() => {
+    if (!queued) return
+    setQueued(undefined)
+    if (queued !== effort.currentValue) onSelect(effort.id, queued)
+  })
+
+  useEffect(() => {
+    if (!saving) sendQueued()
+  }, [saving, queued])
   const current = index >= 0 ? stops[index] : undefined
   const fraction = stopFraction(stops.length, index)
   const fastOn = fast?.currentValue === 'on'
   const fastReason = fastUnavailableReason(fast)
   const resetLevel =
     resetValue && stops.find((stop) => stop.value === resolvedEffort(effort.options, resetValue))
-  const resetHint = !resetValue
-    ? 'This agent reports no default effort'
-    : resetValue === effort.currentValue
+  const resetHint =
+    resetValue === effort.currentValue
       ? 'Already at the default effort'
       : resetLevel
         ? `Reset to default (${effortLabel(resetLevel)})`
@@ -145,16 +156,19 @@ export function ModelEffortPanel({
           </IconButton>
         </HintTooltip>
       )}
-      <HintTooltip label={resetHint} side="top">
-        <IconButton
-          label={resetHint}
-          inert={blocked || saving || !resetValue || resetValue === effort.currentValue}
-          onClick={() => resetValue && onSelect(effort.id, resetValue)}
-          className={clsx('right-[5.5px]', FG_TERTIARY)}
-        >
-          <RotateCcw size={16} strokeWidth={1.6} />
-        </IconButton>
-      </HintTooltip>
+      {/* Reset only exists where the runtime names a default level to return to. */}
+      {resetValue && (
+        <HintTooltip label={resetHint} side="top">
+          <IconButton
+            label={resetHint}
+            inert={blocked || saving || resetValue === effort.currentValue}
+            onClick={() => onSelect(effort.id, resetValue)}
+            className={clsx('right-[5.5px]', FG_TERTIARY)}
+          >
+            <RotateCcw size={16} strokeWidth={1.6} />
+          </IconButton>
+        </HintTooltip>
+      )}
       <div className="flex flex-col items-center">
         <span className={clsx('text-[14px] font-medium leading-[21.5px]', ACCENT_TEXT)}>
           {current ? effortLabel(current) : 'Default'}
@@ -189,7 +203,7 @@ export function ModelEffortPanel({
           clearTimeout(pending.current)
           // Arrow keys commit on every press; send only where they come to rest.
           pending.current = setTimeout(() => {
-            if (stop && stop.value !== effort.currentValue) onSelect(effort.id, stop.value)
+            if (stop) setQueued(stop.value)
           }, 350)
         }}
         className="mt-[15.5px] data-[disabled]:opacity-60"
