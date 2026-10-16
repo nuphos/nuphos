@@ -29,6 +29,7 @@ import {
   issueDeviceJoinToken,
 } from '@/lib/agent/devices/join-tokens'
 import { readBoxMetrics } from '@/lib/agent/devices/box-metrics'
+import { boxDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { isDevicePresent } from '@/lib/agent/devices/presence'
@@ -102,6 +103,8 @@ export type AgentDeviceRouteDependencies = {
     options: { limit: number; cursor?: string },
   ) => Promise<DeviceExecAuditPage>
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
+  /** A Box's session displays the viewer may watch: their own conversations' in this team. */
+  boxDesktops: typeof boxDesktops
   issueJoinToken: typeof issueDeviceJoinToken
   revokeCredential: (userId: string, deviceId: string) => Promise<boolean>
   disconnect: (userId: string, deviceId: string) => Promise<void>
@@ -145,6 +148,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
   },
   listDeviceExecAudit,
   conversationTitlesFor,
+  boxDesktops,
   listDevices: listAgentDevicesForUser,
   isOnline: isDevicePresent,
   deleteDevice: deleteAgentDevice,

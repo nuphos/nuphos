@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 
-import { sessionDesktops, withSessionDesktops } from './session-desktops'
+import { boxDesktops, sessionDesktops, withSessionDesktops } from './session-desktops'
 
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
@@ -45,6 +45,23 @@ describe('session desktops', () => {
         (t) => t.id,
       ),
     ).toEqual(['t1', 'desktop:3'])
+  })
+
+  test("a Box lists the viewer's own session displays in this team, never another member's", async () => {
+    const store = runtimePresenceStore()
+
+    await store.claim('u1', 'box-1', 'c1')
+    await store.put('u1', 'box-1', { conn: 'c1', status, seenAt: Date.now() })
+    const conversations = async () => [
+      { sessionId: 's1', userId: 'viewer', teamId: 't1', title: 'Fix login' },
+      { sessionId: 's2', userId: 'someone-else', teamId: 't1', title: 'Theirs' },
+    ]
+
+    expect(await boxDesktops('u1', 'box-1', 'viewer', 't1', conversations)).toEqual([
+      { display: 2, sessionId: 's1', title: 'Fix login' },
+    ])
+    expect(await boxDesktops('u1', 'box-1', 'viewer', 'other-team', conversations)).toEqual([])
+    expect(await boxDesktops('u1', 'box-2', 'viewer', 't1', conversations)).toEqual([])
   })
 
   test('a conversation off any local runtime has none', async () => {

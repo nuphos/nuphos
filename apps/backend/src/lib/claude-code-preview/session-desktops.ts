@@ -4,6 +4,7 @@
 // tool entry, so clients show it the way they show a running shell. Nothing is
 // stored: when the desktop goes, so does the entry.
 
+import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice } from '@/lib/agent/devices/store'
@@ -39,6 +40,44 @@ export async function sessionDesktops(
     status: 'running',
     desktop: { display: desktop.display, deviceId: ref.deviceId },
   }))
+}
+
+export type BoxDesktop = { display: number; sessionId: string; title: string }
+type Conversation = { sessionId: string; userId: string; teamId?: string; title: string }
+type ConversationsOf = (sessionIds: string[]) => Promise<Conversation[]>
+
+const storedConversations: ConversationsOf = (sessionIds) =>
+  agentConversations()
+    .find(
+      { sessionId: { $in: sessionIds } },
+      { projection: { _id: 0, sessionId: 1, userId: 1, teamId: 1, title: 1 } },
+    )
+    .toArray()
+
+/**
+ * The session displays on a Box that the viewer may watch: those of their own conversations
+ * in this team, the same rule the desktop stream enforces. Others' displays are left out.
+ */
+export async function boxDesktops(
+  ownerId: string,
+  deviceId: string,
+  viewerId: string,
+  teamId: string | undefined,
+  conversationsOf = storedConversations,
+): Promise<BoxDesktop[]> {
+  const desktops = (await runtimePresenceStore().get(ownerId, deviceId))?.status?.desktops ?? []
+
+  if (!desktops.length) return []
+  const own = new Map(
+    (await conversationsOf(desktops.map((desktop) => desktop.sessionId)))
+      .filter((conversation) => conversation.userId === viewerId && conversation.teamId === teamId)
+      .map((conversation) => [conversation.sessionId, conversation.title]),
+  )
+
+  return desktops
+    .filter((desktop) => own.has(desktop.sessionId))
+    .map((desktop) => ({ ...desktop, title: own.get(desktop.sessionId) ?? '' }))
+    .sort((a, b) => a.display - b.display)
 }
 
 /** The snapshot with the conversation's desktops appended; unchanged when it has none. */
