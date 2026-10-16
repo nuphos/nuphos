@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { mergeAgentRegistry, renameRegisteredAgent, reportedAgents } from './agent-registry'
 
 import type { RegisteredAgent } from './agent-registry'
-import type { LocalRuntimeStatus, RemovableAgent } from './local-runtime/protocol'
+import type { LocalRuntimeStatus } from './local-runtime/protocol'
 import type { Collection } from 'mongodb'
 
 /** A cloud machine Nuphos created for this device; absent for a person's own computer. Its state is never stored: instabox and presence know it. */
@@ -47,7 +47,8 @@ export type AgentDeviceRegistration = Pick<
   'deviceId' | 'label' | 'platform' | 'model' | 'allowLocalExec'
 >
 
-const agentDevices = (): Collection<AgentDevice> => db().collection<AgentDevice>('agent_devices')
+export const agentDevices = (): Collection<AgentDevice> =>
+  db().collection<AgentDevice>('agent_devices')
 
 export async function setupAgentDeviceIndexes(): Promise<void> {
   const collection = agentDevices()
@@ -283,24 +284,6 @@ export async function renameDeviceAgent(
   await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
 
   return true
-}
-
-export async function removeDeviceAgent(
-  userId: string,
-  deviceId: string,
-  agent: RemovableAgent,
-): Promise<void> {
-  await agentDevices().updateOne(
-    { userId, deviceId },
-    {
-      $pull: {
-        agents:
-          'instanceId' in agent
-            ? { instanceId: agent.instanceId }
-            : { provider: agent.provider, instanceId: { $exists: false } },
-      },
-    },
-  )
 }
 
 /** Someone who left the team leaves every one of its Box access lists. */
