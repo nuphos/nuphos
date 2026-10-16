@@ -11,7 +11,7 @@ export function RuntimeActionsMenu({
   busy,
   canEdit,
   authenticated,
-  onEdit,
+  onRename,
   onSignIn,
   onToggleEnabled,
   onRemove,
@@ -21,7 +21,7 @@ export function RuntimeActionsMenu({
   canEdit: boolean
   /** What the runtime reported about its own account, if it can say. */
   authenticated?: boolean
-  onEdit: () => void
+  onRename: () => void
   onSignIn: () => void
   onToggleEnabled: () => void
   onRemove: () => void
@@ -41,7 +41,7 @@ export function RuntimeActionsMenu({
         <Ellipsis className="h-4 w-4" />
       </MenuTrigger>
       <MenuContent align="end">
-        <MenuItem onClick={onEdit}>Edit agent</MenuItem>
+        <MenuItem onClick={onRename}>Rename</MenuItem>
         {canSignIn && (
           <MenuItem onClick={onSignIn}>{authenticated ? 'Sign in again' : 'Sign in'}</MenuItem>
         )}

@@ -5,13 +5,13 @@ import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { RuntimeUsageBar } from './RuntimeUsageBar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { InlineRename } from '../../components/ui/inline-rename'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { localRemovalId } from './agentPresentation'
+import { agentName, localRemovalId } from './agentPresentation'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
-import { RuntimeInstanceForm } from './RuntimeInstanceForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
@@ -86,6 +86,16 @@ export function RuntimeInstanceCard({
       setBusy(false)
     }
   }
+  // A computer's agent is not a team runtime: its name lives on that computer's row.
+  const rename = (label: string) =>
+    instance.local
+      ? api.boxRenameAgent(
+          instance.local.deviceId,
+          teamId,
+          instance.local.instanceId ?? instance.provider,
+          label,
+        )
+      : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
   const canEdit = isAdmin && instance.kind !== 'development' && !instance.deletion
   const removalId = localRemovalId(instance)
   const status = runtimeStatusView(instance, runtime, statusError)
@@ -102,11 +112,22 @@ export function RuntimeInstanceCard({
           </div>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h3
-                className="truncate text-[16px] font-semibold tracking-tight text-main"
-                title={instance.label}
-              >
-                {instance.label}
+              <h3 className="flex min-w-0 text-[16px] font-semibold tracking-tight text-main">
+                <InlineRename
+                  value={agentName(instance)}
+                  {...(instance.local
+                    ? { defaultName: AGENT_PROVIDER[instance.provider].label }
+                    : {})}
+                  canEdit={canEdit}
+                  editing={editing}
+                  onEditingChange={setEditing}
+                  ariaLabel="Agent name"
+                  errorTitle="Could not rename agent"
+                  onSave={async (label) => {
+                    await rename(label)
+                    changed()
+                  }}
+                />
               </h3>
               {!statusError &&
                 runtime?.runtimeUpdate &&
@@ -132,6 +153,7 @@ export function RuntimeInstanceCard({
             </div>
             <p className="mt-0.5 truncate text-xs text-tertiary">
               {AGENT_PROVIDER[instance.provider].label}
+              {instance.local && <span> · {instance.local.deviceLabel}</span>}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
           </div>
@@ -159,7 +181,7 @@ export function RuntimeInstanceCard({
           busy={busy}
           canEdit={canEdit}
           authenticated={runtime?.authenticated}
-          onEdit={() => setEditing(true)}
+          onRename={() => setEditing(true)}
           onSignIn={() => setSigningIn(true)}
           onToggleEnabled={() =>
             void mutate(() =>
@@ -202,26 +224,6 @@ export function RuntimeInstanceCard({
             {instance.deletion.error ??
               'Removing the agent and its files. Conversation history stays in Nuphos.'}
           </p>
-        ) : editing ? (
-          <div className="p-4">
-            <RuntimeInstanceForm
-              instance={instance}
-              onCancel={() => setEditing(false)}
-              onSave={async (input) => {
-                // A computer's agent is not a team runtime: its name lives on that computer's row.
-                await (instance.local
-                  ? api.boxRenameAgent(
-                      instance.local.deviceId,
-                      teamId,
-                      instance.local.instanceId ?? instance.provider,
-                      input.label ?? '',
-                    )
-                  : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label: input.label }))
-                setEditing(false)
-                changed()
-              }}
-            />
-          </div>
         ) : (
           <>
             {runtime?.credentialRevoked ? (
