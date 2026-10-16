@@ -122,3 +122,16 @@ test("an away computer's signed-in agent stays visible and reads Offline", () =>
   assert.equal(agentOffline(back), false)
   assert.equal(agentRunsOn(back), 'Box 1')
 })
+
+test('a self-hosted agent the backend cannot reach reads offline, the same signal as its Usage', () => {
+  const selfHosted = {
+    id: 'r',
+    kind: 'external',
+    provider: 'claude-code',
+    status: 'active',
+    label: 'localhost',
+  } as RuntimeInstance
+
+  assert.equal(agentOffline({ ...selfHosted, notReady: true }), true)
+  assert.equal(agentOffline(selfHosted), false)
+})

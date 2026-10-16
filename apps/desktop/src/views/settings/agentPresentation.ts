@@ -21,7 +21,7 @@ export function agentName(instance: RuntimeInstance): string {
 
 /** A computer's agent whose computer is away: still listed, shown offline. */
 export function agentOffline(instance: RuntimeInstance): boolean {
-  return instance.local?.online === false
+  return instance.notReady === true || instance.local?.online === false
 }
 
 export function agentRunsOn(instance: RuntimeInstance, currentDeviceId?: string): string {
