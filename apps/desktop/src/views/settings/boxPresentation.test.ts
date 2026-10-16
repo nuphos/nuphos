@@ -187,6 +187,16 @@ test('a running Box whose host is away is Host offline; until its first join the
   assert.equal(boxState(box('a', 'running', true)), 'running')
 })
 
+test("a Box still starting past the setup timeout didn't start: Resume is offered and the fast poll stops", () => {
+  const made = Date.parse('2026-10-16T08:00:00Z')
+  const stuck = box('a', 'creating', false, new Date(made).toISOString())
+
+  assert.equal(boxState(stuck, made + 60_000), 'creating')
+  assert.equal(boxState(stuck, made + 6 * 60_000), 'error')
+  assert.deepEqual(boxActions('error'), { pause: false, resume: true })
+  assert.equal(boxPollMs([box('b', 'creating', false, '2026-10-01T00:00:00Z')], false), 0)
+})
+
 test('a member who may only use a Box gets none of the controls the backend refuses', () => {
   assert.equal(canManage({ ...box('a', 'running'), access: 'use' }), false)
   assert.equal(canManage({ ...box('a', 'running'), access: 'manage' }), true)
