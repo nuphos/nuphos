@@ -192,6 +192,11 @@ class ConnectorsStore(
         actionError = null
         try {
             var expectedId: String? = null
+            var oauthId = (result as? ConnectorReturn.OAuth)?.bindingId
+            if (result is ConnectorReturn.Deferred) {
+                val response = transport.request("POST", value.teamId, "connector-oauth/${value.state}/complete", JsonValue.obj("code" to JsonValue.Str(result.code)), emptyMap())
+                oauthId = response["binding_id"]?.stringValue
+            }
             if (result is ConnectorReturn.Github) {
                 try {
                     val response = transport.request("POST", value.teamId, "github-installations", JsonValue.obj("installationId" to JsonValue.Number(result.installationId.toDouble())), emptyMap())
@@ -205,7 +210,7 @@ class ConnectorsStore(
                 inventory = refreshed
                 phase = Phase.Loaded
                 val confirmed = when (result) {
-                    is ConnectorReturn.OAuth -> refreshed.contains(value.provider, result.bindingId)
+                    is ConnectorReturn.OAuth, is ConnectorReturn.Deferred -> oauthId?.let { refreshed.contains(value.provider, it) } == true
                     is ConnectorReturn.Github -> refreshed.rows.any { it.provider == "github" && it.installationId == result.installationId && (expectedId == null || it.bindingId == expectedId) }
                     else -> false
                 }
