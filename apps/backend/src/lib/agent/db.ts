@@ -25,6 +25,7 @@ export {
 export {
   clearConversationPreviewLocalTools,
   clearConversationPreviewTurn,
+  consumeConversationRetracted,
   consumeConversationWorkLost,
   getConversationPreviewAttachment,
   markConversationWorkLost,

@@ -4,12 +4,12 @@ import { RETRACTED_NOTICE, retractedPrompt } from './retracted-notice'
 
 import type { TeamSession } from './team-openab-runtime'
 
-import { useRetractMarks } from '@/lib/test/doubles/retract-marks'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
 let marked = false
 
-useRetractMarks({
-  consumeRetracted: async () => {
+useAgentDb({
+  consumeConversationRetracted: async () => {
     const was = marked
 
     marked = false

@@ -1,7 +1,7 @@
 import { getReadableConversation, retractTrailingUserMessage } from '@/lib/agent/db'
 import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import { liveTurnHasOutput } from '@/lib/agent/live-turn'
-import { markRetracted, turnCarried } from '@/lib/agent/retract-marks'
+import { turnCarried } from '@/lib/agent/retract-marks'
 import { cancelConversationRuntime } from '@/lib/claude-code-preview/session-execution-state'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
@@ -65,7 +65,6 @@ agent.post('/conversations/:sessionId/messages/:messageId/retract', async (c) =>
     await Bun.sleep(retractTurnEndWait.pollMs)
   }
   await retract(false)
-  await markRetracted(sessionId)
   logEvent('info', 'agent.message.retracted', {
     trace_id: c.get('requestId'),
     user_id: userId,

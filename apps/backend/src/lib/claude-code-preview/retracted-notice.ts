@@ -1,4 +1,4 @@
-import { consumeRetracted } from '@/lib/agent/retract-marks'
+import { consumeConversationRetracted } from '@/lib/agent/db'
 
 import type { TeamSession } from './team-openab-runtime'
 
@@ -12,7 +12,7 @@ export const RETRACTED_NOTICE =
 
 /** The notice once after a retraction; a fresh session rebuilt from the transcript never saw it. */
 export async function retractedPrompt(session: TeamSession, fresh: boolean): Promise<string> {
-  const retracted = await consumeRetracted(session.conversationId)
+  const retracted = await consumeConversationRetracted(session.conversationId, session.teamId)
 
   return retracted && !fresh ? RETRACTED_NOTICE : ''
 }

@@ -47,9 +47,6 @@ useAgentDb({
 })
 useRetractMarks({
   turnCarried: async (turnKey) => carried && turnKey === activeTurn,
-  markRetracted: async () => {
-    events.push('mark')
-  },
 })
 useLiveTurn({ liveTurnHasOutput: async () => liveOutput })
 useSessionExecutionState({
@@ -87,9 +84,9 @@ const retract = (team = teamId) =>
   })
 const checked = `check:${caller}:m1`
 
-test('stops the turn, waits for it to end, drops the message and tells the next prompt', async () => {
+test('stops the turn, waits for it to end, and drops the message', async () => {
   expect((await retract()).status).toBe(200)
-  expect(events).toEqual([checked, 'cancel', `retract:${caller}:m1`, 'mark'])
+  expect(events).toEqual([checked, 'cancel', `retract:${caller}:m1`])
 })
 
 test("never stops a turn for someone else's message", async () => {

@@ -81,7 +81,16 @@ export async function retractTrailingUserMessage(args: {
     })
     await agentConversations().updateOne(
       withTeamScope({ sessionId, userId: ownerUserId }, args.teamId),
-      { $set: { messageCount: verdict.index, transcriptUpdatedAt: new Date() } },
+      // The runtime's own session still holds the prompt; its next prompt there
+      // is told to drop it (consumeConversationRetracted). Set under the same
+      // lock, so no turn can start between the removal and the mark.
+      {
+        $set: {
+          messageCount: verdict.index,
+          transcriptUpdatedAt: new Date(),
+          claudeCodePreviewRetractedAt: new Date(),
+        },
+      },
     )
 
     return 'retracted'
