@@ -185,3 +185,7 @@ test(
     }
   },
 )
+
+test('openab drops a session idle for an hour instead of keeping its agent for 30 days', () => {
+  assert.match(openabConfigToml(launch), /^\[pool\]\nsession_ttl_hours = 1$/mu)
+})

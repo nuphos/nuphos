@@ -101,6 +101,41 @@ test('relays a stream to that agent’s loopback runtime with the key for its pu
   client.stop()
 })
 
+test('a runtime socket that errors while connecting closes once and frees its stream', () => {
+  const { backend, runtimes, frames, client } = setup()
+
+  backend().emit('open')
+  backend().emit('message', {
+    data: JSON.stringify({ t: 'open', s: 's1', purpose: 'transport', provider: 'claude-code' }),
+  })
+  const socket = runtimes[0]?.socket as FakeSocket
+  let closes = 0
+
+  // Like undici: close() on a CONNECTING socket fails the connection, firing
+  // `error` synchronously before `close`. Reacting to `error` with close() recursed.
+  socket.close = () => {
+    closes += 1
+    if (closes > 1) throw new Error('close() re-entered from the error listener')
+    socket.emit('error')
+    socket.emit('close', { code: 1006 })
+  }
+  backend().emit('message', { data: JSON.stringify({ t: 'close', s: 's1' }) })
+  assert.equal(closes, 1)
+
+  // A connection that fails on its own still tells the backend the stream ended.
+  backend().emit('message', {
+    data: JSON.stringify({ t: 'open', s: 's2', purpose: 'transport', provider: 'claude-code' }),
+  })
+  const failed = runtimes[1]?.socket as FakeSocket
+
+  failed.emit('error')
+  failed.emit('close', { code: 1006 })
+  assert.deepEqual(frames().slice(-1), [{ t: 'close', s: 's2' }])
+  backend().emit('message', { data: JSON.stringify({ t: 'data', s: 's2', d: 'late' }) })
+  assert.deepEqual(failed.sent, [])
+  client.stop()
+})
+
 test('refuses streams while the runtime is not up', () => {
   const { backend, frames, client } = setup(false)
 

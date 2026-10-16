@@ -134,6 +134,11 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
     '[agent.env]',
     ...Object.entries(agentEnv(launch)).map(([key, value]) => `${key} = ${tomlString(value)}`),
     '',
+    // openab's default is 30 days, so an idle session's agent never exits. After an
+    // hour it is dropped and the next prompt resumes it with session/load.
+    '[pool]',
+    'session_ttl_hours = 1',
+    '',
   ].join('\n')
 }
 

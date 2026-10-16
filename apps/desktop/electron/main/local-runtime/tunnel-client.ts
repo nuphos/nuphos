@@ -292,8 +292,5 @@ export class RuntimeTunnelClient {
       this.deps.activity?.close(s)
       this.send({ t: 'close', s })
     })
-    runtime.addEventListener('error', () => {
-      runtime.close()
-    })
   }
 }
