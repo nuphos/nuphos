@@ -190,6 +190,21 @@ export async function startDisplay(pool, display, home) {
       { env, stdio: 'ignore' },
     )
   }
+  // Chromium exposes its windows to the computer-use server only once the
+  // desktop says accessibility is on; GTK apps do regardless.
+  spawnSync(
+    'dbus-send',
+    [
+      '--session',
+      '--dest=org.a11y.Bus',
+      '/org/a11y/bus',
+      'org.freedesktop.DBus.Properties.Set',
+      'string:org.a11y.Status',
+      'string:IsEnabled',
+      'variant:boolean:true',
+    ],
+    { env, stdio: 'ignore', timeout: 5_000 },
+  )
   if (!xfceRunning(display)) detached('env', [`XDG_RUNTIME_DIR=${xdg}`, 'xfce4-session'])
 
   return env
