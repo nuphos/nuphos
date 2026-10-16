@@ -16,11 +16,19 @@ repo="$GITHUB_REPOSITORY"
 base="$(git rev-parse HEAD)"
 root="$(git rev-parse --show-toplevel)"
 
+# This workflow's open pull request, if any, as "<number>\t<title>".
+open_pr="$(gh pr list --repo "$repo" --head "$branch" --state open --app github-actions \
+  --json number,title,headRepositoryOwner \
+  --jq "[.[] | select(.headRepositoryOwner.login == \"${repo%%/*}\")][0] // empty | \"\(.number)\t\(.title)\"")"
+stale="${open_pr%%$'\t'*}"
+if [[ -n "$open_pr" && "${open_pr#*$'\t'}" == "$title" ]]; then
+  echo "#$stale already carries this update."
+  exit 0
+fi
 # Close a stale update first: resetting an open pull request's head to main
 # makes GitHub mark it merged with nothing landed.
-stale="$(gh pr list --repo "$repo" --head "$branch" --state open --json number --jq '.[0].number // empty')"
 if [[ -n "$stale" ]]; then
-  gh pr close "$stale" --repo "$repo" --comment "Superseded by a newer update."
+  gh pr close "$stale" --repo "$repo"
 fi
 
 if ! gh api -X PATCH "repos/$repo/git/refs/heads/$branch" -f sha="$base" -F force=true >/dev/null 2>&1; then
@@ -52,4 +60,8 @@ process.stdout.write(
 JS
 
 body="Opened by the [$GITHUB_WORKFLOW run]($GITHUB_SERVER_URL/$repo/actions/runs/$GITHUB_RUN_ID) after the update passed its tests and image smoke test. Merging it releases the new runtime version."
-gh pr create --repo "$repo" --base main --head "$branch" --title "$title" --body "$body"
+url="$(gh pr create --repo "$repo" --base main --head "$branch" --title "$title" --body "$body")"
+echo "$url"
+if [[ -n "$stale" ]]; then
+  gh pr comment "$stale" --repo "$repo" --body "Superseded by $url."
+fi
