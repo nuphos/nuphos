@@ -149,6 +149,23 @@ test('a streaming tab or a tab with only plain drafts is not probed', async () =
   assert.equal(probed, 0)
 })
 
+test('a message queued on a fork whose import failed sends without probing', async () => {
+  // The import failed, so the fork is still unsaved and its session answers 404.
+  const fork = queueAutoSend(tab({ unsaved: true }), { id: 'q', text: 'retry', filePaths: [] })
+  const dispatched: QueuedMessage[] = []
+  const deps = {
+    probe: () => Promise.reject(new Error('404 conversation not found')),
+    onRuntimeState: () => assert.fail('nothing to probe'),
+    dispatch: (_tabId: string, item: QueuedMessage) => {
+      dispatched.push(item)
+    },
+    onNeverSendable: () => assert.fail('nothing to probe'),
+  }
+
+  assert.equal(await pumpAutoSend(fork, deps), 'sent')
+  assert.equal(dispatched[0]?.text, 'retry')
+})
+
 test('a queued message stops waiting once a probe shows the agent can never accept it', async () => {
   const waiting = queueAutoSend(tab(), { id: 'q', text: 'hello', filePaths: [] })
   const outdated: RuntimeExecution = { state: 'idle', observedAt: performance.now() }

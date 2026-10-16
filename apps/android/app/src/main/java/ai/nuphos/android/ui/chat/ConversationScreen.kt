@@ -335,6 +335,24 @@ fun ConversationScreen(
                 }
                 ChatComposer(
                     onChooseAgent = { showAgent = true },
+                    mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
+                        SessionMentionSource(draftTeam, sessionId) { query ->
+                            store.mentionableSessions(draftTeam, query)
+                        }
+                    },
+                    devices = if (!session.canManage || store.selectedTeam?.id != draftTeam) null
+                    else remember(store, session, draftTeam, store.workspaceRevision) {
+                        DeviceMentionSource(draftTeam,
+                            load = { store.mentionableComputers(draftTeam) },
+                            pick = { device ->
+                                if (!session.canManage || store.selectedTeam?.id != draftTeam || !draftAuth.aiAllowed) false
+                                else DeviceMention.select(session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(), device)?.let {
+                                    session.credentialAccess = it
+                                    true
+                                } ?: false
+                            },
+                        )
+                    },
                     agentLabel = session.runtimeDeviceLabel,
                     agentQuota = session.runtimeId?.let { quotas[it] },
                     draft = draft,

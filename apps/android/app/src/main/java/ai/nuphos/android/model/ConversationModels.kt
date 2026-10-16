@@ -52,6 +52,7 @@ data class AgentConversation(
     val activitySeq: JsonValue? = null,
     val readSeq: JsonValue? = null,
     val unread: JsonValue? = null,
+    val parentSessionId: String? = null,
 ) {
     @Transient
     val id: String get() = sessionId
