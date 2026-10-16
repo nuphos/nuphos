@@ -67,11 +67,11 @@ test('a new conversation starts on the usable agent with the most quota left', (
   assert.equal(defaultAgent([{ ...cloud, status: 'disabled' as const }], me), undefined)
 })
 
-test('the picker leaves out agents that are not ready, except the selected one', () => {
+test('the picker offers only agents that are ready and signed in, even when one is selected', () => {
   const ready = { id: 'a', label: 'Ready' }
   const starting = { id: 'b', label: 'Starting', notReady: true }
+  const signedOut = { ...here, local: { ...here.local, signedIn: false } }
 
-  assert.deepEqual(listedAgents([ready, starting], 'a'), [ready])
-  assert.deepEqual(listedAgents([ready, starting], 'b'), [ready, starting])
-  assert.deepEqual(listedAgents([ready, starting], undefined), [ready])
+  assert.deepEqual(listedAgents([ready, starting, here, signedOut]), [ready, here])
+  assert.deepEqual(listedAgents([starting, signedOut]), [])
 })

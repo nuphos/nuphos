@@ -48,12 +48,11 @@ export function groupAgentsByTier<T extends NamedAgent>(
   return agents.length ? [{ tier: 'local' as const, title: '', agents: [...agents] }] : []
 }
 
-/** An agent that isn't ready can't be picked, so the picker leaves it out; the current one stays. */
-export function listedAgents<T extends { id?: string; notReady?: boolean }>(
+/** The picker offers only agents that are ready and signed in, the selected one included. */
+export function listedAgents<T extends { notReady?: boolean; local?: { signedIn?: boolean } }>(
   agents: readonly T[],
-  selectedId: string | undefined,
 ): T[] {
-  return agents.filter((agent) => !agent.notReady || agent.id === selectedId)
+  return agents.filter((agent) => !agent.notReady && agent.local?.signedIn !== false)
 }
 
 type SelectableAgent = NamedAgent & { status: 'active' | 'disabled' }

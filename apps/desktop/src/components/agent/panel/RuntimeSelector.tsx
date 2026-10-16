@@ -3,10 +3,9 @@ import { useEffect, useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
-import { agentName, agentTier, groupAgentsByTier, listedAgents } from '../../../lib/agentName'
+import { agentName, groupAgentsByTier, listedAgents } from '../../../lib/agentName'
 import { quotaDetailLines, quotaSummary, quotaTone } from '../../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../../types/runtime'
-import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import {
   Menu,
@@ -96,9 +95,6 @@ function runtimeOptionNote(instance: RuntimeInstance): string {
   if (instance.status === 'disabled') return ' · Disabled'
   if (instance.deletion) return ' · Being removed'
   if (instance.starting) return ' · Starting…'
-  if (instance.notReady) return ' · Not ready yet'
-  if (instance.local?.signedIn === false)
-    return ` · Sign in to ${AGENT_PROVIDER[instance.provider].label} on that computer`
 
   return ''
 }
@@ -118,11 +114,10 @@ export function RuntimeSelector({
   onAddAgent,
   confirm,
 }: RuntimeControl) {
-  const [signingIn, setSigningIn] = useState<string | null>(null)
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
-  const listed = listedAgents(options, value?.id)
+  const listed = listedAgents(options)
   const label = value
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
@@ -193,16 +188,6 @@ export function RuntimeSelector({
           onClose={confirm.onCancel}
         />
       )}
-      {signingIn && (
-        <LocalAgentSignIn
-          provider={signingIn.endsWith('_codex') ? 'codex' : 'claude-code'}
-          initiallyOpen
-          onClosed={(connected) => {
-            if (connected) onSelect(signingIn)
-            setSigningIn(null)
-          }}
-        />
-      )}
       <Menu>
         <MenuTrigger
           aria-label={`Conversation agent: ${label}`}
@@ -225,10 +210,6 @@ export function RuntimeSelector({
                 {group.title && <MenuGroupLabel>{group.title}</MenuGroupLabel>}
                 {group.agents.map((instance) => {
                   const update = updates.get(instance.id)
-                  const needsLocalLogin =
-                    (instance.provider === 'claude-code' || instance.provider === 'codex') &&
-                    agentTier(instance, owner) === 'local' &&
-                    instance.local?.signedIn !== true
 
                   return (
                     <MenuItem
@@ -237,16 +218,12 @@ export function RuntimeSelector({
                       disabled={
                         selectDisabled ||
                         instance.status === 'disabled' ||
-                        Boolean(instance.deletion) ||
-                        (instance.local?.signedIn === false && !needsLocalLogin)
+                        Boolean(instance.deletion)
                       }
                       icon={
                         <AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />
                       }
-                      onClick={() => {
-                        if (needsLocalLogin) setSigningIn(instance.id)
-                        else onSelect(instance.id)
-                      }}
+                      onClick={() => onSelect(instance.id)}
                     >
                       <span className="flex min-w-0 flex-col">
                         <span className="flex min-w-0 items-center gap-1.5">
