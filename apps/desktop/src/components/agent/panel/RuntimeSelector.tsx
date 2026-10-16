@@ -122,6 +122,8 @@ export function RuntimeSelector({
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
+  // An agent that isn't ready can't be picked, so it isn't listed; the current one stays.
+  const listed = options.filter((instance) => !instance.notReady || instance.id === value?.id)
   const label = value
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
@@ -212,13 +214,13 @@ export function RuntimeSelector({
         </MenuTrigger>
         <MenuContent side="top" align="end" className="w-72">
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
-          {!loading && !error && options.length === 0 && (
+          {!loading && !error && listed.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">
               Connect an agent in Settings → Agent to get started.
             </p>
           )}
           <div className="max-h-64 overflow-auto">
-            {groupAgentsByTier(options, owner).map((group, index) => (
+            {groupAgentsByTier(listed, owner).map((group, index) => (
               <MenuGroup key={group.tier}>
                 {index > 0 && <MenuSeparator />}
                 {group.title && <MenuGroupLabel>{group.title}</MenuGroupLabel>}
@@ -237,7 +239,6 @@ export function RuntimeSelector({
                         selectDisabled ||
                         instance.status === 'disabled' ||
                         Boolean(instance.deletion) ||
-                        (instance.notReady === true && instance.id !== value?.id) ||
                         (instance.local?.signedIn === false && !needsLocalLogin)
                       }
                       icon={
