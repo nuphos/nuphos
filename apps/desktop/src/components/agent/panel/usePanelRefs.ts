@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { EMPTY_CREDENTIAL_OPTIONS, EMPTY_CREDENTIAL_ACCESS } from './constants'
-import { emitFirstRunConvo } from './model'
 
-import type { PanelCtx } from './ctx'
 import type { StallDetail } from './stall'
 import type { TextStreamBuffer } from './streamBuffer'
 import type {
@@ -12,20 +10,7 @@ import type {
   AgentCredentialSelection,
 } from '../../../api'
 
-type Acc = Pick<PanelCtx, 'tabs'>
-
-export function usePanelRefs(acc: Acc) {
-  const { tabs } = acc
-
-  // First-run breadcrumb: the moment the last in-flight turn finishes, the
-  // guide can advance "waiting for the answer" → "the answer is in".
-  const anyStreaming = tabs.some((t) => t.streaming)
-  const wasStreamingRef = useRef(false)
-
-  useEffect(() => {
-    if (wasStreamingRef.current && !anyStreaming) emitFirstRunConvo('answered')
-    wasStreamingRef.current = anyStreaming
-  }, [anyStreaming])
+export function usePanelRefs() {
   // A3 auto-ingest: streamIds whose post-turn learned-chip fetch is already
   // scheduled (StrictMode double-dispatch guard).
   const autoLearnedFetchedRef = useRef(new Set<string>())

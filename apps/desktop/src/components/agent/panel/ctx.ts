@@ -66,7 +66,6 @@ export type PanelCtx = {
   autoFocusComposer: boolean
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
-  onStartConnect?: () => void
   connectedResources?: string[]
   onDockToSidebar?: (snapshot: Tab | null) => void
   onExpandToPage?: (snapshot: Tab | null, opts?: { newTab?: boolean }) => void

@@ -1,6 +1,5 @@
 import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
 import {} from '../../components/agent/AgentPanel'
-import { track } from '../../lib/analytics'
 import { emptyNavigation } from '../../lib/appRoutes'
 
 import { selectScope } from './store/workspaceState'
@@ -139,21 +138,10 @@ export function useWorkspaceShellState() {
   // Expanded keeps the workspace dock mounted but lets it occupy the complete
   // main canvas. The persistent left rail then returns to resource navigation.
   const [workspaceDockExpanded, setWorkspaceDockExpanded] = useState(false)
-  // The first-run connect walkthrough shares the right-hand dock with the workspace
-  // panel — one slot, two possible occupants, so opening either closes the
-  // other. It lives up here rather than in the tab pane because it is part of
-  // the shell's layout, and because its steps have to survive the user changing
-  // tabs to look something up mid-setup.
-  const [firstRunPanelOpen, setFirstRunPanelOpen] = useState(false)
   // Dev-only override (`onboarding.firstRun()` in the console): treats the
-  // team as first-run even with a cloud already bound, so the whole flow can
-  // be retested without unbinding anything.
+  // team as having no cloud bound, so the unbound Agent home can be checked
+  // without unbinding anything.
   const [firstRunDevForced, setFirstRunDevForced] = useState(false)
-  const startFirstRunConnect = useCallback(() => {
-    track('agent_first_run_connect_started')
-    workspaceActions.setDockOpen(false)
-    setFirstRunPanelOpen(true)
-  }, [workspaceActions])
   const [agentSidebarPendingImport, setAgentSidebarPendingImport] =
     useState<AgentSessionSnapshot | null>(null)
   // Source conversation id to fork into the main Agent pane (continue a plan).
@@ -236,11 +224,8 @@ export function useWorkspaceShellState() {
     toggleSidebarCollapsed,
     workspaceDockExpanded,
     setWorkspaceDockExpanded,
-    firstRunPanelOpen,
-    setFirstRunPanelOpen,
     firstRunDevForced,
     setFirstRunDevForced,
-    startFirstRunConnect,
     agentSidebarPendingImport,
     setAgentSidebarPendingImport,
     agentSidebarPendingFork,

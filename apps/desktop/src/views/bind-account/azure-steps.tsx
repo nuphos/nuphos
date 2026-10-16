@@ -12,17 +12,11 @@ import { StepList, ConsoleLink, CopyableValue } from './shared'
 import type { AzureStepTitle } from '../../lib/cloudBindSteps'
 import type { AzureOidcInfo } from '../../types'
 
-// One Azure setup step's instructions, addressable on its own. Split out of the
-// wizard so the first-run panel can stack every step in one scrollable column —
-// a docked panel has the height for a checklist, and someone working down a list
-// while tabbing to their browser should not have to click Next to see what's
-// coming. Both surfaces render this, so the issuer, audience and subject the
-// user pins into a federated credential exist in exactly one place.
+// One Azure setup step's instructions, addressable on its own.
 export function AzureWizardStepContent({
   step,
   oidc,
   purpose,
-  firstRun,
   label,
   onLabelChange,
   tenantId,
@@ -35,7 +29,6 @@ export function AzureWizardStepContent({
   step: number
   oidc: AzureOidcInfo | null
   purpose: 'operational'
-  firstRun: boolean
   label: string
   onLabelChange: (v: string) => void
   tenantId: string
@@ -114,7 +107,7 @@ export function AzureWizardStepContent({
         </div>
       )}
       {title === 'Assign a role on the subscription' && (
-        <AzureRoleAssignmentStep purpose={purpose} firstRun={firstRun} appName={appName} />
+        <AzureRoleAssignmentStep purpose={purpose} appName={appName} />
       )}
       {title === 'Bind the subscription' && (
         <AzureBindSubscriptionStep

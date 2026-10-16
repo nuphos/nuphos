@@ -8,7 +8,6 @@ import { Tooltip } from '../../../components/ui/tooltip'
 import { logNewTabRequested, logTabActivated } from '../../../lib/tabSwitchLog'
 import { isPermanentSidebarPage } from '../../navItems'
 
-import { TabStripActions } from './TabStripActions'
 import { useTabDragEvents } from './useTabDragEvents'
 import { useTabDragPreview } from './useTabDragPreview'
 import { useClosingTab } from './useClosingTab'
@@ -35,8 +34,6 @@ export function WorkspaceTabs({
   onCopyPageUrl,
   sidebarCollapsed,
   onToggleSidebarCollapse,
-  firstRunConnectAvailable,
-  onStartFirstRunConnect,
 }: WorkspaceTabsProps) {
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<TabDropTarget>(null)
@@ -245,10 +242,6 @@ export function WorkspaceTabs({
           onDismiss={() => setTabContextMenu(null)}
         />
       )}
-      <TabStripActions
-        firstRunConnectAvailable={firstRunConnectAvailable}
-        onStartFirstRunConnect={onStartFirstRunConnect}
-      />
     </div>
   )
 }

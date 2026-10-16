@@ -15,14 +15,12 @@ export function CloudCliSetupChoice({
   check,
   onOpenAgentChat,
   onStarted,
-  firstRun = false,
 }: {
   provider: CloudCliProvider
   teamId: string
   check: ReturnType<typeof useCloudCliCheck>
   onOpenAgentChat: (prompt: string) => void
   onStarted: () => void
-  firstRun?: boolean
 }) {
   const [starting, setStarting] = useState(false)
   const label = CLOUD_CLIS[provider].label
@@ -33,7 +31,7 @@ export function CloudCliSetupChoice({
     try {
       const device = await api.deviceGetIdentity()
 
-      onOpenAgentChat(cloudCliSetupPrompt(provider, teamId, check.result, device, firstRun))
+      onOpenAgentChat(cloudCliSetupPrompt(provider, teamId, check.result, device))
       onStarted()
     } catch (error) {
       toast.apiError('Could not start setup', error, {
@@ -47,10 +45,8 @@ export function CloudCliSetupChoice({
   const steps = [
     { title: 'Check your account', detail: 'Confirm your sign-in and the account to connect.' },
     {
-      title: firstRun ? 'Add cost read access' : 'Set up the connection',
-      detail: firstRun
-        ? 'Start with access for your first cost analysis.'
-        : 'Configure the access needed for your tasks.',
+      title: 'Set up the connection',
+      detail: 'Configure the access needed for your tasks.',
     },
     { title: 'Verify and connect', detail: 'Test the connection and save it to your workspace.' },
   ]

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Kbd } from '../../components/ui/kbd'
 import { Tooltip } from '../../components/ui/tooltip'
-import { FirstRunPanel } from '../../views/onboarding/FirstRunPanel'
 
 import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -14,18 +13,7 @@ import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
 
 export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; user: UserInfo }) {
-  const {
-    dockOpen,
-    workspaceActions,
-    firstRunPanelOpen,
-    setFirstRunPanelOpen,
-    workspaceDockExpanded,
-    setWorkspaceDockExpanded,
-    activeTab,
-    scope,
-    enterScope,
-    updateTab,
-  } = ws
+  const { dockOpen, workspaceActions, workspaceDockExpanded, setWorkspaceDockExpanded, scope } = ws
   const dockRef = useRef<HTMLElement | null>(null)
   const [widthVw, setWidthVw] = useState(() => {
     const stored = Number(localStorage.getItem('nuphos.workspaceDockWidthVw'))
@@ -164,10 +152,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
       {scope?.teamId && (
         <button
           type="button"
-          onClick={() => {
-            setFirstRunPanelOpen(false)
-            workspaceActions.toggleDock()
-          }}
+          onClick={() => workspaceActions.toggleDock()}
           className={clsx(
             'workspace-dock-toggle titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
             dockOpen ? 'bg-zGray-800/60 text-main' : 'text-secondary',
@@ -178,27 +163,6 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
         >
           <PanelRight className="h-4 w-4" strokeWidth={1.7} />
         </button>
-      )}
-      {scope?.teamId && (
-        <FirstRunPanel
-          open={firstRunPanelOpen}
-          onOpenAgentChat={ws.stableOpenAgentChatWithPrompt}
-          teamId={scope.teamId}
-          onClose={() => setFirstRunPanelOpen(false)}
-          onBound={() => {
-            // Same move every other bind dialog makes: bump the tab's refresh
-            // key so the team's accounts reload.
-            if (activeTab) {
-              updateTab(activeTab.id, (tab) => ({ ...tab, refreshKey: tab.refreshKey + 1 }))
-            }
-          }}
-          onOpenAgentPage={() => {
-            const targetTeamId = scope?.teamId
-
-            if (targetTeamId) enterScope({ kind: 'team', teamId: targetTeamId }, 'team.agent')
-          }}
-          onDone={() => setFirstRunPanelOpen(false)}
-        />
       )}
     </>
   )

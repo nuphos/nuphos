@@ -1,6 +1,5 @@
 import { gcpContentStep, gcpSpec } from '../../lib/cloudBindSteps'
 
-import { GcpFirstRunStep } from './gcp-steps-first-run'
 import { GcpTokenCreatorNote, GcpTokenCreatorPrincipal } from './gcp-token-creator'
 import { ConsoleLink, CopyableValue, Field, StepList, StepNote } from './shared'
 
@@ -8,10 +7,10 @@ import type { GcpWifInfo } from '../../types'
 
 // The Cloud Console "Create service account" flow is itself a 3-sub-step
 // wizard, so we mirror those sub-steps 1:1 and the guide matches exactly what
-// is on screen. The first-run scope takes a route of its own — see gcpSteps().
+// is on screen.
 //
-// Same shape as the AWS route and the first-run one: a numbered list of moves
-// with the console link as its first item, and any aside below it.
+// Same shape as the AWS route: a numbered list of moves with the console link
+// as its first item, and any aside below it.
 
 // One-click Cloud Console deep links (open the exact page for each step). No
 // project param — the console opens on the user's last project with a switcher.
@@ -27,7 +26,6 @@ const GCP_CONSOLE = {
 export function GcpWizardStepContent({
   step: purposeStep,
   purpose,
-  firstRun,
   wif,
   saEmail,
   onSaEmailChange,
@@ -38,7 +36,6 @@ export function GcpWizardStepContent({
    *  full list below, since the admin list drops 'Enable APIs'. */
   step: number
   purpose: 'operational'
-  firstRun: boolean
   /** Nuphos's principal for the Token Creator grant; null until it loads. */
   wif: GcpWifInfo | null
   saEmail: string
@@ -46,7 +43,7 @@ export function GcpWizardStepContent({
   projectId: string
   onProjectIdChange: (v: string) => void
 }) {
-  const spec = gcpSpec(purpose, firstRun)
+  const spec = gcpSpec(purpose)
   const step = gcpContentStep(purpose, purposeStep)
 
   const enterDetails = (
@@ -74,12 +71,6 @@ export function GcpWizardStepContent({
       </Field>
     </div>
   )
-
-  // ── First-run scope: 5 steps, because the billing grant cannot ride inside
-  //    the create-SA wizard and gets one of its own ──
-  if (spec.grantOn === 'billing-account') {
-    return <GcpFirstRunStep step={step} spec={spec} wif={wif} details={enterDetails} />
-  }
 
   // ── Project scope: 6 steps, mirroring the on-screen create-SA wizard ──
   if (step === 0) {
@@ -136,21 +127,11 @@ export function GcpWizardStepContent({
             Click <span className="text-main">Continue</span>
           </li>
         </StepList>
-        {spec.isBroad && (
-          <StepNote>
-            Prefer least-privilege? <span className="text-main">{spec.roleLabel}</span> is broad —
-            you can instead add only the roles the agent needs (e.g. Kubernetes Engine Admin,
-            Compute Viewer). Add each one here.
-          </StepNote>
-        )}
-        {spec.scopeNote && <StepNote>{spec.scopeNote}</StepNote>}
-        {firstRun && (
-          <StepNote>
-            Add <span className="text-main">nothing else</span> here. Cost data is all Nuphos needs
-            to answer its first question, and anything more is a decision you can make later, with a
-            reason.
-          </StepNote>
-        )}
+        <StepNote>
+          Prefer least-privilege? <span className="text-main">{spec.roleLabel}</span> is broad — you
+          can instead add only the roles the agent needs (e.g. Kubernetes Engine Admin, Compute
+          Viewer). Add each one here.
+        </StepNote>
       </div>
     )
   }

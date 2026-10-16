@@ -57,7 +57,6 @@ export const WorkspaceTabPane = memo(
     copyLink,
     openInChat,
     onOpenAgentChat,
-    onStartFirstRunConnect,
     updateTab,
     onFilterChange,
     enterScopeInTab,
@@ -264,7 +263,6 @@ export const WorkspaceTabPane = memo(
                     onAgentSessionTitle={onAgentSessionTitle}
                     onOpenNuphosLink={onOpenNuphosLink}
                     onOpenSettingsSection={onOpenSettingsSection}
-                    onStartFirstRunConnect={onStartFirstRunConnect}
                     onPagePendingImportConsumed={onPagePendingImportConsumed}
                     onChatPromptConsumed={onChatPromptConsumed}
                     setPageMeta={setPageMeta}

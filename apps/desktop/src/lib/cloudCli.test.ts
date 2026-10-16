@@ -14,7 +14,6 @@ test('handoff pins the detected device, checks authentication and finishes with 
       version: '3.2.8',
     },
     { deviceId: 'device-1', label: 'My laptop' },
-    true,
   )
 
   for (const expected of [
@@ -24,7 +23,7 @@ test('handoff pins the detected device, checks authentication and finishes with 
     '3.2.8',
     '/usr/local/bin/hcloud',
     'IAM 5.0',
-    'billing/cost read',
+    'minimum required permissions',
     'create_connector',
     '"huawei"',
     'team-1',

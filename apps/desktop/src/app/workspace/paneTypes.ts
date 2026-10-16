@@ -59,8 +59,6 @@ export type WorkspaceTabPaneProps = {
   openInChat: (href: string, options?: { mode?: 'mention' | 'text'; filePaths?: string[] }) => void
   /** Open a fresh agent chat and auto-send the given prompt. */
   onOpenAgentChat: (prompt: string, options?: { send?: boolean }) => void
-  /** Opens the first-run connect walkthrough in the right-hand dock. */
-  onStartFirstRunConnect: () => void
   updateTab: UpdateWorkspaceTab
   onFilterChange: (filter: string) => void
   enterScopeInTab: (tabId: string, next: Scope, defaultActive?: string) => void

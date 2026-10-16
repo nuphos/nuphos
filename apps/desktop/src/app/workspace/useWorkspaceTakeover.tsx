@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { FIRST_RUN_DEV_STAGE_EVENT } from '../../lib/firstRunConnect'
 
 import { selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -17,7 +16,6 @@ import type { WorkspaceTabSyncResult } from './useWorkspaceTabSync'
 import type { WorkspaceTeamResourcesResult } from './useWorkspaceTeamResources'
 import type { WorkspaceTeamsResult } from './useWorkspaceTeams'
 import type { WorkspaceProps } from './workspaceProps'
-import type { FirstRunDevStage } from '../../lib/firstRunConnect'
 import type { AtlasTeam, TeamInvitation } from '../../types'
 
 type Args = WorkspaceProps &
@@ -43,7 +41,6 @@ export function useWorkspaceTakeover(a: Args) {
     workspaceActions,
     setError,
     setSettingsOpen,
-    setFirstRunPanelOpen,
     setFirstRunDevForced,
     onboardingActive,
     setOnboardingActive,
@@ -214,14 +211,11 @@ export function useWorkspaceTakeover(a: Args) {
       setOnboardingActive(true)
     }
 
-    type FirstRunDevHook = ((on?: boolean) => void) & {
-      stage: (kind: FirstRunDevStage['kind'], provider?: string, step?: number) => void
-    }
     type OnboardingDevHook = (() => void) & {
       step: (step: number) => void
       platform: (p: string) => void
       confetti: () => void
-      firstRun: FirstRunDevHook
+      firstRun: (on?: boolean) => void
     }
     const hook = (() => enter(1)) as OnboardingDevHook
 
@@ -232,24 +226,10 @@ export function useWorkspaceTakeover(a: Args) {
     // Replay the celebration on demand, without having to actually create or
     // join a workspace.
     hook.confetti = () => setLandingCelebration(true)
-    const firstRun = ((on = true) => {
-      setFirstRunDevForced(on)
-      if (!on) setFirstRunPanelOpen(false)
-    }) as FirstRunDevHook
-
-    firstRun.stage = (kind, provider, step) => {
-      setFirstRunDevForced(true)
-      setFirstRunPanelOpen(true)
-      window.dispatchEvent(
-        new CustomEvent<FirstRunDevStage>(FIRST_RUN_DEV_STAGE_EVENT, {
-          detail: { kind, provider, step },
-        }),
-      )
-    }
-    hook.firstRun = firstRun
+    hook.firstRun = (on = true) => setFirstRunDevForced(on)
     ;(window as unknown as { onboarding?: OnboardingDevHook }).onboarding = hook
     console.info(
-      '[onboarding] dev controls: onboarding() to enter · onboarding.step(1|2|3|4|5) to jump (1=demo, 2=create workspace, 3=security briefing, 4=connect cloud, 5=connect Slack) · onboarding.platform("mac"|"windows") to switch the Slack demo stage OS · onboarding.confetti() to replay the landing celebration · onboarding.firstRun() to force the first-run connect experience despite bound clouds (firstRun(false) to clear) · onboarding.firstRun.stage("intro"|"pick"|"setup"|"connected"|"first-question"|"admin-intro"|"finished", "aws"|"gcp"|"azure", step?) to jump the panel (first-question: step 1 = asked, 2 = answered)',
+      '[onboarding] dev controls: onboarding() to enter · onboarding.step(1|2|3|4|5) to jump (1=demo, 2=create workspace, 3=security briefing, 4=connect cloud, 5=connect Slack) · onboarding.platform("mac"|"windows") to switch the Slack demo stage OS · onboarding.confetti() to replay the landing celebration · onboarding.firstRun() to show the unbound Agent home despite bound clouds (firstRun(false) to clear)',
     )
 
     return () => {
@@ -258,7 +238,6 @@ export function useWorkspaceTakeover(a: Args) {
   }, [
     paneActive,
     setFirstRunDevForced,
-    setFirstRunPanelOpen,
     setLandingCelebration,
     setOnboardingActive,
     setOnboardingForced,

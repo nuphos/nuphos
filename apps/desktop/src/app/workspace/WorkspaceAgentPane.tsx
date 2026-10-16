@@ -53,7 +53,6 @@ export function WorkspaceAgentPane({
     selectedSessionReadOnly,
     setAgentSidebarPendingFork,
     workspaceActions,
-    startFirstRunConnect,
     stableOpenNuphosLinkFromChat,
     stableOpenSessionResource,
   } = ws
@@ -243,7 +242,6 @@ export function WorkspaceAgentPane({
             runtimeKubeContextRef={runtimeKubeContextRef}
             unbound={unbound}
             connectedResources={connectedResources}
-            onStartConnect={startFirstRunConnect}
             autoFocusComposer={paneActive && !dockOpen}
             newChatRequest={ws.newChatRequest}
             sessionId={selectedSessionId}

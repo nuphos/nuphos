@@ -48,7 +48,6 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     slackBindRequested,
     handleSlackBindRequested,
     firstRunDevForced,
-    startFirstRunConnect,
     sidebarAgentPagePendingImport,
     clearSidebarAgentPagePendingImport,
     activeTab,
@@ -269,7 +268,6 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                           copyLink={copyLink}
                           openInChat={stableOpenInChat}
                           onOpenAgentChat={stableOpenAgentChatWithPrompt}
-                          onStartFirstRunConnect={startFirstRunConnect}
                           updateTab={updateTab}
                           onFilterChange={setActiveFilter}
                           enterScopeInTab={enterScopeInTab}

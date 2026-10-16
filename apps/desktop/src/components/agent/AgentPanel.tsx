@@ -124,8 +124,6 @@ type Props = {
    * which never had the gate.
    */
   unbound?: boolean
-  /** Starts the read-only connect flow from the first-run home. */
-  onStartConnect?: () => void
   /**
    * Human labels for the integrations the team has bound (e.g. ['AWS',
    * 'Slack', 'GitHub']). Used on the page-mode home screen to fetch a set of
@@ -167,7 +165,6 @@ export const AgentPanel = memo(function AgentPanel({
   runtimeKubeContextRef,
   isTeamAdmin = false,
   unbound = false,
-  onStartConnect,
   connectedResources,
 }: Props) {
   const acc1 = {
@@ -199,13 +196,12 @@ export const AgentPanel = memo(function AgentPanel({
     autoFocusComposer,
     kubeContext,
     runtimeKubeContextRef,
-    onStartConnect,
     connectedResources,
     onDockToSidebar,
     onExpandToPage,
   }
   const acc2 = { ...acc1, ...usePanelBase(acc1) }
-  const acc3 = { ...acc2, ...usePanelRefs(acc2) }
+  const acc3 = { ...acc2, ...usePanelRefs() }
   const acc4 = { ...acc3, ...usePanelPermissions(acc3) }
   const acc5 = { ...acc4, ...usePanelTranscripts(acc4) }
   const acc6 = { ...acc5, ...usePanelCredentialSync(acc5) }

@@ -3,8 +3,7 @@ import { CopyableValue, StepNote } from './shared'
 import type { GcpWifInfo } from '../../types'
 
 // The one field in the whole GCP setup where the customer pastes OUR identity
-// rather than theirs. The value and explanation live here and are rendered by
-// the project-scope and first-run wizards alike.
+// rather than theirs. The value and explanation live here.
 
 /**
  * Nuphos's principal for the Token Creator grant. Prefers the team's workload

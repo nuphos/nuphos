@@ -15,12 +15,10 @@ import type { BindState } from './use-bind-state'
 export function BindDialogBody({
   st,
   teamId,
-  firstRun,
   onConnectCloudflare,
 }: {
   st: BindState
   teamId: string
-  firstRun: boolean
   onConnectCloudflare: (scopes: string[]) => void
 }) {
   const { provider, purpose } = st
@@ -34,13 +32,11 @@ export function BindDialogBody({
           roleArn={st.roleArn}
           onRoleArnChange={st.setRoleArn}
           purpose={purpose}
-          firstRun={firstRun}
         />
       ) : provider === 'gcp' ? (
         <GcpBindWizard
           step={st.gcpStep}
           purpose={purpose}
-          firstRun={firstRun}
           wif={st.gcpWif}
           saEmail={st.saEmail}
           onSaEmailChange={st.setSaEmail}
@@ -122,7 +118,6 @@ export function BindDialogBody({
           step={st.azureStep}
           oidc={st.azureOidc}
           purpose={purpose}
-          firstRun={firstRun}
           label={st.azureLabel}
           onLabelChange={st.setAzureLabel}
           tenantId={st.azureTenantId}

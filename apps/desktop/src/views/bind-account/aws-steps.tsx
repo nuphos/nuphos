@@ -1,8 +1,3 @@
-import { faShieldHalved } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-
-import { firstRunVocabulary } from '../../lib/firstRunConnect'
-
 import { StepList, ConsoleLink, CopyableValue, Field } from './shared'
 
 const AWS_CREATE_PROVIDER_URL =
@@ -16,14 +11,12 @@ export function AwsWizardStepContent({
   roleArn,
   onRoleArnChange,
   purpose,
-  firstRun,
 }: {
   step: number
   teamId: string
   roleArn: string
   onRoleArnChange: (v: string) => void
   purpose: 'operational'
-  firstRun: boolean
 }) {
   return (
     <>
@@ -85,30 +78,7 @@ export function AwsWizardStepContent({
         </div>
       )}
 
-      {step === 2 && purpose === 'operational' && firstRun && (
-        <div className="space-y-3">
-          <div className="text-[12px] text-secondary leading-relaxed">
-            On the <span className="text-main">Add permissions</span> page, attach exactly one
-            policy — <CopyableValue value={firstRunVocabulary('aws').scopeGrant} /> — and{' '}
-            <span className="text-main">nothing else</span>. Then click{' '}
-            <span className="text-main">Next</span> in AWS.
-          </div>
-          <div className="flex items-start gap-2.5 p-3 rounded-md border border-zViolet-500/30 bg-zViolet-500/10">
-            <FontAwesomeIcon
-              icon={faShieldHalved}
-              className="w-4 h-4 text-zViolet-accent flex-shrink-0 mt-0.5"
-            />
-            <div className="text-[12px] text-secondary leading-relaxed">
-              <span className="text-main font-medium">Least privilege, by design.</span> Billing
-              read-only covers the cost analysis this role is for and grants nothing beyond it. When
-              a task needs more access, Nuphos names the exact permission and asks —{' '}
-              <span className="text-main">it never widens this role by itself</span>.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {step === 2 && purpose === 'operational' && !firstRun && (
+      {step === 2 && purpose === 'operational' && (
         <div className="space-y-3">
           <div className="text-[12px] text-secondary leading-relaxed">
             On the <span className="text-main">Add permissions</span> page, choose what Nuphos is

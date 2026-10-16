@@ -1,12 +1,10 @@
 import type { AgentProvider } from '../../../types/runtime'
-import { FIRST_RUN_CONVO_EVENT } from '../../../lib/firstRunConnect'
 
 import { AGENT_PHASE_LABELS } from './agentPhase'
 
 import type { AgentPhase } from './agentPhase'
 import type { Part } from './parts'
 import type { AgentConversation, AgentCredentialSelection, AgentSlackThread } from '../../../api'
-import type { FirstRunConvoPhase } from '../../../lib/firstRunConnect'
 
 export type MessageRating = 'up' | 'down'
 
@@ -185,16 +183,6 @@ export type QueuedMessage = {
 export type { Tab as AgentSessionSnapshot }
 
 export const HOME_TAB_ID = '__home__'
-
-// The first-run guide advances its journey strip on real conversation moves
-// (question sent, answer landed), but it lives in a different component tree;
-// these breadcrumbs cross the gap as window events. Fired unconditionally and
-// fire-and-forget — with no guide listening they are inert.
-export function emitFirstRunConvo(phase: FirstRunConvoPhase) {
-  window.dispatchEvent(
-    new CustomEvent<{ phase: FirstRunConvoPhase }>(FIRST_RUN_CONVO_EVENT, { detail: { phase } }),
-  )
-}
 
 export const AUTO_SCROLL_BOTTOM_THRESHOLD = 48
 // Opening a conversation fetches only this many trailing messages — about a
