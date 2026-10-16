@@ -9,14 +9,22 @@ import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
 import { BoxAgentSignIn } from './BoxAgentSignIn'
+import { openBoxDesktop } from './boxDesktop'
 import { AgentTile, LiveDot, MachineIcon } from './BoxParts'
-import { BOX_BADGE, boxActions, boxState, machineLine, newAgentAction } from './boxPresentation'
+import {
+  BOX_BADGE,
+  boxActions,
+  boxState,
+  canManage,
+  removal,
+  machineLine,
+  newAgentAction,
+} from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { inputClasses } from './styles'
 
@@ -51,19 +59,27 @@ export function BoxRow({
   const [renaming, setRenaming] = useState<string | null>(null)
   const state = boxState(device)
   const cloud = device.box !== undefined
+  const manage = canManage(device)
+  const remove = removal(device)
   const badge = BOX_BADGE[state]
   const actions = cloud ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
-  const act = (title: string, call: (deviceId: string, teamId: string) => Promise<unknown>) =>
-    run(title, () => call(device.deviceId, teamId))
-  const run = async (title: string, action: () => Promise<unknown>) => {
+  const act = (
+    title: string,
+    call: (deviceId: string, teamId: string) => Promise<unknown>,
+    fallback?: string,
+  ) => run(title, () => call(device.deviceId, teamId), fallback)
+  const changed = () => {
+    onChanged()
+    window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+  }
+  const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {
       await action()
-      onChanged()
-      window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+      changed()
     } catch (error) {
-      toast.apiError(title, error)
+      toast.apiError(title, error, fallback === undefined ? undefined : { fallback })
     } finally {
       setBusy(false)
     }
@@ -125,53 +141,45 @@ export function BoxRow({
           {badge.tone === 'online' && <LiveDot />}
           {badge.label}
         </span>
-        <Menu>
-          <MenuTrigger
-            aria-label={`Manage ${device.label}`}
-            disabled={busy}
-            className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
-          >
-            <Ellipsis className="h-4 w-4" />
-          </MenuTrigger>
-          <MenuContent align="end">
-            {cloud && state === 'running' && (
-              <MenuItem
-                onClick={() => {
-                  // The tab names the Box; it asks for its own link each time it connects.
-                  const href = pageLocationForNavigation(
-                    emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
-                      filter: device.deviceId,
-                    }),
-                  ).href
-
-                  window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
-                }}
-              >
-                Open desktop
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => setRenaming(device.label)}>Rename</MenuItem>
-            {actions.resume && (
-              <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
-                {state === 'error' ? 'Retry' : 'Resume'}
-              </MenuItem>
-            )}
-            {actions.pause && (
-              <MenuItem onClick={() => void act('Could not pause Box', api.boxPause)}>
-                Pause
-              </MenuItem>
-            )}
-            {/* A Box can always be deleted, a stuck one most of all. */}
-            {cloud && (
-              <>
-                <MenuSeparator />
-                <MenuItem destructive onClick={() => setConfirmDelete(true)}>
-                  Delete
+        {manage && (
+          <Menu>
+            <MenuTrigger
+              aria-label={`Manage ${device.label}`}
+              disabled={busy}
+              className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
+            >
+              <Ellipsis className="h-4 w-4" />
+            </MenuTrigger>
+            <MenuContent align="end">
+              {cloud && state === 'running' && (
+                <MenuItem
+                  onClick={() => openBoxDesktop(device.deviceId, teamId)}
+                >
+                  Open desktop
                 </MenuItem>
-              </>
-            )}
-          </MenuContent>
-        </Menu>
+              )}
+              <MenuItem onClick={() => setRenaming(device.label)}>Rename</MenuItem>
+              {actions.resume && (
+                <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
+                  {state === 'error' ? 'Retry' : 'Resume'}
+                </MenuItem>
+              )}
+              {actions.pause && (
+                <MenuItem onClick={() => void act('Could not pause Box', api.boxPause)}>
+                  Pause
+                </MenuItem>
+              )}
+              {remove.allowed && (
+                <>
+                  <MenuSeparator />
+                  <MenuItem destructive onClick={() => setConfirmDelete(true)}>
+                    {remove.action}
+                  </MenuItem>
+                </>
+              )}
+            </MenuContent>
+          </Menu>
+        )}
       </div>
       <div
         title={machineLine(device)}
@@ -182,7 +190,7 @@ export function BoxRow({
       >
         {thisComputer ? 'This computer' : machineLine(device)}
       </div>
-      {state === 'paused' ? (
+      {manage && (state === 'paused' || state === 'hostOffline') ? (
         <div className="mt-auto pb-1">
           <Button
             size="sm"
@@ -203,7 +211,7 @@ export function BoxRow({
       )}
       <ul
         className={clsx(
-          state === 'paused' || state === 'connecting' || state === 'hostOffline'
+          state === 'paused' || state === 'hostOffline'
             ? 'hidden'
             : 'mt-auto flex shrink-0 items-center gap-2 overflow-x-auto pb-1',
           dim && 'opacity-50',
@@ -218,7 +226,7 @@ export function BoxRow({
               .map((agent) => (
                 <AgentTile key={agent.id} agent={agent} onSelect={() => onSelect(agent.id)} />
               ))}
-        {!dim && !starting && (
+        {manage && !dim && !starting && (
           <li className="shrink-0">
             <Menu>
               <MenuTrigger
@@ -256,8 +264,7 @@ export function BoxRow({
           provider={adding}
           onDone={(runtimeId) => {
             setAdding(null)
-            onChanged()
-            window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+            changed()
             if (runtimeId) onSelect(runtimeId)
           }}
         />
@@ -268,18 +275,19 @@ export function BoxRow({
           instance={signingInAgent}
           onClose={() => {
             setSigningIn(null)
-            onChanged()
-            window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+            changed()
           }}
         />
       )}
       <ConfirmDialog
         open={confirmDelete}
-        title={`Delete ${device.label}?`}
-        description="This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos."
+        title={`${cloud ? 'Delete' : 'Remove'} ${device.label}?`}
+        description={remove.description}
         destructive
-        confirmLabel="Delete Box"
-        onConfirm={() => act('Could not delete Box', api.boxDelete)}
+        confirmLabel={remove.confirm}
+        onConfirm={() =>
+          act(remove.error, cloud ? api.boxDelete : api.deviceRemove, remove.fallback)
+        }
         onClose={() => setConfirmDelete(false)}
       />
     </li>

@@ -214,6 +214,28 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     },
   )
 
+  // Forgets an offline computer, credential and agents with it; opening Nuphos there registers it
+  // again. Online, it would just re-register, so it must be quit first. A Box has its own delete.
+  routes.delete(
+    '/devices/:deviceId',
+    zv('param', z.object({ deviceId: z.string().trim().min(1).max(128) })),
+    async (c) => {
+      const userId = c.get('userId')
+      const { deviceId } = c.req.valid('param')
+      const device = await deps.getAgentDevice(userId, deviceId)
+
+      if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
+      if (device.box) throw new AppError(400, 'device_is_box', 'Delete a Box with its Box delete')
+      if (await deps.isOnline(userId, deviceId))
+        throw new AppError(409, 'device_online', 'Quit Nuphos on this computer first')
+      await deps.deleteDevice(userId, deviceId)
+      // In case it connected since the check: its credential is gone, so close what it holds.
+      await deps.disconnect(userId, deviceId)
+
+      return c.json({ ok: true })
+    },
+  )
+
   routes.get(
     '/devices/:deviceId/audit',
     zv('param', z.object({ deviceId: z.string().trim().min(1).max(128) })),

@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  removal,
   BOX_BADGE,
   boxActions,
+  canManage,
   boxAgents,
   boxSetupPhase,
   boxSetupProblem,
@@ -39,7 +41,6 @@ test('each Box state has a badge', () => {
     {
       creating: 'Starting',
       running: 'Running',
-      connecting: 'Starting',
       hostOffline: 'Host offline',
       paused: 'Paused',
       stopped: 'Offline',
@@ -52,6 +53,7 @@ test('each Box state has a badge', () => {
 
 test('only a running Box pauses; a paused or failed one resumes; a starting one cannot be deleted', () => {
   assert.deepEqual(boxActions('running'), { pause: true, resume: false })
+  assert.deepEqual(boxActions('hostOffline'), { pause: true, resume: true })
   assert.deepEqual(boxActions('paused'), { pause: false, resume: true })
   assert.deepEqual(boxActions('error'), { pause: false, resume: true })
   assert.deepEqual(boxActions('creating'), { pause: false, resume: false })
@@ -68,12 +70,13 @@ test('a cloud Box is a Box; a computer is running while connected and stopped wh
   assert.equal(boxState(box('a', 'paused')), 'paused')
 })
 
-test('polls only around a sign-in, while a Box starts, or while a running Box reconnects', () => {
-  assert.equal(boxPollMs([box('a', 'running')], false), 0)
-  assert.equal(boxPollMs([box('a', 'paused')], false), 0)
+test('polls fast only while a Box is made, for metrics while connected, rarely while a host is away', () => {
   assert.equal(boxPollMs([box('a', 'creating')], false), 1_000)
-  assert.equal(boxPollMs([box('a', 'running', false)], false), 1_000)
   assert.equal(boxPollMs([box('a', 'running')], true), 1_500)
+  assert.equal(boxPollMs([box('a', 'running')], false), 5_000)
+  assert.equal(boxPollMs([box('a', 'running', false)], false), 30_000)
+  assert.equal(boxPollMs([box('a', 'paused')], false), 0)
+  assert.equal(boxPollMs([], false), 0, 'nothing to watch: no poll at all')
 })
 
 const agent = (id: string, kind: RuntimeInstance['kind'], deviceId?: string) =>
@@ -178,17 +181,38 @@ test('unlimited or unknown usage never blocks', () => {
   assert.equal(newBoxBlockedReason(null, true), null)
 })
 
-test('a running Box reads Starting until its host connects, then Host offline after the grace period', () => {
-  const now = Date.parse('2026-10-15T08:00:00Z')
-  const away = (updatedAt?: string): AgentDevice => ({
-    ...box('a', 'running', false),
-    box: { provider: 'instabox', sandboxId: 'sb-a', state: 'running', updatedAt },
-  })
+test('a running Box whose host is away is Host offline; until its first join the backend says creating', () => {
+  assert.equal(boxState(box('a', 'running', false)), 'hostOffline')
+  assert.equal(boxState(box('a', 'creating', false)), 'creating')
+  assert.equal(BOX_BADGE.creating.label, 'Starting')
+  assert.equal(boxState(box('a', 'running', true)), 'running')
+})
 
-  assert.equal(boxState(away('2026-10-15T07:59:30Z'), now), 'connecting')
-  assert.equal(boxState(away('2026-10-15T07:58:00Z'), now), 'hostOffline')
-  assert.equal(boxState(away(), now), 'hostOffline')
-  assert.equal(boxState(box('a', 'running', true), now), 'running')
-  assert.equal(BOX_BADGE.connecting.tone, 'pending')
-  assert.deepEqual(boxActions('hostOffline'), { pause: true, resume: false })
+test("a Box still starting past the setup timeout didn't start: Resume is offered and the fast poll stops", () => {
+  const made = Date.parse('2026-10-16T08:00:00Z')
+  const stuck = box('a', 'creating', false, new Date(made).toISOString())
+
+  assert.equal(boxState(stuck, made + 60_000), 'creating')
+  assert.equal(boxState(stuck, made + 6 * 60_000), 'error')
+  assert.deepEqual(boxActions('error'), { pause: false, resume: true })
+  assert.equal(boxPollMs([box('b', 'creating', false, '2026-10-01T00:00:00Z')], false), 0)
+})
+
+test('a member who may only use a Box gets none of the controls the backend refuses', () => {
+  assert.equal(canManage({ ...box('a', 'running'), access: 'use' }), false)
+  assert.equal(canManage({ ...box('a', 'running'), access: 'manage' }), true)
+  assert.equal(canManage(box('a', 'running')), true, 'your own machine, no access field')
+})
+
+test('a Box can always be deleted; a computer can be removed only while offline', () => {
+  const computer = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
+
+  assert.equal(removal({ ...computer, online: false }).allowed, true)
+  assert.equal(removal({ ...computer, online: false }).error, 'Could not remove computer')
+  assert.equal(removal({ ...computer, online: true }).allowed, false)
+  for (const online of [true, false])
+    assert.equal(
+      removal({ ...computer, online, box: { provider: 'instabox' } } as AgentDevice).allowed,
+      true,
+    )
 })

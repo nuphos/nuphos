@@ -120,9 +120,6 @@ export type BoxStatus = {
   /** Set once the machine exists. */
   sandboxId?: string
   state: BoxState
-  /** The host has joined at least once; until then the Box is still starting. */
-  joined?: boolean
-  updatedAt?: string
 }
 
 /** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
@@ -149,6 +146,8 @@ export type AgentDevice = {
   createdAt?: string
   allowLocalExec?: boolean
   online?: boolean
+  /** What the viewer may do: 'use' runs its agents; 'manage' also changes or deletes it. */
+  access?: 'use' | 'manage'
   box?: BoxStatus
 }
 
