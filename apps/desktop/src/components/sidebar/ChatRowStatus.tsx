@@ -50,7 +50,7 @@ export function ChatRowStatus({
       role="img"
       aria-label={label}
       title={label}
-      className={`flex-shrink-0 group-hover:hidden w-1.5 h-1.5 rounded-full ${color}`}
+      className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${color}`}
     />
   )
 }
