@@ -170,7 +170,7 @@ describe('conversation-scoped thread tools', () => {
   test('creates a visible conversation with the same principal, runtime and credentials, then starts it', async () => {
     const result = await createAgentThread(actor, 'Wait for CI', 'CI watcher')
 
-    expect(result.status).toBe('delivered')
+    expect(result.status).toBe('queued')
     expect(result.sourceThreadId).toBe('source')
     expect(shells[0]).toMatchObject({
       userId: 'owner',

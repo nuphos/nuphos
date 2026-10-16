@@ -2,7 +2,11 @@ import { isShuttingDown } from '@/lib/lifecycle'
 import { logError } from '@/lib/observability'
 
 import { enqueuePendingUserMessage } from './pending-messages'
-import { hasQueuedTranscriptMessage, requeuePendingAtHead } from './pending-queue'
+import {
+  hasQueuedTranscriptMessage,
+  requeuePendingAtHead,
+  scanQueuedSessions,
+} from './pending-queue'
 
 import type { PendingUserMessage } from './pending-message-types'
 
@@ -88,4 +92,26 @@ export async function requeueTurnQueue(
     { ...queued, attempts: (queued.attempts ?? 0) + 1 },
     ...carried,
   ])
+}
+
+// A rollout drops in-process retries. This re-finds queues nothing else will
+// start, at most once per session per interval and never while a retry waits.
+const BACKSTOP_MS = 10_000
+const lastBackstop = new Map<string, number>()
+
+/** Called on a periodic tick: start one batch of the queues left waiting. */
+export async function sweepQueuedSessions(cursor: string): Promise<string> {
+  const page = await scanQueuedSessions(cursor)
+  const now = Date.now()
+
+  if (lastBackstop.size > 10_000) lastBackstop.clear()
+  for (const { userId, sessionId } of page.sessions) {
+    const key = backoffKey(userId, sessionId)
+
+    if (backoff.get(key)?.timer || now - (lastBackstop.get(key) ?? 0) < BACKSTOP_MS) continue
+    lastBackstop.set(key, now)
+    start(userId, sessionId)
+  }
+
+  return page.cursor
 }

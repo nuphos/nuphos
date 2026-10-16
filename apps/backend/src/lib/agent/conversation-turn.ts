@@ -35,18 +35,17 @@ export async function executeConversationTurn(...args: TurnArgs): Promise<void> 
 
 /**
  * Hands the message to the target: 'started' when it took the run (`run` settles
- * with the turn's finish reason), 'delivered' when it was queued behind the
- * target's active turn. A queued message runs when that turn releases the session.
+ * with the turn's finish reason), 'queued' when it waits behind the turns ahead
+ * of it. It runs as its own turn, never folded into another sender's.
  */
 export async function startConversationTurn(
   ...[data, target, renderedText, source, metadata]: TurnArgs
-): Promise<{ status: 'started' | 'delivered'; run: Promise<string | undefined> }> {
+): Promise<{ status: 'started' | 'queued'; run: Promise<string | undefined> }> {
   // Also the answer for a redelivery already accepted, not only for a busy target.
-  const delivered = { status: 'delivered' as const, run: Promise.resolve(undefined) }
+  const queued = { status: 'queued' as const, run: Promise.resolve(undefined) }
 
   // A stalled queue delivery may have reached an active turn before its ACK.
-  if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId))
-    return delivered
+  if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId)) return queued
 
   if (
     await agentMessages().findOne(
@@ -58,7 +57,7 @@ export async function startConversationTurn(
       { projection: { _id: 1 } },
     )
   )
-    return delivered
+    return queued
   const claim = await turnRunner.claimAgentRunOrEnqueue({
     userId: data.userId,
     sessionId: data.targetSessionId,
@@ -74,7 +73,7 @@ export async function startConversationTurn(
   })
 
   if (claim.mode === 'dropped') throw new Error('Thread message could not be queued.')
-  if (claim.mode === 'queued') return delivered
+  if (claim.mode === 'queued') return queued
 
   const run = async (): Promise<string | undefined> => {
     try {

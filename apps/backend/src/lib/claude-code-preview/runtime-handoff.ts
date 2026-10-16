@@ -1,3 +1,4 @@
+import { sweepQueuedSessions } from '@/lib/agent/session-released'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import {
@@ -247,12 +248,14 @@ export async function adoptRuntimeHandoffs(
 export function startRuntimeHandoffAdoption(): () => void {
   let running = false
   let cursor = '0'
+  let queueCursor = '0'
   const tick = () => {
     if (running) return
     running = true
     void (async () => {
       cursor = await sweepAbandonedAgentRuns(cursor)
       await adoptRuntimeHandoffs()
+      queueCursor = await sweepQueuedSessions(queueCursor)
     })()
       .catch((error: unknown) => {
         logError('agent.runtime_handoff.scan_failed', error)

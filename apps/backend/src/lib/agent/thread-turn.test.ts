@@ -136,7 +136,7 @@ test('busy target queues without blocking the sending thread or starting a secon
       return { status: 'completed' }
     },
   })
-  expect((await startThreadTurn(data)).status).toBe('delivered')
+  expect((await startThreadTurn(data)).status).toBe('queued')
   expect(claims[0]?.message.renderedText).toBe('CI passed')
   expect(claims[0]?.message.metadata?.sourceSessionId).toBe('source')
   expect(runs).toHaveLength(0)

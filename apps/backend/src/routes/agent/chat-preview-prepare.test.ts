@@ -246,14 +246,16 @@ test('an unattested message never takes the last block, even as the final input'
   expect(lead()).toContain(header('m1'))
 })
 
-test('a transcript turn leaves a queued Slack message for the Slack turn', async () => {
+test('a transcript turn leaves queued Slack and agent messages for their own turns', async () => {
   const thread = buildPendingUserMessage({ renderedText: 'CI passed', source: 'agent.thread' })
   const slack = buildPendingUserMessage({ renderedText: 'from Slack', source: 'slack' })
 
   await enqueuePendingUserMessage('owner', 'queued', thread)
   await enqueuePendingUserMessage('owner', 'queued', slack)
 
-  expect((await takeTurnQueue('owner', 'queued', 'owner')).map((m) => m.id)).toEqual([thread.id])
+  // An agent's message never joins a person's turn: it waits to run as its own.
+  expect(await takeTurnQueue('owner', 'queued', 'owner')).toEqual([])
+  expect(await hasPendingUserMessage('owner', 'queued', thread.id)).toBe(true)
   expect(await hasPendingUserMessage('owner', 'queued', slack.id)).toBe(true)
   expect((await takeTurnQueue('owner', 'queued', 'owner', true)).map((m) => m.id)).toEqual([
     slack.id,

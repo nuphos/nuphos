@@ -13,12 +13,20 @@ import {
   enqueuePendingUserMessage,
 } from './pending-messages'
 import {
+  hasQueuedTranscriptMessage,
+  hasWaitingMessageFrom,
   listPendingUserMessages,
   queueHead,
+  takeTurnQueue,
   requeuePendingAtHead,
   takePendingUserMessages,
 } from './pending-queue'
-import { installQueuedTurnStarter, requeueTurnQueue, sessionReleased } from './session-released'
+import {
+  installQueuedTurnStarter,
+  requeueTurnQueue,
+  sessionReleased,
+  sweepQueuedSessions,
+} from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -123,10 +131,15 @@ test('the head of the queue is the oldest transcript message; an app send runs a
 
   expect(queueHead([slack, a, b, h, c], OWNER)).toEqual([a, b])
   expect(queueHead([h, a], OWNER)).toEqual([h])
-  // Only a head its actor may fold in, and never an app send.
-  expect(queueHead([h, a], OWNER, OWNER)).toEqual([])
-  expect(queueHead([a, h], OWNER, OWNER)).toEqual([a])
-  expect(queueHead([agent('x'), human('t', 'teammate')], OWNER, 'teammate')).toEqual([])
+  // Agent messages batch only with the same sending session.
+  const other = {
+    ...agent('other'),
+    metadata: { sender: { type: 'agent', id: 'other-session' } } as never,
+  }
+
+  expect(queueHead([a, other, b], OWNER)).toEqual([a])
+  // An older client's steering message from a teammate is never a head.
+  expect(queueHead([{ ...agent('t'), source: 'app', actorUserId: 'teammate' }], OWNER)).toEqual([])
 })
 
 test('a person who sent first runs first, as their own chat turn', async () => {
@@ -327,5 +340,84 @@ test('with Redis, a take removes exactly its own messages and a requeue keeps th
   } finally {
     fakeRedis = null
     config.redis.enabled = enabled
+  }
+})
+
+test("a teammate's waiting steering message neither restarts the queue nor blocks it", async () => {
+  let starts = 0
+
+  installQueuedTurnStarter(async (userId, sessionId) => {
+    starts++
+    await startQueuedTurn(userId, sessionId)
+  })
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    // A real claim's release announces the release, as run-admission does.
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, 'f9-session')
+    },
+  })
+  try {
+    await enqueuePendingUserMessage(OWNER, 'f9-session', {
+      ...buildPendingUserMessage({
+        renderedText: 'legacy',
+        source: 'app',
+        actorUserId: 'teammate',
+      }),
+    })
+    expect(await hasQueuedTranscriptMessage(OWNER, 'f9-session')).toBe(false)
+    sessionReleased(OWNER, 'f9-session')
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(starts).toBe(0)
+    // The teammate's own turn still takes it.
+    expect(
+      (await takeTurnQueue(OWNER, 'f9-session', 'teammate')).map((m) => m.renderedText),
+    ).toEqual(['legacy'])
+  } finally {
+    installQueuedTurnStarter(startQueuedTurn)
+    await clearPendingUserMessages(OWNER, 'f9-session')
+  }
+})
+
+test("an agent message never joins or interrupts a person's turn; it runs next as its own", async () => {
+  const report = buildPendingUserMessage({
+    renderedText: 'CI passed',
+    source: 'agent.thread',
+    actorUserId: OWNER,
+    metadata: { sender: { type: 'agent', id: 'reviewer' } } as never,
+  })
+
+  await queue(report)
+  // The person's running turn folds nothing in and keeps its pending approval.
+  expect(await takeTurnQueue(OWNER, SESSION, OWNER)).toEqual([])
+  expect(await hasWaitingMessageFrom(OWNER, SESSION, OWNER)).toBe(false)
+  // Their own next message would supersede it.
+  await queue(human('wait, use staging'))
+  expect(await hasWaitingMessageFrom(OWNER, SESSION, OWNER)).toBe(true)
+  await clearPendingUserMessages(OWNER, SESSION)
+  // After the turn, the report runs as its own turn.
+  await queue(report)
+  await startQueuedTurn(OWNER, SESSION)
+  expect(runs).toHaveLength(1)
+  expect(runs[0]?.source).toBe('agent.thread')
+  expect(await waiting()).toEqual([])
+})
+
+test('after a restart the backstop starts a waiting queue, at most once per interval', async () => {
+  const started: string[] = []
+
+  installQueuedTurnStarter(async (_userId, sessionId) => {
+    started.push(sessionId)
+  })
+  try {
+    await enqueuePendingUserMessage(OWNER, 'backstop-session', human('left waiting'))
+    await sweepQueuedSessions('0')
+    await sweepQueuedSessions('0')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(started).toEqual(['backstop-session'])
+  } finally {
+    installQueuedTurnStarter(startQueuedTurn)
+    await clearPendingUserMessages(OWNER, 'backstop-session')
   }
 })

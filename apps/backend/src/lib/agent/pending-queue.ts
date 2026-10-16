@@ -5,12 +5,7 @@ import { config } from '@/config'
 import { withRedis } from '@/lib/redis'
 
 import { TRANSCRIPT_SOURCES } from './pending-message-types'
-import {
-  drainPendingUserMessages,
-  localQueues,
-  PENDING_TTL_SEC,
-  pendingKey,
-} from './pending-messages'
+import { localQueues, PENDING_TTL_SEC, pendingKey } from './pending-messages'
 
 import type { PendingUserMessage } from './pending-message-types'
 import type { Redis } from 'ioredis'
@@ -49,44 +44,63 @@ export async function listPendingUserMessages(
 const isTranscriptMessage = (message: PendingUserMessage) =>
   (TRANSCRIPT_SOURCES as readonly string[]).includes(message.source)
 
-/** Whether a transcript message waits; a new one must queue behind it, not overtake it. */
-export async function hasQueuedTranscriptMessage(userId: string, sessionId: string) {
-  return (await listPendingUserMessages(userId, sessionId)).some(isTranscriptMessage)
+// An agent or a resource event speaks for no person: it never joins a person's turn.
+const AGENT_SOURCES: readonly string[] = ['agent.thread', 'agent.resource']
+
+/** Who a message is from: a person, or the session or resource that sent it. */
+function senderOf(message: PendingUserMessage, ownerUserId: string): string {
+  const person = message.actorUserId ?? ownerUserId
+
+  return AGENT_SOURCES.includes(message.source)
+    ? `${message.source}:${message.metadata?.sender?.id ?? person}`
+    : person
 }
 
 /**
  * The messages the next turn answers: the oldest transcript message, plus the
- * agent messages right behind it from the same actor. An app send always runs
+ * messages right behind it from the same sender. An app send always runs
  * alone, as its sender's own chat turn. A channel message stays where it is,
  * and so does an older client's steering message from a teammate: only that
- * teammate's own turn may answer it. With `actorUserId`, only a head that
- * actor's turn may fold in.
+ * teammate's own turn may answer it.
  */
 export function queueHead(
   queue: readonly PendingUserMessage[],
   ownerUserId: string,
-  actorUserId?: string,
 ): PendingUserMessage[] {
-  const actorOf = (message: PendingUserMessage) => message.actorUserId ?? ownerUserId
   const waiting = queue.filter(
     (message) =>
       isTranscriptMessage(message) &&
-      (message.chat !== undefined ||
-        actorOf(message) === ownerUserId ||
-        actorOf(message) === actorUserId),
+      (message.chat !== undefined || (message.actorUserId ?? ownerUserId) === ownerUserId),
   )
   const first = waiting[0]
 
-  if (!first || (actorUserId && actorOf(first) !== actorUserId)) return []
-  if (first.chat) return actorUserId ? [] : [first]
+  if (!first) return []
+  if (first.chat) return [first]
   const head = [first]
 
   for (const next of waiting.slice(1)) {
-    if (next.chat || actorOf(next) !== actorOf(first)) break
+    if (next.chat || senderOf(next, ownerUserId) !== senderOf(first, ownerUserId)) break
     head.push(next)
   }
 
   return head
+}
+
+/** Whether a turn waits to start; a new message must queue behind it, not overtake it. */
+export async function hasQueuedTranscriptMessage(userId: string, sessionId: string) {
+  return queueHead(await listPendingUserMessages(userId, sessionId), userId).length > 0
+}
+
+/** Whether this person sent a message that waits: only that supersedes their own turn's prompt. */
+export async function hasWaitingMessageFrom(
+  userId: string,
+  sessionId: string,
+  actorUserId: string,
+) {
+  return (await listPendingUserMessages(userId, sessionId)).some(
+    (message) =>
+      !AGENT_SOURCES.includes(message.source) && (message.actorUserId ?? userId) === actorUserId,
+  )
 }
 
 /**
@@ -144,9 +158,9 @@ export async function requeuePendingAtHead(
 }
 
 /**
- * What a starting turn folds in besides its own input: the agent messages at
- * the head of the queue from its actor. A channel turn takes everything its
- * actor parked, since only it can answer there.
+ * What a starting turn folds in besides its own input: only messages its own
+ * sender parked, never an agent's. A channel turn also takes its actor's
+ * channel messages, since only it can answer there.
  */
 export async function takeTurnQueue(
   userId: string,
@@ -154,8 +168,32 @@ export async function takeTurnQueue(
   actorUserId: string,
   channelTurn?: boolean,
 ): Promise<PendingUserMessage[]> {
-  if (channelTurn) return drainPendingUserMessages(userId, sessionId, actorUserId)
   const queue = await listPendingUserMessages(userId, sessionId)
+  const own = queue.filter(
+    (message) =>
+      !AGENT_SOURCES.includes(message.source) &&
+      senderOf(message, userId) === actorUserId &&
+      !message.chat &&
+      (channelTurn || isTranscriptMessage(message)),
+  )
 
-  return takePendingUserMessages(userId, sessionId, queueHead(queue, userId, actorUserId))
+  return takePendingUserMessages(userId, sessionId, own)
+}
+
+const PENDING_PREFIX = 'atlas:agentrun-pending:'
+
+/** One batch of sessions that have a queue, and the cursor for the next batch. */
+export async function scanQueuedSessions(
+  cursor: string,
+): Promise<{ cursor: string; sessions: { userId: string; sessionId: string }[] }> {
+  const local = [...localQueues.keys()]
+  const page = await tryRedis((c) => c.scan(cursor, 'MATCH', `${PENDING_PREFIX}*`, 'COUNT', 200))
+  const keys = [...(cursor === '0' ? local : []), ...(page?.[1] ?? [])]
+  const sessions = keys.flatMap((key) => {
+    const [userId, ...rest] = key.slice(PENDING_PREFIX.length).split(':')
+
+    return userId && rest.length > 0 ? [{ userId, sessionId: rest.join(':') }] : []
+  })
+
+  return { cursor: page?.[0] ?? '0', sessions }
 }
