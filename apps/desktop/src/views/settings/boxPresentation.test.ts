@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import {
   removal,
+  removeMachine,
   BOX_BADGE,
   boxActions,
   canManage,
@@ -204,4 +205,25 @@ test('a Box can always be deleted; a computer can be removed only while offline'
       removal({ ...computer, online, box: { provider: 'instabox' } } as AgentDevice)?.action,
       'Delete',
     )
+})
+
+test('a failed removal rejects with the backend message, so the dialog shows it and stays open', async () => {
+  const computer = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
+  const sent: string[] = []
+  const calls = {
+    boxDelete: (id: string, team: string) => Promise.resolve(sent.push(`box ${id} ${team}`)),
+    deviceRemove: () =>
+      Promise.reject(
+        new Error(
+          `Error invoking remote method 'box:removeDevice': __ATLAS_API_ERROR__${JSON.stringify({
+            code: 'route_not_found',
+            message: 'Route not found',
+          })}`,
+        ),
+      ),
+  }
+
+  await assert.rejects(removeMachine(computer, 't1', calls), { message: 'Route not found' })
+  await removeMachine({ ...computer, box: { provider: 'instabox' } } as AgentDevice, 't1', calls)
+  assert.deepEqual(sent, ['box c1 t1'])
 })

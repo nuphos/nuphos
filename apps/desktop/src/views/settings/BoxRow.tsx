@@ -9,12 +9,12 @@ import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
 import { BoxAgentSignIn } from './BoxAgentSignIn'
+import { openBoxDesktop } from './boxDesktop'
 import { AgentTile, LiveDot, MachineIcon } from './BoxParts'
 import {
   BOX_BADGE,
@@ -22,6 +22,7 @@ import {
   boxState,
   canManage,
   removal,
+  removeMachine,
   machineLine,
   newAgentAction,
 } from './boxPresentation'
@@ -66,12 +67,15 @@ export function BoxRow({
   // Every Box action names the Box and the page's team.
   const act = (title: string, call: (deviceId: string, teamId: string) => Promise<unknown>) =>
     run(title, () => call(device.deviceId, teamId))
+  const changed = () => {
+    onChanged()
+    window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+  }
   const run = async (title: string, action: () => Promise<unknown>) => {
     setBusy(true)
     try {
       await action()
-      onChanged()
-      window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+      changed()
     } catch (error) {
       toast.apiError(title, error)
     } finally {
@@ -148,16 +152,9 @@ export function BoxRow({
               {cloud && state === 'running' && (
                 <MenuItem
                   onClick={() =>
-                    void run('Could not open the desktop', async () => {
-                      const { url } = await api.boxDesktop(device.deviceId, teamId)
-                      const href = pageLocationForNavigation(
-                        emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
-                          browserUrl: url,
-                        }),
-                      ).href
-
-                      window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
-                    })
+                    void run('Could not open the desktop', () =>
+                      openBoxDesktop(device.deviceId, teamId),
+                    )
                   }
                 >
                   Open desktop
@@ -269,8 +266,7 @@ export function BoxRow({
           provider={adding}
           onDone={(runtimeId) => {
             setAdding(null)
-            onChanged()
-            window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+            changed()
             if (runtimeId) onSelect(runtimeId)
           }}
         />
@@ -281,8 +277,7 @@ export function BoxRow({
           instance={signingInAgent}
           onClose={() => {
             setSigningIn(null)
-            onChanged()
-            window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+            changed()
           }}
         />
       )}
@@ -292,7 +287,8 @@ export function BoxRow({
         description={remove?.description}
         destructive
         confirmLabel={remove?.confirm}
-        onConfirm={() => act(remove?.error ?? '', cloud ? api.boxDelete : api.deviceRemove)}
+        // A failure stays in the dialog, which shows it; the toast path hides some errors.
+        onConfirm={() => removeMachine(device, teamId, api).then(changed)}
         onClose={() => setConfirmDelete(false)}
       />
     </li>
