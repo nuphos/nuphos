@@ -1,6 +1,17 @@
 package ai.nuphos.android.ui.agent
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.runtime.saveable.rememberSaveable
+import ai.nuphos.android.session.ConversationNesting
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +31,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -77,6 +89,7 @@ fun AgentPage(
     val selection = remember(account, team?.id, authGeneration, consentRevision) {
         if (account != null && team != null && auth.aiAllowed) auth.runtimeSelections.bind(account, team.id) else null
     }
+    val quotas = rememberRuntimeQuotas(auth.token, team?.id)
     var setupVisible by remember { mutableStateOf(false) }
     val setup = remember(account, team, revision, consentRevision, authGeneration, selection) {
         if (team != null && selection != null && auth.token != null) ai.nuphos.android.session.RuntimeSetupStore(
@@ -87,7 +100,18 @@ fun AgentPage(
             { if (auth.generation == authGeneration && auth.user?.id == account) auth.signOut(ai.nuphos.android.data.NuphosApi.Failure.Unauthorized.message) }) else null
     }
     LaunchedEffect(setup) { setupVisible = false }
-    if (setupVisible && setup != null && setup.isSourceCurrent()) RuntimeSetupSheet(setup, { setupVisible = false })
+    if (setupVisible && setup != null && setup.isSourceCurrent()) RuntimeSetupSheet(setup, { setupVisible = false }, quotas = quotas)
+
+    var unlinkTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
+    val target = unlinkTarget
+    if (target != null && store.canUnlink(target)) {
+        UnlinkConfirmation(target, store.unlinkingSessionId == target.sessionId, store.unlinkError,
+            onDismiss = { if (store.unlinkingSessionId == null) { unlinkTarget = null; store.clearUnlinkError() } },
+            onConfirm = { scope.launch {
+                store.unlinkParent(target)
+                if (store.unlinkError == null && store.unlinkingSessionId == null) unlinkTarget = null
+            } })
+    }
 
     var statusClock by remember(store) { mutableStateOf(RuntimeObservation.now()) }
     LaunchedEffect(store, store.historyRevision, store.conversations, statusClock) {
@@ -96,10 +120,17 @@ fun AgentPage(
         if (expiry != null) { delay(((expiry - now) * 1000).toLong() + 1); statusClock = RuntimeObservation.now() }
     }
     val pins = store.pinnedShortcuts
+    var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(emptyList<String>()) }
+    val tree = remember(store.conversations, pins, foldedIds, account) {
+        ConversationNesting.nest(store.conversations, pins.mapTo(mutableSetOf()) { it.sessionId }, foldedIds.toSet(), account)
+    }
+    val treeSections = remember(tree) { tree.rows.groupBy { it.section } }
+    val shortcuts = pins.filter { it.sessionId !in tree.loadedPinnedIds }
     LaunchedEffect(store, store.selectedTeam?.id) { store.loadFavorites() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { it.key } }
             .collect { keys ->
+                // Source tail IDs may be folded or move in tree order; the explicit footer remains available.
                 if (store.hasMore && PinnedHistory.shouldLoadMore(keys, store.conversations.map { it.sessionId })) {
                     store.loadMore()
                 }
@@ -174,29 +205,38 @@ fun AgentPage(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (pins.isNotEmpty()) {
-                            item(key = "pins:header") { Text("Pinned", style = MaterialTheme.typography.titleSmall) }
-                            items(pins, key = { it.listKey }) { pin ->
-                                Card(Modifier.fillMaxWidth().clickable {
-                                    nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}")
-                                }) {
-                                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat")
-                                        Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        for (section in ConversationNesting.Section.entries) {
+                            val rows = treeSections[section].orEmpty()
+                            if (rows.isNotEmpty() || (section == ConversationNesting.Section.Pinned && shortcuts.isNotEmpty())) {
+                                item(key = "section:$section") { Text(section.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            }
+                            if (section == ConversationNesting.Section.Pinned) {
+                                items(shortcuts, key = { it.listKey }) { pin ->
+                                    Card(Modifier.fillMaxWidth().clickable {
+                                        nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}")
+                                    }) {
+                                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat")
+                                            Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
                                     }
                                 }
                             }
-                            item(key = "history:header") { Text("History", style = MaterialTheme.typography.titleSmall) }
-                        }
-                        items(store.conversations, key = { "history:${it.sessionId}" }) { conversation ->
-                            ConversationRow(conversation, store.favorites?.contains(conversation.sessionId) == true, store.historyObservation(conversation)?.label(maxOf(statusClock, RuntimeObservation.now()))) {
-                                nav.navigate("conversation/${conversation.sessionId}")
+                            items(rows, key = { "history:${it.conversation.sessionId}" }) { row ->
+                                ConversationTreeRow(row, store.favorites?.contains(row.conversation.sessionId) == true,
+                                    ConversationNesting.status(row) { store.historyObservation(it)?.label(maxOf(statusClock, RuntimeObservation.now())) },
+                                    onUnlink = if (store.canUnlink(row.conversation)) ({ store.clearUnlinkError(); unlinkTarget = row.conversation }) else null,
+                                    unlinking = store.unlinkingSessionId == row.conversation.sessionId,
+                                    onToggle = {
+                                        foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
+                                    },
+                                    onClick = { nav.navigate("conversation/${android.net.Uri.encode(row.conversation.sessionId)}") })
                             }
                         }
                         if (store.hasMore) {
-                            item {
-                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                    LoadingIndicator()
+                            item(key = "history:more") {
+                                TextButton(onClick = { scope.launch { store.loadMore() } }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Load more chats")
                                 }
                             }
                         }
@@ -211,6 +251,27 @@ fun AgentPage(
             draftAccount?.let { draftAuth.composerDrafts.bind(it, draftTeam, ai.nuphos.android.session.ComposerDrafts.Destination.NewChat, ai.nuphos.android.session.AiAccess.bind(draftAuth.token.orEmpty())) }
         }
         ChatComposer(
+            mentions = draftTeam?.let { team ->
+                remember(store, team) {
+                    ai.nuphos.android.ui.chat.SessionMentionSource(team) { query ->
+                        store.mentionableSessions(team, query)
+                    }
+                }
+            },
+            devices = draftTeam?.let { team ->
+                remember(store, team, store.workspaceRevision) {
+                    ai.nuphos.android.ui.chat.DeviceMentionSource(team,
+                        load = { store.mentionableComputers(team) },
+                        pick = { device ->
+                            if (store.selectedTeam?.id != team || !draftAuth.aiAllowed) false
+                            else ai.nuphos.android.ui.chat.DeviceMention.select(store.credentialSelection, device)?.let {
+                                store.updateCredentialSelection(it)
+                                true
+                            } ?: false
+                        },
+                    )
+                }
+            },
             draft = draft,
             draftingEnabled = draft != null && draftAuth.aiAllowed && store.selectedTeam != null,
             isStreaming = false,
@@ -221,8 +282,7 @@ fun AgentPage(
                 true
             },
             showControls = true,
-            // The Agent for the next chat lives in the composer control row,
-            // where Desktop keeps its runtime selector.
+            agentQuota = selection?.selectedId?.let { quotas[it] },
             agent = selection,
             agentEnabled = setup != null && auth.aiAllowed,
             onChooseAgent = { setupVisible = true },
@@ -230,8 +290,25 @@ fun AgentPage(
     }
 }
 
+/** Cap visual indentation so malformed/deep trees cannot squeeze the title off-screen. */
 @Composable
-private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, onClick: () -> Unit) {
+internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false) {
+    val depth = row.depth.coerceAtMost(4)
+    val line = MaterialTheme.colorScheme.outlineVariant
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+        if (depth > 0) Canvas(Modifier.width((depth * 16).dp).fillMaxHeight()) {
+            val x = size.width - 8.dp.toPx()
+            drawLine(line, Offset(x, 0f), Offset(x, size.height / 2), 1.dp.toPx())
+            drawLine(line, Offset(x, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
+        }
+        Box(Modifier.weight(1f).semantics { stateDescription = "Thread level ${row.depth}" }) {
+            ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking)
+        }
+    }
+}
+
+@Composable
+private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -257,6 +334,18 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
                 else if (HistoryStatus.unread(conversation)) Text("Unread", style = MaterialTheme.typography.labelSmall)
                 Text(meta(conversation), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (threads > 0) {
+                TextButton(onClick = onToggle, modifier = Modifier.semantics {
+                    stateDescription = if (folded) "Collapsed" else "Expanded"
+                }) {
+                    Text("$threads")
+                    Icon(if (folded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+                        contentDescription = "${if (folded) "Show" else "Hide"} $threads threads")
+                }
+            }
+            if (onUnlink != null) TextButton(onClick = onUnlink, enabled = !unlinking) {
+                Text(if (unlinking) "Unlinking…" else "Unlink")
+            }
             if (pinned) {
                 Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
             }
@@ -265,6 +354,21 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
             }
         }
     }
+}
+
+/** Android adds an explicit confirmation; iOS performs the context-menu action directly. */
+@Composable
+internal fun UnlinkConfirmation(target: AgentConversation, busy: Boolean, error: String?, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Unlink chat?") },
+        text = { Column {
+            Text("“${target.displayTitle}” will appear on its own in the chat list. Its messages and sharing permissions will stay the same.")
+            if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+        } },
+        confirmButton = { TextButton(onClick = onConfirm, enabled = !busy) { Text(if (busy) "Unlinking…" else "Unlink") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
+    )
 }
 
 private fun meta(conversation: AgentConversation): String {

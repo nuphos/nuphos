@@ -1,13 +1,13 @@
-import { getActiveDiagramId } from '../../../architecture/activeDiagram'
-import { track, trackError } from '../../../lib/analytics'
-import { toast } from '../../ui/toast'
+import { getActiveDiagramId } from '../../../architecture/activeDiagram.ts'
+import { track, trackError } from '../../../lib/analytics.ts'
+import { toast } from '../../ui/toast.ts'
 
-import { makeAttachmentTurn } from './attachments'
-import { supersedePendingApprovals, finalizeIncompleteTools } from './clientTools'
-import { rememberDispatchedDraft } from './queuedAutoSend'
-import { INTERRUPTED_TOOL_MESSAGE, newAgentStreamId } from './stall'
-import { getAgentLocale } from './textUtils'
-import { toUiMessages } from './toUiMessages'
+import { makeAttachmentTurn } from './attachments.ts'
+import { supersedePendingApprovals, finalizeIncompleteTools } from './clientTools.ts'
+import { rememberDispatchedDraft } from './queuedAutoSend.ts'
+import { INTERRUPTED_TOOL_MESSAGE, newAgentStreamId } from './stall.ts'
+import { getAgentLocale } from './textUtils.ts'
+import { toPersistedMessages, toUiMessages } from './toUiMessages.ts'
 
 import type { PanelCtx } from './ctx'
 import type { Message } from './model'
@@ -141,6 +141,13 @@ export async function runDispatchTurn(
     credentialAccessRef.current.get(tab.sessionId) ?? tab.credentialAccess,
   )
 
+  // A fork's copied turns exist only in this client until its first send, and
+  // /chat accepts one user message the server hasn't stored. Store them first
+  // as an import, the path a local session import takes, so this send carries
+  // only the new message. A regular sync of the same turn would race the import
+  // and store the new message before /chat could attribute it.
+  const forkHistory = tab.unsaved && baseMessages.some((m) => m.role === 'user')
+
   setTabs((prev) =>
     prev.map((t) =>
       t.id === tabId
@@ -158,39 +165,60 @@ export async function runDispatchTurn(
             autoResumeAttempts: 0,
             credentialAccess,
             promptSuggestion: null,
-            // The first turn stores the session, so a fork is no longer unsaved.
-            unsaved: false,
+            // The first turn stores the session, so a fork is no longer unsaved;
+            // one with copied turns stays unsaved until their import lands.
+            unsaved: forkHistory ? t.unsaved : false,
           }
         : t,
     ),
   )
-  syncTranscriptNow({
-    ...tab,
-    messages: nextMessages,
-    streaming: true,
-    connected: false,
-    phase: null,
-    streamId,
-    streamStartedAt,
-    error: null,
-    agentSetupRequired: null,
-    autoResumeAttempts: 0,
-    credentialAccess,
-  })
-  void window.api
-    .agentStart({
+  if (!forkHistory) {
+    syncTranscriptNow({
+      ...tab,
+      messages: nextMessages,
+      streaming: true,
+      connected: false,
+      phase: null,
       streamId,
-      sessionId: tab.sessionId,
-      agentRuntime: tab.agentRuntime,
-      runtimeId: tab.runtimeId,
-      teamId,
-      messages: toUiMessages(nextMessages),
-      baseIndex: tab.historyBaseIndex,
-      locale: getAgentLocale(),
-      url: urlRef.current,
-      kubeContext: kubeContextRef.current ?? undefined,
-      diagramId: getActiveDiagramId() ?? undefined,
+      streamStartedAt,
+      error: null,
+      agentSetupRequired: null,
+      autoResumeAttempts: 0,
       credentialAccess,
+    })
+  }
+  const importForkHistory = forkHistory
+    ? window.api.agentSyncConversationTranscript({
+        sessionId: tab.sessionId,
+        agentRuntime: tab.agentRuntime,
+        runtimeId: tab.runtimeId,
+        teamId,
+        title: tab.title,
+        messages: toPersistedMessages(baseMessages),
+        import: true,
+      })
+    : Promise.resolve()
+
+  void importForkHistory
+    .then(() => {
+      if (forkHistory) {
+        setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, unsaved: false } : t)))
+      }
+
+      return window.api.agentStart({
+        streamId,
+        sessionId: tab.sessionId,
+        agentRuntime: tab.agentRuntime,
+        runtimeId: tab.runtimeId,
+        teamId,
+        messages: toUiMessages(nextMessages),
+        baseIndex: tab.historyBaseIndex,
+        locale: getAgentLocale(),
+        url: urlRef.current,
+        kubeContext: kubeContextRef.current ?? undefined,
+        diagramId: getActiveDiagramId() ?? undefined,
+        credentialAccess,
+      })
     })
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err)

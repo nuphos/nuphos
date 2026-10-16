@@ -1,5 +1,6 @@
 import type { AgentProvider } from '../../src/types/runtime'
 import { AtlasHttpError, callJson, callJsonForRenderer, teamQuery } from './http'
+import { importInChunks } from './transcript-import'
 import { storedMessageCountFromDetails, windowTranscript } from './transcript-window'
 
 import type {
@@ -184,9 +185,10 @@ export async function syncConversationTranscript(args: {
     parts: unknown[]
   }[]
   baseIndex?: number
+  import?: boolean
 }): Promise<void> {
   const put = (messages: typeof args.messages, baseIndex: number | undefined) =>
-    callJson<{ ok: boolean }>(
+    callJson<{ ok: boolean; skipped?: string }>(
       'PUT',
       `/agent/conversations/${encodeURIComponent(args.sessionId)}/transcript${teamQuery(args.teamId)}`,
       {
@@ -195,12 +197,14 @@ export async function syncConversationTranscript(args: {
         runtimeId: args.runtimeId,
         messages,
         baseIndex: baseIndex && baseIndex > 0 ? baseIndex : undefined,
+        import: args.import,
       },
     )
-  // Same suffix-window protocol as the chat POST: the PUT has
-  // delete-absent semantics over the hydrated transcript, so sending only the
-  // current turn's tail is equivalent — and keeps the body from growing past
-  // the ingress limit on a long live session.
+
+  // An import has no stored prefix to window against: it goes in chunks.
+  if (args.import) return importInChunks(args.messages, put)
+  // Same suffix window as the chat POST: the PUT is delete-absent over the hydrated
+  // transcript, so the current turn's tail is enough and stays under the ingress limit.
   const window = windowTranscript(args.messages, args.baseIndex)
 
   try {
@@ -213,9 +217,8 @@ export async function syncConversationTranscript(args: {
       err.code === 'transcript_out_of_sync'
 
     if (!outOfSync) throw err
-    // A rejection that carries the server's stored count: retry the same
-    // window claiming that count as baseIndex before falling back to the
-    // full transcript, which can exceed the ingress body limit.
+    // A rejection carrying the server's stored count: retry the same window at that
+    // count before falling back to the full transcript, which can exceed the limit.
     const storedCount = storedMessageCountFromDetails(err.details)
 
     if (storedCount !== undefined) {

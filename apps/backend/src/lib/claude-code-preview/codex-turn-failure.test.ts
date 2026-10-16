@@ -5,6 +5,7 @@ import {
   partsWithoutFailureNotice,
   withoutFailureNotice,
 } from './codex-turn-failure'
+import { OpenAbRpcError } from './openab-acp-errors'
 import { classifyPreviewInterruption } from './preview-transcript'
 
 import type { UIMessage } from 'ai'
@@ -56,4 +57,38 @@ test('a provider-failed turn is reported with the provider message, not a runtim
   expect(classifyPreviewInterruption(new CodexTurnFailedError(NOTICE), true).reason).toBe(
     'cancelled',
   )
+})
+
+test('a Claude usage limit is one line: the streamed notice gives way to the interruption', () => {
+  const error = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 4:20am (UTC)\n\n_The agent did not return any error details. Please check the agent's own logs for more information._",
+    -32603,
+  )
+  const notice = "You've hit your session limit · resets 4:20am (UTC)"
+
+  expect(
+    partsWithoutFailureNotice([{ type: 'text', text: notice }] as UIMessage['parts'], error),
+  ).toEqual([])
+  expect(classifyPreviewInterruption(error, false)).toEqual({ reason: 'error', message: notice })
+})
+
+test("only the gateway wrapper's first line names a usage limit", () => {
+  const memory = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You're out of memory",
+    -32603,
+  )
+  const quoted = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: boom\nInternal error: You've hit your session limit",
+    -32603,
+  )
+  const unwrapped = new Error("Internal error: You've hit your session limit")
+
+  for (const error of [memory, quoted, unwrapped]) {
+    expect(classifyPreviewInterruption(error, false).message).toBe(
+      'The agent failed before it could answer.',
+    )
+    expect(withoutFailureNotice("You've hit your session limit", error)).toBe(
+      "You've hit your session limit",
+    )
+  }
 })

@@ -162,6 +162,12 @@ export function teamPageLocation(
 
     return pageLocation(navigation.filter ? `${base}/${pathSegment(navigation.filter)}` : base)
   }
+  if (active === 'team.desktop') {
+    const base = `/teams/${pathSegment(scope.teamId)}/desktop`
+    const suffix = navigation.filter ? `/${pathSegment(navigation.filter)}` : ''
+
+    return pageLocation(`${base}${suffix}`)
+  }
   if (active === 'team.browser') {
     const query = navigation.browserUrl
       ? `?${new URLSearchParams({ url: navigation.browserUrl })}`

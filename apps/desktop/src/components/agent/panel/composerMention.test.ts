@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { matchDevices, matchMembers, mentionQuery, sessionMentionUrl } from './composerMention.ts'
+import {
+  deviceDetail,
+  matchDevices,
+  matchMembers,
+  mentionQuery,
+  sessionMentionUrl,
+} from './composerMention.ts'
 
 import type { TeamMember } from '../../../types'
 
@@ -61,4 +67,19 @@ test('devices match by label, case-insensitively', () => {
     ['d1'],
   )
   assert.equal(matchDevices(devices, '').length, 2)
+})
+
+const mac = (deviceId: string, available?: boolean) => ({
+  deviceId,
+  label: 'MacBook-Pro.local',
+  platform: 'darwin',
+  available,
+})
+
+test('a device only gets a detail when another one has the same label', () => {
+  const devices = [mac('aaaa1111', true), mac('bbbb2222', false)]
+
+  assert.equal(deviceDetail(devices[0], devices), 'Online · 1111')
+  assert.equal(deviceDetail(devices[1], devices), 'Offline · 2222')
+  assert.equal(deviceDetail(devices[0], [devices[0]]), '')
 })

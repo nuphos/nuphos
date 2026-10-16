@@ -113,6 +113,40 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
     expect(seen.sinkFrames.some((raw) => raw.includes('pong'))).toBe(true)
   })
 
+  test('opens the run with the message that started the turn, before any output', async () => {
+    // A client attaching to a headless turn (a trigger, a message from another
+    // thread) must see its input first, as it will in the stored transcript.
+    const frames: string[] = []
+    const message = {
+      id: 'thread-1',
+      role: 'user',
+      metadata: { version: 1, sender: { type: 'agent', id: 's-1' }, source: 'agent.thread' },
+      parts: [{ type: 'text', text: 'ping' }],
+    } as UIMessage
+
+    await runAgentForTrigger({
+      userId: 'owner-1',
+      conversationOwnerUserId: 'owner-1',
+      nuphosToken: 'tok',
+      teamId: 'team-1',
+      sessionId: 'conv-2',
+      messages: [message],
+      firstMessage: 'ping',
+      source: 'agent.thread',
+      frameSink: {
+        frame: (raw) => {
+          frames.push(raw)
+        },
+        done: () => {},
+      },
+    })
+
+    const first = JSON.parse(frames[0]!.replace(/^data: /, '').trim()) as Record<string, unknown>
+
+    expect(first).toMatchObject({ type: 'atlas-turn-start', messages: [{ id: 'thread-1' }] })
+    expect(frames.findIndex((raw) => raw.includes('pong'))).toBeGreaterThan(0)
+  })
+
   test('Discord and Slack initialize Full Access for the acting user before running', async () => {
     for (const source of ['discord.agent', 'slack.agent']) {
       initializedModes.length = 0

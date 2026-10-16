@@ -4,6 +4,48 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ComposerDraftsTest {
+    private class Disk : ComposerDrafts.Persistence {
+        val values = mutableMapOf<ComposerDrafts.Key, String>()
+        override fun load(accountId: String) = values.filterKeys { it.accountId == accountId }
+        override fun write(key: ComposerDrafts.Key, text: String) {
+            if (text.isEmpty()) values.remove(key) else values[key] = text
+        }
+        override fun clear() { values.clear() }
+    }
+    @Test fun clearBeforeIdentityRestoreRemovesOrphanedDrafts() {
+        val disk = Disk()
+        ComposerDrafts(disk).bind("expired-account", "team", ComposerDrafts.Destination.NewChat)!!.write("private")
+        val restoring = ComposerDrafts(disk)
+        restoring.clear()
+        assertTrue(disk.values.isEmpty())
+        restoring.onIdentity("expired-account")
+        assertEquals("", restoring.bind("expired-account", "team", ComposerDrafts.Destination.NewChat)!!.text)
+    }
+    @Test fun processRecreationAndSuccessfulSendKeepDestinationsSeparate() {
+        val disk = Disk()
+        val first = ComposerDrafts(disk)
+        first.onIdentity(null)
+        first.onIdentity("a")
+        first.bind("a", "t", ComposerDrafts.Destination.NewChat)!!.write(" new ")
+        first.bind("a", "t", ComposerDrafts.Destination.Chat("one"))!!.write("chat")
+        val restored = ComposerDrafts(disk)
+        restored.onIdentity(null)
+        restored.onIdentity("a")
+        val fresh = restored.bind("a", "t", ComposerDrafts.Destination.NewChat)!!
+        assertEquals(" new ", fresh.text)
+        assertEquals("chat", restored.bind("a", "t", ComposerDrafts.Destination.Chat("one"))!!.text)
+        assertEquals("", restored.bind("a", "other", ComposerDrafts.Destination.NewChat)!!.text)
+        fresh.submitted(true, " new ")
+        val again = ComposerDrafts(disk)
+        again.onIdentity("a")
+        assertEquals("", again.bind("a", "t", ComposerDrafts.Destination.NewChat)!!.text)
+        assertEquals("chat", again.bind("a", "t", ComposerDrafts.Destination.Chat("one"))!!.text)
+        again.onIdentity(null)
+        assertTrue(disk.values.isEmpty())
+        restored.onIdentity(null)
+        assertFalse(fresh.write("late"))
+    }
+
     @Test fun destinationsPreserveWhitespaceAcrossRebinding() {
         val store = ComposerDrafts()
         val first = store.bind("a", "t", ComposerDrafts.Destination.Chat("one"))!!

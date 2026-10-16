@@ -32,7 +32,8 @@ const intruder = {}
 beforeEach(async () => {
   redisOn = false
   await real?.flushdb()
-  for (const id of ['sess-a', 'sess-b']) forgetRuntimeState('team-a', id)
+  for (const team of ['team-a', 'team-b'])
+    for (const id of ['sess-a', 'sess-b']) forgetRuntimeState(team, id)
 })
 
 const snapshot = {
@@ -82,6 +83,22 @@ function cases() {
     await settle()
 
     expect(await readRuntimeStates('team-a', ['sess-a', 'sess-b'])).toEqual([null, null])
+  })
+
+  test('another runtime reusing a held session id does not displace its holder', async () => {
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
+    const releaseOther = holdRuntimeState(intruder, 'team-b', 'sess-a')
+
+    push(connection, 'sess-a', snapshot)
+    push(intruder, 'sess-a', { ...snapshot, state: 'active', revision: 8 })
+    await settle()
+    releaseOther()
+    push(connection, 'sess-a', { ...snapshot, revision: 9 })
+    await settle()
+    release()
+
+    expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.revision).toBe(9)
+    expect((await readRuntimeStates('team-b', ['sess-a']))[0]?.state).toBe('active')
   })
 
   test('the key is per team: another team reading the same session id sees nothing', async () => {

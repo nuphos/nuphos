@@ -1,14 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import {
-  localAgentStatus,
-  managedRuntimePlan,
-  newlyConnectedAgent,
-  readyLocalAgents,
-  setupStep,
-  unsignedAgentToRemove,
-} from './agentSetup.ts'
+import { localAgentStatus, newlyConnectedAgent, readyLocalAgents, setupStep } from './agentSetup.ts'
 import { SELF_HOSTED_PLATFORM_IDS, SELF_HOSTED_PLATFORMS } from './selfHostedPlatforms.ts'
 
 import type { LocalRuntimeState } from '../../../api/device-types.ts'
@@ -50,23 +43,6 @@ test('ready local agents keep the Claude Code, Codex order', () => {
   assert.deepEqual(readyLocalAgents(null), [])
 })
 
-test('the Nuphos Cloud picker reuses its unsigned agent and replaces it when the agent changes', () => {
-  const claude = { ...agent('c1', 'managed'), provider: 'claude-code' } as RuntimeInstance
-
-  assert.deepEqual(managedRuntimePlan(null, 'codex'), { kind: 'create', replace: null })
-  assert.deepEqual(managedRuntimePlan(claude, 'claude-code'), { kind: 'reuse', instance: claude })
-  assert.deepEqual(managedRuntimePlan(claude, 'codex'), { kind: 'create', replace: claude })
-})
-
-test('leaving Nuphos Cloud removes its unsigned agent; staying keeps it', () => {
-  const claude = agent('c1', 'managed')
-
-  assert.equal(unsignedAgentToRemove(claude, 'managed'), null)
-  assert.equal(unsignedAgentToRemove(claude, 'self-hosted'), claude)
-  assert.equal(unsignedAgentToRemove(claude, 'skip'), claude)
-  assert.equal(unsignedAgentToRemove(null, 'skip'), null)
-})
-
 test('a self-hosted agent counts as new only when it was not there before', () => {
   const known = new Set(['old'])
 
@@ -82,7 +58,7 @@ test('a self-hosted agent counts as new only when it was not there before', () =
 test('the stepper marks local first and every cloud screen second', () => {
   assert.equal(setupStep('local'), 1)
   assert.equal(setupStep('cloud'), 2)
-  assert.equal(setupStep('managed'), 2)
+  assert.equal(setupStep('box'), 2)
   assert.equal(setupStep('self-hosted'), 2)
   assert.equal(setupStep('done'), undefined)
 })

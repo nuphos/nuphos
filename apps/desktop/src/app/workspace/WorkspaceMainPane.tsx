@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Profiler, useEffect, useRef, useState } from 'react'
 
 import { WorkspaceTabPane } from '../../app/workspace/WorkspaceTabPane'
-import { EMPTY_LIST } from '../../app/workspaceTabState'
+import { EMPTY_LIST, FULL_BLEED_PAGE_KEYS } from '../../app/workspaceTabState'
 import { Toolbar } from '../../components/Toolbar'
 import { PageAsideContext } from '../../hooks/usePageAside'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
@@ -139,7 +139,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     >
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden workspace-content-surface">
-          {activeTab?.active !== 'team.browser' && activeTab?.active !== 'team.terminal' && (
+          {!FULL_BLEED_PAGE_KEYS.has(activeTab?.active ?? '') && (
             <Profiler id="toolbar" onRender={(id, _p, ms) => reportShellRender(id, ms)}>
               <Toolbar
                 segments={toolbarSegments}

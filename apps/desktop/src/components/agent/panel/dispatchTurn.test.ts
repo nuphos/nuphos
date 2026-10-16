@@ -1,0 +1,181 @@
+import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
+import { before, mock, test } from 'node:test'
+
+import type { DispatchTurnCtx } from './dispatchTurn.ts'
+import type { Message, Tab } from './model'
+import type { WindowAgentApi } from '../../../api/window-agent'
+
+type SyncArgs = Parameters<WindowAgentApi['agentSyncConversationTranscript']>[0]
+type StartArgs = Parameters<WindowAgentApi['agentStart']>[0]
+
+let runDispatchTurn: typeof import('./dispatchTurn.ts').runDispatchTurn
+const calls: (['sync', SyncArgs] | ['start', StartArgs])[] = []
+let failImport = false
+
+before(async () => {
+  mock.module('../../../architecture/activeDiagram.ts', {
+    namedExports: { getActiveDiagramId: () => null },
+  })
+  mock.module('../../../lib/analytics.ts', {
+    namedExports: { track: () => {}, trackError: () => {} },
+  })
+  mock.module('../../ui/toast.ts', {
+    namedExports: { toast: { apiError: () => {}, error: () => {} } },
+  })
+  mock.module('./attachments.ts', {
+    namedExports: {
+      makeAttachmentTurn: (text: string) => ({
+        messageId: 'new',
+        optimisticPart: () => null,
+        buildUserMsg: (): Message => ({ id: 'new', role: 'user', parts: [{ type: 'text', text }] }),
+        runUpload: () => Promise.resolve(null),
+      }),
+    },
+  })
+  mock.module('./clientTools.ts', {
+    namedExports: {
+      finalizeIncompleteTools: (messages: Message[]) => messages,
+      supersedePendingApprovals: (messages: Message[]) => messages,
+    },
+  })
+  mock.module('./queuedAutoSend.ts', { namedExports: { rememberDispatchedDraft: () => {} } })
+  mock.module('./stall.ts', {
+    namedExports: { INTERRUPTED_TOOL_MESSAGE: 'interrupted', newAgentStreamId: randomUUID },
+  })
+  mock.module('./textUtils.ts', { namedExports: { getAgentLocale: () => 'en-US' } })
+  mock.module('./toUiMessages.ts', {
+    namedExports: {
+      toUiMessages: (messages: Message[]) => messages,
+      toPersistedMessages: (messages: Message[]) => messages,
+    },
+  })
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      api: {
+        agentSyncConversationTranscript: (args: SyncArgs) => {
+          calls.push(['sync', args])
+
+          return failImport ? Promise.reject(new Error('import failed')) : Promise.resolve()
+        },
+        agentStart: (args: StartArgs) => {
+          calls.push(['start', args])
+
+          return Promise.resolve()
+        },
+      },
+    },
+  })
+  ;({ runDispatchTurn } = await import('./dispatchTurn.ts'))
+})
+
+const history: Message[] = [
+  { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'first' }] },
+  { id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'reply' }] },
+]
+
+function context(tab: Partial<Tab>) {
+  let tabs = [{ id: 'tab', sessionId: 'fork', title: 'Fork', messages: history, ...tab } as Tab]
+  const synced: Tab[] = []
+  const ctx = {
+    currentUser: null,
+    credentialAccessRef: { current: new Map() },
+    kubeContextRef: { current: null },
+    sendableCredentialAccess: (access: unknown) => access,
+    setTabs: (update: Tab[] | ((prev: Tab[]) => Tab[])) => {
+      tabs = typeof update === 'function' ? update(tabs) : update
+    },
+    stoppedRunIdsRef: { current: new Set() },
+    syncTranscriptNow: (next: Tab) => {
+      synced.push(next)
+    },
+    tabsRef: {
+      get current() {
+        return tabs
+      },
+    },
+    teamId: 'team',
+    uploadingTabsRef: { current: new Set() },
+    urlRef: { current: undefined },
+  } as unknown as DispatchTurnCtx
+
+  return { ctx, synced, tabs: () => tabs }
+}
+
+async function settle() {
+  for (let i = 0; i < 5; i++) await Promise.resolve()
+}
+
+test("a fork's first send stores the copied turns as an import before starting", async () => {
+  calls.length = 0
+  failImport = false
+  const state = context({ unsaved: true })
+
+  await runDispatchTurn(state.ctx, 'tab', 'follow-up', [])
+  await settle()
+
+  // A regular sync would race the import and store the new message unattributed.
+  assert.equal(state.synced.length, 0)
+
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['sync', 'start'],
+  )
+  const [, sync] = calls[0] as ['sync', SyncArgs]
+
+  assert.equal(sync.import, true)
+  assert.equal(sync.sessionId, 'fork')
+  assert.deepEqual(
+    sync.messages.map((m) => m.id),
+    ['u1', 'a1'],
+  )
+  assert.deepEqual(
+    (calls[1][1] as StartArgs).messages.map((m) => m.id),
+    ['u1', 'a1', 'new'],
+  )
+})
+
+test('a saved chat sends without an import', async () => {
+  calls.length = 0
+  failImport = false
+  const state = context({ unsaved: false })
+
+  await runDispatchTurn(state.ctx, 'tab', 'follow-up', [])
+  await settle()
+
+  assert.equal(state.synced.length, 1)
+
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['start'],
+  )
+})
+
+test('a failed import does not start the turn and surfaces the error', async () => {
+  calls.length = 0
+  failImport = true
+  const state = context({ unsaved: true })
+
+  await runDispatchTurn(state.ctx, 'tab', 'follow-up', [])
+  await settle()
+
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['sync'],
+  )
+  assert.equal(state.tabs()[0].streaming, false)
+  assert.equal(state.tabs()[0].error, 'import failed')
+  // Still a fork the server hasn't stored, so the next send imports again.
+  assert.equal(state.tabs()[0].unsaved, true)
+
+  failImport = false
+  await runDispatchTurn(state.ctx, 'tab', 'again', [])
+  await settle()
+
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['sync', 'sync', 'start'],
+  )
+  assert.equal(state.tabs()[0].unsaved, false)
+})

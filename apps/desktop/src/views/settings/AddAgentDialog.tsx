@@ -1,36 +1,34 @@
 import { Dialog } from '@base-ui/react/dialog'
 import clsx from 'clsx'
-import { Cloud, Server, X } from 'lucide-react'
+import { Box, Laptop, Loader2, Server, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
-import { AGENT_PROVIDER, AGENT_PROVIDERS } from '../../types/runtime'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { nextAddAgentStep } from './addAgentFlow'
+import { JoinDialog } from './BoxParts'
+import { boxSetupProblem } from './boxPresentation'
 import { ExternalRuntimeForm } from './ExternalRuntimeForm'
 import { ExternalRuntimePasswordForm } from './ExternalRuntimePasswordForm'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
+import { useBoxAvailable } from './useAgentDevices'
+import { useBoxSetup } from './useBoxSetup'
+import { useBoxUsage } from './useBoxUsage'
 
 import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
-import type { AgentProvider, RuntimeInstance } from '../../types/runtime'
+import type { BoxJoin } from './BoxParts'
+import type { RuntimeInstance } from '../../types/runtime'
 import type { ReactNode } from 'react'
 
 const TITLE: Record<AddAgentStep, string> = {
   choose: 'Add agent',
   'self-hosted': 'Self-hosted Cloud Agent',
   'self-hosted-password': 'Self-hosted Cloud Agent',
-  managed: 'Nuphos Managed Cloud Agent',
-}
-
-const MAKER: Record<AgentProvider, string> = {
-  'claude-code': 'Anthropic’s',
-  codex: 'OpenAI’s',
-  grok: 'xAI’s',
-  antigravity: 'Google’s',
-  opencode: 'The open source',
+  box: 'New Box',
 }
 
 function Choice({
@@ -38,21 +36,24 @@ function Choice({
   title,
   description,
   selected,
+  disabled,
   onClick,
 }: {
   icon: ReactNode
   title: string
   description: string
   selected?: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       aria-pressed={selected}
       className={clsx(
-        'flex w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors',
+        'flex w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
         selected
           ? 'border-zViolet-500/70 bg-zViolet-500/10'
           : 'border-zGray-800 hover:border-zGray-700 hover:bg-zGray-800/40',
@@ -67,64 +68,64 @@ function Choice({
   )
 }
 
-function ManagedAgentForm({
+/** Makes a Box, waits for its agents, then hands the chosen one to sign-in. */
+function BoxAgentForm({
   teamId,
   onBack,
-  onCreated,
+  onChosen,
+  onOpenBilling,
 }: {
   teamId: string
   onBack: () => void
-  onCreated: (instance: RuntimeInstance) => void
+  onChosen: (instance: RuntimeInstance) => void
+  onOpenBilling?: () => void
 }) {
-  const [provider, setProvider] = useState<RuntimeInstance['provider']>('claude-code')
-  const [saving, setSaving] = useState(false)
-
-  async function create() {
-    if (saving) return
-    setSaving(true)
-    try {
-      onCreated(await api.atlasCreateRuntimeInstance(teamId, { provider }))
-    } catch (error) {
-      toast.apiError('Could not add agent', error)
-    } finally {
-      setSaving(false)
-    }
-  }
+  const [deviceId, setDeviceId] = useState<string | null>(null)
+  const box = useBoxSetup(teamId, deviceId, setDeviceId, onOpenBilling)
+  const button =
+    'rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60 disabled:opacity-50'
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        {AGENT_PROVIDERS.map((option) => (
-          <Choice
-            key={option}
-            icon={<AgentProviderIcon provider={option} className="h-4 w-4" />}
-            title={AGENT_PROVIDER[option].label}
-            description={`${MAKER[option]} coding agent. Sign in with ${AGENT_PROVIDER[option].account} next.`}
-            selected={provider === option}
-            onClick={() => setProvider(option)}
-          />
-        ))}
-      </div>
-      <p className="text-[12px] leading-5 text-tertiary">
-        The agent keeps its own sign-in; Nuphos does not store it.
-      </p>
+      {box.phase === 'ready' ? (
+        <div className="space-y-2">
+          <p className="text-[12.5px] text-secondary">
+            Your Box is running. Choose an agent to sign in.
+          </p>
+          {box.agents.map((agent) => (
+            <Choice
+              key={agent.id}
+              icon={<AgentProviderIcon provider={agent.provider} className="h-4 w-4" />}
+              title={AGENT_PROVIDER[agent.provider].label}
+              description={`Sign in with ${AGENT_PROVIDER[agent.provider].account}.`}
+              onClick={() => onChosen(agent)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="flex items-center gap-2 text-[12.5px] leading-5 text-secondary" role="status">
+          {box.phase === 'starting' && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
+          {box.phase === 'idle' &&
+            'A Box is a Linux computer in the cloud with Claude Code and Codex on it. Its agents keep working when your computer sleeps, and only you can use it.'}
+          {box.phase === 'starting' &&
+            'Starting the computer and its agents, usually 10–30 seconds…'}
+          {boxSetupProblem(box.phase)}
+        </p>
+      )}
       <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={saving}
-          className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
-        >
+        <button type="button" onClick={onBack} disabled={box.creating} className={button}>
           Back
         </button>
-        <button
-          type="button"
-          onClick={() => void create()}
-          disabled={saving}
-          className="rounded-md bg-zViolet-600 px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:opacity-50"
-        >
-          {saving ? 'Adding…' : 'Continue to sign in'}
-        </button>
+        {box.phase === 'idle' && (
+          <button
+            type="button"
+            onClick={() => void box.create()}
+            disabled={box.creating}
+            className="rounded-md bg-zViolet-600 px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:opacity-50"
+          >
+            {box.creating ? 'Creating…' : 'Create Box'}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -135,13 +136,19 @@ export function AddAgentDialog({
   teamId,
   onClose,
   onAdded,
+  onOpenBilling,
 }: {
   teamId: string
   onClose: () => void
   onAdded?: (runtimeId: string) => void
+  /** Without it, a team with no Box plan can only read where to get one. */
+  onOpenBilling?: () => void
 }) {
   const [step, setStep] = useState<AddAgentStep>('choose')
+  const boxAvailable = useBoxAvailable()
+  const noPlan = useBoxUsage(teamId).usage?.limitVcpus === 0
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
+  const [join, setJoin] = useState<BoxJoin | null>(null)
   const go = (action: AddAgentAction) => setStep((current) => nextAddAgentStep(current, action))
   const added = (runtimeId: string) => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
@@ -149,6 +156,7 @@ export function AddAgentDialog({
     onClose()
   }
 
+  if (join) return <JoinDialog join={join} onClose={onClose} />
   if (signingIn)
     return (
       <RuntimeLoginDialog
@@ -177,17 +185,42 @@ export function AddAgentDialog({
           <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
             {step === 'choose' && (
               <div className="space-y-2">
+                {boxAvailable && (
+                  <Choice
+                    icon={<Box className="h-4 w-4" />}
+                    title="New Box"
+                    description={
+                      noPlan
+                        ? 'Needs a Box plan → Billing'
+                        : 'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.'
+                    }
+                    disabled={noPlan && !onOpenBilling}
+                    onClick={() => {
+                      if (!noPlan) return go('box')
+                      onClose()
+                      onOpenBilling?.()
+                    }}
+                  />
+                )}
+                {boxAvailable && (
+                  <Choice
+                    icon={<Laptop className="h-4 w-4" />}
+                    title="Connect your own machine"
+                    description="Make a computer or server you run into a Box, with a one-time join command."
+                    onClick={() =>
+                      void api
+                        .boxJoinToken()
+                        .then(setJoin, (error: unknown) =>
+                          toast.apiError('Could not make a join command', error),
+                        )
+                    }
+                  />
+                )}
                 <Choice
                   icon={<Server className="h-4 w-4" />}
                   title="Self-hosted Cloud Agent"
                   description="Connect an agent you run on your own server, with a pairing code from its console."
                   onClick={() => go('self-hosted')}
-                />
-                <Choice
-                  icon={<Cloud className="h-4 w-4" />}
-                  title="Nuphos Managed Cloud Agent"
-                  description="Nuphos runs and updates the agent for your team. Pick Claude Code, Codex, Grok Build, Antigravity or OpenCode."
-                  onClick={() => go('managed')}
                 />
               </div>
             )}
@@ -211,11 +244,18 @@ export function AddAgentDialog({
                 }}
               />
             )}
-            {step === 'managed' && (
-              <ManagedAgentForm
+            {step === 'box' && (
+              <BoxAgentForm
                 teamId={teamId}
                 onBack={() => go('back')}
-                onCreated={setSigningIn}
+                onChosen={setSigningIn}
+                onOpenBilling={
+                  onOpenBilling &&
+                  (() => {
+                    onClose()
+                    onOpenBilling()
+                  })
+                }
               />
             )}
           </div>

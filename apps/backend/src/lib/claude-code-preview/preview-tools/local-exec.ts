@@ -1,9 +1,11 @@
+import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 // `local_exec` needs to know, per conversation, which devices are currently
 // selected AND online AND opted in — that set changes turn to turn (a device
 // can go offline mid-conversation), so it's resolved fresh on every MCP
 // tools-list/call rather than baked into a static module like the other
 // local tools. It is relayed to the owner's device, so unlike those tools it
 // does not depend on the sending client's `localTools` capability.
+import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import { createLocalTerminalTool } from '@/lib/agent/tools-skilled/local-terminal'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
@@ -31,9 +33,45 @@ export async function resolveAvailableLocalExecDevices(
   ])
   const selected = new Set(access.deviceIds)
 
-  return options.devices
-    .filter((device) => device.available && selected.has(device.deviceId))
-    .map((device) => ({ deviceId: device.deviceId, label: device.label }))
+  // Resolve owners server-side; every actual dispatch and wake rechecks the actor.
+  const devices = await Promise.all(
+    options.devices
+      .filter((device) => selected.has(device.deviceId))
+      .map(async (device): Promise<LocalExecDevice | null> => {
+        if (!device.available && !device.box?.ready) return null
+        // A device removed or unshared since the list was read is just not offered.
+        const target = await requireDeviceAccess(
+          ctx.userId,
+          ctx.teamId,
+          device.deviceId,
+          'use',
+        ).catch(() => null)
+
+        if (!target?.allowLocalExec) return null
+
+        return {
+          deviceId: device.deviceId,
+          label: device.label,
+          ownerUserId: target.userId,
+          ...(!device.available
+            ? {
+                wake: async () => {
+                  const current = await requireDeviceAccess(
+                    ctx.userId,
+                    ctx.teamId,
+                    device.deviceId,
+                    'use',
+                  )
+
+                  return current.allowLocalExec && wakeBox(current.userId, current.deviceId)
+                },
+              }
+            : {}),
+        }
+      }),
+  )
+
+  return devices.filter((device): device is LocalExecDevice => device !== null)
 }
 
 export async function localExecToolModule(ctx: PreviewToolContext): Promise<PreviewToolModule> {

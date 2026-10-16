@@ -36,11 +36,17 @@ class FakeCollection {
 
     return hit ?? null
   }
-  async updateOne(filter: Doc, update: { $set: Doc; $setOnInsert?: Doc }) {
+  async updateOne(
+    filter: Doc,
+    update: { $set: Doc; $setOnInsert?: Doc },
+    options?: { upsert?: boolean },
+  ) {
     const hit = this.docs.find((d) => matches(d, filter))
 
     if (hit) Object.assign(hit, update.$set)
-    else this.docs.push({ ...filter, ...update.$set, ...update.$setOnInsert })
+    else if (options?.upsert) this.docs.push({ ...filter, ...update.$set, ...update.$setOnInsert })
+
+    return { matchedCount: hit ? 1 : 0 }
   }
 }
 
@@ -83,6 +89,8 @@ describe('device join tokens', () => {
 
     expect(joined?.userId).toBe('u1')
     expect(joined?.credential.startsWith('nbx_')).toBe(true)
+    // A person's own computer joined with a token is not a Box.
+    expect(joined?.box).toBeUndefined()
     expect(collection('agent_devices').docs).toEqual([
       expect.objectContaining({
         userId: 'u1',
@@ -123,5 +131,54 @@ describe('device join tokens', () => {
     signedOutEverywhereAt = new Date(Date.now() + 1000)
     expect(await redeemDeviceJoinToken(token, MACHINE)).toBeNull()
     expect(collection('agent_devices').docs).toEqual([])
+  })
+
+  test('a token made for a Box claims that Box row, once, and never a device in use', async () => {
+    const box = { provider: 'instabox', sandboxId: 'm_1', teamId: 't1' }
+
+    await collection('agent_devices').insertOne({
+      userId: 'u1',
+      deviceId: 'box-1',
+      label: 'Box',
+      platform: 'linux',
+      allowLocalExec: true,
+      box,
+    })
+    const { token } = await issueDeviceJoinToken('u1', { deviceId: 'box-1', expiresInSec: 3600 })
+    const joined = await redeemDeviceJoinToken(token, MACHINE)
+
+    expect(joined?.deviceId).toBe('box-1')
+    expect(joined?.box).toBe(true)
+    expect(collection('agent_devices').docs).toEqual([
+      expect.objectContaining({
+        deviceId: 'box-1',
+        credentialHash: hashDeviceSecret(joined?.credential ?? ''),
+      }),
+    ])
+    // A second token for the same row finds a credential already there and gives nothing.
+    const { token: again } = await issueDeviceJoinToken('u1', { deviceId: 'box-1' })
+
+    expect(await redeemDeviceJoinToken(again, MACHINE)).toBeNull()
+    expect(collection('agent_devices').docs).toHaveLength(1)
+  })
+
+  test('a Box token still joins after the creator signs out everywhere or is gone', async () => {
+    for (const [creator, deviceId] of [
+      ['u1', 'box-1'],
+      ['departed', 'box-2'],
+    ] as const) {
+      await collection('agent_devices').insertOne({
+        userId: creator,
+        deviceId,
+        label: 'Box',
+        platform: 'linux',
+        allowLocalExec: true,
+        box: { provider: 'instabox', sandboxId: `m_${deviceId}`, teamId: 't1' },
+      })
+      const { token } = await issueDeviceJoinToken(creator, { deviceId, expiresInSec: 3600 })
+
+      signedOutEverywhereAt = new Date(Date.now() + 1000)
+      expect((await redeemDeviceJoinToken(token, MACHINE))?.deviceId).toBe(deviceId)
+    }
   })
 })

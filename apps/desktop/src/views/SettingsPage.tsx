@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { ArchivedChatsSection } from './settings/ArchivedChatsSection'
+import { BillingSection } from './settings/BillingSection'
 import { AuditSection, MembersSection } from './settings/personalSections'
 import {
   TEAM_SETTINGS_DEFAULT_SECTION,
@@ -73,6 +74,9 @@ export function SettingsPage({
     : undefined
   const fullHeightSections: Partial<Record<string, ReactNode>> = {
     'workspace.members': <MembersSection teamId={team?.id} currentUserId={user.id} />,
+    'workspace.billing': team ? (
+      <BillingSection teamId={team.id} isAdmin={team.role === 'ADMINISTRATOR'} />
+    ) : null,
     'workspace.audit': (
       <AuditSection teamId={team?.id} onOpenConversation={openAuditConversation} />
     ),

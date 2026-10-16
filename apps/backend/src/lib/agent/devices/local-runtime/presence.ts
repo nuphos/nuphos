@@ -3,6 +3,7 @@ import { redisEnabled, withRedis } from '@/lib/redis'
 import { parseJson } from './protocol'
 import { processSingleton } from './singleton'
 
+import type { BoxMetrics } from '../metrics-schema'
 import type { LocalRuntimeStatus } from './protocol'
 
 export const RUNTIME_PRESENCE_TTL_SEC = 15
@@ -17,6 +18,8 @@ export type LocalRuntimePresence = {
   conn: string
   status?: LocalRuntimeStatus
   seenAt: number
+  metrics?: BoxMetrics
+  metricsReceivedAt?: number
 }
 
 export type LocalRuntimePresenceStore = {

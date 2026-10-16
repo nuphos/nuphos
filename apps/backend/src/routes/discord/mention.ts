@@ -223,7 +223,7 @@ export async function handleDiscordMention(
     const replyTo = event.referenced_message && discordReplyQuote(event.referenced_message)
     const attribution = await createMessageMetadata(userMapping.nuphosUserId, 'discord')
     const metadata = replyTo ? { ...attribution, replyTo } : attribution
-    const claim = await turnRunner.claimAgentRunOrEnqueue({
+    const turn = await turnRunner.admitChannelTurn({
       userId: thread.agentUserId,
       sessionId: thread.sessionId,
       actorUserId: userMapping.nuphosUserId,
@@ -239,16 +239,14 @@ export async function handleDiscordMention(
       },
     })
 
-    if (claim.mode === 'dropped') {
-      await sendDiscordMessage(
-        threadChannelId,
-        "I'm still handling the previous message. Mention me again in a moment.",
-      )
-      await markDiscordEvent(event.id, 'completed')
-
-      return
-    }
-    if (claim.mode === 'queued') {
+    if (turn.mode !== 'run') {
+      // Dropped or expired: it never got a turn. Taken: another turn answers it.
+      if (turn.mode !== 'taken') {
+        await sendDiscordMessage(
+          threadChannelId,
+          "I'm still handling the previous message. Mention me again in a moment.",
+        )
+      }
       await markDiscordEvent(event.id, 'completed')
 
       return
@@ -261,7 +259,7 @@ export async function handleDiscordMention(
         messageId: event.id,
         renderedText,
         metadata,
-        carried: claim.carried,
+        carried: turn.carried,
       })
 
       await executeDiscordTurn({
@@ -280,7 +278,7 @@ export async function handleDiscordMention(
         turnContext,
       })
     } finally {
-      claim.release()
+      turn.release()
     }
   } catch (err) {
     logError('discord.agent.message.error', err, {

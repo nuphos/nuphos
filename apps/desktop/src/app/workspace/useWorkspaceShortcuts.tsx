@@ -124,7 +124,12 @@ export function useWorkspaceShortcuts(a: Args) {
     setShortcutsHelpOpen,
   ])
 
-  return { reopenLastClosedTab }
+  // The chat's ⋯ menu shortcuts (SessionHeaderMenu) stay off while Settings
+  // or a takeover covers the chat, so they never act on a chat out of sight.
+  const chatShortcutsLive =
+    paneActive && !settingsOpen && !onboardingActive && !createOrJoinOpen && !invitationTakeoverOpen
+
+  return { reopenLastClosedTab, chatShortcutsLive }
 }
 
 export type WorkspaceShortcutsResult = ReturnType<typeof useWorkspaceShortcuts>

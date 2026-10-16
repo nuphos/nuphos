@@ -121,3 +121,36 @@ and every 6 hours). Updates are downloaded silently and installed on next quit.
 After the first install, the app silently checks for updates on startup and
 every 6 hours. New versions download in the background. On next quit + relaunch,
 the new version is automatically installed — no UI prompt, no manual download.
+
+## macOS auto-sleep prevention
+
+In **Settings → Local agent**, choose **Prevent Mac auto-sleep**:
+
+- **Off** (default): follow your macOS sleep settings.
+- **While local tasks are running**: keep the Mac awake during pending agent
+  prompts, remote command/Computer Use streams, and open remote terminals.
+  Approval waits count as part of an unfinished prompt; an idle conversation or
+  a control/file connection does not. All tasks must finish before the assertion
+  is released. Closing a stream or disconnecting clears its tracked activity.
+- **While signed in to Nuphos**: stay awake to receive new work, even while idle.
+
+**Only while connected to power** is enabled by default. Battery/power changes
+apply immediately. Preferences are stored in this Mac's Desktop app data, rather
+than your team or account settings. Signing out or quitting releases the sleep
+assertion. Closing a window keeps the policy only if Nuphos remains running.
+
+The display may turn off and the screen may lock. This prevents **idle system
+sleep**; it does not guarantee operation with the lid closed, after choosing Sleep,
+or during low-battery shutdown. Keeping a computer awake increases energy use.
+
+### Verification on macOS
+
+Use `pmset -g assertions` to inspect Nuphos's `PreventUserIdleSystemSleep`
+assertion (Electron may label it `NoIdleSleepAssertion`). Confirm it appears in host mode while signed in, disappears in Off
+mode/on sign-out/quit, and follows the power condition. In task mode, test two
+concurrent prompts and a failed/cancelled prompt, approval waits, a remote terminal,
+and a tunnel disconnect. Confirm an idle conversation alone adds no assertion.
+Lock the screen or let the display turn off, then verify a task continues and new
+work reaches the host in host mode. Repeat on a MacBook and a desktop Mac, noting
+the macOS version; reconnect the power supply and restart the app to check the
+saved preferences. Do not use forced system sleep to test idle-sleep prevention.

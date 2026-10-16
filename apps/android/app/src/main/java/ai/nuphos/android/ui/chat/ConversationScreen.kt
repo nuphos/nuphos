@@ -1,11 +1,8 @@
 package ai.nuphos.android.ui.chat
 
-import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,8 +67,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -178,6 +173,7 @@ fun ConversationScreen(
         session.pollWhileIdle()
     }
 
+    var showAgent by remember(session) { mutableStateOf(false) }
     var refreshBrowse by remember(session) { mutableStateOf(0) }
     LaunchedEffect(session, refreshBrowse) {
         if (browsingOnly && refreshBrowse > 0 && store.selectedTeam?.id == browsingTeamId) session.reloadFromServer()
@@ -320,10 +316,40 @@ fun ConversationScreen(
                 val draftAuth = ai.nuphos.android.ui.LocalAuthSession.current
                 val draftAccount = draftAuth.user?.id
                 val draftTeam = session.teamId
-                val draft = remember(draftAccount, draftTeam, draftAuth.generation, ai.nuphos.android.session.AiAccess.revision) {
+                val draft = remember(draftAccount, draftTeam, sessionId, draftAuth.generation, ai.nuphos.android.session.AiAccess.revision) {
                     draftAccount?.let { draftAuth.composerDrafts.bind(it, draftTeam, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(sessionId), ai.nuphos.android.session.AiAccess.bind(draftAuth.token.orEmpty())) }
                 }
+                val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(draftAuth.token, session.teamId)
+                if (showAgent && draftAuth.token != null && draftAuth.aiAllowed) {
+                    val generation = draftAuth.generation
+                    val workspaceRevision = store.workspaceRevision
+                    ConversationAgentSheet(session, draftAuth.token!!, quotas,
+                        isCurrent = { draftAuth.generation == generation && draftAuth.aiAllowed &&
+                            store.workspaceRevision == workspaceRevision && store.selectedTeam?.id == session.teamId },
+                        onDismiss = { showAgent = false })
+                }
                 ChatComposer(
+                    onChooseAgent = { showAgent = true },
+                    mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
+                        SessionMentionSource(draftTeam, sessionId) { query ->
+                            store.mentionableSessions(draftTeam, query)
+                        }
+                    },
+                    devices = if (!session.canManage || store.selectedTeam?.id != draftTeam) null
+                    else remember(store, session, draftTeam, store.workspaceRevision) {
+                        DeviceMentionSource(draftTeam,
+                            load = { store.mentionableComputers(draftTeam) },
+                            pick = { device ->
+                                if (!session.canManage || store.selectedTeam?.id != draftTeam || !draftAuth.aiAllowed) false
+                                else DeviceMention.select(session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(), device)?.let {
+                                    session.credentialAccess = it
+                                    true
+                                } ?: false
+                            },
+                        )
+                    },
+                    agentLabel = session.runtimeDeviceLabel,
+                    agentQuota = session.runtimeId?.let { quotas[it] },
                     draft = draft,
                     draftingEnabled = draft != null && draftAuth.aiAllowed && store.selectedTeam != null,
                     isStreaming = session.isStreaming && !session.isNative,
@@ -389,7 +415,7 @@ private fun ChatRowView(
             modifier = Modifier.fillMaxWidth(),
         )
         is ChatRow.User -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-            row.images.take(4).forEach { url -> DataImage(url) }
+            MessageImages(row.images, row.messageId)
             if (row.text.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 6.dp),
@@ -563,19 +589,4 @@ private fun ToolDetailDialog(part: ChatPart.Tool, onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
-}
-
-@Composable
-private fun DataImage(url: String) {
-    val bmp = remember(url) {
-        val comma = url.indexOf(',')
-        if (comma < 0) null
-        else runCatching {
-            val data = Base64.decode(url.substring(comma + 1), Base64.DEFAULT)
-            BitmapFactory.decodeByteArray(data, 0, data.size)?.asImageBitmap()
-        }.getOrNull()
-    }
-    if (bmp != null) {
-        Image(bmp, contentDescription = null, modifier = Modifier.size(96.dp).clip(RoundedCornerShape(14.dp)).padding(bottom = 6.dp), contentScale = ContentScale.Crop)
-    }
 }

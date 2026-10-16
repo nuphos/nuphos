@@ -1,36 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import type { RailTurn } from './railTurns'
 import type { RefObject } from 'react'
 
-// The "reading line": a turn is active while one of its messages crosses the
-// band between 15% and 45% of the viewport height.
-const ACTIVE_BAND = '-15% 0px -55% 0px'
+// A message this far under the top edge no longer counts as in view, so a
+// turn scrolled just past the header stops lighting its tick.
+const VIEW_INSET = 16
 const JUMP_OFFSET = 16
-// After a jump the clicked turn stays active while the scroll settles, even
-// when the transcript bottoms out before that turn reaches the top.
-const JUMP_PIN_MS = 300
+// Gives up on the post-jump correction if the scroll never reports its end.
+const SETTLE_TIMEOUT_MS = 1000
+const NONE: ReadonlySet<string> = new Set()
 
 function findMessage(root: HTMLElement, id: string): HTMLElement | null {
   return root.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(id)}"]`)
 }
 
-function isAtBottom(el: HTMLElement): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight < 8
+function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  return a.size === b.size && [...a].every((id) => b.has(id))
 }
 
 /**
- * Tracks the turn in view and scrolls to a turn on request. Element lookups
- * happen in effects and handlers only, never during render, so the deferred
- * message paint (DEFERRED_MESSAGE_STYLE) stays deferred.
+ * Tracks which turns are on screen and scrolls to a turn on request. Element
+ * lookups happen in effects and handlers only, never during render, so the
+ * deferred message paint (DEFERRED_MESSAGE_STYLE) stays deferred.
  */
 export function useTurnRail(
   scrollRef: RefObject<HTMLDivElement | null>,
   turns: RailTurn[],
   onBeforeJump: () => void,
 ) {
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const pinnedUntilRef = useRef(0)
+  const [inView, setInView] = useState<ReadonlySet<string>>(NONE)
   // Re-observe only when the set of messages changes, not on streaming text.
   const idsKey = turns.map((t) => t.messageIds.join(',')).join('|')
 
@@ -41,26 +40,35 @@ export function useTurnRail(
     const turnOf = new Map<string, number>()
 
     turns.forEach((turn, i) => turn.messageIds.forEach((id) => turnOf.set(id, i)))
-    const inBand = new Set<string>()
+    const visible = new Set<string>()
+    // Every turn from the first visible message to the last one, so a reply
+    // taller than the viewport keeps its turn lit while it scrolls past.
     const pick = () => {
-      if (performance.now() < pinnedUntilRef.current) return
-      if (isAtBottom(root)) return setActiveId(turns[turns.length - 1].id)
-      let top = Infinity
+      let first = Infinity
+      let last = -1
 
-      for (const id of inBand) top = Math.min(top, turnOf.get(id) ?? Infinity)
-      if (top !== Infinity) setActiveId(turns[top].id)
+      for (const id of visible) {
+        const i = turnOf.get(id) ?? -1
+
+        first = Math.min(first, i)
+        last = Math.max(last, i)
+      }
+      if (last < 0) return
+      const next = new Set(turns.slice(first, last + 1).map((t) => t.id))
+
+      setInView((prev) => (sameIds(prev, next) ? prev : next))
     }
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const id = (entry.target as HTMLElement).dataset.messageId ?? ''
 
-          if (entry.isIntersecting) inBand.add(id)
-          else inBand.delete(id)
+          if (entry.isIntersecting) visible.add(id)
+          else visible.delete(id)
         }
         pick()
       },
-      { root, rootMargin: ACTIVE_BAND },
+      { root, rootMargin: `-${String(VIEW_INSET)}px 0px 0px 0px` },
     )
 
     for (const id of turnOf.keys()) {
@@ -68,46 +76,50 @@ export function useTurnRail(
 
       if (el) observer.observe(el)
     }
-    let frame = 0
-    const onScroll = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(pick)
-    }
 
-    root.addEventListener('scroll', onScroll, { passive: true })
-
-    return () => {
-      observer.disconnect()
-      root.removeEventListener('scroll', onScroll)
-      cancelAnimationFrame(frame)
-    }
+    return () => observer.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- idsKey covers turns
   }, [idsKey, scrollRef])
 
   const jumpTo = useCallback(
     (id: string) => {
       const root = scrollRef.current
+      const el = root && findMessage(root, id)
 
-      if (!root) return
+      if (!root || !el) return
       const align = () => {
-        const el = findMessage(root, id)
-
-        if (!el) return
         const offset = el.getBoundingClientRect().top - root.getBoundingClientRect().top
 
-        root.scrollTop += offset - JUMP_OFFSET
+        root.scrollTo({ top: root.scrollTop + offset - JUMP_OFFSET, behavior: 'instant' })
       }
+      const distance =
+        el.getBoundingClientRect().top - root.getBoundingClientRect().top - JUMP_OFFSET
 
       onBeforeJump()
-      pinnedUntilRef.current = performance.now() + JUMP_PIN_MS
-      setActiveId(id)
-      align()
-      // Deferred messages swap their placeholder height for the real one once
-      // they paint, which shifts the target; settle on the next frame.
-      requestAnimationFrame(align)
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(distance) < 1) {
+        align()
+        // Deferred messages swap their placeholder height for the real one
+        // once they paint, which shifts the target; settle on the next frame.
+        requestAnimationFrame(align)
+
+        return
+      }
+      // The same shift happens while gliding past deferred messages, so land
+      // on the target once the scroll stops, unless the reader took over.
+      const done = (event: Event) => {
+        window.clearTimeout(timer)
+        root.removeEventListener('scrollend', done)
+        root.removeEventListener('wheel', done)
+        if (event.type !== 'wheel') align()
+      }
+      const timer = window.setTimeout(() => done(new Event('scrollend')), SETTLE_TIMEOUT_MS)
+
+      root.addEventListener('scrollend', done)
+      root.addEventListener('wheel', done, { passive: true })
+      root.scrollTo({ top: root.scrollTop + distance, behavior: 'smooth' })
     },
     [onBeforeJump, scrollRef],
   )
 
-  return { activeId, jumpTo }
+  return { inView, jumpTo }
 }

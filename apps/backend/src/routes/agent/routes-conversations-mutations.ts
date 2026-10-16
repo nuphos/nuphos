@@ -33,6 +33,7 @@ import {
   resolveVerifiedTeamId,
 } from './team-scope'
 import { getFirstTranscriptMessage, normalizeTranscriptMessages } from './transcript'
+import { isTranscriptImport } from './transcript-import'
 
 const parentBody = z
   .object({ parentSessionId: z.string().min(1).nullable(), teamId: z.string().optional() })
@@ -226,8 +227,8 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
   // This includes new sessions: a PUT racing ahead of /chat would store the
   // first message without attribution, making /chat treat it as legacy history.
   // A local-session import is the one exception: it creates the conversation
-  // with turns that are meant to be exactly that history.
-  const importing = body.import === true && !existing
+  // with turns meant to be exactly that history, in chunks when it is long.
+  const importing = isTranscriptImport(body.import === true, existing, userId, baseIndex)
 
   if (
     !importing &&

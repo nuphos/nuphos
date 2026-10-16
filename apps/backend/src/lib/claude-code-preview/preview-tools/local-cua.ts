@@ -7,6 +7,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { recordDeviceExecAudit } from '@/lib/agent/devices/audit'
+import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
@@ -36,9 +37,12 @@ type DeviceMessage =
 export type LocalCuaDeps = {
   devices: (ctx: PreviewToolContext) => Promise<{ deviceId: string; label: string }[]>
   isMember: (userId: string, teamId: string) => Promise<boolean>
+  /** The device's transport owner when the actor may use it now, else null. */
+  owner: (ctx: PreviewToolContext, deviceId: string) => Promise<string | null>
   connect: (
     ctx: PreviewToolContext,
     deviceId: string,
+    ownerUserId: string,
   ) => Pick<DeviceRuntimeSocket, 'addEventListener' | 'send' | 'close' | 'connect'>
   approve: (
     ctx: PreviewToolContext,
@@ -85,9 +89,14 @@ const definition = {
 const defaultDeps: LocalCuaDeps = {
   devices: resolveAvailableLocalExecDevices,
   isMember: isActiveTeamMember,
-  connect: (ctx, deviceId) =>
+  owner: (ctx, deviceId) =>
+    requireDeviceAccess(ctx.userId, ctx.teamId, deviceId, 'use').then(
+      (device) => device.userId,
+      () => null,
+    ),
+  connect: (ctx, deviceId, ownerUserId) =>
     new DeviceRuntimeSocket(
-      { userId: ctx.userId, deviceId, teamId: ctx.teamId, purpose: 'cua' },
+      { userId: ownerUserId, actorId: ctx.userId, deviceId, teamId: ctx.teamId, purpose: 'cua' },
       { bus: tunnelBus(), presence: runtimePresenceStore() },
     ),
   approve: approveAppForComputerUse,
@@ -106,10 +115,11 @@ function framesOutput(result: ToolResult): unknown {
 function dispatch(
   ctx: PreviewToolContext,
   deviceId: string,
+  ownerUserId: string,
   args: Args,
   deps: LocalCuaDeps,
 ): Promise<{ status: DeviceOutcome; result?: ToolResult }> {
-  const socket = deps.connect(ctx, deviceId)
+  const socket = deps.connect(ctx, deviceId, ownerUserId)
 
   return new Promise((resolve) => {
     let settled = false
@@ -208,6 +218,10 @@ export function createLocalCuaHandler(ctx: PreviewToolContext, deps: LocalCuaDep
 
     if (typeof target !== 'string') return target
     const deviceId = target
+    // Rechecked on every call: a revoked person loses the next action.
+    const ownerUserId = await deps.owner(ctx, deviceId)
+
+    if (!ownerUserId) return toolError('This device is not available to you.')
 
     const toolCallId = `nuphos-${randomUUID()}`
     const requestedAt = new Date()
@@ -220,10 +234,10 @@ export function createLocalCuaHandler(ctx: PreviewToolContext, deps: LocalCuaDep
         input: args,
       })
       .catch(() => {})
-    const { status, result } = await dispatch(ctx, deviceId, args, deps)
+    const { status, result } = await dispatch(ctx, deviceId, ownerUserId, args, deps)
 
     await deps.audit({
-      ownerUserId: ctx.userId,
+      ownerUserId,
       deviceId,
       actorUserId: ctx.userId,
       conversationOwnerUserId: ctx.conversationOwnerUserId ?? ctx.userId,

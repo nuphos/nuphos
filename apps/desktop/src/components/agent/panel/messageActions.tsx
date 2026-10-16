@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, Copy, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { Check, Copy, Pencil, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { toast } from '../../ui/toast'
@@ -38,6 +38,20 @@ export function CopyMessageButton({ text, label }: { text: string; label: string
       ) : (
         <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
       )}
+    </button>
+  )
+}
+
+export function EditMessageButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent"
+      title="Edit"
+      aria-label="Edit message"
+    >
+      <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
     </button>
   )
 }

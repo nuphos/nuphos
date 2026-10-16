@@ -75,7 +75,6 @@ struct SessionAccess: Decodable, Equatable {
 struct ShareSessionSheet: View {
     let session: ChatSession
 
-    @Environment(AgentStore.self) private var store
     @Environment(AuthSession.self) private var auth
     @Environment(\.dismiss) private var dismiss
 
@@ -95,7 +94,7 @@ struct ShareSessionSheet: View {
 
     /// The owner's own computer runs the turn, so sharing hands out commands on it.
     private var runsOnOwnersComputer: Bool {
-        canManage && store.runtimes.first(where: { $0.id == session.runtimeId })?.tier == .myComputers
+        canManage && RuntimeInstance.isLocalAgent(session.runtimeId)
     }
 
     var body: some View {
@@ -141,7 +140,6 @@ struct ShareSessionSheet: View {
             .task {
                 guard canManage else { return }
                 do { members = try await session.teamMembers() } catch { membersError = error.localizedDescription }
-                await store.loadRuntimes()
             }
         }
         .tint(Theme.heading)

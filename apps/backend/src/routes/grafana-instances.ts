@@ -215,7 +215,27 @@ const HOP_BY_HOP = new Set([
 ])
 
 const STRIP_REQUEST = new Set(['authorization', 'cookie'])
-const STRIP_RESPONSE = new Set(['set-cookie'])
+// fetch() transparently decodes a compressed upstream body, so forwarding the
+// upstream Content-Encoding would label plain bytes as gzip/br. The response
+// compression middleware re-encodes according to the client's Accept-Encoding.
+const STRIP_RESPONSE = new Set(['set-cookie', 'content-encoding'])
+
+export function toGrafanaProxyResponse(upstreamRes: Response): Response {
+  const respHeaders = new Headers()
+
+  for (const [k, v] of upstreamRes.headers) {
+    const lower = k.toLowerCase()
+
+    if (HOP_BY_HOP.has(lower)) continue
+    if (STRIP_RESPONSE.has(lower)) continue
+    respHeaders.set(k, v)
+  }
+
+  return new Response(upstreamRes.body, {
+    status: upstreamRes.status,
+    headers: respHeaders,
+  })
+}
 
 instanceScoped.all('/proxy/*', async (c) => {
   const proxyMarker = '/proxy/'
@@ -274,20 +294,7 @@ instanceScoped.all('/proxy/*', async (c) => {
     clearTimeout(timeout)
   }
 
-  const respHeaders = new Headers()
-
-  for (const [k, v] of upstreamRes.headers) {
-    const lower = k.toLowerCase()
-
-    if (HOP_BY_HOP.has(lower)) continue
-    if (STRIP_RESPONSE.has(lower)) continue
-    respHeaders.set(k, v)
-  }
-
-  return new Response(upstreamRes.body, {
-    status: upstreamRes.status,
-    headers: respHeaders,
-  })
+  return toGrafanaProxyResponse(upstreamRes)
 })
 
 grafanaInstancesRoutes.route('/:instanceId', instanceScoped)

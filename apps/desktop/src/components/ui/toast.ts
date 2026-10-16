@@ -79,7 +79,8 @@ function emit(
 }
 
 export const toast = {
-  error: (title: ReactNode, description?: ReactNode) => emit('error', title, description),
+  error: (title: ReactNode, description?: ReactNode, opts?: { action?: ToastAction }) =>
+    emit('error', title, description, opts?.action),
   // Whitelist-gated error toast for a caught API failure. Pass the raw caught
   // value — never a pre-formatted message. Backend-authored business errors
   // (structured code via the atlas sentinel) surface as a normal error toast;

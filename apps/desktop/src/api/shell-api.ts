@@ -17,6 +17,12 @@ export const shellApi = {
   localTerminalClose: (id: string) => window.api.localTerminalClose(id),
   onLocalTerminalEvent: (...args: Parameters<typeof window.api.onLocalTerminalEvent>) =>
     window.api.onLocalTerminalEvent(...args),
+  runtimeDesktopStart: (...args: Parameters<typeof window.api.runtimeDesktopStart>) =>
+    window.api.runtimeDesktopStart(...args),
+  runtimeDesktopInput: (id: string, data: string) => window.api.runtimeDesktopInput(id, data),
+  runtimeDesktopClose: (id: string) => window.api.runtimeDesktopClose(id),
+  onRuntimeDesktopEvent: (...args: Parameters<typeof window.api.onRuntimeDesktopEvent>) =>
+    window.api.onRuntimeDesktopEvent(...args),
   appOpenExternal: (url: string) => window.api.appOpenExternal(url),
   appOpenSsh: (url: string) => window.api.appOpenSsh(url),
   sshTerminalInput: (id: string, data: string) => window.api.sshTerminalInput(id, data),

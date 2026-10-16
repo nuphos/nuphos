@@ -11,8 +11,8 @@ import {
 
 /** Shared with the Agents heatmap and usage bars so every usage chart is one violet. */
 export const ACCENT_RGB = '164, 105, 255'
-const ACCENT = `rgb(${ACCENT_RGB})`
-const CAPACITY = 'rgb(118, 124, 140)'
+export const ACCENT = `rgb(${ACCENT_RGB})`
+export const CAPACITY = 'rgb(118, 124, 140)'
 
 /** The faint band behind a stretch with no reading; legends reuse it. */
 export const GAP_FILL = 'rgba(118, 124, 140, 0.08)'

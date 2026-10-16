@@ -8,7 +8,6 @@ export type AgentTier = 'local' | 'remote' | 'cloud'
 type NamedAgent = { id?: string; label: string; local?: LocalRuntimeSummary }
 
 const LOCAL_ID = /^local_([A-Za-z0-9-]+)_([A-Za-z0-9-]+)(?:_codex)?$/u
-const PROVIDER_SUFFIX = / · (?:Claude Code|Codex)$/u
 
 function localRef(agent: NamedAgent): { userId: string; deviceId: string } | null {
   if (agent.local) return { userId: agent.local.ownerUserId, deviceId: agent.local.deviceId }
@@ -22,9 +21,7 @@ export function agentTier(agent: NamedAgent, owner: ThisComputer): AgentTier {
 
   if (!ref) return 'cloud'
 
-  return owner && ref.userId === owner.userId && ref.deviceId === owner.deviceId
-    ? 'local'
-    : 'remote'
+  return ref.userId === owner?.userId && ref.deviceId === owner.deviceId ? 'local' : 'remote'
 }
 
 /**
@@ -35,15 +32,9 @@ export function agentName(agent: NamedAgent, owner: ThisComputer): string {
   const tier = agentTier(agent, owner)
 
   if (tier === 'cloud') return agent.label
-  if (tier === 'local') return 'Local'
+  if (tier === 'local') return agent.label
 
-  return agent.local?.deviceLabel ?? agent.label.replace(PROVIDER_SUFFIX, '')
-}
-
-const TIER_TITLE: Record<AgentTier, string> = {
-  local: 'This computer',
-  remote: 'My computers',
-  cloud: 'Cloud',
+  return agent.label
 }
 
 export type AgentTierGroup<T> = { tier: AgentTier; title: string; agents: T[] }
@@ -51,28 +42,42 @@ export type AgentTierGroup<T> = { tier: AgentTier; title: string; agents: T[] }
 /** Picker sections in display order; empty sections are left out. */
 export function groupAgentsByTier<T extends NamedAgent>(
   agents: readonly T[],
-  owner: ThisComputer,
+  _owner: ThisComputer,
 ): AgentTierGroup<T>[] {
-  return (['local', 'remote', 'cloud'] as const).flatMap((tier) => {
-    const members = agents.filter((agent) => agentTier(agent, owner) === tier)
-
-    return members.length ? [{ tier, title: TIER_TITLE[tier], agents: members }] : []
-  })
+  // Every machine is a Box now: one list, no This Computer / Remote / Cloud split.
+  return agents.length ? [{ tier: 'local' as const, title: '', agents: [...agents] }] : []
 }
 
-type SelectableAgent = NamedAgent & { status: 'active' | 'disabled' }
+type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
 
-function usable(agent: SelectableAgent): boolean {
-  return agent.status === 'active' && agent.local?.signedIn !== false
+/** The one rule for an agent a conversation can run on: active, ready and signed in. */
+export function usable(agent: SelectableAgent): boolean {
+  return agent.status === 'active' && !agent.notReady && agent.local?.signedIn !== false
 }
 
-/** With no saved choice, a new conversation starts on this computer when it can. */
-export function defaultAgent<T extends SelectableAgent>(
+/** The picker offers only usable agents, the selected one included. */
+export function listedAgents<T extends SelectableAgent>(agents: readonly T[]): T[] {
+  return agents.filter(usable)
+}
+
+/** A new conversation starts on the usable agent with the most quota left; unknown counts as full. */
+export function defaultAgent<T extends SelectableAgent & { id: string }>(
   agents: readonly T[],
-  owner: ThisComputer,
+  _owner: ThisComputer,
+  usedPercent: (agent: T) => number | undefined = () => {},
 ): T | undefined {
-  return (
-    agents.find((agent) => agentTier(agent, owner) === 'local' && usable(agent)) ??
-    agents.find((agent) => agentTier(agent, owner) === 'cloud' && usable(agent))
-  )
+  let best: T | undefined
+  let bestUsed = Infinity
+
+  for (const agent of agents) {
+    if (!usable(agent)) continue
+    const used = usedPercent(agent) ?? 0
+
+    if (used < bestUsed) {
+      best = agent
+      bestUsed = used
+    }
+  }
+
+  return best
 }

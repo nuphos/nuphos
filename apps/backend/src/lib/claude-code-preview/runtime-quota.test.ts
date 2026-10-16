@@ -206,6 +206,7 @@ const onOwnComputer = (
     ownerUserId: 'u1',
     deviceId: 'd1',
     deviceLabel: 'My Mac',
+    online: true,
     signedIn,
     ...(usage !== undefined ? { usage } : {}),
     ...(usageAt ? { usageAt } : {}),
@@ -311,6 +312,17 @@ test('what the provider answered is held for ten minutes', async () => {
   expect(limited.calls()).toBe(2)
 })
 
+test('an agent the probe could not reach is marked offline; another failure is not', async () => {
+  const unreachable = probing({ error: 'Agent is offline', offline: true })
+  const failed = probing({ error: 'The agent reported no usage' })
+
+  const away = { ...claude, id: 'claude-away' }
+  const silent = { ...claude, id: 'claude-silent' }
+
+  expect((await fetchRuntimeQuota('t', away, () => 0, unreachable.deps)).offline).toBe(true)
+  expect((await fetchRuntimeQuota('t', silent, () => 0, failed.deps)).offline).toBeUndefined()
+})
+
 test('a failure the provider never saw is retried in seconds', async () => {
   let clock = 1_000
   const now = () => clock
@@ -364,4 +376,23 @@ test('each answer the provider gives is recorded once, not once per poll', async
   await fetchRuntimeQuota('t', claude, frozen, { ...deps, record })
   await fetchRuntimeQuota('t', claude, frozen, { ...deps, record })
   expect(recorded).toEqual(['claude-1'])
+})
+
+test('an agent on your own computer keeps its readings in the history like any other', async () => {
+  const { deps } = probing({ usage: {} })
+  const recorded: string[] = []
+  const record = (quota: { runtimeId: string; fetchedAt: string }) => {
+    recorded.push(`${quota.runtimeId}@${quota.fetchedAt}`)
+
+    return Promise.resolve()
+  }
+  const usage = { five_hour: { utilization: 5, resets_at: null } }
+
+  await fetchRuntimeQuota('t', onOwnComputer(usage, true, '2026-09-15T12:00:00.000Z'), Date.now, {
+    ...deps,
+    record,
+  })
+  // No instant to key it by, so nothing is kept rather than a row per poll.
+  await fetchRuntimeQuota('t', onOwnComputer(usage), Date.now, { ...deps, record })
+  expect(recorded).toEqual(['local-1@2026-09-15T12:00:00.000Z'])
 })

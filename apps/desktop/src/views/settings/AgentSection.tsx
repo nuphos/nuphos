@@ -1,20 +1,22 @@
 import './agents.css'
-import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties, KeyboardEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { usePageAside } from '../../hooks/usePageAside'
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
-
-import { AddAgentDialog } from './AddAgentDialog'
-import { RuntimeInstanceCard } from './RuntimeInstanceCard'
-import { AgentUsageSkeleton } from './AgentUsageSkeleton'
-import { RuntimeQuotaHistory } from './RuntimeQuotaHistory'
-
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+
+import { AddAgentDialog } from './AddAgentDialog'
+import { visibleAgent } from './agentPresentation'
+import { AgentUsageSkeleton } from './AgentUsageSkeleton'
+import { BoxSection } from './BoxSection'
+import { RuntimeInstanceCard } from './RuntimeInstanceCard'
+import { RuntimeQuotaHistory } from './RuntimeQuotaHistory'
+
+import type { CSSProperties, KeyboardEvent } from 'react'
 
 const PANEL_WIDTH = 'min(560px,48cqw)'
 // Matches .t-agent-panel's width transition in agents.css.
@@ -27,9 +29,11 @@ export function AgentSection({
   refreshKey,
   onCount,
   onLoading,
+  onOpenBilling,
 }: {
   teamId: string
   isAdmin: boolean
+  onOpenBilling: () => void
   filter: string
   refreshKey: number
   onCount: (count: number) => void
@@ -41,14 +45,13 @@ export function AgentSection({
   const [open, setOpen] = useState(false)
   const aside = usePageAside()
   const catalog = useRuntimeInstances(teamId, refreshKey)
-  const quotas = useRuntimeQuotas(teamId, catalog.instances)
-  const instances = catalog.instances.filter(
-    (instance) =>
-      instance.kind !== 'local' &&
-      instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
+  const visible = catalog.instances.filter(visibleAgent)
+  const quotas = useRuntimeQuotas(teamId, visible)
+  const instances = visible.filter((instance) =>
+    instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
   )
-  // From the whole catalog, so filtering the table does not close the open panel.
-  const selected = catalog.instances.find((instance) => instance.id === selectedId)
+  // Search does not close the panel, but a provider signing out removes it.
+  const selected = visible.find((instance) => instance.id === selectedId)
   // The control that opened the panel gets focus back when it closes.
   const opener = useRef<HTMLElement | null>(null)
   const close = () => {
@@ -98,6 +101,7 @@ export function AgentSection({
           teamId={teamId}
           onClose={() => setAdding(false)}
           onAdded={select}
+          onOpenBilling={onOpenBilling}
         />
       )}
       {catalog.error && (
@@ -108,35 +112,38 @@ export function AgentSection({
           </button>
         </div>
       )}
-      {catalog.loading && instances.length === 0 && (
-        <div className="min-h-0 flex-1 overflow-hidden p-5 lg:p-8">
-          <div className="mx-auto w-full max-w-5xl">
-            <AgentUsageSkeleton />
-          </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-5 lg:p-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+          <BoxSection
+            teamId={teamId}
+            instances={catalog.instances}
+            onSelect={select}
+            canCreate={isAdmin}
+            onOpenBilling={onOpenBilling}
+          />
+          {catalog.loading && instances.length === 0 && <AgentUsageSkeleton />}
+          {!catalog.loading && !catalog.error && instances.length === 0 && (
+            <p className="rounded-xl border border-dashed border-zGray-800 p-8 text-center text-sm text-tertiary">
+              {filter.trim()
+                ? 'No matching agents.'
+                : isAdmin
+                  ? 'Add your first agent to start a conversation.'
+                  : 'Ask a workspace administrator to add an agent.'}
+            </p>
+          )}
+          {instances.length > 0 && (
+            <div className="t-agents-reveal">
+              <RuntimeQuotaHistory
+                teamId={teamId}
+                instances={instances}
+                quotas={quotas}
+                selectedId={panelShown && open ? selectedId : null}
+                onSelect={select}
+              />
+            </div>
+          )}
         </div>
-      )}
-      {!catalog.loading && !catalog.error && instances.length === 0 && (
-        <p className="m-6 rounded-xl border border-dashed border-zGray-800 p-8 text-center text-sm text-tertiary">
-          {filter.trim()
-            ? 'No matching agents.'
-            : isAdmin
-              ? 'Add your first agent to start a conversation.'
-              : 'Ask a workspace administrator to add an agent.'}
-        </p>
-      )}
-      {instances.length > 0 && (
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 lg:p-8">
-          <div className="t-agents-reveal mx-auto w-full max-w-5xl">
-            <RuntimeQuotaHistory
-              teamId={teamId}
-              instances={instances}
-              quotas={quotas}
-              selectedId={panelShown && open ? selectedId : null}
-              onSelect={select}
-            />
-          </div>
-        </div>
-      )}
+      </div>
       {panelShown &&
         createPortal(
           // Like the dock: the aside's width eases open and shut while the panel content

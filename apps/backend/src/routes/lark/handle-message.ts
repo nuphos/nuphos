@@ -209,10 +209,9 @@ export async function handleLarkMessage(
       ? `${text || '(shared a file)'}\n\n${attachments.note}`
       : text
     const metadata = await createMessageMetadata(thread.agentUserId, 'lark')
-    // A message that arrives mid-turn is handed to the turn in flight rather
-    // than refused: the agent sees it at its next step and decides whether to
-    // ignore it, finish first, or change course.
-    const claim = await turnRunner.claimAgentRunOrEnqueue({
+    // A message that arrives mid-turn is queued rather than refused. A busy Lark
+    // turn takes it at its next step; otherwise it runs once that turn ends.
+    const turn = await turnRunner.admitChannelTurn({
       userId: thread.agentUserId,
       sessionId: thread.sessionId,
       message: buildPendingUserMessage({
@@ -223,22 +222,20 @@ export async function handleLarkMessage(
       }),
     })
 
-    if (claim.mode === 'dropped') {
-      await replyNotice(
-        ctx,
-        chatId,
-        "I'm mid-way through the previous message and couldn't hold on to that one — send it again in a moment.",
-      )
+    if (turn.mode !== 'run') {
+      // Dropped or expired: it never got a turn. Taken: another turn answers it.
+      if (turn.mode !== 'taken') {
+        await replyNotice(
+          ctx,
+          chatId,
+          "I'm mid-way through the previous message and couldn't hold on to that one — send it again in a moment.",
+        )
+      }
       await markLarkEvent(eventId, 'completed')
 
       return
     }
-    if (claim.mode === 'queued') {
-      await markLarkEvent(eventId, 'completed')
-
-      return
-    }
-    const release = claim.release
+    const release = turn.release
 
     try {
       const messages = await buildMessagesForLarkTurn({
@@ -247,7 +244,7 @@ export async function handleLarkMessage(
         teamId: thread.teamId,
         renderedText,
         metadata,
-        carried: claim.carried,
+        carried: turn.carried,
         attachmentParts: attachments.parts,
       })
 

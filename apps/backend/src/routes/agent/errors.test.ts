@@ -32,6 +32,19 @@ test('a provider out of usage reaches clients as a named product state', () => {
   )
 })
 
+test('a Claude usage limit reaches clients as its own notice', () => {
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 4:20am (UTC)\n\n_The agent did not return any error details. Please check the agent's own logs for more information._",
+      -32603,
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_usage_exhausted')
+  expect(frame.errorText).toBe("You've hit your session limit · resets 4:20am (UTC)")
+})
+
 test('other ACP refusals keep their diagnostics and stay uncoded', () => {
   const frame = agentStreamErrorFrame(new OpenAbRpcError('Runtime is busy', -32005), undefined)
 
@@ -50,4 +63,31 @@ test('the implementation-defined -32000 bucket alone does not mean signed out', 
 
   expect(frame.errorCode).toBeUndefined()
   expect(frame.errorText).toContain('Session store is unavailable')
+})
+
+test('the gateway relaying the sign-out refusal as -32603 is still a sign-out', () => {
+  // Observed in production: openab answers session/prompt with JSON-RPC -32603
+  // and keeps the adapter's -32000 only in the message wrapper.
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError('**Server Error** (code: -32000)\nAuthentication required', -32603),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_auth_required')
+  expect(frame.errorText).toContain('Sign the agent in again')
+})
+
+test('a -32000 quoted outside the leading wrapper is not the adapter code', () => {
+  // Only openab-core's `**<Label>** (code: N)\n` prefix names the adapter's
+  // code; a tool or provider quoting one in its own text keeps its diagnostics.
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nMCP server github failed (code: -32000): Authentication required',
+      -32603,
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBeUndefined()
+  expect(frame.errorText).toContain('MCP server github failed')
 })

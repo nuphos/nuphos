@@ -3,10 +3,14 @@ import path from 'node:path'
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
+import type { AgentInstance } from './agent-instances.ts'
+import type { LocalAgentLogin } from './agent-login.ts'
 import type { LocalRuntimeBundle } from './config.ts'
+import type { DevBundleHint } from './dev-bundle.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
-import type { LocalRuntimeTunnelStatus } from './tunnel-client.ts'
+import type { SleepState } from './sleep-prevention.ts'
+import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 
 export type LocalAgentState = {
   /** This build ships the agent for this platform. */
@@ -19,10 +23,20 @@ export type LocalAgentState = {
 }
 
 export type LocalRuntimeState = {
+  instances?: (AgentInstance & LocalAgentState)[]
   agents: Record<LocalAgentProvider, LocalAgentState>
   workspace: string | null
   /** Who this computer's agents belong to right now. */
   userId: string | null
+}
+
+/** Desktop IPC contract, including account login and device-local sleep state. */
+export type LocalRuntimeViewState = LocalRuntimeState & {
+  deviceId: string
+  sleepPrevention: SleepState
+  devBundle?: DevBundleHint
+  claudeLogin: ReturnType<LocalAgentLogin['state']>
+  codexLogin: ReturnType<LocalAgentLogin['state']>
 }
 
 export type RuntimeProcess = {
@@ -79,11 +93,15 @@ export type LocalRuntimeControllerDeps = {
   /** Asks an adapter which models it offers, without starting a conversation. */
   probeModels: (run: ProbeModelsRun) => Promise<LocalModelCatalog>
   createTunnel: (
-    runtime: (provider: LocalAgentProvider) => RunningRuntime | null,
+    runtime: (provider: LocalAgentProvider, instanceId?: string) => RunningRuntime | null,
     status: () => LocalRuntimeTunnelStatus,
     onChange: (connected: boolean, superseded: boolean) => void,
+    instances?: (request: unknown) => Promise<unknown>,
   ) => RuntimeTunnel
   log?: (message: string, data?: Record<string, unknown>) => void
+  /** A Box: Nuphos owns the whole computer, so its default agents' logins are Nuphos's
+   *  to delete. A person's computer never removes them; their CLIs keep their logins. */
+  ownsMachine?: boolean
 }
 
 export type Agent = {
@@ -204,4 +222,66 @@ export function knownCli(
 export type LocalAgentRun = Omit<ProbeModelsRun, 'workspace'> & {
   userId: string
   current: () => boolean
+}
+
+export function prepareHomeFor(
+  deps: LocalRuntimeControllerDeps,
+  provider: LocalAgentProvider,
+  id: string,
+  env: NodeJS.ProcessEnv,
+) {
+  return deps.prepareAgentHome(
+    provider,
+    userDir(deps.dataDir(), id),
+    userDir(deps.dataDir(), id, 'workspace'),
+    env,
+  )
+}
+
+export function scheduleAgentRestart(
+  agent: Agent,
+  run: LocalAgentRun,
+  start: () => Promise<void>,
+): void {
+  const delay = RESTART_BACKOFF_MS[Math.min(agent.restartAttempt, RESTART_BACKOFF_MS.length - 1)]
+
+  agent.restartAttempt += 1
+  agent.restartTimer = setTimeout(() => {
+    if (run.current()) void start()
+  }, delay)
+}
+
+export function runtimeStateOf(
+  deps: Pick<LocalRuntimeControllerDeps, 'bundle' | 'dataDir'>,
+  agents: Record<LocalAgentProvider, Agent>,
+  online: boolean,
+  superseded: boolean,
+  userId: string | null,
+  instances?: LocalRuntimeState['instances'],
+): LocalRuntimeState {
+  const bundle = deps.bundle()
+
+  return {
+    ...(instances ? { instances } : {}),
+    agents: agentStatesOf(agents, {
+      online,
+      superseded,
+      available: (provider) => bundle?.adapters[provider] !== undefined,
+    }),
+    workspace: userId ? userDir(deps.dataDir(), userId, 'workspace') : null,
+    userId,
+  }
+}
+
+export async function stopAgentProcess(agent: Agent, changed: () => void): Promise<void> {
+  agent.generation += 1
+  clearTimeout(agent.restartTimer)
+  agent.runtime = null
+  agent.models = undefined
+  agent.error = undefined
+  const process = agent.process
+
+  agent.process = undefined
+  changed()
+  await process?.stop()
 }

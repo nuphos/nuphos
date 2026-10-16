@@ -28,7 +28,11 @@ useAgentDb({
 useDb({
   db: () => ({
     collection: () => ({
-      find: () => ({ toArray: async () => stored }),
+      find: () => {
+        const cursor = { toArray: async () => stored, sort: () => cursor, limit: () => cursor }
+
+        return cursor
+      },
       findOne: async () => null,
     }),
   }),
@@ -115,4 +119,48 @@ test('a delayed PUT cannot overwrite a native transcript after chat creates it',
   expect(response.status).toBe(200)
   expect(await response.json()).toEqual({ ok: true, skipped: 'server_authoritative' })
   expect(stored).toEqual([])
+})
+
+const put = (body: Record<string, unknown>) =>
+  agent.request('/conversations/new-session/transcript', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-token' },
+    body: JSON.stringify(body),
+  })
+
+test('an import arriving in chunks appends each one until the first turn runs', async () => {
+  const imported = {
+    sessionId: 'new-session',
+    userId: OWNER,
+    agentRuntime: 'codex',
+    messageCount: 2,
+  } as AgentConversation
+
+  stored = [
+    { messageId: 'imported-0', role: 'user', parts: [] },
+    { messageId: 'imported-1', role: 'assistant', parts: [] },
+  ]
+  conversation = imported
+  const next = { messages: [{ id: 'imported-2', role: 'user', parts: [] }], baseIndex: 2 }
+
+  expect(await (await put({ ...next, import: true })).json()).toEqual({ ok: true })
+  expect(stored.map((message) => message.messageId)).toEqual([
+    'imported-0',
+    'imported-1',
+    'imported-2',
+  ])
+
+  // Once a turn ran, or when the chunk does not start where the history ends,
+  // the transcript is the server's.
+  for (const refused of [
+    { ...imported, activitySeq: 1 },
+    { ...imported, claudeCodePreview: {} },
+    { ...imported, messageCount: 5 },
+  ] as AgentConversation[]) {
+    conversation = refused
+    expect(await (await put({ ...next, import: true })).json()).toEqual({
+      ok: true,
+      skipped: 'server_authoritative',
+    })
+  }
 })

@@ -7,10 +7,21 @@ import { withRuntimeReadiness } from './runtime-catalog'
 import type { RuntimeInstance } from './runtime-instances'
 
 useRuntimeRegistry({
-  resolveTeamRuntimeEndpoints: async (_teamId: string, _kube: unknown, provider = 'claude-code') =>
+  resolveTeamRuntimeEndpoints: async (
+    _teamId: string,
+    _kube: unknown,
+    provider = 'claude-code',
+    purpose = 'transport',
+  ) =>
     provider === 'codex'
       ? []
-      : [{ runtimeId: `ready-${provider}`, url: 'wss://ready/acp', authKey: 'k' }],
+      : [
+          { runtimeId: `ready-${provider}`, url: 'wss://ready/acp', authKey: 'k' },
+          // Holds a chat key but no control key: it chats, but its usage cannot be read.
+          ...(purpose === 'transport'
+            ? [{ runtimeId: 'chat-key-only', url: 'wss://ready/acp', authKey: 'k' }]
+            : []),
+        ],
 })
 
 const agent = (
@@ -36,4 +47,10 @@ test('only an enabled registered agent without a reachable endpoint is flagged',
     'starting',
     'elsewhere',
   ])
+})
+
+test('an agent with a chat key but no control key stays selectable', async () => {
+  const [chatOnly] = await withRuntimeReadiness('team', [agent('chat-key-only', 'external')])
+
+  expect(chatOnly?.notReady).toBeUndefined()
 })

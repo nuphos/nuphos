@@ -1,6 +1,5 @@
 package ai.nuphos.android.ui.chat
 
-import android.content.Intent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.*
@@ -13,9 +12,9 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> Unit) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf(false) }
+    var share by remember(session.sessionId) { mutableStateOf(false) }
     var rename by remember { mutableStateOf(false) }
     var archive by remember { mutableStateOf(false) }
     var title by remember(session.sessionId) { mutableStateOf(session.title) }
@@ -35,11 +34,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         DropdownMenuItem(text = { Text("Share") }, enabled = session.loaded && session.loadError == null, onClick = {
             open = false
-            ConversationActions.shareUrl(session.teamId, session.sessionId)?.let { url ->
-                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url)
-                }, "Share chat"))
-            }
+            share = true
         })
         val pinned = store.favorites?.contains(session.sessionId) == true
         DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin") }, enabled = !busy && store.favorites != null && session.loaded && session.loadError == null, onClick = {
@@ -50,6 +45,10 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             DropdownMenuItem(text = { Text("Rename") }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
             DropdownMenuItem(text = { Text(if (session.isArchived) "Restore" else "Archive") }, enabled = !busy, onClick = { open = false; archive = true })
         }
+    }
+    if (share) {
+        val sharing = remember(session) { session.sharingState() }
+        ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }
     }
     if (rename) AlertDialog(onDismissRequest = { if (!busy) rename = false }, title = { Text("Rename chat") },
         text = { TextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, enabled = !busy, singleLine = true) },

@@ -14,6 +14,7 @@ import {
   userEnv,
 } from './local-runtime/index.ts'
 import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
+import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
 
 import type { LocalAgentProvider } from './local-runtime/agent-cli.ts'
 
@@ -25,6 +26,7 @@ export const deviceChannels = {
   'localRuntime:cancelCodexLogin': () => cancelLocalCodexLogin(),
   'localRuntime:startClaudeLogin': () => startLocalClaudeLogin(),
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
+  'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),
   'localRuntime:getState': () => getLocalRuntimeState(),
   'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) => {
     const local = await readThisComputerFile(args[3], getLocalRuntimeState().workspace)

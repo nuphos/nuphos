@@ -32,7 +32,8 @@ import ai.nuphos.android.session.RuntimeSetupStore
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
-    launchBrowser: ((String) -> Unit)? = null) {
+    launchBrowser: ((String) -> Unit)? = null,
+    quotas: Map<String, ai.nuphos.android.data.RuntimeQuota> = emptyMap()) {
     var label by remember { mutableStateOf("") }
     var provider by remember { mutableStateOf("codex") }
     var code by remember { mutableStateOf("") }
@@ -106,6 +107,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                                     Text("$providerName · ${if (selected) "Selected" else runtime.status.replaceFirstChar { it.uppercase() }}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    RuntimeUsage(quotas[runtime.id])
                                 }
                                 RadioButton(selected = selected, onClick = null, enabled = enabled)
                             }

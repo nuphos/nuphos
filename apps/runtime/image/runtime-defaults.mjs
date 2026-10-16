@@ -1,3 +1,6 @@
+import { nuphosStreamReplyImages } from './reply-image-stream.mjs'
+import { nuphosReplyImages, nuphosUploadReplyImages } from './reply-images.mjs'
+
 // Pull the team's skill bundle into the workspace before the session is handed back,
 // and the owner's personal skills into the conversation's own home.
 //
@@ -331,7 +334,7 @@ export function patchRuntimeDefaults(source) {
     anchor,
     `async newSession(params) {
     await nuphosSyncRuntimeSkills(params);
-    return nuphosApplyRuntimeDefaults(this, params, await this.nuphosNewSession(params));
+    return nuphosReplyImages(this, params, await nuphosApplyRuntimeDefaults(this, params, await this.nuphosNewSession(params)));
   }
   async nuphosNewSession(params) {`,
   )
@@ -343,13 +346,18 @@ export function patchRuntimeDefaults(source) {
         return nuphosTraceRestore(params, '${method}', async (nuphosRestorePhase) => {
             await nuphosSyncRuntimeSkills(params);
             nuphosRestorePhase('adapter-restore');
-            return this.nuphos_${method}(params, nuphosRestorePhase);
+            nuphosReplyImages(this, params, { sessionId: params.sessionId });
+            try {
+                return await this.nuphos_${method}(params, nuphosRestorePhase);
+            } finally {
+                await this.nuphosFlushReplyImages?.(params.sessionId);
+            }
         });
     }
     async nuphos_${method}(params, nuphosRestorePhase) {`,
     )
   }
-  return `${shebang}${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${nuphosTraceRestore.toString()}\n${body}`
+  return `${shebang}${nuphosStreamReplyImages.toString()}\n${nuphosReplyImages.toString()}\n${nuphosUploadReplyImages.toString()}\n${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${nuphosTraceRestore.toString()}\n${body}`
 }
 
 // Claude only. The sender of a turn may differ from the last one's, so the personal

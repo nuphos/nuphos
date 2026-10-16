@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 
 import { hydrateNavigationCredentialState } from '../../app/accountScopes'
 import { navigationFromMentionTarget } from '../../app/mentionNavigation'
@@ -163,7 +163,19 @@ export function useWorkspaceLinkOpeners(a: Args) {
       workspaceActions,
       workspaceStore,
     ],
-  )
+  ) // Views outside the workspace (Settings) ask for an in-app tab with this event.
+
+  useEffect(() => {
+    const open = (event: Event) => {
+      const href = (event as CustomEvent<string>).detail
+
+      if (typeof href === 'string') openNuphosLinkInNewTab(href)
+    }
+
+    window.addEventListener('nuphos:open-in-app', open)
+
+    return () => window.removeEventListener('nuphos:open-in-app', open)
+  }, [openNuphosLinkInNewTab])
 
   const openAppOpenDeepLink = useCallback(
     (payload: AppOpenDeepLinkPayload) => {

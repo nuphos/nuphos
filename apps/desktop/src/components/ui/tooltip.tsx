@@ -31,11 +31,14 @@ export function Tooltip({
   content,
   children,
   side = 'top',
+  triggerClassName,
 }: {
   content: ReactNode
   /** The element to hover. Rendered as the trigger, so it must accept a ref. */
   children: ReactNode
   side?: Side
+  /** Extra classes for the wrapping span, e.g. `min-w-0` so a child can truncate. */
+  triggerClassName?: string
 }) {
   return (
     // The delay lives on Provider, not Root. One per tooltip is intentional:
@@ -43,7 +46,9 @@ export function Tooltip({
     // hover appear instantly while sweeping the cursor down a column.
     <TooltipPrimitive.Provider delay={300}>
       <TooltipPrimitive.Root>
-        <TooltipPrimitive.Trigger render={<span className="inline-flex" />}>
+        <TooltipPrimitive.Trigger
+          render={<span className={clsx('inline-flex', triggerClassName)} />}
+        >
           {children}
         </TooltipPrimitive.Trigger>
         <TooltipPrimitive.Portal>

@@ -1,6 +1,9 @@
+import { nuphosBoxDesktopMcpServers } from './box-desktop-mcp.mjs'
 import { nuphosAuthorizeComputerUse } from './computer-use-permission.mjs'
 import { nuphosDesktopClaudeEnv } from './claude-session-env.mjs'
 import { nuphosLocalSyncSkills } from './skills-sync.mjs'
+
+const CODEX_HANDOFF = /nuphosBridgeMcpServers\(request\.mcpServers( \?\? \[\])?\)/gu
 
 function replaceOnce(source, anchor, replacement) {
   if (source.split(anchor).length !== 2)
@@ -33,6 +36,12 @@ export function patchDesktopAdapter(source, provider) {
     'await nuphosLocalSyncSkills(params);',
   )
   if (provider === 'claude-code') {
+    // A Linux Box gives every session a `computer-use` server on its own desktop.
+    patched = replaceOnce(
+      patched,
+      'for (const server of nuphosBridgeMcpServers(params.mcpServers)) {',
+      'for (const server of nuphosBoxDesktopMcpServers(nuphosBridgeMcpServers(params.mcpServers), params._meta?.claudeCode?.options?.env, process.env)) {',
+    )
     patched = replaceOnce(
       patched,
       'const isolated = nuphosSessionHomeEnv(sessionEnv, runtimeEnv)',
@@ -50,15 +59,30 @@ export function patchDesktopAdapter(source, provider) {
       'async handleElicitation(params) {\n    try {',
       'async handleElicitation(params) {\n    try {\n      await nuphosAuthorizeComputerUse(params, this.cancellationSignal);',
     )
+    // The same per-session desktop as Claude's, at each of Codex's three session handoffs.
+    const handoffs = patched.match(CODEX_HANDOFF)?.length ?? 0
+
+    if (handoffs !== 3) throw new Error('Desktop adapter patch anchor moved: Codex MCP servers')
+    // The injected server takes the session's HOME from the runtime patch's inlined helper.
+    if (!patched.includes('function nuphosSessionHomeEnv('))
+      throw new Error('Desktop adapter patch anchor moved: Codex nuphosSessionHomeEnv')
+    patched = patched.replace(
+      CODEX_HANDOFF,
+      (_, fallback = '') =>
+        `nuphosBoxDesktopMcpServers(nuphosBridgeMcpServers(request.mcpServers${fallback}), request._meta?.['ai.nuphos/codex']?.env, process.env)`,
+    )
   }
   const shebang = /^#![^\n]*\n/u.exec(patched)?.[0] ?? ''
 
   const claudeEnv =
     provider === 'claude-code'
-      ? `import { constants as nuphosDesktopFs, mkdirSync as nuphosDesktopMkdir, writeFileSync as nuphosDesktopWrite } from 'node:fs';\nimport { join as nuphosDesktopJoin } from 'node:path';\n${nuphosDesktopClaudeEnv.toString()}\n`
+      ? `import { constants as nuphosDesktopFs, mkdirSync as nuphosDesktopMkdir, writeFileSync as nuphosDesktopWrite } from 'node:fs';\nimport { join as nuphosDesktopJoin } from 'node:path';\n${nuphosDesktopClaudeEnv.toString()}\n${nuphosBoxDesktopMcpServers.toString()}\n`
       : ''
 
-  const computerUse = provider === 'codex' ? `${nuphosAuthorizeComputerUse.toString()}\n` : ''
+  const computerUse =
+    provider === 'codex'
+      ? `${nuphosAuthorizeComputerUse.toString()}\n${nuphosBoxDesktopMcpServers.toString()}\n`
+      : ''
 
   return `${shebang}${computerUse}${claudeEnv}${nuphosLocalSyncSkills.toString()}\n${patched.slice(shebang.length)}`
 }

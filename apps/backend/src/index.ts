@@ -130,6 +130,9 @@ const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
 
+// Bun only prints these; log them so the next one names its request and time.
+process.on('unhandledRejection', (error) => logError('backend.unhandled_rejection', error))
+
 const tls = getTlsOptions()
 
 const server = Bun.serve({

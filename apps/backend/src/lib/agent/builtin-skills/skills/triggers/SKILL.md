@@ -5,8 +5,9 @@ description: Manage Nuphos cron and webhook triggers and Watch Groups through th
 
 # Nuphos Triggers API
 
-Triggers open a new agent conversation on every cron or webhook fire. They are
-not one-shot reminders. Use the canonical API through the bundled script; do
+Each cron or webhook fire opens a new agent conversation, unless the trigger
+is bound to an existing one with `targetSessionId`. Triggers are not one-shot
+reminders. Use the canonical API through the bundled script; do
 not call `trigger_*` bound tools.
 
 ```bash
@@ -55,6 +56,25 @@ For a webhook Watch, `triggerType` is `webhook`. Optional fields are
 copy of `webhookSecret`, the external `webhookUrl`, and `secretHeader`.
 Never print or persist the secret in a skill, receipt, log, or final answer.
 
+Any trigger type also accepts `targetSessionId`, which delivers every fire into
+that existing conversation instead of opening a new one:
+
+- The session must be in the same team, not archived, and owned by the
+  trigger's execution principal. It cannot be combined with `sessionRouting`,
+  a Watch Group, or `incidentMode`.
+- If the session is mid-turn, the fire queues and runs when that turn ends.
+  Fires into a session archived later are skipped; deleting it pauses the
+  trigger.
+- The session id is the last segment of its `/agent/<sessionId>` link; for the
+  current conversation use `$NUPHOS_SESSION_ID`.
+- PATCH `{ "targetSessionId": null }` returns to a new conversation per fire.
+
+Bind an existing trigger with `PATCH /{triggerId}`:
+
+```json
+{ "targetSessionId": "<sessionId>" }
+```
+
 `monitoringIdentity` is:
 
 ```json
@@ -79,7 +99,7 @@ rollback rules.
   and restate `nextRuns` (UTC instants) in their timezone after creation.
 - A conversation fired by a trigger must not create another trigger.
 - Confirm before DELETE; prefer PATCH `{ "enabled": false }` when reversible.
-- `test-fire` only proves the run was started, not that the new conversation
-  completed successfully.
+- `test-fire` only proves the run was started, not that it completed
+  successfully.
 - Team mutations require EDITOR/ADMINISTRATOR; deletion and execution-principal
   transfer have stricter server-side checks.

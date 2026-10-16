@@ -1,4 +1,9 @@
-import { drainPendingUserMessages, enqueuePendingUserMessage } from '@/lib/agent/pending-messages'
+import {
+  drainPendingUserMessages,
+  enqueuePendingUserMessage,
+  hasPendingUserMessage,
+  removePendingUserMessage,
+} from '@/lib/agent/pending-messages'
 import { agentRuns, activeRunForSession, claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { startAgentRunOwnership } from '@/lib/agent/run-store'
 import { AppError } from '@/lib/errors'
@@ -196,6 +201,90 @@ export async function claimAgentRunOrEnqueue(args: {
   })
 
   return { mode: 'run', release: recovered, carried }
+}
+
+const QUEUED_TURN_POLL_MS = 500
+const QUEUED_TURN_TIMEOUT_MS = 50 * 60_000
+
+type QueuedTurnTiming = { pollMs: number; timeoutMs: number }
+
+export type QueuedTurnResult =
+  | { mode: 'run'; release: () => void; carried: PendingUserMessage[] }
+  // Another turn drained the message and answers it.
+  | { mode: 'taken' }
+  // It never got a turn; it is off the queue so it cannot surface later.
+  | { mode: 'expired' }
+
+export type ChannelTurnResult = QueuedTurnResult | { mode: 'dropped' }
+
+/**
+ * The one admission path for a channel message (Slack, Lark, Discord): run it
+ * now, or queue it and wait for the busy turn to end. `onQueued` runs before
+ * the wait. `carried` never includes the message itself.
+ */
+export async function admitChannelTurn(
+  args: {
+    userId: string
+    sessionId: string
+    message: PendingUserMessage
+    actorUserId?: string
+    onQueued?: (activeActorUserId?: string) => Promise<void>
+  },
+  timing?: QueuedTurnTiming,
+): Promise<ChannelTurnResult> {
+  const claim = await claimAgentRunOrEnqueue(args)
+
+  if (claim.mode === 'run') {
+    return { ...claim, carried: claim.carried.filter((entry) => entry.id !== args.message.id) }
+  }
+  if (claim.mode === 'dropped') return claim
+  await args.onQueued?.(claim.activeActorUserId)
+
+  return awaitQueuedTurn({ ...args, messageId: args.message.id }, timing)
+}
+
+/**
+ * Waits out the busy turn a channel message (Slack, Lark, Discord) was queued
+ * behind, then claims the next turn for it. The release-time starter leaves
+ * channel messages alone, because only the handler that got one can reply in
+ * its channel. `carried` is everything else queued, without this message.
+ */
+export async function awaitQueuedTurn(
+  args: { userId: string; sessionId: string; messageId: string; actorUserId?: string },
+  timing: QueuedTurnTiming = { pollMs: QUEUED_TURN_POLL_MS, timeoutMs: QUEUED_TURN_TIMEOUT_MS },
+): Promise<QueuedTurnResult> {
+  const deadline = Date.now() + timing.timeoutMs
+
+  while (await hasPendingUserMessage(args.userId, args.sessionId, args.messageId)) {
+    const release = await claimAgentRunForSession(args.userId, args.sessionId)
+
+    if (release) {
+      // A busy turn's step boundary may have taken it before the claim landed.
+      if (!(await hasPendingUserMessage(args.userId, args.sessionId, args.messageId))) {
+        release()
+        continue
+      }
+      const carried = await drainPendingUserMessages(
+        args.userId,
+        args.sessionId,
+        args.actorUserId ?? args.userId,
+      )
+
+      return {
+        mode: 'run',
+        release,
+        carried: carried.filter((entry) => entry.id !== args.messageId),
+      }
+    }
+    if (Date.now() >= deadline) {
+      await removePendingUserMessage(args.userId, args.sessionId, args.messageId)
+
+      return { mode: 'expired' }
+    }
+    await new Promise((resolve) => setTimeout(resolve, timing.pollMs))
+  }
+
+  return { mode: 'taken' }
 }
 
 export function scheduleAgentRunCleanup(run: AgentRun) {

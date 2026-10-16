@@ -6,7 +6,7 @@ import { LocalRuntimeController } from './controller.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
-import type { LocalRuntimeTunnelStatus } from './tunnel-client.ts'
+import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 
 const adapter = (provider: string) => ({
   entry: `/b/${provider}.js`,
@@ -344,6 +344,32 @@ test('a restart loop cannot ask the provider on every backoff tick', async () =>
   // and `refresh` re-probed the CLI without the login changing.
   assert.equal(afterLaunch, 2)
   assert.equal(usageReads(), 2)
+  await controller.shutdown()
+})
+
+test('the signed-out watch does not re-read a signed-in agent’s usage', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 0 })
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    codex: { installed: true, path: '/bin/codex', loggedIn: false },
+  }
+  const { controller, usageReads } = harness(cli)
+
+  await controller.setUser('alice')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const afterLaunch = usageReads()
+
+  // Past the sign-in floor, inside the regular one: a forced read would land here.
+  t.mock.timers.tick(31_000)
+  await controller.refresh(false, ['codex'])
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(usageReads(), afterLaunch)
+
+  // Signing Codex in is the event that does earn a read.
+  cli.codex = { installed: true, path: '/bin/codex', loggedIn: true }
+  t.mock.timers.tick(31_000)
+  await controller.refresh(false, ['codex'])
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(usageReads(), afterLaunch + 1)
   await controller.shutdown()
 })
 

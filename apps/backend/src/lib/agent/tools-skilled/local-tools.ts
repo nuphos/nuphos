@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { AppError } from '@/lib/errors'
+
 import { recordDeviceExecAudit } from '../devices/audit'
 import { dispatchLocalExec } from '../devices/dispatch'
 import { isActiveTeamMember } from '../devices/store'
@@ -9,10 +11,17 @@ import { clientToolWithLabel, withLabel } from './labeling'
 import type { DeviceExecAuditInput } from '../devices/audit'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 
-export type LocalExecDevice = { deviceId: string; label: string }
+export type LocalExecDevice = {
+  /** Persistent transport owner, distinct from the acting viewer of a Box. */
+  ownerUserId?: string
+  deviceId: string
+  label: string
+  /** For a Box that is offline right now: resumes it and resolves once its tunnel is back. */
+  wake?: () => Promise<boolean>
+}
 
 export type LocalExecTurn = {
-  /** The acting user; devices are looked up under this user, so it is also the device owner. */
+  /** The acting user; a shared Box can have a different transport owner. */
   userId: string
   conversationOwnerUserId?: string
   teamId: string
@@ -124,6 +133,22 @@ export function describeDevices(devices: LocalExecDevice[]): string {
   return devices.map((d) => `${d.deviceId} (${d.label})`).join(', ')
 }
 
+/** Wakes a paused Box for a command: null once it is up, else why not. A plan refusal (402) says why. */
+async function wakeRefusal(deviceId: string, wake: (() => Promise<boolean>) | undefined) {
+  if (!wake) return null
+  const woke = await wake().catch((error: unknown) =>
+    error instanceof AppError && error.status === 402 ? error.message : false,
+  )
+
+  if (woke === true) return null
+  if (woke !== false) return { reason: 'box_vcpu_limit' as const, error: woke }
+
+  return {
+    reason: 'device_unavailable' as const,
+    error: `Device ${deviceId} is a Box that could not be resumed; try again shortly.`,
+  }
+}
+
 /**
  * `local_exec` runs on the backend: it dispatches the command to a Desktop
  * device over its existing WebSocket tunnel and receives the result on that
@@ -143,7 +168,8 @@ export function createLocalExecTool(
     rest: Pick<DeviceExecAuditInput, 'outcome' | 'dispatchedAt' | 'exitCode' | 'reason'>,
   ) =>
     recordDeviceExecAudit({
-      ownerUserId: turn.userId,
+      ownerUserId:
+        devices.find((device) => device.deviceId === deviceId)?.ownerUserId ?? turn.userId,
       deviceId,
       actorUserId: turn.userId,
       conversationOwnerUserId: turn.conversationOwnerUserId ?? turn.userId,
@@ -211,6 +237,19 @@ export function createLocalExecTool(
           })
 
           return { error: 'You are no longer a member of this team.' }
+        }
+        // A Box that idled into a pause is resumed now, for this command, not for every turn.
+        const wake = devices.find((candidate) => candidate.deviceId === deviceId)?.wake
+
+        const refusal = await wakeRefusal(deviceId, wake)
+
+        if (refusal) {
+          await audit(deviceId, command, requestedAt, {
+            outcome: 'rejected',
+            reason: refusal.reason,
+          })
+
+          return { error: refusal.error }
         }
         const dispatchedAt = new Date()
         let outcome: Awaited<ReturnType<typeof dispatchLocalExec>>

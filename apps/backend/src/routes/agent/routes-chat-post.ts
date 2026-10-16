@@ -22,14 +22,7 @@ import { attachSteeringTurn } from './chat-steering-attach'
 import { hydrateTranscriptPrefix, validateChatBody } from './chat-validate'
 import { resolveAgentCredentialAccess } from './credential-resolve'
 import { agent } from './router'
-import { appendAgentRunPhase } from './run-frames'
-import {
-  agentRunKey,
-  agentRuns,
-  claimAgentRunForSession,
-  createAgentRun,
-  registerAgentRun,
-} from './run-registry'
+import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from './run-registry'
 import { streamAgentRunResponse } from './run-stream'
 import { admitRuntimeChat } from './runtime-chat-admission'
 import {
@@ -41,7 +34,7 @@ import {
 } from './team-scope'
 import { serializeTelemetryMessages } from './telemetry'
 import { getFirstUserMessage } from './transcript'
-import { appendAgentRunTurnStart } from './turn-start-frame'
+import { acceptAgentRun } from './turn-start-frame'
 
 import type { AgentChatBody, AgentRunTrace, InternalChatCtx } from './types'
 
@@ -260,9 +253,7 @@ agent.post('/chat', async (c) => {
     }
     const run = createAgentRun(runOwnerUserId, id, streamId, runTrace)
 
-    registerAgentRun(run)
-    appendAgentRunTurnStart(run, messages)
-    appendAgentRunPhase(run, 'request-accepted')
+    acceptAgentRun(run, messages)
     launchAcceptedChatTurn({
       run,
       chatCtx,

@@ -10,6 +10,7 @@ import { liveAttachment } from '@/lib/agent/db/shared'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
+import { sessionDesktops, withDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { READY_FOR_NEXT_MESSAGE } from '@/lib/claude-code-preview/session-execution-state'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadsBySessionIds } from '@/lib/slack/agent-bot'
@@ -101,11 +102,17 @@ export async function serializeConversationList<T extends ListedConversation>(
   ])
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
+  // A conversation's desktops on its Box come from the device's presence, not the snapshot.
+  const desktops = await Promise.all(
+    conversations.map((conversation) => sessionDesktops(conversation)),
+  )
+
   return conversations.map((conversation, index) => {
     // No snapshot (expired, or its connection was lost mid-turn): a live run
     // still means the turn is running.
-    const runtimeState =
+    const probed =
       runtimeStates[index] ?? (activeRuns[index] ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
+    const runtimeState = withDesktops(probed, desktops[index] ?? { tools: [], canOpen: false })
 
     return {
       ...serializeConversationForViewer(

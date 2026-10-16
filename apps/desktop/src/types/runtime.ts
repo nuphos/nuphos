@@ -1,3 +1,5 @@
+import type { BoxState } from '../api/device-types.ts'
+
 /** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
 export const AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'] as const
 
@@ -16,12 +18,22 @@ export type LocalRuntimeSummary = {
   ownerUserId: string
   deviceId: string
   deviceLabel: string
-  /** The owner's own `claude` sign-in; null when their computer cannot tell. */
+  /** The agent's own name; absent while it has its provider's. */
+  agentLabel?: string
+  /** Set for an extra agent beyond the device's default one of its provider. */
+  instanceId?: string
+  /** The host can run more than one agent per provider; any agent on the device reports it. */
+  agentInstances?: boolean
+  /** Whether its computer is connected now. Away, the agent stays listed with its last state. */
+  online?: boolean
+  /** The owner's own `claude` sign-in, last reported while away; null when the computer cannot tell. */
   signedIn: boolean | null
   /** Provider usage that computer reported; the backend normalizes it. */
   usage?: unknown
   /** When that computer read the usage above. */
   usageAt?: string
+  /** Set when this computer is one of the owner's Boxes. */
+  box?: { state: BoxState }
 }
 
 export type RuntimeInstance = {
@@ -99,6 +111,8 @@ export type RuntimeQuota = {
   fetchedAt: string
   available: boolean
   reason?: string
+  /** The agent could not be reached to ask; the Agents page shows it offline. */
+  offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
 }

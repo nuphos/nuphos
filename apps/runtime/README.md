@@ -49,7 +49,7 @@ until someone re-reviews the patch.
 
 | Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.299), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                    |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.301), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                    |
 | `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.162.1), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                      |
 | `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                   |
 | `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                |
@@ -657,3 +657,32 @@ this migration; changing that bundle is a separate runtime upgrade.
 The initial source snapshot is imported from
 [`zeabur/nuphos-runtime@ce0cfc0`](https://github.com/zeabur/nuphos-runtime/commit/ce0cfc06112cacff63365d7cd0953f8ebc32e64c); its original
 history remains available there. Preserve this directory's LICENSE and NOTICE.
+
+## Reply images
+
+The patched Claude Code and Codex adapters upload inline Markdown image references
+inside the session workspace automatically. The same patch is bundled with Desktop
+local runtimes. Supported files are PNG, JPEG, GIF and WebP up to 5 MiB, with at most
+eight references and a 20-second upload budget per reply segment. Paths are checked
+against the real workspace boundary; files outside it and SVGs are rejected. Code
+examples and remote image URLs remain unchanged. Move output files into the session
+workspace before referencing them.
+
+Desktop resolves the persisted transfer-group reference using the viewer's own
+credentials, shows an inline preview and download action, and displays the transfer
+expiry. Existing transfer retention and creator-only authorization still apply;
+this does not grant teammates access to another member's attachments. Expired files
+must be regenerated or uploaded again. Upload failures produce a visible explanation;
+ask the agent to resend the image to retry. The inline Retry button refreshes a failed
+preview URL, not an expired transfer. Old replies can be processed when their native
+session history is replayed, provided the original files still exist. Other ACP
+providers continue using the explicit file-transfer workflow.
+
+Only Desktop understands the reply-image marker in this initial implementation.
+iOS, Android and channel deliveries currently receive an unsupported URL; their
+inline previews are not enabled by this change. Shared-session teammates retain the
+existing creator-only denial and see an unavailable image. In-memory deduplication
+does not survive adapter restarts, so replaying native history can create another
+transfer. If the session workspace is the entire home directory, all supported
+images beneath that directory are eligible: use a dedicated workspace for a narrow
+read boundary.

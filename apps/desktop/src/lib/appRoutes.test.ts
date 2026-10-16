@@ -78,6 +78,14 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
     name: 'runtime terminal',
     nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.terminal', { filter: 'runtime' }),
   },
+  {
+    name: 'desktop',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.desktop', { filter: 'box-device-1' }),
+  },
+  {
+    name: 'desktop',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.desktop', { filter: '2' }),
+  },
   { name: 'browser', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.browser') },
   { name: 'monitoring', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.monitoring') },
   { name: 'schedule', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.schedule') },
@@ -651,6 +659,15 @@ test('legacy /chats paths resolve to the Agent page', () => {
   assert.equal(reading?.active, 'team.agent')
   assert.equal(reading?.agentSessionId, 'sess-1')
   assert.equal(pageLocationForNavigation(reading!).href, `/teams/${T}/agent/sess-1`)
+})
+
+test('a desktop route without a target opens Agents, never a targetless desktop', () => {
+  for (const path of [
+    `/teams/${T}/desktop`,
+    `/teams/${T}/desktop?url=https%3A%2F%2Fbox.example%2Fs`,
+  ])
+    assert.equal(navigationFromAppPath(path)?.active, 'team.agents')
+  assert.equal(navigationFromAppPath(`/teams/${T}/desktop/3`)?.filter, '3')
 })
 
 test('route table round-trips: produce → parse → produce is a fixed point', () => {

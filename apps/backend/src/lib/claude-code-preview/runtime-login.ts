@@ -1,5 +1,9 @@
+import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { commitLocalAgentInstance } from '@/lib/agent/devices/local-runtime/instances'
 import { AppError } from '@/lib/errors'
 
+import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
 import {
@@ -19,7 +23,7 @@ import type { RuntimeLoginDoc, RuntimeLoginStatus } from './runtime-login-store'
 const running = new Map<string, AbortController>()
 
 export type RuntimeLoginDeps<Target> = {
-  prepare: (teamId: string, runtimeId: string) => Promise<Target>
+  prepare: (teamId: string, runtimeId: string, userId?: string) => Promise<Target>
   exec: (
     target: Target,
     onFrame: (frame: RuntimeLoginFrame) => void,
@@ -28,14 +32,41 @@ export type RuntimeLoginDeps<Target> = {
   ) => Promise<void>
   /** Hands the running sign-in a line the user pasted, for a flow that needs one. */
   input?: (target: Target, doc: RuntimeLoginDoc, text: string) => Promise<void>
+  /** Keeps an added agent once it is signed in; defaults to its computer's host. */
+  commit?: (doc: RuntimeLoginDoc) => Promise<void>
 }
 
-/** Managed and self-hosted runtimes both own their sign-in; a member's computer and a
- *  development runtime are signed in where they run. */
-export async function requireLoginInstance(teamId: string, runtimeId: string) {
-  const instance = await requireRuntimeInstance(teamId, runtimeId)
+/** Managed, self-hosted and local runtimes own their sign-in (a local one over its
+ *  computer's tunnel, into the runtime's own config dir); a development runtime is
+ *  signed in where it runs. */
+async function requireLocalLoginAccess(teamId: string, runtimeId: string, userId?: string) {
+  const ref = parseLocalRuntimeId(runtimeId)
 
-  if (instance.kind !== 'external' && instance.kind !== 'managed')
+  if (ref) {
+    if (!userId) throw new AppError(404, 'runtime_not_found', 'Agent is not available')
+    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'manage')
+
+    if (device.userId !== ref.userId)
+      throw new AppError(404, 'runtime_not_found', 'Agent is not available')
+  }
+}
+
+export async function requireLoginInstance(
+  teamId: string,
+  runtimeId: string,
+  userId?: string,
+): Promise<void> {
+  // A computer's agent is reached through its tunnel, so one added a moment ago and
+  // still signing in for the first time is found too, though nothing lists it yet.
+  if (parseLocalRuntimeId(runtimeId)) {
+    if (!userId) throw new AppError(404, 'runtime_not_found', 'Agent is not available')
+    await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
+
+    return
+  }
+  const instance = await requireRuntimeInstance(teamId, runtimeId, userId)
+
+  if (instance.kind !== 'external' && instance.kind !== 'managed' && instance.kind !== 'local')
     throw new AppError(
       400,
       'runtime_login_unavailable',
@@ -43,8 +74,17 @@ export async function requireLoginInstance(teamId: string, runtimeId: string) {
     )
   if (instance.status !== 'active')
     throw new AppError(409, 'runtime_disabled', 'Enable this agent before signing in')
+}
 
-  return instance
+/** An added agent exists once signed in: its host keeps it from here on. */
+async function commitAddedAgent(doc: RuntimeLoginDoc): Promise<void> {
+  const ref = parseLocalRuntimeId(doc.runtimeId)
+
+  if (!ref?.instanceId || !doc.userId) return
+  await commitLocalAgentInstance(
+    { userId: ref.userId, actorId: doc.userId, deviceId: ref.deviceId, teamId: doc.teamId },
+    ref.instanceId,
+  )
 }
 
 const loginDeps: RuntimeLoginDeps<ControlLoginTarget> = controlLoginTransport
@@ -88,7 +128,7 @@ export async function performRuntimeLogin<Target>(
   }, 2_000)
 
   try {
-    target = await deps.prepare(doc.teamId, doc.runtimeId)
+    target = await deps.prepare(doc.teamId, doc.runtimeId, doc.userId)
 
     if (controller.signal.aborted) throw new Error('Sign-in cancelled')
     let authenticated = false
@@ -137,6 +177,8 @@ export async function performRuntimeLogin<Target>(
     await updates
     if (!authenticated || updateFailed || controller.signal.aborted)
       throw new Error('Sign-in did not complete')
+    // Connected means the agent is kept: clients list it as soon as they see this.
+    await (deps.commit ?? commitAddedAgent)(doc)
     // The runtime installed the credential itself, so it is already in use.
     await runtimeLogins().updateOne(
       {
@@ -173,7 +215,7 @@ export async function startRuntimeLogin(
   runtimeId: string,
   userId: string,
 ): Promise<RuntimeLoginStatus> {
-  await requireLoginInstance(teamId, runtimeId)
+  await requireLoginInstance(teamId, runtimeId, userId)
   const doc = await claimRuntimeLogin(teamId, runtimeId, userId)
 
   void performRuntimeLogin(doc, loginDeps).catch(() => {
@@ -189,6 +231,7 @@ export async function cancelRuntimeLogin(
   userId: string,
   attemptId: string,
 ): Promise<void> {
+  await requireLocalLoginAccess(teamId, runtimeId, userId)
   const doc = await readRuntimeLogin(teamId, runtimeId, userId)
 
   if (doc.attemptId !== attemptId)
@@ -230,7 +273,7 @@ export async function submitRuntimeLoginCode(
   attemptId: string,
   code: string,
 ): Promise<RuntimeLoginStatus> {
-  await requireLoginInstance(teamId, runtimeId)
+  await requireLoginInstance(teamId, runtimeId, userId)
   const doc = await readRuntimeLogin(teamId, runtimeId, userId)
 
   if (doc.attemptId !== attemptId)

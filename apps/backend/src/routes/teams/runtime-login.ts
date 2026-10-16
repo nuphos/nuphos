@@ -7,16 +7,30 @@ import {
   submitRuntimeLoginCode,
 } from '@/lib/claude-code-preview/runtime-login'
 import { publicLogin, readRuntimeLogin } from '@/lib/claude-code-preview/runtime-login-store'
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
-import type { Hono } from 'hono'
+import type { Hono, MiddlewareHandler } from 'hono'
+
+/**
+ * Signing a team's agent in is an administrator's job. A member's own computer or
+ * Box is theirs: its runtime id names them, and the endpoint resolution refuses
+ * anyone else, so the role check is skipped for it.
+ */
+export const requireLoginRole: MiddlewareHandler<{ Variables: TeamAuthVariables }> = async (
+  c,
+  next,
+) => {
+  if (parseLocalRuntimeId(c.req.param('runtimeId') ?? '')?.userId === c.get('userId')) await next()
+  else await requireTeamRole('ADMINISTRATOR')(c, next)
+}
 
 export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   const path = '/agent-runtimes/:runtimeId/login'
 
-  teamScoped.post(path, requireTeamRole('ADMINISTRATOR'), async (c) => {
+  teamScoped.post(path, requireLoginRole, async (c) => {
     c.header('Cache-Control', 'no-store')
 
     return c.json(
@@ -24,9 +38,9 @@ export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAut
       202,
     )
   })
-  teamScoped.get(path, requireTeamRole('ADMINISTRATOR'), async (c) => {
+  teamScoped.get(path, requireLoginRole, async (c) => {
     c.header('Cache-Control', 'no-store')
-    await requireLoginInstance(c.get('teamId'), c.req.param('runtimeId'))
+    await requireLoginInstance(c.get('teamId'), c.req.param('runtimeId'), c.get('userId'))
 
     return c.json(
       publicLogin(
@@ -36,7 +50,7 @@ export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAut
   })
   teamScoped.delete(
     path,
-    requireTeamRole('ADMINISTRATOR'),
+    requireLoginRole,
     zv('json', z.object({ attemptId: z.string().uuid() }).strict()),
     async (c) => {
       await cancelRuntimeLogin(
@@ -51,7 +65,7 @@ export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAut
   )
   teamScoped.post(
     `${path}/code`,
-    requireTeamRole('ADMINISTRATOR'),
+    requireLoginRole,
     zv(
       'json',
       z

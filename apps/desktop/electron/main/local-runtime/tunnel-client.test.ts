@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { RuntimeTaskActivity } from './sleep-prevention.ts'
 import { RuntimeTunnelClient, TUNNEL_IDLE_TIMEOUT_MS } from './tunnel-client.ts'
 
 type Listener = (event: { data?: unknown; code?: number }) => void
@@ -36,7 +37,11 @@ function setup(runtimeUp = true) {
   const backends: FakeSocket[] = []
   const runtimes: { purpose: string; socket: FakeSocket }[] = []
   const changes: [boolean, boolean][] = []
+  const activity = new RuntimeTaskActivity(() => {
+    /* State is checked below. */
+  })
   const client = new RuntimeTunnelClient({
+    activity,
     connectBackend: () => {
       const socket = new FakeSocket()
 
@@ -60,7 +65,7 @@ function setup(runtimeUp = true) {
   const backend = () => backends.at(-1) as FakeSocket
   const frames = () => backend().sent.map((raw) => JSON.parse(raw) as Record<string, unknown>)
 
-  return { client, backends, backend, runtimes, frames, changes }
+  return { client, backends, backend, runtimes, frames, changes, activity }
 }
 
 test('connected once the socket opens, and it announces the runtime status', () => {
@@ -301,5 +306,76 @@ test('dock terminals have a distinct capability and never fall through to local 
     data: JSON.stringify({ t: 'data', s: 'terminal-1', d: '{"action":"open"}' }),
   })
   assert.deepEqual(terminal.sent, ['{"action":"open"}'])
+  client.stop()
+})
+
+test('task activity follows real prompt frames, concurrent streams and disconnect cleanup', () => {
+  const { client, backend, runtimes, activity } = setup()
+
+  backend().emit('open')
+  const receive = (frame: object) => backend().emit('message', { data: JSON.stringify(frame) })
+
+  try {
+    receive({ t: 'open', s: 'a', purpose: 'transport' })
+    receive({ t: 'open', s: 'b', purpose: 'transport' })
+    assert.equal(activity.busy(), false)
+    runtimes[0]?.socket.emit('open')
+    runtimes[1]?.socket.emit('open')
+    receive({ t: 'data', s: 'a', d: '{"id":1,"method":"session/prompt"}' })
+    receive({ t: 'data', s: 'b', d: '{"id":1,"method":"session/prompt"}' })
+    assert.equal(activity.busy(), true)
+    runtimes[0]?.socket.emit('message', { data: '{"id":1,"result":{}}' })
+    assert.equal(activity.busy(), true)
+    receive({ t: 'close', s: 'b' })
+    assert.equal(activity.busy(), false)
+    receive({ t: 'data', s: 'a', d: '{"id":2,"method":"session/prompt"}' })
+    assert.equal(activity.busy(), true)
+    client.stop()
+    assert.equal(activity.busy(), false)
+  } finally {
+    client.stop()
+  }
+})
+
+test('instance RPC shares the tunnel and returns one result then closes', async () => {
+  const backend = new FakeSocket()
+  const requests: unknown[] = []
+  const routes: unknown[] = []
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => backend,
+    connectRuntime: (_purpose, _provider, instanceId) => {
+      routes.push(instanceId)
+
+      return null
+    },
+    instances: async (request) => {
+      requests.push(request)
+
+      return { instance: request }
+    },
+    status: () => ({ agents: {} }),
+  })
+
+  client.start()
+  backend.emit('open')
+  const emit = (frame: object) => backend.emit('message', { data: JSON.stringify(frame) })
+  const frames = () => backend.sent.map((raw) => JSON.parse(raw))
+
+  assert.equal(frames()[0].status.agentInstances, true)
+  emit({ t: 'open', s: 'create', purpose: 'instances' })
+  emit({ t: 'data', s: 'create', d: JSON.stringify({ method: 'create', instanceId: 'mock' }) })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(requests, [{ method: 'create', instanceId: 'mock' }])
+  assert.deepEqual(frames().slice(-2), [
+    { t: 'data', s: 'create', d: JSON.stringify({ ok: true, instance: requests[0] }) },
+    { t: 'close', s: 'create' },
+  ])
+  emit({ t: 'open', s: 'unknown', purpose: 'control', provider: 'codex', instanceId: 'unknown' })
+  assert.deepEqual(routes, ['unknown'])
+  assert.equal(frames().at(-1).t, 'close')
+  emit({ t: 'open', s: 'bad', purpose: 'instances' })
+  emit({ t: 'data', s: 'bad', d: '{' })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(JSON.parse(frames().at(-2).d).ok, false)
   client.stop()
 })

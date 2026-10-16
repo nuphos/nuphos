@@ -6,6 +6,7 @@ import { PermissionGrantCard } from '../PermissionGrantCard'
 import { isPlanProposalToolName } from '../planReference'
 
 import { extractProposalIdFromOutput } from './applyEvent'
+import { ConnectToolPart } from './ConnectCard'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
@@ -14,7 +15,7 @@ import { isHiddenMemoryIngestPart } from './parts'
 import { renderPartRange } from './renderPartRange'
 import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
 import { StoppedTurnEnding } from './StoppedTurnEnding'
-import { foldedTurnLayout, turnDisplayParts } from './toolRuns'
+import { foldedTurnLayout, isConnectCardPart, turnDisplayParts } from './toolRuns'
 import { assistantPartKey, lastVisiblePartIndex, turnWorkSeconds } from './streamText'
 import { AssistantPlanPart, ChartToolPart } from './toolParts'
 import { ToolPartView } from './ToolPartView'
@@ -176,6 +177,17 @@ export const AssistantMessage = memo(
       if (p.type === 'tool' && p.toolName !== 'skill') {
         if (p.toolName === 'render_chart') {
           return <ChartToolPart key={partKey} part={p} now={now} />
+        }
+        if (isConnectCardPart(p)) {
+          return (
+            <ConnectToolPart
+              key={partKey}
+              part={p}
+              now={now}
+              teamId={teamId}
+              canAct={isLatestReply && !streaming && canActOnPlans}
+            />
+          )
         }
         if (p.toolName === 'propose_permission_grant') {
           const proposalId = extractProposalIdFromOutput(p.output)

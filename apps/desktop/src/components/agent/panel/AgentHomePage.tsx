@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { WandSparkles } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { track } from '../../../lib/analytics'
@@ -6,7 +7,8 @@ import { ONBOARDING_EXTRA_STEPS_ENABLED } from '../../../views/onboarding/onboar
 
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
-import { ConnectorStrip } from './hero'
+import { successfulTurns } from './endEventEffects'
+import { ConnectorStrip, StarStrip } from './hero'
 import { RevealedHistoryBlock } from './historyRows'
 import { AgentHomeAnimation, COMPOSER_REVEAL_MS, DelayedPanelReveal } from './homeAnimation'
 import { HomeWidgets } from './HomeWidgets'
@@ -20,6 +22,29 @@ import type { AgentPromptSeed } from './model'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { AgentConversation, AgentStarterSuggestion, LocalAgentSessionInfo } from '../../../api'
 import type { ReactNode } from 'react'
+
+// "Not now" has to stick, or a nudge becomes nagging.
+function useStickyDismiss(key: string | null) {
+  const [dismissed, setDismissed] = useState(() => {
+    if (!key) return false
+    try {
+      return localStorage.getItem(key) === '1'
+    } catch {
+      return false
+    }
+  })
+  const dismiss = useCallback(() => {
+    setDismissed(true)
+    if (!key) return
+    try {
+      localStorage.setItem(key, '1')
+    } catch {
+      // Storage unavailable — it just won't be remembered next launch.
+    }
+  }, [key])
+
+  return [dismissed, dismiss] as const
+}
 
 export function AgentHomePage({
   conversations,
@@ -101,28 +126,15 @@ export function AgentHomePage({
   const entranceKey = useEntranceCount(shown)
   const firstRun = unbound && ONBOARDING_EXTRA_STEPS_ENABLED
   const handleStartConnect = useCallback(() => onStartConnect?.(), [onStartConnect])
-  // "Not now" has to stick, or the nudge becomes nagging. Per team, so
-  // dismissing it for one workspace doesn't hide it in another that genuinely
-  // has nothing connected.
-  const stripKey = teamId ? `nuphos.agent.connectStrip.dismissed.${teamId}` : null
-  const [stripDismissed, setStripDismissed] = useState(() => {
-    if (!stripKey || typeof window === 'undefined') return false
-    try {
-      return localStorage.getItem(stripKey) === '1'
-    } catch {
-      return false
-    }
-  })
-  const dismissStrip = useCallback(() => {
-    setStripDismissed(true)
-    track('agent_first_run_strip_dismissed')
-    if (!stripKey || typeof window === 'undefined') return
-    try {
-      localStorage.setItem(stripKey, '1')
-    } catch {
-      // Storage unavailable — it just won't be remembered next launch.
-    }
-  }, [stripKey])
+  // Per team, so dismissing it for one workspace doesn't hide it in another
+  // that genuinely has nothing connected.
+  const [stripDismissed, dismissStrip] = useStickyDismiss(
+    teamId ? `nuphos.agent.connectStrip.dismissed.${teamId}` : null,
+  )
+  // Asked once the agent has finished a few turns cleanly, never during
+  // first run. Starring and "not now" both retire it for good.
+  const [starDismissed, dismissStar] = useStickyDismiss('nuphos.agent.starStrip.dismissed')
+  const showStar = !firstRun && !starDismissed && successfulTurns() >= 5
 
   // The funnel starts here: how many teams saw the first-run page at all,
   // against how many went on to bind. Once per mount of the unbound page.
@@ -147,18 +159,18 @@ export function AgentHomePage({
                 behind it, same width, with its square top tucked under the
                 composer's bottom so only the part below shows. */}
             <div className="relative">
-              {/* First-run backing: an opaque fill at the composer's exact
+              {/* Strip backing: an opaque fill at the composer's exact
                   radius, so the translucent composer composites over page
                   colour instead of tinting the tray tucked behind it — and
                   a soft shadow, carried here rather than by the Composer,
                   so the composer visibly presses down on the tray. In the
                   corner notches the rounded backing doesn't reach, the
                   tray's grey shows: that's the emerging-from-behind look,
-                  not a leak. Bound teams get no backing at all. */}
+                  not a leak. Off the first run only the star strip brings it. */}
               <div
                 className={clsx(
                   'relative z-10',
-                  firstRun &&
+                  (firstRun || showStar) &&
                     'rounded-xl bg-appBg shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)]',
                 )}
               >
@@ -182,8 +194,22 @@ export function AgentHomePage({
                 />
               </div>
               {firstRun && !stripDismissed && (
-                <ConnectorStrip onStart={handleStartConnect} onDismiss={dismissStrip} />
+                <ConnectorStrip
+                  message="Start with billing read-only and see where your cloud spend is going."
+                  action={
+                    <>
+                      <WandSparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
+                      Walk me through it
+                    </>
+                  }
+                  onAction={handleStartConnect}
+                  onDismiss={() => {
+                    track('agent_first_run_strip_dismissed')
+                    dismissStrip()
+                  }}
+                />
               )}
+              {showStar && <StarStrip onDone={dismissStar} />}
             </div>
           </DelayedPanelReveal>
         </div>

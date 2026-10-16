@@ -10,6 +10,7 @@ import { toast } from '../../components/ui/toast'
 import { LOCAL_AGENT_CARD, LocalAgentCard } from './LocalAgentCard'
 import { LocalRuntimeActivity } from './LocalRuntimeActivity'
 import { SectionHeader } from './shared'
+import { SleepPreventionSettings } from './SleepPreventionSettings'
 
 import type { LocalAgentProvider, LocalRuntimeState } from '../../api'
 
@@ -99,6 +100,14 @@ export function LocalRuntimeSection({
       <SkeletonReveal ready={state !== null} skeleton={<LocalAgentSkeleton />}>
         {state && (
           <div className="space-y-5">
+            {state.sleepPrevention?.supported && (
+              <SleepPreventionSettings
+                state={state.sleepPrevention}
+                onSaved={(sleepPrevention) =>
+                  setState((previous) => (previous ? { ...previous, sleepPrevention } : previous))
+                }
+              />
+            )}
             {PROVIDERS.map((provider) => (
               <LocalAgentCard
                 key={provider}

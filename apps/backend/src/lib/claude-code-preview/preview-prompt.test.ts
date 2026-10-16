@@ -5,7 +5,21 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
+import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
+
 import { buildPreviewSystemPrompt } from './preview-prompt'
+
+import type { AgentDevice } from '@/lib/agent/devices/store'
+
+const devices: Record<string, Partial<AgentDevice>> = {
+  box: { label: 'Box 1', box: {} as AgentDevice['box'] },
+  mac: { label: 'MacBook' },
+}
+
+useAgentDeviceStore({
+  getAgentDevice: async (_userId, deviceId) => (devices[deviceId] ?? null) as AgentDevice | null,
+})
 
 describe('buildPreviewSystemPrompt', () => {
   test('routes Plan, architecture, and Dashboards through native skills', async () => {
@@ -145,3 +159,24 @@ for (const provider of ['claude-code', 'codex'] as const) {
     expect(prompt).toContain('sender.email, when present, is the sender’s Nuphos account email')
   })
 }
+
+test('a computer’s own agent is told it runs there, not in the team sandbox', async () => {
+  const on = (deviceId: string) =>
+    buildPreviewSystemPrompt({
+      userId: 'user-1',
+      teamId: 'team-1',
+      sessionId: 'conv-1',
+      locale: 'en',
+      provider: 'codex',
+      runtimeId: localRuntimeId({ userId: 'user-1', deviceId, provider: 'codex' }),
+    })
+  const box = await on('box')
+
+  expect(box).toContain('running as Codex on Box 1, the computer this conversation runs on')
+  expect(box).toContain('the `computer-use` desktop tool are there')
+  expect(box).toContain("local_exec is for the user's other devices, only when they ask for one")
+  expect(box).not.toContain('inside the team sandbox')
+  expect(await on('mac')).not.toContain('computer-use')
+  // A runtime that is not a computer's, or one gone from the registry, keeps the sandbox line.
+  expect(await on('gone')).toContain('inside the team sandbox')
+})

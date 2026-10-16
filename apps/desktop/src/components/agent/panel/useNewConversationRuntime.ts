@@ -4,7 +4,7 @@ import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../../hooks/useRuntimeQuotas'
 import { useThisComputer } from '../../../hooks/useThisComputer'
-import { defaultAgent } from '../../../lib/agentName'
+import { defaultAgent, usable } from '../../../lib/agentName'
 import { pendingLocalAgents } from '../../../lib/localAgentReady'
 
 import type { SessionConfigPick } from '../../../api/session-config-types'
@@ -33,9 +33,14 @@ export function useNewConversationRuntime(teamId?: string) {
   const selectedId = choices[key] ?? saved
   // An unavailable saved choice requires a new selection; do not silently
   // send a draft to another account just because its runtime disappeared.
-  const selected = selectedId
-    ? instances.find((instance) => instance.id === selectedId)
-    : defaultAgent(instances, owner)
+  const best = defaultAgent(instances, owner, (instance) => {
+    const windows = runtimeQuotas.get(instance.id)?.windows ?? []
+
+    return windows.length ? Math.max(...windows.map((window) => window.usedPercent)) : undefined
+  })
+  // A choice made for this draft stands while it is usable; otherwise the best agent, never none.
+  const chosen = selectedId ? instances.find((instance) => instance.id === selectedId) : undefined
+  const selected = chosen && usable(chosen) ? chosen : best
 
   function selectConversationRuntime(runtimeId: string) {
     setChoices((previous) => ({ ...previous, [key]: runtimeId }))

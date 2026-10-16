@@ -183,6 +183,15 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    # The runtime-state store's compare-and-set is a Lua script; its suite runs
+    # only against a real Redis (TEST_REDIS_URL below).
+    services:
+      redis:
+        image: redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -228,6 +237,8 @@ jobs:
         # automatically, which is what the previous hard-coded list could not do —
         # it let a new file silently join the shared process and break an
         # unrelated suite.
+        env:
+          TEST_REDIS_URL: redis://127.0.0.1:6379/0
         run: |
           CONTENDED='@/routes/agent|@/lib/identity|@/lib/agent/db|@/models|@/lib/slack/api|@/lib/slack/agent-bot|@/middleware/auth'
           isolated=$(grep -rlE "mock\.module\('($CONTENDED)'" src --include='*.test.ts' | sort)
@@ -296,16 +307,17 @@ jobs:
         working-directory: apps/desktop
         run: pnpm exec vite build
       # Staging and electron-builder cost ~3.5 minutes and have not caught
-      # anything the steps above missed, so they run only when a packaging input
-      # changed. The merge queue uses the same filter against the queue's base,
-      # so nothing that can break the package lands without being packaged.
+      # anything the steps above missed, so they run only in the merge queue and
+      # only when a packaging input changed against the queue's base. Nothing
+      # that can break the package lands without being packaged; a PR still
+      # reports this required check, just without the package.
       - name: Stage the local agent adapter
-        if: needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'merge_group' && needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
-        if: needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'merge_group' && needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:

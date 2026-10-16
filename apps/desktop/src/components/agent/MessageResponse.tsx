@@ -13,6 +13,7 @@ import { isMac } from '../../lib/platform'
 import { ContextMenu } from '../ContextMenu'
 
 import { ChatLinkMenuContext, isChatMenuLink } from './chatLinkMenuContext'
+import { ReplyImage } from './ReplyImage'
 
 import type { ContextMenuItem } from '../ContextMenu'
 import type { ComponentProps, MouseEvent, ReactNode } from 'react'
@@ -118,10 +119,27 @@ function ChatLink({
 }
 
 function createComponents(
+  teamId?: string,
   onLinkClick?: (href: string, beside: boolean) => boolean,
   renderLink?: (href: string, children: ReactNode) => ReactNode | null,
 ): StreamdownComponents {
   return {
+    img: ({ src, alt }) => {
+      const groupId = /^https:\/\/nuphos\.ai\/_reply-images\/([a-f0-9]{24})$/.exec(
+        typeof src === 'string' ? src : '',
+      )?.[1]
+
+      return groupId ? (
+        <ReplyImage
+          key={`${teamId ?? ''}:${groupId}`}
+          groupId={groupId}
+          teamId={teamId}
+          alt={alt}
+        />
+      ) : (
+        <img src={src} alt={alt} className="max-w-full rounded-lg" />
+      )
+    },
     p: ({ children }) => <p className="my-3 leading-[1.75] first:mt-0 last:mb-0">{children}</p>,
     ul: ({ children }) => (
       <ul className="my-3 list-outside list-disc space-y-1.5 pl-5">{children}</ul>
@@ -202,11 +220,16 @@ type Props = {
 }
 
 export const MessageResponse = memo(
-  ({ children, className, streaming = false, onLinkClick, renderLink }: Props) => {
-    const components = useMemo(
-      () => createComponents(onLinkClick, renderLink),
-      [onLinkClick, renderLink],
-    )
+  ({ children, className, streaming = false, teamId, onLinkClick, renderLink }: Props) => {
+    const hasReplyImages = /https:\/\/nuphos\.ai\/_reply-images\/[a-f0-9]{24}/.test(children)
+    const components = useMemo(() => {
+      const custom = createComponents(teamId, onLinkClick, renderLink)
+
+      // Keep Streamdown's default images in all unrelated MessageResponse views.
+      if (custom && !hasReplyImages) delete custom.img
+
+      return custom
+    }, [teamId, onLinkClick, renderLink, hasReplyImages])
 
     return (
       <div
@@ -240,6 +263,7 @@ export const MessageResponse = memo(
   (prev, next) =>
     prev.children === next.children &&
     prev.className === next.className &&
+    prev.teamId === next.teamId &&
     prev.streaming === next.streaming &&
     prev.onLinkClick === next.onLinkClick &&
     prev.renderLink === next.renderLink,

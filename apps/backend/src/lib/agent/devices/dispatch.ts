@@ -1,3 +1,6 @@
+import { AppError } from '@/lib/errors'
+import { deviceAccessDeps, requireDeviceAccess } from './box-access'
+import type { DeviceAccessDeps } from './box-access'
 import { z } from 'zod'
 
 import { tunnelBus } from './local-runtime/bus'
@@ -20,7 +23,7 @@ export type LocalExecDispatchOutcome =
 
 /** One command and result on the existing device tunnel; no second presence
  * connection, result POST, Redis result key, or polling loop. */
-export function dispatchLocalExec(
+export async function dispatchLocalExec(
   userId: string,
   deviceId: string,
   command: string,
@@ -28,11 +31,25 @@ export function dispatchLocalExec(
     teamId: string
     timeoutMs?: number
     deps?: DeviceRuntimeSocketDeps
+    access?: DeviceAccessDeps
     purpose?: 'exec' | 'terminal'
   },
 ): Promise<LocalExecDispatchOutcome> {
+  const access = options.access ?? deviceAccessDeps
+
+  if (!(await access.role(userId, options.teamId)))
+    throw new AppError(404, 'device_not_found', 'Device is not available')
+  const device = await requireDeviceAccess(userId, options.teamId, deviceId, 'use', access)
+
+  if (!device.allowLocalExec) throw new AppError(404, 'device_not_found', 'Device is not available')
   const socket = new DeviceRuntimeSocket(
-    { userId, deviceId, teamId: options.teamId, purpose: options.purpose ?? 'exec' },
+    {
+      userId: device.userId,
+      actorId: userId,
+      deviceId,
+      teamId: options.teamId,
+      purpose: options.purpose ?? 'exec',
+    },
     options.deps ?? { bus: tunnelBus(), presence: runtimePresenceStore() },
   )
 

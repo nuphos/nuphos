@@ -7,21 +7,14 @@
 
 import type { UIMessage } from 'ai'
 
-import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import {
   buildPendingUserMessage,
   drainPendingUserMessages,
   enqueuePendingUserMessage,
-  hasPendingUserMessage,
-  removePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { AppError } from '@/lib/errors'
-
-/** One steered exchange never runs away: after this many injected prompts the
- *  rest of the queue is left for the next turn. */
-export const MAX_STEERED_ROUNDS = 5
 
 export type PreviewSteeringOutcome = { mode: 'attach'; streamId: string } | { mode: 'launch' }
 export type PreviewTurnAdmission =
@@ -30,52 +23,6 @@ export type PreviewTurnAdmission =
 type ClaimPreviewSession = (userId: string, sessionId: string) => Promise<(() => void) | null>
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-/**
- * Park one explicit in-app instruction onto the currently running turn without
- * opening a second SSE subscription. This is the renderer's "Steer now" path:
- * the original stream remains the sole source of output while the model picks
- * the message up at its next prompt boundary.
- */
-export async function enqueuePreviewSteer(args: {
-  runOwnerUserId: string
-  userId: string
-  sessionId: string
-  text: string
-}): Promise<{ messageId: string }> {
-  const active = await getActiveAgentRunForSession(args.runOwnerUserId, args.sessionId)
-
-  if (!active) {
-    throw new AppError(409, 'conversation_not_running', 'This conversation is no longer running')
-  }
-  if (!active.actorUserId || active.actorUserId !== args.userId) {
-    throw new AppError(
-      409,
-      'conversation_in_use_by_teammate',
-      'Another teammate is currently using this conversation. Retry after their turn finishes.',
-    )
-  }
-  const message = buildPendingUserMessage({
-    renderedText: args.text,
-    metadata: await createMessageMetadata(args.userId, 'nuphos'),
-    source: 'app',
-    actorUserId: args.userId,
-  })
-
-  if (!(await enqueuePendingUserMessage(args.runOwnerUserId, args.sessionId, message))) {
-    throw new AppError(503, 'steer_queue_unavailable', 'Could not queue this steering message')
-  }
-  const stillActive = await getActiveAgentRunForSession(args.runOwnerUserId, args.sessionId)
-
-  if (stillActive?.actorUserId === args.userId) return { messageId: message.id }
-  // The active turn may have drained the message while it was finishing. In
-  // that case it has accepted ownership even though its heartbeat is gone.
-  if (!(await hasPendingUserMessage(args.runOwnerUserId, args.sessionId, message.id))) {
-    return { messageId: message.id }
-  }
-  await removePendingUserMessage(args.runOwnerUserId, args.sessionId, message.id)
-  throw new AppError(409, 'conversation_not_running', 'This conversation is no longer running')
-}
 
 function lastUserText(messages: UIMessage[]): string {
   for (let index = messages.length - 1; index >= 0; index--) {

@@ -27,26 +27,32 @@ export function createUsageSampler(
   onReading: () => void,
   now: () => number = Date.now,
 ): {
-  sample: (provider: LocalAgentProvider, signedInJustChanged?: boolean) => Promise<void>
+  sample: (provider: LocalAgentProvider) => Promise<void>
   stop: () => void
 } {
   let timer: ReturnType<typeof setInterval> | undefined
   const attempts = new Map<LocalAgentProvider, Attempt>()
-  const sample = async (
-    provider: LocalAgentProvider,
-    signedInJustChanged = false,
-  ): Promise<void> => {
+  // Seen signed out since the last read: the sign-in that follows earns the short floor.
+  const signedOut = new Set<LocalAgentProvider>()
+  const sample = async (provider: LocalAgentProvider): Promise<void> => {
     const agent = agents[provider]
     const attempt = attempts.get(provider) ?? { at: 0, inFlight: false }
-    const floor = signedInJustChanged ? USAGE_SIGN_IN_FLOOR_MS : USAGE_SAMPLE_MS
 
     // The first read arms the timer: nothing samples a computer that is not
     // running an agent yet.
     timer ??= setInterval(() => {
       for (const p of LOCAL_AGENT_PROVIDERS) void sample(p)
     }, USAGE_SAMPLE_MS).unref()
+    if (!agent.cli?.installed) return
+    if (agent.cli.loggedIn === false) {
+      signedOut.add(provider)
+
+      return
+    }
+    const floor = signedOut.has(provider) ? USAGE_SIGN_IN_FLOOR_MS : USAGE_SAMPLE_MS
+
     if (attempt.inFlight || now() - attempt.at < floor) return
-    if (!agent.cli?.installed || agent.cli.loggedIn === false) return
+    signedOut.delete(provider)
     // The agent this answer belongs to. `stopAgent` bumps it, so a restart or a
     // signed-out user makes a late reply land on a generation that has moved on
     // — the records are mutated in place, so identity alone proves nothing.

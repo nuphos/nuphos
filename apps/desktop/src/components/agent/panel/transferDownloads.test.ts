@@ -265,3 +265,15 @@ test('rows beside previews hold back only images that became thumbnails', () => 
   // Nothing resolved (expired, someone else's files): every file is a row.
   assert.deepEqual(names(filesBesidePreviews(files, new Set())), names(files))
 })
+
+test('inline reply images do not also produce a duplicate download card', () => {
+  const id = '0123456789abcdef01234567'
+  const reply = message('a1', 'assistant')
+
+  reply.parts = [{ type: 'text', text: `![preview](https://nuphos.ai/_reply-images/${id})` }]
+  const auto = { ...group(id, '2026-01-01T00:00:00Z'), label: 'Reply image' }
+
+  assert.equal(anchorDownloadGroups([reply], [auto]).size, 0)
+  assert.equal(anchorDownloadGroups([message('a1', 'assistant')], [auto]).get('a1')?.length, 1)
+  assert.equal(anchorDownloadGroups([reply], [{ ...auto, label: null }]).get('a1')?.length, 1)
+})

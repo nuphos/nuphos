@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { firstLine, pickRailTurns, previewText, turnPreview } from './railTurns.ts'
+import { firstLine, pickRailTurns, plainInline, previewText, turnPreview } from './railTurns.ts'
 
 import type { Message } from './model.ts'
 
@@ -65,4 +65,20 @@ test('preview drops code blocks and link syntax and collapses whitespace', () =>
     'See the docs. Done ok.',
   )
   assert.ok(previewText('word '.repeat(100)).endsWith('…'))
+})
+
+test('titles read as plain text, without inline markdown markers', () => {
+  assert.equal(
+    firstLine('Turn 12: describe **node affinity** in `kubectl`, *briefly*'),
+    'Turn 12: describe node affinity in kubectl, briefly',
+  )
+  assert.equal(firstLine('Open [the runbook](https://x.y) ~~now~~'), 'Open the runbook now')
+})
+
+test('inline markdown keeps snake_case and lone asterisks', () => {
+  assert.equal(plainInline('set max_surge and _min_ to 2 * 3'), 'set max_surge and min to 2 * 3')
+})
+
+test('preview drops list markers and keeps underscores inside words', () => {
+  assert.equal(previewText('- **one** item\n- uses node_selector'), 'one item uses node_selector')
 })

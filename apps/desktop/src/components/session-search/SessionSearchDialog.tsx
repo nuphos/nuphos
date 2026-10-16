@@ -19,10 +19,18 @@ type Props = {
   userId: string
   onClose: () => void
   onOpen: (sessionId: string, beside: boolean) => void
+  onCommand: (id: string) => void
 }
 
 /** Unmounted on close/team change, so a workspace never inherits another search. */
-export function SessionSearchDialog({ teamId, teamName, userId, onClose, onOpen }: Props) {
+export function SessionSearchDialog({
+  teamId,
+  teamName,
+  userId,
+  onClose,
+  onOpen,
+  onCommand,
+}: Props) {
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState<'sessions' | 'people'>('sessions')
   const [owner, setOwner] = useState<TeamMember | null>(null)
@@ -84,7 +92,9 @@ export function SessionSearchDialog({ teamId, teamName, userId, onClose, onOpen 
                   aria-expanded
                   aria-autocomplete="list"
                   aria-label={mode === 'people' ? 'Search people' : 'Search sessions'}
-                  placeholder={mode === 'people' ? 'Search people…' : 'Search sessions or people…'}
+                  placeholder={
+                    mode === 'people' ? 'Search people…' : 'Search sessions, people or pages…'
+                  }
                   className="text-base text-main placeholder:text-secondary"
                 />
               </InputGroup>
@@ -151,6 +161,7 @@ export function SessionSearchDialog({ teamId, teamName, userId, onClose, onOpen 
               pending={query.trim() !== searchQuery}
               onChoosePerson={choosePerson}
               onOpen={onOpen}
+              onCommand={onCommand}
             />
             <div className="flex h-8 shrink-0 items-center gap-2 border-t border-main px-4 text-[11px] text-secondary">
               <span>Navigate</span>

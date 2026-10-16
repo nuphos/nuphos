@@ -5,6 +5,7 @@ import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
+import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 
@@ -27,10 +28,17 @@ function device(userId: string, deviceId: string, label: string): AgentDevice {
 }
 
 const deps: LocalRuntimeCatalogDeps = {
-  listDevices: async (userId) =>
-    userId === 'owner' ? [device('owner', 'mac-1', 'Olivia’s MacBook')] : [],
+  access: {
+    getDevice: async (owner, id) =>
+      owner === 'owner' && id === 'mac-1' ? device(owner, id, 'Olivia’s MacBook') : null,
+    listDevices: async (owner) =>
+      owner === 'owner' ? [device(owner, 'mac-1', 'Olivia’s MacBook')] : [],
+    listBoxes: async () => [],
+    role: async (actor, team) => (teams.has(`${actor}:${team}`) ? 'EDITOR' : null),
+  },
   isMember: async (userId, teamId) => teams.has(`${userId}:${teamId}`),
   getPresence: async () => presence,
+  wakeDevice: () => Promise.resolve(undefined),
 }
 
 function online(loggedIn: boolean | null = true, codex = false): LocalRuntimePresence {
@@ -58,10 +66,49 @@ describe('local runtime catalog', () => {
     expect(listed).toMatchObject({
       id: runtimeId,
       kind: 'local',
-      label: 'Olivia’s MacBook · Claude Code',
+      label: 'Claude Code in Olivia’s MacBook',
       local: { ownerUserId: 'owner', deviceId: 'mac-1', signedIn: true },
     })
     expect(await listOwnLocalRuntimes('t2', 'owner', deps)).toEqual([])
+  })
+
+  test('an agent is listed under the name in its registry, not the one its computer reports', async () => {
+    const work = '11111111-1111-4111-8111-111111111111'
+    const named = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [
+        { provider: 'claude-code', label: 'Main', signedIn: true },
+        { provider: 'claude-code', instanceId: work, label: 'Review', signedIn: true },
+      ] as RegisteredAgent[],
+    }
+    const cli = { cli: { installed: true, loggedIn: true } }
+
+    presence = {
+      ...online(),
+      status: {
+        agents: { 'claude-code': cli },
+        instances: [{ instanceId: work, provider: 'claude-code', label: 'Claude Code', ...cli }],
+      },
+    }
+    const listed = await listOwnLocalRuntimes('t1', 'owner', {
+      ...deps,
+      access: { ...deps.access, listDevices: async () => [named] },
+    })
+
+    expect(listed.map(({ label, local }) => [label, local.agentLabel, local.online])).toEqual([
+      ['Main in Olivia’s MacBook', 'Main', true],
+      ['Review in Olivia’s MacBook', 'Review', true],
+    ])
+
+    // A cleared name is the provider's, whatever the computer reports.
+    named.agents[1] = { provider: 'claude-code', instanceId: work, signedIn: true }
+    const cleared = await listOwnLocalRuntimes('t1', 'owner', {
+      ...deps,
+      access: { ...deps.access, listDevices: async () => [named] },
+    })
+
+    expect(cleared[1]).toMatchObject({ label: 'Claude Code in Olivia’s MacBook' })
+    expect(cleared[1]?.local.agentLabel).toBeUndefined()
   })
 
   test('a teammate never sees another member’s local agent', async () => {
@@ -87,7 +134,11 @@ describe('local runtime catalog', () => {
       local: { userId: ref.userId, deviceId: ref.deviceId },
       backendUrl: 'http://127.0.0.1:4000',
     })
-    expect(parseLocalRuntimeUrl(endpoint.url)).toEqual({ ...ref, teamId: 't1' })
+    expect(parseLocalRuntimeUrl(endpoint.url)).toEqual({
+      ...ref,
+      teamId: 't1',
+      actorId: ref.userId,
+    })
   })
 
   test('each agent the computer runs is its own option with its own provider', async () => {
@@ -95,8 +146,8 @@ describe('local runtime catalog', () => {
     const listed = await listOwnLocalRuntimes('t1', 'owner', deps)
 
     expect(listed.map((instance) => [instance.label, instance.provider])).toEqual([
-      ['Olivia’s MacBook · Claude Code', 'claude-code'],
-      ['Olivia’s MacBook · Codex', 'codex'],
+      ['Claude Code in Olivia’s MacBook', 'claude-code'],
+      ['Codex in Olivia’s MacBook', 'codex'],
     ])
     const codex = await resolveLocalRuntimeEndpoint(
       't1',
@@ -144,5 +195,95 @@ describe('local runtime catalog', () => {
     await expect(
       resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
     ).rejects.toMatchObject({ code: 'runtime_login_required' })
+  })
+})
+
+describe('team Box runtime authorization before transport or wake', () => {
+  test('uses the persistent owner and denies login, revoked use, missing membership and forged owner', async () => {
+    const box = {
+      ...device('host', 'box', 'Shared'),
+      box: {
+        provider: 'instabox' as const,
+        teamId: 't1',
+        createdBy: 'creator',
+        access: { everyone: false, userIds: ['teammate'] },
+      },
+    }
+    const id = localRuntimeId({ userId: 'host', deviceId: 'box', provider: 'claude-code' })
+    const calls: string[] = []
+    const shared: LocalRuntimeCatalogDeps = {
+      ...deps,
+      access: { ...deps.access, listBoxes: async () => [box] },
+      getPresence: async (owner) => {
+        calls.push(`presence:${owner}`)
+
+        return null
+      },
+      wakeDevice: async (owner) => {
+        calls.push(`wake:${owner}`)
+
+        return online()
+      },
+    }
+
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared)).local,
+    ).toEqual({ userId: 'host', deviceId: 'box' })
+    expect(calls).toEqual(['presence:host', 'wake:host'])
+    calls.length = 0
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'login', shared),
+    ).rejects.toMatchObject({ status: 404 })
+    await expect(
+      resolveLocalRuntimeEndpoint('t2', id, 'teammate', 'transport', shared),
+    ).rejects.toMatchObject({ status: 404 })
+    const forged = localRuntimeId({
+      userId: 'someone-else',
+      deviceId: 'box',
+      provider: 'claude-code',
+    })
+
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', forged, 'teammate', 'control', shared),
+    ).rejects.toMatchObject({ status: 404 })
+    box.box.access.userIds = []
+    for (const purpose of ['transport', 'control', 'login'] as const)
+      await expect(
+        resolveLocalRuntimeEndpoint('t1', id, 'teammate', purpose, shared),
+      ).rejects.toMatchObject({ status: 404 })
+    box.box.access.userIds = ['teammate']
+    teams.delete('teammate:t1')
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared),
+    ).rejects.toMatchObject({ status: 404 })
+    expect(calls).toEqual([])
+  })
+
+  test('catalog uses owner presence and excludes a Box returned from a different team', async () => {
+    const box = {
+      ...device('host', 'box', 'Shared'),
+      box: {
+        provider: 'instabox' as const,
+        teamId: 't1',
+        access: { everyone: false, userIds: ['teammate'] },
+      },
+    }
+    const owners: string[] = []
+    const shared: LocalRuntimeCatalogDeps = {
+      ...deps,
+      access: { ...deps.access, listBoxes: async () => [box] },
+      getPresence: async (owner) => {
+        owners.push(owner)
+
+        return online()
+      },
+    }
+
+    expect((await listOwnLocalRuntimes('t1', 'teammate', shared))[0]?.local.ownerUserId).toBe(
+      'host',
+    )
+    expect(owners).toEqual(['host'])
+    box.box.teamId = 't2'
+    expect(await listOwnLocalRuntimes('t1', 'teammate', shared)).toEqual([])
   })
 })

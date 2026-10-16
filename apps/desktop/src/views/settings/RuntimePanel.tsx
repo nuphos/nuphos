@@ -12,7 +12,7 @@ export function PanelHeading({
   right?: ReactNode
 }) {
   return (
-    <div className="mb-3 flex items-start justify-between gap-3">
+    <div className={`mb-3 flex justify-between gap-3 ${hint ? 'items-start' : 'items-center'}`}>
       <div className="min-w-0">
         <h4 className="text-[11px] font-semibold uppercase tracking-wide text-tertiary">{title}</h4>
         {hint && <p className="mt-0.5 text-xs text-tertiary/80">{hint}</p>}

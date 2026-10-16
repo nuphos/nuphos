@@ -1,4 +1,10 @@
-import type { LocalAgentProvider, LocalRuntimeState } from './device-types.ts'
+import type {
+  AgentDeviceListOptions,
+  BoxAccess,
+  LocalAgentProvider,
+  LocalRuntimeState,
+  SleepPreferences,
+} from './device-types.ts'
 
 export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
@@ -8,6 +14,8 @@ export const deviceApi = {
   localRuntimeStartCodexLogin: () => window.api.localRuntimeStartCodexLogin(),
   localRuntimeCancelClaudeLogin: () => window.api.localRuntimeCancelClaudeLogin(),
   localRuntimeCancelCodexLogin: () => window.api.localRuntimeCancelCodexLogin(),
+  localRuntimeSetSleepPreferences: (value: SleepPreferences) =>
+    window.api.localRuntimeSetSleepPreferences(value),
   localRuntimeGetState: () => window.api.localRuntimeGetState(),
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
@@ -17,4 +25,29 @@ export const deviceApi = {
   localRuntimeLatestAgentVersions: () => window.api.localRuntimeLatestAgentVersions(),
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
   localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
+  boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
+  boxCreate: (label?: string, teamId?: string) => window.api.boxCreate(label, teamId),
+  boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
+  boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
+  boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
+  deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
+  boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
+  boxJoinToken: () => window.api.boxJoinToken(),
+  openSessionDesktop: (teamId: string, sessionId: string) =>
+    window.api.openSessionDesktop(teamId, sessionId),
+  boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
+    window.api.boxCreateAgent(deviceId, teamId, provider),
+  boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>
+    window.api.boxRemoveAgent(deviceId, teamId, instanceId),
+  boxRenameAgent: (deviceId: string, teamId: string, agent: string, label: string) =>
+    window.api.boxRenameAgent(deviceId, teamId, agent, label),
+  boxRename: (deviceId: string, teamId: string, label: string) =>
+    window.api.boxRename(deviceId, teamId, label),
+  boxSetAccess: (deviceId: string, teamId: string, access: BoxAccess) =>
+    window.api.boxSetAccess(deviceId, teamId, access),
+  boxUsage: (teamId: string) => window.api.boxUsage(teamId),
+  boxUsageHistory: (teamId: string, range: '1d' | '7d' | '30d') =>
+    window.api.boxUsageHistory(teamId, range),
+  boxBillingPage: (teamId: string, vcpus?: number) => window.api.boxBillingPage(teamId, vcpus),
+  boxBillingSummary: (teamId: string) => window.api.boxBillingSummary(teamId),
 }

@@ -38,6 +38,18 @@ export function anchorDownloadGroups(
   const ordered = [...groups].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 
   for (const group of ordered) {
+    // Auto-uploaded reply images already render at their Markdown position.
+    if (
+      group.label === 'Reply image' &&
+      messages.some((message) =>
+        message.parts.some(
+          (part) =>
+            part.type === 'text' &&
+            part.text.includes(`https://nuphos.ai/_reply-images/${group.groupId}`),
+        ),
+      )
+    )
+      continue
     const index = firstMessageNewerThan(messages, Date.parse(group.createdAt))
 
     if (index === 0 && hasEarlier) continue
