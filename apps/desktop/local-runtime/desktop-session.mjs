@@ -211,24 +211,12 @@ function xfceRunning(display) {
   return (out.stdout ?? '').includes('yes')
 }
 
-const LAUNCH_APP = {
-  name: 'launch_app',
-  description:
-    'Start an app on this conversation’s own desktop, which the user watches in Nuphos: a browser is `chromium` with the URL in args. The other tools only drive apps that are already running; call get_app_state on it next.',
-  inputSchema: {
-    type: 'object',
-    properties: { command: { type: 'string' }, args: { type: 'array', items: { type: 'string' } } },
-    required: ['command'],
-  },
-}
-const INSTRUCTIONS =
-  'These tools drive this conversation’s own desktop on its Box; it starts on the first call. Open apps with launch_app, never from the shell or on DISPLAY=:1.'
 const REPLAY_ID = 'nuphos-desktop-replay'
 
-const toolResult = (id, text, isError = false) => ({
+const toolError = (id, text) => ({
   jsonrpc: '2.0',
   id,
-  result: { content: [{ type: 'text', text }], ...(isError && { isError }) },
+  result: { content: [{ type: 'text', text }], isError: true },
 })
 
 /** Hands each JSON line of `stream` to `onLine`. */
@@ -253,41 +241,20 @@ function lines(stream, onLine) {
   })
 }
 
-/** Starts `argv` detached under `env`; resolves once it runs, rejects if it cannot. */
-export function startApp(argv, env) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(argv[0], argv.slice(1), { env, detached: true, stdio: 'ignore' })
-
-    child.once('spawn', () => {
-      child.unref()
-      resolve()
-    })
-    child.once('error', reject)
-  })
-}
-
 /**
  * The MCP traffic between the agent (`send` writes to it) and the computer-use
  * server, which `start(env)` runs: first without a display, then on the one
  * `desktop()` brings up for the first tool call. The server is told the
- * handshake again after the switch; launch_app is answered here.
+ * handshake again after the switch.
  */
 export function desktopRelay({ send, start, desktop }) {
   const handshake = []
-  const ids = { list: new Set(), init: new Set() }
   let server = start(null)
   let ready = null
   let switching = null
 
   const fromServer = (message) => {
-    if (message.id === REPLAY_ID) return
-    if (ids.list.delete(message.id) && message.result?.tools)
-      message.result.tools = [...message.result.tools, LAUNCH_APP]
-    if (ids.init.delete(message.id) && message.result)
-      message.result.instructions = [message.result.instructions, INSTRUCTIONS]
-        .filter(Boolean)
-        .join('\n\n')
-    send(message)
+    if (message.id !== REPLAY_ID) send(message)
   }
   const call = async (message) => {
     try {
@@ -295,7 +262,7 @@ export function desktopRelay({ send, start, desktop }) {
         switching = null
       }))
     } catch (error) {
-      send(toolResult(message.id, error instanceof Error ? error.message : String(error), true))
+      send(toolError(message.id, error instanceof Error ? error.message : String(error)))
 
       return
     }
@@ -305,18 +272,7 @@ export function desktopRelay({ send, start, desktop }) {
       server.onMessage(fromServer)
       for (const line of handshake) server.send(line)
     }
-    if (message.params?.name !== LAUNCH_APP.name) {
-      server.send(message)
-
-      return
-    }
-    const { command, args = [] } = message.params.arguments ?? {}
-
-    await startApp([command, ...args], ready.env).then(
-      () =>
-        send(toolResult(message.id, `Started ${command} on display :${String(ready.display)}.`)),
-      (error) => send(toolResult(message.id, `Could not start ${command}: ${error.message}`, true)),
-    )
+    server.send(message)
   }
   let queue = Promise.resolve()
 
@@ -325,20 +281,11 @@ export function desktopRelay({ send, start, desktop }) {
   return {
     /** One message from the agent, in order: calls wait for the desktop, the rest go on. */
     receive(message) {
-      if (message.method === 'initialize') {
-        ids.init.add(message.id)
-        handshake.push({ ...message, id: REPLAY_ID })
-      } else if (message.method === 'notifications/initialized') handshake.push(message)
-      else if (message.method === 'tools/list') ids.list.add(message.id)
-      // What one message breaks stays its own: a call answers with the error, the queue goes on.
-      queue = queue
-        .then(() => (message.method === 'tools/call' ? call(message) : server.send(message)))
-        .catch((error) => {
-          if (message.method === 'tools/call')
-            send(
-              toolResult(message.id, error instanceof Error ? error.message : String(error), true),
-            )
-        })
+      if (message.method === 'initialize') handshake.push({ ...message, id: REPLAY_ID })
+      else if (message.method === 'notifications/initialized') handshake.push(message)
+      queue = queue.then(() =>
+        message.method === 'tools/call' ? call(message) : server.send(message),
+      )
 
       return queue
     },

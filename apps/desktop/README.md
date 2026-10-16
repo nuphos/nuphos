@@ -46,8 +46,8 @@ once stays allowed for that conversation.
 
 On a Linux Box every conversation gets a `nuphos-desktop` MCP server
 (`local-runtime/desktop-session.mjs`). It claims a display from the pool on its
-first tool call, not when the session starts. Desktop guidance for agents comes
-from that server's MCP instructions and the backend runtime prompt, so a
+first tool call, not when the session starts. Agents open apps from the XFCE
+panel's launchers; their desktop guidance is in the backend runtime prompt, so a
 snapshot's `AGENTS.md` needs none. A Box snapshot is built by hand:
 
 1. Create a Box from the current snapshot (`NUPHOS_BOX_TEMPLATE`).

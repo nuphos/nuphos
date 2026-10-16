@@ -1,12 +1,5 @@
 import assert from 'node:assert/strict'
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  utimesSync,
-  writeFileSync,
-} from 'node:fs'
+import { mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -146,10 +139,9 @@ test('the desktop waits for the first tool call; listing tools needs none', asyn
   for (const message of handshake) await relay.receive(message)
   assert.equal(claims, 0)
   assert.equal(relay.display, null)
-  assert.match(sent[0].result.instructions, /^computer use\n\n.+launch_app/su)
   assert.deepEqual(
     sent[1].result.tools.map((tool) => tool.name),
-    ['click', 'launch_app'],
+    ['click'],
   )
 
   await relay.receive({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'click' } })
@@ -192,35 +184,4 @@ test('a full pool answers the call that needs a desktop, and the next call tries
   free = true
   await relay.receive({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'click' } })
   assert.equal(sent[1].result.content[0].text, ':2')
-})
-
-test('launch_app starts the app on the session’s display and reports one that cannot start', async () => {
-  const pool = mkdtempSync(path.join(os.tmpdir(), 'desktops-'))
-  const out = path.join(pool, 'out')
-  const sent = []
-  const relay = desktopRelay({
-    send: (message) => sent.push(message),
-    start: fakeServers().start,
-    desktop: () => Promise.resolve({ display: 5, env: { DISPLAY: ':5', PATH: process.env.PATH } }),
-  })
-  const launch = (id, command, args) =>
-    relay.receive({
-      jsonrpc: '2.0',
-      id,
-      method: 'tools/call',
-      params: { name: 'launch_app', arguments: { command, args } },
-    })
-
-  await launch(1, 'sh', ['-c', `echo "$DISPLAY" > ${out}`])
-  assert.equal(sent[0].result.content[0].text, 'Started sh on display :5.')
-  for (let i = 0; i < 50 && !existsSync(out); i++) await new Promise((r) => setTimeout(r, 20))
-  assert.equal(readFileSync(out, 'utf8'), ':5\n')
-  await launch(2, 'no-such-app-xyz', [])
-  assert.equal(sent[1].result.isError, true)
-  assert.match(sent[1].result.content[0].text, /Could not start no-such-app-xyz: .*ENOENT/u)
-  // Malformed arguments answer that call with an error; the next call still works.
-  await launch(3, 'sh', null)
-  assert.equal(sent[2].result.isError, true)
-  await launch(4, 'true', [])
-  assert.equal(sent[3].result.content[0].text, 'Started true on display :5.')
 })

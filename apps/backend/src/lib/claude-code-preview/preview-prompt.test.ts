@@ -174,7 +174,7 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
 
   expect(box).toContain('running as Codex on Box 1, the computer this conversation runs on')
   expect(box).toContain('the `nuphos-desktop` tools for this conversation’s own desktop')
-  expect(box).toContain('open a browser or another app on it with their `launch_app`')
+  expect(box).toContain('open a browser from the Web Browser launcher in its bottom panel')
   expect(box).toContain("local_exec is for the user's other devices, only when they ask for one")
   expect(box).not.toContain('inside the team sandbox')
   expect(await on('mac')).not.toContain('nuphos-desktop')
