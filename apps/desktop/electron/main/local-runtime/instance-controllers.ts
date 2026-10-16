@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import { parseInstance, readInstances, writeInstances } from './agent-instances.ts'
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
+import { removeDefaultAgent } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
 
@@ -36,6 +37,8 @@ export type InstanceControllersOptions = {
   now?: () => number
   /** Deletes what a removed agent stored outside its own directory. */
   removeCredential?: (env: NodeJS.ProcessEnv) => Promise<void>
+  /** Restarts the computer's own agent of a provider, once its login is gone. */
+  restartDefault?: (provider: LocalAgentProvider) => Promise<unknown>
 }
 
 /**
@@ -53,6 +56,7 @@ export class InstanceControllers {
   private readonly changed: () => void
   private readonly now: () => number
   private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
+  private readonly restartDefault?: InstanceControllersOptions['restartDefault']
   private userId: string | null = null
   constructor(
     deps: LocalRuntimeControllerDeps,
@@ -65,6 +69,7 @@ export class InstanceControllers {
     this.changed = changed
     this.now = options.now ?? Date.now
     this.removeCredential = options.removeCredential ?? deleteClaudeKeychainEntry
+    this.restartDefault = options.restartDefault
   }
 
   async load(userId: string | null): Promise<void> {
@@ -221,7 +226,11 @@ export class InstanceControllers {
   async request(request: unknown, userId: string | null): Promise<unknown> {
     if (!userId) throw new Error('Sign in to Nuphos first')
     if (!request || typeof request !== 'object') throw new Error('Invalid instance request')
-    const body = request as { method?: string; instanceId?: unknown }
+    const body = request as { method?: string; instanceId?: unknown; provider?: unknown }
+
+    // The computer's own agent is named by its provider, an added one by its instance id.
+    if (body.method === 'remove' && body.instanceId === undefined)
+      return removeDefaultAgent(this.deps, userId, body.provider, this.restartDefault)
 
     if (body.method === 'list')
       return {

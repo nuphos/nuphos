@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { mergeAgentRegistry, reportedAgents } from './agent-registry'
 
 import type { RegisteredAgent } from './agent-registry'
-import type { LocalRuntimeStatus } from './local-runtime/protocol'
+import type { LocalRuntimeStatus, RemovableAgent } from './local-runtime/protocol'
 import type { Collection } from 'mongodb'
 
 /** A cloud machine Nuphos created for this device; absent for a person's own computer. Its state is never stored: instabox and presence know it. */
@@ -261,7 +261,17 @@ export async function recordDeviceAgents(
 export async function removeDeviceAgent(
   userId: string,
   deviceId: string,
-  instanceId: string,
+  agent: RemovableAgent,
 ): Promise<void> {
-  await agentDevices().updateOne({ userId, deviceId }, { $pull: { agents: { instanceId } } })
+  await agentDevices().updateOne(
+    { userId, deviceId },
+    {
+      $pull: {
+        agents:
+          'instanceId' in agent
+            ? { instanceId: agent.instanceId }
+            : { provider: agent.provider, instanceId: { $exists: false } },
+      },
+    },
+  )
 }

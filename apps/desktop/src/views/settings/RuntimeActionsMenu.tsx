@@ -2,6 +2,8 @@ import { Ellipsis } from 'lucide-react'
 
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 
+import { localRemovalId } from './agentPresentation'
+
 import type { RuntimeInstance } from '../../types/runtime'
 
 export function RuntimeActionsMenu({
@@ -45,8 +47,8 @@ export function RuntimeActionsMenu({
         )}
         <MenuSeparator />
         <MenuItem onClick={onToggleEnabled}>{enabled ? 'Disable agent' : 'Enable agent'}</MenuItem>
-        {/* A computer's own default agents go with the computer; only added ones are removed. */}
-        {(instance.kind !== 'local' || instance.local?.instanceId) && (
+        {/* A person's computer keeps its default agents; a Box can remove any of its agents. */}
+        {(instance.kind !== 'local' || localRemovalId(instance)) && (
           // The Box deletes the agent's sign-in itself, so it has to be connected.
           <MenuItem destructive disabled={instance.local?.online === false} onClick={onRemove}>
             Remove agent

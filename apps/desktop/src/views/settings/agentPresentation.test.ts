@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentName, agentOffline, agentRunsOn, visibleAgent } from './agentPresentation.ts'
+import {
+  agentName,
+  agentOffline,
+  agentRunsOn,
+  localRemovalId,
+  visibleAgent,
+} from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
 
 import type { RuntimeInstance } from '../../types/runtime.ts'
@@ -121,4 +127,17 @@ test("an away computer's signed-in agent stays visible and reads Offline", () =>
   assert.equal(agentRunsOn(away), 'Box 1 · Offline')
   assert.equal(agentOffline(back), false)
   assert.equal(agentRunsOn(back), 'Box 1')
+})
+
+test("a Box's default agent can be removed; a person's computer's default cannot", () => {
+  const computer = local('mac-codex', 'mac', true)
+  const box = { ...computer, local: { ...computer.local!, box: { state: 'running' } } }
+
+  assert.equal(localRemovalId(computer), undefined)
+  assert.equal(localRemovalId(box as RuntimeInstance), 'default-codex')
+  assert.equal(
+    localRemovalId({ ...computer, local: { ...computer.local!, instanceId: 'id-1' } }),
+    'id-1',
+  )
+  assert.equal(localRemovalId({ ...computer, kind: 'managed', local: undefined }), undefined)
 })

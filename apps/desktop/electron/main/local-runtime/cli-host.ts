@@ -116,6 +116,8 @@ if (!bundle()) {
 
 const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle,
+  // Joined with its own credential, this computer is a Box that Nuphos owns.
+  ownsMachine: Boolean(deviceCredential),
   dataDir: () => dataDir,
   nodeExecPath: process.execPath,
   backendUrl: apiUrl(),

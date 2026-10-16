@@ -18,6 +18,7 @@ import { zv } from '@/lib/validate'
 
 import { readTeamIdCandidate } from './team-scope'
 
+import type { RemovableAgent } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
@@ -90,17 +91,29 @@ export function createDeviceAgentRoutes(
     )
   })
 
-  // A default agent (no instance id) is the computer's own and cannot be removed.
+  // An added agent by its id, or a default one as default-<provider>. A person's own
+  // computer keeps its defaults: their logins are that person's CLI logins.
   routes.delete('/devices/:deviceId/agents/:instanceId', async (c) => {
-    const instanceId = c.req.param('instanceId')
+    const id = c.req.param('instanceId')
+    const provider = z.enum(LOCAL_AGENT_PROVIDERS).safeParse(id.replace(/^default-/u, ''))
+    const agent: RemovableAgent | undefined = z.string().uuid().safeParse(id).success
+      ? { instanceId: id }
+      : id.startsWith('default-') && provider.success
+        ? { provider: provider.data }
+        : undefined
 
-    if (!z.string().uuid().safeParse(instanceId).success)
-      throw new AppError(400, 'agent_not_removable', 'Only an added agent can be removed.')
-    const { target } = await managedDevice(c)
+    if (!agent) throw new AppError(400, 'agent_not_removable', 'This agent cannot be removed.')
+    const { target, device } = await managedDevice(c)
 
-    await deps.removeInstance(target, instanceId)
+    if ('provider' in agent && !device.box)
+      throw new AppError(
+        400,
+        'agent_not_removable',
+        "Only a Box's default agents can be removed; this computer's stay with its CLIs.",
+      )
+    await deps.removeInstance(target, agent)
     // Removing is the only way an agent leaves the list once it has been signed in.
-    await deps.forgetAgent(target.userId, target.deviceId, instanceId)
+    await deps.forgetAgent(target.userId, target.deviceId, agent)
 
     return c.body(null, 204)
   })

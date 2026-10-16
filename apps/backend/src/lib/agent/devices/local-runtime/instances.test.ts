@@ -185,7 +185,7 @@ test('commit and remove name only the instance, and surface the host refusal', a
       : { ok: true },
   )
 
-  await removeLocalAgentInstance(target, instance.instanceId, { deps })
+  await removeLocalAgentInstance(target, { instanceId: instance.instanceId }, { deps })
   await expect(
     commitLocalAgentInstance(target, instance.instanceId, { deps }),
   ).rejects.toMatchObject({
