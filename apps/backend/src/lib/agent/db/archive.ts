@@ -29,13 +29,14 @@ export async function setConversationArchived(sessionId: string, archived: boole
 
     return
   }
-  await agentConversations().updateOne({ sessionId }, restore())
+  // Descendants first: the parent's stamp is what a retry needs to find them.
   if (archivedAt && descendants.length > 0) {
     await agentConversations().updateMany(
       { sessionId: { $in: descendants }, archivedAt },
       restore(),
     )
   }
+  await agentConversations().updateOne({ sessionId }, restore())
 }
 
 // Only the same owner's conversations in the same team; `seen` stops a loop.
