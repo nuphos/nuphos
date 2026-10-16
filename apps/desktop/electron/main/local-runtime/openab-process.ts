@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
@@ -58,6 +58,55 @@ async function waitUntilListening(port: number, child: ChildProcess): Promise<vo
   throw new Error('openab did not start listening in time')
 }
 
+type ProcessEntry = { pid: number; args: string }
+
+function listProcesses(): ProcessEntry[] {
+  try {
+    return execFileSync('ps', ['-axo', 'pid=,args='], { encoding: 'utf8' })
+      .split('\n')
+      .map((line) => /^\s*(\d+) (.*)$/u.exec(line))
+      .filter((match) => match !== null)
+      .map((match) => ({ pid: Number(match[1]), args: match[2] ?? '' }))
+  } catch {
+    return []
+  }
+}
+
+/** Sends `sig` if the process still exists; signal 0 only asks whether it does. */
+function signal(pid: number, sig: NodeJS.Signals | 0): boolean {
+  try {
+    process.kill(pid, sig)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+const alive = (pid: number) => signal(pid, 0)
+
+/**
+ * A host that died without stopping openab (a crash, SIGKILL, the OOM killer) leaves
+ * it serving this config, with every agent it spawned. openab reaps its agents on
+ * SIGTERM, so the next start stops that earlier run instead of adding another.
+ */
+export async function stopStaleOpenab(
+  configPath: string,
+  list: () => ProcessEntry[] = listProcesses,
+): Promise<void> {
+  if (process.platform === 'win32') return
+  const stale = list()
+    .filter(({ pid, args }) => pid !== process.pid && args.endsWith(`openab run -c ${configPath}`))
+    .map(({ pid }) => pid)
+
+  for (const pid of stale) signal(pid, 'SIGTERM')
+  const deadline = Date.now() + STOP_GRACE_MS
+
+  while (stale.some(alive) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  for (const pid of stale) signal(pid, 'SIGKILL')
+}
+
 /** One openab + adapter process tree on a fresh loopback port and a fresh key. */
 export class OpenabProcess {
   private child: ChildProcess | undefined
@@ -76,6 +125,7 @@ export class OpenabProcess {
     const launch: LocalRuntimeLaunch = { ...options, port, authKey }
     const configPath = path.join(options.logDir, 'openab.toml')
 
+    await stopStaleOpenab(configPath)
     for (const dir of [options.logDir, options.workspace, options.openabHome])
       mkdirSync(dir, { recursive: true, mode: 0o700 })
     writeFileSync(configPath, openabConfigToml(launch), { mode: 0o600 })
