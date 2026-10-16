@@ -112,7 +112,8 @@ export type LocalRuntimeActivityPage = {
   nextCursor: string | null
 }
 
-export type BoxState = 'creating' | 'running' | 'paused' | 'error'
+/** `connecting`: the machine runs but its host has not joined yet. */
+export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
 /** A Box: a device Nuphos runs in a sandbox for its owner. */
 export type BoxStatus = {

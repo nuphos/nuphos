@@ -95,7 +95,8 @@ export function BoxRow({
   }
 
   const dim = state === 'paused' || state === 'stopped'
-  const starting = state === 'creating' || (state === 'running' && agents.length === 0)
+  const starting =
+    state === 'creating' || state === 'connecting' || (state === 'running' && agents.length === 0)
 
   return (
     <li className="flex h-[220px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
@@ -200,7 +201,13 @@ export function BoxRow({
       ) : (
         <BoxMetrics
           metrics={device.metrics}
-          status={state === 'creating' ? 'starting' : device.metricsStatus}
+          status={
+            state === 'creating'
+              ? 'starting'
+              : state === 'connecting'
+                ? 'connecting'
+                : device.metricsStatus
+          }
           receivedAt={device.metricsReceivedAt}
         />
       )}

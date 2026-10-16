@@ -40,6 +40,7 @@ test('each Box state has a badge', () => {
     Object.fromEntries(Object.entries(BOX_BADGE).map(([state, view]) => [state, view.label])),
     {
       creating: 'Starting',
+      connecting: 'Connecting',
       running: 'Running',
       hostOffline: 'Host offline',
       paused: 'Paused',
@@ -215,4 +216,18 @@ test('a Box can always be deleted; a computer can be removed only while offline'
       removal({ ...computer, online, box: { provider: 'instabox' } } as AgentDevice).allowed,
       true,
     )
+})
+
+test('a Box goes Starting, then Connecting until its host joins, then Running; both time out', () => {
+  const made = Date.parse('2026-10-16T08:00:00Z')
+  const at = (state: 'creating' | 'connecting' | 'running', online = false) =>
+    box('a', state, online, new Date(made).toISOString())
+
+  assert.equal(BOX_BADGE.creating.label, 'Starting')
+  assert.equal(BOX_BADGE.connecting.label, 'Connecting')
+  assert.equal(boxState(at('creating'), made + 60_000), 'creating')
+  assert.equal(boxState(at('connecting'), made + 60_000), 'connecting')
+  assert.equal(boxState(at('running', true), made + 60_000), 'running')
+  assert.equal(boxState(at('connecting'), made + 6 * 60_000), 'error')
+  assert.equal(boxPollMs([box('b', 'connecting', false)], false), 1_000)
 })
