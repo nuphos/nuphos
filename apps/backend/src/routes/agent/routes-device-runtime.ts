@@ -8,6 +8,7 @@ import {
   listLocalRuntimeActivity,
 } from '@/lib/agent/devices/local-runtime/activity'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
+import { noteBoxPresence } from '@/lib/agent/devices/box-usage-history'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
@@ -47,6 +48,9 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       presence: runtimePresenceStore(),
       isMember: isActiveTeamMember,
       recordAgents: recordDeviceAgents,
+      connectionChanged: (userId, deviceId) => {
+        void noteBoxPresence(userId, deviceId, getAgentDevice)
+      },
     },
     listActivity: listLocalRuntimeActivity,
     conversationTitlesFor,

@@ -28,6 +28,7 @@ import {
   unavailable,
 } from './box-instabox-client'
 import { startWithinLimit } from './box-instabox-limit'
+import { noteBoxUsage } from './box-usage-history'
 
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { isDevicePresent } from './presence'
@@ -166,6 +167,7 @@ async function order(
     )
     await deleteDeviceJoinTokens(deviceId).catch(() => undefined)
     await deleteAgentDevice(userId, deviceId).catch(() => undefined)
+    noteBoxUsage(teamId)
   }
 }
 
@@ -266,6 +268,8 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
     logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
     throw unavailable('Could not delete the Box', error)
   }
+  // Its tunnel closed before the kill, while the machine still ran.
+  noteBoxUsage(device.box.teamId)
 }
 
 /**
