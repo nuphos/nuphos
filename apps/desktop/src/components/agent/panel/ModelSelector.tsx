@@ -3,9 +3,8 @@ import clsx from 'clsx'
 import { ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { effortLabel, modelChoiceLabel } from '../../../lib/configLabels'
-import { effortResetValue } from '../../../lib/effortStops'
-import { concreteModelChoices } from '../../../lib/modelChoices'
+import { effortLabel } from '../../../lib/configLabels'
+import { effortResetValue, effortStops } from '../../../lib/effortStops'
 import { isClaudeCatalog } from '../../../lib/modelGroups'
 
 import { ClaudeModelList } from './ClaudeModelList'
@@ -13,62 +12,16 @@ import { HintTooltip } from './modelControlParts'
 import { FG_TERTIARY, SURFACE } from './modelControlStyles'
 import { ModelEffortPanel } from './ModelEffortPanel'
 import { ModelListPanel } from './ModelListPanel'
+import {
+  composerOf,
+  EFFORT_SHORTCUT,
+  effortName,
+  modelHint,
+  modelName,
+  ownsShortcut,
+} from './modelSelectorParts'
 
 import type { useSessionConfig } from './useSessionConfig'
-import type { SessionConfigOption, SessionConfigState } from '../../../api/session-config-types'
-
-export const EFFORT_SHORTCUT = 'ctrl+shift+m'
-
-function modelName(option: SessionConfigOption) {
-  const { current, label } = concreteModelChoices(
-    option.options.map((choice) => ({
-      ...choice,
-      id: choice.value,
-      name: modelChoiceLabel(choice),
-    })),
-    option.currentValue,
-  )
-
-  return label ?? current ?? ''
-}
-
-function effortName(option: SessionConfigOption | undefined) {
-  const choice = option?.options.find((candidate) => candidate.value === option.currentValue)
-
-  return choice && choice.value !== 'default' ? effortLabel(choice) : ''
-}
-
-function modelHint(
-  status: SessionConfigState['status'] | undefined,
-  hasModel: boolean,
-  busy: boolean,
-  stalled: boolean,
-) {
-  if (status === 'offline')
-    return 'This agent is offline. Model settings return when it reconnects.'
-  if (busy && stalled)
-    return "This agent hasn't responded in a while — it may be stuck. Try reconnecting below."
-  if (busy) return 'Changes apply after this reply.'
-  if (status === 'dormant' && !hasModel)
-    return 'Send a message to start this session before changing model settings.'
-}
-
-/** ⌃⇧M belongs to the composer that has focus, or to the only one on screen. */
-function ownsShortcut(chip: HTMLElement) {
-  let scope = chip.parentElement
-
-  while (scope && !scope.querySelector('[aria-label="Message"]')) scope = scope.parentElement
-  const active = document.activeElement
-
-  if (scope && active && scope.contains(active)) return true
-
-  return (
-    (!active || active === document.body) &&
-    [...document.querySelectorAll<HTMLElement>('[data-model-chip]')].filter((other) =>
-      other.checkVisibility(),
-    ).length === 1
-  )
-}
 
 export type ModelControl = Pick<
   ReturnType<typeof useSessionConfig>,
@@ -101,6 +54,9 @@ export function ModelSelector({
   const busy = status === 'busy' || streaming
   const name = model ? modelName(model) : status === 'offline' ? 'Model unavailable' : ''
   const level = effortName(effort)
+  const effortLevels = [
+    ...new Set([level, ...effortStops(effort?.options ?? []).map((choice) => effortLabel(choice))]),
+  ].filter(Boolean)
   const blocked =
     disabled ||
     saving ||
@@ -108,12 +64,13 @@ export function ModelSelector({
     slow ||
     (status !== 'ready' && status !== 'dormant' && status !== 'busy')
   const hint = modelHint(status, Boolean(model), busy, stalled)
-  // Before the first reply, the level a model starts on is the runtime's default.
   const effortKey = model?.currentValue ?? ''
 
-  if (status === 'dormant' && effort && !(effortKey in initialEffort))
+  // Reset falls back to the level each model started on in this chat.
+  if (effort && !(effortKey in initialEffort))
     setInitialEffort({ ...initialEffort, [effortKey]: effort.currentValue })
   const setOpen = control.setOpen
+  const open = control.open
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -127,6 +84,13 @@ export function ModelSelector({
         return
       const chip = chipRef.current
 
+      // ⌃⇧M again closes it, wherever focus went inside the popover.
+      if (open) {
+        event.preventDefault()
+        setOpen(false)
+
+        return
+      }
       if (!chip?.isConnected || !ownsShortcut(chip)) return
       event.preventDefault()
       setView(effort ? 'effort' : 'models')
@@ -136,7 +100,7 @@ export function ModelSelector({
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [effort, setOpen])
+  }, [effort, open, setOpen])
 
   const effortOpen = control.open && view === 'effort'
 
@@ -146,7 +110,7 @@ export function ModelSelector({
   const pickModel = (value: string) => {
     if (!model) return
     select(model.id, value)
-    if (effort) setView('effort')
+    control.setOpen(false)
   }
   const footer = [
     (loading || slow) &&
@@ -164,9 +128,16 @@ export function ModelSelector({
   return (
     <Popover.Root
       open={control.open}
-      onOpenChange={(open) => {
-        if (open) setView(effort ? 'effort' : 'models')
-        control.setOpen(open)
+      onOpenChange={(next, details) => {
+        // Escape from the model list steps back to effort; a second one closes.
+        if (!next && details.reason === 'escape-key' && view === 'models' && effort) {
+          details.cancel()
+          setView('effort')
+
+          return
+        }
+        if (next) setView(effort ? 'effort' : 'models')
+        control.setOpen(next)
       }}
       // Arrow keys move the effort slider as soon as it shows, as in Codex.
       onOpenChangeComplete={(open) => {
@@ -184,15 +155,44 @@ export function ModelSelector({
           )}
         >
           {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-          {effortOpen ? (
-            <span className={clsx('truncate px-[18px]', FG_TERTIARY)}>Select effort</span>
-          ) : name ? (
-            <>
-              <span className="min-w-0 truncate">{name}</span>
-              {level && (
-                <span className={clsx('shrink-0 whitespace-nowrap', FG_TERTIARY)}>{level}</span>
-              )}
-            </>
+          {name ? (
+            // The label, "Select effort" and an invisible copy of the label at
+            // every level share one cell, so the chip keeps the width of the
+            // widest and centers its text, as Codex does.
+            <span className="grid min-w-0">
+              {effortLevels.map((choice) => (
+                <span
+                  key={choice}
+                  aria-hidden
+                  className="invisible col-start-1 row-start-1 flex min-w-0 gap-[4px] whitespace-nowrap"
+                >
+                  <span className="min-w-0 truncate">{name}</span>
+                  <span className="shrink-0">{choice}</span>
+                </span>
+              ))}
+              <span
+                aria-hidden={effortOpen}
+                className={clsx(
+                  'col-start-1 row-start-1 flex min-w-0 items-center justify-center gap-[4px]',
+                  effortOpen && 'invisible',
+                )}
+              >
+                <span className="min-w-0 truncate">{name}</span>
+                {level && (
+                  <span className={clsx('shrink-0 whitespace-nowrap', FG_TERTIARY)}>{level}</span>
+                )}
+              </span>
+              <span
+                aria-hidden={!effortOpen}
+                className={clsx(
+                  'col-start-1 row-start-1 truncate text-center',
+                  FG_TERTIARY,
+                  !effortOpen && 'invisible',
+                )}
+              >
+                Select effort
+              </span>
+            </span>
           ) : (
             <span
               aria-label="Loading model"
@@ -209,8 +209,13 @@ export function ModelSelector({
       <Popover.Portal>
         <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
           <Popover.Popup
+            // Closing returns to the message box, so typing carries on.
+            finalFocus={() =>
+              composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ??
+              true
+            }
             initialFocus={view !== 'effort'}
-            className={clsx(SURFACE, 't-dropdown is-open w-[280px] rounded-[16px] outline-none')}
+            className={clsx(SURFACE, 'model-picker-enter w-[280px] rounded-[16px] outline-none')}
           >
             {view === 'effort' && effort && model && (
               <ModelEffortPanel
@@ -234,6 +239,7 @@ export function ModelSelector({
                   fast={fast}
                   blocked={blocked}
                   onSelect={pickModel}
+                  onBack={effort ? () => setView('effort') : undefined}
                   onSelectFast={(value) => fast && select(fast.id, value)}
                 />
               ) : (
@@ -242,6 +248,7 @@ export function ModelSelector({
                   offerDefault={status === 'dormant'}
                   blocked={blocked}
                   onSelect={pickModel}
+                  onBack={effort ? () => setView('effort') : undefined}
                 />
               ))}
             {footer.length > 0 && (

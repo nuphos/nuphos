@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { effortResetValue, effortStops, stopFraction } from './effortStops.ts'
+import { effortResetValue, effortStops, resolvedEffort, stopFraction } from './effortStops.ts'
 
 const claude = ['default', 'low', 'medium', 'high', 'xhigh', 'max'].map((value) => ({
   value,
@@ -25,6 +25,17 @@ test('reset returns to the runtime default, else the level the chat started on',
   assert.equal(effortResetValue(codex, 'medium'), 'medium')
   assert.equal(effortResetValue(codex, 'gone'), undefined)
   assert.equal(effortResetValue(codex), undefined)
+})
+
+test("Claude's default resolves to the level it names; anything else stays as reported", () => {
+  const described = claude.map((choice) =>
+    choice.value === 'default' ? { ...choice, description: 'medium' } : choice,
+  )
+
+  assert.equal(resolvedEffort(described, 'default'), 'medium')
+  assert.equal(resolvedEffort(described, 'high'), 'high')
+  assert.equal(resolvedEffort(claude, 'default'), 'default')
+  assert.equal(resolvedEffort(codex, 'xhigh'), 'xhigh')
 })
 
 test('stops spread evenly from the first to the last', () => {

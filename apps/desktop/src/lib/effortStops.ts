@@ -6,6 +6,18 @@ export function effortStops<T extends Choice>(choices: T[]): T[] {
   return choices.filter((choice) => choice.value !== 'default')
 }
 
+/** The level a session runs at. Claude's "default" names its level in its
+ *  description (the Nuphos adapter patch reads it from Claude Code). */
+export function resolvedEffort(
+  choices: (Choice & { description?: string })[],
+  current: string,
+): string {
+  if (current !== 'default') return current
+  const level = choices.find((choice) => choice.value === 'default')?.description
+
+  return level && choices.some((choice) => choice.value === level) ? level : current
+}
+
 /** Where ↺ returns: the runtime's own "default" level when it offers one,
  *  otherwise the level it started with, if that is still offered. */
 export function effortResetValue(choices: Choice[], initial?: string): string | undefined {
