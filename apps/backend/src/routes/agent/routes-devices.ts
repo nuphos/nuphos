@@ -103,7 +103,6 @@ export type AgentDeviceRouteDependencies = {
     options: { limit: number; cursor?: string },
   ) => Promise<DeviceExecAuditPage>
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
-  /** A Box's session displays the viewer may watch: their own conversations' in this team. */
   boxDesktops: typeof boxDesktops
   issueJoinToken: typeof issueDeviceJoinToken
   revokeCredential: (userId: string, deviceId: string) => Promise<boolean>
