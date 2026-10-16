@@ -1,7 +1,8 @@
 /**
- * Cloudflare sets CF-Connecting-IP to the real client. The backend is also reachable
- * directly, so the value is advisory: a caller bypassing Cloudflare can forge it. Without
- * Cloudflare (self-hosted) fall back to the right-most X-Forwarded-For hop.
+ * Cloudflare sets CF-Connecting-IP to the real client. Hosted Nuphos (api.nuphos.ai) enforces
+ * Cloudflare Authenticated Origin Pulls, so there the header is trusted. Self-hosted, the
+ * backend may be reachable directly and a caller bypassing Cloudflare can forge it, so it is
+ * only advisory; without Cloudflare, fall back to the right-most X-Forwarded-For hop.
  */
 export function clientIp(
   cfConnectingIp: string | undefined,
