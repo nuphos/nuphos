@@ -347,6 +347,32 @@ test('a restart loop cannot ask the provider on every backoff tick', async () =>
   await controller.shutdown()
 })
 
+test('the signed-out watch does not re-read a signed-in agent’s usage', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 0 })
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    codex: { installed: true, path: '/bin/codex', loggedIn: false },
+  }
+  const { controller, usageReads } = harness(cli)
+
+  await controller.setUser('alice')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const afterLaunch = usageReads()
+
+  // Past the sign-in floor, inside the regular one: a forced read would land here.
+  t.mock.timers.tick(31_000)
+  await controller.refresh(false, ['codex'])
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(usageReads(), afterLaunch)
+
+  // Signing Codex in is the event that does earn a read.
+  cli.codex = { installed: true, path: '/bin/codex', loggedIn: true }
+  t.mock.timers.tick(31_000)
+  await controller.refresh(false, ['codex'])
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(usageReads(), afterLaunch + 1)
+  await controller.shutdown()
+})
+
 test('a login observed by Check is recorded even though launching stops the agent first', async () => {
   // No process until the CLI is signed in: the Codex case from review.
   const installed: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
