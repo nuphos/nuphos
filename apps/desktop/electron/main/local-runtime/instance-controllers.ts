@@ -91,9 +91,12 @@ export class InstanceControllers {
     return Promise.all([...this.entries.values()].map(({ controller }) => controller.shutdown()))
   }
 
-  async refresh(restart: boolean): Promise<unknown> {
+  /** Restarts only the providers' agents, so one sign-in leaves other agents' turns running. */
+  async refresh(restart: boolean, providers?: readonly LocalAgentProvider[]): Promise<unknown> {
     await Promise.all(
-      [...this.entries.values()].map(({ controller }) => controller.refresh(restart)),
+      [...this.entries.values()].map(({ controller, metadata }) =>
+        controller.refresh(restart && (!providers || providers.includes(metadata.provider))),
+      ),
     )
 
     return Promise.all(

@@ -28,8 +28,9 @@ import path from 'node:path'
 
 // Every display runs as the Box's one Unix user, with no X authority and no VNC
 // password: sessions on a Box are not a security boundary from each other, any
-// more than their shells are. That is by design: a Box is one owner's device
-// (a local runtime admits only its owner) and every session on it is theirs.
+// more than their shells are. A Box can be shared by a team, so an agent in one
+// person's session can reach another person's display. That risk is accepted for
+// now; the fix is a Unix user per session, not a check here.
 const FIRST_DISPLAY = 2
 const GEOMETRY = '1280x800'
 const PROXY = '/usr/local/bin/instabox-computer-use-proxy'

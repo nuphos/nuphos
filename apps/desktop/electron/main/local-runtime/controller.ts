@@ -117,7 +117,7 @@ export class LocalRuntimeController {
         .map((provider) => this.launch(provider)),
     )
     await Promise.all(this.providers.map((provider) => this.usage.sample(provider, true)))
-    await this.instances?.refresh(restart)
+    await this.instances?.refresh(restart, providers)
 
     return this.state()
   }
