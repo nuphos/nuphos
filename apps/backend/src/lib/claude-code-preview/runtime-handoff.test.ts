@@ -157,6 +157,15 @@ function hold(conversationId: string, state: Promise<Record<string, unknown>>) {
   return closed
 }
 
+const snapshot = {
+  schemaVersion: 2,
+  epoch: 'e',
+  revision: 0,
+  label: '',
+  tools: [],
+  actions: { send: false, cancel: false, steer: false },
+}
+
 const published = () => [...stored.keys()].sort((a, b) => a.localeCompare(b))
 
 test('exactly one replica claims a handoff, and only once the old connection had time to go', async () => {
@@ -288,12 +297,48 @@ test('crash adoption skips an owner restored after failover without its active g
   expect(acquire).not.toHaveBeenCalled()
 })
 
-test('shutdown hands on a session whose runtime still owns work, and leaves idle ones', async () => {
-  hold('parked', Promise.resolve({ state: 'active', phase: 'resume_disconnected' }))
-  hold('continuing', Promise.resolve({ state: 'active', phase: 'resuming' }))
-  hold('waiting', Promise.resolve({ state: 'idle', phase: 'background_tools' }))
-  hold('idle', Promise.resolve({ state: 'idle', phase: 'idle' }))
-  hold('dormant', Promise.resolve({ state: 'dormant', phase: 'dormant' }))
+test('shutdown hands on a session whose runtime still owns work, and leaves idle ones and user turns', async () => {
+  hold(
+    'parked',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'resume_disconnected',
+    }),
+  )
+  hold(
+    'continuing',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'resuming',
+    }),
+  )
+  hold(
+    'waiting',
+    Promise.resolve({
+      ...snapshot,
+      state: 'idle',
+      phase: 'background_tools',
+    }),
+  )
+  hold('idle', Promise.resolve({ ...snapshot, state: 'idle', phase: 'idle' }))
+  hold(
+    'dormant',
+    Promise.resolve({
+      ...snapshot,
+      state: 'dormant',
+      phase: 'dormant',
+    }),
+  )
+  hold(
+    'turn-elsewhere',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'working',
+    }),
+  )
   hold('gone', Promise.reject(new Error('connection closed')))
 
   expect(await publishRuntimeHandoffs()).toBe(3)
@@ -306,7 +351,14 @@ test('shutdown hands on a session whose runtime still owns work, and leaves idle
 })
 
 test('a session already handed off for its turn is handed off once', async () => {
-  hold('conv', Promise.resolve({ state: 'active', phase: 'working' }))
+  hold(
+    'conv',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'working',
+    }),
+  )
   queueRuntimeHandoff({
     teamId: 'team',
     conversationId: 'conv',
@@ -332,6 +384,20 @@ test('concurrent resumes of a handed-off session load it once', async () => {
     adoptRuntimeHandoff(handoff(Date.now())),
     adoptRuntimeHandoff(handoff(Date.now())),
   ])
+
+  expect(loads).toEqual([{ session: 'sess_live', servers: expect.any(Array) }])
+})
+
+test('an adopter that held the session before resumes it instead of reusing the stale entry', async () => {
+  hold(
+    'conv',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'resume_disconnected',
+    }),
+  )
+  await adoptRuntimeHandoff(handoff(Date.now()))
 
   expect(loads).toEqual([{ session: 'sess_live', servers: expect.any(Array) }])
 })

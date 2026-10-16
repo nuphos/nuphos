@@ -13,6 +13,7 @@ import { sessionsByConversation } from './agent-chat-registry'
 import { openConversationSession } from './open-conversation-session'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { previewSessionAccess } from './credentials-mcp'
+import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { RUNTIME_HANDOFFS_KEY as HANDOFFS_KEY } from './runtime-handoff-store'
 
 import type { RuntimeHandoff } from './runtime-handoff-store'
@@ -28,6 +29,12 @@ const ADOPT_INTERVAL_MS = 2_000
 const MAX_ADOPT_ATTEMPTS = 5
 /** Shutdown has seconds to spare; a runtime that cannot answer by then is not waited for. */
 const RUNTIME_STATE_PROBE_MS = 1_000
+const RUNTIME_OWNED_PHASES = new Set([
+  'resume_disconnected',
+  'resume_pending',
+  'resuming',
+  'background_tools',
+])
 
 const queued: RuntimeHandoff[] = []
 const field = (handoff: Pick<RuntimeHandoff, 'teamId' | 'conversationId'>) =>
@@ -43,7 +50,9 @@ export function queueRuntimeHandoff(handoff: Omit<RuntimeHandoff, 'at'>): void {
  * continuation already running. Its output goes to the connection that last
  * resumed the session, so once this replica exits the runtime parks it as
  * "output connection lost" until something resumes the session again. Hand
- * those on as well; an idle session needs nobody.
+ * those on as well; an idle session needs nobody. A user turn is never picked
+ * here: it may be running on another replica, and only the turn route knows it
+ * runs on this one.
  */
 async function queueRuntimeOwnedWork(): Promise<void> {
   const handedOff = new Set(queued.map(field))
@@ -53,11 +62,14 @@ async function queueRuntimeOwnedWork(): Promise<void> {
       .filter((session) => !handedOff.has(field(session)))
       .map(async (session) => {
         const state = await Promise.race([
-          session.client.getSessionExecutionState(session.openabSessionId).catch(() => null),
+          session.client
+            .getSessionExecutionState(session.openabSessionId)
+            .then(parseSessionExecutionState)
+            .catch(() => null),
           Bun.sleep(RUNTIME_STATE_PROBE_MS).then(() => null),
         ])
 
-        if (state?.state !== 'active' && state?.phase !== 'background_tools') return
+        if (!RUNTIME_OWNED_PHASES.has(state?.phase ?? '')) return
         queueRuntimeHandoff({
           teamId: session.teamId,
           conversationId: session.conversationId,
@@ -180,6 +192,14 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
     (await withRedis((redis) => redis.get(ownerKey(handoff.ownerUserId, abandonedStreamId))))
   )
     return
+  // A replica that served this conversation before would reuse its entry
+  // without a session/load, and the output sink left with the draining one.
+  const stale = sessionsByConversation.get(field(handoff))
+
+  if (stale && !stale.activeTurn) {
+    stale.stopObserving?.()
+    sessionsByConversation.delete(field(handoff))
+  }
   const session = await openConversationSession(
     handoff.teamId,
     handoff.conversationId,
