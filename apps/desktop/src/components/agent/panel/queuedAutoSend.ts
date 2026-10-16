@@ -43,6 +43,34 @@ export function takeSideSend(streamId: string): string | undefined {
   return tabId
 }
 
+/** Messages still on their way to the server queue; a sync must not drop them. */
+export function sendingDraftIds(): Set<string> {
+  return new Set(
+    [...sideSends.keys()].flatMap((streamId) => dispatchedDrafts.get(streamId)?.id ?? []),
+  )
+}
+
+/**
+ * The strip as the server sees it: this person's waiting messages, in order,
+ * plus the ones still being sent.
+ */
+export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: string }[]): Tab {
+  const sending = sendingDraftIds()
+  const local = new Map((tab.queued ?? []).map((item) => [item.id, item]))
+  const waiting = server
+    .filter((item) => item.mine)
+    .map((item) => local.get(item.id) ?? { id: item.id, text: item.text, filePaths: [] })
+  const known = new Set(waiting.map((item) => item.id))
+
+  return {
+    ...tab,
+    queued: [
+      ...waiting,
+      ...(tab.queued ?? []).filter((item) => sending.has(item.id) && !known.has(item.id)),
+    ],
+  }
+}
+
 /** A runtime that reports it will never accept sends (outdated agent) should not be waited on. */
 export function runtimeMayAcceptLater(snapshot: RuntimeExecution | undefined): boolean {
   return !(

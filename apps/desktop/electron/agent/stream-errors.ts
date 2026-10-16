@@ -29,6 +29,7 @@ export type AgentHttpProductEvent =
   | { type: 'agent-setup-required'; message: string; reason?: 'reauthentication' }
   | { type: 'conversation-busy'; message: string }
   | { type: 'runtime-not-ready'; message: string }
+  | { type: 'queued'; message: string }
 
 // ACP can wrap a revoked credential in JSON-RPC -32603 (Internal Error).
 // Classify the credential failure, not that generic, potentially transient code.
@@ -88,6 +89,10 @@ export function agentHttpProductEvent(error: {
   }
   if (code === 'runtime_not_accepting_message') {
     return { type: 'runtime-not-ready', message }
+  }
+  // The runtime refused the start and the server put the message back in its queue.
+  if (code === 'message_queued') {
+    return { type: 'queued', message }
   }
 
   return null

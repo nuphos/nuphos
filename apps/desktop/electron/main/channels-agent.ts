@@ -92,6 +92,8 @@ export const agentChannels = {
     agent.cancelRuntime(sessionId, teamId),
   'agent:steerConversation': (_e: unknown, ...args: Parameters<typeof agent.steerConversation>) =>
     agent.steerConversation(...args),
+  'agent:listQueue': (_e: unknown, ...args: Parameters<typeof agent.listConversationQueue>) =>
+    agent.listConversationQueue(...args),
   'agent:unqueueMessage': (_e: unknown, ...args: Parameters<typeof agent.unqueueMessage>) =>
     agent.unqueueMessage(...args),
   'agent:slackPickup': (_e: unknown, sessionId: string, teamId?: string) =>

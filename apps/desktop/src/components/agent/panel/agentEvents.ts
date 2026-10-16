@@ -1,10 +1,11 @@
 import { api } from '../../../api'
 import { rememberTerminalRuntimeStream } from '../../../lib/runtimeWakeup'
+import { toast } from '../../ui/toast'
 
 import { applyStreamEvent } from './agentEventsApply'
 import { handleSseControlFrame } from './agentEventsSse'
 import { appendMemoryIngestPart } from './applyEvent'
-import { adoptSideStream, dispatchedDraft, takeSideSend } from './queuedAutoSend'
+import { adoptSideStream, dispatchedDraft, takeSideSend, withoutQueued } from './queuedAutoSend'
 import { observeTurnUnread } from './turnUnread'
 
 import type { PanelCtx } from './ctx'
@@ -107,19 +108,31 @@ function followSideSend(
 ) {
   const tabId = takeSideSend(streamId)
 
-  if (!tabId || !evType || SIDE_SEND_SETTLED.has(evType)) return
-  const adopt = (tabs: Tab[]) =>
-    tabs.map((t) =>
-      t.id === tabId ? adoptSideStream(t, streamId, dispatchedDraft(streamId)?.id) : t,
+  if (!tabId || !evType || evType === 'queued' || evType === 'end') return
+  const draft = dispatchedDraft(streamId)
+
+  // Not queued: the strip must not show what the server does not hold.
+  if (SIDE_SEND_FAILED.has(evType)) {
+    ctx.setTabs((tabs) =>
+      tabs.map((t) => (t.id === tabId && draft ? withoutQueued(t, draft.id) : t)),
     )
+    toast.error(
+      'Your message was not sent',
+      draft ? `“${draft.text.slice(0, 120)}” — send it again.` : undefined,
+    )
+
+    return
+  }
+  const adopt = (tabs: Tab[]) =>
+    tabs.map((t) => (t.id === tabId ? adoptSideStream(t, streamId, draft?.id) : t))
 
   // Synchronously too: this event and the next must route to the tab.
   ctx.tabsRef.current = adopt(ctx.tabsRef.current)
   ctx.setTabs(adopt)
 }
 
-// Events that end a side send without starting a turn in it.
-const SIDE_SEND_SETTLED = new Set(['queued', 'runtime-not-ready', 'end', 'error', 'aborted'])
+// Events that end a side send without the server holding its message.
+const SIDE_SEND_FAILED = new Set(['runtime-not-ready', 'error', 'aborted', 'agent-setup-required'])
 
 export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: unknown) {
   const {

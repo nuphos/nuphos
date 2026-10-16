@@ -145,6 +145,10 @@ export type WindowAgentApi = {
     teamId?: string,
     groupId?: string,
   ): Promise<{ ok: boolean; messageId: string; text?: string; upload?: Record<string, unknown> }>
+  agentListQueue(
+    sessionId: string,
+    teamId?: string,
+  ): Promise<{ messages: { id: string; mine: boolean; text: string }[] }>
   agentUnqueueMessage(
     sessionId: string,
     messageId: string,

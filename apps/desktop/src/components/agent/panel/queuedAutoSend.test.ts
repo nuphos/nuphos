@@ -10,6 +10,7 @@ import {
   sendsAsNewSession,
   showQueued,
   showTurnQueued,
+  syncQueued,
   takeSideSend,
   waitingMessages,
 } from './queuedAutoSend.ts'
@@ -110,4 +111,29 @@ test("a fork's first send goes straight out; a second one while it runs queues",
   assert.equal(sendsAsNewSession({ unsaved: true, streaming: false }), true)
   assert.equal(sendsAsNewSession({ unsaved: true, streaming: true }), false)
   assert.equal(sendsAsNewSession({ unsaved: false, streaming: false }), false)
+})
+
+test('the strip follows the server queue but keeps what is still being sent', () => {
+  rememberSideSend('side-sync', 'tab-1')
+  rememberDispatchedDraft('side-sync', { id: 'sending', text: 'on its way', filePaths: [] })
+  const local = tab({
+    queued: [
+      { id: 'dropped', text: 'the server dropped this', filePaths: [] },
+      { id: 'kept', text: 'still waits', filePaths: ['a.png'] },
+      { id: 'sending', text: 'on its way', filePaths: [] },
+    ],
+  })
+  const synced = syncQueued(local, [
+    { id: 'theirs', mine: false, text: "a teammate's" },
+    { id: 'kept', mine: true, text: 'still waits' },
+    { id: 'after-restart', mine: true, text: 'sent before a restart' },
+  ])
+
+  assert.deepEqual(
+    synced.queued?.map((item) => item.id),
+    ['kept', 'after-restart', 'sending'],
+  )
+  // The local copy keeps its attachments.
+  assert.deepEqual(synced.queued?.[0]?.filePaths, ['a.png'])
+  takeSideSend('side-sync')
 })

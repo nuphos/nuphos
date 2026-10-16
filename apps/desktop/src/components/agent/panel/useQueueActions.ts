@@ -5,7 +5,7 @@ import { parseAtlasError } from '../../../api/errors'
 import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
-import { withoutQueued } from './queuedAutoSend'
+import { showQueued, withoutQueued } from './queuedAutoSend'
 
 import type { PanelCtx } from './ctx'
 
@@ -48,14 +48,22 @@ export function useQueueActions({
       const tab = tabsRef.current.find((candidate) => candidate.id === tabId)
 
       if (!tab) return
+      const item = tab.queued?.find((candidate) => candidate.id === queuedId)
+
       setTabs((previous) =>
         previous.map((candidate) =>
           candidate.id === tabId ? withoutQueued(candidate, queuedId) : candidate,
         ),
       )
       await api.agentUnqueueMessage(tab.sessionId, queuedId, teamId).catch((error: unknown) => {
-        if (parseAtlasError(error).code !== 'not_found')
-          toast.apiError('Could not take the message back', error)
+        // A 404 means its turn started or it is gone; anything else, it still waits.
+        if (parseAtlasError(error).code === 'not_found' || !item) return
+        setTabs((previous) =>
+          previous.map((candidate) =>
+            candidate.id === tabId ? showQueued(candidate, item) : candidate,
+          ),
+        )
+        toast.apiError('Could not take the message back', error)
       })
     },
     [tabsRef, setTabs, teamId],

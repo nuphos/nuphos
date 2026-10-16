@@ -91,14 +91,23 @@ export function applyStreamEvent(
           agentSetupRequired: null,
         }
       }
-      if (evType === 'queued' || evType === 'runtime-not-ready') {
-        // The session was busy, or the runtime refused the start: the message
-        // waits at its place in the server queue, shown in the queue strip.
+      if (evType === 'queued') {
+        // The server holds the message in its queue: it waits in the queue strip.
         const nextTab = showTurnQueued(t, dispatchedDraft(streamId))
 
         queueTranscriptSync(nextTab, 250)
 
         return nextTab
+      }
+      if (evType === 'runtime-not-ready') {
+        // Refused and not queued: the server records the attempt, so the
+        // message stays where it is; the person sends it again.
+        if (!busyNoticeShownForStream.has(streamId)) {
+          busyNoticeShownForStream.add(streamId)
+          toast.error("The agent isn't ready yet", 'Your message was not sent. Send it again.')
+        }
+
+        return showTurnQueued(t, undefined)
       }
       if (evType === 'agent-setup-required') {
         const message =

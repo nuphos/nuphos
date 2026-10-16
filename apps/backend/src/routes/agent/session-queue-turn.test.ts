@@ -10,6 +10,7 @@ import {
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
 import { errorHandler } from '@/lib/errors'
+import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -203,4 +204,12 @@ test('a message id that could match another message is refused', async () => {
       body: { id: SESSION, messages: [message(id)], clientCapabilities: { serverQueue: true } },
     }),
   ).rejects.toMatchObject({ status: 400 })
+})
+
+test('a refused start of a queued message tells the client it waits, not that it was refused', () => {
+  const refused = refusal('Responding…')
+
+  expect(queuedRefusal(refused, { id: 'queued' })).toMatchObject({ code: 'message_queued' })
+  // Nothing was queued: the refusal stands, so the client knows to send again.
+  expect(queuedRefusal(refused, undefined)).toBe(refused)
 })

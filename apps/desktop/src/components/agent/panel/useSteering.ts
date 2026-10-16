@@ -83,7 +83,10 @@ export function useSteering({
         // The turn is usually over by now, or not this person's: send it as a message.
         setTabs((tabs) => tabs.map((t) => (t.id === tabId ? withoutQueued(t, queuedId) : t)))
         if (!isSteeringUnavailable(error))
-          toast.apiError('Could not steer the current turn; it was sent as a message', error)
+          toast.apiError(
+            'Could not steer the current turn; it was sent as a message at the back of the queue',
+            error,
+          )
         await fallback(tabId, text, filePaths)
       }
     },
