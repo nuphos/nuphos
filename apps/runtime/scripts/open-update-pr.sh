@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Opens (or refreshes) the pull request for a tested dependency update.
+# Opens the pull request for a tested dependency update, closing a stale one.
 #
 #   open-update-pr.sh <branch> <title> <path>...
 #
@@ -15,6 +15,13 @@ shift 2
 repo="$GITHUB_REPOSITORY"
 base="$(git rev-parse HEAD)"
 root="$(git rev-parse --show-toplevel)"
+
+# Close a stale update first: resetting an open pull request's head to main
+# makes GitHub mark it merged with nothing landed.
+stale="$(gh pr list --repo "$repo" --head "$branch" --state open --json number --jq '.[0].number // empty')"
+if [[ -n "$stale" ]]; then
+  gh pr close "$stale" --repo "$repo" --comment "Superseded by a newer update."
+fi
 
 if ! gh api -X PATCH "repos/$repo/git/refs/heads/$branch" -f sha="$base" -F force=true >/dev/null 2>&1; then
   gh api "repos/$repo/git/refs" -f ref="refs/heads/$branch" -f sha="$base" >/dev/null
@@ -45,9 +52,4 @@ process.stdout.write(
 JS
 
 body="Opened by the [$GITHUB_WORKFLOW run]($GITHUB_SERVER_URL/$repo/actions/runs/$GITHUB_RUN_ID) after the update passed its tests and image smoke test. Merging it releases the new runtime version."
-existing="$(gh pr list --repo "$repo" --head "$branch" --state open --json number --jq '.[0].number // empty')"
-if [[ -n "$existing" ]]; then
-  gh pr edit "$existing" --repo "$repo" --title "$title" --body "$body"
-else
-  gh pr create --repo "$repo" --base main --head "$branch" --title "$title" --body "$body"
-fi
+gh pr create --repo "$repo" --base main --head "$branch" --title "$title" --body "$body"
