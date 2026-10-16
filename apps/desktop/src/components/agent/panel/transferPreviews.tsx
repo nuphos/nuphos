@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { Play } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
@@ -12,9 +13,10 @@ import type { ReactNode } from 'react'
 // Inline previews for the images and videos in a transfer group, whichever
 // side sent it. Presigned URLs last minutes, so a preview that breaks after
 // its links have aged re-resolves them. Every image and video gets the same
-// box, drawn empty while the links resolve, and the preview steps through all
-// the images. `children` receives the names of the images and videos actually
-// previewed (null while resolving), so a card can list every other file as a row.
+// square, drawn empty while the links resolve; the preview opens any of them
+// full size and steps through all of them. `children` receives the names of
+// the images and videos actually previewed (null while resolving), so a card
+// can list every other file as a row.
 export function TransferPreviews({
   teamId,
   groupId,
@@ -54,7 +56,7 @@ export function TransferPreviews({
       <>
         <div className={rowClass}>
           {Array.from({ length: expected }, (_, i) => (
-            <ImageAttachmentThumb key={i} size="lg" fileName="" />
+            <ImageAttachmentThumb key={i} size="md" fileName="" />
           ))}
         </div>
         {children?.(null, null)}
@@ -64,47 +66,62 @@ export function TransferPreviews({
   const retry = () => {
     if (Date.now() - resolvedAt.current > 60_000) resolve()
   }
-  const images = files.flatMap((f) =>
-    previewKind(f) === 'image' && f.downloadUrl ? [{ ...f, url: f.downloadUrl }] : [],
+  const media = files.flatMap((f) =>
+    f.downloadUrl ? [{ ...f, url: f.downloadUrl, video: previewKind(f) === 'video' }] : [],
   )
 
   return (
     <>
-      {files.length > 0 && (
+      {media.length > 0 && (
         <div className={rowClass}>
-          {files.map((f) =>
-            previewKind(f) === 'video' ? (
-              <video
+          {media.map((f, i) =>
+            f.video ? (
+              <button
                 key={f.id}
-                src={f.downloadUrl}
-                controls
-                preload="metadata"
-                onError={retry}
+                type="button"
+                onClick={() => setPreview(i)}
                 title={f.fileName}
-                className={clsx(MEDIA_BOX, 'rounded-lg border border-zGray-800 bg-black')}
-              />
+                aria-label={`Play ${f.fileName}`}
+                className={clsx(
+                  MEDIA_BOX,
+                  'relative flex-shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-zGray-800 bg-black',
+                )}
+              >
+                <video
+                  src={f.url}
+                  preload="metadata"
+                  muted
+                  onError={retry}
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
+                    <Play className="ml-0.5 h-3.5 w-3.5 fill-current" strokeWidth={2} />
+                  </span>
+                </span>
+              </button>
             ) : (
               <ImageAttachmentThumb
                 key={f.id}
-                size="lg"
-                url={f.downloadUrl}
+                size="md"
+                url={f.url}
                 fileName={f.fileName}
-                onOpen={() => setPreview(images.findIndex((i) => i.id === f.id))}
+                onOpen={() => setPreview(i)}
                 onError={retry}
               />
             ),
           )}
           <ImageLightbox
-            images={images}
+            images={media}
             index={preview}
             onIndexChange={setPreview}
-            onDownload={onDownload && ((i) => onDownload(images[i]))}
+            onDownload={onDownload && ((i) => onDownload(media[i]))}
           />
         </div>
       )}
       {children?.(
-        new Set(images.map((f) => f.fileName)),
-        new Set(files.flatMap((f) => (previewKind(f) === 'video' ? [f.fileName] : []))),
+        new Set(media.flatMap((f) => (f.video ? [] : [f.fileName]))),
+        new Set(media.flatMap((f) => (f.video ? [f.fileName] : []))),
       )}
     </>
   )

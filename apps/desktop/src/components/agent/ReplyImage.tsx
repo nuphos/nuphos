@@ -92,7 +92,7 @@ export function ReplyImage({
         <img
           src={file.downloadUrl}
           alt={alt ?? file.fileName}
-          className={`object-contain ${FRAME}`}
+          className={`object-cover ${FRAME}`}
           onError={() => setError(true)}
         />
       </button>

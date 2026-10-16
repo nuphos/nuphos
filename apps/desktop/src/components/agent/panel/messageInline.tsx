@@ -46,7 +46,7 @@ export function AtlasMentionInline({
   return <span ref={hostRef} />
 }
 
-const THUMB_SIZE = { sm: 'h-12 w-12', lg: MEDIA_BOX } as const
+const THUMB_SIZE = { sm: 'h-12 w-12', md: MEDIA_BOX } as const
 
 // Shared thumbnail for image attachments — used both in the composer (with a
 // remove button) and in sent messages. Clicking calls `onOpen`; the caller owns
@@ -63,7 +63,7 @@ export function ImageAttachmentThumb({
   fileName: string
   onRemove?: () => void
   onOpen?: () => void
-  /** `lg` is the shared media preview box: the whole image, letterboxed. */
+  /** `md` is the shared media preview box. */
   size?: keyof typeof THUMB_SIZE
   onError?: () => void
 }) {
@@ -81,7 +81,7 @@ export function ImageAttachmentThumb({
               src={url}
               alt={fileName}
               onError={onError}
-              className={clsx('h-full w-full', size === 'lg' ? 'object-contain' : 'object-cover')}
+              className="h-full w-full object-cover"
             />
           </button>
         ) : (
@@ -108,6 +108,8 @@ export function ImageAttachmentThumb({
 export type LightboxImage = {
   url: string
   fileName: string
+  /** Played with controls instead of shown as a still. */
+  video?: boolean
 }
 
 const STEP_KEYS: Record<string, number> = {
@@ -169,11 +171,21 @@ export function ImageLightbox({
         >
           {image && (
             <>
-              <img
-                src={image.url}
-                alt={image.fileName}
-                className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-              />
+              {image.video ? (
+                <video
+                  key={image.url}
+                  src={image.url}
+                  controls
+                  autoPlay
+                  className="max-h-full max-w-full rounded-lg bg-black shadow-2xl"
+                />
+              ) : (
+                <img
+                  src={image.url}
+                  alt={image.fileName}
+                  className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+                />
+              )}
               {count > 1 && (
                 <>
                   <button
