@@ -345,3 +345,22 @@ test('a sealed answer opens only for the attempt it was sealed for', async () =>
   expect(() => openAnswer('attempt-2', sealed)).toThrow()
   expect(sealAnswer('attempt-1', 'AKIA-secret')).not.toBe(sealed)
 })
+
+test('an added agent is kept before its sign-in reads connected, and a failed keep fails it', async () => {
+  const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
+  const { deps } = dependencies()
+  const seen: (string | undefined)[] = []
+
+  deps.commit = async () => {
+    seen.push(docs[0]?.state)
+  }
+  await performRuntimeLogin(doc, deps)
+  expect(seen).toEqual(['awaiting_authorization'])
+  expect(docs[0]?.state).toBe('connected')
+
+  const retry = await claimRuntimeLogin('team', 'runtime', 'admin')
+
+  deps.commit = () => Promise.reject(new Error('The agent is not signed in yet'))
+  await performRuntimeLogin(retry, deps)
+  expect(docs[0]?.state).toBe('failed')
+})

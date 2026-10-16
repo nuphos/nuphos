@@ -32,6 +32,8 @@ export type RuntimeLoginDeps<Target> = {
   ) => Promise<void>
   /** Hands the running sign-in a line the user pasted, for a flow that needs one. */
   input?: (target: Target, doc: RuntimeLoginDoc, text: string) => Promise<void>
+  /** Keeps an added agent once it is signed in; defaults to its computer's host. */
+  commit?: (doc: RuntimeLoginDoc) => Promise<void>
 }
 
 /** Managed, self-hosted and local runtimes own their sign-in (a local one over its
@@ -82,9 +84,7 @@ async function commitAddedAgent(doc: RuntimeLoginDoc): Promise<void> {
   await commitLocalAgentInstance(
     { userId: ref.userId, actorId: doc.userId, deviceId: ref.deviceId, teamId: doc.teamId },
     ref.instanceId,
-  ).catch(() => {
-    /* The host also keeps it on its next probe; an abandoned one expires there. */
-  })
+  )
 }
 
 const loginDeps: RuntimeLoginDeps<ControlLoginTarget> = controlLoginTransport
@@ -177,6 +177,8 @@ export async function performRuntimeLogin<Target>(
     await updates
     if (!authenticated || updateFailed || controller.signal.aborted)
       throw new Error('Sign-in did not complete')
+    // Connected means the agent is kept: clients list it as soon as they see this.
+    await (deps.commit ?? commitAddedAgent)(doc)
     // The runtime installed the credential itself, so it is already in use.
     await runtimeLogins().updateOne(
       {
@@ -186,7 +188,6 @@ export async function performRuntimeLogin<Target>(
       },
       { $set: { state: 'connected' }, $unset: AUTHORIZATION_FIELDS },
     )
-    await commitAddedAgent(doc)
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },
