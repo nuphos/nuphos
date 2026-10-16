@@ -17,6 +17,7 @@ const status = {
     { display: 3, sessionId: 's2' },
   ],
 } as unknown as LocalRuntimeStatus
+const label = async () => 'Box 1'
 
 describe('session desktops', () => {
   test('a conversation sees only its own desktops on its Box, as running tools', async () => {
@@ -25,20 +26,24 @@ describe('session desktops', () => {
     await store.claim('u1', 'box-1', 'c1')
     expect(await store.put('u1', 'box-1', { conn: 'c1', status, seenAt: Date.now() })).toBe(true)
 
-    expect(await sessionDesktops({ sessionId: 's1', runtimeId })).toEqual([
+    expect(await sessionDesktops({ sessionId: 's1', runtimeId }, label)).toEqual([
       {
         id: 'desktop:2',
         kind: 'desktop',
-        title: 'Desktop',
+        title: 'Box 1 · :2',
         status: 'running',
         desktop: { display: 2, deviceId: 'box-1' },
       },
     ])
     const snapshot = { state: 'idle' as const, tools: [{ id: 't1' }] }
 
-    expect(await withSessionDesktops(snapshot, { sessionId: 's3', runtimeId })).toBe(snapshot)
+    expect(await withSessionDesktops(snapshot, { sessionId: 's3', runtimeId }, label)).toBe(
+      snapshot,
+    )
     expect(
-      (await withSessionDesktops(snapshot, { sessionId: 's2', runtimeId })).tools?.map((t) => t.id),
+      (await withSessionDesktops(snapshot, { sessionId: 's2', runtimeId }, label)).tools?.map(
+        (t) => t.id,
+      ),
     ).toEqual(['t1', 'desktop:3'])
   })
 

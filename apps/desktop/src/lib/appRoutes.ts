@@ -127,10 +127,10 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
     case 'terminal':
       return emptyNavigation(teamScope, 'team.terminal', rest[1] ? { filter: rest[1] } : {})
     case 'desktop':
-      return emptyNavigation(teamScope, 'team.desktop', {
-        ...(rest[1] ? { filter: rest[1] } : {}),
-        browserUrl: query.get('url') || undefined,
-      })
+      // A desktop always names its session display or Box; without one, the Boxes are on Agents.
+      return rest[1]
+        ? emptyNavigation(teamScope, 'team.desktop', { filter: rest[1] })
+        : emptyNavigation(teamScope, 'team.agents')
     case 'browser':
       return emptyNavigation(teamScope, `team.${rest[0]}`, {
         browserUrl: query.get('url') || undefined,
