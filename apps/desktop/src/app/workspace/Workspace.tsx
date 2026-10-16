@@ -57,7 +57,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
     teamsLoaded,
     onboardingActive,
     onboardingForced,
-    onboardingStepNonce,
+    onboardingNonce,
     landingCelebration,
     setLandingCelebration,
     loadTeams,
@@ -112,7 +112,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
     return (
       <>
         <OnboardingFlow
-          key={`onboarding-${String(onboardingStepNonce)}`}
+          key={`onboarding-${String(onboardingNonce)}`}
           user={user}
           dismissable={onboardingForced}
           onClose={closeOnboarding}

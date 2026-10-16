@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 // A piece of an agent message: plain text, or text with its own classes (e.g.
 // the violet "workspace" or the bold workspace name).
-export type StreamSegment = string | { text: string; className?: string }
+type StreamSegment = string | { text: string; className?: string }
 
 // ms between words while an agent message "types" itself out.
 const STREAM_WORD_TICK = 55

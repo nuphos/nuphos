@@ -50,7 +50,7 @@ export function useWorkspaceTabSync(a: Args) {
   const [onboardingForced, setOnboardingForced] = useState(false)
   // Bumped on every dev `onboarding()` call so the flow remounts from the
   // start even when it's already open.
-  const [onboardingStepNonce, setOnboardingStepNonce] = useState(0)
+  const [onboardingNonce, setOnboardingNonce] = useState(0)
   // One-shot confetti celebrating the acquisition of a new workspace — set by
   // every action that gains one (creating a team in onboarding or the picker,
   // accepting an invitation, joining a discoverable team), for owner and
@@ -221,8 +221,8 @@ export function useWorkspaceTabSync(a: Args) {
     setOnboardingActive,
     onboardingForced,
     setOnboardingForced,
-    onboardingStepNonce,
-    setOnboardingStepNonce,
+    onboardingNonce,
+    setOnboardingNonce,
     landingCelebration,
     setLandingCelebration,
     updateTab,

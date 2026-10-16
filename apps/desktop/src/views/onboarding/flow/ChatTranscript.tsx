@@ -26,10 +26,6 @@ export function ChatTranscript({
   workspaceMode: 'pick' | 'create'
 }) {
   const firstName = deriveFirstName(user)
-  // Greeting captured at mount: if the user rejects every invitation the cards
-  // vanish, but re-streaming a different greeting mid-conversation would read
-  // as the agent rewriting history.
-  const [greetWithJoinOptions] = useState(hasJoinOptions)
   // The bridge line below waits for the greeting to finish typing rather than
   // starting its own clock at mount — otherwise the two type over each other.
   const [greetingDone, setGreetingDone] = useState(false)
@@ -47,7 +43,7 @@ export function ChatTranscript({
         startDelay={300}
         onDone={markGreetingDone}
         segments={
-          greetWithJoinOptions
+          hasJoinOptions
             ? [
                 `Hi ${firstName || 'there'}! You have `,
                 { text: 'teams', className: 'text-zViolet-300' },
@@ -64,7 +60,7 @@ export function ChatTranscript({
       {/* Bridge line when the user leaves the pick screen for the create
           composer: the greeting above pitched the join list, so the agent
           acknowledges the switch instead of rewriting history. */}
-      {greetWithJoinOptions && workspaceMode === 'create' && greetingDone && (
+      {hasJoinOptions && workspaceMode === 'create' && greetingDone && (
         <StreamText
           reduce={reduce}
           startDelay={200}

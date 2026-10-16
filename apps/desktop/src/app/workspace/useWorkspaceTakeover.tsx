@@ -46,7 +46,7 @@ export function useWorkspaceTakeover(a: Args) {
     setOnboardingActive,
     setOnboardingForced,
     setLandingCelebration,
-    setOnboardingStepNonce,
+    setOnboardingNonce,
     switchTeam,
   } = a
 
@@ -205,7 +205,7 @@ export function useWorkspaceTakeover(a: Args) {
     }
     const hook = (() => {
       setOnboardingForced(true)
-      setOnboardingStepNonce((n) => n + 1)
+      setOnboardingNonce((n) => n + 1)
       setOnboardingActive(true)
     }) as OnboardingDevHook
 
@@ -227,7 +227,7 @@ export function useWorkspaceTakeover(a: Args) {
     setLandingCelebration,
     setOnboardingActive,
     setOnboardingForced,
-    setOnboardingStepNonce,
+    setOnboardingNonce,
   ])
 
   return {
