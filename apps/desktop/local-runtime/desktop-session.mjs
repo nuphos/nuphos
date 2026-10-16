@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 // A desktop per conversation on a Linux Box. Claude Code runs this as the
-// session's `nuphos-desktop` MCP server (see box-desktop-mcp.mjs): it takes a
-// display from the pool, brings up Xvnc + XFCE on it under the session's HOME,
-// then execs instabox's computer-use MCP (open-computer-use behind its proxy)
-// with DISPLAY set, so screenshots, input and the browser profile are the
-// session's own. When Claude Code ends the session the server dies with it and
-// the display is torn down. `reap` (run by the host) removes displays whose
-// owner is gone. Display :1 is instabox's own and is never touched.
+// session's `nuphos-desktop` MCP server (see box-desktop-mcp.mjs), relaying to
+// instabox's computer-use MCP (open-computer-use behind its proxy). Agents start
+// every MCP server with the session, so the desktop waits for the first tool
+// call: until then the server runs without a display, which is enough to list
+// its tools. That call takes a display from the pool, brings up Xvnc + XFCE on
+// it under the session's HOME and restarts the server there, so screenshots,
+// input and the browser profile are the session's own. When the agent ends the
+// session the server dies with it and the display is torn down. `reap` (run by
+// the host) removes displays whose owner is gone. Display :1 is instabox's own and is never touched.
 //
 //   desktop-session.mjs serve            env: NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL, NUPHOS_DESKTOP_POOL_SIZE, HOME
 //   desktop-session.mjs reap <pool>
 //   desktop-session.mjs list <pool>      JSON [{display, sessionId, since}]
 //   desktop-session.mjs open <pool> <sessionId> <pid>   prints the display
-//   desktop-session.mjs launch <command> [args…]   env: NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL, HOME
-//
-// `launch` is how the agent opens an app (a browser) from its shell: the
-// computer-use tools only drive apps that are already running, and the shell
-// has no DISPLAY of its own.
 //
 // `open` is a desktop the conversation's owner asked for by hand. Its lock
 // names the host's pid and is marked manual: it lives while someone watches it
@@ -139,11 +136,14 @@ export function teardown(pool, display) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** What a process on `display` runs with: the display's session bus and XDG dirs under `home`. */
-export function displayEnv(pool, display, home) {
+/** Xvnc, a session bus and XFCE on `display`, detached, under `home`; idempotent. */
+export async function startDisplay(pool, display, home) {
+  const socket = `/tmp/.X11-unix/X${String(display)}`
   const xdg = xdgDir(pool, display)
 
-  return {
+  mkdirSync(xdg, { recursive: true, mode: 0o700 })
+  mkdirSync(home, { recursive: true, mode: 0o700 })
+  const env = {
     PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
     HOME: home,
     USER: process.env.USER ?? os.userInfo().username,
@@ -156,20 +156,8 @@ export function displayEnv(pool, display, home) {
     XDG_SESSION_TYPE: 'x11',
     LANG: process.env.LANG ?? 'C.UTF-8',
   }
-}
-
-const detach = (command, args, env) =>
-  spawn(command, args, { env, detached: true, stdio: 'ignore' }).unref()
-
-/** Xvnc, a session bus and XFCE on `display`, detached, under `home`; idempotent. */
-export async function startDisplay(pool, display, home) {
-  const socket = `/tmp/.X11-unix/X${String(display)}`
-  const xdg = xdgDir(pool, display)
-
-  mkdirSync(xdg, { recursive: true, mode: 0o700 })
-  mkdirSync(home, { recursive: true, mode: 0o700 })
-  const env = displayEnv(pool, display, home)
-  const detached = (command, args) => detach(command, args, env)
+  const detached = (command, args) =>
+    spawn(command, args, { env, detached: true, stdio: 'ignore' }).unref()
 
   if (!existsSync(socket)) {
     rmSync(`/tmp/.X${String(display)}-lock`, { force: true })
@@ -220,43 +208,207 @@ function xfceRunning(display) {
   return (out.stdout ?? '').includes('yes')
 }
 
+const LAUNCH_APP = {
+  name: 'launch_app',
+  description:
+    'Start an app on this conversation’s own desktop, which the user watches in Nuphos: a browser is `chromium` with the URL in args. The other tools only drive apps that are already running; call get_app_state on it next.',
+  inputSchema: {
+    type: 'object',
+    properties: { command: { type: 'string' }, args: { type: 'array', items: { type: 'string' } } },
+    required: ['command'],
+  },
+}
+const INSTRUCTIONS =
+  'These tools drive this conversation’s own desktop on its Box; it starts on the first call. Open apps with launch_app, never from the shell or on DISPLAY=:1.'
+const REPLAY_ID = 'nuphos-desktop-replay'
+
+const toolResult = (id, text, isError = false) => ({
+  jsonrpc: '2.0',
+  id,
+  result: { content: [{ type: 'text', text }], ...(isError && { isError }) },
+})
+
+/** Hands each JSON line of `stream` to `onLine`. */
+function lines(stream, onLine) {
+  let rest = ''
+
+  stream.setEncoding('utf8')
+  stream.on('data', (chunk) => {
+    const parts = (rest + chunk).split('\n')
+
+    rest = parts.pop() ?? ''
+    for (const line of parts) {
+      let message
+
+      try {
+        message = JSON.parse(line)
+      } catch {
+        continue // Not a JSON-RPC message; MCP stdio carries nothing else.
+      }
+      onLine(message)
+    }
+  })
+}
+
+/** Starts `argv` detached under `env`; resolves once it runs, rejects if it cannot. */
+export function startApp(argv, env) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(argv[0], argv.slice(1), { env, detached: true, stdio: 'ignore' })
+
+    child.once('spawn', () => {
+      child.unref()
+      resolve()
+    })
+    child.once('error', reject)
+  })
+}
+
+/**
+ * The MCP traffic between the agent (`send` writes to it) and the computer-use
+ * server, which `start(env)` runs: first without a display, then on the one
+ * `desktop()` brings up for the first tool call. The server is told the
+ * handshake again after the switch; launch_app is answered here.
+ */
+export function desktopRelay({ send, start, desktop }) {
+  const handshake = []
+  const ids = { list: new Set(), init: new Set() }
+  let server = start(null)
+  let ready = null
+  let switching = null
+
+  const fromServer = (message) => {
+    if (message.id === REPLAY_ID) return
+    if (ids.list.delete(message.id) && message.result?.tools)
+      message.result.tools = [...message.result.tools, LAUNCH_APP]
+    if (ids.init.delete(message.id) && message.result)
+      message.result.instructions = [message.result.instructions, INSTRUCTIONS]
+        .filter(Boolean)
+        .join('\n\n')
+    send(message)
+  }
+  const call = async (message) => {
+    try {
+      ready ??= await (switching ??= desktop().finally(() => {
+        switching = null
+      }))
+    } catch (error) {
+      send(toolResult(message.id, error instanceof Error ? error.message : String(error), true))
+
+      return
+    }
+    if (server.env !== ready.env) {
+      server.kill()
+      server = start(ready.env)
+      server.onMessage(fromServer)
+      for (const line of handshake) server.send(line)
+    }
+    if (message.params?.name !== LAUNCH_APP.name) {
+      server.send(message)
+
+      return
+    }
+    const { command, args = [] } = message.params.arguments ?? {}
+
+    await startApp([command, ...args], ready.env).then(
+      () =>
+        send(toolResult(message.id, `Started ${command} on display :${String(ready.display)}.`)),
+      (error) => send(toolResult(message.id, `Could not start ${command}: ${error.message}`, true)),
+    )
+  }
+  let queue = Promise.resolve()
+
+  server.onMessage(fromServer)
+
+  return {
+    /** One message from the agent, in order: calls wait for the desktop, the rest go on. */
+    receive(message) {
+      if (message.method === 'initialize') {
+        ids.init.add(message.id)
+        handshake.push({ ...message, id: REPLAY_ID })
+      } else if (message.method === 'notifications/initialized') handshake.push(message)
+      else if (message.method === 'tools/list') ids.list.add(message.id)
+      queue = queue.then(() =>
+        message.method === 'tools/call' ? call(message) : server.send(message),
+      )
+
+      return queue
+    },
+    get display() {
+      return ready?.display ?? null
+    },
+    server: () => server,
+  }
+}
+
+/** The computer-use server as a child process, on `env`'s display or none. */
+function computerUse(env) {
+  const child = spawn('python3', ['-I', PROXY, '--', SERVER, 'mcp'], {
+    env: {
+      PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+      HOME: process.env.HOME,
+      ...env,
+      OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS: '1',
+      NO_AT_BRIDGE: '0',
+    },
+    stdio: ['pipe', 'pipe', 'inherit'],
+  })
+
+  return {
+    env,
+    child,
+    send: (message) => child.stdin.write(`${JSON.stringify(message)}\n`),
+    onMessage: (handle) => lines(child.stdout, handle),
+    kill: () => {
+      child.removeAllListeners('exit')
+      child.kill('SIGTERM')
+    },
+  }
+}
+
 async function serve() {
   const { NUPHOS_SESSION_ID: sessionId, NUPHOS_DESKTOP_POOL: pool, HOME: home } = process.env
   const size = Number(process.env.NUPHOS_DESKTOP_POOL_SIZE) || os.cpus().length
 
   if (!sessionId || !pool || !home)
     throw new Error('desktop-session: NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL and HOME are required')
-  const display = claimDisplay(pool, sessionId, size)
-
-  if (display === null) {
-    // No slot: answer the agent's first request with an MCP error instead of hanging.
-    process.stdin.on('data', (chunk) => {
-      for (const line of String(chunk).split('\n')) {
-        const id = /"id"\s*:\s*("[^"]*"|\d+)/u.exec(line)?.[1]
-
-        if (id)
-          process.stdout.write(
-            `${JSON.stringify({ jsonrpc: '2.0', id: JSON.parse(id), error: { code: -32000, message: `This Box has no free desktop (${String(size)} in use); wait for a session to end or use another Box.` } })}\n`,
-          )
-      }
-    })
-
-    return
-  }
-  const env = await startDisplay(pool, display, home)
-  const proxy = spawn('python3', ['-I', PROXY, '--', SERVER, 'mcp'], {
-    env: { ...env, OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS: '1', NO_AT_BRIDGE: '0' },
-    stdio: 'inherit',
-  })
+  let relay
   const end = () => {
-    proxy.kill('SIGTERM')
-    teardown(pool, display)
+    relay?.server().kill()
+    if (relay?.display != null) teardown(pool, relay.display)
     process.exit(0)
   }
+  const watched = (env) => {
+    const server = computerUse(env)
 
-  // stdin belongs to the proxy (inherited); it exits when Claude Code closes it.
+    server.child.on('exit', end)
+
+    return server
+  }
+
+  relay = desktopRelay({
+    send: (message) => process.stdout.write(`${JSON.stringify(message)}\n`),
+    start: watched,
+    desktop: async () => {
+      const display = claimDisplay(pool, sessionId, size)
+
+      if (display === null)
+        throw new Error(
+          `All ${String(size)} desktops on this Box are in use; one frees when its conversation ends.`,
+        )
+      try {
+        return { display, env: await startDisplay(pool, display, home) }
+      } catch (error) {
+        teardown(pool, display)
+        throw error
+      }
+    },
+  })
+  lines(process.stdin, (message) => {
+    void relay.receive(message)
+  })
+  // The agent closing stdin ends the session's desktop.
+  process.stdin.on('end', end)
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, end)
-  proxy.on('exit', end)
 }
 
 /** Displays whose session is gone, ones opened by hand nobody watched lately, and Xvnc servers (:2 and up) that no session holds. */
@@ -298,44 +450,19 @@ export async function open(pool, sessionId, pid) {
   return display
 }
 
-/** Starts `argv` on the session's own desktop, detached; returns the display. */
-export function launch(pool, sessionId, home, argv) {
-  const display = listDesktops(pool).find((desktop) => desktop.sessionId === sessionId)?.display
-
-  if (display === undefined)
-    throw new Error('desktop-session: this session has no desktop yet; it starts with the session')
-  if (argv.length === 0) throw new Error('usage: desktop-session.mjs launch <command> [args…]')
-  detach(argv[0], argv.slice(1), displayEnv(pool, display, home))
-
-  return display
-}
-
 const [command, argument, ...rest] = process.argv.slice(2)
 
 if (command === 'serve') await serve()
 else if (command === 'reap') reap(argument ?? process.env.NUPHOS_DESKTOP_POOL)
 else if (command === 'open')
   process.stdout.write(`${String(await open(argument, rest[0], Number(rest[1])))}\n`)
-else if (command === 'launch') {
-  const { NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL, HOME } = process.env
-
-  process.stdout.write(
-    `Started on display :${String(
-      launch(
-        NUPHOS_DESKTOP_POOL,
-        NUPHOS_SESSION_ID,
-        HOME,
-        [argument, ...rest].filter((part) => part !== undefined),
-      ),
-    )}\n`,
-  )
-} else if (command === 'list')
+else if (command === 'list')
   process.stdout.write(
     `${JSON.stringify(listDesktops(argument ?? process.env.NUPHOS_DESKTOP_POOL))}\n`,
   )
 else if (command !== undefined) {
   process.stderr.write(
-    'usage: desktop-session.mjs serve | reap <pool> | list <pool> | open <pool> <sessionId> <pid> | launch <command> [args…]\n',
+    'usage: desktop-session.mjs serve | reap <pool> | list <pool> | open <pool> <sessionId> <pid>\n',
   )
   process.exit(2)
 }

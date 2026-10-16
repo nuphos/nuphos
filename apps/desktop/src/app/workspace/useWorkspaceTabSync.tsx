@@ -79,7 +79,7 @@ export function useWorkspaceTabSync(a: Args) {
   )
 
   // A desktop tab follows the conversation's runtime snapshot: it opens when the
-  // session holds a desktop and closes when that desktop is torn down.
+  // session's desktop appears and closes when that desktop is torn down.
   useEffect(() => {
     syncDesktopTabs(workspaceStore)
 

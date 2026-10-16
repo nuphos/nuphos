@@ -51,7 +51,7 @@ test('without a pool, a session id or servers, nothing changes', () => {
   assert.equal(nuphosBoxDesktopMcpServers(own, { NUPHOS_SESSION_ID: 's1' }, box), own)
 })
 
-test('Codex on a Box gets the same computer-use server, from its session env', () => {
+test('Codex on a Box gets the same nuphos-desktop server, from its session env', () => {
   const handoff = (fallback) =>
     `config: nuphosCodexSessionConfig(await this.createSessionConfig(request.cwd, additionalDirectories, nuphosBridgeMcpServers(request.mcpServers${fallback})), request._meta),`
   // What the runtime's codex patch leaves in the bundle: its session-home helper, inlined.

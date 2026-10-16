@@ -14,7 +14,7 @@ import { test } from 'node:test'
 import {
   MANUAL_IDLE_MS,
   claimDisplay,
-  launch,
+  desktopRelay,
   listDesktops,
   lockFile,
   readLock,
@@ -87,14 +87,135 @@ test('a desktop opened by hand is one slot, adopted by the session and freed whe
   )
 })
 
-test('launch starts a command on the session’s own display, and refuses without one', async () => {
+/** A stand-in computer-use server: answers the handshake and tool list, echoes calls with its display. */
+function fakeServers() {
+  const started = []
+  const start = (env) => {
+    let handle
+    const server = {
+      env,
+      got: [],
+      killed: false,
+      send(message) {
+        server.got.push(message)
+        const display = env?.DISPLAY ?? 'none'
+
+        if (message.method === 'initialize')
+          handle({ id: message.id, result: { instructions: 'computer use' } })
+        if (message.method === 'tools/list')
+          handle({ id: message.id, result: { tools: [{ name: 'click' }] } })
+        if (message.method === 'tools/call')
+          handle({ id: message.id, result: { content: [{ type: 'text', text: display }] } })
+      },
+      onMessage(h) {
+        handle = h
+      },
+      kill() {
+        server.killed = true
+      },
+    }
+
+    started.push(server)
+
+    return server
+  }
+
+  return { started, start }
+}
+
+const handshake = [
+  { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+  { jsonrpc: '2.0', method: 'notifications/initialized' },
+  { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+]
+
+test('the desktop waits for the first tool call; listing tools needs none', async () => {
+  const { started, start } = fakeServers()
+  const sent = []
+  let claims = 0
+  const relay = desktopRelay({
+    send: (message) => sent.push(message),
+    start,
+    desktop: () => {
+      claims++
+
+      return Promise.resolve({ display: 3, env: { DISPLAY: ':3' } })
+    },
+  })
+
+  for (const message of handshake) await relay.receive(message)
+  assert.equal(claims, 0)
+  assert.equal(relay.display, null)
+  assert.match(sent[0].result.instructions, /^computer use\n\n.+launch_app/su)
+  assert.deepEqual(
+    sent[1].result.tools.map((tool) => tool.name),
+    ['click', 'launch_app'],
+  )
+
+  await relay.receive({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'click' } })
+  await relay.receive({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'click' } })
+  assert.equal(claims, 1)
+  assert.equal(relay.display, 3)
+  // The display-less server is replaced by one on the desktop, told the handshake again.
+  assert.equal(started.length, 2)
+  assert.equal(started[0].killed, true)
+  assert.deepEqual(
+    started[1].got.map((message) => message.method),
+    ['initialize', 'notifications/initialized', 'tools/call', 'tools/call'],
+  )
+  // Its reply to the replayed handshake stays here; the calls' replies reach the agent.
+  assert.deepEqual(
+    sent.slice(2).map((message) => [message.id, message.result.content[0].text]),
+    [
+      [3, ':3'],
+      [4, ':3'],
+    ],
+  )
+})
+
+test('a full pool answers the call that needs a desktop, and the next call tries again', async () => {
+  const { start } = fakeServers()
+  const sent = []
+  let free = false
+  const relay = desktopRelay({
+    send: (message) => sent.push(message),
+    start,
+    desktop: () =>
+      free
+        ? Promise.resolve({ display: 2, env: { DISPLAY: ':2' } })
+        : Promise.reject(new Error('All 4 desktops on this Box are in use')),
+  })
+
+  await relay.receive({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'click' } })
+  assert.equal(sent[0].result.isError, true)
+  assert.match(sent[0].result.content[0].text, /All 4 desktops/u)
+  free = true
+  await relay.receive({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'click' } })
+  assert.equal(sent[1].result.content[0].text, ':2')
+})
+
+test('launch_app starts the app on the session’s display and reports one that cannot start', async () => {
   const pool = mkdtempSync(path.join(os.tmpdir(), 'desktops-'))
   const out = path.join(pool, 'out')
+  const sent = []
+  const relay = desktopRelay({
+    send: (message) => sent.push(message),
+    start: fakeServers().start,
+    desktop: () => Promise.resolve({ display: 5, env: { DISPLAY: ':5', PATH: process.env.PATH } }),
+  })
+  const launch = (id, command, args) =>
+    relay.receive({
+      jsonrpc: '2.0',
+      id,
+      method: 'tools/call',
+      params: { name: 'launch_app', arguments: { command, args } },
+    })
 
-  claimDisplay(pool, 's1', 3)
-  claimDisplay(pool, 's2', 3)
-  assert.equal(launch(pool, 's2', pool, ['sh', '-c', `echo "$DISPLAY $HOME" > ${out}`]), 3)
+  await launch(1, 'sh', ['-c', `echo "$DISPLAY" > ${out}`])
+  assert.equal(sent[0].result.content[0].text, 'Started sh on display :5.')
   for (let i = 0; i < 50 && !existsSync(out); i++) await new Promise((r) => setTimeout(r, 20))
-  assert.equal(readFileSync(out, 'utf8'), `:3 ${pool}\n`)
-  assert.throws(() => launch(pool, 's9', pool, ['true']), /no desktop yet/u)
+  assert.equal(readFileSync(out, 'utf8'), ':5\n')
+  await launch(2, 'no-such-app-xyz', [])
+  assert.equal(sent[1].result.isError, true)
+  assert.match(sent[1].result.content[0].text, /Could not start no-such-app-xyz: .*ENOENT/u)
 })
