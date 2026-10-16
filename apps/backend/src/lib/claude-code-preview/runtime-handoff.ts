@@ -26,6 +26,8 @@ export const HANDOFF_SETTLE_MS = 1_000
 export const HANDOFF_TTL_MS = 30 * 60_000
 const ADOPT_INTERVAL_MS = 2_000
 const MAX_ADOPT_ATTEMPTS = 5
+/** Shutdown has seconds to spare; a runtime that cannot answer by then is not waited for. */
+const RUNTIME_STATE_PROBE_MS = 1_000
 
 const queued: RuntimeHandoff[] = []
 const field = (handoff: Pick<RuntimeHandoff, 'teamId' | 'conversationId'>) =>
@@ -36,11 +38,44 @@ export function queueRuntimeHandoff(handoff: Omit<RuntimeHandoff, 'at'>): void {
 }
 
 /**
+ * A session with no turn here can still have work the runtime owns: a
+ * background task whose completion it continues on its own, or that
+ * continuation already running. Its output goes to the connection that last
+ * resumed the session, so once this replica exits the runtime parks it as
+ * "output connection lost" until something resumes the session again. Hand
+ * those on as well; an idle session needs nobody.
+ */
+async function queueRuntimeOwnedWork(): Promise<void> {
+  const handedOff = new Set(queued.map(field))
+
+  await Promise.all(
+    [...sessionsByConversation.values()]
+      .filter((session) => !handedOff.has(field(session)))
+      .map(async (session) => {
+        const state = await Promise.race([
+          session.client.getSessionExecutionState(session.openabSessionId).catch(() => null),
+          Bun.sleep(RUNTIME_STATE_PROBE_MS).then(() => null),
+        ])
+
+        if (state?.state !== 'active' && state?.phase !== 'background_tools') return
+        queueRuntimeHandoff({
+          teamId: session.teamId,
+          conversationId: session.conversationId,
+          ownerUserId: session.conversationOwnerUserId ?? session.userId,
+          actorUserId: session.userId,
+          locale: session.locale,
+        })
+      }),
+  )
+}
+
+/**
  * Close this replica's transports to the handed-off sessions, then advertise
  * them. Closing first matters: the gateway routes a running turn's output to
  * the connection that started it until that connection goes away.
  */
 export async function publishRuntimeHandoffs(): Promise<number> {
+  await queueRuntimeOwnedWork()
   const handoffs = queued.splice(0)
   const clients = new Set<TeamPreviewClient>()
 
