@@ -661,6 +661,15 @@ test('legacy /chats paths resolve to the Agent page', () => {
   assert.equal(pageLocationForNavigation(reading!).href, `/teams/${T}/agent/sess-1`)
 })
 
+test('a desktop route without a target opens Agents, never a targetless desktop', () => {
+  for (const path of [
+    `/teams/${T}/desktop`,
+    `/teams/${T}/desktop?url=https%3A%2F%2Fbox.example%2Fs`,
+  ])
+    assert.equal(navigationFromAppPath(path)?.active, 'team.agents')
+  assert.equal(navigationFromAppPath(`/teams/${T}/desktop/3`)?.filter, '3')
+})
+
 test('route table round-trips: produce → parse → produce is a fixed point', () => {
   for (const { name, nav } of CASES) {
     const location = pageLocationForNavigation(nav)

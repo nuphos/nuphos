@@ -259,15 +259,6 @@ function BoxDesktopView({ teamId, deviceId }: { teamId: string; deviceId: string
 
 /** `filter` is a session's X display number, or the Box whose whole desktop this is. */
 export function DesktopView({ teamId, filter }: { teamId: string; filter: string }) {
-  if (!filter)
-    return (
-      <PageMeta pageKey="team.desktop" title="Desktop" icon={<Monitor className="h-3.5 w-3.5" />}>
-        <p role="status" className="p-4 text-sm text-secondary">
-          Open a running Box’s desktop from Agents.
-        </p>
-      </PageMeta>
-    )
-
   return /^\d+$/u.test(filter) ? (
     <SessionDesktopView teamId={teamId} display={Number(filter)} />
   ) : (

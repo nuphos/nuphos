@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { beforeEach, test } from 'node:test'
 
 import { serializeWorkspace } from '../../workspacePersistence.ts'
-import { createWorkspaceTab } from '../../workspaceTabFactory.ts'
+import { emptyNavigation } from '../../../lib/app-routes/parseShared.ts'
+import { createWorkspaceTab, createWorkspaceTabFromNavigation } from '../../workspaceTabFactory.ts'
 import {
   LEGACY_WORKSPACE_TABS_STORAGE_KEY,
   NO_SESSION_TAB_BUCKET_KEY,
@@ -127,4 +128,44 @@ test('round-trips through the per-session storage key', () => {
 
   assert.equal(reloaded.buckets['session-a'].tabs.length, 2)
   assert.equal(reloaded.buckets['session-a'].activeTabId, reloaded.buckets['session-a'].tabs[1].id)
+})
+
+const desktopTab = (options: { filter?: string; browserUrl?: string }) =>
+  createWorkspaceTabFromNavigation(
+    emptyNavigation({ kind: 'team', teamId: TEAM }, 'team.desktop', options),
+  )
+
+test('a desktop tab without a target is dropped on restore; one with a target stays', () => {
+  // Before desktops named their Box, a Box desktop held only its expiring link.
+  const tabs = [
+    desktopTab({ browserUrl: 'https://box.example/stream?token=old' }),
+    desktopTab({ filter: 'box-device-1' }),
+    desktopTab({ filter: '3' }),
+  ]
+  const persisted = serializeWorkspace(tabs, tabs[0].id)
+
+  assert.ok(persisted)
+  const bucket = hydrateWorkspaceState({ 'session-a': persisted }).buckets['session-a']
+
+  assert.deepEqual(
+    bucket.tabs.map((tab) => tab.filter),
+    ['box-device-1', '3'],
+  )
+  assert.equal(bucket.activeTabId, bucket.tabs[0].id)
+})
+
+test('a targetless desktop in a tab’s history is dropped and the current page kept', () => {
+  const persisted = serializeWorkspace([desktopTab({ filter: '3' })], null)
+
+  assert.ok(persisted)
+  const [entry] = persisted.tabs
+  const target = entry.navHistory[0]
+
+  entry.navHistory = [{ ...target, filter: '' }, target]
+  entry.navHistoryIndex = 1
+  const restored = hydrateWorkspaceState({ 'session-a': persisted }).buckets['session-a'].tabs[0]
+
+  assert.equal(restored.filter, '3')
+  assert.equal(restored.navHistory.length, 1)
+  assert.equal(restored.navHistoryIndex, 0)
 })
