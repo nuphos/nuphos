@@ -8,7 +8,6 @@ import {
 } from '../../lib/sessionDesktops.ts'
 
 import { openSessionDesktop } from './openSessionDesktop.ts'
-
 import { selectBucket, createWorkspaceState } from './store/workspaceState.ts'
 import { createWorkspaceStore } from './store/workspaceStore.ts'
 import { syncDesktopTabs } from './syncDesktopTabs.ts'
@@ -17,7 +16,10 @@ test('a desktop tab appears in the session dock when the desktop opens and goes 
   const store = createWorkspaceStore(createWorkspaceState())
 
   store.actions.retainTeams(['team-a'], 'team-a')
-  publishSessionDesktops('chat', { teamId: 'team-a', displays: [3] })
+  publishSessionDesktops('chat', {
+    teamId: 'team-a',
+    desktops: [{ display: 3, title: 'Box 1 · :3' }],
+  })
   syncDesktopTabs(store)
   const dock = selectBucket(store.getState(), 'chat')
 
@@ -29,7 +31,7 @@ test('a desktop tab appears in the session dock when the desktop opens and goes 
   // The same snapshot again changes nothing.
   syncDesktopTabs(store)
   assert.equal(selectBucket(store.getState(), 'chat').tabs.length, 1)
-  publishSessionDesktops('chat', { teamId: 'team-a', displays: [] })
+  publishSessionDesktops('chat', { teamId: 'team-a', desktops: [] })
   syncDesktopTabs(store)
   assert.equal(selectBucket(store.getState(), 'chat').tabs.length, 0)
   publishSessionDesktops('chat', null)
@@ -47,9 +49,9 @@ test('opening a desktop by hand claims one display, and a second click focuses i
 
   store.actions.retainTeams(['team-a'], 'team-a')
   // A conversation whose agent has no desktop pool offers no entry.
-  publishSessionDesktops('plain', { teamId: 'team-a', displays: [] })
+  publishSessionDesktops('plain', { teamId: 'team-a', desktops: [] })
   assert.equal(canOpenSessionDesktop('plain'), false)
-  publishSessionDesktops('chat', { teamId: 'team-a', displays: [], canOpen: true })
+  publishSessionDesktops('chat', { teamId: 'team-a', desktops: [], canOpen: true })
   assert.equal(canOpenSessionDesktop('chat'), true)
 
   await openSessionDesktop('team-a', 'chat', request)

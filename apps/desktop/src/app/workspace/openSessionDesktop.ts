@@ -15,14 +15,17 @@ export async function openSessionDesktop(
   sessionId: string,
   request: (teamId: string, sessionId: string) => Promise<{ display: number }>,
 ): Promise<void> {
-  let display = readSessionDesktops().get(sessionId)?.displays[0]
+  let display = readSessionDesktops().get(sessionId)?.desktops[0]?.display
 
   if (display === undefined) {
     display = (await request(teamId, sessionId)).display
     const known = readSessionDesktops().get(sessionId)
 
-    if (known && !known.displays.includes(display))
-      publishSessionDesktops(sessionId, { ...known, displays: [...known.displays, display] })
+    if (known && !known.desktops.some((desktop) => desktop.display === display))
+      publishSessionDesktops(sessionId, {
+        ...known,
+        desktops: [...known.desktops, { display, title: `:${String(display)}` }],
+      })
   }
   focusSessionDesktop(sessionId, display)
 }

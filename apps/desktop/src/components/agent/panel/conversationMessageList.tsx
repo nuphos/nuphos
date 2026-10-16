@@ -71,7 +71,7 @@ export function ConversationMessageList({
     if (teamId)
       publishSessionDesktops(tab.sessionId, {
         teamId,
-        displays: desktopsFromRuntimeState(tab.runtimeState),
+        desktops: desktopsFromRuntimeState(tab.runtimeState),
         canOpen: tab.runtimeState?.canOpenDesktop === true,
       })
   }, [tab.sessionId, teamId, tab.runtimeState])

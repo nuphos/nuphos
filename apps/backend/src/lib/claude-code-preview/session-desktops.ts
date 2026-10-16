@@ -6,10 +6,15 @@
 
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { getAgentDevice } from '@/lib/agent/devices/store'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 
 export type DesktopOwner = { sessionId: string; runtimeId?: string | null }
+type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefined>
+
+const storedLabel: DeviceLabel = async (userId, deviceId) =>
+  (await getAgentDevice(userId, deviceId))?.label
 
 /** The conversation's desktops, and whether its Box runs a desktop pool it could open one from. */
 export type SessionDesktops = {
@@ -19,26 +24,32 @@ export type SessionDesktops = {
 
 const NONE: SessionDesktops = { tools: [], canOpen: false }
 
-export async function sessionDesktops(conversation: DesktopOwner): Promise<SessionDesktops> {
+/** Each entry's title names the machine and the display, e.g. "Box 1 · :3". */
+export async function sessionDesktops(
+  conversation: DesktopOwner,
+  deviceLabel = storedLabel,
+): Promise<SessionDesktops> {
   const ref = conversation.runtimeId ? parseLocalRuntimeId(conversation.runtimeId) : undefined
 
   if (!ref) return NONE
   // A host reports `desktops` only where it runs a desktop pool.
-  const desktops = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status?.desktops
+  const pool = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status?.desktops
 
-  if (!desktops) return NONE
+  if (!pool) return NONE
+  const desktops = pool.filter((desktop) => desktop.sessionId === conversation.sessionId)
+
+  if (!desktops.length) return { tools: [], canOpen: true }
+  const label = (await deviceLabel(ref.userId, ref.deviceId)) ?? 'Desktop'
 
   return {
     canOpen: true,
-    tools: desktops
-      .filter((desktop) => desktop.sessionId === conversation.sessionId)
-      .map((desktop) => ({
-        id: `desktop:${String(desktop.display)}`,
-        kind: 'desktop',
-        title: 'Desktop',
-        status: 'running',
-        desktop: { display: desktop.display, deviceId: ref.deviceId },
-      })),
+    tools: desktops.map((desktop) => ({
+      id: `desktop:${String(desktop.display)}`,
+      kind: 'desktop',
+      title: `${label} · :${String(desktop.display)}`,
+      status: 'running',
+      desktop: { display: desktop.display, deviceId: ref.deviceId },
+    })),
   }
 }
 
@@ -59,8 +70,9 @@ export function withDesktops<T extends SessionExecutionState>(
 export async function withSessionDesktops<T extends SessionExecutionState>(
   snapshot: T,
   conversation: DesktopOwner,
+  deviceLabel = storedLabel,
 ): Promise<T> {
-  return withDesktops(snapshot, await sessionDesktops(conversation))
+  return withDesktops(snapshot, await sessionDesktops(conversation, deviceLabel))
 }
 
 /**

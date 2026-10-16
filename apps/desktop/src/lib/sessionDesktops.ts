@@ -3,8 +3,10 @@
 // session opens a desktop and goes when the desktop is torn down, the way a
 // shell tab follows its PTY. Nothing is persisted; the snapshot is the source.
 
+/** `title` names the machine and the display, e.g. "Box 1 · :3". */
+export type SessionDesktop = { display: number; title: string }
 /** `canOpen`: its Box runs a desktop pool, so the owner may open one by hand. */
-export type SessionDesktops = { teamId: string; displays: number[]; canOpen?: boolean }
+export type SessionDesktops = { teamId: string; desktops: SessionDesktop[]; canOpen?: boolean }
 
 const DESKTOP_PAGE = 'team.desktop'
 const bySession = new Map<string, SessionDesktops>()
@@ -20,7 +22,7 @@ export function publishSessionDesktops(sessionId: string, desktops: SessionDeskt
   const before = bySession.get(sessionId)
   const same = desktops
     ? before?.teamId === desktops.teamId &&
-      String(before.displays) === String(desktops.displays) &&
+      JSON.stringify(before.desktops) === JSON.stringify(desktops.desktops) &&
       before.canOpen === desktops.canOpen
     : !before
 
@@ -58,6 +60,11 @@ export function readSessionDesktops(): ReadonlyMap<string, SessionDesktops> {
   return bySession
 }
 
+/** The title the session's snapshot gives a display, while it still holds it. */
+export function sessionDesktopTitle(sessionId: string, display: number): string | undefined {
+  return bySession.get(sessionId)?.desktops.find((desktop) => desktop.display === display)?.title
+}
+
 export type DesktopTabPlan = {
   open: { sessionId: string; teamId: string; display: number }[]
   close: string[]
@@ -70,8 +77,9 @@ export function planDesktopTabs(
 ): DesktopTabPlan {
   const plan: DesktopTabPlan = { open: [], close: [] }
 
-  for (const [sessionId, { teamId, displays }] of sessions) {
+  for (const [sessionId, { teamId, desktops }] of sessions) {
     const tabs = tabsOf(sessionId)
+    const displays = desktops.map((desktop) => desktop.display)
     const wanted = new Set(displays.map((display) => desktopTabId(sessionId, display)))
 
     for (const tab of tabs) {
