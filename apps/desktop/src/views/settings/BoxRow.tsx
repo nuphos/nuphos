@@ -163,12 +163,12 @@ export function BoxRow({
                 Pause
               </MenuItem>
             )}
-            {/* A Box can always be deleted, a stuck one most of all; a computer once offline. */}
-            {(cloud || !device.online) && (
+            {/* A Box can always be deleted, a stuck one most of all. */}
+            {cloud && (
               <>
                 <MenuSeparator />
                 <MenuItem destructive onClick={() => setConfirmDelete(true)}>
-                  {cloud ? 'Delete' : 'Remove computer'}
+                  Delete
                 </MenuItem>
               </>
             )}
@@ -277,19 +277,11 @@ export function BoxRow({
       )}
       <ConfirmDialog
         open={confirmDelete}
-        title={`${cloud ? 'Delete' : 'Remove'} ${device.label}?`}
-        description={
-          cloud
-            ? "This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos."
-            : 'This removes the computer and its agents from Nuphos. Opening Nuphos on it registers it again. Your conversation history stays in Nuphos.'
-        }
+        title={`Delete ${device.label}?`}
+        description="This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos."
         destructive
-        confirmLabel={cloud ? 'Delete Box' : 'Remove computer'}
-        onConfirm={() =>
-          cloud
-            ? act('Could not delete Box', api.boxDelete)
-            : act('Could not remove computer', api.deviceRemove)
-        }
+        confirmLabel="Delete Box"
+        onConfirm={() => act('Could not delete Box', api.boxDelete)}
         onClose={() => setConfirmDelete(false)}
       />
     </li>
