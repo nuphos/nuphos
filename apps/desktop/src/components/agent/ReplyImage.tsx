@@ -4,8 +4,11 @@ import { api } from '../../api'
 import { toast } from '../ui/toast'
 
 import { ImageLightbox } from './panel/messageInline'
+import { MEDIA_BOX } from './panel/transferDownloads'
 
 import type { FileTransferGroup } from '../../types'
+
+const FRAME = `block rounded-lg border border-zGray-800 bg-zGray-900 ${MEDIA_BOX}`
 
 /** Resolve a persisted group reference with the viewer's own credentials. */
 export function ReplyImage({
@@ -67,7 +70,10 @@ export function ReplyImage({
         </button>
       </span>
     )
-  if (!group || !file?.downloadUrl) return <span role="status">Loading {alt ?? 'image'}…</span>
+  if (!group || !file?.downloadUrl)
+    return (
+      <span role="status" aria-label={`Loading ${alt ?? 'image'}`} className={`my-2 ${FRAME}`} />
+    )
   if (Date.parse(group.expiresAt) <= now)
     return <span role="status">Image expired — files are no longer available.</span>
   const download = () => {
@@ -86,7 +92,7 @@ export function ReplyImage({
         <img
           src={file.downloadUrl}
           alt={alt ?? file.fileName}
-          className="block max-h-72 max-w-full rounded-lg"
+          className={`object-contain ${FRAME}`}
           onError={() => setError(true)}
         />
       </button>

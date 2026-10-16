@@ -4,26 +4,29 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../../api'
 
 import { ImageAttachmentThumb, ImageLightbox } from './messageInline'
-import { previewKind } from './transferDownloads'
+import { MEDIA_BOX, previewKind } from './transferDownloads'
 
 import type { FileTransferFile } from '../../../types'
 import type { ReactNode } from 'react'
 
 // Inline previews for the images and videos in a transfer group, whichever
 // side sent it. Presigned URLs last minutes, so a preview that breaks after
-// its links have aged re-resolves them. One image shows whole; several shrink
-// to a row of square thumbnails, and the preview steps through all of them.
-// `children` receives the names of the images and videos actually previewed
-// (null while resolving), so a card can list every other file as a row.
+// its links have aged re-resolves them. Every image and video gets the same
+// box, drawn empty while the links resolve, and the preview steps through all
+// the images. `children` receives the names of the images and videos actually
+// previewed (null while resolving), so a card can list every other file as a row.
 export function TransferPreviews({
   teamId,
   groupId,
+  expected,
   onDownload,
   alignEnd = false,
   children,
 }: {
   teamId: string
   groupId: string
+  /** How many previews the group should have, drawn as empty boxes until resolved. */
+  expected: number
   /** Right-align the thumbnails, for files the user sent. */
   alignEnd?: boolean
   onDownload?: (file: FileTransferFile) => void
@@ -44,7 +47,19 @@ export function TransferPreviews({
   }, [teamId, groupId])
 
   useEffect(resolve, [resolve])
-  if (files === null) return <>{children?.(null, null)}</>
+  const rowClass = clsx('mb-2 flex flex-wrap gap-2', alignEnd && 'justify-end')
+
+  if (files === null)
+    return (
+      <>
+        <div className={rowClass}>
+          {Array.from({ length: expected }, (_, i) => (
+            <ImageAttachmentThumb key={i} size="lg" fileName="" />
+          ))}
+        </div>
+        {children?.(null, null)}
+      </>
+    )
   // A link that fails right after resolving is broken, not expired: don't loop.
   const retry = () => {
     if (Date.now() - resolvedAt.current > 60_000) resolve()
@@ -56,7 +71,7 @@ export function TransferPreviews({
   return (
     <>
       {files.length > 0 && (
-        <div className={clsx('mb-2 flex flex-wrap gap-2', alignEnd && 'justify-end')}>
+        <div className={rowClass}>
           {files.map((f) =>
             previewKind(f) === 'video' ? (
               <video
@@ -66,12 +81,12 @@ export function TransferPreviews({
                 preload="metadata"
                 onError={retry}
                 title={f.fileName}
-                className="max-h-72 max-w-full rounded-lg border border-zGray-800 bg-black"
+                className={clsx(MEDIA_BOX, 'rounded-lg border border-zGray-800 bg-black')}
               />
             ) : (
               <ImageAttachmentThumb
                 key={f.id}
-                size={images.length > 1 ? 'md' : 'lg'}
+                size="lg"
                 url={f.downloadUrl}
                 fileName={f.fileName}
                 onOpen={() => setPreview(images.findIndex((i) => i.id === f.id))}

@@ -61,6 +61,10 @@ export function anchorDownloadGroups(
   return byMessage
 }
 
+// The one size every inline image and video preview gets, loading or loaded,
+// so media never resizes the transcript when it arrives. Content is letterboxed.
+export const MEDIA_BOX = 'h-48 w-72 max-w-full'
+
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|svg)$/i
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm)$/i
 
