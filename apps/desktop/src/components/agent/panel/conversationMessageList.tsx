@@ -1,5 +1,5 @@
 import { AlarmClock, Loader2 } from 'lucide-react'
-import { Fragment, useEffect } from 'react'
+import { Fragment, useEffect, useMemo } from 'react'
 
 import { runtimeAllows, runtimeIsExecuting } from '../../../lib/runtimeExecution'
 import { publishSessionDesktops } from '../../../lib/sessionDesktops'
@@ -9,6 +9,7 @@ import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
 import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
+import { collapseRepeatedFailures } from './repeatedFailures'
 import { sessionDesktopsOf } from './shells'
 import { ShellsPanel } from './ShellsPanel'
 import { DEFERRED_MESSAGE_STYLE } from './status'
@@ -38,6 +39,7 @@ export function ConversationMessageList({
   activePlanCanAct,
   onOpenNuphosLink,
   onOpenAgentSettings,
+  onEditMessage,
   isTeamAdmin,
   onMessageFeedback,
   onRequestFeedbackComment,
@@ -52,6 +54,7 @@ export function ConversationMessageList({
   | 'activePlanCanAct'
   | 'onOpenNuphosLink'
   | 'onOpenAgentSettings'
+  | 'onEditMessage'
   | 'onMessageFeedback'
 > & {
   tab: Tab
@@ -72,7 +75,8 @@ export function ConversationMessageList({
   }, [tab.sessionId, teamId, tab.runtimeState, tab.foreign])
   useEffect(() => () => publishSessionDesktops(tab.sessionId, null), [tab.sessionId])
   const downloadsByMessage = useTransferDownloads(tab, teamId)
-  const timeline = placeTimelineEvents(tab.messages, tab.timelineEvents, hasEarlier)
+  const messages = useMemo(() => collapseRepeatedFailures(tab.messages), [tab.messages])
+  const timeline = placeTimelineEvents(messages, tab.timelineEvents, hasEarlier)
   // Events newer than the moment this session was opened animate in; the ones
   // it opened with do not.
   const openedAt = tab.openedAt ?? 0
@@ -105,16 +109,16 @@ export function ConversationMessageList({
           )}
         </div>
       )}
-      {tab.messages.length === 0 ? (
+      {messages.length === 0 ? (
         <div className="flex min-h-[30vh] items-end">
           <AgentHomeAnimation />
         </div>
       ) : (
-        tab.messages.map((m, mi) => {
+        messages.map((m, mi) => {
           const isLast = m.id === lastMsg?.id
           // Turn start for the "Worked for Xs" fold: the preceding user
           // message's persisted time.
-          const prevCreatedAt = tab.messages[mi - 1]?.createdAt
+          const prevCreatedAt = messages[mi - 1]?.createdAt
           // Only the last message can be streaming, and only a running tool
           // reads `now` — so historical messages get a frozen `now`, keeping
           // their memoized render stable across the 1s streaming tick.
@@ -142,6 +146,7 @@ export function ConversationMessageList({
                     !tab.readOnly
                   }
                   onOpenNuphosLink={onOpenNuphosLink}
+                  onEdit={onEditMessage?.allowed(m) ? onEditMessage.edit : undefined}
                 />
               </div>
             ) : (

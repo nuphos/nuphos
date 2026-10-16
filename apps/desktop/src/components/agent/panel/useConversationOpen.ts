@@ -23,6 +23,7 @@ type Acc = Pick<
   PanelCtx,
   | 'credentialAccessRef'
   | 'credentialOptions'
+  | 'dispatchTurn'
   | 'history'
   | 'kubeContextRef'
   | 'lastCredentialSyncedRef'
@@ -33,6 +34,7 @@ type Acc = Pick<
   | 'setActiveId'
   | 'setOpeningConversation'
   | 'setTabs'
+  | 'tabs'
   | 'tabsRef'
   | 'teamId'
   | 'urlRef'
@@ -43,6 +45,7 @@ export function useConversationOpen(acc: Acc) {
   const {
     credentialAccessRef,
     credentialOptions,
+    dispatchTurn,
     history,
     kubeContextRef,
     lastCredentialSyncedRef,
@@ -53,6 +56,7 @@ export function useConversationOpen(acc: Acc) {
     setActiveId,
     setOpeningConversation,
     setTabs,
+    tabs,
     tabsRef,
     teamId,
     urlRef,
@@ -144,17 +148,32 @@ export function useConversationOpen(acc: Acc) {
     [teamId],
   )
 
+  // An edited message waits here until its fork is committed: dispatchTurn
+  // reads the tab back from tabsRef, which only updates after the render.
+  const editResendRef = useRef<{ tabId: string; text: string } | null>(null)
+
+  useEffect(() => {
+    const pending = editResendRef.current
+
+    if (!pending || !tabs.some((tab) => tab.id === pending.tabId)) return
+    editResendRef.current = null
+    void dispatchTurn(pending.tabId, pending.text, [])
+  }, [tabs, dispatchTurn])
+
   // Fork a (possibly someone else's) conversation into a NEW session the current
   // user owns: copy the transcript for full context, but mint a fresh sessionId
   // and mark it writable. The original is never touched; the new turn (e.g. the
   // plan's Approve) persists under the current user. Used to continue a plan
   // from the Plans page and by the titlebar's Fork chat — works for any team
   // member, since team conversations are team-readable but only the owner can
-  // write to the original.
+  // write to the original. With `edit`, the fork stops before that message and
+  // then sends the edited text in its place.
   const forkConversation = useCallback(
-    async (sourceSessionId: string) => {
+    async (sourceSessionId: string, edit?: { messageId: string; text: string }) => {
       const generation = ++openGenerationRef.current
 
+      // A newer fork replaces any edit still waiting on an earlier one.
+      editResendRef.current = null
       setOpeningConversation({ sessionId: sourceSessionId, title: 'Forking chat…' })
       try {
         const detail = await api.agentGetConversation(sourceSessionId, teamId)
@@ -164,10 +183,19 @@ export function useConversationOpen(acc: Acc) {
 
           return
         }
-        const messages = finalizeIncompleteTools(
+        const transcript = finalizeIncompleteTools(
           fromPersistedMessages(detail.messages),
           INTERRUPTED_TOOL_MESSAGE,
         )
+        const cut = edit ? transcript.findIndex((m) => m.id === edit.messageId) : -1
+
+        if (edit && cut < 0) {
+          setOpeningConversation(null)
+          toast.error('Could not edit message', 'That message is no longer in this chat.')
+
+          return
+        }
+        const messages = edit ? transcript.slice(0, cut) : transcript
         const tab: Tab = {
           id: uid(),
           // New session — the fork belongs entirely to the current user.
@@ -201,6 +229,7 @@ export function useConversationOpen(acc: Acc) {
           tab.sessionId,
           credentialSelectionSignature(tab.credentialAccess),
         )
+        if (edit) editResendRef.current = { tabId: tab.id, text: edit.text }
         setTabs([tab])
         setActiveId(tab.id)
         setOpeningConversation(null)

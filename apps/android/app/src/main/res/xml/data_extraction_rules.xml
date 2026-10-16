@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-  Exclude the session token from cloud backup and device transfer.
+  Exclude session tokens and composer drafts from cloud backup and device transfer.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="nuphos.secure.xml" />
         <exclude domain="sharedpref" path="nuphos.secure.fallback.xml" />
+        <exclude domain="sharedpref" path="nuphos.composer-drafts.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="nuphos.secure.xml" />
         <exclude domain="sharedpref" path="nuphos.secure.fallback.xml" />
+        <exclude domain="sharedpref" path="nuphos.composer-drafts.xml" />
     </device-transfer>
 </data-extraction-rules>

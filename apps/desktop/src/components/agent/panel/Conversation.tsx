@@ -30,6 +30,7 @@ export function Conversation({
   activePlanCanAct,
   onOpenNuphosLink,
   onOpenAgentSettings,
+  onEditMessage,
   isTeamAdmin = false,
   onLoadEarlier,
   onMessageFeedback,
@@ -180,6 +181,7 @@ export function Conversation({
           activePlanCanAct={activePlanCanAct}
           onOpenNuphosLink={onOpenNuphosLink}
           onOpenAgentSettings={onOpenAgentSettings}
+          onEditMessage={onEditMessage}
           isTeamAdmin={isTeamAdmin}
           onMessageFeedback={onMessageFeedback}
           onRequestFeedbackComment={setFeedbackCommentFor}

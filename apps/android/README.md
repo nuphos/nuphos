@@ -63,6 +63,21 @@ No backend or iOS changes are needed for this contribution. The public backend
 contains the API contracts used by the app. Managed cloud operations remain
 service-dependent and are not added to the self-hosted backend by this client.
 
+### Composer drafts and Agent usage
+
+Text drafts persist in app-private storage, separately for each account, workspace,
+existing conversation, and the new-conversation composer. Sending clears only the
+submitted draft; sign-out, identity replacement and consent withdrawal remove
+that account's drafts. Attachments remain temporary and are not restored after
+leaving the composer or restarting the process. Draft preferences are explicitly excluded from cloud backup, device-to-device
+transfer, and legacy full backup by the XML backup rules.
+
+The Agent chip remains visible beside Send. New conversations open the Agent
+picker; existing conversations show their assigned Agent and open its usage details.
+Usage uses the shared `GET /teams/:id/agent-runtimes/quota` snapshot, refreshed every
+minute only while the screen is resumed. Missing or failed quota reads show
+`Usage unavailable` and never prevent sending.
+
 ## Tests
 
 ### Conversation App Links
