@@ -101,3 +101,34 @@ test('one malformed terminal does not discard an unrelated live tool', () => {
     { id: 't2' },
   ])
 })
+
+test("the agent's slash commands pass through, shaped for a picker", () => {
+  const snapshot = {
+    ...lifecycleSnapshot([]),
+    commands: [
+      { name: 'review', description: 'Review the diff', hint: 'branch' },
+      { name: 'compact', description: 'Compact the context' },
+      { name: 'two words', description: 'not a command name' },
+      { name: '<img>', description: 'markup' },
+      { description: 'no name' },
+      'not an object',
+      { name: 'long', description: 'x'.repeat(2_000) },
+    ],
+  }
+
+  expect(parseSessionExecutionState(snapshot).commands).toEqual([
+    { name: 'review', description: 'Review the diff', hint: 'branch' },
+    { name: 'compact', description: 'Compact the context' },
+    { name: 'long', description: 'x'.repeat(500) },
+  ])
+})
+
+test('a snapshot without commands, or with a malformed list, has none', () => {
+  expect(parseSessionExecutionState(lifecycleSnapshot([])).commands).toBeUndefined()
+  expect(
+    parseSessionExecutionState({ ...lifecycleSnapshot([]), commands: null }).commands,
+  ).toBeUndefined()
+  expect(
+    parseSessionExecutionState({ ...lifecycleSnapshot([]), commands: 'review' }).commands,
+  ).toBeUndefined()
+})

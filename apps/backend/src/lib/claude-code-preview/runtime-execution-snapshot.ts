@@ -1,3 +1,5 @@
+export type AgentCommand = { name: string; description: string; hint?: string }
+
 export type SessionExecutionState = {
   state: 'active' | 'idle' | 'dormant' | 'interrupted' | 'unknown' | 'disconnected' | 'unsupported'
   schemaVersion?: number
@@ -39,6 +41,8 @@ export type SessionExecutionState = {
   actions?: { send: boolean; cancel: boolean; steer: boolean; reply?: boolean }
   /** Its Box runs a desktop pool, so the owner can open the conversation's desktop by hand. */
   canOpenDesktop?: boolean
+  /** The agent's own slash commands (ACP `available_commands_update`), as the runtime last saw them. */
+  commands?: AgentCommand[]
   epoch?: string
   revision?: number
 }
@@ -62,6 +66,31 @@ function sanitizeToolTerminal(tool: Record<string, unknown>): Record<string, unk
   const { terminal: _terminal, ...rest } = tool
 
   return rest
+}
+
+const MAX_COMMANDS = 200
+// What a client inserts as `/<name> `: no spaces, nothing that could start markup.
+const COMMAND_NAME = /^\w[\w:.-]{0,63}$/
+
+// The list is the agent's to define, so it is only shaped here: an unusable
+// entry is dropped and long text is cut, never the whole snapshot.
+function sanitizeCommands(value: unknown): AgentCommand[] | undefined {
+  if (!Array.isArray(value)) return undefined
+
+  return value.slice(0, MAX_COMMANDS).flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const { name, description, hint } = entry as Record<string, unknown>
+
+    if (typeof name !== 'string' || !COMMAND_NAME.test(name)) return []
+
+    return [
+      {
+        name,
+        description: typeof description === 'string' ? description.slice(0, 500) : '',
+        ...(typeof hint === 'string' && hint.trim() ? { hint: hint.slice(0, 200) } : {}),
+      },
+    ]
+  })
 }
 
 export function parseSessionExecutionState(value: Record<string, unknown>): SessionExecutionState {
@@ -89,6 +118,10 @@ export function parseSessionExecutionState(value: Record<string, unknown>): Sess
 
     value.tools = value.tools.map((tool) => sanitizeToolTerminal(tool as Record<string, unknown>))
   }
+  const commands = sanitizeCommands(value.commands)
+
+  if (commands) value.commands = commands
+  else delete value.commands
 
   // Validate the wire contract, but never reconstruct or own its session state here.
   return value as SessionExecutionState
