@@ -396,7 +396,7 @@ final class AgentStore {
             )
             _ = await (favoritesLoad, runtimesLoad, sharedLoad)
             guard generation == loadGeneration else { return }
-            conversations = page.conversations
+            conversations = page.rows
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = .loaded
@@ -418,7 +418,7 @@ final class AgentStore {
             token: token, teamId: team.id, limit: 100, scope: .shared, search: search,
             archived: showArchived ? .only : .exclude, sort: sort
         ), generation == loadGeneration else { return }
-        sharedConversations = page.conversations
+        sharedConversations = page.rows
     }
 
     /// Next page, appended. Rows can repeat across pages because the cursor
@@ -437,7 +437,7 @@ final class AgentStore {
             guard generation == loadGeneration else { return }
             if !loadedPageCursors.contains(cursor) { loadedPageCursors.append(cursor) }
             let seen = Set(conversations.map(\.sessionId))
-            conversations.append(contentsOf: page.conversations.filter { !seen.contains($0.sessionId) })
+            conversations.append(contentsOf: page.rows.filter { !seen.contains($0.sessionId) })
             nextCursor = page.nextCursor
             hasMore = page.hasMore
         } catch {
@@ -514,8 +514,8 @@ final class AgentStore {
             archived: showArchived ? .only : .exclude, sort: sort
         ), generation == loadGeneration, !Task.isCancelled else { return }
         await loadShared(team: team, generation: generation)
-        conversations = conversations.refreshed(firstPage: page.conversations)
-        if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= Self.pageSize {
+        conversations = conversations.refreshed(firstPage: page.rows)
+        if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= page.rows.count {
             nextCursor = page.nextCursor
             hasMore = page.hasMore
         }
@@ -526,7 +526,7 @@ final class AgentStore {
             token: token, teamId: team.id, cursor: cursor, limit: Self.pageSize, scope: scope, search: search,
             archived: showArchived ? .only : .exclude, sort: sort
         ), generation == loadGeneration, !Task.isCancelled else { return }
-        let fresh = Dictionary(background.conversations.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
+        let fresh = Dictionary(background.rows.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
         conversations = conversations.map { fresh[$0.sessionId] ?? $0 }
     }
 

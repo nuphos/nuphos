@@ -62,11 +62,8 @@ export {
   appendConversationMessages,
 } from './db/transcript-autonomous'
 export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
-export {
-  getConversationMessagesHead,
-  getConversations,
-  syncConversationTranscript,
-} from './db/transcript'
+export { getConversationMessagesHead, syncConversationTranscript } from './db/transcript'
+export { getConversations } from './db/conversations-list'
 export { restoreArchivedConversation, setConversationArchived } from './db/archive'
 
 export type { AdminFilterOp, StatWindows } from './db/admin'
@@ -85,5 +82,5 @@ export type {
   ConversationsArchivedFilter,
   ConversationsScope,
   ConversationsSort,
-} from './db/transcript'
+} from './db/conversations-list'
 export { setConversationCredentialFields } from './db/credential-fields'

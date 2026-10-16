@@ -80,7 +80,7 @@ enum NuphosAPI {
         if let archived { query.append(URLQueryItem(name: "archived", value: archived.rawValue)) }
         let observedAt = ProcessInfo.processInfo.systemUptime
         let page: AgentConversationsPage = try await get("agent/conversations", query: query, token: token, timeout: 20)
-        for row in page.conversations {
+        for row in page.rows {
             RuntimeObservations.shared.receive(row.runtimeState, team: row.teamId ?? teamId, session: row.sessionId, observedAt: observedAt)
             ConversationUnread.shared.receive(team: row.teamId ?? teamId, session: row.sessionId, activity: row.activitySeq, read: row.readSeq, displayed: false)
         }

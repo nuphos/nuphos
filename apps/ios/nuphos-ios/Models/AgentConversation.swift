@@ -171,8 +171,17 @@ extension Array where Element == AgentConversation {
 
 struct AgentConversationsPage: Codable, Sendable {
     let conversations: [AgentConversation]
+    /// The page's threads' parents that another page lists, so a thread nests
+    /// under its parent before that page loads. Absent from older backends.
+    var parents: [AgentConversation]? = nil
     let nextCursor: String?
     let hasMore: Bool
+
+    /// What the list shows from this page: its rows, then their parents.
+    var rows: [AgentConversation] {
+        let ids = Set(conversations.map(\.sessionId))
+        return conversations + (parents ?? []).filter { !ids.contains($0.sessionId) }
+    }
 }
 
 /// `GET /agent/conversations/:id?tail=` — the transcript tail plus what a

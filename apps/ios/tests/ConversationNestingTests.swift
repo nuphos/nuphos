@@ -6,6 +6,7 @@ enum ConversationNestingTests {
         foldingHidesTheSubtree()
         anUnlistedOrPinnedParentLeavesTheRowTopLevel()
         aRefreshKeepsLaterRowsInPlace()
+        aThreadNestsUnderAParentFromALaterPage()
         print("Conversation nesting passed")
     }
 
@@ -55,5 +56,21 @@ enum ConversationNestingTests {
         precondition(refreshed.map(\.sessionId) == ["recent", "new", "old-pinned", "older"])
         let archived = refreshed.filter { $0.sessionId != "old-pinned" }
         precondition(archived.refreshed(firstPage: [row("recent"), row("new")]).map(\.sessionId) == ["recent", "new", "older"])
+    }
+
+    /// Page one holds the thread; its parent is older and on a later page.
+    /// The page carries that parent, so the thread nests at once. A parent the
+    /// listing hides (archived, or a search miss) is not sent, and the thread
+    /// stays listed on its own.
+    private static func aThreadNestsUnderAParentFromALaterPage() {
+        let first = AgentConversationsPage(
+            conversations: [row("thread", parent: "parent"), row("newest")],
+            parents: [row("parent"), row("newest")], nextCursor: "c", hasMore: true
+        )
+        precondition(first.rows.map(\.sessionId) == ["thread", "newest", "parent"])
+        let nested = ConversationNesting.nest(first.rows)
+        precondition(nested.map(\.id) == ["newest", "parent", "thread"] && nested.map(\.depth) == [0, 0, 1])
+        let hidden = AgentConversationsPage(conversations: [row("thread", parent: "archived")], nextCursor: nil, hasMore: false)
+        precondition(ConversationNesting.nest(hidden.rows).map(\.depth) == [0])
     }
 }
