@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { revokeTeamBoxStreams } from '@/lib/agent/devices/box-access'
+import { dropFromTeamBoxAccess } from '@/lib/agent/devices/store'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
 import { AppError } from '@/lib/errors'
@@ -206,6 +207,7 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
 
     if (result === 'removed') {
       await revokeTeamBoxStreams(c.get('teamId'), memberId)
+      await dropFromTeamBoxAccess(c.get('teamId'), memberId)
 
       return c.body(null, 204)
     }
@@ -245,6 +247,7 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
 
     if (result === 'left') {
       await revokeTeamBoxStreams(c.get('teamId'), c.get('userId'))
+      await dropFromTeamBoxAccess(c.get('teamId'), c.get('userId'))
 
       return c.body(null, 204)
     }

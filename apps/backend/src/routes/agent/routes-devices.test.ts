@@ -362,6 +362,24 @@ describe('agent device routes', () => {
     }
   }
 
+  test('PUT /agent/devices never rewrites a Box row, even for its creator', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const response = await buildApp().request('/agent/devices', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: 'b1',
+        label: 'x',
+        platform: 'darwin',
+        allowLocalExec: true,
+      }),
+    })
+
+    expect(response.status).toBe(409)
+    expect(upserted).toEqual([])
+    expect(devices[key('user-1', 'b1')]?.platform).toBe('linux')
+  })
+
   test('GET /devices lists the caller devices with their Box state and never the credential', async () => {
     devices[key('user-1', 'b1')] = {
       ...boxDevice('user-1', 'b1'),

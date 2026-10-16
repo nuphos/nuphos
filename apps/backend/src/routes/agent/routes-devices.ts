@@ -170,8 +170,13 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
   routes.route('/', createAgentDeviceBoxRoutes(deps))
   routes.route('/', createDeviceAgentRoutes())
 
+  // A computer registers itself; a Box's row is written only by the Box routes.
   routes.put('/devices', zv('json', deviceRegistrationSchema), async (c) => {
-    await deps.upsertAgentDevice(c.get('userId'), c.req.valid('json'))
+    const registration = c.req.valid('json')
+
+    if ((await deps.getAgentDevice(c.get('userId'), registration.deviceId))?.box)
+      throw new AppError(409, 'device_is_box', 'A Box is not registered from a computer')
+    await deps.upsertAgentDevice(c.get('userId'), registration)
 
     return c.json({ ok: true })
   })
