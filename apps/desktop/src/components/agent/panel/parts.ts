@@ -196,6 +196,8 @@ export type TurnInterruptedPart = {
   reason: 'cancelled' | 'timeout' | 'error'
   message: string
   createdAt: string
+  /** Identical failed turns in a row this line stands for (display only). */
+  repeats?: number
 }
 export type SteeringPart = {
   type: 'data-steering'

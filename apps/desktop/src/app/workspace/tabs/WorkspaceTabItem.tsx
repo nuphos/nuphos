@@ -177,6 +177,7 @@ export function WorkspaceTabItem({
             {meta.icon}
           </span>
           <span
+            title={meta.title}
             className={clsx(
               'truncate flex-1 text-left transition-opacity',
               !selected && 'opacity-70 group-hover:opacity-100',

@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.androidx.security.crypto)
     implementation(libs.okhttp)
+    implementation(libs.coil.svg)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.serialization.json)

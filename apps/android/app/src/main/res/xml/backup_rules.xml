@@ -2,4 +2,5 @@
 <full-backup-content>
     <exclude domain="sharedpref" path="nuphos.secure.xml" />
     <exclude domain="sharedpref" path="nuphos.secure.fallback.xml" />
+    <exclude domain="sharedpref" path="nuphos.composer-drafts.xml" />
 </full-backup-content>

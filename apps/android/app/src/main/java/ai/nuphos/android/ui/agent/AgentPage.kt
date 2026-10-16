@@ -88,6 +88,7 @@ fun AgentPage(
     val selection = remember(account, team?.id, authGeneration, consentRevision) {
         if (account != null && team != null && auth.aiAllowed) auth.runtimeSelections.bind(account, team.id) else null
     }
+    val quotas = rememberRuntimeQuotas(auth.token, team?.id)
     var setupVisible by remember { mutableStateOf(false) }
     val setup = remember(account, team, revision, consentRevision, authGeneration, selection) {
         if (team != null && selection != null && auth.token != null) ai.nuphos.android.session.RuntimeSetupStore(
@@ -98,7 +99,7 @@ fun AgentPage(
             { if (auth.generation == authGeneration && auth.user?.id == account) auth.signOut(ai.nuphos.android.data.NuphosApi.Failure.Unauthorized.message) }) else null
     }
     LaunchedEffect(setup) { setupVisible = false }
-    if (setupVisible && setup != null && setup.isSourceCurrent()) RuntimeSetupSheet(setup, { setupVisible = false })
+    if (setupVisible && setup != null && setup.isSourceCurrent()) RuntimeSetupSheet(setup, { setupVisible = false }, quotas = quotas)
 
     var statusClock by remember(store) { mutableStateOf(RuntimeObservation.now()) }
     LaunchedEffect(store, store.historyRevision, store.conversations, statusClock) {
@@ -267,8 +268,7 @@ fun AgentPage(
                 true
             },
             showControls = true,
-            // The Agent for the next chat lives in the composer control row,
-            // where Desktop keeps its runtime selector.
+            agentQuota = selection?.selectedId?.let { quotas[it] },
             agent = selection,
             agentEnabled = setup != null && auth.aiAllowed,
             onChooseAgent = { setupVisible = true },

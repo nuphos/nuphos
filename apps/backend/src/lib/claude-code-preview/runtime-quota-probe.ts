@@ -16,6 +16,10 @@ import type { RuntimeInstance } from './runtime-instances'
 // The job runs with a cleared environment — the runtime hands it PATH, HOME and
 // TMPDIR and nothing else — so HOME is where the agent's own sign-in lives, and
 // there is no configuration override to consult.
+//
+// Desktop matches the exact error 'Sign in required' (quotaSignedOut in
+// apps/desktop/src/lib/runtimeQuota.ts) to warn before a message is sent to a
+// signed-out agent; rewording it here turns that warning off.
 export const RUNTIME_QUOTA_PROBE = String.raw`
 const { readFile } = await import('node:fs/promises');
 const { homedir } = await import('node:os');

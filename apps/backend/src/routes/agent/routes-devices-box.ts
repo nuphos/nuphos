@@ -159,7 +159,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
     )
     const url = await requireBoxes().desktop(device.userId, device.deviceId)
 
-    return c.json({ url })
+    return c.json({ url, label: device.label })
   })
 
   // Rename any of the caller's own devices, a Box or a computer.

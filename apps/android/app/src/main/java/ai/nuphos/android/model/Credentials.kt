@@ -100,6 +100,19 @@ data class CredentialSelection(
         return copy(ids = ids + (item.provider.selectionKey to set))
     }
 
+    /** Add usable computers without revoking an already selected unavailable computer. */
+    fun selectAllComputers(catalog: CredentialCatalog): CredentialSelection {
+        val usable = catalog.allItems.filter { it.provider.optionsKey == "devices" && !it.unavailable }
+        return copy(ids = ids + ("deviceIds" to (ids["deviceIds"].orEmpty() + usable.map { it.id })))
+    }
+
+    fun containsAllComputers(catalog: CredentialCatalog): Boolean {
+        val usable = catalog.allItems.filter { it.provider.optionsKey == "devices" && !it.unavailable }
+        return usable.isNotEmpty() && usable.all(::contains)
+    }
+
+    fun clearComputers(): CredentialSelection = copy(ids = ids + ("deviceIds" to emptySet()))
+
     val json: JsonValue
         get() = JsonValue.Obj(
             CredentialCatalog.PROVIDERS.associate { provider ->

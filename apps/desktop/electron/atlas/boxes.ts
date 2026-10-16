@@ -111,7 +111,10 @@ export function renameDeviceAgent(
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }
-export function boxDesktop(deviceId: string, teamId: string): Promise<{ url: string }> {
+export function boxDesktop(
+  deviceId: string,
+  teamId: string,
+): Promise<{ url: string; label: string }> {
   return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
 }
 export function boxJoinToken(): Promise<{

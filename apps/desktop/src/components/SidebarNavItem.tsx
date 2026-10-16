@@ -1,6 +1,8 @@
 import { Button as BaseButton } from '@base-ui/react/button'
 import clsx from 'clsx'
 
+import { useHoverMarquee } from '../hooks/useHoverMarquee'
+
 import type { LucideIcon } from 'lucide-react'
 import type React from 'react'
 import type { ReactNode } from 'react'
@@ -51,9 +53,18 @@ export function SidebarNavItem({
   badge,
   trailing,
 }: SidebarNavItemProps) {
+  const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
+
   return (
     <BaseButton
       disabled={disabled}
+      onPointerEnter={start}
+      onPointerLeave={stop}
+      // Keyboard focus reveals the label too; a click's focus does not.
+      onFocus={(event) => {
+        if (event.currentTarget.matches(':focus-visible')) start()
+      }}
+      onBlur={stop}
       onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => {
         // Navigate on press, not on release — same reasoning as the tab strip:
         // waiting for `click` adds the held mouse button to perceived latency.
@@ -88,7 +99,9 @@ export function SidebarNavItem({
       >
         {icon}
       </span>
-      <span className="truncate flex-1 text-left">{label}</span>
+      <span ref={containerRef} className="t-marquee flex-1 text-left">
+        {label}
+      </span>
       {badge !== undefined && badge > 0 && (
         <span className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-zViolet-500 text-white text-[11px] font-medium leading-none">
           {badge > 99 ? '99+' : badge}

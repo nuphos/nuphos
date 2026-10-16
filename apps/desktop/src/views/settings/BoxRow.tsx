@@ -153,13 +153,7 @@ export function BoxRow({
             </MenuTrigger>
             <MenuContent align="end">
               {cloud && state === 'running' && (
-                <MenuItem
-                  onClick={() =>
-                    void run('Could not open the desktop', () =>
-                      openBoxDesktop(device.deviceId, teamId),
-                    )
-                  }
-                >
+                <MenuItem onClick={() => openBoxDesktop(device.deviceId, teamId)}>
                   Open desktop
                 </MenuItem>
               )}

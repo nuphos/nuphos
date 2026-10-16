@@ -1,6 +1,8 @@
 import { Loader2 } from 'lucide-react'
+import { useMemo } from 'react'
 
 import { api } from '../../../api'
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
@@ -13,10 +15,12 @@ import { Conversation } from './Conversation'
 import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
+import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
 import { QueuedStrip } from './QueuedStrip'
 
 import type { PanelViewCtx } from './ctx'
+import type { Message } from './model'
 
 // The home page lives next door; re-exported so call sites keep one import.
 export { PanelHomePage } from './panelHomeView'
@@ -29,6 +33,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     bypassBySession,
     conversationDropRef,
     dockCurrentSession,
+    forkConversation,
     onDockToSidebar,
     handleMessageFeedback,
     handleRejectPlan,
@@ -52,6 +57,22 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     visibleConversationCredentialSelector,
   } = c
   const { runtimeControl } = useConversationRuntimeControl(c)
+  // The fork needs the chat stored on the server; each message is then gated on its author.
+  const editableSessionId =
+    activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
+  const foreignChat = Boolean(activeTab?.foreign)
+  const currentUserId = useCurrentUser()?.id
+  const editMessage = useMemo(
+    () =>
+      editableSessionId
+        ? {
+            allowed: (message: Message) => canEditMessage(message, currentUserId, foreignChat),
+            edit: (messageId: string, text: string) =>
+              void forkConversation(editableSessionId, { messageId, text }),
+          }
+        : undefined,
+    [currentUserId, editableSessionId, foreignChat, forkConversation],
+  )
   const modelSession =
     activeTab?.sessionId && !activeTab.foreign && teamId
       ? {
@@ -135,6 +156,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   activePlanCanAct={activePlanCanAct}
                   onOpenNuphosLink={onOpenNuphosLink}
                   onOpenAgentSettings={onOpenAgentSettings}
+                  onEditMessage={editMessage}
                 />
               </ConnectCardContext.Provider>
             </div>

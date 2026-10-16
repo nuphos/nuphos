@@ -107,13 +107,11 @@ class ConnectorFixtureDeviceTest {
         assertEquals(5, store.inventory.rows.size)
         assertTrue(requests.all { it == "GET:connectors" })
     }
-    @Test fun memberCanBrowseCatalogWithoutAddRequests() {
+    @Test fun memberSeesAdministratorHintAndCannotOpenAddCatalog() {
         render(admin = false)
-        compose.onNodeWithTag("connector-catalog").performClick()
-        compose.onNodeWithText("AWS").assertIsDisplayed()
+        compose.onNodeWithTag("connector-catalog").assertIsNotEnabled()
+        compose.onNodeWithText("You can browse connectors. A team administrator can add providers.").assertIsDisplayed()
         compose.onNodeWithTag("connector-add-aws").assertDoesNotExist()
-        compose.onAllNodesWithText("Add").assertCountEquals(0)
-        capture("15-member-catalog")
         assertTrue(requests.all { it == "GET:connectors" })
     }
     @Test fun adminFormMasksSecretValidatesThenVerifiesSavedBinding() {

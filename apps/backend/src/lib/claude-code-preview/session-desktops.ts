@@ -6,36 +6,48 @@
 
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { getAgentDevice } from '@/lib/agent/devices/store'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 
 export type DesktopOwner = { sessionId: string; runtimeId?: string | null }
+type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefined>
 
+const storedLabel: DeviceLabel = async (userId, deviceId) =>
+  (await getAgentDevice(userId, deviceId))?.label
+
+/** Each entry's title names the machine and the display, e.g. "Box 1 · :3". */
 export async function sessionDesktops(
   conversation: DesktopOwner,
+  deviceLabel = storedLabel,
 ): Promise<NonNullable<SessionExecutionState['tools']>> {
   const ref = conversation.runtimeId ? parseLocalRuntimeId(conversation.runtimeId) : undefined
 
   if (!ref) return []
   const presence = await runtimePresenceStore().get(ref.userId, ref.deviceId)
+  const desktops = (presence?.status?.desktops ?? []).filter(
+    (desktop) => desktop.sessionId === conversation.sessionId,
+  )
 
-  return (presence?.status?.desktops ?? [])
-    .filter((desktop) => desktop.sessionId === conversation.sessionId)
-    .map((desktop) => ({
-      id: `desktop:${String(desktop.display)}`,
-      kind: 'desktop',
-      title: 'Desktop',
-      status: 'running',
-      desktop: { display: desktop.display, deviceId: ref.deviceId },
-    }))
+  if (!desktops.length) return []
+  const label = (await deviceLabel(ref.userId, ref.deviceId)) ?? 'Desktop'
+
+  return desktops.map((desktop) => ({
+    id: `desktop:${String(desktop.display)}`,
+    kind: 'desktop',
+    title: `${label} · :${String(desktop.display)}`,
+    status: 'running',
+    desktop: { display: desktop.display, deviceId: ref.deviceId },
+  }))
 }
 
 /** The snapshot with the conversation's desktops appended; unchanged when it has none. */
 export async function withSessionDesktops<T extends SessionExecutionState>(
   snapshot: T,
   conversation: DesktopOwner,
+  deviceLabel = storedLabel,
 ): Promise<T> {
-  const desktops = await sessionDesktops(conversation)
+  const desktops = await sessionDesktops(conversation, deviceLabel)
 
   return desktops.length
     ? { ...snapshot, tools: [...(snapshot.tools ?? []), ...desktops] }

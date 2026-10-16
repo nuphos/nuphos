@@ -25,6 +25,18 @@ data class ConnectorProvider(
     val oauth: Boolean = false,
     val note: String? = null,
 ) {
+    val category: String get() = when (key) {
+        "aws", "gcp", "azure", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "huawei", "zeabur", "onprem" -> "Infrastructure"
+        "betterstack", "uptimeKuma", "grafana", "sentry", "posthog" -> "Observability"
+        "tailscale" -> "Networking"
+        "vanta", "secureframe", "sonarqube" -> "Compliance"
+        "github", "gitlab" -> "Source control"
+        "linear", "jira", "asana" -> "Project management"
+        "notion" -> "Document"
+        "upstash" -> "Databases"
+        "resend" -> "Email"
+        else -> "Messaging"
+    }
     val canAdd get() = fields.isNotEmpty() || oauth || key == "github"
     val callbackHost get() = "$key-callback"
 
@@ -66,6 +78,7 @@ fun validHttpUrl(value: String): Boolean = runCatching {
 }.getOrDefault(false)
 
 object ConnectorCatalog {
+    val categoryOrder = listOf("Infrastructure", "Observability", "Databases", "Networking", "Compliance", "Source control", "Project management", "Document", "Email", "Messaging", "Other")
     val arrayKeys = listOf("aws", "gcp", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "azure", "huawei", "vanta", "secureframe", "sonarqube", "notion", "onprem", "upstash", "resend", "posthog", "betterstack", "uptimeKuma", "tailscale", "zeabur", "github", "gitlab", "grafana", "linear", "jira", "asana", "sentry")
     private fun label() = ConnectorField("label", "Label", max = 100)
     private fun secret(key: String, title: String, max: Int = Int.MAX_VALUE, required: Boolean = true, trim: Boolean = true) = ConnectorField(key, title, ConnectorFieldKind.Secret, required, max, trim)
