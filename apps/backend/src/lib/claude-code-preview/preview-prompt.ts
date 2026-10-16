@@ -75,7 +75,7 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
 
   if (!device) return 'inside the team sandbox'
 
-  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `computer-use` desktop tool' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
+  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; open an app on it with `node "$NUPHOS_DESKTOP_SESSION" launch chromium <url>`)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
 }
 
 const PLAN_RUNTIME_NOTE =

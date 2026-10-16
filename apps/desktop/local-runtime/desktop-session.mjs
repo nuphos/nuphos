@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // A desktop per conversation on a Linux Box. Claude Code runs this as the
-// session's `computer-use` MCP server (see box-desktop-mcp.mjs): it takes a
+// session's `nuphos-desktop` MCP server (see box-desktop-mcp.mjs): it takes a
 // display from the pool, brings up Xvnc + XFCE on it under the session's HOME,
 // then execs instabox's computer-use MCP (open-computer-use behind its proxy)
 // with DISPLAY set, so screenshots, input and the browser profile are the
@@ -12,6 +12,11 @@
 //   desktop-session.mjs reap <pool>
 //   desktop-session.mjs list <pool>      JSON [{display, sessionId, since}]
 //   desktop-session.mjs open <pool> <sessionId> <pid>   prints the display
+//   desktop-session.mjs launch <command> [args…]   env: NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL, HOME
+//
+// `launch` is how the agent opens an app (a browser) from its shell: the
+// computer-use tools only drive apps that are already running, and the shell
+// has no DISPLAY of its own.
 //
 // `open` is a desktop the conversation's owner asked for by hand. Its lock
 // names the host's pid and is marked manual: it lives while someone watches it
@@ -134,14 +139,11 @@ export function teardown(pool, display) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** Xvnc, a session bus and XFCE on `display`, detached, under `home`; idempotent. */
-export async function startDisplay(pool, display, home) {
-  const socket = `/tmp/.X11-unix/X${String(display)}`
+/** What a process on `display` runs with: the display's session bus and XDG dirs under `home`. */
+export function displayEnv(pool, display, home) {
   const xdg = xdgDir(pool, display)
 
-  mkdirSync(xdg, { recursive: true, mode: 0o700 })
-  mkdirSync(home, { recursive: true, mode: 0o700 })
-  const env = {
+  return {
     PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
     HOME: home,
     USER: process.env.USER ?? os.userInfo().username,
@@ -154,8 +156,20 @@ export async function startDisplay(pool, display, home) {
     XDG_SESSION_TYPE: 'x11',
     LANG: process.env.LANG ?? 'C.UTF-8',
   }
-  const detached = (command, args) =>
-    spawn(command, args, { env, detached: true, stdio: 'ignore' }).unref()
+}
+
+const detach = (command, args, env) =>
+  spawn(command, args, { env, detached: true, stdio: 'ignore' }).unref()
+
+/** Xvnc, a session bus and XFCE on `display`, detached, under `home`; idempotent. */
+export async function startDisplay(pool, display, home) {
+  const socket = `/tmp/.X11-unix/X${String(display)}`
+  const xdg = xdgDir(pool, display)
+
+  mkdirSync(xdg, { recursive: true, mode: 0o700 })
+  mkdirSync(home, { recursive: true, mode: 0o700 })
+  const env = displayEnv(pool, display, home)
+  const detached = (command, args) => detach(command, args, env)
 
   if (!existsSync(socket)) {
     rmSync(`/tmp/.X${String(display)}-lock`, { force: true })
@@ -284,19 +298,44 @@ export async function open(pool, sessionId, pid) {
   return display
 }
 
+/** Starts `argv` on the session's own desktop, detached; returns the display. */
+export function launch(pool, sessionId, home, argv) {
+  const display = listDesktops(pool).find((desktop) => desktop.sessionId === sessionId)?.display
+
+  if (display === undefined)
+    throw new Error('desktop-session: this session has no desktop yet; it starts with the session')
+  if (argv.length === 0) throw new Error('usage: desktop-session.mjs launch <command> [args…]')
+  detach(argv[0], argv.slice(1), displayEnv(pool, display, home))
+
+  return display
+}
+
 const [command, argument, ...rest] = process.argv.slice(2)
 
 if (command === 'serve') await serve()
 else if (command === 'reap') reap(argument ?? process.env.NUPHOS_DESKTOP_POOL)
 else if (command === 'open')
   process.stdout.write(`${String(await open(argument, rest[0], Number(rest[1])))}\n`)
-else if (command === 'list')
+else if (command === 'launch') {
+  const { NUPHOS_SESSION_ID, NUPHOS_DESKTOP_POOL, HOME } = process.env
+
+  process.stdout.write(
+    `Started on display :${String(
+      launch(
+        NUPHOS_DESKTOP_POOL,
+        NUPHOS_SESSION_ID,
+        HOME,
+        [argument, ...rest].filter((part) => part !== undefined),
+      ),
+    )}\n`,
+  )
+} else if (command === 'list')
   process.stdout.write(
     `${JSON.stringify(listDesktops(argument ?? process.env.NUPHOS_DESKTOP_POOL))}\n`,
   )
 else if (command !== undefined) {
   process.stderr.write(
-    'usage: desktop-session.mjs serve | reap <pool> | list <pool> | open <pool> <sessionId> <pid>\n',
+    'usage: desktop-session.mjs serve | reap <pool> | list <pool> | open <pool> <sessionId> <pid> | launch <command> [args…]\n',
   )
   process.exit(2)
 }

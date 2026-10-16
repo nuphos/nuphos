@@ -20,12 +20,12 @@ const box = {
   PATH: '/usr/bin',
 }
 
-test('a session on a Box gets a computer-use server on its own desktop', () => {
+test('a session on a Box gets a nuphos-desktop server on its own desktop', () => {
   const servers = nuphosBoxDesktopMcpServers(bridge, { NUPHOS_SESSION_ID: 's1' }, box)
 
   assert.equal(servers.length, 2)
   assert.deepEqual(servers[1], {
-    name: 'computer-use',
+    name: 'nuphos-desktop',
     command: process.execPath,
     args: ['/bundle/desktop-session.mjs', 'serve'],
     env: [
@@ -46,7 +46,7 @@ test('without a pool, a session id or servers, nothing changes', () => {
   )
   assert.equal(nuphosBoxDesktopMcpServers(bridge, {}, box), bridge)
   assert.equal(nuphosBoxDesktopMcpServers(undefined, { NUPHOS_SESSION_ID: 's1' }, box), undefined)
-  const own = [{ name: 'computer-use', command: 'x', args: [] }]
+  const own = [{ name: 'nuphos-desktop', command: 'x', args: [] }]
 
   assert.equal(nuphosBoxDesktopMcpServers(own, { NUPHOS_SESSION_ID: 's1' }, box), own)
 })
@@ -80,7 +80,7 @@ test('Codex on a Box gets the same computer-use server, from its session env', (
   // The env Codex's session carries names the session, as Claude's does.
   const servers = nuphosBoxDesktopMcpServers(bridge, { NUPHOS_SESSION_ID: 'c1' }, box)
 
-  assert.equal(servers[1].name, 'computer-use')
+  assert.equal(servers[1].name, 'nuphos-desktop')
   assert.throws(() => patchDesktopAdapter(source.replace(handoff(' ?? []'), ''), 'codex'))
   // Without the runtime patch's helper underneath, the desktop patch refuses to build.
   assert.throws(

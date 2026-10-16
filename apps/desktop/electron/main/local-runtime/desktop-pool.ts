@@ -1,5 +1,5 @@
 // A desktop per conversation on a Linux Box: the agents' env names the wrapper
-// Claude runs as each session's `computer-use` MCP server (desktop-session.mjs),
+// Claude runs as each session's `nuphos-desktop` MCP server (desktop-session.mjs),
 // and a pool sized to the CPUs; a reaper frees displays whose session is gone.
 
 import { spawn, spawnSync } from 'node:child_process'

@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -7,6 +14,7 @@ import { test } from 'node:test'
 import {
   MANUAL_IDLE_MS,
   claimDisplay,
+  launch,
   listDesktops,
   lockFile,
   readLock,
@@ -77,4 +85,16 @@ test('a desktop opened by hand is one slot, adopted by the session and freed whe
     listDesktops(pool).map((d) => d.sessionId),
     ['s1', 's3'],
   )
+})
+
+test('launch starts a command on the session’s own display, and refuses without one', async () => {
+  const pool = mkdtempSync(path.join(os.tmpdir(), 'desktops-'))
+  const out = path.join(pool, 'out')
+
+  claimDisplay(pool, 's1', 3)
+  claimDisplay(pool, 's2', 3)
+  assert.equal(launch(pool, 's2', pool, ['sh', '-c', `echo "$DISPLAY $HOME" > ${out}`]), 3)
+  for (let i = 0; i < 50 && !existsSync(out); i++) await new Promise((r) => setTimeout(r, 20))
+  assert.equal(readFileSync(out, 'utf8'), `:3 ${pool}\n`)
+  assert.throws(() => launch(pool, 's9', pool, ['true']), /no desktop yet/u)
 })
