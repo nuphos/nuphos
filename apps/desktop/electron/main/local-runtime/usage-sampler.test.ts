@@ -153,7 +153,7 @@ test('a signed-out CLI is never asked', async () => {
   })
 
   h.agents.codex.cli = { installed: true, path: '/bin/codex', loggedIn: false }
-  await h.usage.sample('codex', true)
+  await h.usage.sample('codex')
   assert.equal(reads, 0)
 })
 
