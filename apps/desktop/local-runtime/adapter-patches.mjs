@@ -3,6 +3,8 @@ import { nuphosAuthorizeComputerUse } from './computer-use-permission.mjs'
 import { nuphosDesktopClaudeEnv } from './claude-session-env.mjs'
 import { nuphosLocalSyncSkills } from './skills-sync.mjs'
 
+const CODEX_HANDOFF = /nuphosBridgeMcpServers\(request\.mcpServers( \?\? \[\])?\)/gu
+
 function replaceOnce(source, anchor, replacement) {
   if (source.split(anchor).length !== 2)
     throw new Error(`Desktop adapter patch anchor moved: ${anchor.slice(0, 80)}`)
@@ -57,6 +59,15 @@ export function patchDesktopAdapter(source, provider) {
       'async handleElicitation(params) {\n    try {',
       'async handleElicitation(params) {\n    try {\n      await nuphosAuthorizeComputerUse(params, this.cancellationSignal);',
     )
+    // The same per-session desktop as Claude's, at each of Codex's three session handoffs.
+    const handoffs = patched.match(CODEX_HANDOFF)?.length ?? 0
+
+    if (handoffs !== 3) throw new Error('Desktop adapter patch anchor moved: Codex MCP servers')
+    patched = patched.replace(
+      CODEX_HANDOFF,
+      (_, fallback = '') =>
+        `nuphosBoxDesktopMcpServers(nuphosBridgeMcpServers(request.mcpServers${fallback}), request._meta?.['ai.nuphos/codex']?.env, process.env)`,
+    )
   }
   const shebang = /^#![^\n]*\n/u.exec(patched)?.[0] ?? ''
 
@@ -65,7 +76,10 @@ export function patchDesktopAdapter(source, provider) {
       ? `import { constants as nuphosDesktopFs, mkdirSync as nuphosDesktopMkdir, writeFileSync as nuphosDesktopWrite } from 'node:fs';\nimport { join as nuphosDesktopJoin } from 'node:path';\n${nuphosDesktopClaudeEnv.toString()}\n${nuphosBoxDesktopMcpServers.toString()}\n`
       : ''
 
-  const computerUse = provider === 'codex' ? `${nuphosAuthorizeComputerUse.toString()}\n` : ''
+  const computerUse =
+    provider === 'codex'
+      ? `${nuphosAuthorizeComputerUse.toString()}\n${nuphosBoxDesktopMcpServers.toString()}\n`
+      : ''
 
   return `${shebang}${computerUse}${claudeEnv}${nuphosLocalSyncSkills.toString()}\n${patched.slice(shebang.length)}`
 }
