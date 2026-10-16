@@ -92,7 +92,6 @@ export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefi
 }
 
 function runtimeOptionNote(instance: RuntimeInstance): string {
-  if (instance.status === 'disabled') return ' · Disabled'
   if (instance.deletion) return ' · Being removed'
   if (instance.starting) return ' · Starting…'
 
@@ -215,11 +214,7 @@ export function RuntimeSelector({
                     <MenuItem
                       key={instance.id}
                       selected={instance.id === value?.id}
-                      disabled={
-                        selectDisabled ||
-                        instance.status === 'disabled' ||
-                        Boolean(instance.deletion)
-                      }
+                      disabled={selectDisabled || Boolean(instance.deletion)}
                       icon={
                         <AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />
                       }
