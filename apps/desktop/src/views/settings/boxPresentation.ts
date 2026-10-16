@@ -10,34 +10,41 @@ import type { RuntimeInstance } from '../../types/runtime'
 
 export type BoxDevice = AgentDevice & { box: BoxStatus }
 
-// A Box being set up, or a cloud Box whose host is away, changes without the user acting.
+// A Box being set up changes without the user acting.
 export const BOX_CREATING_POLL_MS = 1_000
+// Live metrics hold a lease on each connected machine; the visible page renews it.
+export const BOX_METRICS_POLL_MS = 5_000
+// A Box whose host is away comes back on its own only rarely; look now and then.
+export const BOX_OFFLINE_POLL_MS = 30_000
 // A Box still creating after this long will not come up.
 export const BOX_SETUP_TIMEOUT_MS = 5 * 60_000
-// How long a running Box's host may take to connect before it reads as offline.
-export const BOX_HOST_GRACE_MS = 60_000
-
 /**
  * A cloud Box's state, or, for a computer, `stopped` while its agents are not connected.
- * A running Box whose host is away is `connecting`, then `hostOffline` after the grace period.
+ * A running Box whose host has dropped is `hostOffline`; until its host first connects the
+ * backend reports it `creating`.
  */
-export type MachineState = BoxState | 'stopped' | 'connecting' | 'hostOffline'
+export type MachineState = BoxState | 'stopped' | 'hostOffline'
 
 export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   creating: { label: 'Starting', tone: 'pending' },
   running: { label: 'Running', tone: 'online' },
-  connecting: { label: 'Starting', tone: 'pending' },
   hostOffline: { label: 'Host offline', tone: 'pending' },
   paused: { label: 'Paused', tone: 'off' },
   stopped: { label: 'Offline', tone: 'off' },
   error: { label: "Didn't start", tone: 'error' },
 }
 
+/** A member who may only use a machine sees it, not the controls the backend would refuse. */
+export function canManage(device: AgentDevice): boolean {
+  return device.access !== 'use'
+}
+
 /** What a Box's state allows besides Delete, which is always there. */
 export function boxActions(state: MachineState): { pause: boolean; resume: boolean } {
   return {
-    pause: state === 'running' || state === 'connecting' || state === 'hostOffline',
-    resume: state === 'paused' || state === 'error',
+    pause: state === 'running' || state === 'hostOffline',
+    // Resuming restarts the host, which brings back one that dropped.
+    resume: state === 'paused' || state === 'error' || state === 'hostOffline',
   }
 }
 
@@ -47,27 +54,25 @@ export function boxes(devices: AgentDevice[]): BoxDevice[] {
 }
 
 /** Derived, never stored: a cloud Box's state is instabox's; a computer is running while connected. */
-export function boxState(device: AgentDevice, now = Date.now()): MachineState {
+export function boxState(device: AgentDevice): MachineState {
   if (!device.box) return device.online ? 'running' : 'stopped'
-  if (device.box.state !== 'running' || device.online) return device.box.state
-  const since = device.box.updatedAt ? Date.parse(device.box.updatedAt) : Number.NaN
 
-  return now - since < BOX_HOST_GRACE_MS ? 'connecting' : 'hostOffline'
+  return device.box.state === 'running' && !device.online ? 'hostOffline' : device.box.state
 }
 
 /**
- * How soon to look again: quickly around a sign-in, while a Box is starting or while a running
- * Box's host reconnects; otherwise 0, not at all (actions and a returning window reload the list).
+ * How soon to look again: quickly while a Box is being made or around a sign-in; every few
+ * seconds while a connected machine shows live metrics; rarely while a host is away; otherwise
+ * not at all (actions and a returning window reload the list).
  */
 export function boxPollMs(devices: AgentDevice[], signingIn: boolean): number {
-  if (signingIn) return 1_500
+  const states = devices.map(boxState)
 
-  return boxes(devices).some(
-    (device) =>
-      device.box.state === 'creating' || (device.box.state === 'running' && !device.online),
-  )
-    ? BOX_CREATING_POLL_MS
-    : 0
+  if (states.includes('creating')) return BOX_CREATING_POLL_MS
+  if (signingIn) return 1_500
+  if (devices.some((device) => device.online)) return BOX_METRICS_POLL_MS
+
+  return states.includes('hostOffline') ? BOX_OFFLINE_POLL_MS : 0
 }
 
 const OS_LABEL: Record<string, string> = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' }
