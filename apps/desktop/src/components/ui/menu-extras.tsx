@@ -8,18 +8,24 @@ type MenuCheckboxItemProps = {
   checked: boolean
   onCheckedChange: (checked: boolean) => void
   disabled?: boolean
+  /** Id of an element that describes the row, read after its name. */
+  describedBy?: string
   className?: string
 }
 
 /** A multi-select row: stays open on click and shows a check when ticked. */
 export const MenuCheckboxItem = React.forwardRef<HTMLDivElement, MenuCheckboxItemProps>(
-  function MenuCheckboxItem({ children, checked, onCheckedChange, disabled, className }, ref) {
+  function MenuCheckboxItem(
+    { children, checked, onCheckedChange, disabled, describedBy, className },
+    ref,
+  ) {
     return (
       <MenuPrimitive.CheckboxItem
         ref={ref}
         checked={checked}
         onCheckedChange={onCheckedChange}
         disabled={disabled}
+        aria-describedby={describedBy}
         closeOnClick={false}
         className={(state) =>
           clsx(

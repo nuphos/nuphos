@@ -1,8 +1,6 @@
 import clsx from 'clsx'
 import { Zap } from 'lucide-react'
 
-import { ACCENT_TEXT, FG_TERTIARY } from './modelControlStyles'
-
 /** The chip's text: ⚡ when fast mode is on, the model, then the effort muted. */
 export function ModelChipLabel({
   name,
@@ -26,7 +24,7 @@ export function ModelChipLabel({
       size={13}
       strokeWidth={1.8}
       fill="currentColor"
-      className={clsx('shrink-0', ACCENT_TEXT)}
+      className="shrink-0 text-zOrangered-400"
     />
   )
 
@@ -39,7 +37,7 @@ export function ModelChipLabel({
         <span
           key={choice}
           aria-hidden
-          className="invisible col-start-1 row-start-1 flex min-w-0 items-center gap-[4px] whitespace-nowrap"
+          className="invisible col-start-1 row-start-1 flex min-w-0 items-center gap-1 whitespace-nowrap"
         >
           {fastIcon}
           <span className="min-w-0 truncate">{name}</span>
@@ -49,24 +47,26 @@ export function ModelChipLabel({
       <span
         aria-hidden={choosingEffort}
         className={clsx(
-          'col-start-1 row-start-1 flex min-w-0 items-center justify-center gap-[4px]',
+          'col-start-1 row-start-1 flex min-w-0 items-center justify-center gap-1',
           choosingEffort && 'invisible',
         )}
       >
         {fastIcon}
         <span className="min-w-0 truncate">{name}</span>
-        {level && <span className={clsx('shrink-0 whitespace-nowrap', FG_TERTIARY)}>{level}</span>}
+        {level && <span className="shrink-0 whitespace-nowrap text-tertiary">{level}</span>}
       </span>
-      <span
-        aria-hidden={!choosingEffort}
-        className={clsx(
-          'col-start-1 row-start-1 truncate text-center',
-          FG_TERTIARY,
-          !choosingEffort && 'invisible',
-        )}
-      >
-        Select effort
-      </span>
+      {/* Without effort levels there is no effort to select, and no width to hold for it. */}
+      {levels.length > 0 && (
+        <span
+          aria-hidden={!choosingEffort}
+          className={clsx(
+            'col-start-1 row-start-1 truncate text-center text-tertiary',
+            !choosingEffort && 'invisible',
+          )}
+        >
+          Select effort
+        </span>
+      )}
     </span>
   ) : (
     <span
