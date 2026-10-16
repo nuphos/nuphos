@@ -7,6 +7,8 @@ import { join as nuphosJoin, delimiter as nuphosPathDelimiter } from 'node:path'
 // run as the same OS user. Never mutate process.env or copy ambient credentials.
 // Use the conversation ID, not the ACP process/turn ID, so load/resume and token
 // refresh keep the same home. Hash it so metadata cannot supply a filesystem path.
+// A teammate's turns in someone else's conversation (NUPHOS_SESSION_ACTOR) get a
+// home of their own, so neither side picks up the other's CLI logins.
 export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) {
   const id = sessionEnv.NUPHOS_SESSION_ID
   if (typeof id !== 'string' || !id.trim()) {
@@ -16,7 +18,9 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
   }
   const runtimeHome = runtimeEnv.HOME || runtimeEnv.USERPROFILE || nuphosHostHome()
   const root = nuphosJoin(runtimeHome, '.nuphos', 'session-homes')
-  const home = nuphosJoin(root, nuphosHomeHash('sha256').update(id).digest('hex'))
+  const actor = sessionEnv.NUPHOS_SESSION_ACTOR
+  const key = typeof actor === 'string' && actor ? `${id}\0${actor}` : id
+  const home = nuphosJoin(root, nuphosHomeHash('sha256').update(key).digest('hex'))
   for (const dir of [root, home]) {
     nuphosMkdir(dir, { recursive: true, mode: 0o700 })
     if (!nuphosLstat(dir).isDirectory()) throw new Error('Session home must be a directory')

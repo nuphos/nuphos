@@ -7,6 +7,7 @@ import test from 'node:test'
 
 import { nuphosSessionHomeEnv, nuphosClaudeSessionEnv } from '../image/session-home.mjs'
 import { nuphosCodexSessionConfig } from '../image/codex-acp/session-config.mjs'
+import { agentEnv } from '../image/acp-shim.mjs'
 
 function runtime(t) {
   const dir = mkdtempSync(join(tmpdir(), 'nuphos-session-home-'))
@@ -82,6 +83,28 @@ test('Claude and Codex receive the same isolated paths without moving the agent 
     nuphosClaudeSessionEnv({}, context, { HOME: host.HOME }).CLAUDE_CONFIG_DIR,
     join(host.HOME, '.claude'),
   )
+})
+
+test('a teammate acting in a conversation gets their own HOME, the owner keeps theirs', (t) => {
+  const host = runtime(t)
+  const owner = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'c' }, host)
+  const guest = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'c', NUPHOS_SESSION_ACTOR: 'g' }, host)
+  const other = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'c', NUPHOS_SESSION_ACTOR: 'h' }, host)
+  put(owner.KUBECONFIG, 'owner')
+  assert.notEqual(owner.HOME, guest.HOME)
+  assert.notEqual(guest.HOME, other.HOME)
+  assert.throws(() => readFileSync(guest.KUBECONFIG), { code: 'ENOENT' })
+  assert.deepEqual(
+    nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'c', NUPHOS_SESSION_ACTOR: 'g' }, host),
+    guest,
+  )
+  // Both adapters forward the actor, so Claude and Codex land in the same guest home.
+  const context = { NUPHOS_SESSION_ID: 'c', NUPHOS_SESSION_ACTOR: 'g', NUPHOS_TOKEN: 't' }
+  const claude = nuphosClaudeSessionEnv({ ...host, ...context }, context, host)
+  const codex = nuphosCodexSessionConfig({}, { 'ai.nuphos/codex': { env: context } }, host)
+  assert.equal(claude.HOME, guest.HOME)
+  assert.equal(codex.shell_environment_policy.set.HOME, guest.HOME)
+  assert.equal(agentEnv('grok', { env: context }, host).HOME, guest.HOME)
 })
 
 test('real git global config changes stay in the calling session', (t) => {

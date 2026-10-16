@@ -11,6 +11,7 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
     'NUPHOS_TEAM_ID',
     'TEAM',
     'NUPHOS_SESSION_ID',
+    'NUPHOS_SESSION_ACTOR',
     'NUPHOS_PLAN_API_BASE',
     'NUPHOS_PLAN_API_TOKEN',
   ])
