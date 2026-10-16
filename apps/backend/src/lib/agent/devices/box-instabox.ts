@@ -108,8 +108,6 @@ export async function createBox(
     insertBoxAgentDevice(userId, registration),
   )
 
-  noteBoxUsage(teamId)
-
   void order(userId, teamId, deviceId, label, url)
 
   return created
@@ -186,8 +184,6 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
       Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
     )
 
-    noteBoxUsage(device.box.teamId)
-
     await sandbox.desktop.start()
     const { url } = await sandbox.desktop.streamUrl({ viewOnly: false, ttlSeconds: 15 * 60 })
 
@@ -224,7 +220,6 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
   } catch (error) {
     throw unavailable('Could not pause the Box', error)
   }
-  noteBoxUsage(device.box.teamId)
 
   return device
 }
@@ -253,7 +248,6 @@ export async function resumeBox(userId: string, deviceId: string): Promise<Agent
     if (error instanceof AppError) throw error
     throw unavailable('Could not resume the Box', error)
   }
-  noteBoxUsage(device.box.teamId)
 
   return device
 }
@@ -274,6 +268,7 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
     logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
     throw unavailable('Could not delete the Box', error)
   }
+  // Its tunnel closed before the kill, while the machine still ran.
   noteBoxUsage(device.box.teamId)
 }
 

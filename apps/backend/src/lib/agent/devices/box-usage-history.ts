@@ -66,8 +66,9 @@ export function noteBoxUsage(teamId: string): void {
 }
 
 /**
- * A tunnel that opens or closes is how a change instabox made on its own shows
- * up here: an idle pause, a resume by a command, a crash, a kill in its console.
+ * A Box's tunnel opens when it starts, resumes or wakes, and closes when it
+ * pauses or stops, whoever did it: Nuphos, instabox's idle pause, a command
+ * that woke it, a crash, a kill in instabox's console.
  */
 export function noteBoxPresence(
   userId: string,
