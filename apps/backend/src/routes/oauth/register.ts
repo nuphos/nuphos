@@ -28,7 +28,14 @@ export function registerOauthRegisterRoute(oauthRoutes: Hono) {
       )
     }
 
-    const clientName = typeof body?.client_name === 'string' ? body.client_name : null
+    // Shown on the consent page: keep it short and printable.
+    const clientName =
+      typeof body?.client_name === 'string'
+        ? body.client_name
+            .replace(/[\p{Cc}\p{Cf}]/gu, '')
+            .trim()
+            .slice(0, 100) || null
+        : null
     const client = await registerClient({ clientName, redirectUris, scope: MCP_SCOPE })
 
     // RFC 7591 registration response. No secret: public client using PKCE.

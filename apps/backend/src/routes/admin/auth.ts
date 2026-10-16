@@ -11,7 +11,15 @@ export type AdminVars = {
   adminUserId?: string
 }
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
 export const requireAdmin: MiddlewareHandler<{ Variables: AdminVars }> = async (c, next) => {
+  // Admin auth is cookie-only, so refuse state changes a cross-site page
+  // triggered (CSRF). Browsers always send Sec-Fetch-Site; server-side callers
+  // that omit it are unaffected.
+  if (!SAFE_METHODS.has(c.req.method) && c.req.header('Sec-Fetch-Site') === 'cross-site') {
+    throw new AppError(403, 'forbidden', 'Cross-site admin requests are not allowed')
+  }
   const cookieAuth = await authenticateCookieAdmin(c.req.header('Cookie'))
 
   if (cookieAuth.status === 'ok') {

@@ -2,6 +2,27 @@ import { escapeHtml } from '@/routes/oauth/shared'
 
 import type { AuthorizeParams } from '@/routes/oauth/authorize-validate'
 
+// Hosts of MCP clients we recognise. Anything else may still be legitimate
+// (self-hosted or other clients), so it is flagged rather than refused.
+const KNOWN_CLIENT_HOSTS = new Set(['claude.ai', 'claude.com', 'chatgpt.com'])
+
+/** Where the authorization code goes, so a look-alike app name cannot hide it. */
+export function redirectNotice(redirectUri: string): string {
+  const { hostname, host } = new URL(redirectUri)
+  const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+
+  if (loopback) return '<p class="dest">Returns to an app on <b>this computer</b>.</p>'
+  const known = KNOWN_CLIENT_HOSTS.has(hostname)
+  const warning = known
+    ? ''
+    : '<p class="warn">Unverified app. Only continue if you started this connection.</p>'
+
+  return `<p class="dest">Returns to <b>${escapeHtml(host)}</b></p>${warning}`
+}
+
+const NOTICE_CSS =
+  '.dest{font-size:13px;color:#c9d1d9;margin:0 0 8px}.warn{font-size:12px;color:#f0b429;margin:0 0 12px}'
+
 export function consentPage(
   params: AuthorizeParams,
   opts: { clientName: string | null; error?: string },
@@ -26,10 +47,12 @@ export function consentPage(
   button{margin-top:18px;width:100%;padding:11px;border:0;border-radius:8px;background:#4f7cff;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
   button.secondary{background:#2c333f;margin-top:8px}
   .scope{background:#0f1115;border:1px solid #2c333f;border-radius:8px;padding:8px 10px;font-size:12px;color:#c9d1d9;margin-top:6px}
+  ${NOTICE_CSS}
 </style></head>
 <body><div class="card">
   <h1>Authorize access</h1>
   <p class="sub"><b>${appName}</b> wants to connect to your Nuphos account.</p>
+  ${redirectNotice(params.redirectUri)}
   ${errorHtml}
   <div class="scope">Scope: <b>${escapeHtml(params.scope)}</b> — talk to the Nuphos Agent on your behalf.</div>
   <form method="post" action="/oauth/authorize">
@@ -99,12 +122,14 @@ export function oneClickConsentPage(
   p.sub{color:#9aa4b2;font-size:13px;margin:0 0 20px}
   button{margin-top:18px;width:100%;padding:11px;border:0;border-radius:8px;background:#4f7cff;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
   .scope{background:#0f1115;border:1px solid #2c333f;border-radius:8px;padding:8px 10px;font-size:12px;color:#c9d1d9;margin-top:6px}
+  ${NOTICE_CSS}
   .who{font-size:13px;color:#c9d1d9;margin:16px 0 0}
   a.switch{display:block;margin-top:12px;font-size:12px;color:#9aa4b2;text-align:center}
 </style></head>
 <body><div class="card">
   <h1>Authorize access</h1>
   <p class="sub"><b>${appName}</b> wants to connect to your Nuphos account.</p>
+  ${redirectNotice(params.redirectUri)}
   <div class="scope">Scope: <b>${escapeHtml(params.scope)}</b> — talk to the Nuphos Agent on your behalf.</div>
   <p class="who">Signed in as <b>${escapeHtml(opts.email)}</b></p>
   <form method="post" action="/oauth/authorize">
