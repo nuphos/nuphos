@@ -89,6 +89,8 @@ describe('device join tokens', () => {
 
     expect(joined?.userId).toBe('u1')
     expect(joined?.credential.startsWith('nbx_')).toBe(true)
+    // A person's own computer joined with a token is not a Box.
+    expect(joined?.box).toBeUndefined()
     expect(collection('agent_devices').docs).toEqual([
       expect.objectContaining({
         userId: 'u1',
@@ -146,6 +148,7 @@ describe('device join tokens', () => {
     const joined = await redeemDeviceJoinToken(token, MACHINE)
 
     expect(joined?.deviceId).toBe('box-1')
+    expect(joined?.box).toBe(true)
     expect(collection('agent_devices').docs).toEqual([
       expect.objectContaining({
         deviceId: 'box-1',

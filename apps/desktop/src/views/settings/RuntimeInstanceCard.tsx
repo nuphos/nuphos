@@ -87,6 +87,7 @@ export function RuntimeInstanceCard({
     }
   }
   const canEdit = isAdmin && instance.kind !== 'development' && !instance.deletion
+  const removalId = localRemovalId(instance)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external' ? 'External' : instance.kind === 'development' ? 'Local' : null
@@ -265,7 +266,7 @@ export function RuntimeInstanceCard({
             instance.kind === 'managed'
               ? 'This permanently deletes the agent, its disks, workspaces, and sign-in, and stops running conversations. Your conversation history stays in Nuphos. Move any workspace you want to keep to another agent before removing this one.'
               : instance.local && !instance.local.instanceId
-                ? `This signs ${instance.label} out on ${instance.local.deviceLabel} and deletes its CLI history and settings there. Conversations on it stop working; their history stays in Nuphos.`
+                ? `This signs ${instance.label} out on ${instance.local.deviceLabel} and deletes its ${instance.provider === 'codex' ? 'settings' : 'CLI history and settings'} there. Conversations on it stop working; their history stays in Nuphos.`
                 : instance.local
                   ? `This removes the agent and its sign-in from ${instance.local.deviceLabel}. Your conversation history stays in Nuphos.`
                   : 'This disconnects the external agent. Its files remain on the external machine. Your conversations stay in Nuphos and can be moved using conversation history.'
@@ -274,12 +275,9 @@ export function RuntimeInstanceCard({
           confirmLabel="Remove agent"
           onConfirm={() =>
             mutate(() =>
-              instance.local
-                ? api.boxRemoveAgent(
-                    instance.local.deviceId,
-                    teamId,
-                    localRemovalId(instance) ?? instance.id,
-                  )
+              // The menu offers removal for a computer's agent only when it has a removal id.
+              instance.local && removalId
+                ? api.boxRemoveAgent(instance.local.deviceId, teamId, removalId)
                 : api.atlasRemoveRuntimeInstance(teamId, instance.id),
             )
           }

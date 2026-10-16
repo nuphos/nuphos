@@ -6,6 +6,7 @@ import { test } from 'node:test'
 
 import { prepareAgentHome } from './agent-home.ts'
 import { LocalRuntimeController } from './controller.ts'
+import { ownsMachine } from './device-credential.ts'
 
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
@@ -76,7 +77,14 @@ function box(t: { after: (fn: () => void) => void }, ownsMachine: boolean) {
 }
 
 test('a Box removes its default agents for good, also across a restart', async (t) => {
-  const { start, signedIn, owner } = box(t, true)
+  const joined = {
+    apiUrl: 'https://x',
+    userId: 'alice',
+    deviceId: 'b',
+    credential: 'c',
+    box: true as const,
+  }
+  const { start, signedIn, owner } = box(t, ownsMachine(joined))
   const controller = await start()
 
   assert.deepEqual(signedIn(controller), { 'claude-code': true, codex: true })
@@ -90,7 +98,14 @@ test('a Box removes its default agents for good, also across a restart', async (
 })
 
 test('a person’s computer never removes a default agent or touches its login', async (t) => {
-  const { start, signedIn, owner } = box(t, false)
+  // Joined with a token of its own, it holds a credential, but the backend never said Box.
+  const joined = {
+    apiUrl: 'https://example.test',
+    userId: 'alice',
+    deviceId: 'mac',
+    credential: 'nbx_x',
+  }
+  const { start, signedIn, owner } = box(t, ownsMachine(joined))
   const controller = await start()
 
   await assert.rejects(
