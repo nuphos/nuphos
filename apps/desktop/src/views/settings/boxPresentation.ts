@@ -1,5 +1,3 @@
-import { parseAtlasError } from '../../api/errors.ts'
-
 import type { RuntimeStatusView } from './runtimePresentation'
 import type {
   AgentDevice,
@@ -39,46 +37,6 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
 /** A member who may only use a machine sees it, not the controls the backend would refuse. */
 export function canManage(device: AgentDevice): boolean {
   return device.access !== 'use'
-}
-
-/**
- * How a machine leaves the list: a Box is deleted, any time; a computer is only forgotten once
- * offline, since online it would register again. Null when it cannot be removed now.
- */
-export function removal(device: AgentDevice) {
-  if (device.box)
-    return {
-      action: 'Delete',
-      confirm: 'Delete Box',
-      description:
-        "This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos.",
-    }
-  if (device.online) return null
-
-  return {
-    action: 'Remove computer',
-    confirm: 'Remove computer',
-    description:
-      'This removes the computer and its agents from Nuphos. Opening Nuphos on it registers it again. Your conversation history stays in Nuphos.',
-  }
-}
-
-type RemoveCalls = Record<
-  'boxDelete' | 'deviceRemove',
-  (deviceId: string, teamId: string) => Promise<unknown>
->
-
-/** Deletes a Box or forgets a computer; a refusal rejects with the backend's own words. */
-export async function removeMachine(
-  device: AgentDevice,
-  teamId: string,
-  calls: RemoveCalls,
-): Promise<void> {
-  try {
-    await (device.box ? calls.boxDelete : calls.deviceRemove)(device.deviceId, teamId)
-  } catch (error) {
-    throw new Error(parseAtlasError(error).message, { cause: error })
-  }
 }
 
 /** What a Box's state allows besides Delete, which is always there. */

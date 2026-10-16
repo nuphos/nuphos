@@ -2,8 +2,6 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
-  removal,
-  removeMachine,
   BOX_BADGE,
   boxActions,
   canManage,
@@ -193,37 +191,4 @@ test('a member who may only use a Box gets none of the controls the backend refu
   assert.equal(canManage({ ...box('a', 'running'), access: 'use' }), false)
   assert.equal(canManage({ ...box('a', 'running'), access: 'manage' }), true)
   assert.equal(canManage(box('a', 'running')), true, 'your own machine, no access field')
-})
-
-test('a Box can always be deleted; a computer can be removed only while offline', () => {
-  const computer = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
-
-  assert.equal(removal({ ...computer, online: false })?.action, 'Remove computer')
-  assert.equal(removal({ ...computer, online: true }), null)
-  for (const online of [true, false])
-    assert.equal(
-      removal({ ...computer, online, box: { provider: 'instabox' } } as AgentDevice)?.action,
-      'Delete',
-    )
-})
-
-test('a failed removal rejects with the backend message, so the dialog shows it and stays open', async () => {
-  const computer = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
-  const sent: string[] = []
-  const calls = {
-    boxDelete: (id: string, team: string) => Promise.resolve(sent.push(`box ${id} ${team}`)),
-    deviceRemove: () =>
-      Promise.reject(
-        new Error(
-          `Error invoking remote method 'box:removeDevice': __ATLAS_API_ERROR__${JSON.stringify({
-            code: 'route_not_found',
-            message: 'Route not found',
-          })}`,
-        ),
-      ),
-  }
-
-  await assert.rejects(removeMachine(computer, 't1', calls), { message: 'Route not found' })
-  await removeMachine({ ...computer, box: { provider: 'instabox' } } as AgentDevice, 't1', calls)
-  assert.deepEqual(sent, ['box c1 t1'])
 })
