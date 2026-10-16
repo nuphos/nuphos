@@ -5,15 +5,9 @@ import { modelChoiceLabel } from '../../../lib/configLabels'
 import { concreteModelChoices, isDefaultModel } from '../../../lib/modelChoices'
 
 import { HintTooltip } from './modelControlParts'
-import { FG_TERTIARY, HOVER_FILL } from './modelControlStyles'
+import { FG_TERTIARY, MENU_ROW as ROW } from './modelControlStyles'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
-
-const ROW = clsx(
-  'flex w-full rounded-[8px] px-[9px] text-left text-[13.5px] text-main outline-none',
-  'focus-visible:bg-[rgba(var(--color-text-base),0.08)] disabled:opacity-50',
-  HOVER_FILL,
-)
 
 /**
  * Codex's "Select model" list: a Default row, then each model with a check on
