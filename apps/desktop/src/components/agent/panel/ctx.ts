@@ -227,7 +227,7 @@ export type PanelCtx = {
     activeToolCallId: string | null
     readOnly: boolean
   }
-  removeQueued: (tabId: string, queuedId: string) => void
+  removeQueued: (tabId: string, queuedId: string) => Promise<void>
   stopActive: () => void
   openGenerationRef: Ref<number>
   clearPendingOpen: (sessionId: string) => void

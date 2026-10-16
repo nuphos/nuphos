@@ -105,7 +105,11 @@ test('a free session runs the message now and holds the claim for it', async () 
   const admitted = await admit('now')
 
   expect(admitted?.mode).toBe('run')
-  if (admitted?.mode === 'run') admitted.release()
+  // Kept for the turn: a runtime refusal mid-start requeues it at the head.
+  if (admitted?.mode === 'run') {
+    expect(admitted.item).toMatchObject({ id: 'now', chat: { streamId: 'stream-now' } })
+    admitted.release()
+  }
   expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
 })
 

@@ -39,7 +39,14 @@ before(async () => {
       supersedePendingApprovals: (messages: Message[]) => messages,
     },
   })
-  mock.module('./queuedAutoSend.ts', { namedExports: { rememberDispatchedDraft: () => {} } })
+  mock.module('./queuedAutoSend.ts', {
+    namedExports: {
+      rememberDispatchedDraft: () => {},
+      rememberSideSend: () => {},
+      showQueued: (tab: unknown) => tab,
+      withoutQueued: (tab: unknown) => tab,
+    },
+  })
   mock.module('./stall.ts', {
     namedExports: { INTERRUPTED_TOOL_MESSAGE: 'interrupted', newAgentStreamId: randomUUID },
   })

@@ -38,6 +38,7 @@ import { getFirstUserMessage } from './transcript'
 import { acceptAgentRun } from './turn-start-frame'
 
 import type { AgentChatBody, AgentRunTrace, InternalChatCtx } from './types'
+import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 
 agent.post('/chat', async (c) => {
   const userId = c.get('userId')
@@ -57,7 +58,6 @@ agent.post('/chat', async (c) => {
     : await assertConversationSendable(id, userId, teamId)
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
-  // Initialize once even if transcript sync already created the row.
   if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {
     await initializeSessionBypass(id, userId, body.permissionMode === 'bypass')
   }
@@ -116,9 +116,9 @@ agent.post('/chat', async (c) => {
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
   let releaseAgentRunClaim: (() => void) | null = null
+  let queuedItem: PendingUserMessage | undefined
 
-  // Runtime admission supersedes backend stream leases. Leases still route
-  // replay/cancellation; they do not say whether an OpenAB session can accept work.
+  // The runtime says whether it can take work; a serverQueue send also holds the session claim.
   const runtimeSnapshot = conversationForResume?.claudeCodePreview
     ? await conversationExecutionState(conversationForResume)
     : undefined
@@ -149,7 +149,7 @@ agent.post('/chat', async (c) => {
     })
 
     if (queue?.mode === 'queued') return c.json({ status: 'queued', streamId }, 202)
-    if (queue) releaseAgentRunClaim = queue.release
+    if (queue) [releaseAgentRunClaim, queuedItem] = [queue.release, queue.item]
     else
       await admitRuntimeChat(runtimeSnapshot, {
         attached: conversationForResume?.claudeCodePreview ? conversationForResume : undefined,
@@ -157,8 +157,7 @@ agent.post('/chat', async (c) => {
         read: conversationExecutionState,
       })
     if (!queue && !runtimeOwnsAdmission) {
-      // Park onto this conversation's running turn, or claim the session before
-      // launching one.
+      // Park onto this conversation's running turn, or claim the session first.
       const admission = await admitPreviewTurn(
         {
           runOwnerUserId,
@@ -290,6 +289,7 @@ agent.post('/chat', async (c) => {
           }
         : null,
       chatRuntime,
+      queued: queuedItem,
     })
 
     return streamAgentRunResponse(run, body.resumeFrom)

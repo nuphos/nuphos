@@ -3,7 +3,7 @@ import { toast } from '../../ui/toast'
 
 import { applyEvent } from './applyEvent'
 import { finalizeIncompleteTools, latchTabError } from './clientTools'
-import { dispatchedDraft, parkRefusedTurn } from './queuedAutoSend'
+import { dispatchedDraft, showTurnQueued } from './queuedAutoSend'
 import { normalizeAgentError, uid } from './stall'
 import { stampAssistantTurnEnd } from './messagePlacement'
 import { updateCurrentAssistantParts } from './turnBoundaries'
@@ -91,15 +91,10 @@ export function applyStreamEvent(
           agentSetupRequired: null,
         }
       }
-      if (evType === 'runtime-not-ready') {
-        // Refused before it started; useQueuedAutoSend sends a parked message again.
-        const draft = dispatchedDraft(streamId)
-        const nextTab = parkRefusedTurn(t, draft)
-
-        if (!draft && !busyNoticeShownForStream.has(streamId)) {
-          busyNoticeShownForStream.add(streamId)
-          toast.error("The agent isn't ready yet", 'Try again in a moment.')
-        }
+      if (evType === 'queued' || evType === 'runtime-not-ready') {
+        // The session was busy, or the runtime refused the start: the message
+        // waits at its place in the server queue, shown in the queue strip.
+        const nextTab = showTurnQueued(t, dispatchedDraft(streamId))
 
         queueTranscriptSync(nextTab, 250)
 

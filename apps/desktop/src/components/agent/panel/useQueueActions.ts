@@ -1,0 +1,65 @@
+import { useCallback } from 'react'
+
+import { api } from '../../../api'
+import { parseAtlasError } from '../../../api/errors'
+import { runtimeAllows } from '../../../lib/runtimeExecution'
+import { toast } from '../../ui/toast'
+
+import { withoutQueued } from './queuedAutoSend'
+
+import type { PanelCtx } from './ctx'
+
+/** The queue strip's actions on this person's messages waiting in the server queue. */
+export function useQueueActions({
+  tabsRef,
+  setTabs,
+  teamId,
+  sendSteering,
+}: Pick<PanelCtx, 'tabsRef' | 'setTabs' | 'teamId'> & {
+  sendSteering: (tabId: string, text: string, filePaths: string[]) => Promise<void>
+}) {
+  // Steer a waiting message into the running turn: take it off the queue first.
+  const steerQueued = useCallback(
+    async (tabId: string, queuedId: string) => {
+      const tab = tabsRef.current.find((candidate) => candidate.id === tabId)
+      const draft = tab?.queued?.find((candidate) => candidate.id === queuedId)
+
+      if (!tab || !draft || draft.steering || !runtimeAllows(tab.runtimeState, 'steer')) return
+      try {
+        await api.agentUnqueueMessage(tab.sessionId, queuedId, teamId)
+      } catch (error) {
+        toast.apiError('This message is no longer waiting', error)
+
+        return
+      }
+      setTabs((previous) =>
+        previous.map((candidate) =>
+          candidate.id === tabId ? withoutQueued(candidate, queuedId) : candidate,
+        ),
+      )
+      await sendSteering(tabId, draft.text, draft.filePaths)
+    },
+    [sendSteering, tabsRef, setTabs, teamId],
+  )
+
+  // Take a waiting message back. A 404 means its turn already started, or it is gone.
+  const removeQueued = useCallback(
+    async (tabId: string, queuedId: string) => {
+      const tab = tabsRef.current.find((candidate) => candidate.id === tabId)
+
+      if (!tab) return
+      setTabs((previous) =>
+        previous.map((candidate) =>
+          candidate.id === tabId ? withoutQueued(candidate, queuedId) : candidate,
+        ),
+      )
+      await api.agentUnqueueMessage(tab.sessionId, queuedId, teamId).catch((error: unknown) => {
+        if (parseAtlasError(error).code !== 'not_found')
+          toast.apiError('Could not take the message back', error)
+      })
+    },
+    [tabsRef, setTabs, teamId],
+  )
+
+  return { steerQueued, removeQueued }
+}

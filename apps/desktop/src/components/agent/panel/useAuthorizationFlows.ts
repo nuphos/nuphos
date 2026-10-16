@@ -209,19 +209,10 @@ export function useAuthorizationFlows(acc: Acc) {
     [decideAuthorization, activePendingAuthToolCallId, activeTab?.readOnly],
   )
 
-  const removeQueued = useCallback((tabId: string, queuedId: string) => {
-    setTabs((prev) =>
-      prev.map((t) =>
-        t.id === tabId ? { ...t, queued: (t.queued ?? []).filter((q) => q.id !== queuedId) } : t,
-      ),
-    )
-  }, [])
-
   return {
     handleRejectPlan,
     decideAuthorization,
     resumePermissionTurn,
     authorizationContextValue,
-    removeQueued,
   }
 }

@@ -117,6 +117,8 @@ export const agentApi = {
     window.api.agentCancelRuntime(sessionId, teamId),
   agentSteerConversation: (sessionId: string, text: string, teamId?: string, groupId?: string) =>
     window.api.agentSteerConversation(sessionId, text, teamId, groupId),
+  agentUnqueueMessage: (sessionId: string, messageId: string, teamId?: string) =>
+    window.api.agentUnqueueMessage(sessionId, messageId, teamId),
   agentSlackPickup: (sessionId: string, teamId?: string) =>
     window.api.agentSlackPickup(sessionId, teamId),
   agentGetConversation: async (

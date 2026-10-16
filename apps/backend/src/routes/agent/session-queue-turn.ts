@@ -93,7 +93,9 @@ function freshSend({ body, conversation, ...args }: QueueableChat): AgentConvers
  */
 export async function admitQueueableChat(
   args: QueueableChat,
-): Promise<{ mode: 'run'; release: () => void } | { mode: 'queued' } | null> {
+): Promise<
+  { mode: 'run'; release: () => void; item: PendingUserMessage } | { mode: 'queued' } | null
+> {
   const conversation = freshSend(args)
   const message = args.clientView.at(-1)
 
@@ -120,8 +122,7 @@ export async function admitQueueableChat(
   // Runtime-owned work (an automatic continuation) holds no backend claim.
   const runtimeBusy = args.snapshot?.schemaVersion === 2 && !args.snapshot.actions?.send
 
-  if (release && !runtimeBusy) return { mode: 'run', release }
-  const queued = await enqueuePendingUserMessage(owner, sessionId, {
+  const item: PendingUserMessage = {
     ...buildPendingUserMessage({
       renderedText: messageText(message),
       source: 'app',
@@ -135,7 +136,11 @@ export async function admitQueueableChat(
       message,
       ...(args.credentialAccess ? { credentialAccess: args.credentialAccess } : {}),
     },
-  })
+  }
+
+  // Run now; a runtime refusal mid-start puts it at the head of the queue.
+  if (release && !runtimeBusy) return { mode: 'run', release, item }
+  const queued = await enqueuePendingUserMessage(owner, sessionId, item)
 
   // Letting go of the claim starts the queue; otherwise nudge it ourselves.
   if (release) release()
