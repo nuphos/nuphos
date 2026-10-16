@@ -38,6 +38,11 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     forgetAgent: async (userId, deviceId, agent) => {
       calls.push({ forgot: [userId, deviceId, agent] })
     },
+    renameAgent: async (userId, deviceId, key, label) => {
+      calls.push({ renamed: [userId, deviceId, key, label] })
+
+      return key === id || key === 'claude-code'
+    },
     ...overrides,
   }
   const server = new Hono<{ Variables: AuthVariables }>()
@@ -62,7 +67,14 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
       method: 'DELETE',
     })
 
-  return { create, remove, calls }
+  const rename = (agent: string, label: string) =>
+    server.request(`/devices/box/agents/${agent}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId: '69e989027ab63e8d6a0ffcb6', label }),
+    })
+
+  return { create, remove, rename, calls }
 }
 
 test('create dispatches exact retry id and provider and returns a usable runtime id', async () => {
@@ -155,8 +167,7 @@ test('remove is managed, reaches the transport owner, and refuses a default agen
     },
     { forgot: ['transport-owner', 'box', { instanceId: id }] },
   ])
-  for (const bad of ['claude-code', 'default-grok', 'default-'])
-    expect((await remove(bad)).status).toBe(400)
+  for (const bad of ['default-codex', 'grok', 'x']) expect((await remove(bad)).status).toBe(400)
   expect(calls).toHaveLength(2)
 })
 
@@ -164,14 +175,14 @@ test("a Box removes its default agent; a person's computer refuses to", async ()
   const box = { ...device, box: {} as never }
   const onBox = app({ requireAccess: async () => box })
 
-  expect((await onBox.remove('default-codex')).status).toBe(204)
+  expect((await onBox.remove('codex')).status).toBe(204)
   expect(onBox.calls).toMatchObject([
     { removed: { provider: 'codex' } },
     { forgot: ['owner', 'box', { provider: 'codex' }] },
   ])
   const computer = app()
 
-  expect((await computer.remove('default-claude-code')).status).toBe(400)
+  expect((await computer.remove('claude-code')).status).toBe(400)
   expect(computer.calls).toEqual([])
 })
 
@@ -189,4 +200,39 @@ test('remove without access or on an older host never reaches the host', async (
     expect([404, 409]).toContain((await remove(id)).status)
     expect(calls).toEqual([])
   }
+})
+
+test('rename is managed, works offline, and names the transport owner’s registry entry', async () => {
+  const levels: string[] = []
+  const { rename, calls } = app({
+    requireAccess: async (_actorId, _teamId, _deviceId, level) => {
+      levels.push(level)
+
+      return { ...device, userId: 'transport-owner' }
+    },
+    getPresence: async () => null,
+  })
+
+  expect((await rename(id, '  Review  ')).status).toBe(200)
+  expect((await rename('claude-code', '')).status).toBe(200)
+  expect((await rename('codex', 'Mine')).status).toBe(404)
+  expect(levels).toEqual(['manage', 'manage', 'manage'])
+  expect(calls).toEqual([
+    { renamed: ['transport-owner', 'box', id, 'Review'] },
+    { renamed: ['transport-owner', 'box', 'claude-code', ''] },
+    { renamed: ['transport-owner', 'box', 'codex', 'Mine'] },
+  ])
+})
+
+test('a member who may only use the Box cannot rename its agents', async () => {
+  const { rename, calls } = app({
+    requireAccess: async (_actorId, _teamId, _deviceId, level) => {
+      if (level === 'manage') throw Object.assign(new Error('Unavailable'), { status: 404 })
+
+      return device
+    },
+  })
+
+  expect((await rename(id, 'Mine')).status).toBe(404)
+  expect(calls).toEqual([])
 })

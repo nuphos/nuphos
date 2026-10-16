@@ -134,10 +134,17 @@ test("a Box's default agent can be removed; a person's computer's default cannot
   const box = { ...computer, local: { ...computer.local!, box: { state: 'running' } } }
 
   assert.equal(localRemovalId(computer), undefined)
-  assert.equal(localRemovalId(box as RuntimeInstance), 'default-codex')
+  assert.equal(localRemovalId(box as RuntimeInstance), 'codex')
   assert.equal(
     localRemovalId({ ...computer, local: { ...computer.local!, instanceId: 'id-1' } }),
     'id-1',
   )
   assert.equal(localRemovalId({ ...computer, kind: 'managed', local: undefined }), undefined)
+})
+
+test("a computer's agent goes by the name given to it, else its provider's", () => {
+  const agent = local('a', 'mac', true)
+
+  assert.equal(agentName(agent), 'Codex')
+  assert.equal(agentName({ ...agent, local: { ...agent.local!, agentLabel: 'Review' } }), 'Review')
 })

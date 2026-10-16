@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { mergeAgentRegistry, reportedAgents } from './agent-registry'
+import { mergeAgentRegistry, renameRegisteredAgent, reportedAgents } from './agent-registry'
 
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
 
@@ -24,7 +24,7 @@ test('only agents seen signed in join, pending sign-ins never do', () => {
   ])
 })
 
-test('a registered agent keeps its place and takes the latest report, even signed out', () => {
+test('a registered agent keeps its place and name and takes the latest report, even signed out', () => {
   const registered = mergeAgentRegistry([], reportedAgents(status))!
   const later = {
     agents: { 'claude-code': cli(false) },
@@ -33,9 +33,33 @@ test('a registered agent keeps its place and takes the latest report, even signe
 
   expect(mergeAgentRegistry(registered, reportedAgents(later))).toEqual([
     { provider: 'claude-code', signedIn: false },
-    { provider: 'claude-code', instanceId: work, label: 'Renamed', signedIn: false },
+    { provider: 'claude-code', instanceId: work, label: 'Work', signedIn: false },
   ])
   // A report that leaves an agent out (offline, or its CLI gone) does not remove it.
   expect(mergeAgentRegistry(registered, [])).toBeNull()
   expect(mergeAgentRegistry(registered, reportedAgents(status))).toBeNull()
+})
+
+test('a name a person gave survives every later report; clearing it restores the default', () => {
+  const registered = mergeAgentRegistry([], reportedAgents(status))!
+  const renamed = renameRegisteredAgent(
+    renameRegisteredAgent(registered, work, 'Review')!,
+    'claude-code',
+    'Main',
+  )!
+
+  expect(mergeAgentRegistry(renamed, reportedAgents(status))).toBeNull()
+  expect(renamed).toEqual([
+    { provider: 'claude-code', label: 'Main', signedIn: true },
+    { provider: 'claude-code', instanceId: work, label: 'Review', signedIn: true },
+  ])
+
+  const cleared = renameRegisteredAgent(renamed, 'claude-code', '')!
+
+  expect(cleared[0]).toEqual({ provider: 'claude-code', signedIn: true })
+  // An added agent's default is the name it was created with, which its computer reports.
+  expect(
+    mergeAgentRegistry(renameRegisteredAgent(renamed, work, '')!, reportedAgents(status)),
+  ).toContainEqual({ provider: 'claude-code', instanceId: work, label: 'Work', signedIn: true })
+  expect(renameRegisteredAgent(registered, orphan, 'Nope')).toBeNull()
 })

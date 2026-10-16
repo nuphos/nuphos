@@ -3,8 +3,8 @@ import { AGENT_PROVIDER } from '../../types/runtime.ts'
 import type { RuntimeInstance } from '../../types/runtime'
 
 /**
- * How a computer's agent is removed: an added one by its id, a Box's default one as
- * default-<provider>. A person's own computer keeps its defaults (they are its CLIs'
+ * How a computer's agent is removed: an added one by its id, a Box's default one by its
+ * provider (as for rename). A person's own computer keeps its defaults (they are its CLIs'
  * logins), so it has none to offer.
  */
 export function localRemovalId(instance: RuntimeInstance): string | undefined {
@@ -12,7 +12,7 @@ export function localRemovalId(instance: RuntimeInstance): string | undefined {
 
   if (!local) return undefined
 
-  return local.instanceId ?? (local.box ? `default-${instance.provider}` : undefined)
+  return local.instanceId ?? (local.box ? instance.provider : undefined)
 }
 
 /** The overview shows local providers only after sign-in; team runtimes remain visible. */
@@ -27,9 +27,11 @@ const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
   local: 'Computer',
 }
 
-/** A computer's agent is named by its provider; Runs on says which computer. */
+/** A computer's agent goes by its own name, else its provider's; Runs on says which computer. */
 export function agentName(instance: RuntimeInstance): string {
-  return instance.kind === 'local' ? AGENT_PROVIDER[instance.provider].label : instance.label
+  return instance.kind === 'local'
+    ? (instance.local?.agentLabel ?? AGENT_PROVIDER[instance.provider].label)
+    : instance.label
 }
 
 /** A computer's agent whose computer is away: still listed, shown offline. */

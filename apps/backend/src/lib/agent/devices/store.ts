@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb'
 
 import { db } from '@/lib/db'
 
-import { mergeAgentRegistry, reportedAgents } from './agent-registry'
+import { mergeAgentRegistry, renameRegisteredAgent, reportedAgents } from './agent-registry'
 
 import type { RegisteredAgent } from './agent-registry'
 import type { LocalRuntimeStatus, RemovableAgent } from './local-runtime/protocol'
@@ -256,6 +256,22 @@ export async function recordDeviceAgents(
   const next = mergeAgentRegistry(device.agents ?? [], reportedAgents(status))
 
   if (next) await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
+}
+
+/** False when the device or the agent is not registered. */
+export async function renameDeviceAgent(
+  userId: string,
+  deviceId: string,
+  key: string,
+  label: string,
+): Promise<boolean> {
+  const device = await agentDevices().findOne({ userId, deviceId }, { projection: { agents: 1 } })
+  const next = device && renameRegisteredAgent(device.agents ?? [], key, label)
+
+  if (!next) return false
+  await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
+
+  return true
 }
 
 export async function removeDeviceAgent(

@@ -18,6 +18,8 @@ export type LocalRuntimeSummary = {
   ownerUserId: string
   deviceId: string
   deviceLabel: string
+  /** The agent's own name; absent while it has its provider's. */
+  agentLabel?: string
   /** Set for an extra agent beyond the device's default one of its provider. */
   instanceId?: string
   /** The host can run more than one agent per provider; any agent on the device reports it. */
