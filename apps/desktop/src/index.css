@@ -2136,6 +2136,28 @@ html.platform-darwin:not(.window-fullscreen)
   }
 }
 
+/* Chat summary panel: eases in from the right edge. */
+@keyframes t-summary-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+    filter: blur(var(--panel-blur));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.t-summary-in {
+  animation: t-summary-in 220ms var(--panel-ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-summary-in {
+    animation: none;
+  }
+}
+
 /* Session heading changes use the text-swap motion tokens without delaying navigation. */
 .t-session-heading {
   animation: t-session-heading-enter var(--text-swap-dur) var(--text-swap-ease) both;
