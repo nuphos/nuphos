@@ -54,6 +54,8 @@ export const deviceApi = {
   boxRename: (deviceId: string, teamId: string, label: string) =>
     ipcRenderer.invoke('box:rename', deviceId, teamId, label),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),
+  boxUsageHistory: (teamId: string, range: string) =>
+    ipcRenderer.invoke('box:usageHistory', teamId, range),
   boxBillingPage: (teamId: string, vcpus?: number) =>
     ipcRenderer.invoke('box:billingPage', teamId, vcpus),
   boxBillingSummary: (teamId: string) => ipcRenderer.invoke('box:billingSummary', teamId),

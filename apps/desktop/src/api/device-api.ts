@@ -39,6 +39,8 @@ export const deviceApi = {
   boxRename: (deviceId: string, teamId: string, label: string) =>
     window.api.boxRename(deviceId, teamId, label),
   boxUsage: (teamId: string) => window.api.boxUsage(teamId),
+  boxUsageHistory: (teamId: string, range: '1d' | '7d' | '30d') =>
+    window.api.boxUsageHistory(teamId, range),
   boxBillingPage: (teamId: string, vcpus?: number) => window.api.boxBillingPage(teamId, vcpus),
   boxBillingSummary: (teamId: string) => window.api.boxBillingSummary(teamId),
 }

@@ -101,13 +101,13 @@ export function boxState(device: AgentDevice, now = Date.now()): MachineState {
  * not at all (actions and a returning window reload the list).
  */
 export function boxPollMs(devices: AgentDevice[], signingIn: boolean): number {
-  const states = devices.map((device) => boxState(device))
+  const states = new Set(devices.map((device) => boxState(device)))
 
-  if (states.includes('creating')) return BOX_CREATING_POLL_MS
+  if (states.has('creating')) return BOX_CREATING_POLL_MS
   if (signingIn) return 1_500
   if (devices.some((device) => device.online)) return BOX_METRICS_POLL_MS
 
-  return states.includes('hostOffline') ? BOX_OFFLINE_POLL_MS : 0
+  return states.has('hostOffline') ? BOX_OFFLINE_POLL_MS : 0
 }
 
 const OS_LABEL: Record<string, string> = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' }
@@ -178,11 +178,11 @@ export function boxSetupProblem(phase: BoxSetupPhase): string | null {
   return null
 }
 
-/** The plans the billing service sells, smallest first. */
+/** The plans the billing service sells, smallest first; `vcpus` keys the billing service's nuphos_box_<vcpus>vcpu_monthly price. */
 export const BOX_PLANS = [
-  { vcpus: 4, usdPerMonth: 20 },
-  { vcpus: 12, usdPerMonth: 50 },
-  { vcpus: 24, usdPerMonth: 100 },
+  { name: 'Starter', vcpus: 4, usdPerMonth: 20 },
+  { name: 'Pro', vcpus: 12, usdPerMonth: 50 },
+  { name: 'Scale', vcpus: 24, usdPerMonth: 100 },
 ]
 
 /** Why the team's vCPU limit keeps a new Box from starting; null when one can start. */

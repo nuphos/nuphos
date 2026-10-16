@@ -9,6 +9,7 @@ import {
   deleteBox,
   removeDevice,
   getBoxUsage,
+  getBoxUsageHistory,
   renameBox,
   listAgentDevices,
   pauseBox,
@@ -28,12 +29,19 @@ function agentProvider(value: unknown): LocalAgentProvider {
 
   return value
 }
+function historyRange(value: unknown): '1d' | '7d' | '30d' {
+  if (value !== '1d' && value !== '7d' && value !== '30d') throw new TypeError('Expected a range')
+
+  return value
+}
 function optionalString(value: unknown): string | undefined {
   return value === undefined ? undefined : string(value)
 }
 
 export const boxChannels = {
   'box:usage': (_e: unknown, teamId: unknown) => getBoxUsage(string(teamId)),
+  'box:usageHistory': (_e: unknown, teamId: unknown, range: unknown) =>
+    getBoxUsageHistory(string(teamId), historyRange(range)),
   'box:billingPage': (_e: unknown, teamId: unknown, vcpus: unknown) =>
     boxBillingPage(string(teamId), typeof vcpus === 'number' ? vcpus : undefined),
   'box:billingSummary': (_e: unknown, teamId: unknown) => boxBillingSummary(string(teamId)),

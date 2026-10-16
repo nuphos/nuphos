@@ -165,8 +165,17 @@ export type BoxUsage = {
   subscribed: boolean
   usedVcpus: number | null
   boxVcpus: number | null
+  /** Every Box of the team with its own size; `running` ones count against the limit. */
+  boxes?: { sandboxId: string; vcpus: number; running: boolean }[]
   /** The billing service; null when this deployment has none. */
   billingUrl: string | null
+}
+
+/** The team's running Box vCPUs and its limit over a range, as a step series. */
+export type BoxUsageHistory = {
+  from: string
+  to: string
+  points: { at: string; usedVcpus: number; limitVcpus: number | null }[]
 }
 
 /** The billing service's read-only summary for the Billing section. */
