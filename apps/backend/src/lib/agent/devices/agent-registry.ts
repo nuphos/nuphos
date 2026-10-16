@@ -15,11 +15,17 @@ export type RegisteredAgent = {
 export const registryKey = (agent: Pick<RegisteredAgent, 'provider' | 'instanceId'>) =>
   agent.instanceId ?? agent.provider
 
-/** An agent as a report shows it now, under the name a person gave it. */
-export const withReport = (
+/** An agent as a report shows it now. Once registered, its name is the registry's alone:
+ *  a report names only an agent that joins, so a cleared name stays cleared. */
+export function withReport(
   known: RegisteredAgent | undefined,
   reported: RegisteredAgent,
-): RegisteredAgent => ({ ...known, ...reported, ...(known?.label ? { label: known.label } : {}) })
+): RegisteredAgent {
+  if (!known) return reported
+  const { label: _reported, ...rest } = reported
+
+  return { ...known, ...rest }
+}
 
 /** What one status report says about each agent, pending sign-ins excluded. */
 export function reportedAgents(status: LocalRuntimeStatus | undefined): RegisteredAgent[] {

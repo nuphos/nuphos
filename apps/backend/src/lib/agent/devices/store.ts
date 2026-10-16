@@ -270,7 +270,6 @@ export async function recordDeviceAgents(
   )
 }
 
-/** False when the device or the agent is not registered. */
 export async function renameDeviceAgent(
   userId: string,
   deviceId: string,
@@ -278,12 +277,11 @@ export async function renameDeviceAgent(
   label: string,
 ): Promise<boolean> {
   const device = await agentDevices().findOne({ userId, deviceId }, { projection: { agents: 1 } })
-  const next = device && renameRegisteredAgent(device.agents ?? [], key, label)
+  const next = renameRegisteredAgent(device?.agents ?? [], key, label)
 
-  if (!next) return false
-  await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
+  if (next) await agentDevices().updateOne({ userId, deviceId }, { $set: { agents: next } })
 
-  return true
+  return next !== null
 }
 
 /** Someone who left the team leaves every one of its Box access lists. */

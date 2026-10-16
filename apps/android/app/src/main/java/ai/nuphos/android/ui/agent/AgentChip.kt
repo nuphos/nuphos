@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,25 +17,26 @@ import androidx.compose.ui.unit.dp
 import ai.nuphos.android.session.RuntimeSelections
 
 /**
- * The Agent that the next chat starts on, shown in the composer control row
- * next to the IAM and permission-mode chips — the same place Desktop keeps
- * its runtime selector. Tapping opens the Agent picker sheet.
+ * The current Agent, shown next to Send. Tapping opens its picker or usage details.
  */
 @Composable
-fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick: () -> Unit) {
+fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick: () -> Unit, labelOverride: String? = null, modifier: Modifier = Modifier) {
     val selected = selection?.selected
-    val label = when {
+    val label = labelOverride ?: when {
         selection?.reselectionRequired == true -> "Choose an available Agent"
         selected != null -> selected.label
         else -> "Choose an Agent"
     }
-    FilterChip(
-        selected = selected != null,
+    TextButton(
+        modifier = modifier,
         enabled = enabled,
         onClick = onClick,
-        // Capped so a long Agent name truncates instead of pushing the IAM and
-        // mode chips off screen in the scrolling row.
-        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp)) },
-        leadingIcon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = "Agent for new chats", modifier = Modifier.size(16.dp)) },
-    )
+    ) {
+        Icon(Icons.Outlined.AutoAwesome, contentDescription = if (labelOverride == null) "Agent for new chats" else "Conversation Agent", modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false).widthIn(max = 160.dp))
+        Spacer(Modifier.width(2.dp))
+        Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
+    }
 }

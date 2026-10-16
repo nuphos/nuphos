@@ -8,6 +8,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,15 +31,27 @@ import kotlinx.coroutines.launch
 fun ConnectorsPage() {
     val store = LocalConnectorsStore.current
     val context = LocalContext.current
+    val logoLoader = rememberConnectorImageLoader()
     val scope = rememberCoroutineScope()
+    var overflow by remember { mutableStateOf(false) }
     var catalog by remember { mutableStateOf(false) }
     var form by remember { mutableStateOf<ConnectorProvider?>(null) }
     LaunchedEffect(store.team?.id) { catalog = false; form = null }
     BackHandler(store.pending != null) { scope.launch { store.cancel() } }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = { scope.launch { store.refresh() } }, enabled = store.team != null && !store.busy) { Text("Refresh") }
-            Button(modifier = Modifier.testTag("connector-catalog"), onClick = { catalog = true }, enabled = store.team != null && !store.busy && store.pending == null) { Text("Providers") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            Button(modifier = Modifier.testTag("connector-catalog"), onClick = { catalog = true }, enabled = store.canAdd) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Add connector")
+            }
+            Box {
+                IconButton(onClick = { overflow = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Connector options") }
+                DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                    DropdownMenuItem(text = { Text("Refresh") }, enabled = store.team != null && !store.busy,
+                        onClick = { overflow = false; scope.launch { store.refresh() } })
+                }
+            }
         }
         if (store.team == null) Text("Select a team to see connectors.")
         if (store.team != null && store.team?.isAdministrator != true) Text("You can browse connectors. A team administrator can add providers.", style = MaterialTheme.typography.bodyMedium)
@@ -56,14 +73,26 @@ fun ConnectorsPage() {
         }
         if (store.phase == ConnectorsStore.Phase.Loaded && store.inventory.rows.isEmpty()) Text("No connectors are saved for this team.", Modifier.padding(vertical = 24.dp))
         LazyColumn(modifier = Modifier.testTag("connector-inventory-list"), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(store.inventory.rows, key = { it.key }) { row ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(ConnectorCatalog.named(row.provider)?.title ?: row.provider, style = MaterialTheme.typography.labelMedium)
-                        Text(row.label, style = MaterialTheme.typography.titleMedium)
-                        row.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        ai.nuphos.android.ui.components.TechnicalDetails(row.key) {
-                            Text("ID: ${row.bindingId}", style = MaterialTheme.typography.bodySmall)
+            val groups = store.inventory.rows.groupBy { ConnectorCatalog.named(it.provider)?.category ?: "Other" }
+            val categoryOrder = ConnectorCatalog.categoryOrder
+            categoryOrder.forEach { category ->
+                val rows = groups[category].orEmpty()
+                if (rows.isNotEmpty()) {
+                    item(key = "category:$category") { Text(category, Modifier.padding(top = 16.dp, bottom = 4.dp), style = MaterialTheme.typography.titleSmall) }
+                    items(rows, key = { it.key }) { row ->
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    ConnectorLogo(row.provider, logoLoader)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(row.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        row.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                    }
+                                }
+                                ai.nuphos.android.ui.components.TechnicalDetails(row.key) {
+                                    Text("ID: ${row.bindingId}", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
                         }
                     }
                 }

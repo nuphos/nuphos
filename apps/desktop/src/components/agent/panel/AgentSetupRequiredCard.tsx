@@ -5,6 +5,8 @@ import { agentTier } from '../../../lib/agentName'
 import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
 import { Button } from '../../ui/button'
 
+export const ASK_ADMIN_TO_RECONNECT = 'Ask a workspace administrator to reconnect this agent.'
+
 export function AgentSetupRequiredCard({
   message,
   runtimeId,
@@ -47,9 +49,7 @@ export function AgentSetupRequiredCard({
         </p>
       )}
       {reason === 'reauthentication' && !isTeamAdmin && !personalAgent && (
-        <p className="text-[13px] leading-relaxed text-secondary">
-          Ask a workspace administrator to reconnect this agent.
-        </p>
+        <p className="text-[13px] leading-relaxed text-secondary">{ASK_ADMIN_TO_RECONNECT}</p>
       )}
       {!localAgent && isTeamAdmin && onOpenAgentSettings && (
         <div>

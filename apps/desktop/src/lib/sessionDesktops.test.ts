@@ -1,15 +1,23 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { desktopTabId, planDesktopTabs } from './sessionDesktops.ts'
+import { desktopsFromRuntimeState } from '../components/agent/panel/shells.ts'
+
+import {
+  desktopTabId,
+  planDesktopTabs,
+  publishSessionDesktops,
+  sessionDesktopTitle,
+} from './sessionDesktops.ts'
 
 const tabsOf = (tabs: Record<string, { id: string; active: string }[]>) => (sessionId: string) =>
   tabs[sessionId] ?? []
+const d = (display: number) => ({ display, title: `Box 1 · :${String(display)}` })
 
 test('opens a tab per desktop a session holds and closes the ones it lost', () => {
   const sessions = new Map([
-    ['s1', { teamId: 't', displays: [2, 4] }],
-    ['s2', { teamId: 't', displays: [] }],
+    ['s1', { teamId: 't', desktops: [d(2), d(4)] }],
+    ['s2', { teamId: 't', desktops: [] }],
   ])
   const plan = planDesktopTabs(
     sessions,
@@ -30,4 +38,16 @@ test('opens a tab per desktop a session holds and closes the ones it lost', () =
     open: [{ sessionId: 's1', teamId: 't', display: 4 }],
     close: [desktopTabId('s1', 3), desktopTabId('s2', 2)],
   })
+})
+
+test('a desktop is labelled with its Box and display from the snapshot', () => {
+  const desktops = desktopsFromRuntimeState({
+    state: 'idle',
+    tools: [{ id: 'desktop:3', title: 'Box 1 · :3', desktop: { display: 3, deviceId: 'b1' } }],
+  } as Parameters<typeof desktopsFromRuntimeState>[0])
+
+  publishSessionDesktops('s9', { teamId: 't', desktops })
+  assert.equal(sessionDesktopTitle('s9', 3), 'Box 1 · :3')
+  assert.equal(sessionDesktopTitle('s9', 4), undefined)
+  publishSessionDesktops('s9', null)
 })

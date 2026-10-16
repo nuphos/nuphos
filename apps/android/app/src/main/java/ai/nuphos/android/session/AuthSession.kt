@@ -60,7 +60,7 @@ class AuthSession(
     var profileError: String? by mutableStateOf(null)
         private set
     val aiAllowed: Boolean get() = token?.let { AiAccess.allows(it) } == true
-    val composerDrafts = ComposerDrafts()
+    val composerDrafts = ComposerDrafts(ai.nuphos.android.data.ComposerDraftPreferences(app))
     val runtimeSelections = RuntimeSelections()
     var workspaceWriteReview = WorkspaceWriteReview()
         private set
@@ -68,8 +68,9 @@ class AuthSession(
 
     var onIdentityReset: () -> Unit = {}
 
-    private fun beginIdentity(): Long {
+    private fun beginIdentity(preserveDrafts: Boolean = false): Long {
         if (state !is State.Restoring) onIdentityReset()
+        if (!preserveDrafts) composerDrafts.clear()
         composerDrafts.onIdentity(null)
         runtimeSelections.clear()
         workspaceWriteReview = WorkspaceWriteReview()
@@ -200,11 +201,12 @@ class AuthSession(
 
     fun restore() {
         if (state is State.SigningIn || (state is State.SignedIn && token != null)) return
-        val expected = beginIdentity()
+        val expected = beginIdentity(preserveDrafts = true)
         scope.launch {
             val saved = withContext(Dispatchers.IO) { tokenStore.read() }
             if (generation != expected) return@launch
             if (saved == null) {
+                composerDrafts.clear()
                 state = State.SignedOut(null)
                 return@launch
             }
@@ -379,6 +381,7 @@ class AuthSession(
     }
 
     private fun clearToken() {
+        composerDrafts.clear()
         tokenStore.clear()
         token = null
     }

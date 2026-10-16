@@ -57,9 +57,9 @@ test('a name a person gave survives every later report; clearing it restores the
   const cleared = renameRegisteredAgent(renamed, 'claude-code', '')!
 
   expect(cleared[0]).toEqual({ provider: 'claude-code', signedIn: true })
-  // An added agent's default is the name it was created with, which its computer reports.
+  // Its computer still reports the name it was created with; a cleared name stays cleared.
   expect(
     mergeAgentRegistry(renameRegisteredAgent(renamed, work, '')!, reportedAgents(status)),
-  ).toContainEqual({ provider: 'claude-code', instanceId: work, label: 'Work', signedIn: true })
+  ).toBeNull()
   expect(renameRegisteredAgent(registered, orphan, 'Nope')).toBeNull()
 })
