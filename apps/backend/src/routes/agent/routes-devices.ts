@@ -229,6 +229,8 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
       if (await deps.isOnline(userId, deviceId))
         throw new AppError(409, 'device_online', 'Quit Nuphos on this computer first')
       await deps.deleteDevice(userId, deviceId)
+      // In case it connected since the check: its credential is gone, so close what it holds.
+      await deps.disconnect(userId, deviceId)
 
       return c.json({ ok: true })
     },

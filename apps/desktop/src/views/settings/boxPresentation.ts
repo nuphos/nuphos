@@ -39,6 +39,36 @@ export function canManage(device: AgentDevice): boolean {
   return device.access !== 'use'
 }
 
+/** Shown when the backend gives no reason, e.g. an older backend without the route. */
+const REMOVE_FALLBACK = 'Could not remove it. Update Nuphos and try again.'
+
+/**
+ * How a machine leaves the list: a Box is deleted, any time; a computer is only forgotten once
+ * offline, since online it would register again.
+ */
+export function removal(device: AgentDevice) {
+  if (device.box)
+    return {
+      allowed: true,
+      action: 'Delete',
+      confirm: 'Delete Box',
+      error: 'Could not delete Box',
+      fallback: REMOVE_FALLBACK,
+      description:
+        "This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos.",
+    }
+
+  return {
+    allowed: !device.online,
+    action: 'Remove computer',
+    confirm: 'Remove computer',
+    error: 'Could not remove computer',
+    fallback: REMOVE_FALLBACK,
+    description:
+      'This removes the computer and its agents from Nuphos. Opening Nuphos on it registers it again. Your conversation history stays in Nuphos.',
+  }
+}
+
 /** What a Box's state allows besides Delete, which is always there. */
 export function boxActions(state: MachineState): { pause: boolean; resume: boolean } {
   return {

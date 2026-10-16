@@ -22,7 +22,6 @@ import {
   boxState,
   canManage,
   removal,
-  removeMachine,
   machineLine,
   newAgentAction,
 } from './boxPresentation'
@@ -65,19 +64,22 @@ export function BoxRow({
   const badge = BOX_BADGE[state]
   const actions = cloud ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
-  const act = (title: string, call: (deviceId: string, teamId: string) => Promise<unknown>) =>
-    run(title, () => call(device.deviceId, teamId))
+  const act = (
+    title: string,
+    call: (deviceId: string, teamId: string) => Promise<unknown>,
+    fallback?: string,
+  ) => run(title, () => call(device.deviceId, teamId), fallback)
   const changed = () => {
     onChanged()
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   }
-  const run = async (title: string, action: () => Promise<unknown>) => {
+  const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {
       await action()
       changed()
     } catch (error) {
-      toast.apiError(title, error)
+      toast.apiError(title, error, fallback === undefined ? undefined : { fallback })
     } finally {
       setBusy(false)
     }
@@ -171,7 +173,7 @@ export function BoxRow({
                   Pause
                 </MenuItem>
               )}
-              {remove && (
+              {remove.allowed && (
                 <>
                   <MenuSeparator />
                   <MenuItem destructive onClick={() => setConfirmDelete(true)}>
@@ -282,13 +284,14 @@ export function BoxRow({
         />
       )}
       <ConfirmDialog
-        open={confirmDelete && remove !== null}
+        open={confirmDelete}
         title={`${cloud ? 'Delete' : 'Remove'} ${device.label}?`}
-        description={remove?.description}
+        description={remove.description}
         destructive
-        confirmLabel={remove?.confirm}
-        // A failure stays in the dialog, which shows it; the toast path hides some errors.
-        onConfirm={() => removeMachine(device, teamId, api).then(changed)}
+        confirmLabel={remove.confirm}
+        onConfirm={() =>
+          act(remove.error, cloud ? api.boxDelete : api.deviceRemove, remove.fallback)
+        }
         onClose={() => setConfirmDelete(false)}
       />
     </li>

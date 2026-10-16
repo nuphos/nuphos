@@ -180,6 +180,7 @@ describe('agent device routes', () => {
 
     expect((await remove('gone')).status).toBe(200)
     expect(devices[key('user-1', 'gone')]).toBeUndefined()
+    expect(disconnected).toEqual([key('user-1', 'gone')])
     expect((await remove('b1')).status).toBe(400)
     expect((await remove('theirs')).status).toBe(404)
     onlineNow = true
@@ -187,8 +188,8 @@ describe('agent device routes', () => {
 
     expect(online.status).toBe(409)
     expect(await online.json()).toMatchObject({ error: { code: 'device_online' } })
-    expect(Object.keys(devices).sort()).toEqual(
-      [key('user-1', 'live'), key('user-1', 'b1'), key('someone-else', 'theirs')].sort(),
+    expect(new Set(Object.keys(devices))).toEqual(
+      new Set([key('user-1', 'live'), key('user-1', 'b1'), key('someone-else', 'theirs')]),
     )
   })
 
