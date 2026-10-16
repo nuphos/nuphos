@@ -27,7 +27,8 @@ export const BOX_INSTALL_COMMAND = [
   '  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs',
   'fi',
   'command -v claude >/dev/null && command -v codex >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @anthropic-ai/claude-code @openai/codex; }',
-  'command -v nuphos >/dev/null || curl -fsSL https://nuphos.ai/install | sh',
+  // Always the newest CLI, so the same step installs a Box and updates one.
+  'curl -fsSL https://nuphos.ai/install | sh',
   // So `nuphos` also works in the Box\'s own terminal, not only in the commands run here.
   'grep -q .local/bin "$HOME/.profile" 2>/dev/null || echo \'export PATH="$HOME/.local/bin:$PATH"\' >> "$HOME/.profile"',
 ].join('\n')
@@ -37,6 +38,23 @@ export const BOX_INSTALL_COMMAND = [
  * a foreground run would wait for the host, which never exits on its own.
  */
 export const AGENT_COMMAND = `export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; pgrep -f "[h]ost.mjs" >/dev/null || exec setsid nuphos agent >> "$HOME/nuphos-agent.log" 2>&1 < /dev/null`
+
+/**
+ * Updates a Box in place: stops the host, installs the newest CLI (whose host fetches
+ * its own bundle) and starts it again, even when the install failed. Session desktop
+ * panels from before the browser launcher go, so each display writes the current one
+ * (desktop-session.mjs). Run with `background: true`.
+ */
+export const BOX_UPDATE_COMMAND = [
+  'pkill -f "[h]ost.mjs"; for i in $(seq 30); do pgrep -f "[h]ost.mjs" >/dev/null || break; sleep 1; done',
+  'pkill -9 -f "[h]ost.mjs"',
+  '(',
+  BOX_INSTALL_COMMAND,
+  // Only panels from before the browser launcher; ones that have it are the user's.
+  'grep -L web-browser.desktop "$HOME"/.nuphos/session-homes/*/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml | xargs -r rm -f',
+  ') >> "$HOME/nuphos-update.log" 2>&1',
+  AGENT_COMMAND,
+].join('\n')
 
 export function connection(timeoutMs: number) {
   const box = config.box.instabox

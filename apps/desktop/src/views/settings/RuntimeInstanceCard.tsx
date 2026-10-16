@@ -102,6 +102,8 @@ export function RuntimeInstanceCard({
   const kindTag =
     instance.kind === 'external' ? 'External' : instance.kind === 'development' ? 'Local' : null
   const hosted = instance.kind === 'managed' || instance.kind === 'external'
+  // A Box's agents report an update only when their host can install it (box-update.ts).
+  const updatable = instance.kind === 'managed' || instance.kind === 'local'
 
   return (
     <section aria-label={instance.label} className="mx-auto w-full max-w-5xl">
@@ -136,12 +138,8 @@ export function RuntimeInstanceCard({
                 ) && (
                   <span className="shrink-0 rounded border border-zViolet-500/30 bg-zViolet-500/10 px-1.5 py-0.5 text-[10px] text-zViolet-400">
                     {
-                      runtimeUpdatePresentation(
-                        runtime.runtimeUpdate,
-                        instance.kind === 'managed',
-                        canEdit,
-                        enabled,
-                      ).title
+                      runtimeUpdatePresentation(runtime.runtimeUpdate, updatable, canEdit, enabled)
+                        .title
                     }
                   </span>
                 )}
@@ -195,8 +193,8 @@ export function RuntimeInstanceCard({
       </div>
       <RuntimeUpdateNotice
         update={statusError ? undefined : runtime?.runtimeUpdate}
-        managed={instance.kind === 'managed'}
-        canUpdate={canEdit && instance.kind === 'managed'}
+        managed={updatable}
+        canUpdate={canEdit && updatable}
         enabled={enabled}
         onUpdate={async () => {
           const result = await api.atlasRequestRuntimeUpdate(teamId, instance.id)

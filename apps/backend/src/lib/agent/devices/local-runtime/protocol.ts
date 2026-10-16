@@ -115,6 +115,8 @@ export const localRuntimeStatusSchema = z.object({
   localCua: z.boolean().optional(),
   /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen: z.boolean().optional(),
+  /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
+  cliVersion: z.string().max(50).optional(),
   /** Desktops this computer runs for conversations (a Box: one X display per session). */
   desktops: z
     .array(

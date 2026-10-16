@@ -64,6 +64,14 @@ async function defaultHasActiveRuntimeTurn(teamId: string, runtimeId: string): P
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === runtimeId)
 
   if (!endpoint) return false
+
+  return endpointHasActiveTurn(endpoint)
+}
+
+/** Whether the runtime at `endpoint` reports a running turn. */
+export async function endpointHasActiveTurn(
+  endpoint: Parameters<typeof reachableRuntimeEndpoint>[0],
+): Promise<boolean> {
   let client: OpenAbAcpClient | undefined
 
   // Only a turn the runtime reports as running holds a rollout. Anything the
