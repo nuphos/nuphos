@@ -5,6 +5,7 @@ import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
+import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 
@@ -76,9 +77,9 @@ describe('local runtime catalog', () => {
     const named = {
       ...device('owner', 'mac-1', 'Olivia’s MacBook'),
       agents: [
-        { provider: 'claude-code' as const, label: 'Main', signedIn: true },
-        { provider: 'claude-code' as const, instanceId: work, label: 'Review', signedIn: true },
-      ],
+        { provider: 'claude-code', label: 'Main', signedIn: true },
+        { provider: 'claude-code', instanceId: work, label: 'Review', signedIn: true },
+      ] as RegisteredAgent[],
     }
     const cli = { cli: { installed: true, loggedIn: true } }
 
