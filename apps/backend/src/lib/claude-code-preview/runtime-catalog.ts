@@ -118,7 +118,10 @@ export async function withRuntimeReadiness(
   instances: RuntimeInstance[],
 ): Promise<RuntimeInstance[]> {
   const endpoints = await Promise.all(
-    OPENAB_PROVIDERS.map((provider) => resolveTeamRuntimeEndpoints(teamId, undefined, provider)),
+    // The control lookup, as the Usage reading makes it: one rule for whether an agent is there.
+    OPENAB_PROVIDERS.map((provider) =>
+      resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control'),
+    ),
   )
   const reachable = new Set(endpoints.flat().map((endpoint) => endpoint.runtimeId))
 
