@@ -7,6 +7,7 @@ import {
   createDeviceAgent,
   removeDeviceAgent,
   deleteBox,
+  removeDevice,
   getBoxUsage,
   renameBox,
   renameDeviceAgent,
@@ -57,6 +58,8 @@ export const boxChannels = {
     resumeBox(string(deviceId), string(teamId)),
   'box:delete': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     deleteBox(string(deviceId), string(teamId)),
+  'box:removeDevice': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    removeDevice(string(deviceId), string(teamId)),
   'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     boxDesktop(string(deviceId), string(teamId)),
   'box:join-token': () => boxJoinToken(),
