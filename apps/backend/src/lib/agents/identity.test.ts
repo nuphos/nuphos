@@ -74,4 +74,15 @@ describe('verifyAgentForActor', () => {
 
     expect(await verifyAgentForActor('guest', 'owner', 's1')).toBeNull()
   })
+  test('lets a teammate invited to manage act', async () => {
+    stored = { ...shared, generalAccess: 'none', participantIds: ['guest'], managerIds: ['guest'] }
+
+    expect(await verifyAgentForActor('guest', 'owner', 's1')).not.toBeNull()
+  })
+
+  test('keeps a conversation without a team owner-only', async () => {
+    stored = { userId: 'owner', sessionId: 's1' }
+
+    expect(await verifyAgentForActor('guest', 'owner', 's1')).toBeNull()
+  })
 })
