@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nuphos agent</title>
+<link rel="stylesheet" href="/_openab/console/assets/console.css">
+<script src="/_openab/console/assets/console.js" defer></script>
+</head>
+<body>
+<main class="page">
+  <header class="card">
+    <h1>Nuphos agent</h1>
+    <p class="status">&#9679; This agent is running</p>
+    <dl class="facts">{{status_rows}}</dl>
+    <p class="muted" id="initialized" hidden></p>
+    <div class="row" id="session-actions" hidden>
+      <button type="button" class="link" id="logout">Log out</button>
+    </div>
+  </header>
+
+  <noscript><p class="card">The agent console needs JavaScript.</p></noscript>
+
+  <section class="card" id="view-loading"><p class="muted">Loading&hellip;</p></section>
+
+  <section class="card" id="view-setup" hidden>
+    <h2>Set up this agent</h2>
+    <p>Choose the password that protects this console. You need it to connect the agent to Nuphos and to manage it later.</p>
+    <p class="muted" id="setup-window"></p>
+    <form id="setup-form" class="stack">
+      <label>Password <input type="password" id="setup-password" autocomplete="new-password" minlength="12" required></label>
+      <label>Confirm password <input type="password" id="setup-confirm" autocomplete="new-password" minlength="12" required></label>
+      <div class="row">
+        <button type="submit">Set password</button>
+        <button type="button" class="secondary" id="setup-generate">Generate one for me</button>
+      </div>
+    </form>
+    <div id="setup-generated" class="stack" hidden>
+      <p><strong>Save this password now.</strong> It is shown only once here, and also written to the agent's log.</p>
+      <div class="row"><code class="secret" id="generated-password"></code><button type="button" class="secondary" data-copy="generated-password">Copy</button></div>
+      <button type="button" id="setup-continue">I saved it</button>
+    </div>
+  </section>
+
+  <section class="card" id="view-locked" hidden>
+    <h2>Setup window closed</h2>
+    <p>This agent has not been set up, and the window for setting it up has closed.</p>
+    <p>Restart or redeploy the agent to reopen setup for 30 minutes, then open this page again.</p>
+  </section>
+
+  <section class="card" id="view-login" hidden>
+    <h2>Sign in</h2>
+    <form id="login-form" class="stack">
+      <label>Console password <input type="password" id="login-password" autocomplete="current-password" required></label>
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="muted">Forgot it? Delete <code>console.json</code> (and <code>auth-key</code>, if present) from the agent's state directory and restart the agent to set it up again. Existing Nuphos connections keep working.</p>
+  </section>
+
+  <div id="view-console" hidden>
+    <section class="card">
+      <h2>Connect to Nuphos</h2>
+      <p>Opens Nuphos Desktop so you can pick the team this agent should join. The pairing code works once and expires after 10 minutes.</p>
+      <button type="button" id="connect">Connect to Nuphos</button>
+      <div id="pairing" class="stack" hidden>
+        <p class="muted" id="pairing-hint"></p>
+        <div class="row"><span class="label">Agent URL</span><code id="pairing-url"></code><button type="button" class="secondary" data-copy="pairing-url">Copy</button></div>
+        <div class="row"><span class="label">Pairing code</span><code id="pairing-code"></code><button type="button" class="secondary" data-copy="pairing-code">Copy</button></div>
+        <p class="muted" id="pairing-expiry"></p>
+      </div>
+      <details>
+        <summary>Agent URL Nuphos connects to</summary>
+        <form id="url-form" class="stack">
+          <p class="muted" id="url-source"></p>
+          <label>Public URL <input type="text" id="public-url" placeholder="wss://agent.example.com/acp" autocomplete="off"></label>
+          <div class="row">
+            <button type="submit" class="secondary">Save URL</button>
+            <button type="button" class="link" id="url-reset">Use the detected URL</button>
+          </div>
+        </form>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Connected Nuphos teams</h2>
+      <ul class="list" id="bindings"></ul>
+      <p class="muted">Every connected team uses this same agent: its files, its sessions and its provider account.</p>
+    </section>
+
+    <section class="card">
+      <h2>Agent sign-in</h2>
+      <p id="provider-status"></p>
+      <button type="button" id="signin-start" hidden>Sign in</button>
+      <div id="signin" class="stack" hidden>
+        <p id="signin-message" class="muted"></p>
+        <p id="signin-link" hidden><a id="signin-url" target="_blank" rel="noopener noreferrer">Open the sign-in page</a></p>
+        <p id="signin-device" hidden>Enter <code id="signin-code"></code> at <a id="signin-verify" target="_blank" rel="noopener noreferrer"></a></p>
+        <form id="signin-input-form" class="row" hidden>
+          <input type="text" id="signin-input" placeholder="Paste the code from the sign-in page" autocomplete="off">
+          <button type="submit">Submit</button>
+        </form>
+        <button type="button" class="secondary" id="signin-cancel">Cancel</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Tools</h2>
+      <button type="button" class="secondary" id="tools-load">Show installed tools</button>
+      <ul class="list" id="tools"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Console password</h2>
+      <form id="password-form" class="stack">
+        <label>Current password <input type="password" id="password-current" autocomplete="current-password" required></label>
+        <label>New password <input type="password" id="password-next" autocomplete="new-password" minlength="12" required></label>
+        <button type="submit" class="secondary">Change password</button>
+      </form>
+      <p class="muted">Changing it signs out other browsers. Nuphos connections are not affected.</p>
+    </section>
+  </div>
+
+  <p class="toast" id="toast" role="status" hidden></p>
+</main>
+</body>
+</html>

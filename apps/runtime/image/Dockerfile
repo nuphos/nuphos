@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1.19
 
 # The Nuphos runtime image. BASE_IMAGE is any image built from
-# third_party/openab/Dockerfile.unified; only its `openab` binary is used, so the
-# agent CLIs that Dockerfile installs globally never reach this image.
+# openab/Dockerfile; only its `openab` binary is used.
 # See the repository README for the build.
 #
 # Runs as uid/gid 1000 (node) with all caps dropped — everything here must be

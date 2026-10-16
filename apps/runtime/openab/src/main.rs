@@ -1,0 +1,2285 @@
+#[cfg(feature = "acp")]
+mod acp_tunnel;
+#[cfg(feature = "acp")]
+mod acp_tunnel_source;
+mod ctl;
+#[cfg(any(
+    feature = "telegram",
+    feature = "line",
+    feature = "feishu",
+    feature = "googlechat",
+    feature = "wecom",
+    feature = "teams",
+    feature = "acp",
+    feature = "lineworks",
+))]
+mod unified_adapter;
+use openab_core::acp;
+use openab_core::adapter::{self, AdapterRouter};
+use openab_core::bot_turns;
+use openab_core::config;
+use openab_core::cron;
+#[cfg(feature = "discord")]
+use openab_core::discord;
+use openab_core::dispatch;
+use openab_core::gateway;
+use openab_core::hooks;
+use openab_core::multibot_cache;
+#[cfg(feature = "discord")]
+use openab_core::remind;
+use openab_core::secrets;
+use openab_core::setup;
+#[cfg(feature = "slack")]
+use openab_core::slack;
+
+use clap::Parser;
+#[cfg(feature = "discord")]
+use serenity::gateway::GatewayError;
+#[cfg(feature = "discord")]
+use serenity::prelude::*;
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use tracing::{error, info, warn};
+
+#[cfg(feature = "feishu")]
+const FEISHU_IDENTITY_RESOLUTION_TIMEOUT_SECS: u64 = 15;
+
+/// Wait for SIGINT (ctrl_c) or, on unix, SIGTERM.
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut term = match signal(SignalKind::terminate()) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!(error = %e, "failed to install SIGTERM handler, falling back to ctrl_c only");
+                let _ = tokio::signal::ctrl_c().await;
+                return;
+            }
+        };
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = term.recv() => { info!("SIGTERM received"); }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
+}
+
+#[derive(Parser)]
+#[command(name = "openab", version)]
+#[command(about = "Multi-platform ACP agent broker (Discord, Slack)", long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(clap::Subcommand)]
+enum Commands {
+    /// Run the bot (default)
+    Run {
+        /// Config file path or URL — local path, https://, http://, or s3://<bucket>/<key> (default: config.toml)
+        #[arg(short = 'c', long = "config", value_name = "CONFIG")]
+        config: Option<String>,
+    },
+    /// Launch the interactive setup wizard
+    Setup {
+        /// Output file path for generated config (default: config.toml)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+    /// Internal: AgentCore WebSocket shell bridge (ACP↔WebSocket)
+    #[cfg(feature = "agentcore")]
+    AgentcoreBridge {
+        /// AgentCore Runtime ARN
+        #[arg(long)]
+        runtime_arn: String,
+        /// AWS region
+        #[arg(long, default_value = "us-east-1")]
+        region: String,
+        /// ACP agent command to run in the PTY (default: kiro-cli acp --trust-all-tools)
+        #[arg(long, default_value = "kiro-cli acp --trust-all-tools")]
+        command: String,
+    },
+    /// Set a runtime value (e.g. thread.name)
+    Set {
+        /// Key to set (e.g. thread.name)
+        key: String,
+        /// Value to set
+        value: String,
+        /// Target thread/channel ID
+        #[arg(long)]
+        thread: Option<String>,
+    },
+    /// Get a runtime value
+    Get {
+        /// Key to get (e.g. thread.name)
+        key: String,
+        /// Target thread/channel ID
+        #[arg(long)]
+        thread: Option<String>,
+    },
+    /// MCP add-on operations (OAB MCP Adapter ADR): interactive and
+    /// operational actions for MCP components. Long-running serving is
+    /// config-driven (`[mcp]` in config.toml + `openab run`); these
+    /// subcommands cover interactive logins and standalone/dev serving.
+    Mcp {
+        #[command(subcommand)]
+        addon: McpAddon,
+    },
+}
+
+#[derive(clap::Subcommand)]
+enum McpAddon {
+    /// Native Gmail adapter (Capability Plugin, ADR §6.1/§6.5): the six-tool
+    /// read+drafts Gmail profile served from Gmail's GA REST API as a
+    /// loopback Streamable HTTP MCP server. Register it in mcp.json as a
+    /// `"type": "http"` entry pointing at http://<listen>/mcp.
+    GmailNative {
+        #[command(subcommand)]
+        action: GmailNativeAction,
+    },
+}
+
+#[derive(clap::Subcommand)]
+enum GmailNativeAction {
+    /// Serve the adapter over loopback Streamable HTTP (non-loopback
+    /// addresses are refused — same trust model as the OAB MCP Facade).
+    /// Requires GMAIL_OAUTH_CLIENT_ID (+ optional GMAIL_OAUTH_CLIENT_SECRET)
+    /// in the environment for token refresh.
+    Serve {
+        /// Loopback address to listen on.
+        #[arg(long, default_value = "127.0.0.1:8850")]
+        listen: String,
+    },
+    /// Google OAuth paste-back login requesting offline access, so a refresh
+    /// token is stored and headless deployments survive token expiry.
+    Login {
+        /// Redirect URI pre-registered on the OAuth client.
+        #[arg(long, default_value = openab_mcp::native::gmail::DEFAULT_REDIRECT_URI)]
+        redirect_uri: String,
+    },
+}
+
+/// Returns true if any unified platform is enabled and its corresponding
+/// feature is compiled in. Google Chat uses its config-first resolver so
+/// `[googlechat].enabled` can activate the adapter without a duplicate env var,
+/// and WeCom activates on either `WECOM_CORP_ID` or a credential-complete
+/// `[wecom]` section (#1389). Remaining platforms are still env-signaled —
+/// config-only activation parity is tracked on #1356.
+/// Single source of truth — used by both startup validation and adapter init.
+fn has_unified_platform(cfg: &config::Config) -> bool {
+    (cfg!(feature = "telegram") && std::env::var("TELEGRAM_BOT_TOKEN").is_ok())
+        || (cfg!(feature = "line") && std::env::var("LINE_CHANNEL_SECRET").is_ok())
+        || (cfg!(feature = "feishu") && std::env::var("FEISHU_APP_ID").is_ok())
+        || (cfg!(feature = "wecom")
+            && (std::env::var("WECOM_CORP_ID").is_ok() || has_unified_wecom_config(cfg)))
+        || (cfg!(feature = "teams") && std::env::var("TEAMS_APP_ID").is_ok())
+        || (cfg!(feature = "googlechat")
+            && cfg
+                .googlechat
+                .clone()
+                .unwrap_or_default()
+                .resolve()
+                .enabled)
+        // ACP is a first-class embedded endpoint: an ACP-only deploy (no discord/slack/
+        // gateway/telegram) must not trip the "no adapter configured" preflight bail and
+        // must start the embedded HTTP server that hosts /acp.
+        || (cfg!(feature = "acp")
+            && std::env::var("OPENAB_ACP_ENABLED")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false))
+        || (cfg!(feature = "lineworks") && lineworks_activated(cfg.lineworks.as_ref()))
+}
+
+/// Single LINE WORKS activation validator: the resolved (config → env →
+/// default) credentials must be complete and non-empty — the same rule the
+/// adapter constructor applies. Used by startup preflight AND cron platform
+/// registration so a partial/empty environment can never register a
+/// platform whose adapter will not construct.
+/// Feature-off stub: `has_unified_platform` calls this through a runtime
+/// `cfg!` check, so the symbol must exist (and answer "not activated") even
+/// when the lineworks feature is compiled out.
+#[cfg(not(feature = "lineworks"))]
+fn lineworks_activated(_lineworks: Option<&config::LineWorksConfig>) -> bool {
+    false
+}
+
+#[cfg(feature = "lineworks")]
+fn lineworks_activated(lineworks: Option<&config::LineWorksConfig>) -> bool {
+    let r = lineworks.cloned().unwrap_or_default().resolve();
+    if !r.is_complete() {
+        return false;
+    }
+    // Same key-material rule as adapter construction: the PEM must parse,
+    // not merely exist — an invalid key must not report a healthy startup.
+    let pem = r.private_key.or_else(|| {
+        r.private_key_file
+            .as_deref()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+    });
+    pem.as_deref()
+        .is_some_and(openab_gateway::adapters::lineworks::valid_private_key)
+}
+
+/// Returns true when the first-class `[wecom]` section resolves all credentials
+/// required to construct the embedded WeCom adapter. This must remain separate
+/// from the env arms of [`has_unified_platform`]: config-first deployments may intentionally
+/// provide literal or secret-substituted values without exporting `WECOM_*`.
+fn has_unified_wecom_config(cfg: &config::Config) -> bool {
+    if !cfg!(feature = "wecom") {
+        return false;
+    }
+    cfg.wecom.as_ref().is_some_and(|wecom| {
+        let resolved = wecom.resolve();
+        resolved.corp_id.is_some()
+            && resolved.secret.is_some()
+            && resolved.token.is_some()
+            && resolved.encoding_aes_key.is_some()
+            && resolved.agent_id.is_some()
+    })
+}
+
+/// Trust view of the `[gateway]` section for the standalone WebSocket platform.
+/// Same `resolve_allow_all` semantics the WS path's inline allowlist filter used
+/// before L2/L3 moved to the shared registry (#1356 Phase 1c prerequisite):
+/// explicit flag wins; otherwise a non-empty list implies deny-by-default.
+fn gateway_section_trust(gw: &config::GatewayConfig) -> openab_core::trust::TrustConfig {
+    openab_core::trust::TrustConfig::new(
+        Some(config::resolve_allow_all(
+            gw.allow_all_channels,
+            &gw.allowed_channels,
+        )),
+        gw.allowed_channels.clone(),
+        None, // allow_dm unused in Phase 1 (is_dm passed as false)
+        Some(config::resolve_allow_all(
+            gw.allow_all_users,
+            &gw.allowed_users,
+        )),
+        gw.allowed_users.clone(),
+    )
+}
+
+/// Apply a platform's first-class trust section to the registry, or — when the
+/// platform is active but still trust-driven by the deprecated uniform
+/// `GATEWAY_ALLOW_ALL_USERS`/`GATEWAY_ALLOWED_USERS` env — log the Phase 1
+/// deprecation warning (#1356). Shared by the `[wecom]`/`[googlechat]`/`[teams]`/
+/// `[feishu]`/`[lineworks]` overrides; same override shape as the bespoke
+/// `[telegram]`/`[line]` blocks.
+///
+/// L2 (channels) stays on the shared gateway values passed in; L3 mirrors the
+/// resolved section (config → `{env_prefix}_*` env → deny-all).
+#[allow(clippy::too_many_arguments)]
+fn platform_trust_override(
+    reg: &mut openab_core::trust::PlatformTrustConfigs,
+    platform: &str,
+    section: &Option<config::PlatformTrustConfig>,
+    env_prefix: &str,
+    platform_active: bool,
+    allow_all_channels: bool,
+    allowed_channels: &[String],
+) {
+    use openab_core::trust::TrustConfig;
+    let resolved = if let Some(s) = section {
+        Some(s.resolve_with_env(env_prefix))
+    } else if config::PlatformTrustConfig::env_trust_present(env_prefix) {
+        Some(config::PlatformTrustConfig::default().resolve_with_env(env_prefix))
+    } else {
+        None
+    };
+    match resolved {
+        Some(r) => {
+            reg.insert(
+                platform,
+                TrustConfig::new(
+                    Some(allow_all_channels),
+                    allowed_channels.to_vec(),
+                    None,
+                    Some(r.allow_all_users),
+                    r.allowed_users,
+                ),
+            );
+        }
+        None => {
+            let legacy_env_set = std::env::var("GATEWAY_ALLOW_ALL_USERS").is_ok()
+                || std::env::var("GATEWAY_ALLOWED_USERS").is_ok();
+            if platform_active && legacy_env_set {
+                warn!(
+                    platform,
+                    "platform trust is driven by deprecated GATEWAY_ALLOW_ALL_USERS/\
+                     GATEWAY_ALLOWED_USERS env vars — migrate to a [{platform}] section \
+                     (allow_all_users/allowed_users) or {env_prefix}_ALLOW_ALL_USERS/\
+                     {env_prefix}_ALLOWED_USERS; the uniform GATEWAY_* fallback will \
+                     become a startup error in Phase 2 (#1356)"
+                );
+            }
+        }
+    }
+}
+
+static PROCESS_STARTED: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let _ = PROCESS_STARTED.set(std::time::Instant::now());
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "openab=info".into()),
+        )
+        .init();
+
+    let cmd = Cli::parse()
+        .command
+        .unwrap_or(Commands::Run { config: None });
+
+    let config_arg = match cmd {
+        Commands::Setup { output } => {
+            setup::run_setup(output.map(PathBuf::from))?;
+            return Ok(());
+        }
+        #[cfg(feature = "agentcore")]
+        Commands::AgentcoreBridge {
+            runtime_arn,
+            region,
+            command,
+        } => {
+            return acp::agentcore::run_bridge(&runtime_arn, &region, &command).await;
+        }
+        Commands::Set { key, value, thread } => {
+            let resp = ctl::send_request(&ctl::Request {
+                action: ctl::Action::Set,
+                key,
+                value: Some(value),
+                thread_id: thread.or_else(|| std::env::var("OPENAB_THREAD_ID").ok()),
+            })
+            .await?;
+            if resp.ok {
+                println!("✓ {}", resp.message);
+            } else {
+                eprintln!("✗ {}", resp.message);
+                std::process::exit(1);
+            }
+            return Ok(());
+        }
+        Commands::Get { key, thread } => {
+            let resp = ctl::send_request(&ctl::Request {
+                action: ctl::Action::Get,
+                key,
+                value: None,
+                thread_id: thread.or_else(|| std::env::var("OPENAB_THREAD_ID").ok()),
+            })
+            .await?;
+            if resp.ok {
+                println!("{}", resp.value.unwrap_or_default());
+            } else {
+                eprintln!("✗ {}", resp.message);
+                std::process::exit(1);
+            }
+            return Ok(());
+        }
+        Commands::Mcp { addon } => {
+            let McpAddon::GmailNative { action } = addon;
+            match action {
+                GmailNativeAction::Serve { listen } => {
+                    if let Err(e) = openab_mcp::native::gmail::serve_http(&listen).await {
+                        eprintln!("gmail-native: {e:#}");
+                        std::process::exit(1);
+                    }
+                }
+                GmailNativeAction::Login { redirect_uri } => {
+                    if let Err(e) = openab_mcp::native::gmail::login(&redirect_uri).await {
+                        eprintln!("gmail-native login: {e:#}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            return Ok(());
+        }
+        Commands::Run { config } => config,
+    };
+
+    // -- Run path --
+    let config_source = config_arg.unwrap_or_else(|| "config.toml".into());
+
+    // First pass: load config (env vars expanded, secrets NOT resolved yet)
+    let raw_expanded = config::load_config_raw_from_source(&config_source).await?;
+
+    let mut cfg = config::parse_config_str(&raw_expanded, &config_source)?;
+    info!(
+        agent_cmd = %cfg.agent.command,
+        pool_max = cfg.pool.max_sessions,
+        discord = cfg.discord.is_some(),
+        slack = cfg.slack.is_some(),
+        reactions = cfg.reactions.enabled,
+        "config loaded"
+    );
+
+    if cfg.discord.is_none()
+        && cfg.slack.is_none()
+        && cfg.gateway.is_none()
+        && cfg.telegram.is_none()
+        && !has_unified_platform(&cfg)
+    {
+        // Facade-only run mode (#1451): an adapter-less config with `[mcp]`
+        // present is a valid deployment — the broker serves just the OAB MCP
+        // Facade listener. One entrypoint, config-driven: hosts that only
+        // need the capability surface (coding-CLI-only users, dev loops, CI
+        // runners, agent hosts with no chat platform) run the same
+        // `openab run` with a two-line config instead of a chat token.
+        if let Some(mcp_cfg) = cfg.mcp.clone() {
+            tracing::info!(
+                listen = %mcp_cfg.listen,
+                "no chat adapter configured — running in facade-only mode ([mcp] present)"
+            );
+            // Foreground, not spawned: the facade IS the workload. A bind
+            // failure or server exit terminates the process (fail fast).
+            return openab_mcp::mcp::facade::serve_http(&mcp_cfg.listen)
+                .await
+                .map_err(|e| anyhow::anyhow!("OAB MCP facade exited: {e:#}"));
+        }
+        anyhow::bail!(
+            "no adapter configured — add [discord], [slack], [telegram], [wecom], [googlechat], or [gateway] to config (or [mcp] for facade-only mode), or set platform env vars (TELEGRAM_BOT_TOKEN, etc.)"
+        );
+    }
+
+    // --- Lifecycle hooks: Unix-only. Fail fast on unsupported platforms. ---
+    cfg.hooks.ensure_platform_supported()?;
+
+    // --- pre_seed: download & extract S3 zips before pre_boot ---
+    #[cfg(feature = "pre-seed")]
+    if let Some(ref pre_seed) = cfg.hooks.pre_seed {
+        if !pre_seed.sources.is_empty() {
+            openab_core::pre_seed::run(pre_seed).await?;
+        }
+    }
+
+    // Validate and run pre_boot hook (before agent pool creation)
+    if let Some(ref hook) = cfg.hooks.pre_boot {
+        hooks::validate_hook("pre_boot", hook)?;
+        hooks::run_hook("pre_boot", hook).await?;
+    }
+    if let Some(ref hook) = cfg.hooks.pre_shutdown {
+        hooks::validate_hook("pre_shutdown", hook)?;
+    }
+
+    // Resolve secrets (after pre_boot hooks so exec:// scripts are available)
+    if !cfg.secrets.refs.is_empty() {
+        let resolved = secrets::resolve(&cfg.secrets).await?;
+        let substituted = secrets::substitute(&raw_expanded, &resolved);
+        cfg = config::parse_config_str(&substituted, &config_source)?;
+    }
+
+    // Resolve before adapter-specific config fields are moved into their
+    // runtime components below. Secret-backed values have been substituted by
+    // now (the earlier bail-gate call only needed reachability — placeholder
+    // values are non-empty, so this recompute is the authoritative one).
+    // cfg-gated like the unified block that consumes it, else unused under
+    // default features.
+    #[cfg(any(
+        feature = "telegram",
+        feature = "line",
+        feature = "feishu",
+        feature = "googlechat",
+        feature = "wecom",
+        feature = "teams",
+        feature = "acp",
+        feature = "lineworks",
+    ))]
+    let unified_platform_enabled = has_unified_platform(&cfg);
+
+    let shutdown_hook = cfg.hooks.pre_shutdown.clone();
+
+    // Shared MCP-over-ACP tunnel registry (D6-a'): the gateway populates it per session; the
+    // core's `acp_mcp` module reads it through the `RootAcpTunnel` implementation below.
+    #[cfg(feature = "acp")]
+    let acp_tunnel_registry = openab_gateway::adapters::acp_server::new_tunnel_registry();
+    #[cfg(feature = "acp")]
+    let acp_tunnel: Arc<dyn openab_core::acp_mcp::AcpMcpTunnel> =
+        Arc::new(acp_tunnel::RootAcpTunnel::new(
+            acp_tunnel_registry.clone(),
+            // Browser control requires `[mcp]`, so the absent case is unreachable in practice;
+            // fall back through the SAME function serde uses rather than repeating the literal.
+            {
+                let t = cfg
+                    .mcp
+                    .as_ref()
+                    .map(|m| m.tunnel_timeout_seconds)
+                    .unwrap_or_else(openab_core::config::default_tunnel_timeout_seconds);
+                // The comparison and the ceiling both live beside the constant in the gateway; this
+                // only hands over the configured value.
+                openab_gateway::adapters::acp_server::warn_if_tunnel_timeout_is_ineffective(t);
+                t
+            },
+        ));
+
+    // OAB MCP Facade (`[mcp]` in config.toml — OAB MCP Adapter ADR §6.2):
+    // serve the loopback Streamable HTTP MCP server in-process so any coding
+    // CLI on this host can reach authorized external capabilities via
+    // http://<listen>/mcp. Absent section = no listener (backward compat).
+    // A bind failure is fatal at startup (fail fast, like a bad platform
+    // token) rather than a silently missing capability surface.
+    //
+    // Browser capabilities (Facade mode, default): registered as a
+    // session-aware in-process source — one listener, per-session identity
+    // via broker-minted tokens; no per-session proxy servers.
+    let facade_sessions = openab_mcp::mcp::sources::SessionTokens::new();
+    // Only read under the acp feature (pool facade wiring below).
+    #[cfg(feature = "acp")]
+    let facade_serving = cfg.mcp.is_some();
+    // Startup, not per-session: report whether the facade is serving, so an operator learns it
+    // here rather than by inferring it from tools that never appear. This is NOT the
+    // `OPENAB_BROWSER_MODE` migration notice — that was removed (see `acp_mcp`), and nothing
+    // reports the variable now.
+    // Gated on `acp` (the root feature that pulls in core's `acp-mcp`), not on `acp-mcp` itself —
+    // that is a core feature and naming it here is an unknown-cfg error.
+    #[cfg(feature = "acp")]
+    openab_core::acp_mcp::report_facade_status(cfg.mcp.is_some(), &cfg.agent.working_dir);
+    if let Some(mcp_cfg) = cfg.mcp.clone() {
+        let listen = mcp_cfg.listen.clone();
+        let tokens = facade_sessions.clone();
+        // The ACP tunnel source is registered unconditionally under the `acp` feature. It used to
+        // be skipped in bridge mode; with the bridge gone there is no mode in which the facade
+        // runs without it.
+        #[cfg(feature = "acp")]
+        let sources: Vec<Arc<dyn openab_mcp::mcp::sources::CapabilitySource>> = vec![Arc::new(
+            acp_tunnel_source::AcpTunnelSource::new(acp_tunnel.clone()),
+        )];
+        #[cfg(not(feature = "acp"))]
+        let sources: Vec<Arc<dyn openab_mcp::mcp::sources::CapabilitySource>> = Vec::new();
+        tokio::spawn(async move {
+            if let Err(e) = openab_mcp::mcp::facade::serve_http_with(&listen, sources, tokens).await
+            {
+                tracing::error!(error = %format!("{e:#}"), listen, "OAB MCP facade exited");
+                std::process::exit(1);
+            }
+        });
+    }
+
+    let pool_inner = acp::SessionPool::new(
+        cfg.agent,
+        cfg.pool.max_sessions,
+        cfg.pool
+            .prompt_hard_timeout_secs
+            .saturating_add(cfg.pool.hung_grace_secs),
+        cfg.pool.default_config_options,
+    );
+    // Facade session wiring: only when the facade is actually serving. With no `[mcp]` there is
+    // no registrar and no facade url, and the pool simply starts sessions without browser
+    // capabilities — there is no longer a proxy path for it to fall back to.
+    #[cfg(feature = "acp")]
+    let pool_inner = pool_inner.with_facade_sessions(
+        facade_serving.then(|| {
+            Arc::new(acp_tunnel_source::FacadeRegistrar(facade_sessions.clone()))
+                as Arc<dyn openab_core::acp_mcp::SessionTokenRegistrar>
+        }),
+        facade_serving.then(|| {
+            format!(
+                "http://{}/mcp",
+                cfg.mcp
+                    .as_ref()
+                    .map(|m| m.listen.as_str())
+                    .unwrap_or("127.0.0.1:8848")
+            )
+        }),
+    );
+    let pool = Arc::new(pool_inner);
+    let ttl_secs = cfg.pool.session_ttl_hours * 3600;
+
+    // Resolve STT config (auto-detect GROQ_API_KEY from env)
+    if cfg.stt.enabled {
+        if cfg.stt.api_key.is_empty() && cfg.stt.base_url.contains("groq.com") {
+            if let Ok(key) = std::env::var("GROQ_API_KEY") {
+                if !key.is_empty() {
+                    info!("stt.api_key not set, using GROQ_API_KEY from environment");
+                    cfg.stt.api_key = key;
+                }
+            }
+        }
+        if cfg.stt.api_key.is_empty() {
+            anyhow::bail!("stt.enabled = true but no API key found — set stt.api_key in config or export GROQ_API_KEY");
+        }
+        info!(model = %cfg.stt.model, base_url = %cfg.stt.base_url, "STT enabled");
+    }
+
+    // Build the per-platform trust registry for the gateway platforms from the
+    // same GATEWAY_* env the unified bridge uses (behavior-preserving: defaults
+    // allow-all, matching today's should_skip_event). L2/L3 enforcement moves to
+    // the router's ingress gate; should_skip_event keeps only bot + @mention
+    // gating for the unified path. Discord/Slack are wired in a later PR.
+    let gateway_trust = {
+        use openab_core::trust::{PlatformTrustConfigs, TrustConfig};
+        let env_bool = |k: &str, default: bool| {
+            std::env::var(k)
+                .map(|v| v != "0" && !v.eq_ignore_ascii_case("false"))
+                .unwrap_or(default)
+        };
+        let env_set = |k: &str| -> Vec<String> {
+            std::env::var(k)
+                .unwrap_or_default()
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        };
+        let allow_all_channels = env_bool("GATEWAY_ALLOW_ALL_CHANNELS", true);
+        let allowed_channels = env_set("GATEWAY_ALLOWED_CHANNELS");
+        // L3 identity: trust-none by default (Phase 3). Was `true` in #1267
+        // (behavior-preserving); now defaults deny-all — set GATEWAY_ALLOW_ALL_USERS=true
+        // or list GATEWAY_ALLOWED_USERS to admit senders. L2 (channels) stays open.
+        let allow_all_users = env_bool("GATEWAY_ALLOW_ALL_USERS", false);
+        let allowed_users = env_set("GATEWAY_ALLOWED_USERS");
+        let mut reg = PlatformTrustConfigs::new();
+        for platform in [
+            "telegram",
+            "line",
+            "feishu",
+            "wecom",
+            "googlechat",
+            "teams",
+            "acp",
+            "lineworks",
+        ] {
+            reg.insert(
+                platform,
+                TrustConfig::new(
+                    Some(allow_all_channels),
+                    allowed_channels.clone(),
+                    None, // allow_dm unused in Phase 1 (is_dm passed as false)
+                    Some(allow_all_users),
+                    allowed_users.clone(),
+                ),
+            );
+        }
+
+        // [gateway] section seed for the standalone WS platform: the WebSocket
+        // path now enforces L2/L3 via this registry (gate_gateway_event) instead
+        // of its own inline allowlist checks, so the section's values must land
+        // here (behavior-preserving: same resolve_allow_all semantics the old
+        // inline filter used). Precedence: GATEWAY_* env (uniform seed above)
+        // < [gateway] (this insert) < [<platform>] section
+        // (platform_trust_override below, which runs in both modes).
+        if let Some(ref gw) = cfg.gateway {
+            reg.insert(&gw.platform, gateway_section_trust(gw));
+        }
+
+        // Discord: gate L3 (identity) only via the shared gate. Discord's L2 is
+        // richer than the flat allowed_channels model (threads are admitted by
+        // *parent* channel, DMs by allow_dm), so we leave channel/DM enforcement
+        // in the adapter and set L2 open here. L3 mirrors the resolved
+        // [discord].allow_all_users/allowed_users, so the gate agrees with
+        // Discord's existing user check (behavior-preserving). L2 + dispatch-path
+        // privatization for Discord follow once the richer channel model lands.
+        if let Some(d) = &cfg.discord {
+            reg.insert(
+                "discord",
+                TrustConfig::new(
+                    Some(true), // L2 open — Discord's own channel/thread/DM logic still applies
+                    Vec::<String>::new(),
+                    Some(true),
+                    Some(config::resolve_allow_all(
+                        d.allow_all_users,
+                        &d.allowed_users,
+                    )),
+                    d.allowed_users.clone(),
+                ),
+            );
+        }
+
+        // Slack: gate L3 (identity) only via the shared gate, mirroring the
+        // Discord entry above. Slack's L2 (channel allowlist) stays in the
+        // adapter — its registry entry is L2-open — and L3 mirrors the resolved
+        // [slack].allow_all_users/allowed_users, so the gate agrees with
+        // Slack's existing user check (behavior-preserving). Without this
+        // entry, Slack was the only configured platform absent from the
+        // registry, falling back to the deny-all default if the gate ever ran
+        // for it (#1361).
+        if let Some(s) = &cfg.slack {
+            reg.insert(
+                "slack",
+                TrustConfig::new(
+                    Some(true), // L2 open — Slack's own channel check still applies
+                    Vec::<String>::new(),
+                    Some(true),
+                    Some(config::resolve_allow_all(
+                        s.allow_all_users,
+                        &s.allowed_users,
+                    )),
+                    s.allowed_users.clone(),
+                ),
+            );
+        }
+
+        // Telegram: L3 (identity) mirrors the resolved
+        // [telegram].allow_all_users/allowed_users, so config.toml can
+        // restrict who can message the bot without needing
+        // GATEWAY_ALLOW_ALL_USERS/GATEWAY_ALLOWED_USERS env vars. L2
+        // (channels) has no Telegram-specific concept distinct from the
+        // generic gateway model, so it stays on the shared GATEWAY_* values
+        // set above.
+        //
+        // Also resolves when running env-only (no [telegram] section but
+        // TELEGRAM_BOT_TOKEN set), so TELEGRAM_ALLOWED_USERS /
+        // TELEGRAM_ALLOW_ALL_USERS are honored in pure-env deployments.
+        let telegram_resolved = if let Some(t) = &cfg.telegram {
+            Some(t.resolve())
+        } else if std::env::var("TELEGRAM_ALLOWED_USERS").is_ok()
+            || std::env::var("TELEGRAM_ALLOW_ALL_USERS").is_ok()
+        {
+            Some(config::TelegramConfig::default().resolve())
+        } else {
+            None
+        };
+        if let Some(r) = telegram_resolved {
+            reg.insert(
+                "telegram",
+                TrustConfig::new(
+                    Some(allow_all_channels),
+                    allowed_channels.clone(),
+                    None,
+                    Some(r.allow_all_users),
+                    r.allowed_users,
+                ),
+            );
+        }
+
+        // LINE: L3 (identity) mirrors the resolved
+        // [line].allow_all_users/allowed_users, so config.toml can restrict
+        // who can message the bot without the uniform
+        // GATEWAY_ALLOW_ALL_USERS/GATEWAY_ALLOWED_USERS env vars (#1355). L2
+        // (channels) has no LINE-specific concept distinct from the generic
+        // gateway model yet (group policy is a follow-up), so it stays on the
+        // shared GATEWAY_* values set above.
+        //
+        // NOTE: deliberately NOT routed through platform_trust_override —
+        // LineConfig is a bespoke type that grows group-policy fields next
+        // (#1355 follow-up), unlike the shared PlatformTrustConfig used by
+        // wecom/googlechat/teams below.
+        //
+        // Also resolves when running env-only (no [line] section but
+        // LINE_ALLOW_ALL_USERS / LINE_ALLOWED_USERS set), matching the
+        // Telegram pattern.
+        let line_resolved = if let Some(l) = &cfg.line {
+            Some(l.resolve())
+        } else if config::LineConfig::env_trust_present() {
+            Some(config::LineConfig::default().resolve())
+        } else {
+            None
+        };
+        match line_resolved {
+            Some(r) => {
+                reg.insert(
+                    "line",
+                    TrustConfig::new(
+                        Some(allow_all_channels),
+                        allowed_channels.clone(),
+                        None,
+                        Some(r.allow_all_users),
+                        r.allowed_users,
+                    ),
+                );
+            }
+            None => {
+                // Phase 1 deprecation (#1355/#1356): LINE trust still rides on
+                // the uniform GATEWAY_* seed. Warn when the unified LINE
+                // adapter is active and the legacy env is what admits users,
+                // so operators migrate before Phase 2 turns this into an error.
+                let line_active =
+                    cfg!(feature = "line") && std::env::var("LINE_CHANNEL_SECRET").is_ok();
+                let legacy_env_set = std::env::var("GATEWAY_ALLOW_ALL_USERS").is_ok()
+                    || std::env::var("GATEWAY_ALLOWED_USERS").is_ok();
+                if line_active && legacy_env_set {
+                    warn!(
+                        "LINE trust is driven by deprecated GATEWAY_ALLOW_ALL_USERS/\
+                         GATEWAY_ALLOWED_USERS env vars — migrate to a [line] section \
+                         (allow_all_users/allowed_users) or LINE_ALLOW_ALL_USERS/\
+                         LINE_ALLOWED_USERS; the uniform GATEWAY_* fallback will \
+                         become a startup error in Phase 2 (#1356)"
+                    );
+                }
+            }
+        }
+
+        // WeCom / Google Chat / MS Teams: same first-class override shape as
+        // LINE above, via the shared [wecom]/[googlechat]/[teams] trust
+        // sections (#1358, #1359, #1360). L2 stays on the shared GATEWAY_*
+        // channel values; L3 mirrors the resolved per-platform section.
+        platform_trust_override(
+            &mut reg,
+            "wecom",
+            &cfg.wecom.as_ref().map(|w| w.trust_config()),
+            "WECOM",
+            cfg!(feature = "wecom") && std::env::var("WECOM_CORP_ID").is_ok(),
+            allow_all_channels,
+            &allowed_channels,
+        );
+        platform_trust_override(
+            &mut reg,
+            "googlechat",
+            &cfg.googlechat.as_ref().map(|g| g.trust_config()),
+            "GOOGLE_CHAT",
+            cfg!(feature = "googlechat")
+                && std::env::var("GOOGLE_CHAT_ENABLED")
+                    .map(|v| v == "true" || v == "1")
+                    .unwrap_or(false),
+            allow_all_channels,
+            &allowed_channels,
+        );
+        platform_trust_override(
+            &mut reg,
+            "teams",
+            &cfg.teams.as_ref().map(|t| t.trust_config()),
+            "TEAMS",
+            cfg!(feature = "teams") && std::env::var("TEAMS_APP_ID").is_ok(),
+            allow_all_channels,
+            &allowed_channels,
+        );
+        platform_trust_override(
+            &mut reg,
+            "feishu",
+            &cfg.feishu.as_ref().map(|f| f.trust_config()),
+            "FEISHU",
+            cfg!(feature = "feishu") && std::env::var("FEISHU_APP_ID").is_ok(),
+            allow_all_channels,
+            &allowed_channels,
+        );
+        platform_trust_override(
+            &mut reg,
+            "lineworks",
+            &cfg.lineworks.as_ref().map(|lw| lw.trust_config()),
+            "LINEWORKS",
+            lineworks_activated(cfg.lineworks.as_ref()),
+            allow_all_channels,
+            &allowed_channels,
+        );
+        reg
+    };
+
+    let router = Arc::new(
+        AdapterRouter::new(
+            pool.clone(),
+            cfg.reactions,
+            cfg.markdown.tables,
+            cfg.pool.prompt_hard_timeout_secs,
+            cfg.pool.liveness_check_secs,
+            cfg.workspace.aliases,
+            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| {
+                tracing::warn!(
+                    "HOME environment variable is not set — falling back to /tmp as bot_home. \
+                     This weakens the workspace security boundary."
+                );
+                "/tmp".into()
+            })),
+        )
+        .with_trust(gateway_trust),
+    );
+
+    // Shutdown signal for Slack adapter
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+
+    let dispatchers: Arc<Mutex<Vec<Arc<dispatch::Dispatcher>>>> = Arc::new(Mutex::new(Vec::new()));
+
+    // Spawn cleanup task
+    let cleanup_pool = pool.clone();
+    let cleanup_dispatchers = dispatchers.clone();
+    let cleanup_handle = tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            cleanup_pool.cleanup_idle(ttl_secs).await;
+            for d in cleanup_dispatchers.lock().unwrap().iter() {
+                d.sweep_stale();
+            }
+        }
+    });
+
+    // Pre-build shared adapters for cron scheduler
+    #[cfg(feature = "discord")]
+    let shared_discord_adapter: Option<Arc<dyn adapter::ChatAdapter>> =
+        cfg.discord.as_ref().map(|dc| {
+            let http = Arc::new(serenity::http::Http::new(&dc.bot_token));
+            Arc::new(discord::DiscordAdapter::new(http)) as Arc<dyn adapter::ChatAdapter>
+        });
+    #[cfg(not(feature = "discord"))]
+    let shared_discord_adapter: Option<Arc<dyn adapter::ChatAdapter>> = None;
+
+    let session_ttl_dur = std::time::Duration::from_secs(ttl_secs);
+
+    // Initialize multibot cache
+    let multibot_cache_path = std::env::var("HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_default()
+        .join(".openab")
+        .join("cache")
+        .join("threads.json");
+    let multibot_cache = multibot_cache::MultibotCache::load(multibot_cache_path);
+
+    // Initialize filestore (for uploading file attachments to S3/R2).
+    #[cfg(feature = "filestore")]
+    let filestore: Option<Arc<openab_core::filestore::Filestore>> =
+        if let Some(ref fs_cfg) = cfg.filestore {
+            info!(
+                bucket = %fs_cfg.bucket,
+                region = %fs_cfg.region,
+                prefix = %fs_cfg.prefix,
+                presigned_ttl = fs_cfg.presigned_ttl,
+                "filestore enabled"
+            );
+            Some(Arc::new(
+                openab_core::filestore::Filestore::new(fs_cfg).await,
+            ))
+        } else {
+            None
+        };
+
+    #[cfg(feature = "slack")]
+    let shared_slack_adapter: Option<Arc<slack::SlackAdapter>> = cfg.slack.as_ref().map(|s| {
+        Arc::new(slack::SlackAdapter::new(
+            s.bot_token.clone(),
+            session_ttl_dur,
+            s.allow_bot_messages,
+            s.assistant_mode,
+            multibot_cache.clone(),
+            s.streaming,
+        ))
+    });
+    #[cfg(not(feature = "slack"))]
+    let shared_slack_adapter: Option<Arc<dyn adapter::ChatAdapter>> = None;
+
+    // Shared slot for Discord ShardMessenger (set in ready handler, used by ctl for agent.status)
+    #[cfg(unix)]
+    let ctl_shard: ctl::ShardSlot = Arc::new(std::sync::OnceLock::new());
+
+    // Thread registry: thread_id → platform. Populated on message dispatch.
+    #[cfg(unix)]
+    let ctl_registry = ctl::new_registry();
+
+    // Spawn control socket server for `openab set/get` IPC
+    #[cfg(unix)]
+    let ctl_handle = {
+        let mut adapters = std::collections::HashMap::new();
+        if let Some(ref a) = shared_discord_adapter {
+            adapters.insert("discord".into(), a.clone());
+        }
+        if let Some(ref a) = shared_slack_adapter {
+            adapters.insert("slack".into(), a.clone() as Arc<dyn adapter::ChatAdapter>);
+        }
+        if adapters.is_empty() {
+            None
+        } else {
+            Some(ctl::spawn_server(Arc::new(ctl::RuntimeHandler::new(
+                adapters,
+                ctl_registry.clone(),
+                ctl_shard.clone(),
+            ))))
+        }
+    };
+    #[cfg(not(unix))]
+    let ctl_handle: Option<tokio::task::JoinHandle<()>> = None;
+
+    // Validate cronjob config at startup
+    let mut configured_platforms: Vec<&str> = Vec::new();
+    if cfg.discord.is_some() {
+        configured_platforms.push("discord");
+    }
+    if cfg.slack.is_some() {
+        configured_platforms.push("slack");
+    }
+    #[cfg(feature = "telegram")]
+    if cfg.telegram.is_some() || std::env::var("TELEGRAM_BOT_TOKEN").is_ok() {
+        configured_platforms.push("telegram");
+    }
+    #[cfg(feature = "googlechat")]
+    if cfg.googlechat.clone().unwrap_or_default().resolve().enabled {
+        configured_platforms.push("googlechat");
+    }
+    #[cfg(feature = "lineworks")]
+    if lineworks_activated(cfg.lineworks.as_ref()) {
+        configured_platforms.push("lineworks");
+    }
+    cron::validate_cronjobs(&cfg.cron.jobs, &configured_platforms)?;
+
+    // Spawn Slack adapter (background task)
+    #[cfg(feature = "slack")]
+    let slack_handle = if let Some(slack_cfg) = cfg.slack {
+        let allow_all_channels =
+            config::resolve_allow_all(slack_cfg.allow_all_channels, &slack_cfg.allowed_channels);
+        let allow_all_users =
+            config::resolve_allow_all(slack_cfg.allow_all_users, &slack_cfg.allowed_users);
+        if !allow_all_channels && slack_cfg.allowed_channels.is_empty() {
+            warn!("allow_all_channels=false with empty allowed_channels for Slack — bot will deny all channels");
+        }
+        info!(
+            allow_all_channels,
+            allow_all_users,
+            channels = slack_cfg.allowed_channels.len(),
+            users = slack_cfg.allowed_users.len(),
+            allow_bot_messages = ?slack_cfg.allow_bot_messages,
+            allow_user_messages = ?slack_cfg.allow_user_messages,
+            "starting slack adapter"
+        );
+        let router = router.clone();
+        let stt = cfg.stt.clone();
+        let max_bot_turns = slack_cfg.max_bot_turns;
+        let slack_shutdown_rx = shutdown_rx.clone();
+        let adapter = shared_slack_adapter
+            .clone()
+            .expect("shared_slack_adapter must exist when slack config is present");
+        let (slack_cap, slack_grouping, slack_idle) = dispatch::dispatch_params(
+            &slack_cfg.message_processing_mode,
+            slack_cfg.max_buffered_messages,
+        );
+        let slack_dispatcher = Arc::new(dispatch::Dispatcher::with_idle_timeout(
+            router.clone(),
+            slack_cap,
+            slack_cfg.max_batch_tokens,
+            slack_grouping,
+            slack_idle,
+        ));
+        dispatchers.lock().unwrap().push(slack_dispatcher.clone());
+        let slack_allowed_users: std::collections::HashSet<String> =
+            slack_cfg.allowed_users.into_iter().collect();
+        let slack_router = router.clone();
+        #[cfg(feature = "filestore")]
+        let slack_filestore = filestore.clone();
+        Some(tokio::spawn(async move {
+            if let Err(e) = slack::run_slack_adapter(
+                adapter,
+                slack_router,
+                slack_cfg.app_token,
+                allow_all_channels,
+                allow_all_users,
+                slack_cfg.allowed_channels.into_iter().collect(),
+                slack_allowed_users,
+                slack_cfg.allow_bot_messages,
+                slack_cfg.trusted_bot_ids.into_iter().collect(),
+                slack_cfg.allow_user_messages,
+                max_bot_turns,
+                stt,
+                slack_shutdown_rx,
+                slack_dispatcher,
+                #[cfg(feature = "filestore")]
+                slack_filestore,
+            )
+            .await
+            {
+                error!("slack adapter error: {e}");
+            }
+        }))
+    } else {
+        None
+    };
+    #[cfg(not(feature = "slack"))]
+    let slack_handle: Option<tokio::task::JoinHandle<()>> = None;
+
+    // Spawn Gateway adapter (background task)
+    let gateway_handle = if let Some(gw_cfg) = cfg.gateway {
+        let router = router.clone();
+        let shutdown_rx = shutdown_rx.clone();
+        info!(url = %gw_cfg.url, "starting gateway adapter");
+        let (gw_cap, gw_grouping, gw_idle) = dispatch::dispatch_params(
+            &gw_cfg.message_processing_mode,
+            gw_cfg.max_buffered_messages,
+        );
+        let gw_dispatcher = Arc::new(dispatch::Dispatcher::with_idle_timeout(
+            router.clone(),
+            gw_cap,
+            gw_cfg.max_batch_tokens,
+            gw_grouping,
+            gw_idle,
+        ));
+        dispatchers.lock().unwrap().push(gw_dispatcher.clone());
+        let params = gateway::GatewayParams {
+            url: gw_cfg.url,
+            platform: gw_cfg.platform,
+            token: gw_cfg.token,
+            bot_username: gw_cfg.bot_username,
+            allow_bot_messages: gw_cfg.allow_bot_messages,
+            trusted_bot_ids: gw_cfg.trusted_bot_ids,
+            streaming: gw_cfg.streaming,
+            streaming_placeholder: gw_cfg.streaming_placeholder,
+            telegram_rich_messages: gw_cfg.telegram_rich_messages,
+            stt: cfg.stt.clone(),
+        };
+        let gw_router = router.clone();
+        #[cfg(feature = "filestore")]
+        let gw_filestore = filestore.clone();
+        Some(tokio::spawn(async move {
+            if let Err(e) = gateway::run_gateway_adapter(
+                params,
+                shutdown_rx,
+                gw_dispatcher,
+                gw_router,
+                #[cfg(feature = "filestore")]
+                gw_filestore,
+            )
+            .await
+            {
+                error!("gateway adapter error: {e}");
+            }
+        }))
+    } else {
+        None
+    };
+
+    // Spawn cron scheduler (background task)
+    // Spawn embedded webhook server when gateway adapters are compiled in (unified mode).
+    // In unified mode, platform webhooks hit this axum server directly → Dispatcher.submit(),
+    // bypassing the WebSocket hop of the two-process model.
+    #[cfg(feature = "feishu")]
+    let mut unified_feishu_shutdown: Option<tokio::sync::watch::Sender<bool>> = None;
+    #[cfg(feature = "feishu")]
+    let mut unified_feishu_handle: Option<tokio::task::JoinHandle<()>> = None;
+
+    #[cfg(any(
+        feature = "telegram",
+        feature = "line",
+        feature = "feishu",
+        feature = "googlechat",
+        feature = "wecom",
+        feature = "teams",
+        feature = "acp",
+        feature = "lineworks",
+    ))]
+    let (_unified_handle, shared_unified_adapter) = {
+        use openab_core::gateway::{process_gateway_event, GatewayEventContext};
+
+        // The ACP endpoint (mounted below) needs this embedded HTTP server too —
+        // start it even when only non-webhook platforms (e.g. Discord, which the
+        // core connects to directly) are configured.
+        let acp_enabled = cfg!(feature = "acp")
+            && std::env::var("OPENAB_ACP_ENABLED")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false);
+        if unified_platform_enabled || cfg.telegram.is_some() || acp_enabled {
+            let listen_addr =
+                std::env::var("GATEWAY_LISTEN").unwrap_or_else(|_| "0.0.0.0:8080".into());
+
+            // Create a dedicated dispatcher for unified gateway events
+            let unified_dispatcher = Arc::new(dispatch::Dispatcher::with_idle_timeout(
+                router.clone(),
+                1,
+                24_000,
+                dispatch::BatchGrouping::Thread,
+                dispatch::PER_MESSAGE_CONSUMER_IDLE_TIMEOUT,
+            ));
+            dispatchers.lock().unwrap().push(unified_dispatcher.clone());
+
+            // Bridge: reuse gateway crate's AppState + webhook handlers.
+            // Events flow: webhook → adapter handler → event_tx → bridge task → process_gateway_event() → Dispatcher
+            // This reuses 100% of existing adapter code (signature verify, parsing, etc).
+            let (event_tx, _) = tokio::sync::broadcast::channel::<String>(256);
+
+            // Build gateway AppState from env vars (shared factory with standalone gateway)
+            let mut gw_state_inner = openab_gateway::AppState::from_env(event_tx.clone(), None);
+            // Share the tunnel registry the facade's capability source reads (D6-a'), so the gateway
+            // populates the same map the RootAcpTunnel bridge looks up.
+            #[cfg(feature = "acp")]
+            {
+                gw_state_inner.acp_tunnel_registry = Some(acp_tunnel_registry.clone());
+                let snapshot_pool = pool.clone();
+                gw_state_inner.acp_session_snapshot = Some(Arc::new(move |channel: String| {
+                    let pool = snapshot_pool.clone();
+                    Box::pin(
+                        async move { pool.execution_snapshot(&format!("acp:{channel}")).await },
+                    )
+                }));
+
+                let inventory_pool = pool.clone();
+                gw_state_inner.acp_session_inventory = Some(Arc::new(move || {
+                    let pool = inventory_pool.clone();
+                    Box::pin(async move {
+                        pool.execution_session_keys()
+                            .await
+                            .into_iter()
+                            .filter_map(|key| key.strip_prefix("acp:").map(str::to_owned))
+                            .collect()
+                    })
+                }));
+                // The pool's own idle sweep, invoked on demand after a device sign-in
+                // installs a credential. `0` makes every session that is not holding a
+                // turn idle; the sweep already refuses to suspend one that is.
+                let suspend_pool = pool.clone();
+                gw_state_inner.acp_runtime_suspend = Some(Arc::new(move || {
+                    let pool = suspend_pool.clone();
+                    tokio::spawn(async move { pool.cleanup_idle(0).await });
+                }));
+                let steer_pool = pool.clone();
+                gw_state_inner.acp_session_steer = Some(Arc::new(
+                    move |channel: String, prompt: serde_json::Value| {
+                        let pool = steer_pool.clone();
+                        Box::pin(async move {
+                            pool.steer_session(&format!("acp:{channel}"), prompt).await
+                        })
+                    },
+                ));
+                let direct_cancel_pool = pool.clone();
+                gw_state_inner.acp_session_cancel = Some(Arc::new(move |channel: String| {
+                    let pool = direct_cancel_pool.clone();
+                    Box::pin(async move {
+                        pool.cancel_session(&format!("acp:{channel}"))
+                            .await
+                            .map_err(|error| error.to_string())
+                    })
+                }));
+
+                // Bridge ACP session/cancel to the pool: the gateway inserts
+                // thread keys into a coalesced set, the receiver drains and
+                // calls pool.cancel_session(). Dedup guarantees every distinct
+                // session's cancel is retained even under load.
+                let (cancel_tx, cancel_rx) = openab_gateway::AcpPoolCancel::new();
+                gw_state_inner.acp_pool_cancel = Some(cancel_tx);
+                let cancel_pool = pool.clone();
+                tokio::spawn(async move {
+                    use openab_core::redact::redact_session_ids;
+                    loop {
+                        cancel_rx.notified().await;
+                        for thread_key in cancel_rx.drain() {
+                            if let Err(e) = cancel_pool.cancel_session(&thread_key).await {
+                                tracing::debug!(key = %redact_session_ids(&thread_key), error = %e, "pool cancel_session (session may have ended)");
+                            }
+                        }
+                    }
+                });
+
+                let (config_tx, mut config_rx) =
+                    tokio::sync::mpsc::channel::<openab_gateway::AcpPoolConfigRequest>(32);
+                gw_state_inner.acp_pool_config = Some(config_tx);
+                let config_pool = pool.clone();
+                tokio::spawn(async move {
+                    while let Some(request) = config_rx.recv().await {
+                        // A queued request whose caller disconnected must not
+                        // silently apply later.
+                        if request.reply.is_closed() {
+                            continue;
+                        }
+                        if let Some((cwd, servers, meta)) = &request.restore {
+                            if config_pool
+                                .restore_for_config(
+                                    &request.thread_key,
+                                    cwd,
+                                    servers,
+                                    meta.as_ref(),
+                                )
+                                .await
+                                .is_err()
+                            {
+                                let _ = request.reply.send(Err((
+                                    -32004,
+                                    "Saved session could not be restored".into(),
+                                )));
+                                continue;
+                            }
+                        }
+                        let selection = request
+                            .selection
+                            .as_ref()
+                            .map(|(id, value)| (id.as_str(), value.as_str()));
+                        let result = config_pool
+                            .session_config_options(&request.thread_key, selection)
+                            .await;
+                        let _ = request.reply.send(result);
+                    }
+                });
+
+                // Liveness query bridge: session/resume asks whether the
+                // inner agent session behind a thread key still exists, so
+                // the resume response can report it to the client.
+                let (liveness_tx, mut liveness_rx) =
+                    tokio::sync::mpsc::channel::<(String, tokio::sync::oneshot::Sender<bool>)>(64);
+                gw_state_inner.acp_pool_liveness = Some(liveness_tx);
+                let liveness_pool = pool.clone();
+                tokio::spawn(async move {
+                    while let Some((thread_key, reply)) = liveness_rx.recv().await {
+                        let _ = reply.send(liveness_pool.has_active_session(&thread_key).await);
+                    }
+                });
+            }
+
+            // Pre-download identity probe: lets adapters consult the shared
+            // L3 identity gate BEFORE spending resources on attachment
+            // download. Mirrors gate_gateway_event (is_dm = false, Phase 1).
+            {
+                let probe_router = router.clone();
+                gw_state_inner.trust_probe = Some(std::sync::Arc::new(
+                    move |platform: &str, channel_id: &str, sender_id: &str| {
+                        probe_router
+                            .gate_incoming(platform, channel_id, false, sender_id)
+                            .is_allowed()
+                    },
+                ));
+            }
+
+            // First-class `[telegram]` config overrides env-derived values
+            // (config-authoritative + ${} expansion + TELEGRAM_* env fallback).
+            #[cfg_attr(not(feature = "telegram"), allow(unused_variables))]
+            let telegram_webhook_path = if let Some(ref tg) = cfg.telegram {
+                let r = tg.resolve();
+                let path = r.webhook_path.clone();
+                gw_state_inner.apply_telegram_config(openab_gateway::GatewayTelegramConfig {
+                    bot_token: r.bot_token,
+                    secret_token: r.secret_token,
+                    rich_messages: r.rich_messages,
+                    trusted_source_only: r.trusted_source_only,
+                    streaming: r.streaming,
+                });
+                Some(path)
+            } else {
+                None
+            };
+
+            // First-class `[line]` config overrides env-derived values
+            // (config-authoritative + ${} expansion + LINE_* env fallback,
+            // #1376). Applied before warn_unenforceable_l1 so a
+            // config-supplied channel_secret is not falsely flagged.
+            if let Some(ref l) = cfg.line {
+                let r = l.resolve();
+                gw_state_inner.apply_line_config(openab_gateway::GatewayLineConfig {
+                    channel_secret: r.channel_secret,
+                    channel_access_token: r.channel_access_token,
+                    webhook_path: r.webhook_path,
+                });
+            }
+
+            // First-class `[lineworks]` config overrides env-derived values
+            // (config-authoritative + ${} expansion + LINEWORKS_* env
+            // fallback). The apply rebuilds the adapter through the same
+            // validation as env-only construction.
+            #[cfg(feature = "lineworks")]
+            if let Some(ref lw) = cfg.lineworks {
+                let r = lw.resolve();
+                gw_state_inner.apply_lineworks_config(openab_gateway::GatewayLineWorksConfig {
+                    bot_id: r.bot_id,
+                    bot_secret: r.bot_secret,
+                    client_id: r.client_id,
+                    client_secret: r.client_secret,
+                    service_account: r.service_account,
+                    private_key: r.private_key,
+                    private_key_file: r.private_key_file,
+                    webhook_path: r.webhook_path,
+                    require_mention: r.require_mention,
+                    bot_name: r.bot_name,
+                    rich_messages: r.rich_messages,
+                    ack_message: r.ack_message,
+                });
+            }
+
+            // First-class `[wecom]` config overrides env-derived values
+            // (config-authoritative + ${} expansion + WECOM_* env fallback,
+            // #1378). The apply rebuilds the adapter through the same
+            // validation as env-only construction.
+            #[cfg(feature = "wecom")]
+            if let Some(ref w) = cfg.wecom {
+                let r = w.resolve();
+                gw_state_inner.apply_wecom_config(openab_gateway::GatewayWecomConfig {
+                    corp_id: r.corp_id,
+                    secret: r.secret,
+                    token: r.token,
+                    encoding_aes_key: r.encoding_aes_key,
+                    agent_id: r.agent_id,
+                    webhook_path: r.webhook_path,
+                    streaming_enabled: r.streaming_enabled,
+                    debounce_secs: r.debounce_secs,
+                });
+            }
+            // First-class `[googlechat]` config overrides env-derived values
+            // (config-authoritative + ${} expansion + GOOGLE_CHAT_* env
+            // fallback, #1379). Applied before warn_unenforceable_l1 so a
+            // config-supplied audience (JWT verifier) is not falsely flagged.
+            #[cfg(feature = "googlechat")]
+            if let Some(ref g) = cfg.googlechat {
+                let r = g.resolve();
+                gw_state_inner.apply_googlechat_config(openab_gateway::GatewayGoogleChatConfig {
+                    enabled: r.enabled,
+                    sa_key_json: r.sa_key_json,
+                    sa_key_file: r.sa_key_file,
+                    access_token: r.access_token,
+                    audience: r.audience,
+                    webhook_path: r.webhook_path,
+                });
+            }
+            // First-class `[teams]` config overrides env-derived values
+            // (config-authoritative + ${} expansion + TEAMS_* env fallback,
+            // #1380).
+            #[cfg(feature = "teams")]
+            if let Some(ref t) = cfg.teams {
+                let r = t.resolve();
+                gw_state_inner.apply_teams_config(openab_gateway::GatewayTeamsConfig {
+                    app_id: r.app_id,
+                    app_secret: r.app_secret,
+                    allowed_tenants: r.allowed_tenants,
+                    oauth_endpoint: r.oauth_endpoint,
+                    openid_metadata: r.openid_metadata,
+                    webhook_path: r.webhook_path,
+                });
+            }
+            // First-class `[feishu]` config overrides env-derived values
+            // (config-authoritative + ${} expansion + FEISHU_* env fallback,
+            // #1377). Applied before warn_unenforceable_l1 so a
+            // config-supplied encrypt_key is not falsely flagged.
+            #[cfg(feature = "feishu")]
+            if let Some(ref fe) = cfg.feishu {
+                gw_state_inner.apply_feishu_config(openab_gateway::GatewayFeishuConfig {
+                    pairs: fe.resolve_pairs(),
+                });
+            }
+            let gw_state = Arc::new(gw_state_inner);
+
+            // Phase 1 L1 audit (#1356): warn if any active webhook platform has
+            // no transport authentication configured. Called after
+            // apply_telegram_config so a config-supplied secret is not falsely
+            // flagged as missing. The unified binary mounts the feishu webhook
+            // route unconditionally (see NOTE at the mount below), so feishu
+            // exposure is `true` whenever the adapter is configured.
+            gw_state.warn_unenforceable_l1(true);
+
+            // Build axum router with platform webhook routes
+            let mut app = axum::Router::new()
+                .route("/health", axum::routing::get(|| async { "ok" }))
+                .route("/statusz", axum::routing::get(statusz));
+
+            // Tracks whether /acp actually gets mounted below, so the status page's
+            // "ACP: enabled/disabled" line matches reality rather than just the env flag.
+            #[cfg(feature = "acp")]
+            let mut unified_acp_mounted = false;
+            #[cfg(not(feature = "acp"))]
+            let unified_acp_mounted = false;
+
+            #[cfg(feature = "telegram")]
+            if gw_state.telegram_bot_token.is_some() {
+                let path = telegram_webhook_path.clone().unwrap_or_else(|| {
+                    std::env::var("TELEGRAM_WEBHOOK_PATH")
+                        .unwrap_or_else(|_| "/webhook/telegram".into())
+                });
+                info!(path = %path, "unified: telegram adapter enabled");
+                app = app.route(
+                    &path,
+                    axum::routing::post(openab_gateway::adapters::telegram::webhook),
+                );
+            }
+
+            #[cfg(feature = "line")]
+            {
+                info!(path = %gw_state.line_webhook_path, "unified: line adapter enabled");
+                app = app.route(
+                    &gw_state.line_webhook_path,
+                    axum::routing::post(openab_gateway::adapters::line::webhook),
+                );
+            }
+
+            #[cfg(feature = "feishu")]
+            if gw_state.feishu.is_some() {
+                // NOTE (#1356 L1 audit): unlike the standalone gateway (which
+                // mounts this route only in Webhook connection mode), the
+                // unified binary mounts it unconditionally. In WebSocket mode,
+                // the client is also started below. Deployments relying on
+                // Feishu-side webhook delivery while FEISHU_CONNECTION_MODE is
+                // unset (default: websocket) work because this route remains
+                // mounted, so gating it is a behavior change that needs its
+                // own deprecation path — tracked on #1356, not changed here.
+                let path = gw_state
+                    .feishu
+                    .as_ref()
+                    .map(|f| f.config.webhook_path.clone())
+                    .unwrap_or_else(|| "/webhook/feishu".into());
+                info!(path = %path, "unified: feishu adapter enabled");
+                app = app.route(
+                    &path,
+                    axum::routing::post(openab_gateway::adapters::feishu::webhook),
+                );
+            }
+
+            // Feishu bot identity + WebSocket long-connection (unified mode).
+            // This mirrors the standalone gateway: the default websocket mode
+            // otherwise mounts only the webhook route and receives no events.
+            #[cfg(feature = "feishu")]
+            if let Some(ref f) = gw_state.feishu {
+                use openab_gateway::adapters::feishu;
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(FEISHU_IDENTITY_RESOLUTION_TIMEOUT_SECS),
+                    f.resolve_bot_identity(),
+                )
+                .await
+                {
+                    Ok(()) => {}
+                    Err(_) => warn!(
+                        "unified: feishu bot identity resolution timed out; continuing without bot identity"
+                    ),
+                }
+                if f.config.streaming_mode != feishu::StreamingMode::Post {
+                    let idle_ms = f.config.card_idle_finalize_ms;
+                    tokio::spawn(feishu::run_idle_reaper(
+                        f.stream_sessions.clone(),
+                        f.token_cache.clone(),
+                        f.client.clone(),
+                        f.config.api_base(),
+                        idle_ms,
+                    ));
+                    info!(
+                        idle_ms,
+                        "unified: feishu card-streaming idle reaper started"
+                    );
+                }
+                if f.config.connection_mode == feishu::ConnectionMode::Websocket {
+                    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+                    match feishu::start_websocket(f, event_tx.clone(), shutdown_rx).await {
+                        Ok(handle) => {
+                            info!("unified: feishu websocket task spawned");
+                            unified_feishu_shutdown = Some(shutdown_tx);
+                            unified_feishu_handle = Some(handle);
+                        }
+                        Err(e) => error!(err = %e, "unified: feishu websocket startup failed"),
+                    }
+                }
+            }
+
+            #[cfg(feature = "wecom")]
+            if let Some(ref w) = gw_state.wecom {
+                info!(path = %w.config.webhook_path, "unified: wecom adapter enabled");
+                app = app
+                    .route(
+                        &w.config.webhook_path,
+                        axum::routing::get(openab_gateway::adapters::wecom::verify),
+                    )
+                    .route(
+                        &w.config.webhook_path,
+                        axum::routing::post(openab_gateway::adapters::wecom::webhook),
+                    );
+            }
+
+            #[cfg(feature = "teams")]
+            if gw_state.teams.is_some() {
+                info!(path = %gw_state.teams_webhook_path, "unified: teams adapter enabled");
+                app = app.route(
+                    &gw_state.teams_webhook_path,
+                    axum::routing::post(openab_gateway::adapters::teams::webhook),
+                );
+            }
+
+            #[cfg(feature = "googlechat")]
+            if gw_state.google_chat.is_some() {
+                info!(path = %gw_state.googlechat_webhook_path, "unified: googlechat adapter enabled");
+                app = app.route(
+                    &gw_state.googlechat_webhook_path,
+                    axum::routing::post(openab_gateway::adapters::googlechat::webhook),
+                );
+            }
+
+            // ACP server endpoint — mount on the embedded gateway so `openab run`
+            // (not just the standalone gateway binary) serves ACP over WebSocket.
+            #[cfg(feature = "acp")]
+            if std::env::var("OPENAB_ACP_ENABLED")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false)
+            {
+                // Fail-open (no transport key) is only allowed on a loopback bind; a
+                // non-loopback bind without OPENAB_ACP_AUTH_KEY refuses to mount /acp.
+                let acp_key = std::env::var("OPENAB_ACP_AUTH_KEY").ok();
+                match openab_gateway::adapters::acp_server::acp_auth_ok_for_bind(
+                    acp_key.as_deref(),
+                    openab_gateway::adapters::runtime_credentials::console_enabled(),
+                    &listen_addr,
+                ) {
+                    Ok(()) => {
+                        info!("unified: ACP server endpoint enabled at /acp");
+                        app = app.route(
+                            "/acp",
+                            axum::routing::get(openab_gateway::adapters::acp_server::ws_upgrade),
+                        );
+                        if openab_gateway::adapters::runtime_credentials::console_enabled() {
+                            app = app
+                                .merge(openab_gateway::adapters::runtime_pairing::routes())
+                                .merge(openab_gateway::adapters::runtime_console::routes())
+                                .merge(openab_gateway::adapters::runtime_console_ui::routes());
+                        }
+                        unified_acp_mounted = true;
+                    }
+                    Err(e) => error!("unified: ACP endpoint NOT mounted: {e}"),
+                }
+            }
+
+            // Unauthenticated status page — reports liveness and non-secret build
+            // facts only, so it is safe to open at the base URL with no credential.
+            #[cfg(feature = "acp")]
+            let console_page = unified_acp_mounted
+                && openab_gateway::adapters::runtime_credentials::console_enabled();
+            #[cfg(not(feature = "acp"))]
+            let console_page = false;
+            app = if console_page {
+                app.route(
+                    "/",
+                    axum::routing::get(move || openab_gateway::console_index(unified_acp_mounted)),
+                )
+            } else {
+                app.route(
+                    "/",
+                    axum::routing::get(move || openab_gateway::status_page(unified_acp_mounted)),
+                )
+            };
+
+            #[cfg(feature = "lineworks")]
+            if let Some(ref lw) = gw_state.lineworks {
+                info!(path = %lw.config.webhook_path, "unified: lineworks adapter enabled");
+                app = app.route(
+                    &lw.config.webhook_path,
+                    axum::routing::post(openab_gateway::adapters::lineworks::webhook),
+                );
+            }
+
+            let app = app.with_state(gw_state.clone());
+
+            // Bridge task: receive events from adapters via event_tx, dispatch to core
+            let unified_adapter: Arc<dyn adapter::ChatAdapter> = Arc::new(
+                unified_adapter::UnifiedGatewayAdapter::new(gw_state.clone()),
+            );
+
+            // Bot gating still reads env here (structural, not L2/L3):
+            // channel/user gating moved to the shared trust registry, seeded
+            // from GATEWAY_* env / [gateway] / [<platform>] at startup.
+            let gw_bot_username = std::env::var("GATEWAY_BOT_USERNAME").ok();
+
+            let gw_allow_bot_messages = std::env::var("GATEWAY_ALLOW_BOT_MESSAGES")
+                .map(|v| !v.is_empty() && v != "0" && !v.eq_ignore_ascii_case("false"))
+                .unwrap_or(false);
+            let gw_trusted_bot_ids: std::collections::HashSet<String> =
+                std::env::var("GATEWAY_TRUSTED_BOT_IDS")
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+
+            let cron_unified_adapter = unified_adapter.clone();
+
+            let event_ctx = Arc::new(GatewayEventContext {
+                adapter: unified_adapter,
+                dispatcher: unified_dispatcher,
+                router: router.clone(),
+                allow_bot_messages: gw_allow_bot_messages,
+                trusted_bot_ids: gw_trusted_bot_ids,
+                bot_username: gw_bot_username,
+                stt_config: cfg.stt.clone(),
+                #[cfg(feature = "filestore")]
+                filestore: filestore.clone(),
+            });
+
+            // Spawn the event bridge (event_tx → process_gateway_event)
+            let mut event_rx = event_tx.subscribe();
+            let bridge_ctx = event_ctx.clone();
+            tokio::spawn(async move {
+                loop {
+                    match event_rx.recv().await {
+                        Ok(event_json) => {
+                            let ctx = bridge_ctx.clone();
+                            tokio::spawn(async move {
+                                if let Err(e) = process_gateway_event(&event_json, &ctx).await {
+                                    tracing::warn!(error = %e, "unified bridge: event processing failed");
+                                }
+                            });
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            tracing::warn!(skipped = n, "unified bridge: event_rx lagged");
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+            });
+
+            info!(addr = %listen_addr, "unified webhook server starting");
+
+            (
+                Some(tokio::spawn(async move {
+                    let listener = match tokio::net::TcpListener::bind(&listen_addr).await {
+                        Ok(l) => l,
+                        Err(e) => {
+                            error!(addr = %listen_addr, error = %e, "unified webhook server bind failed");
+                            return;
+                        }
+                    };
+                    info!(addr = %listen_addr, "unified webhook server listening");
+                    if let Err(e) = axum::serve(listener, app).await {
+                        error!(error = %e, "unified webhook server error");
+                    }
+                })),
+                Some(cron_unified_adapter),
+            )
+        } else {
+            (None, None)
+        }
+    };
+
+    let usercron_path = if cfg.cron.usercron_enabled {
+        cfg.cron.usercron_path.as_ref().map(|p| {
+            let path = std::path::PathBuf::from(p);
+            if path.is_absolute() {
+                path
+            } else {
+                std::env::var("HOME")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_default()
+                    .join(".openab")
+                    .join(path)
+            }
+        })
+    } else {
+        None
+    };
+    let has_cron_work = !cfg.cron.jobs.is_empty() || usercron_path.is_some();
+    let cron_handle = if has_cron_work {
+        let shutdown_rx = shutdown_rx.clone();
+        let cronjobs = cfg.cron.jobs.clone();
+        let cron_router = router.clone();
+        let mut cron_adapters: std::collections::HashMap<String, Arc<dyn adapter::ChatAdapter>> =
+            std::collections::HashMap::new();
+        if let Some(ref a) = shared_discord_adapter {
+            cron_adapters.insert("discord".into(), a.clone());
+        }
+        #[cfg(feature = "slack")]
+        if let Some(ref a) = shared_slack_adapter {
+            cron_adapters.insert("slack".into(), a.clone() as Arc<dyn adapter::ChatAdapter>);
+        }
+        #[cfg(feature = "telegram")]
+        if let Some(ref a) = shared_unified_adapter {
+            cron_adapters.insert("telegram".into(), a.clone());
+        }
+        #[cfg(feature = "googlechat")]
+        if let Some(ref a) = shared_unified_adapter {
+            cron_adapters.insert("googlechat".into(), a.clone());
+        }
+        #[cfg(feature = "lineworks")]
+        if let Some(ref a) = shared_unified_adapter {
+            cron_adapters.insert("lineworks".into(), a.clone());
+        }
+        let cron_platforms: Vec<String> =
+            configured_platforms.iter().map(|s| s.to_string()).collect();
+        info!(baseline = cronjobs.len(), usercron = ?usercron_path, "starting cron scheduler");
+        Some(tokio::spawn(async move {
+            cron::run_scheduler(
+                cronjobs,
+                usercron_path,
+                cron_platforms,
+                cron_router,
+                cron_adapters,
+                shutdown_rx,
+            )
+            .await;
+        }))
+    } else {
+        None
+    };
+
+    // Run Discord adapter (foreground, blocking) or wait for ctrl_c
+    #[cfg(feature = "discord")]
+    if let Some(discord_cfg) = cfg.discord {
+        let allow_all_channels = config::resolve_allow_all(
+            discord_cfg.allow_all_channels,
+            &discord_cfg.allowed_channels,
+        );
+        let allow_all_users =
+            config::resolve_allow_all(discord_cfg.allow_all_users, &discord_cfg.allowed_users);
+        let allowed_channels =
+            parse_id_set(&discord_cfg.allowed_channels, "discord.allowed_channels")?;
+        if !allow_all_channels && allowed_channels.is_empty() {
+            warn!("allow_all_channels=false with empty allowed_channels for Discord — bot will deny all channels");
+        }
+        let allowed_users = parse_id_set(&discord_cfg.allowed_users, "discord.allowed_users")?;
+        let trusted_bot_ids =
+            parse_id_set(&discord_cfg.trusted_bot_ids, "discord.trusted_bot_ids")?;
+        let allowed_role_ids =
+            parse_id_set(&discord_cfg.allowed_role_ids, "discord.allowed_role_ids")?;
+        info!(
+            allow_all_channels,
+            allow_all_users,
+            channels = allowed_channels.len(),
+            users = allowed_users.len(),
+            trusted_bots = trusted_bot_ids.len(),
+            role_triggers = allowed_role_ids.len(),
+            allow_bot_messages = ?discord_cfg.allow_bot_messages,
+            allow_user_messages = ?discord_cfg.allow_user_messages,
+            allow_dm = discord_cfg.allow_dm,
+            "starting discord adapter"
+        );
+
+        let (discord_cap, discord_grouping, discord_idle) = dispatch::dispatch_params(
+            &discord_cfg.message_processing_mode,
+            discord_cfg.max_buffered_messages,
+        );
+        let discord_dispatcher = Arc::new(dispatch::Dispatcher::with_idle_timeout(
+            router.clone(),
+            discord_cap,
+            discord_cfg.max_batch_tokens,
+            discord_grouping,
+            discord_idle,
+        ));
+        dispatchers.lock().unwrap().push(discord_dispatcher.clone());
+
+        // Initialize reminder store
+        let reminder_path = std::env::var("HOME")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_default()
+            .join(".openab")
+            .join("reminders.json");
+        let reminder_store = remind::ReminderStore::load(reminder_path);
+
+        // Construct ambient dispatcher if enabled and channels configured.
+        let ambient_dispatcher = if cfg.ambient.enabled && !cfg.ambient.discord.channels.is_empty()
+        {
+            info!(
+                channels = ?cfg.ambient.discord.channels,
+                flush_interval = cfg.ambient.flush_interval_seconds,
+                flush_max_messages = cfg.ambient.flush_max_messages,
+                "ambient mode enabled"
+            );
+            Some(Arc::new(openab_core::ambient::AmbientDispatcher::new(
+                cfg.ambient.clone(),
+            )))
+        } else {
+            None
+        };
+
+        let handler = discord::Handler {
+            router,
+            allow_all_channels,
+            allow_all_users,
+            allowed_channels,
+            allowed_users,
+            stt_config: cfg.stt.clone(),
+            adapter: std::sync::OnceLock::new(),
+            #[cfg(feature = "filestore")]
+            filestore: filestore.clone(),
+            allow_bot_messages: discord_cfg.allow_bot_messages,
+            trusted_bot_ids,
+            allow_user_messages: discord_cfg.allow_user_messages,
+            allowed_role_ids,
+            participated_threads: tokio::sync::Mutex::new(std::collections::HashMap::new()),
+            multibot_threads: tokio::sync::Mutex::new(std::collections::HashMap::new()),
+            multibot_cache,
+            session_ttl: std::time::Duration::from_secs(ttl_secs),
+            max_bot_turns: discord_cfg.max_bot_turns,
+            bot_turns: tokio::sync::Mutex::new(bot_turns::BotTurnTracker::new(
+                discord_cfg.max_bot_turns,
+            )),
+            allow_dm: discord_cfg.allow_dm,
+            dispatcher: discord_dispatcher,
+            ambient: ambient_dispatcher,
+            reminder_store: reminder_store.clone(),
+            scheduled_ids: tokio::sync::Mutex::new(std::collections::HashSet::new()),
+        };
+
+        let intents = GatewayIntents::GUILD_MESSAGES
+            | GatewayIntents::MESSAGE_CONTENT
+            | GatewayIntents::GUILDS
+            | GatewayIntents::DIRECT_MESSAGES
+            | GatewayIntents::GUILD_MESSAGE_REACTIONS;
+
+        let mut client = Client::builder(&discord_cfg.bot_token, intents)
+            .event_handler(handler)
+            .await?;
+
+        let shard_manager = client.shard_manager.clone();
+        tokio::spawn(async move {
+            shutdown_signal().await;
+            info!("shutdown signal received");
+            shard_manager.shutdown_all().await;
+        });
+
+        info!("discord bot running");
+        match client.start().await {
+            Err(serenity::Error::Gateway(GatewayError::DisallowedGatewayIntents)) => {
+                error!(
+                    "Discord rejected privileged intents. \
+                     Enable MESSAGE CONTENT INTENT at: \
+                     https://discord.com/developers/applications → Bot → Privileged Gateway Intents"
+                );
+                std::process::exit(1);
+            }
+            Err(serenity::Error::Gateway(GatewayError::InvalidAuthentication)) => {
+                error!(
+                    "Discord rejected bot token. \
+                     Verify your bot_token in config.toml is correct and has not been reset."
+                );
+                std::process::exit(1);
+            }
+            Err(e) => return Err(e.into()),
+            Ok(_) => {}
+        }
+    } else {
+        info!("running without discord, press ctrl+c to stop");
+        shutdown_signal().await;
+        info!("shutdown signal received");
+    }
+    // When discord feature is disabled at compile time, use this fallback block.
+    // (When discord feature IS enabled but no [discord] config exists, the `else`
+    // branch of the `if let Some(discord_cfg)` above handles shutdown instead.)
+    #[cfg(not(feature = "discord"))]
+    {
+        info!("running without discord, press ctrl+c to stop");
+        shutdown_signal().await;
+        info!("shutdown signal received");
+    }
+
+    // Cleanup
+    cleanup_handle.abort();
+    if let Some(h) = ctl_handle {
+        h.abort();
+        let _ = std::fs::remove_file(ctl::socket_path());
+    }
+    let _ = shutdown_tx.send(true);
+    #[cfg(feature = "feishu")]
+    {
+        if let Some(feishu_shutdown_tx) = unified_feishu_shutdown.take() {
+            let _ = feishu_shutdown_tx.send(true);
+        }
+        if let Some(feishu_handle) = unified_feishu_handle.take() {
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), feishu_handle).await;
+        }
+    }
+    if let Some(handle) = slack_handle {
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), handle).await;
+    }
+    if let Some(handle) = gateway_handle {
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), handle).await;
+    }
+    if let Some(handle) = cron_handle {
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(35), handle).await;
+    }
+    for d in dispatchers.lock().unwrap().iter() {
+        d.shutdown();
+    }
+    let shutdown_pool = pool;
+    shutdown_pool.shutdown().await;
+    if let Some(ref hook) = shutdown_hook {
+        if let Err(e) = hooks::run_hook("pre_shutdown", hook).await {
+            error!(error = %e, "pre_shutdown hook failed");
+        }
+    }
+    info!("openab shut down");
+    Ok(())
+}
+
+fn parse_id_set(raw: &[String], label: &str) -> anyhow::Result<HashSet<u64>> {
+    let set: HashSet<u64> = raw
+        .iter()
+        .filter_map(|s| match s.parse() {
+            Ok(id) => Some(id),
+            Err(_) => {
+                tracing::warn!(value = %s, label = label, "ignoring invalid entry");
+                None
+            }
+        })
+        .collect();
+    if !raw.is_empty() && set.is_empty() {
+        anyhow::bail!(
+            "all {label} entries failed to parse — refusing to start with an empty allowlist"
+        );
+    }
+    Ok(set)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use clap::Parser;
+
+    /// The shipped tunnel-timeout default must stay strictly beneath the ceiling that overtakes it.
+    ///
+    /// This pairing can only be asserted here. The gateway owns the ceiling and cannot see the
+    /// default; the core crate owns the default and cannot see the ceiling, since the gateway does
+    /// not depend on it. The binary is the only place both are visible — which is also why the
+    /// warning that reports a violation is wired up here.
+    ///
+    /// Raising the default to or above the ceiling would silently restore the condition several
+    /// commits were spent removing: two clocks starting together, with the wrong one able to fire
+    /// first, and no cancellation reaching the peer when it does.
+    ///
+    /// Feature-gated because it names `openab_gateway`, which is an OPTIONAL dependency: the crate
+    /// is absent under default features, so without this gate the whole `openab` test binary fails
+    /// to compile for anyone building without `acp` — including CI, whose `check` job runs a plain
+    /// `cargo test --workspace`. The surrounding `mod tests` is `#[cfg(test)]` only, so the gate has
+    /// to be here.
+    #[cfg(feature = "acp")]
+    #[test]
+    fn the_default_tunnel_timeout_stays_beneath_the_idle_timeout() {
+        let default = openab_core::config::default_tunnel_timeout_seconds();
+        let ceiling = openab_gateway::adapters::acp_server::ACP_PROMPT_IDLE_TIMEOUT_SECS;
+        assert!(
+            default < ceiling,
+            "the default tunnel timeout ({default}s) must be strictly beneath the ACP prompt idle \
+             timeout ({ceiling}s); at or above it the turn ends there first and no `mcp/cancel` is \
+             ever sent"
+        );
+        assert!(
+            !openab_gateway::adapters::acp_server::tunnel_timeout_is_ineffective(default),
+            "the shipped default must not be a value the startup warning fires on"
+        );
+    }
+
+    #[test]
+    fn cli_no_args_defaults_to_run() {
+        let cli = Cli::try_parse_from(["openab"]).unwrap();
+        assert!(cli.command.is_none());
+    }
+
+    #[test]
+    fn cli_run_no_args_defaults_config() {
+        let cli = Cli::try_parse_from(["openab", "run"]).unwrap();
+        match cli.command.unwrap() {
+            Commands::Run { config } => assert!(config.is_none()),
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_run_with_short_flag_local() {
+        let cli = Cli::try_parse_from(["openab", "run", "-c", "my-config.toml"]).unwrap();
+        match cli.command.unwrap() {
+            Commands::Run { config } => assert_eq!(config.unwrap(), "my-config.toml"),
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_run_with_long_flag_local() {
+        let cli = Cli::try_parse_from(["openab", "run", "--config", "my-config.toml"]).unwrap();
+        match cli.command.unwrap() {
+            Commands::Run { config } => assert_eq!(config.unwrap(), "my-config.toml"),
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_run_with_remote_url() {
+        let cli = Cli::try_parse_from(["openab", "run", "-c", "https://example.com/config.toml"])
+            .unwrap();
+        match cli.command.unwrap() {
+            Commands::Run { config } => assert!(config.unwrap().starts_with("https://")),
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_setup_subcommand() {
+        let cli = Cli::try_parse_from(["openab", "setup"]).unwrap();
+        assert!(matches!(cli.command.unwrap(), Commands::Setup { .. }));
+    }
+
+    #[test]
+    fn has_unified_platform_checks_config_and_env() {
+        // Run sequentially in one test to avoid env var race conditions
+        // (std::env::set_var is process-global, cargo tests run in parallel)
+
+        // Helper to clear all platform env vars
+        fn clear_all() {
+            std::env::remove_var("TELEGRAM_BOT_TOKEN");
+            std::env::remove_var("LINE_CHANNEL_SECRET");
+            std::env::remove_var("FEISHU_APP_ID");
+            std::env::remove_var("WECOM_CORP_ID");
+            std::env::remove_var("TEAMS_APP_ID");
+            std::env::remove_var("GOOGLE_CHAT_ENABLED");
+        }
+
+        let no_platform_cfg = config::parse_config_str("", "test").unwrap();
+
+        // Case 1: no config or env activation → false
+        clear_all();
+        assert!(!has_unified_platform(&no_platform_cfg));
+
+        // Case 2: GOOGLE_CHAT_ENABLED=true → true only if feature compiled
+        clear_all();
+        std::env::set_var("GOOGLE_CHAT_ENABLED", "true");
+        assert_eq!(
+            has_unified_platform(&no_platform_cfg),
+            cfg!(feature = "googlechat")
+        );
+
+        // Case 3: GOOGLE_CHAT_ENABLED=yes (invalid) → false
+        clear_all();
+        std::env::set_var("GOOGLE_CHAT_ENABLED", "yes");
+        assert!(!has_unified_platform(&no_platform_cfg));
+
+        // Case 4: TELEGRAM_BOT_TOKEN → true only if feature compiled
+        clear_all();
+        std::env::set_var("TELEGRAM_BOT_TOKEN", "test-token");
+        assert_eq!(
+            has_unified_platform(&no_platform_cfg),
+            cfg!(feature = "telegram")
+        );
+
+        // Case 5: config-only Google Chat activation → true without env
+        clear_all();
+        let googlechat_enabled = config::parse_config_str(
+            "[googlechat]\nenabled = true\naccess_token = \"test-token\"\n",
+            "test",
+        )
+        .unwrap();
+        assert_eq!(
+            has_unified_platform(&googlechat_enabled),
+            cfg!(feature = "googlechat")
+        );
+
+        // Case 6: config-authoritative false beats GOOGLE_CHAT_ENABLED=true
+        clear_all();
+        std::env::set_var("GOOGLE_CHAT_ENABLED", "true");
+        let googlechat_disabled =
+            config::parse_config_str("[googlechat]\nenabled = false\n", "test").unwrap();
+        assert!(!has_unified_platform(&googlechat_disabled));
+
+        // Cleanup
+        clear_all();
+    }
+
+    #[test]
+    fn gateway_section_trust_mirrors_ws_filter_semantics() {
+        use openab_core::trust::Decision;
+
+        // Explicit lists → deny-by-default with listed entries admitted
+        // (resolve_allow_all: no flag + non-empty list = false).
+        let gw = config::parse_config_str(
+            r#"
+[gateway]
+url = "ws://gw:8080/ws"
+platform = "telegram"
+allowed_channels = ["c1"]
+allowed_users = ["u1"]
+"#,
+            "test",
+        )
+        .unwrap()
+        .gateway
+        .unwrap();
+        let trust = gateway_section_trust(&gw);
+        assert_eq!(trust.decide("c1", false, "u1"), Decision::Allow);
+        assert_ne!(trust.decide("c1", false, "u2"), Decision::Allow);
+        assert_ne!(trust.decide("c2", false, "u1"), Decision::Allow);
+
+        // Empty lists → allow-all (matching the old inline filter default).
+        let gw_open = config::parse_config_str("[gateway]\nurl = \"ws://gw:8080/ws\"\n", "test")
+            .unwrap()
+            .gateway
+            .unwrap();
+        let trust_open = gateway_section_trust(&gw_open);
+        assert_eq!(trust_open.decide("any", false, "anyone"), Decision::Allow);
+    }
+
+    #[test]
+    fn gateway_trust_seed_precedence_env_lt_gateway_lt_platform() {
+        use openab_core::trust::{Decision, PlatformTrustConfigs, TrustConfig};
+
+        let mut reg = PlatformTrustConfigs::new();
+        // 1. uniform GATEWAY_* env seed: deny-all users
+        reg.insert(
+            "telegram",
+            TrustConfig::new(Some(true), vec![], None, Some(false), vec![]),
+        );
+        assert_ne!(
+            reg.get("telegram").decide("c", false, "alice"),
+            Decision::Allow
+        );
+
+        // 2. [gateway] section seed overwrites the env seed for its platform
+        let gw = config::parse_config_str(
+            r#"
+[gateway]
+url = "ws://gw:8080/ws"
+platform = "telegram"
+allowed_users = ["alice"]
+"#,
+            "test",
+        )
+        .unwrap()
+        .gateway
+        .unwrap();
+        reg.insert("telegram", gateway_section_trust(&gw));
+        assert_eq!(
+            reg.get("telegram").decide("c", false, "alice"),
+            Decision::Allow
+        );
+        assert_ne!(
+            reg.get("telegram").decide("c", false, "bob"),
+            Decision::Allow
+        );
+
+        // 3. [telegram] platform section (platform_trust_override) wins last
+        reg.insert(
+            "telegram",
+            TrustConfig::new(Some(true), vec![], None, Some(false), vec!["bob".into()]),
+        );
+        assert_eq!(
+            reg.get("telegram").decide("c", false, "bob"),
+            Decision::Allow
+        );
+        assert_ne!(
+            reg.get("telegram").decide("c", false, "alice"),
+            Decision::Allow
+        );
+    }
+
+    #[test]
+    fn complete_wecom_section_enables_unified_startup_without_env() {
+        let cfg = config::parse_config_str(
+            r#"
+[wecom]
+corp_id = "ww1234567890abcdef"
+secret = "test-secret"
+token = "test-token"
+encoding_aes_key = "abcdefghijklmnopqrstuvwxyzABCDEFGH123456789"
+agent_id = "1000002"
+"#,
+            "test",
+        )
+        .unwrap();
+
+        assert_eq!(has_unified_wecom_config(&cfg), cfg!(feature = "wecom"));
+    }
+}
+
+/// Minimal machine-readable status for the ACP sandbox consumer (uptime,
+/// live ACP connections, running claude-agent-acp child processes). Read-only
+/// and unauthenticated like /health — expose it only on trusted networks.
+#[cfg(any(
+    feature = "telegram",
+    feature = "line",
+    feature = "feishu",
+    feature = "googlechat",
+    feature = "wecom",
+    feature = "teams",
+    feature = "acp",
+    feature = "lineworks",
+))]
+async fn statusz() -> axum::Json<serde_json::Value> {
+    let started = *PROCESS_STARTED.get_or_init(std::time::Instant::now);
+
+    let mut agent_processes = 0u32;
+    if let Ok(entries) = std::fs::read_dir("/proc") {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(pid) = name
+                .to_str()
+                .filter(|n| n.chars().all(|c| c.is_ascii_digit()))
+            else {
+                continue;
+            };
+            if let Ok(cmdline) = std::fs::read(format!("/proc/{pid}/cmdline")) {
+                if String::from_utf8_lossy(&cmdline).contains("claude-agent-acp") {
+                    agent_processes += 1;
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "acp")]
+    let acp_connections = openab_gateway::adapters::acp_server::ACP_ACTIVE_CONNECTIONS
+        .load(std::sync::atomic::Ordering::Relaxed);
+    #[cfg(not(feature = "acp"))]
+    let acp_connections = 0;
+
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "uptime_seconds": started.elapsed().as_secs(),
+        "acp_connections": acp_connections,
+        "agent_processes": agent_processes,
+    }))
+}

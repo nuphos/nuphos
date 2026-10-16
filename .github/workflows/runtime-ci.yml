@@ -5,13 +5,11 @@ on:
     paths:
       - apps/runtime/**
       - .github/workflows/runtime-*.yml
-      - .gitmodules
   push:
     branches: [main]
     paths:
       - apps/runtime/**
       - .github/workflows/runtime-*.yml
-      - .gitmodules
 
 permissions:
   contents: read

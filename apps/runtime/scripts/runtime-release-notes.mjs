@@ -28,7 +28,6 @@ const commits = git(
   '--',
   ':(top)apps/runtime',
   ':(top).github/workflows/runtime-*.yml',
-  ':(top).gitmodules',
 )
   .split('\n')
   .filter(Boolean)
