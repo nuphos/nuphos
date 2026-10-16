@@ -136,18 +136,16 @@ export function BoxRow({
           <MenuContent align="end">
             {cloud && state === 'running' && (
               <MenuItem
-                onClick={() =>
-                  void run('Could not open the desktop', async () => {
-                    const { url } = await api.boxDesktop(device.deviceId, teamId)
-                    const href = pageLocationForNavigation(
-                      emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
-                        browserUrl: url,
-                      }),
-                    ).href
+                onClick={() => {
+                  // The tab names the Box; it asks for its own link each time it connects.
+                  const href = pageLocationForNavigation(
+                    emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
+                      filter: device.deviceId,
+                    }),
+                  ).href
 
-                    window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
-                  })
-                }
+                  window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
+                }}
               >
                 Open desktop
               </MenuItem>

@@ -1,4 +1,5 @@
 import type { RuntimeExecution } from '../../../lib/runtimeExecution'
+import type { SessionDesktop } from '../../../lib/sessionDesktops'
 
 export type ShellEntry = {
   id: string
@@ -23,7 +24,11 @@ export function shellsFromRuntimeState(snapshot: RuntimeExecution | undefined): 
   )
 }
 
-/** The X displays this session's desktops are on, in wire order. */
-export function desktopsFromRuntimeState(snapshot: RuntimeExecution | undefined): number[] {
-  return (snapshot?.tools ?? []).flatMap((tool) => (tool.desktop ? [tool.desktop.display] : []))
+/** This session's desktops, by X display and the title the backend gives them, in wire order. */
+export function desktopsFromRuntimeState(snapshot: RuntimeExecution | undefined): SessionDesktop[] {
+  return (snapshot?.tools ?? []).flatMap((tool) =>
+    tool.desktop
+      ? [{ display: tool.desktop.display, title: tool.title ?? `:${String(tool.desktop.display)}` }]
+      : [],
+  )
 }

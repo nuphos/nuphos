@@ -80,9 +80,7 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
   },
   {
     name: 'desktop',
-    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.desktop', {
-      browserUrl: 'https://box.example/vnc?token=a&resize=scale',
-    }),
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.desktop', { filter: 'box-device-1' }),
   },
   {
     name: 'desktop',
