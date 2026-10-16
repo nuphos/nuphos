@@ -1,27 +1,27 @@
 import clsx from 'clsx'
-import { Ellipsis, Play, Plus } from 'lucide-react'
+import { Ellipsis, Play } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
-import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
-import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
 import { BoxAgentSignIn } from './BoxAgentSignIn'
 import { openBoxDesktop } from './boxDesktop'
-import { AgentTile, LiveDot, MachineIcon, MachineLine } from './BoxParts'
+import { BoxAccessDialog } from './BoxAccessDialog'
+import { AccessHint, AgentTile, LiveDot, MachineIcon, MachineLine, NewAgentMenu } from './BoxParts'
 import {
   BOX_BADGE,
   boxActions,
   boxState,
   canManage,
+  canShareBox,
   removal,
   newAgentAction,
 } from './boxPresentation'
@@ -30,8 +30,6 @@ import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
-
-const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex']
 
 /** One machine in the Boxes list: its state, its agents and what can be done to it. */
 export function BoxRow({
@@ -56,6 +54,7 @@ export function BoxRow({
   const signingInAgent = agents.find((agent) => agent.id === signingIn)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [renaming, setRenaming] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const state = boxState(device)
   const cloud = device.box !== undefined
   const manage = canManage(device)
@@ -84,8 +83,6 @@ export function BoxRow({
     }
   }
 
-  // An older host cannot add agents; the backend still refuses with 409 if this is stale.
-  const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
   const addAgent = (provider: LocalAgentProvider) => {
     const action = newAgentAction(agents, provider)
 
@@ -119,6 +116,7 @@ export function BoxRow({
             changed()
           }}
         />
+        <AccessHint device={device} />
         <span
           role="status"
           className="flex shrink-0 items-center gap-1.5 text-[11px] text-tertiary"
@@ -142,6 +140,9 @@ export function BoxRow({
                 </MenuItem>
               )}
               <MenuItem onClick={() => setRenaming(true)}>Rename</MenuItem>
+              {canShareBox(device) && (
+                <MenuItem onClick={() => setSharing(true)}>Manage access…</MenuItem>
+              )}
               {actions.resume && (
                 <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
                   {state === 'error' ? 'Retry' : 'Resume'}
@@ -203,32 +204,7 @@ export function BoxRow({
               ))}
         {manage && !dim && !starting && (
           <li className="shrink-0">
-            <Menu>
-              <MenuTrigger
-                aria-label={`New agent on ${device.label}`}
-                render={<Button size="sm" variant="secondary" className="h-10" />}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New Agent
-              </MenuTrigger>
-              <MenuContent align="start">
-                {PROVIDERS.map((provider) => (
-                  <MenuItem
-                    key={provider}
-                    disabled={busy || !newAgentAction(agents, provider)}
-                    icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
-                    onClick={() => addAgent(provider)}
-                  >
-                    {canAddAgents
-                      ? AGENT_PROVIDER[provider].label
-                      : `Sign in to ${AGENT_PROVIDER[provider].label}`}
-                  </MenuItem>
-                ))}
-                {!canAddAgents && (
-                  <MenuItem disabled>Update the Box host to add more agents</MenuItem>
-                )}
-              </MenuContent>
-            </Menu>
+            <NewAgentMenu device={device} agents={agents} busy={busy} onAdd={addAgent} />
           </li>
         )}
       </ul>
@@ -252,6 +228,14 @@ export function BoxRow({
             setSigningIn(null)
             changed()
           }}
+        />
+      )}
+      {sharing && (
+        <BoxAccessDialog
+          teamId={teamId}
+          device={device}
+          onClose={() => setSharing(false)}
+          onSaved={changed}
         />
       )}
       <ConfirmDialog

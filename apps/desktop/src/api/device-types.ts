@@ -116,8 +116,13 @@ export type LocalRuntimeActivityPage = {
 export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
 /** A Box: a device Nuphos runs in a sandbox for its owner. */
+/** Who may use a Box besides the team's admins, who always may. */
+export type BoxAccess = { everyone: boolean; userIds: string[] }
+
 export type BoxStatus = {
   provider: 'instabox'
+  /** Only for those who manage the Box. */
+  access?: BoxAccess
   /** Set once the machine exists. */
   sandboxId?: string
   state: BoxState

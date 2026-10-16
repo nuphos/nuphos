@@ -1,17 +1,19 @@
 import clsx from 'clsx'
-import { Laptop, Monitor } from 'lucide-react'
+import { Laptop, Monitor, Plus } from 'lucide-react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 
 import { agentName, agentOffline } from './agentPresentation'
-import { machineLine, seenFrom } from './boxPresentation'
+import { accessHint, machineLine, newAgentAction, seenFrom } from './boxPresentation'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
+import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
 
 export type BoxJoin = { token: string; expiresAt: string; apiUrl: string | null }
@@ -163,4 +165,56 @@ export function MachineLine({
       )}
     </div>
   )
+}
+
+const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex']
+
+/** Add an agent to a machine; an older host can only sign in the agents it already has. */
+export function NewAgentMenu({
+  device,
+  agents,
+  busy,
+  onAdd,
+}: {
+  device: AgentDevice
+  agents: RuntimeInstance[]
+  busy: boolean
+  onAdd: (provider: LocalAgentProvider) => void
+}) {
+  // An older host cannot add agents; the backend still refuses with 409 if this is stale.
+  const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
+
+  return (
+    <Menu>
+      <MenuTrigger
+        aria-label={`New agent on ${device.label}`}
+        render={<Button size="sm" variant="secondary" className="h-10" />}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        New Agent
+      </MenuTrigger>
+      <MenuContent align="start">
+        {PROVIDERS.map((provider) => (
+          <MenuItem
+            key={provider}
+            disabled={busy || !newAgentAction(agents, provider)}
+            icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
+            onClick={() => onAdd(provider)}
+          >
+            {canAddAgents
+              ? AGENT_PROVIDER[provider].label
+              : `Sign in to ${AGENT_PROVIDER[provider].label}`}
+          </MenuItem>
+        ))}
+        {!canAddAgents && <MenuItem disabled>Update the Box host to add more agents</MenuItem>}
+      </MenuContent>
+    </Menu>
+  )
+}
+
+/** For a manager: who besides the admins may use this Box. */
+export function AccessHint({ device }: { device: AgentDevice }) {
+  const hint = accessHint(device)
+
+  return hint && <span className="shrink-0 text-[11px] text-tertiary">{hint}</span>
 }

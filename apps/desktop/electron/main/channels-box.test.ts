@@ -28,6 +28,7 @@ test('Box IPC channels scope the list and every Box action to the page team', as
   await boxChannels['box:rename'](null, 'dev/1', 'team-1', 'Build Box')
   await boxChannels['box:createAgent'](null, 'dev/1', 'team-1', 'codex')
   await boxChannels['box:renameAgent'](null, 'dev/1', 'team-1', 'claude-code', 'Main')
+  await boxChannels['box:setAccess'](null, 'dev/1', 'team-1', { everyone: false, userIds: ['u1'] })
 
   assert.deepEqual(
     calls.map(([method, route, body]) => [method, route, body]),
@@ -44,6 +45,11 @@ test('Box IPC channels scope the list and every Box action to the page team', as
       ['PATCH', '/agent/devices/dev%2F1?teamId=team-1', { label: 'Build Box' }],
       ['POST', '/agent/devices/dev%2F1/agents', { teamId: 'team-1', provider: 'codex' }],
       ['PATCH', '/agent/devices/dev%2F1/agents/claude-code', { teamId: 'team-1', label: 'Main' }],
+      [
+        'PUT',
+        '/agent/devices/dev%2F1/box/access?teamId=team-1',
+        { everyone: false, userIds: ['u1'] },
+      ],
     ],
   )
 })
@@ -55,5 +61,9 @@ test('Box IPC channels reject arguments that are not strings', () => {
 
   assert.throws(() => untyped(null, 'dev/1'), TypeError)
   assert.throws(() => boxChannels['box:rename'](null, 'dev/1', undefined, 'x'), TypeError)
+  assert.throws(
+    () => boxChannels['box:setAccess'](null, 'dev/1', 'team-1', { everyone: 'yes', userIds: [] }),
+    TypeError,
+  )
   assert.throws(() => boxChannels['box:create'](null, 'team-1', {}), TypeError)
 })

@@ -589,11 +589,10 @@ describe('agent device routes', () => {
     }
     role = 'ADMINISTRATOR'
     expect((await put({ everyone: false, userIds: ['alice'] }, 'team-2')).status).toBe(404)
-    expect((await put({ everyone: false, userIds: ['outsider'] })).status).toBe(400)
-    expect(devices[key('host-owner', 'b1')]?.box?.access).toEqual({ everyone: true, userIds: [] })
     expect(revoked).toEqual([])
 
-    const ok = await put({ everyone: false, userIds: ['alice', 'alice'] })
+    // A non-member (someone who left, or another team's user) is dropped, not stored.
+    const ok = await put({ everyone: false, userIds: ['alice', 'alice', 'outsider'] })
 
     expect(ok.status).toBe(200)
     expect(devices[key('host-owner', 'b1')]?.box?.access).toEqual({

@@ -3,6 +3,9 @@ import { test } from 'node:test'
 
 import {
   seenFrom,
+  accessHint,
+  accessPayload,
+  canShareBox,
   removal,
   BOX_BADGE,
   boxActions,
@@ -242,4 +245,39 @@ test('a Box goes Starting, then Connecting until its host joins, then Running; b
   assert.equal(boxState(at('running', true), made + 60_000), 'running')
   assert.equal(boxState(at('connecting'), made + 6 * 60_000), 'error')
   assert.equal(boxPollMs([box('b', 'connecting', false)], false), 1_000)
+})
+
+test('Save sends everyone, or exactly the chosen members', () => {
+  assert.deepEqual(accessPayload(true, new Set(['u1'])), { everyone: true, userIds: [] })
+  assert.deepEqual(accessPayload(false, new Set(['u1', 'u2'])), {
+    everyone: false,
+    userIds: ['u1', 'u2'],
+  })
+})
+
+test('only a manager sees who may use a Box', () => {
+  const shared = (access: { everyone: boolean; userIds: string[] }, level: 'use' | 'manage') =>
+    ({
+      deviceId: 'b1',
+      label: 'Box',
+      platform: 'linux',
+      access: level,
+      box: { provider: 'instabox', state: 'running', access },
+    }) as AgentDevice
+
+  assert.equal(accessHint(shared({ everyone: true, userIds: [] }, 'manage')), 'Everyone')
+  assert.equal(
+    accessHint(shared({ everyone: false, userIds: ['u1', 'u2'] }, 'manage')),
+    'Shared with 2',
+  )
+  assert.equal(accessHint(shared({ everyone: false, userIds: [] }, 'manage')), 'Admins only')
+  assert.equal(accessHint(shared({ everyone: true, userIds: [] }, 'use')), null)
+  assert.equal(accessHint({ deviceId: 'c1', label: 'Mac', platform: 'darwin' }), null)
+  // Manage access… is offered to managers of a Box only.
+  assert.equal(canShareBox(shared({ everyone: true, userIds: [] }, 'manage')), true)
+  assert.equal(canShareBox(shared({ everyone: true, userIds: [] }, 'use')), false)
+  assert.equal(
+    canShareBox({ deviceId: 'c1', label: 'Mac', platform: 'darwin', access: 'manage' }),
+    false,
+  )
 })
