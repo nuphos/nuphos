@@ -15,6 +15,7 @@ type Fake = {
   loggedIn: boolean | null
   started: boolean
   stopped: boolean
+  restarts: boolean[]
   release?: () => void
 }
 
@@ -32,7 +33,7 @@ function setup(t: { after: (fn: () => void) => void }, options: { slowStart?: bo
   const instances = new InstanceControllers(
     deps,
     (childDeps, provider) => {
-      const fake: Fake = { loggedIn: false, started: false, stopped: false }
+      const fake: Fake = { loggedIn: false, started: false, stopped: false, restarts: [] }
 
       fakes.set(childDeps.dataDir(), fake)
 
@@ -51,7 +52,11 @@ function setup(t: { after: (fn: () => void) => void }, options: { slowStart?: bo
         shutdown: async () => {
           fake.stopped = true
         },
-        refresh: async () => ({}) as never,
+        refresh: async (restart: boolean) => {
+          fake.restarts.push(restart)
+
+          return {} as never
+        },
         state: () =>
           ({
             agents: {
@@ -207,4 +212,23 @@ test('host start removes unfinished and signed-out legacy agents and keeps signe
       [ready.instanceId, 'ready'],
     ],
   )
+})
+
+test('a sign-in restarts only agents of its provider, so other turns keep running', async (t) => {
+  const { instances, fakeOf } = setup(t)
+
+  await instances.load('alice')
+  const claudeAgent = claude()
+  const codexAgent = { instanceId: randomUUID(), provider: 'codex' as const, label: 'Codex' }
+
+  await instances.request({ method: 'create', ...claudeAgent }, 'alice')
+  await instances.request({ method: 'create', ...codexAgent }, 'alice')
+  fakeOf(claudeAgent.instanceId).restarts.length = 0
+  fakeOf(codexAgent.instanceId).restarts.length = 0
+  await instances.refresh(true, ['claude-code'])
+  assert.deepEqual(fakeOf(claudeAgent.instanceId).restarts, [true])
+  assert.deepEqual(fakeOf(codexAgent.instanceId).restarts, [false])
+  // A bundle update names no provider and restarts every agent.
+  await instances.refresh(true)
+  assert.deepEqual(fakeOf(codexAgent.instanceId).restarts, [false, true])
 })
