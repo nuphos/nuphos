@@ -32,17 +32,19 @@ export async function sessionDesktops(
   const ref = conversation.runtimeId ? parseLocalRuntimeId(conversation.runtimeId) : undefined
 
   if (!ref) return NONE
-  // A host reports `desktops` only where it runs a desktop pool.
-  const pool = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status?.desktops
+  // A host reports `desktops` only where it runs a desktop pool, and `desktopOpen`
+  // only from the bundle that opens one on request; older Boxes show no entry.
+  const status = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status
+  const canOpen = status?.desktopOpen === true
+  const desktops = (status?.desktops ?? []).filter(
+    (desktop) => desktop.sessionId === conversation.sessionId,
+  )
 
-  if (!pool) return NONE
-  const desktops = pool.filter((desktop) => desktop.sessionId === conversation.sessionId)
-
-  if (!desktops.length) return { tools: [], canOpen: true }
+  if (!desktops.length) return { tools: [], canOpen }
   const label = (await deviceLabel(ref.userId, ref.deviceId)) ?? 'Desktop'
 
   return {
-    canOpen: true,
+    canOpen,
     tools: desktops.map((desktop) => ({
       id: `desktop:${String(desktop.display)}`,
       kind: 'desktop',
@@ -53,16 +55,16 @@ export async function sessionDesktops(
   }
 }
 
-/** The snapshot with the conversation's desktops appended; unchanged when its Box has no pool. */
+/** The snapshot with the conversation's desktops appended; unchanged when it has none and can open none. */
 export function withDesktops<T extends SessionExecutionState>(
   snapshot: T,
   { tools, canOpen }: SessionDesktops,
 ): T {
-  if (!canOpen) return snapshot
+  if (!canOpen && !tools.length) return snapshot
 
   return {
     ...snapshot,
-    canOpenDesktop: true,
+    ...(canOpen && { canOpenDesktop: true }),
     ...(tools.length && { tools: [...(snapshot.tools ?? []), ...tools] }),
   }
 }

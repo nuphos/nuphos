@@ -27,6 +27,11 @@ export function listDesktops(wrapper: string, pool: string): SessionDesktop[] {
   }
 }
 
+/** What the tunnel status says about this computer's desktops: who holds which, and that it opens them on request. */
+export function desktopStatus(wrapper: string, pool: string) {
+  return { desktops: listDesktops(wrapper, pool), desktopOpen: true }
+}
+
 /** Opens a desktop for `sessionId` by hand, held by this host; the session's own when it has one. */
 export function openDesktop(wrapper: string, pool: string, sessionId: string): Promise<number> {
   return new Promise((resolve, reject) => {

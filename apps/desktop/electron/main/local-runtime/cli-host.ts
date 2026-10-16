@@ -26,7 +26,7 @@ import { LocalRuntimeController } from './controller.ts'
 import { signInClaude } from './cli-sign-in.ts'
 import {
   enableDesktopPool,
-  listDesktops,
+  desktopStatus,
   watchDesktops,
   withDesktopRequests,
 } from './desktop-pool.ts'
@@ -221,7 +221,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       // Which sessions hold a desktop here rides along with the agents' status.
       status: () => ({
         ...status(),
-        ...(desktopPool ? { desktops: listDesktops(desktopWrapper, desktopPool) } : {}),
+        ...(desktopPool ? desktopStatus(desktopWrapper, desktopPool) : {}),
       }),
       onChange: (connected, superseded) => {
         onChange(connected, superseded)

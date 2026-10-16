@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { shellsFromRuntimeState } from './shells.ts'
+import { sessionDesktopsOf, shellsFromRuntimeState } from './shells.ts'
 
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 
@@ -37,4 +37,14 @@ test('no running terminals yields an empty list', () => {
     } as RuntimeExecution),
     [],
   )
+})
+
+test('only the owner of a conversation on a desktop Box is offered "Desktop"', () => {
+  const runtimeState = { state: 'idle', canOpenDesktop: true } as RuntimeExecution
+
+  assert.equal(sessionDesktopsOf('t', { runtimeState }).canOpen, true)
+  // A teammate's conversation: the Box would refuse them.
+  assert.equal(sessionDesktopsOf('t', { runtimeState, foreign: true }).canOpen, false)
+  // No desktop pool on its Box.
+  assert.equal(sessionDesktopsOf('t', { runtimeState: { state: 'idle' } }).canOpen, false)
 })

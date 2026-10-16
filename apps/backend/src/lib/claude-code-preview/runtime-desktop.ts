@@ -57,9 +57,9 @@ async function ownedDesktopHost(
     throw notFound()
   // The same access the runtime terminal requires; a local runtime admits only its owner.
   await requireRuntimeInstance(teamId, runtimeId, userId)
-  const desktops = (await presence.get(ref.userId, ref.deviceId))?.status?.desktops
+  const status = (await presence.get(ref.userId, ref.deviceId))?.status
 
-  return { ref, desktops }
+  return { ref, desktops: status?.desktops, canOpen: status?.desktopOpen === true }
 }
 
 /** The owner of the conversation, for a display the Box reports as this session's. */
@@ -90,15 +90,14 @@ export async function openRuntimeDesktop(
   sessionId: string,
   deps: { presence?: ReturnType<typeof runtimePresenceStore>; open?: typeof openLocalDesktop } = {},
 ): Promise<{ display: number }> {
-  const { ref, desktops } = await ownedDesktopHost(
-    teamId,
-    userId,
-    sessionId,
-    deps.presence ?? runtimePresenceStore(),
-  )
+  const {
+    ref,
+    desktops = [],
+    canOpen,
+  } = await ownedDesktopHost(teamId, userId, sessionId, deps.presence ?? runtimePresenceStore())
 
-  // A host reports `desktops` only where it runs a desktop pool.
-  if (!desktops) throw notFound()
+  // Only a host whose bundle opens desktops on request says so.
+  if (!canOpen) throw notFound()
   const held = desktops.find((desktop) => desktop.sessionId === sessionId)
 
   if (held) return { display: held.display }

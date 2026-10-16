@@ -31,6 +31,7 @@ const bus = createLocalTunnelBus()
 const status = {
   agents: {},
   desktops: [{ display: 2, sessionId: 'chat' }],
+  desktopOpen: true,
 } as unknown as LocalRuntimeStatus
 
 beforeEach(async () => {
@@ -88,6 +89,15 @@ test('opening by hand asks the Box once, and only for a session holding no deskt
   expect(opened).toEqual([
     [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, 'chat'],
   ])
+  // A Box on an older bundle has a pool but cannot open one on request.
+  await presence.put('owner', 'box', {
+    conn: 'conn',
+    status: { ...status, desktops: [], desktopOpen: undefined },
+    seenAt: Date.now(),
+  })
+  await expect(openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).rejects.toThrow(
+    'not found',
+  )
   // Not the owner, or a host without a desktop pool: nothing to open.
   await expect(openRuntimeDesktop('team', 'mate', 'chat', { presence, open })).rejects.toThrow(
     'not found',

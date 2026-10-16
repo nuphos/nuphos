@@ -17,6 +17,7 @@ const status = {
     { display: 2, sessionId: 's1' },
     { display: 3, sessionId: 's2' },
   ],
+  desktopOpen: true,
 } as unknown as LocalRuntimeStatus
 const label = async () => 'Box 1'
 
@@ -51,6 +52,26 @@ describe('session desktops', () => {
         (t) => t.id,
       ),
     ).toEqual(['t1', 'desktop:3'])
+  })
+
+  test('a Box on an older bundle lists its desktops but offers no manual open', async () => {
+    const store = runtimePresenceStore()
+
+    await store.claim('u1', 'box-1', 'c1')
+    await store.put('u1', 'box-1', {
+      conn: 'c1',
+      status: { ...status, desktopOpen: undefined },
+      seenAt: Date.now(),
+    })
+    const desktops = await sessionDesktops({ sessionId: 's1', runtimeId }, label)
+
+    expect(desktops.canOpen).toBe(false)
+    expect(desktops.tools.map((tool) => tool.id)).toEqual(['desktop:2'])
+    const snapshot: SessionExecutionState = { state: 'idle' }
+
+    expect(await withSessionDesktops(snapshot, { sessionId: 's3', runtimeId }, label)).toBe(
+      snapshot,
+    )
   })
 
   test('a conversation off any local runtime has none', async () => {
