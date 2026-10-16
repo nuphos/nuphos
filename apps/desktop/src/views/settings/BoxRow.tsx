@@ -15,14 +15,13 @@ import { visibleAgent } from './agentPresentation'
 import { BoxMetrics } from './BoxMetrics'
 import { BoxAgentSignIn } from './BoxAgentSignIn'
 import { openBoxDesktop } from './boxDesktop'
-import { AgentTile, LiveDot, MachineIcon } from './BoxParts'
+import { AgentTile, LiveDot, MachineIcon, MachineLine } from './BoxParts'
 import {
   BOX_BADGE,
   boxActions,
   boxState,
   canManage,
   removal,
-  machineLine,
   newAgentAction,
 } from './boxPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
@@ -185,15 +184,7 @@ export function BoxRow({
           </Menu>
         )}
       </div>
-      <div
-        title={machineLine(device)}
-        className={clsx(
-          'mt-1 shrink-0 truncate text-[11.5px] leading-4 text-tertiary',
-          dim && 'opacity-50',
-        )}
-      >
-        {thisComputer ? 'This computer' : machineLine(device)}
-      </div>
+      <MachineLine device={device} thisComputer={thisComputer} dim={dim} />
       {manage && (state === 'paused' || state === 'hostOffline') ? (
         <div className="mt-auto pb-1">
           <Button

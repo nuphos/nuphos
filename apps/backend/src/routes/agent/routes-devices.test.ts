@@ -620,6 +620,38 @@ describe('agent device routes', () => {
     expect(member.devices[0]?.box?.access).toBeUndefined()
   })
 
+  test('only managers see when and from where a machine was last online', async () => {
+    devices[key('host-owner', 'b1')] = {
+      ...boxDevice('host-owner', 'b1'),
+      box: {
+        provider: 'instabox',
+        sandboxId: 'm_b1',
+        teamId: 'team-1',
+        access: { everyone: true, userIds: [] },
+      },
+      lastSeenAt: new Date('2026-10-16T12:00:00Z'),
+      lastSeen: { ip: '203.0.113.7', city: 'Taipei', country: 'TW' },
+    }
+    const app = buildApp(fakeBox([]))
+    const list = async () =>
+      (
+        (await (await app.request('/agent/devices?teamId=team-1')).json()) as {
+          devices: Record<string, unknown>[]
+        }
+      ).devices[0]
+
+    machineState = 'running'
+    expect(await list()).toMatchObject({
+      lastSeenAt: '2026-10-16T12:00:00.000Z',
+      lastSeen: { ip: '203.0.113.7', city: 'Taipei', country: 'TW' },
+    })
+    role = 'EDITOR'
+    const member = await list()
+
+    expect(member?.lastSeenAt).toBeUndefined()
+    expect(JSON.stringify(member)).not.toContain('203.0.113.7')
+  })
+
   test('metrics are read and demanded only for Boxes the viewer may use, under the transport owner', async () => {
     const box = (deviceId: string, userIds: string[]) => ({
       ...boxDevice('host-owner', deviceId),

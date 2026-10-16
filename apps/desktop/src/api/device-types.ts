@@ -148,6 +148,9 @@ export type AgentDevice = {
   online?: boolean
   /** What the viewer may do: 'use' runs its agents; 'manage' also changes or deletes it. */
   access?: 'use' | 'manage'
+  /** For managers: when and from where the host last reported in. */
+  lastSeenAt?: string
+  lastSeen?: { ip: string; city?: string; country?: string } | null
   box?: BoxStatus
 }
 

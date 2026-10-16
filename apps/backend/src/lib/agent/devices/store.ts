@@ -7,6 +7,7 @@ import { mergeAgentRegistry, reportedAgents } from './agent-registry'
 import type { RegisteredAgent } from './agent-registry'
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
 import type { Collection } from 'mongodb'
+import type { RequestOrigin } from '@/lib/request-origin'
 
 /** A cloud machine Nuphos created for this device; absent for a person's own computer. Its state is never stored: instabox and presence know it. */
 export type AgentDeviceBox = {
@@ -38,6 +39,8 @@ export type AgentDevice = {
    * list changes. Absent means it has never joined; a Box is still starting until then.
    */
   lastSeenAt?: Date
+  /** Where the host connected from when it last reported in. */
+  lastSeen?: RequestOrigin
   createdAt: Date
   updatedAt: Date
 }
@@ -257,6 +260,7 @@ export async function recordDeviceAgents(
   userId: string,
   deviceId: string,
   status: LocalRuntimeStatus,
+  from?: RequestOrigin,
 ): Promise<void> {
   const device = await agentDevices().findOne({ userId, deviceId }, { projection: { agents: 1 } })
 
@@ -265,7 +269,13 @@ export async function recordDeviceAgents(
 
   await agentDevices().updateOne(
     { userId, deviceId },
-    { $set: { lastSeenAt: new Date(), ...(next ? { agents: next } : {}) } },
+    {
+      $set: {
+        lastSeenAt: new Date(),
+        ...(from ? { lastSeen: from } : {}),
+        ...(next ? { agents: next } : {}),
+      },
+    },
   )
 }
 

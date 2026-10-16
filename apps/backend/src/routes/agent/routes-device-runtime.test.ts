@@ -170,6 +170,48 @@ describe('device runtime tunnel route', () => {
     desktop.close()
   })
 
+  test('a status report records where this connection came from', async () => {
+    const recorded: unknown[] = []
+    const host = serve(
+      'owner',
+      deps({
+        holder: {
+          bus,
+          presence,
+          heartbeatMs: 20,
+          isMember: (_u, teamId) => Promise.resolve(teamId === 't1'),
+          recordAgents: (...args) => {
+            recorded.push(args)
+
+            return Promise.resolve()
+          },
+        },
+      }),
+    )
+    const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`, {
+      headers: { 'CF-Connecting-IP': '203.0.113.7', 'CF-IPCity': 'Taipei', 'CF-IPCountry': 'TW' },
+    } as unknown as string[])
+
+    await waitFor<void>((resolve) => {
+      desktop.addEventListener('open', () => {
+        resolve()
+      })
+    })
+    desktop.send(JSON.stringify({ t: 'status', status: { agents: {} } }))
+    await waitFor<void>((resolve) => {
+      const poll = () => (recorded.length ? resolve() : setTimeout(poll, 5))
+
+      poll()
+    })
+    expect(recorded[0]).toEqual([
+      'owner',
+      'd1',
+      { agents: {} },
+      { ip: '203.0.113.7', city: 'Taipei', country: 'TW' },
+    ])
+    desktop.close()
+  })
+
   test('revoking the device closes its tunnel with 4003', async () => {
     const host = serve('owner')
     const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`)
