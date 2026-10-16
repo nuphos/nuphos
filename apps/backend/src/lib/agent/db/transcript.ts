@@ -224,6 +224,7 @@ export async function getConversations(
      * hiding them would strand them in a Runs list they can never reach.
      */
     triggerIds?: string[]
+    parentSessionId?: string // Only threads nested under this conversation: its sub-agents.
   },
 ): Promise<{
   conversations: AgentConversation[]
@@ -256,6 +257,7 @@ export async function getConversations(
   // Narrowing team scope to one member reads the same as 'mine' with someone
   // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
+  if (options.parentSessionId) query.parentSessionId = options.parentSessionId
   query['metadata.trigger.id'] = options.triggerIds
     ? { $in: options.triggerIds }
     : { $exists: false }

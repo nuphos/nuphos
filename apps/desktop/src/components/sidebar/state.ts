@@ -1,4 +1,4 @@
-import { CONNECTOR_CATEGORIES } from '../../lib/connectorCategories'
+import { CONNECTOR_CATEGORIES } from '../../lib/connectorCategories.ts'
 
 export const MIN_SIDEBAR_WIDTH = 220
 export const MAX_SIDEBAR_WIDTH = 380
@@ -29,9 +29,13 @@ const LEGACY_GROUP_TITLES = new Set(['Infra', 'Repo', 'Overview'])
 
 export type GroupState = Record<string, 'open' | 'closed'>
 
-function readGroupStateFile(): Record<string, unknown> {
+// localStorage is the only copy of this state. Every sidebar — one per window,
+// remounted on pane, scope and team switches — reads it directly, and a toggle
+// writes only the one entry it changed. An in-memory copy written back whole
+// would let a window that never saw a fold reopen it.
+function parseGroupStateFile(raw: string | null): Record<string, unknown> {
   try {
-    const parsed = JSON.parse(localStorage.getItem(SIDEBAR_GROUP_STATE_KEY) ?? '{}')
+    const parsed = JSON.parse(raw ?? '{}')
 
     if (!parsed || typeof parsed !== 'object') return {}
 
@@ -44,8 +48,30 @@ function readGroupStateFile(): Record<string, unknown> {
   }
 }
 
-export function loadGroupState(teamId: string): GroupState {
-  const forTeam = readGroupStateFile()[teamId]
+export function readGroupStateRaw(): string | null {
+  try {
+    return localStorage.getItem(SIDEBAR_GROUP_STATE_KEY)
+  } catch {
+    return null
+  }
+}
+
+const groupStateListeners = new Set<() => void>()
+
+export function subscribeGroupState(onChange: () => void): () => void {
+  // `storage` reports writes from other windows; this window's own writes
+  // notify the set directly.
+  groupStateListeners.add(onChange)
+  window.addEventListener('storage', onChange)
+
+  return () => {
+    groupStateListeners.delete(onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
+
+export function loadGroupState(teamId: string, raw = readGroupStateRaw()): GroupState {
+  const forTeam = parseGroupStateFile(raw)[teamId]
 
   if (!forTeam || typeof forTeam !== 'object') return {}
 
@@ -61,15 +87,21 @@ export function loadGroupState(teamId: string): GroupState {
   )
 }
 
-export function writeGroupState(teamId: string, state: GroupState): void {
+export function writeGroupFold(teamId: string, title: string, value: 'open' | 'closed'): void {
+  const raw = readGroupStateRaw()
+
   try {
     localStorage.setItem(
       SIDEBAR_GROUP_STATE_KEY,
-      JSON.stringify({ ...readGroupStateFile(), [teamId]: state }),
+      JSON.stringify({
+        ...parseGroupStateFile(raw),
+        [teamId]: { ...loadGroupState(teamId, raw), [title]: value },
+      }),
     )
   } catch {
-    // Best-effort persistence; in-memory state still works this session.
+    // Without storage there is nowhere to keep a fold; the toggle is a no-op.
   }
+  for (const listener of groupStateListeners) listener()
 }
 
 export const AGENT_SESSIONS_POLL_MS = 4_000

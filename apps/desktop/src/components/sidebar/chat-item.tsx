@@ -1,7 +1,7 @@
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 
 import { chatRowIcon } from './chat-row-icon'
-import { ChatRowStatusDot } from './ChatRowStatusDot'
+import { ChatRowStatus } from './ChatRowStatus'
 import { SessionResources } from './SessionResources'
 
 import type { Item } from './types'
@@ -32,10 +32,14 @@ export function chatSidebarItem({
   readOnly?: boolean
   actions?: ReactNode
 }): Item {
+  const status = (
+    <ChatRowStatus conversation={conversation} runtimeState={runtimeState} unread={unread} />
+  )
+
   return {
     key: `agent-session:${conversation.sessionId}`,
     label: conversation.title || conversation.firstMessage || 'Untitled chat',
-    ...chatRowIcon(conversation, runtimeState),
+    ...chatRowIcon(conversation),
     description: (
       <SessionResources
         sessionId={conversation.sessionId}
@@ -55,17 +59,8 @@ export function chatSidebarItem({
         agentSessionId: conversation.sessionId,
       }),
     ).href,
-    trailing: (
-      <ChatRowStatusDot conversation={conversation} runtimeState={runtimeState} unread={unread} />
-    ),
-    foldedStatus: (
-      <ChatRowStatusDot
-        conversation={conversation}
-        runtimeState={runtimeState}
-        unread={unread}
-        showTurn
-      />
-    ),
+    trailing: status,
+    foldedStatus: status,
     actions,
   }
 }

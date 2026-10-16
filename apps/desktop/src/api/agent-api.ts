@@ -84,8 +84,8 @@ export const agentApi = {
       sort?: 'activity' | 'created' | 'archived'
     },
   ) => {
-    const observedAt = performance.now()
     const result = await window.api.agentListConversations(teamId, options)
+    const observedAt = performance.now()
 
     const page = {
       ...result,

@@ -8,6 +8,7 @@ import { useToolbarSlot } from '../../hooks/useToolbarControls'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { scheduleSummary } from './cron'
+import { DeliversTo } from './DeliversTo'
 import { Toggle } from './parts'
 import { testFireTrigger } from './triggerFormActions'
 import { TriggerRunsList } from './TriggerRunsList'
@@ -178,6 +179,15 @@ export function TriggerDetail({
           teamId={teamId}
           triggerIds={[trigger.id]}
           schedule={scheduleSummary(trigger)}
+          deliversTo={
+            trigger.targetSessionId && (
+              <DeliversTo
+                teamId={teamId}
+                sessionId={trigger.targetSessionId}
+                onOpen={setSelectedSessionId}
+              />
+            )
+          }
           query={filter}
           refreshKey={runsKey}
           selectedSessionId={selectedSessionId}

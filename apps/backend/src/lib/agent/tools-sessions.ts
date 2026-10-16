@@ -37,6 +37,7 @@ function conversationSummary(
     messageCount: number
     archivedAt?: Date
     userId: string
+    parentSessionId?: string
   },
   viewerUserId: string,
   currentSessionId: string,
@@ -47,6 +48,7 @@ function conversationSummary(
     created_at: c.createdAt.toISOString(),
     last_active_at: c.lastActiveAt.toISOString(),
     message_count: c.messageCount,
+    ...(c.parentSessionId ? { parent_session_id: c.parentSessionId } : {}),
     ...(c.archivedAt ? { archived: true } : {}),
     ...(c.userId === viewerUserId ? {} : { owner: 'teammate' }),
     ...(c.sessionId === currentSessionId ? { is_current_conversation: true } : {}),
@@ -75,18 +77,24 @@ export function createSessionTools(
       .describe(
         "'mine' (default) lists only the user's conversations; 'team' lists every teammate's.",
       ),
+    children: z
+      .boolean()
+      .optional()
+      .describe("true lists only this conversation's sub-agents (threads nested under it)."),
   }
   const list_recent_conversations = withLabel(
     tool({
       description: LIST_DESCRIPTION,
       inputSchema: z.object(listShape),
-      execute: async ({ limit, search, scope, cursor }) => {
+      execute: async ({ limit, search, scope, cursor, children }) => {
         const { conversations, nextCursor } = await getConversations(userId, {
           teamId,
           limit: limit ?? 15,
           search,
-          scope: scope ?? 'mine',
+          // Sub-agents are the user's own threads, so children stays owner-scoped.
+          scope: children ? 'mine' : (scope ?? 'mine'),
           cursor,
+          ...(children ? { parentSessionId: conversationId } : {}),
         })
 
         return {

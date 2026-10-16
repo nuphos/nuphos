@@ -44,6 +44,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      attestations: read
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +82,8 @@ jobs:
           cache-dependency-path: apps/desktop/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      # Attested openab from openab-cache.yml on main; otherwise the next step compiles it.
+      - uses: ./.github/actions/openab-binaries
       - name: Stage local runtime
         env:
           TARGETS: ${{ matrix.targets }}

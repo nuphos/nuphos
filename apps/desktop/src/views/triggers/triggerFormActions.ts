@@ -51,6 +51,7 @@ export async function submitTriggerForm({
         triggerType: form.triggerType,
         messageTemplate: form.messageTemplate.trim(),
         ...(form.triggerType === 'cron' ? { cronExpression: form.cronExpression.trim() } : {}),
+        ...(form.targetSessionId ? { targetSessionId: form.targetSessionId } : {}),
         ...(teamId ? { teamId } : {}),
       }
       const created = await api.agentCreateTrigger(input)
@@ -67,6 +68,8 @@ export async function submitTriggerForm({
         form.cronExpression.trim() !== (loaded.cronExpression ?? '')
       )
         patch.cronExpression = form.cronExpression.trim()
+      if (form.targetSessionId !== (loaded.targetSessionId ?? ''))
+        patch.targetSessionId = form.targetSessionId || null
       const updated = Object.keys(patch).length
         ? await api.agentUpdateTrigger(triggerId, patch, teamId)
         : loaded
@@ -87,6 +90,7 @@ export async function submitTriggerForm({
         triggerType: details.triggerType,
         cronExpression: details.cronExpression ?? '',
         messageTemplate: details.messageTemplate,
+        targetSessionId: details.targetSessionId ?? '',
       })
       onSaved(updated)
     }

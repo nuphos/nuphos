@@ -10,9 +10,9 @@ import java.time.Instant
 import java.util.UUID
 
 /** Only catalog identity and admission fields are retained, never connection defaults. */
-data class AgentRuntime(val id: String, val provider: String, val label: String, val status: String, val kind: String, val deleting: Boolean = false) {
-    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex") &&
-        status == "active" && kind in setOf("managed", "external", "development", "local") && !deleting
+data class AgentRuntime(val id: String, val provider: String, val label: String, val status: String, val kind: String, val deleting: Boolean = false, val signedIn: Boolean? = null) {
+    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode") &&
+        signedIn != false && status == "active" && kind in setOf("managed", "external", "development", "local") && !deleting
 }
 
 data class RuntimeBinding(val runtimeId: String, val agentRuntime: String, val displayLabel: String? = null)
@@ -75,7 +75,8 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
         val obj = value.jsonObject
         fun field(name: String) = (obj[name] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: throw NuphosApi.Failure.InvalidResponse
         AgentRuntime(field("id"), field("provider"), field("label"), field("status"), field("kind"),
-            (obj["deletion"] as? JsonObject)?.get("state")?.jsonPrimitive?.contentOrNull == "deleting")
+            (obj["deletion"] as? JsonObject)?.get("state")?.jsonPrimitive?.contentOrNull == "deleting",
+            (obj["local"] as? JsonObject)?.get("signedIn")?.jsonPrimitive?.booleanOrNull)
             .also { if (!it.id.matches(Regex("[A-Za-z0-9_-]{1,200}"))) throw NuphosApi.Failure.InvalidResponse }
     } catch (_: Exception) { throw NuphosApi.Failure.InvalidResponse }
     private fun decodeLogin(obj: JsonObject): RuntimeLogin = try {

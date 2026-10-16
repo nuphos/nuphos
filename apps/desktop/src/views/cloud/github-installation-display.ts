@@ -10,24 +10,25 @@ export function githubRepoAccessLabel(installation: GithubInstallation): string 
   return installation.targetType === 'all' ? 'All repositories' : 'Selected repositories'
 }
 
-/** One line naming where the app is installed: the account when there is one. */
+/** Where the app is installed: the account when there is one. The card's green dot says connected. */
 export function githubConnectedSummary(installations: GithubInstallation[]): string {
   if (installations.length === 1) {
     const [installation] = installations
 
-    return `Connected · ${installation.accountLogin} (${githubAccountKind(installation)})`
+    return `${installation.accountLogin} (${githubAccountKind(installation)})`
   }
 
-  return `Connected · ${String(installations.length)} accounts`
+  return `${String(installations.length)} accounts`
 }
 
-/** GitHub's own settings page for the installation, where repo access is changed. */
-export function githubInstallationSettingsUrl(installation: GithubInstallation): string {
-  const id = String(installation.installationId)
+/**
+ * The organization's settings page for the installation, where repo access is changed. Null for a
+ * personal account: its settings page opens only for the account owner and 404s for teammates.
+ */
+export function githubInstallationSettingsUrl(installation: GithubInstallation): string | null {
+  if (githubAccountKind(installation) === 'personal') return null
 
-  return installation.accountType === 'Organization'
-    ? `https://github.com/organizations/${encodeURIComponent(installation.accountLogin)}/settings/installations/${id}`
-    : `https://github.com/settings/installations/${id}`
+  return `https://github.com/organizations/${encodeURIComponent(installation.accountLogin)}/settings/installations/${String(installation.installationId)}`
 }
 
 /** Installations still shown as connector rows (drops ones being deleted). */

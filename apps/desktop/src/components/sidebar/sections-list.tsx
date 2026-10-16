@@ -23,6 +23,13 @@ import type { Item, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
 
+/** Hover controls are 20px squares 4px apart; the one shortcut chip is ~30px. */
+function hoverActionsWidth(...controls: unknown[]): number {
+  const widths = controls.flatMap((control, index) => (control ? [index === 0 ? 30 : 20] : []))
+
+  return widths.reduce((sum, width) => sum + width, 0) + Math.max(0, widths.length - 1) * 4
+}
+
 function favoriteToggleAriaLabel(chatRow: boolean, favorited: boolean, label: string): string {
   if (chatRow) return `${favorited ? 'Unpin' : 'Pin'} ${label}`
 
@@ -139,7 +146,7 @@ export function SidebarSectionList({
                             toggleFavorite(item)
                           }}
                           className={clsx(
-                            'flex-shrink-0 hidden group-hover:inline-flex items-center justify-center w-5 h-5 rounded hover:bg-[var(--sidebar-overlay-hover)]',
+                            'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded hover:bg-[var(--sidebar-overlay-hover)]',
                             favorited
                               ? 'text-warning hover:text-warning/70'
                               : 'text-tertiary hover:text-main',
@@ -165,8 +172,9 @@ export function SidebarSectionList({
                             toggleGroup({ title: item.key })
                           }}
                           className={clsx(
-                            'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
-                            folded ? 'inline-flex' : 'hidden group-hover:inline-flex',
+                            'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
+                            // Always in flow so the row never reflows; shown at rest only when folded.
+                            !folded && 'invisible group-hover:visible',
                           )}
                         >
                           {folded ? (
@@ -211,14 +219,6 @@ export function SidebarSectionList({
                             badge={item.badge}
                             trailing={
                               <>
-                                {shortcut && (
-                                  <Kbd
-                                    combo={shortcut}
-                                    className="pointer-events-none hidden group-hover:inline-flex"
-                                  />
-                                )}
-                                {foldToggle}
-                                {favoriteToggle}
                                 {item.trailing}
                                 {/* One dot for whatever the fold hides; the rest render null. */}
                                 <span className="contents [&>*:not(:first-child)]:hidden">
@@ -226,9 +226,25 @@ export function SidebarSectionList({
                                     <Fragment key={row.key}>{row.foldedStatus}</Fragment>
                                   ))}
                                 </span>
-                                {item.actions}
                               </>
                             }
+                            edge={foldToggle}
+                            hoverActions={
+                              shortcut || favoriteToggle || item.actions ? (
+                                <>
+                                  {shortcut && (
+                                    <Kbd combo={shortcut} className="pointer-events-none" />
+                                  )}
+                                  {favoriteToggle}
+                                  {item.actions}
+                                </>
+                              ) : undefined
+                            }
+                            hoverActionsWidth={hoverActionsWidth(
+                              shortcut,
+                              favoriteToggle,
+                              item.actions,
+                            )}
                             icon={item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)}
                           />
                           {item.description}

@@ -98,6 +98,7 @@ data class AgentConversationDetail(
     val activeRun: ActiveRun? = null,
     val readOnly: Boolean? = null,
     val isOwner: Boolean? = null,
+    val canManage: Boolean? = null,
     val canCancelRun: Boolean? = null,
     val canRespondToRun: Boolean? = null,
     val agentRuntime: String? = null,

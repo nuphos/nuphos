@@ -69,20 +69,18 @@ export function useConversationCatchUp(acc: Acc): void {
         // Metadata probe: `activeRun` and `messageCount` do not depend on how
         // many messages come back, so ask for one. The transcript tail is
         // fetched below only when the stored count has grown.
-        const requestedAt = performance.now()
         const probe = await api.agentGetConversation(sessionId, teamId, { tail: 1 })
 
         if (state.stopped) return
         const current = tabsRef.current.find((tab) => tab.sessionId === sessionId)
 
         if (!current) return
-        const runtimeState =
-          performance.now() - requestedAt >= 12_000
-            ? { state: 'disconnected' as const, observedAt: performance.now() }
-            : {
-                ...(probe.runtimeState ?? { state: 'unsupported' as const }),
-                observedAt: requestedAt,
-              }
+        // Observed when the answer arrived: a slow backend is not a lost runtime.
+        // A read that never arrives just lets the last one go stale.
+        const runtimeState = {
+          ...(probe.runtimeState ?? { state: 'unsupported' as const }),
+          observedAt: performance.now(),
+        }
 
         setTabs((tabs) =>
           tabs.map((tab) =>
@@ -229,14 +227,7 @@ export function useConversationCatchUp(acc: Acc): void {
           }),
         )
       } catch {
-        if (!state.stopped)
-          setTabs((tabs) =>
-            tabs.map((tab) =>
-              tab.sessionId === sessionId
-                ? { ...tab, runtimeState: { state: 'disconnected', observedAt: performance.now() } }
-                : tab,
-            ),
-          )
+        // The next poll retries; the snapshot going stale is what says "Connection lost".
       } finally {
         state.polling = false
       }
