@@ -63,13 +63,9 @@ export function TurnRail({
   const railRef = useRef<HTMLDivElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const timerRef = useRef(0)
-  const cardOpenRef = useRef(false)
   const firstInView = turns.findIndex((t) => inView.has(t.id))
   const firstInViewId = turns[firstInView]?.id
 
-  useEffect(() => {
-    cardOpenRef.current = card !== null
-  })
   useEffect(() => () => window.clearTimeout(timerRef.current), [])
 
   // Keep the first lit tick inside the rail when the tick column scrolls.
@@ -87,6 +83,13 @@ export function TurnRail({
     }
   }, [firstInViewId])
 
+  const previewTurn = card ? turns[card.index] : undefined
+  // Re-stripped only when the hovered turn or the transcript changes.
+  const preview = useMemo(
+    () => (previewTurn ? turnPreview(messages, previewTurn) : ''),
+    [messages, previewTurn],
+  )
+
   if (turns.length < MIN_RAIL_TURNS) return null
   const tabStop = Math.max(0, firstInView)
   const focus = pointed ?? card?.index ?? null
@@ -96,16 +99,18 @@ export function TurnRail({
     const rect = button.getBoundingClientRect()
     const room = (rail?.left ?? 0) - (scrollRef.current?.getBoundingClientRect().left ?? 0) - 16
 
+    // A narrow dock has no room for a readable preview; the tick still jumps.
+    if (room < CARD_MIN_WIDTH) return setCard(null)
     setCard({
       index,
       top: rect.top - (rail?.top ?? 0) + rect.height / 2,
-      width: Math.max(CARD_MIN_WIDTH, Math.min(CARD_MAX_WIDTH, room)),
+      width: Math.min(CARD_MAX_WIDTH, room),
     })
   }
   const point = (index: number, button: HTMLElement, immediate: boolean) => {
     window.clearTimeout(timerRef.current)
     setPointed(index)
-    if (immediate || cardOpenRef.current) placeCard(index, button)
+    if (immediate || card) placeCard(index, button)
     else timerRef.current = window.setTimeout(() => placeCard(index, button), OPEN_DELAY_MS)
   }
   const leave = () => {
@@ -154,11 +159,11 @@ export function TurnRail({
               data-turn-id={turn.id}
               tabIndex={i === tabStop ? 0 : -1}
               aria-label={`Turn ${String(i + 1)}: ${turn.title}`}
-              aria-current={lit ? 'location' : undefined}
+              aria-current={i === firstInView ? 'location' : undefined}
               onClick={() => jump(turn.id)}
               onPointerEnter={(e) => point(i, e.currentTarget, false)}
               onFocus={(e) => point(i, e.currentTarget, true)}
-              className="flex h-2.5 w-9 shrink-0 items-center justify-end rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+              className="flex h-2.5 w-7 shrink-0 items-center justify-end rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-zViolet-accent"
             >
               <span
                 style={{ transform: `scaleX(${String(tickScale(i, focus))})` }}
@@ -174,7 +179,7 @@ export function TurnRail({
       {cardTurn && (
         <TurnRailCard
           title={cardTurn.title}
-          preview={turnPreview(messages, cardTurn)}
+          preview={preview}
           top={card.top}
           width={card.width}
           onJump={() => jump(cardTurn.id)}
