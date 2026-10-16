@@ -1,11 +1,14 @@
+import clsx from 'clsx'
 import { Laptop, Monitor } from 'lucide-react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 import { agentName, agentOffline } from './agentPresentation'
+import { machineLine, seenFrom } from './boxPresentation'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
@@ -112,4 +115,52 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
 /** The green dot before a running Box or a live reading. */
 export function LiveDot() {
   return <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT.online}`} />
+}
+
+/** The machine's kind; for a manager also its UID and when and where it was last online. */
+export function MachineLine({
+  device,
+  thisComputer,
+  dim,
+}: {
+  device: AgentDevice
+  thisComputer: boolean
+  dim: boolean
+}) {
+  const seen = seenFrom(device)
+  const lastOnline =
+    device.lastSeenAt && (device.online ? 'now' : relativeTimeFromNow(device.lastSeenAt))
+  const copy = () =>
+    navigator.clipboard.writeText(device.deviceId).then(
+      () => toast.success('UID copied'),
+      () => toast.error('Could not copy the UID'),
+    )
+
+  return (
+    <div
+      className={clsx('mt-1 shrink-0 text-[11.5px] leading-4 text-tertiary', dim && 'opacity-50')}
+    >
+      <div className="truncate" title={machineLine(device)}>
+        {thisComputer ? 'This computer' : machineLine(device)}
+      </div>
+      {device.access === 'manage' && (
+        <div className="flex min-w-0 items-center gap-1">
+          <button
+            type="button"
+            title={`Copy UID ${device.deviceId}`}
+            className="shrink-0 font-mono hover:text-main"
+            onClick={() => void copy()}
+          >
+            UID {device.deviceId.slice(0, 8)}
+          </button>
+          {lastOnline && (
+            <span className="truncate" title={seen ?? undefined}>
+              · Last online: {lastOnline}
+              {seen && ` · ${seen}`}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
