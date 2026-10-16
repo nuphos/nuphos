@@ -51,6 +51,7 @@ export class LocalRuntimeController {
           this.changed()
           this.tunnel?.sendStatus()
         },
+        { restartDefault: (provider) => this.refresh(true, [provider]) },
       )
     this.deps = deps
     this.usage = createUsageSampler(
@@ -193,7 +194,6 @@ export class LocalRuntimeController {
 
     if (!current()) return
     const agentHome = prepareHomeFor(this.deps, provider, userId, env)
-
     const cli = await this.deps.probeCli(provider, env, agentHome)
 
     if (!current()) return

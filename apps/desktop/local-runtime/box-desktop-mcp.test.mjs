@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
+import { patchDesktopAdapter } from './adapter-patches.mjs'
 import { nuphosBoxDesktopMcpServers } from './box-desktop-mcp.mjs'
 
 // The injected function calls nuphosSessionHomeEnv from the adapter's scope.
@@ -47,4 +49,42 @@ test('without a pool, a session id or servers, nothing changes', () => {
   const own = [{ name: 'computer-use', command: 'x', args: [] }]
 
   assert.equal(nuphosBoxDesktopMcpServers(own, { NUPHOS_SESSION_ID: 's1' }, box), own)
+})
+
+test('Codex on a Box gets the same computer-use server, from its session env', () => {
+  const handoff = (fallback) =>
+    `config: nuphosCodexSessionConfig(await this.createSessionConfig(request.cwd, additionalDirectories, nuphosBridgeMcpServers(request.mcpServers${fallback})), request._meta),`
+  // What the runtime's codex patch leaves in the bundle: its session-home helper, inlined.
+  const sessionHome = readFileSync(
+    new URL('../../runtime/image/session-home.mjs', import.meta.url),
+    'utf8',
+  )
+  const source = [
+    sessionHome,
+    "      args: ['/opt/nuphos-runtime/mcp-http-bridge.mjs', server.url],",
+    "      env: [{ name: 'OPENAB_CREDENTIALS_DIR', value: dir }],",
+    '    await nuphosSyncRuntimeSkills(params);',
+    '  async handleElicitation(params) {\n    try {',
+    handoff(''),
+    handoff(' ?? []'),
+    handoff(''),
+  ].join('\n')
+  const patched = patchDesktopAdapter(source, 'codex')
+
+  assert.equal(patched.match(/nuphosBoxDesktopMcpServers\(nuphosBridgeMcpServers/gu)?.length, 3)
+  assert.match(
+    patched,
+    /request\.mcpServers \?\? \[\]\), request\._meta\?\.\['ai\.nuphos\/codex'\]\?\.env/u,
+  )
+  assert.match(patched, /function nuphosBoxDesktopMcpServers\(/u)
+  // The env Codex's session carries names the session, as Claude's does.
+  const servers = nuphosBoxDesktopMcpServers(bridge, { NUPHOS_SESSION_ID: 'c1' }, box)
+
+  assert.equal(servers[1].name, 'computer-use')
+  assert.throws(() => patchDesktopAdapter(source.replace(handoff(' ?? []'), ''), 'codex'))
+  // Without the runtime patch's helper underneath, the desktop patch refuses to build.
+  assert.throws(
+    () => patchDesktopAdapter(source.replace(sessionHome, ''), 'codex'),
+    /nuphosSessionHomeEnv/u,
+  )
 })

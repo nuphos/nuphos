@@ -2,6 +2,19 @@ import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
+/**
+ * How a computer's agent is removed: an added one by its id, a Box's default one by its
+ * provider (as for rename). A person's own computer keeps its defaults (they are its CLIs'
+ * logins), so it has none to offer.
+ */
+export function localRemovalId(instance: RuntimeInstance): string | undefined {
+  const local = instance.local
+
+  if (!local) return undefined
+
+  return local.instanceId ?? (local.box ? instance.provider : undefined)
+}
+
 /** The overview shows local providers only after sign-in; team runtimes remain visible. */
 export function visibleAgent(instance: RuntimeInstance): boolean {
   return instance.kind !== 'local' || instance.local?.signedIn === true

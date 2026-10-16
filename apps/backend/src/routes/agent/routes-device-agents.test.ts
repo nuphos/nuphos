@@ -32,11 +32,11 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
 
       return instance
     },
-    removeInstance: async (target, instanceId) => {
-      calls.push({ target, removed: instanceId })
+    removeInstance: async (target, agent) => {
+      calls.push({ target, removed: agent })
     },
-    forgetAgent: async (userId, deviceId, instanceId) => {
-      calls.push({ forgot: [userId, deviceId, instanceId] })
+    forgetAgent: async (userId, deviceId, agent) => {
+      calls.push({ forgot: [userId, deviceId, agent] })
     },
     renameAgent: async (userId, deviceId, key, label) => {
       calls.push({ renamed: [userId, deviceId, key, label] })
@@ -161,11 +161,29 @@ test('remove is managed, reaches the transport owner, and refuses a default agen
   expect((await remove(id)).status).toBe(204)
   expect(levels).toEqual(['manage'])
   expect(calls).toMatchObject([
-    { target: { actorId: 'owner', userId: 'transport-owner', deviceId: 'box' }, removed: id },
-    { forgot: ['transport-owner', 'box', id] },
+    {
+      target: { actorId: 'owner', userId: 'transport-owner', deviceId: 'box' },
+      removed: { instanceId: id },
+    },
+    { forgot: ['transport-owner', 'box', { instanceId: id }] },
   ])
-  expect((await remove('claude-code')).status).toBe(400)
+  for (const bad of ['default-codex', 'grok', 'x']) expect((await remove(bad)).status).toBe(400)
   expect(calls).toHaveLength(2)
+})
+
+test("a Box removes its default agent; a person's computer refuses to", async () => {
+  const box = { ...device, box: {} as never }
+  const onBox = app({ requireAccess: async () => box })
+
+  expect((await onBox.remove('codex')).status).toBe(204)
+  expect(onBox.calls).toMatchObject([
+    { removed: { provider: 'codex' } },
+    { forgot: ['owner', 'box', { provider: 'codex' }] },
+  ])
+  const computer = app()
+
+  expect((await computer.remove('claude-code')).status).toBe(400)
+  expect(computer.calls).toEqual([])
 })
 
 test('remove without access or on an older host never reaches the host', async () => {

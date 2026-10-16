@@ -201,3 +201,6 @@ export function parseJson<T>(raw: string): T | undefined {
     return undefined
   }
 }
+
+/** An added agent by its instance id, or a Box's default agent by its provider. */
+export type RemovableAgent = { instanceId: string } | { provider: LocalAgentProvider }

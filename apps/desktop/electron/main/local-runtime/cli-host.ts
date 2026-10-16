@@ -25,7 +25,7 @@ import { agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { signInClaude } from './cli-sign-in.ts'
 import { enableDesktopPool, listDesktops, watchDesktops } from './desktop-pool.ts'
-import { deviceCredentialFor, exitRevoked, tunnelUrlFor } from './device-credential.ts'
+import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
@@ -116,6 +116,7 @@ if (!bundle()) {
 
 const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle,
+  ownsMachine: ownsMachine(deviceCredential),
   dataDir: () => dataDir,
   nodeExecPath: process.execPath,
   backendUrl: apiUrl(),
