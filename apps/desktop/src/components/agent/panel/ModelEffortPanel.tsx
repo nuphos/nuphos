@@ -1,7 +1,7 @@
 import { Slider } from '@base-ui/react/slider'
 import clsx from 'clsx'
 import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { effortLabel } from '../../../lib/configLabels'
 import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
@@ -100,30 +100,18 @@ export function ModelEffortPanel({
   // A draft only holds until the runtime reports a different level.
   const [draft, setDraft] = useState<{ index: number; from: string }>()
   const [wasSaving, setWasSaving] = useState(saving)
-  // The last stop the slider came to rest on, waiting for a save to finish.
-  const [queued, setQueued] = useState<string>()
 
-  // Drop a draft once the runtime reports any change, or once a save ends
-  // with nothing left to send, so a failed change never lingers on the slider.
+  // Drop a draft once the runtime reports any change, or once a save ends,
+  // so a failed change never lingers on the slider.
   if (wasSaving !== saving) {
     setWasSaving(saving)
-    if (!saving && draft && !queued) setDraft(undefined)
+    if (!saving && draft) setDraft(undefined)
   }
   if (draft && draft.from !== effort.currentValue) setDraft(undefined)
   const index = draft?.from === effort.currentValue ? draft.index : committed
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => () => clearTimeout(pending.current), [])
-  // A change made while another is saving would be dropped; send it after.
-  const sendQueued = useEffectEvent(() => {
-    if (!queued) return
-    setQueued(undefined)
-    if (queued !== effort.currentValue) onSelect(effort.id, queued)
-  })
-
-  useEffect(() => {
-    if (!saving) sendQueued()
-  }, [saving, queued])
   const current = index >= 0 ? stops[index] : undefined
   const fraction = stopFraction(stops.length, index)
   const fastOn = fast?.currentValue === 'on'
@@ -195,7 +183,8 @@ export function ModelEffortPanel({
         max={Math.max(stops.length - 1, 1)}
         step={1}
         thumbAlignment="edge"
-        disabled={blocked || stops.length < 2}
+        // A session ignores writes while one is saving, so hold the slider still.
+        disabled={blocked || saving || stops.length < 2}
         onValueChange={(value) => setDraft({ index: value, from: effort.currentValue })}
         onValueCommitted={(value) => {
           const stop = stops[value]
@@ -203,7 +192,7 @@ export function ModelEffortPanel({
           clearTimeout(pending.current)
           // Arrow keys commit on every press; send only where they come to rest.
           pending.current = setTimeout(() => {
-            if (stop) setQueued(stop.value)
+            if (stop && stop.value !== effort.currentValue) onSelect(effort.id, stop.value)
           }, 350)
         }}
         className="mt-[15.5px] data-[disabled]:opacity-60"
