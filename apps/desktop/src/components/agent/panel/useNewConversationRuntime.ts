@@ -40,8 +40,7 @@ export function useNewConversationRuntime(teamId?: string) {
   })
   // A choice made for this draft stands while it is usable; otherwise the best agent, never none.
   const chosen = selectedId ? instances.find((instance) => instance.id === selectedId) : undefined
-  const selected =
-    chosen?.status === 'active' && chosen.local?.signedIn !== false ? chosen : best
+  const selected = chosen?.status === 'active' && chosen.local?.signedIn !== false ? chosen : best
 
   function selectConversationRuntime(runtimeId: string) {
     setChoices((previous) => ({ ...previous, [key]: runtimeId }))

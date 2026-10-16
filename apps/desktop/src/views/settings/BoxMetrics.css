@@ -12,5 +12,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .t-resize { transition: none !important; }
+  .t-resize {
+    transition: none !important;
+  }
 }

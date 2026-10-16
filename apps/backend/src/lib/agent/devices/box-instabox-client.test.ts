@@ -59,7 +59,8 @@ describe('killBoxMachine', () => {
 describe('boxBackendUrl', () => {
   const saved = { backend: config.agent.publicBackendUrl, base: config.auth.publicBaseUrl }
 
-  beforeEach(() => {
+  // Config is shared by every test file in this process: put it back after each case.
+  afterEach(() => {
     config.agent.publicBackendUrl = saved.backend
     config.auth.publicBaseUrl = saved.base
   })

@@ -260,7 +260,8 @@ test(
   async () => {
     const { home, script } = await fixture()
     const configDir = join(home, 'instance-claude')
-    const credential = join(home, 'recorded.json')
+    // Off macOS the wrapper checks for the login where the real CLI writes it.
+    const credential = join(configDir, '.credentials.json')
     const executable = join(home, 'claude')
 
     try {
