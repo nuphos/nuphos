@@ -1,4 +1,5 @@
-import { File, FileQuestion, Folder, FolderOpen, RefreshCw, Server } from 'lucide-react'
+import { Download, File, FileQuestion, Folder, FolderOpen, RefreshCw, Server } from 'lucide-react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { PageMeta } from '../app/pageMeta'
@@ -12,8 +13,20 @@ import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
 
 export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
   const { conversationId, refreshKey, isActive } = useWorkspaceTab()
-  const { source, path, directory, preview, fileName, loading, navigate, openFile, refresh } =
-    useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
+  const {
+    source,
+    path,
+    directory,
+    preview,
+    tooLarge,
+    fileName,
+    loading,
+    navigate,
+    openFile,
+    refresh,
+    download,
+  } = useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
+  const [downloading, setDownloading] = useState(false)
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
 
@@ -112,6 +125,21 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 </pre>
               </div>
             )
+          ) : tooLarge ? (
+            <EmptyState
+              icon={FileQuestion}
+              title="Too large to preview"
+              description="Files over 512 KiB can be downloaded instead."
+              primaryAction={{
+                label: downloading ? 'Downloading…' : 'Download',
+                icon: Download,
+                disabled: downloading,
+                onClick: () => {
+                  setDownloading(true)
+                  void download().finally(() => setDownloading(false))
+                },
+              }}
+            />
           ) : (
             <EmptyState
               icon={FileQuestion}

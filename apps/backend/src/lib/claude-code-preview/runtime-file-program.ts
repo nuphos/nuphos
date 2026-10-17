@@ -77,6 +77,18 @@ try {
   const current = await fs.stat(target);
   if (stat.dev !== current.dev || stat.ino !== current.ino) throw Error('forbidden_path');
   if (!stat.isFile()) throw Error('not_a_file');
+  const name = path.basename(target);
+  if (input.action === 'stat') {
+    process.stdout.write(JSON.stringify({ name, size: stat.size }));
+  } else if (input.action === 'upload') {
+    // A file too large to preview goes to the transfer store's presigned URL
+    // instead (it is capped there, so it fits in memory).
+    const data = await handle.readFile();
+    if (data.length !== input.size) throw Error('file_changed');
+    const response = await fetch(input.url, { method: 'PUT', body: data });
+    if (!response.ok) throw Error('upload_failed');
+    process.stdout.write(JSON.stringify({ name, size: data.length }));
+  } else {
   if (stat.size > limit) throw Error('file_too_large');
   const buffer = Buffer.alloc(limit + 1);
   let size = 0;
@@ -86,7 +98,8 @@ try {
     size += bytesRead;
   }
   if (size > limit) throw Error('file_too_large');
-  process.stdout.write(JSON.stringify({ name: path.basename(target), data: buffer.subarray(0, size).toString('base64'), size }));
+  process.stdout.write(JSON.stringify({ name, data: buffer.subarray(0, size).toString('base64'), size }));
+  }
   }
 } catch (error) {
   const code = error.code === 'ENOENT' ? 'file_not_found' : error.code === 'EACCES' || error.code === 'ELOOP' ? 'forbidden_path' : error.message;

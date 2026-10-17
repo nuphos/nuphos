@@ -21,6 +21,8 @@ export const teamApi = {
     window.api.atlasReadRuntimeFile(teamId, runtimeId, sessionId, path),
   atlasReadLinkedFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     window.api.atlasReadLinkedFile(teamId, runtimeId, sessionId, path),
+  atlasDownloadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    window.api.atlasDownloadRuntimeFile(teamId, runtimeId, sessionId, path),
   atlasListRuntimeFiles: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     window.api.atlasListRuntimeFiles(teamId, runtimeId, sessionId, path),
   atlasStartRuntimeLogin: (teamId: string, runtimeId: string) =>

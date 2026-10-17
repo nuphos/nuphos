@@ -134,3 +134,46 @@ test("the conversation owner's session home is readable, except its dot-entries"
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('a file too large to preview is sized, then uploaded whole to the given URL', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'runtime-upload-'))
+  const bytes = Buffer.alloc(600 * 1024, 7)
+  let received: Buffer | undefined
+  const server = Bun.serve({
+    port: 0,
+    async fetch(request) {
+      if (request.method !== 'PUT') return new Response(null, { status: 405 })
+      received = Buffer.from(await request.arrayBuffer())
+
+      return new Response(null, { status: 200 })
+    },
+  })
+
+  try {
+    await writeFile(join(root, 'clip.mp4'), bytes)
+    // Asynchronous, so the test server can answer the upload meanwhile.
+    const run = async (params: Record<string, unknown>) => {
+      const child = Bun.spawn(['node', '--input-type=module', '-e', RUNTIME_FILE_PROGRAM], {
+        stdin: new Blob([JSON.stringify({ path: 'clip.mp4', workspace: root, ...params })]),
+      })
+
+      return JSON.parse(await new Response(child.stdout).text()) as unknown
+    }
+    const url = `http://127.0.0.1:${String(server.port)}/upload`
+
+    expect(await run({})).toEqual({ error: 'file_too_large' })
+    expect(await run({ action: 'stat' })).toEqual({ name: 'clip.mp4', size: bytes.length })
+    expect(await run({ action: 'upload', url, size: bytes.length - 1 })).toEqual({
+      error: 'file_read_failed',
+    })
+    expect(received).toBeUndefined()
+    expect(await run({ action: 'upload', url, size: bytes.length })).toEqual({
+      name: 'clip.mp4',
+      size: bytes.length,
+    })
+    expect(received?.equals(bytes)).toBe(true)
+  } finally {
+    await server.stop(true)
+    await rm(root, { recursive: true, force: true })
+  }
+})
