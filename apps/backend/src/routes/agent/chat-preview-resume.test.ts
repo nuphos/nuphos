@@ -214,3 +214,43 @@ describe('resolvePreviewWaitFromChat', () => {
 })
 
 useFakeRuntimeRequests()
+
+describe('resolvePreviewWaitFromChat with the runtime snapshot', () => {
+  const answer = body([{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'go' }] }])
+
+  test('a v2 snapshot with no requests skips the runtime request list', async () => {
+    await registerPreviewWait({ userId: 'u1', sessionId: 'conv-1', kind: 'permission-grant', ref: 'r1' })
+
+    expect(
+      await resolvePreviewWaitFromChat({
+        userId: 'u1',
+        sessionId: 'conv-1',
+        streamId: 'st-1',
+        body: answer,
+        snapshot: { state: 'idle', schemaVersion: 2, requests: [] },
+      }),
+    ).toBeNull()
+  })
+
+  test('a snapshot that lists a request still resolves it', async () => {
+    const wait = await registerPreviewWait({
+      userId: 'u1',
+      sessionId: 'conv-1',
+      kind: 'permission-grant',
+      ref: 'r1',
+    })
+    const resolved = await resolvePreviewWaitFromChat({
+      userId: 'u1',
+      sessionId: 'conv-1',
+      streamId: 'st-1',
+      body: answer,
+      snapshot: {
+        state: 'active',
+        schemaVersion: 2,
+        requests: [{ waitId: wait.waitId, kind: 'permission-grant', createdAt: 0 }],
+      },
+    })
+
+    expect(resolved?.waitId).toBe(wait.waitId)
+  })
+})

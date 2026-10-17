@@ -251,7 +251,6 @@ export async function launchQueuedChatTurn(
     run,
     chatCtx,
     chatSpan,
-    conversationParent: undefined,
     body,
     teamId,
     messages,

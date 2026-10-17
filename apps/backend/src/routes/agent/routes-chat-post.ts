@@ -20,7 +20,7 @@ import {
   findSlackBoundThread,
 } from './chat-slack-bound'
 import { attachSteeringTurn } from './chat-steering-attach'
-import { hydrateTranscriptPrefix, validateChatBody } from './chat-validate'
+import { acceptClientTail, validateChatBody } from './chat-validate'
 import { resolveAgentCredentialAccess } from './credential-resolve'
 import { agent } from './router'
 import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from './run-registry'
@@ -62,8 +62,8 @@ agent.post('/chat', async (c) => {
     await initializeSessionBypass(id, userId, body.permissionMode === 'bypass')
   }
   const readOnlyResume = body.resume === true && runOwnerUserId !== userId
-  // Resolve Slack binding alongside transcript hydration.
-  const clientViewPromise = hydrateTranscriptPrefix(
+  // Resolve Slack binding alongside attribution.
+  const clientViewPromise = acceptClientTail(
     body,
     id,
     runOwnerUserId,
@@ -130,6 +130,7 @@ agent.post('/chat', async (c) => {
       sessionId: id,
       streamId,
       body,
+      snapshot: runtimeSnapshot,
     })
 
     if (previewWait) {
@@ -195,7 +196,6 @@ agent.post('/chat', async (c) => {
     const messages = slackPlan?.messages ?? clientView
     const firstMessage = getFirstUserMessage(messages)
     const isPotentialNewConversation = messages.length === 1 && messages[0]?.role === 'user'
-    const conversationParent: string | undefined = undefined
 
     const chatSpan = startTraceSpan({
       name: 'turn',
@@ -271,7 +271,6 @@ agent.post('/chat', async (c) => {
       run,
       chatCtx,
       chatSpan,
-      conversationParent,
       body,
       teamId,
       messages,

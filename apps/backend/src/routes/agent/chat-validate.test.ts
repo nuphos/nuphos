@@ -4,25 +4,34 @@
 // resending the full transcript.
 import { describe, expect, test } from 'bun:test'
 
+
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
+import type { UIMessage } from 'ai'
+
 type StoredMessage = { messageId: string; role: 'user' | 'assistant'; parts: unknown[] }
 
-const state: { stored: StoredMessage[]; lastCount: number | undefined } = {
+const state: { stored: StoredMessage[]; lastCount: number | undefined; headReads: number } = {
   stored: [],
   lastCount: undefined,
+  headReads: 0,
 }
 
 useAgentDb({
   getConversationMessagesHead: async (_sessionId: string, _userId: string, count: number) => {
     state.lastCount = count
+    state.headReads++
 
     return state.stored.slice(0, count)
   },
+  agentMessages: (() => ({
+    countDocuments: () => Promise.resolve(state.stored.length),
+    find: () => ({ toArray: () => Promise.resolve([]) }),
+  })),
 })
 
-const { hydrateStoredPrefix, validateChatBody } = await import('./chat-validate')
+const { acceptClientTail, hydrateStoredPrefix, validateChatBody } = await import('./chat-validate')
 
 test('a first-turn model pick is trimmed, and anything else is refused', () => {
   const body = {
@@ -95,5 +104,37 @@ describe('hydrateStoredPrefix', () => {
     const prefix = await hydrateStoredPrefix('sess', 'owner', 2, [{ id: 'dup' }, { id: 'new' }])
 
     expect(prefix.map((message) => message.id)).toEqual(['m1'])
+  })
+})
+
+describe('acceptClientTail', () => {
+  const conversation = { sessionId: 'sess', userId: 'owner' } as never
+  const tail: UIMessage[] = [{ id: 'm3', role: 'user', parts: [{ type: 'text', text: 'next' }] }]
+
+  test('keeps the client tail as sent, without reading the stored prefix', async () => {
+    state.stored = [stored('m1'), stored('m2', 'assistant')]
+    state.headReads = 0
+    const body = { id: 'sess', messages: tail, baseIndex: 2, resume: true }
+    const view = await acceptClientTail(body, 'sess', 'owner', conversation)
+
+    expect(view.map((message) => message.id)).toEqual(['m3'])
+    expect(body.messages).toBe(tail)
+    expect(state.headReads).toBe(0)
+  })
+
+  test('still answers 409 with the stored count when the client is ahead of the store', async () => {
+    state.stored = [stored('m1')]
+    const error = await acceptClientTail(
+      { id: 'sess', messages: tail, baseIndex: 2, resume: true },
+      'sess',
+      'owner',
+      conversation,
+    ).then(
+      () => null,
+      (err: unknown) => err as AppError,
+    )
+
+    expect(error?.status).toBe(409)
+    expect(error?.details).toEqual({ storedMessageCount: 1 })
   })
 })
