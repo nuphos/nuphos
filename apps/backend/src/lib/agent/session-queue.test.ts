@@ -6,6 +6,9 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
+import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
+
+import { startConversationTurn } from './conversation-turn'
 import { startQueuedTurn } from './queued-turn'
 import {
   buildPendingUserMessage,
@@ -59,6 +62,7 @@ useIdentity({
   getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null),
 })
 useAgentDb({
+  agentMessages: () => ({ findOne: async () => null }),
   getConversationBySessionId: async () => ({ ...conversation, claudeCodePreview: {} as never }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
 })
@@ -419,5 +423,95 @@ test('after a restart the backstop starts a waiting queue, at most once per inte
   } finally {
     installQueuedTurnStarter(startQueuedTurn)
     await clearPendingUserMessages(OWNER, 'backstop-session')
+  }
+})
+
+const REFUSED = 'refused-session'
+const delivery = (messageId: string) =>
+  startConversationTurn(
+    { userId: OWNER, teamId: 'team', targetSessionId: REFUSED, messageId, locale: 'en' },
+    { ...conversation, sessionId: REFUSED, claudeCodePreview: {} as never },
+    'CI passed',
+    'agent.thread',
+    {} as never,
+  )
+const refusedWaiting = async () =>
+  (await listPendingUserMessages(OWNER, REFUSED)).map((message) => message.id)
+
+test('a delivery the runtime refuses mid-turn goes back to the queue and runs once it ends', async () => {
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunOrEnqueue: async () => ({
+      mode: 'run',
+      carried: [],
+      release: () => {
+        released++
+        sessionReleased(OWNER, REFUSED)
+      },
+    }),
+    claimAgentRunForSession: async () => () => {
+      released++
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      // A turn no backend run tracks, left by a replica that shut down.
+      if (runs.length === 1) throw refusal('Running tools…')
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    const { status, run } = await delivery('report')
+
+    expect(status).toBe('started')
+    await run
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    // Not lost, and not restarted by the release that followed the refusal.
+    expect(runs).toHaveLength(1)
+    expect(await refusedWaiting()).toEqual(['report'])
+
+    // The runtime's turn ends with no run to release the session; the retry starts it.
+    await new Promise((resolve) => setTimeout(resolve, 2_200))
+    expect(runs.map((run) => run.messages.at(-1)?.id)).toEqual(['report', 'report'])
+    expect(await refusedWaiting()).toEqual([])
+  } finally {
+    await clearPendingUserMessages(OWNER, REFUSED)
+  }
+})
+
+test('a queued turn the runtime refuses after its check goes back to the front, not restarted', async () => {
+  const later = agent('later')
+
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, REFUSED)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      if (runs.length > 1) return { status: 'completed' }
+      // A continuation took the runtime after the check; a message arrives meanwhile.
+      await enqueuePendingUserMessage(OWNER, REFUSED, later)
+      throw refusal('Running tools…')
+    },
+  })
+  try {
+    const first = agent('first')
+
+    await enqueuePendingUserMessage(OWNER, REFUSED, first)
+    await startQueuedTurn(OWNER, REFUSED)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(runs).toHaveLength(1)
+    expect(released).toBe(1)
+    const queued = await listPendingUserMessages(OWNER, REFUSED)
+
+    expect(queued.map((message) => message.id)).toEqual([first.id, later.id])
+    expect(queued[0]?.attempts).toBe(1)
+  } finally {
+    await clearPendingUserMessages(OWNER, REFUSED)
   }
 })

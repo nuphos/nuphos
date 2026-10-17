@@ -62,6 +62,8 @@ export type TriggerRunParams = {
   larkReply?: LarkReplyToolContext
   frameSink?: AgentRunFrameSink
   triggerNotification?: SlackTriggerNotificationContext
+  /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
+  clientResendsRefusal?: boolean
 }
 
 /**
@@ -206,6 +208,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       onRunHandoff: attachFrameSink,
       ...(channelDefaults || source === 'lark.agent' ? { channelTurn: true } : {}),
       ...(params.turnContext ? { turnContext: params.turnContext } : {}),
+      ...(params.clientResendsRefusal ? { clientResendsRefusal: true } : {}),
       ...(slackThread
         ? {
             slackThread: {
