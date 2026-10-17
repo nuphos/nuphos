@@ -31,7 +31,7 @@ export type TunnelClientDeps = {
     instanceId?: string,
   ) => SocketLike | null
   instances?: (request: unknown) => Promise<unknown>
-  connectFile?: () => SocketLike | null
+  connectFile?: (instanceId?: string) => SocketLike | null
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
@@ -263,7 +263,7 @@ export class RuntimeTunnelClient {
     const runtime =
       purpose === 'transport' || purpose === 'control'
         ? this.deps.connectRuntime(purpose, provider, instanceId)
-        : local[purpose]?.()
+        : local[purpose]?.(instanceId)
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

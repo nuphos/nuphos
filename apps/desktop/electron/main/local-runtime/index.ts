@@ -142,11 +142,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
           },
         })
       },
-      connectFile: () => {
-        const workspace = controller.state().workspace
-
-        return workspace ? new LocalFileStream(workspace) : null
-      },
+      connectFile: (instanceId) => LocalFileStream.open(controller.state(), instanceId),
       ...localToolStreams,
       connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider, instanceId) => {

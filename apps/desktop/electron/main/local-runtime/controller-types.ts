@@ -23,7 +23,7 @@ export type LocalAgentState = {
 }
 
 export type LocalRuntimeState = {
-  instances?: (AgentInstance & LocalAgentState)[]
+  instances?: (AgentInstance & LocalAgentState & { workspace: string | null })[]
   agents: Record<LocalAgentProvider, LocalAgentState>
   workspace: string | null
   /** Who this computer's agents belong to right now. */
