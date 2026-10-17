@@ -171,7 +171,7 @@ struct ChatComposerBar<Controls: View>: View {
         }
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {
-                attachments.append(contentsOf: urls.compactMap(ComposerAttachment.load(fileURL:)))
+                attachments.append(contentsOf: urls.compactMap { ComposerAttachment.load(fileURL: $0) })
             }
         }
         .alert("Couldn't send attachment", isPresented: Binding(get: { attachmentError != nil }, set: { if !$0 { attachmentError = nil } })) {
@@ -416,7 +416,9 @@ struct ChatComposerBar<Controls: View>: View {
             for provider in providers {
                 if provider.suggestedName == nil,
                    provider.registeredContentTypes.allSatisfy({ $0.conforms(to: .text) }),
-                   let string = try? await provider.loadTransferable(type: String.self) {
+                   let string = await withCheckedContinuation({ continuation in
+                       _ = provider.loadTransferable(type: String.self) { continuation.resume(returning: try? $0.get()) }
+                   }) {
                     text += string
                 } else if let attachment = await ComposerAttachment.load(pasted: provider) {
                     attachments.append(attachment)
