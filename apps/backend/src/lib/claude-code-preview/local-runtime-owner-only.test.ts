@@ -134,13 +134,16 @@ describe('only the owner can put a session on their local agent', () => {
     presence = createMemoryPresenceStore()
     const other = localRuntimeId({ userId: 'owner', deviceId: 'box-b', provider: 'claude-code' })
 
-    const error = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
+    const error = (await resolveConversationChatRuntime(TEAM, conversation('owner'), {
       userId: 'owner',
       runtimeId: other,
-    }).catch((caught: unknown) => caught as AppError)
+    }).then(
+      () => null,
+      (caught: unknown) => caught,
+    )) as AppError
 
     expect([error.status, error.code]).toEqual([409, 'runtime_offline'])
-    expect(error.details).toEqual({ runtimeId: localId, runtimeLabel: expect.any(String) })
+    expect(error.details).toEqual({ runtimeId: localId, runtimeLabel: 'Claude Code in MacBook' })
   })
 
   test('control calls on the owner’s conversation act as its owner', async () => {

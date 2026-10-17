@@ -87,17 +87,7 @@ export async function resolveConversationChatRuntime(
   }
   if (!teamId) throw new Error('OpenAB conversation is missing its Team scope.')
   if (instance?.kind === 'local' && localAgentUser) {
-    const endpoint = await resolveLocalRuntimeEndpoint(
-      teamId,
-      instance.id,
-      localAgentUser,
-      purpose,
-    ).catch((error: unknown) => {
-      // The placement this send was authorized for: an offline Box send queues for it.
-      if (error instanceof AppError && error.code === 'runtime_offline')
-        error.details = { runtimeId: instance.id, runtimeLabel: instance.label }
-      throw error
-    })
+    const endpoint = await resolveLocalRuntimeEndpoint(teamId, instance.id, localAgentUser, purpose)
 
     if (conversation && !conversation.runtimeId)
       await stampConversationRuntimeInstance(conversation.sessionId, instance.id, instance.label)
