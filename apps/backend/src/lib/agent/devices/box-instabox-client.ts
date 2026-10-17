@@ -43,7 +43,7 @@ export const AGENT_COMMAND = `export PATH="$HOME/.local/bin:$HOME/.npm-global/bi
  * Updates a Box in place: stops the host, installs the newest CLI (whose host fetches
  * its own bundle) and starts it again, even when the install failed. Session desktop
  * panels from before the browser launcher go, so each display writes the current one
- * (desktop-session.mjs). Run with `background: true`.
+ * (desktop-session.mjs), as does the image's AGENTS.md. Run with `background: true`.
  */
 export const BOX_UPDATE_COMMAND = [
   'pkill -f "[h]ost.mjs"; for i in $(seq 30); do pgrep -f "[h]ost.mjs" >/dev/null || break; sleep 1; done',
@@ -52,6 +52,9 @@ export const BOX_UPDATE_COMMAND = [
   BOX_INSTALL_COMMAND,
   // Only panels from before the browser launcher; ones that have it are the user's.
   'grep -L web-browser.desktop "$HOME"/.nuphos/session-homes/*/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml | xargs -r rm -f',
+  // The image's AGENTS.md (sent agents to /data/workspace and MACHINE.md) goes, but only
+  // where the agents' instruction files are its links; a file someone wrote stays.
+  'a=$(readlink -f "$HOME/AGENTS.md"); for l in "$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md"; do if [ -L "$l" ] && [ "$(readlink -f "$l")" = "$a" ]; then rm -f "$l"; drop=1; fi; done; if [ -n "${drop:-}" ]; then rm -f "$HOME/AGENTS.md"; fi',
   ') >> "$HOME/nuphos-update.log" 2>&1',
   AGENT_COMMAND,
 ].join('\n')

@@ -1,3 +1,8 @@
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdtempSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
 import { describe, expect, test } from 'bun:test'
 
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
@@ -119,5 +124,36 @@ describe('Box update', () => {
     expect(BOX_UPDATE_COMMAND).toContain(`(\n${BOX_INSTALL_COMMAND}`)
     // Only session panels without the browser launcher are dropped.
     expect(BOX_UPDATE_COMMAND).toContain('grep -L web-browser.desktop')
+  })
+
+  test('the update drops the image’s AGENTS.md and its links, never a file someone wrote', () => {
+    const cleanup = BOX_UPDATE_COMMAND.split('\n').find((line) => line.includes('CLAUDE.md'))
+    const run = (setup: string) => {
+      const home = mkdtempSync(path.join(os.tmpdir(), 'box-home-'))
+
+      execFileSync('/bin/bash', ['-ec', `mkdir -p .claude .codex; ${setup}`], { cwd: home })
+      execFileSync('/bin/bash', ['-ec', cleanup ?? 'false'], { env: { ...process.env, HOME: home } })
+
+      return ['AGENTS.md', '.claude/CLAUDE.md', '.codex/AGENTS.md'].filter((file) =>
+        existsSync(path.join(home, file)),
+      )
+    }
+
+    expect(
+      run(
+        'echo img > AGENTS.md; ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; ln -s "$PWD/AGENTS.md" .codex/AGENTS.md',
+      ),
+    ).toEqual([])
+    expect(
+      run('echo mine > AGENTS.md; echo own > .claude/CLAUDE.md; echo own > .codex/AGENTS.md'),
+    ).toEqual(['AGENTS.md', '.claude/CLAUDE.md', '.codex/AGENTS.md'])
+    expect(
+      run(
+        'echo img > AGENTS.md; ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; echo own > .codex/AGENTS.md',
+      ),
+    ).toEqual(['.codex/AGENTS.md'])
+    expect(
+      run('echo x > other.md; ln -s "$PWD/other.md" .claude/CLAUDE.md; echo img > AGENTS.md'),
+    ).toEqual(['AGENTS.md', '.claude/CLAUDE.md'])
   })
 })
