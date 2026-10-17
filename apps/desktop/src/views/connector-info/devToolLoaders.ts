@@ -197,10 +197,7 @@ export const devToolLoaders: ConnectorInfoLoaders = {
       fields: [
         { label: 'Label', value: item.label },
         { label: 'Organization', value: item.orgDisplayName || '—' },
-        {
-          label: 'Auth',
-          value: item.authType === 'oauth' ? 'OAuth' : 'Client credentials',
-        },
+        { label: 'Auth', value: 'Client credentials' },
         ...(item.createdAt
           ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
           : []),

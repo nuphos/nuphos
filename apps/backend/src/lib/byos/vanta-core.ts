@@ -2,7 +2,6 @@
 export const API_BASE = 'https://api.vanta.com'
 const TOKEN_URL = `${API_BASE}/oauth/token`
 
-// Authorize endpoint for the public-integration (authorization_code) flow.
 // Read scope for the client_credentials (Manage Vanta) flow.
 const READ_SCOPE = 'vanta-api.all:read'
 
@@ -37,7 +36,7 @@ export type MintedToken = {
   scope: string
 }
 
-export async function tokenRequest(body: Record<string, string>): Promise<MintedToken> {
+async function tokenRequest(body: Record<string, string>): Promise<MintedToken> {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

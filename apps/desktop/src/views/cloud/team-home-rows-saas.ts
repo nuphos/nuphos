@@ -66,7 +66,7 @@ export function buildSaasConnectorRows({
       key: `vanta:${integration.id}`,
       provider: 'vanta' as const,
       account: integration.orgDisplayName || integration.label,
-      principal: integration.authType === 'oauth' ? 'OAuth' : 'Client credentials',
+      principal: 'Client credentials',
       status: 'Vanta integration',
       onAction: () =>
         onOpenConnectorInfo({

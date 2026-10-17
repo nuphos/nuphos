@@ -69,7 +69,7 @@ function oneOfEach(): AgentCredentialOptions {
     sentryAccounts: [{ accountId: ID, label, userEmail: null }],
     tailscaleClients: [{ clientId: ID, label, oauthClientId: 'o' }],
     zeaburProviders: [{ zeaburId: ID, kind: 'team', name: label }],
-    vantaIntegrations: [{ integrationId: ID, label, authType: 'oauth' }],
+    vantaIntegrations: [{ integrationId: ID, label, authType: 'client_credentials' }],
     secureframeIntegrations: [{ integrationId: ID, label, region: 'us' }],
     resendIntegrations: [{ integrationId: ID, label, permission: 'sending_access' }],
     githubInstallations: [{ installationId: ID, accountLogin: 'org', accountType: 'Organization' }],

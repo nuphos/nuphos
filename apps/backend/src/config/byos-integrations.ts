@@ -96,14 +96,6 @@ export function byosIntegrationsConfig() {
         optional('LINODE_BYOK_ENCRYPTION_KEY') ??
         optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
       encryptionKeyId: 'default',
-      // Vanta public-integration (partner) OAuth app, used only to refresh
-      // tokens on 'oauth' bindings. Nothing creates those yet: the authorize
-      // flow will return, with a confirmed bind step, once the partner
-      // integration is approved. client_credentials bindings need none of this.
-      oauth: {
-        clientId: optional('VANTA_OAUTH_CLIENT_ID'),
-        clientSecret: optional('VANTA_OAUTH_CLIENT_SECRET'),
-      },
     },
     secureframe: {
       // Secureframe authenticates with a static API key + secret pair (no
