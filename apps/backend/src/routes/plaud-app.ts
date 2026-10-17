@@ -2,7 +2,12 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { createDefaultAccess } from '@/lib/byos/access'
-import { exchangePlaudCode, fetchPlaudUser, invalidatePlaudAccessToken } from '@/lib/byos/plaud'
+import {
+  exchangePlaudCode,
+  fetchPlaudUser,
+  invalidatePlaudAccessToken,
+  PlaudApiError,
+} from '@/lib/byos/plaud'
 import { decryptPlaudSecret, encryptPlaudSecret } from '@/lib/byos/secrets'
 import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
@@ -69,7 +74,7 @@ plaudAppRoutes.get('/callback', async (c) => {
     return desktopCallback(c, {
       state,
       error: 'exchange_failed',
-      error_description: e instanceof Error ? e.message : 'Plaud authorization failed',
+      error_description: e instanceof PlaudApiError ? e.message : 'Plaud authorization failed',
     })
   }
 

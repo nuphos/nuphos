@@ -19,6 +19,8 @@ export const PLAUD_MCP_URL = 'https://mcp.plaud.ai/mcp'
 export const PLAUD_CALLBACK_PATH = '/plaud-app/callback'
 const PLAUD_FETCH_TIMEOUT_MS = 30_000
 
+// Messages carry only the path and status: upstream bodies may echo tokens or
+// codes, and these messages reach the desktop deep link and API errors.
 export class PlaudApiError extends Error {
   constructor(
     public status: number,
@@ -33,18 +35,13 @@ async function plaudFetchJson<T>(url: string, init: RequestInit): Promise<T> {
 
   try {
     res = await fetch(url, { ...init, signal: AbortSignal.timeout(PLAUD_FETCH_TIMEOUT_MS) })
-  } catch (e) {
-    throw new PlaudApiError(
-      502,
-      `Plaud request failed: ${e instanceof Error ? e.message : 'unknown'}`,
-    )
+  } catch {
+    throw new PlaudApiError(502, `Plaud ${new URL(url).pathname} is unreachable`)
   }
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-
     throw new PlaudApiError(
       res.status,
-      `Plaud ${new URL(url).pathname} failed: ${String(res.status)} ${text}`,
+      `Plaud ${new URL(url).pathname} failed (HTTP ${String(res.status)})`,
     )
   }
 
