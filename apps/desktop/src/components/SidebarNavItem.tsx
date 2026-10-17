@@ -116,19 +116,20 @@ export function SidebarNavItem({
         </span>
       )}
       {/* One trailing slot: the row's state at rest, its actions on hover or
-          focus — never both. Both share one grid cell, so the slot keeps its
-          width and the title never reflows between the two. Presses here must
-          not navigate the row: activation happens at pointerdown, so they are
-          fenced off. */}
+          focus — never both. Only the showing one takes space, so at rest the
+          title runs up to the indicator, and on hover its clip edge (and fade)
+          moves in to make room for the actions, as Codex does. Presses here
+          must not navigate the row: activation happens at pointerdown, so they
+          are fenced off. */}
       <Fenced>
         {hoverActions == null ? (
           trailing
         ) : (
-          <span className="grid flex-shrink-0 items-center justify-items-end">
-            <span className="[grid-area:1/1] flex items-center gap-1.5 group-hover:invisible group-focus-visible:invisible">
+          <span className="flex flex-shrink-0 items-center">
+            <span className="flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden">
               {trailing}
             </span>
-            <span className="[grid-area:1/1] invisible flex items-center gap-1 group-hover:visible group-focus-visible:visible">
+            <span className="hidden items-center gap-1 group-hover:flex group-focus-visible:flex">
               {hoverActions}
             </span>
           </span>
