@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import test from 'node:test'
+import test, { mock } from 'node:test'
 
 import { VncStream } from './vnc-stream.ts'
 
@@ -81,4 +81,48 @@ test('a display another session holds, or an unknown frame first, ends the strea
     assert.equal(closed, true, first)
     assert.equal(connected, false, first)
   }
+})
+
+test('a viewer whose display went to another session is cut off and leaves its lock and control alone', async () => {
+  mock.timers.enable({ apis: ['setInterval'] })
+  const pool = mkdtempSync(path.join(tmpdir(), 'pool-'))
+  const lock = path.join(pool, '0.lock')
+  const control = path.join(pool, '0.xdg', 'instabox-control')
+
+  mkdirSync(path.join(pool, '0.xdg'))
+  writeFileSync(lock, JSON.stringify({ sessionId: 'a' }))
+  let client: Socket | undefined
+  const server = createServer((socket) => {
+    client = socket
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const stream = new VncStream(pool, () => (server.address() as AddressInfo).port)
+  let closed = false
+
+  stream.addEventListener('close', () => {
+    closed = true
+  })
+  await tick()
+  stream.send(JSON.stringify({ t: 'open', sessionId: 'a', display: 0, viewer: 'ua' }))
+  stream.send(JSON.stringify({ t: 'control', owner: 'human' }))
+  await tick()
+  // The display changes hands while A still watches; B holds it.
+  const before = new Date(Date.now() - 30_000)
+
+  writeFileSync(lock, JSON.stringify({ sessionId: 'b' }))
+  utimesSync(lock, before, before)
+  writeFileSync(control, 'human ub 1\n')
+  mock.timers.tick(60_000)
+  await tick()
+  assert.equal(closed, true)
+  assert.equal(client?.destroyed, true)
+  assert.equal(readFileSync(control, 'utf8'), 'human ub 1\n')
+  // Not renewed: still about 30 s old (file times are not millisecond-exact).
+  assert.ok(Date.now() - statSync(lock).mtimeMs > 20_000)
+  // Nothing renews a human hold for A afterwards.
+  mock.timers.tick(60_000)
+  assert.equal(readFileSync(control, 'utf8'), 'human ub 1\n')
+  mock.timers.reset()
+  server.close()
 })

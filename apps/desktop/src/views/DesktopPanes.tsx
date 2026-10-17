@@ -21,6 +21,12 @@ import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
 /** What the remote page shows once its connection is over; the view then reconnects with a new link. */
 const BOX_PAGE_ENDED = /link has expired|disconnected|failed to connect/iu
 
+/** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
+const holdingStatus = (display: number) =>
+  display === 0
+    ? 'You have the Mac’s screen; the agent can still use it too.'
+    : 'You have the desktop; the agent’s input tools wait until you hand it back.'
+
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
  * `display` is the X display number, or 0 for a Mac's own screen, which asks
@@ -89,7 +95,12 @@ export function SessionDesktopView({
 
     retryRef.current = connection.restart
 
-    return connection.stop
+    return () => {
+      connection.stop()
+      signIn.reset()
+    }
+    // `signIn` is fresh each render; its refs and setter are not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, tabId, teamId, display])
 
   const toggle = () => {
@@ -110,7 +121,7 @@ export function SessionDesktopView({
           : phase.kind !== 'connected'
             ? undefined
             : holding
-              ? 'You have the desktop; the agent’s input tools wait until you hand it back.'
+              ? holdingStatus(display)
               : 'Watching the agent’s desktop.'
       }
       action={

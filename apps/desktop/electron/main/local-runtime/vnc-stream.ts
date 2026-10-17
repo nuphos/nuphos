@@ -33,6 +33,9 @@ export class VncStream implements SocketLike {
   private viewer = ''
   private renew: ReturnType<typeof setInterval> | undefined
   private watching: ReturnType<typeof setInterval> | undefined
+  /** The display's lock names another session now. */
+  private lost = false
+  private held = () => false
   private readonly pool: string
   private readonly port: (display: number) => number
 
@@ -96,9 +99,11 @@ export class VncStream implements SocketLike {
     if (this.holder(display) !== sessionId) throw new Error('Not this session’s display')
     this.viewer = viewer.replace(/[^\w-]/gu, '')
     this.control = path.join(this.pool, `${String(display)}.xdg`, 'instabox-control')
+    this.held = () => this.holder(display) === sessionId
     // Someone is watching: a desktop opened by hand is not idle.
     const lock = path.join(this.pool, `${String(display)}.lock`)
     const touch = () => {
+      if (!this.stillHeld()) return
       try {
         utimesSync(lock, new Date(), new Date())
       } catch {
@@ -121,6 +126,7 @@ export class VncStream implements SocketLike {
     clearInterval(this.renew)
     this.renew = undefined
     const write = () => {
+      if (!this.stillHeld()) return
       try {
         writeFileSync(
           this.control,
@@ -135,10 +141,22 @@ export class VncStream implements SocketLike {
     if (toHuman) this.renew = setInterval(write, CONTROL_RENEW_MS)
   }
 
+  /** False, and the stream ended, once the display went to another session: its lock and control are not ours. */
+  private stillHeld(): boolean {
+    if (!this.lost && !this.held()) {
+      this.lost = true
+      this.close()
+    }
+
+    return !this.lost
+  }
+
   close(): void {
     if (this.readyState === 3) return
     this.readyState = 3
-    if (this.renew) this.handOver(false)
+    // Hands back only a desktop still this session's; another's lock is not ours to write.
+    if (this.renew && !this.lost) this.handOver(false)
+    clearInterval(this.renew)
     clearInterval(this.watching)
     this.socket?.destroy()
     this.emit('close', { code: 1000 })

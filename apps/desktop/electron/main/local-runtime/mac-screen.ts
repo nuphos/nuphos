@@ -2,11 +2,12 @@
 // Settings › General › Sharing) serves it over VNC on port 5900, which is
 // display 0 to vnc-stream.ts, and asks the viewer for a Mac account, so only
 // someone who could sign in at the Mac sees it. There is one screen, so one
-// conversation holds it at a time: the last its owner opened it from. Its lock
-// names that session the way a Box's pool does (desktop-session.mjs), the stream
-// touches it while someone watches, and a lock nobody has watched for IDLE_MS
-// is freed. Unlike a Box, nothing pauses the agent's input tools here while the
-// owner has the screen.
+// conversation holds it at a time. Its lock names that session the way a Box's
+// pool does (desktop-session.mjs), and the stream touches it every minute while
+// someone watches. Another conversation gets the screen only once nobody has
+// watched it for IDLE_MS, when the lock is freed; a stream whose lock went to
+// another session ends (vnc-stream.ts). Unlike a Box, nothing pauses the agent's
+// input tools here while the owner has the screen.
 
 import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { connect } from 'node:net'
@@ -20,7 +21,8 @@ import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 const SCREEN = 0
 const SCREEN_SHARING_PORT = 5900
 const PROBE_MS = 2_000
-const IDLE_MS = 10 * 60_000
+/** Three missed touches from vnc-stream.ts: nobody watches. */
+const IDLE_MS = 3 * 60_000
 
 const lockFile = (pool: string) => path.join(pool, `${String(SCREEN)}.lock`)
 
@@ -79,12 +81,16 @@ function listening(port: number): Promise<boolean> {
   })
 }
 
-/** Hands the screen to `sessionId`, once Screen Sharing is on. */
+/** Hands the screen to `sessionId`, once Screen Sharing is on and no other conversation watches it. */
 export async function openMacScreen(
   pool: string,
   sessionId: string,
   port = SCREEN_SHARING_PORT,
 ): Promise<number> {
+  const held = holder(pool)
+
+  if (held && held !== sessionId)
+    throw new Error('This Mac’s screen is open in another conversation. Close it there first.')
   if (!(await listening(port)))
     throw new Error(
       'Turn on Screen Sharing in System Settings › General › Sharing to show this Mac’s screen.',

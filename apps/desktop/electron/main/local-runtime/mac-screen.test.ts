@@ -28,7 +28,7 @@ test('with Screen Sharing off, opening says how to turn it on and holds nothing'
   assert.deepEqual(macScreenStatus(pool).desktops, [])
 })
 
-test('the last session to open the screen holds it until nobody watches it', async () => {
+test('another conversation gets the screen only once nobody watches it', async () => {
   const pool = mkdtempSync(path.join(tmpdir(), 'screen-'))
   const server = createServer((socket) => socket.destroy())
 
@@ -36,15 +36,18 @@ test('the last session to open the screen holds it until nobody watches it', asy
   const { port } = server.address() as AddressInfo
 
   assert.equal(await openMacScreen(pool, 's1', port), 0)
-  assert.equal(await openMacScreen(pool, 's2', port), 0)
+  assert.equal(await openMacScreen(pool, 's1', port), 0)
+  await assert.rejects(openMacScreen(pool, 's2', port), /another conversation/u)
   assert.deepEqual(macScreenStatus(pool), {
-    desktops: [{ display: 0, sessionId: 's2' }],
+    desktops: [{ display: 0, sessionId: 's1' }],
     desktopOpen: true,
   })
-  // The stream touches the lock while someone watches; eleven idle minutes free it.
-  const idle = new Date(Date.now() - 11 * 60_000)
+  // The stream touches the lock every minute while someone watches; four idle minutes free it.
+  const idle = new Date(Date.now() - 4 * 60_000)
 
   utimesSync(path.join(pool, '0.lock'), idle, idle)
   assert.deepEqual(macScreenStatus(pool).desktops, [])
+  assert.equal(await openMacScreen(pool, 's2', port), 0)
+  assert.deepEqual(macScreenStatus(pool).desktops, [{ display: 0, sessionId: 's2' }])
   server.close()
 })
