@@ -4,53 +4,38 @@
 // touches each app; each prompt becomes an approval card that parks the turn
 // like any other decision, so a cloud runtime gets the same consent as a local
 // Codex turn.
-import { randomUUID } from 'node:crypto'
-
-import { recordDeviceExecAudit } from '@/lib/agent/devices/audit'
-import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
-import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
-import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
-import { isActiveTeamMember } from '@/lib/agent/devices/store'
-import { describeDevices, pickDevice } from '@/lib/agent/tools-skilled/local-tools'
-import { toolError } from '@/lib/mcp/protocol'
-import { logError } from '@/lib/observability'
-
-import { publishPreviewFrame } from '../run-frame-bridge'
-
-import { approveAppForComputerUse } from './local-cua-approval'
-import { resolveAvailableLocalExecDevices } from './local-exec'
+import { createDeviceToolHandler } from './device-tool'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
-import type { DeviceExecOutcome as DeviceOutcome } from '@/lib/agent/devices/audit'
-import type { ToolResult } from '@/lib/mcp/protocol'
+import type { DeviceTool, DeviceToolDeps } from './device-tool'
 
-/** Covers a human approval (two minutes) plus the call itself. */
-export const LOCAL_CUA_TIMEOUT_MS = 4 * 60_000
+export type LocalCuaDeps = DeviceToolDeps
 
 type Args = { code: string; title?: string; timeout_ms?: number; device?: string }
 
-type DeviceMessage =
-  | { t: 'elicit'; id: string; message: string; meta: Record<string, unknown> }
-  | { t: 'result'; result: ToolResult }
+const cuaTool: DeviceTool = {
+  name: 'local_cua',
+  purpose: 'cua',
+  invalid: (raw) => {
+    const { code } = raw as Args
 
-export type LocalCuaDeps = {
-  devices: (ctx: PreviewToolContext) => Promise<{ deviceId: string; label: string }[]>
-  isMember: (userId: string, teamId: string) => Promise<boolean>
-  /** The device's transport owner when the actor may use it now, else null. */
-  owner: (ctx: PreviewToolContext, deviceId: string) => Promise<string | null>
-  connect: (
-    ctx: PreviewToolContext,
-    deviceId: string,
-    ownerUserId: string,
-  ) => Pick<DeviceRuntimeSocket, 'addEventListener' | 'send' | 'close' | 'connect'>
-  approve: (
-    ctx: PreviewToolContext,
-    request: { message: string; meta: Record<string, unknown> },
-  ) => Promise<boolean>
-  publish: typeof publishPreviewFrame
-  audit: typeof recordDeviceExecAudit
-  timeoutMs: number
+    return typeof code === 'string' && code.trim() ? undefined : 'code is required.'
+  },
+  frame: (raw) => {
+    const args = raw as Args
+
+    return {
+      code: args.code,
+      ...(args.title ? { title: args.title } : {}),
+      ...(args.timeout_ms ? { timeoutMs: args.timeout_ms } : {}),
+    }
+  },
+  audit: (args) => `[computer-use] ${String(args.code)}`,
+  errorReason: 'computer_use_error',
+  noDevice:
+    'No local device is usable in this conversation. Either no Mac is selected in its credential selector, or the selected one is offline: Nuphos Desktop must be open and signed in on it, with local exec allowed. list_credentials shows which.',
+  unsupported:
+    'The device disconnected or does not support Computer Use (it needs Nuphos Desktop on macOS).',
 }
 
 const definition = {
@@ -86,196 +71,8 @@ const definition = {
   },
 }
 
-const defaultDeps: LocalCuaDeps = {
-  devices: resolveAvailableLocalExecDevices,
-  isMember: isActiveTeamMember,
-  owner: (ctx, deviceId) =>
-    requireDeviceAccess(ctx.userId, ctx.teamId, deviceId, 'use').then(
-      (device) => device.userId,
-      () => null,
-    ),
-  connect: (ctx, deviceId, ownerUserId) =>
-    new DeviceRuntimeSocket(
-      { userId: ownerUserId, actorId: ctx.userId, deviceId, teamId: ctx.teamId, purpose: 'cua' },
-      { bus: tunnelBus(), presence: runtimePresenceStore() },
-    ),
-  approve: approveAppForComputerUse,
-  publish: publishPreviewFrame,
-  audit: recordDeviceExecAudit,
-  timeoutMs: LOCAL_CUA_TIMEOUT_MS,
-}
-
-/** Screenshots go to the model, not into the conversation's stored frames. */
-function framesOutput(result: ToolResult): unknown {
-  return result.content.map((part) =>
-    part.type === 'image' ? { type: 'image', mimeType: part.mimeType } : part,
-  )
-}
-
-function dispatch(
-  ctx: PreviewToolContext,
-  deviceId: string,
-  ownerUserId: string,
-  args: Args,
-  deps: LocalCuaDeps,
-): Promise<{ status: DeviceOutcome; result?: ToolResult }> {
-  const socket = deps.connect(ctx, deviceId, ownerUserId)
-
-  return new Promise((resolve) => {
-    let settled = false
-    const finish = (status: DeviceOutcome, result?: ToolResult) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      socket.close()
-      resolve({ status, ...(result ? { result } : {}) })
-    }
-    const timer = setTimeout(() => {
-      finish('timeout')
-    }, deps.timeoutMs)
-
-    socket.addEventListener('open', () => {
-      socket.send(
-        JSON.stringify({
-          t: 'call',
-          session: ctx.sessionId,
-          // Background turns have no key; the App only needs it stable within one.
-          turn: ctx.turnKey ?? ctx.sessionId,
-          code: args.code,
-          ...(args.title ? { title: args.title } : {}),
-          ...(args.timeout_ms ? { timeoutMs: args.timeout_ms } : {}),
-        }),
-      )
-    })
-    socket.addEventListener('close', () => {
-      finish('device_offline')
-    })
-    socket.addEventListener('message', (event) => {
-      let message: DeviceMessage
-
-      try {
-        message = JSON.parse(String(event.data)) as DeviceMessage
-      } catch {
-        finish('error')
-
-        return
-      }
-      if (message.t === 'result') {
-        finish('ok', message.result)
-
-        return
-      }
-      void deps
-        .approve(ctx, message)
-        .catch((error: unknown) => {
-          logError('agent.local_cua.approval_failed', error, { session_id: ctx.sessionId })
-
-          return false
-        })
-        .then((accept) => {
-          if (!settled) socket.send(JSON.stringify({ t: 'elicit-reply', id: message.id, accept }))
-        })
-    })
-    void socket.connect()
-  })
-}
-
-/** The device this call may drive, or the error that explains why none. */
-async function resolveDevice(
-  ctx: PreviewToolContext,
-  args: Args,
-  deps: LocalCuaDeps,
-): Promise<string | ToolResult> {
-  if (typeof args.code !== 'string' || !args.code.trim()) return toolError('code is required.')
-  if (ctx.conversationOwnerUserId && ctx.conversationOwnerUserId !== ctx.userId)
-    return toolError('Computer Use only runs in your own conversations.')
-  const devices = await deps.devices(ctx)
-
-  if (devices.length === 0)
-    return toolError(
-      'No local device is usable in this conversation. Either no Mac is selected in its credential selector, or the selected one is offline: Nuphos Desktop must be open and signed in on it, with local exec allowed. list_credentials shows which.',
-    )
-  const deviceId = pickDevice(devices, args.device)
-
-  if (!deviceId) {
-    const problem = args.device
-      ? `Device ${args.device} is not available`
-      : 'Multiple devices are available'
-
-    return toolError(`${problem}; pass device=<deviceId>, one of: ${describeDevices(devices)}.`)
-  }
-  if (!(await deps.isMember(ctx.userId, ctx.teamId)))
-    return toolError('You are no longer a member of this team.')
-
-  return deviceId
-}
-
-export function createLocalCuaHandler(ctx: PreviewToolContext, deps: LocalCuaDeps = defaultDeps) {
-  return async (raw: Record<string, unknown>): Promise<ToolResult> => {
-    const args = raw as Args
-
-    const target = await resolveDevice(ctx, args, deps)
-
-    if (typeof target !== 'string') return target
-    const deviceId = target
-    // Rechecked on every call: a revoked person loses the next action.
-    const ownerUserId = await deps.owner(ctx, deviceId)
-
-    if (!ownerUserId) return toolError('This device is not available to you.')
-
-    const toolCallId = `nuphos-${randomUUID()}`
-    const requestedAt = new Date()
-
-    await deps
-      .publish(ctx, {
-        type: 'tool-input-available',
-        toolCallId,
-        toolName: 'local_cua',
-        input: args,
-      })
-      .catch(() => {})
-    const { status, result } = await dispatch(ctx, deviceId, ownerUserId, args, deps)
-
-    await deps.audit({
-      ownerUserId,
-      deviceId,
-      actorUserId: ctx.userId,
-      conversationOwnerUserId: ctx.conversationOwnerUserId ?? ctx.userId,
-      origin: ctx.turnOrigin ?? 'user',
-      teamId: ctx.teamId,
-      sessionId: ctx.sessionId,
-      command: `[computer-use] ${args.code}`,
-      requestedAt,
-      dispatchedAt: requestedAt,
-      finishedAt: new Date(),
-      outcome: status,
-      ...(result?.isError ? { reason: 'computer_use_error' } : {}),
-    })
-    const final =
-      result ??
-      toolError(
-        status === 'timeout'
-          ? 'Timed out waiting for Computer Use on the device.'
-          : 'The device disconnected or does not support Computer Use (it needs Nuphos Desktop on macOS).',
-      )
-
-    await deps
-      .publish(
-        ctx,
-        final.isError
-          ? {
-              type: 'tool-output-error',
-              toolCallId,
-              errorText: final.content
-                .map((part) => (part.type === 'text' ? part.text : ''))
-                .join('\n'),
-            }
-          : { type: 'tool-output-available', toolCallId, output: framesOutput(final) },
-      )
-      .catch(() => {})
-
-    return final
-  }
+export function createLocalCuaHandler(ctx: PreviewToolContext, deps?: LocalCuaDeps) {
+  return createDeviceToolHandler(ctx, cuaTool, deps)
 }
 
 export const localCuaToolModule: PreviewToolModule = {

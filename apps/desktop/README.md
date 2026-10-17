@@ -42,6 +42,12 @@ conversation and relays each call over the device tunnel; the App's per-app
 approval prompts appear as the conversation's approval card, and an app allowed
 once stays allowed for that conversation.
 
+The workspace's own browser tabs need no Computer Use: the `local_browser`
+tool lists them, opens and navigates pages, runs JavaScript in a page and takes
+screenshots, through each tab's `webContents` (`local-runtime/browser-tabs.ts`).
+It is gated like `local_exec` — the owner's own conversations, on a selected
+device with local exec allowed — and opens no debugging port.
+
 ### Box desktops and snapshots
 
 On a Linux Box every conversation gets a `nuphos-desktop` MCP server
