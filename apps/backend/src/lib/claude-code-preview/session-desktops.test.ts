@@ -3,7 +3,12 @@ import { describe, expect, test } from 'bun:test'
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 
-import { boxDesktops, sessionDesktops, withSessionDesktops } from './session-desktops'
+import {
+  boxDesktops,
+  desktopTracker,
+  sessionDesktops,
+  withSessionDesktops,
+} from './session-desktops'
 
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 import type { SessionExecutionState } from './runtime-execution-snapshot'
@@ -89,6 +94,19 @@ describe('session desktops', () => {
     expect(await withSessionDesktops(snapshot, { sessionId: 's3', runtimeId }, label)).toBe(
       snapshot,
     )
+  })
+
+  test("a turn's first frame already carries the desktop, so clients never see it torn down", async () => {
+    const store = runtimePresenceStore()
+
+    await store.claim('u1', 'box-1', 'c1')
+    await store.put('u1', 'box-1', { conn: 'c1', status, seenAt: Date.now() })
+    const desktops = await desktopTracker({ sessionId: 's1', runtimeId }, label)
+
+    expect(desktops.with({ state: 'active' })).toMatchObject({
+      canOpenDesktop: true,
+      tools: [{ id: 'desktop:2' }],
+    })
   })
 
   test('a conversation off any local runtime has none', async () => {

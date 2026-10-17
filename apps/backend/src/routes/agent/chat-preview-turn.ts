@@ -63,7 +63,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const answers: string[] = []
   const toolLog = createPreviewToolLog()
   const state = createPreviewRunState({ run, userId, sessionId })
-  const desktops = desktopTracker({ sessionId, runtimeId: args.endpoint.runtimeId })
+  const tracking = desktopTracker({ sessionId, runtimeId: args.endpoint.runtimeId })
   const diagnostic = createTurnDiagnostics(
     {
       streamId: run.streamId,
@@ -82,7 +82,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const segmentStepStart = 0
 
   appendAgentRunPhase(run, 'connecting-model')
-  const prepared = await preparePreviewTurn(args, requestId)
+  const [prepared, desktops] = await Promise.all([preparePreviewTurn(args, requestId), tracking])
   const clearActiveTurn = () => prepared.clearActiveTurn()
 
   state.consumeFrames((frame) =>
