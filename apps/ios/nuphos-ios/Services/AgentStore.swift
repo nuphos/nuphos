@@ -250,6 +250,8 @@ final class AgentStore {
         newModelError = nil
         newModelPick = [:]
         credentialCatalog = nil
+        credentialCatalogError = nil
+        catalogLoad += 1
         favorites = nil
         sharedConversations = []
         runtimes = []
@@ -293,19 +295,27 @@ final class AgentStore {
         didSet { UserDefaults.standard.set(permissionMode.rawValue, forKey: Self.permissionModeKey) }
     }
 
+    /// Bumped by every catalog request and team switch; a response to an
+    /// older one is dropped.
+    private var catalogLoad = 0
+    /// The defaults are in place, or failed to load and the picker says so.
+    /// Sending before then would start a conversation with no credentials.
+    var credentialsReady: Bool { credentialCatalog != nil || credentialCatalogError != nil }
+
     /// Loads the IAM catalog for the selected team (cached per team).
     func loadCredentialOptions(force: Bool = false) async {
         guard let team = selectedTeam, force || credentialCatalog == nil else { return }
+        catalogLoad += 1
+        let load = catalogLoad
         do {
             let catalog = try await NuphosAPI.credentialOptions(token: token, teamId: team.id)
-            // Another team was picked meanwhile; its own load fills its state.
-            guard selectedTeam?.id == team.id else { return }
+            guard load == catalogLoad else { return }
             if credentialCatalog == nil { credentialSelection.selectDefaults(in: catalog) }
             credentialCatalog = catalog
             credentialCatalogError = nil
             credentialSelection = credentialSelection.pruned(to: catalog)
         } catch {
-            guard selectedTeam?.id == team.id else { return }
+            guard load == catalogLoad else { return }
             credentialCatalogError = error.localizedDescription
         }
     }
@@ -456,11 +466,8 @@ final class AgentStore {
         return session
     }
 
-    /// A brand-new conversation for the selected team. Waits for the first
-    /// catalog load so a quick first send still gets the default credentials;
-    /// if that load fails, the conversation starts with whatever is selected.
-    func newSession() async -> ChatSession? {
-        await loadCredentialOptions()
+    /// A brand-new conversation for the selected team.
+    func newSession() -> ChatSession? {
         guard let team = selectedTeam else { return nil }
         let session = ChatSession.fresh(token: token, teamId: team.id)
         session.me = me

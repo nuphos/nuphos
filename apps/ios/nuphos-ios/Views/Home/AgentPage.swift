@@ -69,7 +69,7 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, mentions: draftTeam.isEmpty ? nil : MentionSource(
+                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving && store.credentialsReady, mentions: draftTeam.isEmpty ? nil : MentionSource(
                     teamId: draftTeam,
                     devices: store.credentialCatalog?.scoped(to: .devices).allItems ?? [],
                     pickDevice: { device in
@@ -80,7 +80,7 @@ struct AgentPage: View {
                         return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
                     }
                 ), onSend: { submission in
-                    Task { if let session = await store.newSession() { newChat = NewChat(session: session, prompt: submission) } }
+                    if let session = store.newSession() { newChat = NewChat(session: session, prompt: submission) }
                 }) {
                     ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
                 }
@@ -128,7 +128,7 @@ struct AgentPage: View {
                 if CommandLine.arguments.contains("-preview-agent-login") { previewLogin = true }
                 // `-preview-approval`: a canned tool run + pending approval, for UI work.
                 if CommandLine.arguments.contains("-preview-approval") {
-                    let session = await store.newSession() ?? ChatSession.fresh(token: "", teamId: "preview")
+                    let session = store.newSession() ?? ChatSession.fresh(token: "", teamId: "preview")
                     let now = Date.now.timeIntervalSince1970 * 1000
                     func done(_ id: String, _ name: String, _ input: [String: JSONValue], start: Double, end: Double, error: String? = nil) -> ChatPart.ToolPart {
                         var t = ChatPart.ToolPart(toolCallId: id, toolName: name, isDynamic: false, state: error == nil ? .outputAvailable : .outputError)
@@ -166,7 +166,7 @@ struct AgentPage: View {
                 }
                 // `-new-chat "<prompt>"`: start a conversation with that text.
                 let args = CommandLine.arguments
-                if let i = args.firstIndex(of: "-new-chat"), i + 1 < args.count, let session = await store.newSession() {
+                if let i = args.firstIndex(of: "-new-chat"), i + 1 < args.count, let session = store.newSession() {
                     newChat = NewChat(session: session, prompt: ComposerSubmission(text: args[i + 1], attachments: []))
                 }
                 #endif
