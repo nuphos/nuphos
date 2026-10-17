@@ -126,3 +126,66 @@ test('a viewer whose display went to another session is cut off and leaves its l
   mock.timers.reset()
   server.close()
 })
+
+test('the moment the display goes to another session, no byte passes either way', async () => {
+  const pool = mkdtempSync(path.join(tmpdir(), 'pool-'))
+  const lock = path.join(pool, '0.lock')
+
+  writeFileSync(lock, JSON.stringify({ sessionId: 'a' }))
+  const received: Buffer[] = []
+  let client: Socket | undefined
+  const server = createServer((socket) => {
+    client = socket
+    socket.on('data', (chunk) => received.push(chunk))
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const stream = new VncStream(pool, () => (server.address() as AddressInfo).port)
+  const messages: string[] = []
+  let closed = false
+
+  stream.addEventListener('message', (event) => messages.push(String(event.data)))
+  stream.addEventListener('close', () => {
+    closed = true
+  })
+  await tick()
+  stream.send(JSON.stringify({ t: 'open', sessionId: 'a', display: 0, viewer: 'ua' }))
+  await tick()
+  stream.send(Buffer.from('a1').toString('base64'))
+  client?.write('s1')
+  await tick()
+  assert.equal(Buffer.concat(received).toString(), 'a1')
+  assert.deepEqual(messages, [Buffer.from('s1').toString('base64')])
+  // No timer runs: the next byte in either direction finds the lock is B's.
+  writeFileSync(lock, JSON.stringify({ sessionId: 'b' }))
+  client?.write('s2')
+  await tick()
+  stream.send(Buffer.from('a2').toString('base64'))
+  await tick()
+  assert.equal(closed, true)
+  assert.equal(Buffer.concat(received).toString(), 'a1')
+  assert.deepEqual(messages, [Buffer.from('s1').toString('base64')])
+  server.close()
+})
+
+test('a write from the viewer alone, with the server silent, is refused once the display moved', async () => {
+  const pool = mkdtempSync(path.join(tmpdir(), 'pool-'))
+  const lock = path.join(pool, '0.lock')
+
+  writeFileSync(lock, JSON.stringify({ sessionId: 'a' }))
+  const received: Buffer[] = []
+  const server = createServer((socket) => socket.on('data', (chunk) => received.push(chunk)))
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const stream = new VncStream(pool, () => (server.address() as AddressInfo).port)
+
+  await tick()
+  stream.send(JSON.stringify({ t: 'open', sessionId: 'a', display: 0, viewer: 'ua' }))
+  await tick()
+  writeFileSync(lock, JSON.stringify({ sessionId: 'b' }))
+  stream.send(Buffer.from('a1').toString('base64'))
+  await tick()
+  assert.equal(stream.readyState, 3)
+  assert.equal(Buffer.concat(received).length, 0)
+  server.close()
+})

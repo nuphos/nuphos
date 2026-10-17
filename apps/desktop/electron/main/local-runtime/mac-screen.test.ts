@@ -51,3 +51,21 @@ test('another conversation gets the screen only once nobody watches it', async (
   assert.deepEqual(macScreenStatus(pool).desktops, [{ display: 0, sessionId: 's2' }])
   server.close()
 })
+
+test('two conversations opening the screen at once: one gets it, the other is refused', async () => {
+  const pool = mkdtempSync(path.join(tmpdir(), 'screen-'))
+  const server = createServer((socket) => socket.destroy())
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+  const results = await Promise.allSettled([
+    openMacScreen(pool, 's1', port),
+    openMacScreen(pool, 's2', port),
+  ])
+
+  assert.deepEqual(results.map((result) => result.status).sort(), ['fulfilled', 'rejected'])
+  const winner = results[0].status === 'fulfilled' ? 's1' : 's2'
+
+  assert.deepEqual(macScreenStatus(pool).desktops, [{ display: 0, sessionId: winner }])
+  server.close()
+})

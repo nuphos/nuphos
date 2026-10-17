@@ -59,7 +59,8 @@ export class VncStream implements SocketLike {
   send(data: string): void {
     if (this.readyState !== 1) return
     if (!data.startsWith('{')) {
-      this.socket?.write(Buffer.from(data, 'base64'))
+      // Every byte checks the display is still this session's, not just the timers.
+      if (this.socket && this.stillHeld()) this.socket.write(Buffer.from(data, 'base64'))
 
       return
     }
@@ -116,7 +117,9 @@ export class VncStream implements SocketLike {
     const socket = connect(this.port(display), '127.0.0.1')
 
     this.socket = socket
-    socket.on('data', (chunk: Buffer) => this.emit('message', { data: chunk.toString('base64') }))
+    socket.on('data', (chunk: Buffer) => {
+      if (this.stillHeld()) this.emit('message', { data: chunk.toString('base64') })
+    })
     socket.on('close', () => this.close())
     socket.on('error', () => this.close())
   }

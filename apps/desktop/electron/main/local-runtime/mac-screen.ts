@@ -87,14 +87,15 @@ export async function openMacScreen(
   sessionId: string,
   port = SCREEN_SHARING_PORT,
 ): Promise<number> {
-  const held = holder(pool)
-
-  if (held && held !== sessionId)
-    throw new Error('This Mac’s screen is open in another conversation. Close it there first.')
   if (!(await listening(port)))
     throw new Error(
       'Turn on Screen Sharing in System Settings › General › Sharing to show this Mac’s screen.',
     )
+  // Checked after the probe, with nothing awaited before the write: two opens cannot both win.
+  const held = holder(pool)
+
+  if (held && held !== sessionId)
+    throw new Error('This Mac’s screen is open in another conversation. Close it there first.')
   writeFileSync(lockFile(pool), JSON.stringify({ sessionId, since: Date.now() }), { mode: 0o600 })
 
   return SCREEN
