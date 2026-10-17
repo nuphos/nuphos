@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -126,34 +126,57 @@ describe('Box update', () => {
     expect(BOX_UPDATE_COMMAND).toContain('grep -L web-browser.desktop')
   })
 
-  test('the update drops the image’s AGENTS.md and its links, never a file someone wrote', () => {
+  test('the update drops the image’s AGENTS.md and its links, never one someone edited', () => {
     const cleanup = BOX_UPDATE_COMMAND.split('\n').find((line) => line.includes('CLAUDE.md'))
     const run = (setup: string) => {
       const home = mkdtempSync(path.join(os.tmpdir(), 'box-home-'))
 
+      writeFileSync(path.join(home, 'image.md'), IMAGE_AGENTS)
       execFileSync('/bin/bash', ['-ec', `mkdir -p .claude .codex; ${setup}`], { cwd: home })
-      execFileSync('/bin/bash', ['-ec', cleanup ?? 'false'], { env: { ...process.env, HOME: home } })
+      execFileSync('/bin/bash', ['-ec', cleanup ?? 'false'], {
+        env: { ...process.env, HOME: home },
+      })
 
       return ['AGENTS.md', '.claude/CLAUDE.md', '.codex/AGENTS.md'].filter((file) =>
         existsSync(path.join(home, file)),
       )
     }
+    const links =
+      'ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; ln -s "$PWD/AGENTS.md" .codex/AGENTS.md'
 
+    expect(run(`cp image.md AGENTS.md; ${links}`)).toEqual([])
+    // Edited in place, links untouched: the team's instructions stay.
+    expect(run(`cp image.md AGENTS.md; echo '- Our rule' >> AGENTS.md; ${links}`)).toEqual([
+      'AGENTS.md',
+      '.claude/CLAUDE.md',
+      '.codex/AGENTS.md',
+    ])
+    expect(run('echo mine > AGENTS.md; echo own > .claude/CLAUDE.md')).toEqual([
+      'AGENTS.md',
+      '.claude/CLAUDE.md',
+    ])
+    // The image's file goes with the link to it; a file of someone's own stays.
     expect(
       run(
-        'echo img > AGENTS.md; ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; ln -s "$PWD/AGENTS.md" .codex/AGENTS.md',
-      ),
-    ).toEqual([])
-    expect(
-      run('echo mine > AGENTS.md; echo own > .claude/CLAUDE.md; echo own > .codex/AGENTS.md'),
-    ).toEqual(['AGENTS.md', '.claude/CLAUDE.md', '.codex/AGENTS.md'])
-    expect(
-      run(
-        'echo img > AGENTS.md; ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; echo own > .codex/AGENTS.md',
+        'cp image.md AGENTS.md; ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; echo own > .codex/AGENTS.md',
       ),
     ).toEqual(['.codex/AGENTS.md'])
-    expect(
-      run('echo x > other.md; ln -s "$PWD/other.md" .claude/CLAUDE.md; echo img > AGENTS.md'),
-    ).toEqual(['AGENTS.md', '.claude/CLAUDE.md'])
   })
 })
+
+/** The ~/AGENTS.md the Box image shipped, byte for byte (its sha256 is in IMAGE_AGENTS_SHA256). */
+const IMAGE_AGENTS = `# Agent notes
+
+You are running on a Nuphos Box: a Linux VM in the cloud that runs this team's
+Nuphos agents. People talk to you through Nuphos; nobody uses this machine's
+own console. Work in /data/workspace.
+
+- Anything visual (a web page, a browser, a GUI app): use the desktop tools
+  (the \`nuphos-desktop\` MCP server: get_app_state, click, type_text, ...).
+  The first call starts this conversation's own desktop, and the person
+  watches it live in Nuphos. Do not start X, Xvnc or a browser on DISPLAY=:1
+  from the shell; that display is not used for conversations.
+- ~/MACHINE.md lists the machine's size, what survives a stop, and the
+  installed tools. Ignore its notes about the instabox dashboard, its
+  Computer tab and display :1; they do not apply on a Nuphos Box.
+`
