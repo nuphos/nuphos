@@ -7,6 +7,7 @@ const keys = [
   'NUPHOS_DEV_HTTP_PORT',
   'NUPHOS_DEV_EMAIL_OTP_LOG',
   'NUPHOS_LOCAL_STACK',
+  'NUPHOS_EMAIL_PROVIDER',
 ] as const
 const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]))
 
@@ -44,5 +45,25 @@ describe('local-stack switches', () => {
     expect(config.server.devHttpPort).toBe(0)
     expect(config.email.devLogOtp).toBe(false)
     expect(config.localStack).toBe(false)
+  })
+})
+
+describe('email provider', () => {
+  test('defaults to zsend', () => {
+    delete process.env.NUPHOS_EMAIL_PROVIDER
+
+    expect(coreConfig().email.provider).toBe('zsend')
+  })
+
+  test('accepts resend', () => {
+    process.env.NUPHOS_EMAIL_PROVIDER = 'Resend'
+
+    expect(coreConfig().email.provider).toBe('resend')
+  })
+
+  test('rejects an unknown provider at startup', () => {
+    process.env.NUPHOS_EMAIL_PROVIDER = 'smtp'
+
+    expect(() => coreConfig()).toThrow('NUPHOS_EMAIL_PROVIDER must be one of zsend/resend')
   })
 })
