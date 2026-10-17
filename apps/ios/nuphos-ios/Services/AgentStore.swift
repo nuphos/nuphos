@@ -256,7 +256,7 @@ final class AgentStore {
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
-        restoreCredentialSelection()
+        credentialSelection = CredentialSelection()
     }
     var search = "" {
         didSet { if search != oldValue { scheduleSearch() } }
@@ -281,9 +281,9 @@ final class AgentStore {
 
     private(set) var credentialCatalog: CredentialCatalog?
     private(set) var credentialCatalogError: String?
-    var credentialSelection = CredentialSelection() {
-        didSet { persistCredentialSelection() }
-    }
+    /// What a new conversation starts with. Not persisted: every launch and
+    /// team switch starts from the defaults, as the desktop does.
+    var credentialSelection = CredentialSelection()
     /// Nothing stored yet means Full Access; anything unreadable fails safe
     /// to Auto Mode.
     var permissionMode: PermissionMode = {
@@ -293,26 +293,12 @@ final class AgentStore {
         didSet { UserDefaults.standard.set(permissionMode.rawValue, forKey: Self.permissionModeKey) }
     }
 
-    private func credentialSelectionKey(for team: Team) -> String { "nuphos.credentialSelection.\(team.id)" }
-
-    private func restoreCredentialSelection() {
-        guard let team = selectedTeam,
-              let data = UserDefaults.standard.data(forKey: credentialSelectionKey(for: team)),
-              let saved = try? JSONDecoder().decode(CredentialSelection.self, from: data)
-        else { credentialSelection = CredentialSelection(); return }
-        credentialSelection = saved
-    }
-
-    private func persistCredentialSelection() {
-        guard let team = selectedTeam, let data = try? JSONEncoder().encode(credentialSelection) else { return }
-        UserDefaults.standard.set(data, forKey: credentialSelectionKey(for: team))
-    }
-
     /// Loads the IAM catalog for the selected team (cached per team).
     func loadCredentialOptions(force: Bool = false) async {
         guard let team = selectedTeam, force || credentialCatalog == nil else { return }
         do {
             let catalog = try await NuphosAPI.credentialOptions(token: token, teamId: team.id)
+            if credentialCatalog == nil { credentialSelection.selectDefaults(in: catalog) }
             credentialCatalog = catalog
             credentialCatalogError = nil
             credentialSelection = credentialSelection.pruned(to: catalog)

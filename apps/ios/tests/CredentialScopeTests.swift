@@ -36,6 +36,11 @@ enum CredentialScopeTests {
         picked.selectAll(in: mixed)
         precondition(picked.json["deviceIds"]?.arrayValue?.compactMap(\.stringValue) == ["m1"])
         precondition(picked.containsAll(in: mixed))
+        let withResend = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"m1","label":"M1","available":true},{"deviceId":"m5","label":"M5","available":false}],"awsRoles":[{"roleId":"aws","accountId":"123"}],"resendIntegrations":[{"integrationId":"mail","label":"Mail"}]}"#)!)
+        var defaults = CredentialSelection()
+        defaults.selectDefaults(in: withResend)
+        precondition(defaults.ids["awsRoleIds"] == ["aws"] && defaults.ids["deviceIds"] == ["m1"])
+        precondition(defaults.ids["resendIntegrationIds"]?.isEmpty == true, "Resend stays opt-in")
         print("Credential scope tests passed")
     }
 }

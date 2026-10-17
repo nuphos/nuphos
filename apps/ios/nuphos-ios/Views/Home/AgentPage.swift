@@ -88,6 +88,7 @@ struct AgentPage: View {
             .onAppear {
                 if draft.isEmpty { draft = ComposerDrafts.text(team: draftTeam, session: "new") }
             }
+            .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
             .onChange(of: store.selectedTeam?.id) { old, new in
                 draft = ComposerDrafts.switchTeam(visible: draft, session: "new", from: old ?? "", to: new ?? "")
             }

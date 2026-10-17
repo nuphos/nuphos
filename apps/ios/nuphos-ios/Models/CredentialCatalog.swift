@@ -117,7 +117,7 @@ struct CredentialCatalog: Equatable, Sendable {
 }
 
 /// Which credentials a conversation may use, keyed by selection key.
-struct CredentialSelection: Equatable, Codable, Sendable {
+struct CredentialSelection: Equatable, Sendable {
     var ids: [String: Set<String>] = [:]
     /// Stored keys this build has no row for, sent back untouched so a
     /// selection made on a newer client survives an edit here.
@@ -156,6 +156,14 @@ struct CredentialSelection: Equatable, Codable, Sendable {
 
     mutating func selectAll(in catalog: CredentialCatalog) {
         for item in catalog.allItems where !item.offline && !contains(item) { toggle(item) }
+    }
+
+    /// What a conversation starts with when nobody has chosen: everything
+    /// usable except Resend, whose mail is irreversible and so stays opt-in.
+    /// Mirrors the desktop's `defaultCredentialAccess`.
+    mutating func selectDefaults(in catalog: CredentialCatalog) {
+        selectAll(in: catalog)
+        ids["resendIntegrationIds"] = []
     }
 
     func containsAll(in catalog: CredentialCatalog) -> Bool {
