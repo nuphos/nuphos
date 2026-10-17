@@ -23,6 +23,43 @@ export function grafanaTokenStep(
   return 'unset-plaintext'
 }
 
+type Binding = Pick<GrafanaInstanceBinding, 'id' | 'saToken' | 'encryptedSaToken'>
+
+/**
+ * The write for one step. Each filter re-checks the values the step was
+ * decided from, so a binding changed since it was read is left alone.
+ */
+export function grafanaTokenUpdate(
+  binding: Binding,
+  step: Exclude<GrafanaTokenStep, 'skip'>,
+): { update: Record<string, unknown>; arrayFilters: Record<string, unknown>[] } {
+  if (step === 'encrypt') {
+    return {
+      update: {
+        $set: { 'grafanaInstances.$[g].encryptedSaToken': encryptGrafanaSecret(binding.saToken!) },
+      },
+      arrayFilters: [
+        {
+          'g.id': binding.id,
+          'g.saToken': binding.saToken,
+          'g.encryptedSaToken': { $exists: false },
+        },
+      ],
+    }
+  }
+
+  return {
+    update: { $unset: { 'grafanaInstances.$[g].saToken': '' } },
+    arrayFilters: [
+      {
+        'g.id': binding.id,
+        'g.saToken': binding.saToken,
+        'g.encryptedSaToken.ciphertext': binding.encryptedSaToken?.ciphertext,
+      },
+    ],
+  }
+}
+
 export async function migrateGrafanaTokens(options: {
   dryRun: boolean
   unsetPlaintext: boolean
@@ -39,23 +76,9 @@ export async function migrateGrafanaTokens(options: {
 
       counts[step] += 1
       if (options.dryRun || step === 'skip') continue
-      if (step === 'encrypt' && binding.saToken) {
-        await teamByosBindings().updateOne(
-          { _id: doc._id },
-          {
-            $set: {
-              'grafanaInstances.$[g].encryptedSaToken': encryptGrafanaSecret(binding.saToken),
-            },
-          },
-          { arrayFilters: [{ 'g.id': binding.id, 'g.encryptedSaToken': { $exists: false } }] },
-        )
-      } else if (step === 'unset-plaintext') {
-        await teamByosBindings().updateOne(
-          { _id: doc._id },
-          { $unset: { 'grafanaInstances.$[g].saToken': '' } },
-          { arrayFilters: [{ 'g.id': binding.id, 'g.encryptedSaToken': { $exists: true } }] },
-        )
-      }
+      const { update, arrayFilters } = grafanaTokenUpdate(binding, step)
+
+      await teamByosBindings().updateOne({ _id: doc._id }, update, { arrayFilters })
     }
   }
 

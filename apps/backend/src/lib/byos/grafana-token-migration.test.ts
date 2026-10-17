@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
-import { grafanaTokenStep } from './grafana-token-migration'
+import { grafanaTokenStep, grafanaTokenUpdate } from './grafana-token-migration'
 import { decryptGrafanaSecret, encryptGrafanaSecret, grafanaBindingToken } from './secrets'
 
 describe('Grafana token encryption', () => {
@@ -44,5 +45,38 @@ describe('grafanaTokenStep', () => {
     expect(() => grafanaTokenStep({ saToken: 'other', encryptedSaToken: encrypted }, true)).toThrow(
       /does not match/,
     )
+  })
+})
+
+describe('grafanaTokenUpdate', () => {
+  const id = new ObjectId()
+
+  test('encrypt only fills a missing envelope next to the plaintext it was read with', () => {
+    const { update, arrayFilters } = grafanaTokenUpdate({ id, saToken: 'tok' }, 'encrypt')
+    const envelope = (update.$set as Record<string, Parameters<typeof decryptGrafanaSecret>[0]>)[
+      'grafanaInstances.$[g].encryptedSaToken'
+    ]!
+
+    expect(decryptGrafanaSecret(envelope)).toBe('tok')
+    expect(arrayFilters).toEqual([
+      { 'g.id': id, 'g.saToken': 'tok', 'g.encryptedSaToken': { $exists: false } },
+    ])
+  })
+
+  test('unset only removes the plaintext when both values are still the verified ones', () => {
+    const encryptedSaToken = encryptGrafanaSecret('tok')
+    const { update, arrayFilters } = grafanaTokenUpdate(
+      { id, saToken: 'tok', encryptedSaToken },
+      'unset-plaintext',
+    )
+
+    expect(update).toEqual({ $unset: { 'grafanaInstances.$[g].saToken': '' } })
+    expect(arrayFilters).toEqual([
+      {
+        'g.id': id,
+        'g.saToken': 'tok',
+        'g.encryptedSaToken.ciphertext': encryptedSaToken.ciphertext,
+      },
+    ])
   })
 })
