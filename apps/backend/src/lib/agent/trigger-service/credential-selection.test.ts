@@ -37,6 +37,7 @@ const options = {
   notionIntegrations: [],
   upstashAccounts: [],
   posthogIntegrations: [],
+  plaudAccounts: [],
   cloudflareAccounts: [],
   devices: [],
 } as unknown as AgentCredentialOptions

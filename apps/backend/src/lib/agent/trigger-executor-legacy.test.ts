@@ -44,6 +44,7 @@ const options = {
   notionIntegrations: [{ integrationId: 'notion-late', workspaceName: 'Team' }],
   upstashAccounts: [],
   posthogIntegrations: [],
+  plaudAccounts: [],
   cloudflareAccounts: [],
   devices: [],
 } as unknown as AgentCredentialOptions
