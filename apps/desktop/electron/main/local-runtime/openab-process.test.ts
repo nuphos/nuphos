@@ -64,7 +64,9 @@ async function orphanedOpenab(root: string, config: string, pids: number[]) {
   let openab = 0
 
   pids.push(host.pid ?? 0)
-  host.stdout.on('data', (data) => (openab = Number(String(data))))
+  host.stdout.on('data', (data) => {
+    openab = Number(String(data))
+  })
   await until(() => openab > 0)
   pids.push(openab)
   const agentFile = path.join(path.dirname(config), 'agent.pid')
