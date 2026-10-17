@@ -2,10 +2,10 @@ name: Build runtime image
 
 # Builds and pushes the Claude Code and Codex runtime images in two steps:
 #
-#   1. third_party/openab/Dockerfile.unified --target agentcore
-#      The gateway base. The runtime image takes only its `openab` binary, so
-#      an ACP or pool fix ships once this is rebuilt — bumping the submodule
-#      alone does nothing.
+#   1. openab/Dockerfile
+#      The gateway base: only the `openab` binary, which the runtime image
+#      takes, so an ACP or pool fix in apps/runtime/openab ships once this is
+#      rebuilt.
 #   2. image/Dockerfile (the Nuphos runtime image)
 #
 # ⚠️ Publishing does NOT roll anything out. A Nuphos workspace administrator
@@ -38,7 +38,7 @@ on:
         default: all
         required: true
       reuse_base:
-        description: Reuse the published provider base at the pinned OpenAB revision
+        description: Reuse the published provider base built from the same apps/runtime/openab
         type: boolean
         default: false
   # release.yml calls this after tagging. A dispatch made with GITHUB_TOKEN
@@ -139,8 +139,8 @@ jobs:
             node scripts/check-legacy-version.mjs "$VERSION"
           fi
 
-          # The gitlink, so no submodule checkout is needed to name the revision.
-          SHA="$(git rev-parse "${BUILD_SHA}:apps/runtime/third_party/openab")"
+          # The source tree, so a base is reused only for identical openab source.
+          SHA="$(git rev-parse "${BUILD_SHA}:apps/runtime/openab")"
           if [[ "$PROVIDER" == "all" ]]; then
             PROVIDERS='["claude","codex","grok","antigravity","opencode"]'
           else
@@ -176,7 +176,6 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.build_sha }}
           persist-credentials: false
-          submodules: true
 
       - name: Resolve image tags
         id: tags
@@ -246,9 +245,8 @@ jobs:
         if: ${{ !inputs.reuse_base }}
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
-          context: apps/runtime/third_party/openab
-          file: apps/runtime/third_party/openab/Dockerfile.unified
-          target: agentcore
+          context: apps/runtime/openab
+          file: apps/runtime/openab/Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.tags.outputs.base_tags }}

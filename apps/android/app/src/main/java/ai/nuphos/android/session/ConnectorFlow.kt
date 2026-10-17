@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 data class ConnectorPending(val teamId: String, val provider: String, val state: String, val expiresAt: Long)
 sealed interface ConnectorReturn {
     data class OAuth(val bindingId: String) : ConnectorReturn
+    // A backend that stages grants returns a one-time code; completing it creates the binding.
+    data class Deferred(val code: String) : ConnectorReturn
     data class Github(val installationId: Long) : ConnectorReturn
     data class Invalid(val message: String) : ConnectorReturn
 }
@@ -41,6 +43,10 @@ object ConnectorCallback {
             if (action !in setOf("install", "update") || !Regex("^[0-9]+$").matches(rawId)) return invalid()
             val id = rawId.toLongOrNull()?.takeIf { it > 0 && it <= 9007199254740991L } ?: return invalid()
             return ConnectorReturn.Github(id)
+        }
+        if (provider.oauth && single("deferred") == "1") {
+            val code = single("code")?.takeIf(String::isNotBlank) ?: return invalid()
+            return ConnectorReturn.Deferred(code)
         }
         if (!provider.oauth || single("team_id") != pending.teamId) return invalid()
         val id = single("binding_id")?.takeIf(String::isNotBlank) ?: return invalid()

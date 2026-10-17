@@ -11,6 +11,7 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
     'NUPHOS_TEAM_ID',
     'TEAM',
     'NUPHOS_SESSION_ID',
+    'NUPHOS_SESSION_ACTOR',
     'NUPHOS_PLAN_API_BASE',
     'NUPHOS_PLAN_API_TOKEN',
   ])
@@ -61,4 +62,29 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
       ]),
     ),
   }
+}
+
+// The session home each thread was last opened with by this adapter process.
+const nuphosThreadHomes = new Map()
+
+function nuphosThreadHome(meta, processEnv) {
+  const env = meta?.['ai.nuphos/codex']?.env ?? {}
+  const { NUPHOS_SESSION_ID, NUPHOS_SESSION_ACTOR } = env
+  return nuphosSessionHomeEnv({ NUPHOS_SESSION_ID, NUPHOS_SESSION_ACTOR }, processEnv).HOME ?? ''
+}
+
+// App Server ignores a resume's config while a subscription holds the loaded
+// thread. When the acting principal's home changed since this process last
+// opened the thread, release the subscription first so the idle thread is
+// rebuilt with the new config. Any other reload keeps the thread as it is.
+export async function nuphosReleaseMovedThread(client, threadId, meta, processEnv = process.env) {
+  const home = nuphosThreadHome(meta, processEnv)
+  const last = nuphosThreadHomes.get(threadId)
+  nuphosThreadHomes.set(threadId, home)
+  if (last !== undefined && last !== home)
+    await client.threadUnsubscribe({ threadId }).catch(() => {})
+}
+
+export function nuphosRememberThreadHome(threadId, meta, processEnv = process.env) {
+  nuphosThreadHomes.set(threadId, nuphosThreadHome(meta, processEnv))
 }

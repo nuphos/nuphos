@@ -23,11 +23,14 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { RECLAIM_SESSION_HOME_PROGRAM, reclaimSessionHomes } from './runtime-session-home'
 
+const hash = (value: string) => createHash('sha256').update(value).digest('hex')
+
 // The program reads /proc, which only Linux runtimes have.
 describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () => {
   let root = ''
-  const home = (id: string) =>
-    join(root, 'home', '.nuphos', 'session-homes', createHash('sha256').update(id).digest('hex'))
+  const home = (id: string) => join(root, 'home', '.nuphos', 'session-homes', hash(id))
+  // Where a teammate's turns in the conversation keep their CLI state.
+  const guestHome = (id: string, actor: string) => `${home(id)}.${hash(actor)}`
   // Runs the program the way the panel job does: `node runner.mjs <dir>`.
   const reclaim = (sessionId: string) => {
     const runDir = mkdtempSync(join(root, 'run-'))
@@ -152,6 +155,38 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     expect(reclaim('archived')).toBe('removed')
   })
 
+  test("removes teammates' homes with the owner's, and only this conversation's", () => {
+    mkdirSync(guestHome('archived', 'guest'), { recursive: true })
+    mkdirSync(guestHome('other', 'guest'), { recursive: true })
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(home('archived'))).toBe(false)
+    expect(existsSync(guestHome('archived', 'guest'))).toBe(false)
+    expect(existsSync(guestHome('other', 'guest'))).toBe(true)
+  })
+
+  test("removes a teammate's home when the owner's is already gone", () => {
+    rmSync(home('archived'), { recursive: true })
+    mkdirSync(guestHome('archived', 'guest'), { recursive: true })
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(guestHome('archived', 'guest'))).toBe(false)
+  })
+
+  test("keeps a teammate's home that a running process uses, and reports it", () => {
+    mkdirSync(guestHome('archived', 'guest'), { recursive: true })
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: guestHome('archived', 'guest'), PATH: '/bin:/usr/bin' },
+    })
+
+    try {
+      expect(reclaim('archived')).toBe('in_use')
+      expect(existsSync(guestHome('archived', 'guest'))).toBe(true)
+    } finally {
+      shell.kill()
+    }
+  })
+
   // A set-aside home left by a run ten minutes ago or earlier.
   const leftover = (id: string, setAt = Date.now() - 11 * 60_000) => {
     const left = `${home(id)}.reclaim-${setAt}-left`
@@ -173,6 +208,15 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
 
     expect(reclaim('archived')).toBe('removed')
     expect(existsSync(left)).toBe(true)
+  })
+
+  test("removes a set-aside teammate's home a killed run left behind", () => {
+    const left = `${guestHome('archived', 'guest')}.reclaim-${String(Date.now() - 11 * 60_000)}-left`
+
+    mkdirSync(left, { recursive: true })
+
+    expect(reclaim('archived')).toBe('removed')
+    expect(existsSync(left)).toBe(false)
   })
 
   test('keeps a set-aside home a running job may still hold', () => {

@@ -167,7 +167,7 @@ export const agentCredentialOptionsSchema = z.object({
     z.object({
       integrationId: objectIdStringSchema,
       label: z.string().min(1),
-      authType: z.enum(['client_credentials', 'oauth']),
+      authType: z.literal('client_credentials'),
     }),
   ),
   secureframeIntegrations: z.array(

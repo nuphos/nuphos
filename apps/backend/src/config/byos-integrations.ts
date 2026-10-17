@@ -96,19 +96,6 @@ export function byosIntegrationsConfig() {
         optional('LINODE_BYOK_ENCRYPTION_KEY') ??
         optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
       encryptionKeyId: 'default',
-      // Public-integration (partner) OAuth app — scaffold only. The
-      // client_credentials bind path (team pastes its own Manage Vanta app's
-      // client_id/secret) needs none of this. Set these once the Vanta public
-      // integration is approved to enable the "click to authorize" flow.
-      oauth: {
-        clientId: optional('VANTA_OAUTH_CLIENT_ID'),
-        clientSecret: optional('VANTA_OAUTH_CLIENT_SECRET'),
-        // Public HTTPS URL of the backend's /vanta-app/setup callback; must
-        // match the redirect URI registered on the Vanta public integration.
-        setupRedirect: optional('VANTA_OAUTH_SETUP_REDIRECT'),
-        // Scope requested on the public-integration (connector) flow — scaffold.
-        scopes: optional('VANTA_OAUTH_SCOPES') ?? 'connectors.self:read-resource',
-      },
     },
     secureframe: {
       // Secureframe authenticates with a static API key + secret pair (no
@@ -171,6 +158,10 @@ export function byosIntegrationsConfig() {
         optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
       encryptionKeyId: 'default',
     },
+    // When on, connector OAuth callbacks stage the grant and the requester's own
+    // client confirms the binding (complete-oauth) with the callback's one-time
+    // code. Off until Desktop, iOS and Android builds that confirm have shipped.
+    connectorOAuthDeferredBind: bool('CONNECTOR_OAUTH_DEFERRED_BIND', false),
     linear: {
       // OAuth2 app the team authorises against. Linear has a single hosted
       // instance, so unlike GitLab there are no per-binding client overrides.

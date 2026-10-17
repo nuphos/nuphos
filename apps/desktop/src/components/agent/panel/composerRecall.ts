@@ -1,6 +1,6 @@
 // What Esc and the arrow keys bring back into an empty composer: the message
 // you just sent or queued, or the ones you sent before.
-import { dispatchedDraft } from './queuedAutoSend.ts'
+import { dispatchedDraft, waitingMessages } from './queuedAutoSend.ts'
 
 import type { Message, QueuedMessage, Tab } from './model.ts'
 import type { SendDraft } from './queuedAutoSend.ts'
@@ -31,14 +31,14 @@ export type RetractTarget =
   { kind: 'queued'; item: QueuedMessage } | { kind: 'turn'; draft: SendDraft }
 
 /**
- * What Esc takes back, newest first: a queued message (a steer already on its
- * way is not), else the message whose turn is running with no output yet.
- * Both are only ever this client's own sends.
+ * What Esc takes back, newest first: your message waiting in the session queue
+ * (a steer already on its way is not), else the message whose turn is running
+ * with no output yet. Both are only ever this person's own sends.
  */
 export function retractTarget(
   tab: Pick<Tab, 'queued' | 'streaming' | 'streamId' | 'messages' | 'unsaved'>,
 ): RetractTarget | null {
-  const item = (tab.queued ?? []).findLast((queued) => !queued.steering || queued.autoSend)
+  const item = waitingMessages(tab).findLast((queued) => !queued.steering)
 
   if (item) return { kind: 'queued', item }
   if (!tab.streaming || !tab.streamId || tab.unsaved) return null

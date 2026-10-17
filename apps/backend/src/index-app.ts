@@ -39,7 +39,6 @@ import { sentryAppRoutes } from '@/routes/sentry-app'
 import { slackRoutes } from '@/routes/slack'
 import { slackAppRoutes } from '@/routes/slack-app'
 import { teamsRoutes } from '@/routes/teams'
-import { vantaAppRoutes } from '@/routes/vanta-app'
 import { webhooksRoutes } from '@/routes/webhooks'
 import { wellKnownRoutes } from '@/routes/well-known'
 
@@ -110,7 +109,6 @@ app.route('/invite', inviteLandingRoutes)
 app.route('/github-app', githubAppRoutes)
 app.route('/gitlab-app', gitlabAppRoutes)
 app.route('/cloudflare-app', cloudflareAppRoutes)
-app.route('/vanta-app', vantaAppRoutes)
 app.route('/linear-app', linearAppRoutes)
 app.route('/jira-app', jiraAppRoutes)
 app.route('/asana-app', asanaAppRoutes)

@@ -41,9 +41,10 @@ let cached: { expires: number; result: Promise<Map<OpenAbProvider, RuntimeReleas
  */
 const lastKnown = new Map<OpenAbProvider, RuntimeRelease>()
 
-/** Test-only: the two module singletons above outlive a stubbed `fetch`. */
+/** Test-only: the module singletons outlive a stubbed `fetch`. */
 export function resetRuntimeReleaseCache(): void {
   cached = undefined
+  cliCached = undefined
   lastKnown.clear()
 }
 
@@ -172,4 +173,28 @@ export async function runtimeReleaseUrl(
   }
 
   return targetLink.result
+}
+
+let cliCached: { expires: number; result: Promise<RuntimeRelease | null> } | undefined
+
+/** The newest stable CLI release, which is what a Box host runs; null when the feed cannot be read. */
+export function latestCliRelease(): Promise<RuntimeRelease | null> {
+  if (!cliCached || cliCached.expires <= Date.now())
+    cliCached = {
+      expires: Date.now() + 10 * 60_000,
+      result: fetch('https://api.github.com/repos/nuphos/nuphos/releases?per_page=50', {
+        headers: { Accept: 'application/vnd.github+json' },
+        signal: AbortSignal.timeout(5_000),
+      })
+        .then(async (response) =>
+          response.ok
+            ? (((await response.json()) as GitHubRelease[])
+                .map((release) => parseRelease(release, 'cli-v', RUNTIME_RELEASES_URL))
+                .find((release) => release !== null) ?? null)
+            : null,
+        )
+        .catch(() => null),
+    }
+
+  return cliCached.result
 }

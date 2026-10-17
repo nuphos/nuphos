@@ -176,8 +176,6 @@ export type QueuedMessage = {
   filePaths: string[]
   steering?: boolean
   turnKind?: Message['turnKind']
-  /** Sends itself as soon as the agent reports it can accept a message. */
-  autoSend?: boolean
 }
 
 export type { Tab as AgentSessionSnapshot }

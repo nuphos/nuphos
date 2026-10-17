@@ -225,11 +225,11 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 }
 
 /**
- * Resumes the machine, whatever paused it (Nuphos, or instabox after 30 idle
- * minutes), and makes sure the host runs: a machine resumed from a stop has lost
- * its processes.
+ * Resumes the machine, whatever paused it (Nuphos, or instabox after 30 idle minutes),
+ * and makes sure the host runs: a machine resumed from a stop has lost its processes.
+ * An update runs BOX_UPDATE_COMMAND instead, which restarts the host on the newest CLI.
  */
-export async function resumeBox(userId: string, deviceId: string): Promise<AgentDevice> {
+export async function resumeBox(userId: string, deviceId: string, command = AGENT_COMMAND) {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
   const sandboxId = requireMachine(device)
   const url = backendUrl()
@@ -240,7 +240,7 @@ export async function resumeBox(userId: string, deviceId: string): Promise<Agent
       Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
     )
 
-    await sandbox.commands.run(AGENT_COMMAND, {
+    await sandbox.commands.run(command, {
       envs: { ...downloadEnv(), NUPHOS_API_URL: url },
       background: true,
     })

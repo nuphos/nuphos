@@ -8,6 +8,7 @@ import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
+import { connectorOAuthRoutes } from '@/routes/connector-oauth'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { aliyunAccountsRoutes } from '@/routes/aliyun-accounts'
 import { architectureDiagramsRoutes } from '@/routes/architecture-diagrams'
@@ -163,6 +164,7 @@ teamScoped.route('/upstash-accounts', upstashAccountsRoutes)
 teamScoped.route('/resend-integrations', resendIntegrationsRoutes)
 teamScoped.route('/posthog-integrations', posthogIntegrationsRoutes)
 teamScoped.route('/connectors', teamConnectorsRoutes)
+teamScoped.route('/connector-oauth', connectorOAuthRoutes)
 teamScoped.route('/monitoring', monitoringRoutes)
 teamScoped.route('/file-transfers', fileTransfersRoutes)
 teamScoped.route('/skills', teamSkillsRoutes)

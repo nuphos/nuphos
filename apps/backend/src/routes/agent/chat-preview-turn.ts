@@ -41,7 +41,7 @@ import {
   interruptToolSteps,
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
-import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { isRuntimeRefusal, queuedRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import {
   createSteeringAttribution,
   steeringReceipt,
@@ -63,7 +63,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const answers: string[] = []
   const toolLog = createPreviewToolLog()
   const state = createPreviewRunState({ run, userId, sessionId })
-  const desktops = desktopTracker({ sessionId, runtimeId: args.endpoint.runtimeId })
+  const tracking = desktopTracker({ sessionId, runtimeId: args.endpoint.runtimeId })
   const diagnostic = createTurnDiagnostics(
     {
       streamId: run.streamId,
@@ -82,7 +82,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const segmentStepStart = 0
 
   appendAgentRunPhase(run, 'connecting-model')
-  const prepared = await preparePreviewTurn(args, requestId)
+  const [prepared, desktops] = await Promise.all([preparePreviewTurn(args, requestId), tracking])
   const clearActiveTurn = () => prepared.clearActiveTurn()
 
   state.consumeFrames((frame) =>
@@ -253,8 +253,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     await clearActiveTurn()
     // After a handoff the original run is already closed; the continuation
     // run must carry the error itself instead of the caller's catch.
-    if (!state.handedOff()) throw err
-    appendAgentRunError(state.current(), err)
+    if (!state.handedOff()) throw queuedRefusal(err, args.queued)
+    appendAgentRunError(state.current(), queuedRefusal(err, args.queued))
     state.finish()
 
     return

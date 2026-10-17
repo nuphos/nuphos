@@ -114,6 +114,36 @@ test('grok opens the session under its own env and takes the instructions as rul
   })
 })
 
+test('a teammate reloading the session restarts the agent in their own home, and back', async () => {
+  await withShim('grok', async ({ call, children }) => {
+    const load = (actor) => {
+      const params = session('Be Nuphos.')
+      const env = {
+        ...params._meta[SESSION_META].env,
+        ...(actor ? { NUPHOS_SESSION_ACTOR: actor } : {}),
+      }
+      return call('session/load', {
+        ...params,
+        sessionId: 's1',
+        _meta: { [SESSION_META]: { ...params._meta[SESSION_META], env } },
+      })
+    }
+    await call('initialize', { protocolVersion: 1 })
+    const owner = (await load()).result.seen
+    const again = (await load()).result.seen
+    const guest = (await load('guest')).result.seen
+    const back = (await load()).result.seen
+
+    // Same principal: same process. A different home: a new agent each time.
+    assert.equal(again.pid, owner.pid)
+    assert.notEqual(guest.env.HOME, owner.env.HOME)
+    assert.notEqual(guest.pid, owner.pid)
+    assert.equal(back.env.HOME, owner.env.HOME)
+    assert.notEqual(back.pid, guest.pid)
+    assert.equal(children.length, 4)
+  })
+})
+
 test('opencode shares only its own data directory with the runtime home', async () => {
   await withShim('opencode', async ({ call, children, home }) => {
     await call('initialize', { protocolVersion: 1 })

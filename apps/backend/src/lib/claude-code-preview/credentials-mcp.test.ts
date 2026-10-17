@@ -2,7 +2,12 @@ import { describe, expect, test } from 'bun:test'
 
 import { useCredentialListing } from '@/lib/test/doubles/claude-code-credential-listing'
 
-import { CREDENTIALS_MCP_SURFACE, credentialsMcpTools, previewSessionEnv } from './credentials-mcp'
+import {
+  CREDENTIALS_MCP_SURFACE,
+  credentialsMcpTools,
+  previewSessionAccess,
+  previewSessionEnv,
+} from './credentials-mcp'
 
 import type { ClaudeCodeCredentialEntry, UnselectedCredentialEntry } from './credential-listing'
 
@@ -49,6 +54,18 @@ describe('credentialsMcpTools', () => {
       NUPHOS_PLAN_API_BASE: 'https://backend.example/agent-sessions/conv-1/teams/team-1/plans',
       NUPHOS_PLAN_API_TOKEN: 'scoped',
     })
+  })
+
+  test('names the actor only when a teammate acts in someone else’s conversation', () => {
+    const own = previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+    })
+    const guest = previewSessionAccess('conv-1', 'team-1', 'guest', 'owner', {
+      backendUrl: 'https://backend.example',
+    })
+
+    expect(own.runtimeEnv).not.toHaveProperty('NUPHOS_SESSION_ACTOR')
+    expect(guest.runtimeEnv).toMatchObject({ NUPHOS_SESSION_ACTOR: 'guest' })
   })
 
   test('surface advertises exactly the two credential tools', () => {

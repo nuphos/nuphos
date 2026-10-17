@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 
 import { api } from '../../../api'
+import { parseAtlasError } from '../../../api/errors'
 import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
@@ -42,9 +43,26 @@ export function usePanelQueueWatchdogs({
 
     if (!tab || !target) return null
     if (target.kind === 'queued') {
-      setTabs((prev) => prev.map((t) => (t.id === tab.id ? withoutQueued(t, target.item.id) : t)))
+      const { item } = target
 
-      return Promise.resolve(target.item)
+      // Off the server queue first, or it would still run; 404 means its turn started.
+      return api.agentUnqueueMessage(tab.sessionId, item.id, teamIdRef.current).then(
+        ({ text }) => {
+          setTabs((prev) => prev.map((t) => (t.id === tab.id ? withoutQueued(t, item.id) : t)))
+
+          return { text: item.text || text, filePaths: item.filePaths }
+        },
+        (error: unknown) => {
+          const late = parseAtlasError(error).code === 'not_found'
+
+          toast.apiError(
+            late ? 'Too late to take this message back' : 'Could not take it back',
+            error,
+          )
+
+          return null
+        },
+      )
     }
     if (!runtimeAllows(tab.runtimeState, 'cancel')) return null
     const { draft } = target

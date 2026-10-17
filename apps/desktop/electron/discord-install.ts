@@ -1,6 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
+import { connectorCallbackParams } from './connector-oauth-callback'
 
 export const DISCORD_CALLBACK_HOST = 'discord-callback'
 const TIMEOUT_MS = 10 * 60 * 1000
@@ -52,22 +53,21 @@ export async function handleCallback(rawUrl: string): Promise<void> {
   if (!state || !request) return
   pending.delete(state)
   clearTimeout(request.timeout)
-  const error = url.searchParams.get('error')
+  const params = await connectorCallbackParams(url, request.teamId, atlas.completeConnectorOAuth)
+  const error = params.get('error')
 
   if (error) {
     request.reject(
-      new Error(
-        `Discord authorization failed: ${url.searchParams.get('error_description') ?? error}`,
-      ),
+      new Error(`Discord authorization failed: ${params.get('error_description') ?? error}`),
     )
 
     return
   }
   request.resolve({
-    teamId: url.searchParams.get('team_id') ?? request.teamId,
-    guildId: url.searchParams.get('guild_id') ?? '',
-    guildName: url.searchParams.get('guild_name') ?? '',
-    discordUserId: url.searchParams.get('discord_user_id') ?? '',
+    teamId: params.get('team_id') ?? request.teamId,
+    guildId: params.get('guild_id') ?? '',
+    guildName: params.get('guild_name') ?? '',
+    discordUserId: params.get('discord_user_id') ?? '',
   })
 }
 

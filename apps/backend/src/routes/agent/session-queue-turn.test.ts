@@ -10,6 +10,7 @@ import {
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
 import { errorHandler } from '@/lib/errors'
+import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -105,7 +106,11 @@ test('a free session runs the message now and holds the claim for it', async () 
   const admitted = await admit('now')
 
   expect(admitted?.mode).toBe('run')
-  if (admitted?.mode === 'run') admitted.release()
+  // Kept for the turn: a runtime refusal mid-start requeues it at the head.
+  if (admitted?.mode === 'run') {
+    expect(admitted.item).toMatchObject({ id: 'now', chat: { streamId: 'stream-now' } })
+    admitted.release()
+  }
   expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
 })
 
@@ -199,4 +204,12 @@ test('a message id that could match another message is refused', async () => {
       body: { id: SESSION, messages: [message(id)], clientCapabilities: { serverQueue: true } },
     }),
   ).rejects.toMatchObject({ status: 400 })
+})
+
+test('a refused start of a queued message tells the client it waits, not that it was refused', () => {
+  const refused = refusal('Responding…')
+
+  expect(queuedRefusal(refused, { id: 'queued' })).toMatchObject({ code: 'message_queued' })
+  // Nothing was queued: the refusal stands, so the client knows to send again.
+  expect(queuedRefusal(refused, undefined)).toBe(refused)
 })

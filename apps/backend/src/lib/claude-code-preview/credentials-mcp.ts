@@ -52,6 +52,8 @@ export function previewSessionEnv(args: {
   teamId: string
   /** Whose personal skills this turn may load, if anyone's. */
   personalSkillsOf?: string
+  /** A teammate acting in someone else's conversation; the runtime gives them their own HOME. */
+  guestActor?: string
 }): Record<string, string> {
   return {
     ...skillSyncEnv(args.teamId, args.personalSkillsOf, args.base),
@@ -61,6 +63,7 @@ export function previewSessionEnv(args: {
     NUPHOS_TOKEN: args.token,
     NUPHOS_BACKEND_URL: args.base,
     NUPHOS_SESSION_ID: args.conversationId,
+    ...(args.guestActor ? { NUPHOS_SESSION_ACTOR: args.guestActor } : {}),
     // Skills address team-scoped routes as /teams/$TEAM/...
     TEAM: args.teamId,
     NUPHOS_TEAM_ID: args.teamId,
@@ -117,6 +120,7 @@ export function previewSessionAccess(
       // guest's turn gets none, so nobody's skills are written into a conversation
       // home that belongs to someone else.
       personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
+      guestActor: userId === conversationOwnerUserId ? undefined : userId,
     }),
   }
 }

@@ -5,7 +5,8 @@ This product includes software developed at Zeabur, licensed under the
 Apache License, Version 2.0. See the LICENSE file.
 
 The source in this repository — the Dockerfile, the helper scripts under
-image/, the adapter patches and the tests — is Apache-2.0. The container
+image/, the adapter patches and the tests — is Apache-2.0, except openab/,
+which keeps its MIT licence. The container
 images built from it also contain third-party software, which remains under
 its own licence. Building or distributing those images means accepting those
 licences too.
@@ -14,12 +15,12 @@ licences too.
 THIRD-PARTY SOFTWARE IN THE PUBLISHED IMAGES
 ============================================
 
-Base layer (third_party/openab)
--------------------------------
+Base layer (openab)
+-------------------
 
   openab gateway               MIT           https://github.com/openabdev/openab
-    Built from zeabur/openab, a fork of openabdev/openab.
-    Copyright (c) 2026 openabdev.
+    Vendored in openab/ from zeabur/openab@9638d349, a fork of
+    openabdev/openab. Copyright (c) 2026 openabdev. See openab/LICENSE.
 
   Debian and node:22-trixie-slim base packages
     Various (mostly GPL, LGPL, MIT, BSD). See the copyright files under

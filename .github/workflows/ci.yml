@@ -40,6 +40,7 @@ jobs:
       desktop_package: ${{ steps.filter.outputs.desktop_package }}
       ios: ${{ steps.filter.outputs.ios == 'true' && steps.bump.outputs.version_only != 'true' }}
       cli: ${{ steps.filter.outputs.cli }}
+      openab: ${{ steps.filter.outputs.openab }}
       dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
       lint_config: ${{ steps.filter.outputs.lint_config == 'true' && steps.bump.outputs.version_only != 'true' }}
       import_cycles: ${{ steps.filter.outputs.import_cycles }}
@@ -76,6 +77,9 @@ jobs:
               - '.github/workflows/ci.yml'
             cli:
               - 'apps/cli/**'
+              - '.github/workflows/ci.yml'
+            openab:
+              - 'apps/runtime/openab/**'
               - '.github/workflows/ci.yml'
             dev_scripts:
               - 'scripts/**'
@@ -177,6 +181,28 @@ jobs:
           sudo apt-get update && sudo apt-get install -y musl-tools
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --locked --target x86_64-unknown-linux-musl
+
+  openab:
+    name: openab (clippy + test)
+    needs: changes
+    if: needs.changes.outputs.openab == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/runtime/openab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The toolchain the Desktop and CLI releases build openab with (prepare.mjs).
+      - name: Install Rust
+        run: rustup toolchain install 1.99.0 --profile minimal --component clippy
+      - name: Clippy
+        run: cargo +1.99.0 clippy --locked --workspace --features unified -- -D warnings
+      # The ACP gateway and MCP tunnel tests are behind features the shipped
+      # binary enables, so default features would compile them away.
+      - name: Test
+        run: cargo +1.99.0 test --locked --workspace --features openab-gateway/acp,openab-core/acp-mcp
 
   backend:
     name: Backend (typecheck + test + docker build)

@@ -1,7 +1,11 @@
-import { runtimeAllows, runtimeSnapshotFresh } from '../../../lib/runtimeExecution.ts'
+import { runtimeSnapshotFresh } from '../../../lib/runtimeExecution.ts'
 
 import type { Message, QueuedMessage, Tab } from './model.ts'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
+
+// The session's queue lives on the server. Every message is sent at once; a
+// busy session answers that it is waiting, and the queue strip shows it until
+// its turn starts. This module is the client's view of that queue.
 
 export type SendDraft = {
   id: string
@@ -11,8 +15,10 @@ export type SendDraft = {
 }
 
 const dispatchedDrafts = new Map<string, SendDraft>()
+// Sends made while the tab showed another turn; they must not take its stream.
+const sideSends = new Map<string, string>()
 
-/** Remember what a turn sent, so a refusal can put it back in the queue. */
+/** Remember what a turn sent, so a queued or refused send can be shown waiting. */
 export function rememberDispatchedDraft(streamId: string, draft: SendDraft): void {
   if (dispatchedDrafts.size > 200) dispatchedDrafts.clear()
   dispatchedDrafts.set(streamId, draft)
@@ -20,6 +26,49 @@ export function rememberDispatchedDraft(streamId: string, draft: SendDraft): voi
 
 export function dispatchedDraft(streamId: string): SendDraft | undefined {
   return dispatchedDrafts.get(streamId)
+}
+
+/** A send from a tab that already shows a running turn. */
+export function rememberSideSend(streamId: string, tabId: string): void {
+  if (sideSends.size > 200) sideSends.clear()
+  sideSends.set(streamId, tabId)
+}
+
+/** The tab a side send belongs to, once; later frames route by the tab's own stream. */
+export function takeSideSend(streamId: string): string | undefined {
+  const tabId = sideSends.get(streamId)
+
+  sideSends.delete(streamId)
+
+  return tabId
+}
+
+/** Messages still on their way to the server queue; a sync must not drop them. */
+export function sendingDraftIds(): Set<string> {
+  return new Set(
+    [...sideSends.keys()].flatMap((streamId) => dispatchedDrafts.get(streamId)?.id ?? []),
+  )
+}
+
+/**
+ * The strip as the server sees it: this person's waiting messages, in order,
+ * plus the ones still being sent.
+ */
+export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: string }[]): Tab {
+  const sending = sendingDraftIds()
+  const local = new Map((tab.queued ?? []).map((item) => [item.id, item]))
+  const waiting = server
+    .filter((item) => item.mine)
+    .map((item) => local.get(item.id) ?? { id: item.id, text: item.text, filePaths: [] })
+  const known = new Set(waiting.map((item) => item.id))
+
+  return {
+    ...tab,
+    queued: [
+      ...waiting,
+      ...(tab.queued ?? []).filter((item) => sending.has(item.id) && !known.has(item.id)),
+    ],
+  }
 }
 
 /** A runtime that reports it will never accept sends (outdated agent) should not be waited on. */
@@ -37,15 +86,18 @@ export function sendsAsNewSession(tab: Pick<Tab, 'unsaved' | 'streaming'>): bool
   return tab.unsaved === true && !tab.streaming
 }
 
-/** Queue a message that auto-sends once the agent allows it. */
-export function queueAutoSend(tab: Tab, draft: SendDraft): Tab {
+/** Show a message as waiting in the session queue. */
+export function showQueued(tab: Tab, draft: SendDraft): Tab {
   const queued = (tab.queued ?? []).filter((item) => item.id !== draft.id)
 
-  return { ...tab, queued: [...queued, { ...draft, autoSend: true }] }
+  return { ...tab, queued: [...queued, { ...draft }] }
 }
 
-/** The server refused a turn before it started: move its message back into the queue. */
-export function parkRefusedTurn(tab: Tab, draft: SendDraft | undefined): Tab {
+/**
+ * The server queued this turn's message instead of starting it: it leaves the
+ * transcript for the queue strip, and the tab follows whichever turn runs.
+ */
+export function showTurnQueued(tab: Tab, draft: SendDraft | undefined): Tab {
   const reset: Tab = {
     ...tab,
     streaming: false,
@@ -59,80 +111,34 @@ export function parkRefusedTurn(tab: Tab, draft: SendDraft | undefined): Tab {
 
   if (!draft) return reset
 
-  return {
-    ...reset,
-    messages: reset.messages.filter((message) => message.id !== draft.id),
-    queued: [
-      { ...draft, autoSend: true },
-      ...(reset.queued ?? []).filter((item) => item.id !== draft.id),
-    ],
-  }
+  return showQueued(
+    { ...reset, messages: reset.messages.filter((message) => message.id !== draft.id) },
+    draft,
+  )
 }
 
-export function nextAutoSend(tab: Tab): QueuedMessage | undefined {
-  return tab.queued?.find((item) => item.autoSend && !item.steering)
-}
-
-/** Send a waiting draft as the next turn once the agent allows it. */
-export function markAutoSend(tab: Tab, queuedId: string): Tab {
+/** A side send started its own turn: the tab follows that stream now. */
+export function adoptSideStream(tab: Tab, streamId: string, draftId: string | undefined): Tab {
   return {
     ...tab,
-    queued: tab.queued?.map((item) =>
-      item.id === queuedId ? { ...item, steering: false, autoSend: true } : item,
-    ),
+    streaming: true,
+    connected: false,
+    streamId,
+    attachedStreamId: null,
+    streamStartedAt: Date.now(),
+    phase: null,
+    error: null,
+    queued: tab.queued?.filter((item) => item.id !== draftId),
   }
 }
 
-/** Still waiting to send: Esc or the strip's remove may have taken it out meanwhile. */
-export function stillQueued(tab: Pick<Tab, 'queued'> | undefined, queuedId: string): boolean {
-  return Boolean(tab?.queued?.some((item) => item.id === queuedId))
+/** What still waits: a message whose turn started is in the transcript already. */
+export function waitingMessages(tab: Pick<Tab, 'queued' | 'messages'>): QueuedMessage[] {
+  const started = new Set(tab.messages.map((message) => message.id))
+
+  return (tab.queued ?? []).filter((item) => !started.has(item.id))
 }
 
 export function withoutQueued(tab: Tab, queuedId: string): Tab {
   return { ...tab, queued: tab.queued?.filter((item) => item.id !== queuedId) }
-}
-
-/** Stop auto-sending every waiting message; they stay as ordinary unsent drafts. */
-export function stopAutoSend(tab: Tab): Tab {
-  return {
-    ...tab,
-    queued: tab.queued?.map((item) => (item.autoSend ? { ...item, autoSend: false } : item)),
-  }
-}
-
-/**
- * Probe fresh runtime status for one waiting tab and dispatch its first
- * auto-send message once `send` is allowed.
- */
-export async function pumpAutoSend(
-  tab: Tab,
-  deps: {
-    probe: (sessionId: string) => Promise<RuntimeExecution>
-    onRuntimeState: (tabId: string, snapshot: RuntimeExecution) => void
-    dispatch: (tabId: string, item: QueuedMessage) => Promise<void> | void
-    onNeverSendable: (tabId: string, snapshot: RuntimeExecution) => void
-  },
-): Promise<'sent' | 'waiting' | 'idle' | 'unsendable'> {
-  const item = nextAutoSend(tab)
-
-  if (!item || tab.streaming) return item ? 'waiting' : 'idle'
-  // An unsaved fork has no server session to probe (a failed import leaves it
-  // that way), so its queued message sends as the fork's first turn.
-  if (sendsAsNewSession(tab)) {
-    await deps.dispatch(tab.id, item)
-
-    return 'sent'
-  }
-  const snapshot = await deps.probe(tab.sessionId)
-
-  deps.onRuntimeState(tab.id, snapshot)
-  if (!runtimeMayAcceptLater(snapshot)) {
-    deps.onNeverSendable(tab.id, snapshot)
-
-    return 'unsendable'
-  }
-  if (!runtimeAllows(snapshot, 'send')) return 'waiting'
-  await deps.dispatch(tab.id, item)
-
-  return 'sent'
 }

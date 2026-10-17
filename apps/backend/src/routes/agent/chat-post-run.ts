@@ -46,7 +46,6 @@ export function launchAcceptedChatTurn(args: {
   run: AgentRun
   chatCtx: InternalChatCtx
   chatSpan: SpanLike
-  conversationParent: string | undefined
   body: AgentChatBody
   teamId: string | undefined
   messages: UIMessage[]

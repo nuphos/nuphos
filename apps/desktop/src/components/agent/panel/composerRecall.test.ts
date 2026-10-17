@@ -10,15 +10,9 @@ import {
   sentHistory,
   withoutRetracted,
 } from './composerRecall.ts'
-import {
-  pumpAutoSend,
-  rememberDispatchedDraft,
-  stillQueued,
-  withoutQueued,
-} from './queuedAutoSend.ts'
+import { rememberDispatchedDraft } from './queuedAutoSend.ts'
 
-import type { Message, QueuedMessage, Tab } from './model.ts'
-import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
+import type { Message, QueuedMessage } from './model.ts'
 
 const said = (id: string, role: Message['role'], text: string, sender?: string): Message => ({
   id,
@@ -44,17 +38,17 @@ const queued = (id: string, extra: Partial<QueuedMessage> = {}): QueuedMessage =
 const idle = { streaming: false, streamId: null, messages: [] as Message[], unsaved: false }
 
 test('Esc takes back the newest queued message first', () => {
-  const tab = { ...idle, queued: [queued('q1'), queued('q2', { autoSend: true })] }
+  const tab = { ...idle, queued: [queued('q1'), queued('q2')] }
 
   assert.deepEqual(retractTarget(tab), { kind: 'queued', item: tab.queued[1] })
+  // One whose turn already started is in the transcript, no longer waiting.
+  const started = { ...tab, messages: [said('q2', 'user', 'text q2')] }
+
+  assert.deepEqual(retractTarget(started), { kind: 'queued', item: tab.queued[0] })
 })
 
-test('a steer already on its way is not taken back; a refused one is', () => {
+test('a steer already on its way is not taken back', () => {
   assert.equal(retractTarget({ ...idle, queued: [queued('s', { steering: true })] }), null)
-  assert.equal(
-    retractTarget({ ...idle, queued: [queued('s', { steering: true, autoSend: true })] })?.kind,
-    'queued',
-  )
 })
 
 test('Esc takes back a just-sent message while its turn has no output', () => {
@@ -178,30 +172,4 @@ test('a taken-back message leaves the transcript with the empty turn after it', 
 
   assert.deepEqual(withoutRetracted({ messages }, 'm1').messages, [messages[0]])
   assert.deepEqual(withoutRetracted({ messages }, 'gone').messages, messages)
-})
-
-test('a queued message taken back while its send was being probed is not sent', async () => {
-  let current = {
-    id: 't1',
-    sessionId: 's1',
-    streaming: false,
-    queued: [queued('q1', { autoSend: true })],
-  } as unknown as Tab
-  const sent: string[] = []
-
-  await pumpAutoSend(current, {
-    probe: () => {
-      current = withoutQueued(current, 'q1') // Esc during the round-trip
-      const ready = { schemaVersion: 2, actions: { send: true }, observedAt: performance.now() }
-
-      return Promise.resolve(ready as unknown as RuntimeExecution)
-    },
-    onRuntimeState: () => {},
-    onNeverSendable: () => {},
-    // The same check useQueuedAutoSend's dispatch makes.
-    dispatch: (_tabId, item) => {
-      if (stillQueued(current, item.id)) sent.push(item.id)
-    },
-  })
-  assert.deepEqual(sent, [])
 })

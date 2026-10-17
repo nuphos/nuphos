@@ -1,12 +1,15 @@
 import { api } from '../../../api'
 import { rememberTerminalRuntimeStream } from '../../../lib/runtimeWakeup'
+import { toast } from '../../ui/toast'
 
 import { applyStreamEvent } from './agentEventsApply'
 import { handleSseControlFrame } from './agentEventsSse'
 import { appendMemoryIngestPart } from './applyEvent'
+import { adoptSideStream, dispatchedDraft, takeSideSend, withoutQueued } from './queuedAutoSend'
 import { observeTurnUnread } from './turnUnread'
 
 import type { PanelCtx } from './ctx'
+import type { Tab } from './model'
 
 const LEARNED_MEMORY_POLL_DELAYS_MS = [4_000, 8_000, 12_000, 12_000] as const
 
@@ -94,6 +97,43 @@ export type AgentEventCtx = Pick<
   | 'turnPausedRef'
 >
 
+/**
+ * A message sent while the tab showed another turn waits in the queue strip.
+ * If the server started it at once instead, the tab follows its stream.
+ */
+function followSideSend(
+  ctx: Pick<AgentEventCtx, 'tabsRef' | 'setTabs'>,
+  streamId: string,
+  evType: string | undefined,
+) {
+  const tabId = takeSideSend(streamId)
+
+  if (!tabId || !evType || evType === 'queued' || evType === 'end') return
+  const draft = dispatchedDraft(streamId)
+
+  // Not queued: the strip must not show what the server does not hold.
+  if (SIDE_SEND_FAILED.has(evType)) {
+    ctx.setTabs((tabs) =>
+      tabs.map((t) => (t.id === tabId && draft ? withoutQueued(t, draft.id) : t)),
+    )
+    toast.error(
+      'Your message was not sent',
+      draft ? `“${draft.text.slice(0, 120)}” — send it again.` : undefined,
+    )
+
+    return
+  }
+  const adopt = (tabs: Tab[]) =>
+    tabs.map((t) => (t.id === tabId ? adoptSideStream(t, streamId, draft?.id) : t))
+
+  // Synchronously too: this event and the next must route to the tab.
+  ctx.tabsRef.current = adopt(ctx.tabsRef.current)
+  ctx.setTabs(adopt)
+}
+
+// Events that end a side send without the server holding its message.
+const SIDE_SEND_FAILED = new Set(['runtime-not-ready', 'error', 'aborted', 'agent-setup-required'])
+
 export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: unknown) {
   const {
     tabsRef,
@@ -108,6 +148,7 @@ export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: un
   const ev = event as Record<string, unknown>
   const evType = ev.type as string | undefined
 
+  if (!tabsRef.current.some((t) => t.streamId === streamId)) followSideSend(ctx, streamId, evType)
   const owner = tabsRef.current.find((t) => t.streamId === streamId)
 
   if (owner) {

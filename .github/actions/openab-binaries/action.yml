@@ -1,6 +1,7 @@
 name: openab binaries
 description: >-
-  Restores the openab binaries openab-cache.yml built for this prepare.mjs, and
+  Restores the openab binaries openab-cache.yml built for this prepare.mjs and
+  apps/runtime/openab, and
   deletes any its attestation does not vouch for, so prepare.mjs compiles those
   instead. The cache alone is not trusted: any job on main can write a key this
   predictable.
@@ -10,7 +11,7 @@ inputs:
     default: refs/heads/main
 outputs:
   key:
-    description: The cache key for this prepare.mjs and runner.
+    description: The cache key for this prepare.mjs, openab source and runner.
     value: ${{ steps.key.outputs.key }}
   hit:
     description: true when every restored binary is attested, and at least one was.
@@ -24,8 +25,8 @@ runs:
     - id: key
       shell: bash
       env:
-        PREPARE: ${{ hashFiles('apps/desktop/local-runtime/prepare.mjs') }}
-      run: echo "key=openab-$RUNNER_OS-$RUNNER_ARCH-$PREPARE" >> "$GITHUB_OUTPUT"
+        SOURCES: ${{ hashFiles('apps/desktop/local-runtime/prepare.mjs', 'apps/runtime/openab/**') }}
+      run: echo "key=openab-$RUNNER_OS-$RUNNER_ARCH-$SOURCES" >> "$GITHUB_OUTPUT"
     # openab-cache.yml saves with these same paths.
     - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -41,9 +42,9 @@ runs:
       run: |
         set -uo pipefail
         # The attestation says openab-cache.yml built the binary; this also
-        # requires it built it from this prepare.mjs, so an older openab
-        # cannot be swapped in under the current key.
-        want=$(git rev-parse HEAD:apps/desktop/local-runtime/prepare.mjs)
+        # requires it built it from this prepare.mjs and openab source, so an
+        # older openab cannot be swapped in under the current key.
+        want="$(git rev-parse HEAD:apps/desktop/local-runtime/prepare.mjs) $(git rev-parse HEAD:apps/runtime/openab)"
         verified=0 rejected=0
         # One glob, filtered by name: Git Bash on Windows matches `openab` to
         # openab.exe, which gh then cannot open.
@@ -54,7 +55,12 @@ runs:
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openab-cache.yml" \
             --source-ref "$SOURCE_REF" --format json \
             --jq '.[].verificationResult.signature.certificate.sourceRepositoryDigest' | sort -u); do
-            if [ "$(gh api "repos/$GITHUB_REPOSITORY/contents/apps/desktop/local-runtime/prepare.mjs?ref=$sha" --jq .sha)" = "$want" ]; then
+            got=$(gh api graphql \
+              -f query='query($owner: String!, $name: String!, $prepare: String!, $openab: String!) { repository(owner: $owner, name: $name) { prepare: object(expression: $prepare) { oid } openab: object(expression: $openab) { oid } } }' \
+              -f owner="${GITHUB_REPOSITORY%/*}" -f name="${GITHUB_REPOSITORY#*/}" \
+              -f prepare="$sha:apps/desktop/local-runtime/prepare.mjs" -f openab="$sha:apps/runtime/openab" \
+              --jq '.data.repository | "\(.prepare.oid) \(.openab.oid)"')
+            if [ "$got" = "$want" ]; then
               ok=true
               break
             fi
@@ -63,7 +69,7 @@ runs:
             echo "verified $bin"
             verified=$((verified + 1))
           else
-            echo "::warning::$bin is not attested by openab-cache.yml on $SOURCE_REF for this prepare.mjs; compiling it instead"
+            echo "::warning::$bin is not attested by openab-cache.yml on $SOURCE_REF for this prepare.mjs and openab source; compiling it instead"
             rm -f "$bin"
             rejected=$((rejected + 1))
           fi
