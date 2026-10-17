@@ -235,7 +235,7 @@ test('a sign-in restarts only agents of its provider, so other turns keep runnin
   assert.deepEqual(fakeOf(codexAgent.instanceId).restarts, [false, true])
 })
 
-test("an instance's files are read from its own workspace, never the default agent's", async (t) => {
+test("an instance's state carries its own workspace, never the default agent's", async (t) => {
   const { instances, dirOf } = setup(t)
 
   await instances.load('alice')
@@ -243,8 +243,7 @@ test("an instance's files are read from its own workspace, never the default age
 
   await instances.request({ method: 'create', ...agent }, 'alice')
   assert.equal(
-    instances.workspace(agent.instanceId),
+    instances.states(false)[0]?.workspace,
     path.join(dirOf(agent.instanceId), 'users', 'alice', 'workspace'),
   )
-  assert.equal(instances.workspace(randomUUID()), null)
 })

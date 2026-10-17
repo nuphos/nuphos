@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 
 import { RUNTIME_FILE_PROGRAM } from '../../../../backend/src/lib/claude-code-preview/runtime-file-program.ts'
 
+import type { LocalRuntimeState } from './controller-types.ts'
 import type { SocketEvent, SocketLike } from './tunnel-client.ts'
 import type { ChildProcess } from 'node:child_process'
 
@@ -12,6 +13,16 @@ export class LocalFileStream implements SocketLike {
   private readonly listeners = new Map<string, Set<(event: SocketEvent) => void>>()
 
   private readonly workspace: string
+
+  /** Rooted at that instance's own workspace, or the default agent's; none for an unknown instance. */
+  static open(state: LocalRuntimeState, instanceId?: string): LocalFileStream | null {
+    const workspace =
+      instanceId === undefined
+        ? state.workspace
+        : state.instances?.find((instance) => instance.instanceId === instanceId)?.workspace
+
+    return workspace ? new LocalFileStream(workspace) : null
+  }
 
   constructor(workspace: string) {
     this.workspace = workspace

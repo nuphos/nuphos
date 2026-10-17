@@ -200,11 +200,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       onRevoked: () => {
         void controller.shutdown().then(exitRevoked)
       },
-      connectFile: (instanceId) => {
-        const workspace = controller.workspace(instanceId)
-
-        return workspace ? new LocalFileStream(workspace) : null
-      },
+      connectFile: (instanceId) => LocalFileStream.open(controller.state(), instanceId),
       connectExec: () => new LocalExecStream(),
       connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
       connectRuntime: (purpose, provider, instanceId) => {
