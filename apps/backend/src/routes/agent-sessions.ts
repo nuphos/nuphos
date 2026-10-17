@@ -29,6 +29,7 @@ import { cnCloudScoped } from '@/routes/agent-sessions/cn-clouds'
 import { projectScoped } from '@/routes/agent-sessions/gcp'
 import { asanaScoped, jiraScoped, linearScoped } from '@/routes/agent-sessions/issue-trackers'
 import { previewPlans } from '@/routes/agent-sessions/plans'
+import { plaudScoped } from '@/routes/agent-sessions/plaud'
 import { posthogScoped } from '@/routes/agent-sessions/posthog'
 import { resendScoped, sentryScoped } from '@/routes/agent-sessions/resend-sentry'
 import { tailscaleScoped } from '@/routes/agent-sessions/tailscale'
@@ -231,6 +232,7 @@ teamScoped.route('/asana-accounts/:bindingId', asanaScoped)
 teamScoped.route('/resend-integrations/:integrationId', resendScoped)
 teamScoped.route('/sentry-accounts/:bindingId', sentryScoped)
 teamScoped.route('/posthog-integrations/:integrationId', posthogScoped)
+teamScoped.route('/plaud-accounts/:bindingId', plaudScoped)
 teamScoped.route('/tailscale-clients/:clientId', tailscaleScoped)
 teamScoped.route('/zeabur-providers/:zeaburId', zeaburScoped)
 

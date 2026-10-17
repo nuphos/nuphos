@@ -163,6 +163,15 @@ export function byosIntegrationsConfig() {
         optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
       encryptionKeyId: 'default',
     },
+    plaud: {
+      // Plaud registers its OAuth client dynamically per connect, so the only
+      // server-side config is the encryption key for the tokens at rest.
+      encryptionKey:
+        optional('PLAUD_BYOK_ENCRYPTION_KEY') ??
+        optional('LINODE_BYOK_ENCRYPTION_KEY') ??
+        optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
+      encryptionKeyId: 'default',
+    },
     resend: {
       // Resend binds with a static API key (re_…) pasted by the user — no OAuth
       // — so the only server-side config is the encryption key for it at rest.

@@ -176,6 +176,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       secureframeIntegrationIds: [],
       resendIntegrationIds: [],
       posthogIntegrationIds: [],
+      plaudAccountIds: [],
       deviceIds: [],
     }
   }
@@ -216,6 +217,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       raw.posthogIntegrationIds,
       'posthogIntegrationIds',
     ),
+    plaudAccountIds: normalizeObjectIdList(raw.plaudAccountIds, 'plaudAccountIds'),
     deviceIds: normalizeStringList(raw.deviceIds, 'deviceIds'),
     // Absent stays absent for these: undefined is "not narrowed" (team-wide),
     // which is not the same grant as an explicit empty list.

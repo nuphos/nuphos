@@ -20,6 +20,7 @@ import {
   buildLinearCredentialSections,
   buildResendCredentialSections,
   buildSecureframeCredentialSections,
+  buildPlaudCredentialSections,
   buildPosthogCredentialSections,
   buildSentryCredentialSections,
   buildTailscaleCredentialSections,
@@ -123,6 +124,10 @@ export function useCredentialSections(options: CredentialSelectorControl['option
     () => buildPosthogCredentialSections(options.posthogIntegrations),
     [options.posthogIntegrations],
   )
+  const plaudSections = useMemo(
+    () => buildPlaudCredentialSections(options.plaudAccounts),
+    [options.plaudAccounts],
+  )
   const tailscaleSections = useMemo(
     () => buildTailscaleCredentialSections(options.tailscaleClients),
     [options.tailscaleClients],
@@ -178,6 +183,7 @@ export function useCredentialSections(options: CredentialSelectorControl['option
     asanaSections,
     sentrySections,
     posthogSections,
+    plaudSections,
     tailscaleSections,
     githubSections,
     gitlabSections,

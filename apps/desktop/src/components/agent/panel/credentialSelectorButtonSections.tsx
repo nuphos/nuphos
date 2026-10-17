@@ -136,6 +136,11 @@ export function CredentialSelectorSectionList({
         onChangeIds={(ids) => onChange({ ...value, posthogIntegrationIds: ids })}
       />
       <CredentialSectionGroup
+        sections={sections.plaudSections}
+        selectedIds={value.plaudAccountIds}
+        onChangeIds={(ids) => onChange({ ...value, plaudAccountIds: ids })}
+      />
+      <CredentialSectionGroup
         sections={sections.tailscaleSections}
         selectedIds={value.tailscaleClientIds}
         newIds={unseen?.tailscaleClientIds}

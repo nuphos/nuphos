@@ -30,6 +30,9 @@ export function IntegrationPlatformIcon({
   if (provider === 'sentry') {
     return <CloudLogo provider="sentry" size={size} />
   }
+  if (provider === 'plaud') {
+    return <CloudLogo provider="plaud" size={size} />
+  }
   if (provider === 'asana') {
     return <CloudLogo provider="asana" size={size} />
   }

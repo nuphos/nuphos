@@ -16,7 +16,7 @@ sealed interface ConnectorReturn {
     data class Invalid(val message: String) : ConnectorReturn
 }
 object ConnectorCallback {
-    val hosts = setOf("linear-callback", "jira-callback", "asana-callback", "sentry-callback", "github-callback")
+    val hosts = setOf("linear-callback", "jira-callback", "asana-callback", "plaud-callback", "sentry-callback", "github-callback")
     fun isConnectorUri(value: String): Boolean = runCatching { URI(value).let { it.scheme == "nuphos" && it.host in hosts } }.getOrDefault(false)
     fun state(value: String): String? = runCatching {
         URI(value).rawQuery.orEmpty().split('&').map { it.split('=', limit = 2) }

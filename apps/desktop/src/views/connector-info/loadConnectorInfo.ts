@@ -180,6 +180,9 @@ async function listConnectorIds(
   teamId: string,
   provider: ConnectorInfoProvider,
 ): Promise<string[]> {
+  if (provider === 'plaud') {
+    return (await api.atlasListPlaudAccounts(teamId)).map((item) => item.id)
+  }
   if (provider === 'posthog') {
     return (await api.atlasListPosthogIntegrations(teamId)).map((item) => item.id)
   }

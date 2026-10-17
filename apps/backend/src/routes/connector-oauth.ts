@@ -9,6 +9,7 @@ import { persistDiscordBinding } from '@/routes/discord-app'
 import { persistGitlabBinding } from '@/routes/gitlab-app'
 import { persistJiraBinding } from '@/routes/jira-app'
 import { persistLinearBinding } from '@/routes/linear-app'
+import { persistPlaudBinding } from '@/routes/plaud-app'
 import { persistPosthogBinding } from '@/routes/posthog-app'
 import { persistSentryBinding } from '@/routes/sentry-app'
 import { persistSlackBinding } from '@/routes/slack-app'
@@ -23,6 +24,7 @@ const PERSISTS = {
   gitlab: persistGitlabBinding,
   jira: persistJiraBinding,
   linear: persistLinearBinding,
+  plaud: persistPlaudBinding,
   posthog: persistPosthogBinding,
   sentry: persistSentryBinding,
   slack: persistSlackBinding,

@@ -185,6 +185,25 @@ export const devToolLoaders: ConnectorInfoLoaders = {
       externalLabel: 'Open PostHog',
     }
   },
+  plaud: async (teamId, connectorId) => {
+    const item = (await api.atlasListPlaudAccounts(teamId)).find((row) => row.id === connectorId)
+
+    if (!item) return null
+
+    return {
+      name: item.label,
+      fields: [
+        { label: 'Label', value: item.label },
+        { label: 'Account', value: item.userEmail || item.userName || '—' },
+        ...(item.createdAt
+          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          : []),
+        { label: 'Connector ID', value: item.id, mono: true },
+      ],
+      externalUrl: 'https://web.plaud.ai',
+      externalLabel: 'Open Plaud',
+    }
+  },
   vanta: async (teamId, connectorId) => {
     const item = (await api.atlasListVantaIntegrations(teamId)).find(
       (row) => row.id === connectorId,

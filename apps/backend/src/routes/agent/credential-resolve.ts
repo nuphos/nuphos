@@ -185,6 +185,11 @@ export function availableCredentialAccess(
       options.posthogIntegrations,
       byIntegrationId,
     ),
+    plaudAccountIds: keep(
+      selection.plaudAccountIds,
+      options.plaudAccounts,
+      (account) => account.bindingId,
+    ),
     // Any of the user's own devices, online or not; whether one is usable is
     // checked each time a tool uses it.
     deviceIds: keep(selection.deviceIds, options.devices, (device) => device.deviceId),

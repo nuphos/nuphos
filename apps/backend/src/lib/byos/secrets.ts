@@ -58,5 +58,6 @@ export {
   encryptJiraSecret,
   encryptLinearSecret,
 } from './secrets/trackers'
+export { decryptPlaudSecret, encryptPlaudSecret } from './secrets/plaud'
 export { decryptPosthogSecret, encryptPosthogSecret } from './secrets/posthog'
 export { decryptUpstashSecret, encryptUpstashSecret } from './secrets/upstash'

@@ -28,6 +28,7 @@ export function allCredentialAccessFromOptions(
     asanaAccountIds: options.asanaAccounts.map((account) => account.accountId),
     sentryAccountIds: options.sentryAccounts.map((account) => account.accountId),
     posthogIntegrationIds: options.posthogIntegrations.map((entry) => entry.integrationId),
+    plaudAccountIds: options.plaudAccounts.map((account) => account.bindingId),
     tailscaleClientIds: options.tailscaleClients.map((client) => client.clientId),
     zeaburIds: options.zeaburProviders.map((provider) => provider.zeaburId),
     vantaIntegrationIds: options.vantaIntegrations.map((integration) => integration.integrationId),
@@ -98,6 +99,7 @@ export function hasCredentialOptions(options: AgentCredentialOptions): boolean {
       options.asanaAccounts.length +
       options.sentryAccounts.length +
       options.posthogIntegrations.length +
+      options.plaudAccounts.length +
       options.tailscaleClients.length +
       options.zeaburProviders.length +
       options.vantaIntegrations.length +
@@ -136,6 +138,7 @@ export function isEmptyCredentialAccess(access: AgentCredentialAccess | undefine
       (access.asanaAccountIds?.length ?? 0) +
       (access.sentryAccountIds?.length ?? 0) +
       (access.posthogIntegrationIds?.length ?? 0) +
+      (access.plaudAccountIds?.length ?? 0) +
       (access.tailscaleClientIds?.length ?? 0) +
       (access.zeaburIds?.length ?? 0) +
       (access.vantaIntegrationIds?.length ?? 0) +
@@ -160,6 +163,7 @@ export function credentialAccessResponse(access: AgentCredentialAccess) {
     linearWorkspaceIds: access.linearWorkspaceIds ?? [],
     resendIntegrationIds: access.resendIntegrationIds ?? [],
     posthogIntegrationIds: access.posthogIntegrationIds ?? [],
+    plaudAccountIds: access.plaudAccountIds ?? [],
     deviceIds: access.deviceIds ?? [],
     updatedAt: access.updatedAt.toISOString(),
   }

@@ -239,3 +239,20 @@ export type PosthogIntegrationBinding = {
   createdAt: Date
   access?: BindingAccess
 }
+
+export type PlaudAccountBinding = {
+  id: ObjectId
+  label: string
+  // Plaud's stable user id from /open/third-party/users/current.
+  plaudUserId: string
+  userName: string | null
+  userEmail: string | null
+  // The dynamically registered client the grant was issued to; refreshes must
+  // present the same client_id.
+  clientId: string
+  encryptedAccessToken: EncryptedEnvelope
+  encryptedRefreshToken: EncryptedEnvelope | null
+  accessTokenExpiresAt: Date | null
+  createdAt: Date
+  access?: BindingAccess
+}

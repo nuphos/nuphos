@@ -24,6 +24,7 @@ import {
   gitlabPendingOAuth,
   jiraPendingOAuth,
   linearPendingOAuth,
+  plaudPendingOAuth,
   posthogPendingOAuth,
   sentryPendingOAuth,
   slackPendingOAuth,
@@ -69,6 +70,10 @@ export async function setupCoreIndexes(): Promise<void> {
   await posthogPendingOAuth().createIndex(
     { expiresAt: 1 },
     { expireAfterSeconds: 0, name: 'posthog_oauth_pending_ttl' },
+  )
+  await plaudPendingOAuth().createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: 'plaud_oauth_pending_ttl' },
   )
   await slackPendingOAuth().createIndex(
     { expiresAt: 1 },

@@ -203,8 +203,8 @@ export type AgentCredentialAccess = {
   // Optional for docs written before Resend joined the session-isolation tier.
   resendIntegrationIds?: string[]
   posthogIntegrationIds?: string[]
-  // Optional for docs written before these connectors moved off self-discovery
-  // into the selected-credential tier.
+  plaudAccountIds?: string[]
+  // Optional for docs written before these left self-discovery for selection.
   githubInstallationIds?: string[]
   gitlabBindingIds?: string[]
   grafanaInstanceIds?: string[]

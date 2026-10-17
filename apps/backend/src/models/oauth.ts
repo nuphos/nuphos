@@ -129,6 +129,19 @@ export type PosthogPendingOAuth = {
 export const posthogPendingOAuth = (): Collection<PosthogPendingOAuth> =>
   db().collection<PosthogPendingOAuth>('posthog_oauth_pending')
 
+export type PlaudPendingOAuth = {
+  _id: string
+  teamId: ObjectId
+  requesterUserId: string
+  clientId: string
+  redirectUri: string
+  encryptedCodeVerifier: EncryptedEnvelope
+  expiresAt: Date
+}
+
+export const plaudPendingOAuth = (): Collection<PlaudPendingOAuth> =>
+  db().collection<PlaudPendingOAuth>('plaud_oauth_pending')
+
 /**
  * A connector grant the provider approved, staged until the requester's own
  * client completes it. `binding` is the provider's binding draft with tokens

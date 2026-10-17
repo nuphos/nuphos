@@ -11,6 +11,7 @@ import type {
   JiraSite,
   LarkInstallation,
   LinearWorkspace,
+  PlaudAccount,
   PosthogIntegration,
   SentryAccount,
   SlackInstallation,
@@ -26,6 +27,7 @@ export function buildDevConnectorRows({
   asanaAccounts,
   sentryAccounts,
   posthogIntegrations,
+  plaudAccounts,
   grafanaInstances,
   discordConnection,
   slackInstallation,
@@ -41,6 +43,7 @@ export function buildDevConnectorRows({
   asanaAccounts: AsanaAccount[]
   sentryAccounts: SentryAccount[]
   posthogIntegrations: PosthogIntegration[]
+  plaudAccounts: PlaudAccount[]
   grafanaInstances: GrafanaInstance[]
   discordConnection?: DiscordConnection | null
   slackInstallation: SlackInstallation | null
@@ -148,6 +151,16 @@ export function buildDevConnectorRows({
           name: integration.label,
         }),
       onDelete: () => api.atlasUnbindPosthogIntegration(teamId, integration.id),
+    })),
+    ...plaudAccounts.map((account) => ({
+      key: `plaud:${account.id}`,
+      provider: 'plaud' as const,
+      account: account.label,
+      principal: account.userEmail || account.userName || 'Plaud account',
+      status: 'Plaud account',
+      onAction: () =>
+        onOpenConnectorInfo({ provider: 'plaud', connectorId: account.id, name: account.label }),
+      onDelete: () => api.atlasUnbindPlaud(teamId, account.id),
     })),
     ...grafanaInstances.map((instance) => ({
       key: `grafana:${instance.id}`,

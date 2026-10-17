@@ -42,6 +42,7 @@ export type AddIntegrationKey =
   | 'linear'
   | 'jira'
   | 'asana'
+  | 'plaud'
   | 'notion'
   | 'upstash'
   | 'resend'
@@ -93,6 +94,7 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   linear: { name: 'Linear', description: 'Issues & projects.' },
   jira: { name: 'Jira', description: 'Issues & projects.' },
   asana: { name: 'Asana', description: 'Tasks & projects.' },
+  plaud: { name: 'Plaud', description: 'Recordings, transcripts & summaries.' },
   notion: { name: 'Notion', description: 'Pages, databases & docs.' },
   resend: { name: 'Resend', description: 'Send transactional email.' },
   slack: { name: 'Slack', description: 'Chat with the agent from Slack channels.' },
@@ -122,6 +124,7 @@ const ALIASES: Partial<Record<AddIntegrationKey, string>> = {
   secureframe: 'soc2 soc 2',
   sonarqube: 'sonar',
   posthog: 'hogql product analytics',
+  plaud: 'meeting notes recordings transcripts notepin',
   github: 'git',
   gitlab: 'git',
   jira: 'atlassian',

@@ -77,6 +77,7 @@ data class CredentialCatalog(
             Provider("linearWorkspaces", "linearWorkspaceIds", "Linear", "workspaceId", listOf("label", "workspaceName"), listOf("workspaceName")),
             Provider("jiraSites", "jiraSiteIds", "Jira", "siteId", listOf("label"), listOf("siteUrl")),
             Provider("asanaAccounts", "asanaAccountIds", "Asana", "accountId", listOf("label"), listOf("accountEmail")),
+            Provider("plaudAccounts", "plaudAccountIds", "Plaud", "bindingId", listOf("label"), emptyList()),
             Provider("vantaIntegrations", "vantaIntegrationIds", "Vanta", "integrationId", listOf("label"), emptyList()),
             Provider("secureframeIntegrations", "secureframeIntegrationIds", "Secureframe", "integrationId", listOf("label"), listOf("region")),
             Provider("resendIntegrations", "resendIntegrationIds", "Resend", "integrationId", listOf("label"), listOf("permission")),

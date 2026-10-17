@@ -35,6 +35,7 @@ private val logos = mapOf(
         "jira" to ("logo-jira-light.svg" to "logo-jira-light.svg"),
         "asana" to ("logo-asana-light.svg" to "logo-asana-light.svg"),
         "notion" to ("logo-notion-light.svg" to "logo-notion-dark.svg"),
+        "plaud" to ("logo-plaud-light.svg" to "logo-plaud-light.svg"),
         "upstash" to ("logo-upstash-light.svg" to "logo-upstash-light.svg"),
         "resend" to ("logo-resend-light.svg" to "logo-resend-light.svg"),
         "posthog" to ("logo-posthog-light.svg" to "logo-posthog-light.svg"),

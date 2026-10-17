@@ -11,6 +11,7 @@ export const CONNECT_SELECTION_KEY = {
   asana: 'asanaAccountIds',
   sentry: 'sentryAccountIds',
   posthog: 'posthogIntegrationIds',
+  plaud: 'plaudAccountIds',
   grafana: 'grafanaInstanceIds',
   sonarqube: 'sonarqubeIntegrationIds',
   notion: 'notionIntegrationIds',

@@ -40,6 +40,7 @@ import { monitoringRoutes } from '@/routes/monitoring'
 import { notionIntegrationsRoutes } from '@/routes/notion-integrations'
 import { onpremClustersRoutes } from '@/routes/onprem-clusters'
 import { permissionGrantProposalsRoutes } from '@/routes/permission-grant-proposals'
+import { plaudAccountsRoutes } from '@/routes/plaud-accounts'
 import { posthogIntegrationsRoutes } from '@/routes/posthog-integrations'
 import { resendIntegrationsRoutes } from '@/routes/resend-integrations'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
@@ -163,6 +164,7 @@ teamScoped.route('/notion-integrations', notionIntegrationsRoutes)
 teamScoped.route('/upstash-accounts', upstashAccountsRoutes)
 teamScoped.route('/resend-integrations', resendIntegrationsRoutes)
 teamScoped.route('/posthog-integrations', posthogIntegrationsRoutes)
+teamScoped.route('/plaud-accounts', plaudAccountsRoutes)
 teamScoped.route('/connectors', teamConnectorsRoutes)
 teamScoped.route('/connector-oauth', connectorOAuthRoutes)
 teamScoped.route('/monitoring', monitoringRoutes)

@@ -35,6 +35,7 @@ import { personalCredentialRoutes } from '@/routes/personal-credentials'
 import { mcp } from '@/routes/mcp'
 import { oauthRoutes } from '@/routes/oauth'
 import { pushRoutes } from '@/routes/push-devices'
+import { plaudAppRoutes } from '@/routes/plaud-app'
 import { posthogAppRoutes } from '@/routes/posthog-app'
 import { sentryAppRoutes } from '@/routes/sentry-app'
 import { slackRoutes } from '@/routes/slack'
@@ -114,6 +115,7 @@ app.route('/linear-app', linearAppRoutes)
 app.route('/personal-credentials', personalCredentialRoutes)
 app.route('/jira-app', jiraAppRoutes)
 app.route('/asana-app', asanaAppRoutes)
+app.route('/plaud-app', plaudAppRoutes)
 app.route('/posthog-app', posthogAppRoutes)
 app.route('/sentry-app', sentryAppRoutes)
 app.route('/slack-app', slackAppRoutes)

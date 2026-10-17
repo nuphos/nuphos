@@ -1,6 +1,9 @@
 import * as atlas from '../atlas'
 
+import { plaudChannels } from './channels-plaud'
+
 export const integrationsChannels = {
+  ...plaudChannels,
   'atlas:listLinodeAccounts': (_e: unknown, teamId: string) => atlas.listLinodeAccounts(teamId),
   'atlas:bindLinodeAccount': (_e: unknown, teamId: string, label: string, token: string) =>
     atlas.bindLinodeAccount(teamId, label, token),
