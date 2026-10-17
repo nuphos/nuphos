@@ -166,6 +166,7 @@ struct AgentPage: View {
                 }
                 // `-new-chat "<prompt>"`: start a conversation with that text.
                 let args = CommandLine.arguments
+                await store.loadCredentialOptions()
                 if let i = args.firstIndex(of: "-new-chat"), i + 1 < args.count, let session = store.newSession() {
                     newChat = NewChat(session: session, prompt: ComposerSubmission(text: args[i + 1], attachments: []))
                 }

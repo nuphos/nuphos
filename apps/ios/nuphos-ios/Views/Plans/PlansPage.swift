@@ -138,16 +138,16 @@ struct PlansPage: View {
                 Text("When you ask the agent to do something that needs confirmation, it drafts a plan here for the team to review and approve. Plans are shared, so anyone with access can weigh in.")
             } actions: {
                 Button("Ask the agent to plan a change") {
-                    Task {
-                        if let session = await store.newSession() {
-                            newChat = AgentPage.NewChat(session: session, prompt: ComposerSubmission(
-                                text: "Help me plan a change — ask me what I want to do, then draft a plan for the team to review.",
-                                attachments: []
-                            ))
-                        }
+                    if let session = store.newSession() {
+                        newChat = AgentPage.NewChat(session: session, prompt: ComposerSubmission(
+                            text: "Help me plan a change — ask me what I want to do, then draft a plan for the team to review.",
+                            attachments: []
+                        ))
                     }
                 }
                 .prominentButton()
+                .disabled(!store.credentialsReady)
+                .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
             }
         case .loaded:
             // Everything loaded is dismissed and hidden.

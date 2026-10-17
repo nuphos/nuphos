@@ -206,6 +206,47 @@ struct CredentialSelection: Equatable, Sendable {
     }
 }
 
+/// The new-conversation credential state for one team: the catalog, a load
+/// error, and the selection. Not persisted: every launch and team switch
+/// starts from the defaults, as the desktop does.
+struct CredentialDraft {
+    private(set) var catalog: CredentialCatalog?
+    private(set) var error: String?
+    var selection = CredentialSelection()
+    /// Bumped by every request and reset; a result for an older one is dropped.
+    private var load = 0
+
+    /// The defaults are in place, or failed to load and the picker says so.
+    var isReady: Bool { catalog != nil || error != nil }
+
+    /// Starts a request; hand the returned token back to `finish`.
+    mutating func begin() -> Int {
+        load += 1
+        return load
+    }
+
+    mutating func finish(_ load: Int, with result: Result<CredentialCatalog, Error>) {
+        guard load == self.load else { return }
+        switch result {
+        case .success(let fresh):
+            if catalog == nil { selection.selectDefaults(in: fresh) }
+            catalog = fresh
+            error = nil
+            selection = selection.pruned(to: fresh)
+        case .failure(let failure):
+            error = failure.localizedDescription
+        }
+    }
+
+    /// Another team: forget everything and orphan requests still in flight.
+    mutating func reset() {
+        self = CredentialDraft(load: load + 1)
+    }
+
+    private init(load: Int) { self.load = load }
+    init() {}
+}
+
 /// Auto Mode vs Bypass Permissions — what the first POST of a new
 /// conversation sends as `permissionMode`.
 enum PermissionMode: String, CaseIterable, Identifiable, Codable {

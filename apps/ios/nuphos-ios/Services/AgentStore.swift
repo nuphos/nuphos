@@ -249,16 +249,13 @@ final class AgentStore {
         newModelConfig = nil
         newModelError = nil
         newModelPick = [:]
-        credentialCatalog = nil
-        credentialCatalogError = nil
-        catalogLoad += 1
+        credentials.reset()
         favorites = nil
         sharedConversations = []
         runtimes = []
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
-        credentialSelection = CredentialSelection()
     }
     var search = "" {
         didSet { if search != oldValue { scheduleSearch() } }
@@ -281,11 +278,15 @@ final class AgentStore {
 
     private static let permissionModeKey = "nuphos.agentPermissionMode"
 
-    private(set) var credentialCatalog: CredentialCatalog?
-    private(set) var credentialCatalogError: String?
-    /// What a new conversation starts with. Not persisted: every launch and
-    /// team switch starts from the defaults, as the desktop does.
-    var credentialSelection = CredentialSelection()
+    private var credentials = CredentialDraft()
+    var credentialCatalog: CredentialCatalog? { credentials.catalog }
+    var credentialCatalogError: String? { credentials.error }
+    var credentialsReady: Bool { credentials.isReady }
+    /// What a new conversation starts with.
+    var credentialSelection: CredentialSelection {
+        get { credentials.selection }
+        set { credentials.selection = newValue }
+    }
     /// Nothing stored yet means Full Access; anything unreadable fails safe
     /// to Auto Mode.
     var permissionMode: PermissionMode = {
@@ -295,28 +296,14 @@ final class AgentStore {
         didSet { UserDefaults.standard.set(permissionMode.rawValue, forKey: Self.permissionModeKey) }
     }
 
-    /// Bumped by every catalog request and team switch; a response to an
-    /// older one is dropped.
-    private var catalogLoad = 0
-    /// The defaults are in place, or failed to load and the picker says so.
-    /// Sending before then would start a conversation with no credentials.
-    var credentialsReady: Bool { credentialCatalog != nil || credentialCatalogError != nil }
-
     /// Loads the IAM catalog for the selected team (cached per team).
     func loadCredentialOptions(force: Bool = false) async {
         guard let team = selectedTeam, force || credentialCatalog == nil else { return }
-        catalogLoad += 1
-        let load = catalogLoad
+        let load = credentials.begin()
         do {
-            let catalog = try await NuphosAPI.credentialOptions(token: token, teamId: team.id)
-            guard load == catalogLoad else { return }
-            if credentialCatalog == nil { credentialSelection.selectDefaults(in: catalog) }
-            credentialCatalog = catalog
-            credentialCatalogError = nil
-            credentialSelection = credentialSelection.pruned(to: catalog)
+            credentials.finish(load, with: .success(try await NuphosAPI.credentialOptions(token: token, teamId: team.id)))
         } catch {
-            guard load == catalogLoad else { return }
-            credentialCatalogError = error.localizedDescription
+            credentials.finish(load, with: .failure(error))
         }
     }
 
@@ -467,8 +454,10 @@ final class AgentStore {
     }
 
     /// A brand-new conversation for the selected team.
+    /// Nil until the credential defaults are in place (or failed to load), so
+    /// no entry point can start a conversation with nothing selected.
     func newSession() -> ChatSession? {
-        guard let team = selectedTeam else { return nil }
+        guard let team = selectedTeam, credentialsReady else { return nil }
         let session = ChatSession.fresh(token: token, teamId: team.id)
         session.me = me
         session.presetPermissionMode(permissionMode)
