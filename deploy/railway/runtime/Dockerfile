@@ -1,4 +1,4 @@
-FROM ghcr.io/nuphos/runtime:0.1.23-claude-code
+FROM ghcr.io/nuphos/runtime:0.1.24-claude-code
 USER root
 # Railway mounts one volume per service. Keep workspaces on the home volume too.
 RUN rmdir /workspace && ln -s /home/node/workspace /workspace
