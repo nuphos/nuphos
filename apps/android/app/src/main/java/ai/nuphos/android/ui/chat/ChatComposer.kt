@@ -3,6 +3,13 @@ package ai.nuphos.android.ui.chat
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 
+import android.Manifest
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.runtime.rememberUpdatedState
+import ai.nuphos.android.voice.*
+
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -229,6 +236,56 @@ fun ChatComposer(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    val injectedVoice = LocalVoiceServices.current
+    val voiceServices = remember(context, injectedVoice) { injectedVoice ?: deviceVoiceServices(context) }
+    val latestText by rememberUpdatedState(text)
+    val latestWrite by rememberUpdatedState<(String) -> Unit> { words ->
+        if (draftingEnabled) {
+            val appended = appendDictation(latestText, words)
+            field = TextFieldValue(appended, TextRange(appended.length))
+            updateText(appended)
+        }
+    }
+    val voice = remember(draft, voiceServices) { VoiceInput(voiceServices, scope) { latestWrite(it) } }
+    var askingVoiceKey by remember(draft) { mutableStateOf(false) }
+    var permissionTarget by remember { mutableStateOf<VoiceInput?>(null) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        permissionTarget?.permissionResult(granted)
+        permissionTarget = null
+    }
+    fun startVoice() {
+        if (voice.active || !draftingEnabled || !canSubmit || picking) return
+        try {
+            if (voiceServices.settings.key() == null) { askingVoiceKey = true; return }
+            focusManager.clearFocus()
+            keyboard?.hide()
+            voice.awaitingPermission()
+            if (voiceServices.microphonePermissionGranted()) voice.permissionResult(true)
+            else if (permissionTarget == null) { permissionTarget = voice; permission.launch(Manifest.permission.RECORD_AUDIO) }
+            else voice.cancel()
+        } catch (_: Exception) { voice.cancel(); voice.error = "Could not access secure voice settings or microphone permission." }
+    }
+    val voiceView = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(voice.phase == VoiceInput.Phase.Recording, voiceView) {
+        val previous = voiceView.keepScreenOn
+        if (voice.phase == VoiceInput.Phase.Recording) voiceView.keepScreenOn = true
+        onDispose { voiceView.keepScreenOn = previous }
+    }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(voice, lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) { voice.cancel(); askingVoiceKey = false }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer); voice.cancel() }
+    }
+    LaunchedEffect(draftingEnabled, canSubmit) { if (!draftingEnabled || !canSubmit) { voice.cancel(); askingVoiceKey = false } }
+    BackHandler(enabled = voice.active) { voice.cancel() }
+    if (askingVoiceKey) OpenAIKeyDialog(voiceServices, onDismiss = { askingVoiceKey = false }, onSaved = { askingVoiceKey = false; startVoice() })
+    voice.error?.let { message ->
+        AlertDialog(onDismissRequest = { voice.error = null }, title = { Text("Voice input failed") },
+            text = { Text(message) }, confirmButton = { TextButton(onClick = { voice.error = null }) { Text("OK") } })
+    }
     val hasText = text.isNotBlank()
     val hasPayload = hasText || attachments.isNotEmpty()
     val expanded = (focused || hasPayload) && !collapsedByUser
@@ -273,7 +330,7 @@ fun ChatComposer(
     val resolvedMode = mode ?: store.permissionMode
 
     fun send() {
-        if (!hasPayload || !canSubmit || !draftingEnabled || picking) return
+        if (!hasPayload || !canSubmit || !draftingEnabled || picking || voice.active) return
         if (!onSend(ComposerSubmission(text.trim(), attachments.toList()))) return
         if (draft != null) draft.submitted(true, text) else localText = ""
         attachments.clear()
@@ -438,7 +495,7 @@ fun ChatComposer(
                 ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BasicTextField(
+                if (voice.active) VoiceRecordingBar(voice) else BasicTextField(
                     value = fieldValue,
                     onValueChange = { value ->
                         if (draftingEnabled) {
@@ -508,7 +565,7 @@ fun ChatComposer(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box {
-                        IconButton(onClick = { menu = true }, enabled = canSubmit && !picking, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { menu = true }, enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Outlined.Add, contentDescription = "Attach")
                         }
                         DropdownMenu(menu, onDismissRequest = { menu = false }) {
@@ -530,14 +587,15 @@ fun ChatComposer(
                     }
                     }
                     Spacer(Modifier.width(8.dp))
-                    if (isStreaming && hasText && canSubmit) {
+                    if (isStreaming && hasText && canSubmit && !voice.active) {
                         IconButton(onClick = ::send, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Outlined.PlaylistAdd, contentDescription = "Queue message")
                         }
                     }
+                    VoiceMic(enabled = canSubmit && draftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     TrailingButton(
                         isStreaming = isStreaming,
-                        hasPayload = hasPayload && canSubmit && !picking,
+                        hasPayload = hasPayload && canSubmit && !picking && !voice.active,
                         onStop = onStop,
                         onSend = ::send,
                     )

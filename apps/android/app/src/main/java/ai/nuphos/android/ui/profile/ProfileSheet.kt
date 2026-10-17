@@ -32,6 +32,9 @@ import ai.nuphos.android.ui.components.NuphosAvatar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileSheet(user: NuphosUser, onDismiss: () -> Unit) {
+    val voiceContext = androidx.compose.ui.platform.LocalContext.current
+    val injectedVoice = ai.nuphos.android.voice.LocalVoiceServices.current
+    val voiceServices = remember(voiceContext, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(voiceContext) }
     val auth = LocalAuthSession.current
     var confirm by remember { mutableStateOf(false) }
     var edit by remember(user.id) { mutableStateOf(false) }
@@ -60,6 +63,8 @@ fun ProfileSheet(user: NuphosUser, onDismiss: () -> Unit) {
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
             TextButton(onClick = { edit = true }, modifier = Modifier.fillMaxWidth()) { Text("Edit profile") }
             TextButton(onClick = { uri.openUri("https://nuphos.ai/privacy") }, modifier = Modifier.fillMaxWidth()) { Text("Privacy policy") }
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            ai.nuphos.android.voice.VoiceSettingsSection(voiceServices)
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text("Account actions", style = MaterialTheme.typography.titleSmall)
             TextButton(onClick = { deletion = true }, modifier = Modifier.fillMaxWidth()) { Text("Account deletion request") }
