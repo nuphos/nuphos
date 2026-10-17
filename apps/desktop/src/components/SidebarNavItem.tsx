@@ -116,20 +116,22 @@ export function SidebarNavItem({
         </span>
       )}
       {/* One trailing slot: the row's state at rest, its actions on hover or
-          focus — never both. Presses here must not navigate the row: activation
-          happens at pointerdown, so they are fenced off. */}
+          focus — never both. Both share one grid cell, so the slot keeps its
+          width and the title never reflows between the two. Presses here must
+          not navigate the row: activation happens at pointerdown, so they are
+          fenced off. */}
       <Fenced>
         {hoverActions == null ? (
           trailing
         ) : (
-          <>
-            <span className="contents group-hover:hidden group-focus-visible:hidden">
+          <span className="grid flex-shrink-0 items-center justify-items-end">
+            <span className="[grid-area:1/1] flex items-center gap-1.5 group-hover:invisible group-focus-visible:invisible">
               {trailing}
             </span>
-            <span className="hidden flex-shrink-0 items-center gap-1 group-hover:flex group-focus-visible:flex">
+            <span className="[grid-area:1/1] invisible flex items-center gap-1 group-hover:visible group-focus-visible:visible">
               {hoverActions}
             </span>
-          </>
+          </span>
         )}
       </Fenced>
       <Fenced>{edge}</Fenced>
