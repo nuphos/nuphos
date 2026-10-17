@@ -142,8 +142,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
           },
         })
       },
-      connectFile: () => {
-        const workspace = controller.state().workspace
+      connectFile: (instanceId) => {
+        const workspace = controller.workspace(instanceId)
 
         return workspace ? new LocalFileStream(workspace) : null
       },

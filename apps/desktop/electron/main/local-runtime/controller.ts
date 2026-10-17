@@ -74,6 +74,13 @@ export class LocalRuntimeController {
       this.instances?.states(this.online),
     )
   }
+
+  /** Where file reads are rooted: an instance's own workspace, or the default agent's. */
+  workspace(instanceId?: string): string | null {
+    return instanceId === undefined
+      ? this.state().workspace
+      : (this.instances?.workspace(instanceId) ?? null)
+  }
   async setUser(userId: string | null): Promise<void> {
     if (userId === this.userId) return
     await this.shutdown()

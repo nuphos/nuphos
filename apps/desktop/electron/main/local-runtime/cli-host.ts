@@ -200,8 +200,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       onRevoked: () => {
         void controller.shutdown().then(exitRevoked)
       },
-      connectFile: () => {
-        const workspace = controller.state().workspace
+      connectFile: (instanceId) => {
+        const workspace = controller.workspace(instanceId)
 
         return workspace ? new LocalFileStream(workspace) : null
       },

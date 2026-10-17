@@ -317,6 +317,46 @@ test('file reads use their own bounded stream and are closed on logout', () => {
   assert.equal(file.closed, true)
 })
 
+test("a file read for an agent instance opens that instance's file stream, or none", () => {
+  const backend = new FakeSocket()
+  const file = new FakeSocket()
+  const asked: (string | undefined)[] = []
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => backend,
+    connectRuntime: () => null,
+    connectFile: (instanceId) => {
+      asked.push(instanceId)
+
+      return instanceId === 'unknown' ? null : file
+    },
+    status: () => ({ agents: {} }),
+  })
+  const open = (s: string, instanceId?: string) =>
+    backend.emit('message', {
+      data: JSON.stringify({
+        t: 'open',
+        s,
+        purpose: 'file',
+        ...(instanceId ? { instanceId } : {}),
+      }),
+    })
+
+  client.start()
+  backend.emit('open')
+  open('default')
+  open('instance', 'i-1')
+  open('gone', 'unknown')
+  assert.deepEqual(asked, [undefined, 'i-1', 'unknown'])
+  assert.ok(
+    backend.sent.some((raw) => {
+      const frame = JSON.parse(raw)
+
+      return frame.t === 'close' && frame.s === 'gone'
+    }),
+  )
+  client.stop()
+})
+
 test('dock terminals have a distinct capability and never fall through to local exec', () => {
   const backend = new FakeSocket()
   const terminal = new FakeSocket()
