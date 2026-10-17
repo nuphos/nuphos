@@ -12,7 +12,8 @@ import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { admitPreviewTurn } from './chat-preview-steering'
-import { admitQueueableChat, queueForOfflineBox, queuedChatContext } from './session-queue-turn'
+import { queueForOfflineBox } from './session-queue-offline'
+import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import {
   buildSlackBoundTurnPlan,

@@ -18,7 +18,8 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
-import { admitQueueableChat, queueForOfflineBox } from './session-queue-turn'
+import { queueForOfflineBox } from './session-queue-offline'
+import { admitQueueableChat } from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
