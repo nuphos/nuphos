@@ -6,6 +6,7 @@
 // unreachable provider doesn't blank the page.
 
 import { canUseAllowList } from '@/lib/byos/access'
+import { grafanaBindingToken } from '@/lib/byos/secrets'
 import { teamByosBindings } from '@/models'
 
 import { collectBetterStack } from './overview-betterstack'
@@ -69,7 +70,15 @@ export async function aggregateMonitoringOverview(
     const integrationId = instance.id.toHexString()
 
     tasks.push(
-      collectGrafana(instance.grafanaUrl, instance.saToken, integrationId, instance.name)
+      Promise.resolve()
+        .then(() =>
+          collectGrafana(
+            instance.grafanaUrl,
+            grafanaBindingToken(instance),
+            integrationId,
+            instance.name,
+          ),
+        )
         .then((r) => {
           rows.push(...r)
         })

@@ -83,6 +83,14 @@ export function byosIntegrationsConfig() {
       encryptionKey: optional('BETTERSTACK_BYOK_ENCRYPTION_KEY'),
       encryptionKeyId: 'default',
     },
+    grafana: {
+      // Grafana service-account tokens pasted at bind time, encrypted at rest.
+      encryptionKey:
+        optional('GRAFANA_BYOK_ENCRYPTION_KEY') ??
+        optional('LINODE_BYOK_ENCRYPTION_KEY') ??
+        optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
+      encryptionKeyId: 'default',
+    },
     uptimeKuma: {
       encryptionKey:
         optional('UPTIME_KUMA_BYOK_ENCRYPTION_KEY') ??

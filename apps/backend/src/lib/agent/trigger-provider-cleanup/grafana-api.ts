@@ -1,3 +1,4 @@
+import { grafanaBindingToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 
 import { cleanupConflict } from './shared'
@@ -15,7 +16,7 @@ export async function grafanaRequest<T>(
   const headers = new Headers(init.headers)
 
   headers.set('Accept', 'application/json')
-  headers.set('Authorization', `Bearer ${binding.saToken}`)
+  headers.set('Authorization', `Bearer ${grafanaBindingToken(binding)}`)
   if (init.body) headers.set('Content-Type', 'application/json')
   let response: Response
 
