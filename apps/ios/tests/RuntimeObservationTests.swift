@@ -166,6 +166,7 @@ struct RuntimeObservationTests {
         StreamingMarkdownTests.run()
         LocalAgentTests.run()
         ImageAttachmentTests.run()
+        PastedFileTests.run()
     }
 
     /// Another device starts a turn: this one moves to the new run, and the

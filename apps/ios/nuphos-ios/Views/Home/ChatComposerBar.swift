@@ -171,7 +171,7 @@ struct ChatComposerBar<Controls: View>: View {
         }
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {
-                attachments.append(contentsOf: urls.compactMap { ComposerAttachment.load(fileURL: $0) })
+                attachments.append(contentsOf: urls.compactMap(ComposerAttachment.load(fileURL:)))
             }
         }
         .alert("Couldn't send attachment", isPresented: Binding(get: { attachmentError != nil }, set: { if !$0 { attachmentError = nil } })) {

@@ -56,27 +56,14 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
         return ComposerAttachment(name: "Photo", kind: .image(jpeg))
     }
 
-    /// Loads one pasted item. Its file is only readable inside the callback,
-    /// so it is copied there; the name is the copier's, not the temp file's.
     static func load(pasted provider: NSItemProvider) async -> ComposerAttachment? {
-        guard let type = provider.registeredContentTypes.first else { return nil }
-        return await withCheckedContinuation { continuation in
-            _ = provider.loadFileRepresentation(for: type, openInPlace: false) { url, _, _ in
-                continuation.resume(returning: url.flatMap { url in
-                    var name = provider.suggestedName ?? url.lastPathComponent
-                    if (name as NSString).pathExtension.isEmpty, !url.pathExtension.isEmpty {
-                        name += "." + url.pathExtension
-                    }
-                    return load(fileURL: url, name: name)
-                })
-            }
-        }
+        guard let file = await PastedFile.load(provider) else { return nil }
+        return attachment(name: file.name, file: file.url, type: file.type)
     }
 
     /// Copies a Files-picked URL into our temp dir (the picker's URL is only
     /// readable while security-scoped).
-    static func load(fileURL: URL, name: String? = nil) -> ComposerAttachment? {
-        let name = name ?? fileURL.lastPathComponent
+    static func load(fileURL: URL) -> ComposerAttachment? {
         let scoped = fileURL.startAccessingSecurityScopedResource()
         defer { if scoped { fileURL.stopAccessingSecurityScopedResource() } }
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(fileURL.pathExtension)
@@ -85,13 +72,16 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
         } catch {
             return nil
         }
-        if let type = UTType(filenameExtension: fileURL.pathExtension), type.conforms(to: .image),
-           let data = try? Data(contentsOf: dest) {
-            if let jpeg = ImageAttachment.jpeg(from: data) {
-                return ComposerAttachment(name: name, kind: .image(jpeg))
-            }
+        return attachment(name: fileURL.lastPathComponent, file: dest, type: UTType(filenameExtension: fileURL.pathExtension))
+    }
+
+    /// Images become JPEG like Photos picks; anything else stays a file.
+    private static func attachment(name: String, file: URL, type: UTType?) -> ComposerAttachment {
+        if let type, type.conforms(to: .image), let data = try? Data(contentsOf: file),
+           let jpeg = ImageAttachment.jpeg(from: data) {
+            return ComposerAttachment(name: name, kind: .image(jpeg))
         }
-        return ComposerAttachment(name: name, kind: .file(dest))
+        return ComposerAttachment(name: name, kind: .file(file))
     }
 }
 
