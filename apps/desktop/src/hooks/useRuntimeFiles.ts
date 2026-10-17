@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api.ts'
+import { parseAtlasError } from '../api/errors.ts'
 import { toast } from '../components/ui/toast.ts'
 import { runtimeFilePreview } from '../lib/runtimeFileLink.ts'
 
@@ -11,6 +12,8 @@ type Result = {
   directory: Directory | null
   preview: ReturnType<typeof runtimeFilePreview>
   loading: boolean
+  /** Over the preview limit: offered as a download instead. */
+  tooLarge?: boolean
 }
 
 // The file a chat link named may be on this computer or the agent's, and the
@@ -98,8 +101,16 @@ export function useRuntimeFiles(
         }
       } catch (error) {
         if (cancelled) return
-        toast.apiError('Could not load runtime files', error)
-        setResult({ source: source.current, directory: null, preview: null, loading: false })
+        const tooLarge = parseAtlasError(error).code === 'file_too_large'
+
+        if (!tooLarge) toast.apiError('Could not load runtime files', error)
+        setResult({
+          source: source.current,
+          directory: null,
+          preview: null,
+          loading: false,
+          tooLarge,
+        })
       }
     }
 
@@ -115,10 +126,43 @@ export function useRuntimeFiles(
     setPath(nextPath)
   }
 
+  async function download() {
+    const target = result.source
+
+    if (!target) return
+    try {
+      const file = await api.atlasDownloadRuntimeFile(
+        target.teamId,
+        target.runtimeId,
+        target.sessionId,
+        `${path}/${fileName}`,
+      )
+      const saved = await api.fileTransferDownloadOne({
+        teamId: target.teamId,
+        sessionId: target.sessionId,
+        ...file,
+      })
+
+      if (saved.saved && saved.path) {
+        const savedPath = saved.path
+
+        toast.success('Saved', file.fileName, {
+          action: {
+            label: 'Open in folder',
+            onClick: () => void api.fileTransferRevealInFolder(savedPath),
+          },
+        })
+      }
+    } catch (error) {
+      toast.apiError('Download failed', error)
+    }
+  }
+
   return {
     ...result,
     path,
     fileName,
+    download,
     navigate,
     openFile: setFileName,
     refresh: () => setRetry((value) => value + 1),

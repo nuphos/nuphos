@@ -43,7 +43,13 @@ export class LocalFileStream implements SocketLike {
   send(input: string): void {
     if (this.readyState !== 1 || this.child) return
     if (input.length > 16384) return this.close()
-    let request: { path?: unknown; action?: unknown }
+    let request: {
+      path?: unknown
+      action?: unknown
+      sessionId?: unknown
+      url?: unknown
+      size?: unknown
+    }
 
     try {
       request = JSON.parse(input)
@@ -55,9 +61,12 @@ export class LocalFileStream implements SocketLike {
       env: {
         ELECTRON_RUN_AS_NODE: '1',
         SystemRoot: process.env.SystemRoot,
+        // Where the conversation's session home lives.
+        HOME: process.env.HOME,
       },
       stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 10_000,
+      // An upload of a file too large to preview takes longer than a read.
+      timeout: request.action === 'upload' ? 110_000 : 10_000,
     })
 
     this.child = child
@@ -79,6 +88,9 @@ export class LocalFileStream implements SocketLike {
       JSON.stringify({
         path: request.path,
         action: request.action,
+        sessionId: request.sessionId,
+        url: request.url,
+        size: request.size,
         workspace: this.workspace,
       }),
     )

@@ -62,6 +62,13 @@ export const teamChannels = {
     sessionId: string,
     path: string,
   ) => atlas.readRuntimeFile(teamId, runtimeId, sessionId, path),
+  'atlas:downloadRuntimeFile': (
+    _e: unknown,
+    teamId: string,
+    runtimeId: string,
+    sessionId: string,
+    path: string,
+  ) => atlas.downloadRuntimeFile(teamId, runtimeId, sessionId, path),
   'atlas:listRuntimeFiles': (
     _e: unknown,
     teamId: string,

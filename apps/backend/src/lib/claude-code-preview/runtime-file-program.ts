@@ -77,6 +77,26 @@ try {
   const current = await fs.stat(target);
   if (stat.dev !== current.dev || stat.ino !== current.ino) throw Error('forbidden_path');
   if (!stat.isFile()) throw Error('not_a_file');
+  const name = path.basename(target);
+  if (input.action === 'stat') {
+    process.stdout.write(JSON.stringify({ name, size: stat.size }));
+  } else if (input.action === 'upload') {
+    // A file too large to preview goes to the transfer store's presigned URL
+    // instead. The store admitted exactly input.size bytes, so no more than
+    // that is ever read, even from a file still growing.
+    if (!Number.isSafeInteger(input.size) || stat.size !== input.size) throw Error('file_changed');
+    const data = Buffer.alloc(input.size + 1);
+    let length = 0;
+    while (length < data.length) {
+      const { bytesRead } = await handle.read(data, length, data.length - length, length);
+      if (!bytesRead) break;
+      length += bytesRead;
+    }
+    if (length !== input.size) throw Error('file_changed');
+    const response = await fetch(input.url, { method: 'PUT', body: data.subarray(0, length) });
+    if (!response.ok) throw Error('upload_failed');
+    process.stdout.write(JSON.stringify({ name, size: length }));
+  } else {
   if (stat.size > limit) throw Error('file_too_large');
   const buffer = Buffer.alloc(limit + 1);
   let size = 0;
@@ -86,7 +106,8 @@ try {
     size += bytesRead;
   }
   if (size > limit) throw Error('file_too_large');
-  process.stdout.write(JSON.stringify({ name: path.basename(target), data: buffer.subarray(0, size).toString('base64'), size }));
+  process.stdout.write(JSON.stringify({ name, data: buffer.subarray(0, size).toString('base64'), size }));
+  }
   }
 } catch (error) {
   const code = error.code === 'ENOENT' ? 'file_not_found' : error.code === 'EACCES' || error.code === 'ELOOP' ? 'forbidden_path' : error.message;

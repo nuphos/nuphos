@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
+import { ObjectId } from 'mongodb'
+
 import { getReadableConversation } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { AppError } from '@/lib/errors'
+import { createTransfer, finalizeTransfer } from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
@@ -25,6 +28,7 @@ async function readLocalFile(
   actorId: string,
   runtimeId: string,
   input: string,
+  timeoutMs: number,
 ): Promise<string> {
   const ref = parseLocalRuntimeId(runtimeId)
 
@@ -46,7 +50,7 @@ async function readLocalFile(
     let settled = false
     const timer = setTimeout(() => {
       finish()
-    }, 15_000)
+    }, timeoutMs)
 
     socket.addEventListener('open', () => {
       socket.send(input)
@@ -109,7 +113,8 @@ async function runtimeFileOperation(
   runtimeId: string,
   sessionId: string,
   path: string,
-  action: 'read' | 'list',
+  request: { action: 'read' | 'list' | 'stat' } | { action: 'upload'; url: string; size: number },
+  timeoutMs = 10_000,
 ) {
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
@@ -134,12 +139,18 @@ async function runtimeFileOperation(
     !conversation.previousRuntimeUrls?.includes(endpoint.url)
   )
     throw new AppError(403, 'runtime_mismatch', 'This agent does not belong to the conversation.')
-  const params = { path, action, workspace: '/workspace', sessionId }
+  const params = { path, ...request, workspace: '/workspace', sessionId }
   let output: string
 
   try {
     if (instance.kind === 'local')
-      output = await readLocalFile(teamId, userId, runtimeId, JSON.stringify(params))
+      output = await readLocalFile(
+        teamId,
+        userId,
+        runtimeId,
+        JSON.stringify(params),
+        timeoutMs + 5_000,
+      )
     else {
       const client = await controlRegistry.acquire(teamId, endpoint)
 
@@ -150,10 +161,10 @@ async function runtimeFileOperation(
           job: 'panel',
           env: {},
           stdin: JSON.stringify({ runner: RUNTIME_FILE_PROGRAM, script: '', params }),
-          timeoutMs: 10_000,
+          timeoutMs,
           maxStdoutBytes: 750_000,
         },
-        15_000,
+        timeoutMs + 5_000,
       )
 
       if (result.timedOut || typeof result.stdout !== 'string') throw unavailable()
@@ -174,7 +185,7 @@ export async function readRuntimeFile(
   path: string,
 ) {
   return parseRuntimeFile(
-    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, 'read'),
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'read' }),
   )
 }
 
@@ -226,6 +237,57 @@ export async function listRuntimeFiles(
   path: string,
 ) {
   return parseRuntimeDirectory(
-    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, 'list'),
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'list' }),
   )
+}
+
+function parseRuntimeStat(output: string) {
+  let result: { name?: unknown; size?: unknown; error?: unknown }
+
+  try {
+    result = JSON.parse(output)
+  } catch {
+    throw unavailable()
+  }
+  if (result.error) parseRuntimeFile(output)
+  if (typeof result.name !== 'string' || !Number.isSafeInteger(result.size)) throw unavailable()
+
+  return { name: result.name, size: result.size as number }
+}
+
+/**
+ * Hands a file too large to preview to the transfer store as a download of
+ * this conversation: the runtime PUTs it to a presigned URL, and the user
+ * fetches it like any file an agent shared.
+ */
+export async function shareRuntimeFile(
+  teamId: string,
+  userId: string,
+  runtimeId: string,
+  sessionId: string,
+  path: string,
+) {
+  const { name, size } = parseRuntimeStat(
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'stat' }),
+  )
+  const scope = { teamId: new ObjectId(teamId), userId, sessionId }
+  const transfer = await createTransfer(scope, 'download', [{ fileName: name, size }])
+  const [file] = transfer.files
+
+  if (!file) throw unavailable()
+
+  parseRuntimeStat(
+    await runtimeFileOperation(
+      teamId,
+      userId,
+      runtimeId,
+      sessionId,
+      path,
+      { action: 'upload', url: file.uploadUrl, size },
+      110_000,
+    ),
+  )
+  if ((await finalizeTransfer(scope, transfer.groupId)).status !== 'ready') throw unavailable()
+
+  return { groupId: transfer.groupId, fileId: file.id, fileName: name, size }
 }
