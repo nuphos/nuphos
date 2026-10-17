@@ -119,11 +119,11 @@ export const localRuntimeStatusSchema = z.object({
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
   cliVersion: z.string().max(50).optional(),
-  /** Desktops this computer runs for conversations (a Box: one X display per session). */
+  /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(
       z.object({
-        display: z.number().int().min(2).max(255),
+        display: z.number().int().min(0).max(255),
         sessionId: z.string().min(1).max(128),
       }),
     )

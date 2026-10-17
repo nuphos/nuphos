@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
@@ -19,17 +19,19 @@ import { prepareAgentHome } from './agent-home.ts'
 import { LocalAgentLogin } from './agent-login.ts'
 import { LocalBrowserStream } from './browser-stream.ts'
 import { runBrowserCall } from './browser-tabs.ts'
+import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { LocalFileStream } from './file-stream.ts'
+import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
 
-import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
+import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { LocalRuntimeState, LocalRuntimeViewState } from './controller-types.ts'
 
@@ -60,32 +62,15 @@ function tunnelUrl(): string {
   return `${apiUrl().replace(/^http/u, 'ws')}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel`
 }
 
-const cliCacheFile = (userId: string) => path.join(dataDir(), 'users', userId, 'cli.json')
-
-type CliCache = Partial<Record<LocalAgentProvider, AgentCliStatus>>
-
-function readCliCache(userId: string): CliCache {
-  try {
-    return JSON.parse(readFileSync(cliCacheFile(userId), 'utf8')) as CliCache
-  } catch {
-    return {}
-  }
-}
-
-function writeCliCache(userId: string, cli: CliCache): void {
-  try {
-    mkdirSync(path.dirname(cliCacheFile(userId)), { recursive: true })
-    writeFileSync(cliCacheFile(userId), JSON.stringify(cli), { mode: 0o600 })
-  } catch {
-    // Only a head start for the next launch.
-  }
-}
-
 function broadcastState(): void {
   const state = getLocalRuntimeState()
 
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('localRuntime:state', state)
 }
+
+// On a Mac, a conversation's owner can watch the Mac's own screen (mac-screen.ts).
+const screenPool = enableMacScreen(dataDir(), () => tunnel?.sendStatus())
+let tunnel: RuntimeTunnelClient | undefined
 
 const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle: findBundle,
@@ -97,8 +82,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   userEnv,
   probeCli: probeAgentCli,
   readUsage: readAgentUsage,
-  readCliCache,
-  writeCliCache,
+  readCliCache: (userId) => readCliCache(dataDir(), userId),
+  writeCliCache: (userId, cli) => writeCliCache(dataDir(), userId, cli),
   onChange: broadcastState,
   prepareAgentHome,
   registerDevice: () => syncDeviceRegistration(),
@@ -128,8 +113,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       }),
     })
   },
-  createTunnel: (runtime, status, onChange, instances) =>
-    new RuntimeTunnelClient({
+  createTunnel: (runtime, status, onChange, instances) => {
+    tunnel = new RuntimeTunnelClient({
       instances,
       activity: sleep.taskActivity,
       connectBackend: () => {
@@ -161,7 +146,11 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       status,
       onChange,
-    }),
+      ...(screenPool && macScreenDeps(screenPool, status, instances)),
+    })
+
+    return tunnel
+  },
   log: logLocalTool,
 })
 

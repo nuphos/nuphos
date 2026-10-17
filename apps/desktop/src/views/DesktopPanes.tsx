@@ -1,10 +1,9 @@
 import RFB from '@novnc/novnc'
-import { Monitor } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
-import { PageMeta } from '../app/pageMeta'
+import { useMacSignIn } from '../hooks/useMacSignIn'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
 import { IpcVncChannel } from '../lib/ipcVncChannel'
@@ -14,76 +13,18 @@ import {
   subscribeSessionDesktops,
 } from '../lib/sessionDesktops'
 
+import { DesktopFrame } from './DesktopFrame'
+import { MacSignIn } from './MacSignIn'
+
 import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
 
 /** What the remote page shows once its connection is over; the view then reconnects with a new link. */
 const BOX_PAGE_ENDED = /link has expired|disconnected|failed to connect/iu
 
-/** The desktop's frame: its name in the header, and what stands between the user and it. */
-function DesktopFrame({
-  title,
-  phase,
-  status,
-  action,
-  switcher,
-  onRetry,
-  host,
-}: {
-  title: string
-  phase: DesktopPhase
-  status?: string
-  action?: React.ReactNode
-  /** Which of the Box's displays to show, for a Box's desktop. */
-  switcher?: React.ReactNode
-  onRetry: () => void
-  host: React.RefObject<HTMLDivElement | null>
-}) {
-  const overlay =
-    phase.kind === 'connecting'
-      ? 'Connecting to the desktop…'
-      : phase.kind === 'reconnecting'
-        ? 'Reconnecting…'
-        : undefined
-
-  return (
-    <PageMeta pageKey="team.desktop" title={title} icon={<Monitor className="h-3.5 w-3.5" />}>
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="flex items-center gap-2 border-b border-zGray-800 px-3 py-1.5 text-xs text-tertiary">
-          <span className="max-w-[40%] shrink-0 truncate font-medium text-main" title={title}>
-            {title}
-          </span>
-          {switcher}
-          <span className="min-w-0 flex-1 truncate">{status}</span>
-          {phase.kind === 'connected' && action}
-        </div>
-        <div className="relative min-h-0 flex-1">
-          <div ref={host} className="absolute inset-0 flex" />
-          {(overlay || phase.kind === 'stopped') && (
-            <div
-              role="status"
-              className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zGray-950/80 text-sm text-secondary"
-            >
-              {phase.kind === 'stopped' ? phase.message : overlay}
-              {phase.kind === 'stopped' && (
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="rounded border border-zGray-700 px-2 py-0.5 text-xs text-main hover:bg-zGray-800"
-                >
-                  {phase.reason === 'offline' ? 'Resume' : 'Try again'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </PageMeta>
-  )
-}
-
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
- * `display` is the X display number. View-only until the owner takes it over:
+ * `display` is the X display number, or 0 for a Mac's own screen, which asks
+ * for a Mac account first. View-only until the owner takes it over:
  * the backend drops the viewer's input until then, and taking over also makes
  * the agent's input tools on that desktop wait. A dropped stream reconnects,
  * as the viewer again: the host hands the desktop back when a stream closes.
@@ -109,6 +50,7 @@ export function SessionDesktopView({
   const retryRef = useRef<() => void>(() => undefined)
   const [phase, setPhase] = useState<DesktopPhase>({ kind: 'connecting' })
   const [holding, setHolding] = useState(false)
+  const signIn = useMacSignIn()
   const title = useSyncExternalStore(subscribeSessionDesktops, () =>
     conversationId ? sessionDesktopTitle(conversationId, display) : undefined,
   )
@@ -127,6 +69,7 @@ export function SessionDesktopView({
       rfb.background = 'transparent'
       rfb.addEventListener('connect', opened)
       rfb.addEventListener('disconnect', closed)
+      signIn.watch(rfb)
       rfbRef.current = rfb
       channelRef.current = channel
       setHolding(false)
@@ -182,6 +125,7 @@ export function SessionDesktopView({
       switcher={switcher}
       onRetry={() => retryRef.current()}
       host={host}
+      prompt={signIn.asking && <MacSignIn failed={signIn.asking.failed} onSubmit={signIn.submit} />}
     />
   )
 }
