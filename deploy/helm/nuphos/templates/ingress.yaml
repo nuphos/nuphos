@@ -1,0 +1,38 @@
+{{- if .Values.ingress.enabled }}
+{{- $fullname := include "nuphos.fullname" . }}
+{{- $routes := list (list (include "nuphos.backendUrl" .) "backend" 3000) (list (include "nuphos.storageUrl" .) "rustfs" 9000) }}
+{{- if .Values.runtime.enabled }}
+{{- $routes = append $routes (list (include "nuphos.runtimeUrl" .) "runtime" 8080) }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range $routes }}
+    - host: {{ (urlParse (index . 0)).hostname }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ printf "%s-%s" $fullname (index . 1) }}
+                port:
+                  number: {{ index . 2 }}
+    {{- end }}
+{{- end }}

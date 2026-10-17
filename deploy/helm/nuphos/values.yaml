@@ -1,0 +1,112 @@
+# Public HTTPS URLs. Desktop, iOS and the runtime reach the backend and storage
+# through them, and presigned file URLs name the storage host.
+backend:
+  url: '' # required, e.g. https://api.nuphos.example.com
+  image:
+    repository: ghcr.io/nuphos/backend
+    tag: '' # defaults to v{{ .Chart.AppVersion }}
+    pullPolicy: IfNotPresent
+  # Extra env vars, e.g. ATLAS_ADMIN_TEAM_ID or Bedrock credentials.
+  extraEnv: []
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Production sign-in sends the email code through Zeabur Email or Resend.
+email:
+  provider: zsend # zsend or resend
+  # The selected provider's key is required unless secrets.existingSecret holds it.
+  zsendApiKey: '' # ZSEND_API_KEY
+  resendApiKey: '' # RESEND_API_KEY
+  from: '' # required, a sender on a verified domain, e.g. Nuphos <noreply@example.com>
+
+# Left empty, each value is generated on first install and kept on upgrade.
+# Tools that render without cluster access (helm template, Argo CD) regenerate
+# them on every render, so set them explicitly or use existingSecret there.
+secrets:
+  # Name of a Secret with the keys listed below. The chart then creates none.
+  existingSecret: ''
+  jwtSecret: '' # NUPHOS_JWT_SECRET
+  mongoPassword: '' # MONGO_PASSWORD
+  storageSecretKey: '' # STORAGE_SECRET_KEY
+  runtimeAuthKey: '' # RUNTIME_AUTH_KEY
+
+mongo:
+  image:
+    repository: mongo
+    tag: 8.0.32
+    pullPolicy: IfNotPresent
+  persistence:
+    size: 10Gi
+    storageClass: ''
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+storage:
+  url: '' # required, e.g. https://storage.nuphos.example.com
+  accessKey: nuphos
+  image:
+    repository: rustfs/rustfs
+    tag: 1.0.0
+    pullPolicy: IfNotPresent
+  persistence:
+    size: 20Gi
+    storageClass: ''
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+runtime:
+  # The runtime executes agent code. Its pod mounts no backend secret and no
+  # service account token, and a NetworkPolicy keeps it away from MongoDB.
+  enabled: true
+  url: '' # required when enabled, e.g. https://runtime.nuphos.example.com
+  image:
+    repository: ghcr.io/nuphos/runtime
+    tag: 0.1.24-claude-code
+    pullPolicy: IfNotPresent
+  persistence:
+    home:
+      size: 10Gi
+      storageClass: ''
+    workspace:
+      size: 20Gi
+      storageClass: ''
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  # The runtime image is published for amd64 only.
+  nodeSelector:
+    kubernetes.io/arch: amd64
+  tolerations: []
+  affinity: {}
+
+ingress:
+  enabled: true
+  className: ''
+  # Agent turns stream over WebSockets, so raise proxy timeouts here,
+  # e.g. nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'.
+  annotations: {}
+  # e.g. [{ secretName: nuphos-tls, hosts: [api.example.com, storage.example.com] }]
+  tls: []
+
+networkPolicy:
+  # Only the backend may connect to MongoDB.
+  enabled: true
+
+# Manifests rendered with the release, e.g. an ExternalSecret behind secrets.existingSecret.
+extraObjects: []

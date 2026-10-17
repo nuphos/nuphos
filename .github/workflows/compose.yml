@@ -6,6 +6,7 @@ on:
       - 'deploy/compose/**'
       - 'deploy/zeabur/**'
       - 'deploy/railway/**'
+      - 'deploy/helm/**'
       - 'apps/backend/**'
       - 'apps/runtime/**'
       - '.github/workflows/compose.yml'
@@ -56,6 +57,21 @@ jobs:
         run: python3 -m pip install PyYAML==6.0.3 jsonschema==4.26.0
       - name: Validate template and Mongo bootstrap
         run: python3 deploy/zeabur/check.py --mongo
+
+  helm-chart:
+    name: Helm chart validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint and validate rendered manifests
+        run: |
+          curl -fsSL https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz | tar -xz -C /tmp linux-amd64/helm
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar -xz -C /tmp kubeconform
+          /tmp/linux-amd64/helm lint deploy/helm/nuphos -f deploy/helm/ci-values.yaml --strict
+          /tmp/linux-amd64/helm template nuphos deploy/helm/nuphos -f deploy/helm/ci-values.yaml | /tmp/kubeconform -strict -summary
 
   platform-templates:
     name: Railway template validation

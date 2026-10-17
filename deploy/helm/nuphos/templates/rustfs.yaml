@@ -1,0 +1,154 @@
+{{- $name := printf "%s-rustfs" (include "nuphos.fullname" .) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "rustfs") | nindent 4 }}
+data:
+  # Same bootstrap as deploy/zeabur/template.yaml: start RustFS, then create the buckets.
+  start.sh: |
+    #!/bin/sh
+    set -eu
+    rm -f /tmp/buckets-ready
+    /entrypoint.sh rustfs &
+    pid=$!
+    trap 'kill -TERM $pid' TERM INT
+    until curl -fsS http://127.0.0.1:9000/health >/dev/null 2>&1; do
+      kill -0 $pid 2>/dev/null || { echo "rustfs exited before becoming healthy" >&2; exit 1; }
+      sleep 1
+    done
+    # /health answers before the S3 API does, so 5xx and refused connections are retried.
+    for bucket in $BUCKETS; do
+      waited=0
+      while :; do
+        status=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+          --aws-sigv4 'aws:amz:us-east-1:s3' --user "$S3_ACCESS_KEY:$S3_SECRET_KEY" \
+          "$S3_ENDPOINT/$bucket" || true)
+        case "$status" in
+          200|409) echo "bucket $bucket ready"; break ;;
+          000|5??)
+            kill -0 $pid 2>/dev/null || { echo "rustfs exited while creating buckets" >&2; exit 1; }
+            if [ "$waited" -ge 60 ]; then
+              echo "bucket $bucket: HTTP $status after ${waited}s" >&2; kill -TERM $pid; exit 1
+            fi
+            delay=$((waited < 8 ? 1 : 4))
+            sleep "$delay"
+            waited=$((waited + delay)) ;;
+          *) echo "bucket $bucket: HTTP $status" >&2; kill -TERM $pid; exit 1 ;;
+        esac
+      done
+    done
+    touch /tmp/buckets-ready
+    wait $pid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "rustfs") | nindent 4 }}
+spec:
+  selector:
+    {{- include "nuphos.selectorLabels" (list . "rustfs") | nindent 4 }}
+  ports:
+    - name: http
+      port: 9000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "rustfs") | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nuphos.selectorLabels" (list . "rustfs") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nuphos.labels" . | nindent 8 }}
+        {{- include "nuphos.selectorLabels" (list . "rustfs") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The image runs as rustfs (10001).
+        fsGroup: 10001
+      containers:
+        - name: rustfs
+          image: {{ .Values.storage.image.repository }}:{{ .Values.storage.image.tag }}
+          imagePullPolicy: {{ .Values.storage.image.pullPolicy }}
+          command: ['/bin/sh', '/opt/nuphos/start.sh']
+          env:
+            - name: S3_ACCESS_KEY
+              value: {{ .Values.storage.accessKey | quote }}
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nuphos.secretName" . }}
+                  key: STORAGE_SECRET_KEY
+            - name: RUSTFS_ACCESS_KEY
+              value: $(S3_ACCESS_KEY)
+            - name: RUSTFS_SECRET_KEY
+              value: $(S3_SECRET_KEY)
+            - name: RUSTFS_ADDRESS
+              value: 0.0.0.0:9000
+            - name: S3_ENDPOINT
+              value: http://127.0.0.1:9000
+            - name: BUCKETS
+              value: nuphos-file-transfers nuphos-skills nuphos-journal
+          ports:
+            - name: http
+              containerPort: 9000
+          readinessProbe:
+            exec:
+              command: ['sh', '-c', 'test -f /tmp/buckets-ready && curl -fsS http://127.0.0.1:9000/health']
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.storage.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: script
+              mountPath: /opt/nuphos
+      volumes:
+        - name: script
+          configMap:
+            name: {{ $name }}
+      {{- with .Values.storage.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.storage.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.storage.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.storage.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.persistence.size }}
