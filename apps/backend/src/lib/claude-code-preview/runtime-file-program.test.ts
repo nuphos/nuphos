@@ -119,6 +119,17 @@ test("the conversation owner's session home is readable, except its dot-entries"
     expect(run({ path: join(home, 'recordings', 'box1.mp4'), sessionId: undefined })).toEqual({
       error: 'forbidden_path',
     })
+    // A non-dot link to a dot-entry is refused by where it resolves.
+    await symlink(join(home, '.aws', 'credentials'), join(home, 'creds'))
+    expect(run({ path: join(home, 'creds') })).toEqual({ error: 'forbidden_path' })
+    // A home that is itself a link is not followed.
+    const outside = join(root, 'outside')
+
+    await mkdir(outside)
+    await writeFile(join(outside, 'secret'), 'private')
+    await rm(home, { recursive: true })
+    await symlink(outside, home)
+    expect(run({ path: join(home, 'secret') })).toEqual({ error: 'forbidden_path' })
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -38,8 +38,9 @@ try {
   if (typeof input.sessionId === 'string') {
     const id = (await import('node:crypto')).createHash('sha256').update(input.sessionId).digest('hex');
     const home = path.join((await import('node:os')).homedir(), '.nuphos', 'session-homes', id);
-    const real = await fs.realpath(home).catch(() => null);
-    if (real) homes.push(home, real);
+    // Like the workspace, a home that is a link is refused rather than followed.
+    const stat = await fs.lstat(home).catch(() => null);
+    if (stat?.isDirectory()) homes.push(home, await fs.realpath(home));
   }
   const inHome = candidate => homes.some(dir => {
     const relative = within(dir, candidate);
