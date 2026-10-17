@@ -153,12 +153,6 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         animatePendingSend()
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        // The keyboard leaves with the page instead of after it has gone.
-        view.window?.endEditing(true)
-    }
-
     /// The composer sits between the transcript and the keyboard. Counting it
     /// as part of the keyboard lets a drag pick both up at the composer's top.
     func setComposerHeight(_ height: CGFloat) {
