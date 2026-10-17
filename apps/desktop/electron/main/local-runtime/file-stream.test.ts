@@ -102,9 +102,9 @@ test("an agent instance's files are read from its own workspace, an unknown inst
       workspace: join(root, 'conv-session'),
       instances: [{ instanceId: 'i-1', workspace: instance }],
     } as unknown as LocalRuntimeState
-    const file = join(instance, 'box-check.md')
 
-    assert.equal((await send(LocalFileStream.open(state, 'i-1')!, file)).size, 2)
-    assert.equal((await send(LocalFileStream.open(state)!, file)).error, 'forbidden_path')
+    assert.equal((await send(LocalFileStream.open(state, 'i-1')!, 'box-check.md')).size, 2)
+    // The default agent's root holds no such file: the instance is not read from it.
+    assert.equal((await send(LocalFileStream.open(state)!, 'box-check.md')).error, 'file_not_found')
     assert.equal(LocalFileStream.open(state, 'i-2'), null)
   }))
