@@ -74,23 +74,32 @@ useAuthMiddleware({
   },
 })
 
-const saveConfig = { github: { ...config.byos.github }, linear: { ...config.byos.linear } }
+const saveConfig = {
+  github: { ...config.byos.github },
+  linear: { ...config.byos.linear },
+  publicBackendUrl: config.agent.publicBackendUrl,
+}
+
+// As in production: GitHub's install redirect is a desktop deep link, so the
+// callback has to come from the backend's public URL, not the setup redirect.
+Object.assign(config.agent, { publicBackendUrl: 'https://api.nuphos.test/' })
 
 Object.assign(config.byos.github, {
   clientId: 'Iv1.client',
   clientSecret: 'gh-secret',
-  setupRedirect: 'https://api.nuphos.test/github-app/setup',
+  setupRedirect: 'nuphos://github-callback',
   encryptionKey: 'k',
 })
 Object.assign(config.byos.linear, {
   clientId: 'lin-client',
   clientSecret: 'lin-secret',
-  setupRedirect: 'https://api.nuphos.test/linear-app/setup',
+  setupRedirect: 'https://elsewhere.test/linear-app/setup',
   encryptionKey: 'k',
 })
 afterAll(() => {
   Object.assign(config.byos.github, saveConfig.github)
   Object.assign(config.byos.linear, saveConfig.linear)
+  Object.assign(config.agent, { publicBackendUrl: saveConfig.publicBackendUrl })
 })
 
 // Each provider's token exchange and identity lookup, answered for the approver.
@@ -136,8 +145,13 @@ async function start(provider: string, userId: string): Promise<string> {
   })
 
   expect(res.status).toBe(200)
+  const { state, authorizeUrl } = (await res.json()) as { state: string; authorizeUrl: string }
 
-  return ((await res.json()) as { state: string }).state
+  expect(new URL(authorizeUrl).searchParams.get('redirect_uri')).toBe(
+    `https://api.nuphos.test/personal-credentials/${provider}/callback`,
+  )
+
+  return state
 }
 
 /** Follows the provider redirect and returns the deep link the callback page opens. */

@@ -7,6 +7,7 @@ import { ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { getDefaultClientCredentials, getViewer } from '@/lib/byos/linear'
 import { buildAuthorizeUrl, exchangeCodeForTokens } from '@/lib/byos/linear-oauth'
+import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { personalCredentialPendingOAuth, personalCredentials } from '@/models'
@@ -29,12 +30,13 @@ const LINEAR_REVOKE_URL = 'https://api.linear.app/oauth/revoke'
 
 export const PERSONAL_CREDENTIAL_PROVIDERS = ['github', 'linear'] as const
 
-/** The callback sits on the same public origin as the provider's existing setup redirect. */
+/** The callback is on the backend's public origin (NUPHOS_PUBLIC_BACKEND_URL). */
 function callbackUrl(provider: PersonalCredentialProvider): string | null {
-  const setup =
-    provider === 'github' ? config.byos.github.setupRedirect : config.byos.linear.setupRedirect
+  const base = publicBackendUrl()
 
-  return setup ? `${new URL(setup).origin}/personal-credentials/${provider}/callback` : null
+  return base?.startsWith('https://')
+    ? `${base.replace(/\/$/u, '')}/personal-credentials/${provider}/callback`
+    : null
 }
 
 function notConfigured(provider: PersonalCredentialProvider): AppError {
