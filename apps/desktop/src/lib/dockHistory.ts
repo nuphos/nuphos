@@ -6,6 +6,8 @@ export type DockHistoryEntry = { href: string; title: string; count: number; ope
 const MAX_ENTRIES = 500
 const CHANGE_EVENT = 'nuphos:dock-history'
 const HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1000
+/** A session's display: it opens as its conversation's own tab, not from history. */
+const SESSION_DESKTOP = /^\/teams\/[^/]+\/desktop\/\d+$/u
 
 export function dockHistoryKey(userId: string, teamId: string): string {
   return `nuphos.dockHistory.${encodeURIComponent(userId)}.${encodeURIComponent(teamId)}`
@@ -35,6 +37,7 @@ export function parseDockHistory(raw: string | null): DockHistoryEntry[] {
         'openedAt' in entry &&
         typeof entry.href === 'string' &&
         entry.href.startsWith('/') &&
+        !SESSION_DESKTOP.test(entry.href) &&
         typeof entry.title === 'string' &&
         typeof entry.count === 'number' &&
         typeof entry.openedAt === 'number' &&

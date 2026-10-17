@@ -26,6 +26,11 @@ export function desktopTabId(sessionId: string, display: number): string {
   return `desktop:${sessionId}:${String(display)}`
 }
 
+/** The session whose display a `desktopTabId` tab shows. */
+export function desktopTabSession(tabId: string): string | undefined {
+  return /^desktop:(.+):\d+$/u.exec(tabId)?.[1]
+}
+
 /** `null` forgets a session whose chat left the screen, without closing its tabs. */
 export function publishSessionDesktops(sessionId: string, desktops: SessionDesktops | null): void {
   const before = bySession.get(sessionId)

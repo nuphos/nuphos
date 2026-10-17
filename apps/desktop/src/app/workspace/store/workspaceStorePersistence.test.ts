@@ -135,7 +135,7 @@ const desktopTab = (options: { filter?: string; browserUrl?: string }) =>
     emptyNavigation({ kind: 'team', teamId: TEAM }, 'team.desktop', options),
   )
 
-test('a desktop tab without a target is dropped on restore; one with a target stays', () => {
+test('only a Box desktop tab restores; a targetless or bare-display one is dropped', () => {
   // Before desktops named their Box, a Box desktop held only its expiring link.
   const tabs = [
     desktopTab({ browserUrl: 'https://box.example/stream?token=old' }),
@@ -147,15 +147,16 @@ test('a desktop tab without a target is dropped on restore; one with a target st
   assert.ok(persisted)
   const bucket = hydrateWorkspaceState({ 'session-a': persisted }).buckets['session-a']
 
+  // A session's display comes back as its conversation's own tab, from the snapshot.
   assert.deepEqual(
     bucket.tabs.map((tab) => tab.filter),
-    ['box-device-1', '3'],
+    ['box-device-1'],
   )
   assert.equal(bucket.activeTabId, bucket.tabs[0].id)
 })
 
 test('a targetless desktop in a tab’s history is dropped and the current page kept', () => {
-  const persisted = serializeWorkspace([desktopTab({ filter: '3' })], null)
+  const persisted = serializeWorkspace([desktopTab({ filter: 'box-device-1' })], null)
 
   assert.ok(persisted)
   const [entry] = persisted.tabs
@@ -165,7 +166,7 @@ test('a targetless desktop in a tab’s history is dropped and the current page 
   entry.navHistoryIndex = 1
   const restored = hydrateWorkspaceState({ 'session-a': persisted }).buckets['session-a'].tabs[0]
 
-  assert.equal(restored.filter, '3')
+  assert.equal(restored.filter, 'box-device-1')
   assert.equal(restored.navHistory.length, 1)
   assert.equal(restored.navHistoryIndex, 0)
 })

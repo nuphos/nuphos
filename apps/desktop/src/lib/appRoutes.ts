@@ -18,6 +18,7 @@ import {
 } from './app-routes/parseShared.ts'
 import { pageLocationForNavigation } from './app-routes/producer.ts'
 import { connectorsNavigation, infraNavigation } from './app-routes/providerParse.ts'
+import { parseDesktopFilter } from './desktopScreens.ts'
 
 import type { Scope } from '../types'
 import type { NavigationSnapshot } from './app-routes/types.ts'
@@ -127,8 +128,9 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
     case 'terminal':
       return emptyNavigation(teamScope, 'team.terminal', rest[1] ? { filter: rest[1] } : {})
     case 'desktop':
-      // A desktop always names its session display or Box; without one, the Boxes are on Agents.
-      return rest[1]
+      // Only a Box desktop has an address: a session's display opens as its conversation's
+      // own dock tab, never from a path. Anything else lands on the Boxes, on Agents.
+      return rest[1] && parseDesktopFilter(rest[1]).kind === 'box'
         ? emptyNavigation(teamScope, 'team.desktop', { filter: rest[1] })
         : emptyNavigation(teamScope, 'team.agents')
     case 'browser':

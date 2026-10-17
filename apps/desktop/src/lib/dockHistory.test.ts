@@ -85,6 +85,16 @@ test('malformed history and non-app paths are dropped', () => {
   )
 })
 
+test("a session's desktop display is not offered again; a Box desktop is", () => {
+  recordDockVisit('desk', 'team', { href: '/teams/t/desktop/2', title: 'Box 1 · :2', opened: true })
+  recordDockVisit('desk', 'team', { href: '/teams/t/desktop/box-1', title: 'Box 1', opened: true })
+
+  assert.deepEqual(
+    read('desk').map((entry) => entry.href),
+    ['/teams/t/desktop/box-1'],
+  )
+})
+
 test('subscribers update for their own history and unsubscribe cleanly', () => {
   let updates = 0
   const unsubscribe = subscribeDockHistory(dockHistoryKey('watcher', 'team'), () => {

@@ -8,7 +8,11 @@ import { PageMeta } from '../app/pageMeta'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
 import { IpcVncChannel } from '../lib/ipcVncChannel'
-import { sessionDesktopTitle, subscribeSessionDesktops } from '../lib/sessionDesktops'
+import {
+  desktopTabSession,
+  sessionDesktopTitle,
+  subscribeSessionDesktops,
+} from '../lib/sessionDesktops'
 
 import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
 
@@ -92,13 +96,13 @@ export function SessionDesktopView({
 }: {
   teamId: string
   display: number
-  /** Another of the viewer's conversations on the Box; else the tab's own. */
+  /** Another of the viewer's conversations on the Box; else the one whose tab this is. */
   sessionId?: string
   switcher?: React.ReactNode
 }) {
-  const tab = useWorkspaceTab()
-  const { tabId } = tab
-  const conversationId = sessionId ?? tab.conversationId
+  const { tabId } = useWorkspaceTab()
+  // From the tab, not the chat on screen: a dock keeps other sessions' desktop tabs mounted.
+  const conversationId = sessionId ?? desktopTabSession(tabId)
   const host = useRef<HTMLDivElement>(null)
   const rfbRef = useRef<RFB | null>(null)
   const channelRef = useRef<IpcVncChannel | null>(null)
