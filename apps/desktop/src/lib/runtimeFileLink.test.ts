@@ -64,9 +64,23 @@ test('finds bare runtime paths in prose without catching URLs, dates or app rout
     '/usr',
     'open /teams/t/infra/aws',
     '~/notes/a.md',
+    'GET /api/v1/monitors',
+    'see /api/datasources',
+    'POST /v1/messages',
+    'https://x/a/b',
+    '1/2',
+    '/',
+    'C:\\Users\\a\\b',
+    'C:/Users/a/b',
   ])
     assert.ok(
       splitRuntimeFilePaths(text).every((part) => typeof part === 'string'),
+      text,
+    )
+  for (const text of ['(see /data/a.md)', '/data/a.md,', '/data/a.md:', '/data/a.md).'])
+    assert.deepEqual(
+      splitRuntimeFilePaths(text).filter((part) => typeof part !== 'string'),
+      [{ path: '/data/a.md' }],
       text,
     )
   assert.ok(isRuntimeFilePath(' /data/workspace/a.mp4 '))

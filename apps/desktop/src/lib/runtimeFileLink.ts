@@ -22,7 +22,8 @@ export function runtimeFilePathFromHref(href: string): string | null {
 // Agents also write paths bare — in prose, inline code or a code block. An
 // absolute path of two or more segments counts, with an optional `:line`; it
 // ends before sentence punctuation, and never starts mid-word, mid-URL or
-// mid-date (`2026/10/16`). `/teams/…` is an app route, not a file.
+// mid-date (`2026/10/16`). `/teams/…` is an app route, and `/api/…` or
+// `/v1/…` an HTTP API path, not a file.
 const BARE_PATH =
   /(?<![\p{L}\p{N}_.:/~-])\/(?:[\p{L}\p{N}_.@+-]+\/)+[\p{L}\p{N}_.@+-]*[\p{L}\p{N}_@+-](?::\d+(?::\d+)?)?/gu
 
@@ -32,7 +33,7 @@ export function splitRuntimeFilePaths(text: string): (string | { path: string })
   let last = 0
 
   for (const match of text.matchAll(BARE_PATH)) {
-    if (match[0].startsWith('/teams/')) continue
+    if (/^\/(?:teams|api|v\d+)\//.test(match[0])) continue
     if (match.index > last) parts.push(text.slice(last, match.index))
     parts.push({ path: match[0] })
     last = match.index + match[0].length
