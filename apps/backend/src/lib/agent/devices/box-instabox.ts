@@ -31,7 +31,6 @@ import { startWithinLimit } from './box-instabox-limit'
 import { noteBoxUsage } from './box-usage-history'
 
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
-import { parseLocalRuntimeId } from './local-runtime/address'
 import { isDevicePresent } from './presence'
 import {
   deleteAgentDevice,
@@ -286,21 +285,6 @@ export async function wakeBox(userId: string, deviceId: string): Promise<boolean
   await resumeBox(userId, deviceId)
 
   return present(userId, deviceId, WAKE_TIMEOUT_MS)
-}
-
-/**
- * True when this runtime is a Box whose host is not connected; its machine is then
- * resumed in the background (healBox, at most once a minute). Nothing waits on it:
- * a send queues, and the session queue starts the turn once the Box is back.
- */
-export async function wakeOfflineBox(runtimeId: string | undefined): Promise<boolean> {
-  const ref = runtimeId ? parseLocalRuntimeId(runtimeId) : undefined
-
-  if (!ref || (await isDevicePresent(ref.userId, ref.deviceId))) return false
-  if (!(await getAgentDevice(ref.userId, ref.deviceId))?.box?.sandboxId) return false
-  healBox(ref.userId, ref.deviceId)
-
-  return true
 }
 
 /** Polls the device's presence until it is here or the time is up. */

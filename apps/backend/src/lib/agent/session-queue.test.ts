@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useBoxInstabox } from '@/lib/test/doubles/box-instabox'
+import { useBoxWake } from '@/lib/test/doubles/box-wake'
 import { config } from '@/config'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
@@ -69,7 +69,7 @@ useAgentDb({
   getConversationBySessionId: async () => ({ ...conversation, claudeCodePreview: {} as never }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
 })
-useBoxInstabox({
+useBoxWake({
   wakeOfflineBox: async (runtimeId) => {
     wakes.push(runtimeId)
 

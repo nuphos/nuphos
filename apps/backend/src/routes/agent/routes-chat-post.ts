@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
-import { wakeOfflineBox } from '@/lib/agent/devices/box-instabox'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { AppError } from '@/lib/errors'
@@ -13,7 +12,7 @@ import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { admitPreviewTurn } from './chat-preview-steering'
-import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
+import { admitQueueableChat, queueForOfflineBox, queuedChatContext } from './session-queue-turn'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import {
   buildSlackBoundTurnPlan,
@@ -101,6 +100,11 @@ agent.post('/chat', async (c) => {
     streamId,
     body,
     readOnlyResume,
+    conversation: conversationForResume,
+    clientView,
+    slackBound: Boolean(slackThread),
+    credentialAccess: requestedCredentialAccess?.access,
+    context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
   }
 
   if (existingRun) {
@@ -113,30 +117,7 @@ agent.post('/chat', async (c) => {
     userId,
     ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
     ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-  }).catch(async (error: unknown) => {
-    // An offline Box resumes in the background and the message waits in the session
-    // queue, so the send answers at once instead of holding the request for the Box.
-    if (
-      error instanceof AppError &&
-      error.code === 'runtime_offline' &&
-      !readOnlyResume &&
-      (await wakeOfflineBox(body.runtimeId ?? conversationForResume?.runtimeId))
-    ) {
-      const queue = await admitQueueableChat({
-        ...resumeParams,
-        conversation: conversationForResume,
-        clientView,
-        snapshot: undefined,
-        slackBound: Boolean(slackThread),
-        credentialAccess: requestedCredentialAccess?.access,
-        context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
-        runtimeOffline: true,
-      })
-
-      if (queue?.mode === 'queued') return null
-    }
-    throw error
-  })
+  }).catch((error: unknown) => queueForOfflineBox(error, resumeParams))
 
   if (!chatRuntime) return c.json({ status: 'queued', streamId }, 202)
   const runtimeProvider = chatRuntime.runtime
@@ -165,15 +146,7 @@ agent.post('/chat', async (c) => {
 
       return attached ?? (await resumeFromRedisOrThrow(resumeParams))
     }
-    const queue = await admitQueueableChat({
-      ...resumeParams,
-      conversation: conversationForResume,
-      clientView,
-      snapshot: runtimeSnapshot,
-      slackBound: Boolean(slackThread),
-      credentialAccess: requestedCredentialAccess?.access,
-      context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
-    })
+    const queue = await admitQueueableChat({ ...resumeParams, snapshot: runtimeSnapshot })
 
     if (queue?.mode === 'queued') return c.json({ status: 'queued', streamId }, 202)
     if (queue) [releaseAgentRunClaim, queuedItem] = [queue.release, queue.item]

@@ -5,6 +5,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentMessages } from '@/lib/agent/db'
+import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { buildPendingUserMessage, enqueuePendingUserMessage } from '@/lib/agent/pending-messages'
 import { hasQueuedTranscriptMessage } from '@/lib/agent/pending-queue'
@@ -165,6 +166,26 @@ export async function admitQueueableChat(
   })
 
   return { mode: 'queued' }
+}
+
+/**
+ * A send whose Box is offline waits in the queue while the Box resumes, so the
+ * request answers at once; null once it is queued. Anything else is rethrown.
+ */
+export async function queueForOfflineBox(
+  error: unknown,
+  args: Omit<QueueableChat, 'snapshot' | 'runtimeOffline'>,
+): Promise<null> {
+  const offline =
+    error instanceof AppError &&
+    error.code === 'runtime_offline' &&
+    (await wakeOfflineBox(args.body.runtimeId ?? args.conversation?.runtimeId))
+  const queued = offline
+    ? await admitQueueableChat({ ...args, snapshot: undefined, runtimeOffline: true })
+    : null
+
+  if (queued?.mode === 'queued') return null
+  throw error
 }
 
 /**

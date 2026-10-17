@@ -9,15 +9,16 @@ import {
   enqueuePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
-import { errorHandler } from '@/lib/errors'
+import { AppError, errorHandler } from '@/lib/errors'
 import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useBoxWake } from '@/lib/test/doubles/box-wake'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
-import { admitQueueableChat } from './session-queue-turn'
+import { admitQueueableChat, queueForOfflineBox } from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
@@ -32,6 +33,9 @@ let caller = OWNER
 useDb({ db: (() => ({ collection: () => ({ findOne: async () => null }) })) as never })
 useIdentity({ authenticateToken: async () => ({ user: { id: caller } }) })
 useAgentDb({ getReadableConversation: async () => conversation })
+let boxOffline = true
+
+useBoxWake({ wakeOfflineBox: async () => boxOffline })
 
 const { agent } = await import('./router')
 const app = new Hono().route('/agent', agent).onError(errorHandler)
@@ -155,6 +159,29 @@ test('a send to an offline Box queues at once, even on a free session without a 
   expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual([
     'offline',
   ])
+})
+
+test('only a runtime_offline answer for an offline Box queues the send; anything else is thrown', async () => {
+  const offline = new AppError(409, 'runtime_offline', 'offline')
+  const args = {
+    body: { id: SESSION, messages: [message('m')], clientCapabilities: { serverQueue: true } },
+    conversation: { ...conversation, claudeCodePreview: {} } as AgentConversation,
+    runOwnerUserId: OWNER,
+    userId: OWNER,
+    streamId: 'stream-m',
+    readOnlyResume: false,
+    clientView: [message('m')],
+    slackBound: false,
+    context: { locale: 'en', localTools: true },
+    credentialAccess: undefined,
+  }
+
+  await expect(queueForOfflineBox(new Error('boom'), args)).rejects.toThrow('boom')
+  boxOffline = false
+  await expect(queueForOfflineBox(offline, args)).rejects.toBe(offline)
+  boxOffline = true
+  expect(await queueForOfflineBox(offline, args)).toBeNull()
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual(['m'])
 })
 
 test('an agent message waits behind a person who sent first, even on a free session', async () => {
