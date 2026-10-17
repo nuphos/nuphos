@@ -446,8 +446,7 @@
                           "authType": {
                             "type": "string",
                             "enum": [
-                              "client_credentials",
-                              "oauth"
+                              "client_credentials"
                             ]
                           }
                         },
@@ -1438,8 +1437,7 @@
                               "authType": {
                                 "type": "string",
                                 "enum": [
-                                  "client_credentials",
-                                  "oauth"
+                                  "client_credentials"
                                 ]
                               }
                             },
