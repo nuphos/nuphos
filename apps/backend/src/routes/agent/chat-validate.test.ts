@@ -4,7 +4,6 @@
 // resending the full transcript.
 import { describe, expect, test } from 'bun:test'
 
-
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
@@ -25,10 +24,10 @@ useAgentDb({
 
     return state.stored.slice(0, count)
   },
-  agentMessages: (() => ({
+  agentMessages: () => ({
     countDocuments: () => Promise.resolve(state.stored.length),
     find: () => ({ toArray: () => Promise.resolve([]) }),
-  })),
+  }),
 })
 
 const { acceptClientTail, hydrateStoredPrefix, validateChatBody } = await import('./chat-validate')

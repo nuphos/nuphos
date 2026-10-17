@@ -219,7 +219,12 @@ describe('resolvePreviewWaitFromChat with the runtime snapshot', () => {
   const answer = body([{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'go' }] }])
 
   test('a v2 snapshot with no requests skips the runtime request list', async () => {
-    await registerPreviewWait({ userId: 'u1', sessionId: 'conv-1', kind: 'permission-grant', ref: 'r1' })
+    await registerPreviewWait({
+      userId: 'u1',
+      sessionId: 'conv-1',
+      kind: 'permission-grant',
+      ref: 'r1',
+    })
 
     expect(
       await resolvePreviewWaitFromChat({
