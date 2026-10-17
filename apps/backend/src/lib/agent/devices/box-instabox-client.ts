@@ -39,16 +39,19 @@ export const BOX_INSTALL_COMMAND = [
  */
 export const AGENT_COMMAND = `export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; pgrep -f "[h]ost.mjs" >/dev/null || exec setsid nuphos agent >> "$HOME/nuphos-agent.log" 2>&1 < /dev/null`
 
-/** sha256 of each ~/AGENTS.md a Box image shipped; only these are removed on update. */
+/** sha256 of each ~/AGENTS.md a Box image or instabox wrote; only these are emptied on update. */
 export const IMAGE_AGENTS_SHA256 = [
+  // The Nuphos Box image's notes.
   '280eb1f0d5a0830e1eb973b6da483f1f857796c9c11a4bcc87179f7804f3795b',
+  // instabox's own, which it writes wherever ~/AGENTS.md is missing.
+  '0553cda9f792bf91370755ed3db74481f082ba29449a0c7ec4d8af5c63311a30',
 ]
 
 /**
  * Updates a Box in place: stops the host, installs the newest CLI (whose host fetches
  * its own bundle) and starts it again, even when the install failed. Session desktop
  * panels from before the browser launcher go, so each display writes the current one
- * (desktop-session.mjs), as does the image's AGENTS.md. Run with `background: true`.
+ * (desktop-session.mjs). Run with `background: true`.
  */
 export const BOX_UPDATE_COMMAND = [
   'pkill -f "[h]ost.mjs"; for i in $(seq 30); do pgrep -f "[h]ost.mjs" >/dev/null || break; sleep 1; done',
@@ -57,9 +60,10 @@ export const BOX_UPDATE_COMMAND = [
   BOX_INSTALL_COMMAND,
   // Only panels from before the browser launcher; ones that have it are the user's.
   'grep -L web-browser.desktop "$HOME"/.nuphos/session-homes/*/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml | xargs -r rm -f',
-  // The image's AGENTS.md (sent agents to /data/workspace and MACHINE.md) goes, with the
-  // agents' links to it, only while it is exactly what the image shipped; an edit keeps it.
-  `a=$(readlink -f "$HOME/AGENTS.md"); case "$(sha256sum "$a" 2>/dev/null | cut -d' ' -f1)" in ${IMAGE_AGENTS_SHA256.join('|')}) for l in "$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md"; do if [ -L "$l" ] && [ "$(readlink -f "$l")" = "$a" ]; then rm -f "$l"; fi; done; rm -f "$HOME/AGENTS.md" ;; esac`,
+  // The written AGENTS.md (sent agents to /data/workspace and MACHINE.md) is emptied, not
+  // removed: instabox writes it again, links included, wherever it is missing. Only while it
+  // is exactly what was written; an edit keeps it, and the agents' links stay as they are.
+  `a=$(readlink -f "$HOME/AGENTS.md"); case "$(sha256sum "$a" 2>/dev/null | cut -d' ' -f1)" in ${IMAGE_AGENTS_SHA256.join('|')}) : > "$a" ;; esac`,
   ') >> "$HOME/nuphos-update.log" 2>&1',
   AGENT_COMMAND,
 ].join('\n')

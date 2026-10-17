@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdtempSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -126,46 +126,61 @@ describe('Box update', () => {
     expect(BOX_UPDATE_COMMAND).toContain('grep -L web-browser.desktop')
   })
 
-  test('the update drops the image’s AGENTS.md and its links, never one someone edited', () => {
-    const cleanup = BOX_UPDATE_COMMAND.split('\n').find((line) => line.includes('CLAUDE.md'))
+  test('the update empties a written AGENTS.md and keeps its links, never one someone edited', () => {
+    const cleanup = BOX_UPDATE_COMMAND.split('\n').find((line) => line.includes('AGENTS.md'))
     const run = (setup: string) => {
       const home = mkdtempSync(path.join(os.tmpdir(), 'box-home-'))
 
-      writeFileSync(path.join(home, 'image.md'), IMAGE_AGENTS)
+      for (const [name, text] of Object.entries(WRITTEN_AGENTS))
+        writeFileSync(path.join(home, `${name}.md`), text)
       execFileSync('/bin/bash', ['-ec', `mkdir -p .claude .codex; ${setup}`], { cwd: home })
       execFileSync('/bin/bash', ['-ec', cleanup ?? 'false'], {
         env: { ...process.env, HOME: home },
       })
 
-      return ['AGENTS.md', '.claude/CLAUDE.md', '.codex/AGENTS.md'].filter((file) =>
-        existsSync(path.join(home, file)),
-      )
+      // Each instruction file as a link, its size, or absent.
+      return ['AGENTS.md', '.claude/CLAUDE.md', '.codex/AGENTS.md'].map((file) => {
+        const full = path.join(home, file)
+
+        if (!existsSync(full)) return `${file}:absent`
+
+        return lstatSync(full).isSymbolicLink()
+          ? `${file}:link`
+          : `${file}:${String(statSync(full).size)}`
+      })
     }
     const links =
       'ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; ln -s "$PWD/AGENTS.md" .codex/AGENTS.md'
+    const emptied = ['AGENTS.md:0', '.claude/CLAUDE.md:link', '.codex/AGENTS.md:link']
 
-    expect(run(`cp image.md AGENTS.md; ${links}`)).toEqual([])
+    // What the image and what instabox wrote are emptied in place; the links keep pointing at it.
+    for (const name of Object.keys(WRITTEN_AGENTS))
+      expect(run(`cp ${name}.md AGENTS.md; ${links}`)).toEqual(emptied)
     // Edited in place, links untouched: the team's instructions stay.
-    expect(run(`cp image.md AGENTS.md; echo '- Our rule' >> AGENTS.md; ${links}`)).toEqual([
-      'AGENTS.md',
-      '.claude/CLAUDE.md',
-      '.codex/AGENTS.md',
+    const edited = run(`cp image.md AGENTS.md; echo '- Our rule' >> AGENTS.md; ${links}`)
+
+    expect(edited).toEqual([
+      `AGENTS.md:${String(WRITTEN_AGENTS.image.length + '- Our rule\n'.length)}`,
+      '.claude/CLAUDE.md:link',
+      '.codex/AGENTS.md:link',
     ])
     expect(run('echo mine > AGENTS.md; echo own > .claude/CLAUDE.md')).toEqual([
-      'AGENTS.md',
-      '.claude/CLAUDE.md',
+      'AGENTS.md:5',
+      '.claude/CLAUDE.md:4',
+      '.codex/AGENTS.md:absent',
     ])
-    // The image's file goes with the link to it; a file of someone's own stays.
-    expect(
-      run(
-        'cp image.md AGENTS.md; ln -s "$PWD/AGENTS.md" .claude/CLAUDE.md; echo own > .codex/AGENTS.md',
-      ),
-    ).toEqual(['.codex/AGENTS.md'])
+    expect(run(':')).toEqual([
+      'AGENTS.md:absent',
+      '.claude/CLAUDE.md:absent',
+      '.codex/AGENTS.md:absent',
+    ])
   })
 })
 
-/** The ~/AGENTS.md the Box image shipped, byte for byte (its sha256 is in IMAGE_AGENTS_SHA256). */
-const IMAGE_AGENTS = `# Agent notes
+/** Each ~/AGENTS.md that was written for agents, byte for byte (their sha256 are in IMAGE_AGENTS_SHA256). */
+const WRITTEN_AGENTS = {
+  /** The Nuphos Box image's. */
+  image: `# Agent notes
 
 You are running on a Nuphos Box: a Linux VM in the cloud that runs this team's
 Nuphos agents. People talk to you through Nuphos; nobody uses this machine's
@@ -179,4 +194,16 @@ own console. Work in /data/workspace.
 - ~/MACHINE.md lists the machine's size, what survives a stop, and the
   installed tools. Ignore its notes about the instabox dashboard, its
   Computer tab and display :1; they do not apply on a Nuphos Box.
-`
+`,
+  /** What instabox writes wherever ~/AGENTS.md is missing. */
+  instabox: `# Agent notes
+
+You are running on an instabox sandbox, a Linux VM in the cloud. Nobody is at
+its screen and it has no public address. Read ~/MACHINE.md for its ID, size,
+what survives a stop, and the tools installed. Work in /data/workspace.
+
+People watch this machine's desktop on the dashboard's Computer tab. While
+it runs, browsers Playwright or Puppeteer launch from a new shell show there
+(DISPLAY=:1, headed); INSTABOX_HEADLESS=1 keeps them headless.
+`,
+}
