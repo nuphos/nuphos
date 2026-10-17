@@ -32,6 +32,7 @@ spec:
 
     This template deploys the backend, MongoDB and RustFS with no Redis.
     Supply two domains and a Zeabur Email API key with a verified sender for sign-in.
+    To use Resend instead, set `NUPHOS_EMAIL_PROVIDER=resend` and `RESEND_API_KEY` on the backend service after deploying.
 
     1. Wait for the backend readiness check to pass.
     2. In Nuphos Desktop, choose **Self-hosted? Set API endpoint** and enter the backend HTTPS URL.

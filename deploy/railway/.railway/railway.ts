@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { defineRailway, image, project, service, volume } from 'railway/iac'
 import { parse } from 'yaml'
-import { required, domain } from './inputs.ts'
+import { required, domain, emailProvider } from './inputs.ts'
 
 // Use the same bootstrap scripts that Zeabur's Docker integration test exercises.
 const template = parse(readFileSync(new URL('../../zeabur/template.yaml', import.meta.url), 'utf8'))
@@ -17,6 +17,8 @@ export default defineRailway(() => {
   const storageDomain = domain('STORAGE_DOMAIN')
   const mongoPassword = required('MONGO_PASSWORD')
   const storageSecret = required('STORAGE_SECRET')
+  const provider = emailProvider()
+  const emailKey = provider === 'resend' ? 'RESEND_API_KEY' : 'ZSEND_API_KEY'
   const mongoData = volume('mongo-data', { region: 'us-west2', sizeMB: 10240 })
   const storageData = volume('storage-data', { region: 'us-west2', sizeMB: 10240 })
   const mongo = service('mongo', {
@@ -69,7 +71,8 @@ export default defineRailway(() => {
       NUPHOS_AUTH_BASE_URL: `https://${apiDomain}`,
       NUPHOS_BACKEND_URL: `https://${apiDomain}`,
       NUPHOS_PUBLIC_BACKEND_URL: `https://${apiDomain}`,
-      ZSEND_API_KEY: required('ZSEND_API_KEY'),
+      NUPHOS_EMAIL_PROVIDER: provider,
+      [emailKey]: required(emailKey),
       NUPHOS_EMAIL_FROM: required('NUPHOS_EMAIL_FROM'),
       ATLAS_REDIS_ENABLED: 'false',
       CLAUDE_CODE_RUNTIME_KUBECTL: 'false',

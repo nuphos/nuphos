@@ -20,6 +20,9 @@ Deployment inputs:
 - Two domains for the backend and storage; one more for the separate runtime. Zeabur supplies their HTTPS URLs.
 - A Zeabur Email API key (`ZSEND_API_KEY`) and a sender on a verified domain
   (`NUPHOS_EMAIL_FROM`). Production sign-in sends email; it never logs OTP codes.
+  To send with Resend instead, set `NUPHOS_EMAIL_PROVIDER=resend` and
+  `RESEND_API_KEY` on the backend service after deploying, with a sender on a
+  domain verified in Resend.
 - An amd64 server for the runtime image, and your own Claude account after deployment.
 
 The template README contains Desktop sign-in and runtime pairing steps. The
