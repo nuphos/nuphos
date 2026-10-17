@@ -146,6 +146,31 @@ class SigningTest(unittest.TestCase):
 
 
 class WorkflowBoundaryTest(unittest.TestCase):
+    def test_firebase_client_configuration_is_validated_before_writing(self):
+        text = WORKFLOW.read_text()
+        block = text.split("          python3 - <<'PYCONFIG'\n", 1)[1].split('          PYCONFIG', 1)[0]
+        script = textwrap.dedent(block)
+        valid = {
+            'project_info': {'project_id': 'nuphos-android'},
+            'client': [{'client_info': {'android_client_info': {'package_name': 'ai.nuphos.android'}}}],
+        }
+        cases = [('', False), ('{}', False),
+                 (json.dumps({'project_info': {'project_id': 'other'}, 'client': valid['client']}), False),
+                 (json.dumps({'project_info': valid['project_info'], 'client': []}), False),
+                 (json.dumps(valid), True)]
+        for config, succeeds in cases:
+            with self.subTest(config=config), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'app').mkdir()
+                result = subprocess.run(['python3', '-c', script], cwd=root,
+                                        env={**os.environ, 'FIREBASE_CLIENT_CONFIG': config},
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, succeeds, result.stderr)
+                target = root / 'app/google-services.json'
+                self.assertEqual(target.exists(), succeeds)
+                if succeeds:
+                    self.assertEqual(json.loads(target.read_text()), valid)
+
     def test_release_is_manual_canonical_main_and_secrets_are_isolated(self):
         text = WORKFLOW.read_text()
         guard = "github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'"

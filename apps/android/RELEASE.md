@@ -30,6 +30,24 @@ in the official `nuphos/nuphos` repository:
 This workflow uses GitHub-hosted runners. It needs no Play service account,
 Firebase project, GCP key or automatic store-upload permission.
 
+## Firebase and optimization
+
+Release builds enable R8 and resource shrinking and fail when
+`app/google-services.json` is absent. Debug and fixture builds may omit Firebase.
+Set the repository Actions variable `ANDROID_GOOGLE_SERVICES_JSON` to the complete
+reviewed Firebase Android client configuration for project `nuphos-android` and
+package `ai.nuphos.android` before running the release workflow. This is Firebase
+client configuration, not a service-account credential or signing secret. Never
+put private keys or server credentials in this variable. The workflow checks the
+project and package without logging the configuration.
+
+The unsigned evidence artifact also includes `mapping.txt` and
+`MAPPING_SHA256SUMS.txt`. Retain these from the **same run and attempt** as the
+signed AAB and record their hashes with the source commit before Play upload.
+An R8 switch or successful bundle validation is not device acceptance: test the
+minified Play-installed build, including authentication, streaming, attachments
+and background notification delivery/navigation.
+
 ## Build and download
 
 1. Merge reviewed Android changes to official `main` after the required checks

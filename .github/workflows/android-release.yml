@@ -45,6 +45,22 @@ jobs:
         run: |
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "platform-tools"
+      - name: Restore Firebase Android client configuration
+        working-directory: apps/android
+        env:
+          FIREBASE_CLIENT_CONFIG: ${{ vars.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          python3 - <<'PYCONFIG'
+          import json, os
+          from pathlib import Path
+          config = json.loads(os.environ['FIREBASE_CLIENT_CONFIG'])
+          if config.get('project_info', {}).get('project_id') != 'nuphos-android':
+              raise SystemExit('Expected Firebase project nuphos-android')
+          clients = config.get('client', [])
+          if not any(client.get('client_info', {}).get('android_client_info', {}).get('package_name') == 'ai.nuphos.android' for client in clients):
+              raise SystemExit('Missing Firebase Android client ai.nuphos.android')
+          Path('app/google-services.json').write_text(json.dumps(config))
+          PYCONFIG
       - name: Test, lint, and build unsigned bundle
         working-directory: apps/android
         run: |
@@ -59,6 +75,8 @@ jobs:
           java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle=app/build/outputs/bundle/release/app-release.aab > "$RUNNER_TEMP/manifest.xml"
           mkdir -p "$RUNNER_TEMP/android-unsigned"
           cp app/build/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/android-unsigned/unsigned.aab"
+          cp app/build/outputs/mapping/release/mapping.txt "$RUNNER_TEMP/android-unsigned/mapping.txt"
+          (cd "$RUNNER_TEMP/android-unsigned" && sha256sum mapping.txt > MAPPING_SHA256SUMS.txt)
           python3 scripts/release_metadata.py --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --manifest "$RUNNER_TEMP/manifest.xml" --bundle "$RUNNER_TEMP/android-unsigned/unsigned.aab" --output "$RUNNER_TEMP/android-unsigned/metadata.json"
       - name: Upload unsigned build evidence
         id: upload
