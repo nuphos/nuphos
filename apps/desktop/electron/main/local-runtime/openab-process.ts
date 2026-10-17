@@ -62,7 +62,7 @@ type ProcessEntry = { pid: number; args: string }
 
 function listProcesses(): ProcessEntry[] {
   try {
-    return execFileSync('ps', ['-axo', 'pid=,args='], { encoding: 'utf8' })
+    return execFileSync('/bin/ps', ['-axo', 'pid=,args='], { encoding: 'utf8' })
       .split('\n')
       .map((line) => /^\s*(\d+) (.*)$/u.exec(line))
       .filter((match) => match !== null)

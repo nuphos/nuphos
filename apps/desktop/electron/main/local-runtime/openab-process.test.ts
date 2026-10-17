@@ -41,7 +41,7 @@ async function orphanedOpenab(
   config: string,
 ): Promise<{ openab: number; agent: number }> {
   const openab = path.join(root, 'openab')
-  const host = spawn('sh', ['-c', `"${openab}" run -c "${config}" & echo $!; wait`], {
+  const host = spawn('/bin/sh', ['-c', `"${openab}" run -c "${config}" & echo $!; wait`], {
     stdio: ['ignore', 'pipe', 'ignore'],
   })
   const pid = await new Promise<number>((resolve) =>
