@@ -290,6 +290,13 @@ impl SessionState {
                         }
                     }
                 }
+                // The agent's own slash commands, as it last listed them; it
+                // sends the whole list each time it changes.
+                Some("available_commands_update") => {
+                    if let Some(commands) = update["availableCommands"].as_array() {
+                        snapshot["commands"] = agent_commands(commands);
+                    }
+                }
                 Some("agent_thought_chunk") => snapshot["activity"] = json!("thinking"),
                 Some("agent_message_chunk") => snapshot["activity"] = json!("responding"),
                 Some("tool_call" | "tool_call_update") => {
@@ -325,9 +332,72 @@ impl SessionState {
     }
 }
 
+/// The agent's slash commands as clients read them: `{ name, description, hint? }`,
+/// with ACP's `input.hint` flattened. The list is the agent's to define and rides
+/// on every snapshot, so it is bounded here: an entry without a usable name is
+/// dropped, text is cut, and the list stops at 100 entries.
+fn agent_commands(commands: &[Value]) -> Value {
+    let cut = |text: &str, max: usize| text.chars().take(max).collect::<String>();
+    commands
+        .iter()
+        .filter_map(|command| {
+            let name = command["name"]
+                .as_str()
+                .filter(|name| (1..=64).contains(&name.chars().count()))?;
+            let mut entry = json!({
+                "name": name,
+                "description": cut(command["description"].as_str().unwrap_or(""), 200),
+            });
+            if let Some(hint) = command.pointer("/input/hint").and_then(Value::as_str) {
+                entry["hint"] = json!(cut(hint, 100));
+            }
+            Some(entry)
+        })
+        .take(100)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn the_agents_slash_commands_are_kept_as_last_listed() {
+        let state = SessionState::default();
+        let listed = json!([
+            {"name":"review","description":"Review the diff","input":{"hint":"branch"}},
+            {"name":"compact"},
+            {"name":"","description":"empty name"},
+            {"description":"no name"}
+        ]);
+        state.observe(Some(&json!({"update":{"sessionUpdate":"available_commands_update","availableCommands":listed}})));
+        assert_eq!(
+            state.snapshot()["commands"],
+            json!([
+                {"name":"review","description":"Review the diff","hint":"branch"},
+                {"name":"compact","description":""}
+            ])
+        );
+        state.observe(Some(
+            &json!({"update":{"sessionUpdate":"available_commands_update","availableCommands":[]}}),
+        ));
+        assert_eq!(state.snapshot()["commands"], json!([]));
+    }
+
+    #[test]
+    fn the_agents_slash_commands_are_bounded() {
+        let state = SessionState::default();
+        let long = "x".repeat(1_000);
+        let mut listed: Vec<Value> = (0..150)
+            .map(|i| json!({"name": format!("c{i}"), "description": long, "input": {"hint": long}}))
+            .collect();
+        listed.insert(0, json!({"name": long, "description": "name too long"}));
+        state.observe(Some(&json!({"update":{"sessionUpdate":"available_commands_update","availableCommands":listed}})));
+        let commands = state.snapshot()["commands"].as_array().unwrap().clone();
+        assert_eq!(commands.len(), 100);
+        assert_eq!(commands[0]["name"], "c0");
+        assert_eq!(commands[0]["description"].as_str().unwrap().len(), 200);
+        assert_eq!(commands[0]["hint"].as_str().unwrap().len(), 100);
+    }
     #[test]
     fn initialization_ack_does_not_override_an_earlier_native_lifecycle() {
         let new_session = SessionState::default();

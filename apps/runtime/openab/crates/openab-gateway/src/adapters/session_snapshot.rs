@@ -226,6 +226,7 @@ impl SessionSnapshots {
             "providerState": provider_state, "providerEpoch": provider["epoch"],
             "operation": operation, "requestPending": request_pending,
             "providerDetails": provider["providerDetails"], "asyncTasks": provider["asyncTasks"], "automation": automation,
+            "commands": provider["commands"],
             "lastOutcome": provider["gateway"]["lastOutcome"],
             "permissionWaits": permissions, "tools": tools, "requests": requests,
             "actions": {"send": send, "cancel": busy && phase != "cancelling" && phase != "configuring", "steer": provider["steeringSupported"] == true && executing && !matches!(phase, "cancelling" | "configuring" | "loading"), "reply": phase != "cancelling" && requests.iter().any(|request| request["kind"] != "client-tool")}
@@ -249,6 +250,19 @@ impl SessionSnapshots {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn the_agents_slash_commands_reach_clients() {
+        let snapshots = SessionSnapshots::default();
+        let commands = json!([{"name":"review","description":"Review the diff","hint":"branch"}]);
+        assert_eq!(
+            snapshots.project("s", json!({"state":"idle","commands":commands}), false)["commands"],
+            commands
+        );
+        assert_eq!(
+            snapshots.project("t", json!({"state":"idle"}), false)["commands"],
+            Value::Null
+        );
+    }
     #[test]
     fn native_steering_capability_is_runtime_owned() {
         let snapshots = SessionSnapshots::default();
