@@ -274,6 +274,8 @@ export async function shareRuntimeFile(
   const transfer = await createTransfer(scope, 'download', [{ fileName: name, size }])
   const [file] = transfer.files
 
+  if (!file) throw unavailable()
+
   parseRuntimeStat(
     await runtimeFileOperation(
       teamId,
