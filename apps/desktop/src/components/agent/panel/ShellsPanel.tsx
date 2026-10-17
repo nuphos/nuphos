@@ -50,15 +50,26 @@ export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefin
   if (shells.length === 0) return null
 
   return (
-    <div className="space-y-1.5 text-[12.5px]">
-      <div className="text-[11px] uppercase tracking-wider text-tertiary">
-        {shells.length} running {shells.length === 1 ? 'shell' : 'shells'}
-      </div>
-      <div className="max-h-56 space-y-1 overflow-auto scrollbar-thin">
+    <Collapsible.Root defaultOpen className="space-y-1.5 text-[12.5px]">
+      <Collapsible.Trigger
+        className={clsx(
+          disclosureControlClass,
+          'group flex w-full items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-tertiary hover:text-secondary',
+        )}
+      >
+        <ChevronRight
+          className="h-3.5 w-3.5 flex-shrink-0 transition-transform group-data-[panel-open]:rotate-90"
+          strokeWidth={1.8}
+        />
+        <span>
+          {shells.length} running {shells.length === 1 ? 'shell' : 'shells'}
+        </span>
+      </Collapsible.Trigger>
+      <Collapsible.Panel keepMounted className="max-h-56 space-y-1 overflow-auto scrollbar-thin">
         {shells.map((shell) => (
           <ShellRow key={shell.id} shell={shell} />
         ))}
-      </div>
-    </div>
+      </Collapsible.Panel>
+    </Collapsible.Root>
   )
 }
