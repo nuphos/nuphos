@@ -82,12 +82,20 @@ try {
     process.stdout.write(JSON.stringify({ name, size: stat.size }));
   } else if (input.action === 'upload') {
     // A file too large to preview goes to the transfer store's presigned URL
-    // instead (it is capped there, so it fits in memory).
-    const data = await handle.readFile();
-    if (data.length !== input.size) throw Error('file_changed');
-    const response = await fetch(input.url, { method: 'PUT', body: data });
+    // instead. The store admitted exactly input.size bytes, so no more than
+    // that is ever read, even from a file still growing.
+    if (!Number.isSafeInteger(input.size) || stat.size !== input.size) throw Error('file_changed');
+    const data = Buffer.alloc(input.size + 1);
+    let length = 0;
+    while (length < data.length) {
+      const { bytesRead } = await handle.read(data, length, data.length - length, length);
+      if (!bytesRead) break;
+      length += bytesRead;
+    }
+    if (length !== input.size) throw Error('file_changed');
+    const response = await fetch(input.url, { method: 'PUT', body: data.subarray(0, length) });
     if (!response.ok) throw Error('upload_failed');
-    process.stdout.write(JSON.stringify({ name, size: data.length }));
+    process.stdout.write(JSON.stringify({ name, size: length }));
   } else {
   if (stat.size > limit) throw Error('file_too_large');
   const buffer = Buffer.alloc(limit + 1);

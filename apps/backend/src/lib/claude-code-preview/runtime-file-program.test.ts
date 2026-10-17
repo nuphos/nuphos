@@ -167,6 +167,13 @@ test('a file too large to preview is sized, then uploaded whole to the given URL
       error: 'file_read_failed',
     })
     expect(received).toBeUndefined()
+    // A file that grew after it was sized is refused, not read past the admitted size.
+    await writeFile(join(root, 'clip.mp4'), Buffer.concat([bytes, Buffer.alloc(1024)]))
+    expect(await run({ action: 'upload', url, size: bytes.length })).toEqual({
+      error: 'file_read_failed',
+    })
+    expect(received).toBeUndefined()
+    await writeFile(join(root, 'clip.mp4'), bytes)
     expect(await run({ action: 'upload', url, size: bytes.length })).toEqual({
       name: 'clip.mp4',
       size: bytes.length,
