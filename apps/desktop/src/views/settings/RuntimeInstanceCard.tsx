@@ -214,7 +214,8 @@ export function RuntimeInstanceCard({
                 },
               },
           )
-          setUpdateRevision((value) => value + 1)
+          // A Box's host still reports the old CLI until it stops; the next poll sees it go.
+          if (instance.kind !== 'local') setUpdateRevision((value) => value + 1)
         }}
       />
       <div className="divide-y divide-zGray-800/60 border-t border-zGray-800/60">
