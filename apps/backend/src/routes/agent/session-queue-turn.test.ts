@@ -203,14 +203,14 @@ test('a send queues only for the Box its runtime resolution authorized', async (
   stamped.length = 0
   await expect(queueForOfflineBox(new Error('boom'), send('a'))).rejects.toThrow('boom')
   // No authorized placement (a body-named Box, another team's): nothing is woken.
-  await expect(queueForOfflineBox(offline(), send('a'))).rejects.toMatchObject({
-    code: 'runtime_offline',
-  })
+  const unplaced = offline()
+
+  await expect(queueForOfflineBox(unplaced, send('a'))).rejects.toBe(unplaced)
   expect(woken).toEqual([])
   boxOffline = false
-  await expect(queueForOfflineBox(offline('box-a'), send('a', 'box-a'))).rejects.toMatchObject({
-    code: 'runtime_offline',
-  })
+  const awake = offline('box-a')
+
+  await expect(queueForOfflineBox(awake, send('a', 'box-a'))).rejects.toBe(awake)
   boxOffline = true
   // Pinned to A, the body asking for B: A is woken and kept, B is ignored.
   expect(await queueForOfflineBox(offline('box-a'), send('pinned', 'box-a'))).toBeNull()
