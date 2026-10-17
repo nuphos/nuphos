@@ -27,6 +27,9 @@ import type {
   AtlasTeam,
   AuthStatus,
   ChangelogState,
+  PersonalCredential,
+  PersonalCredentialDeepLinkPayload,
+  PersonalCredentialProvider,
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
@@ -34,6 +37,11 @@ import type {
 export type WindowAppApi = {
   claimFirstLaunchIntro?(): Promise<boolean>
   authUpdateProfile(input: { name: string; username: string; avatarURL: string }): Promise<UserInfo>
+  atlasListPersonalCredentials(): Promise<PersonalCredential[]>
+  atlasStartPersonalCredential(
+    provider: PersonalCredentialProvider,
+  ): Promise<{ authorizeUrl: string; state: string }>
+  atlasDeletePersonalCredential(provider: PersonalCredentialProvider): Promise<void>
   authStatus(): Promise<AuthStatus>
   authLogin(): Promise<UserInfo>
   authLogout(): Promise<void>
@@ -64,6 +72,7 @@ export type WindowAppApi = {
   onAgentChatDeepLink(cb: (payload: AgentChatDeepLinkPayload) => void): () => void
   onAppOpenDeepLink(cb: (payload: AppOpenDeepLinkPayload) => void): () => void
   onConnectAgentDeepLink(cb: (payload: ConnectAgentLink) => void): () => void
+  onPersonalCredentialDeepLink(cb: (payload: PersonalCredentialDeepLinkPayload) => void): () => void
   onAgentFocusSession(cb: (payload: AgentFocusSessionPayload) => void): () => void
   selectLocalFile(): Promise<string[]>
   selectLocalFolder(): Promise<string[]>

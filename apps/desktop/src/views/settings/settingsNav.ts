@@ -3,6 +3,7 @@ import {
   CircleUserRound,
   CreditCard,
   FileText,
+  KeyRound,
   Monitor,
   NotebookPen,
   ScrollText,
@@ -52,7 +53,10 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
 const USER_GROUPS: SettingsNavGroup[] = [
   {
     title: 'Account',
-    items: [{ key: 'account.profile', label: 'Profile', icon: CircleUserRound }],
+    items: [
+      { key: 'account.profile', label: 'Profile', icon: CircleUserRound },
+      { key: 'account.personalCredentials', label: 'Personal Credentials', icon: KeyRound },
+    ],
   },
   {
     title: 'This computer',
