@@ -1,7 +1,12 @@
+import { randomUUID } from 'node:crypto'
+
+import { captureMain } from './analytics.ts'
+
 type ErrorLike = {
   name?: unknown
   message?: unknown
   code?: unknown
+  syscall?: unknown
   cause?: unknown
   errors?: unknown
   socket?: unknown
@@ -64,7 +69,7 @@ function describeCause(cause: unknown, depth: number): string | undefined {
   return parts.length ? parts.join(' ') : undefined
 }
 
-/** undici's "fetch failed" with the cause it hides (code, sub-errors, socket). */
+/** undici's "fetch failed" with the cause it hides (code, sub-errors, socket). For logs only. */
 export function describeFetchError(error: unknown): string {
   const message = text((error as ErrorLike | undefined)?.message) ?? String(error)
   const cause = describeCause((error as ErrorLike | undefined)?.cause, 0)
@@ -72,11 +77,46 @@ export function describeFetchError(error: unknown): string {
   return cause ? `${message} (${cause})` : message
 }
 
-/** Rethrow a transport failure so its cause survives the IPC boundary, which keeps only `message`. */
-export function fetchFailure(error: unknown): unknown {
-  if (!(error instanceof Error) || error.name === 'AbortError' || error.name === 'TimeoutError')
-    return error
-  if (!(error as ErrorLike).cause) return error
+// One line a person can read: no addresses, ports or byte counts. A system
+// error reads as its syscall and code ("connect ECONNREFUSED"), since its
+// message carries the address; undici's own messages lose their trailing
+// "(attempted addresses: …)".
+function reason(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return text(error)
+  const e = error as ErrorLike
+  const code = text(e.code)
+  const syscall = text(e.syscall)
 
-  return new Error(describeFetchError(error), { cause: error })
+  if (syscall && code) return `${syscall} ${code}`
+  const message = text(text(e.message)?.split(' (')[0])
+  const child = Array.isArray(e.errors) ? reason(e.errors[0]) : undefined
+
+  return message ?? child ?? code
+}
+
+/** Tag a backend request with the X-Request-Id the backend's requestId() adopts. */
+export function tagRequest(headers: Record<string, string>): string {
+  const requestId = randomUUID()
+
+  headers['x-request-id'] = requestId
+
+  return requestId
+}
+
+/**
+ * A backend request that never got a response. The full cause goes to the log
+ * under the request id; the error, which is all IPC keeps, carries only the
+ * reason and the id. Aborts pass through so cancel handling still sees them.
+ */
+export function backendFailure(error: unknown, route: string, requestId: string): unknown {
+  if (error instanceof Error && error.name === 'AbortError') return error
+  const detail = describeFetchError(error)
+
+  console.warn(`[backend] ${route} failed request_id=${requestId}: ${detail}`)
+  captureMain('backend_request_failed', { request_id: requestId, route, error: detail })
+  const why = reason((error as ErrorLike | undefined)?.cause) ?? reason(error) ?? 'unknown error'
+
+  return new Error(`Nuphos backend request failed: ${why} (trace ${requestId.slice(0, 8)}…)`, {
+    cause: error,
+  })
 }

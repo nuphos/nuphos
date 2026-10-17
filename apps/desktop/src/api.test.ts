@@ -37,6 +37,8 @@ const NETWORK_ERRORS = [
     '/teams/abc/connectors: Client network socket disconnected before secure TLS ' +
     'connection was established',
   'socket hang up',
+  "Error invoking remote method 'atlas:listTeamConnectors': Error: Nuphos backend request " +
+    'failed: other side closed (trace 1bb8abcb…)',
 ]
 
 // Genuine application/server errors — these SHOULD still surface a toast.

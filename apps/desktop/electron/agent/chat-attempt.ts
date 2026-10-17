@@ -1,6 +1,6 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
-import { describeFetchError, fetchFailure } from '../fetch-error.ts'
+import { backendFailure, tagRequest } from '../fetch-error.ts'
 import { readDeviceIdentity } from '../main/device-identity.ts'
 
 import {
@@ -42,6 +42,7 @@ export async function postChatAttempt(
   if (url) headers['x-atlas-url'] = url
   if (kubeContext) headers['x-atlas-kube-context'] = kubeContext
   if (diagramId) headers['x-atlas-diagram-id'] = diagramId
+  const requestId = tagRequest(headers)
 
   let firstByteTimedOut = false
   const effectiveTimeout = effectiveFirstByteTimeout(state.firstByteTimeouts)
@@ -122,13 +123,13 @@ export async function postChatAttempt(
         'post_failed',
         { streamId, sessionId },
         {
-          error: describeFetchError(fetchErr),
+          request_id: requestId,
           aborted: ctx.signal.aborted,
           elapsed_ms: Date.now() - attemptStartedAt,
         },
         'warn',
       )
-      throw fetchFailure(fetchErr)
+      throw backendFailure(fetchErr, '/agent/chat', requestId)
     }
     state.firstByteTimeouts += 1
     traceStream(

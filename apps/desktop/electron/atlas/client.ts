@@ -5,7 +5,7 @@ import yaml from 'js-yaml'
 import { apiUrl } from '../api-endpoint.ts'
 import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
-import { describeFetchError } from '../fetch-error.ts'
+import { backendFailure, tagRequest } from '../fetch-error.ts'
 
 import { buildAtlasError } from './error.ts'
 
@@ -24,10 +24,6 @@ export async function readToken(): Promise<string | null> {
   } catch {
     return null
   }
-}
-
-export function unwrapFetchError(e: unknown, route: string): Error {
-  return new Error(`Nuphos backend ${route}: ${describeFetchError(e)}`)
 }
 
 // Default per-request timeout. Multi-region sweeps (e.g. Aliyun ECS/SWAS across
@@ -67,6 +63,7 @@ export async function call<T>(
     authorization: `Bearer ${token}`,
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
   }
+  const requestId = tagRequest(headers)
   const init: RequestInit = { method, headers }
 
   if (body !== undefined) {
@@ -85,7 +82,7 @@ export async function call<T>(
           })
         : await fetchWithRetry(`${apiUrl()}${route}`, init, timeoutMs)
   } catch (e) {
-    throw unwrapFetchError(e, route)
+    throw backendFailure(e, route, requestId)
   }
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`
@@ -120,18 +117,17 @@ export async function callText(method: string, route: string): Promise<string> {
   const token = await readToken()
 
   if (!token) throw new Error('Not signed in')
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${token}`,
+    [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
+  }
+  const requestId = tagRequest(headers)
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${apiUrl()}${route}`, {
-      method,
-      headers: {
-        authorization: `Bearer ${token}`,
-        [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
-      },
-    })
+    res = await fetchWithRetry(`${apiUrl()}${route}`, { method, headers })
   } catch (error) {
-    throw unwrapFetchError(error, route)
+    throw backendFailure(error, route, requestId)
   }
   const text = await res.text()
 
@@ -160,23 +156,21 @@ export async function callMultipart<T>(
     file.filename,
   )
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${token}`,
+    [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
+  }
+  const requestId = tagRequest(headers)
   let res: Response
 
   try {
     res = await fetchWithRetry(
       `${apiUrl()}${route}`,
-      {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${token}`,
-          [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
-        },
-        body: form,
-      },
+      { method: 'POST', headers, body: form },
       timeoutMs,
     )
   } catch (e) {
-    throw unwrapFetchError(e, route)
+    throw backendFailure(e, route, requestId)
   }
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`

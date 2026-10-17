@@ -95,6 +95,7 @@ export function isNetworkError(e: unknown): boolean {
 
   return (
     raw.includes('fetch failed') ||
+    raw.includes('backend request failed') ||
     raw.includes('failed to fetch') ||
     raw.includes('networkerror when attempting to fetch resource') ||
     raw.includes('enotfound') ||
