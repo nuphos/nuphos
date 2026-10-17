@@ -129,6 +129,22 @@ describe('only the owner can put a session on their local agent', () => {
     expect(parseLocalRuntimeUrl(endpoint.url)).toMatchObject({ userId: 'owner', teamId: TEAM })
   })
 
+  test('an offline computer names the placement it authorized, never the one a send asks for', async () => {
+    presence = createMemoryPresenceStore()
+    const other = localRuntimeId({ userId: 'owner', deviceId: 'box-b', provider: 'claude-code' })
+
+    await expect(
+      resolveConversationChatRuntime(TEAM, conversation('owner'), {
+        userId: 'owner',
+        runtimeId: other,
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: 'runtime_offline',
+      details: { runtimeId: localId, runtimeLabel: expect.any(String) },
+    })
+  })
+
   test('control calls on the owner’s conversation act as its owner', async () => {
     const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
       purpose: 'control',

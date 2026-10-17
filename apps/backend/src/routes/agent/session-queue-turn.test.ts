@@ -32,10 +32,23 @@ let caller = OWNER
 // Turn admission looks the conversation up; none here means no move is running.
 useDb({ db: (() => ({ collection: () => ({ findOne: async () => null }) })) as never })
 useIdentity({ authenticateToken: async () => ({ user: { id: caller } }) })
-useAgentDb({ getReadableConversation: async () => conversation })
 let boxOffline = true
+const woken: (string | undefined)[] = []
+const stamped: string[] = []
 
-useBoxWake({ wakeOfflineBox: async () => boxOffline })
+useAgentDb({
+  getReadableConversation: async () => conversation,
+  stampConversationRuntimeInstance: async (_sessionId, runtimeId) => {
+    stamped.push(runtimeId)
+  },
+})
+useBoxWake({
+  wakeOfflineBox: async (runtimeId) => {
+    woken.push(runtimeId)
+
+    return boxOffline
+  },
+})
 
 const { agent } = await import('./router')
 const app = new Hono().route('/agent', agent).onError(errorHandler)
@@ -161,27 +174,55 @@ test('a send to an offline Box queues at once, even on a free session without a 
   ])
 })
 
-test('only a runtime_offline answer for an offline Box queues the send; anything else is thrown', async () => {
-  const offline = new AppError(409, 'runtime_offline', 'offline')
-  const args = {
-    body: { id: SESSION, messages: [message('m')], clientCapabilities: { serverQueue: true } },
-    conversation: { ...conversation, claudeCodePreview: {} } as AgentConversation,
+test('a send queues only for the Box its runtime resolution authorized', async () => {
+  const offline = (runtimeId?: string) =>
+    new AppError(409, 'runtime_offline', 'offline', runtimeId ? { runtimeId } : undefined)
+  const send = (id: string, pinned?: string) => ({
+    body: {
+      id: SESSION,
+      messages: [message(id)],
+      clientCapabilities: { serverQueue: true },
+      runtimeId: 'box-b',
+    },
+    conversation: {
+      ...conversation,
+      claudeCodePreview: {},
+      ...(pinned ? { runtimeId: pinned } : {}),
+    } as AgentConversation,
     runOwnerUserId: OWNER,
     userId: OWNER,
-    streamId: 'stream-m',
+    streamId: `stream-${id}`,
     readOnlyResume: false,
-    clientView: [message('m')],
+    clientView: [message(id)],
     slackBound: false,
     context: { locale: 'en', localTools: true },
     credentialAccess: undefined,
-  }
+  })
 
-  await expect(queueForOfflineBox(new Error('boom'), args)).rejects.toThrow('boom')
+  woken.length = 0
+  stamped.length = 0
+  await expect(queueForOfflineBox(new Error('boom'), send('a'))).rejects.toThrow('boom')
+  // No authorized placement (a body-named Box, another team's): nothing is woken.
+  await expect(queueForOfflineBox(offline(), send('a'))).rejects.toMatchObject({
+    code: 'runtime_offline',
+  })
+  expect(woken).toEqual([])
   boxOffline = false
-  await expect(queueForOfflineBox(offline, args)).rejects.toBe(offline)
+  await expect(queueForOfflineBox(offline('box-a'), send('a', 'box-a'))).rejects.toMatchObject({
+    code: 'runtime_offline',
+  })
   boxOffline = true
-  expect(await queueForOfflineBox(offline, args)).toBeNull()
-  expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual(['m'])
+  // Pinned to A, the body asking for B: A is woken and kept, B is ignored.
+  expect(await queueForOfflineBox(offline('box-a'), send('pinned', 'box-a'))).toBeNull()
+  expect(woken).toEqual(['box-a', 'box-a'])
+  expect(stamped).toEqual([])
+  // An unpinned conversation keeps the Box chosen here for the queue to start it on.
+  expect(await queueForOfflineBox(offline('box-a'), send('unpinned'))).toBeNull()
+  expect(stamped).toEqual(['box-a'])
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual([
+    'pinned',
+    'unpinned',
+  ])
 })
 
 test('an agent message waits behind a person who sent first, even on a free session', async () => {
