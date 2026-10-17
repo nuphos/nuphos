@@ -122,15 +122,8 @@ export function runtimeConfigMapObject(
     'MAKEFLAGS = "-j2"\n' +
     'BASH_ENV = "/opt/nuphos-runtime/runtime-guard.sh"\n'
 
-  // Concurrent ACP sessions per runtime pod. Above this, OpenAB suspends a
-  // session to make room, and the user pays for it: the suspended conversation
-  // has to replay its whole transcript through session/load on its next
-  // message. At 4 a single person with a few conversations open thrashed the
-  // pool -- one thread was suspended 25 times in a day on 2026-09-11.
-  // Measured footprint is ~400 MiB per session (claude + the acp wrapper), so 8
-  // sessions sit around 3.5 GiB of the pod's 8 GiB, still leaving room for the
-  // one heavy tool the memory limits above are sized for.
-  const poolConfig = `[pool]\nmax_sessions = 8\nsession_ttl_hours = ${String(SESSION_TTL_HOURS)}\n`
+  // Leave session capacity to OpenAB rather than imposing a hosted-runtime cap.
+  const poolConfig = `[pool]\nsession_ttl_hours = ${String(SESSION_TTL_HOURS)}\n`
 
   return {
     apiVersion: 'v1',

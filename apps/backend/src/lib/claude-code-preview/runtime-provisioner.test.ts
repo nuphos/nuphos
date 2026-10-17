@@ -131,7 +131,7 @@ beforeEach(async () => {
 })
 
 describe('runtime object builders', () => {
-  test.each(['codex', 'claude-code'] as const)(
+  test.each([...OPENAB_PROVIDERS])(
     '%s agents receive memory budgets across env_clear',
     (provider) => {
       const data = runtimeConfigMapObject('openab-runtimes', provider).data as Record<
@@ -140,7 +140,7 @@ describe('runtime object builders', () => {
       >
       const parsed = Bun.TOML.parse(data['config.toml']!) as {
         agent: { env: Record<string, string>; inherit_env?: string[] }
-        pool: { max_sessions: number; session_ttl_hours: number }
+        pool: { max_sessions?: number; session_ttl_hours: number }
       }
 
       // Per-tool budgets stay well under the container limit: the cgroup runs
@@ -150,7 +150,7 @@ describe('runtime object builders', () => {
       expect(parsed.agent.env.GOFLAGS).toBe('-p=2')
       expect(parsed.agent.env.MAKEFLAGS).toBe('-j2')
       expect(parsed.agent.env.BASH_ENV).toBe('/opt/nuphos-runtime/runtime-guard.sh')
-      expect(parsed.pool.max_sessions).toBe(8)
+      expect(parsed.pool).not.toHaveProperty('max_sessions')
       expect(parsed.pool.session_ttl_hours).toBe(4)
       expect(parsed.agent.inherit_env).toBeUndefined()
     },
