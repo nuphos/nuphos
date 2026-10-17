@@ -107,6 +107,12 @@ struct ConversationView: View {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)
             onScreen = false
             updateReading()
+            #if canImport(UIKit)
+            // UIKit gives the list back the focus it had when this chat opened,
+            // raising a keyboard over a composer it does not lift. Only a chat
+            // that has really gone runs this; a cancelled back swipe does not.
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            #endif
         }
         .onChange(of: scenePhase) { _, _ in updateReading() }
         .alert("Rename chat", isPresented: $showRename) {
