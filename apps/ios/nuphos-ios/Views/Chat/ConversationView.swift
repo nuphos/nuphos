@@ -49,7 +49,7 @@ struct ConversationView: View {
             #if os(iOS)
             // The transcript's controller also docks the composer, so it is
             // there while the chat loads too.
-            transcript.overlay { placeholder }
+            transcript
             #else
             if showsTranscript { transcript } else { placeholder }
             #endif
@@ -304,7 +304,7 @@ struct ConversationView: View {
     private var transcript: some View {
         #if os(iOS)
         TranscriptList(rows: showsTranscript ? rows : [], submittedRowID: session.lastSubmittedRowID, sessionID: session.sessionId,
-                       composer: AnyView(composer.environment(store))) { row in
+                       composer: AnyView(composer.environment(store)), placeholder: AnyView(placeholder)) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
                 .padding(.bottom, rowSpacing(row)))
