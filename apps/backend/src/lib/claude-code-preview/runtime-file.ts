@@ -73,7 +73,10 @@ export function parseRuntimeFile(output: string) {
   if (!result || typeof result !== 'object') throw unavailable()
   const errors: Record<string, [400 | 403 | 404 | 413, string]> = {
     file_not_found: [404, 'The file no longer exists on this agent.'],
-    forbidden_path: [403, 'Only files inside the source runtime workspace can be previewed.'],
+    forbidden_path: [
+      403,
+      'Only files inside the source runtime workspace or this conversation’s home can be previewed.',
+    ],
     invalid_path: [400, 'Invalid file path.'],
     not_a_file: [400, 'This path is not a regular file.'],
     file_too_large: [413, 'File preview is limited to 512 KiB.'],
@@ -131,7 +134,7 @@ async function runtimeFileOperation(
     !conversation.previousRuntimeUrls?.includes(endpoint.url)
   )
     throw new AppError(403, 'runtime_mismatch', 'This agent does not belong to the conversation.')
-  const params = { path, action, workspace: '/workspace' }
+  const params = { path, action, workspace: '/workspace', sessionId }
   let output: string
 
   try {

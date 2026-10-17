@@ -34,6 +34,7 @@ beforeEach(() => {
         path: 'report.md',
         workspace: '/workspace',
         action: 'read',
+        sessionId: 's',
       })
 
       return { stdout: JSON.stringify({ name: 'report.md', data: 'aGk=', size: 2 }) }
