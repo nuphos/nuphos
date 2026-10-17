@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   mintPreviewMcpToken,
-  personalCredentialSender,
+  personalCredentialSubject,
   scopedPathAllowed,
   verifyPreviewMcpToken,
 } from './mcp-token'
@@ -103,22 +103,35 @@ describe('scopedPathAllowed', () => {
   })
 })
 
-describe('personalCredentialSender', () => {
+describe('personalCredentialSubject', () => {
   const mint = (humanTurn?: boolean) =>
-    mintPreviewMcpToken({ userId: 'actor-2', sessionId: 'conv-1', teamId: 'team-1', humanTurn })
+    mintPreviewMcpToken({
+      userId: 'actor-2',
+      conversationOwnerUserId: 'owner-1',
+      sessionId: 'conv-1',
+      teamId: 'team-1',
+      humanTurn,
+    })
 
-  test('names the actor only for a human-message turn', () => {
-    expect(personalCredentialSender(`Bearer ${mint(true)}`)).toBe('actor-2')
-    expect(personalCredentialSender(`Bearer ${mint(false)}`)).toBeNull()
-    expect(personalCredentialSender(`Bearer ${mint()}`)).toBeNull()
+  test('is the sender on a member’s own turn and the session owner otherwise', () => {
+    expect(personalCredentialSubject(`Bearer ${mint(true)}`)).toBe('actor-2')
+    expect(personalCredentialSubject(`Bearer ${mint(false)}`)).toBe('owner-1')
+    expect(personalCredentialSubject(`Bearer ${mint()}`)).toBe('owner-1')
+  })
+
+  test('is nobody when the agent asks for the team identity', () => {
+    expect(personalCredentialSubject(`Bearer ${mint(true)}`, 'team')).toBeNull()
+    expect(personalCredentialSubject(`Bearer ${mint()}`, 'team')).toBeNull()
   })
 
   test('ignores missing, non-bearer and forged tokens', () => {
     const [head = '', , signature = ''] = mint().split('.')
-    const forged = Buffer.from(JSON.stringify({ sub: 'x', hum: true })).toString('base64url')
+    const forged = Buffer.from(JSON.stringify({ sub: 'x', own: 'x', hum: true })).toString(
+      'base64url',
+    )
 
-    expect(personalCredentialSender(undefined)).toBeNull()
-    expect(personalCredentialSender(mint(true))).toBeNull()
-    expect(personalCredentialSender(`Bearer ${head}.${forged}.${signature}`)).toBeNull()
+    expect(personalCredentialSubject(undefined)).toBeNull()
+    expect(personalCredentialSubject(mint(true))).toBeNull()
+    expect(personalCredentialSubject(`Bearer ${head}.${forged}.${signature}`)).toBeNull()
   })
 })

@@ -203,8 +203,8 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       userId: conversationOwnerUserId,
       actorUserId: userId,
       origin: params.origin ?? 'user',
-      // Only bridges whose actor is the verified human sender; triggers, agent
-      // threads and resource events keep the team's credentials.
+      // Only bridges whose actor is the verified human sender act as that sender;
+      // triggers, agent threads and resource events act as the session owner.
       humanTurn: HUMAN_SENDER_SOURCES.has(source),
       messages,
       firstMessage,

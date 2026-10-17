@@ -83,30 +83,20 @@ export function previewMcpServers(
     .mcpServers
 }
 
-// Automated turns (triggers, agent threads, resource events) share one HOME of
-// their own, so CLI logins a member's Personal Credentials wrote on their turns
-// are never on disk for work they did not send.
-export const AUTOMATED_SESSION_ACTOR = 'automated'
-
+// A teammate's own turn runs in their HOME. Everything else, including
+// automated turns, acts as the session owner and runs in the owner's.
 export function previewSessionActor(
   userId: string,
   conversationOwnerUserId: string,
   humanTurn?: boolean,
 ): string | undefined {
-  if (!humanTurn) return AUTOMATED_SESSION_ACTOR
-
-  return userId === conversationOwnerUserId ? undefined : userId
-}
-
-/** Whether a session's current context is a member's own turn rather than an automated one. */
-export function isHumanTurnRuntime(runtime?: { env?: Record<string, string> }): boolean {
-  return Boolean(runtime?.env) && runtime?.env?.NUPHOS_SESSION_ACTOR !== AUTOMATED_SESSION_ACTOR
+  return humanTurn && userId !== conversationOwnerUserId ? userId : undefined
 }
 
 export type PreviewSessionAccessOptions = {
   external?: boolean
   backendUrl?: string
-  /** The actor sent this turn's message (not a trigger or agent), so their Personal Credentials apply. */
+  /** The actor sent this turn's message; otherwise the turn acts as the session owner. */
   humanTurn?: boolean
 }
 

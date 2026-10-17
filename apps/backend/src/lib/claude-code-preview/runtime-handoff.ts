@@ -13,7 +13,7 @@ import { withRedis } from '@/lib/redis'
 import { sessionsByConversation } from './agent-chat-registry'
 import { openConversationSession } from './open-conversation-session'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
-import { isHumanTurnRuntime, previewSessionAccess } from './credentials-mcp'
+import { previewSessionAccess } from './credentials-mcp'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { RUNTIME_HANDOFFS_KEY as HANDOFFS_KEY } from './runtime-handoff-store'
 
@@ -77,7 +77,8 @@ async function queueRuntimeOwnedWork(): Promise<void> {
           ownerUserId: session.conversationOwnerUserId ?? session.userId,
           actorUserId: session.userId,
           locale: session.locale,
-          humanTurn: isHumanTurnRuntime(session.runtime),
+          // Only a teammate's own turn acts as someone other than the owner.
+          humanTurn: Boolean(session.runtime?.env?.NUPHOS_SESSION_ACTOR),
         })
       }),
   )
