@@ -12,6 +12,22 @@ export type UserInfo = {
 
 export type AuthStatus = { loggedIn: false } | { loggedIn: true; user: UserInfo; token: string }
 
+export type PersonalCredentialProvider = 'github' | 'linear'
+
+export type PersonalCredential = {
+  provider: PersonalCredentialProvider
+  login: string
+  workspaceName: string | null
+  connectedAt: string
+}
+
+/** Outcome of a nuphos://personal-credential deep link, claimed by the main process. */
+export type PersonalCredentialDeepLinkPayload = {
+  provider: PersonalCredentialProvider
+  login?: string
+  error?: string
+}
+
 export type UpdaterState =
   | { kind: 'idle' }
   | { kind: 'checking' }

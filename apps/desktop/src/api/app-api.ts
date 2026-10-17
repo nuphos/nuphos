@@ -11,11 +11,21 @@ import type { SkillScope } from './plan-types.ts'
 import type { Diagram } from '../architecture/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
-import type { ChangelogState, UpdaterState } from '../types/team.ts'
+import type {
+  ChangelogState,
+  PersonalCredentialDeepLinkPayload,
+  PersonalCredentialProvider,
+  UpdaterState,
+} from '../types/team.ts'
 
 export const appApi = {
   authUpdateProfile: (input: { name: string; username: string; avatarURL: string }) =>
     window.api.authUpdateProfile(input),
+  atlasListPersonalCredentials: () => window.api.atlasListPersonalCredentials(),
+  atlasStartPersonalCredential: (provider: PersonalCredentialProvider) =>
+    window.api.atlasStartPersonalCredential(provider),
+  atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
+    window.api.atlasDeletePersonalCredential(provider),
   authStatus: () => window.api.authStatus(),
   authLogin: () => window.api.authLogin(),
   authLogout: () => window.api.authLogout(),
@@ -46,6 +56,8 @@ export const appApi = {
     window.api.onAppOpenDeepLink(cb),
   onConnectAgentDeepLink: (cb: (payload: ConnectAgentLink) => void) =>
     window.api.onConnectAgentDeepLink(cb),
+  onPersonalCredentialDeepLink: (cb: (payload: PersonalCredentialDeepLinkPayload) => void) =>
+    window.api.onPersonalCredentialDeepLink(cb),
   onAgentFocusSession: (cb: (payload: AgentFocusSessionPayload) => void) =>
     window.api.onAgentFocusSession(cb),
   selectLocalFile: () => window.api.selectLocalFile(),
