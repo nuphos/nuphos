@@ -53,6 +53,8 @@ export type DeviceToolDeps = {
 /** A tool that sends one call frame to a device and waits for its result frame. */
 export type DeviceTool = {
   name: string
+  /** How errors name the tool to the model. */
+  label: string
   purpose: 'cua' | 'browser'
   /** Why the arguments cannot make a call, if they cannot. */
   invalid: (args: Record<string, unknown>) => string | undefined
@@ -162,7 +164,7 @@ async function resolveDevice(
   deps: DeviceToolDeps,
 ): Promise<string | ToolResult> {
   if (ctx.conversationOwnerUserId && ctx.conversationOwnerUserId !== ctx.userId)
-    return toolError(`${tool.name} only runs in your own conversations.`)
+    return toolError(`${tool.label} only runs in your own conversations.`)
   const devices = await deps.devices(ctx)
 
   if (devices.length === 0) return toolError(tool.noDevice)
@@ -237,7 +239,7 @@ export function createDeviceToolHandler(
       result ??
       toolError(
         status === 'timeout'
-          ? `Timed out waiting for ${tool.name} on the device.`
+          ? `Timed out waiting for ${tool.label} on the device.`
           : tool.unsupported,
       )
 

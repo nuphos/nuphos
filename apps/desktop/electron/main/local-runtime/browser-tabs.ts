@@ -8,6 +8,7 @@ import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
 import type { WebContents } from 'electron'
 
+/** How long Desktop may take to attach the tab and start its page. */
 const OPEN_TIMEOUT_MS = 15_000
 const LOAD_TIMEOUT_MS = 20_000
 
@@ -55,23 +56,51 @@ function loaded(contents: WebContents): Promise<void> {
   })
 }
 
-/** The next browser tab the workspace attaches, or null if none does in time. */
-function nextTab(): Promise<WebContents | null> {
+/** Tabs an `open` has already taken, so overlapping opens never share one. */
+const claimed = new WeakSet<WebContents>()
+
+const sameUrl = (a: string, b: string) => URL.canParse(a) && new URL(a).href === new URL(b).href
+
+/**
+ * The tab an `open` created: a browser guest attached after the request whose
+ * main frame starts loading `url`, returned once that load stops (finished or
+ * failed). Null if none does in time; a claimed tab still loading at the
+ * deadline is returned as it is.
+ */
+function openedTab(url: string): Promise<WebContents | null> {
   const browser = session.fromPartition('persist:browser')
 
   return new Promise((resolve) => {
+    const candidates = new Map<
+      WebContents,
+      (details: { url: string; isMainFrame: boolean }) => void
+    >()
+    let tab: WebContents | null = null
+    const stopWatching = () => {
+      app.off('web-contents-created', onCreated)
+      for (const [contents, onNavigation] of candidates)
+        contents.off('did-start-navigation', onNavigation)
+      candidates.clear()
+    }
+    const finish = () => {
+      clearTimeout(timer)
+      stopWatching()
+      resolve(tab)
+    }
     const onCreated = (_event: Electron.Event, contents: WebContents) => {
       if (contents.getType() !== 'webview' || contents.session !== browser) return
-      done(contents)
+      const onNavigation = (details: { url: string; isMainFrame: boolean }) => {
+        if (!details.isMainFrame || !sameUrl(details.url, url) || claimed.has(contents)) return
+        claimed.add(contents)
+        tab = contents
+        stopWatching()
+        contents.once('did-stop-loading', finish)
+      }
+
+      candidates.set(contents, onNavigation)
+      contents.on('did-start-navigation', onNavigation)
     }
-    const done = (contents: WebContents | null) => {
-      clearTimeout(timer)
-      app.off('web-contents-created', onCreated)
-      resolve(contents)
-    }
-    const timer = setTimeout(() => {
-      done(null)
-    }, OPEN_TIMEOUT_MS)
+    const timer = setTimeout(finish, OPEN_TIMEOUT_MS + LOAD_TIMEOUT_MS)
 
     app.on('web-contents-created', onCreated)
   })
@@ -82,7 +111,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'tabs') return text(browserTabs().map(describe))
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
-    const opened = nextTab()
+    const opened = openedTab(call.url)
     const path = `/teams/${encodeURIComponent(call.team)}/browser?url=${encodeURIComponent(call.url)}`
 
     handleDeepLink(`nuphos://open?path=${encodeURIComponent(path)}`)
@@ -92,7 +121,6 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return failed(
         'No browser tab opened. Nuphos Desktop needs an open window signed in to this team.',
       )
-    await loaded(contents)
 
     return text(describe(contents))
   }

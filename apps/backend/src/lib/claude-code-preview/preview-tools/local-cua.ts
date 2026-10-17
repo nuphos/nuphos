@@ -15,6 +15,7 @@ type Args = { code: string; title?: string; timeout_ms?: number; device?: string
 
 const cuaTool: DeviceTool = {
   name: 'local_cua',
+  label: 'Computer Use',
   purpose: 'cua',
   invalid: (raw) => {
     const { code } = raw as Args

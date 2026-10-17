@@ -19,6 +19,7 @@ type Args = {
 
 const browserTool: DeviceTool = {
   name: 'local_browser',
+  label: 'local_browser',
   purpose: 'browser',
   invalid: (raw) => {
     const args = raw as Args
