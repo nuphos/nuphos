@@ -11,7 +11,6 @@ struct ConversationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var readerID = UUID()
     @State private var onScreen = false
-    @State private var composerHeight: CGFloat = 0
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
@@ -33,66 +32,36 @@ struct ConversationView: View {
         ConversationUnread.shared.setReading(onScreen && scenePhase == .active, reader: readerID, team: session.teamId, session: session.sessionId)
     }
 
+    /// Shown instead of the transcript while it loads or after it failed.
+    @ViewBuilder
+    private var placeholder: some View {
+        if !session.loaded || session.awaitingReplay {
+            ProgressView().tint(Theme.muted)
+        } else if let loadError = session.loadError {
+            ContentUnavailableView("Couldn't load this chat", systemImage: "exclamationmark.bubble", description: Text(loadError))
+        }
+    }
+
+    private var showsTranscript: Bool { session.loaded && !session.awaitingReplay && session.loadError == nil }
+
     var body: some View {
         Group {
-            if !session.loaded || session.awaitingReplay {
-                ProgressView().tint(Theme.muted)
-            } else if let loadError = session.loadError {
-                ContentUnavailableView("Couldn't load this chat", systemImage: "exclamationmark.bubble", description: Text(loadError))
-            } else {
-                transcript
-            }
+            #if os(iOS)
+            // The transcript's controller also docks the composer, so it is
+            // there while the chat loads too.
+            transcript.overlay { placeholder }
+            #else
+            if showsTranscript { transcript } else { placeholder }
+            #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if !session.queued.isEmpty {
-                    QueuedStrip(
-                        items: session.queued,
-                        onRemove: { session.removeQueued(at: $0) }
-                    )
-                }
-                ChatComposerBar(
-                    text: $draft,
-                    isStreaming: session.isStreaming,
-                    canSend: session.canSubmit,
-                    canStop: session.canCancel,
-                    sendsDuringTurn: session.isNativeRuntime,
-                    canSteer: session.canSteer,
-                    allowsAttachments: !session.canSteer,
-                    failedSubmission: $session.failedSubmission,
-                    mentions: MentionSource(
-                        teamId: session.teamId,
-                        // Only someone who may change the session's devices can bring one in.
-                        devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
-                        pickDevice: { device in
-                            var selection = session.credentialAccess ?? CredentialSelection()
-                            if !selection.contains(device) { selection.toggle(device); session.credentialAccess = selection }
-                        },
-                        search: { query in
-                            await store.loadCredentialOptions()
-                            return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
-                        }
-                    ),
-                    onSend: { session.send($0) },
-                    onStop: { session.stop() }
-                ) {
-                    if session.canManage { ComposerControls(
-                        selection: Binding(
-                            get: { session.credentialAccess ?? CredentialSelection() },
-                            set: { session.credentialAccess = $0 }
-                        ),
-                        mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
-                        session: session
-                    ) }
-                }
-            }
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
-        }
+        #if !os(iOS)
+        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        #endif
         .onAppear {
             UIEventLog.pageTransition(from: sourcePage, to: "chat")
             Analytics.shared.screen("chat", teamID: session.teamId)
@@ -284,11 +253,58 @@ struct ConversationView: View {
         }
     }
 
+    /// The composer, with any queued messages above it.
+    private var composer: some View {
+        VStack(spacing: 0) {
+            if !session.queued.isEmpty {
+                QueuedStrip(
+                    items: session.queued,
+                    onRemove: { session.removeQueued(at: $0) }
+                )
+            }
+            ChatComposerBar(
+                text: $draft,
+                isStreaming: session.isStreaming,
+                canSend: session.canSubmit,
+                canStop: session.canCancel,
+                sendsDuringTurn: session.isNativeRuntime,
+                canSteer: session.canSteer,
+                allowsAttachments: !session.canSteer,
+                failedSubmission: $session.failedSubmission,
+                mentions: MentionSource(
+                    teamId: session.teamId,
+                    // Only someone who may change the session's devices can bring one in.
+                    devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
+                    pickDevice: { device in
+                        var selection = session.credentialAccess ?? CredentialSelection()
+                        if !selection.contains(device) { selection.toggle(device); session.credentialAccess = selection }
+                    },
+                    search: { query in
+                        await store.loadCredentialOptions()
+                        return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                    }
+                ),
+                onSend: { session.send($0) },
+                onStop: { session.stop() }
+            ) {
+                if session.canManage { ComposerControls(
+                    selection: Binding(
+                        get: { session.credentialAccess ?? CredentialSelection() },
+                        set: { session.credentialAccess = $0 }
+                    ),
+                    mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
+                    session: session
+                ) }
+            }
+        }
+    }
+
     /// UIKit owns the iOS transcript's layout and reading position.
     @ViewBuilder
     private var transcript: some View {
         #if os(iOS)
-        TranscriptList(rows: rows, submittedRowID: session.lastSubmittedRowID, sessionID: session.sessionId, composerHeight: composerHeight) { row in
+        TranscriptList(rows: showsTranscript ? rows : [], submittedRowID: session.lastSubmittedRowID, sessionID: session.sessionId,
+                       composer: AnyView(composer.environment(store))) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
                 .padding(.bottom, rowSpacing(row)))

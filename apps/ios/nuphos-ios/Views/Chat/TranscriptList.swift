@@ -9,9 +9,8 @@ struct TranscriptList: UIViewControllerRepresentable {
     let rows: [ChatRow]
     let submittedRowID: String?
     let sessionID: String
-    /// What sits between the transcript and the keyboard. Counting it as part
-    /// of the keyboard lets a drag pick both up at the composer's top edge.
-    let composerHeight: CGFloat
+    /// Docked on the keyboard layout guide, under the transcript.
+    let composer: AnyView
     let rowContent: (ChatRow) -> AnyView
 
     func makeUIViewController(context: Context) -> TranscriptController {
@@ -19,7 +18,7 @@ struct TranscriptList: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: TranscriptController, context: Context) {
-        controller.setComposerHeight(composerHeight)
+        controller.composer.rootView = composer
         controller.update(rows: rows, submittedRowID: submittedRowID,
                           sessionID: sessionID, content: rowContent)
     }
@@ -41,7 +40,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var applying = false
     private var pending: (() -> Void)?
     private var previousSize = CGSize.zero
-    private var bottom: NSLayoutConstraint!
+    let composer = UIHostingController(rootView: AnyView(EmptyView()))
     private let latestButton = UIButton(type: .system)
 
     override func viewDidLoad() {
@@ -63,14 +62,26 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         collection.register(TranscriptCell.self, forCellWithReuseIdentifier: "row")
         collection.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collection)
-        // The view keeps its size; only the collection's bottom edge moves, and
-        // it moves inside the keyboard's own animation and interactive drag.
-        bottom = collection.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
+        // The composer rides the keyboard layout guide and the collection ends
+        // at its top. One keyboard source moves both, inside the keyboard's own
+        // animation and interactive drag, and nothing else moves them.
+        addChild(composer)
+        composer.view.backgroundColor = .clear
+        composer.sizingOptions = .intrinsicContentSize
+        // The guide already keeps it clear of the keyboard and home indicator;
+        // SwiftUI's own keyboard avoidance would move it a second time.
+        composer.safeAreaRegions = []
+        composer.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(composer.view)
+        composer.didMove(toParent: self)
         NSLayoutConstraint.activate([
             collection.topAnchor.constraint(equalTo: view.topAnchor),
-            bottom,
+            collection.bottomAnchor.constraint(equalTo: composer.view.topAnchor),
             collection.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collection.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composer.view.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            composer.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            composer.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
         dataSource = ChatLayoutDiffableDataSource(collectionView: collection) { [weak self] collection, path, id in
             guard let self, let row = self.byID[id], let content = self.content else { return nil }
@@ -153,19 +164,11 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         animatePendingSend()
     }
 
-    /// The composer sits between the transcript and the keyboard. Counting it
-    /// as part of the keyboard lets a drag pick both up at the composer's top.
-    func setComposerHeight(_ height: CGFloat) {
-        loadViewIfNeeded()
-        guard bottom.constant != -height else { return }
-        view.keyboardLayoutGuide.keyboardDismissPadding = height
-        bottom.constant = -height
-        guard positioned else { return }
-        UIView.animate(withDuration: 0.28) { self.view.layoutIfNeeded() }
-    }
-
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // Counting the composer as part of the keyboard lets a drag pick both
+        // up at the composer's top edge.
+        view.keyboardLayoutGuide.keyboardDismissPadding = composer.view.bounds.height
         let size = collection.bounds.size
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size
