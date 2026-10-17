@@ -298,11 +298,14 @@ final class AgentStore {
         guard let team = selectedTeam, force || credentialCatalog == nil else { return }
         do {
             let catalog = try await NuphosAPI.credentialOptions(token: token, teamId: team.id)
+            // Another team was picked meanwhile; its own load fills its state.
+            guard selectedTeam?.id == team.id else { return }
             if credentialCatalog == nil { credentialSelection.selectDefaults(in: catalog) }
             credentialCatalog = catalog
             credentialCatalogError = nil
             credentialSelection = credentialSelection.pruned(to: catalog)
         } catch {
+            guard selectedTeam?.id == team.id else { return }
             credentialCatalogError = error.localizedDescription
         }
     }
@@ -453,8 +456,11 @@ final class AgentStore {
         return session
     }
 
-    /// A brand-new conversation for the selected team.
-    func newSession() -> ChatSession? {
+    /// A brand-new conversation for the selected team. Waits for the first
+    /// catalog load so a quick first send still gets the default credentials;
+    /// if that load fails, the conversation starts with whatever is selected.
+    func newSession() async -> ChatSession? {
+        await loadCredentialOptions()
         guard let team = selectedTeam else { return nil }
         let session = ChatSession.fresh(token: token, teamId: team.id)
         session.me = me
