@@ -172,7 +172,7 @@ export function ConnectorInfoView({
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin selectable">
+    <div className="connector-quiet-focus flex-1 min-h-0 overflow-y-auto scrollbar-thin selectable">
       {state !== 'ready' && (
         <>
           {state === 'loading' && <ConnectorInfoSkeleton />}

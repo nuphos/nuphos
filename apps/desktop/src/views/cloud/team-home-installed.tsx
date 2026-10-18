@@ -26,6 +26,7 @@ function InstalledConnector({
   return (
     <Tooltip
       side="top"
+      delay={200}
       content={
         <span className="block text-center">
           <span className="block font-medium">{name}</span>

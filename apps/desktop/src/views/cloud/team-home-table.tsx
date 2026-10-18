@@ -152,7 +152,7 @@ export function IntegrationCatalog({
   })).filter((category) => category.items.length > 0)
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="connector-quiet-focus flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-[760px] px-7 py-9 selectable">
         <header className="mb-8">
           <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">Connectors</h1>

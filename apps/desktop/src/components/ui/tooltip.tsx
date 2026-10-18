@@ -33,6 +33,7 @@ export function Tooltip({
   side = 'top',
   disabled,
   triggerClassName,
+  delay = 300,
 }: {
   content: ReactNode
   /** The element to hover. Rendered as the trigger, so it must accept a ref. */
@@ -41,12 +42,14 @@ export function Tooltip({
   disabled?: boolean
   /** Extra classes for the wrapping span, e.g. `min-w-0` so a child can truncate. */
   triggerClassName?: string
+  /** Hover time in ms before the tooltip opens. */
+  delay?: number
 }) {
   return (
     // The delay lives on Provider, not Root. One per tooltip is intentional:
     // these sit in table rows, and a shared group delay would make the second
     // hover appear instantly while sweeping the cursor down a column.
-    <TooltipPrimitive.Provider delay={300}>
+    <TooltipPrimitive.Provider delay={delay}>
       <TooltipPrimitive.Root disabled={disabled}>
         <TooltipPrimitive.Trigger
           render={<span className={clsx('inline-flex', triggerClassName)} />}
