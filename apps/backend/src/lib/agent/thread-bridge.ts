@@ -17,6 +17,7 @@ import {
   upsertConversationShell,
 } from './db'
 
+import type { CredentialRef } from './thread-credentials'
 import type { AgentConversation } from './db'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
@@ -145,13 +146,13 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 }
 
 /**
- * The parent's own controls for a thread it created: its permission mode, never
- * more access than the parent has, and the agent it runs on.
+ * The parent's own controls for a thread it created: its permission mode and
+ * credentials, never more access than the parent has, and the agent it runs on.
  */
 export async function updateThread(
   actor: ThreadActor,
   threadId: string,
-  change: { fullAccess?: boolean; runtimeId?: string },
+  change: { fullAccess?: boolean; runtimeId?: string; grant?: CredentialRef[] },
 ) {
   const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
@@ -169,6 +170,8 @@ export async function updateThread(
     if (!(await listRuntimeInstances(actor.teamId)).some(({ id }) => id === change.runtimeId))
       throw new Error("A thread can only move to one of the team's agents, not to a computer.")
   }
+  const { grantThreadCredentials } = await import('./thread-credentials')
+  const granted = await grantThreadCredentials(actor, threadId, change.grant)
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
   const runtime = change.runtimeId
@@ -187,6 +190,7 @@ export async function updateThread(
 
   return {
     threadId,
+    ...(granted ? { granted } : {}),
     ...(change.fullAccess === undefined
       ? {}
       : { mode: change.fullAccess ? 'full_access' : 'auto' }),

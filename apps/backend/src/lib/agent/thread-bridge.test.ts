@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared'
+import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -53,6 +55,8 @@ beforeEach(() => {
   bypass.clear()
   events.length = 0
   moves.length = 0
+  writes.length = 0
+  selections.clear()
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -74,6 +78,32 @@ useIdentity({
 const bypass = new Map<string, Record<string, unknown>>()
 const events: { conversationId: string; event: string }[] = []
 const moves: { sessionId: string; runtimeId: string; mode: string; userId: string }[] = []
+// Each conversation's selection as list_credentials reads it, and the fields grants write.
+const selections = new Map<string, Partial<AgentCredentialAccess>>()
+const writes: { sessionId: string; fields: Partial<AgentCredentialAccess> }[] = []
+const options = await realOptions.getAgentCredentialOptions(undefined, 'owner')
+
+useCredentialOptions({
+  getAgentCredentialOptions: async () =>
+    ({
+      ...options,
+      awsRoles: ['role-1', 'role-2'].map((roleId) => ({ roleId, accountId: roleId })),
+      linearWorkspaces: [{ workspaceId: 'ws-1', label: 'Zeabur' }],
+      // A connector whose unset selection means all of them.
+      githubInstallations: ['gh-1', 'gh-2'].map((installationId) => ({
+        installationId,
+        accountLogin: installationId,
+      })),
+      devices: [
+        { deviceId: 'mac-1', available: true },
+        { deviceId: 'mac-2', available: true },
+        { deviceId: 'offline-mac', available: false },
+      ].map((device) => ({ ...device, label: device.deviceId, platform: 'darwin' })),
+    }) as never,
+})
+useAgentSessionsShared({
+  getAgentCredentialAccess: async ({ sessionId }) => (selections.get(sessionId) ?? {}) as never,
+})
 
 useDb({
   db: () => ({
@@ -159,6 +189,11 @@ useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
   recordAgentEvent: (event) => {
     events.push(event)
+  },
+  setConversationCredentialFields: async (sessionId, _userId, _teamId, fields) => {
+    writes.push({ sessionId, fields })
+
+    return null
   },
   getConversationWithMessages: async (sessionId) => ({
     conversation: { ...source, sessionId },
@@ -270,6 +305,79 @@ describe('conversation-scoped thread tools', () => {
     )
     expect(await getSessionBypass('target', 'owner')).toBe(false)
     expect(moves).toHaveLength(0)
+  })
+
+  test('a parent grants its thread what it has selected itself, and nothing else', async () => {
+    selections.set('source', {
+      awsRoleIds: ['role-1'],
+      linearWorkspaceIds: ['ws-1'],
+      deviceIds: ['mac-1', 'offline-mac'],
+    })
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    selections.set(threadId, { awsRoleIds: ['role-1'], deviceIds: [] })
+    const grant = [
+      { provider: 'device', id: 'mac-1' },
+      // Selected but offline: the selection is what was ticked, online is checked at use.
+      { provider: 'device', id: 'offline-mac' },
+      { provider: 'linear', id: 'ws-1' },
+      { provider: 'aws', id: 'role-1' },
+    ]
+    const result = await updateThread(actor, threadId, { grant })
+
+    expect(result.granted).toEqual(grant)
+    // Only the fields that change, so the thread's other choices are left alone.
+    expect(writes).toEqual([
+      {
+        sessionId: threadId,
+        fields: { linearWorkspaceIds: ['ws-1'], deviceIds: ['mac-1', 'offline-mac'] },
+      },
+    ])
+  })
+
+  test("refuses anything outside the parent's selection, without a write", async () => {
+    selections.set('source', { awsRoleIds: ['role-1'], deviceIds: ['mac-1'] })
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    // Bound to the team but not selected here, online but not the parent's, unknown.
+    for (const ref of [
+      { provider: 'aws', id: 'role-2' },
+      { provider: 'device', id: 'mac-2' },
+      { provider: 'device', id: 'someone-elses-mac' },
+      { provider: 'linear', id: 'ws-1' },
+      { provider: 'gcp', id: 'role-1' },
+    ]) {
+      await expect(
+        updateThread(actor, threadId, { grant: [{ provider: 'device', id: 'mac-1' }, ref] }),
+      ).rejects.toThrow(`${ref.provider} ${ref.id}`)
+    }
+    expect(writes).toHaveLength(0)
+  })
+
+  test('a grant never narrows a connector whose unset selection means all', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await updateThread(actor, threadId, { grant: [{ provider: 'github', id: 'gh-1' }] })
+    expect(writes).toHaveLength(0)
+    selections.set('source', { githubInstallationIds: ['gh-1'] })
+    selections.set(threadId, { githubInstallationIds: ['gh-2'] })
+    await updateThread(actor, threadId, { grant: [{ provider: 'github', id: 'gh-1' }] })
+    expect(writes).toEqual([
+      { sessionId: threadId, fields: { githubInstallationIds: ['gh-2', 'gh-1'] } },
+    ])
+  })
+
+  test("only a thread this conversation created gets a grant, never another owner's", async () => {
+    selections.set('source', { deviceIds: ['mac-1'] })
+    const grant = [{ provider: 'device', id: 'mac-1' }]
+
+    // Another conversation's thread, even nested under this one.
+    target = { ...target, parentSessionId: 'source', createdBySessionId: 'elsewhere' }
+    await expect(updateThread(actor, 'target', { grant })).rejects.toThrow('created')
+    // Created here, but owned by someone else.
+    target = { ...target, createdBySessionId: 'source', userId: 'other' }
+    await expect(updateThread(actor, 'target', { grant })).rejects.toThrow('you own')
+    expect(writes).toHaveLength(0)
   })
 
   test("a thread never moves onto the owner's computer", async () => {

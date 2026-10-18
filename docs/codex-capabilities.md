@@ -19,6 +19,9 @@ MCP surface for either agent runtime, without patching another upstream bundle.
    between the two modes (Full Access requires the source itself to be in Full
    Access) or move it, with its history, to another agent picked from
    `list_agent_runtimes`, for example when it hits that agent's usage limit.
+   `grant` adds credentials or local devices to the thread's selection, only
+   ones the source itself has selected now, as its own `list_credentials`
+   shows them. It never removes any; unticking stays with the owner.
 2. Continue chatting in the source conversation while the worker runs.
 3. The worker calls `send_message_to_thread` with the source ID and its result.
    The existing run claim starts an idle conversation (`status: "started"`) or
