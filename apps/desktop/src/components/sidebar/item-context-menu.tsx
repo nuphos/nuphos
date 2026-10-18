@@ -22,7 +22,7 @@ export function SidebarItemContextMenu({
   favoriteMatch: (item: Item) => SidebarFavorite | undefined
   toggleFavorite: (item: Item) => void
   renameChat: (sessionId: string, title: string) => void
-  archiveChat: (sessionId: string) => void
+  archiveChat: (sessionId: string) => Promise<void>
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
   return (

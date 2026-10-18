@@ -8,7 +8,6 @@ import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
 import { customResourceNavigationKey } from '../../lib/customResourceNavigation'
-import { archiveWithThreads } from '../../lib/archiveWithThreads'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { toast } from '../ui/toast'
 
@@ -22,7 +21,6 @@ import {
   crdCacheKey,
   resizeDurationMs,
 } from './state'
-import { archiveTitle, useArchiveOffer } from './use-archive-offer'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
 import type { Item, Section } from './types'
@@ -204,10 +202,10 @@ export function useSidebarChats({
     onArchived,
   })
   const archiveChat = useCallback(
-    async (sessionId: string): Promise<boolean> => {
+    async (sessionId: string) => {
       // Re-entrancy guard: a second click while the first archive is in
       // flight would duplicate the PATCH and the refresh.
-      if (locallyArchivedRef.current.has(sessionId)) return false
+      if (locallyArchivedRef.current.has(sessionId)) return
       // Collapse the row while the PATCH is in flight; on success remove it
       // for real, on failure flip data-open back so the row visibly expands
       // again — a clear "archive failed" instead of a silent reappear.
@@ -232,10 +230,11 @@ export function useSidebarChats({
 
         return next
       })
-      // The caller reports the outcome once for the whole action.
-      if (ok) announceChatArchived({ sessionId, teamId })
-
-      return ok
+      if (ok) {
+        announceChatArchived({ sessionId, teamId })
+      } else {
+        toast.error('Could not archive chat')
+      }
     },
     [teamId],
   )
@@ -268,18 +267,6 @@ export function useSidebarChats({
 
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
-  const archive = useArchiveOffer({
-    conversations: agentSessions,
-    runtimeStates,
-    onArchive: (sessionId, threadIds) =>
-      archiveWithThreads({
-        sessionId,
-        threadIds,
-        title: archiveTitle(agentSessions, sessionId),
-        teamId,
-        archiveOne: archiveChat,
-      }),
-  })
   const chatItems: Item[] = agentSessions.map((conversation) =>
     chatSidebarItem({
       conversation,
@@ -290,11 +277,11 @@ export function useSidebarChats({
       // Same gate as the context menu: archiving is for the owner and managers.
       actions:
         !conversation.readOnly || conversation.canManage ? (
-          <ArchiveRowButton onArchive={() => archive.request(conversation.sessionId)} />
+          <ArchiveRowButton onArchive={() => void archiveChat(conversation.sessionId)} />
         ) : undefined,
     }),
   )
   const newChatActive = chatShown && !agentSessionId
 
-  return { chatItems, newChatActive, archive, unlinkChat, archivingIds }
+  return { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
 }

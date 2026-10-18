@@ -37,7 +37,6 @@ import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
 
 import { agentSessionUrl } from './sessionUrl'
-import { useHeaderArchiveOffer } from './useHeaderArchiveOffer'
 import { useArchiveSession } from './useArchiveSession'
 
 type Props = {
@@ -89,7 +88,6 @@ export function SessionHeaderMenu({
   canFork,
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
-  const archiveOffer = useHeaderArchiveOffer(teamId, archive)
   const pin = useSessionPin(userId, teamId, sessionId)
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
@@ -211,14 +209,13 @@ export function SessionHeaderMenu({
               icon={<Archive className="h-3.5 w-3.5" />}
               hint={<ShortcutHint combo={sessionShortcutCombo('archive-chat')} className="pl-4" />}
               disabled={archiving}
-              onClick={() => archiveOffer.request(sessionId)}
+              onClick={() => void archive()}
             >
               {archiving ? 'Archiving…' : 'Archive chat'}
             </MenuItem>
           </>
         )}
       </MenuContent>
-      {archiveOffer.dialog}
     </Menu>
   )
 }
