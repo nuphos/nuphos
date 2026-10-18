@@ -100,7 +100,6 @@ export function ConnectionAccessSection({
               onValueChange={(value) => onUpdatePolicy(value as DatabaseAgentPolicy)}
               disabled={!isTeamAdmin || busy || !connection.access}
               ariaLabel="Agent access policy"
-              triggerClassName="h-8 w-full border-zGray-800 bg-field px-2.5 text-[12.5px]"
               options={
                 connection.providerOrigin?.capabilities.query === false
                   ? AGENT_POLICY_OPTIONS.filter((o) => o.value !== 'read-only')

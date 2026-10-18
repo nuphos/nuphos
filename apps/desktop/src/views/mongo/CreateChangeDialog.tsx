@@ -129,7 +129,6 @@ export function CreateChangeDialog({
               value={operation}
               onValueChange={(value) => setOperation(value as Operation)}
               ariaLabel="Change operation"
-              triggerClassName="h-8 w-full border-zGray-800 bg-field px-2.5 text-[12.5px]"
               options={OPERATIONS.map((item) => ({
                 value: item.value,
                 label: `${item.kind} · ${item.label}`,

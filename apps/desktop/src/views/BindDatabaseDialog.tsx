@@ -224,7 +224,6 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
               value={agentPolicy}
               onValueChange={(value) => setAgentPolicy(value as DatabaseAgentPolicy)}
               ariaLabel="Agent access policy"
-              triggerClassName="h-8 w-full border-zGray-800 bg-field px-2.5 text-[12.5px]"
               options={AGENT_POLICY_OPTIONS}
             />
           </Field>

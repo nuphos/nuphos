@@ -96,7 +96,6 @@ export function AliyunBindWizard({
                         label: 'Alibaba Cloud · International (alibabacloud.com)',
                       },
                     ]}
-                    triggerClassName="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 text-[12.5px] text-main"
                   />
                 </Field>
                 <StepList>
