@@ -3,15 +3,15 @@ import { test } from 'node:test'
 
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Streamdown } from 'streamdown'
+import { Streamdown, defaultRehypePlugins } from 'streamdown'
 
 import { messageRehypePlugins } from './messageRehypePlugins.ts'
 
-const render = (markdown: string) =>
+const render = (markdown: string, rehypePlugins = messageRehypePlugins) =>
   renderToStaticMarkup(
     createElement(Streamdown, {
       mode: 'static',
-      rehypePlugins: messageRehypePlugins,
+      rehypePlugins,
       components: { a: ({ href, children }) => createElement('a', { href }, children) },
       children: markdown,
     }),
@@ -33,10 +33,8 @@ test('unsafe protocols and event handlers are still stripped', () => {
   assert.doesNotMatch(html, /javascript:|data:|onerror/)
 })
 
-test('bare paths in prose, inline code and path-only blocks become file links', () => {
-  const html = render(
-    '檔案在 /data/workspace/a.mp4。\n\n`/data/workspace/b.md` `npm i`\n\n```\n/data/workspace/c.md\n/data/workspace/d.md:12\n```',
-  )
+test('bare paths in prose and path-only inline code become file links', () => {
+  const html = render('檔案在 /data/workspace/a.mp4。\n\n`/data/workspace/b.md` `npm i`')
 
   assert.match(html, /<a href="\/data\/workspace\/a\.mp4">\/data\/workspace\/a\.mp4<\/a>。/)
   assert.match(
@@ -44,8 +42,22 @@ test('bare paths in prose, inline code and path-only blocks become file links', 
     /<a href="\/data\/workspace\/b\.md"><code[^>]*>\/data\/workspace\/b\.md<\/code><\/a>/,
   )
   assert.doesNotMatch(html, /<a[^>]*><code[^>]*>npm i/)
-  assert.match(html, /<a href="\/data\/workspace\/c\.md"><code[^>]*>/)
-  assert.match(html, /<a href="\/data\/workspace\/d\.md:12"><code[^>]*>/)
+})
+
+test('code blocks render exactly as without file links, even when they hold only paths', () => {
+  for (const markdown of [
+    '```\n/data/workspace/c.md\n/data/workspace/d.md:12\n```',
+    '```bash\necho /data/workspace/x.md\n```',
+  ]) {
+    const html = render(markdown)
+
+    assert.equal(
+      html,
+      render(markdown, [defaultRehypePlugins.raw, defaultRehypePlugins.sanitize]),
+      markdown,
+    )
+    assert.doesNotMatch(html, /href="\/data\//)
+  }
 })
 
 test('a long session-home path is linked whole', () => {
@@ -69,8 +81,8 @@ test('a path that labels an explicit link keeps that link, with no nested anchor
   assert.match(html, /<a href="https:\/\/example\.com\/x">\/data\/workspace\/x\.md<\/a>/)
 })
 
-test('code that is not only paths is left alone', () => {
-  const html = render('```bash\necho /data/workspace/x.md\n```\n\nsee https://x.dev/data/c')
+test('the path part of a URL is left alone', () => {
+  const html = render('see https://x.dev/data/c')
 
   assert.doesNotMatch(html, /href="\/data\//)
 })

@@ -20,14 +20,9 @@ const link = (path: string, children: Node[]): Node => ({
   children,
 })
 
-const code = (path: string): Node => ({
-  type: 'element',
-  tagName: 'code',
-  children: [{ type: 'text', value: path }],
-})
-
 // A link is never descended into, so a path that is already the label of an
-// explicit link keeps that link's destination.
+// explicit link keeps that link's destination. A code block is left exactly
+// as written.
 function linkPaths(node: Node) {
   node.children = node.children?.flatMap((child): Node[] => {
     if (child.type === 'text' && child.value)
@@ -36,28 +31,11 @@ function linkPaths(node: Node) {
           ? { type: 'text', value: part }
           : link(part.path, [{ type: 'text', value: part.path }]),
       )
-    if (child.type !== 'element' || child.tagName === 'a') return [child]
+    if (child.type !== 'element' || child.tagName === 'a' || child.tagName === 'pre') return [child]
+    if (child.tagName === 'code') {
+      const value = text(child).trim()
 
-    const value = text(child).trim()
-
-    if (child.tagName === 'code') return isRuntimeFilePath(value) ? [link(value, [child])] : [child]
-    if (child.tagName === 'pre') {
-      // A block of nothing but paths becomes a line of linked paths each;
-      // anything else stays a highlighted code block.
-      const lines = value.split('\n').map((line) => line.trim())
-
-      if (!lines.every(isRuntimeFilePath)) return [child]
-
-      return [
-        {
-          type: 'element',
-          tagName: 'p',
-          children: lines.flatMap((line, i) => [
-            ...(i ? [{ type: 'element', tagName: 'br', children: [] }] : []),
-            link(line, [code(line)]),
-          ]),
-        },
-      ]
+      return isRuntimeFilePath(value) ? [link(value, [child])] : [child]
     }
     linkPaths(child)
 
@@ -65,7 +43,7 @@ function linkPaths(node: Node) {
   })
 }
 
-/** Links bare runtime paths in prose, inline code and path-only code blocks. */
+/** Links bare runtime paths in prose and path-only inline code. */
 const rehypeRuntimeFilePaths = () => linkPaths
 
 // Without `harden`: sanitize already drops unsafe protocols, and with every
