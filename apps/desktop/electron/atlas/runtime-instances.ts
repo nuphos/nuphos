@@ -171,15 +171,15 @@ export function readRuntimeFile(
 
 // A file too large to preview becomes a download of the conversation; the
 // agent uploads it first, so this can take a while.
-export function downloadRuntimeFile(
+export function transferRuntimeFile(
   teamId: string,
   runtimeId: string,
   sessionId: string,
   filePath: string,
-): Promise<{ groupId: string; fileId: string; fileName: string; size: number }> {
+): Promise<{ groupId: string; fileId: string; fileName: string; size: number; url: string }> {
   return call(
     'POST',
-    `${path(teamId, runtimeId)}/files/download`,
+    `${path(teamId, runtimeId)}/files/transfer`,
     { sessionId, path: filePath },
     { retry: false, timeoutMs: 130_000 },
   )

@@ -61,9 +61,9 @@ export function registerRuntimeFileRoutes(teamScoped: Hono<{ Variables: TeamAuth
       )
     },
   )
-  // A file too large to preview becomes a download of the conversation.
+  // A file too large for the inline preview, moved through the transfer store.
   teamScoped.post(
-    '/agent-runtimes/:runtimeId/files/download',
+    '/agent-runtimes/:runtimeId/files/transfer',
     zv(
       'json',
       z.object({

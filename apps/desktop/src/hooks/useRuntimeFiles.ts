@@ -7,13 +7,48 @@ import { runtimeFilePreview } from '../lib/runtimeFileLink.ts'
 
 type Source = { teamId: string; sessionId: string; runtimeId: string; label: string }
 type Directory = { entries: { name: string; kind: 'directory' | 'file' }[]; truncated: boolean }
+type Transfer = Awaited<ReturnType<typeof api.atlasTransferRuntimeFile>>
+type MediaKind = 'image' | 'video' | 'audio' | 'pdf'
 type Result = {
   source: Source | null
   directory: Directory | null
   preview: ReturnType<typeof runtimeFilePreview>
   loading: boolean
-  /** Over the preview limit: offered as a download instead. */
+  /** Played or rendered from the transfer store; saved from there too. */
+  media?: { kind: MediaKind; url: string; transfer: Transfer }
+  /** Over the inline limit and not media: offered as a download instead. */
   tooLarge?: boolean
+  /** Over the transfer store's limit as well: nothing to offer. */
+  overLimit?: boolean
+}
+
+const MEDIA: [MediaKind, RegExp][] = [
+  ['image', /\.(png|jpe?g|gif|webp|bmp|svg)$/i],
+  ['video', /\.(mp4|mov|m4v|webm)$/i],
+  ['audio', /\.(mp3|m4a|aac|wav|ogg|oga|flac|opus)$/i],
+  ['pdf', /\.pdf$/i],
+]
+const mediaKind = (name: string) => MEDIA.find(([, pattern]) => pattern.test(name))?.[0]
+const tooLargeError = (error: unknown) => parseAtlasError(error).code === 'file_too_large'
+
+// The inline read caps at 512 KiB, so media goes through the transfer store:
+// the runtime uploads it once, and it plays (with seeking) from a presigned
+// URL. A PDF is fetched whole, since the viewer needs its type.
+async function transferMedia(target: Source, path: string, kind: MediaKind) {
+  const transfer = await api.atlasTransferRuntimeFile(
+    target.teamId,
+    target.runtimeId,
+    target.sessionId,
+    path,
+  )
+  const url =
+    kind === 'pdf'
+      ? URL.createObjectURL(
+          new Blob([await (await fetch(transfer.url)).arrayBuffer()], { type: 'application/pdf' }),
+        )
+      : transfer.url
+
+  return { kind, url, transfer }
 }
 
 // The file a chat link named may be on this computer or the agent's, and the
@@ -82,13 +117,29 @@ export function useRuntimeFiles(
         if (!target) return
         // Exactly one request owns the visible pane. Refresh reloads that same target.
         if (fileName) {
-          const { file, shown } = await readFile(target, `${path}/${fileName}`, filePath)
+          const kind = mediaKind(fileName)
+          // Images small enough still come inline; other media always streams.
+          const inline =
+            kind && kind !== 'image'
+              ? null
+              : await readFile(target, `${path}/${fileName}`, filePath).catch((error: unknown) => {
+                  if (kind && tooLargeError(error)) return null
+                  throw error
+                })
 
           if (cancelled) return
-          const preview = runtimeFilePreview(file)
+          if (inline) {
+            const preview = runtimeFilePreview(inline.file)
 
-          if (!preview) toast.error('Preview unavailable', 'This file format cannot be previewed.')
-          setResult({ source: shown, directory: null, preview, loading: false })
+            if (!preview)
+              toast.error('Preview unavailable', 'This file format cannot be previewed.')
+            setResult({ source: inline.shown, directory: null, preview, loading: false })
+          } else if (kind) {
+            const media = await transferMedia(target, `${path}/${fileName}`, kind)
+
+            if (cancelled) return
+            setResult({ source: target, directory: null, preview: null, loading: false, media })
+          }
         } else {
           const directory = await api.atlasListRuntimeFiles(
             target.teamId,
@@ -101,7 +152,9 @@ export function useRuntimeFiles(
         }
       } catch (error) {
         if (cancelled) return
-        const tooLarge = parseAtlasError(error).code === 'file_too_large'
+        const tooLarge = tooLargeError(error)
+        // Media reached the transfer store, which refused it too.
+        const overLimit = tooLarge && Boolean(mediaKind(fileName))
 
         if (!tooLarge) toast.apiError('Could not load runtime files', error)
         setResult({
@@ -109,7 +162,8 @@ export function useRuntimeFiles(
           directory: null,
           preview: null,
           loading: false,
-          tooLarge,
+          tooLarge: tooLarge && !overLimit,
+          overLimit,
         })
       }
     }
@@ -121,6 +175,16 @@ export function useRuntimeFiles(
     }
   }, [teamId, conversationId, isActive, path, fileName, filePath, refreshKey, retry])
 
+  // A PDF is held as a blob URL; let it go with the preview.
+  const mediaUrl = result.media?.url
+
+  useEffect(
+    () => () => {
+      if (mediaUrl?.startsWith('blob:')) URL.revokeObjectURL(mediaUrl)
+    },
+    [mediaUrl],
+  )
+
   function navigate(nextPath: string) {
     setFileName('')
     setPath(nextPath)
@@ -131,16 +195,19 @@ export function useRuntimeFiles(
 
     if (!target) return
     try {
-      const file = await api.atlasDownloadRuntimeFile(
-        target.teamId,
-        target.runtimeId,
-        target.sessionId,
-        `${path}/${fileName}`,
-      )
+      const file =
+        result.media?.transfer ??
+        (await api.atlasTransferRuntimeFile(
+          target.teamId,
+          target.runtimeId,
+          target.sessionId,
+          `${path}/${fileName}`,
+        ))
       const saved = await api.fileTransferDownloadOne({
         teamId: target.teamId,
-        sessionId: target.sessionId,
-        ...file,
+        groupId: file.groupId,
+        fileId: file.fileId,
+        fileName: file.fileName,
       })
 
       if (saved.saved && saved.path) {

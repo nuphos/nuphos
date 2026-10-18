@@ -18,7 +18,9 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
     path,
     directory,
     preview,
+    media,
     tooLarge,
+    overLimit,
     fileName,
     loading,
     navigate,
@@ -76,6 +78,21 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 <span className="truncate">{source.label}</span>
               </span>
             )}
+            {media && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Download file"
+                title="Download"
+                disabled={downloading}
+                onClick={() => {
+                  setDownloading(true)
+                  void download().finally(() => setDownloading(false))
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -125,6 +142,32 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 </pre>
               </div>
             )
+          ) : media ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-zGray-900/30 p-6">
+              {media.kind === 'video' ? (
+                <video src={media.url} controls className="max-h-full max-w-full rounded" />
+              ) : media.kind === 'audio' ? (
+                <audio src={media.url} controls className="w-full max-w-md" />
+              ) : media.kind === 'pdf' ? (
+                <iframe
+                  src={media.url}
+                  title={fileName}
+                  className="h-full w-full rounded bg-white"
+                />
+              ) : (
+                <img
+                  src={media.url}
+                  alt={fileName}
+                  className="max-h-full max-w-full rounded object-contain"
+                />
+              )}
+            </div>
+          ) : overLimit ? (
+            <EmptyState
+              icon={FileQuestion}
+              title="Too large to open"
+              description="Files can open media up to 100 MB."
+            />
           ) : tooLarge ? (
             <EmptyState
               icon={FileQuestion}

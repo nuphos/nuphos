@@ -119,9 +119,12 @@ test('a large file is sized, uploaded to a new download transfer, then finalized
   const finalize = spyOn(transfers, 'finalizeTransfer').mockResolvedValue({
     status: 'ready',
   } as Awaited<ReturnType<typeof transfers.finalizeTransfer>>)
+  const resolve = spyOn(transfers, 'resolveDownloads').mockResolvedValue({
+    files: [{ downloadUrl: 'https://s3/get' }],
+  } as Awaited<ReturnType<typeof transfers.resolveDownloads>>)
 
   restore = () => {
-    for (const spy of [acquire, jobs, create, finalize]) spy.mockRestore()
+    for (const spy of [acquire, jobs, create, finalize, resolve]) spy.mockRestore()
   }
   conversation = {
     sessionId: 's',
@@ -132,7 +135,13 @@ test('a large file is sized, uploaded to a new download transfer, then finalized
 
   expect(
     await shareRuntimeFile('0123456789abcdef01234567', 'owner', 'r', 's', '/data/clip.mp4'),
-  ).toEqual({ groupId: 'g', fileId: 'f', fileName: 'clip.mp4', size: 46_000_000 })
+  ).toEqual({
+    groupId: 'g',
+    fileId: 'f',
+    fileName: 'clip.mp4',
+    size: 46_000_000,
+    url: 'https://s3/get',
+  })
   expect(
     params.map(({ action, url, size, timeoutMs }) => ({ action, url, size, timeoutMs })),
   ).toEqual([
@@ -140,5 +149,6 @@ test('a large file is sized, uploaded to a new download transfer, then finalized
     { action: 'upload', url: 'https://s3/put', size: 46_000_000, timeoutMs: 110_000 },
   ])
   expect(create.mock.calls[0]?.[1]).toBe('download')
-  expect(create.mock.calls[0]?.[0].sessionId).toBe('s')
+  // The user's own transfer: no download card in the conversation.
+  expect(create.mock.calls[0]?.[0].sessionId).toBeUndefined()
 })

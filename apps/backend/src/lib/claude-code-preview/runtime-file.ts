@@ -8,7 +8,7 @@ import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { AppError } from '@/lib/errors'
-import { createTransfer, finalizeTransfer } from '@/lib/file-transfer/service'
+import { createTransfer, finalizeTransfer, resolveDownloads } from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
@@ -256,9 +256,11 @@ function parseRuntimeStat(output: string) {
 }
 
 /**
- * Hands a file too large to preview to the transfer store as a download of
- * this conversation: the runtime PUTs it to a presigned URL, and the user
- * fetches it like any file an agent shared.
+ * Moves a file too large for the inline preview through the transfer store:
+ * the runtime PUTs it to a presigned URL, and Files plays or renders it from a
+ * presigned GET (which serves Range requests, so video seeks) or saves it. The
+ * transfer belongs to the user, not the conversation, so opening a file in
+ * Files does not add a download card to the chat.
  */
 export async function shareRuntimeFile(
   teamId: string,
@@ -270,7 +272,7 @@ export async function shareRuntimeFile(
   const { name, size } = parseRuntimeStat(
     await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'stat' }),
   )
-  const scope = { teamId: new ObjectId(teamId), userId, sessionId }
+  const scope = { teamId: new ObjectId(teamId), userId }
   const transfer = await createTransfer(scope, 'download', [{ fileName: name, size }])
   const [file] = transfer.files
 
@@ -288,6 +290,9 @@ export async function shareRuntimeFile(
     ),
   )
   if ((await finalizeTransfer(scope, transfer.groupId)).status !== 'ready') throw unavailable()
+  const url = (await resolveDownloads(scope, transfer.groupId)).files[0]?.downloadUrl
 
-  return { groupId: transfer.groupId, fileId: file.id, fileName: name, size }
+  if (!url) throw unavailable()
+
+  return { groupId: transfer.groupId, fileId: file.id, fileName: name, size, url }
 }
