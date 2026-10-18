@@ -7,6 +7,7 @@ import { installedConnectorAddAction } from './cloud/connector-actions'
 import { TeamHomeBindFlow } from './cloud/team-home-bind-flow'
 import { ConnectorInfoPage } from './connector-info/ConnectorInfoPage'
 import { ConnectorManagementSection } from './connector-info/ConnectorManagementSection'
+import { ConnectorsBackButton } from './connector-info/ConnectorsBackButton'
 import { DisconnectConnectorDialog } from './connector-info/DisconnectConnectorDialog'
 import { loadConnectorInfos } from './connector-info/loadConnectorInfo'
 import { hasConnectorManagement } from './connector-info/managementProviders'
@@ -173,6 +174,7 @@ export function ConnectorInfoView({
 
   return (
     <div className="connector-quiet-focus flex-1 min-h-0 overflow-y-auto scrollbar-thin selectable">
+      {onExit && <ConnectorsBackButton onBack={onExit} />}
       {state !== 'ready' && (
         <>
           {state === 'loading' && <ConnectorInfoSkeleton />}
