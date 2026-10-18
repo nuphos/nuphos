@@ -32,8 +32,8 @@ export function LocalUrlChip({
       <span
         className={
           label
-            ? 'min-w-0 max-w-[32ch] truncate'
-            : 'min-w-0 max-w-[32ch] truncate font-mono text-[12px]'
+            ? 'min-w-0 max-w-[32ch] truncate leading-5'
+            : 'min-w-0 max-w-[32ch] truncate font-mono text-[12px] leading-5'
         }
       >
         {label ?? url.label}

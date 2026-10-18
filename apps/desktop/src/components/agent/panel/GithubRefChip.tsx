@@ -94,11 +94,11 @@ export function GithubRefChip({
     <ChatLink link={ref.href} onLinkClick={onOpen} className={CHIP} title={describe(ref, summary)}>
       <StateIcon kind={ref.kind} state={summary?.state} />
       {summary ? (
-        <span className="min-w-0 max-w-[40ch] truncate">{summary.title}</span>
+        <span className="min-w-0 max-w-[40ch] truncate leading-5">{summary.title}</span>
       ) : (
         <span
           className={clsx(
-            'min-w-0 truncate text-secondary',
+            'min-w-0 truncate leading-5 text-secondary',
             entry?.loading && 'animate-pulse motion-reduce:animate-none',
           )}
         >
