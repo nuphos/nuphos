@@ -7,7 +7,7 @@ import { upsertCachedUser } from '@/lib/agent/directory'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 
-import { hostedAvatarPath } from './avatar-url'
+import { hostedAvatarOwner, hostedAvatarPath } from './avatar-url'
 import { users, mapUser } from './shared'
 
 export const MAX_AVATAR_UPLOAD_BYTES = 2 * 1024 * 1024
@@ -16,9 +16,20 @@ export const AVATAR_SIZE = 256
 const MAX_AVATAR_PIXELS = 8192 * 8192
 const ACCEPTED_FORMATS = new Set(['jpeg', 'png', 'webp'])
 
-type UserAvatarDoc = { _id: ObjectId; hash: string; bytes: Binary; updatedAt: Date }
+// A photo superseded this recently may still be about to be published by a
+// concurrent request, so pruning leaves it stored. Only the current one is served.
+const PRUNE_GRACE_MS = 10 * 60 * 1000
 
-const userAvatars = () => db().collection<UserAvatarDoc>('user_avatars')
+type UserAvatarDoc = {
+  _id?: ObjectId
+  userId: ObjectId
+  hash: string
+  bytes: Binary
+  updatedAt: Date
+}
+
+/** One document per (user, image hash); unique index in models/indexes-core. */
+export const userAvatars = () => db().collection<UserAvatarDoc>('user_avatars')
 
 /** Decodes an uploaded PNG/JPEG/WebP and re-encodes it as a 256px WebP. */
 export async function renderAvatar(input: Uint8Array): Promise<Uint8Array> {
@@ -47,22 +58,28 @@ export async function uploadAvatar(userId: string, input: Uint8Array) {
   const hash = createHash('sha256').update(bytes).digest('hex')
   const _id = new ObjectId(userId)
 
-  // Store the image first so the URL written below always resolves.
-  await userAvatars().replaceOne(
-    { _id },
-    { hash, bytes: new Binary(bytes), updatedAt: new Date() },
+  // Each image is its own document, stored before the URL that names it is
+  // published, so a concurrent upload or removal can't delete it from under
+  // that URL. The users document holds the one current pointer.
+  await userAvatars().updateOne(
+    { userId: _id, hash },
+    { $set: { bytes: new Binary(bytes), updatedAt: new Date() } },
     { upsert: true },
   )
-  const avatarURL = `${config.auth.publicBaseUrl}${hostedAvatarPath(userId, hash)}`
+  const user = await setAvatarURL(
+    _id,
+    `${config.auth.publicBaseUrl}${hostedAvatarPath(userId, hash)}`,
+  )
 
-  return setAvatarURL(_id, avatarURL)
+  await pruneAvatars(userId)
+
+  return user
 }
 
 export async function removeAvatar(userId: string) {
-  const _id = new ObjectId(userId)
-  const user = await setAvatarURL(_id, '')
+  const user = await setAvatarURL(new ObjectId(userId), '')
 
-  await userAvatars().deleteOne({ _id })
+  await pruneAvatars(userId)
 
   return user
 }
@@ -90,9 +107,39 @@ async function deletionPending(userId: string): Promise<boolean> {
   return request !== null
 }
 
+/** The image hash in the user's current avatar URL, if it is one this backend serves. */
+async function currentAvatarHash(_id: ObjectId): Promise<string | null> {
+  const user = await users().findOne(
+    { _id, deletedAt: { $exists: false } },
+    { projection: { avatarURL: 1 } },
+  )
+  const url = typeof user?.avatarURL === 'string' ? user.avatarURL : ''
+
+  return url && hostedAvatarOwner(url) === _id.toHexString()
+    ? (url.split('/').pop() ?? '').slice(0, 64)
+    : null
+}
+
+/**
+ * Deletes this user's stored photos except the current one. A photo stored
+ * within the grace window stays: a request racing this one may be about to
+ * publish it. It is not served meanwhile (see readAvatar), and the next prune
+ * removes it.
+ */
+export async function pruneAvatars(userId: string) {
+  const _id = new ObjectId(userId)
+  const current = await currentAvatarHash(_id)
+
+  await userAvatars().deleteMany({
+    userId: _id,
+    ...(current ? { hash: { $ne: current } } : {}),
+    updatedAt: { $lt: new Date(Date.now() - PRUNE_GRACE_MS) },
+  })
+}
+
 /** Account deletion: the photo is personal data and must not outlive the request. */
 export async function deleteUserAvatars(userId: string) {
-  await userAvatars().deleteMany({ _id: new ObjectId(userId) })
+  await userAvatars().deleteMany({ userId: new ObjectId(userId) })
 }
 
 /** Returns the stored WebP only while `hash` is the user's current avatar. */
@@ -101,7 +148,10 @@ export async function readAvatar(
   hash: string,
 ): Promise<Uint8Array<ArrayBuffer> | null> {
   if (!ObjectId.isValid(userId) || !/^[0-9a-f]{64}$/.test(hash)) return null
-  const doc = await userAvatars().findOne({ _id: new ObjectId(userId), hash })
+  const _id = new ObjectId(userId)
+
+  if ((await currentAvatarHash(_id)) !== hash) return null
+  const doc = await userAvatars().findOne({ userId: _id, hash })
 
   return doc ? Uint8Array.from(doc.bytes.buffer) : null
 }

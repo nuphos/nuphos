@@ -32,6 +32,7 @@ import {
 } from '@/models/oauth'
 import { personalCredentialPendingOAuth, personalCredentials } from '@/models/personal-credentials'
 import { teamByosBindings } from '@/models/team'
+import { userAvatars } from '@/lib/identity/avatar-upload'
 
 export async function setupCoreIndexes(): Promise<void> {
   // _id is auto-indexed; nothing to set up here.
@@ -252,4 +253,9 @@ export async function setupCoreIndexes(): Promise<void> {
     { expireAfterSeconds: 0, name: 'file_transfer_items_ttl' },
   )
   await fileTransferItems().createIndex({ groupId: 1 }, { background: true })
+  // One stored photo per (user, image hash); uploads upsert on it.
+  await userAvatars().createIndex(
+    { userId: 1, hash: 1 },
+    { unique: true, name: 'user_avatars_user_hash' },
+  )
 }

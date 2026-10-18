@@ -19,32 +19,73 @@ type Doc = Record<string, unknown>
 
 const userId = new ObjectId()
 let usersById: Map<string, Doc>
-let avatars: Map<string, Doc>
+let avatars: Doc[]
+// When set, the next users write waits on it: lets a test interleave two requests.
+let gate: Promise<void> | null = null
 
-const key = (filter: Doc) => String(filter._id)
 const pathOf = (url: string) => url.slice(config.auth.publicBaseUrl.length)
+const same = (a: unknown, b: unknown) => String(a) === String(b)
+
+function matches(doc: Doc, filter: Doc): boolean {
+  return Object.entries(filter).every(([field, want]) => {
+    const value = doc[field]
+
+    if (want && typeof want === 'object' && !(want instanceof ObjectId)) {
+      const op = want as { $ne?: unknown; $lt?: Date; $exists?: boolean }
+
+      if ('$exists' in op) return (value !== undefined) === op.$exists
+      if ('$ne' in op) return !same(value, op.$ne)
+      if (op.$lt) return value instanceof Date && value < op.$lt
+    }
+
+    return same(value, want)
+  })
+}
 
 function collection(name: string) {
-  // No deletion request is open in these tests.
-  const store =
-    name === 'users' ? usersById : name === 'account_deletion_requests' ? new Map() : avatars
+  if (name === 'users') {
+    return {
+      findOne: (filter: Doc) => {
+        const doc = usersById.get(String(filter._id))
 
-  return {
-    findOne: (filter: Doc) => {
-      const doc = store.get(key(filter))
+        return Promise.resolve(doc && matches(doc, filter) ? doc : null)
+      },
+      findOneAndUpdate: async (filter: Doc, update: { $set: Doc }) => {
+        if (gate) {
+          const wait = gate
 
-      return Promise.resolve(doc && (!filter.hash || doc.hash === filter.hash) ? doc : null)
-    },
-    findOneAndUpdate: (filter: Doc, update: { $set: Doc }) => {
-      const doc = store.get(key(filter))
+          gate = null
+          await wait
+        }
+        const doc = usersById.get(String(filter._id))
 
-      return Promise.resolve(doc ? Object.assign(doc, update.$set) : null)
-    },
-    replaceOne: (filter: Doc, doc: Doc) =>
-      Promise.resolve(store.set(key(filter), { _id: filter._id, ...doc })),
-    deleteOne: (filter: Doc) => Promise.resolve(store.delete(key(filter))),
-    updateOne: () => Promise.resolve({}),
+        return doc ? Object.assign(doc, update.$set) : null
+      },
+      updateOne: () => Promise.resolve({}),
+    }
   }
+  if (name === 'user_avatars') {
+    return {
+      findOne: (filter: Doc) =>
+        Promise.resolve(avatars.find((doc) => matches(doc, filter)) ?? null),
+      updateOne: (filter: Doc, update: { $set: Doc }) => {
+        const doc = avatars.find((d) => matches(d, filter))
+
+        if (doc) Object.assign(doc, update.$set)
+        else avatars.push({ ...filter, ...update.$set })
+
+        return Promise.resolve({})
+      },
+      deleteMany: (filter: Doc) => {
+        avatars = avatars.filter((doc) => !matches(doc, filter))
+
+        return Promise.resolve({})
+      },
+    }
+  }
+
+  // No deletion request is open in these tests; the user directory write is a no-op.
+  return { findOne: () => Promise.resolve(null), updateOne: () => Promise.resolve({}) }
 }
 
 useDb({ db: () => ({ collection }) })
@@ -77,7 +118,8 @@ beforeEach(() => {
       },
     ],
   ])
-  avatars = new Map()
+  avatars = []
+  gate = null
 })
 
 function chunk(type: string, data: Buffer): Buffer {
@@ -155,7 +197,7 @@ test('uploads that are not PNG, JPEG or WebP are refused', async () => {
 
     expect(res.status).toBe(415)
   }
-  expect(avatars.size).toBe(0)
+  expect(avatars).toHaveLength(0)
 })
 
 test('a tiny file declaring a huge canvas is refused before decoding', async () => {
@@ -170,7 +212,7 @@ test('uploads over 2 MB are refused', async () => {
   expect(res.status).toBe(413)
 })
 
-test('removing the photo clears the URL and the stored image', async () => {
+test('removing the photo clears the URL and stops serving the image', async () => {
   const url = ((await (await put(png(64, 64))).json()) as { avatarURL: string }).avatarURL
   const res = await app.request('/auth/me/avatar', { method: 'DELETE' })
 
@@ -198,4 +240,62 @@ test('malformed avatar paths are 404s', async () => {
   ]) {
     expect((await app.request(path)).status).toBe(404)
   }
+})
+
+const urlOf = async (res: Response | Promise<Response>) =>
+  ((await (await res).json()) as { avatarURL: string }).avatarURL
+const current = () => usersById.get(userId.toHexString())?.avatarURL
+
+// Lets the gated request reach its users write before the other one runs.
+async function untilStored(count: number) {
+  while (avatars.length < count) await new Promise((resolve) => setTimeout(resolve, 1))
+}
+
+test('two uploads that interleave leave the published photo served', async () => {
+  let release = () => {}
+
+  gate = new Promise((resolve) => {
+    release = resolve
+  })
+  // A stores its image, then waits before publishing its URL.
+  const a = put(png(300, 300))
+
+  await untilStored(1)
+  // B stores, publishes and prunes in full meanwhile.
+  const b = await urlOf(put(png(64, 64)))
+
+  release()
+  const urlA = await urlOf(a)
+
+  // A published last, so A is the avatar, and its image is still there.
+  expect(current()).toBe(urlA)
+  expect((await app.request(pathOf(urlA))).status).toBe(200)
+  // B is no longer the avatar, so it isn't served even though it is still stored.
+  expect((await app.request(pathOf(b))).status).toBe(404)
+})
+
+test('an upload that interleaves with a removal keeps a consistent photo', async () => {
+  let release = () => {}
+
+  gate = new Promise((resolve) => {
+    release = resolve
+  })
+  const a = put(png(300, 300))
+
+  await untilStored(1)
+  expect((await app.request('/auth/me/avatar', { method: 'DELETE' })).status).toBe(200)
+  release()
+  const urlA = await urlOf(a)
+
+  expect(current()).toBe(urlA)
+  expect((await app.request(pathOf(urlA))).status).toBe(200)
+})
+
+test('a superseded photo is deleted once it is past the grace window', async () => {
+  await urlOf(put(png(300, 300)))
+  for (const doc of avatars) doc.updatedAt = new Date(0)
+  const latest = await urlOf(put(png(64, 64)))
+
+  expect(avatars).toHaveLength(1)
+  expect(latest.endsWith(`${String(avatars[0]?.hash)}.webp`)).toBe(true)
 })

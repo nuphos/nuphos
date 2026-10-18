@@ -159,12 +159,12 @@ test('deletion requires email proof and persists one deadline across retries', a
 })
 
 test('a deletion request removes the uploaded photo but no one else’s', async () => {
-  docs('user_avatars').push({ _id: USER, hash: 'a' }, { _id: OTHER, hash: 'b' })
+  docs('user_avatars').push({ userId: USER, hash: 'a' }, { userId: OTHER, hash: 'b' })
   await requestAccountDeletion(mapUser(docs('users')[0] as NuphosUserDoc), {
     confirmation: 'DELETE',
     code: '123456',
   })
-  expect(docs('user_avatars').map((doc) => String(doc._id))).toEqual([String(OTHER)])
+  expect(docs('user_avatars').map((doc) => String(doc.userId))).toEqual([String(OTHER)])
 })
 
 test('admin cannot falsely complete a deletion while a soft-deleted identity remains', async () => {
