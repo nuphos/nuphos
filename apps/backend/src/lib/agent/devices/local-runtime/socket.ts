@@ -116,6 +116,7 @@ export class DeviceRuntimeSocket {
         (purpose === 'exec' && presence.status?.localExec !== true) ||
         (purpose === 'terminal' && presence.status?.localTerminal !== true) ||
         (purpose === 'cua' && presence.status?.localCua !== true) ||
+        (purpose === 'browser' && presence.status?.localBrowser !== true) ||
         (purpose === 'instances' && presence.status?.agentInstances !== true) ||
         (instanceId !== undefined &&
           !presence.status?.instances?.some(

@@ -3,10 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import { useCredentialListing } from '@/lib/test/doubles/claude-code-credential-listing'
 
 import {
-  AUTOMATED_SESSION_ACTOR,
   CREDENTIALS_MCP_SURFACE,
   credentialsMcpTools,
-  isHumanTurnRuntime,
   previewSessionAccess,
   previewSessionEnv,
 } from './credentials-mcp'
@@ -72,18 +70,14 @@ describe('credentialsMcpTools', () => {
     expect(guest.runtimeEnv).toMatchObject({ NUPHOS_SESSION_ACTOR: 'guest' })
   })
 
-  test('automated turns run in their own HOME, whoever the actor is', () => {
+  test('automated turns act as the session owner, in the owner’s HOME', () => {
     for (const actor of ['owner', 'guest']) {
       const automated = previewSessionAccess('conv-1', 'team-1', actor, 'owner', {
         backendUrl: 'https://backend.example',
       })
 
-      expect(automated.runtimeEnv).toMatchObject({
-        NUPHOS_SESSION_ACTOR: AUTOMATED_SESSION_ACTOR,
-      })
-      expect(isHumanTurnRuntime({ env: automated.runtimeEnv })).toBe(false)
+      expect(automated.runtimeEnv).not.toHaveProperty('NUPHOS_SESSION_ACTOR')
     }
-    expect(isHumanTurnRuntime()).toBe(false)
   })
 
   test('surface advertises exactly the two credential tools', () => {

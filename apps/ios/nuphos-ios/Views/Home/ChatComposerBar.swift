@@ -23,6 +23,9 @@ struct ChatComposerBar<Controls: View>: View {
     @ViewBuilder var controls: () -> Controls
 
     @FocusState private var focused: Bool
+    /// From focus until the keyboard it raised has finished hiding, so the
+    /// page lowers this composer along with its own keyboard.
+    @State private var ownsKeyboard = false
     @State private var attachments: [ComposerAttachment] = []
     @State private var showPhotos = false
     @State private var showFiles = false
@@ -149,16 +152,13 @@ struct ChatComposerBar<Controls: View>: View {
         }
         .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
         .onDisappear(perform: cancelDictation)
+        .onChange(of: focused) { _, focused in if focused { ownsKeyboard = true } }
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in ownsKeyboard = focused }
+        #endif
+        .preference(key: ComposerOwnsKeyboard.self, value: ownsKeyboard)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-        // A composer leaving the screen takes its keyboard with it. Each page
-        // owns its own composer and focus, so a keyboard left up from a
-        // popped chat covers the list's composer, which never asked for it.
-        #if canImport(UIKit)
-        .onDisappear {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }
-        #endif
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }
             photoItems = []
@@ -486,6 +486,12 @@ struct ChatComposerBar<Controls: View>: View {
             }
         }
     }
+}
+
+/// Whether a composer raised the keyboard that is on screen.
+struct ComposerOwnsKeyboard: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }
 
 extension ChatComposerBar where Controls == EmptyView {

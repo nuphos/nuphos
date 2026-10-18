@@ -38,7 +38,6 @@ const deps: LocalRuntimeCatalogDeps = {
   },
   isMember: async (userId, teamId) => teams.has(`${userId}:${teamId}`),
   getPresence: async () => presence,
-  wakeDevice: () => Promise.resolve(undefined),
 }
 
 function online(loggedIn: boolean | null = true, codex = false): LocalRuntimePresence {
@@ -198,7 +197,7 @@ describe('local runtime catalog', () => {
   })
 })
 
-describe('team Box runtime authorization before transport or wake', () => {
+describe('team Box runtime authorization before transport', () => {
   test('uses the persistent owner and denies login, revoked use, missing membership and forged owner', async () => {
     const box = {
       ...device('host', 'box', 'Shared'),
@@ -217,11 +216,6 @@ describe('team Box runtime authorization before transport or wake', () => {
       getPresence: async (owner) => {
         calls.push(`presence:${owner}`)
 
-        return null
-      },
-      wakeDevice: async (owner) => {
-        calls.push(`wake:${owner}`)
-
         return online()
       },
     }
@@ -229,7 +223,7 @@ describe('team Box runtime authorization before transport or wake', () => {
     expect(
       (await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared)).local,
     ).toEqual({ userId: 'host', deviceId: 'box' })
-    expect(calls).toEqual(['presence:host', 'wake:host'])
+    expect(calls).toEqual(['presence:host'])
     calls.length = 0
     await expect(
       resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'login', shared),
@@ -257,6 +251,28 @@ describe('team Box runtime authorization before transport or wake', () => {
       resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared),
     ).rejects.toMatchObject({ status: 404 })
     expect(calls).toEqual([])
+  })
+
+  test('an offline Box answers runtime_offline at once; the session queue waits for it', async () => {
+    const box = {
+      ...device('host', 'box', 'Shared'),
+      box: {
+        provider: 'instabox' as const,
+        teamId: 't1',
+        createdBy: 'host',
+        access: { everyone: true, userIds: [] },
+      },
+    }
+    const id = localRuntimeId({ userId: 'host', deviceId: 'box', provider: 'claude-code' })
+    const offline: LocalRuntimeCatalogDeps = {
+      ...deps,
+      access: { ...deps.access, listBoxes: async () => [box] },
+      getPresence: async () => null,
+    }
+
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', offline),
+    ).rejects.toMatchObject({ status: 409, code: 'runtime_offline' })
   })
 
   test('catalog uses owner presence and excludes a Box returned from a different team', async () => {

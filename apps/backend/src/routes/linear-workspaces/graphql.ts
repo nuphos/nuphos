@@ -5,7 +5,7 @@ import {
   linearGraphql,
   withLinearAccessToken,
 } from '@/lib/byos/linear'
-import { personalCredentialSender } from '@/lib/claude-code-preview/mcp-token'
+import { personalCredentialSubject } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { personalLinearToken } from '@/lib/personal-credentials'
@@ -27,10 +27,12 @@ export async function handOutLinearToken(
   teamId: ObjectId,
   binding: LinearWorkspaceBinding,
   authorization?: string,
+  identity?: string,
 ): Promise<{ token: string; expiresAt: Date | null; personalLogin?: string }> {
-  // The turn's sender acts as themselves when they connected this workspace.
-  const sender = personalCredentialSender(authorization)
-  const personal = sender ? await personalLinearToken(sender, binding.workspaceId) : null
+  // The turn acts as its member (the sender, or the session owner for automated
+  // work) when they connected this workspace, unless it asks for the team identity.
+  const subject = personalCredentialSubject(authorization, identity)
+  const personal = subject ? await personalLinearToken(subject, binding.workspaceId) : null
 
   if (personal) return { ...personal, personalLogin: personal.login }
   try {

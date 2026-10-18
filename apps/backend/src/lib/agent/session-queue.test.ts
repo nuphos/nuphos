@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useBoxWake } from '@/lib/test/doubles/box-wake'
 import { config } from '@/config'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
@@ -50,6 +51,8 @@ const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const launched: PendingUserMessage[] = []
 
 let member = true
+let boxOffline = false
+const wakes: (string | undefined)[] = []
 let fakeRedis: unknown = null
 
 useRedis({
@@ -65,6 +68,13 @@ useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
   getConversationBySessionId: async () => ({ ...conversation, claudeCodePreview: {} as never }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
+})
+useBoxWake({
+  wakeOfflineBox: async (runtimeId) => {
+    wakes.push(runtimeId)
+
+    return boxOffline
+  },
 })
 useSessionExecutionState({
   conversationExecutionState: async () => ({
@@ -102,6 +112,8 @@ const waiting = async () =>
 
 beforeEach(() => {
   member = true
+  boxOffline = false
+  wakes.length = 0
   runtimeSend = true
   released = 0
   runs.length = 0
@@ -231,6 +243,22 @@ test("an older client's steering message from a teammate never runs as the owner
     [{ type: 'text', text: 'owner agent' }],
   ])
   expect(await waiting()).toEqual(['teammate steer'])
+})
+
+test('an offline Box keeps the queue waiting, uncounted, until it is back', async () => {
+  boxOffline = true
+  await queue(human('wait for the box'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched).toHaveLength(0)
+  expect((await listPendingUserMessages(OWNER, SESSION))[0]?.attempts).toBeUndefined()
+  expect(wakes).toHaveLength(1)
+  expect(released).toBe(1)
+
+  boxOffline = false
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched.map((item) => item.renderedText)).toEqual(['wait for the box'])
 })
 
 test('a launch that fails puts the message back at the head, counted', async () => {

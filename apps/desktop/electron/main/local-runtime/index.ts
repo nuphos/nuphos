@@ -17,6 +17,8 @@ import { readDeviceIdentity } from '../device-identity.ts'
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { LocalAgentLogin } from './agent-login.ts'
+import { LocalBrowserStream } from './browser-stream.ts'
+import { runBrowserCall } from './browser-tabs.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
@@ -144,6 +146,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       connectFile: (instanceId) => LocalFileStream.open(controller.state(), instanceId),
       ...localToolStreams,
+      connectBrowser: () => new LocalBrowserStream(runBrowserCall),
       connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)

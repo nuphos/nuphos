@@ -5,8 +5,10 @@ if [[ -n "${OPENAB_CREDENTIALS_DIR:-}" ]]; then
   export NUPHOS_TOKEN
 fi
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: setup-credentials.sh <teamId> <bindingId>" >&2
+# --team uses the workspace's team (app) identity even when the turn's member
+# connected a Personal Credential; their own Linear account is the default.
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ] || { [ "$#" -eq 3 ] && [ "$3" != "--team" ]; }; then
+  echo "Usage: setup-credentials.sh <teamId> <bindingId> [--team]" >&2
   exit 2
 fi
 
@@ -51,7 +53,7 @@ fi
 
 team_enc="$(urlencode "$team_id")"
 binding_enc="$(urlencode "$binding_id")"
-path="/teams/${team_enc}/linear-workspaces/${binding_enc}/credentials"
+path="/teams/${team_enc}/linear-workspaces/${binding_enc}/credentials${3:+?identity=team}"
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
@@ -84,6 +86,8 @@ with open(dst, "w") as f:
     f.write(f"export LINEAR_WORKSPACE_NAME={shlex.quote(str(data.get('workspaceName', '')))}\n")
     f.write(f"export LINEAR_ORG_URL_KEY={shlex.quote(str(data.get('organizationUrlKey') or ''))}\n")
     f.write(f"export LINEAR_BINDING_ID={shlex.quote(str(data.get('bindingId', '')))}\n")
+actor = data.get("actor") or {}
+print(f"Acting as {actor['login']} (Personal Credential)" if actor.get("kind") == "personal" else "Acting as the team's Linear app")
 PY
 
 chmod 600 "$HOME/.linear/nuphos.env"
