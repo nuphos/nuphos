@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { GripVertical } from 'lucide-react'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { connectedResourceLabels } from '../../app/accountScopes'
@@ -13,6 +14,7 @@ import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
 import { SessionFindBar } from './SessionFindBar'
+import { PANE_DRAG_TYPE } from './splitLayout'
 import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -162,6 +164,19 @@ export function WorkspaceAgentPane({
             dockOpen ? 'pr-3' : 'pr-12',
           )}
         >
+          {/* The rest of the header moves the window, so a pane moves by its grip. */}
+          <span
+            draggable
+            title="Drag to move this pane"
+            aria-hidden
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = 'move'
+              event.dataTransfer.setData(PANE_DRAG_TYPE, 'pane')
+            }}
+            className="titlebar-no-drag -ml-1 mr-1 hidden h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center rounded text-tertiary hover:bg-zGray-800/60 hover:text-main active:cursor-grabbing group-data-[split-multiple=true]/pane:flex"
+          >
+            <GripVertical className="h-3.5 w-3.5" strokeWidth={1.8} />
+          </span>
           {/* Keep the native drag rectangle beside the Share action so hit testing
             never relies on a no-drag hole inside its draggable ancestor. */}
           <div

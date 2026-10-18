@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  dropPane,
+  dropZone,
   focusPaneState,
   paneRects,
   removePane,
@@ -86,5 +88,41 @@ test('changing panes closes search permanently while focusing the current pane p
   assert.deepEqual(focusPaneState(beside, 'primary'), {
     activeId: 'primary',
     sessionSearchOpen: false,
+  })
+})
+
+test('edge bands pick a side and the middle replaces the pane', () => {
+  assert.equal(dropZone(0.1, 0.5), 'left')
+  assert.equal(dropZone(0.9, 0.5), 'right')
+  assert.equal(dropZone(0.5, 0.05), 'top')
+  assert.equal(dropZone(0.6, 0.95), 'bottom')
+  assert.equal(dropZone(0.5, 0.5), 'center')
+  assert.equal(dropZone(0.3, 0.7), 'center')
+})
+
+test('dropping a new pane on a left or top edge places it before the target', () => {
+  const ids = (layout: Parameters<typeof paneRects>[0]) => paneRects(layout).map((r) => r.id)
+
+  assert.deepEqual(ids(dropPane({ id: 'a' }, 'a', 'b', 'left')), ['b', 'a'])
+  assert.deepEqual(ids(dropPane({ id: 'a' }, 'a', 'b', 'right')), ['a', 'b'])
+  const top = dropPane({ id: 'a' }, 'a', 'b', 'top')
+
+  assert.deepEqual(ids(top), ['b', 'a'])
+  assert.equal(paneRects(top)[0].width, 100)
+})
+
+test('moving a pane takes it out of its old spot and keeps every identity', () => {
+  const row = splitPane(splitPane({ id: 'a' }, 'a', 'b', 'row'), 'b', 'c', 'row')
+  const moved = dropPane(row, 'c', 'a', 'bottom')
+
+  assert.deepEqual(moved, {
+    direction: 'row',
+    children: [{ id: 'b' }, { direction: 'column', children: [{ id: 'c' }, { id: 'a' }] }],
+  })
+  assert.equal(dropPane(row, 'b', 'b', 'left'), row)
+  // Two panes swap sides when one is dropped on the other's far edge.
+  assert.deepEqual(dropPane(splitPane({ id: 'a' }, 'a', 'b', 'row'), 'b', 'a', 'right'), {
+    direction: 'row',
+    children: [{ id: 'b' }, { id: 'a' }],
   })
 })

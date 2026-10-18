@@ -42,6 +42,8 @@ type SidebarNavItemProps = {
   /** Controls that take the trailing slot's place while the row is hovered or
    *  focused: at rest the slot shows `trailing`, on hover these instead. */
   hoverActions?: ReactNode
+  /** Wait for the click when a press may start a drag instead. */
+  navigateOnRelease?: boolean
 }
 
 /**
@@ -60,6 +62,7 @@ export function SidebarNavItem({
   trailing,
   edge,
   hoverActions,
+  navigateOnRelease = false,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
 
@@ -77,11 +80,11 @@ export function SidebarNavItem({
         // Navigate on press, not on release — same reasoning as the tab strip:
         // waiting for `click` adds the held mouse button to perceived latency.
         // Keyboard activation still arrives as a click with detail 0 below.
-        if (disabled || event.button !== 0) return
+        if (disabled || navigateOnRelease || event.button !== 0) return
         onClick(event)
       }}
       onClick={(event) => {
-        if (event.detail !== 0) return
+        if (event.detail !== 0 && !navigateOnRelease) return
         onClick(event)
       }}
       className={clsx(

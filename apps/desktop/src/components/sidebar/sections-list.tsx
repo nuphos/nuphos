@@ -183,6 +183,8 @@ export function SidebarSectionList({
                           active={isActive}
                           onOpenKey={onOpenKey}
                           onSelect={onSelect}
+                          sessionId={rowSessionId}
+                          teamId={scope.teamId}
                           onContextMenu={
                             // Only open when the menu would have something in it.
                             canFavorite(item) || (teamView && Boolean(rowSessionId))
@@ -197,6 +199,7 @@ export function SidebarSectionList({
                             active={isActive}
                             sharedBackground={Boolean(item.description)}
                             disabled={!item.enabled}
+                            navigateOnRelease={Boolean(rowSessionId)}
                             onClick={(event) => {
                               if (!item.enabled) return
                               // cmd/ctrl-click opens beside the current page, the
