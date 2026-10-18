@@ -10,6 +10,7 @@ import { ConnectorManagementSection } from './connector-info/ConnectorManagement
 import { DisconnectConnectorDialog } from './connector-info/DisconnectConnectorDialog'
 import { loadConnectorInfos } from './connector-info/loadConnectorInfo'
 import { hasConnectorManagement } from './connector-info/managementProviders'
+import { useEscapeToExit } from './connector-info/useEscapeToExit'
 import { ManageOnpremCredentialDialog } from './ManageOnpremCredentialDialog'
 import { useResetOnKey } from './useResetOnKey'
 
@@ -161,23 +162,7 @@ export function ConnectorInfoView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, provider, connectorId, refreshKey, reloadKey])
 
-  useEffect(() => {
-    if (!onExit) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented) return
-      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest('input, textarea, [contenteditable]')
-      )
-        return
-      onExit()
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onExit])
+  useEscapeToExit(onExit)
 
   const providerLabel = CONNECTOR_INFO_LABELS[provider]
   const addAction = installedConnectorAddAction(provider)
