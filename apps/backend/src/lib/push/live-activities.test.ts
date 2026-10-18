@@ -66,6 +66,11 @@ const store: LiveActivityStore = {
 
     if (current) current.tokens = current.tokens.filter((t) => t.token !== removed)
   },
+  async get(sessionId) {
+    const current = sessions.get(sessionId)
+
+    return current ? { ...current, tokens: [...current.tokens] } : null
+  },
 }
 
 const deps: LiveActivityDeps = {
@@ -169,6 +174,42 @@ describe('Live Activity pushes', () => {
 
     expect(scheduled).toEqual([])
     expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
+  })
+
+  test('a retry never overwrites a newer phase', async () => {
+    responses = { 'la-1': { status: 429 } }
+    await recordLiveActivityPhase(deps, 'session-1', 'running', 8)
+    responses = {}
+    await recordLiveActivityPhase(deps, 'session-1', 'approval', 9)
+    sent = []
+    await runScheduled()
+
+    expect(sent).toEqual([])
+    expect(sessions.get('session-1')?.phase).toBe('approval')
+  })
+
+  test("an old end's retry does not end the activity of a later run", async () => {
+    responses = { 'la-1': { status: 503 } }
+    await recordLiveActivityPhase(deps, 'session-1', 'done', 10)
+    expect(tokensOf('session-1')).toEqual(['la-1'])
+
+    responses = {}
+    await recordLiveActivityPhase(deps, 'session-1', 'running', 12)
+    sent = []
+    await runScheduled()
+
+    expect(sent).toEqual([])
+  })
+
+  test('a retry skips a token that was removed meanwhile', async () => {
+    responses = { 'la-1': { status: 429 }, 'la-2': { status: 429 } }
+    await recordLiveActivityPhase(deps, 'session-1', 'approval', 9)
+    await store.removeToken('session-1', 'la-2')
+    responses = {}
+    sent = []
+    await runScheduled()
+
+    expect(sent.map((r) => r.deviceToken)).toEqual(['la-1'])
   })
 
   test('drops a token APNs says is dead', async () => {

@@ -40,6 +40,7 @@ export type LiveActivityStore = {
   ) => Promise<LiveActivitySession | null>
   addToken: (sessionId: string, token: LiveActivityToken) => Promise<LiveActivitySession>
   removeToken: (sessionId: string, token: string) => Promise<void>
+  get: (sessionId: string) => Promise<LiveActivitySession | null>
 }
 
 // iOS ends an activity after 8 hours and removes it from the Lock Screen
@@ -89,6 +90,9 @@ export const liveActivityStore: LiveActivityStore = {
   async removeToken(sessionId, token) {
     await sessions().updateOne({ sessionId }, { $pull: { tokens: { token } } })
   },
+  async get(sessionId) {
+    return sessions().findOne({ sessionId })
+  },
 }
 
 // How long a finished turn stays on the Lock Screen.
@@ -117,7 +121,8 @@ export type LiveActivityDeps = {
 
 /** Running and approval update the activity; every other phase ends it. A
  *  token is dropped only once it has ended or APNs says it is dead; anything
- *  else is retried, so a throttled end still reaches the phone. */
+ *  else is retried, so a throttled end still reaches the phone, unless a newer
+ *  phase replaced this one meanwhile (its own delivery covers those tokens). */
 async function deliver(
   deps: LiveActivityDeps,
   session: LiveActivitySession,
@@ -170,11 +175,25 @@ async function deliver(
 
   if (retry.length > 0 && delay !== undefined) {
     deps.schedule(() => {
-      void deliver(deps, session, retry, attempt + 1).catch((error: unknown) => {
+      void retryIfCurrent(deps, session, retry, attempt + 1).catch((error: unknown) => {
         logError('push.live_activity_failed', error)
       })
     }, delay)
   }
+}
+
+async function retryIfCurrent(
+  deps: LiveActivityDeps,
+  session: LiveActivitySession,
+  tokens: LiveActivityToken[],
+  attempt: number,
+): Promise<void> {
+  const current = await deps.liveActivities.get(session.sessionId)
+
+  if (!current || current.version !== session.version) return
+  const registered = tokens.filter((t) => current.tokens.some((c) => c.token === t.token))
+
+  if (registered.length > 0) await deliver(deps, current, registered, attempt)
 }
 
 /** Stores the session's newest phase and pushes it to its activities. */
