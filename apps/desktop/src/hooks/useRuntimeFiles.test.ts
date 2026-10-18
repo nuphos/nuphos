@@ -10,6 +10,15 @@ let calls: string[] = []
 let resolveConversation = async () => ({ runtimeId: 'runtime', runtimeLabel: 'Local' })
 let list = async () => ({ entries: [], truncated: false })
 let read = async () => ({ name: 'report.txt', data: 'aGk=', size: 2 })
+let transfer = async () => ({
+  groupId: 'g',
+  fileId: 'f',
+  fileName: 'clip.mp4',
+  size: 46_000_000,
+  url: 'https://store/clip',
+})
+const tooLarge = () =>
+  new Error(`__ATLAS_API_ERROR__${JSON.stringify({ message: 'big', code: 'file_too_large' })}`)
 
 mock.module('../api.ts', {
   namedExports: {
@@ -28,6 +37,11 @@ mock.module('../api.ts', {
         calls.push('read')
 
         return read()
+      },
+      atlasTransferRuntimeFile: () => {
+        calls.push('transfer')
+
+        return transfer()
       },
     },
   },
@@ -90,6 +104,13 @@ function reset() {
   resolveConversation = async () => ({ runtimeId: 'runtime', runtimeLabel: 'Local' })
   list = async () => ({ entries: [], truncated: false })
   read = async () => ({ name: 'report.txt', data: 'aGk=', size: 2 })
+  transfer = async () => ({
+    groupId: 'g',
+    fileId: 'f',
+    fileName: 'clip.mp4',
+    size: 46_000_000,
+    url: 'https://store/clip',
+  })
 }
 
 test('refresh during preview reloads the visible file and ignores the older response', async () => {
@@ -154,4 +175,49 @@ test('failed root listing can refresh or retry on tab activation', async () => {
   await settle()
   assert.deepEqual(render().directory, { entries: [], truncated: false })
   assert.deepEqual(calls, ['source', 'list', 'list', 'list'])
+})
+
+test('a video plays from the transfer store without trying the inline read', async () => {
+  reset()
+  render()
+  await settle()
+  render().openFile('clip.mp4')
+  render()
+  await settle()
+  assert.equal(render().media?.kind, 'video')
+  assert.equal(render().media?.url, 'https://store/clip')
+  assert.deepEqual(calls, ['source', 'list', 'transfer'])
+})
+
+test('an image too large to read inline is transferred; other large files offer download', async () => {
+  reset()
+  read = async () => {
+    throw tooLarge()
+  }
+  render()
+  await settle()
+  render().openFile('photo.png')
+  render()
+  await settle()
+  assert.equal(render().media?.kind, 'image')
+  render().openFile('dump.bin')
+  render()
+  await settle()
+  assert.equal(render().media, undefined)
+  assert.equal(render().tooLarge, true)
+  assert.deepEqual(calls, ['source', 'list', 'read', 'transfer', 'read'])
+})
+
+test('media over the transfer store limit says so instead of offering download', async () => {
+  reset()
+  transfer = async () => {
+    throw tooLarge()
+  }
+  render()
+  await settle()
+  render().openFile('huge.mp4')
+  render()
+  await settle()
+  assert.equal(render().overLimit, true)
+  assert.equal(render().tooLarge, false)
 })

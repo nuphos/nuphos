@@ -169,8 +169,8 @@ export function readRuntimeFile(
   })
 }
 
-// A file too large to preview becomes a download of the conversation; the
-// agent uploads it first, so this can take a while.
+// Moves a file too large for the inline read through the transfer store and
+// returns a presigned URL; the agent uploads it first, so this can take a while.
 export function transferRuntimeFile(
   teamId: string,
   runtimeId: string,

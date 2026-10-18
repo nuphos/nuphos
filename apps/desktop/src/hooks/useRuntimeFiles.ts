@@ -88,6 +88,8 @@ export function useRuntimeFiles(
   useEffect(() => {
     if (!isActive || (!source.current && !conversationId)) return
     let cancelled = false
+    // A PDF is held as a blob URL; let it go with the preview.
+    let blob: string | undefined
 
     async function load() {
       setResult({ source: source.current, directory: null, preview: null, loading: true })
@@ -137,6 +139,7 @@ export function useRuntimeFiles(
           } else if (kind) {
             const media = await transferMedia(target, `${path}/${fileName}`, kind)
 
+            if (kind === 'pdf') blob = media.url
             if (cancelled) return
             setResult({ source: target, directory: null, preview: null, loading: false, media })
           }
@@ -172,18 +175,9 @@ export function useRuntimeFiles(
 
     return () => {
       cancelled = true
+      if (blob) URL.revokeObjectURL(blob)
     }
   }, [teamId, conversationId, isActive, path, fileName, filePath, refreshKey, retry])
-
-  // A PDF is held as a blob URL; let it go with the preview.
-  const mediaUrl = result.media?.url
-
-  useEffect(
-    () => () => {
-      if (mediaUrl?.startsWith('blob:')) URL.revokeObjectURL(mediaUrl)
-    },
-    [mediaUrl],
-  )
 
   function navigate(nextPath: string) {
     setFileName('')
