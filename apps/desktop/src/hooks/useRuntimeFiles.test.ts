@@ -221,3 +221,33 @@ test('media over the transfer store limit says so instead of offering download',
   assert.equal(render().overLimit, true)
   assert.equal(render().tooLarge, false)
 })
+
+test('a PDF that finishes after its preview was left releases its blob URL', async () => {
+  reset()
+  const revoked: string[] = []
+  const revoke = mock.method(URL, 'revokeObjectURL', (url: string) => revoked.push(url))
+  const fetched = mock.method(globalThis, 'fetch', async () => new Response('%PDF'))
+  let finish!: (value: Awaited<ReturnType<typeof transfer>>) => void
+
+  transfer = () =>
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  render()
+  await settle()
+  render().openFile('slides.pdf')
+  render()
+  await settle()
+  render().openFile('report.txt')
+  render()
+  await settle()
+  finish({ groupId: 'g', fileId: 'f', fileName: 'slides.pdf', size: 1, url: 'https://store/pdf' })
+  await settle()
+  await settle()
+  assert.equal(revoked.length, 1)
+  assert.ok(revoked[0].startsWith('blob:'))
+  assert.equal(render().media, undefined)
+  assert.deepEqual(render().preview, { text: 'hi' })
+  revoke.mock.restore()
+  fetched.mock.restore()
+})

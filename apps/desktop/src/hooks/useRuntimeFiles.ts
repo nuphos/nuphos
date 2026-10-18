@@ -139,8 +139,13 @@ export function useRuntimeFiles(
           } else if (kind) {
             const media = await transferMedia(target, `${path}/${fileName}`, kind)
 
+            // The load owns a PDF's blob URL; one that lands after cleanup is let go here.
+            if (cancelled) {
+              if (kind === 'pdf') URL.revokeObjectURL(media.url)
+
+              return
+            }
             if (kind === 'pdf') blob = media.url
-            if (cancelled) return
             setResult({ source: target, directory: null, preview: null, loading: false, media })
           }
         } else {
