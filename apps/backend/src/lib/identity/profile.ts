@@ -1,6 +1,7 @@
 import { MongoServerError, ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { deleteUserAvatars } from './avatar-upload'
 import { hostedAvatarOwner, trustedAvatarURL } from './avatar-url'
 import { users, mapUser } from './shared'
 
@@ -47,6 +48,9 @@ export async function updateProfile(userId: string, input: unknown) {
     )
 
     if (!user) throw new AppError(404, 'user_not_found', 'Your account no longer exists')
+    // Removing the photo or switching to a Google image must not leave the
+    // upload served at its old URL.
+    if (!owner) await deleteUserAvatars(userId)
     const result = mapUser(user)
 
     upsertCachedUser(result)

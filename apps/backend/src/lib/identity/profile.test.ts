@@ -3,6 +3,7 @@ import { MongoServerError, ObjectId } from 'mongodb'
 
 import { profileUpdateSchema, updateProfile } from './profile'
 
+import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
 
 const profile = {
@@ -40,11 +41,17 @@ test('avatars allow removal and HTTPS images, not local files or active content'
 
 let update: { filter: unknown; values: unknown } | undefined
 let duplicate = false
+let purged: unknown[] = []
 const id = new ObjectId()
 
 useDb({
   db: () => ({
-    collection: () => ({
+    collection: (name: string) => ({
+      deleteMany: async (filter: unknown) => {
+        if (name === 'user_avatars') purged.push(filter)
+
+        return { deletedCount: 1 }
+      },
       findOneAndUpdate: async (filter: unknown, values: unknown) => {
         update = { filter, values }
         if (duplicate) throw new MongoServerError({ code: 11000, message: 'duplicate' })
@@ -90,5 +97,19 @@ test('duplicate username returns a conflict', async () => {
     })
   } finally {
     duplicate = false
+  }
+})
+
+test('a PATCH away from an uploaded photo removes the stored upload; keeping it does not', async () => {
+  const hosted = `${config.auth.publicBaseUrl}/avatars/${id.toHexString()}/${'a'.repeat(64)}.webp`
+
+  for (const [avatarURL, removed] of [
+    ['', true],
+    [profile.avatarURL, true],
+    [hosted, false],
+  ] as const) {
+    purged = []
+    await updateProfile(id.toHexString(), { ...profile, avatarURL })
+    expect(purged).toEqual(removed ? [{ _id: id }] : [])
   }
 })

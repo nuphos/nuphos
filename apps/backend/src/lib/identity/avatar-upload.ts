@@ -40,6 +40,9 @@ export async function uploadAvatar(userId: string, input: Uint8Array) {
   if (input.byteLength === 0) throw new AppError(400, 'invalid_avatar_image', 'The image is empty')
   if (input.byteLength > MAX_AVATAR_UPLOAD_BYTES)
     throw new AppError(413, 'avatar_too_large', 'Use an image under 2 MB')
+  // A deletion request already removed the photo; a new one would outlive it.
+  if (await deletionPending(userId))
+    throw new AppError(409, 'account_deletion_pending', 'This account is being deleted')
   const bytes = await renderAvatar(input)
   const hash = createHash('sha256').update(bytes).digest('hex')
   const _id = new ObjectId(userId)
@@ -77,6 +80,14 @@ async function setAvatarURL(_id: ObjectId, avatarURL: string) {
   upsertCachedUser(result)
 
   return result
+}
+
+async function deletionPending(userId: string): Promise<boolean> {
+  const request = await db()
+    .collection<{ _id: string; status: string }>('account_deletion_requests')
+    .findOne({ _id: userId, status: { $ne: 'completed' } })
+
+  return request !== null
 }
 
 /** Account deletion: the photo is personal data and must not outlive the request. */

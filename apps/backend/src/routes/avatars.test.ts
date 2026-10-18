@@ -25,7 +25,9 @@ const key = (filter: Doc) => String(filter._id)
 const pathOf = (url: string) => url.slice(config.auth.publicBaseUrl.length)
 
 function collection(name: string) {
-  const store = name === 'users' ? usersById : avatars
+  // No deletion request is open in these tests.
+  const store =
+    name === 'users' ? usersById : name === 'account_deletion_requests' ? new Map() : avatars
 
   return {
     findOne: (filter: Doc) => {
