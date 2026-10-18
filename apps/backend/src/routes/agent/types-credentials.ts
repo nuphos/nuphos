@@ -29,6 +29,7 @@ export type AgentCredentialSelection = {
   upstashAccountIds?: string[]
   cloudflareAccountIds?: string[]
   deviceIds?: string[]
+  teamIdentity?: ('github' | 'linear')[]
 }
 
 export type AgentCredentialOptions = {

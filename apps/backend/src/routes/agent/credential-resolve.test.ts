@@ -86,6 +86,18 @@ describe('availableCredentialAccess', () => {
     expect(access.onpremClusterIds).toEqual([])
   })
 
+  test('keeps the conversation’s team identity choice, known providers only', () => {
+    expect(
+      availableCredentialAccess(
+        normalizeCredentialSelection({ teamIdentity: ['github', 'gitlab'] }),
+        credentialOptions(),
+      ).teamIdentity,
+    ).toEqual(['github'])
+    expect(
+      availableCredentialAccess(normalizeCredentialSelection({}), credentialOptions()),
+    ).not.toHaveProperty('teamIdentity')
+  })
+
   test('never grants an id outside the caller options', () => {
     expect(
       availableCredentialAccess({ awsRoleIds: ['other-team-role'] }, credentialOptions())

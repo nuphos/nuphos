@@ -1,8 +1,13 @@
 // The agent's two credential handouts call personalGithubToken /
 // personalLinearToken with the turn's sender and fall back to the team token
 // when they return null. Refreshes rotate the stored grant in place.
+import { getConversationBySessionId } from '@/lib/agent/db'
 import { getDefaultClientCredentials } from '@/lib/byos/linear'
 import { refreshTokens } from '@/lib/byos/linear-oauth'
+import {
+  personalCredentialSubject,
+  verifyPreviewMcpToken,
+} from '@/lib/claude-code-preview/mcp-token'
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
@@ -10,7 +15,7 @@ import { githubUserInstallationIds, refreshGithubToken } from './github'
 import { open, seal } from './seal'
 
 import type { ProviderTokens } from './github'
-import type { PersonalCredential } from '@/models'
+import type { PersonalCredential, PersonalCredentialProvider } from '@/models'
 
 export type PersonalToken = { token: string; expiresAt: Date | null; login: string }
 
@@ -121,4 +126,25 @@ export async function personalLinearToken(
   const doc = await personalCredentials().findOne({ userId, provider: 'linear', workspaceId })
 
   return doc ? currentToken(doc) : null
+}
+
+/**
+ * The member whose Personal Credential this handout uses, or null for the team
+ * identity: the agent asked for it (`identity=team`), or the conversation's
+ * credential selection has the team act for this provider.
+ */
+export async function personalCredentialSubjectFor(
+  provider: PersonalCredentialProvider,
+  authorization: string | undefined,
+  identity?: string,
+): Promise<string | null> {
+  const subject = personalCredentialSubject(authorization, identity)
+  const sessionId = subject
+    ? verifyPreviewMcpToken(authorization!.slice('Bearer '.length))?.sid
+    : null
+
+  if (!subject || !sessionId) return null
+  const conversation = await getConversationBySessionId(sessionId)
+
+  return conversation?.credentialAccess?.teamIdentity?.includes(provider) ? null : subject
 }

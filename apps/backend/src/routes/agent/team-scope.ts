@@ -238,7 +238,18 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       raw.cloudflareAccountIds,
       'cloudflareAccountIds',
     ),
+    teamIdentity: normalizeTeamIdentity(raw.teamIdentity),
   }
+}
+
+const TEAM_IDENTITY_PROVIDERS = new Set(['github', 'linear'])
+
+function normalizeTeamIdentity(value: unknown): ('github' | 'linear')[] | undefined {
+  if (value == null) return undefined
+
+  return normalizeStringList(value, 'teamIdentity').filter(
+    (provider): provider is 'github' | 'linear' => TEAM_IDENTITY_PROVIDERS.has(provider),
+  )
 }
 
 function normalizeOptionalObjectIdList(value: unknown, field: string): string[] | undefined {

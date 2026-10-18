@@ -188,6 +188,7 @@ export function availableCredentialAccess(
     // Any of the user's own devices, online or not; whether one is usable is
     // checked each time a tool uses it.
     deviceIds: keep(selection.deviceIds, options.devices, (device) => device.deviceId),
+    ...(selection.teamIdentity ? { teamIdentity: selection.teamIdentity } : {}),
     ...resolveConnectorCredentialAccess(selection, options),
   }
 }

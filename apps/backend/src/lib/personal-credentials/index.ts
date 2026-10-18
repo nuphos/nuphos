@@ -270,5 +270,5 @@ export async function deleteAllPersonalCredentials(userId: string): Promise<void
   await Promise.all(PERSONAL_CREDENTIAL_PROVIDERS.map((p) => deletePersonalCredential(userId, p)))
 }
 
-export { personalGithubToken, personalLinearToken } from './handout'
+export { personalCredentialSubjectFor, personalGithubToken, personalLinearToken } from './handout'
 export type { PersonalToken } from './handout'

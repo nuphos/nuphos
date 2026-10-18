@@ -14,11 +14,10 @@ import {
   isGithubAppConfigured,
   listInstallationRepositories,
 } from '@/lib/byos/github'
-import { personalCredentialSubject } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
 import { getNuphosUserById } from '@/lib/identity'
 import { parseObjectId } from '@/lib/objectid'
-import { personalGithubToken } from '@/lib/personal-credentials'
+import { personalCredentialSubjectFor, personalGithubToken } from '@/lib/personal-credentials'
 import { zv } from '@/lib/validate'
 import { requireTeamRole, requireGithubInstallation } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
@@ -224,7 +223,8 @@ installationScoped.get('/token', requireTeamRole('ADMINISTRATOR', 'EDITOR'), asy
     // agent asks for the team identity. A repository-scoped conversation keeps
     // its narrower App token.
     const repositoryId = c.get('githubRepositoryId')
-    const subject = personalCredentialSubject(
+    const subject = await personalCredentialSubjectFor(
+      'github',
       c.req.header('Authorization'),
       c.req.query('identity'),
     )

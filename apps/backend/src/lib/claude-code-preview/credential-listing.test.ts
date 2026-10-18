@@ -105,18 +105,15 @@ const VENDED_CLOUDS = [
   'posthogIntegrationIds',
 ]
 
-const selectableKeys = [
-  ...new Set([
-    ...Object.keys(agentCredentialSelectionSchema.shape),
-    ...Object.keys(CREDENTIAL_LISTERS),
-  ]),
-]
+// teamIdentity picks who GitHub/Linear act as; it is not a credential to list.
+const credentialKeys = Object.keys(agentCredentialSelectionSchema.shape).filter(
+  (key) => key !== 'teamIdentity',
+)
+const selectableKeys = [...new Set([...credentialKeys, ...Object.keys(CREDENTIAL_LISTERS)])]
 
 describe('list_credentials coverage', () => {
   test('has a lister for every type the selector API accepts', () => {
-    expect(Object.keys(CREDENTIAL_LISTERS)).toEqual(
-      expect.arrayContaining(Object.keys(agentCredentialSelectionSchema.shape)),
-    )
+    expect(Object.keys(CREDENTIAL_LISTERS)).toEqual(expect.arrayContaining(credentialKeys))
   })
 
   test.each(selectableKeys)('a selected %s is listed with a way to use it', (key) => {
