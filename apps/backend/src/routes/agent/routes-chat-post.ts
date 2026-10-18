@@ -49,15 +49,6 @@ agent.post('/chat', async (c) => {
   const { id } = body
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
 
-  // `id` reaches Mongo filters as-is; anything but a string could be an operator.
-  if (
-    typeof id !== 'string' ||
-    !id ||
-    !Array.isArray(body.messages) ||
-    (body.streamId !== undefined && typeof body.streamId !== 'string')
-  ) {
-    throw new AppError(400, 'invalid_request', 'Body must include { id, messages }')
-  }
   validateChatBody(body)
   const localToolsEnabled = body.clientCapabilities?.localTools === true
   const conversationForResume = body.resume

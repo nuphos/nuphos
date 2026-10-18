@@ -12,6 +12,15 @@ import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-confi
 import { AppError } from '@/lib/errors'
 
 export function validateChatBody(body: AgentChatBody): void {
+  // `id` reaches Mongo filters as-is; anything but a string could be an operator.
+  if (
+    typeof body.id !== 'string' ||
+    !body.id ||
+    !Array.isArray(body.messages) ||
+    (body.streamId !== undefined && typeof body.streamId !== 'string')
+  ) {
+    throw new AppError(400, 'invalid_request', 'Body must include { id, messages }')
+  }
   validateRequestedAgentRuntime(body.agentRuntime)
   validateRequestedRuntimeId(body.runtimeId)
   if (body.initialSessionConfig !== undefined) {
