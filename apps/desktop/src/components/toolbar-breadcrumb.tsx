@@ -48,7 +48,12 @@ export function Breadcrumb({
           <div key={i} className="flex items-center min-w-0">
             {i > 0 && <ChevronRight className="w-3 h-3 text-tertiary mx-0.5 flex-shrink-0" />}
             {hasMenu ? (
-              <SplitCrumb seg={seg} go={go} widthClass={widthClass} />
+              <SplitCrumb
+                seg={seg}
+                go={go}
+                widthClass={widthClass}
+                current={i === segments.length - 1}
+              />
             ) : (
               <PlainCrumb seg={seg} go={go} widthClass={widthClass} />
             )}
@@ -125,6 +130,9 @@ function PlainCrumb({
   )
 }
 
+/** Hover opens a crumb's menu after this long, and it closes this long after the pointer leaves. */
+const MENU_HOVER_DELAY = 150
+
 /**
  * A crumb that both names a place and offers its siblings: one target for the
  * label, another for the chevron.
@@ -138,17 +146,54 @@ function SplitCrumb({
   seg,
   go,
   widthClass,
+  current,
 }: {
   seg: BreadcrumbSegment
   go?: () => void
   widthClass: string
+  /** The trailing crumb names the page you are on, so its label has nowhere to go. */
+  current: boolean
 }) {
+  const content = (
+    <MenuContent side="bottom" align="start" className="titlebar-no-drag w-[320px] max-h-[420px]">
+      {seg.options!.length > 0 ? (
+        renderGroupedOptions(seg.options!)
+      ) : (
+        <div className="px-3 py-2 text-[12px] text-tertiary">{seg.emptyText ?? 'No items'}</div>
+      )}
+    </MenuContent>
+  )
+  const onOpenChange = (open: boolean) => {
+    if (open) seg.onExpand?.()
+  }
+
+  // On the page itself the label would only re-open that page, so the whole pill is one menu
+  // trigger: one hover state, hover opens it, click toggles it.
+  if (current && !seg.loading) {
+    return (
+      <Menu onOpenChange={onOpenChange}>
+        <MenuTrigger
+          openOnHover
+          delay={MENU_HOVER_DELAY}
+          closeDelay={MENU_HOVER_DELAY}
+          aria-label={`Switch ${seg.label}`}
+          className={clsx(
+            'h-7 rounded-md pl-2 pr-2 flex items-center gap-1.5 text-[13px] text-main outline-none',
+            'hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60',
+            'focus-visible:ring-1 focus-visible:ring-zGray-700',
+            widthClass,
+          )}
+        >
+          <CrumbFace seg={seg} />
+          <ChevronDown className="w-3 h-3 flex-shrink-0 opacity-60" />
+        </MenuTrigger>
+        {content}
+      </Menu>
+    )
+  }
+
   return (
-    <Menu
-      onOpenChange={(open) => {
-        if (open) seg.onExpand?.()
-      }}
-    >
+    <Menu onOpenChange={onOpenChange}>
       <div
         className={clsx(
           'flex h-7 items-center rounded-md',
@@ -181,6 +226,9 @@ function SplitCrumb({
         </button>
         {!seg.loading && (
           <MenuTrigger
+            openOnHover
+            delay={MENU_HOVER_DELAY}
+            closeDelay={MENU_HOVER_DELAY}
             title={`Switch ${seg.label}`}
             aria-label={`Switch ${seg.label}`}
             className={clsx(
@@ -197,13 +245,7 @@ function SplitCrumb({
           </MenuTrigger>
         )}
       </div>
-      <MenuContent side="bottom" align="start" className="titlebar-no-drag w-[320px] max-h-[420px]">
-        {seg.options!.length > 0 ? (
-          renderGroupedOptions(seg.options!)
-        ) : (
-          <div className="px-3 py-2 text-[12px] text-tertiary">{seg.emptyText ?? 'No items'}</div>
-        )}
-      </MenuContent>
+      {content}
     </Menu>
   )
 }
