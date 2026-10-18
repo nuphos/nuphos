@@ -47,12 +47,14 @@ export function ChatLink({
   onLinkClick,
   className = 'text-zViolet-accent hover:underline',
   title,
+  'aria-label': ariaLabel,
   children,
 }: {
   link: string | undefined
   onLinkClick?: (href: string, beside: boolean) => boolean
   className?: string
   title?: string
+  'aria-label'?: string
   children: ReactNode
 }) {
   const menuActions = useContext(ChatLinkMenuContext)
@@ -113,6 +115,7 @@ export function ChatLink({
         onContextMenu={handleContextMenu}
         className={className}
         title={title}
+        aria-label={ariaLabel}
       >
         {children}
       </a>

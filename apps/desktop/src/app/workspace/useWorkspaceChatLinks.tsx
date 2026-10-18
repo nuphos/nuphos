@@ -94,13 +94,14 @@ export function useWorkspaceChatLinks(a: Args) {
   }, [])
 
   const openBrowserLink = useCallback(
-    (url: string): boolean => {
+    (url: string, beside = false): boolean => {
       if (!teamId || !/^https?:\/\//i.test(url)) return false
 
       return openNuphosLinkInNewTab(
         pageLocationForNavigation(
           emptyNavigation({ kind: 'team', teamId }, 'team.browser', { browserUrl: url }),
         ).href,
+        beside,
       )
     },
     [openNuphosLinkInNewTab, teamId],
@@ -195,6 +196,7 @@ export function useWorkspaceChatLinks(a: Args) {
   // file path opens in Files; other web links open in the built-in browser.
   const openNuphosLinkFromChat = useCallback(
     (href: string, beside = false): boolean => {
+      if (isBindableGithubLink(href)) return openBrowserLink(href.trim(), beside)
       if (openNuphosLinkInNewTab(href, beside)) return true
       if (beside) return false
       if (openBoundProviderLinkFromChat(href)) return true
@@ -226,13 +228,17 @@ export function useWorkspaceChatLinks(a: Args) {
     ],
   )
 
-  // A session resource is linked through a bound integration, so its provider
-  // page normally resolves in-app; the browser tab only covers a binding removed
-  // since. ⌘-click is the system-browser escape hatch.
+  // GitHub badges open browser tabs; other providers retain their native pages.
+  // ⌘-click is the explicit system-browser escape hatch.
   const openSessionResource = useCallback(
     (url: string, external: boolean) => {
       if (external || !teamId) {
         openExternalLink(url)
+
+        return
+      }
+      if (isBindableGithubLink(url)) {
+        openBrowserLink(url)
 
         return
       }
@@ -244,7 +250,7 @@ export function useWorkspaceChatLinks(a: Args) {
 
       openNuphosLinkInNewTab(path)
     },
-    [boundResources, openExternalLink, openNuphosLinkInNewTab, teamId],
+    [boundResources, openBrowserLink, openExternalLink, openNuphosLinkInNewTab, teamId],
   )
 
   const chatLinkMenuActions = useChatLinkMenuActions({
@@ -255,9 +261,8 @@ export function useWorkspaceChatLinks(a: Args) {
     openNuphosLinkInNewTab,
   })
 
-  // Pane props whose dependency chains root in `tabs`/`activeTab` — they churn
-  // on every poll tick and switch, and one unstable prop re-renders every
-  // mounted pane: the memoized pane is only as good as its least stable prop.
+  // Props rooted in `tabs`/`activeTab` churn every poll; one unstable prop
+  // re-renders every memoized pane.
   const stableDockAgentToSidebar = useStableCallback(dockAgentToSidebar)
   const stableOpenNuphosLinkFromChat = useStableCallback(openNuphosLinkFromChat)
   const stableOpenNodeLink = useStableCallback(openNodeLink)

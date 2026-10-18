@@ -9,6 +9,7 @@ import {
   GitPullRequestDraft,
 } from 'lucide-react'
 
+import { ResourcePreview } from '../../ui/resource-preview'
 import { ChatLink } from '../MessageResponse'
 
 import { useGithubRef } from './githubRefStore'
@@ -88,36 +89,27 @@ export function GithubRefChip({
 }) {
   const entry = useGithubRef(ref, teamId)
   const summary = entry?.summary
-  const review = summary?.review ? REVIEW[summary.review] : null
 
   return (
-    <ChatLink link={ref.href} onLinkClick={onOpen} className={CHIP} title={describe(ref, summary)}>
-      <StateIcon kind={ref.kind} state={summary?.state} />
-      {summary ? (
-        <span className="min-w-0 max-w-[40ch] truncate">{summary.title}</span>
-      ) : (
-        <span
-          className={clsx(
-            'min-w-0 truncate text-secondary',
-            entry?.loading && 'animate-pulse motion-reduce:animate-none',
-          )}
-        >
-          {ref.owner}/{ref.repo}
-        </span>
-      )}
-      <span className="shrink-0 tabular-nums text-tertiary">#{ref.number}</span>
-      {review ? (
-        <span className={clsx('shrink-0 rounded px-1 py-0.5 text-[11px] font-medium', review.tone)}>
-          {review.label}
-        </span>
-      ) : (
-        summary && (
-          <span className={clsx('shrink-0 text-[11.5px]', STATE[summary.state].tone)}>
-            {STATE[summary.state].label}
-          </span>
-        )
-      )}
-    </ChatLink>
+    <ResourcePreview
+      repository={`${ref.owner}/${ref.repo}`}
+      identifier={`#${String(ref.number)}`}
+      title={summary?.title}
+      state={summary ? STATE[summary.state].label : undefined}
+      review={summary?.review ? REVIEW[summary.review].label : undefined}
+      loading={entry?.loading}
+    >
+      <ChatLink
+        link={ref.href}
+        onLinkClick={onOpen}
+        className={CHIP}
+        aria-label={describe(ref, summary)}
+      >
+        <StateIcon kind={ref.kind} state={summary?.state} />
+        <span className="min-w-0 max-w-[18ch] truncate text-secondary">{ref.repo}</span>
+        <span className="shrink-0 tabular-nums text-tertiary">#{ref.number}</span>
+      </ChatLink>
+    </ResourcePreview>
   )
 }
 
@@ -136,17 +128,25 @@ export function GithubRefLink({
   const summary = useGithubRef(ref, teamId)?.summary
 
   return (
-    <ChatLink
-      link={ref.href}
-      onLinkClick={onOpen}
-      className="text-zViolet-accent hover:underline"
-      title={describe(ref, summary)}
+    <ResourcePreview
+      repository={`${ref.owner}/${ref.repo}`}
+      identifier={`#${String(ref.number)}`}
+      title={summary?.title}
+      state={summary ? STATE[summary.state].label : undefined}
+      review={summary?.review ? REVIEW[summary.review].label : undefined}
     >
-      <span className="mr-0.5 inline-flex align-[-0.15em]">
-        <StateIcon kind={ref.kind} state={summary?.state} />
-      </span>
-      {children}
-    </ChatLink>
+      <ChatLink
+        link={ref.href}
+        onLinkClick={onOpen}
+        className="text-zViolet-accent hover:underline"
+        aria-label={describe(ref, summary)}
+      >
+        <span className="mr-0.5 inline-flex align-[-0.15em]">
+          <StateIcon kind={ref.kind} state={summary?.state} />
+        </span>
+        {children}
+      </ChatLink>
+    </ResourcePreview>
   )
 }
 
