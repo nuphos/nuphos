@@ -18,6 +18,9 @@ import type { PanelCtx } from './ctx'
 import type { Message } from './model'
 import type { TransferUploadPart } from './parts'
 
+// Each tab's latest fork history import, which a message sent meanwhile waits for.
+const forkImports = new Map<string, Promise<void>>()
+
 export type DispatchTurnCtx = Pick<
   PanelCtx,
   | 'currentUser'
@@ -155,7 +158,8 @@ export async function runDispatchTurn(
 
   // The tab shows a running turn: send at once without taking its stream. The
   // server queues the message behind that turn, or starts it if it just ended.
-  if (current.streaming && current.streamId && !forkHistory) {
+  // A fork's first turn may still be importing: start after that turn, never import.
+  if (current.streaming && current.streamId) {
     rememberSideSend(streamId, tabId)
     setTabs((prev) =>
       prev.map((t) =>
@@ -167,21 +171,23 @@ export async function runDispatchTurn(
           : t,
       ),
     )
-    void window.api
-      .agentStart({
-        streamId,
-        sessionId: tab.sessionId,
-        agentRuntime: tab.agentRuntime,
-        runtimeId: tab.runtimeId,
-        teamId,
-        messages: toUiMessages([...current.messages.filter((m) => m.id !== messageId), userMsg]),
-        baseIndex: tab.historyBaseIndex,
-        locale: getAgentLocale(),
-        url: urlRef.current,
-        kubeContext: kubeContextRef.current ?? undefined,
-        diagramId: getActiveDiagramId() ?? undefined,
-        credentialAccess,
-      })
+    void (forkImports.get(tabId) ?? Promise.resolve())
+      .then(() =>
+        window.api.agentStart({
+          streamId,
+          sessionId: tab.sessionId,
+          agentRuntime: tab.agentRuntime,
+          runtimeId: tab.runtimeId,
+          teamId,
+          messages: toUiMessages([...current.messages.filter((m) => m.id !== messageId), userMsg]),
+          baseIndex: tab.historyBaseIndex,
+          locale: getAgentLocale(),
+          url: urlRef.current,
+          kubeContext: kubeContextRef.current ?? undefined,
+          diagramId: getActiveDiagramId() ?? undefined,
+          credentialAccess,
+        }),
+      )
       .catch((err: unknown) => {
         setTabs((prev) => prev.map((t) => (t.id === tabId ? withoutQueued(t, messageId) : t)))
         toast.apiError('Could not send your message', err)
@@ -241,6 +247,7 @@ export async function runDispatchTurn(
       })
     : Promise.resolve()
 
+  if (forkHistory) forkImports.set(tabId, importForkHistory)
   void importForkHistory
     .then(() => {
       if (forkHistory) {
