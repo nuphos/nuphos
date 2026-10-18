@@ -1,13 +1,12 @@
 import clsx from 'clsx'
+import { useMemo } from 'react'
 
-import { CloudLogo } from '../../components/CloudLogo'
-import { DatabaseEngineGlyph } from '../../components/DatabaseEngineIcon'
-import { LinearMark } from '../../components/LinearMark'
-import { SearchBox } from '../../components/Toolbar'
 import { Tooltip } from '../../components/ui/tooltip'
 import { CATALOG } from '../addIntegrationCatalog'
 
+import { CatalogLogo } from './catalog-logo'
 import { CONNECTOR_HOVER } from './connector-actions'
+import { ConnectorSearch } from './connector-search'
 import { githubConnectedSummary, visibleGithubInstallations } from './github-installation-display'
 import { OverflowMarquee } from './overflow-marquee'
 import { InstalledList } from './team-home-installed'
@@ -15,15 +14,6 @@ import { InstalledList } from './team-home-installed'
 import type { IntegrationPlatformRow } from './team-home-bind'
 import type { GithubInstallation } from '../../types'
 import type { AddIntegrationKey, CatalogItem } from '../addIntegrationCatalog'
-
-function CatalogLogo({ provider }: { provider: AddIntegrationKey }) {
-  if (provider === 'linear') return <LinearMark size={20} />
-  if (provider === 'mongodb') {
-    return <DatabaseEngineGlyph engine="mongodb" className="h-5 w-5" />
-  }
-
-  return <CloudLogo provider={provider} size={20} />
-}
 
 /** One catalog row. The whole row opens the connector: its detail view once connected, the add flow before. */
 function CatalogConnector({
@@ -146,6 +136,7 @@ export function IntegrationCatalog({
   onOpen: (rows: IntegrationPlatformRow[]) => void
 }) {
   const terms = filter.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const installedKeys = useMemo(() => new Set<string>(rows.map((row) => row.provider)), [rows])
   const visibleCategories = CATALOG.map((category) => ({
     ...category,
     items: category.items.filter((item) => terms.every((term) => item.haystack.includes(term))),
@@ -159,14 +150,17 @@ export function IntegrationCatalog({
           <p className="mb-5 mt-1.5 text-[13.5px] text-secondary">
             Connect Nuphos to your code, data, cloud, and everyday tools.
           </p>
-          <div className="[&>div]:h-8 [&>div]:rounded-lg [&>div]:border [&>div]:border-zGray-800/55 [&>div]:bg-transparent">
-            <SearchBox
-              filter={filter}
-              onFilterChange={onFilterChange}
-              fill
-              label="Search connectors"
-            />
-          </div>
+          <ConnectorSearch
+            filter={filter}
+            onFilterChange={onFilterChange}
+            installed={installedKeys}
+            onPick={(item) => {
+              const installed = rows.filter((row) => row.provider === item.key)
+
+              if (installed.length > 0) onOpen(installed)
+              else onAdd(item.key)
+            }}
+          />
         </header>
         {/* A search with no installed match skips this section, so only one empty message shows. */}
         {(loading || visibleRows.length > 0 || terms.length === 0) && (
