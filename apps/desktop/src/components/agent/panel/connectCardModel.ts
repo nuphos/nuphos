@@ -69,6 +69,28 @@ export function parseConnectRequest(
     : null
 }
 
+/** Any other `request_user_decision`: its question card, with the options as replies. */
+export function parseChoiceRequest(
+  value: unknown,
+): { category: string; question: string; options: string[] } | null {
+  if (!value || typeof value !== 'object' || parseConnectRequest(value)) return null
+  const { category, question, options } = value as {
+    category?: unknown
+    question?: unknown
+    options?: unknown
+  }
+
+  if (typeof question !== 'string' || !question.trim()) return null
+
+  return {
+    category: typeof category === 'string' ? category : '',
+    question: question.trim(),
+    options: Array.isArray(options)
+      ? options.filter((o): o is string => typeof o === 'string' && o.trim() !== '')
+      : [],
+  }
+}
+
 export function connectRowStatus(
   provider: ConnectProvider,
   phase: ConnectPhase,

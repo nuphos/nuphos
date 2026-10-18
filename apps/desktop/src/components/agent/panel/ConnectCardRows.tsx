@@ -126,13 +126,17 @@ export function ConnectHeader({
       <div className="text-[13.5px] font-medium text-main">
         {single ? `Connect ${single}` : 'Connect apps to continue'}
       </div>
-      {/* The agent wrote this; quote it so it can't pass for an app message. */}
-      {reason && (
-        <blockquote className="mt-1.5 border-l-2 border-zGray-700 pl-2 text-[12.5px] leading-snug text-secondary">
-          <span className="text-tertiary">Agent: </span>
-          {reason}
-        </blockquote>
-      )}
+      {reason && <AgentQuote text={reason} />}
     </div>
+  )
+}
+
+// The agent wrote this; quote it so it can't pass for an app message.
+export function AgentQuote({ text }: { text: string }) {
+  return (
+    <blockquote className="mt-1.5 whitespace-pre-wrap border-l-2 border-zGray-700 pl-2 text-[12.5px] leading-snug text-secondary">
+      <span className="text-tertiary">Agent: </span>
+      {text}
+    </blockquote>
   )
 }

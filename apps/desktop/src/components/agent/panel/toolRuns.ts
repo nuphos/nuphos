@@ -1,6 +1,6 @@
 import { isPlanProposalToolName } from '../planReference.ts'
 
-import { parseConnectRequest } from './connectCardModel.ts'
+import { parseChoiceRequest, parseConnectRequest } from './connectCardModel.ts'
 import { isHiddenMemoryIngestPart } from './parts.ts'
 import { isThreadBadgePart } from './threadBadges.ts'
 import { INTERRUPTED_TOOL_MESSAGE, incompleteToolErrorText } from './toolInterruption.ts'
@@ -17,15 +17,15 @@ export type PartSegment =
   | { kind: 'toolRun'; indices: number[] }
 
 // Tool calls that render as their own card (chart, plan, permission grant)
-// carry content the user came for, so they never hide inside a run. So does an
-// integration decision that renders as a Connect card.
+// carry content the user came for, so they never hide inside a run. So does a
+// user decision: a Connect card for an integration, a question card otherwise.
 const CARD_TOOL_NAMES = new Set(['render_chart', 'plan', 'propose_permission_grant'])
 
-export function isConnectCardPart(part: Part): boolean {
+export function isDecisionCardPart(part: Part): boolean {
   return (
     part.type === 'tool' &&
     part.toolName === 'request_user_decision' &&
-    parseConnectRequest(part.input) !== null
+    (parseConnectRequest(part.input) ?? parseChoiceRequest(part.input)) !== null
   )
 }
 
@@ -35,7 +35,7 @@ export const BOOKKEEPING_TOOL_NAMES = new Set(['skill', 'plan_update', 'plan_get
 export function isPlainToolPart(part: Part): part is ToolPart {
   if (part.type !== 'tool') return false
   if (CARD_TOOL_NAMES.has(part.toolName) || isPlanProposalToolName(part.toolName)) return false
-  if (isConnectCardPart(part)) return false
+  if (isDecisionCardPart(part)) return false
   if (isThreadBadgePart(part) || isTriggerCardPart(part)) return false
 
   return !BOOKKEEPING_TOOL_NAMES.has(part.toolName)
@@ -117,16 +117,16 @@ export function segmentParts(parts: readonly Part[], from: number, to: number): 
   return segments
 }
 
-/** Plan and Connect cards: lifted out of a folded turn so they sit under the answer. */
+/** Plan and decision cards: lifted out of a folded turn so they sit under the answer. */
 export function isLiftedCardPart(part: Part): part is ToolPart {
   if (part.type !== 'tool' || part.state === 'output-error') return false
 
   return (
-    part.toolName === 'plan' || isPlanProposalToolName(part.toolName) || isConnectCardPart(part)
+    part.toolName === 'plan' || isPlanProposalToolName(part.toolName) || isDecisionCardPart(part)
   )
 }
 
-// A folded turn lifts its plan, connect and trigger cards and thread badges out
+// A folded turn lifts its plan, decision and trigger cards and thread badges out
 // from behind the "Worked for" header so they sit under the answer; the fold
 // itself only renders when other work remains.
 export function foldedTurnLayout(
