@@ -5,7 +5,14 @@ import { parseAtlasError } from '../api/errors.ts'
 import { toast } from '../components/ui/toast.ts'
 import { runtimeFilePreview } from '../lib/runtimeFileLink.ts'
 
-type Source = { teamId: string; sessionId: string; runtimeId: string; label: string }
+type Source = {
+  teamId: string
+  sessionId: string
+  runtimeId: string
+  label: string
+  /** The open file was read from this computer rather than the agent's workspace. */
+  local?: boolean
+}
 type Directory = { entries: { name: string; kind: 'directory' | 'file' }[]; truncated: boolean }
 type Transfer = Awaited<ReturnType<typeof api.atlasTransferRuntimeFile>>
 type MediaKind = 'image' | 'video' | 'audio' | 'pdf'
@@ -62,7 +69,8 @@ async function readFile(target: Source, path: string, linkedPath: string) {
 
   return {
     file,
-    shown: file.origin === 'this-computer' ? { ...target, label: 'This computer' } : target,
+    shown:
+      file.origin === 'this-computer' ? { ...target, label: 'This computer', local: true } : target,
   }
 }
 
@@ -224,11 +232,29 @@ export function useRuntimeFiles(
     }
   }
 
+  async function openInBrowser() {
+    const target = result.source
+
+    if (!target) return
+    try {
+      await api.atlasOpenHtmlFile(
+        Boolean(target.local),
+        target.teamId,
+        target.runtimeId,
+        target.sessionId,
+        `${path}/${fileName}`,
+      )
+    } catch (error) {
+      toast.apiError('Could not open in browser', error)
+    }
+  }
+
   return {
     ...result,
     path,
     fileName,
     download,
+    openInBrowser,
     navigate,
     openFile: setFileName,
     refresh: () => setRetry((value) => value + 1),

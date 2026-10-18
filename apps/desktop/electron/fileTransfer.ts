@@ -3,5 +3,10 @@
 // can read local file bytes / write downloads to disk. The backend only ever
 // hands us short-lived presigned URLs; bytes flow main-process ⇄ S3 directly.
 
-export { downloadAllAsZip, downloadOne, resolveDownloads } from './fileTransfer/download'
+export {
+  downloadAllAsZip,
+  downloadOne,
+  downloadTo,
+  resolveDownloads,
+} from './fileTransfer/download'
 export { uploadFiles } from './fileTransfer/upload'

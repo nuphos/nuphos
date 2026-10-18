@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { readThisComputerFile } from './linked-file.ts'
+import { readThisComputerFile, resolveThisComputerFile } from './linked-file.ts'
 
 test('a linked file is read on this computer within the local workspace, else left to the agent', async () => {
   const root = await mkdtemp(join(tmpdir(), 'linked-file-'))
@@ -27,6 +27,9 @@ test('a linked file is read on this computer within the local workspace, else le
       ['/workspace/big', workspace],
     ] as const)
       assert.equal(await readThisComputerFile(path, base), null, path)
+    // Opening in place has no preview limit, but the same workspace bounds.
+    assert.equal(await resolveThisComputerFile('/workspace/big', workspace), join(workspace, 'big'))
+    assert.equal(await resolveThisComputerFile('/workspace/../secret', workspace), null)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -20,7 +20,7 @@ export async function resolveDownloads(
   return getFileTransfer<TransferGroup>(teamId, sessionId, `/${groupId}/download`)
 }
 
-async function downloadTo(url: string, destPath: string): Promise<void> {
+export async function downloadTo(url: string, destPath: string): Promise<void> {
   const res = await fetch(url)
 
   if (!res.ok || !res.body) throw new Error(`Download failed: HTTP ${String(res.status)}`)

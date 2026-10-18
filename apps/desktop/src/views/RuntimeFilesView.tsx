@@ -1,4 +1,14 @@
-import { Download, File, FileQuestion, Folder, FolderOpen, RefreshCw, Server } from 'lucide-react'
+import {
+  Copy,
+  Download,
+  ExternalLink,
+  File,
+  FileQuestion,
+  Folder,
+  FolderOpen,
+  RefreshCw,
+  Server,
+} from 'lucide-react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -7,9 +17,11 @@ import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { Breadcrumb } from '../components/toolbar-breadcrumb'
 import { Button } from '../components/ui/button'
+import { toast } from '../components/ui/toast'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
+import { copyLinkWithFeedback } from '../lib/copyLink'
 
 export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
   const { conversationId, refreshKey, isActive } = useWorkspaceTab()
@@ -27,11 +39,14 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
     openFile,
     refresh,
     download,
+    openInBrowser,
   } = useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
   const [downloading, setDownloading] = useState(false)
+  const [opening, setOpening] = useState(false)
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
 
+  const filePathShown = `${path}/${fileName}`
   const entries = directory?.entries ?? []
   const folders = path.split('/').filter(Boolean)
   const breadcrumbs = folders.map((name, index) => ({
@@ -77,6 +92,45 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 <Server className="h-3 w-3 shrink-0" strokeWidth={1.6} />
                 <span className="truncate">{source.label}</span>
               </span>
+            )}
+            {fileName && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Copy path"
+                title={`Copy path: ${filePathShown}`}
+                onClick={() =>
+                  void copyLinkWithFeedback(
+                    filePathShown,
+                    (value) => navigator.clipboard.writeText(value),
+                    {
+                      onSuccess: () => toast.success('Copied', filePathShown),
+                      onError: () => toast.error('Could not copy the path'),
+                    },
+                  )
+                }
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {/\.html?$/i.test(fileName) && !loading && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Open in browser"
+                title={
+                  source?.local
+                    ? 'Open in browser'
+                    : "Open in browser (a copy of this file; files next to it won't load)"
+                }
+                disabled={opening}
+                onClick={() => {
+                  setOpening(true)
+                  void openInBrowser().finally(() => setOpening(false))
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
             )}
             {media && (
               <Button

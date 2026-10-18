@@ -14,6 +14,19 @@ export async function readThisComputerFile(
   path: string,
   workspace: string | null,
 ): Promise<{ name: string; size: number; data: string } | null> {
+  const target = await resolveThisComputerFile(path, workspace)
+  const data = target && (await stat(target)).size <= LIMIT ? await readFile(target) : null
+
+  return target && data
+    ? { name: basename(target), size: data.length, data: data.toString('base64') }
+    : null
+}
+
+/** Where a linked path is on this computer, if it is a file there. */
+export async function resolveThisComputerFile(
+  path: string,
+  workspace: string | null,
+): Promise<string | null> {
   const inWorkspace = path === '/workspace' || path.startsWith('/workspace/')
 
   if (inWorkspace && !workspace) return null
@@ -24,8 +37,5 @@ export async function readThisComputerFile(
   if (inWorkspace && (outside.startsWith('..') || isAbsolute(outside))) return null
   const info = await stat(target).catch(() => null)
 
-  if (!info?.isFile() || info.size > LIMIT) return null
-  const data = await readFile(target)
-
-  return { name: basename(target), size: data.length, data: data.toString('base64') }
+  return info?.isFile() ? target : null
 }

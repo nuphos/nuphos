@@ -90,23 +90,34 @@ function PlainCrumb({
   go?: () => void
   widthClass: string
 }) {
+  // A crumb that leads nowhere is just a name, so it reads as text you can copy.
+  if (!go)
+    return (
+      <span
+        className={clsx(
+          'selectable h-7 px-2 flex items-center gap-1.5 text-[13px] text-secondary',
+          widthClass,
+        )}
+      >
+        <CrumbFace seg={seg} />
+      </span>
+    )
+
   return (
     <button
       onPointerDown={(event) => {
         // Navigate on press, like the tab strip (#637).
         if (event.button !== 0) return
-        go?.()
+        go()
       }}
       onClick={(event) => {
         // Keyboard only — pointer presses already fired at pointerdown.
         if (event.detail !== 0) return
-        go?.()
+        go()
       }}
-      disabled={!go}
       className={clsx(
-        'h-7 px-2 rounded-md flex items-center gap-1.5 text-[13px] outline-none focus-visible:ring-1 focus-visible:ring-zGray-700',
+        'h-7 px-2 rounded-md flex items-center gap-1.5 text-[13px] outline-none focus-visible:ring-1 focus-visible:ring-zGray-700 hover:bg-zGray-800/60 text-main',
         widthClass,
-        go ? 'hover:bg-zGray-800/60 text-main' : 'text-secondary cursor-default',
       )}
     >
       <CrumbFace seg={seg} />
