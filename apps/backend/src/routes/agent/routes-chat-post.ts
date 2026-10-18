@@ -5,7 +5,6 @@ import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
-import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
 import { shouldInitializePermissionMode } from './chat-permission-mode'
