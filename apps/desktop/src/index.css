@@ -2301,3 +2301,32 @@ html.light {
 .workspace-content-surface .workspace-page-toolbar {
   background-color: transparent;
 }
+
+/* Connector rows: an overflowing description slides to its end on hover or keyboard focus, then
+   back (see OverflowMarquee). Reduced motion wraps it to two lines instead of moving it. */
+@keyframes connector-marquee {
+  0%,
+  15% {
+    text-indent: 0;
+  }
+  50%,
+  65% {
+    text-indent: var(--marquee-shift);
+  }
+  100% {
+    text-indent: 0;
+  }
+}
+
+.group:hover .connector-marquee,
+.group:has(:focus-visible) .connector-marquee {
+  animation: connector-marquee var(--marquee-duration) ease-in-out 1;
+  text-overflow: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .connector-marquee,
+  .group:has(:focus-visible) .connector-marquee {
+    animation: none;
+  }
+}

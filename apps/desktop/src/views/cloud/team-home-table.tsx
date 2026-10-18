@@ -9,6 +9,7 @@ import { CATALOG } from '../addIntegrationCatalog'
 
 import { CONNECTOR_HOVER } from './connector-actions'
 import { githubConnectedSummary, visibleGithubInstallations } from './github-installation-display'
+import { OverflowMarquee } from './overflow-marquee'
 import { InstalledList } from './team-home-installed'
 
 import type { IntegrationPlatformRow } from './team-home-bind'
@@ -75,12 +76,13 @@ function CatalogConnector({
               <span className="sr-only">
                 {connectedSummary.attention ? 'Needs attention: ' : 'Connected: '}
               </span>
-              <span className="truncate">{connectedSummary.text}</span>
+              <OverflowMarquee text={connectedSummary.text} className="min-w-0" />
             </span>
           ) : (
-            <span className="mt-0.5 block truncate text-[12px] text-secondary/80">
-              {item.description}
-            </span>
+            <OverflowMarquee
+              text={item.description}
+              className="mt-0.5 text-[12px] text-secondary/80"
+            />
           )}
         </span>
       </button>
