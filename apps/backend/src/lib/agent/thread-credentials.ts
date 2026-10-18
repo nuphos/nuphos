@@ -3,9 +3,8 @@ import { logEvent } from '@/lib/observability'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
-import { setConversationCredentialFields } from './db'
+import { addConversationCredentialIds } from './db'
 
-import type { AgentCredentialAccess } from './db'
 import type { ThreadActor } from './thread-bridge'
 import type { SelectionKey } from '@/lib/claude-code-preview/credential-lister'
 
@@ -15,8 +14,8 @@ const named = (ref: CredentialRef) => `${ref.provider} ${ref.id}`
 
 /**
  * Adds to a thread's selection credentials and devices the parent has selected
- * now, as its own list_credentials shows them; anything else is refused. Only
- * the named fields are written, so the rest of the thread's selection is kept.
+ * now, as its own list_credentials shows them; anything else is refused before
+ * any write. The ids are added atomically, so nothing else is overwritten.
  */
 export async function grantThreadCredentials(
   actor: ThreadActor,
@@ -32,7 +31,7 @@ export async function grantThreadCredentials(
   ])
   const has = (entries: CredentialRef[], ref: CredentialRef) =>
     entries.some(({ provider, id }) => provider === ref.provider && id === ref.id)
-  const fields: Partial<AgentCredentialAccess> = {}
+  const fields: Partial<Record<SelectionKey, string[]>> = {}
   let pending = grant
 
   for (const key of Object.keys(CREDENTIAL_LISTERS) as SelectionKey[]) {
@@ -41,7 +40,7 @@ export async function grantThreadCredentials(
     const add = pending.filter((ref) => has(ofParent, ref) && !has(ofThread, ref))
 
     pending = pending.filter((ref) => !has(ofParent, ref))
-    if (add.length) fields[key] = [...new Set([...(thread[key] ?? []), ...add.map((r) => r.id)])]
+    if (add.length) fields[key] = add.map((ref) => ref.id)
   }
   if (pending.length) {
     throw new Error(
@@ -49,12 +48,24 @@ export async function grantThreadCredentials(
         'Grant only (provider, id) pairs from its own list_credentials.',
     )
   }
-  if (Object.keys(fields).length) {
-    await setConversationCredentialFields(threadId, actor.userId, actor.teamId, fields)
+  const keys = Object.keys(fields) as SelectionKey[]
+
+  if (keys.length) {
+    // Where unset means all of them, the field must still be set, or adding narrows it.
+    const existing = keys.filter(
+      (key) =>
+        CREDENTIAL_LISTERS[key](undefined, options).selected.length >
+        CREDENTIAL_LISTERS[key]([], options).selected.length,
+    )
+
+    if (
+      !(await addConversationCredentialIds(threadId, actor.userId, actor.teamId, fields, existing))
+    )
+      throw new Error("The thread's selection changed meanwhile; call update_thread again.")
     logEvent('info', 'agent.thread.credentials_granted', {
       session_id: threadId,
       source_session_id: actor.sessionId,
-      fields: Object.keys(fields).join(','),
+      fields: keys.join(','),
     })
   }
 

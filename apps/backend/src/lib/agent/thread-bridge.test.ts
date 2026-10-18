@@ -57,6 +57,7 @@ beforeEach(() => {
   moves.length = 0
   writes.length = 0
   selections.clear()
+  getAccess = readSelection
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -80,7 +81,7 @@ const events: { conversationId: string; event: string }[] = []
 const moves: { sessionId: string; runtimeId: string; mode: string; userId: string }[] = []
 // Each conversation's selection as list_credentials reads it, and the fields grants write.
 const selections = new Map<string, Partial<AgentCredentialAccess>>()
-const writes: { sessionId: string; fields: Partial<AgentCredentialAccess> }[] = []
+const writes: { sessionId: string; fields: Partial<Record<string, string[]>> }[] = []
 const options = await realOptions.getAgentCredentialOptions(undefined, 'owner')
 
 useCredentialOptions({
@@ -101,9 +102,11 @@ useCredentialOptions({
       ].map((device) => ({ ...device, label: device.deviceId, platform: 'darwin' })),
     }) as never,
 })
-useAgentSessionsShared({
-  getAgentCredentialAccess: async ({ sessionId }) => (selections.get(sessionId) ?? {}) as never,
-})
+const readSelection: typeof getAccess = async ({ sessionId }) =>
+  (selections.get(sessionId) ?? {}) as never
+let getAccess: (agent: { sessionId: string }) => Promise<never> = readSelection
+
+useAgentSessionsShared({ getAgentCredentialAccess: async (agent) => getAccess(agent) })
 
 useDb({
   db: () => ({
@@ -190,10 +193,20 @@ useAgentDb({
   recordAgentEvent: (event) => {
     events.push(event)
   },
-  setConversationCredentialFields: async (sessionId, _userId, _teamId, fields) => {
-    writes.push({ sessionId, fields })
+  // The store's $addToSet, with the guard that a field in `existing` is still set.
+  addConversationCredentialIds: async (sessionId, _userId, _teamId, fields, existing) => {
+    const stored = selections.get(sessionId) ?? {}
 
-    return null
+    if (existing.some((key) => stored[key as keyof AgentCredentialAccess] === undefined))
+      return null
+    writes.push({ sessionId, fields })
+    const next = { ...stored } as Record<string, unknown>
+
+    for (const [key, ids] of Object.entries(fields))
+      next[key] = [...new Set([...((next[key] as string[] | undefined) ?? []), ...(ids ?? [])])]
+    selections.set(sessionId, next as Partial<AgentCredentialAccess>)
+
+    return {} as AgentConversation
   },
   getConversationWithMessages: async (sessionId) => ({
     conversation: { ...source, sessionId },
@@ -362,9 +375,34 @@ describe('conversation-scoped thread tools', () => {
     selections.set('source', { githubInstallationIds: ['gh-1'] })
     selections.set(threadId, { githubInstallationIds: ['gh-2'] })
     await updateThread(actor, threadId, { grant: [{ provider: 'github', id: 'gh-1' }] })
-    expect(writes).toEqual([
-      { sessionId: threadId, fields: { githubInstallationIds: ['gh-2', 'gh-1'] } },
-    ])
+    expect(selections.get(threadId)?.githubInstallationIds).toEqual(['gh-2', 'gh-1'])
+    // Unset (all of them) after the thread was read: adding would narrow it, so nothing is written.
+    selections.set(threadId, { githubInstallationIds: ['gh-2'] })
+    getAccess = async ({ sessionId }) => {
+      const read = selections.get(sessionId) ?? {}
+
+      if (sessionId === threadId) selections.set(threadId, {})
+
+      return read as never
+    }
+    await expect(
+      updateThread(actor, threadId, { grant: [{ provider: 'github', id: 'gh-1' }] }),
+    ).rejects.toThrow('changed meanwhile')
+    expect(selections.get(threadId)).toEqual({})
+  })
+
+  test('overlapping grants to the same field keep every id', async () => {
+    selections.set('source', { awsRoleIds: ['role-1', 'role-2'] })
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    selections.set(threadId, { awsRoleIds: [] })
+    // Both read the thread's empty selection before either writes.
+    await Promise.all(
+      ['role-1', 'role-2'].map((id) =>
+        updateThread(actor, threadId, { grant: [{ provider: 'aws', id }] }),
+      ),
+    )
+    expect(selections.get(threadId)?.awsRoleIds).toEqual(['role-1', 'role-2'])
   })
 
   test("only a thread this conversation created gets a grant, never another owner's", async () => {
