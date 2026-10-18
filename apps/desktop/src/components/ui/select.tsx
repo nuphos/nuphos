@@ -2,7 +2,7 @@ import { Select as SelectPrimitive } from '@base-ui/react/select'
 import clsx from 'clsx'
 import { Check, ChevronDown } from 'lucide-react'
 
-import { fieldClass } from './input-group'
+import { capCenterClass, fieldClass } from './input-group'
 
 import type { ReactNode } from 'react'
 
@@ -81,7 +81,10 @@ export function AppSelect({
             triggerClassName,
           )}
         >
-          <SelectPrimitive.Value placeholder={placeholder}>
+          <SelectPrimitive.Value
+            placeholder={placeholder}
+            className={clsx('min-w-0 flex-1', capCenterClass)}
+          >
             {() => (
               <span className={clsx('min-w-0 flex-1 truncate', !selected && 'text-tertiary')}>
                 {selected?.label ?? placeholder}

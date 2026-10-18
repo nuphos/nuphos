@@ -1,6 +1,8 @@
 import { Button as BaseButton } from '@base-ui/react/button'
 import clsx from 'clsx'
-import { forwardRef } from 'react'
+import { Children, forwardRef } from 'react'
+
+import { capCenterClass } from './input-group'
 
 export type ButtonVariant = 'primary' | 'neutral' | 'secondary' | 'ghost' | 'destructive'
 export type ButtonSize = 'icon-sm' | 'sm' | 'md' | 'lg'
@@ -42,7 +44,7 @@ const variantClasses: Record<ButtonVariant, string> = {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', className, ...props },
+  { variant = 'primary', size = 'md', className, children, ...props },
   ref,
 ) {
   return (
@@ -50,6 +52,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       className={clsx(baseClasses, sizeClasses[size], variantClasses[variant], className)}
       {...props}
-    />
+    >
+      {/* A text label as its own block, so it can be trimmed to cap height and center like a field's. */}
+      {Children.map(children, (child) =>
+        typeof child === 'string' || typeof child === 'number' ? (
+          <span className={capCenterClass}>{child}</span>
+        ) : (
+          child
+        ),
+      )}
+    </BaseButton>
   )
 })
