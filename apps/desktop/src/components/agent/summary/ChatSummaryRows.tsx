@@ -2,9 +2,8 @@ import { clsx } from 'clsx'
 import { ArrowUpRight, ExternalLink, Link2, MoreVertical } from 'lucide-react'
 
 import { copyLinkWithFeedback } from '../../../lib/copyLink'
-import { chatRowIndicator } from '../../../lib/runtimeExecution'
+import { chatRowIndicator, newestRuntimeSnapshot } from '../../../lib/runtimeExecution'
 import { resourceStyle } from '../../sidebar/sessionResourceStyle'
-import { useRuntimeObservation } from '../../sidebar/useRuntimeObservation'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
 import { toast } from '../../ui/toast'
 import { AgentProviderIcon } from '../panel/icons'
@@ -167,7 +166,10 @@ export function ThreadRow({
   runtimeState: RuntimeExecution | undefined
   onOpen: (sessionId: string) => void
 }) {
-  const indicator = chatRowIndicator(useRuntimeObservation(conversation, runtimeState), false)
+  const indicator = chatRowIndicator(
+    newestRuntimeSnapshot(conversation.runtimeState, runtimeState),
+    false,
+  )
   const running = indicator === 'turn' || indicator === 'background'
 
   return (
