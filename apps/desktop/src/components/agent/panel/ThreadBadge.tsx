@@ -79,7 +79,9 @@ export function ThreadBadge({
     <>
       <MessagesSquare aria-hidden strokeWidth={1.75} className="size-3.5 shrink-0 text-tertiary" />
       <span className="shrink-0 text-tertiary">{verb}</span>
-      <span className={clsx('min-w-0 max-w-[44ch] truncate', known && 'font-medium')}>{name}</span>
+      <span className={clsx('min-w-0 max-w-[44ch] truncate leading-5', known && 'font-medium')}>
+        {name}
+      </span>
       {/* The fallback name already says the thread can't be opened. */}
       {(known !== null || status !== 'unavailable') && (
         <StatusLabel status={status} pending={info.pending} />
