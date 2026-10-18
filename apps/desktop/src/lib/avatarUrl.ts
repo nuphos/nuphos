@@ -1,8 +1,23 @@
 const HOSTED_AVATAR_PATH = /^\/avatars\/[0-9a-f]{24}\/[0-9a-f]{64}\.webp$/
 
+let apiOrigin: string | undefined
+
+/** Pins uploaded-photo trust to the backend this app talks to; call when the endpoint changes. */
+export function setAvatarApiOrigin(url: string): void {
+  apiOrigin = new URL(url).origin
+}
+
+function currentApiOrigin(): string | undefined {
+  if (apiOrigin === undefined && typeof window !== 'undefined') {
+    setAvatarApiOrigin(window.api.apiUrlSync())
+  }
+
+  return apiOrigin
+}
+
 /**
- * Self-service avatars: the Google profile-image CDN, or a photo uploaded to a
- * Nuphos backend. The backend accepts only its own origin for the latter.
+ * Self-service avatars: the Google profile-image CDN, or a photo uploaded to
+ * the backend this app is signed in to.
  */
 export function trustedAvatarURL(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length > 2048) return undefined
@@ -22,7 +37,6 @@ export function trustedAvatarURL(value: unknown): string | undefined {
 
 function isUploadedAvatar(url: URL): boolean {
   if (url.search || url.hash || !HOSTED_AVATAR_PATH.test(url.pathname)) return false
-  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
 
-  return url.protocol === 'https:' || (url.protocol === 'http:' && local)
+  return url.origin === currentApiOrigin()
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { setAvatarApiOrigin } from '../lib/avatarUrl'
 
 const DEFAULT_API_URL = 'https://api.nuphos.ai'
 
@@ -35,7 +36,10 @@ export function LoginApiEndpoint({ inputClassName }: Props) {
 
       return
     }
-    setCurrent(await api.appSetApiEndpoint(url))
+    const next = await api.appSetApiEndpoint(url)
+
+    setAvatarApiOrigin(next)
+    setCurrent(next)
     setEditing(false)
   }
 
