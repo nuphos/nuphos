@@ -126,7 +126,7 @@ export function IntegrationCatalog({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[680px] px-7 py-9 selectable">
+      <div className="mx-auto w-full max-w-[760px] px-7 py-9 selectable">
         <header className="mb-8">
           <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">Connectors</h1>
           <p className="mb-5 mt-1.5 text-[13.5px] text-secondary">
@@ -157,7 +157,7 @@ export function IntegrationCatalog({
                 <h2 className="mb-1.5 border-b border-zGray-800/55 pb-2.5 text-[13px] font-medium text-main">
                   {category.title}
                 </h2>
-                <div className="-mx-2 space-y-0.5">
+                <div className="-mx-2 grid grid-cols-1 gap-x-5 gap-y-0.5 sm:grid-cols-2">
                   {category.items.map((item) => {
                     const installed = rows.filter((row) => row.provider === item.key)
 
