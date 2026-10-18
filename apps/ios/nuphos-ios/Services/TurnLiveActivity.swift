@@ -2,9 +2,9 @@
 import ActivityKit
 import Foundation
 
-/// Puts a running turn on the Lock Screen and in the Dynamic Island. The app
-/// only starts it (or returns it to Running); the backend ends it over APNs,
-/// so it finishes correctly while the app is suspended.
+/// Puts a running turn on the Lock Screen and in the Dynamic Island. The
+/// backend moves it on over APNs, so it finishes while the app is suspended;
+/// the app also ends it when it sees the turn end for certain.
 enum TurnLiveActivity {
     static func show(sessionId: String, teamId: String, title: String, agent: String?, runtime: String?,
                      startedAt: Date?, authToken: String) {
@@ -32,6 +32,17 @@ enum TurnLiveActivity {
                                     environment: PushNotifications.environment)
                 )
             }
+        }
+    }
+
+    static func end(sessionId: String, phase: TurnActivityAttributes.Phase) {
+        let ended = ActivityContent(
+            state: TurnActivityAttributes.ContentState(phase: phase, endedAt: Date.now.timeIntervalSince1970),
+            staleDate: nil
+        )
+        for activity in Activity<TurnActivityAttributes>.activities
+        where activity.attributes.sessionId == sessionId && activity.activityState == .active {
+            Task { await activity.end(ended, dismissalPolicy: .after(.now.addingTimeInterval(30 * 60))) }
         }
     }
 }

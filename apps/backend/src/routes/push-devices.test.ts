@@ -5,13 +5,13 @@ import { errorHandler } from '@/lib/errors'
 import { createLiveActivityRoutes, createPushDeviceRoutes } from '@/routes/push-devices'
 
 import type { PushDeviceRegistration, PushDeviceStore } from '@/lib/push/devices'
-import type { LiveActivity } from '@/lib/push/live-activities'
+import type { LiveActivityToken } from '@/lib/push/live-activities'
 import type { AuthVariables } from '@/middleware/auth'
 
 const TOKEN = 'AB'.repeat(32)
 let registered: { userId: string; device: PushDeviceRegistration }[]
 let unregistered: { userId: string; token: string }[]
-let activities: Omit<LiveActivity, 'createdAt'>[]
+let activities: { sessionId: string; token: LiveActivityToken }[]
 
 const store: PushDeviceStore = {
   register: async (userId, device) => {
@@ -34,12 +34,8 @@ app.route('/push', createPushDeviceRoutes(store))
 app.route(
   '/push',
   createLiveActivityRoutes(
-    {
-      register: async (activity) => {
-        activities.push(activity)
-      },
-      listForSession: async () => [],
-      removeToken: async () => {},
+    async (sessionId, token) => {
+      activities.push({ sessionId, token })
     },
     async (userId, teamId, sessionId) =>
       userId === 'user-1' && teamId === 'team-1' && sessionId === 'readable',
@@ -156,10 +152,8 @@ describe('Live Activity registration', () => {
     expect((await putActivity({ sessionId: 'readable' })).status).toBe(200)
     expect(activities).toEqual([
       {
-        token: TOKEN.toLowerCase(),
-        userId: 'user-1',
         sessionId: 'readable',
-        environment: 'production',
+        token: { token: TOKEN.toLowerCase(), userId: 'user-1', environment: 'production' },
       },
     ])
   })

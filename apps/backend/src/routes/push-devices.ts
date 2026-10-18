@@ -5,12 +5,12 @@ import { getReadableConversation } from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { pushDeviceStore } from '@/lib/push/devices'
-import { liveActivityStore } from '@/lib/push/live-activities'
+import { liveActivityDeps, registerLiveActivityToken } from '@/lib/push/live-activities'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 
 import type { PushDeviceStore } from '@/lib/push/devices'
-import type { LiveActivityStore } from '@/lib/push/live-activities'
+import type { LiveActivityToken } from '@/lib/push/live-activities'
 import type { AuthVariables } from '@/middleware/auth'
 
 const apnsToken = z.string().regex(/^[0-9a-f]{64,200}$/i)
@@ -89,7 +89,10 @@ export type CanReadConversation = (
 ) => Promise<boolean>
 
 /** A Live Activity's push token, so the end of the turn reaches the Lock Screen. */
-export function createLiveActivityRoutes(store: LiveActivityStore, canRead: CanReadConversation) {
+export function createLiveActivityRoutes(
+  register: (sessionId: string, token: LiveActivityToken) => Promise<void>,
+  canRead: CanReadConversation,
+) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.put('/live-activities', zv('json', liveActivitySchema), async (c) => {
@@ -98,7 +101,7 @@ export function createLiveActivityRoutes(store: LiveActivityStore, canRead: CanR
 
     if (!(await canRead(userId, teamId, sessionId)))
       throw new AppError(404, 'not_found', 'Conversation not found')
-    await store.register({ token: token.toLowerCase(), userId, sessionId, environment })
+    await register(sessionId, { token: token.toLowerCase(), userId, environment })
 
     return c.json({ ok: true })
   })
@@ -116,4 +119,10 @@ export const pushRoutes = new Hono<{ Variables: AuthVariables }>()
 
 pushRoutes.use('*', requireAuth)
 pushRoutes.route('/', createPushDeviceRoutes(pushDeviceStore))
-pushRoutes.route('/', createLiveActivityRoutes(liveActivityStore, canReadConversation))
+pushRoutes.route(
+  '/',
+  createLiveActivityRoutes(
+    (sessionId, token) => registerLiveActivityToken(liveActivityDeps, sessionId, token),
+    canReadConversation,
+  ),
+)

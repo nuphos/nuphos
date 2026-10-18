@@ -118,6 +118,10 @@ final class ChatSession {
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
         showLiveActivity()
+        if isNativeRuntime, let observation = runtimeObservation, observation.fresh(at: observations.now),
+           let phase = observation.phase, ["idle", "dormant", "cancelled"].contains(phase) {
+            endLiveActivity(phase == "cancelled" ? .stopped : .done)
+        }
         if runtimeObservation?.executing(at: observations.now) == true { awaitingAdmission = false }
         // A message the turn could not take goes out once the agent accepts a new one.
         if isNativeRuntime, !queued.isEmpty, canSubmit, allows("send") {
@@ -136,6 +140,19 @@ final class ChatSession {
             startedAt: turnStartedAt, authToken: token
         )
         #endif
+    }
+    /// Only for a turn that certainly ended; the backend's push covers the rest.
+    private func endLiveActivity(_ phase: TurnActivityAttributes.Phase) {
+        #if os(iOS)
+        TurnLiveActivity.end(sessionId: sessionId, phase: phase)
+        #endif
+    }
+    /// The turn parked on an approval or a question rather than ending.
+    private var awaitsUser: Bool {
+        messages.last?.parts.contains {
+            if case .tool(let t) = $0 { return t.state == .approvalRequested || t.state == .inputAvailable }
+            return false
+        } == true
     }
 
 
@@ -753,10 +770,12 @@ final class ChatSession {
                     finishTurn(error: nil)
                     return
                 case .failed(let message):
+                    if !isNativeRuntime { endLiveActivity(.failed) }
                     finishTurn(error: message)
                     return
                 case .completed(let sawTurnComplete, let paused):
                     if stoppedByUser || paused?.reason == "stopped-by-user" {
+                        if !isNativeRuntime { endLiveActivity(.stopped) }
                         finishTurn(error: nil)
                         return
                     }
@@ -768,9 +787,11 @@ final class ChatSession {
                         continue
                     }
                     if !sawTurnComplete, let paused {
+                        if !isNativeRuntime { endLiveActivity(.failed) }
                         finishTurn(error: describeStall(paused))
                         return
                     }
+                    if !isNativeRuntime, sawTurnComplete, !awaitsUser { endLiveActivity(.done) }
                     finishTurn(error: nil)
                     return
                 }
