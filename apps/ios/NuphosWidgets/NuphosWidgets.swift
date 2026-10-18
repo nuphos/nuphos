@@ -99,7 +99,7 @@ private struct RuntimeLabel: View {
 
     var body: some View {
         if let runtime {
-            Label(runtime, systemImage: "laptopcomputer").lineLimit(1)
+            Label(runtime, systemImage: "laptopcomputer").lineLimit(1).layoutPriority(1)
         }
     }
 }
@@ -115,7 +115,9 @@ private struct Elapsed: View {
             Text(Duration.seconds(seconds).formatted(.time(pattern: seconds < 3600 ? .minuteSecond : .hourMinuteSecond)))
                 .monospacedDigit()
         } else {
-            Text(attributes.startedAt, style: .timer).monospacedDigit().multilineTextAlignment(.trailing)
+            Text(timerInterval: attributes.startedAt...Date.distantFuture, countsDown: false)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
         }
     }
 }
