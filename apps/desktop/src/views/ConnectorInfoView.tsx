@@ -163,7 +163,9 @@ export function ConnectorInfoView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, provider, connectorId, refreshKey, reloadKey])
 
-  useEscapeToExit(onExit)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEscapeToExit(onExit, rootRef)
 
   const providerLabel = CONNECTOR_INFO_LABELS[provider]
   const addAction = installedConnectorAddAction(provider)
@@ -173,7 +175,11 @@ export function ConnectorInfoView({
   }
 
   return (
-    <div className="connector-quiet-focus flex-1 min-h-0 overflow-y-auto scrollbar-thin selectable">
+    <div
+      ref={rootRef}
+      data-connector-detail
+      className="connector-quiet-focus flex-1 min-h-0 overflow-y-auto scrollbar-thin selectable"
+    >
       {onExit && <ConnectorsBackButton onBack={onExit} />}
       {state !== 'ready' && (
         <>
