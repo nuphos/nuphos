@@ -11,10 +11,13 @@ export function DisconnectConnectorDialog({
   target,
   onClose,
   onDisconnected,
+  onFailed,
 }: {
   target: DisconnectTarget
   onClose: () => void
   onDisconnected: (id: string) => void
+  /** A grouped disconnect can fail part-way after unbinding some members, so the caller resyncs. */
+  onFailed?: () => void
 }) {
   return (
     <ConfirmDialog
@@ -31,6 +34,7 @@ export function DisconnectConnectorDialog({
           toast.success(`Disconnected ${target.name}`)
         } catch (error) {
           toast.apiError('Could not disconnect connector', error)
+          onFailed?.()
           throw error
         }
       }}

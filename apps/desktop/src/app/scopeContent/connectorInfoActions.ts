@@ -4,6 +4,7 @@ import { DEFAULT_LINEAR_NAV, LINEAR_PAGE_KEY } from '../../lib/linearNav'
 import { buildCloudConnectorRows } from '../../views/cloud/team-home-rows-cloud'
 import { buildDevConnectorRows } from '../../views/cloud/team-home-rows-dev'
 import { buildSaasConnectorRows } from '../../views/cloud/team-home-rows-saas'
+import { connectorRowFor } from '../../views/connector-info/connectorRowMatch'
 import { DEFAULT_GITLAB_NAV } from '../../views/gitlabNav'
 
 import type { ScopeRenderContext } from './context'
@@ -169,7 +170,7 @@ export function connectorInfoActions(
 function connectorInfoRow(ctx: ScopeRenderContext, connectorId: string) {
   const { accounts, connectorDetail, databaseConnections, scope } = ctx
 
-  if (!accounts || !connectorDetail || scope.kind !== 'team') return undefined
+  if (!accounts || !connectorDetail || scope.kind !== 'team') return
 
   const ignoreOpen = () => {}
   const rows = [
@@ -221,9 +222,8 @@ function connectorInfoRow(ctx: ScopeRenderContext, connectorId: string) {
       onOpenConnectorInfo: ignoreOpen,
     }),
   ]
-  const rowProvider = connectorDetail.provider === 'mongodb' ? 'database' : connectorDetail.provider
 
-  return rows.find((row) => row.key === `${rowProvider}:${connectorId}`)
+  return connectorRowFor(rows, connectorDetail.provider, connectorId)
 }
 
 export function connectorInfoDisconnectAction(

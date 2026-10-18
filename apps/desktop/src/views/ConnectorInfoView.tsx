@@ -253,6 +253,7 @@ export function ConnectorInfoView({
         <DisconnectConnectorDialog
           target={disconnectTarget}
           onClose={() => setDisconnectTarget(null)}
+          onFailed={onBindingsChanged}
           onDisconnected={(id) => {
             const remaining = connections.filter((connection) => connection.id !== id)
 
