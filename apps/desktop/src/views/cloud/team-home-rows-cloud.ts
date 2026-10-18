@@ -166,6 +166,7 @@ export function buildCloudConnectorRows({
       account: cluster.label,
       principal: cluster.contextName,
       status: cluster.hasCredential ? 'Kubernetes' : 'Access credential required',
+      attention: cluster.hasCredential ? undefined : 'Access credential required',
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'onprem-k8s',

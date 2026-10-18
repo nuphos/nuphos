@@ -75,6 +75,8 @@ export type IntegrationPlatformRow = {
   // Optional: rows for read-only providers with no per-connection detail view
   // (Vanta, Secureframe) omit this and open the provider's list instead.
   onAction?: () => void
+  /** Set when the connection is bound but cannot work until someone acts, e.g. "Reconnect required". */
+  attention?: string
   onDelete?: () => Promise<void>
 }
 

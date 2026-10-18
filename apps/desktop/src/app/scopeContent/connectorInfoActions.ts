@@ -165,10 +165,8 @@ export function connectorInfoActions(
   }
 }
 
-export function connectorInfoDisconnectAction(
-  ctx: ScopeRenderContext,
-  connectorId: string,
-): (() => Promise<void>) | undefined {
+/** The connector-list row for one connection of the open detail page. */
+function connectorInfoRow(ctx: ScopeRenderContext, connectorId: string) {
   const { accounts, connectorDetail, databaseConnections, scope } = ctx
 
   if (!accounts || !connectorDetail || scope.kind !== 'team') return undefined
@@ -225,5 +223,20 @@ export function connectorInfoDisconnectAction(
   ]
   const rowProvider = connectorDetail.provider === 'mongodb' ? 'database' : connectorDetail.provider
 
-  return rows.find((row) => row.key === `${rowProvider}:${connectorId}`)?.onDelete
+  return rows.find((row) => row.key === `${rowProvider}:${connectorId}`)
+}
+
+export function connectorInfoDisconnectAction(
+  ctx: ScopeRenderContext,
+  connectorId: string,
+): (() => Promise<void>) | undefined {
+  return connectorInfoRow(ctx, connectorId)?.onDelete
+}
+
+/** What the connection needs before it works again, or undefined when it is healthy. */
+export function connectorInfoAttention(
+  ctx: ScopeRenderContext,
+  connectorId: string,
+): string | undefined {
+  return connectorInfoRow(ctx, connectorId)?.attention
 }

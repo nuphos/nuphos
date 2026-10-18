@@ -120,6 +120,8 @@ export function ConnectorInfoPage({
     inAppActions?: ConnectorInfoAction[]
     details?: ReactNode
     canDisconnect?: boolean
+    /** Replaces "Connected" when the connection needs someone to act. */
+    attention?: string
   }[]
   selectedId: string | null
   onSelect: (id: string | null) => void
@@ -198,8 +200,12 @@ export function ConnectorInfoPage({
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-full border border-zGray-800/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    Connected
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        connection.attention ? 'bg-warning' : 'bg-green-500'
+                      }`}
+                    />
+                    {connection.attention ?? 'Connected'}
                   </div>
                   <ChevronRight
                     className={`h-4 w-4 flex-none text-tertiary transition-transform duration-200 ${

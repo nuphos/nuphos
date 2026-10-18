@@ -144,6 +144,7 @@ export function buildDevConnectorRows({
       account: integration.label,
       principal: integration.userEmail || integration.apiBaseUrl.replace(/^https?:\/\//, ''),
       status: posthogStatusLine(integration),
+      attention: integration.status === 'reconnect_required' ? 'Reconnect required' : undefined,
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'posthog',

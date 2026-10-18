@@ -4,6 +4,7 @@ import { CloudLogo } from '../../components/CloudLogo'
 import { DatabaseEngineGlyph } from '../../components/DatabaseEngineIcon'
 import { LinearMark } from '../../components/LinearMark'
 import { SearchBox } from '../../components/Toolbar'
+import { Tooltip } from '../../components/ui/tooltip'
 import { CATALOG } from '../addIntegrationCatalog'
 
 import { CONNECTOR_HOVER } from './connector-actions'
@@ -33,7 +34,7 @@ function CatalogConnector({
 }: {
   item: CatalogItem
   installed: IntegrationPlatformRow[]
-  connectedSummary: string | null
+  connectedSummary: ConnectedSummary | null
   onAdd: (key: AddIntegrationKey) => void
   onOpen: (rows: IntegrationPlatformRow[]) => void
 }) {
@@ -63,9 +64,18 @@ function CatalogConnector({
           <span className="block truncate text-[13.5px] font-medium text-main">{item.name}</span>
           {connectedSummary ? (
             <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-secondary/80">
-              <span className="h-1.5 w-1.5 flex-none rounded-full bg-success" />
-              <span className="sr-only">Connected: </span>
-              <span className="truncate">{connectedSummary}</span>
+              <Tooltip content={connectedSummary.attention ? 'Needs attention' : 'Connected'}>
+                <span
+                  className={clsx(
+                    'h-1.5 w-1.5 flex-none rounded-full',
+                    connectedSummary.attention ? 'bg-warning' : 'bg-success',
+                  )}
+                />
+              </Tooltip>
+              <span className="sr-only">
+                {connectedSummary.attention ? 'Needs attention: ' : 'Connected: '}
+              </span>
+              <span className="truncate">{connectedSummary.text}</span>
             </span>
           ) : (
             <span className="mt-0.5 block truncate text-[12px] text-secondary/80">
@@ -81,22 +91,37 @@ function CatalogConnector({
   )
 }
 
+type ConnectedSummary = { text: string; attention: boolean }
+
 function summarizeConnection(
   item: CatalogItem,
   installed: IntegrationPlatformRow[],
   githubInstallations: GithubInstallation[],
-): string | null {
+): ConnectedSummary | null {
   if (installed.length === 0) return null
+  const needing = installed.filter((row) => row.attention)
+
+  if (needing.length > 0) {
+    const text =
+      installed.length === 1
+        ? `${installed[0].account} · ${String(needing[0].attention)}`
+        : `${String(needing.length)} of ${String(installed.length)} connections need attention`
+
+    return { text, attention: true }
+  }
   if (item.key === 'github') {
     const github = visibleGithubInstallations(
       githubInstallations,
       installed.map((row) => row.key),
     )
 
-    if (github.length > 0) return githubConnectedSummary(github)
+    if (github.length > 0) return { text: githubConnectedSummary(github), attention: false }
   }
 
-  return installed.length === 1 ? installed[0].account : `${String(installed.length)} connections`
+  return {
+    text: installed.length === 1 ? installed[0].account : `${String(installed.length)} connections`,
+    attention: false,
+  }
 }
 
 export function IntegrationCatalog({

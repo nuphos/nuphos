@@ -3,7 +3,11 @@ import { Cloud } from 'lucide-react'
 import { TeamHomeView } from '../../views/CloudViews'
 import { ConnectorInfoView } from '../../views/ConnectorInfoView'
 
-import { connectorInfoActions, connectorInfoDisconnectAction } from './connectorInfoActions'
+import {
+  connectorInfoActions,
+  connectorInfoAttention,
+  connectorInfoDisconnectAction,
+} from './connectorInfoActions'
 
 import type { ScopeRenderContext } from './context'
 
@@ -46,6 +50,7 @@ export function renderTeamHomePages(ctx: ScopeRenderContext): React.ReactNode | 
         inAppActionsForConnection={(id) => connectorInfoActions(ctx, id)}
         disconnectActionForConnection={(id) => connectorInfoDisconnectAction(ctx, id)}
         onpremCluster={(id) => ctx.accounts?.onprem.find((cluster) => cluster.id === id)}
+        attentionForConnection={(id) => connectorInfoAttention(ctx, id)}
         onExit={() => setConnectorDetail(null)}
         onConnectionsChanged={onAccountsChanged}
         onOpenAgentChat={onOpenAgentChat}

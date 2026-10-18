@@ -19,7 +19,9 @@ function InstalledConnector({
 }) {
   const row = rows[0]
   const name = CONNECTOR_INFO_LABELS[row.provider]
-  const detail = rows.length === 1 ? row.account : `${String(rows.length)} connections`
+  const attention = rows.find((item) => item.attention)?.attention
+  const count = rows.length === 1 ? row.account : `${String(rows.length)} connections`
+  const detail = attention ? `${count} · ${attention}` : count
 
   return (
     <Tooltip
@@ -43,6 +45,9 @@ function InstalledConnector({
         <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-zGray-800/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <IntegrationPlatformIcon provider={row.provider} size={20} />
         </span>
+        {attention && (
+          <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-warning" />
+        )}
         {rows.length > 1 && (
           <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-zGray-200 px-1 text-[9px] font-medium leading-none text-zGray-900 shadow-sm">
             {rows.length}

@@ -86,6 +86,7 @@ export function ConnectorInfoView({
   inAppActionsForConnection,
   disconnectActionForConnection,
   onpremCluster,
+  attentionForConnection,
   onExit,
   onConnectionsChanged,
   onOpenAgentChat,
@@ -106,6 +107,8 @@ export function ConnectorInfoView({
   disconnectActionForConnection: (connectorId: string) => (() => Promise<void>) | undefined
   /** The on-prem cluster behind a connection, for its access-credential editor. */
   onpremCluster?: (connectorId: string) => OnpremCluster | undefined
+  /** What a connection needs before it works again; undefined when healthy. */
+  attentionForConnection?: (connectorId: string) => string | undefined
   /** Returns to the Connectors list; Esc calls it when nothing else claims the key. */
   onExit?: () => void
   onConnectionsChanged: () => void
@@ -163,7 +166,11 @@ export function ConnectorInfoView({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return
-      if (event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable]')) return
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest('input, textarea, [contenteditable]')
+      )
+        return
       onExit()
     }
 
@@ -205,6 +212,7 @@ export function ConnectorInfoView({
               setManageAccess,
             ),
             canDisconnect: Boolean(disconnectActionForConnection(connection.id)),
+            attention: attentionForConnection?.(connection.id),
             details:
               connection.id === selectedId && hasConnectorManagement(provider) ? (
                 <ConnectorManagementSection
