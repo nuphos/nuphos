@@ -46,6 +46,7 @@ export function renderTeamHomePages(ctx: ScopeRenderContext): React.ReactNode | 
         inAppActionsForConnection={(id) => connectorInfoActions(ctx, id)}
         disconnectActionForConnection={(id) => connectorInfoDisconnectAction(ctx, id)}
         onpremCluster={(id) => ctx.accounts?.onprem.find((cluster) => cluster.id === id)}
+        onExit={() => setConnectorDetail(null)}
         onConnectionsChanged={onAccountsChanged}
         onOpenAgentChat={onOpenAgentChat}
         onOpenSettingsSection={onOpenSettingsSection}

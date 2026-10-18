@@ -86,6 +86,7 @@ export function ConnectorInfoView({
   inAppActionsForConnection,
   disconnectActionForConnection,
   onpremCluster,
+  onExit,
   onConnectionsChanged,
   onOpenAgentChat,
   onOpenSettingsSection,
@@ -105,6 +106,8 @@ export function ConnectorInfoView({
   disconnectActionForConnection: (connectorId: string) => (() => Promise<void>) | undefined
   /** The on-prem cluster behind a connection, for its access-credential editor. */
   onpremCluster?: (connectorId: string) => OnpremCluster | undefined
+  /** Returns to the Connectors list; Esc calls it when nothing else claims the key. */
+  onExit?: () => void
   onConnectionsChanged: () => void
   /** Prefill a fresh Agent conversation so the user can review or adjust the task. */
   onOpenAgentChat: (prompt: string, options?: { send?: boolean }) => void
@@ -154,6 +157,20 @@ export function ConnectorInfoView({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, provider, connectorId, refreshKey, reloadKey])
+
+  useEffect(() => {
+    if (!onExit) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return
+      if (event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable]')) return
+      onExit()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onExit])
 
   const providerLabel = CONNECTOR_INFO_LABELS[provider]
   const addAction = installedConnectorAddAction(provider)

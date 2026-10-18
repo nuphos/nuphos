@@ -18,7 +18,7 @@ export function githubConnectedSummary(installations: GithubInstallation[]): str
     return `${installation.accountLogin} (${githubAccountKind(installation)})`
   }
 
-  return `${String(installations.length)} accounts`
+  return `${String(installations.length)} connections`
 }
 
 /**

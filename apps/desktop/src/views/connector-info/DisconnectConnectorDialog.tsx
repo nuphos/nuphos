@@ -28,6 +28,7 @@ export function DisconnectConnectorDialog({
         try {
           await target.action()
           onDisconnected(target.id)
+          toast.success(`Disconnected ${target.name}`)
         } catch (error) {
           toast.apiError('Could not disconnect connector', error)
           throw error

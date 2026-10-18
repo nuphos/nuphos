@@ -23,7 +23,7 @@ function InstalledConnector({
 
   return (
     <Tooltip
-      side="bottom"
+      side="top"
       content={
         <span className="block text-center">
           <span className="block font-medium">{name}</span>
