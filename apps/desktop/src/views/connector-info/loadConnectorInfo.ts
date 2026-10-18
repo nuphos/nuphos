@@ -1,4 +1,8 @@
 import { api } from '../../api'
+import {
+  githubInstallationSettingsUrl,
+  githubRepoAccessLabel,
+} from '../cloud/github-installation-display'
 
 import { cloudLoaders } from './cloudLoaders'
 import { devToolLoaders } from './devToolLoaders'
@@ -92,17 +96,15 @@ const opsLoaders: ConnectorInfoLoaders = {
       fields: [
         { label: 'Account', value: item.accountLogin },
         { label: 'Type', value: item.accountType },
-        {
-          label: 'Repositories',
-          value: item.targetType === 'all' ? 'All repositories' : 'Selected repositories',
-        },
+        { label: 'Repositories', value: githubRepoAccessLabel(item) },
         { label: 'Installation ID', value: String(item.installationId), mono: true },
         ...(item.createdAt
           ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
           : []),
       ],
-      externalUrl: `https://github.com/${item.accountLogin}`,
-      externalLabel: 'Open GitHub',
+      // An organization's installation page is where its repository access changes.
+      externalUrl: githubInstallationSettingsUrl(item) ?? `https://github.com/${item.accountLogin}`,
+      externalLabel: githubInstallationSettingsUrl(item) ? 'Repository access' : 'Open GitHub',
     }
   },
   gitlab: async (teamId, connectorId) => {

@@ -1,60 +1,55 @@
 import clsx from 'clsx'
 
+import { Tooltip } from '../../components/ui/tooltip'
+import { CONNECTOR_INFO_LABELS } from '../../lib/appRoutes'
+
+import { CONNECTOR_HOVER } from './connector-actions'
 import { IntegrationPlatformIcon } from './IntegrationPlatformIcon'
 
 import type { IntegrationPlatformRow } from './team-home-bind'
-import type { MouseEvent } from 'react'
 
-type CursorPoint = { clientX: number; clientY: number }
-type OpenGroup = (rows: IntegrationPlatformRow[], event: CursorPoint) => void
-type OpenContextMenu = (row: IntegrationPlatformRow, event: CursorPoint) => void
+type OpenConnector = (rows: IntegrationPlatformRow[]) => void
 
 function InstalledConnector({
   rows,
-  onOpenGroup,
-  onContextMenu,
+  onOpen,
 }: {
   rows: IntegrationPlatformRow[]
-  onOpenGroup: OpenGroup
-  onContextMenu: OpenContextMenu
+  onOpen: OpenConnector
 }) {
   const row = rows[0]
-  const open = (event: MouseEvent<HTMLButtonElement>) => {
-    if (rows.length === 1) {
-      row.onAction?.()
-
-      return
-    }
-    const rect = event.currentTarget.getBoundingClientRect()
-
-    onOpenGroup(rows, { clientX: rect.left, clientY: rect.bottom })
-  }
+  const name = CONNECTOR_INFO_LABELS[row.provider]
+  const detail = rows.length === 1 ? row.account : `${String(rows.length)} connections`
 
   return (
-    <button
-      type="button"
-      title={
-        rows.length === 1 ? `${row.account} · ${row.status}` : `${String(rows.length)} connections`
-      }
-      aria-label={`${row.provider}, ${String(rows.length)} ${rows.length === 1 ? 'connection' : 'connections'}`}
-      onClick={open}
-      onContextMenu={(event) => {
-        event.preventDefault()
-        if (rows.length === 1) onContextMenu(row, event)
-        else onOpenGroup(rows, event)
-      }}
-      className={clsx(
-        'group relative flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-zGray-800/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.07)] transition-colors',
-        row.onAction ? 'hover:border-zGray-700 hover:bg-zGray-850' : 'cursor-default',
-      )}
-    >
-      <IntegrationPlatformIcon provider={row.provider} size={20} />
-      {rows.length > 1 && (
-        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zGray-200 px-1 text-[9px] font-medium leading-none text-zGray-900 shadow-sm">
-          {rows.length}
+    <Tooltip
+      side="bottom"
+      content={
+        <span className="block text-center">
+          <span className="block font-medium">{name}</span>
+          <span className="block opacity-70">{detail}</span>
         </span>
-      )}
-    </button>
+      }
+    >
+      <button
+        type="button"
+        aria-label={`Open ${name}, ${detail}`}
+        onClick={() => onOpen(rows)}
+        className={clsx(
+          'relative flex h-11 w-11 flex-none items-center justify-center rounded-lg outline-none',
+          CONNECTOR_HOVER,
+        )}
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-zGray-800/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <IntegrationPlatformIcon provider={row.provider} size={20} />
+        </span>
+        {rows.length > 1 && (
+          <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-zGray-200 px-1 text-[9px] font-medium leading-none text-zGray-900 shadow-sm">
+            {rows.length}
+          </span>
+        )}
+      </button>
+    </Tooltip>
   )
 }
 
@@ -62,23 +57,20 @@ export function InstalledList({
   loading,
   rows,
   filter,
-  onOpenGroup,
-  onContextMenu,
+  onOpen,
 }: {
   loading: boolean
   rows: IntegrationPlatformRow[]
   filter: string
-  onOpenGroup: OpenGroup
-  onContextMenu: OpenContextMenu
+  onOpen: OpenConnector
 }) {
   if (loading) {
     return (
       <>
         {Array.from({ length: 7 }, (_, index) => (
-          <div
-            key={index}
-            className="h-10 w-10 animate-pulse rounded-xl border border-zGray-800 bg-zGray-850"
-          />
+          <div key={index} className="flex h-11 w-11 items-center justify-center">
+            <div className="h-9 w-9 animate-pulse rounded-lg border border-zGray-800 bg-zGray-850" />
+          </div>
         ))}
       </>
     )
@@ -96,19 +88,14 @@ export function InstalledList({
     return (
       <>
         {[...groups].map(([provider, group]) => (
-          <InstalledConnector
-            key={provider}
-            rows={group}
-            onOpenGroup={onOpenGroup}
-            onContextMenu={onContextMenu}
-          />
+          <InstalledConnector key={provider} rows={group} onOpen={onOpen} />
         ))}
       </>
     )
   }
 
   return (
-    <p className="text-[12px] text-tertiary">
+    <p className="px-1 text-[12px] text-tertiary">
       {filter.trim()
         ? 'No installed connectors match this search.'
         : 'No connectors installed yet.'}

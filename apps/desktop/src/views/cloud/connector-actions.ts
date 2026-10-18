@@ -18,3 +18,7 @@ export function installedConnectorAddAction(
 
   return { label: 'Add', mode: 'install' }
 }
+
+/** Hover and focus state shared by every clickable connector row and installed icon. */
+export const CONNECTOR_HOVER =
+  'cursor-pointer transition-colors hover:bg-zGray-850 focus-visible:bg-zGray-850 has-[:focus-visible]:bg-zGray-850'

@@ -32,7 +32,6 @@ export function buildCloudConnectorRows({
   uptimeKumaInstances,
   tailscaleClients,
   zeaburProviders,
-  onManageOnpremAccess,
   onOpenConnectorInfo,
 }: {
   teamId: string
@@ -47,7 +46,6 @@ export function buildCloudConnectorRows({
   uptimeKumaInstances: UptimeKumaInstance[]
   tailscaleClients: TailscaleOAuthClient[]
   zeaburProviders: ZeaburProvider[]
-  onManageOnpremAccess: (cluster: OnpremCluster) => void
   onOpenConnectorInfo: OpenConnectorInfo
 }): IntegrationPlatformRow[] {
   const awsAccountRows = Array.from(
@@ -174,7 +172,6 @@ export function buildCloudConnectorRows({
           connectorId: cluster.id,
           name: cluster.label,
         }),
-      onManageAccess: () => onManageOnpremAccess(cluster),
       onDelete: () => api.atlasDeleteOnpremCluster(teamId, cluster.id),
     })),
     ...betterStackIntegrations.map((integration) => ({

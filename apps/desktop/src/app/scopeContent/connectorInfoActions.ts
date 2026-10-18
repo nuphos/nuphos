@@ -188,7 +188,6 @@ export function connectorInfoDisconnectAction(
       uptimeKumaInstances: accounts.uptimeKuma,
       tailscaleClients: accounts.tailscale,
       zeaburProviders: accounts.zeabur,
-      onManageOnpremAccess: ignoreOpen,
       onOpenConnectorInfo: ignoreOpen,
     }),
     ...buildSaasConnectorRows({
