@@ -85,6 +85,21 @@ test('a retry after a partial import skips the stored chunk and sends the rest',
   )
 })
 
+test('a retry of an import that fully landed, response lost, succeeds', async () => {
+  // Every chunk is stored. The first one comes back as a stale skip with the
+  // stored count; the rest rewrite what the server already holds.
+  const { puts, put } = recorder((chunk) =>
+    chunk.baseIndex ? {} : { skipped: 'stale', messageCount: history.length },
+  )
+
+  await importInChunks(history, put)
+  assert.ok(puts.length > 1)
+  assert.deepEqual(
+    puts.flatMap((chunk) => chunk.messages),
+    history,
+  )
+})
+
 test('a retry the server refuses to append to is reported, not taken for success', async () => {
   // An older server skips every chunk of an existing conversation without a count.
   const { put } = recorder(() => ({ skipped: 'server_authoritative' }))

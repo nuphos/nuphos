@@ -166,3 +166,25 @@ test('an import arriving in chunks appends each one until the first turn runs', 
     })
   }
 })
+
+test('a retried import whose last chunk already landed gets the stored count on a non-native runtime', async () => {
+  // The first attempt stored all three messages, then lost the last response.
+  conversation = { sessionId: 'new-session', userId: OWNER, messageCount: 3 } as AgentConversation
+  stored = [
+    { messageId: 'imported-0', role: 'user', parts: [] },
+    { messageId: 'imported-1', role: 'assistant', parts: [] },
+    { messageId: 'imported-2', role: 'user', parts: [] },
+  ]
+  const firstChunk = { messages: [{ id: 'imported-0', role: 'user', parts: [] }], import: true }
+
+  expect(await (await put(firstChunk)).json()).toEqual({
+    ok: true,
+    skipped: 'stale',
+    messageCount: 3,
+  })
+  // A regular sync still gets no count.
+  expect(await (await put({ ...firstChunk, import: undefined })).json()).toEqual({
+    ok: true,
+    skipped: 'stale',
+  })
+})

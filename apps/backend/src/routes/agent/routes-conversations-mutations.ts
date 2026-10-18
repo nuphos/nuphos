@@ -245,9 +245,9 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
   // The sync deletes whatever the body omits, and the prefix is hydrated above,
   // so only the tail can go missing — which means a shorter transcript is
   // always the stale one. A second device that ran a turn this client never saw
-  // must not lose it to this client's older view.
+  // must not lose it to this client's older view. An import gets the count too.
   if (existing && messages.length < existing.messageCount) {
-    return c.json({ ok: true, skipped: 'stale' })
+    return c.json({ ok: true, skipped: 'stale', ...importedCount(body, existing) })
   }
   const title =
     typeof body.title === 'string' && body.title.trim()
