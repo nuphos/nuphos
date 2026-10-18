@@ -4,6 +4,7 @@ import { Component } from 'react'
 import { captureRendererException } from '../lib/analytics'
 
 import { NuphosLogo } from './NuphosLogo'
+import { Button } from './ui/button'
 
 import type { ErrorInfo, ReactNode } from 'react'
 
@@ -143,14 +144,10 @@ function CrashPage({
               <Clipboard className="h-3.5 w-3.5" strokeWidth={1.8} />
               {copied ? 'Copied' : 'Copy details'}
             </button>
-            <button
-              type="button"
-              onClick={onReload}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white hover:bg-zViolet-600"
-            >
+            <Button size="sm" type="button" onClick={onReload}>
               <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.8} />
               Reload
-            </button>
+            </Button>
           </footer>
         </div>
       </section>

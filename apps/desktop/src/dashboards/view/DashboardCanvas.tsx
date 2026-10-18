@@ -1,5 +1,6 @@
 import { Loader2, Plus } from 'lucide-react'
 
+import { Button } from '../../components/ui/button'
 import { InsightsAnomalyBanner, InsightsSection } from '../InsightsSection'
 import { PanelCard } from '../PanelCard'
 
@@ -73,15 +74,15 @@ export function DashboardCanvas({
               >
                 Back to dashboards
               </button>
-              <button
+              <Button
+                size="sm"
                 type="button"
-                className="rounded-md bg-zViolet-500 px-2.5 py-1.5 font-medium text-white hover:bg-zViolet-400"
                 onClick={() => {
                   if (selectedId) void loadDetail(selectedId)
                 }}
               >
                 Retry
-              </button>
+              </Button>
             </div>
           </div>
         ) : loading ? (
@@ -109,13 +110,9 @@ export function DashboardCanvas({
       ) : panels.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
           <div className="text-[14px] text-tertiary">This dashboard is empty.</div>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-md bg-zViolet-500 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-zViolet-400"
-            onClick={openPanelAssistant}
-          >
+          <Button size="sm" type="button" onClick={openPanelAssistant}>
             <Plus className="h-4 w-4" /> Add your first panel
-          </button>
+          </Button>
         </div>
       ) : (
         <>

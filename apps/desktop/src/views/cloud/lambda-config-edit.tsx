@@ -2,6 +2,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 import type { AwsLambdaFunction, AwsLambdaFunctionDetail } from '../../types'
@@ -157,14 +158,9 @@ export function LambdaConfigEditModal({
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" type="button" onClick={() => void save()} disabled={saving}>
           {saving ? 'Saving…' : 'Save changes'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

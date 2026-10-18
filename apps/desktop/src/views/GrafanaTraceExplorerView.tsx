@@ -2,6 +2,7 @@ import { ArrowLeft, Play, Search } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { PageHeader } from '../components/PageHeader'
+import { Button } from '../components/ui/button'
 import { InputGroup, InputGroupInput } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
 import { getTempoTrace, searchTempoTraces } from '../grafana/client'
@@ -186,14 +187,10 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             className="h-8 w-16 bg-field border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
             aria-label="Trace search limit"
           />
-          <button
-            onClick={() => void runSearch()}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 disabled:opacity-50 text-white text-[12.5px]"
-          >
+          <Button size="sm" onClick={() => void runSearch()} disabled={loading}>
             <Play className="w-3.5 h-3.5" strokeWidth={2} />
             Run
-          </button>
+          </Button>
         </div>
       </div>
 

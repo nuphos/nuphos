@@ -6,6 +6,7 @@ import { ContextMenu } from '../components/ContextMenu'
 import { DetailSidebarTransition } from '../components/DetailSidebarTransition'
 import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
+import { Button } from '../components/ui/button'
 import { planNumberFromFilter } from '../lib/planRoute'
 
 import { PlanApprovalPolicyModal } from './plans/PlanApprovalPolicyModal'
@@ -187,14 +188,10 @@ function PlansListView({
           )}
         {configureSlot &&
           createPortal(
-            <button
-              type="button"
-              onClick={openPolicy}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-zViolet-500 px-3 text-[12.5px] text-white transition-colors hover:bg-zViolet-400"
-            >
+            <Button size="sm" type="button" onClick={openPolicy}>
               <Settings2 className="h-3.5 w-3.5" strokeWidth={1.8} />
               Configure
-            </button>,
+            </Button>,
             configureSlot,
           )}
         <div className="flex flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6 py-2">

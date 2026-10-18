@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 export function PagesDomainsSection({
@@ -66,12 +67,9 @@ export function PagesDomainsSection({
             placeholder="www.example.com"
             className="px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-64"
           />
-          <button
-            onClick={() => void addDomain()}
-            className="px-2.5 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12px]"
-          >
+          <Button size="sm" onClick={() => void addDomain()}>
             Add
-          </button>
+          </Button>
         </div>
       )}
       {domains.length === 0 ? (

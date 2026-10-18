@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Plus } from 'lucide-react'
 
+import { Button } from '../../components/ui/button'
+
 import { deploymentEnvContainerKey } from './env-model'
 
 import type { DeploymentEnvContainer } from '../../types'
@@ -101,14 +103,9 @@ export function EnvTabHeader({
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             EnvFrom
           </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={!changed || saving}
-            className="inline-flex h-7 items-center rounded bg-zViolet-500 px-3 text-[12px] font-medium text-white hover:bg-zViolet-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zViolet-500"
-          >
+          <Button size="sm" type="button" onClick={onSave} disabled={!changed || saving}>
             {saving ? 'Saving...' : 'Save'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

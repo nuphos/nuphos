@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 
 import type { DeploymentItem } from '../types'
 import type { FormEvent } from 'react'
@@ -74,13 +75,9 @@ export function ScaleDeploymentDialog({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-8 px-3 rounded-md bg-zViolet-600 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button size="sm" type="submit" disabled={saving}>
             {saving ? 'Scaling...' : 'Scale'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>
@@ -145,13 +142,9 @@ export function BulkScaleDialog({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-8 px-3 rounded-md bg-zViolet-600 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button size="sm" type="submit" disabled={saving}>
             {saving ? 'Scaling...' : 'Scale'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>
