@@ -8,9 +8,14 @@ export function openedConversationCacheKey(sessionId: string): string {
 }
 
 // Panels beside the transcript read this instead of the sidebar lists, which
-// leave out archived chats.
-export function rememberOpenedConversation(detail: AgentConversationDetail): void {
-  const { messages: _messages, ...conversation } = detail
+// leave out archived chats. The stored credential selection can predate newer
+// credential kinds, so it is kept as the transcript reconciled it.
+export function rememberOpenedConversation(
+  detail: AgentConversationDetail,
+  credentialAccess: AgentConversation['credentialAccess'],
+): void {
+  const { messages: _messages, ...rest } = detail
+  const conversation = { ...rest, credentialAccess }
 
   writeSwrCache(
     openedConversationCacheKey(detail.sessionId),

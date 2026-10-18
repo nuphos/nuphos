@@ -109,7 +109,6 @@ export async function runOpenConversation(
 
       return
     }
-    rememberOpenedConversation(detail)
     const historyBaseIndex = detail.messagesFirstIndex ?? 0
     const messages = fromPersistedMessages(detail.messages)
     const activeRun = detail.activeRun ?? null
@@ -133,6 +132,8 @@ export async function runOpenConversation(
       detail.credentialAccess,
       credentialOptions,
     )
+
+    rememberOpenedConversation(detail, credentialAccess)
     const activeStartedAt = activeRun?.startedAt ? Date.parse(activeRun.startedAt) : NaN
     const streamStartedAt = Number.isFinite(activeStartedAt) ? activeStartedAt : Date.now()
     const tab: Tab = {
