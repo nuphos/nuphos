@@ -14,7 +14,7 @@ import {
   isGithubAppConfigured,
   listInstallationRepositories,
 } from '@/lib/byos/github'
-import { personalCredentialSender } from '@/lib/claude-code-preview/mcp-token'
+import { personalCredentialSubject } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
 import { getNuphosUserById } from '@/lib/identity'
 import { parseObjectId } from '@/lib/objectid'
@@ -219,12 +219,17 @@ installationScoped.get('/token', requireTeamRole('ADMINISTRATOR', 'EDITOR'), asy
   const installationId = c.get('githubInstallationId')
 
   try {
-    // The turn's sender acts as themselves when they connected a Personal
-    // Credential. A repository-scoped conversation keeps its narrower App token.
+    // The turn acts as its member (the sender, or the session owner for
+    // automated work) when they connected a Personal Credential, unless the
+    // agent asks for the team identity. A repository-scoped conversation keeps
+    // its narrower App token.
     const repositoryId = c.get('githubRepositoryId')
-    const sender = personalCredentialSender(c.req.header('Authorization'))
+    const subject = personalCredentialSubject(
+      c.req.header('Authorization'),
+      c.req.query('identity'),
+    )
     const personal =
-      sender && !repositoryId ? await personalGithubToken(sender, installationId) : null
+      subject && !repositoryId ? await personalGithubToken(subject, installationId) : null
     const { token, expiresAt } =
       personal ?? (await getInstallationToken(installationId, repositoryId))
 

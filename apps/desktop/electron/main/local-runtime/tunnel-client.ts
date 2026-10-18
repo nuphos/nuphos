@@ -9,7 +9,7 @@ import type { DeviceMetrics } from '../../../src/api/device-types.ts'
 export type TunnelPurpose = 'transport' | 'control'
 /** What a backend stream may ask this computer for: an agent, one of its local tools, or its agent inventory. */
 export type StreamPurpose =
-  TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc' | 'instances'
+  TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua' | 'browser' | 'vnc' | 'instances'
 
 export type SocketEvent = { data?: unknown; code?: number }
 
@@ -31,11 +31,12 @@ export type TunnelClientDeps = {
     instanceId?: string,
   ) => SocketLike | null
   instances?: (request: unknown) => Promise<unknown>
-  connectFile?: () => SocketLike | null
+  connectFile?: (instanceId?: string) => SocketLike | null
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
+  connectBrowser?: () => SocketLike
   connectVnc?: () => SocketLike
   activity?: {
     open(id: string, purpose: string): void
@@ -119,6 +120,7 @@ export class RuntimeTunnelClient {
         localExec: Boolean(this.deps.connectExec),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
+        localBrowser: Boolean(this.deps.connectBrowser),
       },
     })
   }
@@ -252,18 +254,20 @@ export class RuntimeTunnelClient {
 
       return
     }
-    const { connectTerminal, connectFile, connectExec, connectCua, connectVnc } = this.deps
+    const { connectTerminal, connectFile, connectExec, connectCua, connectBrowser, connectVnc } =
+      this.deps
     const local = {
       terminal: connectTerminal,
       file: connectFile,
       exec: connectExec,
       cua: connectCua,
+      browser: connectBrowser,
       vnc: connectVnc,
     }
     const runtime =
       purpose === 'transport' || purpose === 'control'
         ? this.deps.connectRuntime(purpose, provider, instanceId)
-        : local[purpose]?.()
+        : local[purpose]?.(instanceId)
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

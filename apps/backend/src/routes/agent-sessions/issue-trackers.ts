@@ -36,6 +36,7 @@ linearScoped.get('/credentials', async (c) => {
     teamId,
     binding,
     c.req.header('Authorization'),
+    c.req.query('identity'),
   )
 
   c.header('X-Atlas-Agent', agentSubjectId(agent))

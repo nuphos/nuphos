@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { boxMetricsSchema } from '../metrics-schema'
 
 export type TunnelPurpose =
-  'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc' | 'instances'
+  'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'browser' | 'vnc' | 'instances'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
 
@@ -113,6 +113,8 @@ export const localRuntimeStatusSchema = z.object({
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
+  /** This computer's Desktop drives its workspace browser tabs for `local_browser`. */
+  localBrowser: z.boolean().optional(),
   /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */

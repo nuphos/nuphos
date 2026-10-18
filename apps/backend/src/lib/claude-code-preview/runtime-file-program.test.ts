@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -73,5 +74,63 @@ test('directory browsing stays inside the workspace and omits symlinks', async (
   } finally {
     await rm(root, { recursive: true, force: true })
     await rm(outside, { recursive: true, force: true })
+  }
+})
+
+test("the conversation owner's session home is readable, except its dot-entries", async () => {
+  const root = await mkdtemp(join(tmpdir(), 'runtime-home-'))
+  const workspace = join(root, 'workspace')
+  const homes = join(root, '.nuphos', 'session-homes')
+  const home = join(homes, createHash('sha256').update('s1').digest('hex'))
+  const other = join(homes, createHash('sha256').update('s2').digest('hex'))
+
+  try {
+    await mkdir(workspace)
+    await mkdir(join(home, 'recordings'), { recursive: true })
+    await mkdir(join(home, '.aws'))
+    await mkdir(other)
+    await writeFile(join(home, 'recordings', 'box1.mp4'), 'video')
+    await writeFile(join(home, '.aws', 'credentials'), 'secret')
+    await writeFile(join(home, '.gitconfig'), 'secret')
+    await writeFile(join(other, 'file.txt'), 'theirs')
+    const run = (params: Record<string, unknown>) =>
+      JSON.parse(
+        // eslint-disable-next-line sonarjs/no-os-command-from-path -- Uses the installed Node interpreter without a shell.
+        execFileSync('node', ['--input-type=module', '-e', RUNTIME_FILE_PROGRAM], {
+          input: JSON.stringify({ workspace, sessionId: 's1', ...params }),
+          env: { PATH: process.env.PATH, HOME: root },
+          encoding: 'utf8',
+          timeout: 5000,
+        }),
+      )
+
+    expect(run({ path: join(home, 'recordings', 'box1.mp4') })).toEqual({
+      name: 'box1.mp4',
+      size: 5,
+      data: Buffer.from('video').toString('base64'),
+    })
+    expect(run({ path: home, action: 'list' })).toEqual({
+      entries: [{ name: 'recordings', kind: 'directory' }],
+      truncated: false,
+    })
+    expect(run({ path: join(home, '.aws', 'credentials') })).toEqual({ error: 'forbidden_path' })
+    expect(run({ path: join(home, '.gitconfig') })).toEqual({ error: 'forbidden_path' })
+    expect(run({ path: join(other, 'file.txt') })).toEqual({ error: 'forbidden_path' })
+    expect(run({ path: join(home, 'recordings', 'box1.mp4'), sessionId: undefined })).toEqual({
+      error: 'forbidden_path',
+    })
+    // A non-dot link to a dot-entry is refused by where it resolves.
+    await symlink(join(home, '.aws', 'credentials'), join(home, 'creds'))
+    expect(run({ path: join(home, 'creds') })).toEqual({ error: 'forbidden_path' })
+    // A home that is itself a link is not followed.
+    const outside = join(root, 'outside')
+
+    await mkdir(outside)
+    await writeFile(join(outside, 'secret'), 'private')
+    await rm(home, { recursive: true })
+    await symlink(outside, home)
+    expect(run({ path: join(home, 'secret') })).toEqual({ error: 'forbidden_path' })
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

@@ -59,6 +59,8 @@ function setup(t: { after: (fn: () => void) => void }, options: { slowStart?: bo
         },
         state: () =>
           ({
+            // As runtimeStateOf derives it, under the instance's own data dir.
+            workspace: path.join(childDeps.dataDir(), 'users', 'alice', 'workspace'),
             agents: {
               [provider]: {
                 cli: { installed: true, loggedIn: fake.loggedIn, path: '/mock' },
@@ -231,4 +233,17 @@ test('a sign-in restarts only agents of its provider, so other turns keep runnin
   // A bundle update names no provider and restarts every agent.
   await instances.refresh(true)
   assert.deepEqual(fakeOf(codexAgent.instanceId).restarts, [false, true])
+})
+
+test("an instance's state carries its own workspace, never the default agent's", async (t) => {
+  const { instances, dirOf } = setup(t)
+
+  await instances.load('alice')
+  const agent = claude()
+
+  await instances.request({ method: 'create', ...agent }, 'alice')
+  assert.equal(
+    instances.states(false)[0]?.workspace,
+    path.join(dirOf(agent.instanceId), 'users', 'alice', 'workspace'),
+  )
 })

@@ -152,6 +152,7 @@ bindingScoped.get('/credentials', requireLinearMemberAccess(), async (c) => {
     teamId,
     binding,
     c.req.header('Authorization'),
+    c.req.query('identity'),
   )
 
   if (expiresAt) c.header('X-Credentials-Expires-At', expiresAt.toISOString())

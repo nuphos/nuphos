@@ -6,6 +6,8 @@ import { test } from 'node:test'
 
 import { LocalFileStream } from './file-stream.ts'
 
+import type { LocalRuntimeState } from './controller-types.ts'
+
 async function fixture(run: (root: string) => Promise<void>) {
   const root = await mkdtemp(join(tmpdir(), 'runtime-preview-'))
 
@@ -18,8 +20,10 @@ async function fixture(run: (root: string) => Promise<void>) {
 }
 
 async function read(root: string, path: string, workspace?: string, action?: 'list') {
-  const stream = new LocalFileStream(root)
+  return await send(new LocalFileStream(root), path, workspace, action)
+}
 
+async function send(stream: LocalFileStream, path: string, workspace?: string, action?: 'list') {
   return await new Promise<Record<string, unknown>>((resolve, reject) => {
     stream.addEventListener('open', () => stream.send(JSON.stringify({ path, workspace, action })))
     stream.addEventListener('message', ({ data }) => resolve(JSON.parse(String(data))))
@@ -86,4 +90,21 @@ test('a launcher workspace without conversation subdirectories can list and prev
     ])
     assert.equal((await read(root, '/workspace/report.txt')).data, 'aGVsbG8=')
     assert.equal((await read(root, '../other-user/secret')).error, 'forbidden_path')
+  }))
+
+test("an agent instance's files are read from its own workspace, an unknown instance from none", () =>
+  fixture(async (root) => {
+    const instance = join(root, 'instances/i-1/users/u/workspace')
+
+    await mkdir(instance, { recursive: true })
+    await writeFile(join(instance, 'box-check.md'), 'ok')
+    const state = {
+      workspace: join(root, 'conv-session'),
+      instances: [{ instanceId: 'i-1', workspace: instance }],
+    } as unknown as LocalRuntimeState
+
+    assert.equal((await send(LocalFileStream.open(state, 'i-1')!, 'box-check.md')).size, 2)
+    // The default agent's root holds no such file: the instance is not read from it.
+    assert.equal((await send(LocalFileStream.open(state)!, 'box-check.md')).error, 'file_not_found')
+    assert.equal(LocalFileStream.open(state, 'i-2'), null)
   }))

@@ -59,6 +59,8 @@ have exactly one) and run its `setupCommand` verbatim:
 bash skills/github/scripts/setup-credentials.sh <teamId> <installationId>
 ```
 
+Identity: when the turn's member connected a Personal Credential, `gh` acts as their own GitHub account. That member is the sender of a member's message, or the session owner for automated turns (triggers, agent threads, resource events). Otherwise it acts as the team's GitHub App (`nuphos[bot]`). Add `--team` to use the App identity on purpose, for example for bot-owned automation. The JSON response's `actor.kind` (`personal` or `team`) says which one you got.
+
 `gh` is pre-installed in the runtime; the script retains a fallback for outdated images.
 
 After `setup-credentials.sh` runs, `gh` is logged in (auth lives in the session’s `$GH_CONFIG_DIR/hosts.yml`, with mode restricted to the current OS user and without using the shared system keychain, so every later `bash` tool call picks it up — no env-var dance). The token is good for ~1 hour; if any call returns 401, just re-run the setup script. For raw curl, get the current token with `gh auth token`.

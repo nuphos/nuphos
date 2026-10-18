@@ -132,13 +132,20 @@ export function verifyPreviewMcpToken(token: string): PreviewMcpClaims | null {
 }
 
 /**
- * The member whose Personal Credentials a request may use: the sender of the
- * turn behind a conversation token. Null for user sessions, automated turns
- * (triggers, agent threads, resource events) and every other token.
+ * The member whose Personal Credentials a conversation-token request uses: the
+ * sender of a member's own turn, and the session owner for automated turns
+ * (triggers, agent threads, resource events). Null for every other token, or
+ * when the agent asks for the team identity (`identity=team`).
  */
-export function personalCredentialSender(authorization: string | undefined): string | null {
+export function personalCredentialSubject(
+  authorization: string | undefined,
+  identity?: string,
+): string | null {
+  if (identity === 'team') return null
   const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : ''
   const claims = token ? verifyPreviewMcpToken(token) : null
 
-  return claims?.hum ? claims.sub : null
+  if (!claims) return null
+
+  return claims.hum ? claims.sub : claims.own
 }

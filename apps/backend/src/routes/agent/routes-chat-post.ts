@@ -12,6 +12,7 @@ import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { admitPreviewTurn } from './chat-preview-steering'
+import { queueForOfflineBox } from './session-queue-offline'
 import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import {
@@ -100,6 +101,11 @@ agent.post('/chat', async (c) => {
     streamId,
     body,
     readOnlyResume,
+    conversation: conversationForResume,
+    clientView,
+    slackBound: Boolean(slackThread),
+    credentialAccess: requestedCredentialAccess?.access,
+    context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
   }
 
   if (existingRun) {
@@ -112,7 +118,9 @@ agent.post('/chat', async (c) => {
     userId,
     ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
     ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-  })
+  }).catch((error: unknown) => queueForOfflineBox(error, resumeParams))
+
+  if (!chatRuntime) return c.json({ status: 'queued', streamId }, 202)
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
   let releaseAgentRunClaim: (() => void) | null = null
@@ -139,15 +147,7 @@ agent.post('/chat', async (c) => {
 
       return attached ?? (await resumeFromRedisOrThrow(resumeParams))
     }
-    const queue = await admitQueueableChat({
-      ...resumeParams,
-      conversation: conversationForResume,
-      clientView,
-      snapshot: runtimeSnapshot,
-      slackBound: Boolean(slackThread),
-      credentialAccess: requestedCredentialAccess?.access,
-      context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
-    })
+    const queue = await admitQueueableChat({ ...resumeParams, snapshot: runtimeSnapshot })
 
     if (queue?.mode === 'queued') return c.json({ status: 'queued', streamId }, 202)
     if (queue) [releaseAgentRunClaim, queuedItem] = [queue.release, queue.item]
