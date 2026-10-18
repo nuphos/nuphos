@@ -19,6 +19,13 @@ export function installedConnectorAddAction(
   return { label: 'Add', mode: 'install' }
 }
 
-/** Hover and focus state shared by every clickable connector row and installed icon. */
-export const CONNECTOR_HOVER =
-  'cursor-pointer transition-colors hover:bg-zGray-850 focus-visible:bg-zGray-850 has-[:focus-visible]:bg-zGray-850'
+/**
+ * Hover, pressed and keyboard-focus state shared by every clickable connector row and installed
+ * icon. Focus reuses the hover fill plus a neutral outline around the whole target instead of the
+ * app's violet inset ring; zGray-500 is the theme pivot, so it keeps contrast in light and dark.
+ */
+export const CONNECTOR_HOVER = [
+  'cursor-pointer transition-colors hover:bg-zGray-850 active:bg-zGray-800',
+  'focus-visible:bg-zGray-850 focus-visible:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-zGray-500',
+  'has-[:focus-visible]:bg-zGray-850 has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-zGray-500',
+].join(' ')

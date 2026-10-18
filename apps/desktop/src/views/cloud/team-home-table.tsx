@@ -54,7 +54,7 @@ function CatalogConnector({
       <button
         type="button"
         aria-label={`${connected ? 'Open' : 'Add'} ${item.name}`}
-        className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none"
+        className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:shadow-none"
       >
         <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-zGray-800/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <CatalogLogo provider={item.key} />
@@ -141,14 +141,17 @@ export function IntegrationCatalog({
             />
           </div>
         </header>
-        <section>
-          <h2 className="border-b border-zGray-800/55 pb-2.5 text-[13px] font-medium text-main">
-            Installed
-          </h2>
-          <div className="flex min-h-[76px] flex-wrap items-center gap-2 py-4">
-            <InstalledList loading={loading} rows={visibleRows} filter={filter} onOpen={onOpen} />
-          </div>
-        </section>
+        {/* A search with no installed match skips this section, so only one empty message shows. */}
+        {(loading || visibleRows.length > 0 || terms.length === 0) && (
+          <section>
+            <h2 className="border-b border-zGray-800/55 pb-2.5 text-[13px] font-medium text-main">
+              Installed
+            </h2>
+            <div className="flex min-h-[76px] flex-wrap items-center gap-2 py-4">
+              <InstalledList loading={loading} rows={visibleRows} filter={filter} onOpen={onOpen} />
+            </div>
+          </section>
+        )}
 
         {visibleCategories.length > 0 ? (
           <div className="space-y-8 pt-4">
