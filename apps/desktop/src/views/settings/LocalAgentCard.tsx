@@ -40,7 +40,7 @@ function statusLine(agent: LocalAgentState): { label: string; tone: RuntimeStatu
 
 function Code({ children }: { children: string }) {
   return (
-    <code className="select-all rounded bg-field px-1.5 py-0.5 font-mono text-[11.5px] text-main">
+    <code className="select-all rounded bg-surface px-1.5 py-0.5 font-mono text-[11.5px] text-main">
       {children}
     </code>
   )

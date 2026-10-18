@@ -66,7 +66,7 @@ export function LogViewControls({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="Find logs…"
-          className="w-44 pl-7 pr-2 py-1 rounded text-[12px] bg-field border border-zGray-800 text-secondary placeholder:text-tertiary focus:outline-none focus:border-zViolet-500/50"
+          className="w-44 pl-7 pr-2 py-1 rounded text-[12px] bg-surface border border-zGray-800 text-secondary placeholder:text-tertiary focus:outline-none focus:border-zViolet-500/50"
         />
       </div>
       <div className="flex items-center gap-1">

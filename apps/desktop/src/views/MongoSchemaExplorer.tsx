@@ -207,7 +207,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
             {!selectedCollection && (
               <InputGroup
                 render={<label />}
-                className="flex w-56 items-center gap-1.5 rounded-md border border-zGray-800 bg-field px-2 py-1 text-tertiary"
+                className="flex w-56 items-center gap-1.5 rounded-md border border-zGray-800 bg-surface px-2 py-1 text-tertiary"
               >
                 <Search className="h-3.5 w-3.5" />
                 <InputGroupInput

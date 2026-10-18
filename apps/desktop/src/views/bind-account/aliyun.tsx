@@ -165,7 +165,7 @@ export function AliyunBindWizard({
                     value={label}
                     onChange={(e) => onLabelChange(e.target.value)}
                     placeholder="Acme Alibaba Cloud"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field label="Role ARN" hint="The ARN of the RAM role you created in step 2.">
@@ -174,7 +174,7 @@ export function AliyunBindWizard({
                     value={roleArn}
                     onChange={(e) => onRoleArnChange(e.target.value)}
                     placeholder="acs:ram::123456789012345:role/NuphosConnector"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field
@@ -186,7 +186,7 @@ export function AliyunBindWizard({
                     value={oidcProviderArn}
                     onChange={(e) => onOidcProviderArnChange(e.target.value)}
                     placeholder="acs:ram::123456789012345:oidc-provider/nuphos"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
               </div>

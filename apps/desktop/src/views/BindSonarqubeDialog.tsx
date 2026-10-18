@@ -57,7 +57,7 @@ export function BindSonarqubeDialog({ teamId, onClose, onBound }: Props) {
             onChange={(event) => setLabel(event.target.value)}
             placeholder="security"
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
           />
         </Field>
         <Field label="SonarQube URL" hint="The public base URL of your SonarQube instance">
@@ -65,7 +65,7 @@ export function BindSonarqubeDialog({ teamId, onClose, onBound }: Props) {
             value={baseUrl}
             onChange={(event) => setBaseUrl(event.target.value)}
             placeholder="https://sonarqube.example.com"
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </Field>
         <Field
@@ -78,7 +78,7 @@ export function BindSonarqubeDialog({ teamId, onClose, onBound }: Props) {
             placeholder="squ_..."
             type="password"
             autoComplete="off"
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </Field>
       </div>

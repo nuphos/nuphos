@@ -199,7 +199,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Engineering"
-                className="w-full h-10 rounded-md border border-zGray-800 bg-field px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary"
+                className="w-full h-10 rounded-md border border-zGray-800 bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary"
               />
             </label>
             {/* Enabled fill per design: soft off-white in dark mode (zGray-100

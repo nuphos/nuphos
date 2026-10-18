@@ -197,7 +197,7 @@ export function TencentBindWizard({
                     value={label}
                     onChange={(e) => onLabelChange(e.target.value)}
                     placeholder="Acme Tencent"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field label="Role ARN" hint="The ARN of the CAM role you created in step 2.">
@@ -206,7 +206,7 @@ export function TencentBindWizard({
                     value={roleArn}
                     onChange={(e) => onRoleArnChange(e.target.value)}
                     placeholder="qcs::cam::uin/123456789:roleName/Nuphos"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field
@@ -218,7 +218,7 @@ export function TencentBindWizard({
                     value={providerId}
                     onChange={(e) => onProviderIdChange(e.target.value)}
                     placeholder="nuphos"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
               </div>

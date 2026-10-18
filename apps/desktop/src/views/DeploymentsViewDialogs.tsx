@@ -63,7 +63,7 @@ export function ScaleDeploymentDialog({
             step={1}
             value={replicas}
             onChange={(event) => setReplicas(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-field px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
           />
         </label>
         {error && <div className="text-[12.5px] text-error">{error}</div>}
@@ -130,7 +130,7 @@ export function BulkScaleDialog({
             step={1}
             value={replicas}
             onChange={(event) => setReplicas(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-field px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
           />
         </label>
         {error && <div className="text-[12.5px] text-error">{error}</div>}

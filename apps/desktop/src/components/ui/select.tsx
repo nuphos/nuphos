@@ -28,15 +28,8 @@ type AppSelectProps = {
   contentClassName?: string
   itemClassName?: string
   onOpenChange?: (open: boolean) => void
-  /** `field` in forms, like a text input; `toolbar` beside buttons, like a small secondary Button. */
-  variant?: 'field' | 'toolbar'
-}
-
-const triggerVariantClasses = {
-  // A text input shows focus with its border only; drop the inset ring buttons get.
-  field: `${fieldClass} focus-visible:shadow-none`,
-  toolbar:
-    'h-8 rounded-md border border-main bg-surface px-2.5 text-[13px] font-medium text-main outline-none hover:bg-zGray-800 focus-visible:ring-2 focus-visible:ring-zViolet-accent',
+  /** `md` (36px) in forms, like a text input; `sm` (32px) beside small Buttons. */
+  size?: 'md' | 'sm'
 }
 
 function popupOrigin(
@@ -64,7 +57,7 @@ export function AppSelect({
   contentClassName,
   itemClassName,
   onOpenChange,
-  variant = 'field',
+  size = 'md',
 }: AppSelectProps) {
   const selected = options.find((option) => option.value === value)
 
@@ -81,8 +74,10 @@ export function AppSelect({
           autoFocus={autoFocus}
           aria-label={ariaLabel}
           className={clsx(
-            'inline-flex w-full min-w-0 items-center justify-between gap-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-            triggerVariantClasses[variant],
+            // A text input shows focus with its border only; drop the inset ring buttons get.
+            'inline-flex min-w-0 items-center justify-between gap-2 text-left transition-colors focus-visible:shadow-none disabled:cursor-not-allowed disabled:opacity-50',
+            fieldClass,
+            size === 'sm' ? 'h-8' : 'h-9',
             triggerClassName,
           )}
         >

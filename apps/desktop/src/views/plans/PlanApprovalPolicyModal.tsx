@@ -90,7 +90,7 @@ export function PlanApprovalPolicyModal({
                   onQuorumChange(Math.max(2, Math.min(20, Number(event.target.value) || 2)))
                 }
                 onClick={(event) => event.stopPropagation()}
-                className="w-16 rounded-md border border-zGray-700 bg-field px-2 py-1 text-[12px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-16 rounded-md border border-zGray-700 bg-surface px-2 py-1 text-[12px] text-main outline-none focus:border-zViolet-accent/60"
                 aria-label="Required other team approvals"
               />
             )}

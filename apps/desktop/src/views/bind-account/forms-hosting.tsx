@@ -13,7 +13,7 @@ export function LinodeForm({ st }: { st: BindState }) {
           value={linodeLabel}
           onChange={(e) => setLinodeLabel(e.target.value)}
           placeholder="My Linode Account"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -25,7 +25,7 @@ export function LinodeForm({ st }: { st: BindState }) {
           value={linodeToken}
           onChange={(e) => setLinodeToken(e.target.value)}
           placeholder="Linode personal access token"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>
@@ -43,7 +43,7 @@ export function HetznerForm({ st }: { st: BindState }) {
           value={hetznerLabel}
           onChange={(e) => setHetznerLabel(e.target.value)}
           placeholder="My Hetzner Project"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -55,7 +55,7 @@ export function HetznerForm({ st }: { st: BindState }) {
           value={hetznerToken}
           onChange={(e) => setHetznerToken(e.target.value)}
           placeholder="Hetzner Cloud API token"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>
@@ -80,7 +80,7 @@ export function BetterStackForm({ st }: { st: BindState }) {
           value={betterStackLabel}
           onChange={(e) => setBetterStackLabel(e.target.value)}
           placeholder="Production Better Stack"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -92,7 +92,7 @@ export function BetterStackForm({ st }: { st: BindState }) {
           value={betterStackUptimeApiToken}
           onChange={(e) => setBetterStackUptimeApiToken(e.target.value)}
           placeholder="Better Stack Uptime API token"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -104,7 +104,7 @@ export function BetterStackForm({ st }: { st: BindState }) {
           value={betterStackTelemetryApiToken}
           onChange={(e) => setBetterStackTelemetryApiToken(e.target.value)}
           placeholder="Better Stack Telemetry API token"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>
@@ -133,7 +133,7 @@ export function UptimeKumaForm({ st }: { st: BindState }) {
           value={uptimeKumaLabel}
           onChange={(e) => setUptimeKumaLabel(e.target.value)}
           placeholder="Production Uptime Kuma"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field label="Base URL" hint="The public URL of your Uptime Kuma dashboard.">
@@ -142,7 +142,7 @@ export function UptimeKumaForm({ st }: { st: BindState }) {
           value={uptimeKumaBaseUrl}
           onChange={(e) => setUptimeKumaBaseUrl(e.target.value)}
           placeholder="https://status.example.com"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -154,7 +154,7 @@ export function UptimeKumaForm({ st }: { st: BindState }) {
           value={uptimeKumaAuthToken}
           onChange={(e) => setUptimeKumaAuthToken(e.target.value)}
           placeholder="Uptime Kuma auth token"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field label="Username">
@@ -163,7 +163,7 @@ export function UptimeKumaForm({ st }: { st: BindState }) {
           value={uptimeKumaUsername}
           onChange={(e) => setUptimeKumaUsername(e.target.value)}
           placeholder="admin"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field label="Password">
@@ -172,7 +172,7 @@ export function UptimeKumaForm({ st }: { st: BindState }) {
           value={uptimeKumaPassword}
           onChange={(e) => setUptimeKumaPassword(e.target.value)}
           placeholder="Uptime Kuma password"
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>

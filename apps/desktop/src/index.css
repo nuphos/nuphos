@@ -103,11 +103,8 @@
     --color-text-tertiary: var(--color-zGray-400);
     --color-border: var(--color-zGray-800);
     /* Content surface (bg-main) — night mode #1C1D1F, just above the sidebar
-       canvas (--color-appBg #191A1C); input fields (bg-field) sit raised above. */
+       canvas (--color-appBg #191A1C). */
     --color-background-base: 28, 29, 31;
-    /* Input/search field fill (bg-field) — night mode #36373C, a shade above
-       the content surface (#2E2F33) so fields read as raised. */
-    --color-input-surface: 54, 55, 60;
     --color-background-surface: var(--color-zGray-900);
     --color-background-elevated: var(--color-zGray-850);
     /* App canvas background / sidebar — night mode #0E0F11, deeper than the
@@ -252,9 +249,6 @@
     --color-background-base: 252, 252, 253;
     --color-background-surface: 255, 255, 255;
     --color-background-elevated: 255, 255, 255;
-    /* Input/search field fill (bg-field) — light mode #F0F0F2, a subtle recess
-       below the near-white content surface. */
-    --color-input-surface: 240, 240, 242;
     /* App canvas background — light mode #F3F3F4. */
     --color-appBg: 243, 243, 244;
     /* Agent canvas inherits --color-background-base from the shared theme token. */

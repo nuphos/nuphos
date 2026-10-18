@@ -145,7 +145,7 @@ export function TokenRow({
           }}
           onBlur={(e) => onSetHex(e.target.value)}
           spellCheck={false}
-          className="w-[68px] flex-shrink-0 rounded border border-zGray-800/60 bg-field px-1.5 py-0.5 font-mono text-[11px] text-secondary outline-none focus:border-zViolet-accent/60"
+          className="w-[68px] flex-shrink-0 rounded border border-zGray-800/60 bg-surface px-1.5 py-0.5 font-mono text-[11px] text-secondary outline-none focus:border-zViolet-accent/60"
         />
       ) : (
         <span className="w-[68px] flex-shrink-0 text-right text-[10px] text-tertiary">
