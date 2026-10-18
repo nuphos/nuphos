@@ -4,6 +4,7 @@ import { api } from './api'
 import { Workspace } from './app/workspace/Workspace'
 import { claimComposerDrafts, clearComposerDrafts } from './components/agent/panel/composerDrafts'
 import { CurrentUserContext } from './hooks/useCurrentUser'
+import { forgetMacAccounts } from './hooks/useMacSignIn'
 import { identifyUser, resetAnalytics, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 
@@ -70,6 +71,7 @@ export default function App() {
         onLogout={async () => {
           await api.authLogout()
           clearComposerDrafts()
+          forgetMacAccounts()
           track('logout')
           resetAnalytics()
           setAuth({ status: 'anonymous' })

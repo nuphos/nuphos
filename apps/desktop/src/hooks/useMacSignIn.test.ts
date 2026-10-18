@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { keepAccount, watchSignIn } from './useMacSignIn.ts'
+import { forgetMacAccounts, keepAccount, watchSignIn } from './useMacSignIn.ts'
 
 import type { SignInPrompt } from './useMacSignIn.ts'
 import type { MacAccount } from '../views/MacSignIn.tsx'
@@ -38,7 +38,7 @@ function watcher(rfb: ReturnType<typeof connection>, key: string, current = () =
 
 test('asks for an account; a refusal shows on the next ask; connecting clears it', () => {
   const rfb = connection()
-  const state = watcher(rfb, 'u:mac-1:0')
+  const state = watcher(rfb, 'mac-1:0')
 
   rfb.fire('credentialsrequired')
   assert.deepEqual(state.prompt, { failed: false, username: true })
@@ -51,7 +51,7 @@ test('asks for an account; a refusal shows on the next ask; connecting clears it
 
 test('a VNC password alone hides the account name', () => {
   const rfb = connection()
-  const state = watcher(rfb, 'u:mac-2:0')
+  const state = watcher(rfb, 'mac-2:0')
 
   rfb.fire('credentialsrequired', ['password'])
   assert.deepEqual(state.prompt, { failed: false, username: false })
@@ -61,10 +61,10 @@ test('a superseded connection moves nothing and is sent nothing', () => {
   let current = 'a'
   const a = connection()
   const b = connection()
-  const stateA = watcher(a, 'u:mac-3:0', () => current === 'a')
+  const stateA = watcher(a, 'mac-3:0', () => current === 'a')
 
   current = 'b'
-  watcher(b, 'u:mac-3:0', () => current === 'b')
+  watcher(b, 'mac-3:0', () => current === 'b')
   a.fire('credentialsrequired')
   a.fire('securityfailure')
   assert.equal(stateA.prompt, null)
@@ -72,11 +72,11 @@ test('a superseded connection moves nothing and is sent nothing', () => {
 })
 
 test('a kept account answers its own Mac without asking, never another, until refused', () => {
-  keepAccount('u:mac-4:0', account)
+  keepAccount('mac-4:0', account)
   const same = connection()
-  const sameState = watcher(same, 'u:mac-4:0')
+  const sameState = watcher(same, 'mac-4:0')
   const other = connection()
-  const otherState = watcher(other, 'u:mac-5:0')
+  const otherState = watcher(other, 'mac-5:0')
 
   same.fire('credentialsrequired')
   assert.deepEqual(same.sent, [account])
@@ -88,7 +88,18 @@ test('a kept account answers its own Mac without asking, never another, until re
   same.fire('securityfailure')
   const again = connection()
 
-  watcher(again, 'u:mac-4:0')
+  watcher(again, 'mac-4:0')
   again.fire('credentialsrequired')
   assert.deepEqual(again.sent, [])
+})
+
+test('signing out forgets every kept account', () => {
+  keepAccount('mac-6:0', account)
+  forgetMacAccounts()
+  const rfb = connection()
+  const state = watcher(rfb, 'mac-6:0')
+
+  rfb.fire('credentialsrequired')
+  assert.deepEqual(rfb.sent, [])
+  assert.deepEqual(state.prompt, { failed: false, username: true })
 })

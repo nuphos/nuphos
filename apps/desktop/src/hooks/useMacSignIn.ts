@@ -1,8 +1,8 @@
 // A Mac's Screen Sharing asks for an account on that Mac before it shows the
 // screen; a Box's desktop never does. An accepted account is kept in this
-// window's memory only, for the one target it was typed for (viewer, Mac and
-// display), so reconnects and later tabs on that Mac do not ask again until
-// the app quits. A refusal forgets it. It never reaches the backend or disk.
+// window's memory only, for the one target it was typed for (Mac device and
+// display), so reconnects and later tabs on that Mac do not ask again. A
+// refusal, signing out or quitting forgets it. It never reaches the backend or disk.
 
 import { useEffect, useRef, useState } from 'react'
 
@@ -16,7 +16,12 @@ type Connection = Pick<RFB, 'addEventListener' | 'sendCredentials'>
 
 const accepted = new Map<string, MacAccount>()
 
-/** Keeps the account typed for `target` until that Mac refuses it or the app quits. */
+/** Forgets every kept account; signing out calls it. */
+export function forgetMacAccounts(): void {
+  accepted.clear()
+}
+
+/** Keeps the account typed for `target` until that Mac refuses it, sign-out or quit. */
 export function keepAccount(target: string, account: MacAccount): void {
   accepted.set(target, account)
 }
@@ -30,7 +35,7 @@ export function watchSignIn(
     ask,
   }: {
     current: () => boolean
-    /** The verified viewer, Mac and display; none means nothing is kept. */
+    /** The Mac's device and display; none means nothing is kept. */
     target: () => string | undefined
     ask: (next: (prompt: SignInPrompt) => SignInPrompt) => void
   },

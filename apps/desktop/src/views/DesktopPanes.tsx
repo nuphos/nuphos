@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
-import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useMacSignIn } from '../hooks/useMacSignIn'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
@@ -64,10 +63,7 @@ export function SessionDesktopView({
   const device = useSyncExternalStore(subscribeSessionDesktops, () =>
     conversationId ? sessionDesktopDevice(conversationId, display) : undefined,
   )
-  const viewer = useCurrentUser()?.id
-  const signIn = useMacSignIn(
-    viewer && device ? `${viewer}:${device}:${String(display)}` : undefined,
-  )
+  const signIn = useMacSignIn(device ? `${device}:${String(display)}` : undefined)
 
   useEffect(() => {
     const target = host.current
