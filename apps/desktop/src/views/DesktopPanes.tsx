@@ -3,12 +3,14 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useMacSignIn } from '../hooks/useMacSignIn'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
 import { IpcVncChannel } from '../lib/ipcVncChannel'
 import {
   desktopTabSession,
+  sessionDesktopDevice,
   sessionDesktopTitle,
   subscribeSessionDesktops,
 } from '../lib/sessionDesktops'
@@ -56,9 +58,15 @@ export function SessionDesktopView({
   const retryRef = useRef<() => void>(() => undefined)
   const [phase, setPhase] = useState<DesktopPhase>({ kind: 'connecting' })
   const [holding, setHolding] = useState(false)
-  const signIn = useMacSignIn()
   const title = useSyncExternalStore(subscribeSessionDesktops, () =>
     conversationId ? sessionDesktopTitle(conversationId, display) : undefined,
+  )
+  const device = useSyncExternalStore(subscribeSessionDesktops, () =>
+    conversationId ? sessionDesktopDevice(conversationId, display) : undefined,
+  )
+  const viewer = useCurrentUser()?.id
+  const signIn = useMacSignIn(
+    viewer && device ? `${viewer}:${device}:${String(display)}` : undefined,
   )
 
   useEffect(() => {
@@ -136,7 +144,15 @@ export function SessionDesktopView({
       switcher={switcher}
       onRetry={() => retryRef.current()}
       host={host}
-      prompt={signIn.asking && <MacSignIn failed={signIn.asking.failed} onSubmit={signIn.submit} />}
+      prompt={
+        signIn.asking && (
+          <MacSignIn
+            failed={signIn.asking.failed}
+            username={signIn.asking.username}
+            onSubmit={signIn.submit}
+          />
+        )
+      }
     />
   )
 }

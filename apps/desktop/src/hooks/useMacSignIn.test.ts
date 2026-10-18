@@ -1,58 +1,94 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { watchSignIn } from './useMacSignIn.ts'
+import { keepAccount, watchSignIn } from './useMacSignIn.ts'
 
 import type { SignInPrompt } from './useMacSignIn.ts'
+import type { MacAccount } from '../views/MacSignIn.tsx'
 
-/** A connection that only fires events; it has no way to receive credentials. */
+const account: MacAccount = { username: 'me', password: 'pw', target: '' }
+
+/** A connection that fires noVNC's events and records what it was sent. */
 function connection() {
   const target = new EventTarget()
+  const sent: MacAccount[] = []
 
   return {
-    addEventListener: target.addEventListener.bind(target),
-    fire: (type: string) => target.dispatchEvent(new Event(type)),
+    sent,
+    addEventListener: target.addEventListener.bind(target) as never,
+    sendCredentials: (credentials: MacAccount) => sent.push(credentials),
+    fire: (type: string, types = ['username', 'password']) =>
+      target.dispatchEvent(Object.assign(new Event(type), { detail: { types } })),
   }
 }
 
-test('asks once, says so when the Mac refused the account, and clears once connected', () => {
-  let prompt: SignInPrompt = null
-  const rfb = connection()
+function watcher(rfb: ReturnType<typeof connection>, key: string, current = () => true) {
+  const state: { prompt: SignInPrompt } = { prompt: null }
 
-  watchSignIn(
-    rfb,
-    () => true,
-    (next) => {
-      prompt = next(prompt)
+  watchSignIn(rfb, {
+    current,
+    target: () => key,
+    ask: (next) => {
+      state.prompt = next(state.prompt)
     },
-  )
+  })
+
+  return state
+}
+
+test('asks for an account; a refusal shows on the next ask; connecting clears it', () => {
+  const rfb = connection()
+  const state = watcher(rfb, 'u:mac-1:0')
+
   rfb.fire('credentialsrequired')
-  assert.deepEqual(prompt, { failed: false })
+  assert.deepEqual(state.prompt, { failed: false, username: true })
   rfb.fire('securityfailure')
-  // The reconnect asks again and keeps saying the last account was refused.
   rfb.fire('credentialsrequired')
-  assert.deepEqual(prompt, { failed: true })
+  assert.deepEqual(state.prompt, { failed: true, username: true })
   rfb.fire('connect')
-  assert.equal(prompt, null)
+  assert.equal(state.prompt, null)
 })
 
-test('a connection that is no longer current moves nothing', () => {
-  let prompt: SignInPrompt = null
+test('a VNC password alone hides the account name', () => {
+  const rfb = connection()
+  const state = watcher(rfb, 'u:mac-2:0')
+
+  rfb.fire('credentialsrequired', ['password'])
+  assert.deepEqual(state.prompt, { failed: false, username: false })
+})
+
+test('a superseded connection moves nothing and is sent nothing', () => {
   let current = 'a'
   const a = connection()
   const b = connection()
-  const ask = (next: (value: SignInPrompt) => SignInPrompt) => {
-    prompt = next(prompt)
-  }
+  const stateA = watcher(a, 'u:mac-3:0', () => current === 'a')
 
-  watchSignIn(a, () => current === 'a', ask)
   current = 'b'
-  watchSignIn(b, () => current === 'b', ask)
+  watcher(b, 'u:mac-3:0', () => current === 'b')
   a.fire('credentialsrequired')
   a.fire('securityfailure')
-  assert.equal(prompt, null)
-  b.fire('credentialsrequired')
-  assert.deepEqual(prompt, { failed: false })
-  a.fire('connect')
-  assert.deepEqual(prompt, { failed: false })
+  assert.equal(stateA.prompt, null)
+  assert.deepEqual(a.sent, [])
+})
+
+test('a kept account answers its own Mac without asking, never another, until refused', () => {
+  keepAccount('u:mac-4:0', account)
+  const same = connection()
+  const sameState = watcher(same, 'u:mac-4:0')
+  const other = connection()
+  const otherState = watcher(other, 'u:mac-5:0')
+
+  same.fire('credentialsrequired')
+  assert.deepEqual(same.sent, [account])
+  assert.equal(sameState.prompt, null)
+  other.fire('credentialsrequired')
+  assert.deepEqual(other.sent, [])
+  assert.deepEqual(otherState.prompt, { failed: false, username: true })
+  // The Mac refuses it: forgotten, so the next connection asks.
+  same.fire('securityfailure')
+  const again = connection()
+
+  watcher(again, 'u:mac-4:0')
+  again.fire('credentialsrequired')
+  assert.deepEqual(again.sent, [])
 })

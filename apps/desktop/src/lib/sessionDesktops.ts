@@ -5,8 +5,8 @@
 // lives; New Tab → Desktop or the switcher brings it back. Nothing is persisted;
 // the snapshot is the source.
 
-/** `title` names the machine and the display, e.g. "Box 1 · :3". */
-export type SessionDesktop = { display: number; title: string }
+/** `title` names the machine and the display, e.g. "Box 1 · :3"; `deviceId` is that machine. */
+export type SessionDesktop = { display: number; title: string; deviceId?: string }
 /** `canOpen`: its Box runs a desktop pool, so the owner may open one by hand. */
 export type SessionDesktops = { teamId: string; desktops: SessionDesktop[]; canOpen?: boolean }
 
@@ -92,6 +92,11 @@ export function readSessionDesktops(): ReadonlyMap<string, SessionDesktops> {
 /** The title the session's snapshot gives a display, while it still holds it. */
 export function sessionDesktopTitle(sessionId: string, display: number): string | undefined {
   return bySession.get(sessionId)?.desktops.find((desktop) => desktop.display === display)?.title
+}
+
+/** The machine whose display it is, while the session still holds it. */
+export function sessionDesktopDevice(sessionId: string, display: number): string | undefined {
+  return bySession.get(sessionId)?.desktops.find((desktop) => desktop.display === display)?.deviceId
 }
 
 export type DesktopTabPlan = {
