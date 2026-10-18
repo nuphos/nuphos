@@ -14,6 +14,8 @@
 	<dict>
 		<key>ai.nuphos.ios</key>
 		<string>Nuphos iOS App Store CI 2026-10</string>
+		<key>ai.nuphos.ios.widgets</key>
+		<string>Nuphos Widgets App Store CI 2026-10</string>
 	</dict>
 	<key>teamID</key>
 	<string>6T873K59LQ</string>

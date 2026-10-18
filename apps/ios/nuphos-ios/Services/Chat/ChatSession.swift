@@ -117,6 +117,7 @@ final class ChatSession {
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action, at: observations.now) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
+        showLiveActivity()
         if runtimeObservation?.executing(at: observations.now) == true { awaitingAdmission = false }
         // A message the turn could not take goes out once the agent accepts a new one.
         if isNativeRuntime, !queued.isEmpty, canSubmit, allows("send") {
@@ -126,6 +127,16 @@ final class ChatSession {
         }
     }
     func tickRuntimeClock() { observations.tick() }
+    private func showLiveActivity() {
+        #if os(iOS)
+        guard isStreaming else { return }
+        TurnLiveActivity.show(
+            sessionId: sessionId, teamId: teamId, title: title,
+            agent: agentRuntime ?? runtime?.provider.rawValue, runtime: runtimeDisplayName,
+            startedAt: turnStartedAt, authToken: token
+        )
+        #endif
+    }
 
 
     /// Changes the mode; for a conversation the server knows, that is a
@@ -729,6 +740,7 @@ final class ChatSession {
         turnStartedAt = .now
         currentStreamId = options.streamId
         awaitingAdmission = isNativeRuntime && !options.explicitResume
+        showLiveActivity()
         streamTask = Task { [weak self] in
             guard let self else { return }
             var options = options

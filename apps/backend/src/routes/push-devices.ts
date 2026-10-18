@@ -1,11 +1,16 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { getReadableConversation } from '@/lib/agent/db'
+import { AppError } from '@/lib/errors'
+import { getTeamMembership } from '@/lib/identity'
 import { pushDeviceStore } from '@/lib/push/devices'
+import { liveActivityStore } from '@/lib/push/live-activities'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 
 import type { PushDeviceStore } from '@/lib/push/devices'
+import type { LiveActivityStore } from '@/lib/push/live-activities'
 import type { AuthVariables } from '@/middleware/auth'
 
 const apnsToken = z.string().regex(/^[0-9a-f]{64,200}$/i)
@@ -70,7 +75,45 @@ export function createPushDeviceRoutes(store: PushDeviceStore) {
   return routes
 }
 
+const liveActivitySchema = z.object({
+  token: apnsToken,
+  teamId: z.string().trim().min(1).max(64),
+  sessionId: z.string().trim().min(1).max(128),
+  environment: z.enum(['sandbox', 'production']),
+})
+
+export type CanReadConversation = (
+  userId: string,
+  teamId: string,
+  sessionId: string,
+) => Promise<boolean>
+
+/** A Live Activity's push token, so the end of the turn reaches the Lock Screen. */
+export function createLiveActivityRoutes(store: LiveActivityStore, canRead: CanReadConversation) {
+  const routes = new Hono<{ Variables: AuthVariables }>()
+
+  routes.put('/live-activities', zv('json', liveActivitySchema), async (c) => {
+    const { token, teamId, sessionId, environment } = c.req.valid('json')
+    const userId = c.get('userId')
+
+    if (!(await canRead(userId, teamId, sessionId)))
+      throw new AppError(404, 'not_found', 'Conversation not found')
+    await store.register({ token: token.toLowerCase(), userId, sessionId, environment })
+
+    return c.json({ ok: true })
+  })
+
+  return routes
+}
+
+async function canReadConversation(userId: string, teamId: string, sessionId: string) {
+  if (!(await getTeamMembership(userId, teamId))) return false
+
+  return Boolean(await getReadableConversation(sessionId, userId, teamId))
+}
+
 export const pushRoutes = new Hono<{ Variables: AuthVariables }>()
 
 pushRoutes.use('*', requireAuth)
 pushRoutes.route('/', createPushDeviceRoutes(pushDeviceStore))
+pushRoutes.route('/', createLiveActivityRoutes(liveActivityStore, canReadConversation))
