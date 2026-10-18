@@ -12,45 +12,9 @@ import {
 import { CATALOG } from '../addIntegrationCatalog'
 
 import { CatalogLogo } from './catalog-logo'
+import { connectorSuggestions } from './connector-suggestions'
 
-import type { AddIntegrationKey, CatalogItem } from '../addIntegrationCatalog'
-
-/** Offered first when nothing is typed: the connectors most teams add early on. */
-const POPULAR: AddIntegrationKey[] = [
-  'github',
-  'aws',
-  'gcp',
-  'linear',
-  'slack',
-  'grafana',
-  'sentry',
-  'notion',
-  'cloudflare',
-  'jira',
-]
-const MAX_SUGGESTIONS = 8
-
-/** Typed text matches the whole catalog; an empty box suggests what is not added yet. */
-function suggestionsFor(query: string, installed: ReadonlySet<string>): CatalogItem[] {
-  const items = CATALOG.flatMap((category) => category.items)
-  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-
-  if (terms.length > 0) {
-    return items
-      .filter((item) => terms.every((term) => item.haystack.includes(term)))
-      .slice(0, MAX_SUGGESTIONS)
-  }
-  const rank = (item: CatalogItem) => {
-    const index = POPULAR.indexOf(item.key)
-
-    return index === -1 ? POPULAR.length : index
-  }
-
-  return items
-    .filter((item) => !installed.has(item.key))
-    .sort((a, b) => rank(a) - rank(b))
-    .slice(0, MAX_SUGGESTIONS)
-}
+import type { CatalogItem } from '../addIntegrationCatalog'
 
 /**
  * The Connectors search field. It still filters the page as you type, and while focused it also
@@ -68,7 +32,7 @@ export function ConnectorSearch({
   onPick: (item: CatalogItem) => void
 }) {
   const [open, setOpen] = useState(false)
-  const items = useMemo(() => suggestionsFor(filter, installed), [filter, installed])
+  const items = useMemo(() => connectorSuggestions(CATALOG, filter, installed), [filter, installed])
 
   return (
     <Combobox<CatalogItem>
