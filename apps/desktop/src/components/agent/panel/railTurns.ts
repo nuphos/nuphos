@@ -49,15 +49,17 @@ export function firstLine(text: string): string {
   return clip(plainInline(line ?? ''), TITLE_MAX)
 }
 
+// Even segments sit outside code fences; an unclosed fence drops its tail.
+function withoutCodeBlocks(text: string): string {
+  return text
+    .split('```')
+    .filter((_, i) => i % 2 === 0)
+    .join(' ')
+}
+
 /** Assistant prose flattened to one line: no code blocks or markdown syntax. */
 export function previewText(text: string): string {
-  // Even segments sit outside code fences; an unclosed fence drops its tail.
-  const flat = plainInline(
-    text
-      .split('```')
-      .filter((_, i) => i % 2 === 0)
-      .join(' '),
-  )
+  const flat = plainInline(withoutCodeBlocks(text))
     .replace(/^[ \t]*(?:#{1,6}|[-*>]|\d+\.)[ \t]+/gm, '')
     .replace(/[#>|]/g, '')
     .replace(/\s+/g, ' ')
@@ -90,12 +92,15 @@ export function pickRailTurns(messages: Message[]): RailTurn[] {
 export function turnPreview(messages: Message[], turn: RailTurn): string {
   const replyIds = new Set(turn.messageIds.slice(1))
 
-  // Only the start is shown, so a long reply is cut before it is stripped.
+  // Only the start is shown, so a long reply is cut before its markdown is
+  // stripped, but after its code blocks go: a cut inside a long block would
+  // leave it unclosed and take the prose after it along.
   return previewText(
-    messages
-      .filter((m) => replyIds.has(m.id))
-      .map(messageText)
-      .join(' ')
-      .slice(0, PREVIEW_MAX * 4),
+    withoutCodeBlocks(
+      messages
+        .filter((m) => replyIds.has(m.id))
+        .map(messageText)
+        .join(' '),
+    ).slice(0, PREVIEW_MAX * 4),
   )
 }

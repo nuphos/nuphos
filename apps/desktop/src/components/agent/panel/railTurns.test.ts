@@ -94,3 +94,14 @@ test('a very long reply is cut before it is stripped, and still previews its sta
   assert.ok(preview.startsWith('Start here.'))
   assert.ok(preview.length <= 241)
 })
+
+test('prose after a long code block still reaches the preview', () => {
+  const code = `\`\`\`ts\n${'const x = 1\n'.repeat(200)}\`\`\``
+  const transcript = [
+    msg('u', 'user', 'fix it'),
+    msg('a', 'assistant', `${code}\nThe build passes now.`),
+  ]
+  const [turn] = pickRailTurns(transcript)
+
+  assert.equal(turnPreview(transcript, turn!), 'The build passes now.')
+})
