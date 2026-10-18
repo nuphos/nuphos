@@ -4,7 +4,7 @@
 // display), so reconnects and later tabs on that Mac do not ask again. A
 // refusal, signing out or quitting forgets it. It never reaches the backend or disk.
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import type { MacAccount } from '../views/MacSignIn'
 import type RFB from '@novnc/novnc'
@@ -13,6 +13,7 @@ import type RFB from '@novnc/novnc'
 export type SignInPrompt = { failed: boolean; username: boolean } | null
 
 type Connection = Pick<RFB, 'addEventListener' | 'sendCredentials'>
+type Ask = (next: (prompt: SignInPrompt) => SignInPrompt) => void
 
 const accepted = new Map<string, MacAccount>()
 
@@ -21,78 +22,61 @@ export function forgetMacAccounts(): void {
   accepted.clear()
 }
 
-/** Keeps the account typed for `target` until that Mac refuses it, sign-out or quit. */
-export function keepAccount(target: string, account: MacAccount): void {
-  accepted.set(target, account)
+/**
+ * One view's sign-ins. Each connection carries the target it was opened for,
+ * fixed for its life: its events, the account it is sent and the one kept for
+ * it all use that target, never another connection's. Without a target nothing
+ * is kept. Only the newest connection counts; `reset` drops it with its prompt.
+ */
+export function signInSession(ask: Ask) {
+  let latest: { rfb: Connection; target?: string } | undefined
+
+  return {
+    watch: (rfb: Connection, target: string | undefined): void => {
+      const connection = { rfb, target }
+      const current = () => latest === connection
+
+      latest = connection
+      rfb.addEventListener('connect', () => {
+        if (current()) ask(() => null)
+      })
+      rfb.addEventListener('credentialsrequired', (event) => {
+        if (!current()) return
+        const saved = target ? accepted.get(target) : undefined
+
+        if (saved) {
+          rfb.sendCredentials(saved)
+
+          return
+        }
+        // VNC password auth asks for the password alone.
+        const username = event.detail.types.includes('username')
+
+        ask((prompt) => ({ failed: prompt?.failed ?? false, username }))
+      })
+      rfb.addEventListener('securityfailure', () => {
+        if (!current()) return
+        if (target) accepted.delete(target)
+        ask(() => ({ failed: true, username: true }))
+      })
+    },
+    reset: (): void => {
+      latest = undefined
+      ask(() => null)
+    },
+    submit: (account: MacAccount): void => {
+      if (!latest) return
+      if (latest.target) accepted.set(latest.target, account)
+      ask(() => null)
+      latest.rfb.sendCredentials(account)
+    },
+  }
 }
 
-/** Follows one connection's sign-in; its events stop counting once it is no longer current. */
-export function watchSignIn(
-  rfb: Connection,
-  {
-    current,
-    target,
-    ask,
-  }: {
-    current: () => boolean
-    /** The Mac's device and display; none means nothing is kept. */
-    target: () => string | undefined
-    ask: (next: (prompt: SignInPrompt) => SignInPrompt) => void
-  },
-): void {
-  rfb.addEventListener('connect', () => {
-    if (current()) ask(() => null)
-  })
-  rfb.addEventListener('credentialsrequired', (event) => {
-    if (!current()) return
-    const key = target()
-    const saved = key ? accepted.get(key) : undefined
-
-    if (saved) {
-      rfb.sendCredentials(saved)
-
-      return
-    }
-    // VNC password auth asks for the password alone.
-    const username = event.detail.types.includes('username')
-
-    ask((prompt) => ({ failed: prompt?.failed ?? false, username }))
-  })
-  rfb.addEventListener('securityfailure', () => {
-    if (!current()) return
-    const key = target()
-
-    if (key) accepted.delete(key)
-    ask(() => ({ failed: true, username: true }))
-  })
-}
-
-/** `watch` each connection; `reset` when the view moves to another desktop. */
-export function useMacSignIn(target: string | undefined) {
-  const rfbRef = useRef<RFB | null>(null)
-  const targetRef = useRef(target)
+/** `watch` each connection with its target; `reset` when the view moves to another desktop. */
+export function useMacSignIn() {
   const [asking, setAsking] = useState<SignInPrompt>(null)
+  const [session] = useState(() => signInSession(setAsking))
 
-  useEffect(() => {
-    targetRef.current = target
-  }, [target])
-  const watch = (rfb: RFB) => {
-    rfbRef.current = rfb
-    watchSignIn(rfb, {
-      current: () => rfbRef.current === rfb,
-      target: () => targetRef.current,
-      ask: setAsking,
-    })
-  }
-  const reset = () => {
-    rfbRef.current = null
-    setAsking(null)
-  }
-  const submit = (account: MacAccount) => {
-    if (targetRef.current) keepAccount(targetRef.current, account)
-    setAsking(null)
-    rfbRef.current?.sendCredentials(account)
-  }
-
-  return { watch, reset, asking, submit }
+  return { ...session, asking }
 }

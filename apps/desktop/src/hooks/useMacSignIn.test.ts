@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { forgetMacAccounts, keepAccount, watchSignIn } from './useMacSignIn.ts'
+import { forgetMacAccounts, signInSession } from './useMacSignIn.ts'
 
 import type { SignInPrompt } from './useMacSignIn.ts'
 import type { MacAccount } from '../views/MacSignIn.tsx'
 
-const account: MacAccount = { username: 'me', password: 'pw', target: '' }
+const accountA: MacAccount = { username: 'a', password: 'pa', target: '' }
+const accountB: MacAccount = { username: 'b', password: 'pb', target: '' }
 
 /** A connection that fires noVNC's events and records what it was sent. */
 function connection() {
@@ -22,24 +23,20 @@ function connection() {
   }
 }
 
-function watcher(rfb: ReturnType<typeof connection>, key: string, current = () => true) {
+function session() {
   const state: { prompt: SignInPrompt } = { prompt: null }
-
-  watchSignIn(rfb, {
-    current,
-    target: () => key,
-    ask: (next) => {
-      state.prompt = next(state.prompt)
-    },
+  const signIn = signInSession((next) => {
+    state.prompt = next(state.prompt)
   })
 
-  return state
+  return { state, signIn }
 }
 
 test('asks for an account; a refusal shows on the next ask; connecting clears it', () => {
+  const { state, signIn } = session()
   const rfb = connection()
-  const state = watcher(rfb, 'mac-1:0')
 
+  signIn.watch(rfb, 'mac-1:0')
   rfb.fire('credentialsrequired')
   assert.deepEqual(state.prompt, { failed: false, username: true })
   rfb.fire('securityfailure')
@@ -50,56 +47,104 @@ test('asks for an account; a refusal shows on the next ask; connecting clears it
 })
 
 test('a VNC password alone hides the account name', () => {
+  const { state, signIn } = session()
   const rfb = connection()
-  const state = watcher(rfb, 'mac-2:0')
 
+  signIn.watch(rfb, 'mac-2:0')
   rfb.fire('credentialsrequired', ['password'])
   assert.deepEqual(state.prompt, { failed: false, username: false })
 })
 
-test('a superseded connection moves nothing and is sent nothing', () => {
-  let current = 'a'
-  const a = connection()
-  const b = connection()
-  const stateA = watcher(a, 'mac-3:0', () => current === 'a')
+test('a submitted account answers later connections to its own Mac only, until refused', () => {
+  const { signIn } = session()
+  const first = connection()
 
-  current = 'b'
-  watcher(b, 'mac-3:0', () => current === 'b')
-  a.fire('credentialsrequired')
-  a.fire('securityfailure')
-  assert.equal(stateA.prompt, null)
-  assert.deepEqual(a.sent, [])
-})
-
-test('a kept account answers its own Mac without asking, never another, until refused', () => {
-  keepAccount('mac-4:0', account)
-  const same = connection()
-  const sameState = watcher(same, 'mac-4:0')
-  const other = connection()
-  const otherState = watcher(other, 'mac-5:0')
-
-  same.fire('credentialsrequired')
-  assert.deepEqual(same.sent, [account])
-  assert.equal(sameState.prompt, null)
-  other.fire('credentialsrequired')
-  assert.deepEqual(other.sent, [])
-  assert.deepEqual(otherState.prompt, { failed: false, username: true })
-  // The Mac refuses it: forgotten, so the next connection asks.
-  same.fire('securityfailure')
+  signIn.watch(first, 'mac-3:0')
+  first.fire('credentialsrequired')
+  signIn.submit(accountA)
+  assert.deepEqual(first.sent, [accountA])
   const again = connection()
 
-  watcher(again, 'mac-4:0')
+  signIn.watch(again, 'mac-3:0')
   again.fire('credentialsrequired')
-  assert.deepEqual(again.sent, [])
+  assert.deepEqual(again.sent, [accountA])
+  const other = session()
+  const elsewhere = connection()
+
+  other.signIn.watch(elsewhere, 'mac-4:0')
+  elsewhere.fire('credentialsrequired')
+  assert.deepEqual(elsewhere.sent, [])
+  again.fire('securityfailure')
+  const third = connection()
+
+  signIn.watch(third, 'mac-3:0')
+  third.fire('credentialsrequired')
+  assert.deepEqual(third.sent, [])
+})
+
+test('a connection keeps the target it opened with: B’s account never reaches A', () => {
+  const { signIn } = session()
+  const b = connection()
+
+  signIn.watch(b, 'mac-b:0')
+  b.fire('credentialsrequired')
+  signIn.submit(accountB)
+  // A connection opened for Mac A, then asked for credentials: it is not sent B's.
+  const a = connection()
+
+  signIn.watch(a, 'mac-a:0')
+  a.fire('credentialsrequired')
+  assert.deepEqual(a.sent, [])
+  // Submitting A's prompt keeps the account under A, not B.
+  signIn.submit(accountA)
+  assert.deepEqual(a.sent, [accountA])
+  const nextB = connection()
+
+  signIn.watch(nextB, 'mac-b:0')
+  nextB.fire('credentialsrequired')
+  assert.deepEqual(nextB.sent, [accountB])
+})
+
+test('after reset, the old connection moves nothing and a submit goes nowhere', () => {
+  const { state, signIn } = session()
+  const old = connection()
+
+  signIn.watch(old, 'mac-5:0')
+  old.fire('credentialsrequired')
+  signIn.reset()
+  assert.equal(state.prompt, null)
+  old.fire('credentialsrequired')
+  old.fire('securityfailure')
+  assert.equal(state.prompt, null)
+  signIn.submit(accountA)
+  assert.deepEqual(old.sent, [])
+})
+
+test('without a known device nothing is kept', () => {
+  const { signIn } = session()
+  const first = connection()
+
+  signIn.watch(first, undefined)
+  first.fire('credentialsrequired')
+  signIn.submit(accountA)
+  const second = connection()
+
+  signIn.watch(second, undefined)
+  second.fire('credentialsrequired')
+  assert.deepEqual(second.sent, [])
 })
 
 test('signing out forgets every kept account', () => {
-  keepAccount('mac-6:0', account)
-  forgetMacAccounts()
-  const rfb = connection()
-  const state = watcher(rfb, 'mac-6:0')
+  const { signIn } = session()
+  const first = connection()
 
-  rfb.fire('credentialsrequired')
-  assert.deepEqual(rfb.sent, [])
-  assert.deepEqual(state.prompt, { failed: false, username: true })
+  signIn.watch(first, 'mac-6:0')
+  first.fire('credentialsrequired')
+  signIn.submit(accountA)
+  forgetMacAccounts()
+  const second = connection()
+
+  signIn.watch(second, 'mac-6:0')
+  second.fire('credentialsrequired')
+  assert.deepEqual(second.sent, [])
 })

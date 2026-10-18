@@ -63,7 +63,7 @@ export function SessionDesktopView({
   const device = useSyncExternalStore(subscribeSessionDesktops, () =>
     conversationId ? sessionDesktopDevice(conversationId, display) : undefined,
   )
-  const signIn = useMacSignIn(device ? `${device}:${String(display)}` : undefined)
+  const signIn = useMacSignIn()
 
   useEffect(() => {
     const target = host.current
@@ -79,7 +79,8 @@ export function SessionDesktopView({
       rfb.background = 'transparent'
       rfb.addEventListener('connect', opened)
       rfb.addEventListener('disconnect', closed)
-      signIn.watch(rfb)
+      // The Mac it was opened for: a kept account goes to that Mac only.
+      signIn.watch(rfb, device ? `${device}:${String(display)}` : undefined)
       rfbRef.current = rfb
       channelRef.current = channel
       setHolding(false)
@@ -103,9 +104,9 @@ export function SessionDesktopView({
       connection.stop()
       signIn.reset()
     }
-    // `signIn` is fresh each render; its refs and setter are not.
+    // `signIn` is fresh each render; its methods are not. A new device reconnects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, tabId, teamId, display])
+  }, [conversationId, tabId, teamId, display, device])
 
   const toggle = () => {
     const next = !holding
