@@ -34,6 +34,8 @@ secrets:
   mongoPassword: '' # MONGO_PASSWORD
   storageSecretKey: '' # STORAGE_SECRET_KEY
   runtimeAuthKey: '' # RUNTIME_AUTH_KEY
+  # Base64 of 32 random bytes. Seals stored runtime credentials, so changing it disconnects every runtime.
+  runtimeTokenEncryptionKey: '' # RUNTIME_TOKEN_ENCRYPTION_KEY
 
 mongo:
   image:

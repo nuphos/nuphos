@@ -51,14 +51,18 @@ your team and sign in to Claude from the console.
 
 ## Secrets
 
-The chart generates the JWT secret, Mongo password, storage secret key and
-runtime password on first install, keeps them on upgrade, and leaves the Secret
-behind on uninstall. Renderers without cluster access (`helm template`, Argo CD,
-Flux with `--dry-run`) regenerate them on every render. For those, set
-`secrets.existingSecret` to a Secret you manage with the keys
-`NUPHOS_JWT_SECRET`, `MONGO_PASSWORD`, `STORAGE_SECRET_KEY`, `RUNTIME_AUTH_KEY`
-and `ZSEND_API_KEY` or `RESEND_API_KEY` (whichever `email.provider` selects). Keep the Mongo password alphanumeric: it is placed in the
-connection URI as is. `extraObjects` renders any manifest with the release, such
+The chart generates the JWT secret, Mongo password, storage secret key, runtime
+password and runtime token encryption key on first install, keeps them on
+upgrade, and leaves the Secret behind on uninstall. Renderers without cluster
+access (`helm template`, Argo CD, Flux with `--dry-run`) regenerate them on every
+render. For those, set `secrets.existingSecret` to a Secret you manage with the
+keys `NUPHOS_JWT_SECRET`, `MONGO_PASSWORD`, `STORAGE_SECRET_KEY`,
+`RUNTIME_AUTH_KEY`, `RUNTIME_TOKEN_ENCRYPTION_KEY` and `ZSEND_API_KEY` or
+`RESEND_API_KEY` (whichever `email.provider` selects). Keep the Mongo password
+alphanumeric: it is placed in the connection URI as is.
+`RUNTIME_TOKEN_ENCRYPTION_KEY` is base64 of 32 random bytes
+(`openssl rand -base64 32`). It seals the runtime credentials the backend
+stores, so changing it disconnects every runtime. `extraObjects` renders any manifest with the release, such
 as an `ExternalSecret` that fills that Secret.
 
 ## Isolation

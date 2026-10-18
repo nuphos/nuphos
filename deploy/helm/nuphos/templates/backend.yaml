@@ -64,6 +64,11 @@ spec:
                 secretKeyRef:
                   name: {{ $secret }}
                   key: NUPHOS_JWT_SECRET
+            - name: OPENAB_RUNTIME_TOKEN_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: RUNTIME_TOKEN_ENCRYPTION_KEY
             - name: NUPHOS_AUTH_BASE_URL
               value: {{ include "nuphos.backendUrl" . }}
             - name: NUPHOS_BACKEND_URL
