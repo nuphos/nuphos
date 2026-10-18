@@ -8,14 +8,20 @@ import { anchorDownloadGroups, shouldLoadTransferDownloads } from './transferDow
 import type { Tab } from './model'
 import type { FileTransferGroup } from '../../../types'
 
-// The groups the transcript last loaded, per chat, so other views of the chat
-// (the chat summary) show the same files without asking again.
+// The groups each mounted transcript loaded, per chat, so other views of the
+// chat (the chat summary) show the same files without asking again. An entry
+// goes when its transcript unmounts, so the map holds only open chats.
 const published = new Map<string, FileTransferGroup[]>()
 const listeners = new Set<() => void>()
 const NONE: FileTransferGroup[] = []
 
 function publishTransferGroups(sessionId: string, groups: FileTransferGroup[]) {
   published.set(sessionId, groups)
+  for (const listener of listeners) listener()
+}
+
+function unpublishTransferGroups(sessionId: string) {
+  if (!published.delete(sessionId)) return
   for (const listener of listeners) listener()
 }
 
@@ -48,6 +54,12 @@ export function useTransferDownloads(
   const [loaded, setLoaded] = useState<{ sessionId: string; groups: FileTransferGroup[] } | null>(
     null,
   )
+
+  useEffect(() => {
+    const sessionId = tab.sessionId
+
+    return () => unpublishTransferGroups(sessionId)
+  }, [tab.sessionId])
 
   useEffect(() => {
     if (!teamId || !shouldLoadTransferDownloads(tab)) return
