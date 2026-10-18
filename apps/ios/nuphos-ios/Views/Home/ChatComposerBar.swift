@@ -400,12 +400,11 @@ struct ChatComposerBar<Controls: View>: View {
         HStack(spacing: 0) {
             attachButton("photo", label: "Photos") { showPhotos = true }
             attachButton("paperclip", label: "Files") { showFiles = true }
-            // The system button reads the clipboard without the "Allow Paste" prompt.
-            PasteButton(supportedContentTypes: [.item], payloadAction: paste)
-                .labelStyle(.iconOnly)
-                .buttonBorderShape(.circle)
-                .tint(Theme.body)
-                .padding(.leading, 4)
+            // Not the system PasteButton: it always draws a filled block,
+            // whatever style it is given, and hides when tinted to match.
+            #if canImport(UIKit)
+            attachButton("doc.on.clipboard", label: "Paste") { paste(UIPasteboard.general.itemProviders) }
+            #endif
         }
     }
 

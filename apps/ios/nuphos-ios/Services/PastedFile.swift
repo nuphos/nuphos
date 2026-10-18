@@ -24,7 +24,8 @@ struct PastedFile: Sendable {
 
     private static func copy(_ source: URL, type: UTType, name: String?) -> PastedFile? {
         let ext = source.pathExtension.isEmpty ? type.preferredFilenameExtension ?? "" : source.pathExtension
-        var name = name ?? source.lastPathComponent
+        // Unnamed (a copied image, say), the source is a temp file named by a hash.
+        var name = name ?? "Pasted"
         if (name as NSString).pathExtension.isEmpty, !ext.isEmpty { name += "." + ext }
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
         guard (try? FileManager.default.copyItem(at: source, to: dest)) != nil else { return nil }
