@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-import { openedConversationCacheKey } from '../../../lib/openedConversation'
+import { useOpenedConversation } from '../../../lib/openedConversation'
 import { useSwrCache } from '../../../lib/swrCache'
 import { agentSessionsCacheKey, sharedSessionsCacheKey } from '../../sidebar/state'
 import { useSessionTransferGroups } from '../panel/useTransferDownloads'
@@ -27,7 +27,7 @@ export type ChatSummary = {
 export function useChatSummary(sessionId: string, teamId: string): ChatSummary {
   const own = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
   const shared = useSwrCache<AgentConversation[]>(sharedSessionsCacheKey(teamId))
-  const opened = useSwrCache<AgentConversation>(openedConversationCacheKey(sessionId))
+  const opened = useOpenedConversation(sessionId)
   const groups = useSessionTransferGroups(sessionId)
   const lists = useMemo(() => [own ?? [], shared ?? []], [own, shared])
   // Expiry is checked against when the panel opened; a group that lapses while

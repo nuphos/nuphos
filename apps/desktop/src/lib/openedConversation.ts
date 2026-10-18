@@ -1,24 +1,39 @@
-import { writeSwrCache } from './swrCache'
+import { useCallback, useSyncExternalStore } from 'react'
 
 import type { AgentConversation, AgentConversationDetail } from '../api/agent-types'
 
-/** The chat AgentPanel last opened for a session, without its transcript. */
-export function openedConversationCacheKey(sessionId: string): string {
-  return `opened-conversation:${sessionId}`
+// The chats AgentPanel opened, without their transcripts. Panels beside the
+// transcript read these instead of the sidebar lists, which leave out archived
+// chats. Kept apart from the view cache so its eviction can't drop one silently.
+const MAX_OPENED = 20
+const opened = new Map<string, AgentConversation>()
+const listeners = new Set<() => void>()
+
+export function rememberOpenedConversation(detail: AgentConversationDetail): void {
+  const { messages: _messages, ...conversation } = detail
+
+  opened.delete(detail.sessionId)
+  opened.set(detail.sessionId, conversation)
+  if (opened.size > MAX_OPENED) {
+    const oldest = opened.keys().next().value
+
+    if (oldest !== undefined) opened.delete(oldest)
+  }
+  for (const listener of listeners) listener()
 }
 
-// Panels beside the transcript read this instead of the sidebar lists, which
-// leave out archived chats. The stored credential selection can predate newer
-// credential kinds, so it is kept as the transcript reconciled it.
-export function rememberOpenedConversation(
-  detail: AgentConversationDetail,
-  credentialAccess: AgentConversation['credentialAccess'],
-): void {
-  const { messages: _messages, ...rest } = detail
-  const conversation = { ...rest, credentialAccess }
+function subscribe(listener: () => void) {
+  listeners.add(listener)
 
-  writeSwrCache(
-    openedConversationCacheKey(detail.sessionId),
-    conversation satisfies AgentConversation,
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+/** The chat as AgentPanel last opened it, if it did. */
+export function useOpenedConversation(sessionId: string): AgentConversation | undefined {
+  return useSyncExternalStore(
+    subscribe,
+    useCallback(() => opened.get(sessionId), [sessionId]),
   )
 }

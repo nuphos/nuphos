@@ -9,6 +9,7 @@ import {
   changeTitle,
   changesOf,
   connectorCount,
+  deviceCount,
   findConversation,
   machineName,
   outputFilesOf,
@@ -207,4 +208,19 @@ test('a long file name can be cut while its extension stays readable', () => {
   assert.deepEqual(splitFileName('chat-summary-light.png'), ['chat-summary-light', '.png'])
   assert.deepEqual(splitFileName('README'), ['README', ''])
   assert.deepEqual(splitFileName('.env'), ['.env', ''])
+})
+
+test('a stored selection missing newer credential kinds counts without throwing', () => {
+  const { cloudflareAccountIds: _dropped, ...older } = {
+    ...EMPTY_CREDENTIAL_ACCESS,
+    awsRoleIds: ['r1'],
+    deviceIds: ['d1', 'd2'],
+  }
+  const conversation = chat('a', {
+    credentialAccess: older as AgentConversation['credentialAccess'],
+  })
+
+  assert.equal(connectorCount(conversation), 1)
+  assert.equal(deviceCount(conversation), 2)
+  assert.equal(deviceCount(undefined), 0)
 })

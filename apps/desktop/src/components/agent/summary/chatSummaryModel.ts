@@ -1,3 +1,4 @@
+import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
 import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
@@ -99,11 +100,18 @@ export function splitFileName(fileName: string): [string, string] {
   return dot > 0 ? [fileName.slice(0, dot), fileName.slice(dot)] : [fileName, '']
 }
 
+// A stored selection can predate newer credential kinds, so missing kinds count as none.
+function credentialAccessOf(conversation: AgentConversation | undefined) {
+  return { ...EMPTY_CREDENTIAL_ACCESS, ...conversation?.credentialAccess }
+}
+
 /** Connectors ticked for this chat, devices aside: those are shown with the runtime. */
 export function connectorCount(conversation: AgentConversation | undefined): number {
-  return conversation?.credentialAccess
-    ? countSelectedCredentials(conversation.credentialAccess)
-    : 0
+  return countSelectedCredentials(credentialAccessOf(conversation))
+}
+
+export function deviceCount(conversation: AgentConversation | undefined): number {
+  return credentialAccessOf(conversation).deviceIds.length
 }
 
 /** The machine a runtime label names: "MacBook-Pro.local · Claude Code" → "MacBook-Pro.local". */

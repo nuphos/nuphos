@@ -2,7 +2,7 @@ import { Cloud, Laptop, Monitor, Plug } from 'lucide-react'
 
 import { isLocalAgentRuntime } from '../../../lib/localAgentSharing'
 
-import { connectorCount, machineName } from './chatSummaryModel'
+import { connectorCount, deviceCount, machineName } from './chatSummaryModel'
 import { SummaryRow, SummarySection } from './ChatSummaryRows'
 
 import type { AgentConversation } from '../../../api/agent-types'
@@ -10,7 +10,7 @@ import type { AgentConversation } from '../../../api/agent-types'
 /** Where the chat runs, and how many devices and connectors it may use. */
 export function ChatSummaryEnvironment({ conversation }: { conversation: AgentConversation }) {
   const local = isLocalAgentRuntime(conversation.runtimeId)
-  const devices = conversation.credentialAccess?.deviceIds.length ?? 0
+  const devices = deviceCount(conversation)
   const connectors = connectorCount(conversation)
 
   return (
