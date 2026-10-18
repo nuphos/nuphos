@@ -39,6 +39,9 @@ apps/backend/fixtures/**
 pnpm-lock.yaml
 **/pnpm-lock.yaml
 
+# Helm templates are Go templates, not YAML Prettier can parse.
+deploy/helm/*/templates/**
+
 # Go module (apps/tailscale-dialer) — gofmt owns this
 apps/tailscale-dialer/**
 
