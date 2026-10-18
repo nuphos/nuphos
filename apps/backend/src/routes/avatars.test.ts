@@ -22,6 +22,9 @@ let usersById: Map<string, Doc>
 let avatars: Doc[]
 // When set, the next users write waits on it: lets a test interleave two requests.
 let gate: Promise<void> | null = null
+// When set, the next user_avatars prune waits on it, after it chose what to keep.
+let pruneGate: Promise<void> | null = null
+let pruneWaiting = false
 
 const pathOf = (url: string) => url.slice(config.auth.publicBaseUrl.length)
 const same = (a: unknown, b: unknown) => String(a) === String(b)
@@ -76,10 +79,17 @@ function collection(name: string) {
 
         return Promise.resolve({})
       },
-      deleteMany: (filter: Doc) => {
+      deleteMany: async (filter: Doc) => {
+        if (pruneGate) {
+          const wait = pruneGate
+
+          pruneGate = null
+          pruneWaiting = true
+          await wait
+        }
         avatars = avatars.filter((doc) => !matches(doc, filter))
 
-        return Promise.resolve({})
+        return {}
       },
     }
   }
@@ -120,6 +130,8 @@ beforeEach(() => {
   ])
   avatars = []
   gate = null
+  pruneGate = null
+  pruneWaiting = false
 })
 
 function chunk(type: string, data: Buffer): Buffer {
@@ -246,6 +258,10 @@ const urlOf = async (res: Response | Promise<Response>) =>
   ((await (await res).json()) as { avatarURL: string }).avatarURL
 const current = () => usersById.get(userId.toHexString())?.avatarURL
 
+async function until(ready: () => boolean) {
+  for (let i = 0; i < 1000 && !ready(); i++) await new Promise((resolve) => setTimeout(resolve, 1))
+}
+
 // Lets the gated request reach its users write before the other one runs.
 async function untilStored(count: number) {
   while (avatars.length < count) await new Promise((resolve) => setTimeout(resolve, 1))
@@ -298,4 +314,36 @@ test('a superseded photo is deleted once it is past the grace window', async () 
 
   expect(avatars).toHaveLength(1)
   expect(latest.endsWith(`${String(avatars[0]?.hash)}.webp`)).toBe(true)
+})
+
+test('a stale profile save cannot republish an old photo while an upload prunes it', async () => {
+  // A is the current photo, stored long before the grace window.
+  const urlA = await urlOf(put(png(300, 300)))
+
+  for (const doc of avatars) doc.updatedAt = new Date(0)
+  let release = () => {}
+
+  pruneGate = new Promise((resolve) => {
+    release = resolve
+  })
+  // B publishes, then its prune picks "keep B" and parks before deleting.
+  const b = put(png(64, 64))
+
+  await until(() => pruneWaiting)
+  // Another device saves its profile with the cached URL A.
+  const saved = await app.request('/auth/me', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Alice', username: 'alice', avatarURL: urlA }),
+  })
+
+  expect(saved.status).toBe(200)
+  release()
+  const urlB = await urlOf(b)
+
+  // The save left the avatar on B, so the prune that deleted A broke nothing.
+  expect(current()).toBe(urlB)
+  expect((await app.request(pathOf(urlB))).status).toBe(200)
+  expect((await app.request(pathOf(urlA))).status).toBe(404)
+  expect(avatars).toHaveLength(1)
 })

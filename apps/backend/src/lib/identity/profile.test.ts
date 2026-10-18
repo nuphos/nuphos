@@ -123,3 +123,13 @@ test('a PATCH prunes every stored photo but the one it now points at', async () 
     ])
   }
 })
+
+test('a PATCH carrying an uploaded photo URL leaves the stored avatar alone', async () => {
+  const hosted = `${config.auth.publicBaseUrl}/avatars/${id.toHexString()}/${'a'.repeat(64)}.webp`
+
+  await updateProfile(id.toHexString(), { ...profile, avatarURL: hosted })
+  expect((update?.values as { $set: Record<string, unknown> }).$set).not.toHaveProperty('avatarURL')
+  // A Google URL or a cleared photo is still the profile save's to set.
+  await updateProfile(id.toHexString(), { ...profile, avatarURL: '' })
+  expect((update?.values as { $set: Record<string, unknown> }).$set.avatarURL).toBe('')
+})

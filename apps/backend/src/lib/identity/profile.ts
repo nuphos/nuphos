@@ -40,10 +40,17 @@ export async function updateProfile(userId: string, input: unknown) {
 
   if (owner && owner !== userId)
     throw new AppError(400, 'invalid_profile', "Another account's photo can't be used")
+  // Only the upload and remove routes publish or unpublish an uploaded photo. A
+  // profile save carrying one, such as an older client resending its cached
+  // URL, leaves the avatar as stored: republishing an outdated photo here could
+  // race the prune that deletes it.
+  const { avatarURL, ...fields } = parsed.data
+  const changes = owner ? fields : { ...fields, avatarURL }
+
   try {
     const user = await users().findOneAndUpdate(
       { _id: new ObjectId(userId), deletedAt: { $exists: false } },
-      { $set: { ...parsed.data, profileEdited: true, updatedAt: new Date() } },
+      { $set: { ...changes, profileEdited: true, updatedAt: new Date() } },
       { returnDocument: 'after' },
     )
 
