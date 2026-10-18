@@ -77,6 +77,11 @@ useDb({
 
         return { matchedCount: 1 }
       },
+      deleteMany: async (filter: Doc) => {
+        const kept = docs(name).filter((doc) => !matches(doc, filter))
+
+        collections.set(name, kept)
+      },
       findOneAndDelete: async (filter: Doc) => {
         const doc = docs(name).find((doc) => matches(doc, filter)) ?? null
 
@@ -151,6 +156,15 @@ test('deletion requires email proof and persists one deadline across retries', a
   expect(docs('account_deletion_requests')[0]!._id).toBe(user.id)
   expect(first.request!.dueAt.getTime() - first.request!.requestedAt.getTime()).toBe(30 * 86400000)
   expect(docs('users')).toHaveLength(1)
+})
+
+test('a deletion request removes the uploaded photo but no one else’s', async () => {
+  docs('user_avatars').push({ _id: USER, hash: 'a' }, { _id: OTHER, hash: 'b' })
+  await requestAccountDeletion(mapUser(docs('users')[0] as NuphosUserDoc), {
+    confirmation: 'DELETE',
+    code: '123456',
+  })
+  expect(docs('user_avatars').map((doc) => String(doc._id))).toEqual([String(OTHER)])
 })
 
 test('admin cannot falsely complete a deletion while a soft-deleted identity remains', async () => {

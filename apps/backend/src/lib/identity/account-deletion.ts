@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { db } from '@/lib/db'
 import { verifyEmailOtp } from '@/lib/email-otp'
 import { AppError } from '@/lib/errors'
+import { deleteUserAvatars } from '@/lib/identity/avatar-upload'
 import { signInWithPassword } from '@/lib/identity/password'
 import { users } from '@/lib/identity/shared'
 import { deleteAllPersonalCredentials } from '@/lib/personal-credentials'
@@ -74,6 +75,7 @@ export async function requestAccountDeletion(user: NuphosUser, input: unknown) {
   )
   // Stop acting as this member at GitHub / Linear right away.
   await deleteAllPersonalCredentials(user.id)
+  await deleteUserAvatars(user.id)
 
   return getDeletionRequest(user.id)
 }

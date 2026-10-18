@@ -79,6 +79,11 @@ async function setAvatarURL(_id: ObjectId, avatarURL: string) {
   return result
 }
 
+/** Account deletion: the photo is personal data and must not outlive the request. */
+export async function deleteUserAvatars(userId: string) {
+  await userAvatars().deleteMany({ _id: new ObjectId(userId) })
+}
+
 /** Returns the stored WebP only while `hash` is the user's current avatar. */
 export async function readAvatar(
   userId: string,
