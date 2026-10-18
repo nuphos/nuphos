@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 
 import type { NativeDeliveryTarget } from '@/lib/native-auth'
@@ -11,6 +12,7 @@ import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
 import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
+import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
 import { signInWithPassword, setPasswordWithEmailCode } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
 import {
@@ -47,6 +49,27 @@ auth.put('/ai-consent', requireAuth, async (c) =>
 auth.patch('/me', requireAuth, async (c) =>
   c.json(await updateProfile(c.get('userId'), await c.req.json())),
 )
+
+const avatarBodyLimit = bodyLimit({
+  maxSize: MAX_AVATAR_UPLOAD_BYTES,
+  onError: (c) =>
+    c.json(
+      {
+        error: {
+          code: 'avatar_too_large',
+          message: 'Use an image under 2 MB',
+          requestId: c.get('requestId'),
+        },
+      },
+      413,
+    ),
+})
+
+auth.put('/me/avatar', requireAuth, avatarBodyLimit, async (c) =>
+  c.json(await uploadAvatar(c.get('userId'), new Uint8Array(await c.req.arrayBuffer()))),
+)
+
+auth.delete('/me/avatar', requireAuth, async (c) => c.json(await removeAvatar(c.get('userId'))))
 
 auth.post('/password/sign-in', async (c) =>
   c.json(await signInWithPassword(await c.req.json().catch(() => null))),

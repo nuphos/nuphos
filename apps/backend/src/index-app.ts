@@ -16,6 +16,7 @@ import { agentSessions } from '@/routes/agent-sessions'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { asanaAppRoutes } from '@/routes/asana-app'
 import { auth } from '@/routes/auth'
+import { avatarsRoutes } from '@/routes/avatars'
 import { claudeCodeRuntimeSkills } from '@/routes/claude-code-runtime-skills'
 import { cloudflareAppRoutes } from '@/routes/cloudflare-app'
 import { desktopRoutes } from '@/routes/desktop'
@@ -84,6 +85,7 @@ app.route('/health', health)
 // fetches these unauthenticated, so they live outside the auth'd route tree.
 app.route('/.well-known', wellKnownRoutes)
 app.route('/auth', auth)
+app.route('/avatars', avatarsRoutes)
 // Server-to-server abuse fence for nuphos.ai's public email handoff. The route
 // authenticates its caller and fails closed when shared Redis is unavailable.
 app.route('/internal/download-handoff-rate-limit', downloadHandoffRateLimitRoutes)

@@ -1,7 +1,7 @@
 import { MongoServerError, ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { trustedAvatarURL } from './avatar-url'
+import { hostedAvatarOwner, trustedAvatarURL } from './avatar-url'
 import { users, mapUser } from './shared'
 
 import { upsertCachedUser } from '@/lib/agent/directory'
@@ -24,7 +24,7 @@ export const profileUpdateSchema = z
         .url()
         .refine(
           (value) => trustedAvatarURL(value) !== undefined,
-          'Use a Google profile-image URL (lh3–lh6.googleusercontent.com)',
+          'Upload a photo or use a Google profile-image URL',
         ),
     ]),
   })
@@ -35,6 +35,10 @@ export async function updateProfile(userId: string, input: unknown) {
 
   if (!parsed.success)
     throw new AppError(400, 'invalid_profile', parsed.error.issues[0]?.message ?? 'Invalid profile')
+  const owner = parsed.data.avatarURL && hostedAvatarOwner(parsed.data.avatarURL)
+
+  if (owner && owner !== userId)
+    throw new AppError(400, 'invalid_profile', "Another account's photo can't be used")
   try {
     const user = await users().findOneAndUpdate(
       { _id: new ObjectId(userId), deletedAt: { $exists: false } },
