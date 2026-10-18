@@ -19,6 +19,37 @@ export function runtimeFilePathFromHref(href: string): string | null {
   }
 }
 
+// Agents also write paths bare — in prose, inline code or a code block. An
+// absolute path of two or more segments counts, with an optional `:line`; it
+// ends before sentence punctuation, and never starts mid-word, mid-URL or
+// mid-date (`2026/10/16`). `/teams/…` is an app route, and `/api/…` or
+// `/v1/…` an HTTP API path, not a file.
+const BARE_PATH =
+  /(?<![\p{L}\p{N}_.:/~-])\/(?:[\p{L}\p{N}_.@+-]+\/)+[\p{L}\p{N}_.@+-]*[\p{L}\p{N}_@+-](?::\d+(?::\d+)?)?/gu
+
+/** Splits text into plain strings and the bare runtime paths inside it. */
+export function splitRuntimeFilePaths(text: string): (string | { path: string })[] {
+  const parts: (string | { path: string })[] = []
+  let last = 0
+
+  for (const match of text.matchAll(BARE_PATH)) {
+    if (/^\/(?:teams|api|v\d+)\//.test(match[0])) continue
+    if (match.index > last) parts.push(text.slice(last, match.index))
+    parts.push({ path: match[0] })
+    last = match.index + match[0].length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+
+  return parts
+}
+
+/** True when the whole text, trimmed, is one bare runtime path. */
+export function isRuntimeFilePath(text: string): boolean {
+  const parts = splitRuntimeFilePaths(text.trim())
+
+  return parts.length === 1 && typeof parts[0] !== 'string'
+}
+
 export type RuntimeFileContent = { name: string; size: number; data: string }
 
 export function runtimeFilePreview(

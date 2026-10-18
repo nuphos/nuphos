@@ -29,11 +29,13 @@ import { cnCloudScoped } from '@/routes/agent-sessions/cn-clouds'
 import { projectScoped } from '@/routes/agent-sessions/gcp'
 import { asanaScoped, jiraScoped, linearScoped } from '@/routes/agent-sessions/issue-trackers'
 import { previewPlans } from '@/routes/agent-sessions/plans'
+import { plaudScoped } from '@/routes/agent-sessions/plaud'
 import { posthogScoped } from '@/routes/agent-sessions/posthog'
 import { resendScoped, sentryScoped } from '@/routes/agent-sessions/resend-sentry'
 import { tailscaleScoped } from '@/routes/agent-sessions/tailscale'
 import { uptimeKumaScoped } from '@/routes/agent-sessions/uptime-kuma'
 import { zeaburScoped } from '@/routes/agent-sessions/zeabur'
+import { requireCloudCredentialRole } from '@/routes/agent-sessions/shared'
 import { fileTransfersRoutes } from '@/routes/file-transfers'
 import { conversationTeamApiPathAllowed } from '@/routes/teams/conversation-api-routes'
 
@@ -126,6 +128,7 @@ agentSessions.use('/:sessionId/*', async (c, next) => {
 const teamScoped = new Hono<{ Variables: AgentVars & TeamAuthVariables }>()
 
 teamScoped.use('*', requireTeamMember())
+teamScoped.use('*', requireCloudCredentialRole())
 
 // The Claude Code OpenAB runtime's credentials MCP lists what the
 // conversation has selected (live, so mid-conversation changes reflect), then
@@ -229,6 +232,7 @@ teamScoped.route('/asana-accounts/:bindingId', asanaScoped)
 teamScoped.route('/resend-integrations/:integrationId', resendScoped)
 teamScoped.route('/sentry-accounts/:bindingId', sentryScoped)
 teamScoped.route('/posthog-integrations/:integrationId', posthogScoped)
+teamScoped.route('/plaud-accounts/:bindingId', plaudScoped)
 teamScoped.route('/tailscale-clients/:clientId', tailscaleScoped)
 teamScoped.route('/zeabur-providers/:zeaburId', zeaburScoped)
 

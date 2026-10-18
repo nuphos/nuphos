@@ -5,11 +5,7 @@ import { composerTextState } from '../../../lib/composerTextState'
 
 import { isImageAttachmentPath } from './attachments'
 import { readEditorText } from './composerSerialize'
-import {
-  AGENT_COMPACT_PLACEHOLDER,
-  AGENT_FIRST_RUN_PLACEHOLDER_PROMPTS,
-  AGENT_PLACEHOLDER_PROMPTS,
-} from './constants'
+import { AGENT_COMPACT_PLACEHOLDER, AGENT_PLACEHOLDER_PROMPTS } from './constants'
 
 import type { LocalAgentSessionInfo, LocalSessionSource } from '../../../api'
 
@@ -17,7 +13,6 @@ export type ComposerState = ReturnType<typeof useComposerState>
 
 export function useComposerState({
   hero,
-  firstRun,
   readOnly,
   readOnlyPlaceholder,
   streaming,
@@ -25,7 +20,6 @@ export function useComposerState({
   promptSuggestion,
 }: {
   hero: boolean
-  firstRun: boolean
   readOnly: boolean
   readOnlyPlaceholder?: string
   streaming: boolean
@@ -35,7 +29,7 @@ export function useComposerState({
   // One suggestion per composer mount, picked at random. Rotating it moved the
   // sentence out from under whoever was reading it; pinning it to the first
   // prompt turned it into furniture nobody sees after a week.
-  const placeholderPool = firstRun ? AGENT_FIRST_RUN_PLACEHOLDER_PROMPTS : AGENT_PLACEHOLDER_PROMPTS
+  const placeholderPool = AGENT_PLACEHOLDER_PROMPTS
   const [placeholderIndex] = useState(
     () => crypto.getRandomValues(new Uint32Array(1))[0] % placeholderPool.length,
   )
@@ -125,6 +119,26 @@ export function useComposerState({
     setHasEditorContent(false)
     setIsEmpty(true)
     editListenerRef.current?.()
+  }
+
+  function removeAttachment(filePath: string) {
+    setFilePaths((prev) => prev.filter((path) => path !== filePath))
+    setFolderPaths((prev) => {
+      if (!prev.has(filePath)) return prev
+      const next = new Set(prev)
+
+      next.delete(filePath)
+
+      return next
+    })
+    setImageThumbs((prev) => {
+      if (!(filePath in prev)) return prev
+      const next = { ...prev }
+
+      delete next[filePath]
+
+      return next
+    })
   }
 
   function onCompositionStart() {
@@ -231,6 +245,7 @@ export function useComposerState({
     syncEmpty,
     clearEditor,
     onCompositionStart,
+    removeAttachment,
     onCompositionEnd,
     seedAlreadySeen,
   }

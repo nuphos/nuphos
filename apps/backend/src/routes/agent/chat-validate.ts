@@ -2,7 +2,7 @@ import type { AgentChatBody } from './types'
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
 
-import { getConversationMessagesHead } from '@/lib/agent/db'
+import { agentMessages, getConversationMessagesHead } from '@/lib/agent/db'
 import { attributeAppMessages } from '@/lib/agent/message-attribution'
 import {
   validateRequestedAgentRuntime,
@@ -46,6 +46,15 @@ export function validateChatBody(body: AgentChatBody): void {
   }
 }
 
+function transcriptOutOfSync(stored: number, claimed: number): AppError {
+  return new AppError(
+    409,
+    'transcript_out_of_sync',
+    `Stored transcript has ${String(stored)} messages; client claimed ${String(claimed)}`,
+    { storedMessageCount: stored },
+  )
+}
+
 /**
  * The stored prefix a suffix-window request stands on: the first `baseIndex`
  * stored messages in transcript order. `baseIndex` is a COUNT — the store is
@@ -66,14 +75,7 @@ export async function hydrateStoredPrefix(
 ): Promise<{ id: string; role: 'user' | 'assistant'; parts: unknown[] }[]> {
   const prefix = await getConversationMessagesHead(sessionId, userId, baseIndex)
 
-  if (prefix.length < baseIndex) {
-    throw new AppError(
-      409,
-      'transcript_out_of_sync',
-      `Stored transcript has ${String(prefix.length)} messages; client claimed ${String(baseIndex)}`,
-      { storedMessageCount: prefix.length },
-    )
-  }
+  if (prefix.length < baseIndex) throw transcriptOutOfSync(prefix.length, baseIndex)
   const incomingIds = new Set(incoming.map((message) => message.id))
 
   return prefix
@@ -87,11 +89,13 @@ export async function hydrateStoredPrefix(
 }
 
 /**
- * The client holds only the transcript tail; hydrate the stored prefix so
- * everything downstream (model context, persist, journal) sees the full
- * transcript exactly as if the client had sent it.
+ * The client sends only the tail from its latest user message on, which holds
+ * the whole current turn. The stored prefix is not read back: the turn plan
+ * rebuilds the transcript from the store anyway, so reading it here as well
+ * cost a full transcript read on every send. Only its count is checked, so a
+ * client ahead of the store still gets 409 and rebases.
  */
-export async function hydrateTranscriptPrefix(
+export async function acceptClientTail(
   body: AgentChatBody,
   sessionId: string,
   runOwnerUserId: string,
@@ -100,16 +104,15 @@ export async function hydrateTranscriptPrefix(
   deviceId?: string,
 ): Promise<UIMessage[]> {
   const baseIndex = body.baseIndex ?? 0
-  let messages = body.messages
+  const messages = body.messages
 
   if (baseIndex > 0) {
     if (!conversationForResume) {
       throw new AppError(409, 'transcript_out_of_sync', 'Conversation not found for baseIndex')
     }
-    const prefix = await hydrateStoredPrefix(sessionId, runOwnerUserId, baseIndex, messages)
+    const stored = await agentMessages().countDocuments({ sessionId, userId: runOwnerUserId })
 
-    messages = [...(prefix as UIMessage[]), ...messages]
-    body.messages = messages
+    if (stored < baseIndex) throw transcriptOutOfSync(stored, baseIndex)
   }
 
   await attributeAppMessages(

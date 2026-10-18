@@ -7,6 +7,7 @@ import {
   findCloudflareAccount,
   findZeaburProviderByZeaburId,
 } from '@/lib/byos/account'
+import { grafanaBindingToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 
@@ -40,7 +41,7 @@ export function requireGrafanaInstance(): MiddlewareHandler<{
     }
     c.set('grafanaInstanceId', instanceIdParam)
     c.set('grafanaUrl', binding.grafanaUrl)
-    c.set('grafanaSaToken', binding.saToken)
+    c.set('grafanaSaToken', grafanaBindingToken(binding))
     c.set('grafanaName', binding.name)
     await next()
   }

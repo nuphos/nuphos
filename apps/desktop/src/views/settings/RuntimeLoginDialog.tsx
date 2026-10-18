@@ -1,9 +1,9 @@
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { RuntimeLoginBody } from './RuntimeLoginBody'
-import { loginButtonClasses as buttonClass } from './styles'
 import { useRuntimeLogin } from './useRuntimeLogin'
 
 import type { RuntimeInstance } from '../../types/runtime'
@@ -48,9 +48,9 @@ export function RuntimeLoginDialog({
         <RuntimeLoginBody instance={instance} state={state} />
         <div className="flex items-center gap-3">
           {state.failed && (
-            <button type="button" onClick={state.restart} className={buttonClass}>
+            <Button size="sm" type="button" onClick={state.restart}>
               Try again
-            </button>
+            </Button>
           )}
           <button
             type="button"

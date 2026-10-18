@@ -4,10 +4,11 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { encryptGrafanaSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireGrafanaInstance } from '@/middleware/auth'
+import { requireTeamRole, requireGrafanaInstance, requireGrafanaWriteRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables, GrafanaInstanceVariables } from '@/middleware/auth'
@@ -118,7 +119,7 @@ const bindSchema = z.object({
 
       if (reason) ctx.addIssue({ code: z.ZodIssueCode.custom, message: reason })
     }),
-  saToken: z.string().min(1),
+  saToken: z.string().min(1).transform(encryptGrafanaSecret),
 })
 
 export function publicView(b: { id: ObjectId; name: string; grafanaUrl: string; createdAt: Date }) {
@@ -147,7 +148,7 @@ grafanaInstancesRoutes.post(
   requireTeamRole('ADMINISTRATOR'),
   zv('json', bindSchema),
   async (c) => {
-    const { name, grafanaUrl, saToken } = c.req.valid('json')
+    const { name, grafanaUrl, saToken: encryptedSaToken } = c.req.valid('json')
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const id = new ObjectId()
     const createdAt = new Date()
@@ -155,7 +156,7 @@ grafanaInstancesRoutes.post(
     await teamByosBindings().updateOne(
       { _id: teamId },
       {
-        $push: { grafanaInstances: { id, name, grafanaUrl, saToken, createdAt } },
+        $push: { grafanaInstances: { id, name, grafanaUrl, encryptedSaToken, createdAt } },
         $set: { updatedAt: createdAt },
         $setOnInsert: {
           awsRoles: [],
@@ -237,7 +238,7 @@ export function toGrafanaProxyResponse(upstreamRes: Response): Response {
   })
 }
 
-instanceScoped.all('/proxy/*', async (c) => {
+instanceScoped.all('/proxy/*', requireGrafanaWriteRole(), async (c) => {
   const proxyMarker = '/proxy/'
   const idx = c.req.path.indexOf(proxyMarker)
 
@@ -245,8 +246,7 @@ instanceScoped.all('/proxy/*', async (c) => {
     throw new AppError(400, 'invalid_proxy_path', 'Proxy path not found')
   }
   const upstreamPath = c.req.path.slice(idx + proxyMarker.length)
-  const url = new URL(c.req.url)
-  const qs = url.search
+  const qs = new URL(c.req.url).search
 
   const base = c.get('grafanaUrl').replace(/\/$/, '')
   const upstreamUrl = `${base}/${upstreamPath}${qs}`

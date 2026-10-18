@@ -26,6 +26,7 @@ const CREDENTIAL_ARRAY_KEYS = [
   'asanaAccountIds',
   'sentryAccountIds',
   'posthogIntegrationIds',
+  'plaudAccountIds',
   'tailscaleClientIds',
   'zeaburIds',
   'vantaIntegrationIds',

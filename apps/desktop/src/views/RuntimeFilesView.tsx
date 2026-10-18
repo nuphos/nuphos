@@ -1,4 +1,5 @@
-import { File, FileQuestion, Folder, FolderOpen, RefreshCw, Server } from 'lucide-react'
+import { Download, File, FileQuestion, Folder, FolderOpen, RefreshCw, Server } from 'lucide-react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { PageMeta } from '../app/pageMeta'
@@ -12,8 +13,22 @@ import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
 
 export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
   const { conversationId, refreshKey, isActive } = useWorkspaceTab()
-  const { source, path, directory, preview, fileName, loading, navigate, openFile, refresh } =
-    useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
+  const {
+    source,
+    path,
+    directory,
+    preview,
+    media,
+    tooLarge,
+    overLimit,
+    fileName,
+    loading,
+    navigate,
+    openFile,
+    refresh,
+    download,
+  } = useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
+  const [downloading, setDownloading] = useState(false)
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
 
@@ -62,6 +77,21 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 <Server className="h-3 w-3 shrink-0" strokeWidth={1.6} />
                 <span className="truncate">{source.label}</span>
               </span>
+            )}
+            {media && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Download file"
+                title="Download"
+                disabled={downloading}
+                onClick={() => {
+                  setDownloading(true)
+                  void download().finally(() => setDownloading(false))
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
             )}
             <Button
               variant="ghost"
@@ -112,6 +142,47 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 </pre>
               </div>
             )
+          ) : media ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-zGray-900/30 p-6">
+              {media.kind === 'video' ? (
+                <video src={media.url} controls className="max-h-full max-w-full rounded" />
+              ) : media.kind === 'audio' ? (
+                <audio src={media.url} controls className="w-full max-w-md" />
+              ) : media.kind === 'pdf' ? (
+                <iframe
+                  src={media.url}
+                  title={fileName}
+                  className="h-full w-full rounded bg-white"
+                />
+              ) : (
+                <img
+                  src={media.url}
+                  alt={fileName}
+                  className="max-h-full max-w-full rounded object-contain"
+                />
+              )}
+            </div>
+          ) : overLimit ? (
+            <EmptyState
+              icon={FileQuestion}
+              title="Too large to open"
+              description="Files can open media up to 100 MB."
+            />
+          ) : tooLarge ? (
+            <EmptyState
+              icon={FileQuestion}
+              title="Too large to preview"
+              description="Files over 512 KiB can be downloaded instead."
+              primaryAction={{
+                label: downloading ? 'Downloading…' : 'Download',
+                icon: Download,
+                disabled: downloading,
+                onClick: () => {
+                  setDownloading(true)
+                  void download().finally(() => setDownloading(false))
+                },
+              }}
+            />
           ) : (
             <EmptyState
               icon={FileQuestion}

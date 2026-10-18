@@ -36,7 +36,7 @@ export function patchDesktopAdapter(source, provider) {
     'await nuphosLocalSyncSkills(params);',
   )
   if (provider === 'claude-code') {
-    // A Linux Box gives every session a `computer-use` server on its own desktop.
+    // A Linux Box gives every session a `nuphos-desktop` server on its own desktop.
     patched = replaceOnce(
       patched,
       'for (const server of nuphosBridgeMcpServers(params.mcpServers)) {',

@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
+import { ObjectId } from 'mongodb'
 
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { getDiscordGuild } from '@/lib/discord/api'
 import { exchangeDiscordCode, isDiscordConfigured } from '@/lib/discord/oauth'
@@ -9,6 +11,7 @@ import { logEvent } from '@/lib/observability'
 
 import { completeDiscordOAuth } from './discord/lifecycle'
 
+import type { DiscordPendingOAuth } from '@/lib/discord/store'
 import type { Context } from 'hono'
 
 export const discordAppRoutes = new Hono()
@@ -60,13 +63,45 @@ discordAppRoutes.get('/setup', async (c) => {
       return callback(c, { state, error: 'bot_not_in_guild' })
     }
   }
+  const draft: DiscordBindingDraft = { pending, discordUserId: result.user.id, guild }
+
+  return callback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'discord',
+      state,
+      teamId: new ObjectId(pending.teamId),
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistDiscordBinding,
+    }),
+  )
+})
+
+// The pending doc is still unconsumed here: completeDiscordOAuth claims it in
+// the same transaction as the grants, so a disconnect or cancel in between
+// still voids a staged grant.
+type DiscordBindingDraft = {
+  pending: DiscordPendingOAuth
+  discordUserId: string
+  guild?: { id: string; name: string }
+}
+
+export async function persistDiscordBinding(
+  teamId: ObjectId,
+  draft: DiscordBindingDraft,
+): Promise<Record<string, string>> {
+  const { pending, discordUserId, guild } = draft
+
+  // The staged team must be the one completing; Discord keys teams by string.
+  if (!teamId.equals(pending.teamId)) return { error: 'expired_state' }
   let installation: Awaited<ReturnType<typeof completeDiscordOAuth>>
 
   try {
-    installation = await completeDiscordOAuth({ pending, discordUserId: result.user.id, guild })
+    installation = await completeDiscordOAuth({ pending, discordUserId, guild })
   } catch (err) {
     if ((err as { code?: number }).code === 11000) {
-      return callback(c, { state, error: 'discord_binding_conflict' })
+      return { error: 'discord_binding_conflict' }
     }
     const reason = err instanceof Error ? err.message : ''
 
@@ -78,7 +113,7 @@ discordAppRoutes.get('/setup', async (c) => {
         'missing_guild',
       ].includes(reason)
     ) {
-      return callback(c, { state, error: reason })
+      return { error: reason }
     }
     throw err
   }
@@ -86,16 +121,15 @@ discordAppRoutes.get('/setup', async (c) => {
     operation: pending.operation,
     team_id: pending.teamId,
     guild_id: installation.guildId,
-    discord_user_id: result.user.id,
+    discord_user_id: discordUserId,
   })
 
-  return callback(c, {
-    state,
+  return {
     team_id: pending.teamId,
     guild_id: installation.guildId,
     guild_name: installation.guildName,
-    discord_user_id: result.user.id,
-  })
-})
+    discord_user_id: discordUserId,
+  }
+}
 
 discordAppRoutes.get('/configured', (c) => c.json({ configured: isDiscordConfigured() }))

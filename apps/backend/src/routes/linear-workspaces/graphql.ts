@@ -7,6 +7,7 @@ import {
 } from '@/lib/byos/linear'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
+import { personalCredentialSubjectFor, personalLinearToken } from '@/lib/personal-credentials'
 
 import type { LinearWorkspaceVariables } from '@/middleware/auth'
 import type { LinearWorkspaceBinding } from '@/models'
@@ -24,7 +25,15 @@ export function linearReconnectError(): AppError {
 export async function handOutLinearToken(
   teamId: ObjectId,
   binding: LinearWorkspaceBinding,
-): Promise<{ token: string; expiresAt: Date | null }> {
+  authorization?: string,
+  identity?: string,
+): Promise<{ token: string; expiresAt: Date | null; personalLogin?: string }> {
+  // The turn acts as its member (the sender, or the session owner for automated
+  // work) when they connected this workspace, unless it asks for the team identity.
+  const subject = await personalCredentialSubjectFor('linear', authorization, identity)
+  const personal = subject ? await personalLinearToken(subject, binding.workspaceId) : null
+
+  if (personal) return { ...personal, personalLogin: personal.login }
   try {
     return await getAccessTokenWithExpiry(teamId, binding)
   } catch (error) {

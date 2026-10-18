@@ -21,7 +21,7 @@ const ROUTES: { method: string; path: RegExp }[] = [
   },
   {
     method: 'GET',
-    path: /^\/(?:betterstack-integrations|linear-workspaces|jira-sites|asana-accounts|resend-integrations|sentry-accounts|posthog-integrations)\/[^/]+\/credentials$/u,
+    path: /^\/(?:betterstack-integrations|linear-workspaces|jira-sites|asana-accounts|resend-integrations|sentry-accounts|posthog-integrations|plaud-accounts)\/[^/]+\/credentials$/u,
   },
   {
     method: '*',

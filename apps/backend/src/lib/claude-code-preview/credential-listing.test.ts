@@ -69,7 +69,7 @@ function oneOfEach(): AgentCredentialOptions {
     sentryAccounts: [{ accountId: ID, label, userEmail: null }],
     tailscaleClients: [{ clientId: ID, label, oauthClientId: 'o' }],
     zeaburProviders: [{ zeaburId: ID, kind: 'team', name: label }],
-    vantaIntegrations: [{ integrationId: ID, label, authType: 'oauth' }],
+    vantaIntegrations: [{ integrationId: ID, label, authType: 'client_credentials' }],
     secureframeIntegrations: [{ integrationId: ID, label, region: 'us' }],
     resendIntegrations: [{ integrationId: ID, label, permission: 'sending_access' }],
     githubInstallations: [{ installationId: ID, accountLogin: 'org', accountType: 'Organization' }],
@@ -86,6 +86,7 @@ function oneOfEach(): AgentCredentialOptions {
         projects: [{ id: 1, name: 'Web' }],
       },
     ],
+    plaudAccounts: [{ bindingId: ID, label }],
     cloudflareAccounts: [{ accountId: ID, accountName: label }],
     devices: [{ deviceId: ID, label, platform: 'darwin', available: true }],
   }
@@ -103,20 +104,18 @@ const VENDED_CLOUDS = [
   'huaweiAccountIds',
   'cloudflareAccountIds',
   'posthogIntegrationIds',
+  'plaudAccountIds',
 ]
 
-const selectableKeys = [
-  ...new Set([
-    ...Object.keys(agentCredentialSelectionSchema.shape),
-    ...Object.keys(CREDENTIAL_LISTERS),
-  ]),
-]
+// teamIdentity picks who GitHub/Linear act as; it is not a credential to list.
+const credentialKeys = Object.keys(agentCredentialSelectionSchema.shape).filter(
+  (key) => key !== 'teamIdentity',
+)
+const selectableKeys = [...new Set([...credentialKeys, ...Object.keys(CREDENTIAL_LISTERS)])]
 
 describe('list_credentials coverage', () => {
   test('has a lister for every type the selector API accepts', () => {
-    expect(Object.keys(CREDENTIAL_LISTERS)).toEqual(
-      expect.arrayContaining(Object.keys(agentCredentialSelectionSchema.shape)),
-    )
+    expect(Object.keys(CREDENTIAL_LISTERS)).toEqual(expect.arrayContaining(credentialKeys))
   })
 
   test.each(selectableKeys)('a selected %s is listed with a way to use it', (key) => {

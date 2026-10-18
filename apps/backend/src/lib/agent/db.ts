@@ -25,6 +25,7 @@ export {
 export {
   clearConversationPreviewLocalTools,
   clearConversationPreviewTurn,
+  consumeConversationRetracted,
   consumeConversationWorkLost,
   getConversationPreviewAttachment,
   markConversationWorkLost,
@@ -62,6 +63,7 @@ export {
   appendConversationMessages,
 } from './db/transcript-autonomous'
 export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
+export { retractTrailingUserMessage } from './db/transcript-retract'
 export { getConversationMessagesHead, syncConversationTranscript } from './db/transcript'
 export { getConversations } from './db/conversations-list'
 export { restoreArchivedConversation, setConversationArchived } from './db/archive'
@@ -83,4 +85,7 @@ export type {
   ConversationsScope,
   ConversationsSort,
 } from './db/conversations-list'
-export { setConversationCredentialFields } from './db/credential-fields'
+export {
+  addConversationCredentialIds,
+  setConversationCredentialFields,
+} from './db/credential-fields'

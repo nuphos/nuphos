@@ -29,7 +29,6 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     selectConversationRuntime,
     isSidebarMode,
     onPromptConsumed,
-    onStartConnect,
     pendingPromptReady,
     selectDefaultPermissionMode,
     sendInActive,
@@ -104,7 +103,6 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         autoFocusComposer={autoFocusComposer}
         dropRegisterRef={homeDropRef}
         unbound={unbound}
-        onStartConnect={onStartConnect}
         teamId={teamId}
         starterSuggestions={homeStarterSuggestions.suggestions}
         starterSuggestionsLoading={homeStarterSuggestions.loading}

@@ -13,9 +13,16 @@ export function sessionContextStale(
   return now - (session.contextDeliveredAt ?? 0) >= SESSION_CONTEXT_REFRESH_MS
 }
 
+// The principal is the actor and which HOME they run in: the same member's own
+// turn and an automated one differ in credentials, so they reload too.
 export function previewSessionPrincipalChanged(
-  session: Pick<TeamSession, 'userId'>,
+  session: Pick<TeamSession, 'userId' | 'runtime'>,
   nextUserId: string,
+  nextRuntime?: Pick<NonNullable<TeamSession['runtime']>, 'env'>,
 ): boolean {
-  return session.userId !== nextUserId
+  return (
+    session.userId !== nextUserId ||
+    (nextRuntime !== undefined &&
+      session.runtime?.env?.NUPHOS_SESSION_ACTOR !== nextRuntime.env?.NUPHOS_SESSION_ACTOR)
+  )
 }

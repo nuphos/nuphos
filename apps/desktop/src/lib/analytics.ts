@@ -68,24 +68,8 @@ export type AnalyticsEvent =
   | 'agent_permission_mode_changed'
   | 'agent_conversation_deleted'
   | 'agent_memories_opened'
-  | 'agent_first_run_home_viewed'
-  | 'agent_first_run_connect_started'
-  | 'agent_first_run_strip_dismissed'
   | 'agent_star_strip_clicked'
   | 'agent_star_strip_dismissed'
-  // The guide's funnel. The gap between cloud_picked and operational_bound is
-  // the console trip — the only step we can't shorten from here. asked and
-  // answered mark the first real conversation; the gap between answered and
-  // wall_setup_started is how long the savings stage takes to sell the second
-  // role, and its absence is people who stopped at read-only.
-  | 'agent_first_run_cloud_picked'
-  // The scenario screen sits between the pick and the console steps, so these
-  // two are separate funnel points: picked a cloud, then chose to go through
-  // with its setup after reading what it buys them.
-  | 'agent_first_run_setup_started'
-  | 'agent_first_run_operational_bound'
-  | 'agent_first_run_question_asked'
-  | 'agent_first_run_answer_received'
   | 'pod_deleted'
   | 'deployment_restarted'
   | 'node_cordoned'

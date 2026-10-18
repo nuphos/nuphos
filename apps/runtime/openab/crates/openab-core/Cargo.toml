@@ -1,0 +1,75 @@
+[package]
+name = "openab-core"
+version = "0.8.5"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+toml_edit = "0.22"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "model", "rustls_backend", "cache"], optional = true }
+uuid = { version = "1", features = ["v4"] }
+regex = "1"
+anyhow = "1"
+async-trait = "0.1"
+futures-util = "0.3"
+rand = "0.8"
+clap = { version = "4", features = ["derive"] }
+rpassword = "7"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "multipart", "json", "blocking", "stream"] }
+bytes = "1"
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+unicode-width = "0.2"
+unicode-segmentation = "1"
+pulldown-cmark = { version = "0.13", default-features = false }
+tokio-tungstenite = { version = "0.21", features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "0.22", optional = true }
+tokio-rustls = { version = "0.25", optional = true }
+webpki-roots = { version = "0.26", optional = true }
+cron = "0.16.0"
+chrono = { version = "0.4.44", features = ["serde"] }
+chrono-tz = "0.10.4"
+emojis = "0.8"
+sha2 = "0.10"
+tempfile = "3.27.0"
+aws-sdk-secretsmanager = { version = "1", optional = true }
+aws-sdk-s3 = { version = "1", optional = true }
+aws-config = { version = "1", optional = true }
+zip = { version = "2", default-features = false, features = ["deflate"], optional = true }
+flate2 = { version = "1", optional = true }
+tar = { version = "0.4.45", default-features = false, optional = true }
+aws-sigv4 = { version = "1", optional = true }
+aws-credential-types = { version = "1", optional = true }
+urlencoding = { version = "2", optional = true }
+hex = { version = "0.4", optional = true }
+http = { version = "1", optional = true }
+# Browser tool definitions for the facade's capability source. Only `rmcp::model` is used now —
+# the loopback MCP server that needed the server + streamable-http transport features (and its own
+# axum listener) was removed with the per-session proxy.
+rmcp = { version = "1.7", default-features = false, optional = true }
+tokio-util = { version = "0.7", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
+
+[features]
+default = ["discord", "slack", "secrets-aws", "agentcore", "config-s3"]
+discord = ["dep:serenity"]
+slack = []
+secrets-aws = ["dep:aws-sdk-secretsmanager", "dep:aws-config"]
+config-s3 = ["dep:aws-sdk-s3", "dep:aws-config"]
+pre-seed = ["dep:aws-sdk-s3", "dep:aws-config", "dep:zip", "dep:hex", "dep:flate2", "dep:tar"]
+filestore = ["dep:aws-sdk-s3", "dep:aws-config"]
+agentcore = ["dep:aws-config", "dep:aws-sigv4", "dep:aws-credential-types", "dep:urlencoding", "dep:hex", "dep:http", "dep:rustls", "dep:tokio-rustls", "dep:webpki-roots"]
+# Core-side wiring for MCP-over-ACP browser control (enabled by the root `acp`): the browser tool
+# definitions and the agent's facade MCP config. Core hosts no MCP server of its own any more.
+acp-mcp = ["dep:rmcp", "dep:tokio-util"]

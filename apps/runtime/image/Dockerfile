@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1.19
 
 # The Nuphos runtime image. BASE_IMAGE is any image built from
-# third_party/openab/Dockerfile.unified; only its `openab` binary is used, so the
-# agent CLIs that Dockerfile installs globally never reach this image.
+# openab/Dockerfile; only its `openab` binary is used.
 # See the repository README for the build.
 #
 # Runs as uid/gid 1000 (node) with all caps dropped — everything here must be
@@ -62,10 +61,10 @@ FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.301
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.302
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
-     claude-agent-acp/turn-completion.mjs \
+     claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
      /opt/nuphos-claude-agent-acp/
 # The lockfile carries no libc field, so npm installs the musl build of the
 # SDK's native CLI beside the glibc one this Debian image runs.

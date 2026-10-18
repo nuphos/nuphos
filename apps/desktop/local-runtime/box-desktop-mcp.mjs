@@ -1,6 +1,7 @@
 // On a Linux Box the host sets NUPHOS_DESKTOP_SESSION (the wrapper's path) and
-// NUPHOS_DESKTOP_POOL; every Claude session then gets a `computer-use` MCP server
-// that serves it on its own desktop. The function body is injected into the
+// NUPHOS_DESKTOP_POOL; every Claude session then gets a `nuphos-desktop` MCP server
+// that serves it on its own desktop. Not `computer-use`: Claude Code reserves that
+// name for its own server and silently drops a configured one. The function body is injected into the
 // adapter, so it must stand alone (adapter-patches.mjs).
 export function nuphosBoxDesktopMcpServers(servers, sessionEnv, env = process.env) {
   const sessionId = sessionEnv?.NUPHOS_SESSION_ID
@@ -8,12 +9,12 @@ export function nuphosBoxDesktopMcpServers(servers, sessionEnv, env = process.en
   const pool = env.NUPHOS_DESKTOP_POOL
 
   if (!sessionId || !wrapper || !pool || !Array.isArray(servers)) return servers
-  if (servers.some((server) => server?.name === 'computer-use')) return servers
+  if (servers.some((server) => server?.name === 'nuphos-desktop')) return servers
 
   return [
     ...servers,
     {
-      name: 'computer-use',
+      name: 'nuphos-desktop',
       command: process.execPath,
       args: [wrapper, 'serve'],
       env: [

@@ -1,6 +1,8 @@
 import { ShieldCheck } from 'lucide-react'
 import { useContext } from 'react'
 
+import { Button } from '../../ui/button'
+
 import { AuthorizationActionContext } from './parts'
 
 export function AuthorizationApprovalActions({
@@ -25,13 +27,9 @@ export function AuthorizationApprovalActions({
         <span>Authorization required{reason ? ` — ${reason}` : ''}</span>
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => decide(toolCallId, 'once')}
-          className="inline-flex h-8 items-center rounded-md bg-zViolet-500 px-3 text-[12px] font-medium text-white transition-colors hover:bg-zViolet-600"
-        >
+        <Button size="sm" type="button" onClick={() => decide(toolCallId, 'once')}>
           Approve once
-        </button>
+        </Button>
         <button
           type="button"
           onClick={() => decide(toolCallId, 'deny')}

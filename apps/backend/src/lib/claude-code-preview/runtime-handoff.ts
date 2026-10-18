@@ -1,3 +1,4 @@
+import { sweepQueuedSessions } from '@/lib/agent/session-released'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import {
@@ -76,6 +77,8 @@ async function queueRuntimeOwnedWork(): Promise<void> {
           ownerUserId: session.conversationOwnerUserId ?? session.userId,
           actorUserId: session.userId,
           locale: session.locale,
+          // Only a teammate's own turn acts as someone other than the owner.
+          humanTurn: Boolean(session.runtime?.env?.NUPHOS_SESSION_ACTOR),
         })
       }),
   )
@@ -183,7 +186,7 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
     handoff.teamId,
     handoff.actorUserId,
     handoff.ownerUserId,
-    { external: endpoint.external, backendUrl: endpoint.backendUrl },
+    { external: endpoint.external, backendUrl: endpoint.backendUrl, humanTurn: handoff.humanTurn },
   )
   const abandonedStreamId = handoff.abandonedStreamId
 
@@ -247,12 +250,14 @@ export async function adoptRuntimeHandoffs(
 export function startRuntimeHandoffAdoption(): () => void {
   let running = false
   let cursor = '0'
+  let queueCursor = '0'
   const tick = () => {
     if (running) return
     running = true
     void (async () => {
       cursor = await sweepAbandonedAgentRuns(cursor)
       await adoptRuntimeHandoffs()
+      queueCursor = await sweepQueuedSessions(queueCursor)
     })()
       .catch((error: unknown) => {
         logError('agent.runtime_handoff.scan_failed', error)

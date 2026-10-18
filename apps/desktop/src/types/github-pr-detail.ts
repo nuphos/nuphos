@@ -83,3 +83,13 @@ export type GithubCliViewer = { login: string; avatarUrl: string }
 export type GithubCliResult = { ok: true } | { ok: false; message: string }
 export type GithubReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'
 export type GithubMergeMethod = 'merge' | 'squash' | 'rebase'
+
+// A pull request or issue as a chat chip shows it, read through the user's `gh`.
+export type GithubRefKey = { owner: string; repo: string; number: number }
+export type GithubRefState = 'open' | 'draft' | 'merged' | 'closed' | 'completed' | 'not_planned'
+export type GithubRefSummary = {
+  kind: 'pull' | 'issue'
+  title: string
+  state: GithubRefState
+  review: 'approved' | 'changes_requested' | null
+}

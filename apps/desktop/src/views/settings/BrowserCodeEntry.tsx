@@ -1,11 +1,12 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { pastedSignInReady } from './runtimeLogin'
-import { inputClasses, loginButtonClasses as buttonClass } from './styles'
+import { inputClasses } from './styles'
 
 import type { AgentProvider } from '../../types/runtime'
 
@@ -66,9 +67,14 @@ export function BrowserCodeEntry({
           : `Approve access on ${account}’s page, then paste the code it shows you here.`}{' '}
         The agent keeps the sign-in; Nuphos does not store it.
       </p>
-      <a href={url} target="_blank" rel="noopener noreferrer" className={`${buttonClass} w-full`}>
+      <Button
+        size="md"
+        className="w-full"
+        nativeButton={false}
+        render={<a href={url} target="_blank" rel="noopener noreferrer" />}
+      >
         Open {account} <ExternalLink className="h-3.5 w-3.5" />
-      </a>
+      </Button>
       <form onSubmit={(event) => void submit(event)} className="flex items-center gap-2">
         <input
           aria-label={loopback ? 'Address your browser ended on' : `Code from ${account}`}
@@ -82,13 +88,9 @@ export function BrowserCodeEntry({
           disabled={submitting}
           onChange={(event) => setCode(event.target.value)}
         />
-        <button
-          type="submit"
-          disabled={submitting || !code.trim()}
-          className={`${buttonClass} shrink-0`}
-        >
+        <Button size="sm" className="shrink-0" type="submit" disabled={submitting || !code.trim()}>
           {submitting ? 'Sending…' : 'Connect'}
-        </button>
+        </Button>
       </form>
     </>
   )

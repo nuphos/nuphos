@@ -12,6 +12,7 @@ import {
   verifyWebhookSignature,
 } from '@/lib/byos/linear'
 import { encryptLinearSecret } from '@/lib/byos/secrets'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
@@ -110,21 +111,7 @@ linearAppRoutes.get('/setup', async (c) => {
     })
   }
 
-  // Re-binding the same workspace replaces the existing binding's credentials
-  // instead of accumulating duplicates. The original binding id is preserved so
-  // references stay valid.
-  const existingDoc = await teamByosBindings().findOne(
-    { _id: pending.teamId },
-    { projection: { linearWorkspaces: 1 } },
-  )
-  const existing = existingDoc?.linearWorkspaces?.find(
-    (w) => w.workspaceId === viewer.organization.id,
-  )
-
-  const bindingId = existing?.id ?? new ObjectId()
-  const binding: LinearWorkspaceBinding = {
-    id: bindingId,
-    label: existing?.label ?? viewer.organization.name,
+  const draft: LinearBindingDraft = {
     workspaceId: viewer.organization.id,
     workspaceName: viewer.organization.name,
     organizationUrlKey: viewer.organization.urlKey,
@@ -134,13 +121,47 @@ linearAppRoutes.get('/setup', async (c) => {
     encryptedAccessToken: encryptLinearSecret(tokens.accessToken),
     encryptedRefreshToken: tokens.refreshToken ? encryptLinearSecret(tokens.refreshToken) : null,
     accessTokenExpiresAt: tokens.expiresAt,
+  }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'linear',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistLinearBinding,
+    }),
+  )
+})
+
+type LinearBindingDraft = Omit<LinearWorkspaceBinding, 'id' | 'label' | 'createdAt' | 'access'>
+
+// Re-binding the same workspace replaces the existing binding's credentials
+// instead of accumulating duplicates. The original binding id is preserved so
+// references stay valid.
+export async function persistLinearBinding(
+  teamId: ObjectId,
+  draft: LinearBindingDraft,
+): Promise<Record<string, string>> {
+  const existingDoc = await teamByosBindings().findOne(
+    { _id: teamId },
+    { projection: { linearWorkspaces: 1 } },
+  )
+  const existing = existingDoc?.linearWorkspaces?.find((w) => w.workspaceId === draft.workspaceId)
+  const bindingId = existing?.id ?? new ObjectId()
+  const binding: LinearWorkspaceBinding = {
+    ...draft,
+    id: bindingId,
+    label: existing?.label ?? draft.workspaceName,
     createdAt: existing?.createdAt ?? new Date(),
     ...(existing?.access ? { access: existing.access } : {}),
   }
 
   if (existing) {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       {
         $set: { 'linearWorkspaces.$[el]': binding, updatedAt: new Date() },
       },
@@ -148,10 +169,10 @@ linearAppRoutes.get('/setup', async (c) => {
     )
     // The binding id is reused, so the superseded grant's token is still sitting
     // in the handout cache under this key.
-    invalidateAccessToken(pending.teamId, existing.id)
+    invalidateAccessToken(teamId, existing.id)
   } else {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       {
         $push: { linearWorkspaces: binding },
         $set: { updatedAt: new Date() },
@@ -168,18 +189,20 @@ linearAppRoutes.get('/setup', async (c) => {
     )
   }
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: bindingId.toHexString(),
-    team_id: pending.teamId.toHexString(),
-    workspace_name: viewer.organization.name,
-  })
-})
+    team_id: teamId.toHexString(),
+    workspace_name: draft.workspaceName,
+  }
+}
 
 type LinearWebhookPayload = {
   type?: string
   action?: string
+  webhookTimestamp?: number
 }
+
+const LINEAR_MAX_SKEW_MS = 60_000
 
 // Issue events refresh linked session tags; agent wakeups from Linear are not
 // implemented, so every other event is only acknowledged.
@@ -203,6 +226,17 @@ linearAppRoutes.post('/webhook', async (c) => {
     throw new AppError(400, 'invalid_payload', 'Webhook body is not valid JSON')
   }
 
+  // Linear signs webhookTimestamp (ms) and recommends rejecting anything older
+  // than a minute, so a captured request cannot be replayed later.
+  const skew = Math.abs(Date.now() - Number(payload.webhookTimestamp))
+
+  if (Number.isNaN(skew) || skew > LINEAR_MAX_SKEW_MS) {
+    throw new AppError(
+      401,
+      'stale_webhook',
+      'Linear webhook timestamp is outside the allowed window',
+    )
+  }
   await applyLinearIssueWebhook(payload)
   logEvent('info', 'linear.webhook.acknowledged', {
     type: payload.type ?? 'unknown',

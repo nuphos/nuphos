@@ -1,5 +1,6 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
+import { backendFailure, tagRequest } from '../fetch-error.ts'
 import { readDeviceIdentity } from '../main/device-identity.ts'
 
 import {
@@ -41,6 +42,7 @@ export async function postChatAttempt(
   if (url) headers['x-atlas-url'] = url
   if (kubeContext) headers['x-atlas-kube-context'] = kubeContext
   if (diagramId) headers['x-atlas-diagram-id'] = diagramId
+  const requestId = tagRequest(headers)
 
   let firstByteTimedOut = false
   const effectiveTimeout = effectiveFirstByteTimeout(state.firstByteTimeouts)
@@ -98,8 +100,9 @@ export async function postChatAttempt(
         agentRuntime: args.agentRuntime,
         runtimeId: args.runtimeId,
         initialSessionConfig: args.initialSessionConfig,
-        // A runtime refusal parks the draft and sends it again (parkRefusedTurn).
-        clientCapabilities: { localTools: true, resendsRefusal: true },
+        // A busy session queues the message on the server (202); a refusal
+        // mid-start puts it back at the head of that queue (message_queued).
+        clientCapabilities: { localTools: true, serverQueue: true },
         // Only the very first POST of an auto-resumed run carries the
         // nudge; subsequent reconnects within that same run are
         // transport-level resumes against an already-running agent loop
@@ -121,13 +124,13 @@ export async function postChatAttempt(
         'post_failed',
         { streamId, sessionId },
         {
-          error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+          request_id: requestId,
           aborted: ctx.signal.aborted,
           elapsed_ms: Date.now() - attemptStartedAt,
         },
         'warn',
       )
-      throw fetchErr
+      throw backendFailure(fetchErr, '/agent/chat', requestId)
     }
     state.firstByteTimeouts += 1
     traceStream(

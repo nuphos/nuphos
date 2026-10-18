@@ -7,6 +7,7 @@ import { Age } from '../../components/Age'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { Table } from '../../components/Table'
+import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
@@ -251,13 +252,9 @@ function CreateR2BucketDialog({
         >
           Cancel
         </button>
-        <button
-          onClick={() => void create()}
-          disabled={saving}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" onClick={() => void create()} disabled={saving}>
           {saving ? 'Creating…' : 'Create'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

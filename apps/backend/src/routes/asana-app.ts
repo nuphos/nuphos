@@ -8,6 +8,7 @@ import {
   invalidateAsanaAccessToken,
 } from '@/lib/byos/asana'
 import { encryptAsanaSecret } from '@/lib/byos/secrets'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { asanaPendingOAuth, teamByosBindings } from '@/models'
@@ -101,21 +102,8 @@ asanaAppRoutes.get('/setup', async (c) => {
       error_description: 'Asana did not return the authorising account',
     })
   }
-  const accountLabel = account.name ?? account.email ?? `Asana user ${account.gid}`
 
-  // Re-binding the same Asana account replaces the existing binding's
-  // credentials instead of accumulating duplicates. The original binding id is
-  // preserved.
-  const existingDoc = await teamByosBindings().findOne(
-    { _id: pending.teamId },
-    { projection: { asanaAccounts: 1 } },
-  )
-  const existing = (existingDoc?.asanaAccounts ?? []).find((a) => a.accountGid === account.gid)
-
-  const bindingId = existing?.id ?? new ObjectId()
-  const binding: AsanaAccountBinding = {
-    id: bindingId,
-    label: existing?.label ?? accountLabel,
+  const draft: AsanaBindingDraft = {
     accountGid: account.gid,
     accountName: account.name,
     accountEmail: account.email,
@@ -123,22 +111,58 @@ asanaAppRoutes.get('/setup', async (c) => {
     encryptedAccessToken: encryptAsanaSecret(tokens.accessToken),
     encryptedRefreshToken: tokens.refreshToken ? encryptAsanaSecret(tokens.refreshToken) : null,
     accessTokenExpiresAt: tokens.expiresAt,
+  }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'asana',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistAsanaBinding,
+    }),
+  )
+})
+
+type AsanaBindingDraft = Omit<AsanaAccountBinding, 'id' | 'label' | 'createdAt' | 'access'>
+
+// Re-binding the same Asana account replaces the existing binding's
+// credentials instead of accumulating duplicates. The original binding id is
+// preserved.
+export async function persistAsanaBinding(
+  teamId: ObjectId,
+  draft: AsanaBindingDraft,
+): Promise<Record<string, string>> {
+  const accountLabel = draft.accountName ?? draft.accountEmail ?? `Asana user ${draft.accountGid}`
+  const existingDoc = await teamByosBindings().findOne(
+    { _id: teamId },
+    { projection: { asanaAccounts: 1 } },
+  )
+  const existing = (existingDoc?.asanaAccounts ?? []).find((a) => a.accountGid === draft.accountGid)
+
+  const bindingId = existing?.id ?? new ObjectId()
+  const binding: AsanaAccountBinding = {
+    ...draft,
+    id: bindingId,
+    label: existing?.label ?? accountLabel,
     createdAt: existing?.createdAt ?? new Date(),
     ...(existing?.access ? { access: existing.access } : {}),
   }
 
   if (existing) {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       { $set: { 'asanaAccounts.$[el]': binding, updatedAt: new Date() } },
       { arrayFilters: [{ 'el.id': existing.id }] },
     )
     // Re-bind reuses the binding id but stores fresh tokens; drop the cached
     // access token so the next handout doesn't serve the pre-reconnect one.
-    invalidateAsanaAccessToken(pending.teamId, bindingId)
+    invalidateAsanaAccessToken(teamId, bindingId)
   } else {
     await teamByosBindings().updateOne(
-      { _id: pending.teamId },
+      { _id: teamId },
       {
         $push: { asanaAccounts: binding },
         $set: { updatedAt: new Date() },
@@ -157,10 +181,9 @@ asanaAppRoutes.get('/setup', async (c) => {
     )
   }
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: bindingId.toHexString(),
-    team_id: pending.teamId.toHexString(),
+    team_id: teamId.toHexString(),
     account_name: accountLabel,
-  })
-})
+  }
+}

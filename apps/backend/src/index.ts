@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs'
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
-import { startQueuedTurn } from '@/lib/agent/conversation-turn'
+import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
   initMemoryRetentionRollup,

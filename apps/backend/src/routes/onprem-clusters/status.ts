@@ -7,6 +7,7 @@ import { decryptOnpremKubeconfig } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { logError } from '@/lib/observability'
+import { requireTeamRole } from '@/middleware/auth'
 import { loadBinding, requireRelay } from '@/routes/onprem-clusters/shared'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -68,6 +69,10 @@ export function registerOnpremStatusRoutes(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = await loadBinding(teamId, c.req.param('clusterId'))
 
+    if (!canUseAllowList(binding.access?.memberAllowList, c.get('userId'))) {
+      throw new AppError(403, 'forbidden', 'You do not have access to this on-prem cluster.')
+    }
+
     if (!binding.encryptedKubeconfig) {
       throw new AppError(
         409,
@@ -91,6 +96,7 @@ export function registerOnpremStatusRoutes(
    * The cluster credential is delivered only after the team allow-list check;
    * the Nuphos relay URL is additionally scoped to this user and expires.
    */
+  onpremClustersRoutes.use('/:clusterId/kubeconfig', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   onpremClustersRoutes.get('/:clusterId/kubeconfig', async (c) => {
     requireRelay()
     const teamId = parseObjectId(c.get('teamId'), 'teamId')

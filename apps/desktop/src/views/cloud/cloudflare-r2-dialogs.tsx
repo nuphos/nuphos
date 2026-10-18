@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 export function R2CredentialsGate({
@@ -25,12 +26,9 @@ export function R2CredentialsGate({
             separate Access Key ID and Secret. Create one in the Cloudflare dashboard under R2 →
             Manage API tokens.
           </div>
-          <button
-            onClick={() => setBindingCreds(true)}
-            className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px]"
-          >
+          <Button size="sm" onClick={() => setBindingCreds(true)}>
             Bind R2 credentials
-          </button>
+          </Button>
         </div>
       </div>
       {bindingCreds && (
@@ -112,13 +110,9 @@ function BindR2CredentialsDialog({
         >
           Cancel
         </button>
-        <button
-          onClick={() => void bind()}
-          disabled={saving}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" onClick={() => void bind()} disabled={saving}>
           {saving ? 'Verifying…' : 'Bind'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

@@ -24,14 +24,21 @@ import {
   gitlabPendingOAuth,
   jiraPendingOAuth,
   linearPendingOAuth,
+  plaudPendingOAuth,
   posthogPendingOAuth,
   sentryPendingOAuth,
   slackPendingOAuth,
+  connectorOAuthReady,
 } from '@/models/oauth'
+import { personalCredentialPendingOAuth, personalCredentials } from '@/models/personal-credentials'
 import { teamByosBindings } from '@/models/team'
 
 export async function setupCoreIndexes(): Promise<void> {
   // _id is auto-indexed; nothing to set up here.
+  await connectorOAuthReady().createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: 'connector_oauth_ready_ttl' },
+  )
   await gitlabPendingOAuth().createIndex(
     { expiresAt: 1 },
     { expireAfterSeconds: 0, name: 'gitlab_oauth_pending_ttl' },
@@ -64,9 +71,21 @@ export async function setupCoreIndexes(): Promise<void> {
     { expiresAt: 1 },
     { expireAfterSeconds: 0, name: 'posthog_oauth_pending_ttl' },
   )
+  await plaudPendingOAuth().createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: 'plaud_oauth_pending_ttl' },
+  )
   await slackPendingOAuth().createIndex(
     { expiresAt: 1 },
     { expireAfterSeconds: 0, name: 'slack_oauth_pending_ttl' },
+  )
+  await personalCredentialPendingOAuth().createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: 'personal_credential_oauth_pending_ttl' },
+  )
+  await personalCredentials().createIndex(
+    { userId: 1, provider: 1 },
+    { unique: true, name: 'personal_credentials_user_provider_unique' },
   )
   // A Lark custom app (by app_id) can only be connected to one Nuphos team.
   await teamByosBindings().createIndex(

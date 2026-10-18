@@ -203,8 +203,8 @@ export type AgentCredentialAccess = {
   // Optional for docs written before Resend joined the session-isolation tier.
   resendIntegrationIds?: string[]
   posthogIntegrationIds?: string[]
-  // Optional for docs written before these connectors moved off self-discovery
-  // into the selected-credential tier.
+  plaudAccountIds?: string[]
+  // Optional for docs written before these left self-discovery for selection.
   githubInstallationIds?: string[]
   gitlabBindingIds?: string[]
   grafanaInstanceIds?: string[]
@@ -212,9 +212,9 @@ export type AgentCredentialAccess = {
   notionIntegrationIds?: string[]
   upstashAccountIds?: string[]
   cloudflareAccountIds?: string[]
-  // Optional for docs written before devices joined the credential-selector
-  // model — devices are user-owned, never team-shared.
+  // Optional for docs older than device selection; devices are user-owned, never team-shared.
   deviceIds?: string[]
+  teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
   updatedAt: Date
   updatedBy: string
 }

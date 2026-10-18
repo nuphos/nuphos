@@ -6,9 +6,11 @@
 
 import { memo, useLayoutEffect } from 'react'
 
+import { SlashCommandsContext } from './panel/composerSlashCommands'
 import { HOME_TAB_ID } from './panel/model'
 import { PanelContent, PanelSidebarLayout } from './panel/panelContent'
 import { PanelPageLayout } from './panel/panelPageLayout'
+import { usePanelSlashCommands } from './panel/panelSlashCommands'
 import { computePanelRenderState } from './panel/panelRenderState'
 import { PanelConversationPage, PanelHomePage } from './panel/panelViews'
 import { useAgentEventStream } from './panel/useAgentEventStream'
@@ -24,10 +26,10 @@ import { usePanelNav } from './panel/usePanelNav'
 import { usePanelPermissions } from './panel/usePanelPermissions'
 import { usePanelPlanPane } from './panel/usePanelPlanPane'
 import { usePanelQueueWatchdogs } from './panel/usePanelQueueWatchdogs'
+import { useQueueSync } from './panel/useQueueSync'
 import { usePanelRefs } from './panel/usePanelRefs'
 import { usePanelSessionBridge } from './panel/usePanelSessionBridge'
 import { usePanelTranscripts } from './panel/usePanelTranscripts'
-import { useQueuedAutoSend } from './panel/useQueuedAutoSend'
 import { useTextStreaming } from './panel/useTextStreaming'
 import { useTurnDispatch } from './panel/useTurnDispatch'
 
@@ -124,8 +126,6 @@ type Props = {
    * which never had the gate.
    */
   unbound?: boolean
-  /** Starts the read-only connect flow from the first-run home. */
-  onStartConnect?: () => void
   /**
    * Human labels for the integrations the team has bound (e.g. ['AWS',
    * 'Slack', 'GitHub']). Used on the page-mode home screen to fetch a set of
@@ -167,7 +167,6 @@ export const AgentPanel = memo(function AgentPanel({
   runtimeKubeContextRef,
   isTeamAdmin = false,
   unbound = false,
-  onStartConnect,
   connectedResources,
 }: Props) {
   const acc1 = {
@@ -199,13 +198,12 @@ export const AgentPanel = memo(function AgentPanel({
     autoFocusComposer,
     kubeContext,
     runtimeKubeContextRef,
-    onStartConnect,
     connectedResources,
     onDockToSidebar,
     onExpandToPage,
   }
   const acc2 = { ...acc1, ...usePanelBase(acc1) }
-  const acc3 = { ...acc2, ...usePanelRefs(acc2) }
+  const acc3 = { ...acc2, ...usePanelRefs() }
   const acc4 = { ...acc3, ...usePanelPermissions(acc3) }
   const acc5 = { ...acc4, ...usePanelTranscripts(acc4) }
   const acc6 = { ...acc5, ...usePanelCredentialSync(acc5) }
@@ -220,9 +218,10 @@ export const AgentPanel = memo(function AgentPanel({
   useAgentEventStream(acc11)
   const acc12 = { ...acc11, ...useTurnDispatch(acc11) }
 
-  useQueuedAutoSend(acc12)
   const acc13 = { ...acc12, ...useAuthorizationFlows(acc12) }
   const acc14 = { ...acc13, ...usePanelQueueWatchdogs(acc13) }
+
+  useQueueSync(acc14)
   const acc15 = { ...acc14, ...useConversationOpen(acc14) }
 
   useConversationCatchUp(acc15)
@@ -237,9 +236,14 @@ export const AgentPanel = memo(function AgentPanel({
     if (pendingPrompt?.newChat && activeId !== HOME_TAB_ID) setActiveId(HOME_TAB_ID)
   }, [activeId, pendingPrompt?.newChat, pendingPrompt?.nonce, setActiveId])
 
+  const slashCommands = usePanelSlashCommands(c)
   const homePage = <PanelHomePage c={c} />
   const conversationPage = <PanelConversationPage c={c} />
-  const content = <PanelContent c={c} homePage={homePage} conversationPage={conversationPage} />
+  const content = (
+    <SlashCommandsContext.Provider value={slashCommands}>
+      <PanelContent c={c} homePage={homePage} conversationPage={conversationPage} />
+    </SlashCommandsContext.Provider>
+  )
 
   if (variant === 'page') {
     return <PanelPageLayout c={c} content={content} />

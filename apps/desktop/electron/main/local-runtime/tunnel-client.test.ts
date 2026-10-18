@@ -101,6 +101,41 @@ test('relays a stream to that agent’s loopback runtime with the key for its pu
   client.stop()
 })
 
+test('a runtime socket that errors while connecting closes once and frees its stream', () => {
+  const { backend, runtimes, frames, client } = setup()
+
+  backend().emit('open')
+  backend().emit('message', {
+    data: JSON.stringify({ t: 'open', s: 's1', purpose: 'transport', provider: 'claude-code' }),
+  })
+  const socket = runtimes[0]?.socket as FakeSocket
+  let closes = 0
+
+  // Like undici: close() on a CONNECTING socket fails the connection, firing
+  // `error` synchronously before `close`. Reacting to `error` with close() recursed.
+  socket.close = () => {
+    closes += 1
+    if (closes > 1) throw new Error('close() re-entered from the error listener')
+    socket.emit('error')
+    socket.emit('close', { code: 1006 })
+  }
+  backend().emit('message', { data: JSON.stringify({ t: 'close', s: 's1' }) })
+  assert.equal(closes, 1)
+
+  // A connection that fails on its own still tells the backend the stream ended.
+  backend().emit('message', {
+    data: JSON.stringify({ t: 'open', s: 's2', purpose: 'transport', provider: 'claude-code' }),
+  })
+  const failed = runtimes[1]?.socket as FakeSocket
+
+  failed.emit('error')
+  failed.emit('close', { code: 1006 })
+  assert.deepEqual(frames().slice(-1), [{ t: 'close', s: 's2' }])
+  backend().emit('message', { data: JSON.stringify({ t: 'data', s: 's2', d: 'late' }) })
+  assert.deepEqual(failed.sent, [])
+  client.stop()
+})
+
 test('refuses streams while the runtime is not up', () => {
   const { backend, frames, client } = setup(false)
 
@@ -280,6 +315,46 @@ test('file reads use their own bounded stream and are closed on logout', () => {
   assert.ok(backend.sent.some((raw) => JSON.parse(raw).d === '{"data":"aGk="}'))
   client.stop()
   assert.equal(file.closed, true)
+})
+
+test("a file read for an agent instance opens that instance's file stream, or none", () => {
+  const backend = new FakeSocket()
+  const file = new FakeSocket()
+  const asked: (string | undefined)[] = []
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => backend,
+    connectRuntime: () => null,
+    connectFile: (instanceId) => {
+      asked.push(instanceId)
+
+      return instanceId === 'unknown' ? null : file
+    },
+    status: () => ({ agents: {} }),
+  })
+  const open = (s: string, instanceId?: string) =>
+    backend.emit('message', {
+      data: JSON.stringify({
+        t: 'open',
+        s,
+        purpose: 'file',
+        ...(instanceId ? { instanceId } : {}),
+      }),
+    })
+
+  client.start()
+  backend.emit('open')
+  open('default')
+  open('instance', 'i-1')
+  open('gone', 'unknown')
+  assert.deepEqual(asked, [undefined, 'i-1', 'unknown'])
+  assert.ok(
+    backend.sent.some((raw) => {
+      const frame = JSON.parse(raw)
+
+      return frame.t === 'close' && frame.s === 'gone'
+    }),
+  )
+  client.stop()
 })
 
 test('dock terminals have a distinct capability and never fall through to local exec', () => {

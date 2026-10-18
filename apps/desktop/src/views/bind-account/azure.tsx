@@ -10,7 +10,6 @@ export function AzureBindWizard({
   step,
   oidc,
   purpose,
-  firstRun,
   label,
   onLabelChange,
   tenantId,
@@ -23,7 +22,6 @@ export function AzureBindWizard({
   step: number
   oidc: AzureOidcInfo | null
   purpose: 'operational'
-  firstRun: boolean
   label: string
   onLabelChange: (v: string) => void
   tenantId: string
@@ -76,7 +74,6 @@ export function AzureBindWizard({
               step={i}
               oidc={oidc}
               purpose={purpose}
-              firstRun={firstRun}
               label={label}
               onLabelChange={onLabelChange}
               tenantId={tenantId}

@@ -13,6 +13,8 @@ export const runtimeApi = {
     ipcRenderer.invoke('atlas:readRuntimeFile', teamId, runtimeId, sessionId, path),
   atlasReadLinkedFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     ipcRenderer.invoke('atlas:readLinkedFile', teamId, runtimeId, sessionId, path),
+  atlasTransferRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
+    ipcRenderer.invoke('atlas:transferRuntimeFile', teamId, runtimeId, sessionId, path),
   atlasListRuntimeFiles: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     ipcRenderer.invoke('atlas:listRuntimeFiles', teamId, runtimeId, sessionId, path),
   atlasStartRuntimeLogin: (teamId: string, runtimeId: string) =>

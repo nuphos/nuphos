@@ -72,6 +72,7 @@ export function registerTailscaleClientScopedRoutes(
     return c.body(null, 204)
   })
 
+  clientScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   clientScoped.get('/credentials', requireTailscaleMemberAccess(), async (c) => {
     const token = await mintTailscaleAccessToken(handleFor(c)).catch((err: unknown) => {
       throw new AppError(502, 'tailscale_api_error', (err as Error).message)

@@ -1,12 +1,12 @@
 import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { BrowserCodeEntry } from './BrowserCodeEntry'
 import { RuntimeLoginStep } from './RuntimeLoginStep'
-import { loginButtonClasses as buttonClass } from './styles'
 
 import type { RuntimeLogin } from './useRuntimeLogin'
 import type { RuntimeLoginStatus, RuntimeInstance } from '../../types/runtime'
@@ -46,14 +46,14 @@ function DeviceCode({
         </span>
       </button>
       {verificationUri && (
-        <a
-          href={verificationUri}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${buttonClass} w-full`}
+        <Button
+          size="md"
+          className="w-full"
+          nativeButton={false}
+          render={<a href={verificationUri} target="_blank" rel="noopener noreferrer" />}
         >
           Open {account} <ExternalLink className="h-3.5 w-3.5" />
-        </a>
+        </Button>
       )}
       <p className="flex items-center gap-2 text-[13px] text-secondary">
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />

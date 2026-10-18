@@ -126,6 +126,7 @@ accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   return c.body(null, 204)
 })
 
+accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 accountScoped.get('/credentials', requireLinodeMemberAccess(), async (c) => {
   const token = decryptLinodeToken(c.get('linodeEncryptedToken'))
 
@@ -150,6 +151,7 @@ accountScoped.get('/lke-clusters', requireLinodeMemberAccess(), async (c) => {
   return c.json({ clusters })
 })
 
+accountScoped.use('/lke-clusters/:clusterId/kubeconfig', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 accountScoped.get('/lke-clusters/:clusterId/kubeconfig', requireLinodeMemberAccess(), async (c) => {
   const clusterIdParam = c.req.param('clusterId')
   const clusterId = Number(clusterIdParam)

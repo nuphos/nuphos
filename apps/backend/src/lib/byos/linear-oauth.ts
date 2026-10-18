@@ -13,6 +13,8 @@ export type AuthorizeUrlInput = {
   redirectUri: string
   state: string
   scope: string
+  /** 'user' authors as the authorising member (Personal Credentials). */
+  actor?: 'app' | 'user'
 }
 
 export function buildAuthorizeUrl({
@@ -20,6 +22,7 @@ export function buildAuthorizeUrl({
   redirectUri,
   state,
   scope,
+  actor = 'app',
 }: AuthorizeUrlInput): string {
   const params = new URLSearchParams({
     response_type: 'code',
@@ -29,7 +32,7 @@ export function buildAuthorizeUrl({
     scope,
     // actor=app makes issues/comments authored by the Nuphos OAuth app rather
     // than impersonating the authorising user.
-    actor: 'app',
+    actor,
   })
 
   return `${LINEAR_AUTHORIZE_URL}?${params.toString()}`

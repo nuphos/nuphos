@@ -16,14 +16,12 @@ export function AwsBindWizard({
   roleArn,
   onRoleArnChange,
   purpose,
-  firstRun,
 }: {
   step: number
   teamId: string
   roleArn: string
   onRoleArnChange: (v: string) => void
   purpose: 'operational'
-  firstRun: boolean
 }) {
   const steps = awsSteps(purpose)
 
@@ -70,7 +68,6 @@ export function AwsBindWizard({
               roleArn={roleArn}
               onRoleArnChange={onRoleArnChange}
               purpose={purpose}
-              firstRun={firstRun}
             />
           </section>
         ))}

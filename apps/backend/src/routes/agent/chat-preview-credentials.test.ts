@@ -43,6 +43,7 @@ function credentialOptions(): AgentCredentialOptions {
     notionIntegrations: [],
     upstashAccounts: [],
     posthogIntegrations: [],
+    plaudAccounts: [],
     cloudflareAccounts: [],
   }
 }

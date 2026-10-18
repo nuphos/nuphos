@@ -138,31 +138,15 @@ export type VantaIntegrationBinding = {
    *  account-info endpoint is reachable; null otherwise. */
   orgDisplayName: string | null
   /**
-   * How this binding authenticates against Vanta.
-   * - 'client_credentials': the team pasted a "Manage Vanta" app's
-   *   client_id/secret. Works today without Vanta partner approval. A 1-hour
-   *   access token is minted on demand and cached in memory only (never
-   *   persisted — it's always re-mintable from the client_id/secret).
-   * - 'oauth': authorization_code grant from a Vanta *public* integration —
-   *   the multi-tenant "click to authorize" flow. Gated on Vanta partner
-   *   approval; the model/route scaffold is here so it slots in without a
-   *   migration when that lands. Mirrors the Cloudflare oauth shape.
+   * How this binding authenticates against Vanta: the team pasted a "Manage
+   * Vanta" app's client_id/secret. A 1-hour access token is minted on demand
+   * and cached in memory only (never persisted).
    */
-  authType: 'client_credentials' | 'oauth'
-  /** Present for client_credentials bindings. clientId is plaintext; the
-   *  secret is encrypted at rest. */
+  authType: 'client_credentials'
+  /** clientId is plaintext; the secret is encrypted at rest. */
   clientCredentials?: {
     clientId: string
     encryptedClientSecret: EncryptedEnvelope
-  }
-  /** Present for oauth bindings. Short-lived access token is auto-refreshed
-   *  from the refresh token before it expires (see lib/byos/vanta.ts). */
-  oauth?: {
-    clientId: string
-    scope: string
-    encryptedAccessToken: EncryptedEnvelope
-    encryptedRefreshToken: EncryptedEnvelope | null
-    accessTokenExpiresAt: Date | null
   }
   createdAt: Date
   access?: BindingAccess
@@ -252,6 +236,23 @@ export type PosthogIntegrationBinding = {
   accessTokenExpiresAt: Date | null
   // Set when PostHog rejected the refresh token; cleared by a reconnect.
   reconnectRequired?: boolean
+  createdAt: Date
+  access?: BindingAccess
+}
+
+export type PlaudAccountBinding = {
+  id: ObjectId
+  label: string
+  // Plaud's stable user id from /open/third-party/users/current.
+  plaudUserId: string
+  userName: string | null
+  userEmail: string | null
+  // The dynamically registered client the grant was issued to; refreshes must
+  // present the same client_id.
+  clientId: string
+  encryptedAccessToken: EncryptedEnvelope
+  encryptedRefreshToken: EncryptedEnvelope | null
+  accessTokenExpiresAt: Date | null
   createdAt: Date
   access?: BindingAccess
 }

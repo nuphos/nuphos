@@ -5,7 +5,9 @@ export type GrafanaInstanceBinding = {
   id: ObjectId
   name: string
   grafanaUrl: string
-  saToken: string
+  encryptedSaToken?: EncryptedEnvelope
+  /** Legacy plaintext token; read only until scripts/encrypt-grafana-tokens.ts has run. */
+  saToken?: string
   createdAt: Date
   access?: BindingAccess
 }

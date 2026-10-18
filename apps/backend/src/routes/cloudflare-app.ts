@@ -10,6 +10,7 @@ import {
 } from '@/lib/byos/cloudflare-oauth'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { cloudflarePendingOAuth, cloudflareOAuthResult, teamByosBindings } from '@/models'
@@ -106,20 +107,50 @@ cloudflareAppRoutes.get('/setup', async (c) => {
     })
   }
 
-  // Re-binding the same account replaces its credentials (preserving the id)
-  // instead of accumulating duplicates. Keyed by accountId and done with
-  // conditional writes so two concurrent callbacks for the same account can't
-  // both observe "no existing binding" and each $push a duplicate.
-  const now = new Date()
-  const oauthEnvelope = {
-    clientId: client.clientId,
-    scope: tokens.scope,
-    encryptedAccessToken: encryptCloudflareApiKey(tokens.accessToken),
-    encryptedRefreshToken: tokens.refreshToken
-      ? encryptCloudflareApiKey(tokens.refreshToken)
-      : null,
-    accessTokenExpiresAt: tokens.expiresAt,
+  const draft: CloudflareBindingDraft = {
+    state,
+    accountId: account.accountId,
+    accountName: account.accountName,
+    oauth: {
+      clientId: client.clientId,
+      scope: tokens.scope,
+      encryptedAccessToken: encryptCloudflareApiKey(tokens.accessToken),
+      encryptedRefreshToken: tokens.refreshToken
+        ? encryptCloudflareApiKey(tokens.refreshToken)
+        : null,
+      accessTokenExpiresAt: tokens.expiresAt,
+    },
   }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'cloudflare',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistCloudflareBinding,
+    }),
+  )
+})
+
+type CloudflareBindingDraft = Pick<CloudflareAccountBinding, 'accountId' | 'accountName'> & {
+  // Keys the Desktop polling result below.
+  state: string
+  oauth: NonNullable<CloudflareAccountBinding['oauth']>
+}
+
+// Re-binding the same account replaces its credentials (preserving the id)
+// instead of accumulating duplicates. Keyed by accountId and done with
+// conditional writes so two concurrent callbacks for the same account can't
+// both observe "no existing binding" and each $push a duplicate.
+export async function persistCloudflareBinding(
+  teamId: ObjectId,
+  draft: CloudflareBindingDraft,
+): Promise<Record<string, string>> {
+  const now = new Date()
+  const { state, accountId, accountName, oauth: oauthEnvelope } = draft
 
   // Atomically replace an existing entry for this account in place. The
   // positional `$` only touches the OAuth fields, so a previously-bound
@@ -127,10 +158,10 @@ cloudflareAppRoutes.get('/setup', async (c) => {
   // legacy API key when converting an api_token binding to OAuth.
   const rebindInPlace = () =>
     teamByosBindings().updateOne(
-      { _id: pending.teamId, 'cloudflareAccounts.accountId': account.accountId },
+      { _id: teamId, 'cloudflareAccounts.accountId': accountId },
       {
         $set: {
-          'cloudflareAccounts.$.accountName': account.accountName,
+          'cloudflareAccounts.$.accountName': accountName,
           'cloudflareAccounts.$.authType': 'oauth',
           'cloudflareAccounts.$.oauth': oauthEnvelope,
           updatedAt: now,
@@ -140,7 +171,7 @@ cloudflareAppRoutes.get('/setup', async (c) => {
     )
   const idForAccount = async (): Promise<ObjectId> => {
     const doc = await teamByosBindings().findOne(
-      { _id: pending.teamId, 'cloudflareAccounts.accountId': account.accountId },
+      { _id: teamId, 'cloudflareAccounts.accountId': accountId },
       { projection: { 'cloudflareAccounts.$': 1 } },
     )
 
@@ -155,15 +186,15 @@ cloudflareAppRoutes.get('/setup', async (c) => {
     bindingId = new ObjectId()
     const newBinding: CloudflareAccountBinding = {
       id: bindingId,
-      accountId: account.accountId,
-      accountName: account.accountName,
+      accountId,
+      accountName,
       authType: 'oauth',
       oauth: oauthEnvelope,
       createdAt: now,
     }
     const inserted = await appendEnvironmentBinding(
-      pending.teamId,
-      { 'cloudflareAccounts.accountId': { $ne: account.accountId } },
+      teamId,
+      { 'cloudflareAccounts.accountId': { $ne: accountId } },
       { $push: { cloudflareAccounts: newBinding }, $set: { updatedAt: now } },
     )
 
@@ -185,7 +216,7 @@ cloudflareAppRoutes.get('/setup', async (c) => {
   // bindingId is preserved across re-binds, and getCloudflareOAuthAccessToken
   // caches by teamId:bindingId — drop the stale entry so the new token/scopes
   // take effect immediately.
-  invalidateCloudflareAccessToken(pending.teamId, bindingId)
+  invalidateCloudflareAccessToken(teamId, bindingId)
 
   // Record the result keyed by `state` so the desktop can finish the bind by
   // polling even if the nuphos:// deep link below is captured by another app.
@@ -193,24 +224,23 @@ cloudflareAppRoutes.get('/setup', async (c) => {
     { _id: state },
     {
       $set: {
-        teamId: pending.teamId,
+        teamId,
         bindingId,
-        accountId: account.accountId,
-        accountName: account.accountName,
+        accountId,
+        accountName,
         expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
       },
     },
     { upsert: true },
   )
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: bindingId.toHexString(),
-    team_id: pending.teamId.toHexString(),
-    account_id: account.accountId,
-    account_name: account.accountName ?? '',
-  })
-})
+    team_id: teamId.toHexString(),
+    account_id: accountId,
+    account_name: accountName ?? '',
+  }
+}
 
 // Desktop polling fallback: returns the bind result keyed by the unguessable
 // `state` token. One-shot — the record is consumed so it can't be replayed,

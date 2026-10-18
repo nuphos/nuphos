@@ -139,12 +139,26 @@ export type WindowAgentApi = {
     teamId?: string,
   ): Promise<{ activitySeq: number; readSeq: number; unread: boolean }>
   agentCancelRuntime(sessionId: string, teamId?: string): Promise<{ ok: boolean; status: string }>
+  agentRetractMessage(
+    sessionId: string,
+    messageId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean }>
   agentSteerConversation(
     sessionId: string,
     text: string,
     teamId?: string,
     groupId?: string,
   ): Promise<{ ok: boolean; messageId: string; text?: string; upload?: Record<string, unknown> }>
+  agentListQueue(
+    sessionId: string,
+    teamId?: string,
+  ): Promise<{ messages: { id: string; mine: boolean; text: string }[] }>
+  agentUnqueueMessage(
+    sessionId: string,
+    messageId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean; text: string }>
   agentSlackPickup(
     sessionId: string,
     teamId?: string,

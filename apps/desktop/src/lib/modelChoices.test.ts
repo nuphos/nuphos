@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { concreteModelChoices } from './modelChoices.ts'
+import { concreteModelChoices, offeredDefaultModel } from './modelChoices.ts'
 
 test('runtime Default aliases resolve to an advertised real model without appearing as choices', () => {
   const result = concreteModelChoices(
@@ -35,4 +35,21 @@ test('unknown aliases never invent a selected model or leave Default as an optio
     ['model'],
   )
   assert.equal(concreteModelChoices(result.choices, 'model').current, 'model')
+})
+
+test('a Default row appears only for a default the runtime offers', () => {
+  assert.equal(
+    offeredDefaultModel([
+      { value: 'gpt-6.1-sol', name: 'GPT-6.1-Sol' },
+      { value: 'gpt-6-astra', name: 'GPT-6-Astra' },
+    ]),
+    undefined,
+  )
+  assert.equal(
+    offeredDefaultModel([
+      { value: 'default', name: 'Default (recommended)' },
+      { value: 'opus', name: 'Opus 5.5' },
+    ])?.value,
+    'default',
+  )
 })

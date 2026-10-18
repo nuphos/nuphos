@@ -173,6 +173,21 @@ fun ConversationScreen(
         session.pollWhileIdle()
     }
 
+    // Initial entry, foreground and manual refresh work even during an active turn.
+    // Turn completion is a separate event, never a resource polling loop.
+    val resourcesAllowed = resumed && auth.aiAllowed && selectedTeamId == session.teamId && session.loaded && session.loadError == null
+    var refreshResources by remember(session) { mutableStateOf(0) }
+    LaunchedEffect(session, resourcesAllowed, auth.generation, AiAccess.revision, refreshResources) {
+        if (resourcesAllowed) session.refreshResources()
+        else session.linkedResources.invalidate(clear = resumed)
+    }
+    LaunchedEffect(session, session.isStreaming, session.messages.size) {
+        if (resourcesAllowed && !session.isStreaming && session.linkedResources.hasLoaded) session.refreshResources()
+    }
+    DisposableEffect(session) {
+        onDispose { session.linkedResources.invalidate() }
+    }
+
     var showAgent by remember(session) { mutableStateOf(false) }
     var refreshBrowse by remember(session) { mutableStateOf(0) }
     LaunchedEffect(session, refreshBrowse) {
@@ -222,6 +237,12 @@ fun ConversationScreen(
                 .padding(padding)
                 .consumeWindowInsets(padding),
         ) {
+            if (resourcesAllowed) SessionResourceStrip(
+                resources = session.linkedResources.resources,
+                loading = session.linkedResources.loading,
+                failed = session.linkedResources.failed,
+                onRefresh = { refreshResources++ },
+            )
             if (session.loaded && session.loadError == null) {
                 session.runtimeDeviceLabel?.let {
                     Text("Agent: $it", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

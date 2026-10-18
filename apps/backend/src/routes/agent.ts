@@ -9,6 +9,7 @@ import './agent/routes-suggestions'
 import './agent/routes-conversations-mutations'
 import './agent/routes-conversations-slack-pickup'
 import './agent/routes-conversations-read'
+import './agent/routes-conversation-queue'
 import './agent/routes-plans'
 import './agent/routes-auto-mode'
 import './agent/routes-devices'
@@ -22,6 +23,7 @@ agent.route('/', conversationParticipantsRoutes)
 agent.route('/', sessionConfigRoutes)
 
 export { chatSurfaceMessage } from './agent/chat-surface'
+export { launchQueuedChatTurn } from './agent/session-queue-turn'
 export { resolveTriggerCredentialAccess } from './agent/credential-access'
 export { renderAgentCredentialPrompt } from './agent/credential-prompt'
 export { resolveAgentCredentialAccess } from './agent/credential-resolve'

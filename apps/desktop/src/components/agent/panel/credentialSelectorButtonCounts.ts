@@ -19,6 +19,7 @@ export function countSelectedCredentials(value: CredentialSelectorControl['value
     value.asanaAccountIds.length +
     value.sentryAccountIds.length +
     value.posthogIntegrationIds.length +
+    value.plaudAccountIds.length +
     value.tailscaleClientIds.length +
     value.zeaburIds.length +
     value.vantaIntegrationIds.length +
@@ -52,6 +53,7 @@ export function countTotalCredentials(options: CredentialSelectorControl['option
     options.asanaAccounts.length +
     options.sentryAccounts.length +
     options.posthogIntegrations.length +
+    options.plaudAccounts.length +
     options.tailscaleClients.length +
     options.zeaburProviders.length +
     options.vantaIntegrations.length +

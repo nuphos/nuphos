@@ -42,13 +42,17 @@ function extractText(node: ReactNode): string {
   return ''
 }
 
-function ChatLink({
+export function ChatLink({
   link,
   onLinkClick,
+  className = 'text-zViolet-accent hover:underline',
+  title,
   children,
 }: {
   link: string | undefined
   onLinkClick?: (href: string, beside: boolean) => boolean
+  className?: string
+  title?: string
   children: ReactNode
 }) {
   const menuActions = useContext(ChatLinkMenuContext)
@@ -107,7 +111,8 @@ function ChatLink({
         rel="noreferrer"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className="text-zViolet-accent hover:underline"
+        className={className}
+        title={title}
       >
         {children}
       </a>
@@ -237,8 +242,9 @@ export const MessageResponse = memo(
           // break-words: a long unbroken token (an OAuth URL) wraps instead of
           // overflowing the column.
           'message-response min-w-0 break-words text-[14px] text-main [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
-          // Inline code: subtle pill (the `:not(pre)>code` selector dodges fenced code).
-          '[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-zGray-800/70 [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[13.5px] [&_:not(pre)>code]:text-main',
+          // Inline code: subtle pill (the `:not(pre)>code` selector dodges fenced code);
+          // a path link's code keeps the link color.
+          '[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-zGray-800/70 [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[13.5px] [&_:not(pre):not(a)>code]:text-main',
           streaming && 'agent-streaming-response',
           className,
         )}

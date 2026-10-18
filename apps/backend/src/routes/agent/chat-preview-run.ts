@@ -4,6 +4,8 @@
 // on a new streamId once it has decided).
 import { randomUUID } from 'node:crypto'
 
+import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
+
 import {
   appendAgentRunDone,
   appendAgentRunFrame,
@@ -14,14 +16,13 @@ import {
 import { createAgentRun, registerAgentRun } from './run-registry'
 
 import type { AgentChatBody, AgentRun } from './types'
+import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { PreviewDecision, PreviewWait } from '@/lib/claude-code-preview/decision-waiter'
 import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
 import type { PreviewFrameConsumer } from '@/lib/claude-code-preview/run-frame-bridge'
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 import type { UIMessage } from 'ai'
-
-import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
 
 export type PreviewChatTurnArgs = {
   run: AgentRun
@@ -30,6 +31,8 @@ export type PreviewChatTurnArgs = {
   userId: string
   actorUserId?: string
   origin: AgentSessionOrigin
+  /** The actor sent this turn's message themselves, so their Personal Credentials apply. */
+  humanTurn?: boolean
   messages: UIMessage[]
   firstMessage: string
   locale: string
@@ -48,6 +51,8 @@ export type PreviewChatTurnArgs = {
   turnContext?: string
   /** The client declared it resends a refused message; headless senders never do. */
   clientResendsRefusal?: boolean
+  /** Started from the session queue: a refusal puts this message back at its head. */
+  queued?: PendingUserMessage
   onRunHandoff?: (next: AgentRun) => void
 }
 

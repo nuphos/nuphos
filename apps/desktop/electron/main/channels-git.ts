@@ -2,6 +2,7 @@ import * as asanaInstall from '../asana-install'
 import * as atlas from '../atlas'
 import * as cloudflareInstall from '../cloudflare-install'
 import * as githubCli from '../github-cli'
+import { githubCliRefSummary } from '../github-cli-summary'
 import * as githubInstall from '../github-install'
 import * as gitlabInstall from '../gitlab-install'
 import * as jiraInstall from '../jira-install'
@@ -11,6 +12,7 @@ import * as sentryInstall from '../sentry-install'
 import type {
   GithubMergeMethod,
   GithubPullRef,
+  GithubRefKey,
   GithubReviewEvent,
 } from '../../src/types/github-pr-detail.ts'
 import type { IpcMainInvokeEvent } from 'electron'
@@ -75,6 +77,7 @@ export const gitChannels = {
     pullNumber: number,
   ) => atlas.getGithubPull(teamId, installationId, owner, repo, pullNumber),
   'github-cli:viewer': () => githubCli.githubCliViewer(),
+  'github-cli:summary': (_e: unknown, ref: GithubRefKey) => githubCliRefSummary(ref),
   'github-cli:comment': (_e: unknown, pull: GithubPullRef, body: string) =>
     githubCli.githubCliComment(pull, body),
   'github-cli:review': (_e: unknown, pull: GithubPullRef, event: GithubReviewEvent, body: string) =>

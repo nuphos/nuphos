@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
+import { SplitDropOverlay } from './SplitDropOverlay'
 import {
+  dropPane,
   focusPaneState,
   isSplitShortcut,
   paneRects,
   removePane,
   reusableBesidePane,
-  splitPane,
 } from './splitLayout'
 import {
   createWorkspaceState,
@@ -18,9 +19,10 @@ import {
   selectScope,
   teamScopeOf,
 } from './store/workspaceState'
+import { usePaneFocusTracking } from './usePaneFocusTracking'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
 
-import type { SplitLayout } from './splitLayout'
+import type { DropZone, SplitLayout } from './splitLayout'
 import type { WorkspaceState } from './store/workspaceState'
 import type { WorkspaceStore } from './store/workspaceStore'
 import type { WorkspaceProps } from './workspaceProps'
@@ -83,7 +85,7 @@ export function WorkspaceSplits({
   )
   const split = useCallback(
     (
-      direction: 'row' | 'column',
+      side: Exclude<DropZone, 'center'>,
       from = activeId,
       seed?: { sessionId: string; teamId?: string },
     ) => {
@@ -102,7 +104,7 @@ export function WorkspaceSplits({
         teamsKnown: true,
         sessionId: seed?.sessionId ?? null,
       })
-      setLayout((value) => splitPane(value, from, id, direction))
+      setLayout((value) => dropPane(value, from, id, side))
       setActiveId(id)
 
       return id
@@ -122,7 +124,7 @@ export function WorkspaceSplits({
       })
 
       if (pane) stores.get(pane)?.actions.selectSession(sessionId, { teamId })
-      else pane = split('row', source, { sessionId, teamId })
+      else pane = split('right', source, { sessionId, teamId })
       if (!pane) return false
       focusSurfaces.set(pane, 'session')
       setActiveId(pane)
@@ -138,7 +140,7 @@ export function WorkspaceSplits({
       if (!isSplitShortcut(event, isMac)) return
       event.preventDefault()
       event.stopImmediatePropagation()
-      if (!event.repeat) split(event.shiftKey ? 'column' : 'row')
+      if (!event.repeat) split(event.shiftKey ? 'bottom' : 'right')
     }
 
     window.addEventListener('keydown', onKeyDown, true)
@@ -146,44 +148,11 @@ export function WorkspaceSplits({
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [split])
 
-  useEffect(() => {
-    const focusOwner = (target: EventTarget | null) => {
-      if (!(target instanceof Element)) return
-      const owner = target.closest<HTMLElement>('[data-workspace-split-pane]')
-
-      const id = owner?.dataset.workspaceSplitPane
-
-      if (!id) return
-      const surface = target.closest<HTMLElement>('[data-workspace-focus-surface]')?.dataset
-        .workspaceFocusSurface
-
-      if (surface) focusSurfaces.set(id, surface)
-      setActiveId(id)
-    }
-    const onPointerDown = (event: PointerEvent) => focusOwner(event.composedPath()[0])
-    const onFocus = (event: FocusEvent) => focusOwner(event.target)
-    // A webview/iframe owns a separate document: its pointer events do not
-    // bubble through React. Chromium exposes the guest host as activeElement.
-    let frame = 0
-    const onBlur = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => focusOwner(document.activeElement))
-    }
-
-    document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('focus', onFocus, true)
-    window.addEventListener('blur', onBlur)
-
-    return () => {
-      cancelAnimationFrame(frame)
-      document.removeEventListener('pointerdown', onPointerDown, true)
-      document.removeEventListener('focus', onFocus, true)
-      window.removeEventListener('blur', onBlur)
-    }
-  }, [focusSurfaces, setActiveId])
+  usePaneFocusTracking(focusSurfaces, setActiveId)
 
   const rects = paneRects(layout)
   const multiple = rects.length > 1
+
   const close = (id: string) => {
     const next = removePane(layout, id)
 
@@ -267,7 +236,7 @@ export function WorkspaceSplits({
                 }
                 data-split-multiple={multiple ? 'true' : undefined}
                 className={clsx(
-                  'absolute flex min-h-0 min-w-0 flex-col overflow-hidden',
+                  'group/pane absolute flex min-h-0 min-w-0 flex-col overflow-hidden',
                   multiple && 'border border-zGray-800/60',
                   activeId !== rect.id && 'opacity-50',
                 )}
@@ -290,6 +259,16 @@ export function WorkspaceSplits({
             </WorkspacePaneContext.Provider>
           )
         })}
+        <SplitDropOverlay
+          rects={rects}
+          stores={stores}
+          split={split}
+          place={(target, id, zone) => {
+            setLayout((value) => dropPane(value, target, id, zone))
+            focusSurfaces.set(id, 'session')
+            setActiveId(id)
+          }}
+        />
       </div>
     </div>
   )

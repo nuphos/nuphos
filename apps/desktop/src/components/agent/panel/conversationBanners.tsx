@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Modal } from '../../Modal'
+import { Button } from '../../ui/button'
 
 // Optional detail prompt after a thumbs-down. The vote itself was recorded on
 // click — skipping here loses nothing.
@@ -47,12 +48,9 @@ export function FeedbackCommentDialog({
         >
           Skip
         </button>
-        <button
-          onClick={submit}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px]"
-        >
+        <Button size="sm" onClick={submit}>
           Send feedback
-        </button>
+        </Button>
       </div>
     </Modal>
   )

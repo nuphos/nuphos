@@ -154,6 +154,7 @@ export function connectorInfoActions(
     case 'asana':
     case 'sentry':
     case 'posthog':
+    case 'plaud':
     case 'vanta':
     case 'secureframe':
     case 'sonarqube':
@@ -214,6 +215,7 @@ export function connectorInfoDisconnectAction(
       asanaAccounts: accounts.asana,
       sentryAccounts: accounts.sentry,
       posthogIntegrations: accounts.posthog,
+      plaudAccounts: accounts.plaud,
       grafanaInstances: ctx.grafanaInstances,
       discordConnection: accounts.discordConnection,
       slackInstallation: accounts.slackInstallation,

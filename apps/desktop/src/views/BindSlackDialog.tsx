@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -103,14 +104,10 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
           Cancel
         </button>
         {phase === 'idle' && (
-          <button
-            type="button"
-            onClick={() => void startInstall()}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400"
-          >
+          <Button size="sm" type="button" onClick={() => void startInstall()}>
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
             {reinstall ? 'Reinstall Slack App' : 'Install Slack App'}
-          </button>
+          </Button>
         )}
       </div>
     </Modal>

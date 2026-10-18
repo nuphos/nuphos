@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { boxMetricsSchema } from '../metrics-schema'
 
 export type TunnelPurpose =
-  'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'vnc' | 'instances'
+  'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'browser' | 'vnc' | 'instances'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
 
@@ -11,7 +11,14 @@ export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
 const modelControlsSchema = z.object({
   effort: z
-    .array(z.object({ value: z.string().min(1).max(100), name: z.string().max(200) }))
+    .array(
+      z.object({
+        value: z.string().min(1).max(100),
+        name: z.string().max(200),
+        // Claude names the level its "default" stands for here.
+        description: z.string().max(200).optional(),
+      }),
+    )
     .max(100),
   fast: z.boolean(),
   defaultFast: z.enum(['on', 'off']).optional(),
@@ -106,13 +113,17 @@ export const localRuntimeStatusSchema = z.object({
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
+  /** This computer's Desktop drives its workspace browser tabs for `local_browser`. */
+  localBrowser: z.boolean().optional(),
   /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen: z.boolean().optional(),
-  /** Desktops this computer runs for conversations (a Box: one X display per session). */
+  /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
+  cliVersion: z.string().max(50).optional(),
+  /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(
       z.object({
-        display: z.number().int().min(2).max(255),
+        display: z.number().int().min(0).max(255),
         sessionId: z.string().min(1).max(128),
       }),
     )

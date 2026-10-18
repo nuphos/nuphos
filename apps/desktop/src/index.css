@@ -1290,17 +1290,6 @@
     background-color: rgb(var(--color-appBg));
   }
 
-  /* A sidebar row's hover actions sit over the right end of its content, which
-     fades out beneath them instead of making room, so nothing in the row moves
-     on hover. A mask rather than a background: the sidebar is translucent. */
-  .group:hover > .sidebar-row-content {
-    mask-image: linear-gradient(
-      to left,
-      transparent calc(var(--row-actions-w) + 4px),
-      #000 calc(var(--row-actions-w) + 20px)
-    );
-  }
-
   /*
    * "Sketch" style dotted lines — a soft, evenly-spaced dot pattern used for
    * the composer's extending guide lines and as separators in the agent home
@@ -1824,6 +1813,17 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .t-tool-run-latest {
+    animation: none !important;
+  }
+}
+
+/* An action chip or card the transcript adds under an answer settles in the
+   same way. */
+.t-chat-card-in {
+  animation: t-tool-run-in 220ms var(--panel-ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-chat-card-in {
     animation: none !important;
   }
 }

@@ -9,6 +9,7 @@ import {
 
 import type { AgentChatBody, AgentRun } from './types'
 import type { PreviewWait } from '@/lib/claude-code-preview/decision-waiter'
+import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { UIMessage } from 'ai'
 
 type ToolPartLike = {
@@ -85,7 +86,10 @@ export async function resolvePreviewWaitFromChat(args: {
   sessionId: string
   streamId: string
   body: AgentChatBody
+  /** The runtime's snapshot lists every undecided wait; with none, there is nothing to answer. */
+  snapshot?: SessionExecutionState
 }): Promise<PreviewWait | null> {
+  if (args.snapshot?.schemaVersion === 2 && !args.snapshot.requests?.length) return null
   const pending = await listPendingPreviewWaits(args.userId, args.sessionId)
 
   if (pending.length === 0) return null

@@ -3,6 +3,7 @@ import { AlertTriangle, Eye, Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { Button } from '../../components/ui/button'
 import { YamlEditor } from '../../components/YamlEditor'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
 import { useResetOnKey } from '../useResetOnKey'
@@ -158,14 +159,15 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
               {showSecretValues ? 'Hide values' : 'Reveal encoded values'}
             </button>
           )}
-          <button
+          <Button
+            size="sm"
+            className="flex-shrink-0"
             type="button"
             onClick={() => void applyYaml()}
             disabled={saving || secretRedacted || helmReleaseReadOnly || draftYaml === yamlText}
-            className="inline-flex h-7 flex-shrink-0 items-center rounded bg-zViolet-500 px-3 text-[12px] font-medium text-white hover:bg-zViolet-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zViolet-500"
           >
             {saving ? 'Applying...' : 'Apply'}
-          </button>
+          </Button>
         </div>
       </div>
       {actionError && (

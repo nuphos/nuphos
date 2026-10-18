@@ -99,7 +99,7 @@ export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   {
     id: 'document',
     label: 'Document',
-    catalog: ['notion'],
+    catalog: ['notion', 'plaud'],
   },
   {
     id: 'email',

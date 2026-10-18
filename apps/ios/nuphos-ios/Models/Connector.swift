@@ -222,6 +222,8 @@ extension Connector {
               bind: .oauth(path: "jira-sites", callbackHost: "jira-callback"), detailKeys: ["siteUrl"]),
         .init(key: "asana", title: "Asana", logo: "logo-asana", category: .projectManagement,
               bind: .oauth(path: "asana-accounts", callbackHost: "asana-callback"), detailKeys: ["accountEmail"]),
+        .init(key: "plaud", title: "Plaud", logo: "logo-plaud", category: .document,
+              bind: .oauth(path: "plaud-accounts", callbackHost: "plaud-callback"), detailKeys: ["userEmail"]),
 
         // MARK: Document
         .init(

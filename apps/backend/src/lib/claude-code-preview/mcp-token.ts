@@ -21,6 +21,8 @@ export type PreviewMcpClaims = {
   sid: string
   tid: string
   ori: string
+  /** Set when `sub` sent this turn's message, so their Personal Credentials apply. */
+  hum?: true
   iat: number
   exp: number
 }
@@ -50,6 +52,7 @@ export function mintPreviewMcpToken(args: {
   teamId: string
   apiOrigin?: string
   ttlSec?: number
+  humanTurn?: boolean
 }): string {
   const now = Math.floor(Date.now() / 1000)
   const claims: PreviewMcpClaims = {
@@ -59,6 +62,7 @@ export function mintPreviewMcpToken(args: {
     sid: args.sessionId,
     tid: args.teamId,
     ori: (args.apiOrigin ?? 'https://api.nuphos.ai').replace(/\/$/u, ''),
+    ...(args.humanTurn ? { hum: true as const } : {}),
     iat: now,
     exp: now + (args.ttlSec ?? DEFAULT_TTL_SEC),
   }
@@ -125,4 +129,23 @@ export function verifyPreviewMcpToken(token: string): PreviewMcpClaims | null {
   if (typeof claims.exp !== 'number' || claims.exp < Math.floor(Date.now() / 1000)) return null
 
   return claims
+}
+
+/**
+ * The member whose Personal Credentials a conversation-token request uses: the
+ * sender of a member's own turn, and the session owner for automated turns
+ * (triggers, agent threads, resource events). Null for every other token, or
+ * when the agent asks for the team identity (`identity=team`).
+ */
+export function personalCredentialSubject(
+  authorization: string | undefined,
+  identity?: string,
+): string | null {
+  if (identity === 'team') return null
+  const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : ''
+  const claims = token ? verifyPreviewMcpToken(token) : null
+
+  if (!claims) return null
+
+  return claims.hum ? claims.sub : claims.own
 }

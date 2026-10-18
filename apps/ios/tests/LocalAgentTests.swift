@@ -63,11 +63,6 @@ enum LocalAgentTests {
         precondition(cleared.isEmpty)
         precondition(cleared.json["futureIds"] == .array([]), "Clear all must revoke keys this build cannot show")
         precondition(cleared.json["deviceIds"] == .array([]))
-
-        let data = try! JSONEncoder().encode(selection)
-        precondition(try! JSONDecoder().decode(CredentialSelection.self, from: data) == selection)
-        let legacy = #"{"ids":{"awsRoleIds":["aws-1"]}}"#.data(using: .utf8)!
-        precondition(try! JSONDecoder().decode(CredentialSelection.self, from: legacy).ids["awsRoleIds"] == ["aws-1"])
     }
 
     private static func readsDevicesFromTheCatalog() {

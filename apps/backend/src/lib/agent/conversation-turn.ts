@@ -1,14 +1,10 @@
+import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { signNuphosToken } from '@/lib/identity'
-import { logEvent } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import {
-  buildPendingUserMessage,
-  drainPendingUserMessages,
-  hasPendingUserMessage,
-  TRANSCRIPT_SOURCES,
-} from './pending-messages'
+import { agentMessages, getConversationWithMessages } from './db'
+import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
+import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -41,18 +37,17 @@ export async function executeConversationTurn(...args: TurnArgs): Promise<void> 
 
 /**
  * Hands the message to the target: 'started' when it took the run (`run` settles
- * with the turn's finish reason), 'delivered' when it was queued behind the
- * target's active turn. A queued message runs when that turn releases the session.
+ * with the turn's finish reason), 'queued' when it waits behind the turns ahead
+ * of it. It runs as its own turn, never folded into another sender's.
  */
 export async function startConversationTurn(
   ...[data, target, renderedText, source, metadata]: TurnArgs
-): Promise<{ status: 'started' | 'delivered'; run: Promise<string | undefined> }> {
+): Promise<{ status: 'started' | 'queued'; run: Promise<string | undefined> }> {
   // Also the answer for a redelivery already accepted, not only for a busy target.
-  const delivered = { status: 'delivered' as const, run: Promise.resolve(undefined) }
+  const queued = { status: 'queued' as const, run: Promise.resolve(undefined) }
 
   // A stalled queue delivery may have reached an active turn before its ACK.
-  if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId))
-    return delivered
+  if (await hasPendingUserMessage(data.userId, data.targetSessionId, data.messageId)) return queued
 
   if (
     await agentMessages().findOne(
@@ -64,33 +59,24 @@ export async function startConversationTurn(
       { projection: { _id: 1 } },
     )
   )
-    return delivered
+    return queued
+  const message = {
+    ...buildPendingUserMessage({ renderedText, metadata, source, actorUserId: data.userId }),
+    id: data.messageId,
+  }
   const claim = await turnRunner.claimAgentRunOrEnqueue({
     userId: data.userId,
     sessionId: data.targetSessionId,
-    message: {
-      ...buildPendingUserMessage({
-        renderedText,
-        metadata,
-        source,
-        actorUserId: data.userId,
-      }),
-      id: data.messageId,
-    },
+    message,
   })
 
   if (claim.mode === 'dropped') throw new Error('Thread message could not be queued.')
-  if (claim.mode === 'queued') return delivered
+  if (claim.mode === 'queued') return queued
 
   const run = async (): Promise<string | undefined> => {
     try {
       // A recovered queue already contains this delivery; never append it twice.
-      return await runTurn(
-        data,
-        target,
-        source,
-        claim.carried.length ? claim.carried : [{ id: data.messageId, renderedText, metadata }],
-      )
+      return await runTurn(data, target, source, claim.carried.length ? claim.carried : [message])
     } finally {
       claim.release()
     }
@@ -99,86 +85,62 @@ export async function startConversationTurn(
   return { status: 'started', run: run() }
 }
 
-/**
- * Runs what a session queued while it was busy. Called whenever the session is
- * released, so a message accepted for a turn that ended without reading it
- * starts the next turn instead of waiting for one that may never come.
- */
-export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
-  const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
-
-  // The holder runs this again when it lets go.
-  if (!release) return
-  try {
-    const carried = await drainPendingUserMessages(userId, sessionId, userId, TRANSCRIPT_SOURCES)
-    const target = carried.length ? await getConversationBySessionId(sessionId) : null
-    const first = carried[0]
-
-    if (!first) return
-    if (!target?.teamId) {
-      logEvent('warn', 'agent.pending_messages.queued_turn_dropped', {
-        user_id: userId,
-        session_id: sessionId,
-        message_ids: carried.map((message) => message.id),
-      })
-
-      return
-    }
-
-    await runTurn(
-      {
-        userId,
-        teamId: target.teamId,
-        targetSessionId: sessionId,
-        locale: target.metadata?.locale,
-      },
-      target,
-      first.source,
-      carried,
-    )
-  } finally {
-    release()
-  }
-}
-
-async function runTurn(
+/** Runs a turn for messages delivered to a conversation, after its history. */
+export async function runTurn(
   data: Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & { locale?: string },
   target: AgentConversation,
   source: string,
-  pending: Pick<PendingUserMessage, 'id' | 'renderedText' | 'metadata'>[],
+  pending: PendingUserMessage[],
 ): Promise<string | undefined> {
   // Read after taking the claim so a just-finished turn cannot be overwritten.
   const history = await getConversationWithMessages(data.targetSessionId, data.userId, data.teamId)
 
   if (!history) throw new Error('Target conversation no longer exists.')
-  // BullMQ can redeliver a stalled job. An accepted message must not run twice.
-  const ran = new Set(history.messages.map((message) => message.messageId))
+  // BullMQ can redeliver a stalled job. An answered message must not run twice;
+  // one after the last reply was accepted by a refused turn and runs again.
+  const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
+  const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
   const fresh = pending.filter((message) => !ran.has(message.id))
+  const [head, ...rest] = fresh
 
-  if (fresh.length === 0) return
+  if (!head) return
   const prior = history.messages
+    .filter((message) => !fresh.some((entry) => entry.id === message.messageId))
     .map(persistedMessageToUiMessage)
     .filter((message): message is UIMessage => message !== null)
-  const outcome = await turnRunner.runAgentForTrigger({
-    userId: data.userId,
-    teamId: data.teamId,
-    sessionId: data.targetSessionId,
-    nuphosToken: signNuphosToken(data.userId, 8 * 60 * 60),
-    messages: [
-      ...prior,
-      ...fresh.map((message): UIMessage => ({
-        id: message.id,
-        role: 'user',
-        metadata: message.metadata,
-        parts: [{ type: 'text', text: message.renderedText }],
-      })),
-    ],
-    firstMessage: target.firstMessage,
-    source,
-    ...(data.locale ? { locale: data.locale } : {}),
-    // 'user' adds no Full Access default: a thread took its parent's mode at creation.
-    origin: source === 'agent.resource' ? 'trigger' : 'user',
-  })
+  const outcome = await turnRunner
+    .runAgentForTrigger({
+      userId: data.userId,
+      teamId: data.teamId,
+      sessionId: data.targetSessionId,
+      nuphosToken: signNuphosToken(data.userId, 8 * 60 * 60),
+      messages: [
+        ...prior,
+        ...fresh.map((message): UIMessage => ({
+          id: message.id,
+          role: 'user',
+          metadata: message.metadata,
+          parts: [{ type: 'text', text: message.renderedText }],
+        })),
+      ],
+      firstMessage: target.firstMessage,
+      source,
+      ...(data.locale ? { locale: data.locale } : {}),
+      // 'user' adds no Full Access default: a thread took its parent's mode at creation.
+      origin: source === 'agent.resource' ? 'trigger' : 'user',
+      // Not recorded as interrupted: the messages go back on the queue below.
+      clientResendsRefusal: true,
+    })
+    .catch(async (error: unknown) => {
+      // The runtime took another turn after the check. Back to the front, retried
+      // after a wait rather than on the release that follows.
+      if (!isRuntimeRefusal(error)) throw error
+      await requeueTurnQueue(data.userId, data.targetSessionId, rest, head)
+
+      return null
+    })
+
+  if (!outcome) return
 
   if (outcome.status === 'failed')
     throw new Error('Thread run failed; inspect the target conversation.')

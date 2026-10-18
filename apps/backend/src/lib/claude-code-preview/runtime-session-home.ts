@@ -13,10 +13,11 @@ import { conversationExecutionState } from './session-execution-state'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { Filter } from 'mongodb'
 
-// Removes the conversation's CLI home that apps/runtime/image/session-home.mjs
-// creates: <runtime HOME>/.nuphos/session-homes/<sha256(sessionId)>, unless a
+// Removes the conversation's CLI homes that apps/runtime/image/session-home.mjs
+// creates: <runtime HOME>/.nuphos/session-homes/<sha256(sessionId)> for the
+// owner and <sha256(sessionId)>.<sha256(actor)> for each teammate, unless a
 // process still runs with that HOME or inside it (a turn that just started, or
-// a shell left running). The next session start recreates the home.
+// a shell left running). The next session start recreates a home.
 // Request data is JSON, never interpolated into executable code or a shell.
 export const RECLAIM_SESSION_HOME_PROGRAM = String.raw`
 const fs = await import('node:fs/promises');
@@ -27,7 +28,6 @@ const { sessionId } = JSON.parse(await fs.readFile(path.join(process.argv[2], 'p
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2);
 const id = createHash('sha256').update(sessionId).digest('hex');
 const homes = path.join(os.homedir(), '.nuphos', 'session-homes');
-const home = path.join(homes, id);
 let unreadable;
 const done = (result) => { process.stdout.write(JSON.stringify({ result, unreadable })); process.exit(0); };
 // Processes of this user, each marked whether it is inside the runtime's tree:
@@ -73,25 +73,34 @@ const inUse = async (dir, byHome) => {
   }
   return false;
 };
-// A job killed during the rm, or a failed rename back, leaves this home's
-// <id>.reclaim-<ms>-* behind; its next reclaim removes it once nothing uses it.
+const names = await fs.readdir(homes).catch(() => []);
+// A job killed during the rm, or a failed rename back, leaves a home's
+// <home>.reclaim-<ms>-* behind; its next reclaim removes it once nothing uses it.
 // One younger than any job may still belong to a running job, so it waits.
-for (const name of await fs.readdir(homes).catch(() => [])) {
-  const setAt = Number(/^[0-9]+/.exec(name.startsWith(id + '.reclaim-') ? name.slice(id.length + 9) : '')?.[0]);
-  if (!(Date.now() - setAt > 10 * 60_000)) continue;
+const leftover = new RegExp('^(' + id + '(?:\\.[0-9a-f]{64})?)\\.reclaim-([0-9]+)-');
+for (const name of names) {
+  const match = leftover.exec(name);
+  if (!match || !(Date.now() - Number(match[2]) > 10 * 60_000)) continue;
   const left = path.join(homes, name);
-  if (!(await inUse(left, home))) await fs.rm(left, { recursive: true, force: true }).catch(() => {});
+  if (!(await inUse(left, path.join(homes, match[1])))) await fs.rm(left, { recursive: true, force: true }).catch(() => {});
 }
-if (!(await fs.lstat(home).catch(() => null))) done('absent');
-if (await inUse(home, home)) done('in_use');
-// Set aside first: a session that starts now gets a fresh home, and one that
-// started during the scan is caught by the second scan and keeps this one.
-const aside = home + '.reclaim-' + Date.now() + '-' + randomUUID();
-// Gone since the check: another backend replica's sweep took it first.
-await fs.rename(home, aside).catch((err) => (err.code === 'ENOENT' ? done('absent') : Promise.reject(err)));
-if (await inUse(aside, home)) { await fs.rename(aside, home).catch(() => {}); done('in_use'); }
-await fs.rm(aside, { recursive: true, force: true });
-done('removed');
+const reclaim = async (home) => {
+  if (!(await fs.lstat(home).catch(() => null))) return 'absent';
+  if (await inUse(home, home)) return 'in_use';
+  // Set aside first: a session that starts now gets a fresh home, and one that
+  // started during the scan is caught by the second scan and keeps this one.
+  const aside = home + '.reclaim-' + Date.now() + '-' + randomUUID();
+  // Gone since the check: another backend replica's sweep took it first.
+  const moved = await fs.rename(home, aside).then(() => true, (err) => (err.code === 'ENOENT' ? false : Promise.reject(err)));
+  if (!moved) return 'absent';
+  if (await inUse(aside, home)) { await fs.rename(aside, home).catch(() => {}); return 'in_use'; }
+  await fs.rm(aside, { recursive: true, force: true });
+  return 'removed';
+};
+const teammates = names.filter((name) => new RegExp('^' + id + '\\.[0-9a-f]{64}$').test(name));
+const results = [];
+for (const name of [id, ...teammates]) results.push(await reclaim(path.join(homes, name)));
+done(results.includes('in_use') ? 'in_use' : results.includes('removed') ? 'removed' : 'absent');
 `
 
 const RETRY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000

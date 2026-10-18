@@ -1,6 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
+import { connectorCallbackParams } from './connector-oauth-callback'
 
 // Shared scheme with github-install / gitlab-install — linear uses a distinct
 // hostname (nuphos://linear-callback) so the dispatcher in main.ts can route by
@@ -106,20 +107,21 @@ export async function handleCallback(rawUrl: string): Promise<void> {
   }
   pending.delete(state)
   clearTimeout(p.timeout)
+  const params = await connectorCallbackParams(parsed, p.teamId, atlas.completeConnectorOAuth)
 
-  const error = parsed.searchParams.get('error')
+  const error = params.get('error')
 
   if (error) {
-    const description = parsed.searchParams.get('error_description') || error
+    const description = params.get('error_description') || error
 
     p.reject(new Error(`Linear OAuth failed: ${description}`))
 
     return
   }
 
-  const bindingId = parsed.searchParams.get('binding_id')
-  const teamId = parsed.searchParams.get('team_id') ?? p.teamId
-  const workspaceName = parsed.searchParams.get('workspace_name') ?? ''
+  const bindingId = params.get('binding_id')
+  const teamId = params.get('team_id') ?? p.teamId
+  const workspaceName = params.get('workspace_name') ?? ''
 
   if (!bindingId) {
     p.reject(new Error('Linear callback missing binding_id'))

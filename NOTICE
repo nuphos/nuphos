@@ -6,3 +6,7 @@ This product includes software developed at Zeabur Inc.
 "Nuphos" and the Nuphos logo are trademarks of Zeabur Inc. The Apache License,
 Version 2.0 does not grant permission to use them beyond describing the origin
 of this work; TRADEMARK.md spells out what that does and does not cover.
+
+apps/runtime/openab is vendored from openabdev/openab (via the zeabur/openab
+fork) and remains under the MIT License, Copyright (c) 2026 openabdev. See
+apps/runtime/openab/LICENSE.

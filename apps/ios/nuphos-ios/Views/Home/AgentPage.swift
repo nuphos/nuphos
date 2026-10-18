@@ -11,6 +11,8 @@ struct AgentPage: View {
     @Binding var titleCollapsed: Bool
 
     @State private var draft = ""
+    /// Whether the keyboard on screen is this page's composer's.
+    @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
     @State private var showAgentSetup = false
     #if DEBUG
@@ -69,7 +71,7 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving, mentions: draftTeam.isEmpty ? nil : MentionSource(
+                ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving && store.credentialsReady, mentions: draftTeam.isEmpty ? nil : MentionSource(
                     teamId: draftTeam,
                     devices: store.credentialCatalog?.scoped(to: .devices).allItems ?? [],
                     pickDevice: { device in
@@ -85,9 +87,14 @@ struct AgentPage: View {
                     ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
                 }
             }
+            // A chat's keyboard is not this page's to make room for: a back
+            // swipe would show this composer gliding down from it.
+            .ignoresSafeArea(ownsKeyboard ? [] : .keyboard, edges: .bottom)
+            .onPreferenceChange(ComposerOwnsKeyboard.self) { ownsKeyboard = $0 }
             .onAppear {
                 if draft.isEmpty { draft = ComposerDrafts.text(team: draftTeam, session: "new") }
             }
+            .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
             .onChange(of: store.selectedTeam?.id) { old, new in
                 draft = ComposerDrafts.switchTeam(visible: draft, session: "new", from: old ?? "", to: new ?? "")
             }
@@ -165,6 +172,7 @@ struct AgentPage: View {
                 }
                 // `-new-chat "<prompt>"`: start a conversation with that text.
                 let args = CommandLine.arguments
+                await store.loadCredentialOptions()
                 if let i = args.firstIndex(of: "-new-chat"), i + 1 < args.count, let session = store.newSession() {
                     newChat = NewChat(session: session, prompt: ComposerSubmission(text: args[i + 1], attachments: []))
                 }

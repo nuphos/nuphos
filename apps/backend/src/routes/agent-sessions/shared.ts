@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { dashboardPanelIdFromSessionId } from '@/lib/dashboards/panel-principal'
 import { agentConversations } from '@/lib/agent/db'
 import { agentSubjectId } from '@/lib/agents/identity'
+import { canMintCredentials, isCloudCredentialPath } from '@/lib/byos/credential-role'
 import { AppError } from '@/lib/errors'
 import { dashboardPanels } from '@/models'
 import { allCredentialAccessFromOptions } from '@/routes/agent/credential-access'
@@ -24,9 +25,11 @@ import type {
   ResendIntegrationVariables,
   SentryAccountVariables,
   TailscaleClientVariables,
+  TeamAuthVariables,
   ZeaburProviderVariables,
 } from '@/middleware/auth'
 import type { AgentCredentialOptions } from '@/routes/agent/types'
+import type { MiddlewareHandler } from 'hono'
 
 export type AgentVars = AuthVariables & {
   agent: AgentRef
@@ -176,6 +179,7 @@ function normalizeCredentialAccess(
     secureframeIntegrationIds: access?.secureframeIntegrationIds ?? [],
     resendIntegrationIds: access?.resendIntegrationIds ?? [],
     posthogIntegrationIds: access?.posthogIntegrationIds ?? [],
+    plaudAccountIds: access?.plaudAccountIds ?? [],
     // Left undefined when unset rather than defaulted to []: for these
     // connectors an absent selection still means team-wide reach.
     githubInstallationIds: access?.githubInstallationIds,
@@ -186,5 +190,28 @@ function normalizeCredentialAccess(
     upstashAccountIds: access?.upstashAccountIds,
     cloudflareAccountIds: access?.cloudflareAccountIds,
     deviceIds: access?.deviceIds ?? [],
+  }
+}
+
+/** Cloud credential and kubeconfig vending is write-level: refuse it when the
+ * sender or the conversation owner is a team viewer (dashboard panels act as
+ * their author). */
+export function requireCloudCredentialRole(): MiddlewareHandler<{
+  Variables: AgentVars & TeamAuthVariables
+}> {
+  return async (c, next) => {
+    if (isCloudCredentialPath(c.req.path)) {
+      const agent = c.get('agent')
+      const principals = [
+        c.get('userId'),
+        agent.userId,
+        agent.conversationOwnerUserId ?? agent.userId,
+      ]
+
+      if (!(await canMintCredentials(c.get('teamId'), principals))) {
+        throw new AppError(403, 'forbidden', 'Requires one of: ADMINISTRATOR, EDITOR')
+      }
+    }
+    await next()
   }
 }

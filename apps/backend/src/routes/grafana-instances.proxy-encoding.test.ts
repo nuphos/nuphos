@@ -5,6 +5,8 @@ import { Hono } from 'hono'
 
 import { responseCompression } from '@/middleware/compression'
 
+import { isGrafanaRead } from '@/middleware/auth/core'
+
 import { toGrafanaProxyResponse } from './grafana-instances'
 
 const PAYLOAD = JSON.stringify({ database: 'ok', version: '11.0.0', padding: 'x'.repeat(4096) })
@@ -77,4 +79,18 @@ describe('Grafana proxy response encoding', () => {
       expect(await rawBody(res)).toBe(PAYLOAD)
     })
   }
+})
+
+describe('isGrafanaRead', () => {
+  test('treats GET, HEAD and datasource queries as reads', () => {
+    expect(isGrafanaRead('GET', 'api/dashboards/uid/x')).toBe(true)
+    expect(isGrafanaRead('HEAD', 'api/health')).toBe(true)
+    expect(isGrafanaRead('POST', 'api/ds/query')).toBe(true)
+  })
+
+  test('treats every other call as a write', () => {
+    expect(isGrafanaRead('POST', 'api/dashboards/db')).toBe(false)
+    expect(isGrafanaRead('DELETE', 'api/dashboards/uid/x')).toBe(false)
+    expect(isGrafanaRead('PUT', 'api/v1/provisioning/alert-rules/x')).toBe(false)
+  })
 })

@@ -121,6 +121,7 @@ export class InstanceControllers {
     return [...this.entries.values()].map(({ metadata, controller }) => ({
       ...publicMetadata(metadata),
       ...controller.state().agents[metadata.provider],
+      workspace: controller.state().workspace,
       online: online && controller.runtime(metadata.provider) !== null,
     }))
   }

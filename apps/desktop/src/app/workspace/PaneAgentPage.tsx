@@ -25,7 +25,6 @@ type PaneAgentPageProps = {
   onAgentSessionTitle: (tabId: string, title: string) => void
   onOpenNuphosLink: (href: string, beside?: boolean) => boolean
   onOpenSettingsSection: (section: string) => void
-  onStartFirstRunConnect: () => void
   onPagePendingImportConsumed: () => void
   onChatPromptConsumed: () => void
   setPageMeta: (input: PageMetaInput) => void
@@ -47,7 +46,6 @@ export function PaneAgentPage({
   onAgentSessionTitle,
   onOpenNuphosLink,
   onOpenSettingsSection,
-  onStartFirstRunConnect,
   onPagePendingImportConsumed,
   onChatPromptConsumed,
   setPageMeta,
@@ -74,7 +72,6 @@ export function PaneAgentPage({
           onSessionChange={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
           onOpenNuphosLink={onOpenNuphosLink}
           onOpenAgentSettings={() => onOpenSettingsSection('workspace.agent')}
-          onStartConnect={onStartFirstRunConnect}
           autoFocusComposer={active}
           pendingImport={pendingPageImport?.tabId === tabId ? pendingPageImport.snapshot : null}
           onImportConsumed={onPagePendingImportConsumed}

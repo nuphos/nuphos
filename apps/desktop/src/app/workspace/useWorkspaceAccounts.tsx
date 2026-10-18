@@ -3,7 +3,6 @@ import { useCallback, useEffect } from 'react'
 import { api } from '../../api'
 import { selectedAwsRoleId, selectedGcpServiceAccountId } from '../../app/accountScopes'
 import { toast } from '../../components/ui/toast'
-import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { mergeIfChanged } from '../../lib/mergeIfChanged'
 import type {} from '../../types'
 
@@ -36,7 +35,6 @@ export function useWorkspaceAccounts(a: Args) {
     ec2InstancesByAccount,
     lightsailInstancesByAccount,
     gceInstancesByProject,
-    firstRunDevForced,
     scope,
     active,
     refreshKey,
@@ -48,9 +46,6 @@ export function useWorkspaceAccounts(a: Args) {
   } = a
 
   const accounts = teamId ? accountsByTeam[teamId] : undefined
-  const firstRunCloudUnbound =
-    firstRunDevForced ||
-    (teamId !== undefined && accounts !== undefined && !hasCloudOnboardingBinding(accounts))
 
   useEffect(() => {
     if (!teamId) return
@@ -258,7 +253,6 @@ export function useWorkspaceAccounts(a: Args) {
 
   return {
     accounts,
-    firstRunCloudUnbound,
     loadLkeClustersForAccount,
   }
 }

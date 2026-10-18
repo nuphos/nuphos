@@ -56,6 +56,7 @@ let acquire: ReturnType<typeof spyOn>
 
 useAgentDb({
   getConversationPreviewAttachment: async () => attachment,
+  consumeConversationRetracted: async () => false,
   consumeConversationWorkLost: async () => false,
 })
 useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })

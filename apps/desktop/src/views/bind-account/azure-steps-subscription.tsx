@@ -1,5 +1,3 @@
-import { firstRunVocabulary } from '../../lib/firstRunConnect'
-
 import {
   AZURE_APP_REGISTRATIONS_URL,
   AZURE_ENTRA_OVERVIEW_URL,
@@ -24,11 +22,9 @@ const inputField = (value: string, onChange: (v: string) => void, placeholder: s
 )
 
 export function AzureRoleAssignmentStep({
-  firstRun,
   appName,
 }: {
   purpose: 'operational'
-  firstRun: boolean
   /** What step 1 had the user name the app — this step tells them to search for
    *  it, so the two must be the same string. */
   appName: string
@@ -45,27 +41,13 @@ export function AzureRoleAssignmentStep({
         <li>
           <span className="text-main">Add → Add role assignment</span>
         </li>
-        {firstRun ? (
-          // The Role tab opens on a paged grid of every built-in role, so the
-          // name is given as something to paste into its search box rather than
-          // something to go hunting for.
-          <li>
-            <span className="text-main">Role</span> tab → search{' '}
-            <CopyableValue value={firstRunVocabulary('azure').scopeGrant} /> → pick it and{' '}
-            <span className="text-main">nothing else</span> →{' '}
-            <span className="text-main">Next</span>
-          </li>
-        ) : (
-          <li>
-            <span className="text-main">Role</span> tab (
-            <span className="text-main">Job function roles</span>) → pick{' '}
-            <CopyableValue value="Reader" /> to browse, or a broader role (e.g.{' '}
-            <span className="font-mono text-[11px]">
-              Azure Kubernetes Service Cluster User Role
-            </span>{' '}
-            for AKS) → <span className="text-main">Next</span>
-          </li>
-        )}
+        <li>
+          <span className="text-main">Role</span> tab (
+          <span className="text-main">Job function roles</span>) → pick{' '}
+          <CopyableValue value="Reader" /> to browse, or a broader role (e.g.{' '}
+          <span className="font-mono text-[11px]">Azure Kubernetes Service Cluster User Role</span>{' '}
+          for AKS) → <span className="text-main">Next</span>
+        </li>
         {/* The Select members panel opens empty and stays empty until something
             is typed — app registrations are not in the default list. Without
             that said, the panel reads as "the app isn't here", which sends the
@@ -85,9 +67,7 @@ export function AzureRoleAssignmentStep({
         </li>
       </StepList>
       <div className="text-[11.5px] text-tertiary">
-        {firstRun
-          ? 'Cost data is all Nuphos needs to answer its first question. When something needs more, it shows you the exact role it would need and asks — it never widens this assignment by itself.'
-          : 'The role scopes exactly what Nuphos can see and do — start least-privilege and widen later.'}
+        The role scopes exactly what Nuphos can see and do — start least-privilege and widen later.
       </div>
     </div>
   )

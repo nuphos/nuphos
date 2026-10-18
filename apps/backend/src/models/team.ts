@@ -28,6 +28,7 @@ import type {
   BetterStackIntegrationBinding,
   LarkAppBinding,
   NotionIntegrationBinding,
+  PlaudAccountBinding,
   PosthogIntegrationBinding,
   ResendIntegrationBinding,
   SecureframeIntegrationBinding,
@@ -95,6 +96,7 @@ export type TeamByosBindings = {
   // Optional for the same reason; readers use `doc.resendIntegrations ?? []`.
   resendIntegrations?: ResendIntegrationBinding[]
   posthogIntegrations?: PosthogIntegrationBinding[]
+  plaudAccounts?: PlaudAccountBinding[]
   updatedAt: Date
 }
 
@@ -135,6 +137,7 @@ export function emptyTeamByosBindings(): Omit<TeamByosBindings, '_id' | 'updated
     notionIntegrations: [],
     upstashAccounts: [],
     posthogIntegrations: [],
+    plaudAccounts: [],
   }
 }
 

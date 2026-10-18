@@ -124,6 +124,7 @@ accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   return c.body(null, 204)
 })
 
+accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 accountScoped.get('/credentials', requireHetznerMemberAccess(), async (c) => {
   const token = decryptHetznerToken(c.get('hetznerEncryptedToken'))
 

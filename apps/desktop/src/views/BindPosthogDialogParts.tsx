@@ -1,7 +1,6 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 
-const PRIMARY_CLASS =
-  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50'
+import { Button } from '../components/ui/button'
 
 export function DialogFooter({
   phaseKind,
@@ -33,20 +32,15 @@ export function DialogFooter({
         {phaseKind === 'projects' ? 'Skip' : 'Cancel'}
       </button>
       {phaseKind === 'form' && (
-        <button type="button" onClick={onStart} disabled={!canStart} className={PRIMARY_CLASS}>
+        <Button size="sm" type="button" onClick={onStart} disabled={!canStart}>
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.9} />
           {startLabel}
-        </button>
+        </Button>
       )}
       {phaseKind === 'projects' && (
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving || !canSave}
-          className={PRIMARY_CLASS}
-        >
+        <Button size="sm" type="button" onClick={onSave} disabled={saving || !canSave}>
           {saving ? 'Saving…' : 'Save'}
-        </button>
+        </Button>
       )}
     </div>
   )

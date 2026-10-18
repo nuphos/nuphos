@@ -1,8 +1,9 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
+import { backendFailure, tagRequest } from '../fetch-error.ts'
 import { classifyGrafanaFailure, summarizeGrafanaBody } from '../grafanaProxyError'
 
-import { call, fetchWithRetry, readToken, unwrapFetchError } from './client'
+import { call, fetchWithRetry, readToken } from './client'
 
 export type GrafanaInstance = {
   id: string
@@ -61,6 +62,7 @@ export async function grafanaProxy<T>(
     'accept-encoding': 'identity',
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
   }
+  const requestId = tagRequest(headers)
   const init: RequestInit = { method, headers }
 
   if (body !== undefined) {
@@ -72,7 +74,7 @@ export async function grafanaProxy<T>(
   try {
     res = await fetchWithRetry(`${apiUrl()}${route}`, init)
   } catch (e) {
-    throw unwrapFetchError(e, route)
+    throw backendFailure(e, route, requestId)
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '')

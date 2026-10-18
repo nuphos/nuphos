@@ -9,3 +9,12 @@ export const refusal = (label: string) => new AppError(409, 'runtime_not_accepti
 
 export const isRuntimeRefusal = (error: unknown) =>
   error instanceof AppError && error.code === 'runtime_not_accepting_message'
+
+/**
+ * What the client hears about a refused turn that came from, or went back to,
+ * the session queue: that the message waits there, not that it was refused.
+ */
+export const queuedRefusal = (error: unknown, queued: unknown) =>
+  queued && isRuntimeRefusal(error)
+    ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead')
+    : error

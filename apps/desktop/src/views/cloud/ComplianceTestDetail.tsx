@@ -2,6 +2,7 @@ import { MessageSquare, X } from 'lucide-react'
 
 import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
+import { Button } from '../../components/ui/button'
 
 import type { ComplianceRow } from './compliance-helpers'
 
@@ -70,14 +71,10 @@ export function ComplianceTestDetail({
         )}
       </div>
       <div className="flex-shrink-0 border-t border-zGray-800/60 p-3">
-        <button
-          type="button"
-          onClick={onOpenInChat}
-          className="h-8 w-full gap-1.5 text-[13px] rounded-md bg-zViolet-500 text-white font-medium inline-flex items-center justify-center hover:bg-zViolet-400"
-        >
+        <Button size="sm" className="w-full" type="button" onClick={onOpenInChat}>
           <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
           Open in chat
-        </button>
+        </Button>
       </div>
     </div>
   )

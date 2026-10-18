@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -89,14 +90,9 @@ export function KeyEditorDialog({
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={pending}
-          className="h-8 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white hover:bg-zViolet-400 disabled:opacity-60"
-        >
+        <Button size="sm" type="button" onClick={() => void submit()} disabled={pending}>
           {pending ? 'Saving...' : (draft?.submitLabel ?? 'Save')}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

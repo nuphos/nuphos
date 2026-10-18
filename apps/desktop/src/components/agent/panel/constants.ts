@@ -17,16 +17,6 @@ export const AGENT_PLACEHOLDER_PROMPTS = [
 // Static placeholder for the in-conversation composer. The rotating example
 // prompts above are a hero-only (new chat) affordance — cycling them in an
 // ongoing conversation reads as the input flickering.
-// Nothing is connected yet, so the rotating examples must not imply write
-// access — the first thing typed here should be something that can actually
-// be answered once a read-only account is bound.
-export const AGENT_FIRST_RUN_PLACEHOLDER_PROMPTS = [
-  'What am I running in AWS right now?',
-  'Where is my cloud spend going this month?',
-  'Which resources are sitting idle?',
-  'Is anything publicly exposed?',
-  'Show me what changed in the last week.',
-] as const
 export const AGENT_COMPACT_PLACEHOLDER = 'Ask a follow-up...'
 export const AGENT_QUEUE_PLACEHOLDER = 'Queue a follow-up — sends when this turn ends…'
 export const SANDBOX_EXPIRED_MESSAGE =
@@ -62,6 +52,7 @@ export const EMPTY_CREDENTIAL_ACCESS: AgentCredentialSelection = {
   asanaAccountIds: [],
   sentryAccountIds: [],
   posthogIntegrationIds: [],
+  plaudAccountIds: [],
   tailscaleClientIds: [],
   zeaburIds: [],
   vantaIntegrationIds: [],
@@ -95,6 +86,7 @@ export const EMPTY_CREDENTIAL_OPTIONS: AgentCredentialOptions = {
   asanaAccounts: [],
   sentryAccounts: [],
   posthogIntegrations: [],
+  plaudAccounts: [],
   tailscaleClients: [],
   zeaburProviders: [],
   vantaIntegrations: [],

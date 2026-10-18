@@ -9,7 +9,9 @@ import {
   insertTextIntoEditor,
   saveClipboardAttachments,
 } from './composerSerialize'
+import { useComposerRecall } from './useComposerRecall'
 
+import type { ComposerRecall } from './composerRecall'
 import type { AgentPromptSeed } from './model'
 import type { ComposerState } from './useComposerState'
 import type { LocalAgentSessionInfo, LocalSessionSource } from '../../../api'
@@ -25,6 +27,7 @@ export function useComposerActions(
     pendingSeed,
     onSeedConsumed,
     dropRegisterRef,
+    recall,
   }: {
     readOnly: boolean
     sendBlocked?: boolean
@@ -33,8 +36,11 @@ export function useComposerActions(
     pendingSeed?: AgentPromptSeed | null
     onSeedConsumed?: () => void
     dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
+    recall?: ComposerRecall
   },
 ) {
+  const recalls = useComposerRecall(state, readOnly, recall)
+
   function insertMention(url: string, opts?: { appendToEnd?: boolean }) {
     const el = state.ref.current
 
@@ -171,6 +177,8 @@ export function useComposerActions(
     const native = e.nativeEvent as globalThis.KeyboardEvent & {
       keyCode?: number
     }
+
+    if (recalls.onKeyDown(e)) return
 
     // Tab drops the whole suggestion in. It is an example prompt rather than a
     // prefix of what you were typing, so there is nothing to complete word by

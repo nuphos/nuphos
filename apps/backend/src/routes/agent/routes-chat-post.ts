@@ -12,6 +12,8 @@ import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { admitPreviewTurn } from './chat-preview-steering'
+import { queueForOfflineBox } from './session-queue-offline'
+import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import {
   buildSlackBoundTurnPlan,
@@ -19,7 +21,7 @@ import {
   findSlackBoundThread,
 } from './chat-slack-bound'
 import { attachSteeringTurn } from './chat-steering-attach'
-import { hydrateTranscriptPrefix, validateChatBody } from './chat-validate'
+import { acceptClientTail, validateChatBody } from './chat-validate'
 import { resolveAgentCredentialAccess } from './credential-resolve'
 import { agent } from './router'
 import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from './run-registry'
@@ -37,6 +39,7 @@ import { getFirstUserMessage } from './transcript'
 import { acceptAgentRun } from './turn-start-frame'
 
 import type { AgentChatBody, AgentRunTrace, InternalChatCtx } from './types'
+import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 
 agent.post('/chat', async (c) => {
   const userId = c.get('userId')
@@ -56,13 +59,12 @@ agent.post('/chat', async (c) => {
     : await assertConversationSendable(id, userId, teamId)
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
-  // Initialize once even if transcript sync already created the row.
   if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {
     await initializeSessionBypass(id, userId, body.permissionMode === 'bypass')
   }
   const readOnlyResume = body.resume === true && runOwnerUserId !== userId
-  // Resolve Slack binding alongside transcript hydration.
-  const clientViewPromise = hydrateTranscriptPrefix(
+  // Resolve Slack binding alongside attribution.
+  const clientViewPromise = acceptClientTail(
     body,
     id,
     runOwnerUserId,
@@ -99,6 +101,11 @@ agent.post('/chat', async (c) => {
     streamId,
     body,
     readOnlyResume,
+    conversation: conversationForResume,
+    clientView,
+    slackBound: Boolean(slackThread),
+    credentialAccess: requestedCredentialAccess?.access,
+    context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
   }
 
   if (existingRun) {
@@ -111,13 +118,15 @@ agent.post('/chat', async (c) => {
     userId,
     ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
     ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-  })
+  }).catch((error: unknown) => queueForOfflineBox(error, resumeParams))
+
+  if (!chatRuntime) return c.json({ status: 'queued', streamId }, 202)
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
   let releaseAgentRunClaim: (() => void) | null = null
+  let queuedItem: PendingUserMessage | undefined
 
-  // Runtime admission supersedes backend stream leases. Leases still route
-  // replay/cancellation; they do not say whether an OpenAB session can accept work.
+  // The runtime says whether it can take work; a serverQueue send also holds the session claim.
   const runtimeSnapshot = conversationForResume?.claudeCodePreview
     ? await conversationExecutionState(conversationForResume)
     : undefined
@@ -129,6 +138,7 @@ agent.post('/chat', async (c) => {
       sessionId: id,
       streamId,
       body,
+      snapshot: runtimeSnapshot,
     })
 
     if (previewWait) {
@@ -137,14 +147,18 @@ agent.post('/chat', async (c) => {
 
       return attached ?? (await resumeFromRedisOrThrow(resumeParams))
     }
-    await admitRuntimeChat(runtimeSnapshot, {
-      attached: conversationForResume?.claudeCodePreview ? conversationForResume : undefined,
-      replying: Boolean(body.resumeReason),
-      read: conversationExecutionState,
-    })
-    if (!runtimeOwnsAdmission) {
-      // Park onto this conversation's running turn, or claim the session before
-      // launching one.
+    const queue = await admitQueueableChat({ ...resumeParams, snapshot: runtimeSnapshot })
+
+    if (queue?.mode === 'queued') return c.json({ status: 'queued', streamId }, 202)
+    if (queue) [releaseAgentRunClaim, queuedItem] = [queue.release, queue.item]
+    else
+      await admitRuntimeChat(runtimeSnapshot, {
+        attached: conversationForResume?.claudeCodePreview ? conversationForResume : undefined,
+        replying: Boolean(body.resumeReason),
+        read: conversationExecutionState,
+      })
+    if (!queue && !runtimeOwnsAdmission) {
+      // Park onto this conversation's running turn, or claim the session first.
       const admission = await admitPreviewTurn(
         {
           runOwnerUserId,
@@ -182,7 +196,6 @@ agent.post('/chat', async (c) => {
     const messages = slackPlan?.messages ?? clientView
     const firstMessage = getFirstUserMessage(messages)
     const isPotentialNewConversation = messages.length === 1 && messages[0]?.role === 'user'
-    const conversationParent: string | undefined = undefined
 
     const chatSpan = startTraceSpan({
       name: 'turn',
@@ -258,7 +271,6 @@ agent.post('/chat', async (c) => {
       run,
       chatCtx,
       chatSpan,
-      conversationParent,
       body,
       teamId,
       messages,
@@ -276,6 +288,7 @@ agent.post('/chat', async (c) => {
           }
         : null,
       chatRuntime,
+      queued: queuedItem,
     })
 
     return streamAgentRunResponse(run, body.resumeFrom)

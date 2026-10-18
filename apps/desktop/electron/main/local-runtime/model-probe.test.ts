@@ -110,3 +110,44 @@ test('one rejected model does not discard the catalog or stop discovery of later
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a model that fails once is retried and listed', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+
+  writeFileSync(
+    adapter,
+    `
+    import readline from 'node:readline';
+    const options = [{ value: 'opus', name: 'Opus 5.5' }, { value: 'claude-opus-4-7', name: 'Opus 4.7' }];
+    let failed = false;
+    for await (const line of readline.createInterface({ input: process.stdin })) {
+      const { id, method, params } = JSON.parse(line);
+      const flaky = params?.value === 'claude-opus-4-7' && !failed;
+      if (flaky) failed = true;
+      const result = method === 'initialize' ? {} : {
+        sessionId: 'test', configOptions: [
+          { id: 'model', category: 'model', currentValue: params?.value ?? 'opus', options },
+          { id: 'effort', currentValue: 'high', options: [{ value: 'high', name: 'High' }] },
+        ],
+      };
+      console.log(JSON.stringify(flaky ? { id, error: { code: -32603, message: 'Network' } } : { id, result }));
+    }
+  `,
+  )
+  try {
+    const catalog = await probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter,
+      cwd: dir,
+      env: {},
+    })
+
+    assert.deepEqual(
+      catalog.models.map(({ id }) => id),
+      ['opus', 'claude-opus-4-7'],
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

@@ -39,7 +39,8 @@ their lid.
 - **Triggers.** A schedule or a webhook starts a turn on its own — a cron, or
   an incoming event — without anyone sitting in the chat.
 - **Split the window.** ⌘D splits side by side and ⌘⇧D splits top and bottom,
-  so you can watch several agent sessions at once.
+  so you can watch several agent sessions at once. Drag a chat from the sidebar
+  onto a pane's edge to open it there, or drag a pane by its grip to move it.
 - **Move the session between local, remote, and cloud.** The conversation you
   are in switches to this computer, another machine you own, or a cloud
   runtime, and keeps going.

@@ -9,9 +9,10 @@ struct TranscriptList: UIViewControllerRepresentable {
     let rows: [ChatRow]
     let submittedRowID: String?
     let sessionID: String
-    /// What sits between the transcript and the keyboard. Counting it as part
-    /// of the keyboard lets a drag pick both up at the composer's top edge.
-    let composerHeight: CGFloat
+    /// Docked on the keyboard layout guide, under the transcript.
+    let composer: AnyView
+    /// Centered where the rows go while there are none to show.
+    let placeholder: AnyView
     let rowContent: (ChatRow) -> AnyView
 
     func makeUIViewController(context: Context) -> TranscriptController {
@@ -19,7 +20,8 @@ struct TranscriptList: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: TranscriptController, context: Context) {
-        controller.setComposerHeight(composerHeight)
+        controller.setComposer(composer)
+        controller.placeholder.rootView = placeholder
         controller.update(rows: rows, submittedRowID: submittedRowID,
                           sessionID: sessionID, content: rowContent)
     }
@@ -41,7 +43,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var applying = false
     private var pending: (() -> Void)?
     private var previousSize = CGSize.zero
-    private var bottom: NSLayoutConstraint!
+    private let composer = UIHostingController(rootView: AnyView(EmptyView()))
+    let placeholder = UIHostingController(rootView: AnyView(EmptyView()))
+    private lazy var composerHeight = composer.view.heightAnchor.constraint(equalToConstant: 0)
     private let latestButton = UIButton(type: .system)
 
     override func viewDidLoad() {
@@ -63,15 +67,34 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         collection.register(TranscriptCell.self, forCellWithReuseIdentifier: "row")
         collection.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collection)
-        // The view keeps its size; only the collection's bottom edge moves, and
-        // it moves inside the keyboard's own animation and interactive drag.
-        bottom = collection.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
+        // The composer rides the keyboard layout guide and the collection ends
+        // at its top. One keyboard source moves both, inside the keyboard's own
+        // animation and interactive drag, and nothing else moves them.
+        addChild(composer)
+        composer.view.backgroundColor = .clear
+        // Its own changes (focus, attachments) then ask for a new layout pass.
+        composer.sizingOptions = .intrinsicContentSize
+        // The guide already keeps it clear of the keyboard and home indicator;
+        // SwiftUI's own keyboard avoidance would move it a second time.
+        composer.safeAreaRegions = []
+        composer.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(composer.view)
+        composer.didMove(toParent: self)
         NSLayoutConstraint.activate([
             collection.topAnchor.constraint(equalTo: view.topAnchor),
-            bottom,
+            collection.bottomAnchor.constraint(equalTo: composer.view.topAnchor),
             collection.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collection.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composer.view.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            composer.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            composer.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composerHeight,
         ])
+        addChild(placeholder)
+        placeholder.view.backgroundColor = .clear
+        placeholder.safeAreaRegions = []
+        collection.backgroundView = placeholder.view
+        placeholder.didMove(toParent: self)
         dataSource = ChatLayoutDiffableDataSource(collectionView: collection) { [weak self] collection, path, id in
             guard let self, let row = self.byID[id], let content = self.content else { return nil }
             let cell = collection.dequeueReusableCell(withReuseIdentifier: "row", for: path) as! TranscriptCell
@@ -153,25 +176,23 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         animatePendingSend()
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        // The keyboard leaves with the page instead of after it has gone.
-        view.window?.endEditing(true)
-    }
-
-    /// The composer sits between the transcript and the keyboard. Counting it
-    /// as part of the keyboard lets a drag pick both up at the composer's top.
-    func setComposerHeight(_ height: CGFloat) {
-        loadViewIfNeeded()
-        guard bottom.constant != -height else { return }
-        view.keyboardLayoutGuide.keyboardDismissPadding = height
-        bottom.constant = -height
-        guard positioned else { return }
-        UIView.animate(withDuration: 0.28) { self.view.layoutIfNeeded() }
+    /// A draft lives in the page's state, so every keystroke arrives here.
+    func setComposer(_ content: AnyView) {
+        composer.rootView = content
+        view.setNeedsLayout()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // Measured at the page's width: the hosting controller's own intrinsic
+        // size has no width, so a long draft would never wrap and grow it.
+        let height = ceil(composer.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude)).height)
+        if composerHeight.constant != height {
+            composerHeight.constant = height
+            // Counting the composer as part of the keyboard lets a drag pick
+            // both up at the composer's top edge.
+            view.keyboardLayoutGuide.keyboardDismissPadding = height
+        }
         let size = collection.bounds.size
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size

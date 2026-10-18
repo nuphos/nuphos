@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { WizardExampleImage, WizardStep, WizardStepBar } from '../components/ConnectorWizard'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 
 import {
@@ -206,25 +207,20 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
             </button>
           )}
           {!webhookUrl && step < 4 && (
-            <button
+            <Button
+              size="sm"
               type="button"
               disabled={step === 2 && !canContinueCreds}
               onClick={() => setStep((s) => s + 1)}
-              className="h-9 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Continue
-            </button>
+            </Button>
           )}
           {!webhookUrl && step === 4 && (
-            <button
-              type="button"
-              disabled={!canSubmit}
-              onClick={() => void submit()}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button size="sm" type="button" disabled={!canSubmit} onClick={() => void submit()}>
               {saving && <FontAwesomeIcon icon={faSpinner} className="h-3 w-3 animate-spin" />}
               {reinstall ? 'Reconnect' : 'Connect'}
-            </button>
+            </Button>
           )}
           {webhookUrl && doneStep === 1 && (
             <button
@@ -236,13 +232,9 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
             </button>
           )}
           {webhookUrl && doneStep === 0 && (
-            <button
-              type="button"
-              onClick={() => setDoneStep(1)}
-              className="h-9 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400"
-            >
+            <Button size="sm" type="button" onClick={() => setDoneStep(1)}>
               Continue
-            </button>
+            </Button>
           )}
           {webhookUrl && doneStep === 1 && (
             <button

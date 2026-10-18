@@ -44,6 +44,7 @@ const options = {
   notionIntegrations: [{ integrationId: 'notion-late', workspaceName: 'Team' }],
   upstashAccounts: [],
   posthogIntegrations: [],
+  plaudAccounts: [],
   cloudflareAccounts: [],
   devices: [],
 } as unknown as AgentCredentialOptions
@@ -82,7 +83,7 @@ useTriggerRunExecute({
 })
 
 const { executeTrigger } = await import('./trigger-executor')
-const { startQueuedTurn } = await import('./conversation-turn')
+const { startQueuedTurn } = await import('./queued-turn')
 const { installQueuedTurnStarter } = await import('./session-released')
 
 installQueuedTurnStarter(startQueuedTurn)

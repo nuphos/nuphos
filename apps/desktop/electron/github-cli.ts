@@ -17,7 +17,7 @@ import type { WebContents } from 'electron'
 // them as that person, with that person's permissions. The renderer only gets
 // these fixed operations, never a general `gh api` passthrough.
 
-const NAME = /^[\w.-]{1,100}$/
+export const NAME = /^[\w.-]{1,100}$/
 const MAX_BODY = 65_536
 const REVIEW_EVENTS = new Set<string>(['APPROVE', 'REQUEST_CHANGES', 'COMMENT'])
 const MERGE_METHODS = new Set<string>(['merge', 'squash', 'rebase'])
@@ -51,7 +51,7 @@ function parseJson(text: string): unknown {
   }
 }
 
-async function gh(
+export async function gh(
   method: string,
   path: string,
   payload?: object,

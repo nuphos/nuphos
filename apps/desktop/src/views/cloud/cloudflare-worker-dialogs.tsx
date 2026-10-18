@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 export function CronTriggersDialog({
@@ -57,13 +58,9 @@ export function CronTriggersDialog({
         >
           Cancel
         </button>
-        <button
-          onClick={() => void save()}
-          disabled={saving}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" onClick={() => void save()} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

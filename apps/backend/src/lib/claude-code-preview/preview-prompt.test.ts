@@ -173,10 +173,13 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   const box = await on('box')
 
   expect(box).toContain('running as Codex on Box 1, the computer this conversation runs on')
-  expect(box).toContain('the `computer-use` desktop tool are there')
+  expect(box).toContain('the `nuphos-desktop` tools for this conversation’s own desktop')
+  expect(box).toContain(
+    'open a browser from the Web Browser launcher in its panel with get_app_state and click, not from the shell',
+  )
   expect(box).toContain("local_exec is for the user's other devices, only when they ask for one")
   expect(box).not.toContain('inside the team sandbox')
-  expect(await on('mac')).not.toContain('computer-use')
+  expect(await on('mac')).not.toContain('nuphos-desktop')
   // A runtime that is not a computer's, or one gone from the registry, keeps the sandbox line.
   expect(await on('gone')).toContain('inside the team sandbox')
 })

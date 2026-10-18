@@ -87,32 +87,69 @@ export function liveTurnParts(frames: string[]): LivePart[] | null {
   return parts
 }
 
-/** The session's running turn, or null when none is running. `ownerUserId` is
- *  the conversation owner, whom runs are keyed by. */
-export async function getLiveTurn(
+/** The newest frames of the session's running run, from this replica or the Redis mirror. */
+async function runningFrames(
   ownerUserId: string,
   sessionId: string,
-): Promise<LiveTurn | null> {
+): Promise<{
+  frames: string[]
+  startedAt: number | string | null
+  updatedAt: number | string | null
+} | null> {
   let local = null
 
   for (const run of agentRuns.values()) {
     if (run.userId !== ownerUserId || run.sessionId !== sessionId || run.done) continue
     if (!local || run.createdAt > local.createdAt) local = run
   }
-  if (local) {
-    const parts = liveTurnParts(local.frames.slice(-FRAME_WINDOW))
-
-    return parts
-      ? { startedAt: toIso(local.createdAt), updatedAt: toIso(local.lastFrameAt), parts }
-      : null
-  }
+  if (local)
+    return {
+      frames: local.frames.slice(-FRAME_WINDOW),
+      startedAt: local.createdAt,
+      updatedAt: local.lastFrameAt,
+    }
   const active = await getActiveAgentRunForSession(ownerUserId, sessionId)
 
   if (!active) return null
   const mirrored = await readAgentRunFrames(ownerUserId, active.streamId, FRAME_WINDOW)
-  const parts = liveTurnParts(mirrored?.frames ?? [])
 
-  return parts
-    ? { startedAt: toIso(active.startedAt), updatedAt: toIso(mirrored?.lastFrameAt), parts }
+  return {
+    frames: mirrored?.frames ?? [],
+    startedAt: active.startedAt,
+    updatedAt: mirrored?.lastFrameAt ?? null,
+  }
+}
+
+/** The session's running turn, or null when none is running. `ownerUserId` is
+ *  the conversation owner, whom runs are keyed by. */
+export async function getLiveTurn(
+  ownerUserId: string,
+  sessionId: string,
+): Promise<LiveTurn | null> {
+  const run = await runningFrames(ownerUserId, sessionId)
+  const parts = run ? liveTurnParts(run.frames) : null
+
+  return run && parts
+    ? { startedAt: toIso(run.startedAt), updatedAt: toIso(run.updatedAt), parts }
     : null
+}
+
+/** Frames meaning the turn already said or did something, or took in another message. */
+export function framesShowOutput(frames: string[]): boolean {
+  return frames.some((frame) => {
+    const event = frameEvent(frame)
+    const delta = typeof event?.delta === 'string' ? event.delta.trim() : ''
+
+    if (!event) return false
+    if (event.type === 'text-delta' || event.type === 'reasoning-delta') return Boolean(delta)
+
+    return event.type.startsWith('tool-') || event.type === 'data-steering'
+  })
+}
+
+/** Whether the session's running turn has produced any output so far. */
+export async function liveTurnHasOutput(ownerUserId: string, sessionId: string): Promise<boolean> {
+  const run = await runningFrames(ownerUserId, sessionId)
+
+  return run ? framesShowOutput(run.frames) : false
 }

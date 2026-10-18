@@ -3,9 +3,9 @@ import { toast } from '../../ui/toast'
 
 import { applyEvent } from './applyEvent'
 import { finalizeIncompleteTools, latchTabError } from './clientTools'
-import { dispatchedDraft, parkRefusedTurn } from './queuedAutoSend'
+import { dispatchedDraft, showTurnQueued } from './queuedAutoSend'
 import { normalizeAgentError, uid } from './stall'
-import { stampAssistantTurnEnd } from './streamText'
+import { stampAssistantTurnEnd } from './messagePlacement'
 import { updateCurrentAssistantParts } from './turnBoundaries'
 
 import type { PanelCtx } from './ctx'
@@ -91,19 +91,23 @@ export function applyStreamEvent(
           agentSetupRequired: null,
         }
       }
-      if (evType === 'runtime-not-ready') {
-        // Refused before it started; useQueuedAutoSend sends a parked message again.
-        const draft = dispatchedDraft(streamId)
-        const nextTab = parkRefusedTurn(t, draft)
-
-        if (!draft && !busyNoticeShownForStream.has(streamId)) {
-          busyNoticeShownForStream.add(streamId)
-          toast.error("The agent isn't ready yet", 'Try again in a moment.')
-        }
+      if (evType === 'queued') {
+        // The server holds the message in its queue: it waits in the queue strip.
+        const nextTab = showTurnQueued(t, dispatchedDraft(streamId))
 
         queueTranscriptSync(nextTab, 250)
 
         return nextTab
+      }
+      if (evType === 'runtime-not-ready') {
+        // Refused and not queued: the server records the attempt, so the
+        // message stays where it is; the person sends it again.
+        if (!busyNoticeShownForStream.has(streamId)) {
+          busyNoticeShownForStream.add(streamId)
+          toast.error("The agent isn't ready yet", 'Your message was not sent. Send it again.')
+        }
+
+        return showTurnQueued(t, undefined)
       }
       if (evType === 'agent-setup-required') {
         const message =
@@ -145,7 +149,7 @@ export function applyStreamEvent(
         // already failed.
         const nextTab = {
           ...t,
-          messages: finalizeIncompleteTools(t.messages, err),
+          messages: stampAssistantTurnEnd(finalizeIncompleteTools(t.messages, err)),
           streaming: false,
           streamId: null,
           streamStartedAt: null,
@@ -179,7 +183,7 @@ export function applyStreamEvent(
         // Same cleanup as the IPC-level error branch above.
         const nextTab = {
           ...t,
-          messages: finalizeIncompleteTools(t.messages, err),
+          messages: stampAssistantTurnEnd(finalizeIncompleteTools(t.messages, err)),
           streaming: false,
           streamId: null,
           streamStartedAt: null,

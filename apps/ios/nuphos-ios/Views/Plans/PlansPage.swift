@@ -146,6 +146,8 @@ struct PlansPage: View {
                     }
                 }
                 .prominentButton()
+                .disabled(!store.credentialsReady)
+                .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
             }
         case .loaded:
             // Everything loaded is dismissed and hidden.

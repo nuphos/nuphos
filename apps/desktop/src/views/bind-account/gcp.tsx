@@ -14,7 +14,6 @@ import type { GcpWifInfo } from '../../types'
 export function GcpBindWizard({
   step,
   purpose,
-  firstRun,
   wif,
   saEmail,
   onSaEmailChange,
@@ -23,7 +22,6 @@ export function GcpBindWizard({
 }: {
   step: number
   purpose: 'operational'
-  firstRun: boolean
   /** Nuphos's principal for the Token Creator grant; null until it loads. */
   wif: GcpWifInfo | null
   saEmail: string
@@ -31,7 +29,7 @@ export function GcpBindWizard({
   projectId: string
   onProjectIdChange: (v: string) => void
 }) {
-  const steps = gcpSteps(purpose, firstRun)
+  const steps = gcpSteps(purpose)
 
   return (
     <div>
@@ -55,7 +53,6 @@ export function GcpBindWizard({
       <GcpWizardStepContent
         step={step}
         purpose={purpose}
-        firstRun={firstRun}
         wif={wif}
         saEmail={saEmail}
         onSaEmailChange={onSaEmailChange}

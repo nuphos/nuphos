@@ -15,6 +15,7 @@ import { revokeReplacedGrant } from '@/lib/byos/posthog-revoke'
 import { decodeScopeSet, POSTHOG_SCOPE_CEILING } from '@/lib/byos/posthog-scopes'
 import { invalidatePosthogAccessToken } from '@/lib/byos/posthog-tokens'
 import { decryptPosthogSecret, encryptPosthogSecret } from '@/lib/byos/secrets'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { emptyTeamByosBindings, posthogPendingOAuth, teamByosBindings } from '@/models'
@@ -109,26 +110,81 @@ posthogAppRoutes.get('/callback', async (c) => {
     })
   }
 
-  const existing = await findExisting(pending, apiBaseUrl, discovery.user)
-  const binding = buildBinding(pending, existing, apiBaseUrl, tokens, discovery)
+  const draft: PosthogBindingDraft = {
+    pending: {
+      requesterUserId: pending.requesterUserId,
+      label: pending.label,
+      region: pending.region,
+      clientId: pending.clientId,
+      requestedScopes: pending.requestedScopes,
+      ...(pending.integrationId ? { integrationId: pending.integrationId } : {}),
+    },
+    apiBaseUrl,
+    discovery,
+    grant: {
+      scopedTeams: tokens.scopedTeams,
+      scope: tokens.scope || pending.requestedScopes.join(' '),
+      encryptedAccessToken: encryptPosthogSecret(tokens.accessToken),
+      encryptedRefreshToken: tokens.refreshToken ? encryptPosthogSecret(tokens.refreshToken) : null,
+      accessTokenExpiresAt: tokens.expiresAt,
+    },
+  }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'posthog',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistPosthogBinding,
+    }),
+  )
+})
+
+type PosthogBindingDraft = {
+  pending: Pick<
+    PosthogPendingOAuth,
+    'requesterUserId' | 'label' | 'region' | 'clientId' | 'requestedScopes' | 'integrationId'
+  >
+  apiBaseUrl: string
+  discovery: PosthogDiscovery
+  grant: Pick<
+    PosthogIntegrationBinding,
+    | 'scopedTeams'
+    | 'scope'
+    | 'encryptedAccessToken'
+    | 'encryptedRefreshToken'
+    | 'accessTokenExpiresAt'
+  >
+}
+
+export async function persistPosthogBinding(
+  teamId: ObjectId,
+  draft: PosthogBindingDraft,
+): Promise<Record<string, string>> {
+  const pending = { ...draft.pending, teamId }
+  const { discovery } = draft
+  const existing = await findExisting(pending, draft.apiBaseUrl, discovery.user)
+  const binding = buildBinding(pending, existing, draft)
 
   await persistBinding(pending, binding, existing)
   if (existing) await revokeReplacedGrant(existing, binding)
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: binding.id.toHexString(),
-    team_id: pending.teamId.toHexString(),
+    team_id: teamId.toHexString(),
     account_name: discovery.user.email ?? discovery.user.name ?? binding.label,
-  })
-})
+  }
+}
+
+type BindingPending = PosthogBindingDraft['pending'] & { teamId: ObjectId }
 
 function buildBinding(
-  pending: PosthogPendingOAuth,
+  pending: BindingPending,
   existing: PosthogIntegrationBinding | null,
-  apiBaseUrl: string,
-  tokens: PosthogTokens,
-  discovery: PosthogDiscovery,
+  { apiBaseUrl, discovery, grant }: PosthogBindingDraft,
 ): PosthogIntegrationBinding {
   const reachable = new Set(discovery.projects.map((project) => project.id))
   const keptProjects = (existing?.projects ?? []).filter((project) => reachable.has(project.id))
@@ -144,19 +200,19 @@ function buildBinding(
     projects: keptProjects.length
       ? keptProjects
       : discovery.projects.slice(0, MAX_POSTHOG_PROJECTS),
-    scopedTeams: tokens.scopedTeams,
+    scopedTeams: grant.scopedTeams,
     requestedScopes: pending.requestedScopes,
-    scope: tokens.scope || pending.requestedScopes.join(' '),
-    encryptedAccessToken: encryptPosthogSecret(tokens.accessToken),
-    encryptedRefreshToken: tokens.refreshToken ? encryptPosthogSecret(tokens.refreshToken) : null,
-    accessTokenExpiresAt: tokens.expiresAt,
+    scope: grant.scope,
+    encryptedAccessToken: grant.encryptedAccessToken,
+    encryptedRefreshToken: grant.encryptedRefreshToken,
+    accessTokenExpiresAt: grant.accessTokenExpiresAt,
     createdAt: existing?.createdAt ?? new Date(),
     ...(existing?.access ? { access: existing.access } : {}),
   }
 }
 
 async function persistBinding(
-  pending: PosthogPendingOAuth,
+  pending: BindingPending,
   binding: PosthogIntegrationBinding,
   existing: PosthogIntegrationBinding | null,
 ): Promise<void> {
@@ -189,7 +245,7 @@ async function persistBinding(
 // A reconnect targets its binding; a fresh connect of an already-bound PostHog
 // user refreshes that binding instead of adding a duplicate.
 async function findExisting(
-  pending: PosthogPendingOAuth,
+  pending: BindingPending,
   apiBaseUrl: string,
   user: PosthogDiscovery['user'],
 ): Promise<PosthogIntegrationBinding | null> {

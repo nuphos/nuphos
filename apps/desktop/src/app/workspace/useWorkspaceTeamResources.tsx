@@ -97,6 +97,7 @@ export function useWorkspaceTeamResources(a: Args) {
             asana: bundle.asana ?? [],
             sentry: bundle.sentry ?? [],
             posthog: bundle.posthog ?? [],
+            plaud: bundle.plaud ?? [],
             discordConnection: bundle.discord ?? null,
             slackInstallation: bundle.slack?.installation ?? null,
             slackLinkedChannels: bundle.slack?.linkedChannels ?? null,

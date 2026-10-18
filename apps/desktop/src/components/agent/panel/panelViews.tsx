@@ -10,6 +10,7 @@ import { PermissionResumeContext } from '../permissionResumeContext'
 
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
+import { sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationReveal } from './ConversationReveal'
@@ -17,6 +18,7 @@ import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
+import { waitingMessages } from './queuedAutoSend'
 import { QueuedStrip } from './QueuedStrip'
 
 import type { PanelViewCtx } from './ctx'
@@ -45,6 +47,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     onPromptConsumed,
     pendingPromptReady,
     removeQueued,
+    retractLatest,
     steerQueued,
     resumePermissionTurn,
     selectBypassMode,
@@ -62,6 +65,11 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
   const foreignChat = Boolean(activeTab?.foreign)
   const currentUserId = useCurrentUser()?.id
+  const activeMessages = activeTab?.messages
+  const history = useMemo(
+    () => sentHistory(activeMessages ?? [], currentUserId, foreignChat),
+    [activeMessages, currentUserId, foreignChat],
+  )
   const editMessage = useMemo(
     () =>
       editableSessionId
@@ -161,11 +169,11 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               </ConnectCardContext.Provider>
             </div>
             <div className="col-start-1 row-start-2 z-10">
-              {activeTab.queued && activeTab.queued.length > 0 && (
+              {waitingMessages(activeTab).length > 0 && (
                 <QueuedStrip
-                  items={activeTab.queued}
+                  items={waitingMessages(activeTab)}
                   canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
-                  onRemove={(queuedId) => removeQueued(activeTab.id, queuedId)}
+                  onRemove={(queuedId) => void removeQueued(activeTab.id, queuedId)}
                   onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
                   sidebar={isSidebarMode}
                 />
@@ -190,6 +198,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     sidebar={isSidebarMode}
                     dropRegisterRef={conversationDropRef}
                     draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                    recall={{ retract: retractLatest, history: [] }}
                     mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
                 </DelayedPanelReveal>
@@ -218,6 +227,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   sidebar={isSidebarMode}
                   dropRegisterRef={conversationDropRef}
                   draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                  recall={{ retract: retractLatest, history }}
                   mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                 />
               )}

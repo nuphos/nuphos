@@ -9,6 +9,7 @@ import { controlRegistry } from './agent-chat-registry'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
+import { resolveDefaultModel } from './runtime-default-model'
 import { execRuntimeCommand } from './runtime-login-exec'
 import { localRuntimeModels } from './local-runtime-catalog'
 import { createRuntimeModelCatalog } from './runtime-model-cache'
@@ -35,7 +36,13 @@ const runtimeModelCatalogSchema = z.object({
     .object({
       modelId: z.string().min(1).max(500),
       effort: z
-        .array(z.object({ value: z.string().min(1).max(100), name: z.string().max(200) }))
+        .array(
+          z.object({
+            value: z.string().min(1).max(100),
+            name: z.string().max(200),
+            description: z.string().max(200).optional(),
+          }),
+        )
         .max(100),
       fast: z.boolean(),
       defaultFast: z.enum(['on', 'off']).optional(),
@@ -179,7 +186,11 @@ async function observedModels(
                     effort:
                       options
                         .find((o) => o.kind === 'effort')
-                        ?.options.map(({ value, name }) => ({ value, name })) ?? [],
+                        ?.options.map(({ value, name, description }) => ({
+                          value,
+                          name,
+                          ...(description ? { description } : {}),
+                        })) ?? [],
                     fast: ['on', 'off'].every((value) =>
                       options
                         .find((o) => o.kind === 'fast')
@@ -247,5 +258,6 @@ async function discoverModels(
 
 export const runtimeModelCatalog = createRuntimeModelCatalog({
   requireInstance: requireRuntimeInstance,
-  discover: discoverModels,
+  discover: async (teamId, instance, model) =>
+    resolveDefaultModel(await discoverModels(teamId, instance, model)),
 })

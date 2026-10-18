@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { normalizeAgentUrl, normalizePairingCode } from '../../lib/connectAgentLink'
 
@@ -114,22 +115,18 @@ export function ExternalRuntimeForm({
       )}
       <div className="flex items-center gap-2">
         {duplicateId ? (
-          <button
+          <Button
+            size="sm"
             type="button"
             disabled={cannotSave}
             onClick={() => void submit(duplicateId)}
-            className="rounded-md bg-zViolet-600 px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:opacity-50"
           >
             {saving ? 'Updating…' : 'Update existing connection'}
-          </button>
+          </Button>
         ) : (
-          <button
-            type="submit"
-            disabled={cannotSave}
-            className="rounded-md bg-zViolet-600 px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:opacity-50"
-          >
+          <Button size="sm" type="submit" disabled={cannotSave}>
             {saving ? 'Connecting…' : 'Connect agent'}
-          </button>
+          </Button>
         )}
         <button
           type="button"

@@ -60,6 +60,7 @@
                 <data android:scheme="nuphos" android:host="linear-callback" />
                 <data android:scheme="nuphos" android:host="jira-callback" />
                 <data android:scheme="nuphos" android:host="asana-callback" />
+                <data android:scheme="nuphos" android:host="plaud-callback" />
                 <data android:scheme="nuphos" android:host="sentry-callback" />
                 <data android:scheme="nuphos" android:host="github-callback" />
             </intent-filter>

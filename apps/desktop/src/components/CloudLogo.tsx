@@ -17,6 +17,7 @@ type Props = {
     | 'asana'
     | 'sentry'
     | 'posthog'
+    | 'plaud'
     | 'tailscale'
     | 'grafana'
     | 'github'
@@ -61,6 +62,7 @@ const SRC = {
   asana: '/asana.svg',
   sentry: '/sentry.svg',
   posthog: '/posthog-dark.svg',
+  plaud: '/plaud-dark.svg',
   tailscale: '/tailscale-dark.svg',
   grafana: '/grafana.svg',
   github: '/github-dark.svg',
@@ -97,6 +99,7 @@ const THEMED_SRC = {
   notion: { alt: 'Notion', dark: SRC.notion, light: '/notion-light.svg' },
   resend: { alt: 'Resend', dark: SRC.resend, light: 'https://cdn.simpleicons.org/resend/181717' },
   posthog: { alt: 'PostHog', dark: SRC.posthog, light: '/posthog-light.svg' },
+  plaud: { alt: 'Plaud', dark: SRC.plaud, light: '/plaud-light.svg' },
 } as const
 
 export function CloudLogo({ provider, size = 14, className = '' }: Props) {

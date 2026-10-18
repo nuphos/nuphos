@@ -2,9 +2,9 @@ import { Calendar, ChevronDown, LayoutGrid, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { api } from '../../api'
-import { toast } from '../../components/ui/toast'
-
+import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger, MenuSeparator } from '../../components/ui/menu'
+import { toast } from '../../components/ui/toast'
 
 import { RANGE_PRESETS, rangeLabel } from './helpers'
 
@@ -215,9 +215,9 @@ export function DashboardToolbar({
                       )
                   }}
                 />
-                <button
+                <Button
+                  size="sm"
                   type="button"
-                  className="h-8 rounded-md bg-zViolet-500 px-2.5 text-[12.5px] font-medium text-white hover:bg-zViolet-400 disabled:opacity-50"
                   disabled={refreshing || customRange.periodStart > customRange.periodEnd}
                   onClick={() =>
                     applyDate({
@@ -227,7 +227,7 @@ export function DashboardToolbar({
                   }
                 >
                   Apply
-                </button>
+                </Button>
               </>
             )}
           </>

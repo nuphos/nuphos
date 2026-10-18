@@ -34,6 +34,7 @@ import type {
   Scope,
   SecureframeIntegration,
   SentryAccount,
+  PlaudAccount,
   PosthogIntegration,
   SlackInstallation,
   SlackLinkedChannelsSummary,
@@ -88,6 +89,7 @@ export type AccountSet = {
   asana: AsanaAccount[]
   sentry: SentryAccount[]
   posthog: PosthogIntegration[]
+  plaud: PlaudAccount[]
   discordConnection?: DiscordConnection | null
   slackInstallation: SlackInstallation | null
   slackLinkedChannels: SlackLinkedChannelsSummary | null

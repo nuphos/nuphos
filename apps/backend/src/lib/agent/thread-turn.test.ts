@@ -3,7 +3,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import { executeConversationTurn, startQueuedTurn } from './conversation-turn'
+import { executeConversationTurn } from './conversation-turn'
+import { startQueuedTurn } from './queued-turn'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,
@@ -135,7 +136,7 @@ test('busy target queues without blocking the sending thread or starting a secon
       return { status: 'completed' }
     },
   })
-  expect((await startThreadTurn(data)).status).toBe('delivered')
+  expect((await startThreadTurn(data)).status).toBe('queued')
   expect(claims[0]?.message.renderedText).toBe('CI passed')
   expect(claims[0]?.message.metadata?.sourceSessionId).toBe('source')
   expect(runs).toHaveLength(0)

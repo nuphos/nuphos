@@ -1,3 +1,5 @@
+import { Button } from '../../components/ui/button'
+
 import type { RuntimeInstance } from '../../types/runtime'
 
 /** Antigravity signs in through a browser on the agent's own loopback address, so only the app can. */
@@ -43,13 +45,9 @@ export function RuntimeSignIn({
         )}
       </div>
       {onSignIn && (
-        <button
-          type="button"
-          onClick={onSignIn}
-          className="shrink-0 rounded-md bg-zViolet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-zViolet-500"
-        >
+        <Button size="sm" className="shrink-0" type="button" onClick={onSignIn}>
           {authenticated ? 'Add a provider' : 'Sign in'}
-        </button>
+        </Button>
       )}
     </div>
   )

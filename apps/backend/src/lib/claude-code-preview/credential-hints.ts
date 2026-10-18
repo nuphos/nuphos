@@ -24,6 +24,7 @@ const SETUP_SCRIPTS: Record<string, SetupScript> = {
   asana: { after: 'source ~/.asana/nuphos.env' },
   sentry: { after: 'source ~/.sentry/nuphos.env' },
   posthog: { after: 'source ~/.posthog/nuphos.env' },
+  plaud: { after: 'source ~/.plaud/nuphos.env' },
 }
 
 export function setupHint(skill: string, args: string, script: SetupScript = {}): string {

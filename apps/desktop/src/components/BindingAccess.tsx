@@ -6,6 +6,7 @@ import { memberDisplayName, normalizeAllowList } from '../lib/bindingAccess'
 
 import { AllowListSelect } from './binding-access-allow-list'
 import { PROVIDERS } from './binding-access-providers'
+import { Button } from './ui/button'
 import { toast } from './ui/toast'
 
 import type { BindingAccessProvider } from './binding-access-providers'
@@ -150,14 +151,9 @@ export function BindingAccessSection({
                   </>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => void save()}
-                disabled={saving}
-                className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] font-medium disabled:opacity-50"
-              >
+              <Button size="sm" type="button" onClick={() => void save()} disabled={saving}>
                 {saving ? 'Saving...' : 'Save access'}
-              </button>
+              </Button>
             </div>
           </div>
         </>

@@ -46,6 +46,7 @@ const client = {
 
 useAgentDb({
   getConversationPreviewAttachment: async () => attachment,
+  consumeConversationRetracted: async () => false,
   consumeConversationWorkLost: async () => null,
 })
 useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })

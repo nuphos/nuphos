@@ -75,7 +75,6 @@ const deps: LocalRuntimeCatalogDeps = {
   },
   isMember: async (userId, teamId) => userId === 'owner' && teamId === 'team',
   getPresence: async () => ({ conn: 'c1', seenAt: Date.now(), status }),
-  wakeDevice: async () => undefined,
 }
 
 describe('multiple instances of one provider', () => {
@@ -338,7 +337,6 @@ describe('signing in an agent the computer has not reported yet', () => {
       resolveLocalRuntimeEndpoint('team', added, 'owner', 'login', {
         ...deps,
         getPresence: async () => null,
-        wakeDevice: async () => undefined,
       }),
     ).rejects.toMatchObject({ code: 'runtime_offline' })
   })

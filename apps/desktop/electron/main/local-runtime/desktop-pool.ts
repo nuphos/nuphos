@@ -1,5 +1,5 @@
 // A desktop per conversation on a Linux Box: the agents' env names the wrapper
-// Claude runs as each session's `computer-use` MCP server (desktop-session.mjs),
+// Claude runs as each session's `nuphos-desktop` MCP server (desktop-session.mjs),
 // and a pool sized to the CPUs; a reaper frees displays whose session is gone.
 
 import { spawn, spawnSync } from 'node:child_process'
@@ -57,10 +57,9 @@ export function openDesktop(wrapper: string, pool: string, sessionId: string): P
   })
 }
 
-/** The backend's one-shot requests on a Box: agent instances, and a desktop the owner opens by hand. */
+/** The backend's one-shot requests: agent instances, and a desktop the owner opens by hand. */
 export function withDesktopRequests(
-  wrapper: string,
-  pool: string,
+  open: (sessionId: string) => Promise<number>,
   instances?: (request: unknown) => Promise<unknown>,
 ): (request: unknown) => Promise<unknown> {
   return (request) => {
@@ -71,7 +70,7 @@ export function withDesktopRequests(
     if (typeof sessionId !== 'string' || !sessionId)
       return Promise.reject(new Error('A desktop needs its session'))
 
-    return openDesktop(wrapper, pool, sessionId).then((display) => ({ display }))
+    return open(sessionId).then((display) => ({ display }))
   }
 }
 

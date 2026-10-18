@@ -35,9 +35,12 @@ export {
 } from './secrets/network'
 export {
   decryptBetterStackToken,
+  decryptGrafanaSecret,
   decryptUptimeKumaSecret,
   encryptBetterStackToken,
+  encryptGrafanaSecret,
   encryptUptimeKumaSecret,
+  grafanaBindingToken,
 } from './secrets/observability'
 export {
   decryptNotionSecret,
@@ -45,6 +48,7 @@ export {
   encryptNotionSecret,
   encryptResendSecret,
 } from './secrets/saas'
+export { decryptGithubSecret, encryptGithubSecret } from './secrets/github'
 export type { EncryptedSecret } from './secrets/shared'
 export {
   decryptGitlabSecret,
@@ -54,5 +58,6 @@ export {
   encryptJiraSecret,
   encryptLinearSecret,
 } from './secrets/trackers'
+export { decryptPlaudSecret, encryptPlaudSecret } from './secrets/plaud'
 export { decryptPosthogSecret, encryptPosthogSecret } from './secrets/posthog'
 export { decryptUpstashSecret, encryptUpstashSecret } from './secrets/upstash'

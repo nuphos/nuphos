@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api'
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
@@ -20,9 +21,6 @@ import { inputClasses } from './styles'
 
 import type { ConnectAgentLink } from '../../lib/connectAgentLink'
 import type { AtlasTeam } from '../../types'
-
-const primaryButton =
-  'inline-flex items-center gap-2 rounded-md bg-zViolet-600 px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:opacity-50'
 
 function useSecondsLeft(expiresAt: number | undefined): number | undefined {
   const [now, setNow] = useState(() => Date.now())
@@ -164,25 +162,25 @@ export function ConnectAgentDialog({
         </p>
         <div className="flex items-center gap-2">
           {duplicateId ? (
-            <button
+            <Button
+              size="sm"
               type="button"
-              className={primaryButton}
               disabled={saving || expired}
               onClick={() => void confirm(duplicateId)}
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Update existing connection
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              size="sm"
               type="button"
-              className={primaryButton}
               disabled={saving || expired || !team || noAdminTeam}
               onClick={() => void confirm()}
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Connect agent
-            </button>
+            </Button>
           )}
           <button
             type="button"

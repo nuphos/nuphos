@@ -11,6 +11,7 @@ import * as githubInstall from '../github-install'
 import * as gitlabInstall from '../gitlab-install'
 import * as jiraInstall from '../jira-install'
 import * as linearInstall from '../linear-install'
+import * as plaudInstall from '../plaud-install'
 import * as posthogInstall from '../posthog-install'
 import * as sentryInstall from '../sentry-install'
 import * as slackInstall from '../slack-install'
@@ -53,6 +54,7 @@ export function findDeepLinkInArgv(argv: readonly string[]): string | null {
     if (asanaInstall.isCallbackUrl(arg)) return arg
     if (sentryInstall.isCallbackUrl(arg)) return arg
     if (posthogInstall.isCallbackUrl(arg)) return arg
+    if (plaudInstall.isCallbackUrl(arg)) return arg
     if (slackInstall.isCallbackUrl(arg)) return arg
     if (discordInstall.isCallbackUrl(arg)) return arg
     if (agentChatDeepLink.isAgentChatUrl(arg)) return arg
@@ -139,9 +141,15 @@ export function handleDeepLink(url: string) {
 
     return
   }
+  if (plaudInstall.isCallbackUrl(url)) {
+    captureMain('deep_link_opened', { kind: 'plaud_callback' })
+    void plaudInstall.handleCallback(url)
+
+    return
+  }
   if (posthogInstall.isCallbackUrl(url)) {
     captureMain('deep_link_opened', { kind: 'posthog_callback' })
-    posthogInstall.handleCallback(url)
+    void posthogInstall.handleCallback(url)
 
     return
   }

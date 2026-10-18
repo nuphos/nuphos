@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { api } from '../api'
 import { CloudLogo } from '../components/CloudLogo'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
 import { toast } from '../components/ui/toast'
 
@@ -254,14 +255,10 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
           {phase.kind === 'waiting' ? 'Cancel' : 'Close'}
         </button>
         {phase.kind !== 'waiting' && (
-          <button
-            onClick={() => void startInstall()}
-            disabled={!canStart}
-            className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 disabled:bg-zGray-800 disabled:text-tertiary text-white text-[12.5px] font-medium flex items-center gap-1.5"
-          >
+          <Button size="sm" onClick={() => void startInstall()} disabled={!canStart}>
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
             Authorize GitLab
-          </button>
+          </Button>
         )}
       </div>
     </Modal>

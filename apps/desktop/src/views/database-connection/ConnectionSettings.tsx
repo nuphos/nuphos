@@ -2,6 +2,7 @@ import { ShieldCheck, Trash2 } from 'lucide-react'
 
 import { Modal } from '../../components/Modal'
 import { SectionHeader } from '../../components/SectionHeader'
+import { Button } from '../../components/ui/button'
 
 import type { DatabaseConnection } from '../../types'
 
@@ -104,14 +105,15 @@ export function RemoveConnectionModal({
           >
             Cancel
           </button>
-          <button
+          <Button
+            variant="destructive"
+            size="sm"
             disabled={busy || removeName !== connection.name}
             onClick={onRemove}
-            className="flex items-center gap-1.5 rounded-md bg-error px-3 py-1.5 text-[12px] text-white hover:bg-error/85 disabled:opacity-40"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Confirm name
-          </button>
+          </Button>
         </div>
       }
     >

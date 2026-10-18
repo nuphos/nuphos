@@ -32,7 +32,7 @@ data class ConnectorProvider(
         "vanta", "secureframe", "sonarqube" -> "Compliance"
         "github", "gitlab" -> "Source control"
         "linear", "jira", "asana" -> "Project management"
-        "notion" -> "Document"
+        "notion", "plaud" -> "Document"
         "upstash" -> "Databases"
         "resend" -> "Email"
         else -> "Messaging"
@@ -79,7 +79,7 @@ fun validHttpUrl(value: String): Boolean = runCatching {
 
 object ConnectorCatalog {
     val categoryOrder = listOf("Infrastructure", "Observability", "Databases", "Networking", "Compliance", "Source control", "Project management", "Document", "Email", "Messaging", "Other")
-    val arrayKeys = listOf("aws", "gcp", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "azure", "huawei", "vanta", "secureframe", "sonarqube", "notion", "onprem", "upstash", "resend", "posthog", "betterstack", "uptimeKuma", "tailscale", "zeabur", "github", "gitlab", "grafana", "linear", "jira", "asana", "sentry")
+    val arrayKeys = listOf("aws", "gcp", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "azure", "huawei", "vanta", "secureframe", "sonarqube", "notion", "onprem", "upstash", "resend", "posthog", "betterstack", "uptimeKuma", "tailscale", "zeabur", "github", "gitlab", "grafana", "linear", "jira", "asana", "sentry", "plaud")
     private fun label() = ConnectorField("label", "Label", max = 100)
     private fun secret(key: String, title: String, max: Int = Int.MAX_VALUE, required: Boolean = true, trim: Boolean = true) = ConnectorField(key, title, ConnectorFieldKind.Secret, required, max, trim)
     private fun form(key: String, title: String, path: String, vararg fields: ConnectorField, note: String? = null) = ConnectorProvider(key, title, path, fields.toList(), note = note)
@@ -103,6 +103,7 @@ object ConnectorCatalog {
         form("sonarqube", "SonarQube", "sonarqube-integrations", label(), ConnectorField("baseUrl", "Base URL", ConnectorFieldKind.Url), secret("token", "Token", 512)),
         ConnectorProvider("github", "GitHub", "github-installations"), ConnectorProvider("gitlab", "GitLab"),
         ConnectorProvider("linear", "Linear", "linear-workspaces", oauth = true), ConnectorProvider("jira", "Jira", "jira-sites", oauth = true), ConnectorProvider("asana", "Asana", "asana-accounts", oauth = true),
+        ConnectorProvider("plaud", "Plaud", "plaud-accounts", oauth = true),
         form("notion", "Notion", "notion-integrations", label(), secret("token", "Integration token", 300)),
         form("upstash", "Upstash", "upstash-accounts", label(), ConnectorField("email", "Account email", ConnectorFieldKind.Email, max = 200), secret("apiKey", "Management API key", 400)),
         form("resend", "Resend", "resend-integrations", label(), secret("apiKey", "API key", 300)),

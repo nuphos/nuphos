@@ -153,6 +153,16 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
       hint: vendedAccountHint('posthog', id),
     }),
   }),
+  plaudAccountIds: lister({
+    provider: 'plaud',
+    available: (o) => o.plaudAccounts,
+    idOf: (a) => a.bindingId,
+    details: (a, id) => ({
+      label: a.label,
+      credentialPath: `plaud-accounts/${id}/credentials`,
+      hint: vendedAccountHint('plaud', id),
+    }),
+  }),
   githubInstallationIds: lister({
     provider: 'github',
     available: (o) => o.githubInstallations,

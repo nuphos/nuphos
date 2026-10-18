@@ -18,6 +18,7 @@ export type AgentCredentialSelection = {
   asanaAccountIds: string[]
   sentryAccountIds: string[]
   posthogIntegrationIds: string[]
+  plaudAccountIds: string[]
   tailscaleClientIds: string[]
   zeaburIds: string[]
   vantaIntegrationIds: string[]
@@ -126,6 +127,10 @@ export type AgentCredentialOptions = {
     label: string
     apiBaseUrl: string
     projects: { id: number; name: string }[]
+  }[]
+  plaudAccounts: {
+    bindingId: string
+    label: string
   }[]
   tailscaleClients: {
     clientId: string

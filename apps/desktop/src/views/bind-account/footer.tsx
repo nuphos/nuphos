@@ -1,5 +1,4 @@
-import clsx from 'clsx'
-
+import { Button } from '../../components/ui/button'
 import { awsSteps, azureSteps, gcpSteps } from '../../lib/cloudBindSteps'
 
 import { ALIYUN_STEPS, HUAWEI_STEPS, TENCENT_STEPS, VOLC_STEPS } from './steps'
@@ -8,8 +7,6 @@ import type { BindState } from './use-bind-state'
 
 const backButtonClass =
   'h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800 disabled:opacity-50'
-const nextButtonClass =
-  'h-8 px-3 rounded-md text-[12.5px] font-medium bg-zViolet-500 hover:bg-zViolet-400 text-white transition-colors'
 
 export function BindDialogFooter({
   st,
@@ -112,46 +109,37 @@ export function BindDialogFooter({
           </button>
         )}
         {provider === 'gcp' && gcpStep < gcpSteps(purpose).length - 1 ? (
-          <button onClick={() => setGcpStep((s) => s + 1)} className={nextButtonClass}>
+          <Button size="sm" onClick={() => setGcpStep((s) => s + 1)}>
             Next
-          </button>
+          </Button>
         ) : provider === 'aws' && awsStep < awsSteps(purpose).length - 1 ? (
-          <button onClick={() => setAwsStep((s) => s + 1)} className={nextButtonClass}>
+          <Button size="sm" onClick={() => setAwsStep((s) => s + 1)}>
             Next
-          </button>
+          </Button>
         ) : provider === 'volcengine' && volcengineStep < VOLC_STEPS.length - 1 ? (
-          <button onClick={() => setVolcengineStep((s) => s + 1)} className={nextButtonClass}>
+          <Button size="sm" onClick={() => setVolcengineStep((s) => s + 1)}>
             Next
-          </button>
+          </Button>
         ) : provider === 'huawei' && huaweiStep < HUAWEI_STEPS.length - 1 ? (
-          <button onClick={() => setHuaweiStep((s) => s + 1)} className={nextButtonClass}>
+          <Button size="sm" onClick={() => setHuaweiStep((s) => s + 1)}>
             Next
-          </button>
+          </Button>
         ) : provider === 'aliyun' && aliyunStep < ALIYUN_STEPS.length - 1 ? (
-          <button onClick={() => setAliyunStep((s) => s + 1)} className={nextButtonClass}>
+          <Button size="sm" onClick={() => setAliyunStep((s) => s + 1)}>
             Next
-          </button>
+          </Button>
         ) : provider === 'tencent' && tencentStep < TENCENT_STEPS.length - 1 ? (
-          <button onClick={() => setTencentStep((s) => s + 1)} className={nextButtonClass}>
+          <Button size="sm" onClick={() => setTencentStep((s) => s + 1)}>
             Next
-          </button>
+          </Button>
         ) : provider === 'azure' && azureStep < azureSteps(purpose).length - 1 ? (
-          <button onClick={() => setAzureStep((s) => s + 1)} className={nextButtonClass}>
+          <Button size="sm" onClick={() => setAzureStep((s) => s + 1)}>
             Next
-          </button>
+          </Button>
         ) : (
-          <button
-            onClick={onSubmit}
-            disabled={!valid || submitting}
-            className={clsx(
-              'h-8 px-3 rounded-md text-[12.5px] font-medium transition-colors',
-              valid && !submitting
-                ? 'bg-zViolet-500 hover:bg-zViolet-400 text-white'
-                : 'bg-zGray-800 text-tertiary cursor-not-allowed',
-            )}
-          >
+          <Button size="sm" onClick={onSubmit} disabled={!valid || submitting}>
             {submitting ? 'Binding…' : 'Bind'}
-          </button>
+          </Button>
         )}
       </div>
     </div>

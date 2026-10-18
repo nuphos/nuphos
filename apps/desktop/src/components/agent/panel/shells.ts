@@ -24,11 +24,17 @@ export function shellsFromRuntimeState(snapshot: RuntimeExecution | undefined): 
   )
 }
 
-/** This session's desktops, by X display and the title the backend gives them, in wire order. */
+/** This session's desktops, by display, machine and the title the backend gives them, in wire order. */
 export function desktopsFromRuntimeState(snapshot: RuntimeExecution | undefined): SessionDesktop[] {
   return (snapshot?.tools ?? []).flatMap((tool) =>
     tool.desktop
-      ? [{ display: tool.desktop.display, title: tool.title ?? `:${String(tool.desktop.display)}` }]
+      ? [
+          {
+            display: tool.desktop.display,
+            title: tool.title ?? `:${String(tool.desktop.display)}`,
+            deviceId: tool.desktop.deviceId,
+          },
+        ]
       : [],
   )
 }

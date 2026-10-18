@@ -18,9 +18,6 @@ export type WorkspaceTabsProps = {
   onCopyPageUrl: (href: string) => void | Promise<void>
   sidebarCollapsed?: boolean
   onToggleSidebarCollapse?: () => void
-  /** No cloud is bound yet: the right-hand dock is setup, not a second chat. */
-  firstRunConnectAvailable?: boolean
-  onStartFirstRunConnect?: () => void
 }
 
 export type TabContextMenuState = {

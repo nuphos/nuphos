@@ -2,6 +2,7 @@ import { Clipboard } from 'lucide-react'
 import { useState } from 'react'
 
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { useReportVisibleError } from '../components/VisibleErrorReporter'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 
@@ -58,13 +59,9 @@ export function ScriptErrorModal({ open, panel, snapshot, onClose }: Props) {
           >
             <Clipboard className="h-3.5 w-3.5" /> {copied ? 'Copied' : 'Copy log'}
           </button>
-          <button
-            type="button"
-            onClick={close}
-            className="h-8 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white hover:bg-zViolet-400"
-          >
+          <Button size="sm" type="button" onClick={close}>
             Close
-          </button>
+          </Button>
         </div>
       }
     >

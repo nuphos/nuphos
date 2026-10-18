@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 import { requestOpenPortForwardList } from '../lib/portForwardList'
 
@@ -233,12 +234,9 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
             >
               Stop
             </button>
-            <button
-              onClick={handleClose}
-              className="h-8 px-3 rounded-md text-[12.5px] bg-zViolet-500 hover:bg-zViolet-400 text-white font-medium transition-colors"
-            >
+            <Button size="sm" onClick={handleClose}>
               Done
-            </button>
+            </Button>
           </>
         ) : (
           <>
@@ -249,13 +247,9 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
             >
               Cancel
             </button>
-            <button
-              onClick={() => void handleStart()}
-              disabled={status === 'connecting'}
-              className="h-8 px-3 rounded-md text-[12.5px] bg-zViolet-500 hover:bg-zViolet-400 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button size="sm" onClick={() => void handleStart()} disabled={status === 'connecting'}>
               {status === 'connecting' ? 'Connecting…' : 'Start forwarding'}
-            </button>
+            </Button>
           </>
         )}
       </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../api'
 import { Avatar } from '../components/Avatar'
+import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 
 import type { DiscoverableTeam } from '../types'
@@ -156,21 +157,16 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                           </span>
                         )}
                       </div>
-                      <button
+                      <Button
+                        variant={joined ? 'ghost' : 'primary'}
+                        size="sm"
+                        className="flex-shrink-0"
                         type="button"
                         onClick={() => void join(team)}
                         disabled={joined || joiningId !== null}
-                        className={clsx(
-                          'h-8 px-3 rounded-md text-[12.5px] font-medium transition-colors flex-shrink-0',
-                          joined
-                            ? 'bg-transparent text-tertiary cursor-default'
-                            : joiningId === null
-                              ? 'bg-zViolet-500 text-white hover:bg-zViolet-400'
-                              : 'bg-zGray-700 text-tertiary cursor-default',
-                        )}
                       >
                         {joined ? 'Joined' : joining ? 'Joining…' : 'Join'}
-                      </button>
+                      </Button>
                     </div>
                   )
                 })}

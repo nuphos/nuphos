@@ -60,6 +60,7 @@ struct CredentialCatalog: Equatable, Sendable {
         .init(optionsKey: "linearWorkspaces", selectionKey: "linearWorkspaceIds", title: "Linear", logo: "logo-linear", idKey: "workspaceId", labelKeys: ["label", "workspaceName"], detailKeys: ["workspaceName"]),
         .init(optionsKey: "jiraSites", selectionKey: "jiraSiteIds", title: "Jira", logo: "logo-jira", idKey: "siteId", labelKeys: ["label"], detailKeys: ["siteUrl"]),
         .init(optionsKey: "asanaAccounts", selectionKey: "asanaAccountIds", title: "Asana", logo: "logo-asana", idKey: "accountId", labelKeys: ["label"], detailKeys: ["accountEmail"]),
+        .init(optionsKey: "plaudAccounts", selectionKey: "plaudAccountIds", title: "Plaud", logo: "logo-plaud", idKey: "bindingId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "vantaIntegrations", selectionKey: "vantaIntegrationIds", title: "Vanta", logo: "logo-vanta", idKey: "integrationId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "secureframeIntegrations", selectionKey: "secureframeIntegrationIds", title: "Secureframe", logo: "logo-secureframe", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["region"]),
         .init(optionsKey: "resendIntegrations", selectionKey: "resendIntegrationIds", title: "Resend", logo: "logo-resend", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["permission"]),
@@ -117,7 +118,7 @@ struct CredentialCatalog: Equatable, Sendable {
 }
 
 /// Which credentials a conversation may use, keyed by selection key.
-struct CredentialSelection: Equatable, Codable, Sendable {
+struct CredentialSelection: Equatable, Sendable {
     var ids: [String: Set<String>] = [:]
     /// Stored keys this build has no row for, sent back untouched so a
     /// selection made on a newer client survives an edit here.
@@ -158,6 +159,14 @@ struct CredentialSelection: Equatable, Codable, Sendable {
         for item in catalog.allItems where !item.offline && !contains(item) { toggle(item) }
     }
 
+    /// What a conversation starts with when nobody has chosen: everything
+    /// usable except Resend, whose mail is irreversible and so stays opt-in.
+    /// Mirrors the desktop's `defaultCredentialAccess`.
+    mutating func selectDefaults(in catalog: CredentialCatalog) {
+        selectAll(in: catalog)
+        ids["resendIntegrationIds"] = []
+    }
+
     func containsAll(in catalog: CredentialCatalog) -> Bool {
         let usable = catalog.allItems.filter { !$0.offline }
         return !usable.isEmpty && usable.allSatisfy(contains)
@@ -196,6 +205,47 @@ struct CredentialSelection: Equatable, Codable, Sendable {
         for key in copy.ids.keys { copy.ids[key] = copy.ids[key]?.intersection(valid[key] ?? []) }
         return copy
     }
+}
+
+/// The new-conversation credential state for one team: the catalog, a load
+/// error, and the selection. Not persisted: every launch and team switch
+/// starts from the defaults, as the desktop does.
+struct CredentialDraft {
+    private(set) var catalog: CredentialCatalog?
+    private(set) var error: String?
+    var selection = CredentialSelection()
+    /// Bumped by every request and reset; a result for an older one is dropped.
+    private var load = 0
+
+    /// The defaults are in place, or failed to load and the picker says so.
+    var isReady: Bool { catalog != nil || error != nil }
+
+    /// Starts a request; hand the returned token back to `finish`.
+    mutating func begin() -> Int {
+        load += 1
+        return load
+    }
+
+    mutating func finish(_ load: Int, with result: Result<CredentialCatalog, Error>) {
+        guard load == self.load else { return }
+        switch result {
+        case .success(let fresh):
+            if catalog == nil { selection.selectDefaults(in: fresh) }
+            catalog = fresh
+            error = nil
+            selection = selection.pruned(to: fresh)
+        case .failure(let failure):
+            error = failure.localizedDescription
+        }
+    }
+
+    /// Another team: forget everything and orphan requests still in flight.
+    mutating func reset() {
+        self = CredentialDraft(load: load + 1)
+    }
+
+    private init(load: Int) { self.load = load }
+    init() {}
 }
 
 /// Auto Mode vs Bypass Permissions — what the first POST of a new

@@ -7,6 +7,8 @@ export type RuntimeRequest = {
   createdAt: number
 }
 
+export type AgentCommand = { name: string; description: string; hint?: string }
+
 export type RuntimeExecution = {
   state: 'active' | 'idle' | 'dormant' | 'interrupted' | 'unknown' | 'disconnected' | 'unsupported'
   schemaVersion?: number
@@ -38,6 +40,8 @@ export type RuntimeExecution = {
   actions?: { send: boolean; cancel: boolean; steer: boolean; reply?: boolean }
   /** Its Box runs a desktop pool: the owner can open this session's desktop by hand. */
   canOpenDesktop?: boolean
+  /** The agent's own slash commands, as the runtime last saw them. */
+  commands?: AgentCommand[]
   epoch?: string
   revision?: number
   observedAt?: number

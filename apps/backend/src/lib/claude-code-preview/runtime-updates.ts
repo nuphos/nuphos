@@ -1,6 +1,7 @@
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 
+import { requestBoxUpdate } from './box-update'
 import { provisionerKubeClient } from './provisioner-kube'
 import { managedRuntimeImage } from './runtime-image'
 import { assertRuntimeNotDeleting } from './runtime-portability-store'
@@ -79,7 +80,12 @@ export async function runtimeUpdateStatus(
 }
 
 /** Only a team administrator's route can request an update. The normal idle-safe reconciler executes it. */
-export async function requestRuntimeUpdate(teamId: string, instance: RuntimeInstance) {
+export async function requestRuntimeUpdate(
+  teamId: string,
+  instance: RuntimeInstance,
+  actorId?: string,
+) {
+  if (instance.kind === 'local' && actorId) return requestBoxUpdate(teamId, instance.id, actorId)
   await assertRuntimeNotDeleting(teamId, instance.id)
   if (instance.kind !== 'managed')
     throw new AppError(409, 'runtime_not_managed', 'Update this agent on its host.')

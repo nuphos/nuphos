@@ -32,6 +32,10 @@ export function decryptLarkEvent(encrypt: string, encryptKey: string): string {
   return plaintext.toString('utf8')
 }
 
+// Event dedup by event_id expires after a week; refusing stale timestamps
+// keeps a captured, correctly signed request from being replayed later.
+const LARK_MAX_SKEW_MS = 5 * 60_000
+
 // Callback signature: sha256(timestamp + nonce + encryptKey + rawBody) hex.
 export function verifyLarkSignature(args: {
   encryptKey: string
@@ -39,8 +43,14 @@ export function verifyLarkSignature(args: {
   timestamp: string | undefined
   nonce: string | undefined
   signature: string | undefined
+  now?: number
 }): boolean {
   if (!args.encryptKey || !args.timestamp || !args.nonce || !args.signature) return false
+  const sentAt = Number(args.timestamp) * 1000
+
+  const skew = Math.abs((args.now ?? Date.now()) - sentAt)
+
+  if (Number.isNaN(skew) || skew > LARK_MAX_SKEW_MS) return false
   const expected = createHash('sha256')
     .update(args.timestamp + args.nonce + args.encryptKey + args.rawBody)
     .digest('hex')

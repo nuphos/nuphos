@@ -1,4 +1,5 @@
 import { agentConversations } from '@/lib/agent/db'
+import { canReply, conversationAccess } from '@/lib/agent/db/access'
 
 export type AgentRef = {
   /** Principal whose permissions and credentials this execution may use. */
@@ -29,20 +30,33 @@ export async function verifyAgent(userId: string, sessionId: string): Promise<Ag
 /**
  * Verify a durable conversation without replacing the execution principal.
  * Shared-channel messages live in one owner's transcript, but every turn must
- * execute as the teammate who actually sent that instruction.
+ * execute as the teammate who actually sent that instruction. A teammate's
+ * access is read again on every call, so unsharing the conversation also stops
+ * the tokens their earlier turns were given.
  */
 export async function verifyAgentForActor(
   actorUserId: string,
   conversationOwnerUserId: string,
   sessionId: string,
 ): Promise<AgentRef | null> {
-  const owned = await verifyAgent(conversationOwnerUserId, sessionId)
+  if (actorUserId === conversationOwnerUserId) return verifyAgent(actorUserId, sessionId)
+  if (!sessionId) return null
+  const conv = await agentConversations().findOne(
+    { sessionId, userId: conversationOwnerUserId },
+    {
+      projection: {
+        _id: 0,
+        userId: 1,
+        teamId: 1,
+        generalAccess: 1,
+        participantIds: 1,
+        viewOnlyIds: 1,
+        managerIds: 1,
+      },
+    },
+  )
 
-  if (!owned) return null
+  if (!conv || !canReply(conversationAccess(conv, actorUserId))) return null
 
-  return {
-    userId: actorUserId,
-    sessionId,
-    ...(actorUserId !== conversationOwnerUserId ? { conversationOwnerUserId } : {}),
-  }
+  return { userId: actorUserId, sessionId, conversationOwnerUserId }
 }

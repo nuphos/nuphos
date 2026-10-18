@@ -1,6 +1,7 @@
 import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { Button } from '../../components/ui/button'
 import {
   Combobox,
   ComboboxContent,
@@ -10,7 +11,7 @@ import {
 } from '../../components/ui/combobox'
 import { toast } from '../../components/ui/toast'
 
-import { inputClasses, loginButtonClasses as buttonClass } from './styles'
+import { inputClasses } from './styles'
 
 import type { RuntimeLoginStep as Step } from '../../types/runtime'
 
@@ -207,13 +208,9 @@ function Answer({ step, onSubmit }: { step: Step; onSubmit: (answer: string) => 
           onChange={(event) => setAnswer(event.target.value)}
         />
       )}
-      <button
-        type="submit"
-        disabled={sending || !answer.trim()}
-        className={`${buttonClass} shrink-0`}
-      >
+      <Button size="sm" className="shrink-0" type="submit" disabled={sending || !answer.trim()}>
         {sending ? 'Sending…' : 'Continue'}
-      </button>
+      </Button>
     </form>
   )
 }
@@ -260,14 +257,14 @@ export function RuntimeLoginStep({
         <Instructions instructions={step.instructions} />
       )}
       {pageHost(step.url) && (
-        <a
-          href={step.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${buttonClass} w-full`}
+        <Button
+          size="md"
+          className="w-full"
+          nativeButton={false}
+          render={<a href={step.url} target="_blank" rel="noopener noreferrer" />}
         >
           Open {pageHost(step.url)} <ExternalLink className="h-3.5 w-3.5" />
-        </a>
+        </Button>
       )}
       {step.paste ? (
         <Answer step={step} onSubmit={onSubmit} />

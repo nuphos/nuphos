@@ -169,6 +169,22 @@ export function readRuntimeFile(
   })
 }
 
+// Moves a file too large for the inline read through the transfer store and
+// returns a presigned URL; the agent uploads it first, so this can take a while.
+export function transferRuntimeFile(
+  teamId: string,
+  runtimeId: string,
+  sessionId: string,
+  filePath: string,
+): Promise<{ groupId: string; fileId: string; fileName: string; size: number; url: string }> {
+  return call(
+    'POST',
+    `${path(teamId, runtimeId)}/files/transfer`,
+    { sessionId, path: filePath },
+    { retry: false, timeoutMs: 130_000 },
+  )
+}
+
 export function listRuntimeFiles(
   teamId: string,
   runtimeId: string,

@@ -4,7 +4,12 @@ import { toast } from '../../ui/toast.ts'
 
 import { makeAttachmentTurn } from './attachments.ts'
 import { supersedePendingApprovals, finalizeIncompleteTools } from './clientTools.ts'
-import { rememberDispatchedDraft } from './queuedAutoSend.ts'
+import {
+  rememberDispatchedDraft,
+  rememberSideSend,
+  showQueued,
+  withoutQueued,
+} from './queuedAutoSend.ts'
 import { INTERRUPTED_TOOL_MESSAGE, newAgentStreamId } from './stall.ts'
 import { getAgentLocale } from './textUtils.ts'
 import { toPersistedMessages, toUiMessages } from './toUiMessages.ts'
@@ -147,6 +152,43 @@ export async function runDispatchTurn(
   // only the new message. A regular sync of the same turn would race the import
   // and store the new message before /chat could attribute it.
   const forkHistory = tab.unsaved && baseMessages.some((m) => m.role === 'user')
+
+  // The tab shows a running turn: send at once without taking its stream. The
+  // server queues the message behind that turn, or starts it if it just ended.
+  if (current.streaming && current.streamId && !forkHistory) {
+    rememberSideSend(streamId, tabId)
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === tabId
+          ? showQueued(
+              { ...t, messages: t.messages.filter((m) => m.id !== messageId) },
+              { id: messageId, text, filePaths, turnKind },
+            )
+          : t,
+      ),
+    )
+    void window.api
+      .agentStart({
+        streamId,
+        sessionId: tab.sessionId,
+        agentRuntime: tab.agentRuntime,
+        runtimeId: tab.runtimeId,
+        teamId,
+        messages: toUiMessages([...current.messages.filter((m) => m.id !== messageId), userMsg]),
+        baseIndex: tab.historyBaseIndex,
+        locale: getAgentLocale(),
+        url: urlRef.current,
+        kubeContext: kubeContextRef.current ?? undefined,
+        diagramId: getActiveDiagramId() ?? undefined,
+        credentialAccess,
+      })
+      .catch((err: unknown) => {
+        setTabs((prev) => prev.map((t) => (t.id === tabId ? withoutQueued(t, messageId) : t)))
+        toast.apiError('Could not send your message', err)
+      })
+
+    return
+  }
 
   setTabs((prev) =>
     prev.map((t) =>

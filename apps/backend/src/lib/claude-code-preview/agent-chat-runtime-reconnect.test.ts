@@ -58,6 +58,7 @@ useAgentDb({
   markConversationWorkLost: async (_id: string, _team: string, reason: string) => {
     workLost = reason
   },
+  consumeConversationRetracted: async () => false,
   consumeConversationWorkLost: async () => {
     const pending = workLost
 

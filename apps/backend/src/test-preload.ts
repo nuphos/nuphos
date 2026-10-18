@@ -27,6 +27,8 @@ process.env.MONGODB_URI ??= 'mongodb://unit-test:27017'
 // route tests need one in place before @/config is imported.
 process.env.ATLAS_ADMIN_TEAM_ID ??= '64b5f1c2e4b0a1d2c3e4f5a6'
 process.env.JOURNAL_HMAC_KEY ??= 'unit-test-journal-hmac-key'
+// Grafana token encryption round-trips through the real cipher in its tests.
+process.env.GRAFANA_BYOK_ENCRYPTION_KEY ??= '00'.repeat(32)
 // Signs/verifies MCP + Marketplace tokens via config.auth.jwtSecret. Must be
 // set here (not in a per-file beforeAll) because config freezes on first import
 // — see oauth/aws-marketplace tests, which round-trip against this value.

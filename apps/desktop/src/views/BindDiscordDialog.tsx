@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 
 export function BindDiscordDialog({
@@ -80,12 +81,7 @@ export function BindDiscordDialog({
         >
           Cancel
         </button>
-        <button
-          type="button"
-          disabled={waiting}
-          onClick={() => void install()}
-          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white disabled:opacity-60"
-        >
+        <Button size="sm" type="button" disabled={waiting} onClick={() => void install()}>
           <FontAwesomeIcon
             icon={waiting ? faSpinner : faArrowUpRightFromSquare}
             className={waiting ? 'h-3 w-3 animate-spin' : 'h-3 w-3'}
@@ -95,7 +91,7 @@ export function BindDiscordDialog({
             : operation === 'link'
               ? 'Link Discord Account'
               : 'Install Discord Bot'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )
