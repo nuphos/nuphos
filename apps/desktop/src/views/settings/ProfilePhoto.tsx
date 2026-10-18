@@ -97,7 +97,7 @@ export function ProfilePhoto({
           />
           <span
             className={clsx(
-              'absolute inset-0 flex flex-col items-center justify-center gap-0.5 rounded-full bg-black/55 text-[10px] font-medium leading-tight text-white transition-opacity',
+              'absolute inset-0 flex flex-col items-center justify-center gap-0.5 rounded-full bg-black/70 text-[10px] backdrop-blur-[2px] font-medium leading-tight text-white transition-opacity',
               dragging
                 ? 'opacity-100'
                 : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',

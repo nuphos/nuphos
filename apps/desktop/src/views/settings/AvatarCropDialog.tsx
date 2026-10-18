@@ -40,7 +40,11 @@ export function AvatarCropDialog({
     image.onerror = () => setError('This image could not be read. Try a PNG, JPEG or WebP.')
     image.src = url
 
-    return () => URL.revokeObjectURL(url)
+    return () => {
+      image.onload = null
+      image.onerror = null
+      URL.revokeObjectURL(url)
+    }
   }, [file])
 
   function update(change: { dx?: number; dy?: number; zoom?: number }) {
