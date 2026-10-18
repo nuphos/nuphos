@@ -27,14 +27,11 @@ export function parsePlanNumber(id: string): number | null {
   return Number.isInteger(n) && n > 0 ? n : null
 }
 
-// Team-scoped filter — mirrors the agent conversation pattern so plans
-// written before this code shipped without a teamId still surface for the
-// team. Personal (no-teamId) reads see only their own plans.
+// Team plans carry their teamId; plans without one are personal and are only
+// ever listed for their creator (listPlans scopes those by createdBy).
 export function withTeamScope(
   base: Record<string, unknown>,
   teamId: string | undefined,
 ): Record<string, unknown> {
-  if (!teamId) return base
-
-  return { ...base, $or: [{ teamId }, { teamId: { $exists: false } }] }
+  return teamId ? { ...base, teamId } : base
 }

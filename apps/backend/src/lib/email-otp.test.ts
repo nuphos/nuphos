@@ -1,15 +1,24 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
+import { MongoServerError } from 'mongodb'
+
 import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
+import { useDownloadHandoffRateLimit } from '@/lib/test/doubles/download-handoff-rate-limit'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useObservability } from '@/lib/test/doubles/observability'
 
 type Doc = Record<string, unknown>
 
 const otps = new Map<string, Doc>()
+let cooldownActive = false
+
+function duplicateKeyError() {
+  return new MongoServerError({ code: 11000, errmsg: 'duplicate key' })
+}
 const collection = {
   updateOne(filter: { email: string }, update: { $set: Doc }) {
+    if (cooldownActive) return Promise.reject(duplicateKeyError())
     otps.set(filter.email, { email: filter.email, ...update.$set })
 
     return Promise.resolve()
@@ -62,9 +71,22 @@ useObservability({
   },
 })
 
+let quota: 'allowed' | 'limited' | 'unavailable' = 'unavailable'
+const quotaKeys: string[] = []
+
+useDownloadHandoffRateLimit({
+  consumePairQuota: (first, second) => {
+    quotaKeys.push(first.key, second.key)
+
+    return Promise.resolve(quota)
+  },
+})
+
 const { requestEmailOtp, verifyEmailOtp } = await import('@/lib/email-otp')
 
 afterEach(() => {
+  quota = 'unavailable'
+  quotaKeys.length = 0
   config.email.devLogOtp = false
   otps.clear()
   logged.length = 0
@@ -106,4 +128,52 @@ test('a valid code cannot be redeemed concurrently twice', async () => {
 
   expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
   expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1)
+})
+
+describe('email OTP abuse limits', () => {
+  test('a request the cooldown rejects does not spend the quota', async () => {
+    config.email.devLogOtp = true
+    cooldownActive = true
+
+    await expect(requestEmailOtp('busy@example.com')).rejects.toMatchObject({
+      code: 'otp_cooldown',
+    })
+    cooldownActive = false
+    expect(quotaKeys).toHaveLength(0)
+  })
+
+  test('refuses to send once the per-email or per-IP quota is spent', async () => {
+    config.email.devLogOtp = true
+    quota = 'limited'
+
+    await expect(requestEmailOtp('cap@example.com', '203.0.113.7')).rejects.toMatchObject({
+      code: 'otp_cooldown',
+    })
+    // The stored code is dropped because it was never sent.
+    expect(otps.has('cap@example.com')).toBe(false)
+    expect(logged.some((line) => line.event === 'auth.email_otp.dev_code')).toBe(false)
+    // Keys are hashed so Redis never holds raw emails or IPs.
+    expect(quotaKeys.join(' ')).not.toContain('cap@example.com')
+    expect(quotaKeys.join(' ')).not.toContain('203.0.113.7')
+  })
+
+  test('a locked-out code stays locked instead of being deleted', async () => {
+    config.email.devLogOtp = true
+    await requestEmailOtp('lock@example.com')
+    const code = String(
+      logged.find((line) => line.event === 'auth.email_otp.dev_code')?.properties?.sign_in_code,
+    )
+    const wrong = code === '000000' ? '111111' : '000000'
+
+    for (let i = 0; i < 5; i++) {
+      await expect(verifyEmailOtp('lock@example.com', wrong)).rejects.toMatchObject({
+        code: 'otp_invalid',
+      })
+    }
+    await expect(verifyEmailOtp('lock@example.com', code)).rejects.toMatchObject({
+      code: 'otp_too_many_attempts',
+    })
+    // The doc (and with it the resend cooldown) survives the lockout.
+    expect(otps.has('lock@example.com')).toBe(true)
+  })
 })

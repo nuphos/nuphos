@@ -1,6 +1,7 @@
 import { journalPlanDecision } from '@/lib/agent/journal-capture'
-import { getPlan, recordPlanApproval } from '@/lib/agent/plans'
+import { assertPlanAccess, getPlan, recordPlanApproval } from '@/lib/agent/plans'
 import { getTeamMembership } from '@/lib/identity'
+import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
@@ -149,6 +150,20 @@ export async function handlePlanApproveInteraction(args: {
       session_id: sessionId,
       team_id: teamId,
     })
+
+    return
+  }
+  // Same conversation gate as the in-app endpoint: approving needs reply
+  // access to the conversation the plan came from.
+  try {
+    await assertPlanAccess(plan, mapping.nuphosUserId, 'reply')
+  } catch (err) {
+    if (!(err instanceof AppError)) throw err
+    await reject(
+      'plan_access_denied',
+      "You don't have reply access to this plan's conversation, so you can't approve it.",
+      { plan_id: planId, session_id: sessionId, team_id: teamId },
+    )
 
     return
   }

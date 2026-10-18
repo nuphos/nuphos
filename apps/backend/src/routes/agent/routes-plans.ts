@@ -2,6 +2,7 @@ import { isPlanReadyForApproval } from '@/lib/agent/plan-readiness'
 import { journalPlanDecision } from '@/lib/agent/journal-capture'
 import { resumeSlackThreadForApprovedPlan } from '@/lib/agent/plan-slack-resume'
 import {
+  assertPlanAccess,
   createPlan,
   getPlan,
   getTeamPlanApprovalRequirement,
@@ -28,6 +29,7 @@ import { logError } from '@/lib/observability'
 
 import { defineAgentApiRoute, parseWithSchema } from './api-route'
 import { agent } from './router'
+import { unreadableSessionIds } from '@/routes/agent-journal/shared'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 import type { PlanDTO, UpdatePlanPatch } from '@/lib/agent/plans'
@@ -53,8 +55,15 @@ defineAgentApiRoute(planListOperation, async (c, { query }) => {
     limit: query.limit,
     cursor: query.cursor,
   })
+  const hidden = await unreadableSessionIds(
+    [...new Set(result.plans.flatMap((plan) => plan.sourceConversationId ?? []))],
+    userId,
+  )
 
-  return c.json(result)
+  return c.json({
+    ...result,
+    plans: result.plans.filter((plan) => !hidden.has(plan.sourceConversationId ?? '')),
+  })
 })
 
 defineAgentApiRoute(planGetOperation, async (c, { path }) => {
@@ -65,6 +74,7 @@ defineAgentApiRoute(planGetOperation, async (c, { path }) => {
   const plan = await getPlan(path.planId, { teamId, userId })
 
   if (!plan) throw new AppError(404, 'not_found', 'Plan not found')
+  await assertPlanAccess(plan, userId, 'read')
 
   return c.json(plan)
 })
@@ -77,6 +87,7 @@ async function approvePlanForCaller(input: {
   const current = await getPlan(input.planId, { teamId: input.teamId, userId: input.userId })
 
   if (!current) throw new AppError(404, 'not_found', 'Plan not found')
+  await assertPlanAccess(current, input.userId, 'reply')
   if (current.status !== 'proposed') {
     throw new AppError(409, 'plan_not_proposed', 'Only proposed plans can be approved')
   }
@@ -190,6 +201,7 @@ defineAgentApiRoute(planUpdateOperation, async (c, { path, body: parsed }) => {
 
     return currentPlan
   }
+  await assertPlanAccess(await loadCurrentPlan(), userId, 'reply')
   // Backward compatibility for existing desktop clients: the old
   // PATCH {status:"approved"} shape records one approval against the policy
   // snapshot instead of bypassing quorum. Approval is intentionally isolated
@@ -237,6 +249,7 @@ agent.post('/plans/:planId/retry', async (c) => {
   const current = await getPlan(path.planId, { teamId, userId })
 
   if (!current) throw new AppError(404, 'not_found', 'Plan not found')
+  await assertPlanAccess(current, userId, 'reply')
   if (current.status !== 'failed') {
     throw new AppError(409, 'plan_not_failed', 'Only failed plans can be retried')
   }

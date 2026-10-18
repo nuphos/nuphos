@@ -1,3 +1,4 @@
+export { assertPlanAccess } from './plans/access'
 export {
   getPlanApprovalProgress,
   getTeamPlanApprovalRequirement,
