@@ -195,6 +195,7 @@ test("a send during a fork's import goes after its first turn, without a second 
   calls.length = 0
   failImport = false
   let finishImport = () => {}
+
   importGate = new Promise((resolve) => {
     finishImport = () => resolve()
   })
@@ -230,6 +231,7 @@ test("a send during a fork's failed import is not sent with the first prompt as 
   calls.length = 0
   failImport = true
   let finishImport = () => {}
+
   importGate = new Promise((resolve) => {
     finishImport = () => resolve()
   })
