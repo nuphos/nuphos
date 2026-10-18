@@ -1,12 +1,9 @@
-import {
-  faArrowUpRightFromSquare,
-  faMicrophoneLines,
-  faSpinner,
-} from '@fortawesome/free-solid-svg-icons'
+import { faArrowUpRightFromSquare, faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
+import { CloudLogo } from '../components/CloudLogo'
 import { Modal } from '../components/Modal'
 import { toast } from '../components/ui/toast'
 
@@ -78,7 +75,7 @@ export function BindPlaudDialog({ open, teamId, onClose, onBound }: Props) {
         {phase === 'idle' && (
           <div className="flex flex-col items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-zGray-850 flex items-center justify-center">
-              <FontAwesomeIcon icon={faMicrophoneLines} className="w-[22px] h-[22px] text-main" />
+              <CloudLogo provider="plaud" size={26} />
             </div>
             <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[400px]">
               Click below to open Plaud in your browser. Approve the OAuth request and you'll be
