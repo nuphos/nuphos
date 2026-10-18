@@ -228,6 +228,8 @@ export const k8sAppApi = {
     ipcRenderer.invoke('atlas:startPersonalCredential', provider),
   atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
     ipcRenderer.invoke('atlas:deletePersonalCredential', provider),
+  authUploadAvatar: (image: Uint8Array) => ipcRenderer.invoke('auth:uploadAvatar', image),
+  authRemoveAvatar: () => ipcRenderer.invoke('auth:removeAvatar'),
   authStatus: () => ipcRenderer.invoke('auth:status'),
   authLogin: () => ipcRenderer.invoke('auth:login'),
   authLogout: () => ipcRenderer.invoke('auth:logout'),

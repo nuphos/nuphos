@@ -1,10 +1,9 @@
 import { useState } from 'react'
 
 import { api } from '../../api'
-import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
-import { trustedAvatarURL } from '../../lib/avatarUrl'
 
+import { ProfilePhoto } from './ProfilePhoto'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
@@ -22,12 +21,10 @@ export function ProfileSection({
 }) {
   const [name, setName] = useState(user.name)
   const [username, setUsername] = useState(user.username)
-  const [avatarURL, setAvatarURL] = useState(user.avatarURL ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  const dirty =
-    name !== user.name || username !== user.username || avatarURL !== (user.avatarURL ?? '')
+  const dirty = name !== user.name || username !== user.username
 
   async function save(event: FormEvent) {
     event.preventDefault()
@@ -39,13 +36,12 @@ export function ProfileSection({
       const next = await api.authUpdateProfile({
         name: name.trim(),
         username: username.trim(),
-        avatarURL: avatarURL.trim(),
+        avatarURL: user.avatarURL ?? '',
       })
 
       onUserUpdated(next)
       setName(next.name)
       setUsername(next.username)
-      setAvatarURL(next.avatarURL ?? '')
       setSaved(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save profile')
@@ -61,12 +57,7 @@ export function ProfileSection({
         description="Your account, shared across every team you belong to."
       />
       <form onSubmit={(event) => void save(event)} className="space-y-5">
-        <Avatar
-          src={trustedAvatarURL(avatarURL)}
-          name={name || username}
-          size={56}
-          className="rounded-full !shadow-none"
-        />
+        <ProfilePhoto user={user} displayName={name || username} onUserUpdated={onUserUpdated} />
         <fieldset disabled={saving} className="space-y-4">
           <Field label="Name">
             <input
@@ -88,19 +79,6 @@ export function ProfileSection({
               maxLength={40}
               pattern="[a-zA-Z0-9_-]+"
               autoComplete="username"
-            />
-          </Field>
-          <Field
-            label="Avatar URL"
-            hint="Use your Google profile-image URL, or leave blank for your initials."
-          >
-            <input
-              className={inputClasses}
-              type="url"
-              value={avatarURL}
-              onChange={(e) => setAvatarURL(e.target.value)}
-              maxLength={2048}
-              placeholder="https://lh3.googleusercontent.com/…"
             />
           </Field>
           <Field label="Email" hint="Your sign-in email cannot be changed here.">
