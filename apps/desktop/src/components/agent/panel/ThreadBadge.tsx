@@ -1,24 +1,15 @@
 import clsx from 'clsx'
-import { Check, ChevronRight, CircleAlert, Loader2, MessagesSquare, Square } from 'lucide-react'
+import { ChevronRight, Loader2, MessagesSquare } from 'lucide-react'
 
 import { ChatLink } from '../MessageResponse'
 
+import { THREAD_STATUS } from './threadStatusStyle'
 import { knownThreadTitle, rememberThreadTitle, threadBadgeInfo } from './threadBadges'
 import { useThreadStatus } from './useThreadStatus'
 
 import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
 import type { ThreadStatus } from './threadStatus'
-import type { LucideIcon } from 'lucide-react'
-
-const STATUS: Record<ThreadStatus, { label: string; icon?: LucideIcon; tone: string }> = {
-  loading: { label: '', tone: 'text-tertiary' },
-  running: { label: 'Running', icon: Loader2, tone: 'text-secondary' },
-  waiting: { label: 'Needs input', icon: CircleAlert, tone: 'text-warning' },
-  done: { label: 'Done', icon: Check, tone: 'text-success' },
-  stopped: { label: 'Stopped', icon: Square, tone: 'text-tertiary' },
-  unavailable: { label: 'Unavailable', tone: 'text-tertiary' },
-}
 
 const BADGE =
   'group/thread inline-flex h-7 max-w-full items-center gap-2 rounded-lg border border-zGray-800 bg-zGray-900/60 pl-2 pr-1.5 text-[13px] leading-none text-main no-underline transition-colors duration-150 motion-reduce:transition-none'
@@ -30,7 +21,7 @@ function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boole
     label,
     icon: Icon,
     tone,
-  } = pending ? { label: 'Starting', icon: Loader2, tone: 'text-secondary' } : STATUS[status]
+  } = pending ? { label: 'Starting', icon: Loader2, tone: 'text-secondary' } : THREAD_STATUS[status]
   const spinning = Icon === Loader2
 
   if (!label) return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-zGray-700" />

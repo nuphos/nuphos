@@ -1,4 +1,8 @@
-import { runtimeSnapshotFresh, runtimeTurnActive } from '../../../lib/runtimeExecution.ts'
+import {
+  runtimeBackgroundRunning,
+  runtimeSnapshotFresh,
+  runtimeTurnActive,
+} from '../../../lib/runtimeExecution.ts'
 
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 
@@ -14,4 +18,21 @@ export function threadStatusOf(snapshot: RuntimeExecution | undefined): ThreadSt
   }
 
   return snapshot.state === 'interrupted' || snapshot.state === 'disconnected' ? 'stopped' : 'done'
+}
+
+/**
+ * Work may still be in flight, background tools included, so the sidebar keeps
+ * the thread out of its parent's "N done" fold. A thread with no snapshot at all
+ * reads as settled there: a thread the runtime never reported on isn't running.
+ */
+export function threadRunning(snapshot: RuntimeExecution | undefined): boolean {
+  if (!snapshot) return false
+  const status = threadStatusOf(snapshot)
+
+  return (
+    status === 'running' ||
+    status === 'waiting' ||
+    status === 'loading' ||
+    runtimeBackgroundRunning(snapshot)
+  )
 }

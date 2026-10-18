@@ -1,6 +1,6 @@
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { newestRuntimeSnapshot } from '../../lib/runtimeExecution'
-import { threadRunning } from '../../lib/threadLifecycle'
+import { threadRunning } from '../agent/panel/threadStatus'
 
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
