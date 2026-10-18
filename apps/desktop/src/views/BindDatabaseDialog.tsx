@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { AppSelect } from '../components/ui/select'
 import { AGENT_POLICY_OPTIONS, RELEASED_DATABASE_ENGINE } from '../lib/databaseRelease'
 
@@ -160,13 +161,9 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
             >
               Cancel
             </button>
-            <button
-              onClick={() => void bind()}
-              disabled={testing || submitting}
-              className="rounded-md bg-zViolet-500 px-3 py-1.5 text-[12.5px] text-white hover:bg-zViolet-400 disabled:opacity-50"
-            >
+            <Button size="sm" onClick={() => void bind()} disabled={testing || submitting}>
               {submitting ? 'Adding…' : 'Add database'}
-            </button>
+            </Button>
           </div>
         </div>
       }

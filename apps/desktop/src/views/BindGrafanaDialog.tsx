@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 
 type Props = {
   teamId: string
@@ -82,13 +83,9 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
         >
           Cancel
         </button>
-        <button
-          onClick={() => void submit()}
-          disabled={submitting}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" onClick={() => void submit()} disabled={submitting}>
           {submitting ? 'Binding…' : 'Bind'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

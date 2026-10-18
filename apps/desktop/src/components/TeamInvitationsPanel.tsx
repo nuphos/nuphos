@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { InvitationList } from './InvitationList'
 import { Modal } from './Modal'
+import { Button } from './ui/button'
 import { toast } from './ui/toast'
 
 import type { TeamInvitation } from '../types'
@@ -92,15 +93,16 @@ export function TeamInvitationsTakeover({
             Later
           </button>
           {joinedTeams.length > 0 && (
-            <button
+            <Button
+              size="sm"
+              className="titlebar-no-drag"
               type="button"
               disabled={actingId !== null}
               onClick={() => onContinue(joinedTeams[0]!.id)}
-              className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:cursor-default disabled:opacity-60"
             >
               Open {joinedTeams[0]!.name}
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
+            </Button>
           )}
         </div>
       }

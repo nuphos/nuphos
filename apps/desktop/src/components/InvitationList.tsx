@@ -1,6 +1,7 @@
 import { Check, Loader2, X } from 'lucide-react'
 
 import { Avatar } from './Avatar'
+import { Button } from './ui/button'
 
 import type { DiscoverableTeam, TeamInvitation } from '../types'
 
@@ -149,11 +150,12 @@ export function InvitationList({
                   <X className="h-3 w-3" />
                   Reject
                 </button>
-                <button
+                <Button
+                  size="sm"
+                  className="titlebar-no-drag"
                   type="button"
                   disabled={busy}
                   onClick={() => onAcceptInvitation?.(invitation.id)}
-                  className="titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md bg-zViolet-500 px-2.5 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:cursor-default disabled:opacity-60"
                 >
                   {actingInvitationId === invitation.id ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -161,7 +163,7 @@ export function InvitationList({
                     <Check className="h-3 w-3" />
                   )}
                   Accept
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -198,15 +200,16 @@ export function InvitationList({
                 onToggle={() => selection.onToggleTeam(team)}
               />
             ) : (
-              <button
+              <Button
+                size="sm"
+                className="titlebar-no-drag"
                 type="button"
                 disabled={busy}
                 onClick={() => onJoinDiscoverableTeam?.(team)}
-                className="titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md bg-zViolet-500 px-2.5 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:cursor-default disabled:opacity-60"
               >
                 {joiningTeamId === team.id && <Loader2 className="h-3 w-3 animate-spin" />}
                 Join
-              </button>
+              </Button>
             )}
           </div>
         )

@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { Avatar } from '../../components/Avatar'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
@@ -134,18 +135,9 @@ export function GeneralSection({
             </Field>
 
             <div className="flex justify-end pt-1">
-              <button
-                type="submit"
-                disabled={!name.trim() || !dirty || submitting}
-                className={clsx(
-                  'h-9 px-4 rounded-md text-[13px] font-medium text-white transition-colors',
-                  name.trim() && dirty && !submitting
-                    ? 'bg-zViolet-500 hover:bg-zViolet-400'
-                    : 'bg-zGray-700 text-tertiary cursor-default',
-                )}
-              >
+              <Button size="sm" type="submit" disabled={!name.trim() || !dirty || submitting}>
                 {submitting ? 'Saving…' : 'Save changes'}
-              </button>
+              </Button>
             </div>
           </form>
 

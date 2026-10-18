@@ -1,7 +1,7 @@
-import clsx from 'clsx'
 import { Mail, UserPlus } from 'lucide-react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 
 import type { FormEvent } from 'react'
@@ -57,19 +57,10 @@ export function InviteMemberModal({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={!email.trim() || submitting}
-            className={clsx(
-              'h-8 px-3 rounded-md text-white text-[12.5px] font-medium flex items-center gap-1.5 transition-colors',
-              email.trim() && !submitting
-                ? 'bg-zViolet-500 hover:bg-zViolet-400'
-                : 'bg-zGray-700 text-tertiary cursor-default',
-            )}
-          >
+          <Button size="sm" type="submit" disabled={!email.trim() || submitting}>
             <UserPlus className="w-3.5 h-3.5" strokeWidth={2} />
             {submitting ? 'Inviting...' : 'Invite'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

@@ -2,6 +2,7 @@ import { BarChart3, Pencil } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api, parseAtlasError } from '../../api'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { POSTHOG_RECONNECT_REQUIRED } from '../../types/posthog'
 import { PosthogProjectChecklist } from '../PosthogProjectChecklist'
@@ -140,14 +141,14 @@ export function PosthogConnectorGuide({
               >
                 Cancel
               </button>
-              <button
+              <Button
+                size="sm"
                 type="button"
                 onClick={() => void saveProjects()}
                 disabled={busy || editing.selectedIds.length === 0}
-                className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12px] disabled:opacity-50"
               >
                 {busy ? 'Saving…' : 'Save'}
-              </button>
+              </Button>
             </div>
           </div>
         ) : (

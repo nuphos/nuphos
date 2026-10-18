@@ -2,6 +2,7 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useState } from 'react'
 
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
@@ -119,13 +120,9 @@ export function ExternalRuntimePasswordForm({
         </p>
       )}
       <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={cannotSave}
-          className="rounded-md bg-zViolet-600 px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:opacity-50"
-        >
+        <Button size="sm" type="submit" disabled={cannotSave}>
           {saving ? 'Connecting…' : 'Connect agent'}
-        </button>
+        </Button>
         <button
           type="button"
           onClick={onCancel}

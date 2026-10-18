@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -112,13 +113,10 @@ export function BindJiraDialog({ open, teamId, onClose, onBound }: Props) {
           {phase === 'waiting' ? 'Cancel' : 'Close'}
         </button>
         {phase !== 'waiting' && (
-          <button
-            onClick={() => void startInstall()}
-            className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] font-medium flex items-center gap-1.5"
-          >
+          <Button size="sm" onClick={() => void startInstall()}>
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="w-3.5 h-3.5" />
             Authorize Jira
-          </button>
+          </Button>
         )}
       </div>
     </Modal>
