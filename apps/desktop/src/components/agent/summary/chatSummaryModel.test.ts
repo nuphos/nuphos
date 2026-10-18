@@ -51,6 +51,20 @@ test('the chat is found in the owner list before the shared list', () => {
   assert.equal(findConversation('missing', [[own]]), undefined)
 })
 
+test('an archived chat, in neither list, is the one the transcript opened', () => {
+  const archived = chat('a', {
+    archivedAt: '2026-10-15T00:00:00Z',
+    linkedResources: [resource({})],
+  })
+
+  assert.equal(findConversation('a', [[], [chat('b')]], archived), archived)
+  // A listed chat stays the live one; an opened chat from another session is ignored.
+  const listed = chat('a', { title: 'listed' })
+
+  assert.equal(findConversation('a', [[listed]], archived), listed)
+  assert.equal(findConversation('c', [[listed]], archived), undefined)
+})
+
 test('threads are this chat’s children, once each, newest activity first', () => {
   const older = chat('t1', { parentSessionId: 'p', lastActiveAt: '2026-10-14T01:00:00Z' })
   const newer = chat('t2', { parentSessionId: 'p', lastActiveAt: '2026-10-14T02:00:00Z' })

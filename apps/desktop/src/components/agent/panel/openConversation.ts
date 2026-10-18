@@ -1,6 +1,7 @@
 import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
 import { trackError } from '../../../lib/analytics'
+import { rememberOpenedConversation } from '../../../lib/openedConversation'
 import { toast } from '../../ui/toast'
 
 import { finalizeIncompleteTools } from './clientTools'
@@ -108,6 +109,7 @@ export async function runOpenConversation(
 
       return
     }
+    rememberOpenedConversation(detail)
     const historyBaseIndex = detail.messagesFirstIndex ?? 0
     const messages = fromPersistedMessages(detail.messages)
     const activeRun = detail.activeRun ?? null

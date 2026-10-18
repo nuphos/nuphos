@@ -4,10 +4,15 @@ import type { AgentConversation } from '../../../api/agent-types.ts'
 import type { SessionResource } from '../../../api/session-resource-types.ts'
 import type { FileTransferGroup } from '../../../types/app-misc.ts'
 
-/** The chat itself, from the owner's list first and then the shared list. */
+/**
+ * The chat itself: from the owner's list, then the shared list, which the
+ * sidebar keeps polling, and otherwise as the transcript opened it. An archived
+ * chat is in neither list.
+ */
 export function findConversation(
   sessionId: string,
   lists: readonly (readonly AgentConversation[])[],
+  opened?: AgentConversation,
 ): AgentConversation | undefined {
   for (const list of lists) {
     const found = list.find((conversation) => conversation.sessionId === sessionId)
@@ -15,7 +20,7 @@ export function findConversation(
     if (found) return found
   }
 
-  return undefined
+  return opened?.sessionId === sessionId ? opened : undefined
 }
 
 /** Threads this chat started, newest activity first, each listed once. */
