@@ -1,6 +1,13 @@
+import { AppSelect } from '../../components/ui/select'
+
 import { ConsoleLink, Field } from './shared'
 
 import type { BindState } from './use-bind-state'
+
+const SECUREFRAME_REGIONS = [
+  { value: 'us', label: 'US (api.secureframe.com)' },
+  { value: 'uk', label: 'UK (api-uk.secureframe.com)' },
+]
 
 export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string }) {
   const {
@@ -234,14 +241,12 @@ export function SecureframeForm({ st }: { st: BindState }) {
         label="Region"
         hint="Your Secureframe data region. UK accounts use api-uk.secureframe.com."
       >
-        <select
+        <AppSelect
           value={secureframeRegion}
-          onChange={(e) => setSecureframeRegion(e.target.value as 'us' | 'uk')}
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] text-main"
-        >
-          <option value="us">US (api.secureframe.com)</option>
-          <option value="uk">UK (api-uk.secureframe.com)</option>
-        </select>
+          onValueChange={(value) => setSecureframeRegion(value as 'us' | 'uk')}
+          options={SECUREFRAME_REGIONS}
+          ariaLabel="Region"
+        />
       </Field>
       <Field
         label="API Key"
