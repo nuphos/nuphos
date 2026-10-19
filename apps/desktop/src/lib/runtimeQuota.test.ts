@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  agentSignOut,
   formatResetsAt,
   quotaDetailLines,
   quotaNote,
@@ -116,14 +115,4 @@ test('only the probe finding no sign-in reads as signed out', () => {
   assert.equal(quotaSignedOut({ ...signedOut, reason: 'Usage lookup failed' }), false)
   assert.equal(quotaSignedOut({ ...signedOut, available: true }), false)
   assert.equal(quotaSignedOut(undefined), false)
-})
-
-test('a signed-out managed agent blocks sending; any other agent only warns', () => {
-  const signedOut: RuntimeQuota = { ...quota([], false), reason: 'Sign in required' }
-
-  assert.equal(agentSignOut({ kind: 'managed' }, signedOut), 'blocked')
-  assert.equal(agentSignOut({ kind: 'external' }, signedOut), 'likely')
-  assert.equal(agentSignOut(undefined, signedOut), 'likely')
-  assert.equal(agentSignOut({ kind: 'managed' }, { ...signedOut, reason: 'HTTP 401' }), null)
-  assert.equal(agentSignOut({ kind: 'managed' }, undefined), null)
 })

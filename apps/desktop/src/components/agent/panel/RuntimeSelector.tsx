@@ -25,6 +25,7 @@ import { Tooltip } from '../../ui/tooltip'
 
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
+import { selectedAgentReachability } from './runtimeControlSignOut'
 
 import type { QuotaTone } from '../../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
@@ -102,16 +103,6 @@ const AGENT_DOT = {
   offline: { color: 'bg-error', label: 'Box offline' },
 } as const
 
-/** A Box agent's reachability, from its Box's presence; other agents have no Box to report. */
-function agentDot(instance: RuntimeInstance | undefined, quota?: RuntimeQuota) {
-  const local = instance?.local
-
-  if (local?.online === undefined) return null
-  if (!local.online) return AGENT_DOT.offline
-
-  return local.signedIn === false || quotaSignedOut(quota) ? AGENT_DOT.signIn : AGENT_DOT.ready
-}
-
 function runtimeOptionNote(instance: RuntimeInstance, quota?: RuntimeQuota): string {
   if (instance.deletion) return ' · Being removed'
   if (instance.starting) return ' · Starting…'
@@ -155,7 +146,8 @@ export function RuntimeSelector({
 
     return () => clearTimeout(timer)
   }, [value?.id])
-  const dot = agentDot(selected, selectedQuota)
+  const reachability = selectedAgentReachability({ value, options, quotas })
+  const dot = reachability ? AGENT_DOT[reachability] : null
   const usageLoading = Boolean(
     value?.id &&
     usageWaitExpired !== value.id &&

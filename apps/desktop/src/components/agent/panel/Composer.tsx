@@ -8,8 +8,8 @@ import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeMayAcceptLater } from './queuedAutoSend'
-import { ReadOnlyConversationNotice, SignedOutAgentNotice } from './ReadOnlyNotice'
-import { runtimeControlBlocksSend } from './runtimeControlSignOut'
+import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
+import { runtimeControlSendBlock } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
@@ -111,8 +111,8 @@ export function Composer({
     runtimeState ? !runtimeAllows(runtimeState, 'send') : streaming,
   )
   const hero = variant === 'hero'
-  const sendBlocked =
-    runtimeSendBlocked || modelControl.saving || runtimeControlBlocksSend(runtimeControl)
+  const agentSendBlock = runtimeControlSendBlock(runtimeControl)
+  const sendBlocked = runtimeSendBlocked || modelControl.saving || Boolean(agentSendBlock)
   const state = useComposerState({
     hero,
     readOnly,
@@ -167,6 +167,7 @@ export function Composer({
           hero ? '' : 'max-w-[760px]',
         )}
       >
+        {!readOnly && runtimeControl && <AgentStatusBanner control={runtimeControl} />}
         <div
           className={clsx(
             'relative',
@@ -194,7 +195,6 @@ export function Composer({
           )}
         >
           {mentions.ui}
-          {!readOnly && runtimeControl && <SignedOutAgentNotice control={runtimeControl} />}
           {slash.ui}
           {filePaths.length > 0 && (
             <AttachmentChips
@@ -271,6 +271,7 @@ export function Composer({
               slackThread={slackThread}
               hasQueueablePayload={!(isEmpty && filePaths.length === 0)}
               sendDisabled={sendDisabled}
+              sendBlockedReason={agentSendBlock}
               onSubmit={actions.submit}
               onStop={onStop}
             />
