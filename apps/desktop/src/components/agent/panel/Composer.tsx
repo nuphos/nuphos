@@ -257,8 +257,8 @@ export function Composer({
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && <RuntimeSelector {...runtimeControl} />}
-              <ShellsPanel snapshot={runtimeState} />
             </div>
+            {!hero && <ShellsPanel snapshot={runtimeState} />}
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />
             ) : (
