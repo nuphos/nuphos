@@ -1,5 +1,3 @@
-import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
-
 import type { RuntimeControl } from './RuntimeSelector'
 
 /** Whether the picked agent can take a message now: its Box first, then its sign-in. */
@@ -7,25 +5,19 @@ export type AgentReachability = 'ready' | 'signIn' | 'offline'
 
 /**
  * One answer for the dot, the banner and the send button. Agents without a Box have no dot.
- * Signed out is only what is certain: the Box host's own report, or the usage probe of a
- * managed agent. Any other agent may carry a token the probe cannot see, so its probe never
- * stops a message.
+ * Signed out is only the agent CLI's own status, as its Box reports it; the usage probe's
+ * sign-in hint is a guess (it cannot see a token in the environment), so it never counts.
  */
 export function selectedAgentReachability(
-  control: Pick<RuntimeControl, 'value' | 'options' | 'quotas'> | undefined,
+  control: Pick<RuntimeControl, 'value' | 'options'> | undefined,
 ): AgentReachability | null {
   const id = control?.value?.id
 
   if (!id) return null
-  const instance = control.options?.find((option) => option.id === id)
-  const local = instance?.local
+  const local = control.options?.find((instance) => instance.id === id)?.local
 
   if (local?.online === false) return 'offline'
-  if (
-    local?.signedIn === false ||
-    (instance?.kind === 'managed' && quotaSignedOut(control.quotas?.get(id)))
-  )
-    return 'signIn'
+  if (local?.signedIn === false) return 'signIn'
 
   return local ? 'ready' : null
 }

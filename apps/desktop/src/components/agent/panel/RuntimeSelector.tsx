@@ -146,7 +146,7 @@ export function RuntimeSelector({
 
     return () => clearTimeout(timer)
   }, [value?.id])
-  const reachability = selectedAgentReachability({ value, options, quotas })
+  const reachability = selectedAgentReachability({ value, options })
   const dot = reachability ? AGENT_DOT[reachability] : null
   const usageLoading = Boolean(
     value?.id &&
@@ -177,12 +177,7 @@ export function RuntimeSelector({
       )}
       {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
-      {!unavailable && quotaSignedOut(selectedQuota) ? (
-        // Certain only for a managed agent (the yellow dot); any other may carry its own token.
-        reachability !== 'signIn' && (
-          <span className="shrink-0 text-warning">· May need sign-in</span>
-        )
-      ) : usageLoading ? (
+      {usageLoading ? (
         <span
           aria-label="Loading usage"
           role="status"
