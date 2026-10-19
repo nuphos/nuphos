@@ -68,6 +68,7 @@ export { retractTrailingUserMessage } from './db/transcript-retract'
 export { getConversationMessagesHead, syncConversationTranscript } from './db/transcript'
 export { getConversations } from './db/conversations-list'
 export { restoreArchivedConversation, setConversationArchived } from './db/archive'
+export { backfillConversationWatchers, setConversationWatched } from './db/watch'
 
 export type { AdminFilterOp, StatWindows } from './db/admin'
 export type { AdminFeedbackEntry } from './db/admin-feedback'

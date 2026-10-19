@@ -8,6 +8,7 @@ import { fallbackTitle } from '../title-fallback'
 import { initialGeneralAccess, readableConversationScope } from './access'
 import { recordAgentEvent } from './events'
 import { agentConversations, agentMessages, withTeamScope } from './shared'
+import { initialWatcherIds } from './watch'
 
 import type { ConversationTriggerRun } from '../conversation-trigger-run'
 import type {
@@ -68,6 +69,7 @@ export async function upsertConversationShell(data: {
     firstMessage: data.firstMessage.slice(0, 500),
     messageCount: 0,
     createdAt: now,
+    watcherIds: initialWatcherIds(data.userId, data),
     ...(generalAccess ? { generalAccess } : {}),
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),

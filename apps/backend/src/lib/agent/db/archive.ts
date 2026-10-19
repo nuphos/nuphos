@@ -19,7 +19,10 @@ export async function setConversationArchived(sessionId: string, archived: boole
 
   if (!conversation) return
   const { archivedAt } = conversation
-  const descendants = await descendantSessionIds(conversation)
+  const descendants = await descendantSessionIds(sessionId, {
+    userId: conversation.userId,
+    teamId: conversation.teamId ?? { $exists: false },
+  })
 
   if (archived) {
     await agentConversations().updateMany(
@@ -39,31 +42,23 @@ export async function setConversationArchived(sessionId: string, archived: boole
   await agentConversations().updateOne({ sessionId }, restore())
 }
 
-// Only the same owner's conversations in the same team; `seen` stops a loop.
-async function descendantSessionIds(root: {
-  sessionId: string
-  userId: string
-  teamId?: string
-}): Promise<string[]> {
-  const seen = new Set([root.sessionId])
-  let frontier = [root.sessionId]
+/** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
+export async function descendantSessionIds(
+  rootId: string,
+  scope: Record<string, unknown>,
+): Promise<string[]> {
+  const seen = new Set([rootId])
+  let frontier = [rootId]
 
   while (frontier.length > 0) {
     const children = await agentConversations()
-      .find(
-        {
-          userId: root.userId,
-          teamId: root.teamId ?? { $exists: false },
-          parentSessionId: { $in: frontier },
-        },
-        { projection: { sessionId: 1 } },
-      )
+      .find({ ...scope, parentSessionId: { $in: frontier } }, { projection: { sessionId: 1 } })
       .toArray()
 
     frontier = children.map((child) => child.sessionId).filter((id) => !seen.has(id))
     for (const id of frontier) seen.add(id)
   }
-  seen.delete(root.sessionId)
+  seen.delete(rootId)
 
   return [...seen]
 }

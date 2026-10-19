@@ -188,6 +188,7 @@ export function serializeConversationForViewer(
     ...(triggerRun ? { triggerRun } : {}),
     owner,
     isOwner,
+    watching: grants.watcherIds?.includes(viewer.id) ?? false,
     // What this viewer may do; the list and detail routes only return what
     // they may at least read, so null here means a personal conversation.
     access,

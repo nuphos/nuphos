@@ -46,13 +46,13 @@ export async function markConversationRead(
   return conversationReadState(updated ?? current)
 }
 
-/** The owner's unread Chats: archived conversations and trigger runs don't count. */
+/** The app badge: the owner's unread conversations they watch, archived ones excluded. */
 export async function countUnreadConversations(userId: string, teamId?: string): Promise<number> {
   return await agentConversations().countDocuments({
     userId,
     ...(teamId ? { teamId } : {}),
     archivedAt: { $exists: false },
-    'metadata.trigger.id': { $exists: false },
+    watcherIds: userId,
     $expr: { $gt: [{ $ifNull: ['$activitySeq', 0] }, { $ifNull: ['$readSeq', 0] }] },
   })
 }

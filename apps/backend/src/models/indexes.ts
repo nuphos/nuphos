@@ -1,7 +1,7 @@
 import { MongoServerError } from 'mongodb'
 
 import { setupAutoModeIndexes } from '@/lib/agent/auto-mode/store'
-import { setupAgentIndexes } from '@/lib/agent/db'
+import { backfillConversationWatchers, setupAgentIndexes } from '@/lib/agent/db'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
 import { setupDeviceJoinTokenIndexes } from '@/lib/agent/devices/join-tokens'
@@ -104,6 +104,8 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
+    // Idempotent backfill, not an index; remove once every deployment ran it.
+    ['conversation-watchers', backfillConversationWatchers],
   ]
 
   // Build every group in parallel. The groups are independent, and on a

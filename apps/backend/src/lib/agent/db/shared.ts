@@ -99,6 +99,7 @@ export type AgentConversation = {
   timelineEvents?: ConversationTimelineEvent[]
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
+  watcherIds?: string[] // Who gets its push notifications; see watch.ts.
   /** The owner's read marker, in `activitySeq` units. Only ever moves forward. */
   readSeq?: number
   compactionSummary?: string

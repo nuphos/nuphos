@@ -101,13 +101,13 @@ describe('conversation read state', () => {
     expect(await markConversationRead('s', 'teammate', 't', 1)).toBeNull()
   })
 
-  test('the unread count covers the owner’s unarchived chats in one team', async () => {
+  test('the unread count covers the owner’s unarchived, watched chats in one team', async () => {
     expect(await countUnreadConversations('owner', 't')).toBe(2)
     expect(conversations.lastCountFilter).toMatchObject({
       userId: 'owner',
       teamId: 't',
       archivedAt: { $exists: false },
-      'metadata.trigger.id': { $exists: false },
+      watcherIds: 'owner',
     })
   })
 })
