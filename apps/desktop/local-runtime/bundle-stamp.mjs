@@ -30,6 +30,7 @@ export const RUNTIME_SOURCES = [
   'runtime-defaults.mjs',
   'claude-login.mjs',
   'codex-login.mjs',
+  'panel-job.mjs',
   'reply-images.mjs',
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',

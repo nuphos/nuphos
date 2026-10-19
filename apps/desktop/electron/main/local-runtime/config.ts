@@ -35,6 +35,8 @@ export type LocalRuntimeLaunch = {
   authKey: string
   /** The user's own login environment, filtered to what a coding agent needs. */
   env: NodeJS.ProcessEnv
+  /** A machine Nuphos made (a Box, a managed runtime's pod), never a person's computer. */
+  ownsMachine?: boolean
 }
 
 const AGENT_ENV_PASSTHROUGH = [
@@ -210,19 +212,36 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
 }
 
 /**
- * The backend's fixed attachment program, bundled, as this runtime's only job: a turn's
- * files arrive as a list of signed URLs and no program text crosses the wire. openab
- * clears a job's environment and splits its command on whitespace, so Electron's
- * run-as-Node switch rides in through `env`. Where that cannot work the job is left
- * out, and the backend reports the runtime as unable to take attachments.
+ * The jobs this runtime offers. Everywhere: the backend's fixed attachment program, bundled,
+ * so a turn's files arrive as a list of signed URLs and no program text crosses the wire. On a
+ * machine Nuphos made, also `panel`, which runs the script the backend sends, as the runtime
+ * image does; never on a person's computer. openab clears a job's environment and splits its
+ * command on whitespace, so Electron's run-as-Node switch rides in through `env`. A job that
+ * cannot run that way is left out, and the backend reports the runtime as unable to do it.
  */
 function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
-  const program = path.join(launch.bundle.root, 'attachment-job.mjs')
-  const argv = ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', launch.nodeExecPath, program]
+  const program = (file: string) => path.join(launch.bundle.root, file)
+  const job = (name: string, ...args: string[]) => ({
+    name,
+    argv: ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', launch.nodeExecPath, ...args],
+    program: args.at(-1) ?? '',
+  })
+  const jobs = [
+    job('attachments', program('attachment-job.mjs')),
+    ...(launch.ownsMachine
+      ? [job('panel', '--max-old-space-size=512', program('panel-job.mjs'))]
+      : []),
+  ].filter(({ argv, program }) => !argv.some((arg) => /\s/.test(arg)) && existsSync(program))
 
-  return process.platform === 'win32' || argv.some((arg) => /\s/.test(arg)) || !existsSync(program)
-    ? {}
-    : { OPENAB_RUNTIME_JOBS: `attachments=${argv.join(' ')}` }
+  if (process.platform === 'win32' || jobs.length === 0) return {}
+
+  return {
+    OPENAB_RUNTIME_JOBS: jobs.map(({ name, argv }) => `${name}=${argv.join(' ')}`).join(';'),
+    // The dashboard panel execution budget, as in the runtime image.
+    ...(jobs.some(({ name }) => name === 'panel')
+      ? { OPENAB_RUNTIME_JOB_MAX_TIMEOUT_MS: '300000' }
+      : {}),
+  }
 }
 
 type Manifest = {

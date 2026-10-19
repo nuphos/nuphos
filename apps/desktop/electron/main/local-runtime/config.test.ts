@@ -102,6 +102,32 @@ test('the runtime offers only its bundled attachment program as a job', () => {
   }
 })
 
+test('only a machine Nuphos made also runs the panel scripts the backend sends', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'bundle-'))
+  const bundled = { ...launch, bundle: { ...launch.bundle, root } }
+  const node = `/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath}`
+
+  try {
+    writeFileSync(path.join(root, 'attachment-job.mjs'), '')
+    writeFileSync(path.join(root, 'panel-job.mjs'), '')
+    if (process.platform === 'win32') return
+
+    const attachments = `attachments=${node} ${path.join(root, 'attachment-job.mjs')}`
+
+    assert.equal(openabEnv(bundled).OPENAB_RUNTIME_JOBS, attachments)
+    assert.equal(openabEnv(bundled).OPENAB_RUNTIME_JOB_MAX_TIMEOUT_MS, undefined)
+    const env = openabEnv({ ...bundled, ownsMachine: true })
+
+    assert.equal(
+      env.OPENAB_RUNTIME_JOBS,
+      `${attachments};panel=${node} --max-old-space-size=512 ${path.join(root, 'panel-job.mjs')}`,
+    )
+    assert.equal(env.OPENAB_RUNTIME_JOB_MAX_TIMEOUT_MS, '300000')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('the config quotes paths as TOML strings', () => {
   const toml = openabConfigToml({ ...launch, workspace: 'C:\\Users\\me "x"' })
 
