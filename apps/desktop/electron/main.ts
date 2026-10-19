@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
 
 import {
   initMainAnalytics,
@@ -214,7 +214,7 @@ app.on('before-quit', (e) => {
 app
   .whenReady()
   .then(async () => {
-    routeFetchThroughChromium()
+    routeFetchThroughChromium(net)
     // Before any window exists: web-contents-created only fires for contents created
     // after registration, or the first window never gets the will-attach-webview hook.
     initWebviewGuard()

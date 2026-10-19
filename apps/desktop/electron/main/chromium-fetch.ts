@@ -1,7 +1,9 @@
-import { net } from 'electron'
+import type { Net } from 'electron'
+
+let ownFetch: typeof fetch | undefined
 
 /** Node's own fetch, for reading a 3xx itself: net.fetch rejects `redirect: 'manual'`. */
-export const nodeFetch = globalThis.fetch
+export const nodeFetch: typeof fetch = (input, init) => (ownFetch ?? globalThis.fetch)(input, init)
 
 /**
  * Send every main-process request through Chromium's network stack, the one
@@ -10,6 +12,7 @@ export const nodeFetch = globalThis.fetch
  * call timed out and retried for ~30s while the window was online. Call after
  * app ready: net.fetch is unavailable before it.
  */
-export function routeFetchThroughChromium(): void {
+export function routeFetchThroughChromium(net: Net): void {
+  ownFetch = globalThis.fetch
   globalThis.fetch = (input, init) => net.fetch(input instanceof URL ? input.href : input, init)
 }
