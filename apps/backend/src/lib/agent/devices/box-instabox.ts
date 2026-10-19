@@ -128,6 +128,8 @@ async function order(
       name: `nuphos-${deviceId.slice(0, 8)}`,
       metadata: { teamId, deviceId, createdBy: userId },
       vault: false,
+      // A Box stays on until someone pauses it; instabox would pause it after 30 idle minutes.
+      autoSuspendMs: 0,
     })
     // Deleted while it was being ordered: the machine must not outlive the row.
     if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
@@ -225,7 +227,7 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 }
 
 /**
- * Resumes the machine, whatever paused it (Nuphos, or instabox after 30 idle minutes),
+ * Resumes the machine, whatever paused it (Nuphos, or instabox's console),
  * and makes sure the host runs: a machine resumed from a stop has lost its processes.
  * An update runs BOX_UPDATE_COMMAND instead, which restarts the host on the newest CLI.
  */
