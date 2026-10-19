@@ -164,7 +164,10 @@ export function ImageLightbox({
           }}
           // The popup fills the window so the arrows can sit at its edges;
           // a click on the empty area around the image dismisses like the backdrop.
+          // React bubbles portal events to the opener's ancestors, so no click in
+          // here may reach an enclosing link.
           onClick={(e) => {
+            e.stopPropagation()
             if (e.target === e.currentTarget) onIndexChange(null)
           }}
           className="titlebar-no-drag fixed inset-0 z-[2001] flex items-center justify-center px-16 pb-12 pt-10 outline-none transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
