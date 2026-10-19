@@ -253,7 +253,32 @@ export function newBoxBlockedReason(
   return `Your running Boxes use ${String(usage.usedVcpus)} of ${String(usage.limitVcpus)} vCPU, and a new Box needs ${String(vcpus)}. Pause a Box or upgrade.`
 }
 
-/** How a Box size reads in a picker: "8 vCPU · 16 GiB". */
-export function boxSizeLabel({ vcpus, memMiB }: { vcpus: number; memMiB: number }): string {
-  return `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`
+/**
+ * Sessions a Box of `memMiB` runs at once: 2 GiB for the system, the host and the Box's
+ * own desktop, then 1.75 GiB a session (an agent of ~180–300 MB plus the desktop
+ * it may start: Xvnc, XFCE and Chromium). 8 GiB → 3, 16 GiB → 8.
+ */
+export function boxSessions(memMiB: number): number {
+  return Math.max(1, Math.floor((memMiB - 2048) / 1792))
+}
+
+const SIZE_TIERS = [
+  { name: 'Small Box', use: 'Good for light tasks' },
+  { name: 'Medium Box', use: 'Good for everyday work' },
+  { name: 'Large Box', use: 'Good for heavy builds' },
+]
+
+/** The sizes instabox offers, named by rank: the smallest is Small, the biggest Large. */
+export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
+  return sizes.map(({ vcpus, memMiB }, index) => {
+    // 0 for the first, 2 for the last, 1 between.
+    const tier = SIZE_TIERS[index === 0 ? 0 : 2 - Number(index < sizes.length - 1)]
+
+    return {
+      vcpus,
+      name: tier.name,
+      spec: `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`,
+      description: `${tier.use} · up to ${String(boxSessions(memMiB))} sessions at once`,
+    }
+  })
 }

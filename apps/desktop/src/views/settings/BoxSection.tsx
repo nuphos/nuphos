@@ -13,7 +13,7 @@ import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import {
   boxAgents,
   boxPollMs,
-  boxSizeLabel,
+  boxSizeChoices,
   newBoxBlockedReason,
   vanishedBoxes,
 } from './boxPresentation'
@@ -35,6 +35,42 @@ function deviceConfiguration({
   ...device
 }: AgentDevice) {
   return device
+}
+
+/** The sizes a new Box can have, each named with what it is good for. */
+function BoxSizePicker({
+  sizes,
+  value,
+  disabled,
+  onChange,
+}: {
+  sizes: { vcpus: number; memMiB: number }[]
+  value: number | undefined
+  disabled: boolean
+  onChange: (vcpus: number) => void
+}) {
+  return (
+    <AppSelect
+      ariaLabel="New Box size"
+      triggerClassName="!h-8"
+      contentClassName="w-[360px]"
+      value={String(value)}
+      disabled={disabled}
+      onValueChange={(next) => onChange(Number(next))}
+      options={boxSizeChoices(sizes).map((choice) => ({
+        value: String(choice.vcpus),
+        label: (
+          <span className="flex items-center gap-2">
+            <span className="truncate">{choice.name}</span>
+            <span className="ml-auto shrink-0 rounded border border-zGray-700 px-1.5 text-[11px] leading-[18px] text-secondary">
+              {choice.spec}
+            </span>
+          </span>
+        ),
+        description: choice.description,
+      }))}
+    />
+  )
 }
 
 /** The signed-in user's own Boxes, above the team's agents. Hidden when the backend has no Box provider. */
@@ -120,17 +156,7 @@ export function BoxSection({
             }}
           >
             {list?.boxAvailable && canCreate && sizes.length > 1 && (
-              <AppSelect
-                ariaLabel="New Box size"
-                triggerClassName="!h-8"
-                value={String(vcpus)}
-                disabled={creating}
-                onValueChange={(value) => setPicked(Number(value))}
-                options={sizes.map((size) => ({
-                  value: String(size.vcpus),
-                  label: boxSizeLabel(size),
-                }))}
-              />
+              <BoxSizePicker sizes={sizes} value={vcpus} disabled={creating} onChange={setPicked} />
             )}
             {list?.boxAvailable && canCreate && (
               <Button type="submit" size="sm" variant="secondary" disabled={creating}>
