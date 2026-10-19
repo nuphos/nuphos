@@ -1,5 +1,5 @@
 import { apiUrl } from '../api-endpoint.ts'
-import { readConfig } from '../auth/config.ts'
+import { sessionToken } from '../auth/config.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
@@ -11,8 +11,8 @@ export function getApiUrl(): string {
   return apiUrl()
 }
 
-export async function readToken(): Promise<string | null> {
-  return (await readConfig()).token ?? null
+export function readToken(): Promise<string | null> {
+  return sessionToken()
 }
 
 // Default per-request timeout. Multi-region sweeps (e.g. Aliyun ECS/SWAS across

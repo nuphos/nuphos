@@ -71,9 +71,6 @@ const pendingSession = () =>
   json({ error: { code: 'authorization_pending', message: 'not yet' } }, 409)
 
 before(async () => {
-  // These tests read the token back from the config written; keep it in the
-  // file rather than the keychain on a macOS runner.
-  process.env.NUPHOS_INSECURE_STORAGE = '1'
   mock.module('electron', {
     namedExports: {
       shell: {

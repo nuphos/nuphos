@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import yaml from 'js-yaml'
+
 import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
 import { unverifiedTokenSubject } from '../../auth-status.ts'
@@ -35,7 +37,6 @@ import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
-import { readSessionToken } from './session-token.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
@@ -82,8 +83,27 @@ const log = (message: string, data?: Record<string, unknown>) => {
 let lastSummary = ''
 let stopping = false
 
-/** The CLI's session in cli.yaml now: `nuphos logout` empties it. */
-const currentToken = () => readSessionToken(CLI_CONFIG_PATH)
+// From `nuphos agent` (the keychain trusts the CLI, not node); kept from the agents.
+const launchToken = process.env.NUPHOS_SESSION_TOKEN || null
+
+delete process.env.NUPHOS_SESSION_TOKEN
+
+/** The CLI's session: in cli.yaml, or the launch token while cli.yaml names its user. */
+function currentToken(): string | null {
+  let cfg: { token?: string; keychainAccount?: string } | null
+
+  try {
+    cfg = yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as typeof cfg
+  } catch {
+    return null
+  }
+  if (cfg?.token) return cfg.token
+  if (!launchToken || !cfg?.keychainAccount) return null
+
+  return cfg.keychainAccount.startsWith(`${unverifiedTokenSubject(launchToken) ?? ''}@`)
+    ? launchToken
+    : null
+}
 
 // API calls go out with the session, read as above.
 setTokenSource(() => Promise.resolve(currentToken()))

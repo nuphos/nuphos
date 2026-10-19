@@ -15,11 +15,10 @@ pub const SERVICE: &str = "ai.nuphos.cli.session";
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub const DESKTOP_SERVICE: &str = "ai.nuphos.desktop.session";
 
-/// Whether a new token goes to the keychain. `NUPHOS_INSECURE_STORAGE=1`
-/// keeps it in `cli.yaml`, for a session with no keychain to unlock (an SSH
-/// login, a launchd job); a token already in the keychain is still read.
+/// Whether a new token goes to the keychain: on macOS. A keychain that
+/// refuses the write (locked, in an SSH session) leaves it in `cli.yaml`.
 pub fn enabled() -> bool {
-    cfg!(target_os = "macos") && std::env::var("NUPHOS_INSECURE_STORAGE").map_or(true, |v| v.is_empty() || v == "0")
+    cfg!(target_os = "macos")
 }
 
 #[cfg(target_os = "macos")]

@@ -148,8 +148,8 @@ reads (service `ai.nuphos.cli.session`; the desktop app keeps its own), so
 macOS asks for access just once, when `nuphos login` copies the desktop's
 sign-in. A token an older version left in `cli.yaml` moves to the keychain on
 the next run. Elsewhere the token stays in the file, readable only by you.
-`NUPHOS_INSECURE_STORAGE=1` keeps a new token in the file on macOS too, for a
-session with no keychain to unlock. `nuphos auth status` shows who is signed in
+A keychain that refuses the write (locked, in an SSH session) leaves the
+token in the file. `nuphos auth status` shows who is signed in
 and where the token is, and `nuphos auth token` prints it for scripts. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
 `NUPHOS_DEBUG_FRAMES=<file>` appends every stream event to a file.
 

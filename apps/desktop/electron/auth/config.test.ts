@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import yaml from 'js-yaml'
 
 import { configFile } from './config.ts'
+import { secureStorageEnabled } from './token-store.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 import type { TokenStore } from './token-store.ts'
@@ -65,30 +66,6 @@ test('a sign-in keeps the token in the keychain and only names it in the file', 
   assert.equal((await fs.stat(h.file)).mode & 0o777, 0o600)
   assert.deepEqual(h.tokens, ['tok-1'])
   assert.equal((await h.config.read()).token, 'tok-1')
-})
-
-test('reading again does not reach the keychain while the file is unchanged', async () => {
-  const h = await harness()
-
-  await h.config.write({ token: 'tok-1', userInfo: USER })
-  h.calls.length = 0
-  await h.config.read()
-  await h.config.read()
-  // Refreshing the cached identity rewrites the file but not the token.
-  await h.config.write({ ...(await h.config.read()), user: 'Bruce W.' })
-
-  assert.deepEqual(h.calls, [])
-})
-
-test('a token the CLI wrote is picked up once the file changes', async () => {
-  const h = await harness()
-
-  await h.config.write({ token: 'tok-1', userInfo: USER })
-  await h.config.read()
-  h.items.set(ACCOUNT, 'tok-2')
-  await fs.writeFile(h.file, yaml.dump({ keychainAccount: ACCOUNT, userInfo: USER, user: 'cli' }))
-
-  assert.equal((await h.config.read()).token, 'tok-2')
 })
 
 test('a plaintext token from an older client moves to the keychain', async () => {
@@ -193,4 +170,13 @@ test('an item this app did not make is replaced, not reused', async () => {
     [`delete ${ACCOUNT}`],
   )
   assert.equal(h.items.get(ACCOUNT), 'tok-2')
+})
+
+test('only the packaged macOS app keeps the token in the keychain', () => {
+  const electron = { versions: { ...process.versions, electron: '40.0.0' } }
+
+  assert.equal(secureStorageEnabled('darwin', electron), true)
+  assert.equal(secureStorageEnabled('darwin', { ...electron, defaultApp: true }), false)
+  assert.equal(secureStorageEnabled('darwin', { versions: process.versions }), false)
+  assert.equal(secureStorageEnabled('linux', electron), false)
 })

@@ -42,34 +42,23 @@ type ConfigFileDeps = {
 
 /** This app's sign-in file, with its token in the keychain where there is one. */
 export function configFile(deps: ConfigFileDeps) {
-  // The token last read or written, valid while the file is unchanged, so
-  // reading the config per request does not reach the keychain each time.
-  let cached: { stamp: string; account: string; token: string } | null = null
-
-  async function readFile(): Promise<{ cfg: Config; stamp: string; exists: boolean }> {
+  async function readFile(at: string): Promise<Config | null> {
     try {
-      const [data, stat] = await Promise.all([fs.readFile(deps.path, 'utf-8'), fs.stat(deps.path)])
-
-      return {
-        cfg: (yaml.load(data) as Config | null) || {},
-        stamp: `${String(stat.mtimeMs)}:${data}`,
-        exists: true,
-      }
+      return (yaml.load(await fs.readFile(at, 'utf-8')) as Config | null) ?? {}
     } catch {
-      return { cfg: {}, stamp: '', exists: false }
+      return null
     }
   }
 
-  async function writeFile(cfg: Config): Promise<string> {
+  async function writeFile(at: string, cfg: Config): Promise<void> {
+    await fs.mkdir(path.dirname(at), { recursive: true })
     // skipInvalid drops the fields left `undefined`.
-    const data = yaml.dump(cfg, { skipInvalid: true })
-
-    await fs.mkdir(path.dirname(deps.path), { recursive: true })
-    await fs.writeFile(deps.path, data, { encoding: 'utf-8', mode: 0o600 })
+    await fs.writeFile(at, yaml.dump(cfg, { skipInvalid: true }), {
+      encoding: 'utf-8',
+      mode: 0o600,
+    })
     // `mode` applies only when the file is created.
-    await fs.chmod(deps.path, 0o600)
-
-    return `${String((await fs.stat(deps.path)).mtimeMs)}:${data}`
+    await fs.chmod(at, 0o600)
   }
 
   /** One item per user and backend, so a dev backend's sign-in never replaces Nuphos Cloud's. */
@@ -92,13 +81,11 @@ export function configFile(deps: ConfigFileDeps) {
 
   async function write(cfg: Config): Promise<void> {
     if (!cfg.token) deps.onToken(null)
-    const { cfg: previous, stamp } = await readFile()
+    const previous = (await readFile(deps.path)) ?? {}
     const stored: Config = { ...cfg, keychainAccount: undefined }
 
     if (cfg.token && deps.secure()) {
       const account = accountFor(cfg)
-      const unchanged =
-        cached?.stamp === stamp && cached.account === account && cached.token === cfg.token
 
       try {
         // Update in place only an item this app made: one that was already
@@ -106,7 +93,7 @@ export function configFile(deps: ConfigFileDeps) {
         // the XARA attacks), so it is replaced.
         if (previous.keychainAccount !== account)
           await deps.store.delete(account).catch(() => undefined)
-        if (!unchanged) await deps.store.set(account, cfg.token)
+        await deps.store.set(account, cfg.token)
         stored.token = undefined
         stored.keychainAccount = account
       } catch (e) {
@@ -115,12 +102,7 @@ export function configFile(deps: ConfigFileDeps) {
       }
     }
     if (previous.keychainAccount !== stored.keychainAccount) await forget(previous.keychainAccount)
-    cached = null
-    const written = await writeFile(cfg.token ? stored : {})
-
-    if (cfg.token && stored.keychainAccount) {
-      cached = { stamp: written, account: stored.keychainAccount, token: cfg.token }
-    }
+    await writeFile(deps.path, cfg.token ? stored : {})
     deps.onToken(cfg.token ?? null)
   }
 
@@ -129,68 +111,45 @@ export function configFile(deps: ConfigFileDeps) {
    * from that sign-in, once. Where the token goes to the keychain it leaves
    * cli.yaml as well, and `nuphos login` then takes it from here.
    */
-  async function adopt(): Promise<boolean> {
-    if (!deps.legacyPath) return false
-    let legacy: Config
+  async function adopt(): Promise<Config | null> {
+    const legacy = deps.legacyPath ? await readFile(deps.legacyPath) : null
 
-    try {
-      legacy = (yaml.load(await fs.readFile(deps.legacyPath, 'utf-8')) as Config | null) ?? {}
-    } catch {
-      return false
-    }
-    if (!legacy.token) return false
-    await write({
+    if (!deps.legacyPath || !legacy?.token) return null
+    const cfg = {
       token: legacy.token,
       user: legacy.user,
       username: legacy.username,
       userInfo: legacy.userInfo,
-    })
-    if (deps.secure()) {
-      await fs.writeFile(
-        deps.legacyPath,
-        yaml.dump({ ...legacy, token: undefined }, { skipInvalid: true }),
-        {
-          encoding: 'utf-8',
-          mode: 0o600,
-        },
-      )
     }
 
-    return true
+    await write(cfg)
+    if (deps.secure()) await writeFile(deps.legacyPath, { ...legacy, token: undefined })
+
+    return cfg
   }
 
   async function read(): Promise<Config> {
-    const { cfg, stamp, exists } = await readFile()
+    const cfg = await readFile(deps.path)
 
-    if (!exists && (await adopt().catch(() => false))) return read()
+    if (!cfg) return (await adopt().catch(() => null)) ?? {}
     if (cfg.token) {
       // Signed in before the keychain, or by a client without it: move it there.
-      if (deps.secure()) {
-        try {
-          await write(cfg)
-        } catch (e) {
+      if (deps.secure())
+        await write(cfg).catch((e: unknown) => {
           console.warn('auth: failed to move the session token to the keychain', e)
-        }
-      }
+        })
 
       return cfg
     }
-    const account = cfg.keychainAccount
-
-    if (!account) return cfg
-    if (cached?.stamp === stamp && cached.account === account)
-      return { ...cfg, token: cached.token }
-    const token = await deps.store.get(account).catch((e: unknown) => {
+    if (!cfg.keychainAccount) return cfg
+    const token = await deps.store.get(cfg.keychainAccount).catch((e: unknown) => {
       // Locked or denied: signed out for now, without forgetting the sign-in.
       console.warn('auth: failed to read the session token from the keychain', e)
 
       return null
     })
 
-    if (!token) return cfg
-    cached = { stamp, account, token }
-
-    return { ...cfg, token }
+    return token ? { ...cfg, token } : cfg
   }
 
   return { read, write }
@@ -209,6 +168,11 @@ const defaultConfigFile = configFile({
 
 export const readConfig = defaultConfigFile.read
 export const writeConfig = defaultConfigFile.write
+
+/** The signed-in token, kept in memory once the startup check has run. */
+export async function sessionToken(): Promise<string | null> {
+  return authSession.current() ?? (await readConfig()).token ?? null
+}
 
 export async function apiErrorMessage(res: Response): Promise<string> {
   const body = (await res.json().catch(() => null)) as { error?: { message?: unknown } } | null

@@ -16,16 +16,15 @@ export type TokenStore = {
 }
 
 /**
- * Whether a new token goes to the keychain. `NUPHOS_INSECURE_STORAGE=1` keeps
- * it in cli.yaml, as in the CLI; a token already in the keychain is still read.
+ * Whether a new token goes to the keychain: in the packaged app on macOS. A
+ * dev build (`electron .`) and plain Node (tests, `nuphos agent`'s host) keep
+ * it in the file, so an unsigned binary leaves no items behind.
  */
 export function secureStorageEnabled(
   platform: NodeJS.Platform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
+  proc: { versions: NodeJS.ProcessVersions; defaultApp?: boolean } = process,
 ): boolean {
-  const optOut = env.NUPHOS_INSECURE_STORAGE
-
-  return platform === 'darwin' && (!optOut || optOut === '0')
+  return platform === 'darwin' && Boolean(proc.versions.electron) && !proc.defaultApp
 }
 
 async function entry(account: string) {
