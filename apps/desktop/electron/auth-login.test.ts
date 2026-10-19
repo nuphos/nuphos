@@ -91,6 +91,7 @@ before(async () => {
         configWrites.push(data)
       },
       chmod: async () => undefined,
+      stat: async () => ({ mtimeMs: 0 }),
     },
   })
 

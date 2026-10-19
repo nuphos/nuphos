@@ -57,6 +57,11 @@ pub async fn run(join: Option<String>) -> Result<i32> {
     if let Some(token) = join {
         host.env("NUPHOS_JOIN_TOKEN", token);
     }
+    // The host reads the session token through this binary: the keychain
+    // trusts it, not node.
+    if let Ok(exe) = std::env::current_exe() {
+        host.env("NUPHOS_CLI_BIN", exe);
+    }
     let error = host
         .arg(runtime.join("host.mjs"))
         .env("NUPHOS_AGENT_HOME", agent_home()?)

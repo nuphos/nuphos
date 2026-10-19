@@ -112,6 +112,7 @@ pub async fn login(api_url: &str) -> Result<Session> {
             user: user["name"].as_str().map(String::from),
             username: user["username"].as_str().map(String::from),
             user_info: Some(user),
+            keychain_account: None,
         };
         config::write_session(&session)?;
         respond(&mut browser, 200, "Signed in to Nuphos. You can close this tab and return to the terminal.").await;

@@ -1,10 +1,6 @@
-import fs from 'node:fs/promises'
-
-import yaml from 'js-yaml'
-
 import { apiUrl } from '../api-endpoint.ts'
 import { buildAtlasError } from '../atlas/error.ts'
-import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
+import { readConfig } from '../auth/config.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
 export function teamIdFromUrl(url?: string): string | undefined {
@@ -16,15 +12,15 @@ export function teamIdFromUrl(url?: string): string | undefined {
   }
 }
 
-export async function readToken(): Promise<string | null> {
-  try {
-    const data = await fs.readFile(CLI_CONFIG_PATH, 'utf-8')
-    const cfg = yaml.load(data) as { token?: string }
+let tokenSource = async () => (await readConfig()).token ?? null
 
-    return cfg?.token ?? null
-  } catch {
-    return null
-  }
+/** `nuphos agent`'s host reads the token through the CLI rather than the keychain. */
+export function setTokenSource(source: () => Promise<string | null>) {
+  tokenSource = source
+}
+
+export function readToken(): Promise<string | null> {
+  return tokenSource()
 }
 
 /**

@@ -182,6 +182,24 @@ jobs:
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --locked --target x86_64-unknown-linux-musl
 
+  cli-macos:
+    name: CLI (macOS clippy + test)
+    needs: changes
+    if: needs.changes.outputs.cli == 'true'
+    # The keychain code (src/secret.rs) compiles only on macOS.
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: apps/cli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked
+
   openab:
     name: openab (clippy + test)
     needs: changes

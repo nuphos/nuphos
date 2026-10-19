@@ -16,6 +16,7 @@ export default defineConfig({
               external: [
                 '@kubernetes/client-node',
                 'node-pty',
+                '@napi-rs/keyring',
                 'electron-updater',
                 'ws',
                 'posthog-node',

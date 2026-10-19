@@ -1,9 +1,5 @@
-import fs from 'node:fs/promises'
-
-import yaml from 'js-yaml'
-
 import { apiUrl } from '../api-endpoint.ts'
-import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
+import { readConfig } from '../auth/config.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
@@ -16,14 +12,7 @@ export function getApiUrl(): string {
 }
 
 export async function readToken(): Promise<string | null> {
-  try {
-    const data = await fs.readFile(CLI_CONFIG_PATH, 'utf-8')
-    const cfg = yaml.load(data) as { token?: string }
-
-    return cfg?.token ?? null
-  } catch {
-    return null
-  }
+  return (await readConfig()).token ?? null
 }
 
 // Default per-request timeout. Multi-region sweeps (e.g. Aliyun ECS/SWAS across

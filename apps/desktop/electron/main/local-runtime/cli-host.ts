@@ -4,9 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import yaml from 'js-yaml'
-
-import { callJson } from '../../agent/http.ts'
+import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
 import { unverifiedTokenSubject } from '../../auth-status.ts'
 import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
@@ -37,6 +35,7 @@ import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
+import { readSessionToken } from './session-token.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
@@ -84,15 +83,10 @@ let lastSummary = ''
 let stopping = false
 
 /** The session in cli.yaml now: signing out here or in the app empties it. */
-function currentToken(): string | null {
-  try {
-    return (
-      (yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as { token?: string } | null)?.token ?? null
-    )
-  } catch {
-    return null
-  }
-}
+const currentToken = () => readSessionToken(CLI_CONFIG_PATH)
+
+// API calls go out with the session, read as above.
+setTokenSource(() => Promise.resolve(currentToken()))
 
 // A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
 const desktopPool = enableDesktopPool(bundleRoot, dataDir)

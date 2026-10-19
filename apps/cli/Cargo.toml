@@ -29,3 +29,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-uti
 unicode-width = "0.2"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+
+# The session token lives in the login keychain, where the desktop app reads it too.
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"

@@ -141,7 +141,13 @@ a command that needs approval is denied unless `--approve` is given; the exit st
 Sign-in is shared with the desktop app: both read and write
 `~/.config/nuphos/cli.yaml` (`NUPHOS_CLI_CONFIG` overrides it), and the API
 endpoint saved on the desktop's sign-in screen (`cli.api-url`) applies here
-too. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
+too. On macOS the session token itself is a login-keychain item (service
+`ai.nuphos.session`) that both apps share, and the file only names it; a token
+an older version left in the file moves there on the next run. Elsewhere the
+token stays in the file, readable only by you. `NUPHOS_INSECURE_STORAGE=1`
+keeps a new token in the file on macOS too, for a session with no keychain to
+unlock. `nuphos auth status` shows who is signed in and where the token is, and
+`nuphos auth token` prints it for scripts. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
 `NUPHOS_DEBUG_FRAMES=<file>` appends every stream event to a file.
 
 In the composer:
