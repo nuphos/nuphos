@@ -39,14 +39,19 @@ export function desktopsFromRuntimeState(snapshot: RuntimeExecution | undefined)
   )
 }
 
-/** What the dock gets for a conversation: its desktops, and "Desktop" only for its owner, the one the Box admits. */
+/**
+ * What the dock gets for a conversation: its desktops, and "Desktop" only for its owner, the one
+ * the Box admits, where it can claim one or already holds one: New Tab is the way to its tab.
+ */
 export function sessionDesktopsOf(
   teamId: string,
   tab: { runtimeState?: RuntimeExecution; foreign?: boolean },
 ): SessionDesktops {
+  const desktops = desktopsFromRuntimeState(tab.runtimeState)
+
   return {
     teamId,
-    desktops: desktopsFromRuntimeState(tab.runtimeState),
-    canOpen: tab.runtimeState?.canOpenDesktop === true && !tab.foreign,
+    desktops,
+    canOpen: (tab.runtimeState?.canOpenDesktop === true || desktops.length > 0) && !tab.foreign,
   }
 }

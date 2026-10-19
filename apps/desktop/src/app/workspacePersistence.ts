@@ -172,8 +172,8 @@ export function withRenamedPage(snapshot: LegacyNavigationSnapshot): NavigationS
 const RENAMED_PAGE_TITLES: Record<string, string> = { 'Cost Management': 'Dashboards' }
 
 /**
- * Only a Box desktop restores. A session's display comes back as its conversation's
- * own tab once the snapshot shows it again; and a Box desktop from before desktops
+ * Only a Box desktop restores. A session's display is reopened from its conversation
+ * (New Tab → Desktop or the Box switcher); and a Box desktop from before desktops
  * named their Box held only a short-lived link, with nothing to reconnect to.
  */
 function hasDesktopTarget(snapshot: NavigationSnapshot): boolean {

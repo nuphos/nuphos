@@ -47,4 +47,12 @@ test('only the owner of a conversation on a desktop Box is offered "Desktop"', (
   assert.equal(sessionDesktopsOf('t', { runtimeState, foreign: true }).canOpen, false)
   // No desktop pool on its Box.
   assert.equal(sessionDesktopsOf('t', { runtimeState: { state: 'idle' } }).canOpen, false)
+  // Still offered while the session holds a desktop, the only way to its tab.
+  const holding = {
+    state: 'idle',
+    tools: [{ id: 'desktop:2', title: ':2', desktop: { display: 2 } }],
+  } as RuntimeExecution
+
+  assert.equal(sessionDesktopsOf('t', { runtimeState: holding }).canOpen, true)
+  assert.equal(sessionDesktopsOf('t', { runtimeState: holding, foreign: true }).canOpen, false)
 })
