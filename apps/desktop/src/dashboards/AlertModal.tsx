@@ -2,6 +2,7 @@ import { Dialog } from '@base-ui/react/dialog'
 import { Loader2, X } from 'lucide-react'
 
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Button } from '../components/ui/button'
 import { fieldClass } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
 
@@ -184,14 +185,14 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                 <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-zGray-800">
                   Cancel
                 </Dialog.Close>
-                <button
+                <Button
+                  size="sm"
                   type="button"
-                  className="flex items-center gap-1.5 rounded-md bg-zViolet-500 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-zViolet-400 disabled:opacity-50"
                   disabled={saving || loadFailed || !channelValue.trim()}
                   onClick={() => void save()}
                 >
                   {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save alert
-                </button>
+                </Button>
               </div>
             </div>
           </Dialog.Popup>

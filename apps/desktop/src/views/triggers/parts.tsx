@@ -73,43 +73,6 @@ export function ExecutionPrincipalBanner({
   )
 }
 
-export function Toggle({
-  enabled,
-  disabled = false,
-  ariaLabel,
-  onChange,
-}: {
-  enabled: boolean
-  disabled?: boolean
-  ariaLabel?: string
-  onChange: (v: boolean) => void
-}) {
-  // Flex layout instead of absolute + translate — the latter combined with
-  // some global CSS to leak `left: 18px` onto the thumb in this project's
-  // Tailwind v3 setup, pushing the white knob outside the visible track.
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={enabled}
-      aria-label={ariaLabel ?? (enabled ? 'Disable trigger' : 'Enable trigger')}
-      disabled={disabled}
-      onClick={(e) => {
-        e.stopPropagation()
-        onChange(!enabled)
-      }}
-      className={clsx(
-        'w-9 h-5 rounded-full transition-colors flex-shrink-0 flex items-center p-0.5',
-        enabled ? 'bg-zViolet-500 justify-end' : 'bg-zGray-700 justify-start',
-        disabled && 'opacity-50 cursor-not-allowed',
-      )}
-      title={enabled ? 'Disable' : 'Enable'}
-    >
-      <span className="block w-4 h-4 rounded-full bg-white" />
-    </button>
-  )
-}
-
 export function Field({
   label,
   hint,

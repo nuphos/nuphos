@@ -1,7 +1,7 @@
 import { Age } from '../../components/Age'
 import { MemberCell } from '../../components/MemberCell'
+import { Switch } from '../../components/ui/Switch'
 
-import { Toggle } from './parts'
 import { executionPrincipalLabel } from './shared'
 import { NameCell } from './triggerCells'
 import {
@@ -103,12 +103,15 @@ export function buildTriggerColumns({
       width: 90,
       sortAccessor: rowActive,
       render: (row) => (
-        <Toggle
-          enabled={rowActive(row)}
-          disabled={!canManage || togglingKey === row.key || !isTogglable(row)}
-          ariaLabel={`${rowActive(row) ? 'Disable' : 'Enable'} ${rowName(row)}`}
-          onChange={(enabled) => onToggle(row, enabled)}
-        />
+        // The row itself opens the trigger; keep the switch's click local.
+        <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={rowActive(row)}
+            disabled={!canManage || togglingKey === row.key || !isTogglable(row)}
+            label={`${rowActive(row) ? 'Disable' : 'Enable'} ${rowName(row)}`}
+            onChange={(enabled) => onToggle(row, enabled)}
+          />
+        </span>
       ),
     },
   ]

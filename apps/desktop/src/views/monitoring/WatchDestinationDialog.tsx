@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { parseAtlasError } from '../../api/errors'
+import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { slackDmRecipientCopy } from '../../lib/monitoringWatch'
@@ -262,14 +263,9 @@ export function WatchDestinationDialog({
             <Dialog.Close className="h-8 rounded-md px-3 text-[12px] text-secondary hover:bg-zGray-800 hover:text-main">
               Cancel
             </Dialog.Close>
-            <button
-              type="button"
-              disabled={!canContinue}
-              onClick={submit}
-              className="h-8 rounded-md bg-zViolet-accent px-3 text-[12px] font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-            >
+            <Button size="sm" type="button" disabled={!canContinue} onClick={submit}>
               Continue in Agent
-            </button>
+            </Button>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

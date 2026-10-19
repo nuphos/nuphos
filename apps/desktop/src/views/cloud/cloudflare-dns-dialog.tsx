@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 
+import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
+import { fieldClass } from '../../components/ui/input-group'
 import { AppSelect } from '../../components/ui/select'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -109,28 +111,32 @@ export function DnsRecordDialog({
     }
   }
 
-  // Portaled to body: the @container pane (App.tsx) is a containing block for
-  // fixed descendants, so rendered inline this backdrop would only cover the
-  // content pane instead of the window.
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45">
-      <form
-        onSubmit={(e) => void submit(e)}
-        className="w-[520px] max-w-[calc(100vw-32px)] rounded-lg border border-zGray-800 bg-zGray-950 shadow-2xl"
-      >
-        <div className="px-4 py-3 border-b border-zGray-850">
-          <div className="text-[14px] font-medium text-main">
-            {record ? 'Edit DNS record' : 'Add DNS record'}
-          </div>
-          <div className="text-[12px] text-tertiary mt-0.5">{zoneName}</div>
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={record ? 'Edit DNS record' : 'Add DNS record'}
+      description={zoneName}
+      width={520}
+      closeOnBackdrop={false}
+      footer={
+        <div className="flex justify-end gap-2 px-5 py-3">
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" form="cloudflare-dns-record" size="sm" disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
         </div>
-        <div className="p-4 grid grid-cols-2 gap-3">
+      }
+    >
+      <form id="cloudflare-dns-record" onSubmit={(e) => void submit(e)}>
+        <div className="grid grid-cols-2 gap-3 px-5 py-4">
           <label className="flex flex-col gap-1 text-[12px] text-secondary">
             Type
             <AppSelect
               value={type}
               onValueChange={setType}
-              triggerClassName="h-8 border-zGray-800 px-2 text-[13px]"
               options={DNS_RECORD_TYPES.map((t) => ({ value: t, label: t }))}
             />
           </label>
@@ -140,7 +146,7 @@ export function DnsRecordDialog({
               value={ttl}
               onChange={(e) => setTtl(e.target.value)}
               inputMode="numeric"
-              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className={`${fieldClass} h-9`}
               placeholder="1"
             />
           </label>
@@ -149,7 +155,7 @@ export function DnsRecordDialog({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className={`${fieldClass} h-9`}
               placeholder={`www.${zoneName}`}
             />
           </label>
@@ -158,7 +164,7 @@ export function DnsRecordDialog({
             <input
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className={`${fieldClass} h-9`}
               placeholder="192.0.2.1"
             />
           </label>
@@ -168,7 +174,7 @@ export function DnsRecordDialog({
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
               inputMode="numeric"
-              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className={`${fieldClass} h-9`}
               placeholder="MX/SRV only"
             />
           </label>
@@ -187,31 +193,13 @@ export function DnsRecordDialog({
             <input
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className={`${fieldClass} h-9`}
               placeholder="Optional"
             />
           </label>
           {error && <div className="col-span-2 text-[12px] text-error">{error}</div>}
         </div>
-        <div className="px-4 py-3 border-t border-zGray-850 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="h-8 px-3 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] font-medium disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
       </form>
-    </div>,
-    document.body,
+    </Modal>
   )
 }

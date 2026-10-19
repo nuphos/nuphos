@@ -7,6 +7,7 @@ import {
   countSelectedCredentials,
   countTotalCredentials,
 } from '../components/agent/panel/credentialSelectorButtonCounts'
+import { Button } from '../components/ui/button'
 import { fieldClass } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
 
@@ -166,9 +167,9 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
               <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-zGray-800">
                 Cancel
               </Dialog.Close>
-              <button
+              <Button
+                size="sm"
                 type="button"
-                className="flex items-center gap-1.5 rounded-md bg-zViolet-500 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-zViolet-400 disabled:opacity-50"
                 disabled={!canSave}
                 onClick={() =>
                   onSave({
@@ -183,7 +184,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
               >
                 {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {editing ? 'Save & run' : 'Create & run'}
-              </button>
+              </Button>
             </div>
           </Dialog.Popup>
         </Dialog.Viewport>

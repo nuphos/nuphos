@@ -8,6 +8,9 @@
   this repo (e.g. `src/components/ui/*`).
 - Only if that is also impossible, **ask** whether a new component should be
   created. Do **not** proactively invent new components.
+- Never restyle a native control in a view: dropdowns use `AppSelect`, toggles
+  `Switch`, filled actions `Button`, dialogs `Modal`. `primitiveGuard.test.ts`
+  fails CI on a raw `<select>`, `role="switch"` or filled rounded `<button>`.
 
 ## Icons
 
