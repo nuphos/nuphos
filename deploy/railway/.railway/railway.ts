@@ -58,7 +58,7 @@ export default defineRailway(() => {
     },
   })
   const backend = service('backend', {
-    source: image('ghcr.io/nuphos/backend:v0.96.1'),
+    source: image('ghcr.io/nuphos/backend:v0.97.1'),
     replicas: { 'us-west2': 1 },
     deploy: { restartPolicyType: 'ALWAYS' },
     healthcheck: '/health/ready',
