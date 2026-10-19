@@ -1,5 +1,8 @@
 import { net } from 'electron'
 
+/** Node's own fetch, for reading a 3xx itself: net.fetch rejects `redirect: 'manual'`. */
+export const nodeFetch = globalThis.fetch
+
 /**
  * Send every main-process request through Chromium's network stack, the one
  * the window itself uses. Node's own fetch ignores the system proxy and gives
