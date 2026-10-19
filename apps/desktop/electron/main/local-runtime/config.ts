@@ -2,6 +2,8 @@ import { createHmac } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { envValue } from './agent-cli-apps.ts'
+
 import type { LocalAgentProvider } from './agent-cli.ts'
 
 export type LocalAgentAdapter = {
@@ -100,7 +102,8 @@ function providerEnv(launch: AgentCliLaunch): Record<string, string> {
 export function agentCliEnv(launch: AgentCliLaunch): Record<string, string> {
   const passthrough = Object.fromEntries(
     AGENT_ENV_PASSTHROUGH.flatMap((key) => {
-      const value = launch.env[key]
+      // A copied Windows environment keeps its own casing, such as Path.
+      const value = envValue(launch.env, key)
 
       return value ? [[key, value]] : []
     }),

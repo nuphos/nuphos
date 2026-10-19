@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { appManagedCli, claudeDesktopClis } from './agent-cli-apps.ts'
+import { appManagedCli, claudeDesktopClis, findFile } from './agent-cli-apps.ts'
 import { findAgentCli, probeAgentCli } from './agent-cli.ts'
 
 /** Lays out what the Claude desktop app downloads for its Code tab on this platform. */
@@ -95,3 +95,19 @@ test(
     assert.equal(appManagedCli(path.join(bin, 'claude'), env), false)
   },
 )
+
+test('findFile skips an app executable that differs only in case from the CLI', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'store-app-'))
+
+  try {
+    // The Codex Store app: its own Codex.exe at app\, the codex.exe CLI in app\resources\.
+    mkdirSync(path.join(root, 'app', 'resources'), { recursive: true })
+    writeFileSync(path.join(root, 'app', 'Codex.exe'), '')
+    writeFileSync(path.join(root, 'app', 'resources', 'codex.exe'), '', { mode: 0o755 })
+
+    assert.equal(findFile(root, 'codex.exe', 4), path.join(root, 'app', 'resources', 'codex.exe'))
+    assert.equal(findFile(root, 'codex.exe', 1), null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

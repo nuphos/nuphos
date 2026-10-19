@@ -1,11 +1,13 @@
 import {
   appendFileSync,
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -53,6 +55,28 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
   return true
 }
 
+/**
+ * Windows links a file without administrator rights only as a hard link, since a junction
+ * holds directories only. Codex rewrites auth.json in place, so the hard link keeps sharing
+ * the login. As with the symlink elsewhere, the owner's login wins; a login made in this
+ * home stays only while the owner has none.
+ */
+export function hardLinkFrom(ownerHome: string, home: string, file: string): void {
+  const link = path.join(home, file)
+  const owner = statSync(path.join(ownerHome, file), { throwIfNoEntry: false })
+  const existing = lstatSync(link, { throwIfNoEntry: false })
+
+  try {
+    // Earlier builds left a junction here, which Codex cannot read.
+    if (existing?.isSymbolicLink()) unlinkSync(link)
+    else if (existing && (!owner || owner.ino === existing.ino)) return
+    else if (existing) unlinkSync(link)
+    if (owner) linkSync(path.join(ownerHome, file), link)
+  } catch {
+    // Another volume, or a file in use: Codex runs signed out and can be signed in from Nuphos.
+  }
+}
+
 /** The computer user's own Codex home, whose login the default Codex agent links to. */
 export function codexOwnerHome(env: NodeJS.ProcessEnv = process.env): string {
   return env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
@@ -79,7 +103,8 @@ export function prepareCodexHome(
   try {
     mkdirSync(home, { recursive: true, mode: 0o700 })
     // Without the owner's login Codex still runs, signed out, so it can be signed in from Nuphos.
-    linkFrom(ownerHome, home, 'auth.json')
+    if (process.platform === 'win32') hardLinkFrom(ownerHome, home, 'auth.json')
+    else linkFrom(ownerHome, home, 'auth.json')
     // Codex skips an enabled plugin that is not installed, so users without the App are unaffected.
     if (
       linkFrom(ownerHome, home, CUA_PLUGIN_CACHE) &&

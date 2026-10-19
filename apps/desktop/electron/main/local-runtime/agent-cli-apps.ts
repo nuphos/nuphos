@@ -148,12 +148,14 @@ export function forgetWindowsStorePackages(): void {
   storePackages = null
 }
 
-function findFile(dir: string, name: string, depth: number): string | null {
-  const direct = path.join(dir, name)
+/** The first `name` under `dir`, matched by exact case: Windows paths ignore case, and the
+ *  Codex app's own Codex.exe (or Claude's Claude.exe) sits above the codex.exe CLI. */
+export function findFile(dir: string, name: string, depth: number): string | null {
+  const entries = list(dir)
 
-  if (executable(direct)) return direct
+  if (entries.includes(name) && executable(path.join(dir, name))) return path.join(dir, name)
   if (depth === 0) return null
-  for (const entry of list(dir)) {
+  for (const entry of entries) {
     if (entry === 'node_modules' || entry.startsWith('.')) continue
     const found = findFile(path.join(dir, entry), name, depth - 1)
 
