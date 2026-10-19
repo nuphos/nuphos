@@ -5,17 +5,27 @@ import type { RuntimeControl } from './RuntimeSelector'
 /** Whether the picked agent can take a message now: its Box first, then its sign-in. */
 export type AgentReachability = 'ready' | 'signIn' | 'offline'
 
-/** One answer for the dot, the banner and the send button. Agents without a Box have no dot. */
+/**
+ * One answer for the dot, the banner and the send button. Agents without a Box have no dot.
+ * Signed out is only what is certain: the Box host's own report, or the usage probe of a
+ * managed agent. Any other agent may carry a token the probe cannot see, so its probe never
+ * stops a message.
+ */
 export function selectedAgentReachability(
   control: Pick<RuntimeControl, 'value' | 'options' | 'quotas'> | undefined,
 ): AgentReachability | null {
   const id = control?.value?.id
 
   if (!id) return null
-  const local = control.options?.find((instance) => instance.id === id)?.local
+  const instance = control.options?.find((option) => option.id === id)
+  const local = instance?.local
 
   if (local?.online === false) return 'offline'
-  if (local?.signedIn === false || quotaSignedOut(control.quotas?.get(id))) return 'signIn'
+  if (
+    local?.signedIn === false ||
+    (instance?.kind === 'managed' && quotaSignedOut(control.quotas?.get(id)))
+  )
+    return 'signIn'
 
   return local ? 'ready' : null
 }

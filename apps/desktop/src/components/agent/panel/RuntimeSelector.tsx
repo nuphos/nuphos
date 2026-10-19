@@ -177,7 +177,12 @@ export function RuntimeSelector({
       )}
       {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
-      {!unavailable && quotaSignedOut(selectedQuota) ? null : usageLoading ? (
+      {!unavailable && quotaSignedOut(selectedQuota) ? (
+        // Certain only for a managed agent (the yellow dot); any other may carry its own token.
+        reachability !== 'signIn' && (
+          <span className="shrink-0 text-warning">· May need sign-in</span>
+        )
+      ) : usageLoading ? (
         <span
           aria-label="Loading usage"
           role="status"

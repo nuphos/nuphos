@@ -133,6 +133,8 @@ export function AgentStatusBanner({ control }: { control: RuntimeControl }) {
     <div
       role="status"
       aria-hidden={!blocked}
+      // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
+      inert={!blocked}
       className={clsx(
         't-toast absolute inset-x-4 bottom-full',
         blocked ? 'is-open' : 'pointer-events-none',

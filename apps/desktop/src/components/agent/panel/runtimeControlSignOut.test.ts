@@ -14,6 +14,7 @@ const noop = (_id: string) => {
 function control(
   local: Partial<NonNullable<RuntimeInstance['local']>> | undefined,
   quota?: Partial<RuntimeQuota>,
+  kind: RuntimeInstance['kind'] = local ? 'local' : 'managed',
 ): RuntimeControl {
   return {
     value: { id, provider: 'claude-code', label: 'Claude Code' },
@@ -23,7 +24,7 @@ function control(
         provider: 'claude-code',
         label: 'Claude Code',
         status: 'active',
-        kind: local ? 'local' : 'managed',
+        kind,
         createdAt: '',
         ...(local ? { local: { deviceLabel: 'Box 1', signedIn: true, ...local } } : {}),
       } as RuntimeInstance,
@@ -41,8 +42,7 @@ test('green: an online Box with a signed-in agent sends', () => {
 test('yellow: a signed-out agent on an online Box cannot send', () => {
   for (const signedOut of [
     control({ online: true, signedIn: false }),
-    control({ online: true }, { available: false, reason: 'Sign in required' }),
-    control(undefined, { available: false, reason: 'Sign in required' }),
+    control(undefined, { available: false, reason: 'Sign in required' }, 'managed'),
   ]) {
     assert.equal(selectedAgentReachability(signedOut), 'signIn')
     assert.equal(runtimeControlSendBlock(signedOut), 'The agent needs to sign in')
@@ -54,6 +54,18 @@ test('red: an agent whose Box is offline cannot send, whatever its sign-in', () 
 
   assert.equal(selectedAgentReachability(offline), 'offline')
   assert.equal(runtimeControlSendBlock(offline), 'Its Box is offline')
+})
+
+test('a usage probe alone never blocks an agent that may carry its own token', () => {
+  const probeOnly = { available: false, reason: 'Sign in required' }
+
+  for (const agent of [
+    control(undefined, probeOnly, 'external'),
+    control({ online: true }, probeOnly),
+  ]) {
+    assert.notEqual(selectedAgentReachability(agent), 'signIn')
+    assert.equal(runtimeControlSendBlock(agent), null)
+  }
 })
 
 test('an agent without a Box has no dot and is not blocked', () => {
