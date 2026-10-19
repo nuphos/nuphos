@@ -11,6 +11,7 @@ import { runtimeMayAcceptLater } from './queuedAutoSend'
 import { ReadOnlyConversationNotice, SignedOutAgentNotice } from './ReadOnlyNotice'
 import { runtimeControlBlocksSend } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
+import { ShellsPanel } from './ShellsPanel'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
 import { useComposerMentions } from './useComposerMentions'
@@ -276,6 +277,7 @@ export function Composer({
             />
           </div>
         </div>
+        <ShellsPanel snapshot={runtimeState} />
       </div>
     </div>
   )

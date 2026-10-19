@@ -11,7 +11,6 @@ import { AgentHomeAnimation } from './homeAnimation'
 import { ElapsedSeconds, LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
 import { sessionDesktopsOf } from './shells'
-import { ShellsPanel } from './ShellsPanel'
 import { DEFERRED_MESSAGE_STYLE } from './status'
 import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
 import { placeTimelineEvents } from './timelineEvents'
@@ -214,7 +213,6 @@ export function ConversationMessageList({
         />
       ))}
       {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
-      <ShellsPanel snapshot={tab.runtimeState} />
       {statusLabel && (
         <div className="text-[13.5px] flex items-center gap-2">
           {sendingFeedback ? (
