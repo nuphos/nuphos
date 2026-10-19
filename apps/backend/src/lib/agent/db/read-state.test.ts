@@ -101,13 +101,19 @@ describe('conversation read state', () => {
     expect(await markConversationRead('s', 'teammate', 't', 1)).toBeNull()
   })
 
-  test('the unread count covers the owner’s unarchived, watched chats in one team', async () => {
+  test('the unread count covers the owner’s own unarchived, watched chats in one team', async () => {
     expect(await countUnreadConversations('owner', 't')).toBe(2)
     expect(conversations.lastCountFilter).toMatchObject({
       userId: 'owner',
       teamId: 't',
       archivedAt: { $exists: false },
       watcherIds: 'owner',
+    })
+    // A teammate watching this conversation has no read marker on it.
+    await countUnreadConversations('teammate', 't')
+    expect(conversations.lastCountFilter).toMatchObject({
+      userId: 'teammate',
+      watcherIds: 'teammate',
     })
   })
 })

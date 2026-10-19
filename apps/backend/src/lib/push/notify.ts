@@ -7,6 +7,7 @@ import { sendAndroidAlert, sendAndroidBadge } from './badge'
 import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
 import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
+import { watcherCanRead } from './watchers'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
 import type { PushDevice, PushDeviceStore } from './devices'
@@ -26,10 +27,9 @@ export type NotifiableRun = {
   trace?: { userId: string; teamId?: string }
 }
 
-export type PushConversation = {
+export type PushConversation = Parameters<typeof watcherCanRead>[0] & {
   title?: string
   firstMessage?: string
-  teamId?: string
   watcherIds?: string[]
 }
 
@@ -47,6 +47,7 @@ export type TurnNotifierDeps = {
     since: Date,
   ) => Promise<number | null>
   unreadCount: (userId: string) => Promise<number>
+  canRead: (conversation: PushConversation, userId: string) => Promise<boolean>
   schedule: (work: () => void, delayMs: number) => void
   now: () => number
 }
@@ -147,6 +148,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     // Only the people watching a session hear about it; see watch.ts.
     await Promise.all(
       (conversation?.watcherIds ?? []).map(async (userId) => {
+        if (!(await deps.canRead(conversation!, userId))) return
         const devices = (await deps.devices.listForUser(userId)).filter((device) =>
           device.platform === 'ios'
             ? Boolean(deps.credentials())
@@ -263,6 +265,7 @@ function defaultNotifier() {
     conversation: getConversationBySessionId,
     proposedPlanNumber: findProposedPlanNumberForConversation,
     unreadCount: (userId) => countUnreadConversations(userId),
+    canRead: (conversation, userId) => watcherCanRead(conversation, userId),
     schedule: (work, delayMs) => {
       setTimeout(work, delayMs).unref()
     },

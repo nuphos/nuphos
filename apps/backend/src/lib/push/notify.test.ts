@@ -59,6 +59,7 @@ let planNumber: number | null
 let unread: number
 let scheduled: { work: () => void; delayMs: number }[]
 let watchers: Record<string, string[]>
+let lostAccess: string[]
 
 function notifier(overrides: Partial<TurnNotifierDeps> = {}) {
   const store: PushDeviceStore = {
@@ -79,12 +80,14 @@ function notifier(overrides: Partial<TurnNotifierDeps> = {}) {
       return responses[request.deviceToken] ?? { status: 200 }
     },
     conversation: async (sessionId) => ({
+      userId: 'owner-1',
       title: 'Clear the cache',
       teamId: 'team-from-doc',
       watcherIds: watchers[sessionId] ?? ['user-1'],
     }),
     proposedPlanNumber: async () => planNumber,
     unreadCount: async () => unread,
+    canRead: async (_conversation, userId) => !lostAccess.includes(userId),
     schedule: (work, delayMs) => {
       scheduled.push({ work, delayMs })
     },
@@ -104,6 +107,7 @@ beforeEach(() => {
   unread = 3
   scheduled = []
   watchers = {}
+  lostAccess = []
 })
 
 describe('turn notifier', () => {
@@ -133,6 +137,15 @@ describe('turn notifier', () => {
     await notifier().runEnded(run())
 
     expect(sent.map((r) => r.deviceToken)).toEqual(['theirs'])
+  })
+
+  test('skips a watcher who can no longer read the session', async () => {
+    devices = [device('mine'), device('theirs', 'user-2')]
+    watchers['session-1'] = ['user-1', 'user-2']
+    lostAccess = ['user-2']
+    await notifier().runEnded(run())
+
+    expect(sent.map((r) => r.deviceToken)).toEqual(['mine'])
   })
 
   test('is a no-op without APNs credentials', async () => {
@@ -218,6 +231,7 @@ describe('turn notifier', () => {
   test('falls back to the conversation team and first message', async () => {
     await notifier({
       conversation: async () => ({
+        userId: 'owner-1',
         title: '',
         firstMessage: 'why is prod slow',
         teamId: 'team-2',

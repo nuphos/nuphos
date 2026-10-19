@@ -46,7 +46,11 @@ export async function markConversationRead(
   return conversationReadState(updated ?? current)
 }
 
-/** The app badge: the owner's unread conversations they watch, archived ones excluded. */
+/**
+ * The app badge: the owner's unread conversations they watch, archived ones
+ * excluded. Read markers are the owner's alone, so a teammate's conversation
+ * a user watches alerts them but never counts here.
+ */
 export async function countUnreadConversations(userId: string, teamId?: string): Promise<number> {
   return await agentConversations().countDocuments({
     userId,
