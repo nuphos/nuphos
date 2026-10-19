@@ -2,8 +2,7 @@
 // NDJSON protocol, never pod logs. stdin carries the `code#state` the user pastes back
 // (`_openab/runtime/login/input`). The credential stays in this container's
 // `~/.claude/.credentials.json`, where the agent reads it; no frame carries it.
-import { spawn } from 'node:child_process'
-import { stat } from 'node:fs/promises'
+import { execFile, spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
@@ -31,6 +30,24 @@ export function isAuthorizationCode(line) {
   return CODE_LINE.test(line)
 }
 
+/** Claude's own answer to whether this environment is signed in. */
+function signedIn(executable, args, env) {
+  return new Promise((resolve) => {
+    execFile(
+      executable,
+      [...args, 'auth', 'status', '--json'],
+      { env, timeout: 15_000 },
+      (_error, stdout) => {
+        try {
+          resolve(JSON.parse(stdout).loggedIn === true)
+        } catch {
+          resolve(false)
+        }
+      },
+    )
+  })
+}
+
 class LoginError extends Error {
   constructor(reason) {
     super(reason)
@@ -51,22 +68,26 @@ export async function runClaudeLogin({
   home,
   configDir = join(home, '.claude'),
   secureStorageConfigDir,
+  user,
   input = process.stdin,
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   signal,
 }) {
+  // Not the gateway's environment: no transport keys, and no CLAUDE_CODE_OAUTH_TOKEN,
+  // which would shadow the login this writes. USER names the macOS Keychain account the
+  // login is stored under; without it Claude stores it where the agent never looks.
+  const env = {
+    HOME: home,
+    PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+    TERM: 'dumb',
+    CLAUDE_CONFIG_DIR: configDir,
+    ...(secureStorageConfigDir !== undefined
+      ? { CLAUDE_SECURESTORAGE_CONFIG_DIR: secureStorageConfigDir }
+      : {}),
+    ...(user ? { USER: user, LOGNAME: user } : {}),
+  }
   const child = spawn(executable, [...args, 'auth', 'login', '--claudeai'], {
-    // Not the gateway's environment: no transport keys, and no CLAUDE_CODE_OAUTH_TOKEN,
-    // which would shadow the login this writes.
-    env: {
-      HOME: home,
-      PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
-      TERM: 'dumb',
-      CLAUDE_CONFIG_DIR: configDir,
-      ...(secureStorageConfigDir !== undefined
-        ? { CLAUDE_SECURESTORAGE_CONFIG_DIR: secureStorageConfigDir }
-        : {}),
-    },
+    env,
     stdio: ['pipe', 'pipe', 'ignore'],
     detached: process.platform !== 'win32',
   })
@@ -119,12 +140,8 @@ export async function runClaudeLogin({
 
     if (failure) throw failure
     if (code !== 0) throw new LoginError('failed')
-    // macOS keeps the login in the Keychain, so only a file-backed login is checked.
-    if (process.platform !== 'darwin') {
-      const credential = await stat(join(configDir, '.credentials.json')).catch(() => null)
-
-      if (!credential?.isFile() || credential.size === 0) throw new LoginError('failed')
-    }
+    // The same check the agent's host runs, with the same environment, on every platform.
+    if (!(await signedIn(executable, args, env))) throw new LoginError('failed')
     emit({ type: 'authenticated' })
   } finally {
     lines.removeAllListeners('close')
@@ -144,6 +161,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       home: process.env.HOME ?? '/home/node',
       configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
       secureStorageConfigDir: process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+      user: process.env.USER || process.env.LOGNAME,
       signal: controller.signal,
     })
   } catch (error) {

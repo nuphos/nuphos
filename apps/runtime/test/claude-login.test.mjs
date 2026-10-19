@@ -16,28 +16,30 @@ const onManagedRuntime =
   process.env.HOME?.startsWith('/home/node') === true &&
   Object.keys(process.env).some((name) => name.startsWith('NUPHOS_RUNTIME'))
 const spawnsCli = { skip: onManagedRuntime && 'never spawns a sign-in on a managed runtime' }
-// The wrapper only checks for a credential file off macOS; there the Keychain holds it.
-const checksCredentialFile = {
-  skip:
-    spawnsCli.skip ||
-    (process.platform === 'darwin' && 'macOS keeps the login in the Keychain, not in a file'),
-}
 
 const URL_LINE =
   "If the browser didn't open, visit: https://claude.com/cai/oauth/authorize?code=true&client_id=c&redirect_uri=https%3A%2F%2Fplatform.claude.com%2Foauth%2Fcode%2Fcallback&state=s\n"
 
 // What `claude auth login --claudeai` does without a TTY in the pinned CLI: print the
-// manual URL, then read `code#state` lines from stdin and store the credential. The
+// manual URL, then read `code#state` lines from stdin and store the credential under
+// USER, as the macOS Keychain does; `auth status` finds it only for that same USER. The
 // fixture stores it at the path the test passes as its first argument, never anywhere
 // its environment points: in a managed runtime HOME is the runtime's real sign-in, and
 // a test run there once overwrote it (NUPS-1172). A wrapper that leaked the wrong HOME
 // or CLAUDE_CONFIG_DIR is caught by the recorded values, not by a file landing in the
 // real login.
 const FAKE_CLI = `
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createInterface } from 'node:readline';
 const target = process.argv[2];
+const user = process.env.USER ?? null;
+if (process.argv.slice(-3).join(' ') === 'auth status --json') {
+  let loggedIn = false;
+  try { loggedIn = JSON.parse(readFileSync(target, 'utf8')).user === user; } catch {}
+  process.stdout.write(JSON.stringify({ loggedIn }));
+  process.exit(loggedIn ? 0 : 1);
+}
 if (process.argv.slice(-3).join(' ') !== 'auth login --claudeai') process.exit(2);
 process.stdout.write('Opening browser to sign in\\u2026\\n' + ${JSON.stringify(URL_LINE)} + 'Paste code here if prompted > ');
 createInterface({ input: process.stdin }).on('line', (line) => {
@@ -45,7 +47,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   if (line !== 'good-code#state') process.exit(4);
   if (process.env.SKIP_WRITE !== '1') {
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, JSON.stringify({ env: Object.keys(process.env), home: process.env.HOME, configDir: process.env.CLAUDE_CONFIG_DIR }));
+    writeFileSync(target, JSON.stringify({ env: Object.keys(process.env), home: process.env.HOME, configDir: process.env.CLAUDE_CONFIG_DIR, user }));
   }
   process.stdout.write('Login successful.\\n');
   process.exit(0);
@@ -182,7 +184,7 @@ test(
 
 test(
   'a credential that only exists in the ambient config dir does not count as a sign-in',
-  checksCredentialFile,
+  spawnsCli,
   async () => {
     const { home, script } = await fixture()
     const ambient = join(home, 'ambient-config')
@@ -232,7 +234,7 @@ test(
 
 test(
   'a CLI that exits cleanly without storing a credential is not a sign-in',
-  checksCredentialFile,
+  spawnsCli,
   async () => {
     const { home, script } = await fixture()
     const input = new PassThrough()
@@ -282,6 +284,7 @@ test(
             CLAUDE_CODE_EXECUTABLE: executable,
             CLAUDE_CONFIG_DIR: configDir,
             CLAUDE_SECURESTORAGE_CONFIG_DIR: configDir,
+            USER: 'nuphos-test-user',
           },
           stdio: ['pipe', 'pipe', 'inherit'],
         },
@@ -300,6 +303,8 @@ test(
       assert.equal(stored.home, home)
       assert.equal(stored.configDir, configDir)
       assert.ok(stored.env.includes('CLAUDE_SECURESTORAGE_CONFIG_DIR'))
+      // The login is stored for the account the agent's own status check looks under.
+      assert.equal(stored.user, 'nuphos-test-user')
     } finally {
       await rm(home, { recursive: true, force: true })
     }

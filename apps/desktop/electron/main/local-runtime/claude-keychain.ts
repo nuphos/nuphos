@@ -1,6 +1,5 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import os from 'node:os'
 
 /** The Keychain entry Claude keeps a sign-in in, selected by its secure-storage dir. */
 export function claudeKeychainService(env: NodeJS.ProcessEnv): string {
@@ -13,16 +12,20 @@ export function claudeKeychainService(env: NodeJS.ProcessEnv): string {
   }`
 }
 
-/** Drops an added agent's own Keychain entry; the default sign-in is never selected here. */
+/** Drops every Keychain entry of an added agent; the default sign-in is never selected here.
+ *  The service names that agent alone, whatever account a sign-in stored the entry under. */
 export async function deleteClaudeKeychainEntry(env: NodeJS.ProcessEnv): Promise<void> {
   if (process.platform !== 'darwin' || !env.CLAUDE_SECURESTORAGE_CONFIG_DIR) return
-  await new Promise<void>((resolve) => {
-    execFile(
-      '/usr/bin/security',
-      ['delete-generic-password', '-a', os.userInfo().username, '-s', claudeKeychainService(env)],
-      { timeout: 15_000 },
-      // Nothing stored yet is the same outcome.
-      () => resolve(),
-    )
-  })
+  const service = claudeKeychainService(env)
+
+  // Each call deletes one matching entry; a failure means none is left.
+  for (let deleted = true, left = 8; deleted && left > 0; left -= 1)
+    deleted = await new Promise<boolean>((resolve) => {
+      execFile(
+        '/usr/bin/security',
+        ['delete-generic-password', '-s', service],
+        { timeout: 15_000 },
+        (error) => resolve(!error),
+      )
+    })
 }
