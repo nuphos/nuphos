@@ -1,11 +1,11 @@
 // Where the session token is kept. On macOS it is a generic password in the
-// login keychain, the same item the CLI reads and writes
-// (`apps/cli/src/secret.rs`), so cli.yaml keeps only who is signed in.
-// Elsewhere the token stays in cli.yaml (mode 0600) until those platforms get
-// a store both clients can share.
+// login keychain, so desktop.yaml keeps only who is signed in. This app and
+// the CLI (`apps/cli/src/secret.rs`) each keep their own item: macOS trusts an
+// item's creator, so neither asks when it reads its own. Elsewhere the token
+// stays in the file (mode 0600).
 
-/** Shared with the CLI; the account names the user and backend. */
-export const KEYCHAIN_SERVICE = 'ai.nuphos.session'
+/** This app's item; the account names the user and backend. The CLI's is `ai.nuphos.cli.session`. */
+export const KEYCHAIN_SERVICE = 'ai.nuphos.desktop.session'
 
 export type TokenStore = {
   get: (account: string) => Promise<string | null>

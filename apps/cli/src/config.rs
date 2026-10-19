@@ -1,7 +1,8 @@
-//! Sign-in and preferences on disk. The sign-in file is the one the desktop app
-//! writes (`~/.config/nuphos/cli.yaml`), so signing in or out in either client
-//! applies to both. The token itself is in the keychain where there is one
-//! (`secret.rs`); the file names the item.
+//! Sign-in and preferences on disk. The CLI's sign-in is `~/.config/nuphos/cli.yaml`
+//! and the desktop app's is `desktop.yaml` beside it; each signs in and out on
+//! its own, and `nuphos login` starts from the desktop's sign-in when there is
+//! one. The token itself is in the keychain where there is one (`secret.rs`);
+//! the file names the item.
 
 use std::collections::HashMap;
 use std::fs;
@@ -15,7 +16,7 @@ use crate::secret;
 
 const DEFAULT_API_URL: &str = "https://api.nuphos.ai";
 
-/// The desktop's `Config` (`apps/desktop/electron/auth/config.ts`).
+/// As the desktop's `Config` (`apps/desktop/electron/auth/config.ts`).
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Session {
     /// Filled from the keychain by `read_session`; written to the file only
@@ -64,6 +65,44 @@ fn home() -> PathBuf {
 /// `NUPHOS_CLI_CONFIG` or `~/.config/nuphos/cli.yaml`, as on the desktop.
 pub fn session_path() -> PathBuf {
     std::env::var_os("NUPHOS_CLI_CONFIG").map(PathBuf::from).unwrap_or_else(|| home().join(".config/nuphos/cli.yaml"))
+}
+
+/// The desktop app's sign-in beside this one: `cli.yaml` → `desktop.yaml`,
+/// `cli.dev.yaml` → `desktop.dev.yaml` (`apps/desktop/electron/cli-config-path.ts`).
+pub fn desktop_session_path() -> PathBuf {
+    sibling(&session_path(), "desktop")
+}
+
+fn sibling(path: &std::path::Path, name: &str) -> PathBuf {
+    let base = path.file_name().and_then(|n| n.to_str()).unwrap_or("cli.yaml");
+    let file = match base.strip_prefix("cli") {
+        Some(rest) => format!("{name}{rest}"),
+        None => format!("{}.{name}.yaml", base.trim_end_matches(".yaml").trim_end_matches(".yml")),
+    };
+    path.with_file_name(file)
+}
+
+/// The desktop app's sign-in, to start the CLI's from. Reading its token from
+/// the keychain is what makes macOS ask once.
+pub fn read_desktop_session() -> Option<Session> {
+    let text = fs::read_to_string(desktop_session_path()).ok()?;
+    let mut session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
+    if session.token.is_none() {
+        session.token = secret::desktop_token(session.keychain_account.as_deref()?).ok().flatten();
+    }
+    session.keychain_account = None;
+    session.token.is_some().then_some(session)
+}
+
+/// Whether the desktop app is signed in, without reading its token.
+pub fn desktop_signed_in() -> Option<String> {
+    let text = fs::read_to_string(desktop_session_path()).ok()?;
+    let session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
+    if session.token.is_none() && session.keychain_account.is_none() {
+        return None;
+    }
+    let user = session.user_info.as_ref().and_then(|u| u["email"].as_str()).map(String::from);
+    Some(user.or(session.user).unwrap_or_else(|| "you".into()))
 }
 
 /// Paired with the sign-in file (`cli.yaml` → `cli.api-url`).
@@ -219,7 +258,19 @@ fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Prefs, Session};
+    use std::path::Path;
+
+    use super::{sibling, Prefs, Session};
+
+    #[test]
+    fn the_desktop_sign_in_sits_beside_the_cli_one() {
+        assert_eq!(
+            sibling(Path::new("/h/.config/nuphos/cli.yaml"), "desktop"),
+            Path::new("/h/.config/nuphos/desktop.yaml")
+        );
+        assert_eq!(sibling(Path::new("/d/cli.dev.yaml"), "desktop"), Path::new("/d/desktop.dev.yaml"));
+        assert_eq!(sibling(Path::new("/d/session.yaml"), "desktop"), Path::new("/d/session.desktop.yaml"));
+    }
 
     #[test]
     fn a_keychain_session_names_the_item_and_reads_the_desktop_file() {

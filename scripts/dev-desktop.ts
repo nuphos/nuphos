@@ -181,6 +181,9 @@ export async function startDesktop() {
       NUPHOS_API_URL: apiUrl,
       NUPHOS_LAUNCHER_HEALTH: '1',
       NUPHOS_CLI_CONFIG: DEV_CLI_CONFIG,
+      // A dev sign-in stays in its file: the unsigned dev Electron would leave
+      // a keychain item per instance and backend behind.
+      NUPHOS_INSECURE_STORAGE: '1',
       ATLAS_WT_BADGE: INSTANCE,
       ATLAS_DEV_SUFFIX: DESKTOP_SUFFIX,
       ATLAS_DEV_CDP_PORT: String(cdp),

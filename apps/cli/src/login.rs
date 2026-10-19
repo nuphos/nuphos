@@ -13,7 +13,9 @@ use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
+use crate::api::Api;
 use crate::config::{self, Session};
+use crate::render::clean;
 
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 const REDEEM_INTERVAL: Duration = Duration::from_millis(1500);
@@ -24,9 +26,51 @@ fn random(len: usize) -> String {
     URL_SAFE_NO_PAD.encode(bytes)
 }
 
-/// Signs in through the browser and saves the session where the desktop app
-/// reads it.
+/// Signs in with the desktop app's session when it has one, else through the
+/// browser, and saves the CLI's own session.
 pub async fn login(api_url: &str) -> Result<Session> {
+    if let Some(session) = from_desktop(api_url).await {
+        return Ok(session);
+    }
+    browser(api_url).await
+}
+
+/// The desktop app's session, copied once into the CLI's own: macOS asks once
+/// whether the CLI may read the desktop's keychain item, and never again
+/// after, since each then reads only its own. Checked with `/auth/me`, so a
+/// stale desktop session falls back to the browser.
+async fn from_desktop(api_url: &str) -> Option<Session> {
+    let who = config::desktop_signed_in()?;
+    eprintln!("Signing in as {} from Nuphos Desktop; macOS may ask once to allow it.", clean(&who));
+    let Some(token) = config::read_desktop_session().and_then(|s| s.token) else {
+        eprintln!("Could not read the desktop sign-in; continuing in the browser.");
+        return None;
+    };
+    let me = match Api::new(api_url.to_string(), token.clone()).me().await {
+        Ok(me) => me,
+        Err(e) => {
+            eprintln!("The desktop sign-in did not work here ({e}); continuing in the browser.");
+            return None;
+        }
+    };
+    let session = Session {
+        token: Some(token),
+        user: me["name"].as_str().map(String::from),
+        username: me["username"].as_str().map(String::from),
+        user_info: Some(me),
+        keychain_account: None,
+    };
+    match config::write_session(&session) {
+        Ok(()) => Some(session),
+        Err(e) => {
+            eprintln!("Could not save the sign-in ({e:#}); continuing in the browser.");
+            None
+        }
+    }
+}
+
+/// Signs in through the browser.
+async fn browser(api_url: &str) -> Result<Session> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
     let client_state = random(16);

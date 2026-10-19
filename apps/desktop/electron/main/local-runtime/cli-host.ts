@@ -82,7 +82,7 @@ const log = (message: string, data?: Record<string, unknown>) => {
 let lastSummary = ''
 let stopping = false
 
-/** The session in cli.yaml now: signing out here or in the app empties it. */
+/** The CLI's session in cli.yaml now: `nuphos logout` empties it. */
 const currentToken = () => readSessionToken(CLI_CONFIG_PATH)
 
 // API calls go out with the session, read as above.

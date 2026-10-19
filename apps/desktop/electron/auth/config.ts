@@ -5,7 +5,7 @@ import yaml from 'js-yaml'
 
 import { apiUrl } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
-import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
+import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 
@@ -36,24 +36,27 @@ type ConfigFileDeps = {
   secure: () => boolean
   apiUrl: () => string
   onToken: (token: string | null) => void
+  /** The CLI's cli.yaml, which this app shared before it had its own file. */
+  legacyPath?: string
 }
 
-/** The sign-in file shared with the CLI, with its token in the keychain where there is one. */
+/** This app's sign-in file, with its token in the keychain where there is one. */
 export function configFile(deps: ConfigFileDeps) {
   // The token last read or written, valid while the file is unchanged, so
   // reading the config per request does not reach the keychain each time.
   let cached: { stamp: string; account: string; token: string } | null = null
 
-  async function readFile(): Promise<{ cfg: Config; stamp: string }> {
+  async function readFile(): Promise<{ cfg: Config; stamp: string; exists: boolean }> {
     try {
       const [data, stat] = await Promise.all([fs.readFile(deps.path, 'utf-8'), fs.stat(deps.path)])
 
       return {
         cfg: (yaml.load(data) as Config | null) || {},
         stamp: `${String(stat.mtimeMs)}:${data}`,
+        exists: true,
       }
     } catch {
-      return { cfg: {}, stamp: '' }
+      return { cfg: {}, stamp: '', exists: false }
     }
   }
 
@@ -116,9 +119,45 @@ export function configFile(deps: ConfigFileDeps) {
     deps.onToken(cfg.token ?? null)
   }
 
-  async function read(): Promise<Config> {
-    const { cfg, stamp } = await readFile()
+  /**
+   * Before this app had its own file it shared cli.yaml with the CLI: start
+   * from that sign-in, once. Where the token goes to the keychain it leaves
+   * cli.yaml as well, and `nuphos login` then takes it from here.
+   */
+  async function adopt(): Promise<boolean> {
+    if (!deps.legacyPath) return false
+    let legacy: Config
 
+    try {
+      legacy = (yaml.load(await fs.readFile(deps.legacyPath, 'utf-8')) as Config | null) ?? {}
+    } catch {
+      return false
+    }
+    if (!legacy.token) return false
+    await write({
+      token: legacy.token,
+      user: legacy.user,
+      username: legacy.username,
+      userInfo: legacy.userInfo,
+    })
+    if (deps.secure()) {
+      await fs.writeFile(
+        deps.legacyPath,
+        yaml.dump({ ...legacy, token: undefined }, { skipInvalid: true }),
+        {
+          encoding: 'utf-8',
+          mode: 0o600,
+        },
+      )
+    }
+
+    return true
+  }
+
+  async function read(): Promise<Config> {
+    const { cfg, stamp, exists } = await readFile()
+
+    if (!exists && (await adopt().catch(() => false))) return read()
     if (cfg.token) {
       // Signed in before the keychain, or by a client without it: move it there.
       if (deps.secure()) {
@@ -153,7 +192,8 @@ export function configFile(deps: ConfigFileDeps) {
 }
 
 const defaultConfigFile = configFile({
-  path: CLI_CONFIG_PATH,
+  path: DESKTOP_CONFIG_PATH,
+  legacyPath: CLI_CONFIG_PATH,
   store: keychainStore,
   secure: () => secureStorageEnabled(),
   apiUrl,

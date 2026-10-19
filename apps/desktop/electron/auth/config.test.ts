@@ -16,7 +16,8 @@ const ACCOUNT = 'u1@https://api.nuphos.ai'
 
 async function harness({ secure = true, failSet = false } = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-config-'))
-  const file = path.join(dir, 'cli.yaml')
+  const file = path.join(dir, 'desktop.yaml')
+  const legacy = path.join(dir, 'cli.yaml')
   const items = new Map<string, string>()
   const calls: string[] = []
   const store: TokenStore = {
@@ -46,10 +47,12 @@ async function harness({ secure = true, failSet = false } = {}) {
     secure: () => secure,
     apiUrl: () => 'https://api.nuphos.ai/',
     onToken: (token) => tokens.push(token),
+    legacyPath: legacy,
   })
-  const onDisk = async () => yaml.load(await fs.readFile(file, 'utf8')) as Record<string, unknown>
+  const onDisk = async (at = file) =>
+    yaml.load(await fs.readFile(at, 'utf8')) as Record<string, unknown>
 
-  return { config, file, items, calls, tokens, onDisk }
+  return { config, file, legacy, items, calls, tokens, onDisk }
 }
 
 test('a sign-in keeps the token in the keychain and only names it in the file', async () => {
@@ -144,4 +147,36 @@ test('another user replaces the previous keychain item', async () => {
   await h.config.write({ token: 'tok-9', userInfo: { ...USER, id: 'u9' } })
 
   assert.deepEqual([...h.items], [['u9@https://api.nuphos.ai', 'tok-9']])
+})
+
+test('the first run starts from the sign-in shared with the CLI, and takes the token out of cli.yaml', async () => {
+  const h = await harness()
+
+  await fs.writeFile(h.legacy, yaml.dump({ token: 'tok-old', user: 'Bruce', userInfo: USER }))
+
+  assert.equal((await h.config.read()).token, 'tok-old')
+  assert.equal(h.items.get(ACCOUNT), 'tok-old')
+  assert.deepEqual(await h.onDisk(), { keychainAccount: ACCOUNT, user: 'Bruce', userInfo: USER })
+  assert.deepEqual(await h.onDisk(h.legacy), { user: 'Bruce', userInfo: USER })
+})
+
+test('without a keychain the shared sign-in is copied and the CLI keeps its own', async () => {
+  const h = await harness({ secure: false })
+
+  await fs.writeFile(h.legacy, yaml.dump({ token: 'tok-old', userInfo: USER }))
+
+  assert.equal((await h.config.read()).token, 'tok-old')
+  assert.deepEqual(await h.onDisk(), { token: 'tok-old', userInfo: USER })
+  assert.deepEqual(await h.onDisk(h.legacy), { token: 'tok-old', userInfo: USER })
+})
+
+test('signing out of the app does not pick the CLI sign-in up again', async () => {
+  const h = await harness({ secure: false })
+
+  await fs.writeFile(h.legacy, yaml.dump({ token: 'tok-cli', userInfo: USER }))
+  await h.config.read()
+  await h.config.write({})
+
+  assert.equal((await h.config.read()).token, undefined)
+  assert.equal((await h.onDisk(h.legacy)).token, 'tok-cli')
 })

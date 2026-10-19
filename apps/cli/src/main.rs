@@ -96,9 +96,9 @@ enum Command {
         #[arg(long, value_name = "TOKEN")]
         join: Option<String>,
     },
-    /// Sign in through the browser (shared with the desktop app).
+    /// Sign in, from Nuphos Desktop's sign-in when there is one, else through the browser.
     Login,
-    /// Sign out here and in the desktop app.
+    /// Sign out of the CLI (Nuphos Desktop stays signed in).
     Logout,
     /// Show the sign-in, or print its token for scripts.
     Auth {
@@ -273,7 +273,7 @@ async fn sign_in(interactive: bool) -> Result<(Api, Value, Vec<Value>)> {
         }
     }
     if !interactive {
-        bail!("not signed in; run `nuphos login` (the sign-in is shared with the desktop app)");
+        bail!("not signed in; run `nuphos login` (it can use Nuphos Desktop's sign-in)");
     }
     let session = login::login(&api_url).await?;
     let api = Api::new(api_url, session.token.unwrap_or_default());
