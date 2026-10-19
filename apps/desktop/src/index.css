@@ -1265,7 +1265,7 @@
     }
   }
 
-  /* transitions.dev toast: the running-shells line rising into its reserved slot under the composer. */
+  /* transitions.dev toast: the running-shells chip rising into the composer toolbar. */
   .t-toast {
     opacity: 0;
     transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
@@ -1284,6 +1284,14 @@
       opacity var(--toast-open) var(--toast-ease),
       transform var(--toast-open) var(--toast-ease),
       filter var(--toast-open) var(--toast-ease);
+  }
+  /* Mounted already open, the chip still rises in from the toast's resting offset. */
+  @starting-style {
+    .t-toast.is-open {
+      opacity: 0;
+      transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+      filter: blur(var(--toast-blur));
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

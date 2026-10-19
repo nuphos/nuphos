@@ -153,9 +153,10 @@ export function Composer({
       className={clsx(
         // The in-conversation composer needs room for its shadow to fall and
         // clearance from the pane edges; 4px left it wedged into the corner.
-        // Docked, it takes the left sidebar's inset instead. Its bottom gap is
-        // the running-shells slot below the box.
-        hero ? '' : sidebar ? 'px-2.5' : 'px-3',
+        // Docked, it takes the left sidebar's inset instead, and its bottom gap
+        // matches the content card's own (`pb-2` on the main pane) so the two
+        // columns end on the same line.
+        hero ? '' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
       )}
     >
       <div
@@ -256,6 +257,7 @@ export function Composer({
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && <RuntimeSelector {...runtimeControl} />}
+              <ShellsPanel snapshot={runtimeState} />
             </div>
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />
@@ -276,7 +278,6 @@ export function Composer({
             />
           </div>
         </div>
-        {!hero && <ShellsPanel snapshot={runtimeState} />}
       </div>
     </div>
   )
