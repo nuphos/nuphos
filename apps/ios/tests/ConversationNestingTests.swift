@@ -7,6 +7,7 @@ enum ConversationNestingTests {
         anUnlistedOrPinnedParentLeavesTheRowTopLevel()
         aRefreshKeepsLaterRowsInPlace()
         aThreadNestsUnderAParentFromALaterPage()
+        theSubtreeCrossesAnAlreadyUnwatchedThread()
         print("Conversation nesting passed")
     }
 
@@ -26,6 +27,14 @@ enum ConversationNestingTests {
         precondition(rows.map(\.id) == ["parent", "child-b", "child-a", "grandchild", "other"])
         precondition(rows.map(\.trail) == [[], [true], [false], [false, false], []])
         precondition(rows.map(\.threads) == [3, 0, 1, 0, 0])
+    }
+
+    /// Unwatching A reaches C through B, though B was already unwatched.
+    private static func theSubtreeCrossesAnAlreadyUnwatchedThread() {
+        var a = row("a"), b = row("b", parent: "a"), c = row("c", parent: "b")
+        a.watching = true; b.watching = false; c.watching = true
+        precondition(ConversationNesting.subtree(of: "a", in: [c, a, b, row("other")]) == ["a", "b", "c"])
+        precondition(ConversationNesting.subtree(of: "b", in: [a, b, c]) == ["b", "c"])
     }
 
     private static func foldingHidesTheSubtree() {
