@@ -7,12 +7,17 @@ import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
 import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from './credentialSections'
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
-import { useCredentialSections } from './credentialSelectorButtonHooks'
+import { useCredentialSections, usePersonalCredentials } from './credentialSelectorButtonHooks'
 import { CredentialSelectorSectionList } from './credentialSelectorButtonSections'
 
 import type { CredentialSelectorControl } from './credentialSections'
 
-type SelectorProps = CredentialSelectorControl & { hero: boolean; positionerClassName?: string }
+type SelectorProps = CredentialSelectorControl & {
+  hero: boolean
+  positionerClassName?: string
+  /** Offer the member's Personal Credentials as an identity per provider (composer only). */
+  personalIdentity?: boolean
+}
 
 export function CredentialSelectorButton(props: SelectorProps) {
   return (
@@ -32,9 +37,11 @@ function SelectionButton({
   onChange,
   hero,
   positionerClassName,
+  personalIdentity,
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices && menuOpen)
   const listedDevices = shownDevices(options.devices, value.deviceIds)
   const selectedCount = devices ? value.deviceIds.length : countSelectedCredentials(value)
   const totalCount = devices ? listedDevices.length : countTotalCredentials(options)
@@ -53,7 +60,12 @@ function SelectionButton({
     onChange(
       devices
         ? { ...value, deviceIds: select ? selectAllDevices(value.deviceIds, options.devices) : [] }
-        : { ...next, deviceIds: value.deviceIds },
+        : // Select all also restores the member's own identity; Clear all leaves it be.
+          {
+            ...next,
+            deviceIds: value.deviceIds,
+            ...(!select && value.teamIdentity ? { teamIdentity: value.teamIdentity } : {}),
+          },
     )
   }
 
@@ -151,6 +163,7 @@ function SelectionButton({
             sections={sections}
             value={value}
             unseen={unseen}
+            personal={personalIdentity && menuOpen ? personal : null}
             onChange={onChange}
           />
         )}

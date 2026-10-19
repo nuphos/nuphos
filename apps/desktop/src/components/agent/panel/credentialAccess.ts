@@ -2,8 +2,11 @@ import { pruneSelectionToAvailable } from '../../../lib/credentialSelection'
 
 import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants'
 import { usableDeviceIds } from './credentialSections'
+import { keepTeamIdentity, teamIdentityOf } from './personalIdentity'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
+
+type AccessKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity'>
 
 export function normalizeCredentialAccess(
   value: Partial<AgentCredentialSelection> | null | undefined,
@@ -40,6 +43,7 @@ export function normalizeCredentialAccess(
     upstashAccountIds: value?.upstashAccountIds ?? [],
     cloudflareAccountIds: value?.cloudflareAccountIds ?? [],
     deviceIds: value?.deviceIds ?? [],
+    ...teamIdentityOf(value),
   }
 }
 
@@ -118,6 +122,7 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     upstashAccountIds: sortedIds(value.upstashAccountIds),
     cloudflareAccountIds: sortedIds(value.cloudflareAccountIds),
     deviceIds: sortedIds(value.deviceIds),
+    teamIdentity: sortedIds(value.teamIdentity ?? []),
   })
 }
 
@@ -193,17 +198,17 @@ export function defaultCredentialAccess(options: AgentCredentialOptions): AgentC
   }
 }
 
-// Drop any selected credential ids that are no longer present in the available
-// options — e.g. a connector deleted since this conversation last ran. Reuses
-// `allCredentialAccess` (not `defaultCredentialAccess`) as the source of
-// currently-valid ids per provider, so this stays correct as providers are
-// added and an explicitly-enabled Resend binding survives a refresh instead of
-// being pruned away.
+// Drop selected ids no longer in the options (e.g. a connector deleted since
+// this conversation last ran). `allCredentialAccess`, not the default, is the
+// source of valid ids, so an explicitly-enabled Resend binding survives a
+// refresh. teamIdentity is identity, not access, and is kept as is.
 export function pruneCredentialAccessToOptions(
   access: AgentCredentialSelection,
   options: AgentCredentialOptions,
 ): AgentCredentialSelection {
-  return pruneSelectionToAvailable(access, allCredentialAccess(options))
+  const pruned = pruneSelectionToAvailable<AccessKey>(access, allCredentialAccess(options))
+
+  return keepTeamIdentity(pruned, access)
 }
 
 // Options start out as a sentinel and are filled by an async fetch; pruning
@@ -225,7 +230,7 @@ export function reconcileStoredCredentialAccess(
   // switched on for every conversation that never made a choice.
   const normalized = normalizeCredentialAccess(stored ?? defaultCredentialAccess(options))
 
-  return pruneSelectionToAvailable(normalized, allCredentialAccess(options))
+  return pruneCredentialAccessToOptions(normalized, options)
 }
 
 export function emptyCredentialAccess(): AgentCredentialSelection {

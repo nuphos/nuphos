@@ -1,3 +1,5 @@
+import type { PersonalCredentialProvider } from '../types/team.ts'
+
 // Mirrors `AgentCredentialSelection` / `AgentCredentialOptions` in the
 // backend's routes/agent/types.ts.
 export type AgentCredentialSelection = {
@@ -32,6 +34,8 @@ export type AgentCredentialSelection = {
   upstashAccountIds: string[]
   cloudflareAccountIds: string[]
   deviceIds: string[]
+  /** Providers this conversation acts as the team on, despite the member's Personal Credential. */
+  teamIdentity?: PersonalCredentialProvider[]
 }
 
 export type AgentCredentialAccess = AgentCredentialSelection & {

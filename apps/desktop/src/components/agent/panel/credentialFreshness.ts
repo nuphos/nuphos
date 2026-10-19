@@ -1,6 +1,7 @@
 import type { AgentCredentialSelection } from '../../../api'
 
-type SelectionKey = keyof AgentCredentialSelection
+// teamIdentity is who the agent acts as, not an option that can be new.
+type SelectionKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity'>
 
 /** Options present in `available` that were not there when the selection was last saved. */
 export function unseenCredentials(

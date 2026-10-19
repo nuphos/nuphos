@@ -1,19 +1,40 @@
-import { CredentialSectionGroup } from './CredentialSectionGroup'
+import { CloudLogo } from '../../CloudLogo'
+import { MenuCheckboxItem } from '../../ui/menu'
 
-import type { CredentialSelectorControl } from './credentialSections'
+import { CredentialSectionGroup } from './CredentialSectionGroup'
+import { personalIdentityRow, setPersonalIdentity } from './personalIdentity'
+
+import type { CredentialSection, CredentialSelectorControl } from './credentialSections'
 import type { useCredentialSections } from './credentialSelectorButtonHooks'
+import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
 
 export function CredentialSelectorSectionList({
   sections,
   value,
   unseen,
+  personal,
   onChange,
 }: {
   sections: ReturnType<typeof useCredentialSections>
   value: CredentialSelectorControl['value']
   unseen: CredentialSelectorControl['unseen']
+  /** The member's Personal Credentials; null hides the identity rows. */
+  personal: PersonalCredential[] | null
   onChange: CredentialSelectorControl['onChange']
 }) {
+  const identityRow = (
+    provider: PersonalCredentialProvider,
+    providerSections: CredentialSection[],
+  ) =>
+    personal && providerSections.length > 0 ? (
+      <PersonalIdentityItem
+        provider={provider}
+        personal={personal}
+        value={value}
+        onChange={onChange}
+      />
+    ) : null
+
   return (
     <>
       <CredentialSectionGroup
@@ -112,6 +133,7 @@ export function CredentialSelectorSectionList({
         newIds={unseen?.linearWorkspaceIds}
         onChangeIds={(ids) => onChange({ ...value, linearWorkspaceIds: ids })}
       />
+      {identityRow('linear', sections.linearSections)}
       <CredentialSectionGroup
         sections={sections.jiraSections}
         selectedIds={value.jiraSiteIds}
@@ -158,6 +180,7 @@ export function CredentialSelectorSectionList({
         newIds={unseen?.githubInstallationIds}
         onChangeIds={(ids) => onChange({ ...value, githubInstallationIds: ids })}
       />
+      {identityRow('github', sections.githubSections)}
       <CredentialSectionGroup
         sections={sections.gitlabSections}
         selectedIds={value.gitlabBindingIds}
@@ -195,5 +218,35 @@ export function CredentialSelectorSectionList({
         onChangeIds={(ids) => onChange({ ...value, cloudflareAccountIds: ids })}
       />
     </>
+  )
+}
+
+// Whether the agent acts as the member or as the team on this provider. Not a
+// credential, so it sits under the provider's bindings and is never counted.
+function PersonalIdentityItem({
+  provider,
+  personal,
+  value,
+  onChange,
+}: {
+  provider: PersonalCredentialProvider
+  personal: PersonalCredential[]
+  value: CredentialSelectorControl['value']
+  onChange: CredentialSelectorControl['onChange']
+}) {
+  const row = personalIdentityRow(provider, personal, value)
+
+  if (!row) return null
+
+  return (
+    <MenuCheckboxItem
+      checked={row.checked}
+      onCheckedChange={(checked) => onChange(setPersonalIdentity(value, provider, checked))}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <CloudLogo provider={provider} size={14} />
+        <span className="min-w-0 flex-1 truncate text-[12.5px] text-main">{row.label}</span>
+      </span>
+    </MenuCheckboxItem>
   )
 }
