@@ -53,6 +53,8 @@ export type ClaudeCodeRuntimeDoc = {
   pairing?: RuntimePairing
   /** The device its pod joined as: dialled through that tunnel; `url` still pins conversations. */
   device?: LocalRuntimeRef
+  /** Envelope-encrypted join token that device's pod is started with. */
+  joinTokenEnvelope?: EncryptedEnvelope
   createdByUserId: string
   createdAt: Date
   updatedAt: Date

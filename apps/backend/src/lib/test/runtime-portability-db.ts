@@ -103,6 +103,14 @@ export function portabilityDb() {
 
       return { matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 }
     },
+    deleteMany: async (query: Doc) => {
+      const kept = rows(name).filter((doc) => !matches(doc, query))
+      const deletedCount = rows(name).length - kept.length
+
+      stores.set(name, kept)
+
+      return { deletedCount }
+    },
     deleteOne: async (query: Doc) => {
       const index = rows(name).findIndex((doc) => matches(doc, query))
 

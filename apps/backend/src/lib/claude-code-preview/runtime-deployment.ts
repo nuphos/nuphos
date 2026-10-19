@@ -23,6 +23,20 @@ export const DEFAULT_RUNTIME_SCHEDULING: RuntimeScheduling = {
   tolerations: [],
 }
 
+// openab's own port; a pod that joined as a device serves nothing there.
+const PROBES = {
+  readinessProbe: {
+    httpGet: { path: '/health', port: 8080 },
+    initialDelaySeconds: 5,
+    periodSeconds: 10,
+  },
+  livenessProbe: {
+    httpGet: { path: '/health', port: 8080 },
+    initialDelaySeconds: 15,
+    periodSeconds: 30,
+  },
+}
+
 export function hostedRuntimeDeploymentObject(args: {
   name: string
   teamId: string
@@ -33,6 +47,11 @@ export function hostedRuntimeDeploymentObject(args: {
   /** A disabled runtime keeps its volumes but runs no pod. */
   running: boolean
   scheduling?: RuntimeScheduling
+  /**
+   * Set when the pod joins as a device: it runs the CLI host, which dials `apiUrl` and serves
+   * nothing on 8080, and seeds the owner's agent home with the Claude login it already has.
+   */
+  join?: { apiUrl: string; ownerId: string }
 }): KubeObject {
   const { name } = args
   const secretName = runtimeAuthSecretName(args.teamId, args.runtimeId)
@@ -84,6 +103,16 @@ export function hostedRuntimeDeploymentObject(args: {
                 },
                 { name: 'OPENAB_RUNTIME_CONSOLE', value: 'false' },
                 { name: 'OPENAB_STREAM_EDIT_INTERVAL_MS', value: '300' },
+                ...(args.join
+                  ? [
+                      {
+                        name: 'NUPHOS_JOIN_TOKEN',
+                        valueFrom: { secretKeyRef: { name: secretName, key: 'NUPHOS_JOIN_TOKEN' } },
+                      },
+                      { name: 'NUPHOS_API_URL', value: args.join.apiUrl },
+                      { name: 'NUPHOS_AGENT_OWNER_ID', value: args.join.ownerId },
+                    ]
+                  : []),
                 {
                   name: 'RUST_LOG',
                   // The ACP prompt/permission/dispatch seams only explain their
@@ -120,16 +149,7 @@ export function hostedRuntimeDeploymentObject(args: {
                   ...(scheduling.cpuLimit ? { cpu: scheduling.cpuLimit } : {}),
                 },
               },
-              readinessProbe: {
-                httpGet: { path: '/health', port: 8080 },
-                initialDelaySeconds: 5,
-                periodSeconds: 10,
-              },
-              livenessProbe: {
-                httpGet: { path: '/health', port: 8080 },
-                initialDelaySeconds: 15,
-                periodSeconds: 30,
-              },
+              ...(args.join ? {} : PROBES),
             },
           ],
           volumes: [
