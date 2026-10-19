@@ -83,8 +83,10 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
     nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.desktop', { filter: 'box-device-1' }),
   },
   {
-    name: 'desktop',
-    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.desktop', { filter: '2' }),
+    name: 'desktop session screen on a Box',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.desktop', {
+      filter: 'box-device-1:2:sess-1',
+    }),
   },
   { name: 'browser', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.browser') },
   { name: 'monitoring', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.monitoring') },
@@ -661,13 +663,15 @@ test('legacy /chats paths resolve to the Agent page', () => {
   assert.equal(pageLocationForNavigation(reading!).href, `/teams/${T}/agent/sess-1`)
 })
 
-test('a desktop route without a target opens Agents, never a targetless desktop', () => {
+test('a desktop route opens only a Box; a bare display or no target opens Agents', () => {
   for (const path of [
     `/teams/${T}/desktop`,
     `/teams/${T}/desktop?url=https%3A%2F%2Fbox.example%2Fs`,
+    // A display names no session: it would open whichever chat is on screen.
+    `/teams/${T}/desktop/3`,
   ])
     assert.equal(navigationFromAppPath(path)?.active, 'team.agents')
-  assert.equal(navigationFromAppPath(`/teams/${T}/desktop/3`)?.filter, '3')
+  assert.equal(navigationFromAppPath(`/teams/${T}/desktop/box-1`)?.filter, 'box-1')
 })
 
 test('route table round-trips: produce → parse → produce is a fixed point', () => {

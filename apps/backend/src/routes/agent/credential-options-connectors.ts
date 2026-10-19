@@ -11,6 +11,7 @@ type ConnectorKeys =
   | 'notionIntegrations'
   | 'upstashAccounts'
   | 'posthogIntegrations'
+  | 'plaudAccounts'
   | 'cloudflareAccounts'
 
 export type ConnectorBindingsDoc = Pick<TeamByosBindings, ConnectorKeys>
@@ -24,6 +25,7 @@ export type ConnectorCredentialOptions = Pick<
   | 'notionIntegrations'
   | 'upstashAccounts'
   | 'posthogIntegrations'
+  | 'plaudAccounts'
   | 'cloudflareAccounts'
 >
 
@@ -35,6 +37,7 @@ export const emptyConnectorCredentialOptions = (): ConnectorCredentialOptions =>
   notionIntegrations: [],
   upstashAccounts: [],
   posthogIntegrations: [],
+  plaudAccounts: [],
   cloudflareAccounts: [],
 })
 
@@ -46,6 +49,7 @@ export const connectorCredentialOptionsProjection = {
   notionIntegrations: 1,
   upstashAccounts: 1,
   posthogIntegrations: 1,
+  plaudAccounts: 1,
   cloudflareAccounts: 1,
 } as const
 
@@ -105,6 +109,9 @@ export function connectorCredentialOptions(
       apiBaseUrl: binding.apiBaseUrl,
       projects: binding.projects.map((project) => ({ id: project.id, name: project.name })),
     }))
+  const plaudAccounts = (doc?.plaudAccounts ?? [])
+    .filter((binding) => canUseAllowList(binding.access?.memberAllowList, userId))
+    .map((binding) => ({ bindingId: binding.id.toHexString(), label: binding.label }))
   const cloudflareAccounts = (doc?.cloudflareAccounts ?? [])
     .filter((binding) => canUseAllowList(binding.access?.memberAllowList, userId))
     .map((binding) => ({
@@ -121,6 +128,7 @@ export function connectorCredentialOptions(
     notionIntegrations,
     upstashAccounts,
     posthogIntegrations,
+    plaudAccounts,
     cloudflareAccounts,
   }
 }

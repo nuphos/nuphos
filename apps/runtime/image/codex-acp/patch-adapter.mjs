@@ -1,5 +1,6 @@
 // codex-acp 1.1.4 has no session-scoped instructions/environment extension.
-// Patch only the three config handoffs in the locked upstream bundle. Fail
+// Patch the three config handoffs, and release the thread before a load or
+// resume so its config applies, in the locked upstream bundle. Fail
 // the build if its bytes change, so adapter upgrades require a reviewed port.
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -48,10 +49,36 @@ export function patchAdapter(source, helper) {
       '      _meta: { steering: { supported: true } },\n' + initializeAnchor,
     )
 
+  // A teammate's load must reach a thread this process already holds; see
+  // nuphosReleaseMovedThread. New threads record the home they started in.
+  const resumeCall = '    const response = await this.codexClient.threadResume({'
+  const startCall = '    const response = await this.codexClient.threadStart({'
+  const startAnchor =
+    '      cwd: request.cwd\n    });\n    const codexModels = await this.fetchAvailableModels();\n    if (codexModels.length === 0) {'
+  if (
+    withSteering.split(resumeCall).length !== 3 ||
+    withSteering.split(startCall).length !== 2 ||
+    withSteering.split(startAnchor).length !== 2
+  )
+    throw new Error('Expected Codex start, load and resume thread handoffs')
+  const resubscribing = withSteering
+    .replaceAll(
+      resumeCall,
+      '    await nuphosReleaseMovedThread(this.codexClient, request.sessionId, request._meta);\n' +
+        resumeCall,
+    )
+    .replace(
+      startAnchor,
+      startAnchor.replace(
+        '    });\n',
+        '    });\n    nuphosRememberThreadHome(response.thread.id, request._meta);\n',
+      ),
+    )
+
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.
   return patchRuntimeDefaults(
-    withSteering
+    resubscribing
       .replace(
         'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
         'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',

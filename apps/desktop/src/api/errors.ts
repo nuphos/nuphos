@@ -95,6 +95,7 @@ export function isNetworkError(e: unknown): boolean {
 
   return (
     raw.includes('fetch failed') ||
+    raw.includes('backend request failed') ||
     raw.includes('failed to fetch') ||
     raw.includes('networkerror when attempting to fetch resource') ||
     raw.includes('enotfound') ||
@@ -103,6 +104,8 @@ export function isNetworkError(e: unknown): boolean {
     raw.includes('etimedout') ||
     raw.includes('eai_again') ||
     raw.includes('getaddrinfo') ||
+    // Chromium's network stack (main-process net.fetch): net::ERR_CONNECTION_REFUSED, …
+    raw.includes('net::err_') ||
     raw.includes('operation was aborted') ||
     raw.includes('aborted due to timeout') ||
     raw.includes('timed out') ||

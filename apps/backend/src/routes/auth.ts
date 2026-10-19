@@ -6,6 +6,7 @@ import type { AuthVariables } from '@/middleware/auth'
 
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
+import { clientIp } from '@/lib/request-origin'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
@@ -62,7 +63,10 @@ auth.post('/email/request-code', async (c) => {
   const body = (await c.req.json().catch(() => null)) as { email?: unknown } | null
   const email = typeof body?.email === 'string' ? body.email : ''
 
-  await requestEmailOtp(email)
+  await requestEmailOtp(
+    email,
+    clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
+  )
 
   return c.json({ ok: true })
 })

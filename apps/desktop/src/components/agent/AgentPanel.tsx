@@ -26,10 +26,10 @@ import { usePanelNav } from './panel/usePanelNav'
 import { usePanelPermissions } from './panel/usePanelPermissions'
 import { usePanelPlanPane } from './panel/usePanelPlanPane'
 import { usePanelQueueWatchdogs } from './panel/usePanelQueueWatchdogs'
+import { useQueueSync } from './panel/useQueueSync'
 import { usePanelRefs } from './panel/usePanelRefs'
 import { usePanelSessionBridge } from './panel/usePanelSessionBridge'
 import { usePanelTranscripts } from './panel/usePanelTranscripts'
-import { useQueuedAutoSend } from './panel/useQueuedAutoSend'
 import { useTextStreaming } from './panel/useTextStreaming'
 import { useTurnDispatch } from './panel/useTurnDispatch'
 
@@ -218,9 +218,10 @@ export const AgentPanel = memo(function AgentPanel({
   useAgentEventStream(acc11)
   const acc12 = { ...acc11, ...useTurnDispatch(acc11) }
 
-  useQueuedAutoSend(acc12)
   const acc13 = { ...acc12, ...useAuthorizationFlows(acc12) }
   const acc14 = { ...acc13, ...usePanelQueueWatchdogs(acc13) }
+
+  useQueueSync(acc14)
   const acc15 = { ...acc14, ...useConversationOpen(acc14) }
 
   useConversationCatchUp(acc15)

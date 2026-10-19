@@ -1,17 +1,19 @@
 // A conversation's own desktop on its Box, streamed to the conversation's owner:
 // the client's WebSocket carries RFB bytes as base64 text frames, which the
-// device tunnel relays to the host's Xvnc for that display (see the host's
-// vnc-stream.ts). The first frame tells the host the session, the display and
-// the viewer; the host connects only if that display's lock is the session's.
-// The viewer only watches until a control frame hands the desktop to them: this
-// route drops their input messages until then, whatever their client does, and
-// the host turns the frame into the lock that pauses the agent's input tools on
-// that display. The stream closing hands it back. Links carry ids only: the
-// route is the authorization, and it admits only the conversation's owner. That
-// does not isolate desktops on a shared Box: every session there runs as one Unix
-// user against an X server and VNC without authentication, so any agent on the
-// Box can reach another session's display. The team accepts this until each
-// session gets its own Unix user (see the host's desktop-session.mjs).
+// device tunnel relays to the host's VNC server for that display: a Box's Xvnc,
+// or a Mac's Screen Sharing (see the host's vnc-stream.ts). The first frame
+// tells the host the session, the display and the viewer; the host connects
+// only if that display's lock is the session's. The viewer only watches until a
+// control frame hands the desktop to them: this route drops their input
+// messages until then, whatever their client does, and on a Box the host turns
+// the frame into the lock that pauses the agent's input tools on that display.
+// The stream closing hands it back. Links carry ids only: the route is the
+// authorization, and it admits only the conversation's owner. That does not
+// isolate desktops on a shared Box: every session there runs as one Unix user
+// against an X server and VNC without authentication, so any agent on the Box
+// can reach another session's display. The team accepts this until each
+// session gets its own Unix user (see the host's desktop-session.mjs). A Mac's
+// Screen Sharing asks the viewer for the Mac's own account.
 
 import { getReadableConversation } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
@@ -139,7 +141,9 @@ export function runtimeDesktopEvents(
         stream.send(JSON.stringify({ t: 'open', sessionId, display, viewer }))
       })
       stream.addEventListener('message', ({ data }) => {
-        if (typeof data === 'string') ws.send(data)
+        if (typeof data !== 'string') return
+        input.server(Buffer.from(data, 'base64'))
+        ws.send(data)
       })
       stream.addEventListener('close', () => {
         ws.close(1011, 'The desktop is gone')

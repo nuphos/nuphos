@@ -6,9 +6,12 @@ export function splitPane(
   target: string,
   id: string,
   direction: 'row' | 'column',
+  before = false,
 ): SplitLayout {
   if ('id' in layout) {
-    return layout.id === target ? { direction, children: [layout, { id }] } : layout
+    if (layout.id !== target) return layout
+
+    return { direction, children: before ? [{ id }, layout] : [layout, { id }] }
   }
   // Repeating a direction adds an equal-sized sibling rather than repeatedly halving it.
   if (
@@ -17,16 +20,18 @@ export function splitPane(
   ) {
     const children = [...layout.children]
 
-    children.splice(children.findIndex((child) => 'id' in child && child.id === target) + 1, 0, {
-      id,
-    })
+    children.splice(
+      children.findIndex((child) => 'id' in child && child.id === target) + (before ? 0 : 1),
+      0,
+      { id },
+    )
 
     return { ...layout, children }
   }
 
   return {
     ...layout,
-    children: layout.children.map((child) => splitPane(child, target, id, direction)),
+    children: layout.children.map((child) => splitPane(child, target, id, direction, before)),
   }
 }
 
@@ -39,6 +44,47 @@ export function removePane(layout: SplitLayout, id: string): SplitLayout | null 
   if (children.length === 0) return null
 
   return children.length === 1 ? children[0] : { ...layout, children }
+}
+
+/** Private drag types, so the split overlay ignores files and text drags. */
+export const SESSION_DRAG_TYPE = 'application/x-nuphos-session'
+export const PANE_DRAG_TYPE = 'application/x-nuphos-pane'
+
+export type DropZone = 'left' | 'right' | 'top' | 'bottom' | 'center'
+
+/** Edge bands a quarter deep split that side; the middle replaces the pane. */
+export function dropZone(x: number, y: number): DropZone {
+  const edges = [
+    ['left', x],
+    ['right', 1 - x],
+    ['top', y],
+    ['bottom', 1 - y],
+  ] as const
+  const [zone, distance] = edges.reduce((a, b) => (b[1] < a[1] ? b : a))
+
+  return distance < 0.25 ? zone : 'center'
+}
+
+/**
+ * Places `id` on `zone`'s side of `target`, taking it out of its old spot
+ * first; a new id splits `target`. The center leaves the layout alone.
+ */
+export function dropPane(
+  layout: SplitLayout,
+  target: string,
+  id: string,
+  zone: DropZone,
+): SplitLayout {
+  if (id === target || zone === 'center') return layout
+  const rest = removePane(layout, id) ?? layout
+
+  return splitPane(
+    rest,
+    target,
+    id,
+    zone === 'left' || zone === 'right' ? 'row' : 'column',
+    zone === 'left' || zone === 'top',
+  )
 }
 
 export function paneRects(

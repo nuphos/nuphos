@@ -36,7 +36,7 @@ export function ConnectorStrip({
   return (
     // Tucked 12px under the composer, matching its first-run 12px corner
     // radius so the strip's square top stays hidden behind the curve.
-    <div className="relative z-0 -mt-3 flex items-center gap-3 rounded-b-xl bg-field px-4 pb-2 pt-5">
+    <div className="relative z-0 -mt-3 flex items-center gap-3 rounded-b-xl bg-surface px-4 pb-2 pt-5">
       <span className="min-w-0 flex-1 truncate text-[12px] text-secondary">{message}</span>
       <div className="flex flex-shrink-0 items-center gap-1">
         <BaseButton

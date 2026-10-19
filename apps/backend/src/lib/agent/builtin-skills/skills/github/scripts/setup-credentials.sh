@@ -7,13 +7,15 @@ fi
 
 usage() {
   cat >&2 <<EOF
-Usage: setup-credentials.sh <teamId> <installationId> [--for-commit]
+Usage: setup-credentials.sh <teamId> <installationId> [--for-commit] [--team]
 
   teamId          Nuphos team id (24-char hex)
   installationId  Numeric GitHub App installation id (from
                   GET /teams/<teamId>/github-installations)
 
   --for-commit    Require and print the current Nuphos participant co-author trailer.
+  --team          Use the team's App identity even when the turn's member connected
+                  a Personal Credential (their own GitHub account is the default).
 
 Environment:
   GH_CONFIG_DIR     Optional. Defaults to \$XDG_CONFIG_HOME/gh or \$HOME/.config/gh.
@@ -30,8 +32,16 @@ EOF
   exit 1
 }
 
-if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then usage; fi
-if [ "$#" -eq 3 ] && [ "$3" != "--for-commit" ]; then usage; fi
+if [ "$#" -lt 2 ]; then usage; fi
+for_commit=""
+identity_query=""
+for arg in "${@:3}"; do
+  case "$arg" in
+    --for-commit) for_commit=1 ;;
+    --team) identity_query="?identity=team" ;;
+    *) usage ;;
+  esac
+done
 
 team_id="$1"
 installation_id="$2"
@@ -72,7 +82,7 @@ token_response="$(curl -fsSL \
   --retry-delay 1 \
   --retry-all-errors \
   -H "Authorization: Bearer $NUPHOS_TOKEN" \
-  "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/github-installations/$installation_id/token")"
+  "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/github-installations/$installation_id/token$identity_query")"
 
 token="$(printf '%s' "$token_response" | python3 -c '
 import json, sys
@@ -88,6 +98,11 @@ account_login="$(printf '%s' "$token_response" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 print(data.get("accountLogin", ""))
+')"
+acting_as="$(printf '%s' "$token_response" | python3 -c '
+import json, sys
+actor = json.load(sys.stdin).get("actor") or {}
+print(actor.get("login", "") + " (Personal Credential)" if actor.get("kind") == "personal" else "the team App")
 ')"
 
 if [ -z "$token" ]; then
@@ -107,14 +122,14 @@ printf '%s' "$token_response" | python3 "$script_dir/write-auth.py" "$GH_CONFIG_
 # authenticate without the agent putting the token into command-line URLs.
 gh auth setup-git --hostname github.com
 
-echo "GitHub installation token loaded for $account_login (installation $installation_id)"
+echo "GitHub installation token loaded for $account_login (installation $installation_id), acting as $acting_as"
 echo "Expires at: $expires_at"
 echo
 echo "Use \`gh ...\` or \`gh api /repos/...\` directly. \`gh repo clone owner/repo\` and \`git push\` also work."
 echo "Re-run this script if you get 401."
 
 # Refresh this identity before each commit; shared conversations can change actors.
-if [ "${3:-}" = "--for-commit" ]; then
+if [ -n "$for_commit" ]; then
   printf '%s' "$token_response" | python3 -c '
 import json, re, sys
 author = json.load(sys.stdin).get("commitCoAuthor") or {}

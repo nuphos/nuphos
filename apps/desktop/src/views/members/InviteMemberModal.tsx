@@ -1,7 +1,7 @@
-import clsx from 'clsx'
 import { Mail, UserPlus } from 'lucide-react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 
 import type { FormEvent } from 'react'
@@ -35,7 +35,7 @@ export function InviteMemberModal({
       <form onSubmit={onSubmit} className="p-5 space-y-4">
         <label className="block">
           <span className="block text-[12px] text-tertiary mb-1.5">Email</span>
-          <InputGroup className="flex items-center gap-2 rounded-md border border-zGray-800 bg-field px-3 h-10 transition-colors">
+          <InputGroup className="flex items-center gap-2 rounded-md border border-zGray-800 bg-surface px-3 h-10 transition-colors">
             <Mail className="w-4 h-4 text-tertiary" strokeWidth={1.8} />
             <InputGroupInput
               type="email"
@@ -57,19 +57,10 @@ export function InviteMemberModal({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={!email.trim() || submitting}
-            className={clsx(
-              'h-8 px-3 rounded-md text-white text-[12.5px] font-medium flex items-center gap-1.5 transition-colors',
-              email.trim() && !submitting
-                ? 'bg-zViolet-500 hover:bg-zViolet-400'
-                : 'bg-zGray-700 text-tertiary cursor-default',
-            )}
-          >
+          <Button size="sm" type="submit" disabled={!email.trim() || submitting}>
             <UserPlus className="w-3.5 h-3.5" strokeWidth={2} />
             {submitting ? 'Inviting...' : 'Invite'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

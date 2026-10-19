@@ -139,3 +139,17 @@ export function appendPosthogIntegrationLines(
     )
   }
 }
+
+export function appendPlaudAccountLines(
+  lines: string[],
+  plaudAccounts: Options['plaudAccounts'],
+  teamId: string,
+) {
+  if (plaudAccounts.length === 0) return
+  lines.push('', 'Plaud accounts:')
+  for (const account of plaudAccounts) {
+    lines.push(
+      `- bindingId=${account.bindingId}; label=${safePromptField(account.label)}; setupCommand="bash skills/plaud/scripts/setup-credentials.sh ${teamId} ${account.bindingId} && source ~/.plaud/nuphos.env"`,
+    )
+  }
+}

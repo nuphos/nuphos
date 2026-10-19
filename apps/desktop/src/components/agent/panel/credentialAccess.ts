@@ -2,8 +2,11 @@ import { pruneSelectionToAvailable } from '../../../lib/credentialSelection'
 
 import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants'
 import { usableDeviceIds } from './credentialSections'
+import { keepTeamIdentity, teamIdentityOf } from './personalIdentity'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
+
+type AccessKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity'>
 
 export function normalizeCredentialAccess(
   value: Partial<AgentCredentialSelection> | null | undefined,
@@ -26,6 +29,7 @@ export function normalizeCredentialAccess(
     asanaAccountIds: value?.asanaAccountIds ?? [],
     sentryAccountIds: value?.sentryAccountIds ?? [],
     posthogIntegrationIds: value?.posthogIntegrationIds ?? [],
+    plaudAccountIds: value?.plaudAccountIds ?? [],
     tailscaleClientIds: value?.tailscaleClientIds ?? [],
     zeaburIds: value?.zeaburIds ?? [],
     vantaIntegrationIds: value?.vantaIntegrationIds ?? [],
@@ -39,6 +43,7 @@ export function normalizeCredentialAccess(
     upstashAccountIds: value?.upstashAccountIds ?? [],
     cloudflareAccountIds: value?.cloudflareAccountIds ?? [],
     deviceIds: value?.deviceIds ?? [],
+    ...teamIdentityOf(value),
   }
 }
 
@@ -63,6 +68,7 @@ export function normalizeCredentialOptions(
     asanaAccounts: value?.asanaAccounts ?? [],
     sentryAccounts: value?.sentryAccounts ?? [],
     posthogIntegrations: value?.posthogIntegrations ?? [],
+    plaudAccounts: value?.plaudAccounts ?? [],
     tailscaleClients: value?.tailscaleClients ?? [],
     zeaburProviders: value?.zeaburProviders ?? [],
     vantaIntegrations: value?.vantaIntegrations ?? [],
@@ -102,6 +108,7 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     asanaAccountIds: sortedIds(value.asanaAccountIds),
     sentryAccountIds: sortedIds(value.sentryAccountIds),
     posthogIntegrationIds: sortedIds(value.posthogIntegrationIds),
+    plaudAccountIds: sortedIds(value.plaudAccountIds),
     tailscaleClientIds: sortedIds(value.tailscaleClientIds),
     zeaburIds: sortedIds(value.zeaburIds),
     vantaIntegrationIds: sortedIds(value.vantaIntegrationIds),
@@ -115,6 +122,7 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     upstashAccountIds: sortedIds(value.upstashAccountIds),
     cloudflareAccountIds: sortedIds(value.cloudflareAccountIds),
     deviceIds: sortedIds(value.deviceIds),
+    teamIdentity: sortedIds(value.teamIdentity ?? []),
   })
 }
 
@@ -145,6 +153,7 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
     posthogIntegrationIds: (options.posthogIntegrations ?? []).map(
       (integration) => integration.integrationId,
     ),
+    plaudAccountIds: (options.plaudAccounts ?? []).map((account) => account.bindingId),
     tailscaleClientIds: (options.tailscaleClients ?? []).map((client) => client.clientId),
     zeaburIds: (options.zeaburProviders ?? []).map((provider) => provider.zeaburId),
     vantaIntegrationIds: (options.vantaIntegrations ?? []).map(
@@ -189,17 +198,17 @@ export function defaultCredentialAccess(options: AgentCredentialOptions): AgentC
   }
 }
 
-// Drop any selected credential ids that are no longer present in the available
-// options — e.g. a connector deleted since this conversation last ran. Reuses
-// `allCredentialAccess` (not `defaultCredentialAccess`) as the source of
-// currently-valid ids per provider, so this stays correct as providers are
-// added and an explicitly-enabled Resend binding survives a refresh instead of
-// being pruned away.
+// Drop selected ids no longer in the options (e.g. a connector deleted since
+// this conversation last ran). `allCredentialAccess`, not the default, is the
+// source of valid ids, so an explicitly-enabled Resend binding survives a
+// refresh. teamIdentity is identity, not access, and is kept as is.
 export function pruneCredentialAccessToOptions(
   access: AgentCredentialSelection,
   options: AgentCredentialOptions,
 ): AgentCredentialSelection {
-  return pruneSelectionToAvailable(access, allCredentialAccess(options))
+  const pruned = pruneSelectionToAvailable<AccessKey>(access, allCredentialAccess(options))
+
+  return keepTeamIdentity(pruned, access)
 }
 
 // Options start out as a sentinel and are filled by an async fetch; pruning
@@ -221,7 +230,7 @@ export function reconcileStoredCredentialAccess(
   // switched on for every conversation that never made a choice.
   const normalized = normalizeCredentialAccess(stored ?? defaultCredentialAccess(options))
 
-  return pruneSelectionToAvailable(normalized, allCredentialAccess(options))
+  return pruneCredentialAccessToOptions(normalized, options)
 }
 
 export function emptyCredentialAccess(): AgentCredentialSelection {
@@ -243,6 +252,7 @@ export function emptyCredentialAccess(): AgentCredentialSelection {
     asanaAccountIds: [],
     sentryAccountIds: [],
     posthogIntegrationIds: [],
+    plaudAccountIds: [],
     tailscaleClientIds: [],
     zeaburIds: [],
     vantaIntegrationIds: [],
@@ -260,36 +270,8 @@ export function emptyCredentialAccess(): AgentCredentialSelection {
 }
 
 export function credentialOptionsCount(options: AgentCredentialOptions): number {
-  return (
-    (options.awsRoles ?? []).length +
-    (options.gcpServiceAccounts ?? []).length +
-    (options.linodeAccounts ?? []).length +
-    (options.hetznerAccounts ?? []).length +
-    (options.tencentAccounts ?? []).length +
-    (options.aliyunAccounts ?? []).length +
-    (options.volcengineAccounts ?? []).length +
-    (options.huaweiAccounts ?? []).length +
-    (options.azureAccounts ?? []).length +
-    (options.onpremClusters ?? []).length +
-    (options.betterStackIntegrations ?? []).length +
-    (options.uptimeKumaInstances ?? []).length +
-    (options.linearWorkspaces ?? []).length +
-    (options.jiraSites ?? []).length +
-    (options.asanaAccounts ?? []).length +
-    (options.sentryAccounts ?? []).length +
-    (options.posthogIntegrations ?? []).length +
-    (options.tailscaleClients ?? []).length +
-    (options.zeaburProviders ?? []).length +
-    (options.vantaIntegrations ?? []).length +
-    (options.secureframeIntegrations ?? []).length +
-    (options.resendIntegrations ?? []).length +
-    (options.githubInstallations ?? []).length +
-    (options.gitlabBindings ?? []).length +
-    (options.grafanaInstances ?? []).length +
-    (options.sonarqubeIntegrations ?? []).length +
-    (options.notionIntegrations ?? []).length +
-    (options.upstashAccounts ?? []).length +
-    (options.cloudflareAccounts ?? []).length +
-    (options.devices ?? []).length
+  return Object.values(options).reduce(
+    (sum: number, items: unknown) => sum + (Array.isArray(items) ? items.length : 0),
+    0,
   )
 }

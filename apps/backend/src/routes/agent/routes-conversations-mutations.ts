@@ -33,7 +33,7 @@ import {
   resolveVerifiedTeamId,
 } from './team-scope'
 import { getFirstTranscriptMessage, normalizeTranscriptMessages } from './transcript'
-import { isTranscriptImport } from './transcript-import'
+import { importedCount, isTranscriptImport } from './transcript-import'
 
 const parentBody = z
   .object({ parentSessionId: z.string().min(1).nullable(), teamId: z.string().optional() })
@@ -234,7 +234,7 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
     !importing &&
     isServerAuthoritativeTranscript(existing, instance?.provider ?? body.agentRuntime)
   ) {
-    return c.json({ ok: true, skipped: 'server_authoritative' })
+    return c.json({ ok: true, skipped: 'server_authoritative', ...importedCount(body, existing) })
   }
   if (baseIndex > 0) {
     // Same suffix protocol as /chat: hydrate the stored prefix so the sync
@@ -245,9 +245,9 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
   // The sync deletes whatever the body omits, and the prefix is hydrated above,
   // so only the tail can go missing — which means a shorter transcript is
   // always the stale one. A second device that ran a turn this client never saw
-  // must not lose it to this client's older view.
+  // must not lose it to this client's older view. An import gets the count too.
   if (existing && messages.length < existing.messageCount) {
-    return c.json({ ok: true, skipped: 'stale' })
+    return c.json({ ok: true, skipped: 'stale', ...importedCount(body, existing) })
   }
   const title =
     typeof body.title === 'string' && body.title.trim()

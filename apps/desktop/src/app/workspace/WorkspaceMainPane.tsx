@@ -5,6 +5,7 @@ import { Profiler, useEffect, useRef, useState } from 'react'
 import { WorkspaceTabPane } from '../../app/workspace/WorkspaceTabPane'
 import { EMPTY_LIST, FULL_BLEED_PAGE_KEYS } from '../../app/workspaceTabState'
 import { Toolbar } from '../../components/Toolbar'
+import { Button } from '../../components/ui/button'
 import { PageAsideContext } from '../../hooks/usePageAside'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
 import { ToolbarPrimaryActionContext } from '../../hooks/useToolbarPrimaryAction'
@@ -173,15 +174,15 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                       className="titlebar-no-drag flex items-center gap-2 empty:hidden"
                     />
                     {toolbarPrimaryAction ? (
-                      <button
+                      <Button
+                        size="sm"
                         type="button"
                         disabled={toolbarPrimaryAction.disabled}
                         onClick={toolbarPrimaryAction.onClick}
-                        className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] inline-flex items-center gap-1.5 disabled:opacity-60"
                       >
                         <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
                         {toolbarPrimaryAction.label}
-                      </button>
+                      </Button>
                     ) : null}
                   </>
                 }

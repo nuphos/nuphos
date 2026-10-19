@@ -2,6 +2,7 @@ import { ArrowLeft, Play, Search } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { PageHeader } from '../components/PageHeader'
+import { Button } from '../components/ui/button'
 import { InputGroup, InputGroupInput } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
 import { getTempoTrace, searchTempoTraces } from '../grafana/client'
@@ -151,7 +152,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
 
       <div className="border-b border-zGray-800/60 p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-field border border-zGray-800 transition-colors min-w-0">
+          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-surface border border-zGray-800 transition-colors min-w-0">
             <Search className="w-3.5 h-3.5 text-tertiary flex-shrink-0" strokeWidth={1.8} />
             <InputGroupInput
               value={query}
@@ -183,17 +184,13 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             max={100}
             value={limit}
             onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
-            className="h-8 w-16 bg-field border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
+            className="h-8 w-16 bg-surface border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
             aria-label="Trace search limit"
           />
-          <button
-            onClick={() => void runSearch()}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 disabled:opacity-50 text-white text-[12.5px]"
-          >
+          <Button size="sm" onClick={() => void runSearch()} disabled={loading}>
             <Play className="w-3.5 h-3.5" strokeWidth={2} />
             Run
-          </button>
+          </Button>
         </div>
       </div>
 

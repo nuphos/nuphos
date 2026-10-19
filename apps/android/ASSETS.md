@@ -1,6 +1,6 @@
 # Connector image sources
 
-All 33 bundled marks were copied byte-for-byte from the existing iOS asset catalog
+All 34 bundled marks were copied byte-for-byte from the existing iOS asset catalog
 in this repository. Only filenames were changed for the Android light/dark asset
 lookup. No external downloads or SVG transformations were used. Existing brand
 ownership and licensing remain unchanged.
@@ -26,6 +26,7 @@ Exact source files (relative to `apps/ios/nuphos-ios/Assets.xcassets/Logos/`):
 - `logo-linode-light.png`: `logo-linode.imageset/akamai.png`
 - `logo-notion-dark.svg`: `logo-notion.imageset/notion-dark.svg`
 - `logo-notion-light.svg`: `logo-notion.imageset/notion-light.svg`
+- `logo-plaud-light.svg`: `logo-plaud.imageset/plaud.svg`
 - `logo-posthog-light.svg`: `logo-posthog.imageset/posthog.svg`
 - `logo-resend-light.svg`: `logo-resend.imageset/resend.svg`
 - `logo-secureframe-light.png`: `logo-secureframe.imageset/secureframe.png`

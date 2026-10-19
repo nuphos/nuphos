@@ -5,6 +5,7 @@ import { desktopsFromRuntimeState } from '../components/agent/panel/shells.ts'
 
 import {
   desktopTabId,
+  desktopTabSession,
   planDesktopTabs,
   publishSessionDesktops,
   sessionDesktopTitle,
@@ -56,4 +57,9 @@ test('a desktop is labelled with its Box and display from the snapshot', () => {
   assert.equal(sessionDesktopTitle('s9', 3), 'Box 1 · :3')
   assert.equal(sessionDesktopTitle('s9', 4), undefined)
   publishSessionDesktops('s9', null)
+})
+
+test('a desktop tab names its own session, whichever chat is on screen', () => {
+  assert.equal(desktopTabSession(desktopTabId('s1', 2)), 's1')
+  assert.equal(desktopTabSession('tab-40c40eaa'), undefined)
 })

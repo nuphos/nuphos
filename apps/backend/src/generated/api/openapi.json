@@ -446,8 +446,7 @@
                           "authType": {
                             "type": "string",
                             "enum": [
-                              "client_credentials",
-                              "oauth"
+                              "client_credentials"
                             ]
                           }
                         },
@@ -810,6 +809,16 @@
                           "minLength": 1
                         }
                       },
+                      "teamIdentity": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "github",
+                            "linear"
+                          ]
+                        }
+                      },
                       "deviceIds": {
                         "type": "array",
                         "items": {
@@ -1008,6 +1017,16 @@
                           "items": {
                             "type": "string",
                             "minLength": 1
+                          }
+                        },
+                        "teamIdentity": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "github",
+                              "linear"
+                            ]
                           }
                         },
                         "deviceIds": {
@@ -1438,8 +1457,7 @@
                               "authType": {
                                 "type": "string",
                                 "enum": [
-                                  "client_credentials",
-                                  "oauth"
+                                  "client_credentials"
                                 ]
                               }
                             },

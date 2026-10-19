@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { GripVertical } from 'lucide-react'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { connectedResourceLabels } from '../../app/accountScopes'
@@ -8,11 +9,15 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionHeaderMenu } from '../../components/agent/SessionHeaderMenu'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
+import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
+import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
 import { teamCanUseAgent } from '../../lib/agentAccess'
+import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
 import { SessionFindBar } from './SessionFindBar'
+import { PANE_DRAG_TYPE } from './splitLayout'
 import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -57,6 +62,8 @@ export function WorkspaceAgentPane({
     stableOpenSessionResource,
   } = ws
   const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
+  const summaryOpen = useChatSummaryOpen()
+  const savedSessionId = currentHeading.saved !== false ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
@@ -162,6 +169,19 @@ export function WorkspaceAgentPane({
             dockOpen ? 'pr-3' : 'pr-12',
           )}
         >
+          {/* The rest of the header moves the window, so a pane moves by its grip. */}
+          <span
+            draggable
+            title="Drag to move this pane"
+            aria-hidden
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = 'move'
+              event.dataTransfer.setData(PANE_DRAG_TYPE, 'pane')
+            }}
+            className="titlebar-no-drag -ml-1 mr-1 hidden h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center rounded text-tertiary hover:bg-zGray-800/60 hover:text-main active:cursor-grabbing group-data-[split-multiple=true]/pane:flex"
+          >
+            <GripVertical className="h-3.5 w-3.5" strokeWidth={1.8} />
+          </span>
           {/* Keep the native drag rectangle beside the Share action so hit testing
             never relies on a no-drag hole inside its draggable ancestor. */}
           <div
@@ -223,42 +243,55 @@ export function WorkspaceAgentPane({
               canFork={!selectedSessionReadOnly}
             />
           )}
+          {savedSessionId && <ChatSummaryToggle active={paneActive && !ws.mainPageOpen} />}
         </div>
         <SessionFindBar
           key={selectedSessionId ?? 'home'}
           rootRef={transcriptRef}
           active={paneActive && !ws.mainPageOpen && !workspaceExpanded}
         />
-        <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
-          <AgentPanel
-            key={`agent-main-${teamId}`}
-            variant="page"
-            open={!workspaceExpanded}
-            userName={user.name}
-            runtimeUrlRef={runtimeUrlRef}
-            teamId={teamId}
-            paid={teamCanUseAgent(currentTeam)}
-            isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
-            runtimeKubeContextRef={runtimeKubeContextRef}
-            unbound={unbound}
-            connectedResources={connectedResources}
-            autoFocusComposer={paneActive && !dockOpen}
-            newChatRequest={ws.newChatRequest}
-            sessionId={selectedSessionId}
-            sessionReadOnly={selectedSessionReadOnly}
-            onSessionChange={handleSessionChange}
-            onOpenNuphosLink={stableOpenNuphosLinkFromChat}
-            onOpenAgentSettings={handleOpenAgentSettings}
-            pendingImport={agentSidebarPendingImport}
-            onImportConsumed={handleImportConsumed}
-            pendingForkSessionId={agentSidebarPendingFork}
-            onForkConsumed={clearAgentSidebarPendingFork}
-            pendingLocate={auditChatLocate}
-            onLocateConsumed={handleLocateConsumed}
-            pendingPrompt={pendingChatPrompt}
-            onPromptConsumed={consumeChatPrompt}
-            onTitleChange={handleTitleChange}
-          />
+        <div className="@container relative flex min-h-0 min-w-0 flex-1">
+          <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
+            <AgentPanel
+              key={`agent-main-${teamId}`}
+              variant="page"
+              open={!workspaceExpanded}
+              userName={user.name}
+              runtimeUrlRef={runtimeUrlRef}
+              teamId={teamId}
+              paid={teamCanUseAgent(currentTeam)}
+              isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
+              runtimeKubeContextRef={runtimeKubeContextRef}
+              unbound={unbound}
+              connectedResources={connectedResources}
+              autoFocusComposer={paneActive && !dockOpen}
+              newChatRequest={ws.newChatRequest}
+              sessionId={selectedSessionId}
+              sessionReadOnly={selectedSessionReadOnly}
+              onSessionChange={handleSessionChange}
+              onOpenNuphosLink={stableOpenNuphosLinkFromChat}
+              onOpenAgentSettings={handleOpenAgentSettings}
+              pendingImport={agentSidebarPendingImport}
+              onImportConsumed={handleImportConsumed}
+              pendingForkSessionId={agentSidebarPendingFork}
+              onForkConsumed={clearAgentSidebarPendingFork}
+              pendingLocate={auditChatLocate}
+              onLocateConsumed={handleLocateConsumed}
+              pendingPrompt={pendingChatPrompt}
+              onPromptConsumed={consumeChatPrompt}
+              onTitleChange={handleTitleChange}
+            />
+          </div>
+          {savedSessionId && (
+            <ChatSummaryPanel
+              key={savedSessionId}
+              open={summaryOpen}
+              sessionId={savedSessionId}
+              teamId={teamId}
+              onOpenLink={stableOpenSessionResource}
+              onOpenSession={handleSessionChange}
+            />
+          )}
         </div>
       </div>
     </main>

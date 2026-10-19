@@ -2,6 +2,8 @@ import { Select as SelectPrimitive } from '@base-ui/react/select'
 import clsx from 'clsx'
 import { Check, ChevronDown } from 'lucide-react'
 
+import { capCenterClass, fieldClass } from './input-group'
+
 import type { ReactNode } from 'react'
 
 export type AppSelectOption = {
@@ -26,6 +28,8 @@ type AppSelectProps = {
   contentClassName?: string
   itemClassName?: string
   onOpenChange?: (open: boolean) => void
+  /** `md` (36px) in forms, like a text input; `sm` (32px) beside small Buttons. */
+  size?: 'md' | 'sm'
 }
 
 function popupOrigin(
@@ -53,6 +57,7 @@ export function AppSelect({
   contentClassName,
   itemClassName,
   onOpenChange,
+  size = 'md',
 }: AppSelectProps) {
   const selected = options.find((option) => option.value === value)
 
@@ -69,11 +74,17 @@ export function AppSelect({
           autoFocus={autoFocus}
           aria-label={ariaLabel}
           className={clsx(
-            'inline-flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-zGray-700 bg-field px-2.5 text-left text-[13px] text-main outline-none transition-colors hover:border-zGray-600 focus:border-zGray-500 disabled:cursor-not-allowed disabled:opacity-50',
+            // A text input shows focus with its border only; drop the inset ring buttons get.
+            'inline-flex min-w-0 items-center justify-between gap-2 text-left transition-colors focus-visible:shadow-none disabled:cursor-not-allowed disabled:opacity-50',
+            fieldClass,
+            size === 'sm' ? 'h-8' : 'h-9',
             triggerClassName,
           )}
         >
-          <SelectPrimitive.Value placeholder={placeholder}>
+          <SelectPrimitive.Value
+            placeholder={placeholder}
+            className={clsx('min-w-0 flex-1', capCenterClass)}
+          >
             {() => (
               <span className={clsx('min-w-0 flex-1 truncate', !selected && 'text-tertiary')}>
                 {selected?.label ?? placeholder}

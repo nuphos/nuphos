@@ -6,6 +6,7 @@ import { ContextMenu } from '../components/ContextMenu'
 import { PageHeader } from '../components/PageHeader'
 import { Table } from '../components/Table'
 import { SearchBox } from '../components/Toolbar'
+import { Button } from '../components/ui/button'
 import { useReportLoading } from '../components/useReportLoading'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
@@ -145,14 +146,10 @@ export function TeamMembersView({
             />
             <div className="flex-1" />
             {canManageMembers && (
-              <button
-                type="button"
-                onClick={() => setInviteOpen(true)}
-                className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
-              >
+              <Button size="sm" type="button" onClick={() => setInviteOpen(true)}>
                 <Plus className="w-3.5 h-3.5" strokeWidth={2} />
                 Invite
-              </button>
+              </Button>
             )}
           </div>
         </>

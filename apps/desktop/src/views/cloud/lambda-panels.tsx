@@ -86,7 +86,7 @@ export function LambdaTestPanel({
             onChange={(e) => setPayload(e.target.value)}
             spellCheck={false}
             rows={8}
-            className="w-full px-2.5 py-2 rounded bg-field border border-zGray-800 text-[12px] font-mono text-secondary focus:outline-none focus:border-zViolet-accent/60 resize-y"
+            className="w-full px-2.5 py-2 rounded bg-surface border border-zGray-800 text-[12px] font-mono text-secondary focus:outline-none focus:border-zViolet-accent/60 resize-y"
           />
         </div>
         <div className="flex items-center gap-3">

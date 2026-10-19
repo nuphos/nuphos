@@ -179,6 +179,7 @@ function normalizeCredentialAccess(
     secureframeIntegrationIds: access?.secureframeIntegrationIds ?? [],
     resendIntegrationIds: access?.resendIntegrationIds ?? [],
     posthogIntegrationIds: access?.posthogIntegrationIds ?? [],
+    plaudAccountIds: access?.plaudAccountIds ?? [],
     // Left undefined when unset rather than defaulted to []: for these
     // connectors an absent selection still means team-wide reach.
     githubInstallationIds: access?.githubInstallationIds,

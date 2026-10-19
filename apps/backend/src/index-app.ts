@@ -31,15 +31,16 @@ import { inviteLandingRoutes } from '@/routes/invite-landing'
 import { jiraAppRoutes } from '@/routes/jira-app'
 import { larkRoutes } from '@/routes/lark'
 import { linearAppRoutes } from '@/routes/linear-app'
+import { personalCredentialRoutes } from '@/routes/personal-credentials'
 import { mcp } from '@/routes/mcp'
 import { oauthRoutes } from '@/routes/oauth'
 import { pushRoutes } from '@/routes/push-devices'
+import { plaudAppRoutes } from '@/routes/plaud-app'
 import { posthogAppRoutes } from '@/routes/posthog-app'
 import { sentryAppRoutes } from '@/routes/sentry-app'
 import { slackRoutes } from '@/routes/slack'
 import { slackAppRoutes } from '@/routes/slack-app'
 import { teamsRoutes } from '@/routes/teams'
-import { vantaAppRoutes } from '@/routes/vanta-app'
 import { webhooksRoutes } from '@/routes/webhooks'
 import { wellKnownRoutes } from '@/routes/well-known'
 
@@ -110,10 +111,11 @@ app.route('/invite', inviteLandingRoutes)
 app.route('/github-app', githubAppRoutes)
 app.route('/gitlab-app', gitlabAppRoutes)
 app.route('/cloudflare-app', cloudflareAppRoutes)
-app.route('/vanta-app', vantaAppRoutes)
 app.route('/linear-app', linearAppRoutes)
+app.route('/personal-credentials', personalCredentialRoutes)
 app.route('/jira-app', jiraAppRoutes)
 app.route('/asana-app', asanaAppRoutes)
+app.route('/plaud-app', plaudAppRoutes)
 app.route('/posthog-app', posthogAppRoutes)
 app.route('/sentry-app', sentryAppRoutes)
 app.route('/slack-app', slackAppRoutes)

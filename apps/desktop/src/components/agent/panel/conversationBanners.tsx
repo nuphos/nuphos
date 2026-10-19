@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Modal } from '../../Modal'
+import { Button } from '../../ui/button'
 
 // Optional detail prompt after a thumbs-down. The vote itself was recorded on
 // click — skipping here loses nothing.
@@ -31,7 +32,7 @@ export function FeedbackCommentDialog({
           autoFocus
           rows={4}
           placeholder="What was inaccurate, unhelpful, or unexpected? (optional)"
-          className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent resize-none"
+          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent resize-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
@@ -47,12 +48,9 @@ export function FeedbackCommentDialog({
         >
           Skip
         </button>
-        <button
-          onClick={submit}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px]"
-        >
+        <Button size="sm" onClick={submit}>
           Send feedback
-        </button>
+        </Button>
       </div>
     </Modal>
   )

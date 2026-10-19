@@ -176,6 +176,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       secureframeIntegrationIds: [],
       resendIntegrationIds: [],
       posthogIntegrationIds: [],
+      plaudAccountIds: [],
       deviceIds: [],
     }
   }
@@ -216,6 +217,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       raw.posthogIntegrationIds,
       'posthogIntegrationIds',
     ),
+    plaudAccountIds: normalizeObjectIdList(raw.plaudAccountIds, 'plaudAccountIds'),
     deviceIds: normalizeStringList(raw.deviceIds, 'deviceIds'),
     // Absent stays absent for these: undefined is "not narrowed" (team-wide),
     // which is not the same grant as an explicit empty list.
@@ -238,7 +240,18 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       raw.cloudflareAccountIds,
       'cloudflareAccountIds',
     ),
+    teamIdentity: normalizeTeamIdentity(raw.teamIdentity),
   }
+}
+
+const TEAM_IDENTITY_PROVIDERS = new Set(['github', 'linear'])
+
+function normalizeTeamIdentity(value: unknown): ('github' | 'linear')[] | undefined {
+  if (value == null) return undefined
+
+  return normalizeStringList(value, 'teamIdentity').filter(
+    (provider): provider is 'github' | 'linear' => TEAM_IDENTITY_PROVIDERS.has(provider),
+  )
 }
 
 function normalizeOptionalObjectIdList(value: unknown, field: string): string[] | undefined {

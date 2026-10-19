@@ -27,6 +27,10 @@ apps/kube-relay-agent/deploy/**
 # Patch files must match upstream byte-for-byte
 apps/backend/patches/**
 
+# Vendored openab: the console assets are compiled into the binary with
+# include_str!, so reformatting them changes what openab serves.
+apps/runtime/openab/crates/**
+
 # Test fixtures are intentionally malformed / third-party snapshots
 apps/backend/fixtures/**
 
@@ -34,6 +38,9 @@ apps/backend/fixtures/**
 **/*.lock
 pnpm-lock.yaml
 **/pnpm-lock.yaml
+
+# Helm templates are Go templates, not YAML Prettier can parse.
+deploy/helm/*/templates/**
 
 # Go module (apps/tailscale-dialer) — gofmt owns this
 apps/tailscale-dialer/**

@@ -1,11 +1,12 @@
 import { useCallback } from 'react'
 
 import { api } from '../../../api'
+import { parseAtlasError } from '../../../api/errors'
 import { toast } from '../../ui/toast'
 
 import { optimisticSenderMetadata } from './optimisticSender'
 import { normalizeTransferUploadPart } from './parts'
-import { markAutoSend } from './queuedAutoSend'
+import { withoutQueued } from './queuedAutoSend'
 import { appendSteering } from './steering'
 
 import type { PanelCtx } from './ctx'
@@ -15,7 +16,11 @@ export function useSteering({
   setTabs,
   teamId,
   currentUser,
-}: Pick<PanelCtx, 'tabsRef' | 'setTabs' | 'teamId' | 'currentUser'>) {
+  fallback,
+}: Pick<PanelCtx, 'tabsRef' | 'setTabs' | 'teamId' | 'currentUser'> & {
+  /** Send it as a message instead; the server queues it behind the turn. */
+  fallback: (tabId: string, text: string, filePaths: string[]) => Promise<void>
+}) {
   const sendSteering = useCallback(
     async (
       tabId: string,
@@ -75,19 +80,23 @@ export function useSteering({
           ),
         )
       } catch (error) {
-        setTabs((tabs) =>
-          tabs.map((t) =>
-            t.id === tabId
-              ? // The turn is usually over by now: send it as the next one.
-                markAutoSend(t, queuedId)
-              : t,
-          ),
-        )
-        toast.apiError('Could not steer the current turn; it will be sent next', error)
+        // The turn is usually over by now, or not this person's: send it as a message.
+        setTabs((tabs) => tabs.map((t) => (t.id === tabId ? withoutQueued(t, queuedId) : t)))
+        if (!isSteeringUnavailable(error))
+          toast.apiError(
+            'Could not steer the current turn; it was sent as a message at the back of the queue',
+            error,
+          )
+        await fallback(tabId, text, filePaths)
       }
     },
-    [tabsRef, setTabs, teamId, currentUser],
+    [tabsRef, setTabs, teamId, currentUser, fallback],
   )
 
   return sendSteering
+}
+
+/** The expected refusal: the turn ended, or it belongs to someone else. */
+function isSteeringUnavailable(error: unknown): boolean {
+  return parseAtlasError(error).code === 'runtime_steering_unavailable'
 }

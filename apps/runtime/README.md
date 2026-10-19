@@ -16,8 +16,8 @@ available from `ghcr.io/zeabur/nuphos-runtime`.
 
 Three things, in layers:
 
-1. **The OpenAB gateway.** [`openab`](https://github.com/openabdev/openab) is
-   the process that owns the container: it accepts ACP over the network,
+1. **The OpenAB gateway.** [`openab`](openab), vendored from
+   [openabdev/openab](https://github.com/openabdev/openab), is the process that owns the container: it accepts ACP over the network,
    supervises the agent, and keeps sessions alive across agent restarts. A
    short start script prepares the container and then becomes openab.
 2. **The agent CLI and its ACP adapter.** For `claude-code`, that is
@@ -49,7 +49,7 @@ until someone re-reviews the patch.
 
 | Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.301), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                    |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.303), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                    |
 | `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.163.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                      |
 | `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                   |
 | `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                |
@@ -142,31 +142,30 @@ over ACP, or fetched at startup. An image is the same for every workspace.
 
 ## Building
 
-Two builds, in order. The base is the gateway, built from the `openab`
-submodule; the runtime image takes only the `openab` binary from it and builds
-everything else on `node:22-trixie-slim`. `BASE_IMAGE` must be set — there is no
+Two builds, in order. The base is the gateway, built from `openab/`; the
+runtime image takes only the `openab` binary from it and builds everything
+else on `node:22-trixie-slim`. `BASE_IMAGE` must be set — there is no
 default, so nothing bakes a registry path into the published image.
 
 ```sh
-git clone --recurse-submodules https://github.com/nuphos/nuphos.git
+git clone https://github.com/nuphos/nuphos.git
 cd nuphos/apps/runtime
 
-docker build -f third_party/openab/Dockerfile.unified --target agentcore \
-  -t openab-base:local third_party/openab
+docker build -t openab-base:local openab
 
 docker build -f image/Dockerfile \
   --build-arg BASE_IMAGE=openab-base:local \
-  --build-arg OPENAB_BUILD_SHA=$(git -C third_party/openab rev-parse --short=12 HEAD) \
+  --build-arg OPENAB_BUILD_SHA=$(git rev-parse --short=12 HEAD:apps/runtime/openab) \
   --build-arg RUNTIME_PROVIDER=codex \
   -t nuphos-runtime-codex:local image
 ```
 
-For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok`, `antigravity` or `opencode`. Any image built
-from `Dockerfile.unified` works as `BASE_IMAGE`, including a published
-`X.Y.Z-base-<provider>` tag.
+For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok`, `antigravity` or `opencode`. Any image with
+the binary at `/usr/local/bin/openab` works as `BASE_IMAGE`, including a
+published `X.Y.Z-base-<provider>` tag.
 
 Rebuilding the runtime image alone does not pick up a change to the gateway:
-the `openab` binary comes from the base, so moving the submodule pointer only
+the `openab` binary comes from the base, so a change under `openab/` only
 reaches users through a rebuild of both.
 
 ## Running one
@@ -484,12 +483,12 @@ Each release publishes four tags per provider:
 | Runtime             | `X.Y.Z-grok`             | `commit-<runtime-sha>-grok`        |
 | Runtime             | `X.Y.Z-antigravity`      | `commit-<runtime-sha>-antigravity` |
 | Runtime             | `X.Y.Z-opencode`         | `commit-<runtime-sha>-opencode`    |
-| Base (gateway only) | `X.Y.Z-base-claude-code` | `<openab-sha12>-base-claude-code`  |
-| Base (gateway only) | `X.Y.Z-base-codex`       | `<openab-sha12>-base-codex`        |
+| Base (gateway only) | `X.Y.Z-base-claude-code` | `<openab-tree12>-base-claude-code` |
+| Base (gateway only) | `X.Y.Z-base-codex`       | `<openab-tree12>-base-codex`       |
 
 Runtime revision tags name the full monorepo commit, so SDK and toolset changes
-get distinct tags even when OpenAB is unchanged. Base revision tags name the
-pinned OpenAB commit. A blank `release_tag` publishes only revision tags; only
+get distinct tags even when OpenAB is unchanged. Base revision tags name the git
+tree of `openab/`, so they change only with the gateway source. A blank `release_tag` publishes only revision tags; only
 a matching `runtime-vX.Y.Z` publishes semantic version tags.
 
 Nuphos pins runtimes by immutable digest, never by tag:
@@ -506,15 +505,14 @@ name `ghcr.io/zeabur/nuphos-openab-runtime`. That package is retained, read
 only, so runtimes pinned to one of its digests keep resolving; everything new
 is published here.
 
-## Relationship to zeabur/openab
+## Relationship to openabdev/openab
 
-[`zeabur/openab`](https://github.com/zeabur/openab) is a fork of
-[`openabdev/openab`](https://github.com/openabdev/openab), carried here as the
-`third_party/openab` submodule and pinned to an exact commit. It supplies the
-gateway binary and `Dockerfile.unified`, whose `agentcore` target is the
-base the runtime image takes it from. This repository adds the Nuphos layer on top and owns the published
-images. Fixes to the gateway or the ACP pool belong upstream or in the fork,
-not here.
+[`openab/`](openab) is the gateway, vendored from
+[`zeabur/openab`](https://github.com/zeabur/openab) (a fork of
+[`openabdev/openab`](https://github.com/openabdev/openab)) at
+`9638d34991fb0d0b29dbbd635bd1240c7c670d5d`, keeping only the crates the
+binary is built from. It is MIT-licensed; see [`openab/LICENSE`](openab/LICENSE).
+Fixes to the gateway or the ACP pool are made there, in this repository.
 
 ## Development
 
@@ -535,13 +533,12 @@ published gateway base, and smoke-tests them, including a first-use install of
 an archive tool, a Debian-package tool and the C toolchain. The gateway base is
 a Rust build, so it is built only when an image is published.
 
-The console needs a gateway built from the pinned submodule, so its smoke test
+The console needs a gateway built from `openab/`, so its smoke test
 runs against a local build rather than in PR CI. Build the base and the image, start
 the image on a free port, and drive it from the host:
 
 ```sh
-docker build -f third_party/openab/Dockerfile.unified --target agentcore \
-  -t nuphos-openab-base:local third_party/openab
+docker build -t nuphos-openab-base:local openab
 docker build image --build-arg BASE_IMAGE=nuphos-openab-base:local \
   --build-arg RUNTIME_PROVIDER=claude-code -t nuphos-runtime:local
 docker run -d --rm --name nuphos-console-smoke -p 127.0.0.1:48080:8080 nuphos-runtime:local

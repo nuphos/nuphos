@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { defaultJobName, DNS_1123_LABEL } from './jobName'
@@ -87,7 +88,7 @@ export function TriggerCronJobDialog({
             autoFocus
             value={jobName}
             onChange={(event) => setJobName(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-field px-2.5 font-mono text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 font-mono text-[13px] text-main outline-none focus:border-zViolet-500"
           />
         </label>
 
@@ -132,13 +133,9 @@ export function TriggerCronJobDialog({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={submitting || !info || !!loadError}
-            className="h-8 rounded-md bg-zViolet-600 px-3 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button size="sm" type="submit" disabled={submitting || !info || !!loadError}>
             {submitting ? 'Triggering…' : 'Trigger'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

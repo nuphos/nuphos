@@ -27,27 +27,49 @@ if recipient_count == 1 then redis.call('EXPIRE', KEYS[2], ARGV[4]) end
 return 1
 `
 
-export async function consumeDownloadHandoffRateLimit(input: {
-  ipHash: string
-  recipientHash: string
-}): Promise<DownloadHandoffRateLimitResult> {
+export type QuotaWindow = { key: string; limit: number; windowSeconds: number }
+
+/** Consumes one unit from both windows atomically, or from neither. */
+export async function consumePairQuota(
+  first: QuotaWindow,
+  second: QuotaWindow,
+): Promise<DownloadHandoffRateLimitResult> {
   const result = await withRedis((client) =>
     client.eval(
       CONSUME_QUOTA_SCRIPT,
       2,
-      `download-handoff:ip:${input.ipHash}`,
-      `download-handoff:recipient:${input.recipientHash}`,
-      IP_LIMIT,
-      IP_WINDOW_SECONDS,
-      RECIPIENT_LIMIT,
-      RECIPIENT_WINDOW_SECONDS,
+      first.key,
+      second.key,
+      first.limit,
+      first.windowSeconds,
+      second.limit,
+      second.windowSeconds,
     ),
   )
 
   if (result === 1) return 'allowed'
   if (result === 0) return 'limited'
 
-  // Sending mail without a shared quota would recreate the public bulk-mail
-  // primitive this guard exists to close, so Redis failure is fail-closed.
   return 'unavailable'
+}
+
+export async function consumeDownloadHandoffRateLimit(input: {
+  ipHash: string
+  recipientHash: string
+}): Promise<DownloadHandoffRateLimitResult> {
+  // Sending mail without a shared quota would recreate the public bulk-mail
+  // primitive this guard exists to close, so callers treat 'unavailable' as
+  // fail-closed.
+  return consumePairQuota(
+    {
+      key: `download-handoff:ip:${input.ipHash}`,
+      limit: IP_LIMIT,
+      windowSeconds: IP_WINDOW_SECONDS,
+    },
+    {
+      key: `download-handoff:recipient:${input.recipientHash}`,
+      limit: RECIPIENT_LIMIT,
+      windowSeconds: RECIPIENT_WINDOW_SECONDS,
+    },
+  )
 }

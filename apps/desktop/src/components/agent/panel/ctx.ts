@@ -6,6 +6,7 @@ import type {
 } from '../../../api'
 import type { JournalChatTarget } from '../JournalPanel'
 import type { ActivePlan } from './applyEvent'
+import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed, Message, MessageRating, Tab } from './model'
 import type { AuthorizationDecisionAction, ToolPart, TransferUploadPart } from './parts'
@@ -227,8 +228,9 @@ export type PanelCtx = {
     activeToolCallId: string | null
     readOnly: boolean
   }
-  removeQueued: (tabId: string, queuedId: string) => void
+  removeQueued: (tabId: string, queuedId: string) => Promise<void>
   stopActive: () => void
+  retractLatest: ComposerRecall['retract']
   openGenerationRef: Ref<number>
   clearPendingOpen: (sessionId: string) => void
   setTabAuditReadOnly: (sessionId: string, next: boolean) => void

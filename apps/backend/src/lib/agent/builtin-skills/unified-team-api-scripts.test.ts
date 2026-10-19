@@ -17,6 +17,7 @@ const providers = [
   'jira',
   'linear',
   'linode',
+  'plaud',
   'posthog',
   'resend',
   'sentry',

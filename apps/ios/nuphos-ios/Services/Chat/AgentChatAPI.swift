@@ -108,6 +108,18 @@ enum AgentChatAPI {
         try await send("PUT", "push/devices", token: token, body: device, timeout: 15)
     }
 
+    struct LiveActivityToken: Encodable {
+        let token: String
+        let teamId: String
+        let sessionId: String
+        let environment: String
+    }
+
+    /// `PUT /push/live-activities` — where the backend sends the turn's end.
+    static func registerLiveActivity(token: String, activity: LiveActivityToken) async throws {
+        try await send("PUT", "push/live-activities", token: token, body: activity, timeout: 15)
+    }
+
     /// `DELETE /push/devices/:token`.
     static func unregisterPushDevice(token: String, deviceToken: String) async throws {
         try await send("DELETE", "push/devices/\(deviceToken)", token: token, body: Optional<Int>.none, timeout: 10)

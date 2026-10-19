@@ -1,0 +1,10 @@
+# Placeholder values for lint and schema checks only.
+backend:
+  url: https://api.example.com
+storage:
+  url: https://storage.example.com
+runtime:
+  url: https://runtime.example.com
+email:
+  zsendApiKey: ci-placeholder
+  from: Nuphos <noreply@example.com>

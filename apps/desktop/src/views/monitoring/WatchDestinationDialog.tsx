@@ -182,7 +182,7 @@ export function WatchDestinationDialog({
                   onChange={(event) => setGroupName(event.target.value)}
                   maxLength={100}
                   autoFocus
-                  className="mt-1.5 h-8 w-full rounded-md border border-zGray-700 bg-field px-2.5 text-[12px] text-main placeholder:text-tertiary focus:border-zViolet-accent focus:outline-none"
+                  className="mt-1.5 h-8 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[12px] text-main placeholder:text-tertiary focus:border-zViolet-accent focus:outline-none"
                 />
               </label>
               <p className="mt-2 text-[11px] text-tertiary">

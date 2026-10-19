@@ -32,6 +32,7 @@ export const BIND_DIALOG_KEYS = [
   'jira',
   'sentry',
   'posthog',
+  'plaud',
   'asana',
   'grafana',
   'sonarqube',
@@ -60,6 +61,7 @@ export type IntegrationPlatformRow = {
     | 'asana'
     | 'sentry'
     | 'posthog'
+    | 'plaud'
     | 'grafana'
     | 'sonarqube'
     | 'discord'

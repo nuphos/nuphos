@@ -5,7 +5,7 @@
 //
 // The adapters are this repository's apps/runtime/image adapters, patched as
 // the image patches them.
-// openab is built from zeabur/openab at a pinned commit unless --openab (or
+// openab is built from apps/runtime/openab unless --openab (or
 // NUPHOS_OPENAB_BINARY) supplies one. Its build lives in ~/.cache/nuphos, so
 // every checkout on this computer shares it. Without --require a target that cannot
 // get an openab binary is staged without one, and the app reports the Local
@@ -28,9 +28,16 @@ import { parseArgs } from 'node:util'
 
 import { patchDesktopAdapter } from './adapter-patches.mjs'
 import { findBrokenLinks } from './bundle-check.mjs'
-import { ATTACHMENT_JOB, bundleStamp, RUNTIME_DIR, RUNTIME_SOURCES } from './bundle-stamp.mjs'
+import {
+  ATTACHMENT_JOB,
+  bundleStamp,
+  OPENAB_DIR,
+  openabRevision,
+  RUNTIME_DIR,
+  RUNTIME_SOURCES,
+  stagedStamp,
+} from './bundle-stamp.mjs'
 
-export const OPENAB_COMMIT = '9638d34991fb0d0b29dbbd635bd1240c7c670d5d'
 // openab pins no toolchain, so this keeps a runner image's rustc out of the build.
 const RUST_TOOLCHAIN = '1.99.0'
 
@@ -118,41 +125,27 @@ async function buildAdapter(provider) {
   return out
 }
 
-function buildOpenab(target) {
+function buildOpenab(target, revision) {
   const triple = RUST_TARGETS[target]
 
-  if (!triple) return null
-  const source = join(homedir(), '.cache', 'nuphos', `openab-${OPENAB_COMMIT}`)
-  const binary = join(
-    source,
-    'target',
-    triple,
-    'release',
-    target.startsWith('win32') ? 'openab.exe' : 'openab',
-  )
+  if (!triple || !revision) return null
+  const name = target.startsWith('win32') ? 'openab.exe' : 'openab'
+  const cacheDir = join(homedir(), '.cache', 'nuphos')
+  const binary = join(cacheDir, `openab-${revision}`, 'target', triple, 'release', name)
 
-  // The source is pinned, so a built binary is final. Release jobs restore it
-  // from the cache openab-cache.yml fills, and compile only on a miss.
+  // A revision names its source, so a built binary is final. Release jobs
+  // restore it from the cache openab-cache.yml fills, and compile only on a miss.
   if (existsSync(binary)) return binary
   if (!hasCommand('cargo')) return null
-  if (!existsSync(join(source, 'Cargo.toml'))) {
-    rmSync(source, { recursive: true, force: true })
-    mkdirSync(source, { recursive: true })
-    run('git', ['init', '-q'], source)
-    run(
-      'git',
-      ['fetch', '-q', '--depth', '1', 'https://github.com/zeabur/openab.git', OPENAB_COMMIT],
-      source,
-    )
-    run('git', ['checkout', '-q', 'FETCH_HEAD'], source)
-  }
+  // One target directory for every revision keeps a rebuild after an edit incremental.
+  const targetDir = join(cacheDir, 'openab-target')
   const rustup = hasCommand('rustup')
 
   if (rustup)
     run(
       'rustup',
       ['toolchain', 'install', RUST_TOOLCHAIN, '--profile', 'minimal', '--target', triple],
-      source,
+      OPENAB_DIR,
     )
   run(
     'cargo',
@@ -165,15 +158,20 @@ function buildOpenab(target) {
       'unified',
       '--target',
       triple,
+      '--target-dir',
+      targetDir,
     ],
-    source,
+    OPENAB_DIR,
   )
+  mkdirSync(dirname(binary), { recursive: true })
+  cpSync(join(targetDir, triple, 'release', name), binary)
 
   return binary
 }
 
 export async function prepare({ targets, openab, skipOpenab, require }) {
   const adapters = {}
+  const revision = openabRevision()
 
   for (const provider of Object.keys(ADAPTERS)) adapters[provider] = await buildAdapter(provider)
 
@@ -194,6 +192,8 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
     // Claude's sign-in wrapper openab runs on request from Nuphos, the one the runtime image ships.
     cpSync(join(RUNTIME_DIR, 'claude-login.mjs'), join(out, 'claude-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'codex-login.mjs'), join(out, 'codex-login.mjs'))
+    // The `panel` job a machine Nuphos made offers, the one the runtime image runs.
+    cpSync(join(RUNTIME_DIR, 'panel-job.mjs'), join(out, 'panel-job.mjs'))
     // A desktop per session on a Linux Box: the MCP wrapper Claude runs there.
     cpSync(
       join(desktopDir, 'local-runtime', 'desktop-session.mjs'),
@@ -216,7 +216,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         desktopDir,
       )
     }
-    const binary = skipOpenab ? null : (openab ?? buildOpenab(target))
+    const binary = skipOpenab ? null : (openab ?? buildOpenab(target, revision))
 
     if (binary) {
       cpSync(binary, join(out, binaryName))
@@ -232,8 +232,8 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
       join(out, 'manifest.json'),
       `${JSON.stringify(
         {
-          stamp: bundleStamp(),
-          openabCommit: OPENAB_COMMIT,
+          stamp: stagedStamp(),
+          ...(revision ? { openabCommit: revision } : {}),
           adapters: Object.fromEntries(
             Object.entries(ADAPTERS).map(([provider, adapter]) => [
               provider,

@@ -188,7 +188,7 @@ export async function syncConversationTranscript(args: {
   import?: boolean
 }): Promise<void> {
   const put = (messages: typeof args.messages, baseIndex: number | undefined) =>
-    callJson<{ ok: boolean; skipped?: string }>(
+    callJson<{ ok: boolean; skipped?: string; messageCount?: number }>(
       'PUT',
       `/agent/conversations/${encodeURIComponent(args.sessionId)}/transcript${teamQuery(args.teamId)}`,
       {

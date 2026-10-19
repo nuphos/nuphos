@@ -28,6 +28,7 @@ import type { SlackMirrorPayload } from './chat-slack-bound'
 import type { AgentRunFrameSink } from './run-registry'
 import type { AgentChatBody, AgentRun, InternalChatCtx } from './types'
 import type { AgentCredentialAccess } from '@/lib/agent/db'
+import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 import type { SpanLike } from '@/lib/agent/tracing'
 import type { ConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
@@ -45,7 +46,6 @@ export function launchAcceptedChatTurn(args: {
   run: AgentRun
   chatCtx: InternalChatCtx
   chatSpan: SpanLike
-  conversationParent: string | undefined
   body: AgentChatBody
   teamId: string | undefined
   messages: UIMessage[]
@@ -57,6 +57,8 @@ export function launchAcceptedChatTurn(args: {
   releaseClaim: (() => void) | null
   slack: SlackBoundTurn | null
   chatRuntime: ConversationChatRuntime
+  /** Started from the session queue (see PreviewChatTurnArgs.queued). */
+  queued?: PendingUserMessage
 }): void {
   const { run, chatCtx, chatSpan, body, teamId, messages, slack, chatRuntime } = args
   const sessionId = body.id
@@ -167,6 +169,8 @@ export function launchAcceptedChatTurn(args: {
         userId: run.userId,
         actorUserId: chatCtx.userId,
         origin: chatCtx.agentOrigin,
+        // The signed-in member posting from the app.
+        humanTurn: true,
         messages,
         firstMessage: args.firstMessage,
         locale: args.locale,
@@ -177,6 +181,7 @@ export function launchAcceptedChatTurn(args: {
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
         clientResendsRefusal: body.clientCapabilities?.resendsRefusal === true,
+        ...(args.queued ? { queued: args.queued } : {}),
         ...(body.continueAfterInterruption
           ? { resume: { ...(body.resumeReason ? { reason: body.resumeReason } : {}) } }
           : {}),

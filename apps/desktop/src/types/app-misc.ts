@@ -15,6 +15,7 @@ import type {
   OnpremCluster,
   SentryAccount,
 } from './onprem-git.ts'
+import type { PlaudAccount } from './plaud.ts'
 import type { PosthogIntegration } from './posthog.ts'
 import type {
   AliyunAccount,
@@ -127,6 +128,7 @@ export type TeamConnectorsBundle = {
   asana: AsanaAccount[]
   sentry: SentryAccount[]
   posthog?: PosthogIntegration[]
+  plaud?: PlaudAccount[]
   discord?: DiscordConnection
   slack: {
     installation: SlackInstallation | null

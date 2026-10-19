@@ -17,6 +17,7 @@ import { toolModuleFromAiSdkTools } from './ai-sdk-adapter'
 import { connectorToolModule } from './connectors'
 import { decisionToolModule } from './decisions'
 import { kubeconfigToolModule } from './kubeconfig'
+import { localBrowserToolModule } from './local-browser'
 import { localCuaToolModule } from './local-cua'
 import { localExecToolModule } from './local-exec'
 import { skillToolSet } from './skills'
@@ -168,6 +169,7 @@ const EXTRA_MODULES: ModuleFactory[] = [
   slackPreviewToolModule,
   localExecToolModule,
   () => Promise.resolve(localCuaToolModule),
+  () => Promise.resolve(localBrowserToolModule),
 ]
 
 export async function previewToolModules(ctx: PreviewToolContext): Promise<PreviewToolModule[]> {

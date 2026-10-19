@@ -1,8 +1,8 @@
 name: openab cache
 
 # Builds the openab binaries that release-desktop.yml and release-cli.yml ship,
-# once per prepare.mjs (it pins OPENAB_COMMIT, the Rust toolchain and the cargo
-# flags), attests them, and keeps them in a cache on main. A tag run can restore
+# once per apps/runtime/openab source and prepare.mjs (it pins the Rust
+# toolchain and the cargo flags), attests them, and keeps them in a cache on main. A tag run can restore
 # main's caches but not another tag's, so this is what lets both releases skip
 # cargo (10-17 min per target). The releases ship a restored binary only if
 # this workflow's attestation from main vouches for it, and compile otherwise.
@@ -13,13 +13,15 @@ on:
     branches: [main]
     paths:
       - apps/desktop/local-runtime/prepare.mjs
+      - apps/runtime/openab/**
       - .github/workflows/openab-cache.yml
       - .github/actions/openab-binaries/action.yml
-  # Compiles an OPENAB_COMMIT bump for every shipped target before it merges.
+  # Compiles an openab change for every shipped target before it merges.
   # Its cache and attestations are scoped to the PR, which no release accepts.
   pull_request:
     paths:
       - apps/desktop/local-runtime/prepare.mjs
+      - apps/runtime/openab/**
       - .github/workflows/openab-cache.yml
       - .github/actions/openab-binaries/action.yml
   # GitHub evicts a cache nobody has read for 7 days.
@@ -91,5 +93,5 @@ jobs:
         env:
           KEY: ${{ steps.openab.outputs.key }}
         run: |
-          echo "::error::The cache under $KEY holds openab binaries this workflow did not attest for this prepare.mjs. Delete that entry (gh cache delete) so the next run replaces it."
+          echo "::error::The cache under $KEY holds openab binaries this workflow did not attest for this prepare.mjs and openab source. Delete that entry (gh cache delete) so the next run replaces it."
           exit 1

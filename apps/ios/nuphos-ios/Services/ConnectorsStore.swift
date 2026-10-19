@@ -71,11 +71,18 @@ final class ConnectorsStore {
         let pending = try await ConnectorsAPI.startOAuth(token: token, teamId: teamId, path: path)
         do {
             let query = try await ConnectorOAuth().run(url: pending.authorizeUrl, expectedHost: callbackHost)
-            // The binding itself is made server-side against the pending
-            // record, but a redirect carrying someone else's state is not a
-            // completion of *this* flow — don't report it as one.
+            // A redirect carrying someone else's state is not a completion of
+            // *this* flow — don't report it as one.
             guard query["state"] == pending.state else {
                 throw ConnectorOAuth.Failure.provider("The provider came back with a mismatched request. Please try again.")
+            }
+            // A backend that stages grants sends a one-time code instead of
+            // binding; confirming it is what creates the binding.
+            if query["deferred"] == "1" {
+                guard let code = query["code"], !code.isEmpty else {
+                    throw ConnectorOAuth.Failure.provider("The provider came back without a confirmation code. Please try again.")
+                }
+                try await ConnectorsAPI.completeOAuth(token: token, teamId: teamId, state: pending.state, code: code)
             }
         } catch {
             // Tear the grant down server-side so the authorize URL left open

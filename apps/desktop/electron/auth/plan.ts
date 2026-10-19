@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 
 import { apiUrl } from '../api-endpoint.ts'
+import { nodeFetch } from '../main/chromium-fetch.ts'
 
 import { apiErrorMessage, NUPHOS_LOGIN_URL } from './config.ts'
 
@@ -100,7 +101,7 @@ async function landingPageSupportsNativeStart(startUrl: URL): Promise<boolean> {
     let res: Response
 
     try {
-      res = await fetch(target, { redirect: 'manual', signal: AbortSignal.timeout(8_000) })
+      res = await nodeFetch(target, { redirect: 'manual', signal: AbortSignal.timeout(8_000) })
     } catch {
       return false
     }

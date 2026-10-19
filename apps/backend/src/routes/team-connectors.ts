@@ -27,6 +27,7 @@ import { publicView as linearWorkspaceView } from '@/routes/linear-workspaces'
 import { publicView as linodeAccountView } from '@/routes/linode-accounts'
 import { publicView as notionIntegrationView } from '@/routes/notion-integrations'
 import { publicView as onpremClusterView } from '@/routes/onprem-clusters/shared'
+import { publicView as plaudAccountView } from '@/routes/plaud-accounts'
 import { posthogPublicView } from '@/routes/posthog-integrations'
 import { publicView as resendIntegrationView } from '@/routes/resend-integrations'
 import { publicView as secureframeIntegrationView } from '@/routes/secureframe-integrations'
@@ -118,6 +119,7 @@ teamConnectorsRoutes.get('/', async (c) => {
     upstash: connectorViews('upstash', doc?.upstashAccounts, upstashAccountView),
     resend: connectorViews('resend', doc?.resendIntegrations, resendIntegrationView),
     posthog: connectorViews('posthog', doc?.posthogIntegrations, posthogPublicView),
+    plaud: connectorViews('plaud', doc?.plaudAccounts, plaudAccountView),
     betterstack: connectorViews(
       'betterstack',
       doc?.betterStackIntegrations,

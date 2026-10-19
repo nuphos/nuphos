@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
+import { ObjectId } from 'mongodb'
+
 import { getReadableConversation } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { AppError } from '@/lib/errors'
+import { createTransfer, finalizeTransfer, resolveDownloads } from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
@@ -25,6 +28,7 @@ async function readLocalFile(
   actorId: string,
   runtimeId: string,
   input: string,
+  timeoutMs: number,
 ): Promise<string> {
   const ref = parseLocalRuntimeId(runtimeId)
 
@@ -46,7 +50,7 @@ async function readLocalFile(
     let settled = false
     const timer = setTimeout(() => {
       finish()
-    }, 15_000)
+    }, timeoutMs)
 
     socket.addEventListener('open', () => {
       socket.send(input)
@@ -73,7 +77,10 @@ export function parseRuntimeFile(output: string) {
   if (!result || typeof result !== 'object') throw unavailable()
   const errors: Record<string, [400 | 403 | 404 | 413, string]> = {
     file_not_found: [404, 'The file no longer exists on this agent.'],
-    forbidden_path: [403, 'Only files inside the source runtime workspace can be previewed.'],
+    forbidden_path: [
+      403,
+      'Only files inside the source runtime workspace or this conversation’s home can be previewed.',
+    ],
     invalid_path: [400, 'Invalid file path.'],
     not_a_file: [400, 'This path is not a regular file.'],
     file_too_large: [413, 'File preview is limited to 512 KiB.'],
@@ -106,7 +113,8 @@ async function runtimeFileOperation(
   runtimeId: string,
   sessionId: string,
   path: string,
-  action: 'read' | 'list',
+  request: { action: 'read' | 'list' | 'stat' } | { action: 'upload'; url: string; size: number },
+  timeoutMs = 10_000,
 ) {
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
@@ -131,12 +139,18 @@ async function runtimeFileOperation(
     !conversation.previousRuntimeUrls?.includes(endpoint.url)
   )
     throw new AppError(403, 'runtime_mismatch', 'This agent does not belong to the conversation.')
-  const params = { path, action, workspace: '/workspace' }
+  const params = { path, ...request, workspace: '/workspace', sessionId }
   let output: string
 
   try {
     if (instance.kind === 'local')
-      output = await readLocalFile(teamId, userId, runtimeId, JSON.stringify(params))
+      output = await readLocalFile(
+        teamId,
+        userId,
+        runtimeId,
+        JSON.stringify(params),
+        timeoutMs + 5_000,
+      )
     else {
       const client = await controlRegistry.acquire(teamId, endpoint)
 
@@ -147,10 +161,10 @@ async function runtimeFileOperation(
           job: 'panel',
           env: {},
           stdin: JSON.stringify({ runner: RUNTIME_FILE_PROGRAM, script: '', params }),
-          timeoutMs: 10_000,
+          timeoutMs,
           maxStdoutBytes: 750_000,
         },
-        15_000,
+        timeoutMs + 5_000,
       )
 
       if (result.timedOut || typeof result.stdout !== 'string') throw unavailable()
@@ -171,7 +185,7 @@ export async function readRuntimeFile(
   path: string,
 ) {
   return parseRuntimeFile(
-    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, 'read'),
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'read' }),
   )
 }
 
@@ -223,6 +237,62 @@ export async function listRuntimeFiles(
   path: string,
 ) {
   return parseRuntimeDirectory(
-    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, 'list'),
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'list' }),
   )
+}
+
+function parseRuntimeStat(output: string) {
+  let result: { name?: unknown; size?: unknown; error?: unknown }
+
+  try {
+    result = JSON.parse(output)
+  } catch {
+    throw unavailable()
+  }
+  if (result.error) parseRuntimeFile(output)
+  if (typeof result.name !== 'string' || !Number.isSafeInteger(result.size)) throw unavailable()
+
+  return { name: result.name, size: result.size as number }
+}
+
+/**
+ * Moves a file too large for the inline preview through the transfer store:
+ * the runtime PUTs it to a presigned URL, and Files plays or renders it from a
+ * presigned GET (which serves Range requests, so video seeks) or saves it. The
+ * transfer belongs to the user, not the conversation, so opening a file in
+ * Files does not add a download card to the chat.
+ */
+export async function shareRuntimeFile(
+  teamId: string,
+  userId: string,
+  runtimeId: string,
+  sessionId: string,
+  path: string,
+) {
+  const { name, size } = parseRuntimeStat(
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'stat' }),
+  )
+  const scope = { teamId: new ObjectId(teamId), userId }
+  const transfer = await createTransfer(scope, 'download', [{ fileName: name, size }])
+  const [file] = transfer.files
+
+  if (!file) throw unavailable()
+
+  parseRuntimeStat(
+    await runtimeFileOperation(
+      teamId,
+      userId,
+      runtimeId,
+      sessionId,
+      path,
+      { action: 'upload', url: file.uploadUrl, size },
+      110_000,
+    ),
+  )
+  if ((await finalizeTransfer(scope, transfer.groupId)).status !== 'ready') throw unavailable()
+  const url = (await resolveDownloads(scope, transfer.groupId)).files[0]?.downloadUrl
+
+  if (!url) throw unavailable()
+
+  return { groupId: transfer.groupId, fileId: file.id, fileName: name, size, url }
 }

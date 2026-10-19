@@ -148,7 +148,12 @@ bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
 bindingScoped.get('/credentials', requireLinearMemberAccess(), async (c) => {
   const teamId = parseObjectId(c.get('teamId'), 'teamId')
   const binding = c.get('linearBinding')
-  const { token, expiresAt } = await handOutLinearToken(teamId, binding)
+  const { token, expiresAt, personalLogin } = await handOutLinearToken(
+    teamId,
+    binding,
+    c.req.header('Authorization'),
+    c.req.query('identity'),
+  )
 
   if (expiresAt) c.header('X-Credentials-Expires-At', expiresAt.toISOString())
   // A reusable bearer token over GET must never be cached by intermediaries.
@@ -164,6 +169,7 @@ bindingScoped.get('/credentials', requireLinearMemberAccess(), async (c) => {
     accessToken: token,
     expiresAt: expiresAt?.toISOString() ?? null,
     authType: 'oauth_bearer',
+    actor: personalLogin ? { kind: 'personal', login: personalLogin } : { kind: 'team' },
   })
 })
 

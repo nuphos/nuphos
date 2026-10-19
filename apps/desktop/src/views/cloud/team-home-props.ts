@@ -19,6 +19,7 @@ import type {
   LinodeAccount,
   NotionIntegration,
   OnpremCluster,
+  PlaudAccount,
   PosthogIntegration,
   ResendIntegration,
   SecureframeIntegration,
@@ -67,6 +68,7 @@ export type TeamHomeViewProps = {
   asanaAccounts: AsanaAccount[]
   sentryAccounts: SentryAccount[]
   posthogIntegrations: PosthogIntegration[]
+  plaudAccounts: PlaudAccount[]
   discordConnection?: DiscordConnection | null
   slackInstallation: SlackInstallation | null
   larkInstallation: LarkInstallation | null

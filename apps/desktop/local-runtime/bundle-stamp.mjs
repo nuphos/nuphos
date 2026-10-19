@@ -1,5 +1,7 @@
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -22,10 +24,13 @@ export const STAMP_SOURCES = [
 export const ATTACHMENT_JOB = '../../backend/src/lib/claude-code-preview/attachment-job.mjs'
 /** The runtime image's adapters, staged as the image stages them. */
 export const RUNTIME_DIR = join(here, '../../runtime/image')
+/** The openab source the runtime image and the Local runtime both build. */
+export const OPENAB_DIR = join(here, '../../runtime/openab')
 export const RUNTIME_SOURCES = [
   'runtime-defaults.mjs',
   'claude-login.mjs',
   'codex-login.mjs',
+  'panel-job.mjs',
   'reply-images.mjs',
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',
@@ -67,8 +72,39 @@ export function bundleStamp(dir = here, runtimeDir = RUNTIME_DIR) {
   return digestOf(STAMP_SOURCES, dir) + digestOf(RUNTIME_SOURCES, runtimeDir)
 }
 
-/** ready, missing (no usable bundle) or stale (staged by another prepare.mjs). */
-export function bundleState(bundleDir, stamp = bundleStamp()) {
+/**
+ * The git tree of OPENAB_DIR as it is on disk, uncommitted edits included, so it
+ * equals the committed tree the runtime image is tagged with when the checkout is
+ * clean. null without git.
+ */
+export function openabRevision(dir = OPENAB_DIR) {
+  const scratch = mkdtempSync(join(tmpdir(), 'openab-index-'))
+  const git = (...args) =>
+    execFileSync('git', args, {
+      cwd: dir,
+      env: { ...process.env, GIT_INDEX_FILE: join(scratch, 'index') },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+
+  try {
+    git('add', '--all', '.')
+
+    return git('write-tree', `--prefix=${git('rev-parse', '--show-prefix')}`)
+  } catch {
+    return null
+  } finally {
+    rmSync(scratch, { recursive: true, force: true })
+  }
+}
+
+/** What a bundle records as its stamp: the staging sources and the openab it carries. */
+export function stagedStamp() {
+  return `${bundleStamp()}-${openabRevision()}`
+}
+
+/** ready, missing (no usable bundle) or stale (staged from other sources). */
+export function bundleState(bundleDir, stamp = stagedStamp()) {
   let manifest
 
   try {

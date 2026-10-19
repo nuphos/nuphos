@@ -25,6 +25,7 @@ export type AgentCredentialAccessSelection = Pick<
   | 'secureframeIntegrationIds'
   | 'resendIntegrationIds'
   | 'posthogIntegrationIds'
+  | 'plaudAccountIds'
   | 'githubInstallationIds'
   | 'gitlabBindingIds'
   | 'grafanaInstanceIds'
@@ -155,6 +156,11 @@ export function selectAgentCredentials(
       options.posthogIntegrations,
       access.posthogIntegrationIds,
       (integration) => integration.integrationId,
+    ),
+    plaudAccounts: pick(
+      options.plaudAccounts,
+      access.plaudAccountIds,
+      (account) => account.bindingId,
     ),
     githubInstallations: pick(
       options.githubInstallations,

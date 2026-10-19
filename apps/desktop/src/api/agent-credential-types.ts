@@ -1,3 +1,5 @@
+import type { PersonalCredentialProvider } from '../types/team.ts'
+
 // Mirrors `AgentCredentialSelection` / `AgentCredentialOptions` in the
 // backend's routes/agent/types.ts.
 export type AgentCredentialSelection = {
@@ -18,6 +20,7 @@ export type AgentCredentialSelection = {
   asanaAccountIds: string[]
   sentryAccountIds: string[]
   posthogIntegrationIds: string[]
+  plaudAccountIds: string[]
   tailscaleClientIds: string[]
   zeaburIds: string[]
   vantaIntegrationIds: string[]
@@ -31,6 +34,8 @@ export type AgentCredentialSelection = {
   upstashAccountIds: string[]
   cloudflareAccountIds: string[]
   deviceIds: string[]
+  /** Providers this conversation acts as the team on, despite the member's Personal Credential. */
+  teamIdentity?: PersonalCredentialProvider[]
 }
 
 export type AgentCredentialAccess = AgentCredentialSelection & {
@@ -126,6 +131,10 @@ export type AgentCredentialOptions = {
     label: string
     apiBaseUrl: string
     projects: { id: number; name: string }[]
+  }[]
+  plaudAccounts: {
+    bindingId: string
+    label: string
   }[]
   tailscaleClients: {
     clientId: string

@@ -149,6 +149,12 @@ export async function startChat(args: StartChatArgs): Promise<void> {
         const res = await postChatAttempt(ctx, args, token, attemptAc, shouldResume)
 
         if (!res) return
+        // The session was busy: the message waits in its server queue.
+        if (res.status === 202) {
+          emit({ type: 'queued' })
+
+          return
+        }
         // eslint-disable-next-line require-atomic-updates -- one writer per turn; ChatStreamState is deliberately shared across awaits
         if (res.ok) state.continuationAccepted = true
         if (!res.ok) {

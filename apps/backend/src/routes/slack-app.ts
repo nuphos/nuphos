@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
-import { encryptSlackSecret } from '@/lib/byos/secrets'
+import { decryptSlackSecret, encryptSlackSecret } from '@/lib/byos/secrets'
+import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
@@ -129,30 +130,57 @@ slackAppRoutes.get('/setup', async (c) => {
     })
   }
 
-  const existingDoc = await teamByosBindings().findOne(
-    { _id: pending.teamId },
-    { projection: { slackWorkspaces: 1 } },
-  )
-  const existing = existingDoc?.slackWorkspaces?.find(
-    (entry) => entry.slackTeamId === tokens.slackTeamId,
-  )
-
-  const bindingId = existing?.id ?? new ObjectId()
-  const binding: SlackWorkspaceBinding = {
-    id: bindingId,
+  const draft: SlackBindingDraft = {
+    requesterUserId: pending.requesterUserId,
     slackTeamId: tokens.slackTeamId,
     slackTeamName: tokens.slackTeamName,
     botUserId: tokens.botUserId,
     encryptedBotToken: encryptSlackSecret(tokens.botToken),
     installerSlackUserId: tokens.installerSlackUserId,
     scope: tokens.scope,
+  }
+
+  return desktopCallback(
+    c,
+    await finishConnectorOAuth({
+      provider: 'slack',
+      state,
+      teamId: pending.teamId,
+      requesterUserId: pending.requesterUserId,
+      draft,
+      persist: persistSlackBinding,
+    }),
+  )
+})
+
+type SlackBindingDraft = Omit<SlackWorkspaceBinding, 'id' | 'createdAt'> & {
+  requesterUserId: string
+}
+
+export async function persistSlackBinding(
+  teamId: ObjectId,
+  draft: SlackBindingDraft,
+): Promise<Record<string, string>> {
+  const { requesterUserId, ...fields } = draft
+  const existingDoc = await teamByosBindings().findOne(
+    { _id: teamId },
+    { projection: { slackWorkspaces: 1 } },
+  )
+  const existing = existingDoc?.slackWorkspaces?.find(
+    (entry) => entry.slackTeamId === draft.slackTeamId,
+  )
+
+  const bindingId = existing?.id ?? new ObjectId()
+  const binding: SlackWorkspaceBinding = {
+    id: bindingId,
+    ...fields,
     createdAt: existing?.createdAt ?? new Date(),
   }
 
   try {
     if (existing) {
       await teamByosBindings().updateOne(
-        { _id: pending.teamId },
+        { _id: teamId },
         {
           $set: { 'slackWorkspaces.$[el]': binding, updatedAt: new Date() },
         },
@@ -160,7 +188,7 @@ slackAppRoutes.get('/setup', async (c) => {
       )
     } else {
       await teamByosBindings().updateOne(
-        { _id: pending.teamId },
+        { _id: teamId },
         {
           $push: { slackWorkspaces: binding },
           $set: { updatedAt: new Date() },
@@ -187,54 +215,52 @@ slackAppRoutes.get('/setup', async (c) => {
     // through OAuth at once; assertSlackWorkspaceAvailable above only catches
     // the non-concurrent case.
     if (e instanceof Error && 'code' in e && (e as { code?: number }).code === 11000) {
-      return desktopCallback(c, {
-        state,
+      return {
         error: 'workspace_taken',
         error_description: 'This Slack workspace is already connected to another Nuphos team',
-      })
+      }
     }
     throw e
   }
 
   await autoLinkInstaller({
-    slackWorkspaceId: tokens.slackTeamId,
-    teamId: pending.teamId.toHexString(),
-    installerSlackUserId: tokens.installerSlackUserId,
-    requesterNuphosUserId: pending.requesterUserId,
+    slackWorkspaceId: draft.slackTeamId,
+    teamId: teamId.toHexString(),
+    installerSlackUserId: draft.installerSlackUserId,
+    requesterNuphosUserId: requesterUserId,
   })
 
   // Only DM the installer on a fresh install. Reinstall reuses this callback
   // to refresh scopes/token in place (`existing` is set), and re-sending the
   // onboarding DM every time an admin re-approves would be noise.
-  if (!existing && tokens.installerSlackUserId) {
+  if (!existing && draft.installerSlackUserId) {
     try {
       await sendSlackInstallWelcomeDm({
-        botToken: tokens.botToken,
-        installerSlackUserId: tokens.installerSlackUserId,
-        slackTeamName: tokens.slackTeamName,
+        botToken: decryptSlackSecret(draft.encryptedBotToken),
+        installerSlackUserId: draft.installerSlackUserId,
+        slackTeamName: draft.slackTeamName,
       })
     } catch (err) {
       logEvent('warn', 'slack.install.welcome_dm_failed', {
-        team_id: pending.teamId.toHexString(),
-        slack_team_id: tokens.slackTeamId,
+        team_id: teamId.toHexString(),
+        slack_team_id: draft.slackTeamId,
         error: err instanceof Error ? err.message : String(err),
       })
     }
   }
 
   logEvent('info', 'slack.install.completed', {
-    team_id: pending.teamId.toHexString(),
-    slack_team_id: tokens.slackTeamId,
-    requester_user_id: pending.requesterUserId,
+    team_id: teamId.toHexString(),
+    slack_team_id: draft.slackTeamId,
+    requester_user_id: requesterUserId,
   })
 
-  return desktopCallback(c, {
-    state,
+  return {
     binding_id: bindingId.toHexString(),
-    team_id: pending.teamId.toHexString(),
-    slack_team_name: tokens.slackTeamName,
-  })
-})
+    team_id: teamId.toHexString(),
+    slack_team_name: draft.slackTeamName,
+  }
+}
 
 // Health check for Slack app configuration (no auth).
 slackAppRoutes.get('/configured', (c) => {

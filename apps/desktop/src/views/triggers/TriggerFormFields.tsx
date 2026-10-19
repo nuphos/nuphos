@@ -100,7 +100,7 @@ export function TriggerFormFields({
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           maxLength={100}
           placeholder="Daily standup summary"
-          className="w-full h-8 px-2.5 rounded-md bg-field border border-zGray-800 text-[13px] text-main focus:outline-none focus:border-zViolet-500"
+          className="w-full h-8 px-2.5 rounded-md bg-surface border border-zGray-800 text-[13px] text-main focus:outline-none focus:border-zViolet-500"
         />
       </Field>
 
@@ -186,7 +186,7 @@ export function TriggerFormFields({
               ? 'A deploy just finished: {{payload.event}}. Investigate the latest commits.'
               : 'Summarise yesterday’s open PRs across our repos.'
           }
-          className="w-full min-h-[220px] resize-y px-2.5 py-2 rounded-md bg-field border border-zGray-800 text-[13px] leading-relaxed text-main focus:outline-none focus:border-zViolet-500"
+          className="w-full min-h-[220px] resize-y px-2.5 py-2 rounded-md bg-surface border border-zGray-800 text-[13px] leading-relaxed text-main focus:outline-none focus:border-zViolet-500"
         />
       </Field>
     </>

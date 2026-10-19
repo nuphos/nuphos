@@ -1,4 +1,5 @@
 import './routes-conversation-runtime'
+import './routes-message-retract'
 
 import {
   buildConversationOwnerMap,
@@ -108,18 +109,24 @@ agent.get('/conversations', async (c) => {
     archived,
     sort,
     ...(triggerIds ? { triggerIds } : {}),
+    ...(c.req.query('pendingDecision') === 'true' ? { pendingDecision: true } : {}),
+    withParents: true,
   })
+  const rows = await serializeConversationList(
+    [...result.conversations, ...result.parents] as unknown as (Record<string, unknown> & {
+      userId: string
+      sessionId: string
+    })[],
+    c.get('user'),
+    teamId,
+  )
 
+  // `parents`: the page's threads' parents that sit on another page, so a
+  // client that pages can nest them now. Clients that load every page ignore it.
   return c.json({
     ...result,
-    conversations: await serializeConversationList(
-      result.conversations as unknown as (Record<string, unknown> & {
-        userId: string
-        sessionId: string
-      })[],
-      c.get('user'),
-      teamId,
-    ),
+    conversations: rows.slice(0, result.conversations.length),
+    parents: rows.slice(result.conversations.length),
   })
 })
 

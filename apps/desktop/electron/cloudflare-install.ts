@@ -1,6 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
+import { connectorCallbackParams } from './connector-oauth-callback'
 
 // Shared nuphos:// scheme with github/gitlab — distinct hostname so the
 // dispatcher in main.ts routes by it without colliding.
@@ -145,21 +146,22 @@ export async function handleCallback(rawUrl: string): Promise<void> {
   pending.delete(state)
   clearTimeout(p.timeout)
   if (p.poll) clearInterval(p.poll)
+  const params = await connectorCallbackParams(parsed, p.teamId, atlas.completeConnectorOAuth)
 
-  const error = parsed.searchParams.get('error')
+  const error = params.get('error')
 
   if (error) {
-    const description = parsed.searchParams.get('error_description') || error
+    const description = params.get('error_description') || error
 
     p.reject(new Error(`Cloudflare OAuth failed: ${description}`))
 
     return
   }
 
-  const bindingId = parsed.searchParams.get('binding_id')
-  const teamId = parsed.searchParams.get('team_id') ?? p.teamId
-  const accountId = parsed.searchParams.get('account_id') ?? ''
-  const accountName = parsed.searchParams.get('account_name') ?? ''
+  const bindingId = params.get('binding_id')
+  const teamId = params.get('team_id') ?? p.teamId
+  const accountId = params.get('account_id') ?? ''
+  const accountName = params.get('account_name') ?? ''
 
   if (!bindingId) {
     p.reject(new Error('Cloudflare callback missing binding_id'))

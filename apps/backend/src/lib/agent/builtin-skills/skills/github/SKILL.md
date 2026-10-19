@@ -30,7 +30,7 @@ path and use the selected installation's setup command instead.
   Managed/shared runtimes always use the selected App identity; never reuse their
   runtime owner's `gh` login.
 
-The App setup and App-signed commit instructions below apply only to the App path.
+The setup and signed-commit instructions below apply to Nuphos-minted tokens: the team App and a member's Personal Credential.
 For the existing local-login path, use that account for GitHub operations and the
 participant's existing Git author/signing configuration. Check that signing is
 available before committing; do not change global Git configuration or fall back
@@ -58,6 +58,8 @@ have exactly one) and run its `setupCommand` verbatim:
 ```bash
 bash skills/github/scripts/setup-credentials.sh <teamId> <installationId>
 ```
+
+Identity: when the turn's member connected a Personal Credential, `gh` acts as their own GitHub account. That member is the sender of a member's message, or the session owner for automated turns (triggers, agent threads, resource events). Otherwise it acts as the team's GitHub App (`nuphos[bot]`). Add `--team` to use the App identity on purpose, for example for bot-owned automation. The JSON response's `actor.kind` (`personal` or `team`) says which one you got.
 
 `gh` is pre-installed in the runtime; the script retains a fallback for outdated images.
 
@@ -161,15 +163,15 @@ gh_api -X POST /repos/myorg/myrepo/issues/42/comments \
   -d '{"body":"deployed to staging"}' | python3 -m json.tool
 ```
 
-## Pushing code / opening PRs with the Nuphos App
+## Pushing code / opening PRs with a Nuphos token
 
-Use GitHub's `createCommitOnBranch` GraphQL mutation with the selected App installation token for new commits. GitHub supplies the App author, uses its signing committer (`web-flow`), and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot.
+Use GitHub's `createCommitOnBranch` GraphQL mutation with the token from the setup script for new commits. GitHub supplies the author (the App, or the member's own account for a Personal Credential), uses its signing committer (`web-flow`), and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot. Do not create commits with the REST Git Database API (`POST /repos/OWNER/REPO/git/commits`): with a Personal Credential those commits are unsigned. To bring a branch up to date with its base, use `POST /repos/OWNER/REPO/merges` (GitHub signs that merge commit) instead of building a merge commit yourself.
 
 1. Run the selected installation's setup command with `--for-commit` appended. It prints the current authenticated Nuphos participant's `Co-authored-by` trailer. Refresh this on every committing turn; never infer the participant from the runtime/provider account, installation owner, or durable conversation owner. If the participant identity is unavailable, stop before committing.
 2. Work from the target branch's current SHA. For a new PR, create a new branch at the base branch SHA using `gh api repos/OWNER/REPO/git/refs -f ref=refs/heads/BRANCH -f sha=BASE_SHA`.
 3. Prepare a JSON payload file for the mutation below. Include the complete new contents of each changed file as base64 in `fileChanges.additions`; include removed paths in `fileChanges.deletions`. Omit unchanged files. Add the participant and runtime trailers to `message.body`, after a blank line.
 4. Submit with `gh api graphql --input /path/to/commit.json`. Use `expectedHeadOid` to prevent overwriting concurrent changes; on a mismatch, fetch and reconcile before retrying.
-5. Verify the returned commit through `gh api repos/OWNER/REPO/commits/SHA`: require `.commit.verification.verified == true`, check the resolved bot author, and inspect co-authors. If verification fails, stop and report it; never bypass branch protection.
+5. Verify the returned commit through `gh api repos/OWNER/REPO/commits/SHA`: require `.commit.verification.verified == true`, check the resolved author, and inspect co-authors. If verification fails, stop and report it; never bypass branch protection.
 6. Fetch the branch to align the local checkout before further edits, then open the PR ready for review.
 
 Example payload structure (replace placeholders and omit empty additions/deletions):
@@ -203,7 +205,7 @@ A few rules:
   - The branch does not yet do what was asked: something is stubbed or `TODO`, a check you ran is failing and you haven't fixed it, or you're stopping partway and intend to push more commits to that same branch before a human should read it.
 - Uncertainty is **not** a reason to draft. "I'm not sure this is the right approach", "the repo has no tests so I couldn't verify", "the user may want it done differently" — open the PR ready for review and write the doubt into the PR body, where a reviewer can act on it. A draft with a finished branch inside just delays the review the user asked for.
 - If you did open a draft and then finished the work in the same session, flip it with `gh pr ready <number> --repo myorg/myrepo` and say so.
-- Let GitHub set the App author and its signing committer. Do not hardcode a bot slug/email, supply custom author/committer fields, or substitute local unsigned commits. This works with self-hosted installations' own Apps without identity configuration.
+- Let GitHub set the author and its signing committer. Do not hardcode a bot slug/email, supply custom author/committer fields, or substitute local unsigned commits. This works with self-hosted installations' own Apps without identity configuration.
 - Add the participant trailer printed by setup and exactly one runtime trailer, separated from the body by a blank line. Select by the runtime executing this turn, not the model name or installed CLI binaries:
   - Claude Code: `Co-authored-by: claude <noreply@anthropic.com>`
   - Codex: `Co-authored-by: codex <codex@openai.com>`

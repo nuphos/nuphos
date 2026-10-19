@@ -14,7 +14,7 @@ const responseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
     instance: agentInstanceSchema.optional(),
-    display: z.number().int().min(2).max(255).optional(),
+    display: z.number().int().min(0).max(255).optional(),
   }),
   z.object({ ok: z.literal(false), error: z.string().max(500) }),
 ])

@@ -40,6 +40,8 @@ export type AgentChatBody = {
     localTools?: boolean
     /** The client keeps a message refused with runtime_not_accepting_message and sends it again. */
     resendsRefusal?: boolean
+    /** The client sends every message at once: a busy session queues it on the server (202). */
+    serverQueue?: boolean
   }
 }
 
@@ -107,6 +109,8 @@ export type AgentRun = {
   /** The runtime parked this turn on a blocking decision of this kind. */
   awaitingDecision?: string
   approvalPushed?: boolean
+  /** Queued messages this turn took into its prompt. */
+  queuedMessageIds?: string[]
   activityRecorded?: Promise<void>
   abortController: AbortController
   subscribers: Set<AgentRunSubscriber>

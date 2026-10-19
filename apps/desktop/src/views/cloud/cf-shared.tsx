@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 import type { CommonProps } from './shared'
@@ -107,7 +108,7 @@ export function CreateNameDialog({
             onChange={(e) => setName(e.target.value)}
             placeholder={placeholder}
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </label>
       </div>
@@ -119,13 +120,9 @@ export function CreateNameDialog({
         >
           Cancel
         </button>
-        <button
-          onClick={() => void create()}
-          disabled={saving}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" onClick={() => void create()} disabled={saving}>
           {saving ? 'Saving…' : (confirmLabel ?? 'Create')}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

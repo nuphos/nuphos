@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { ChevronDown, Clock } from 'lucide-react'
 import { useState } from 'react'
 
+import { Button } from '../../components/ui/button'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { QUICK_RANGES, timeSelLabel, toLocalInput } from './time'
@@ -62,25 +63,25 @@ export function TimeRangePicker({
                 type="datetime-local"
                 value={fromInput}
                 onChange={(e) => setFromInput(e.target.value)}
-                className="w-full mb-2 px-2 py-1 rounded bg-field border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-full mb-2 px-2 py-1 rounded bg-surface border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
               />
               <label className="block text-[10.5px] text-tertiary mb-1">To</label>
               <input
                 type="datetime-local"
                 value={toInput}
                 onChange={(e) => setToInput(e.target.value)}
-                className="w-full mb-2.5 px-2 py-1 rounded bg-field border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-full mb-2.5 px-2 py-1 rounded bg-surface border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
               />
-              <button
+              <Button
+                size="sm"
                 disabled={!absValid}
                 onClick={() => {
                   onChange({ kind: 'absolute', from: absFrom, to: absTo })
                   setOpen(false)
                 }}
-                className="px-2.5 py-1 rounded bg-zBlue-500 hover:bg-zBlue-400 disabled:opacity-40 disabled:pointer-events-none text-white text-[11.5px]"
               >
                 Apply time range
-              </button>
+              </Button>
             </div>
             <div className="w-[170px] max-h-80 overflow-auto scrollbar-thin py-1">
               {QUICK_RANGES.map((r) => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 
 type Props = {
   teamId: string
@@ -49,7 +50,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             onChange={(e) => setName(e.target.value)}
             placeholder="prod"
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
           />
         </Field>
         <Field label="Grafana URL" hint="Base URL of your Grafana instance (no trailing path)">
@@ -57,7 +58,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             value={grafanaUrl}
             onChange={(e) => setGrafanaUrl(e.target.value)}
             placeholder="https://grafana.example.com"
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </Field>
         <Field
@@ -69,7 +70,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             onChange={(e) => setSaToken(e.target.value)}
             placeholder="glsa_..."
             type="password"
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </Field>
         {error && <div className="text-error text-[12px] whitespace-pre-wrap">{error}</div>}
@@ -82,13 +83,9 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
         >
           Cancel
         </button>
-        <button
-          onClick={() => void submit()}
-          disabled={submitting}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" onClick={() => void submit()} disabled={submitting}>
           {submitting ? 'Binding…' : 'Bind'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

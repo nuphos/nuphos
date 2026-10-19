@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -64,7 +65,7 @@ export function KeyEditorDialog({
             value={key}
             onChange={(e) => setKey(e.target.value)}
             disabled={pending}
-            className="h-9 w-full rounded border border-zGray-800 bg-field px-3 font-mono text-[12.5px] text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
+            className="h-9 w-full rounded border border-zGray-800 bg-surface px-3 font-mono text-[12.5px] text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
           />
         </label>
         <label className="block">
@@ -76,7 +77,7 @@ export function KeyEditorDialog({
             onChange={(e) => setValue(e.target.value)}
             disabled={pending}
             rows={10}
-            className="min-h-48 w-full resize-y rounded border border-zGray-800 bg-field px-3 py-2 font-mono text-[12.5px] leading-relaxed text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
+            className="min-h-48 w-full resize-y rounded border border-zGray-800 bg-surface px-3 py-2 font-mono text-[12.5px] leading-relaxed text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
           />
         </label>
       </div>
@@ -89,14 +90,9 @@ export function KeyEditorDialog({
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={pending}
-          className="h-8 rounded-md bg-zViolet-500 px-3 text-[12.5px] font-medium text-white hover:bg-zViolet-400 disabled:opacity-60"
-        >
+        <Button size="sm" type="button" onClick={() => void submit()} disabled={pending}>
           {pending ? 'Saving...' : (draft?.submitLabel ?? 'Save')}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

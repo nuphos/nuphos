@@ -1,6 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
+import { connectorCallbackParams } from './connector-oauth-callback'
 
 export const POSTHOG_CALLBACK_HOST = 'posthog-callback'
 const FALLBACK_TIMEOUT_MS = 10 * 60 * 1000
@@ -83,7 +84,7 @@ export function isCallbackUrl(rawUrl: string): boolean {
   return callbackUrl(rawUrl) !== null
 }
 
-export function handleCallback(rawUrl: string): void {
+export async function handleCallback(rawUrl: string): Promise<void> {
   const parsed = callbackUrl(rawUrl)
   const state = parsed?.searchParams.get('state')
   const p = state ? pending.get(state) : undefined
@@ -95,20 +96,21 @@ export function handleCallback(rawUrl: string): void {
   }
   pending.delete(state)
   clearTimeout(p.timeout)
+  const params = await connectorCallbackParams(parsed, p.teamId, atlas.completeConnectorOAuth)
 
-  const error = parsed.searchParams.get('error')
+  const error = params.get('error')
 
   if (error) {
     p.resolve({
       ok: false,
       error,
-      description: parsed.searchParams.get('error_description') ?? error,
+      description: params.get('error_description') ?? error,
     })
 
     return
   }
 
-  const bindingId = parsed.searchParams.get('binding_id')
+  const bindingId = params.get('binding_id')
 
   if (!bindingId) {
     p.reject(new Error('PostHog callback missing binding_id'))
@@ -118,7 +120,7 @@ export function handleCallback(rawUrl: string): void {
   p.resolve({
     ok: true,
     bindingId,
-    teamId: parsed.searchParams.get('team_id') ?? p.teamId,
-    accountName: parsed.searchParams.get('account_name') ?? '',
+    teamId: params.get('team_id') ?? p.teamId,
+    accountName: params.get('account_name') ?? '',
   })
 }

@@ -33,6 +33,16 @@ enum ConnectorsAPI {
         )
     }
 
+    /// `POST /teams/:id/connector-oauth/:state/complete` — confirms a grant the
+    /// backend staged (`deferred=1`) with the redirect's one-time code, so only
+    /// the app that received the redirect can turn it into a binding.
+    static func completeOAuth(token: String, teamId: String, state: String, code: String) async throws {
+        struct Body: Encodable { let code: String }
+        try await sendIgnoringResponse(
+            "POST", "teams/\(teamId)/connector-oauth/\(state)/complete", token: token, body: Body(code: code)
+        )
+    }
+
     /// `GET /teams/:id/github-installations/install-url` — where to send the
     /// user to install the GitHub App.
     static func githubInstallURL(token: String, teamId: String) async throws -> URL {

@@ -82,3 +82,34 @@ test('an extended pointer event is 7 bytes and waits like input; GII is not fram
   )
   expect(filter.push(Buffer.from([252, 0, 1, 2]), true)).toBeNull()
 })
+
+test('a VNC password answer passes as handshake, then input waits as before', () => {
+  const filter = clientInputFilter()
+  const answer = Buffer.alloc(16, 4)
+  const start = Buffer.concat([version, Buffer.from([2]), answer, Buffer.from([1])])
+
+  expect(filter.push(start, false)).toEqual(start)
+  expect(filter.push(Buffer.concat([key, update]), false)).toEqual(update)
+})
+
+test('an ARD answer is sized by the key length the server announced', () => {
+  const filter = clientInputFilter()
+  // Screen Sharing's version, its types (ARD and VNC password), the generator and a 4-byte key.
+  const server = Buffer.concat([Buffer.from('RFB 003.889\n'), Buffer.from([2, 30, 2, 0, 2, 0, 4])])
+  const answer = Buffer.alloc(128 + 4, 4)
+
+  expect(filter.push(Buffer.concat([version, Buffer.from([30])]), false)).toEqual(
+    Buffer.concat([version, Buffer.from([30])]),
+  )
+  // Its key length unknown, the answer waits rather than being guessed at.
+  expect(filter.push(answer.subarray(0, 10), false)).toEqual(Buffer.alloc(0))
+  filter.server(server.subarray(0, 14))
+  filter.server(server.subarray(14))
+  expect(
+    filter.push(Buffer.concat([answer.subarray(10), Buffer.from([1]), key, update]), false),
+  ).toEqual(Buffer.concat([answer, Buffer.from([1]), update]))
+})
+
+test('a security type this does not know ends the stream', () => {
+  expect(clientInputFilter().push(Buffer.concat([version, Buffer.from([16, 0])]), true)).toBeNull()
+})

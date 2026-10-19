@@ -27,9 +27,8 @@ import type { VantaIntegrationBinding } from '@/models'
 export const vantaIntegrationsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
 
 // client_credentials bind: the team pastes its own "Manage Vanta" app's
-// client_id (vci_…) and client_secret (vcs_…). Works today without Vanta
-// partner approval. The OAuth ("click to authorize") branch is bound via
-// /vanta-app/setup once VANTA_OAUTH_* is configured.
+// client_id (vci_…) and client_secret (vcs_…). Works without Vanta partner
+// approval.
 const bindSchema = z
   .object({
     label: z.string().trim().min(1).max(100),

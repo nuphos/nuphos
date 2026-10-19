@@ -34,7 +34,7 @@ export function NameStep({
           }}
           placeholder="acme-dc1"
           autoFocus
-          className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
         />
         <div className="text-[11px] text-tertiary mt-1">
           Becomes the kubectl context the agent uses —{' '}
@@ -164,7 +164,7 @@ export function AccessStep({
           onChange={(event) => onChange(event.target.value)}
           rows={8}
           placeholder={`apiVersion: v1\nkind: Config\nclusters:\n  - name: ${namespace}\n    cluster:\n      server: https://10.0.0.1:6443\n      certificate-authority-data: …`}
-          className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[11.5px]"
+          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[11.5px]"
         />
         <div className="text-[11px] text-tertiary mt-1">
           The server address is the one that works <em>inside</em> the cluster. It never has to be

@@ -5,6 +5,7 @@ import yaml from 'js-yaml'
 import { apiUrl } from '../api-endpoint.ts'
 import { buildAtlasError } from '../atlas/error.ts'
 import { CLI_CONFIG_PATH } from '../cli-config-path.ts'
+import { backendFailure, tagRequest } from '../fetch-error.ts'
 
 export function teamIdFromUrl(url?: string): string | undefined {
   if (!url) return undefined
@@ -78,6 +79,7 @@ export async function callJson<T>(
 
   if (!token) throw new Error('Not signed in')
   const headers: Record<string, string> = { authorization: `Bearer ${token}` }
+  const requestId = tagRequest(headers)
   const init: RequestInit = {
     method,
     headers,
@@ -88,7 +90,13 @@ export async function callJson<T>(
     headers['content-type'] = 'application/json'
     init.body = JSON.stringify(body)
   }
-  const res = await fetch(`${apiUrl()}${route}`, init)
+  let res: Response
+
+  try {
+    res = await fetch(`${apiUrl()}${route}`, init)
+  } catch (error) {
+    throw backendFailure(error, route, requestId)
+  }
 
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`

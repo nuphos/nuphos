@@ -76,3 +76,28 @@ test('missing deployment inputs fail before contacting Railway', async () => {
   assert.throws(() => dataTemplate(context, project), /ZSEND_API_KEY/)
   process.env.ZSEND_API_KEY = saved
 })
+
+test('the selected email provider decides which key the backend gets', async () => {
+  const backendVars = async () =>
+    (await dataTemplate(context, project)).resources.find((r) => r.name === 'backend').variables
+  const zsend = await backendVars()
+  assert.equal(zsend.NUPHOS_EMAIL_PROVIDER.value, 'zsend')
+  assert.equal(zsend.ZSEND_API_KEY.value, 'test-email')
+  assert.equal(zsend.RESEND_API_KEY, undefined)
+
+  process.env.NUPHOS_EMAIL_PROVIDER = 'resend'
+  try {
+    assert.throws(() => dataTemplate(context, project), /RESEND_API_KEY/)
+    process.env.RESEND_API_KEY = 're_test'
+    const resend = await backendVars()
+    assert.equal(resend.NUPHOS_EMAIL_PROVIDER.value, 'resend')
+    assert.equal(resend.RESEND_API_KEY.value, 're_test')
+    assert.equal(resend.ZSEND_API_KEY, undefined)
+
+    process.env.NUPHOS_EMAIL_PROVIDER = 'smtp'
+    assert.throws(() => dataTemplate(context, project), /NUPHOS_EMAIL_PROVIDER/)
+  } finally {
+    delete process.env.NUPHOS_EMAIL_PROVIDER
+    delete process.env.RESEND_API_KEY
+  }
+})

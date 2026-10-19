@@ -21,11 +21,13 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { agentEnv, readBundle } from './config.ts'
+import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { signInClaude } from './cli-sign-in.ts'
 import {
   enableDesktopPool,
   desktopStatus,
+  openDesktop,
   watchDesktops,
   withDesktopRequests,
 } from './desktop-pool.ts'
@@ -38,7 +40,7 @@ import { RuntimeTunnelClient } from './tunnel-client.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
-import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
+import type { LocalAgentProvider } from './agent-cli.ts'
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
@@ -75,7 +77,6 @@ function deviceIdentity(): DeviceIdentity {
 
 const device = deviceIdentity()
 const bundle = () => readBundle(bundleRoot)
-const cliCacheFile = (userId: string) => path.join(dataDir, 'users', userId, 'cli.json')
 const log = (message: string, data?: Record<string, unknown>) => {
   if (process.env.NUPHOS_DEBUG) console.error(`[agent] ${message}`, data ?? '')
 }
@@ -127,23 +128,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   userEnv: () => Promise.resolve(process.env),
   probeCli: probeAgentCli,
   readUsage: readAgentUsage,
-  readCliCache: (userId) => {
-    try {
-      return JSON.parse(readFileSync(cliCacheFile(userId), 'utf8')) as Partial<
-        Record<LocalAgentProvider, AgentCliStatus>
-      >
-    } catch {
-      return {}
-    }
-  },
-  writeCliCache: (userId, cli) => {
-    try {
-      mkdirSync(path.dirname(cliCacheFile(userId)), { recursive: true })
-      writeFileSync(cliCacheFile(userId), JSON.stringify(cli), { mode: 0o600 })
-    } catch {
-      // Only a head start for the next run.
-    }
-  },
+  readCliCache: (userId) => readCliCache(dataDir, userId),
+  writeCliCache: (userId, cli) => writeCliCache(dataDir, userId, cli),
   onChange: report,
   prepareAgentHome,
   registerDevice: async () => {
@@ -155,7 +141,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       allowLocalExec: true,
     })
   },
-  createProcess: () => new OpenabProcess(),
+  createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
   probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
     const staged = bundle()
     const adapter = staged?.adapters[provider]
@@ -184,7 +170,10 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
       instances: desktopPool
-        ? withDesktopRequests(desktopWrapper, desktopPool, instances)
+        ? withDesktopRequests(
+            (sessionId) => openDesktop(desktopWrapper, desktopPool, sessionId),
+            instances,
+          )
         : instances,
       sampleMetrics: readDeviceMetrics,
       connectBackend: () => {
@@ -200,11 +189,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       onRevoked: () => {
         void controller.shutdown().then(exitRevoked)
       },
-      connectFile: () => {
-        const workspace = controller.state().workspace
-
-        return workspace ? new LocalFileStream(workspace) : null
-      },
+      connectFile: (instanceId) => LocalFileStream.open(controller.state(), instanceId),
       connectExec: () => new LocalExecStream(),
       connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
       connectRuntime: (purpose, provider, instanceId) => {

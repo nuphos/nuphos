@@ -1,8 +1,7 @@
-- Share a session from your phone: choose who on the team can open it and invite teammates with a role.
-- Session managers can switch the agent, switch Full Access and archive the session.
-- Type @ in the composer to point the agent at one of your other sessions, or to pick one of your devices.
-- Tapping a Nuphos session link in a chat opens that session in the app.
-- A message sent just as a turn ends is queued and sent next, instead of failing.
-- Agent usage shows what is left, as a bar that drains like a battery.
-- A selected device that is offline stays selected and shows as Unavailable.
-- Fixes: the chat list keeps its place when you go back, and long messages stay fast and folded.
+- Paste files and images from the clipboard straight into the composer.
+- New conversations start with every usable credential selected, as on Desktop.
+- Connect Plaud to let agents read your recordings, transcripts and summaries.
+- Save images and videos to Photos from the share sheet.
+- A thread now sits under its parent in the chat list, even when the parent is further down.
+- Sharing a session that runs on your computer always asks before giving others access, even while the computer is offline.
+- Fixes: the transcript no longer jumps while a reply streams or when you swipe back with the keyboard up, and searching the chat list no longer shows a "cancelled" error.

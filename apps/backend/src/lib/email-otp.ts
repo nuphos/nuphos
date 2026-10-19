@@ -1,4 +1,4 @@
-import { createHmac, hkdfSync, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, hkdfSync, randomInt, timingSafeEqual } from 'node:crypto'
 
 import { MongoServerError } from 'mongodb'
 
@@ -7,14 +7,20 @@ import type { Collection, ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { db } from '@/lib/db'
+import { consumePairQuota } from '@/lib/download-handoff-rate-limit'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
 import { signInWithVerifiedEmail } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
+import { redisEnabled } from '@/lib/redis'
 
 const CODE_TTL_MS = 10 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
 const MAX_VERIFY_ATTEMPTS = 5
+// Each sent code allows MAX_VERIFY_ATTEMPTS guesses, so the per-email daily
+// send cap is what bounds brute force; the per-IP cap bounds mailbox flooding.
+const EMAIL_SENDS_PER_DAY = 10
+const IP_SENDS_PER_HOUR = 30
 
 type EmailOtpDoc = {
   _id?: ObjectId
@@ -34,7 +40,7 @@ export async function setupEmailOtpIndexes(): Promise<void> {
   ])
 }
 
-export async function requestEmailOtp(email: string): Promise<void> {
+export async function requestEmailOtp(email: string, ip?: string): Promise<void> {
   const normalized = normalizeEmail(email)
 
   if (!config.email.devLogOtp && !isEmailConfigured()) {
@@ -71,6 +77,31 @@ export async function requestEmailOtp(email: string): Promise<void> {
       )
     }
     throw err
+  }
+
+  // Counted only once the cooldown let the request through, so rejected
+  // retries never spend the daily quota. Without Redis (some self-hosted
+  // setups) the quota is unavailable; the cooldown and lockout still apply.
+  const quota = await consumePairQuota(
+    {
+      key: `email-otp:ip:${sha256(ip ?? 'unknown')}`,
+      limit: IP_SENDS_PER_HOUR,
+      windowSeconds: 3600,
+    },
+    {
+      key: `email-otp:email:${sha256(normalized)}`,
+      limit: EMAIL_SENDS_PER_DAY,
+      windowSeconds: 86_400,
+    },
+  )
+
+  if (quota === 'limited') {
+    // The code was stored but will never be sent: drop it so it cannot be guessed.
+    await otps().deleteOne({ email: normalized, codeHash })
+    throw new AppError(429, 'otp_cooldown', 'Too many codes requested — try again later')
+  }
+  if (quota === 'unavailable' && redisEnabled()) {
+    logEvent('warn', 'auth.email_otp.quota_unavailable', {})
   }
 
   if (config.email.devLogOtp) {
@@ -117,8 +148,8 @@ export async function verifyEmailOtp(
   if (!doc || doc.expiresAt.getTime() <= Date.now()) {
     throw new AppError(400, 'otp_invalid', 'Incorrect or expired code')
   }
+  // Keep the locked doc: deleting it would also drop the resend cooldown.
   if (doc.attempts > MAX_VERIFY_ATTEMPTS) {
-    await otps().deleteOne({ email: normalized })
     throw new AppError(
       429,
       'otp_too_many_attempts',
@@ -172,6 +203,10 @@ function hashCode(email: string, code: string): string {
   }
 
   return createHmac('sha256', otpHmacKey).update(`${email}:${code}`).digest('hex')
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
 }
 
 function safeEqual(a: string, b: string): boolean {

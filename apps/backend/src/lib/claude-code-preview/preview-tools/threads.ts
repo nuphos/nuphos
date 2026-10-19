@@ -55,6 +55,11 @@ const update = z
     threadId: z.string().uuid(),
     fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
     runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
+    grant: z
+      .array(z.object({ provider: z.string().min(1), id: z.string().min(1) }).strict())
+      .max(50)
+      .optional()
+      .describe('(provider, id) pairs from your own list_credentials to add to the thread.'),
   })
   .strict()
 const archive = z
@@ -125,8 +130,8 @@ export function threadToolModule(
         description:
           'Send work or a completion report to another Nuphos thread you own in this team. ' +
           'The target keeps its own runtime and credential selection. status is "started" when an ' +
-          'idle thread started a turn now, "delivered" when a busy thread received the message into ' +
-          'its active turn; neither means the task is done. ' +
+          'idle thread started a turn now, "queued" when a busy thread will run it as its own turn ' +
+          'after the turns ahead of it; neither means the task is done. ' +
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +
           'Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
@@ -154,12 +159,16 @@ export function threadToolModule(
       {
         name: 'update_thread',
         description:
-          'Change a thread this conversation created with create_thread. fullAccess switches it ' +
+          'Change a thread nested under this conversation, one it created with create_thread or ' +
+          'adopted with set_thread_parent. fullAccess switches it ' +
           'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
           'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
           "its conversation history, to another of the team's agents from list_agent_runtimes " +
           "(never to someone's computer); its next turn " +
-          "runs there. A new thread already starts in this conversation's mode and agent.",
+          'runs there. grant adds credentials or devices (provider "device") that this ' +
+          "conversation has selected, as its list_credentials shows them, to the thread's " +
+          "selection; it never removes any. A new thread already starts in this conversation's " +
+          'mode, agent and selection.',
         inputSchema: toolInputJsonSchema(update),
       },
       {
@@ -211,8 +220,8 @@ export function threadToolModule(
         if (!parsed.success) return toolError(parsed.error.message)
         const { threadId, ...change } = parsed.data
 
-        if (change.fullAccess === undefined && change.runtimeId === undefined)
-          return toolError('Set fullAccess, runtimeId, or both.')
+        if (change.fullAccess === undefined && !change.runtimeId && !change.grant?.length)
+          return toolError('Set fullAccess, runtimeId or grant.')
 
         return answer(updateThread(ctx, threadId, change))
       },

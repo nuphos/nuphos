@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
 
 import {
   initMainAnalytics,
@@ -21,6 +21,7 @@ import { runtimeTerminals } from './runtime-terminal'
 import { localTerminals } from './local-terminal'
 import { registerAppProtocolHandler, registerAppScheme } from './main/app-protocol'
 import { startChangelogPolling } from './main/changelog'
+import { routeFetchThroughChromium } from './main/chromium-fetch'
 import { accountsChannels } from './main/channels-accounts'
 import { agentChannels } from './main/channels-agent'
 import { agentReadChannels } from './main/channels-agent-read'
@@ -56,6 +57,7 @@ import { initAutoUpdaterEvents, startUpdatePolling, stopUpdatePolling } from './
 import { initWebviewGuard } from './main/webview-guard'
 import { createWindow, focusedAppWindow, showMainWindow } from './main/windows'
 import * as podExec from './pod-exec'
+import * as plaudInstall from './plaud-install'
 import * as posthogInstall from './posthog-install'
 import * as sentryInstall from './sentry-install'
 import { resolveShellEnv } from './shell-env'
@@ -183,6 +185,7 @@ app.on('before-quit', (e) => {
     asanaInstall.cancelAllPending()
     sentryInstall.cancelAllPending()
     posthogInstall.cancelAllPending()
+    plaudInstall.cancelAllPending()
     slackInstall.cancelAllPending()
     discordInstall.cancelAllPending()
     k8s.stopAllPortForwards()
@@ -193,8 +196,7 @@ app.on('before-quit', (e) => {
     // Closes exec sessions and triggers deletion of any node-shell pods.
     podExec.closeAllPodExecSessions()
     stopUpdatePolling()
-    // Fire-and-forget flush; the event loop stays alive long enough for the
-    // single in-flight batch (flushAt: 1) to drain before exit.
+    // Fire-and-forget flush; the single in-flight batch (flushAt: 1) drains before exit.
     void shutdownMainAnalytics()
   }
   // Hold the quit briefly so in-flight node-shell pod deletions can land —
@@ -212,12 +214,11 @@ app.on('before-quit', (e) => {
 app
   .whenReady()
   .then(async () => {
-    // Before any window exists: web-contents-created only fires for contents
-    // created after registration, so the guard must precede createWindow() or
-    // the first window's webContents never gets the will-attach-webview hook.
+    routeFetchThroughChromium(net)
+    // Before any window exists: web-contents-created only fires for contents created
+    // after registration, or the first window never gets the will-attach-webview hook.
     initWebviewGuard()
-    // Warm the interactive-shell env cache so the first local exec doesn't pay
-    // the shell-probe latency.
+    // Warm the shell env cache so the first local exec skips the shell probe.
     void resolveShellEnv()
     initMainAnalytics()
     startDevBackendHealthProbe()

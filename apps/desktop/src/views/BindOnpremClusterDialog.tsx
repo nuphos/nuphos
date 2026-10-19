@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { api } from '../api'
 import { WizardStepBar } from '../components/ConnectorWizard'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 
 import { AccessStep, InstallStep, NameStep } from './bind-onprem/steps'
@@ -160,13 +161,8 @@ function PrimaryButton({
   children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy || disabled}
-      className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-    >
+    <Button size="sm" type="button" onClick={onClick} disabled={busy || disabled}>
       {children}
-    </button>
+    </Button>
   )
 }

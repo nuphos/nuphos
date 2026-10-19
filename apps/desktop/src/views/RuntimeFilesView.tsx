@@ -1,4 +1,15 @@
-import { File, FileQuestion, Folder, FolderOpen, RefreshCw, Server } from 'lucide-react'
+import {
+  Copy,
+  Download,
+  ExternalLink,
+  File,
+  FileQuestion,
+  Folder,
+  FolderOpen,
+  RefreshCw,
+  Server,
+} from 'lucide-react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { PageMeta } from '../app/pageMeta'
@@ -6,17 +17,36 @@ import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { Breadcrumb } from '../components/toolbar-breadcrumb'
 import { Button } from '../components/ui/button'
+import { toast } from '../components/ui/toast'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
+import { copyLinkWithFeedback } from '../lib/copyLink'
 
 export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
   const { conversationId, refreshKey, isActive } = useWorkspaceTab()
-  const { source, path, directory, preview, fileName, loading, navigate, openFile, refresh } =
-    useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
+  const {
+    source,
+    path,
+    directory,
+    preview,
+    media,
+    tooLarge,
+    overLimit,
+    fileName,
+    loading,
+    navigate,
+    openFile,
+    refresh,
+    download,
+    openInBrowser,
+  } = useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
+  const [downloading, setDownloading] = useState(false)
+  const [opening, setOpening] = useState(false)
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
 
+  const filePathShown = `${path}/${fileName}`
   const entries = directory?.entries ?? []
   const folders = path.split('/').filter(Boolean)
   const breadcrumbs = folders.map((name, index) => ({
@@ -62,6 +92,60 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 <Server className="h-3 w-3 shrink-0" strokeWidth={1.6} />
                 <span className="truncate">{source.label}</span>
               </span>
+            )}
+            {fileName && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Copy path"
+                title={`Copy path: ${filePathShown}`}
+                onClick={() =>
+                  void copyLinkWithFeedback(
+                    filePathShown,
+                    (value) => navigator.clipboard.writeText(value),
+                    {
+                      onSuccess: () => toast.success('Copied', filePathShown),
+                      onError: () => toast.error('Could not copy the path'),
+                    },
+                  )
+                }
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {/\.html?$/i.test(fileName) && !loading && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Open in browser"
+                title={
+                  source?.local
+                    ? 'Open in browser'
+                    : "Open in browser (a copy of this file; files next to it won't load)"
+                }
+                disabled={opening}
+                onClick={() => {
+                  setOpening(true)
+                  void openInBrowser().finally(() => setOpening(false))
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {media && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Download file"
+                title="Download"
+                disabled={downloading}
+                onClick={() => {
+                  setDownloading(true)
+                  void download().finally(() => setDownloading(false))
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
             )}
             <Button
               variant="ghost"
@@ -112,6 +196,47 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 </pre>
               </div>
             )
+          ) : media ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-zGray-900/30 p-6">
+              {media.kind === 'video' ? (
+                <video src={media.url} controls className="max-h-full max-w-full rounded" />
+              ) : media.kind === 'audio' ? (
+                <audio src={media.url} controls className="w-full max-w-md" />
+              ) : media.kind === 'pdf' ? (
+                <iframe
+                  src={media.url}
+                  title={fileName}
+                  className="h-full w-full rounded bg-white"
+                />
+              ) : (
+                <img
+                  src={media.url}
+                  alt={fileName}
+                  className="max-h-full max-w-full rounded object-contain"
+                />
+              )}
+            </div>
+          ) : overLimit ? (
+            <EmptyState
+              icon={FileQuestion}
+              title="Too large to open"
+              description="Files can open media up to 100 MB."
+            />
+          ) : tooLarge ? (
+            <EmptyState
+              icon={FileQuestion}
+              title="Too large to preview"
+              description="Files over 512 KiB can be downloaded instead."
+              primaryAction={{
+                label: downloading ? 'Downloading…' : 'Download',
+                icon: Download,
+                disabled: downloading,
+                onClick: () => {
+                  setDownloading(true)
+                  void download().finally(() => setDownloading(false))
+                },
+              }}
+            />
           ) : (
             <EmptyState
               icon={FileQuestion}

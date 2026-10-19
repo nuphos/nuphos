@@ -71,6 +71,18 @@ patched = patched
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
 patched = patchRuntimeDefaults(`${sessionHome}\n${helper}\n${patched}`)
+// A live session keeps its query, and with it the HOME it started in, until its
+// fingerprint changes. Make the session home part of it, so a load for another
+// actor (a teammate, or automated work) recreates the query in that actor's home
+// instead of running in the previous one with its CLI logins.
+const fingerprint = '    return JSON.stringify({ cwd: params.cwd, mcpServers: servers });'
+if (patched.split(fingerprint).length !== 2)
+  throw new Error('Expected one Claude session fingerprint.')
+patched = patched.replace(
+  fingerprint,
+  `    const home = nuphosSessionHomeEnv(params._meta?.claudeCode?.options?.env ?? {}).NUPHOS_SESSION_HOME;
+    return JSON.stringify({ cwd: params.cwd, mcpServers: servers, home });`,
+)
 for (const method of ['loadSession', 'resumeSession']) {
   const start = patched.indexOf(`async nuphos_${method}(params, nuphosRestorePhase) {`)
   const end = patched.indexOf('\n    async ', start + 1)

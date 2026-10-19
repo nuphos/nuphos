@@ -3,6 +3,15 @@
 # provisioner, then becomes the command it was given — openab, by default.
 set -eu
 
+# A container handed a join token runs as a device, the way a Box does: the Nuphos CLI
+# host joins with the token once, keeps the credential it gets on the home volume, dials
+# out to Nuphos and runs the agent itself, so nothing below applies. A saved credential
+# wins over the token on every later start. Without a token the runtime starts as before.
+if [ -n "${NUPHOS_JOIN_TOKEN:-}" ]; then
+  export NUPHOS_AGENT_HOME="${NUPHOS_AGENT_HOME:-$HOME/.local/share/nuphos/agent}"
+  exec node "${NUPHOS_LOCAL_RUNTIME_DIR:-/opt/nuphos-agent}/host.mjs"
+fi
+
 min_password_length=32
 
 fail() {

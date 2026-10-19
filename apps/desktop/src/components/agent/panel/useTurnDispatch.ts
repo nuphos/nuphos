@@ -9,15 +9,12 @@ import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID } from './model'
-import {
-  markAutoSend,
-  nextAutoSend,
-  queueAutoSend,
-  runtimeMayAcceptLater,
-  sendsAsNewSession,
-} from './queuedAutoSend'
+import { ownsAgentStream } from '../../../lib/ownedAgentStreams'
+
+import { runtimeMayAcceptLater } from './queuedAutoSend'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
+import { useQueueActions } from './useQueueActions'
 import { useSteering } from './useSteering'
 
 import type { PanelCtx } from './ctx'
@@ -188,16 +185,14 @@ export function useTurnDispatch(acc: Acc) {
     ],
   )
 
-  const sendSteering = useSteering({ tabsRef, setTabs, teamId, currentUser })
-
-  const queueUntilSendable = useCallback(
-    (tabId: string, text: string, filePaths: string[], turnKind?: Message['turnKind']) => {
-      const draft = { id: crypto.randomUUID(), text, filePaths, turnKind }
-
-      setTabs((prev) => prev.map((t) => (t.id === tabId ? queueAutoSend(t, draft) : t)))
-    },
-    [setTabs],
-  )
+  // A steer that cannot land goes out as a message, to wait its turn on the server.
+  const sendSteering = useSteering({
+    tabsRef,
+    setTabs,
+    teamId,
+    currentUser,
+    fallback: dispatchTurn,
+  })
 
   const sendInActive = useCallback(
     async (text: string, filePaths: string[] = [], turnKind?: Message['turnKind']) => {
@@ -233,27 +228,20 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
-      if (runtimeAllows(tab.runtimeState, 'steer') && !runtimeAllows(tab.runtimeState, 'reply')) {
+      // Only the person whose turn is running steers it. Any other message is
+      // sent now and waits its turn in the server queue.
+      if (
+        runtimeAllows(tab.runtimeState, 'steer') &&
+        !runtimeAllows(tab.runtimeState, 'reply') &&
+        ownsAgentStream(tab.streamId ?? undefined) &&
+        !turnKind
+      ) {
         await sendSteering(activeId, trimmed, filePaths)
 
         return
       }
-      const replying = runtimeAllows(tab.runtimeState, 'reply')
-
-      const newSession = sendsAsNewSession(tab)
-      const sendable = newSession || runtimeAllows(tab.runtimeState, 'send')
-
-      if (!replying && !sendable && !runtimeMayAcceptLater(tab.runtimeState)) {
+      if (!runtimeAllows(tab.runtimeState, 'reply') && !runtimeMayAcceptLater(tab.runtimeState)) {
         toast.error(runtimeStatusLabel(tab.runtimeState))
-
-        return
-      }
-      // An automatic turn must not trust a snapshot that may be seconds old,
-      // and nothing may overtake a message that is already waiting.
-      const staleApproval = turnKind === 'plan-approval' && !newSession
-
-      if (!replying && (!sendable || staleApproval || nextAutoSend(tab))) {
-        queueUntilSendable(activeId, trimmed, filePaths, turnKind)
 
         return
       }
@@ -264,29 +252,10 @@ export function useTurnDispatch(acc: Acc) {
       }
       void dispatchTurn(activeId, trimmed, filePaths, turnKind)
     },
-    [activeId, startChatWith, dispatchTurn, sendSteering, queueUntilSendable, teamId, currentUser],
+    [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )
 
-  const steerQueued = useCallback(
-    async (tabId: string, queuedId: string) => {
-      const tab = tabsRef.current.find((candidate) => candidate.id === tabId)
-      const draft = tab?.queued?.find((candidate) => candidate.id === queuedId)
+  const { steerQueued, removeQueued } = useQueueActions({ tabsRef, setTabs, teamId, sendSteering })
 
-      if (!tab || !draft || draft.steering) return
-      if (runtimeAllows(tab.runtimeState, 'steer')) {
-        await sendSteering(tabId, draft.text, draft.filePaths, queuedId)
-
-        return
-      }
-      // Not steerable right now: let the queue send it once the agent allows.
-      setTabs((previous) =>
-        previous.map((candidate) =>
-          candidate.id === tabId ? markAutoSend(candidate, queuedId) : candidate,
-        ),
-      )
-    },
-    [sendSteering, tabsRef, setTabs],
-  )
-
-  return { startChatWith, dispatchTurn, sendInActive, steerQueued }
+  return { startChatWith, dispatchTurn, sendInActive, steerQueued, removeQueued }
 }

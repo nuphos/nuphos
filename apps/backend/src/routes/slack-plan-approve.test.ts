@@ -146,6 +146,8 @@ useIdentity({
 })
 
 useAgentPlans({
+  // Conversation access is covered in routes/slack/plan-approve-access.test.ts.
+  assertPlanAccess: async () => {},
   getPlan: async (_id: string, scope: { teamId?: string }) =>
     state.planExists && scope.teamId === THREAD_TEAM ? approvablePlan : null,
   recordPlanApproval: async (

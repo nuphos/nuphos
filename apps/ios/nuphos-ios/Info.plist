@@ -17,8 +17,12 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Nuphos records your voice only while you dictate a message, then transcribes it with OpenAI Whisper using your API key.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Nuphos saves the images and videos you choose to share from a conversation to your photo library.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

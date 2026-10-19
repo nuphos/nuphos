@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { api } from '../api'
 import { CloudLogo } from '../components/CloudLogo'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
 import { toast } from '../components/ui/toast'
 
@@ -130,7 +131,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                 value={hostUrl}
                 onChange={(e) => setHostUrl(e.target.value)}
                 placeholder="https://gitlab.com"
-                className="h-8 px-2.5 rounded-md bg-field border border-zGray-700 text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
+                className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
               />
             </label>
 
@@ -212,7 +213,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                     value={clientId}
                     onChange={(e) => setClientId(e.target.value)}
                     placeholder="abc123…"
-                    className="h-8 px-2.5 rounded-md bg-field border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
+                    className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
@@ -224,7 +225,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                     value={clientSecret}
                     onChange={(e) => setClientSecret(e.target.value)}
                     placeholder="gloas-…"
-                    className="h-8 px-2.5 rounded-md bg-field border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
+                    className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
                   />
                 </label>
               </div>
@@ -254,14 +255,10 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
           {phase.kind === 'waiting' ? 'Cancel' : 'Close'}
         </button>
         {phase.kind !== 'waiting' && (
-          <button
-            onClick={() => void startInstall()}
-            disabled={!canStart}
-            className="h-8 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 disabled:bg-zGray-800 disabled:text-tertiary text-white text-[12.5px] font-medium flex items-center gap-1.5"
-          >
+          <Button size="sm" onClick={() => void startInstall()} disabled={!canStart}>
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
             Authorize GitLab
-          </button>
+          </Button>
         )}
       </div>
     </Modal>

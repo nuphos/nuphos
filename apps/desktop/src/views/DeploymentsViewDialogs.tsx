@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 
 import type { DeploymentItem } from '../types'
 import type { FormEvent } from 'react'
@@ -62,7 +63,7 @@ export function ScaleDeploymentDialog({
             step={1}
             value={replicas}
             onChange={(event) => setReplicas(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-field px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
           />
         </label>
         {error && <div className="text-[12.5px] text-error">{error}</div>}
@@ -74,13 +75,9 @@ export function ScaleDeploymentDialog({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-8 px-3 rounded-md bg-zViolet-600 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button size="sm" type="submit" disabled={saving}>
             {saving ? 'Scaling...' : 'Scale'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>
@@ -133,7 +130,7 @@ export function BulkScaleDialog({
             step={1}
             value={replicas}
             onChange={(event) => setReplicas(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-field px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
           />
         </label>
         {error && <div className="text-[12.5px] text-error">{error}</div>}
@@ -145,13 +142,9 @@ export function BulkScaleDialog({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-8 px-3 rounded-md bg-zViolet-600 text-[12.5px] font-medium text-white hover:bg-zViolet-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button size="sm" type="submit" disabled={saving}>
             {saving ? 'Scaling...' : 'Scale'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

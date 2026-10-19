@@ -7,6 +7,7 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
+import { retractedPrompt } from './retracted-notice'
 import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { openConversationSession } from './open-conversation-session'
@@ -145,7 +146,7 @@ export async function runClaudeCodePreviewPrompt(args: {
   if (!observed.actions?.send)
     throw refusal(observed.label ?? 'The agent cannot accept a message yet')
 
-  const principalChanged = previewSessionPrincipalChanged(session, args.userId)
+  const principalChanged = previewSessionPrincipalChanged(session, args.userId, args.runtime)
 
   const nextContext = {
     mcpServers: args.mcpServers ?? session.mcpServers,
@@ -215,6 +216,7 @@ export async function runClaudeCodePreviewPrompt(args: {
       attachments.length
         ? 'Attached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
         : '',
+      await retractedPrompt(session, fresh),
       await backgroundWorkPrompt(session, fresh, args),
     ]
       .filter(Boolean)

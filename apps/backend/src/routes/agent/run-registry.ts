@@ -1,21 +1,24 @@
 import {
   drainPendingUserMessages,
-  enqueuePendingUserMessage,
   hasPendingUserMessage,
   removePendingUserMessage,
 } from '@/lib/agent/pending-messages'
-import { agentRuns, activeRunForSession, claimAgentRunForSession } from '@/lib/agent/run-admission'
+import { agentRuns, claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { startAgentRunOwnership } from '@/lib/agent/run-store'
 import { AppError } from '@/lib/errors'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
+import { notifyLiveActivities } from '@/lib/push/live-activities'
 
+import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { AGENT_RUN_TTL_MS } from './constants'
 import { traceAgentChatEvent } from './trace'
 
 import type { AgentRun, AgentRunTrace } from './types'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 
+export { claimAgentRunOrEnqueue } from './claim-or-enqueue'
+export type { ClaimOrEnqueueResult } from './claim-or-enqueue'
 export {
   agentRuns,
   claimAgentRunForSession,
@@ -89,6 +92,7 @@ export function registerAgentRun(run: AgentRun): void {
     throw new AppError(503, 'server_draining', 'Server is shutting down; please retry')
   }
   agentRuns.set(run.key, run)
+  notifyLiveActivities(run, 'started')
   traceAgentChatEvent('info', 'agent.chat.run.registered', run.trace, {
     run_key: run.key,
     frame_count: run.frames.length,
@@ -136,71 +140,6 @@ export function attachAgentRunFrameSink(
 
   run.subscribers.add(sinkSubscriber)
   sinkSubscriber.poke()
-}
-
-export type ClaimOrEnqueueResult =
-  | { mode: 'run'; release: () => void; carried: PendingUserMessage[] }
-  | { mode: 'queued'; activeActorUserId?: string }
-  // The caller must surface that this message could not be parked.
-  | { mode: 'dropped' }
-
-/**
- * Claims an idle session or hands a participant message to its live turn.
- * `carried` recovers messages when the previous turn ended during admission.
- */
-export async function claimAgentRunOrEnqueue(args: {
-  userId: string
-  sessionId: string
-  message: PendingUserMessage
-  actorUserId?: string
-}): Promise<ClaimOrEnqueueResult> {
-  const claim = await claimAgentRunForSession(args.userId, args.sessionId)
-
-  if (claim) return { mode: 'run', release: claim, carried: [] }
-
-  const queuedMessage: PendingUserMessage = {
-    ...args.message,
-    actorUserId: args.message.actorUserId ?? args.actorUserId ?? args.userId,
-  }
-  const queued = await enqueuePendingUserMessage(args.userId, args.sessionId, queuedMessage)
-
-  if (!queued) return { mode: 'dropped' }
-
-  // Race: the turn may have finished in the window between the failed claim and
-  // the enqueue, so the queue would sit until its TTL with no one to drain it.
-  // Whoever can claim the session now owns whatever is queued.
-  const activeAfterEnqueue = await activeRunForSession(args.userId, args.sessionId)
-
-  if (activeAfterEnqueue) {
-    return {
-      mode: 'queued',
-      ...(activeAfterEnqueue.actorUserId
-        ? { activeActorUserId: activeAfterEnqueue.actorUserId }
-        : {}),
-    }
-  }
-  const recovered = await claimAgentRunForSession(args.userId, args.sessionId)
-
-  if (!recovered) return { mode: 'queued' }
-  const carried = await drainPendingUserMessages(
-    args.userId,
-    args.sessionId,
-    queuedMessage.actorUserId,
-  )
-
-  if (carried.length === 0) {
-    // Another claimer drained first; nothing of ours is left to run.
-    recovered()
-
-    return { mode: 'queued' }
-  }
-  logEvent('info', 'agent.run.pending_messages_recovered', {
-    user_id: args.userId,
-    session_id: args.sessionId,
-    recovered_count: carried.length,
-  })
-
-  return { mode: 'run', release: recovered, carried }
 }
 
 const QUEUED_TURN_POLL_MS = 500

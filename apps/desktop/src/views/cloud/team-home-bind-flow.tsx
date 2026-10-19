@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 
 import { AddIntegrationModal } from '../AddIntegrationModal'
+import { BindPlaudDialog } from '../BindPlaudDialog'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { isBindDialogKey } from './team-home-bind'
@@ -52,6 +53,7 @@ export const TeamHomeBindFlow = forwardRef<
   const [bindAsanaOpen, setBindAsanaOpen] = useState(false)
   const [bindSentryOpen, setBindSentryOpen] = useState(false)
   const [bindPosthogOpen, setBindPosthogOpen] = useState(false)
+  const [bindPlaudOpen, setBindPlaudOpen] = useState(false)
   const [bindGrafanaOpen, setBindGrafanaOpen] = useState(false)
   const [bindSonarqubeOpen, setBindSonarqubeOpen] = useState(false)
   const [bindOnpremOpen, setBindOnpremOpen] = useState(false)
@@ -110,6 +112,9 @@ export const TeamHomeBindFlow = forwardRef<
         break
       case 'asana':
         setBindAsanaOpen(true)
+        break
+      case 'plaud':
+        setBindPlaudOpen(true)
         break
       case 'grafana':
         setBindGrafanaOpen(true)
@@ -181,6 +186,15 @@ export const TeamHomeBindFlow = forwardRef<
         bindLarkOpen={bindLarkOpen}
         setBindLarkOpen={setBindLarkOpen}
         bindMode={bindMode}
+      />
+      <BindPlaudDialog
+        open={bindPlaudOpen}
+        teamId={teamId}
+        onClose={() => {
+          setBindPlaudOpen(false)
+          onDialogsClosed?.()
+        }}
+        onBound={onChanged}
       />
     </>
   )

@@ -18,6 +18,7 @@ import { useComposerSlashCommands } from './useComposerSlashCommands'
 import { useComposerState } from './useComposerState'
 import { useSessionConfig } from './useSessionConfig'
 
+import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
 import type { RuntimeControl } from './RuntimeSelector'
@@ -50,6 +51,7 @@ export function Composer({
   onImportSession,
   mentionScope,
   promptSuggestion,
+  recall,
 }: {
   variant?: 'compact' | 'hero'
   onSend: (text: string, filePaths: string[]) => void
@@ -91,6 +93,7 @@ export function Composer({
    *  invite prompt after sending. */
   mentionScope?: { teamId: string; sessionId?: string }
   promptSuggestion?: string | null
+  recall?: ComposerRecall
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -138,6 +141,7 @@ export function Composer({
     pendingSeed,
     onSeedConsumed,
     dropRegisterRef,
+    recall,
   })
   const { filePaths, isEmpty } = state
 
@@ -248,7 +252,7 @@ export function Composer({
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
               {credentialSelector && (
-                <CredentialSelectorButton {...credentialSelector} hero={hero} />
+                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && <RuntimeSelector {...runtimeControl} />}

@@ -48,6 +48,7 @@ export type LocalRuntimeTunnelStatus = {
     state?: 'pending' | 'ready'
   } & Partial<NonNullable<LocalRuntimeTunnelStatus['agents']['codex']>>)[]
   backendUrl?: string
+  cliVersion?: string
   desktops?: { sessionId: string; display: number }[]
   /** Opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen?: boolean

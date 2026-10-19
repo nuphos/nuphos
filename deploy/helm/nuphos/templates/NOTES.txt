@@ -1,0 +1,22 @@
+Nuphos backend: {{ include "nuphos.backendUrl" . }}
+
+1. Wait for the backend to become ready:
+     kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "nuphos.fullname" . }}-backend
+
+2. In Nuphos Desktop, choose "Self-hosted? Set API endpoint", enter the URL
+
+   {{ include "nuphos.backendUrl" . }}
+
+   sign in with your email and the emailed code and create a team.
+{{- if .Values.runtime.enabled }}
+
+3. Print the runtime console password:
+     kubectl -n {{ .Release.Namespace }} get secret {{ include "nuphos.secretName" . }} -o jsonpath='{.data.RUNTIME_AUTH_KEY}' | base64 -d
+
+4. Open {{ include "nuphos.runtimeUrl" . }}, sign in with that password. Under "Connect to Nuphos",
+   expand "Agent URL Nuphos connects to", and set the public URL to
+   
+   {{ include "nuphos.runtimeUrl" . | replace "https://" "wss://" | replace "http://" "ws://" }}/acp
+
+   Hit "Save URL", then "Connect to Nuphos" to pair it with your client.
+{{- end }}

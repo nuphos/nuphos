@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Table } from '../../components/Table'
+import { Button } from '../../components/ui/button'
 import { useReportLoading } from '../../components/useReportLoading'
 
 import type { CloudflareD1QueryResult } from '../../types'
@@ -98,17 +99,13 @@ export function CloudflareD1DatabaseDetailView({
               }}
               rows={4}
               spellCheck={false}
-              className="w-full px-2.5 py-2 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px] resize-y"
+              className="w-full px-2.5 py-2 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px] resize-y"
             />
             <div className="flex items-center gap-2 mt-2">
-              <button
-                onClick={() => void runQuery()}
-                disabled={running}
-                className="h-7 px-3 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] flex items-center gap-1.5 disabled:opacity-50"
-              >
+              <Button size="sm" onClick={() => void runQuery()} disabled={running}>
                 <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" />{' '}
                 {running ? 'Running…' : 'Run'}
-              </button>
+              </Button>
               <span className="text-[11px] text-tertiary">⌘/Ctrl + Enter</span>
               {result?.meta && (
                 <span className="ml-auto text-[11px] text-tertiary">

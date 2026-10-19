@@ -8,6 +8,7 @@ export type BindingAccessProvider =
   | 'azure'
   | 'upstash'
   | 'posthog'
+  | 'plaud'
   | 'tencent'
   | 'aliyun'
   | 'volcengine'
@@ -67,6 +68,12 @@ export const PROVIDERS: Record<BindingAccessProvider, ProviderConfig> = {
     adminBypass: false,
     load: (teamId, id) => api.atlasGetPosthogIntegrationAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdatePosthogIntegrationAccess(teamId, id, input),
+  },
+  plaud: {
+    resourceLabel: 'Plaud account',
+    adminBypass: false,
+    load: (teamId, id) => api.atlasGetPlaudAccountAccess(teamId, id),
+    save: (teamId, id, input) => api.atlasUpdatePlaudAccountAccess(teamId, id, input),
   },
   tencent: {
     resourceLabel: 'Tencent Cloud binding',

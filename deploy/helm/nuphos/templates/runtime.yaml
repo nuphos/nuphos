@@ -1,0 +1,101 @@
+{{- if .Values.runtime.enabled }}
+{{- $name := printf "%s-runtime" (include "nuphos.fullname" .) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "runtime") | nindent 4 }}
+spec:
+  selector:
+    {{- include "nuphos.selectorLabels" (list . "runtime") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "runtime") | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nuphos.selectorLabels" (list . "runtime") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nuphos.labels" . | nindent 8 }}
+        {{- include "nuphos.selectorLabels" (list . "runtime") | nindent 8 }}
+    spec:
+      # The agent executes code here, so it gets no Kubernetes API credentials.
+      automountServiceAccountToken: false
+      securityContext:
+        # The image runs as node (1000).
+        fsGroup: 1000
+      containers:
+        - name: runtime
+          image: {{ .Values.runtime.image.repository }}:{{ .Values.runtime.image.tag }}
+          imagePullPolicy: {{ .Values.runtime.image.pullPolicy }}
+          env:
+            - name: OPENAB_STREAM_EDIT_INTERVAL_MS
+              value: '300'
+            - name: OPENAB_ACP_AUTH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nuphos.secretName" . }}
+                  key: RUNTIME_AUTH_KEY
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.runtime.resources | nindent 12 }}
+          volumeMounts:
+            - name: home
+              mountPath: /home/node
+            - name: workspace
+              mountPath: /workspace
+      {{- with .Values.runtime.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.runtime.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.runtime.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    {{- range $volume := list "home" "workspace" }}
+    {{- $p := index $.Values.runtime.persistence $volume }}
+    - metadata:
+        name: {{ $volume }}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with $p.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $p.size }}
+    {{- end }}
+{{- end }}

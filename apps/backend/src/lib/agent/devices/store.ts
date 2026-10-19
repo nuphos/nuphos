@@ -1,14 +1,18 @@
 import { db } from '@/lib/db'
 
 import type { RegisteredAgent } from './agent-registry'
-import type { Collection } from 'mongodb'
 import type { RequestOrigin } from '@/lib/request-origin'
+import type { Collection } from 'mongodb'
 
 export { isActiveTeamMember } from './team-membership'
 
-/** A cloud machine Nuphos created for this device; absent for a person's own computer. Its state is never stored: instabox and presence know it. */
+/**
+ * A machine Nuphos created for this device; absent for a person's own computer. Its state is
+ * never stored: instabox and presence know it. A `k8s` Box is the pod of a managed runtime,
+ * which the team reaches through that runtime, so it is never listed as one of the team's Boxes.
+ */
 export type AgentDeviceBox = {
-  provider: 'instabox'
+  provider: 'instabox' | 'k8s'
   /** Set once the machine is ordered; a row without one is still being created. */
   sandboxId?: string
   /** Asset scope; independent of the host's transport owner. */
@@ -136,6 +140,33 @@ export async function insertBoxAgentDevice(
   return created
 }
 
+/** The device a managed runtime's pod joins as: the team's, usable by all of it. */
+export async function insertManagedRuntimeDevice(
+  userId: string,
+  device: { deviceId: string; label: string; teamId: string },
+): Promise<AgentDevice> {
+  const now = new Date()
+  const created: AgentDevice = {
+    deviceId: device.deviceId,
+    label: device.label,
+    platform: 'linux',
+    allowLocalExec: false,
+    userId,
+    box: {
+      provider: 'k8s',
+      teamId: device.teamId,
+      createdBy: userId,
+      access: { everyone: true, userIds: [] },
+    },
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await agentDevices().insertOne(created)
+
+  return created
+}
+
 /**
  * The join token made for a Box claims that Box's row, and nothing else: the row
  * must still have no credential, so a token can never take over a device in use.
@@ -203,6 +234,7 @@ export async function setAgentDeviceBoxSandbox(
 export async function countTeamBoxesOrdering(teamId: string): Promise<number> {
   return agentDevices().countDocuments({
     'box.teamId': teamId,
+    'box.provider': { $ne: 'k8s' },
     'box.sandboxId': { $exists: false },
   })
 }
@@ -215,7 +247,9 @@ export async function deleteAgentDevice(userId: string, deviceId: string): Promi
 
 /** Never infer a legacy Box's team from its owner. */
 export async function listTeamBoxes(teamId: string): Promise<AgentDevice[]> {
-  return agentDevices().find({ 'box.teamId': teamId }).toArray()
+  return agentDevices()
+    .find({ 'box.teamId': teamId, 'box.provider': { $ne: 'k8s' } })
+    .toArray()
 }
 
 /** Replaces who may use a Box. Callers check `manage` first. */

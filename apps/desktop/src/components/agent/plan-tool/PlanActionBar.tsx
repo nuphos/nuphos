@@ -113,7 +113,7 @@ export function PlanActionBar({
                       if (hasChangeRequest) requestChanges()
                     }
                   }}
-                  className="w-full resize-none rounded-lg border border-zGray-800 bg-field px-3 py-2 text-[13px] leading-snug text-main placeholder:text-tertiary focus:border-zViolet-accent/40 focus:outline-none"
+                  className="w-full resize-none rounded-lg border border-zGray-800 bg-surface px-3 py-2 text-[13px] leading-snug text-main placeholder:text-tertiary focus:border-zViolet-accent/40 focus:outline-none"
                 />
               </div>
             </div>
@@ -205,11 +205,12 @@ export function PlanActionBar({
             </span>
           )}
           {showRetry && (
-            <button
+            <Button
+              size="sm"
+              className="flex-shrink-0"
               type="button"
               onClick={onRetry}
               disabled={retrying}
-              className="inline-flex h-7 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-zViolet-500 px-2.5 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {retrying ? (
                 <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.4} />
@@ -217,7 +218,7 @@ export function PlanActionBar({
                 <RotateCcw className="h-3 w-3" strokeWidth={2.2} />
               )}
               Retry
-            </button>
+            </Button>
           )}
         </div>
       ) : decision === 'approved' ? (

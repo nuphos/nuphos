@@ -67,7 +67,7 @@ export function noteBoxUsage(teamId: string): void {
 
 /**
  * A Box's tunnel opens when it starts, resumes or wakes, and closes when it
- * pauses or stops, whoever did it: Nuphos, instabox's idle pause, a command
+ * pauses or stops, whoever did it: Nuphos, a command
  * that woke it, a crash, a kill in instabox's console.
  */
 export function noteBoxPresence(
@@ -78,7 +78,7 @@ export function noteBoxPresence(
 ): Promise<void> {
   return getDevice(userId, deviceId).then(
     (device) => {
-      if (device?.box) note(device.box.teamId)
+      if (device?.box?.provider === 'instabox') note(device.box.teamId)
     },
     () => undefined,
   )

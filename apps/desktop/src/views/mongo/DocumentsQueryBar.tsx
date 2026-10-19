@@ -1,5 +1,6 @@
 import { Loader2, Play, RotateCcw } from 'lucide-react'
 
+import { Button } from '../../components/ui/button'
 import { JsonEditor } from '../../components/YamlEditor'
 
 import { operationAction } from './documentsQuery'
@@ -43,18 +44,14 @@ export function DocumentsQueryBar({
 }) {
   const runButtons = (
     <div className="flex gap-1 pt-[19px]">
-      <button
-        onClick={onRun}
-        disabled={loading}
-        className="flex h-8 items-center gap-1.5 rounded-md bg-zViolet-500 px-3 text-[12px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:opacity-50"
-      >
+      <Button size="sm" onClick={onRun} disabled={loading}>
         {loading ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : (
           <Play className="h-3.5 w-3.5" />
         )}
         {operationAction(operation)}
-      </button>
+      </Button>
       <button
         onClick={onReset}
         title="Reset query"
@@ -77,7 +74,7 @@ export function DocumentsQueryBar({
         onChange={(event) =>
           onLimitChange(Math.max(1, Math.min(100, Number(event.target.value) || 1)))
         }
-        className="h-8 w-full rounded-md border border-zGray-700 bg-field px-2 text-[12px] text-main outline-none focus:border-zViolet-500"
+        className="h-8 w-full rounded-md border border-zGray-700 bg-surface px-2 text-[12px] text-main outline-none focus:border-zViolet-500"
       />
     </label>
   )

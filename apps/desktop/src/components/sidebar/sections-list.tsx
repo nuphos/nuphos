@@ -23,13 +23,6 @@ import type { Item, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
 
-/** Hover controls are 20px squares 4px apart; the one shortcut chip is ~30px. */
-function hoverActionsWidth(...controls: unknown[]): number {
-  const widths = controls.flatMap((control, index) => (control ? [index === 0 ? 30 : 20] : []))
-
-  return widths.reduce((sum, width) => sum + width, 0) + Math.max(0, widths.length - 1) * 4
-}
-
 function favoriteToggleAriaLabel(chatRow: boolean, favorited: boolean, label: string): string {
   if (chatRow) return `${favorited ? 'Unpin' : 'Pin'} ${label}`
 
@@ -190,6 +183,8 @@ export function SidebarSectionList({
                           active={isActive}
                           onOpenKey={onOpenKey}
                           onSelect={onSelect}
+                          sessionId={rowSessionId}
+                          teamId={scope.teamId}
                           onContextMenu={
                             // Only open when the menu would have something in it.
                             canFavorite(item) || (teamView && Boolean(rowSessionId))
@@ -204,6 +199,7 @@ export function SidebarSectionList({
                             active={isActive}
                             sharedBackground={Boolean(item.description)}
                             disabled={!item.enabled}
+                            navigateOnRelease={Boolean(rowSessionId)}
                             onClick={(event) => {
                               if (!item.enabled) return
                               // cmd/ctrl-click opens beside the current page, the
@@ -240,11 +236,6 @@ export function SidebarSectionList({
                                 </>
                               ) : undefined
                             }
-                            hoverActionsWidth={hoverActionsWidth(
-                              shortcut,
-                              favoriteToggle,
-                              item.actions,
-                            )}
                             icon={item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)}
                           />
                           {item.description}

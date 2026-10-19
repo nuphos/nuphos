@@ -25,6 +25,7 @@ export {
 export {
   clearConversationPreviewLocalTools,
   clearConversationPreviewTurn,
+  consumeConversationRetracted,
   consumeConversationWorkLost,
   getConversationPreviewAttachment,
   markConversationWorkLost,
@@ -50,6 +51,7 @@ export {
   renameConversation,
   setConversationParent,
 } from './db/maintenance'
+export { clearPendingDecision, setPendingDecision } from './db/pending-decision'
 export {
   bumpConversationActivity,
   conversationReadState,
@@ -62,11 +64,9 @@ export {
   appendConversationMessages,
 } from './db/transcript-autonomous'
 export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
-export {
-  getConversationMessagesHead,
-  getConversations,
-  syncConversationTranscript,
-} from './db/transcript'
+export { retractTrailingUserMessage } from './db/transcript-retract'
+export { getConversationMessagesHead, syncConversationTranscript } from './db/transcript'
+export { getConversations } from './db/conversations-list'
 export { restoreArchivedConversation, setConversationArchived } from './db/archive'
 
 export type { AdminFilterOp, StatWindows } from './db/admin'
@@ -85,5 +85,8 @@ export type {
   ConversationsArchivedFilter,
   ConversationsScope,
   ConversationsSort,
-} from './db/transcript'
-export { setConversationCredentialFields } from './db/credential-fields'
+} from './db/conversations-list'
+export {
+  addConversationCredentialIds,
+  setConversationCredentialFields,
+} from './db/credential-fields'

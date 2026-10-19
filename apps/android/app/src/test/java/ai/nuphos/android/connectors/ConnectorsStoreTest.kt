@@ -137,6 +137,36 @@ class ConnectorsStoreTest {
         store.handleCallback("nuphos://linear-callback?state=abc&team_id=team&binding_id=b")
         assertEquals(count, calls)
     }
+    @Test fun deferredCallbackCompletesWithItsCodeAndVerifiesTheBinding() = runTest {
+        var saved: ConnectorPending? = ConnectorPending("team", "linear", "abc", 1000)
+        val storage = object : ConnectorPendingStorage {
+            override fun read() = saved
+            override fun write(pending: ConnectorPending?) { saved = pending }
+        }
+        val requests = mutableListOf<String>()
+        val store = ConnectorsStore(ConnectorTransport { method, _, path, body, _ ->
+            requests.add("$method:$path:${body?.get("code")?.stringValue}")
+            if (method == "POST") JsonValue.parse("""{"binding_id":"b","team_id":"team"}""")!! else JsonValue.parse("""{"linear":[{"id":"b"}]}""")!!
+        }, storage, now = { 0 })
+        store.select(admin)
+        store.handleCallback("nuphos://linear-callback?state=abc&deferred=1&code=one-time")
+        assertTrue(requests.contains("POST:connector-oauth/abc/complete:one-time"))
+        assertEquals("Connector saved and verified.", store.notice)
+        assertNull(saved)
+    }
+    @Test fun deferredCallbackWithoutCodeNeverCompletes() = runTest {
+        val storage = object : ConnectorPendingStorage {
+            override fun read() = ConnectorPending("team", "linear", "abc", 1000)
+            override fun write(pending: ConnectorPending?) {}
+        }
+        val requests = mutableListOf<String>()
+        val store = ConnectorsStore(ConnectorTransport { method, _, path, _, _ -> requests.add("$method:$path"); JsonValue.obj() }, storage, now = { 0 })
+        store.select(admin)
+        store.handleCallback("nuphos://linear-callback?state=abc&deferred=1")
+        assertFalse(requests.any { it.startsWith("POST:") })
+        assertTrue(requests.contains("DELETE:linear-workspaces/start-oauth/abc"))
+        assertNotEquals("Connector saved and verified.", store.notice)
+    }
     @Test fun oauthMissingInventoryAndWrongTeamNeverConfirm() = runTest {
         val storage = object : ConnectorPendingStorage {
             override fun read() = ConnectorPending("team", "linear", "abc", 1000)

@@ -17,6 +17,7 @@ import {
   upsertConversationShell,
 } from './db'
 
+import type { CredentialRef } from './thread-credentials'
 import type { AgentConversation } from './db'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
@@ -65,7 +66,7 @@ function receipt(
   actor: ThreadActor,
   threadId: string,
   messageId: string,
-  status: 'started' | 'delivered',
+  status: 'started' | 'queued',
 ) {
   return {
     status,
@@ -145,20 +146,20 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 }
 
 /**
- * The parent's own controls for a thread it created: its permission mode, never
- * more access than the parent has, and the agent it runs on.
+ * The parent's own controls for a thread nested under it: its permission mode and
+ * credentials, never more access than the parent has, and the agent it runs on.
  */
 export async function updateThread(
   actor: ThreadActor,
   threadId: string,
-  change: { fullAccess?: boolean; runtimeId?: string },
+  change: { fullAccess?: boolean; runtimeId?: string; grant?: CredentialRef[] },
 ) {
   const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
-  // Who opened it, not who it is nested under now: adopting a conversation must
-  // not hand over control of it.
-  if (target.createdBySessionId !== actor.sessionId) {
-    throw new Error('Only a thread this conversation created can be changed.')
+  // A thread is this conversation's to manage while nested under it, whether
+  // create_thread opened it or set_thread_parent adopted one of the owner's own.
+  if (target.parentSessionId !== actor.sessionId) {
+    throw new Error('Only a thread nested under this conversation can be changed.')
   }
   if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
     throw new Error('Only a conversation in Full Access can give a thread Full Access.')
@@ -169,6 +170,8 @@ export async function updateThread(
     if (!(await listRuntimeInstances(actor.teamId)).some(({ id }) => id === change.runtimeId))
       throw new Error("A thread can only move to one of the team's agents, not to a computer.")
   }
+  const { grantThreadCredentials } = await import('./thread-credentials')
+  const granted = await grantThreadCredentials(actor, threadId, change.grant)
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
   const runtime = change.runtimeId
@@ -187,6 +190,7 @@ export async function updateThread(
 
   return {
     threadId,
+    ...(granted ? { granted } : {}),
     ...(change.fullAccess === undefined
       ? {}
       : { mode: change.fullAccess ? 'full_access' : 'auto' }),

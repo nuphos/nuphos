@@ -1,11 +1,14 @@
 import {
   appendFileSync,
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   readlinkSync,
+  renameSync,
   rmSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -53,6 +56,34 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
   return true
 }
 
+/**
+ * Windows links a file without administrator rights only as a hard link, since a junction
+ * holds directories only. Codex rewrites auth.json in place, so the hard link keeps sharing
+ * the login. As with the symlink elsewhere, the owner's login wins; a login made in this
+ * home stays while the owner has none, or while the owner's cannot be linked here.
+ */
+export function hardLinkFrom(ownerHome: string, home: string, file: string): void {
+  const link = path.join(home, file)
+  const owner = statSync(path.join(ownerHome, file), { throwIfNoEntry: false })
+  const existing = lstatSync(link, { throwIfNoEntry: false })
+
+  // Link beside the file first, so a link that cannot be made leaves the current login in place.
+  const next = `${link}.${String(process.pid)}.tmp`
+
+  try {
+    // Earlier builds left a junction here, which Codex cannot read.
+    if (existing?.isSymbolicLink()) unlinkSync(link)
+    else if (existing && (!owner || owner.ino === existing.ino)) return
+    if (!owner) return
+    rmSync(next, { force: true })
+    linkSync(path.join(ownerHome, file), next)
+    renameSync(next, link)
+  } catch {
+    // Another volume, or a file in use: the current login stays, or Codex runs signed out.
+    rmSync(next, { force: true })
+  }
+}
+
 /** The computer user's own Codex home, whose login the default Codex agent links to. */
 export function codexOwnerHome(env: NodeJS.ProcessEnv = process.env): string {
   return env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
@@ -79,7 +110,8 @@ export function prepareCodexHome(
   try {
     mkdirSync(home, { recursive: true, mode: 0o700 })
     // Without the owner's login Codex still runs, signed out, so it can be signed in from Nuphos.
-    linkFrom(ownerHome, home, 'auth.json')
+    if (process.platform === 'win32') hardLinkFrom(ownerHome, home, 'auth.json')
+    else linkFrom(ownerHome, home, 'auth.json')
     // Codex skips an enabled plugin that is not installed, so users without the App are unaffected.
     if (
       linkFrom(ownerHome, home, CUA_PLUGIN_CACHE) &&

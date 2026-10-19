@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 
 import { AccessStep } from './bind-onprem/steps'
@@ -61,14 +62,9 @@ export function ManageOnpremCredentialDialog({
           {access?.reachable ? 'Done' : 'Close'}
         </button>
         {!access?.reachable && (
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={busy}
-            className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-          >
+          <Button size="sm" type="button" onClick={() => void save()} disabled={busy}>
             {busy ? 'Checking…' : 'Save and check access'}
-          </button>
+          </Button>
         )}
       </div>
     </Modal>

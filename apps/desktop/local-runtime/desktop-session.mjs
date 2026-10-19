@@ -193,22 +193,88 @@ export async function startDisplay(pool, display, home) {
       { env, stdio: 'ignore' },
     )
   }
-  if (!xfceRunning(display)) detached('env', [`XDG_RUNTIME_DIR=${xdg}`, 'xfce4-session'])
+  if (!running('xfce4-session', display)) {
+    writePanel(env.XDG_CONFIG_HOME)
+    detached('env', [`XDG_RUNTIME_DIR=${xdg}`, 'xfce4-session'])
+  }
+  // The agent's first call comes right after this; it finds the panel only once it runs.
+  for (let i = 0; i < 50 && !running('xfce4-panel', display); i++) await sleep(200)
+  if (!running('xfce4-panel', display))
+    throw new Error(`xfce4-panel on :${String(display)} did not start`)
 
   return env
 }
 
-function xfceRunning(display) {
+/** Whether `name` runs on `display`. */
+function running(name, display) {
   const out = spawnSync(
     'bash',
     [
       '-c',
-      `for p in $(pgrep -x xfce4-session); do tr '\\0' '\\n' < /proc/$p/environ | grep -qx 'DISPLAY=:${String(display)}' && echo yes; done`,
+      `for p in $(pgrep -x ${name}); do tr '\\0' '\\n' < /proc/$p/environ | grep -qx 'DISPLAY=:${String(display)}' && echo yes; done`,
     ],
     { encoding: 'utf8' },
   )
 
   return (out.stdout ?? '').includes('yes')
+}
+
+// XFCE's default puts its launchers on an auto-hidden bottom dock, and the
+// computer-use tools see only the top panel. This one panel carries the Web
+// Browser launcher there, so an agent opens a browser with get_app_state and
+// click. Written once, before XFCE first starts under that config home.
+const PANEL = `<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=6;x=0;y=0"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="icon-size" type="uint" value="16"/>
+      <property name="size" type="uint" value="26"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+      </property>
+    </property>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="applicationsmenu"/>
+    <property name="plugin-2" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="web-browser.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-3" type="string" value="tasklist"/>
+    <property name="plugin-4" type="string" value="separator">
+      <property name="expand" type="bool" value="true"/>
+    </property>
+    <property name="plugin-5" type="string" value="clock"/>
+    <property name="plugin-6" type="string" value="actions"/>
+  </property>
+</channel>
+`
+const BROWSER = `[Desktop Entry]
+Type=Application
+Name=Web Browser
+Exec=exo-open --launch WebBrowser %u
+Icon=org.xfce.webbrowser
+`
+
+function writePanel(config) {
+  const channel = path.join(config, 'xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml')
+
+  if (existsSync(channel)) return
+  mkdirSync(path.dirname(channel), { recursive: true })
+  mkdirSync(path.join(config, 'xfce4/panel/launcher-2'), { recursive: true })
+  writeFileSync(path.join(config, 'xfce4/panel/launcher-2/web-browser.desktop'), BROWSER)
+  writeFileSync(channel, PANEL)
 }
 
 const REPLAY_ID = 'nuphos-desktop-replay'

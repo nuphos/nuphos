@@ -5,9 +5,9 @@ import { fileNameFromPath } from './textUtils'
 
 import type { QueuedMessage } from './model'
 
-// Pending follow-ups parked while the agent is mid-turn. Rendered between the
-// conversation and the composer so the user can see what will be sent next and
-// drop anything they no longer want.
+// This person's messages waiting in the session queue, in the order they run.
+// Rendered between the conversation and the composer so the user can see what
+// runs next and take back anything they no longer want.
 export function QueuedStrip({
   items,
   onRemove,
@@ -25,9 +25,7 @@ export function QueuedStrip({
 
   return (
     <div className={clsx('mx-auto w-full', sidebar ? '' : 'max-w-[760px]')}>
-      <div className="px-1 text-xs text-tertiary">
-        {items.every((item) => item.autoSend) ? 'Queued messages' : 'Unsent drafts'}
-      </div>
+      <div className="px-1 text-xs text-tertiary">Queued messages</div>
       <div className="flex flex-col gap-1.5 px-1 pb-1">
         {items.map((item, index) => {
           const label =
@@ -39,23 +37,14 @@ export function QueuedStrip({
               className="group flex items-center gap-2 rounded-lg border border-zGray-800/80 bg-zGray-900/60 px-2.5 py-1.5"
               title={label}
             >
-              {item.autoSend ? (
-                <LoaderCircle
-                  className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-tertiary"
-                  strokeWidth={2}
-                />
-              ) : (
-                <ListPlus className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={2} />
-              )}
+              <ListPlus className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={2} />
               <span className="flex-shrink-0 text-[11px] tabular-nums text-tertiary">
                 {index + 1}
               </span>
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-secondary">{label}</span>
-              {item.autoSend && (
-                <span className="flex-shrink-0 text-[11px] text-tertiary">
-                  Waiting for the agent to be ready…
-                </span>
-              )}
+              <span className="flex-shrink-0 text-[11px] text-tertiary">
+                Runs after the turn ahead
+              </span>
               {item.filePaths.length > 0 && (
                 <span className="flex-shrink-0 text-[11px] text-tertiary">
                   {item.filePaths.length} file
@@ -65,10 +54,10 @@ export function QueuedStrip({
               <button
                 type="button"
                 onClick={() => onSteer(item.id)}
-                disabled={item.steering || (item.autoSend && !canSteer)}
+                disabled={item.steering || !canSteer}
                 className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-zGray-800 enabled:hover:text-main disabled:opacity-40"
-                title="Send draft"
-                aria-label="Send draft"
+                title="Send into the running turn"
+                aria-label="Send into the running turn"
               >
                 {item.steering ? (
                   <LoaderCircle className="h-3 w-3 animate-spin" strokeWidth={2.2} />
@@ -80,8 +69,8 @@ export function QueuedStrip({
                 type="button"
                 onClick={() => onRemove(item.id)}
                 className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
-                title={item.autoSend ? 'Cancel sending' : 'Remove draft'}
-                aria-label={item.autoSend ? 'Cancel sending' : 'Remove draft'}
+                title="Take back"
+                aria-label="Take back"
               >
                 <X className="h-3 w-3" strokeWidth={2.2} />
               </button>

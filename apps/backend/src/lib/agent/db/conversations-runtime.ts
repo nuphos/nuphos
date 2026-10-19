@@ -145,3 +145,17 @@ export async function setConversationPreviewAttachment(
     { $set: { claudeCodePreview: attachment } },
   )
 }
+
+/** Reads and clears a retraction's mark atomically: whether the runtime holds a taken-back prompt. */
+export async function consumeConversationRetracted(
+  sessionId: string,
+  teamId: string,
+): Promise<boolean> {
+  const previous = await agentConversations().findOneAndUpdate(
+    { sessionId, teamId, claudeCodePreviewRetractedAt: { $exists: true } },
+    { $unset: { claudeCodePreviewRetractedAt: '' } },
+    { projection: { _id: 1 } },
+  )
+
+  return Boolean(previous)
+}

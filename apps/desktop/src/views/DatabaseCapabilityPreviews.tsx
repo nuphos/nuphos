@@ -10,6 +10,8 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
+import { Button } from '../components/ui/button'
+
 import type { DatabaseConnection } from '../types'
 import type { ReactNode } from 'react'
 
@@ -25,13 +27,10 @@ export function DatabaseBackupRestorePreview({ connection }: Props) {
       title="MongoDB backup and restore"
       description={`Backup artifacts for ${connection.name} will run through a dedicated execution workflow; Query Console credentials will not be exposed or reused in the renderer.`}
       action={
-        <button
-          disabled
-          className="flex items-center gap-1.5 rounded-md bg-zViolet-500 px-3 py-1.5 text-[11.5px] text-white opacity-40"
-        >
+        <Button size="sm" disabled>
           <HardDrive className="h-3.5 w-3.5" />
           Create backup
-        </button>
+        </Button>
       }
     >
       <div className="grid gap-3 md:grid-cols-3">
@@ -78,13 +77,10 @@ export function DatabaseParametersPreview({ connection }: Props) {
       title="MongoDB runtime parameters"
       description={`Read the effective parameter catalog for ${connection.name} here. Every parameter write will create a governed change request instead of executing directly.`}
       action={
-        <button
-          disabled
-          className="flex items-center gap-1.5 rounded-md bg-zViolet-500 px-3 py-1.5 text-[11.5px] text-white opacity-40"
-        >
+        <Button size="sm" disabled>
           <FileCheck2 className="h-3.5 w-3.5" />
           Request change
-        </button>
+        </Button>
       }
     >
       <div className="rounded-xl border border-zViolet-500/25 bg-zViolet-500/5 p-3.5">

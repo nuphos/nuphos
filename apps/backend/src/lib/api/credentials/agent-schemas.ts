@@ -29,6 +29,7 @@ export const agentCredentialSelectionSchema = z.object({
   notionIntegrationIds: z.array(objectIdStringSchema).optional(),
   upstashAccountIds: z.array(objectIdStringSchema).optional(),
   cloudflareAccountIds: z.array(z.string().min(1)).optional(),
+  teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   deviceIds: z.array(z.string().min(1)).default([]),
 })
 
@@ -57,6 +58,7 @@ const agentCredentialAccessSchema = z.object({
   notionIntegrationIds: z.array(objectIdStringSchema).optional(),
   upstashAccountIds: z.array(objectIdStringSchema).optional(),
   cloudflareAccountIds: z.array(z.string().min(1)).optional(),
+  teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   deviceIds: z.array(z.string().min(1)).optional(),
   updatedAt: z.string().datetime().optional(),
   updatedBy: objectIdStringSchema.optional(),
@@ -167,7 +169,7 @@ export const agentCredentialOptionsSchema = z.object({
     z.object({
       integrationId: objectIdStringSchema,
       label: z.string().min(1),
-      authType: z.enum(['client_credentials', 'oauth']),
+      authType: z.literal('client_credentials'),
     }),
   ),
   secureframeIntegrations: z.array(

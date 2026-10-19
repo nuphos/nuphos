@@ -115,8 +115,14 @@ export const agentApi = {
     window.api.agentUnlinkConversationParent(sessionId, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
     window.api.agentCancelRuntime(sessionId, teamId),
+  agentRetractMessage: (sessionId: string, messageId: string, teamId?: string) =>
+    window.api.agentRetractMessage(sessionId, messageId, teamId),
   agentSteerConversation: (sessionId: string, text: string, teamId?: string, groupId?: string) =>
     window.api.agentSteerConversation(sessionId, text, teamId, groupId),
+  agentListQueue: (sessionId: string, teamId?: string) =>
+    window.api.agentListQueue(sessionId, teamId),
+  agentUnqueueMessage: (sessionId: string, messageId: string, teamId?: string) =>
+    window.api.agentUnqueueMessage(sessionId, messageId, teamId),
   agentSlackPickup: (sessionId: string, teamId?: string) =>
     window.api.agentSlackPickup(sessionId, teamId),
   agentGetConversation: async (

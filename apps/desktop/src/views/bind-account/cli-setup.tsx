@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { CloudLogo } from '../../components/CloudLogo'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { CLOUD_CLIS, cloudCliSetupPrompt } from '../../lib/cloudCli'
 
@@ -154,11 +155,12 @@ export function CloudCliSetupChoice({
 
       {!check.checking && (
         <div>
-          <button
+          <Button
+            size="md"
+            className="w-full"
             type="button"
             onClick={() => void start()}
             disabled={starting}
-            className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-zViolet-500 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm hover:bg-zViolet-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zViolet-accent disabled:cursor-wait disabled:opacity-60"
           >
             {starting ? (
               <LoaderCircle
@@ -170,7 +172,7 @@ export function CloudCliSetupChoice({
             )}
             {starting ? 'Opening your chat…' : 'Set up with agent'}
             {!starting && <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />}
-          </button>
+          </Button>
           <p className="mt-2 text-center text-[10.5px] text-tertiary">
             Opens a new chat on this device
           </p>

@@ -196,6 +196,25 @@ export function buildSentryCredentialSections(
   ]
 }
 
+export function buildPlaudCredentialSections(
+  accounts: AgentCredentialOptions['plaudAccounts'],
+): CredentialSection[] {
+  if (accounts.length === 0) return []
+
+  return [
+    {
+      id: 'plaud',
+      provider: 'plaud' as const,
+      title: 'Plaud',
+      items: accounts.map((account) => ({
+        id: account.bindingId,
+        label: account.label,
+        sublabel: 'Recordings & transcripts',
+      })),
+    },
+  ]
+}
+
 export function buildPosthogCredentialSections(
   integrations: AgentCredentialOptions['posthogIntegrations'],
 ): CredentialSection[] {

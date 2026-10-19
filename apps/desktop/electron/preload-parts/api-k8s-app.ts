@@ -1,5 +1,6 @@
 import { ipcRenderer, webFrame, webUtils } from 'electron'
 
+import type { PersonalCredentialProvider } from '../../src/types/team'
 import type { CustomResourceDescriptor } from '../k8s'
 
 type WorkloadKind = 'Deployment' | 'StatefulSet' | 'DaemonSet'
@@ -222,6 +223,11 @@ export const k8sAppApi = {
     ),
   authUpdateProfile: (input: { name: string; username: string; avatarURL: string }) =>
     ipcRenderer.invoke('auth:updateProfile', input),
+  atlasListPersonalCredentials: () => ipcRenderer.invoke('atlas:listPersonalCredentials'),
+  atlasStartPersonalCredential: (provider: PersonalCredentialProvider) =>
+    ipcRenderer.invoke('atlas:startPersonalCredential', provider),
+  atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
+    ipcRenderer.invoke('atlas:deletePersonalCredential', provider),
   authStatus: () => ipcRenderer.invoke('auth:status'),
   authLogin: () => ipcRenderer.invoke('auth:login'),
   authLogout: () => ipcRenderer.invoke('auth:logout'),
@@ -265,6 +271,8 @@ export const k8sAppApi = {
     subscribeDeepLink('deep-link:app-open', cb),
   onConnectAgentDeepLink: (cb: (payload: unknown) => void) =>
     subscribeDeepLink('deep-link:connect-agent', cb),
+  onPersonalCredentialDeepLink: (cb: (payload: unknown) => void) =>
+    subscribeDeepLink('deep-link:personal-credential', cb),
   onAgentFocusSession: (cb: (payload: unknown) => void) => {
     const handler = (_e: unknown, payload: unknown) => cb(payload)
 

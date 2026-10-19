@@ -39,6 +39,7 @@ const EMPTY_OPTIONS: AgentCredentialOptions = {
   notionIntegrations: [],
   upstashAccounts: [],
   posthogIntegrations: [],
+  plaudAccounts: [],
   cloudflareAccounts: [],
 }
 

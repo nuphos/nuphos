@@ -1,6 +1,7 @@
 import { faCheck, faCopy, faKey } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import clsx from 'clsx'
+
+import { Button } from '../../components/ui/button'
 
 import type { LarkPairCode } from '../../types'
 
@@ -67,20 +68,15 @@ export function LarkPairCard({
             </button>
           </div>
         ) : (
-          <button
+          <Button
+            size="sm"
             type="button"
             onClick={() => void onGenerate()}
             disabled={pairGenerating}
-            className={clsx(
-              'inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[12.5px] font-medium text-white transition-colors',
-              pairGenerating
-                ? 'cursor-default bg-zGray-700 text-tertiary'
-                : 'bg-zViolet-500 hover:bg-zViolet-400',
-            )}
           >
             <FontAwesomeIcon icon={faKey} className="h-3 w-3" />
             {pairGenerating ? 'Generating…' : 'Generate pairing code'}
-          </button>
+          </Button>
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { apiUrl } from '../api-endpoint.ts'
+import { backendFailure, tagRequest } from '../fetch-error.ts'
 
-import { appendQuery, call, fetchWithRetry, readToken, unwrapFetchError } from './client'
+import { appendQuery, call, fetchWithRetry, readToken } from './client'
 
 export type Cluster = {
   provider: 'aws' | 'gcp'
@@ -95,14 +96,14 @@ export async function fetchKubeconfig(route: string): Promise<KubeconfigResponse
   const token = await readToken()
 
   if (!token) throw new Error('Not signed in')
+  const headers: Record<string, string> = { authorization: `Bearer ${token}` }
+  const requestId = tagRequest(headers)
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${apiUrl()}${route}`, {
-      headers: { authorization: `Bearer ${token}` },
-    })
+    res = await fetchWithRetry(`${apiUrl()}${route}`, { headers })
   } catch (e) {
-    throw unwrapFetchError(e, route)
+    throw backendFailure(e, route, requestId)
   }
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`

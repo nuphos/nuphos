@@ -1,0 +1,157 @@
+{{- $name := printf "%s-mongo" (include "nuphos.fullname" .) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "mongo") | nindent 4 }}
+data:
+  # Same bootstrap as deploy/zeabur/template.yaml: keyfile auth, then a one-node replica set.
+  start.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    umask 077
+    mkdir -p /data/configdb
+    if [ ! -s /data/configdb/nuphos-keyfile ]; then
+      head -c 48 /dev/urandom | base64 > /data/configdb/nuphos-keyfile
+    fi
+    chown mongodb:mongodb /data/configdb/nuphos-keyfile
+    chmod 400 /data/configdb/nuphos-keyfile
+    /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/configdb/nuphos-keyfile --bind_ip_all &
+    pid=$!
+    trap 'kill -TERM "$pid"; wait "$pid"' TERM INT
+    for attempt in $(seq 1 120); do
+      kill -0 "$pid" || exit 1
+      if mongosh 'mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000' --quiet --eval '
+        const admin = db.getSiblingDB("admin");
+        if (!admin.auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD)) quit(1);
+        try { rs.status(); } catch (e) {
+          if (e.code !== 94) throw e;
+          rs.initiate({_id:"rs0",members:[{_id:0,host:process.env.NUPHOS_MONGO_HOST+":27017"}]});
+        }
+        quit(db.hello().isWritablePrimary ? 0 : 1);
+      ' >/dev/null 2>&1; then
+        wait "$pid"
+        exit $?
+      fi
+      sleep 2
+    done
+    echo 'Mongo replica set initialization timed out' >&2
+    kill -TERM "$pid"
+    wait "$pid"
+    exit 1
+---
+# Headless, and published before ready, so the node resolves its own name during rs.initiate.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "mongo") | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "nuphos.selectorLabels" (list . "mongo") | nindent 4 }}
+  ports:
+    - name: mongo
+      port: 27017
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nuphos.labels" . | nindent 4 }}
+    {{- include "nuphos.selectorLabels" (list . "mongo") | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nuphos.selectorLabels" (list . "mongo") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nuphos.labels" . | nindent 8 }}
+        {{- include "nuphos.selectorLabels" (list . "mongo") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: mongo
+          image: {{ .Values.mongo.image.repository }}:{{ .Values.mongo.image.tag }}
+          imagePullPolicy: {{ .Values.mongo.image.pullPolicy }}
+          command: ['/bin/bash', '/opt/nuphos/start.sh']
+          env:
+            # Kernel 6.19+: let glibc own rseq so tcmalloc skips per-CPU caches (SERVER-121912).
+            - name: GLIBC_TUNABLES
+              value: glibc.pthread.rseq=1
+            - name: NUPHOS_MONGO_HOST
+              value: {{ include "nuphos.mongoHost" . }}
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: nuphos
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nuphos.secretName" . }}
+                  key: MONGO_PASSWORD
+          ports:
+            - name: mongo
+              containerPort: 27017
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - mongodb://127.0.0.1:27017/?directConnection=true
+                - --quiet
+                - --eval
+                - >-
+                  if (!db.getSiblingDB("admin").auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD)) quit(1);
+                  quit(db.hello().isWritablePrimary ? 0 : 1)
+            periodSeconds: 10
+            timeoutSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: mongo
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.mongo.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+              subPath: db
+            - name: data
+              mountPath: /data/configdb
+              subPath: configdb
+            - name: script
+              mountPath: /opt/nuphos
+      volumes:
+        - name: script
+          configMap:
+            name: {{ $name }}
+      {{- with .Values.mongo.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mongo.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mongo.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.mongo.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.mongo.persistence.size }}

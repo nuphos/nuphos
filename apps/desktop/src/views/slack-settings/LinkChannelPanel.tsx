@@ -7,10 +7,12 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 
+import { Button } from '../../components/ui/button'
+
 import type { FormEvent } from 'react'
 
 const inputClasses =
-  'w-full h-9 rounded-md border border-zGray-800 bg-field px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary'
+  'w-full h-9 rounded-md border border-zGray-800 bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary'
 
 function InstallButton({
   oauthAvailable,
@@ -22,16 +24,17 @@ function InstallButton({
   onInstall: () => void
 }) {
   return (
-    <button
+    <Button
+      size="sm"
+      className="mt-1 flex-shrink-0"
       type="button"
       onClick={onInstall}
       disabled={!oauthAvailable}
       title={oauthAvailable ? undefined : 'Slack OAuth is not configured on this server yet.'}
-      className="mt-1 inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md bg-zViolet-500 px-2.5 text-[11.5px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:cursor-not-allowed disabled:opacity-40"
     >
       <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
       {installed ? 'Reinstall Slack App' : 'Install Slack App'}
-    </button>
+    </Button>
   )
 }
 
@@ -154,21 +157,16 @@ export function LinkChannelPanel({
                   className={clsx(inputClasses, 'font-mono')}
                 />
               </label>
-              <button
+              <Button
+                size="sm"
                 type="submit"
                 disabled={
                   !newChannelWorkspaceId.trim() || !newChannelId.trim() || linkChannelSubmitting
                 }
-                className={clsx(
-                  'inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[12.5px] font-medium text-white transition-colors',
-                  newChannelWorkspaceId.trim() && newChannelId.trim() && !linkChannelSubmitting
-                    ? 'bg-zViolet-500 hover:bg-zViolet-400'
-                    : 'cursor-default bg-zGray-700 text-tertiary',
-                )}
               >
                 <FontAwesomeIcon icon={faLink} className="h-3 w-3" />
                 {linkChannelSubmitting ? 'Linking…' : 'Link channel'}
-              </button>
+              </Button>
             </form>
           ) : (
             <div className="mt-1 text-[12px] text-tertiary">

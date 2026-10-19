@@ -1,0 +1,128 @@
+import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
+import { before, mock, test } from 'node:test'
+
+import type { runBrowserCall as RunBrowserCall } from './browser-tabs.ts'
+
+const app = new EventEmitter()
+const browserSession = {}
+const guests: Guest[] = []
+let onDeepLink: (url: string) => void = () => {}
+let runBrowserCall: typeof RunBrowserCall
+
+before(async () => {
+  mock.module('electron', {
+    namedExports: {
+      app,
+      session: { fromPartition: () => browserSession },
+      webContents: { getAllWebContents: () => guests },
+    },
+  })
+  mock.module('../deep-links.ts', {
+    namedExports: { handleDeepLink: (url: string) => onDeepLink(url) },
+  })
+  ;({ runBrowserCall } = await import('./browser-tabs.ts'))
+})
+
+let nextId = 1
+
+/** A browser guest that starts idle on its blank initial document. */
+class Guest extends EventEmitter {
+  readonly id = nextId++
+  readonly session = browserSession
+  url = ''
+  loading = false
+  getType = () => 'webview'
+  isDestroyed = () => false
+  getURL = () => this.url
+  getTitle = () => ''
+  isLoading = () => this.loading
+
+  attach(): this {
+    guests.push(this)
+    app.emit('web-contents-created', {}, this)
+
+    return this
+  }
+
+  navigate(url: string): this {
+    this.loading = true
+    this.emit('did-start-navigation', { url, isMainFrame: true })
+
+    return this
+  }
+
+  finish(): void {
+    this.url = this.url || 'loaded'
+    this.loading = false
+    this.emit('did-stop-loading')
+  }
+}
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+function tabOf(result: Awaited<ReturnType<typeof RunBrowserCall>>): number {
+  const [part] = result.content as { text: string }[]
+
+  return (JSON.parse(part?.text ?? '{}') as { tab: number }).tab
+}
+
+test('open waits for the new tab to load the requested page, not for its creation', async () => {
+  let guest: Guest | undefined
+
+  onDeepLink = () => {
+    guest = new Guest().attach()
+  }
+  let done = false
+  const result = runBrowserCall({ action: 'open', team: 't1', url: 'https://example.com' })
+
+  void result.then(() => {
+    done = true
+  })
+  await tick()
+  assert.ok(guest)
+  assert.equal(done, false, 'an idle guest is not the opened page yet')
+
+  guest.navigate('https://example.com/')
+  await tick()
+  assert.equal(done, false, 'the page is still loading')
+
+  guest.finish()
+  assert.equal(tabOf(await result), guest.id)
+})
+
+test('open ignores a guest another window attaches for a different page', async () => {
+  let mine: Guest | undefined
+
+  onDeepLink = () => {
+    new Guest().attach().navigate('https://other.example/').finish()
+    mine = new Guest().attach()
+  }
+  const result = runBrowserCall({ action: 'open', team: 't1', url: 'https://example.com/a' })
+
+  await tick()
+  assert.ok(mine)
+  mine.navigate('https://example.com/a').finish()
+  assert.equal(tabOf(await result), mine.id)
+})
+
+test('overlapping opens of the same page each get their own tab', async () => {
+  const created: Guest[] = []
+
+  onDeepLink = () => {
+    created.push(new Guest().attach())
+  }
+  const first = runBrowserCall({ action: 'open', team: 't1', url: 'https://example.com/same' })
+  const second = runBrowserCall({ action: 'open', team: 't1', url: 'https://example.com/same' })
+
+  await tick()
+  for (const guest of created) guest.navigate('https://example.com/same')
+  for (const guest of created) guest.finish()
+
+  const tabs = [tabOf(await first), tabOf(await second)]
+
+  assert.deepEqual(
+    tabs.toSorted((a, b) => a - b),
+    created.map((guest) => guest.id),
+  )
+})

@@ -38,21 +38,23 @@ export function importChunks<M>(messages: M[], maxBytes = IMPORT_CHUNK_BYTES): M
  */
 export async function importInChunks<M>(
   messages: M[],
-  put: (chunk: M[], baseIndex: number | undefined) => Promise<{ skipped?: string }>,
+  put: (
+    chunk: M[],
+    baseIndex: number | undefined,
+  ) => Promise<{ skipped?: string; messageCount?: number }>,
   maxBytes = IMPORT_CHUNK_BYTES,
 ): Promise<void> {
+  const chunks = importChunks(messages, maxBytes)
   let stored = 0
-  let created = false
 
-  for (const chunk of importChunks(messages, maxBytes)) {
+  for (const chunk of chunks) {
     const result = await put(chunk, stored > 0 ? stored : undefined)
 
-    if (stored === 0) created = !result.skipped
-    // This call created the conversation, so a refused chunk means a server
-    // that does not take import chunks: it kept only the first one.
-    else if (created && result.skipped) {
+    stored += chunk.length
+    // A skip is fine only when the server already holds this chunk. A
+    // single-chunk import is all or nothing, so a skip of it means a retry.
+    if (result.skipped && chunks.length > 1 && (result.messageCount ?? 0) < stored) {
       throw new Error('The chat history could not be copied in full')
     }
-    stored += chunk.length
   }
 }

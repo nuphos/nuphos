@@ -32,6 +32,7 @@ spec:
 
     This template deploys the backend, MongoDB and RustFS with no Redis.
     Supply two domains and a Zeabur Email API key with a verified sender for sign-in.
+    To use Resend instead, set `NUPHOS_EMAIL_PROVIDER=resend` and `RESEND_API_KEY` on the backend service after deploying.
 
     1. Wait for the backend readiness check to pass.
     2. In Nuphos Desktop, choose **Self-hosted? Set API endpoint** and enter the backend HTTPS URL.
@@ -67,6 +68,9 @@ spec:
           - id: mongo-config
             dir: /data/configdb
         env:
+          # Kernel 6.19+: let glibc own rseq so tcmalloc skips per-CPU caches (SERVER-121912).
+          GLIBC_TUNABLES:
+            default: glibc.pthread.rseq=1
           NUPHOS_MONGO_HOST:
             default: ${CONTAINER_HOSTNAME}
             expose: true
@@ -200,7 +204,7 @@ spec:
       template: PREBUILT_V2
       spec:
         source:
-          image: ghcr.io/nuphos/backend:v0.90.0
+          image: ghcr.io/nuphos/backend:v0.96.1
         ports:
           - id: web
             port: 3000

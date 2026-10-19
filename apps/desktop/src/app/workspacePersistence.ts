@@ -1,4 +1,5 @@
 import { CONNECTOR_INFO_PROVIDERS } from '../lib/appRoutes.ts'
+import { parseDesktopFilter } from '../lib/desktopScreens.ts'
 import { isTeamId } from '../lib/teamId.ts'
 import { renamedTeamNavKey } from '../lib/teamOverviewNav.ts'
 
@@ -171,12 +172,15 @@ export function withRenamedPage(snapshot: LegacyNavigationSnapshot): NavigationS
 const RENAMED_PAGE_TITLES: Record<string, string> = { 'Cost Management': 'Dashboards' }
 
 /**
- * A desktop is always a session's display or a Box. Before desktops named their
- * Box, a Box desktop held only its short-lived link, which names no Box: such an
- * entry has nothing to reconnect to and is dropped.
+ * Only a Box desktop restores. A session's display comes back as its conversation's
+ * own tab once the snapshot shows it again; and a Box desktop from before desktops
+ * named their Box held only a short-lived link, with nothing to reconnect to.
  */
 function hasDesktopTarget(snapshot: NavigationSnapshot): boolean {
-  return snapshot.active !== 'team.desktop' || Boolean(snapshot.filter)
+  return (
+    snapshot.active !== 'team.desktop' ||
+    Boolean(snapshot.filter && parseDesktopFilter(snapshot.filter).kind === 'box')
+  )
 }
 
 export function restorePersistedTab(persisted: PersistedWorkspaceTab): WorkspaceTabState | null {

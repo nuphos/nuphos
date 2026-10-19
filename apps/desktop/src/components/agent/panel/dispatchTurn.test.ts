@@ -12,6 +12,8 @@ type StartArgs = Parameters<WindowAgentApi['agentStart']>[0]
 let runDispatchTurn: typeof import('./dispatchTurn.ts').runDispatchTurn
 const calls: (['sync', SyncArgs] | ['start', StartArgs])[] = []
 let failImport = false
+// Holds the import open until a test lets it finish.
+let importGate: Promise<void> | null = null
 
 before(async () => {
   mock.module('../../../architecture/activeDiagram.ts', {
@@ -26,9 +28,9 @@ before(async () => {
   mock.module('./attachments.ts', {
     namedExports: {
       makeAttachmentTurn: (text: string) => ({
-        messageId: 'new',
+        messageId: text,
         optimisticPart: () => null,
-        buildUserMsg: (): Message => ({ id: 'new', role: 'user', parts: [{ type: 'text', text }] }),
+        buildUserMsg: (): Message => ({ id: text, role: 'user', parts: [{ type: 'text', text }] }),
         runUpload: () => Promise.resolve(null),
       }),
     },
@@ -39,7 +41,14 @@ before(async () => {
       supersedePendingApprovals: (messages: Message[]) => messages,
     },
   })
-  mock.module('./queuedAutoSend.ts', { namedExports: { rememberDispatchedDraft: () => {} } })
+  mock.module('./queuedAutoSend.ts', {
+    namedExports: {
+      rememberDispatchedDraft: () => {},
+      rememberSideSend: () => {},
+      showQueued: (tab: unknown) => tab,
+      withoutQueued: (tab: unknown) => tab,
+    },
+  })
   mock.module('./stall.ts', {
     namedExports: { INTERRUPTED_TOOL_MESSAGE: 'interrupted', newAgentStreamId: randomUUID },
   })
@@ -57,7 +66,9 @@ before(async () => {
         agentSyncConversationTranscript: (args: SyncArgs) => {
           calls.push(['sync', args])
 
-          return failImport ? Promise.reject(new Error('import failed')) : Promise.resolve()
+          return (importGate ?? Promise.resolve()).then(() => {
+            if (failImport) throw new Error('import failed')
+          })
         },
         agentStart: (args: StartArgs) => {
           calls.push(['start', args])
@@ -132,7 +143,7 @@ test("a fork's first send stores the copied turns as an import before starting",
   )
   assert.deepEqual(
     (calls[1][1] as StartArgs).messages.map((m) => m.id),
-    ['u1', 'a1', 'new'],
+    ['u1', 'a1', 'follow-up'],
   )
 })
 
@@ -178,4 +189,64 @@ test('a failed import does not start the turn and surfaces the error', async () 
     ['sync', 'sync', 'start'],
   )
   assert.equal(state.tabs()[0].unsaved, false)
+})
+
+test("a send during a fork's import goes after its first turn, without a second import", async () => {
+  calls.length = 0
+  failImport = false
+  let finishImport = () => {}
+
+  importGate = new Promise((resolve) => {
+    finishImport = () => resolve()
+  })
+  const state = context({ unsaved: true })
+
+  await runDispatchTurn(state.ctx, 'tab', 'first prompt', [])
+  await runDispatchTurn(state.ctx, 'tab', 'second prompt', [])
+  await settle()
+  // One import, and nothing starts before it lands.
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['sync'],
+  )
+
+  finishImport()
+  importGate = null
+  await settle()
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['sync', 'start', 'start'],
+  )
+  // The first prompt gets its own turn first; the second follows it, never as history.
+  assert.deepEqual(
+    calls.slice(1).map(([, args]) => (args as StartArgs).messages.map((m) => m.id)),
+    [
+      ['u1', 'a1', 'first prompt'],
+      ['u1', 'a1', 'first prompt', 'second prompt'],
+    ],
+  )
+})
+
+test("a send during a fork's failed import is not sent with the first prompt as history", async () => {
+  calls.length = 0
+  failImport = true
+  let finishImport = () => {}
+
+  importGate = new Promise((resolve) => {
+    finishImport = () => resolve()
+  })
+  const state = context({ unsaved: true })
+
+  await runDispatchTurn(state.ctx, 'tab', 'first prompt', [])
+  await runDispatchTurn(state.ctx, 'tab', 'second prompt', [])
+  finishImport()
+  importGate = null
+  await settle()
+
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['sync'],
+  )
+  assert.equal(state.tabs()[0].error, 'import failed')
+  assert.equal(state.tabs()[0].unsaved, true)
 })

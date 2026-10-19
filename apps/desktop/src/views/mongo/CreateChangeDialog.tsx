@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { api, parseAtlasError } from '../../api'
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { JsonEditor } from '../../components/YamlEditor'
 
@@ -106,13 +107,9 @@ export function CreateChangeDialog({
           >
             Cancel
           </button>
-          <button
-            disabled={busy}
-            onClick={() => void create()}
-            className="rounded-md bg-zViolet-500 px-3 py-1.5 text-[12px] text-white disabled:opacity-50"
-          >
+          <Button size="sm" disabled={busy} onClick={() => void create()}>
             {busy ? 'Proposing…' : 'Propose Plan'}
-          </button>
+          </Button>
         </div>
       }
     >
@@ -132,7 +129,6 @@ export function CreateChangeDialog({
               value={operation}
               onValueChange={(value) => setOperation(value as Operation)}
               ariaLabel="Change operation"
-              triggerClassName="h-8 w-full border-zGray-800 bg-field px-2.5 text-[12.5px]"
               options={OPERATIONS.map((item) => ({
                 value: item.value,
                 label: `${item.kind} · ${item.label}`,

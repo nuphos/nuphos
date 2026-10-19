@@ -42,6 +42,7 @@ type PreviewHandoffArgs = {
   teamId: string
   userId: string
   actorUserId: string
+  humanTurn?: boolean
   messages: UIMessage[]
   firstMessage: string
   locale: string
@@ -65,5 +66,6 @@ export async function handOffPreviewTurn(args: PreviewHandoffArgs): Promise<void
     ownerUserId: args.userId,
     actorUserId: args.actorUserId,
     locale: args.locale,
+    humanTurn: args.humanTurn,
   })
 }

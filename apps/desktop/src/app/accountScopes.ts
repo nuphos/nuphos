@@ -36,6 +36,7 @@ export function connectedResourceLabels(
     if (accounts.jira.length > 0) labels.push('Jira')
     if (accounts.asana.length > 0) labels.push('Asana')
     if (accounts.notion.length > 0) labels.push('Notion')
+    if (accounts.plaud.length > 0) labels.push('Plaud')
     if (accounts.onprem.length > 0) labels.push('Kubernetes')
     if (accounts.vanta.length > 0) labels.push('Vanta')
     if (accounts.secureframe.length > 0) labels.push('Secureframe')

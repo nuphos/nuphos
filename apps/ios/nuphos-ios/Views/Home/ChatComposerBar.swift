@@ -23,6 +23,9 @@ struct ChatComposerBar<Controls: View>: View {
     @ViewBuilder var controls: () -> Controls
 
     @FocusState private var focused: Bool
+    /// From focus until the keyboard it raised has finished hiding, so the
+    /// page lowers this composer along with its own keyboard.
+    @State private var ownsKeyboard = false
     @State private var attachments: [ComposerAttachment] = []
     @State private var showPhotos = false
     @State private var showFiles = false
@@ -149,16 +152,13 @@ struct ChatComposerBar<Controls: View>: View {
         }
         .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
         .onDisappear(perform: cancelDictation)
+        .onChange(of: focused) { _, focused in if focused { ownsKeyboard = true } }
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in ownsKeyboard = focused }
+        #endif
+        .preference(key: ComposerOwnsKeyboard.self, value: ownsKeyboard)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-        // A composer leaving the screen takes its keyboard with it. Each page
-        // owns its own composer and focus, so a keyboard left up from a
-        // popped chat covers the list's composer, which never asked for it.
-        #if canImport(UIKit)
-        .onDisappear {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }
-        #endif
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }
             photoItems = []
@@ -394,12 +394,37 @@ struct ChatComposerBar<Controls: View>: View {
         }
     }
 
-    /// Two buttons, not a menu: opening a menu takes focus from the input,
+    /// Buttons, not a menu: opening a menu takes focus from the input,
     /// which folds an empty composer and takes the menu away with it.
     private var attachButtons: some View {
         HStack(spacing: 0) {
             attachButton("photo", label: "Photos") { showPhotos = true }
             attachButton("paperclip", label: "Files") { showFiles = true }
+            // Not the system PasteButton: it always draws a filled block,
+            // whatever style it is given, and hides when tinted to match.
+            #if canImport(UIKit)
+            attachButton("doc.on.clipboard", label: "Paste") { paste(UIPasteboard.general.itemProviders) }
+            #endif
+        }
+    }
+
+    /// Copied files and images become attachments; copied text, which has
+    /// no name, goes into the draft as if it were pasted there.
+    private func paste(_ providers: [NSItemProvider]) {
+        Task {
+            for provider in providers {
+                if provider.suggestedName == nil,
+                   provider.registeredContentTypes.allSatisfy({ $0.conforms(to: .text) }),
+                   let string = await withCheckedContinuation({ continuation in
+                       _ = provider.loadTransferable(type: String.self) { continuation.resume(returning: try? $0.get()) }
+                   }) {
+                    text += string
+                } else if let attachment = await ComposerAttachment.load(pasted: provider) {
+                    attachments.append(attachment)
+                } else {
+                    attachmentError = "Couldn’t paste this item. Try choosing it from Files."
+                }
+            }
         }
     }
 
@@ -486,6 +511,12 @@ struct ChatComposerBar<Controls: View>: View {
             }
         }
     }
+}
+
+/// Whether a composer raised the keyboard that is on screen.
+struct ComposerOwnsKeyboard: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }
 
 extension ChatComposerBar where Controls == EmptyView {

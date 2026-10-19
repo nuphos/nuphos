@@ -22,6 +22,7 @@ export const CONNECTOR_COLLECTIONS = new Set([
   'secureframe-integrations',
   'resend-integrations',
   'posthog-integrations',
+  'plaud-accounts',
   'github-installations',
   'gitlab-bindings',
   'grafana-instances',

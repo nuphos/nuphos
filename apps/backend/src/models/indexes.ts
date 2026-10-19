@@ -30,6 +30,7 @@ import { setupLarkAgentIndexes } from '@/lib/lark/agent-bot'
 import { setupNativeAuthIndexes } from '@/lib/native-auth'
 import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
+import { setupLiveActivityIndexes } from '@/lib/push/live-activities'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
 import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-notifications'
 import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
@@ -97,6 +98,7 @@ export async function setupIndexes(): Promise<void> {
     ['sidebar-favorites', setupSidebarFavoritesIndexes],
     ['home-layouts', setupHomeLayoutIndexes],
     ['push-devices', setupPushDeviceIndexes],
+    ['push-live-activities', setupLiveActivityIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],

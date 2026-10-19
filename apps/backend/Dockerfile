@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1.7
 
 # --- deps: install production deps using the lockfile ----------------------
-FROM oven/bun:1.3.14-alpine AS deps
+FROM oven/bun:1.4.3-alpine AS deps
 WORKDIR /app
 COPY apps/backend/package.json apps/backend/bun.lock ./
 COPY apps/backend/patches ./patches
 RUN bun install --frozen-lockfile --production
 
 # --- runtime: copy deps + source, run with bun -----------------------------
-FROM oven/bun:1.3.14-alpine AS runtime
+FROM oven/bun:1.4.3-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000

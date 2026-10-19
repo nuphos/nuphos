@@ -46,7 +46,7 @@ export function AgentSection({
   const aside = usePageAside()
   const catalog = useRuntimeInstances(teamId, refreshKey)
   const visible = catalog.instances.filter(visibleAgent)
-  const quotas = useRuntimeQuotas(teamId, visible)
+  const quotas = useRuntimeQuotas(teamId)
   const instances = visible.filter((instance) =>
     instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
   )

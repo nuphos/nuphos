@@ -2,6 +2,7 @@ import { Plus, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { Button } from '../components/ui/button'
 
 import { ChangeActionDialogs } from './mongo/ChangeActionDialogs'
 import { ChangeDetail } from './mongo/ChangeDetail'
@@ -171,13 +172,10 @@ export function MongoDatabaseChanges({
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-1.5 rounded-md bg-zViolet-500 px-2.5 py-1.5 text-[11.5px] text-white hover:bg-zViolet-400"
-          >
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
             New request
-          </button>
+          </Button>
         </div>
       </div>
       {error && (

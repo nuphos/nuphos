@@ -77,6 +77,16 @@ useDb({
 
         return { matchedCount: 1 }
       },
+      findOneAndDelete: async (filter: Doc) => {
+        const doc = docs(name).find((doc) => matches(doc, filter)) ?? null
+
+        collections.set(
+          name,
+          docs(name).filter((other) => other !== doc),
+        )
+
+        return doc
+      },
     }),
   }),
 })
@@ -270,6 +280,7 @@ test('deletion can use the account password without access to the email inbox', 
     requestAccountDeletion(user, { confirmation: 'DELETE', password: wrongPassword }),
   ).rejects.toMatchObject({ code: 'invalid_credentials' })
   expect((await getDeletionRequest(user.id)).request).toBeNull()
+  docs('personal_credentials').push({ userId: user.id, provider: 'github' })
   const result = await requestAccountDeletion(user, {
     confirmation: 'DELETE',
     password: testPassword,
@@ -277,4 +288,6 @@ test('deletion can use the account password without access to the email inbox', 
 
   expect(result.request?.status).toBe('requested')
   expect(otpValid).toBe(false)
+  // The member's own GitHub / Linear grants stop working right away.
+  expect(docs('personal_credentials')).toHaveLength(0)
 })

@@ -5,6 +5,7 @@ import {
   CONNECT_SELECTION_KEY,
   connectRowStatus,
   newConnectIds,
+  parseChoiceRequest,
   parseConnectRequest,
   withConnectIds,
 } from './connectCardModel.ts'
@@ -32,6 +33,29 @@ test('parseConnectRequest reads an integration decision and keeps known provider
   // Any other decision stays a plain question, even with providers.
   assert.equal(parseConnectRequest({ category: 'approval', providers: ['linear'] }), null)
   assert.equal(parseConnectRequest(undefined), null)
+})
+
+test('parseChoiceRequest reads any other decision, with its options as replies', () => {
+  assert.deepEqual(
+    parseChoiceRequest({
+      category: 'approval',
+      question: ' Start it? ',
+      options: ['Yes', '', 2, 'No'],
+    }),
+    { category: 'approval', question: 'Start it?', options: ['Yes', 'No'] },
+  )
+  assert.deepEqual(parseChoiceRequest({ category: 'preference', question: 'Which?' }), {
+    category: 'preference',
+    question: 'Which?',
+    options: [],
+  })
+  // An integration decision with known providers is a Connect card instead.
+  assert.equal(
+    parseChoiceRequest({ category: 'integration', question: 'why', providers: ['linear'] }),
+    null,
+  )
+  assert.equal(parseChoiceRequest({ category: 'approval', question: '  ' }), null)
+  assert.equal(parseChoiceRequest(undefined), null)
 })
 
 test('a row is connected only when a bound credential of that provider is selected', () => {

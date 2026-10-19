@@ -1,10 +1,9 @@
+import { registryKey, reportedAgents, withReport } from '@/lib/agent/devices/agent-registry'
 import {
   deviceAccessDeps,
   listAccessibleDevices,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
-import { registryKey, reportedAgents, withReport } from '@/lib/agent/devices/agent-registry'
-import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import {
   localRuntimeId,
   localRuntimeUrl,
@@ -27,6 +26,7 @@ import type {
   LocalAgentStatus,
   LocalRuntimeStatus,
 } from '@/lib/agent/devices/local-runtime/protocol'
+import type { AgentDeviceBox } from '@/lib/agent/devices/store'
 
 export type LocalRuntimeSummary = {
   ownerUserId: string
@@ -45,7 +45,7 @@ export type LocalRuntimeSummary = {
   /** When that computer read the usage above. */
   usageAt?: string
   /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
-  box?: { provider: 'instabox' }
+  box?: Pick<AgentDeviceBox, 'provider'>
 }
 
 export type LocalRuntimeInstance = {
@@ -62,18 +62,12 @@ export type LocalRuntimeCatalogDeps = {
   access: DeviceAccessDeps
   isMember: (userId: string, teamId: string) => Promise<boolean>
   getPresence: (userId: string, deviceId: string) => Promise<LocalRuntimePresence | null>
-  /** Resumes an offline Box and returns its presence once it is back; undefined otherwise. */
-  wakeDevice: (userId: string, deviceId: string) => Promise<LocalRuntimePresence | undefined>
 }
 
 const defaultDeps: LocalRuntimeCatalogDeps = {
   access: deviceAccessDeps,
   isMember: (userId, teamId) => isActiveTeamMember(userId, teamId),
   getPresence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
-  wakeDevice: async (userId, deviceId) =>
-    (await wakeBox(userId, deviceId))
-      ? ((await runtimePresenceStore().get(userId, deviceId)) ?? undefined)
-      : undefined,
 }
 
 /** Explicit instances never fall back to a provider's legacy default. */
@@ -180,6 +174,8 @@ export async function resolveLocalRuntimeEndpoint(
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (!ref || !(await deps.isMember(userId, teamId))) throw notAvailable()
+  let deviceLabel: string
+
   try {
     const device = await requireDeviceAccess(
       userId,
@@ -190,13 +186,13 @@ export async function resolveLocalRuntimeEndpoint(
     )
 
     if (device.userId !== ref.userId) throw notAvailable()
+    deviceLabel = device.label
   } catch (error) {
     if (error instanceof AppError && error.status === 404) throw notAvailable()
     throw error
   }
-  const found = await deps.getPresence(ref.userId, ref.deviceId)
-  // A paused Box is resumed and given a moment to reconnect before it counts as offline.
-  const presence = found ?? (await deps.wakeDevice(ref.userId, ref.deviceId)) ?? null
+  // An offline Box is not woken here: the session queue waits for it (queued-turn.ts).
+  const presence = await deps.getPresence(ref.userId, ref.deviceId)
   const agent = reportedLocalAgent(presence?.status, ref)
 
   // Signing in needs only the computer: an agent added a moment ago may not be in its last
@@ -206,6 +202,8 @@ export async function resolveLocalRuntimeEndpoint(
       409,
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
+      // The placement just authorized: a send to an offline Box queues for it (queueForOfflineBox).
+      { runtimeId, runtimeLabel: `${PROVIDER_LABEL[ref.provider]} in ${deviceLabel}` },
     )
   if (agent?.cli.loggedIn === false && purpose !== 'login')
     throw new AppError(

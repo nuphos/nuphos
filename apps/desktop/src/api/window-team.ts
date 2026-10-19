@@ -93,6 +93,19 @@ export type WindowTeamApi = {
     sessionId: string,
     path: string,
   ): Promise<{ name: string; size: number; data: string; origin: 'this-computer' | 'agent' }>
+  atlasOpenHtmlFile(
+    local: boolean,
+    teamId: string,
+    runtimeId: string,
+    sessionId: string,
+    path: string,
+  ): Promise<void>
+  atlasTransferRuntimeFile(
+    teamId: string,
+    runtimeId: string,
+    sessionId: string,
+    path: string,
+  ): Promise<{ groupId: string; fileId: string; fileName: string; size: number; url: string }>
   atlasListRuntimeFiles(
     teamId: string,
     runtimeId: string,

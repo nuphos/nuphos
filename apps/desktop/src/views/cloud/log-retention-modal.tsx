@@ -1,4 +1,5 @@
 import { Modal } from '../../components/Modal'
+import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 
 import { LOG_RETENTION_OPTIONS } from './log-helpers'
@@ -42,14 +43,9 @@ export function LogRetentionModal({
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="px-3 py-1.5 rounded-md bg-zViolet-500 hover:bg-zViolet-400 text-white text-[12.5px] disabled:opacity-50"
-        >
+        <Button size="sm" type="button" onClick={onSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

@@ -15,6 +15,7 @@ import { listRuntimeInstances, requireRuntimeInstance } from './runtime-catalog'
 import { runtimeModelCatalog } from './runtime-models'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
+import type { AppError } from '@/lib/errors'
 
 const TEAM = 'team'
 const localId = localRuntimeId({ userId: 'owner', deviceId: 'mac-1', provider: 'claude-code' })
@@ -127,6 +128,22 @@ describe('only the owner can put a session on their local agent', () => {
     })
 
     expect(parseLocalRuntimeUrl(endpoint.url)).toMatchObject({ userId: 'owner', teamId: TEAM })
+  })
+
+  test('an offline computer names the placement it authorized, never the one a send asks for', async () => {
+    presence = createMemoryPresenceStore()
+    const other = localRuntimeId({ userId: 'owner', deviceId: 'box-b', provider: 'claude-code' })
+
+    const error = (await resolveConversationChatRuntime(TEAM, conversation('owner'), {
+      userId: 'owner',
+      runtimeId: other,
+    }).then(
+      () => null,
+      (caught: unknown) => caught,
+    )) as AppError
+
+    expect([error.status, error.code]).toEqual([409, 'runtime_offline'])
+    expect(error.details).toEqual({ runtimeId: localId, runtimeLabel: 'Claude Code in MacBook' })
   })
 
   test('control calls on the owner’s conversation act as its owner', async () => {

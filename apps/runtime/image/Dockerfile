@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1.19
 
 # The Nuphos runtime image. BASE_IMAGE is any image built from
-# third_party/openab/Dockerfile.unified; only its `openab` binary is used, so the
-# agent CLIs that Dockerfile installs globally never reach this image.
+# openab/Dockerfile; only its `openab` binary is used.
 # See the repository README for the build.
 #
 # Runs as uid/gid 1000 (node) with all caps dropped — everything here must be
@@ -62,7 +61,7 @@ FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.301
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.303
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
@@ -120,6 +119,22 @@ FROM ${RUNTIME_PROVIDER}
 ARG RUNTIME_PROVIDER
 
 COPY --from=openab /usr/local/bin/openab /usr/local/bin/openab
+
+# The `nuphos agent` host from that CLI release. A container given NUPHOS_JOIN_TOKEN runs
+# it instead of openab and joins Nuphos as a device, the way a Box does (runtime-start.sh).
+ARG NUPHOS_AGENT_VERSION=0.5.1
+RUN arch=$(case "$(dpkg --print-architecture)" in amd64) echo x64 ;; *) dpkg --print-architecture ;; esac) \
+ && asset="nuphos-agent-linux-${arch}.tar.gz" \
+ && base="https://github.com/nuphos/nuphos/releases/download/cli-v${NUPHOS_AGENT_VERSION}" \
+ && cd /tmp \
+ && curl -fsSLO "${base}/${asset}" && curl -fsSLO "${base}/${asset}.sha256" \
+ && sha256sum -c "${asset}.sha256" \
+ && install -d -m 755 /opt/nuphos-agent \
+ && tar -xzf "${asset}" -C /opt/nuphos-agent \
+ && rm -f "${asset}" "${asset}.sha256" \
+ && chmod -R a+rX /opt/nuphos-agent
+ENV NUPHOS_LOCAL_RUNTIME_DIR=/opt/nuphos-agent \
+    NUPHOS_CLI_VERSION="${NUPHOS_AGENT_VERSION}"
 
 # The openab commit the binary was built from, reported on ACP initialize.
 ARG OPENAB_BUILD_SHA
@@ -206,6 +221,7 @@ RUN test -x /opt/nuphos-runtime \
  && test -r /opt/nuphos-runtime/antigravity-login.mjs \
  && test -r /opt/nuphos-runtime/opencode-login.mjs \
  && test -r /opt/nuphos-runtime/panel-job.mjs \
+ && test -r /opt/nuphos-agent/host.mjs \
  && test -r /etc/openab/config.toml \
  && test -x /usr/local/bin/nuphos-runtime-start \
  && test -w /workspace \

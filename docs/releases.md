@@ -107,3 +107,5 @@ Environment secrets:
   `ai.nuphos.ios`. Its name must match `PROVISIONING_PROFILE_SPECIFIER` in the
   project and `ExportOptions.plist`. If it lacks Push Notifications, the build ships without push
   and the run warns.
+- `APPLE_WIDGETS_APPSTORE_PROFILE_BASE64`, the App Store provisioning profile
+  for the Live Activity extension, `ai.nuphos.ios.widgets`, named the same way.

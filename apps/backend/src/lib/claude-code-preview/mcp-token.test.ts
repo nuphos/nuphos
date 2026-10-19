@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import { mintPreviewMcpToken, scopedPathAllowed, verifyPreviewMcpToken } from './mcp-token'
+import {
+  mintPreviewMcpToken,
+  personalCredentialSubject,
+  scopedPathAllowed,
+  verifyPreviewMcpToken,
+} from './mcp-token'
 
 describe('preview MCP token', () => {
   test('round-trips its (user, session, team) scope', () => {
@@ -95,5 +100,38 @@ describe('scopedPathAllowed', () => {
     expect(scopedPathAllowed('/agent-sessions/conv-1/teams/other/mcp', claims)).toBe(false)
     expect(scopedPathAllowed('/agent-sessions/conv-1/kubeconfig', claims)).toBe(false)
     expect(scopedPathAllowed('/teams/team-1/claude-code-runtimes', claims)).toBe(false)
+  })
+})
+
+describe('personalCredentialSubject', () => {
+  const mint = (humanTurn?: boolean) =>
+    mintPreviewMcpToken({
+      userId: 'actor-2',
+      conversationOwnerUserId: 'owner-1',
+      sessionId: 'conv-1',
+      teamId: 'team-1',
+      humanTurn,
+    })
+
+  test('is the sender on a member’s own turn and the session owner otherwise', () => {
+    expect(personalCredentialSubject(`Bearer ${mint(true)}`)).toBe('actor-2')
+    expect(personalCredentialSubject(`Bearer ${mint(false)}`)).toBe('owner-1')
+    expect(personalCredentialSubject(`Bearer ${mint()}`)).toBe('owner-1')
+  })
+
+  test('is nobody when the agent asks for the team identity', () => {
+    expect(personalCredentialSubject(`Bearer ${mint(true)}`, 'team')).toBeNull()
+    expect(personalCredentialSubject(`Bearer ${mint()}`, 'team')).toBeNull()
+  })
+
+  test('ignores missing, non-bearer and forged tokens', () => {
+    const [head = '', , signature = ''] = mint().split('.')
+    const forged = Buffer.from(JSON.stringify({ sub: 'x', own: 'x', hum: true })).toString(
+      'base64url',
+    )
+
+    expect(personalCredentialSubject(undefined)).toBeNull()
+    expect(personalCredentialSubject(mint(true))).toBeNull()
+    expect(personalCredentialSubject(`Bearer ${head}.${forged}.${signature}`)).toBeNull()
   })
 })

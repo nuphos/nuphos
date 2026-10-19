@@ -123,7 +123,7 @@ export function CloudflareKvNamespaceDetailView({
           value={prefix}
           onChange={(e) => setPrefix(e.target.value)}
           placeholder="Filter by key prefix…"
-          className="px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-72"
+          className="px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-72"
         />
       </div>
       {error ? (

@@ -83,7 +83,7 @@ export type VantaIntegration = {
   id: string
   label: string
   orgDisplayName: string | null
-  authType: 'client_credentials' | 'oauth'
+  authType: 'client_credentials'
   createdAt?: string
 }
 

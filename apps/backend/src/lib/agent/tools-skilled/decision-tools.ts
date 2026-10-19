@@ -16,6 +16,7 @@ export const CONNECTABLE_PROVIDERS = [
   'asana',
   'sentry',
   'posthog',
+  'plaud',
   'grafana',
   'sonarqube',
   'notion',

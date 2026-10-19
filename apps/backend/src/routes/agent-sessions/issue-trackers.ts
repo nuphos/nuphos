@@ -32,7 +32,12 @@ linearScoped.get('/credentials', async (c) => {
   const agent = c.get('agent')
   const teamId = parseObjectId(c.get('teamId'), 'teamId')
   const binding = c.get('linearBinding')
-  const { token, expiresAt } = await handOutLinearToken(teamId, binding)
+  const { token, expiresAt, personalLogin } = await handOutLinearToken(
+    teamId,
+    binding,
+    c.req.header('Authorization'),
+    c.req.query('identity'),
+  )
 
   c.header('X-Atlas-Agent', agentSubjectId(agent))
   if (expiresAt) c.header('X-Credentials-Expires-At', expiresAt.toISOString())
@@ -49,6 +54,7 @@ linearScoped.get('/credentials', async (c) => {
     accessToken: token,
     expiresAt: expiresAt?.toISOString() ?? null,
     authType: 'oauth_bearer',
+    actor: personalLogin ? { kind: 'personal', login: personalLogin } : { kind: 'team' },
   })
 })
 

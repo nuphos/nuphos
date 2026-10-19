@@ -28,6 +28,7 @@ import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
 import type { ThemeSource } from './theme'
+import type { PersonalCredentialProvider } from '../../src/types/team'
 import type { IpcMainInvokeEvent } from 'electron'
 
 export const appChannels = {
@@ -35,6 +36,11 @@ export const appChannels = {
     _e: unknown,
     input: { name: string; username: string; avatarURL: string },
   ) => updateProfile(input),
+  'atlas:listPersonalCredentials': () => atlas.listPersonalCredentials(),
+  'atlas:startPersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
+    atlas.startPersonalCredential(provider),
+  'atlas:deletePersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
+    atlas.deletePersonalCredential(provider),
   'auth:status': () => auth.status(),
   // login/logout PostHog events are owned by the renderer (posthog-js in
   // App.tsx), which has the user object at the moment of success. The main

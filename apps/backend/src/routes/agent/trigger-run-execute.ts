@@ -62,7 +62,11 @@ export type TriggerRunParams = {
   larkReply?: LarkReplyToolContext
   frameSink?: AgentRunFrameSink
   triggerNotification?: SlackTriggerNotificationContext
+  /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
+  clientResendsRefusal?: boolean
 }
+
+const HUMAN_SENDER_SOURCES = new Set(['slack.agent', 'discord.agent', 'mcp'])
 
 /**
  * Execute an agent session on behalf of a trigger (cron or webhook).
@@ -199,6 +203,9 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       userId: conversationOwnerUserId,
       actorUserId: userId,
       origin: params.origin ?? 'user',
+      // Only bridges whose actor is the verified human sender act as that sender;
+      // triggers, agent threads and resource events act as the session owner.
+      humanTurn: HUMAN_SENDER_SOURCES.has(source),
       messages,
       firstMessage,
       locale,
@@ -206,6 +213,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       onRunHandoff: attachFrameSink,
       ...(channelDefaults || source === 'lark.agent' ? { channelTurn: true } : {}),
       ...(params.turnContext ? { turnContext: params.turnContext } : {}),
+      ...(params.clientResendsRefusal ? { clientResendsRefusal: true } : {}),
       ...(slackThread
         ? {
             slackThread: {

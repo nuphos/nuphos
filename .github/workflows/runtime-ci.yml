@@ -5,13 +5,11 @@ on:
     paths:
       - apps/runtime/**
       - .github/workflows/runtime-*.yml
-      - .gitmodules
   push:
     branches: [main]
     paths:
       - apps/runtime/**
       - .github/workflows/runtime-*.yml
-      - .gitmodules
 
 permissions:
   contents: read
@@ -41,12 +39,14 @@ jobs:
         run: node --test test/codex-steering.test.mjs test/codex-steering-smoke.mjs
       - name: Verify environment isolation in a real Codex shell
         run: node test/codex-shell-env-smoke.mjs image/codex-acp/node_modules/.bin/codex
+      - name: Verify a released Codex thread resumes with the new environment
+        run: node test/codex-resume-env-smoke.mjs image/codex-acp/node_modules/.bin/codex
       - name: Verify the pinned Claude adapter patch
         run: |
           npm ci --ignore-scripts --prefix image/claude-agent-acp
           node image/claude-agent-acp/patch-adapter.mjs image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js
           node --check image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js
-          node --test test/claude-turn-completion-smoke.mjs test/claude-session-state-smoke.mjs test/claude-session-home-smoke.mjs
+          node --test test/claude-turn-completion-smoke.mjs test/claude-session-state-smoke.mjs test/claude-session-home-smoke.mjs test/claude-session-home-reload-smoke.mjs
       - name: Stage the adapters into the Desktop Local runtime
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --no-openab

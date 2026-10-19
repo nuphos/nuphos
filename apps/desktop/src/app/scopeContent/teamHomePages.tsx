@@ -93,6 +93,7 @@ export function renderTeamHomePages(ctx: ScopeRenderContext): React.ReactNode | 
         asanaAccounts={accounts?.asana ?? []}
         sentryAccounts={accounts?.sentry ?? []}
         posthogIntegrations={accounts?.posthog ?? []}
+        plaudAccounts={accounts?.plaud ?? []}
         discordConnection={accounts?.discordConnection ?? null}
         slackInstallation={accounts?.slackInstallation ?? null}
         slackLinkedChannels={accounts?.slackLinkedChannels ?? null}

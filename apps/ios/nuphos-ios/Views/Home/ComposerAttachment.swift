@@ -56,6 +56,11 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
         return ComposerAttachment(name: "Photo", kind: .image(jpeg))
     }
 
+    static func load(pasted provider: NSItemProvider) async -> ComposerAttachment? {
+        guard let file = await PastedFile.load(provider) else { return nil }
+        return attachment(name: file.name, file: file.url, type: file.type)
+    }
+
     /// Copies a Files-picked URL into our temp dir (the picker's URL is only
     /// readable while security-scoped).
     static func load(fileURL: URL) -> ComposerAttachment? {
@@ -67,13 +72,16 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
         } catch {
             return nil
         }
-        if let type = UTType(filenameExtension: fileURL.pathExtension), type.conforms(to: .image),
-           let data = try? Data(contentsOf: dest) {
-            if let jpeg = ImageAttachment.jpeg(from: data) {
-                return ComposerAttachment(name: fileURL.lastPathComponent, kind: .image(jpeg))
-            }
+        return attachment(name: fileURL.lastPathComponent, file: dest, type: UTType(filenameExtension: fileURL.pathExtension))
+    }
+
+    /// Images become JPEG like Photos picks; anything else stays a file.
+    private static func attachment(name: String, file: URL, type: UTType?) -> ComposerAttachment {
+        if let type, type.conforms(to: .image), let data = try? Data(contentsOf: file),
+           let jpeg = ImageAttachment.jpeg(from: data) {
+            return ComposerAttachment(name: name, kind: .image(jpeg))
         }
-        return ComposerAttachment(name: fileURL.lastPathComponent, kind: .file(dest))
+        return ComposerAttachment(name: name, kind: .file(file))
     }
 }
 

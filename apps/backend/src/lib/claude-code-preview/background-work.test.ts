@@ -9,6 +9,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 let workLost: string | null = null
 
 useAgentDb({
+  consumeConversationRetracted: async () => false,
   consumeConversationWorkLost: async () => {
     const pending = workLost
 

@@ -1,5 +1,5 @@
 import { getSessionBypass } from '@/lib/agent/auto-mode/store'
-import { hasPendingUserMessages } from '@/lib/agent/pending-messages'
+import { hasWaitingMessageFrom } from '@/lib/agent/pending-queue'
 import { logEvent } from '@/lib/observability'
 import { capture } from '@/lib/posthog'
 
@@ -43,7 +43,7 @@ type PermissionBridgeDeps = {
   }) => Promise<
     { timedOut: true; reason?: string } | { timedOut: false; decision: PreviewDecision }
   >
-  hasPendingMessages?: (userId: string, sessionId: string) => Promise<boolean>
+  hasPendingMessages?: (userId: string, sessionId: string, actorUserId: string) => Promise<boolean>
   supersedePermissions?: (args: {
     userId: string
     sessionId: string
@@ -55,7 +55,7 @@ const defaultDeps: PermissionBridgeDeps = {
   getSessionBypass,
   registerWait: registerPreviewWait,
   awaitDecision: awaitPreviewDecision,
-  hasPendingMessages: hasPendingUserMessages,
+  hasPendingMessages: hasWaitingMessageFrom,
   supersedePermissions: supersedePendingAgentPermissions,
 }
 
@@ -142,7 +142,8 @@ export async function handleOpenAbPermissionRequest(
   const hasPendingMessages = deps.hasPendingMessages ?? defaultDeps.hasPendingMessages!
   const supersedePermissions = deps.supersedePermissions ?? defaultDeps.supersedePermissions!
 
-  if (await hasPendingMessages(conversationOwnerUserId, args.conversationId)) {
+  // Only the person whose turn this is supersedes it; an agent's message waits its turn.
+  if (await hasPendingMessages(conversationOwnerUserId, args.conversationId, args.userId)) {
     const superseded = await supersedePermissions({
       userId: args.userId,
       sessionId: args.conversationId,
