@@ -30,17 +30,20 @@ export function MarkdownImage({
   if (!src) return null
   const name = alt?.trim() ? alt : (src.split(/[?#]/)[0].split('/').pop() ?? 'Image')
 
+  // React events from the lightbox portal bubble through this span too, so one
+  // boundary keeps every click (thumbnail, preview, Close) from the enclosing link.
   return (
-    <>
+    <span
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+    >
       <button
         type="button"
         className="max-w-full cursor-zoom-in align-middle"
         aria-label={`Preview ${name}`}
-        onClick={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          setPreview(0)
-        }}
+        onClick={() => setPreview(0)}
       >
         <img src={src} alt={alt} width={width} height={height} className="max-w-full rounded-lg" />
       </button>
@@ -49,7 +52,7 @@ export function MarkdownImage({
         index={preview}
         onIndexChange={setPreview}
       />
-    </>
+    </span>
   )
 }
 
