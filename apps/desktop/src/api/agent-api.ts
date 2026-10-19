@@ -84,23 +84,13 @@ export const agentApi = {
       sort?: 'activity' | 'created' | 'archived'
     },
   ) => {
-    const result = await window.api.agentListConversations(teamId, options)
-    const observedAt = performance.now()
-
-    const page = {
-      ...result,
-      conversations: result.conversations.map((conversation) => ({
-        ...conversation,
-        runtimeState: {
-          ...(conversation.runtimeState ?? { state: 'unsupported' as const }),
-          observedAt,
-        },
-      })),
-    }
+    const page = await window.api.agentListConversations(teamId, options)
 
     publishRuntimeStates(
-      page.conversations.map(
-        (conversation) => [conversation.sessionId, conversation.runtimeState] as const,
+      page.conversations.flatMap((conversation) =>
+        conversation.runtimeState
+          ? [[conversation.sessionId, conversation.runtimeState] as const]
+          : [],
       ),
     )
     receiveConversationReadStates(page.conversations)

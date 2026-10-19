@@ -8,7 +8,7 @@ import { useReportVisibleError } from '../../VisibleErrorReporter'
 import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
 import { AgentHomeAnimation } from './homeAnimation'
-import { ElapsedSeconds, LoadingText } from './partChrome'
+import { LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
 import { sessionDesktopsOf } from './shells'
 import { ShellsPanel } from './ShellsPanel'
@@ -29,7 +29,6 @@ export function ConversationMessageList({
   now,
   statusLabel,
   sendingFeedback = false,
-  statusElapsed,
   hasEarlier,
   captureEarlierAnchor,
   onLoadEarlier,
@@ -62,7 +61,6 @@ export function ConversationMessageList({
   now: number
   sendingFeedback?: boolean
   statusLabel: string | null
-  statusElapsed: number | null
   hasEarlier: boolean
   captureEarlierAnchor: () => void
   isTeamAdmin: boolean
@@ -225,11 +223,6 @@ export function ConversationMessageList({
             <LoadingText>{statusLabel}</LoadingText>
           ) : (
             <span role="status">{statusLabel}</span>
-          )}
-          {statusElapsed !== null && (
-            <span className="font-mono text-[12px] text-tertiary tabular-nums">
-              <ElapsedSeconds seconds={statusElapsed} />
-            </span>
           )}
         </div>
       )}

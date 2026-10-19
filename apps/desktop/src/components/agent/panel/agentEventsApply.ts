@@ -1,3 +1,4 @@
+import { runtimeStateOf } from '../../../lib/agentRuntimeStates'
 import { trackError } from '../../../lib/analytics'
 import { toast } from '../../ui/toast'
 
@@ -27,7 +28,7 @@ export function applyStreamEvent(
   setTabs((prev) =>
     prev.map((t) => {
       if (t.streamId !== streamId) return t
-      if (evType === 'aborted' && t.runtimeState?.schemaVersion === 2) {
+      if (evType === 'aborted' && runtimeStateOf(t.sessionId)?.schemaVersion === 2) {
         return { ...t, streaming: false, connected: false, streamId: null }
       }
       if (evType === 'aborted') {

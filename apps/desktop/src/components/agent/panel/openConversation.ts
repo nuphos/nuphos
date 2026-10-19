@@ -1,5 +1,6 @@
 import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
+import { publishRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { trackError } from '../../../lib/analytics'
 import { toast } from '../../ui/toast'
 
@@ -92,7 +93,6 @@ export async function runOpenConversation(
     title: summary?.title || summary?.firstMessage || titleHint || '',
   })
   try {
-    const runtimeObservedAt = performance.now()
     // The runtime probe is skipped unless a run needs confirming; the catch-up
     // poll fetches runtime state as soon as the tab is active.
     const detail = await api.agentGetConversation(sessionId, teamId, {
@@ -133,6 +133,8 @@ export async function runOpenConversation(
     )
     const activeStartedAt = activeRun?.startedAt ? Date.parse(activeRun.startedAt) : NaN
     const streamStartedAt = Number.isFinite(activeStartedAt) ? activeStartedAt : Date.now()
+
+    if (detail.runtimeState) publishRuntimeStates([[detail.sessionId, detail.runtimeState]])
     const tab: Tab = {
       id: uid(),
       sessionId: detail.sessionId,
@@ -159,9 +161,6 @@ export async function runOpenConversation(
       slackThread: detail.slackThread ?? null,
       activitySource: detail.activitySource,
       claudeCodeRuntimeAttached: detail.claudeCodeRuntimeAttached,
-      runtimeState: detail.runtimeState
-        ? { ...detail.runtimeState, observedAt: runtimeObservedAt }
-        : undefined,
       agentRuntime: detail.agentRuntime,
       runtimeId: detail.runtimeId,
       runtimeLabel: detail.runtimeLabel,

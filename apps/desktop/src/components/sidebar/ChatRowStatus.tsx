@@ -1,12 +1,7 @@
 import { CircleAlert, Loader2 } from 'lucide-react'
 
-import {
-  chatRowIndicator,
-  newestRuntimeSnapshot,
-  runtimeStateLabel,
-} from '../../lib/runtimeExecution'
+import { chatRowIndicator, runtimeStateLabel } from '../../lib/runtimeExecution'
 
-import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
 const DOTS = {
@@ -16,15 +11,12 @@ const DOTS = {
 
 /** The row's status at its right edge; the left icon only ever names the agent. */
 export function ChatRowStatus({
-  conversation,
-  runtimeState,
+  runtimeState: state,
   unread,
 }: {
-  conversation: AgentConversation
   runtimeState: RuntimeExecution | undefined
   unread: boolean
 }) {
-  const state = newestRuntimeSnapshot(conversation.runtimeState, runtimeState)
   const indicator = chatRowIndicator(state, unread)
 
   if (indicator === 'none') return null

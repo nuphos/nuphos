@@ -5,14 +5,14 @@ import { threadStatusOf } from './threadStatus.ts'
 
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 
-const snapshot = (state: RuntimeExecution['state'], ageMs: number) =>
-  ({ state, schemaVersion: 2, observedAt: performance.now() - ageMs }) as RuntimeExecution
+const snapshot = (state: RuntimeExecution['state']) =>
+  ({ state, schemaVersion: 2 }) as RuntimeExecution
 
-test('a stale snapshot that still says active is unknown, not done', () => {
-  assert.equal(threadStatusOf(snapshot('active', 60_000)), 'loading')
+test('an active snapshot is running until a newer one says how it ended', () => {
+  assert.equal(threadStatusOf(snapshot('active')), 'running')
 })
 
-test('a fresh idle snapshot is done, and no snapshot is loading', () => {
-  assert.equal(threadStatusOf(snapshot('idle', 0)), 'done')
+test('an idle snapshot is done, and no snapshot is loading', () => {
+  assert.equal(threadStatusOf(snapshot('idle')), 'done')
   assert.equal(threadStatusOf(undefined), 'loading')
 })

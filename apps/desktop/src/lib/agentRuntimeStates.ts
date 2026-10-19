@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react'
 
-import { newestRuntimeSnapshot } from './runtimeExecution.ts'
+import { acceptRuntimeSnapshot } from './runtimeExecution.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
 
-// Keep the latest runtime observation, including idle/unknown, across panel
-// unmounts. A boolean union loses stop events and lets older list data win.
+// The one place a session's runtime state lives. Every reader (stream frames,
+// the open conversation's poll, the session list, thread status) publishes here
+// and every view reads from here, so no two copies can disagree.
 let snapshot: ReadonlyMap<string, RuntimeExecution> = new Map()
 const listeners = new Set<() => void>()
 
@@ -15,9 +16,9 @@ export function publishRuntimeStates(states: Iterable<readonly [string, RuntimeE
 
   for (const [sessionId, state] of states) {
     const current = next.get(sessionId)
-    const selected = newestRuntimeSnapshot(current, state)
+    const selected = acceptRuntimeSnapshot(current, state)
 
-    if (!selected || selected === current) continue
+    if (selected === current) continue
     next.set(sessionId, selected)
     changed = true
   }
@@ -36,6 +37,11 @@ function subscribe(listener: () => void) {
 
 function getSnapshot() {
   return snapshot
+}
+
+/** For code outside render, such as a `setTabs` updater. */
+export function runtimeStateOf(sessionId: string | null | undefined): RuntimeExecution | undefined {
+  return sessionId ? snapshot.get(sessionId) : undefined
 }
 
 export function useAgentRuntimeStates(): ReadonlyMap<string, RuntimeExecution> {

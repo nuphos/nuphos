@@ -96,6 +96,22 @@ export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefi
   )
 }
 
+const AGENT_DOT = {
+  ready: { color: 'bg-success', label: 'Box online · agent ready' },
+  signIn: { color: 'bg-warning', label: 'Box online · agent needs sign-in' },
+  offline: { color: 'bg-error', label: 'Box offline' },
+} as const
+
+/** A Box agent's reachability, from its Box's presence; other agents have no Box to report. */
+function agentDot(instance: RuntimeInstance | undefined, quota?: RuntimeQuota) {
+  const local = instance?.local
+
+  if (local?.online === undefined) return null
+  if (!local.online) return AGENT_DOT.offline
+
+  return local.signedIn === false || quotaSignedOut(quota) ? AGENT_DOT.signIn : AGENT_DOT.ready
+}
+
 function runtimeOptionNote(instance: RuntimeInstance, quota?: RuntimeQuota): string {
   if (instance.deletion) return ' · Being removed'
   if (instance.starting) return ' · Starting…'
@@ -139,6 +155,7 @@ export function RuntimeSelector({
 
     return () => clearTimeout(timer)
   }, [value?.id])
+  const dot = agentDot(selected, selectedQuota)
   const usageLoading = Boolean(
     value?.id &&
     usageWaitExpired !== value.id &&
@@ -158,11 +175,17 @@ export function RuntimeSelector({
       ) : (
         <span className="max-w-40 truncate">{label}</span>
       )}
+      {dot && (
+        <span
+          role="img"
+          aria-label={dot.label}
+          title={dot.label}
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot.color}`}
+        />
+      )}
       {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
-      {!unavailable && quotaSignedOut(selectedQuota) ? (
-        <span className="shrink-0 text-amber-400">· Sign in required</span>
-      ) : usageLoading ? (
+      {!unavailable && quotaSignedOut(selectedQuota) ? null : usageLoading ? (
         <span
           aria-label="Loading usage"
           role="status"

@@ -39,6 +39,7 @@ export function handleSseControlFrame(
     | 'enqueueTextDelta'
     | 'queueTranscriptSync'
     | 'setTabs'
+    | 'tabsRef'
     | 'turnCompleteRef'
     | 'turnPausedRef'
   >,

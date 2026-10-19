@@ -28,6 +28,18 @@ const RUN_IN_PROGRESS: SessionExecutionState = {
 }
 
 /**
+ * A session's state when its runtime is not asked or cannot be reached: what the
+ * runtime last pushed, else what a live run implies. The list and the detail
+ * both answer with this, so two readers of one session never disagree.
+ */
+export function restingRuntimeState(
+  stored: SessionExecutionState | null | undefined,
+  liveRun: boolean,
+): SessionExecutionState {
+  return stored ?? (liveRun ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
+}
+
+/**
  * A reply can be running on another client (desktop, Slack, a scheduled
  * wake-up), so list rows carry the live run the way the detail does: the
  * local registry first, then the shared store.
@@ -108,11 +120,10 @@ export async function serializeConversationList<T extends ListedConversation>(
   )
 
   return conversations.map((conversation, index) => {
-    // No snapshot (expired, or its connection was lost mid-turn): a live run
-    // still means the turn is running.
-    const probed =
-      runtimeStates[index] ?? (activeRuns[index] ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
-    const runtimeState = withDesktops(probed, desktops[index] ?? { tools: [], canOpen: false })
+    const runtimeState = withDesktops(
+      restingRuntimeState(runtimeStates[index], Boolean(activeRuns[index])),
+      desktops[index] ?? { tools: [], canOpen: false },
+    )
 
     return {
       ...serializeConversationForViewer(

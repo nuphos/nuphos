@@ -32,9 +32,7 @@ export function chatSidebarItem({
   readOnly?: boolean
   actions?: ReactNode
 }): Item {
-  const status = (
-    <ChatRowStatus conversation={conversation} runtimeState={runtimeState} unread={unread} />
-  )
+  const status = <ChatRowStatus runtimeState={runtimeState} unread={unread} />
 
   return {
     key: `agent-session:${conversation.sessionId}`,

@@ -44,12 +44,11 @@ export type RuntimeExecution = {
   commands?: AgentCommand[]
   epoch?: string
   revision?: number
-  observedAt?: number
 }
 
 /** A transport, a buffered frame, and a tool card cannot authorize execution. */
 export function runtimeIsExecuting(snapshot: RuntimeExecution | undefined): boolean {
-  return snapshot?.state === 'active' && runtimeSnapshotFresh(snapshot)
+  return snapshot?.state === 'active'
 }
 
 /**
@@ -88,82 +87,30 @@ export function chatRowIndicator(
   return unread ? 'unread' : 'none'
 }
 
+/**
+ * The one ordering rule: within a runtime process the higher revision is newer.
+ * Across processes, or for a reading without one, the later arrival wins.
+ */
 export function acceptRuntimeSnapshot(
   current: RuntimeExecution | undefined,
   next: RuntimeExecution,
 ): RuntimeExecution {
-  if (
-    current?.epoch &&
+  return current?.epoch &&
     current.epoch === next.epoch &&
     typeof current.revision === 'number' &&
     typeof next.revision === 'number' &&
     next.revision < current.revision
-  )
-    return current
-
-  if (
-    current &&
-    typeof current.observedAt === 'number' &&
-    typeof next.observedAt === 'number' &&
-    next.observedAt < current.observedAt &&
-    (current.epoch !== next.epoch || current.revision === next.revision)
-  )
-    return current
-
-  return next
-}
-
-/** Select one observation, never OR execution flags from separate readers. */
-export function newestRuntimeSnapshot(
-  left: RuntimeExecution | undefined,
-  right: RuntimeExecution | undefined,
-): RuntimeExecution | undefined {
-  if (!left) return right
-  if (!right) return left
-  if (
-    left.epoch &&
-    left.epoch === right.epoch &&
-    typeof left.revision === 'number' &&
-    typeof right.revision === 'number' &&
-    left.revision !== right.revision
-  ) {
-    return left.revision > right.revision ? left : right
-  }
-
-  return (left.observedAt ?? -Infinity) > (right.observedAt ?? -Infinity) ? left : right
-}
-
-/** Observation freshness is a connection property, never a fabricated runtime transition. */
-export function runtimeSnapshotFresh(snapshot: RuntimeExecution | undefined): boolean {
-  return msUntilRuntimeStale(snapshot) !== null
-}
-
-/** How long a fresh snapshot stays fresh; null once it is stale or was never observed. */
-export function msUntilRuntimeStale(snapshot: RuntimeExecution | undefined): number | null {
-  if (typeof snapshot?.observedAt !== 'number') return null
-  const age = performance.now() - snapshot.observedAt
-
-  return age >= 0 && age < 12_000 ? 12_000 - age : null
+    ? current
+    : next
 }
 
 export function runtimeAllows(
   snapshot: RuntimeExecution | undefined,
   action: 'send' | 'cancel' | 'steer' | 'reply',
 ): boolean {
-  return (
-    runtimeSnapshotFresh(snapshot) &&
-    snapshot?.schemaVersion === 2 &&
-    snapshot.actions?.[action] === true
-  )
+  return snapshot?.schemaVersion === 2 && snapshot.actions?.[action] === true
 }
 
-export function runtimeStatusLabel(snapshot: RuntimeExecution | undefined): string {
-  return runtimeSnapshotFresh(snapshot)
-    ? runtimeStateLabel(snapshot)
-    : 'Connection lost — agent status unavailable'
-}
-
-/** The last known state's own label, for sidebar rows that do not care how old it is. */
 export function runtimeStateLabel(snapshot: RuntimeExecution | undefined): string {
   if (!snapshot || snapshot.state === 'disconnected')
     return 'Connection lost — agent status unavailable'
