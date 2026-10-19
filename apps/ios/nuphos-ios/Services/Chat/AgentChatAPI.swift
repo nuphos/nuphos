@@ -134,6 +134,15 @@ enum AgentChatAPI {
         )
     }
 
+    /// `PUT` / `DELETE /agent/conversations/:id/watch` — whether this user gets
+    /// the chat's push notifications. Unwatching also unwatches its threads.
+    static func setWatching(token: String, teamId: String, sessionId: String, watching: Bool) async throws {
+        _ = try await send(
+            watching ? "PUT" : "DELETE", "agent/conversations/\(sessionId)/watch",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none
+        )
+    }
+
     /// `DELETE /agent/conversations/:id/parent` — stops nesting a thread under its opener.
     static func unlinkParent(token: String, teamId: String, sessionId: String) async throws {
         _ = try await send(

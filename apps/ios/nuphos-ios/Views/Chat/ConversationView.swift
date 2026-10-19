@@ -114,6 +114,18 @@ struct ConversationView: View {
                         } label: {
                             Label(store.isPinned(session.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(session.sessionId) ? "pin.slash" : "pin")
                         }
+                        if let watching = session.isWatching {
+                            Button {
+                                Task {
+                                    updating = true
+                                    defer { updating = false }
+                                    do { try await session.setWatching(!watching) }
+                                    catch { archiveError = error.localizedDescription }
+                                }
+                            } label: {
+                                Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
+                            }
+                        }
                         if session.ownsChat {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
                         }

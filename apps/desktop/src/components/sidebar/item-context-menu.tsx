@@ -1,13 +1,16 @@
-import { Archive, Pencil, Star, StarOff, Unlink } from 'lucide-react'
+import { Archive, Bell, BellOff, Pencil, Star, StarOff, Unlink } from 'lucide-react'
 
+import { api } from '../../api'
 import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import { ContextMenu } from '../ContextMenu'
+import { toast } from '../ui/toast'
 
 import type { Item } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 
 export function SidebarItemContextMenu({
   menu,
+  teamId,
   onClose,
   canFavorite,
   favoriteMatch,
@@ -17,6 +20,7 @@ export function SidebarItemContextMenu({
   renameChat,
 }: {
   menu: { x: number; y: number; item: Item }
+  teamId: string
   onClose: () => void
   canFavorite: (item: Item) => boolean
   favoriteMatch: (item: Item) => SidebarFavorite | undefined
@@ -69,6 +73,16 @@ export function SidebarItemContextMenu({
                 : []),
             ]
           : []),
+        ...(menu.item.key.startsWith('agent-session:') && menu.item.watching !== undefined
+          ? [
+              {
+                key: 'watch',
+                label: menu.item.watching ? 'Unwatch chat' : 'Watch chat',
+                icon: menu.item.watching ? BellOff : Bell,
+                onSelect: () => watchChat(menu.item, teamId),
+              },
+            ]
+          : []),
         ...(menu.item.key.startsWith('agent-session:') &&
         (!menu.item.readOnlyChat || menu.item.managedChat)
           ? [
@@ -83,4 +97,15 @@ export function SidebarItemContextMenu({
       ]}
     />
   )
+}
+
+// The sidebar's poll picks the new state up; nothing to refresh by hand.
+function watchChat(item: Item, teamId: string) {
+  const watching = !item.watching
+
+  api
+    .agentSetConversationWatched(item.key.slice('agent-session:'.length), watching, teamId)
+    .catch((err: unknown) => {
+      toast.apiError(watching ? 'Could not watch chat' : 'Could not unwatch chat', err)
+    })
 }

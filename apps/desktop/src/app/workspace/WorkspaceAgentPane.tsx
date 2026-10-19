@@ -237,6 +237,7 @@ export function WorkspaceAgentPane({
               title={currentHeading.title}
               canRename={mayRename}
               canArchive={currentHeading.canArchive === true}
+              watching={currentHeading.watching}
               shortcutsActive={ws.chatShortcutsLive && !ws.mainPageOpen && !workspaceExpanded}
               onRename={() => setRenamingSessionId(selectedSessionId)}
               onFork={() => setAgentSidebarPendingFork(selectedSessionId)}

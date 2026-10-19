@@ -145,6 +145,8 @@ export type Tab = {
   unsaved?: boolean
   /** Opened from Archived Chats: archiving again would only rewrite its date. */
   archived?: boolean
+  /** The viewer gets this chat's push notifications; absent from an older backend. */
+  watching?: boolean
   /** Every credential option that existed when this conversation's selection was last saved. */
   credentialOptionsSeen?: AgentCredentialSelection
   slackThread?: AgentSlackThread | null

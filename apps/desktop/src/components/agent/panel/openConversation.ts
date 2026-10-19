@@ -158,6 +158,7 @@ export async function runOpenConversation(
       foreign: detail.isOwner === false ? true : undefined,
       canManage: detail.canManage === true ? true : undefined,
       archived: detail.archivedAt ? true : undefined,
+      watching: detail.watching,
       slackThread: detail.slackThread ?? null,
       activitySource: detail.activitySource,
       claudeCodeRuntimeAttached: detail.claudeCodeRuntimeAttached,

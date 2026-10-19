@@ -96,6 +96,26 @@ final class AgentStore {
         }
     }
 
+    /// Unwatching also unwatches the threads below, as the backend does.
+    func setWatching(_ watching: Bool, conversation: AgentConversation) async {
+        guard let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        do {
+            try await AgentChatAPI.setWatching(token: token, teamId: teamId, sessionId: conversation.sessionId, watching: watching)
+            var changed: Set<String> = [conversation.sessionId]
+            while !watching, let next = conversations.first(where: {
+                $0.watching == true && !changed.contains($0.sessionId) && $0.parentSessionId.map(changed.contains) == true
+            }) { changed.insert(next.sessionId) }
+            for index in conversations.indices where changed.contains(conversations[index].sessionId) {
+                conversations[index].watching = watching
+            }
+            if let index = sharedConversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {
+                sharedConversations[index].watching = watching
+            }
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
     /// Drops a chat that left this list (archived or restored). The poller
     /// keeps rows its first page misses, so it would not drop it; reads
     /// already in flight are discarded so they cannot bring it back. Before

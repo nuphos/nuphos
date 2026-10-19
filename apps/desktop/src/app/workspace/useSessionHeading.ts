@@ -8,6 +8,7 @@ export type SessionHeading = {
   canRename?: boolean
   canArchive?: boolean
   saved?: boolean
+  watching?: boolean
   runtime: AgentProvider | null
   runtimeId?: string
 }
@@ -30,12 +31,14 @@ export function useSessionHeading(selectedSessionId: string | null) {
       runtimeId?: string,
       canArchive?: boolean,
       saved?: boolean,
+      watching?: boolean,
     ) => {
       setHeading({
         sessionId,
         canRename,
         canArchive,
         saved,
+        watching,
         runtimeId,
         title: nextTitle || 'Agent',
         runtime: runtimeAttached ? (agentRuntime ?? 'claude-code') : null,

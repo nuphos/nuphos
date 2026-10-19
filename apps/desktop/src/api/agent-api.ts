@@ -111,6 +111,8 @@ export const agentApi = {
     window.api.agentRenameConversation(sessionId, title, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     window.api.agentSetConversationArchived(sessionId, archived, teamId),
+  agentSetConversationWatched: (sessionId: string, watching: boolean, teamId?: string) =>
+    window.api.agentSetConversationWatched(sessionId, watching, teamId),
   agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
     window.api.agentUnlinkConversationParent(sessionId, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>

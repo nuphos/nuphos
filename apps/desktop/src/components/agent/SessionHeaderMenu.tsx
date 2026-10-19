@@ -1,5 +1,7 @@
 import {
   Archive,
+  Bell,
+  BellOff,
   ChevronRight,
   Copy,
   GitBranch,
@@ -12,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { api } from '../../api'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
@@ -46,6 +49,8 @@ type Props = {
   title: string
   canRename: boolean
   canArchive: boolean
+  /** The viewer gets this chat's push notifications; absent hides the toggle. */
+  watching?: boolean
   /** This pane owns the keyboard: its chat is the one the shortcuts act on. */
   shortcutsActive: boolean
   onRename: () => void
@@ -82,6 +87,7 @@ export function SessionHeaderMenu({
   title,
   canRename,
   canArchive,
+  watching: reportedWatching,
   shortcutsActive,
   onRename,
   onFork,
@@ -89,6 +95,19 @@ export function SessionHeaderMenu({
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
   const pin = useSessionPin(userId, teamId, sessionId)
+  // What the server said when the chat opened; a toggle here wins after that.
+  const [toggled, setToggled] = useState<boolean | undefined>(undefined)
+  const watching = toggled ?? reportedWatching
+
+  function toggleWatch() {
+    const next = !watching
+
+    setToggled(next)
+    void api.agentSetConversationWatched(sessionId, next, teamId).catch((err: unknown) => {
+      setToggled(!next)
+      toast.apiError(next ? 'Could not watch chat' : 'Could not unwatch chat', err)
+    })
+  }
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
   const renameOnClose = useRef(false)
@@ -172,6 +191,14 @@ export function SessionHeaderMenu({
         >
           {favoriteToggleTitle(true, Boolean(pin))}
         </MenuItem>
+        {watching !== undefined && (
+          <MenuItem
+            icon={watching ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+            onClick={toggleWatch}
+          >
+            {watching ? 'Unwatch chat' : 'Watch chat'}
+          </MenuItem>
+        )}
         {canFork && (
           <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
             Fork chat

@@ -132,6 +132,11 @@ export type WindowAgentApi = {
     archived: boolean,
     teamId?: string,
   ): Promise<{ ok: boolean; archived: boolean }>
+  agentSetConversationWatched(
+    sessionId: string,
+    watching: boolean,
+    teamId?: string,
+  ): Promise<{ ok: boolean; watching: boolean }>
   agentUnlinkConversationParent(sessionId: string, teamId?: string): Promise<{ ok: boolean }>
   agentMarkConversationRead(
     sessionId: string,

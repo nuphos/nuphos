@@ -51,6 +51,7 @@ export function chatSidebarItem({
     active,
     ...(readOnly ? { readOnlyChat: true } : {}),
     ...(readOnly && conversation.canManage ? { managedChat: true } : {}),
+    ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
     ...(conversation.parentSessionId
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }
       : {}),
