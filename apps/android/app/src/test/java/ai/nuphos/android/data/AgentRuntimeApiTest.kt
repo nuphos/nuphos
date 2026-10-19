@@ -20,6 +20,27 @@ class AgentRuntimeApiTest {
     }.build())
     private fun payload() = Buffer().also { requests.last().body!!.writeTo(it) }.readUtf8()
     private fun login(state: String = "awaiting_authorization") = """{"attemptId":"$attemptId","state":"$state","expiresAt":"2030-01-01T00:00:00Z","verificationUri":"https://example.test/device","userCode":"SYNTHETIC","authorizationUrl":"https://example.test/claude","codeSubmitted":true}"""
+    @Test fun managementUsesExactPatchAndBothDeletionReceipts() = runTest {
+        response = runtime
+        api.update("saved-id", label = " Renamed ")
+        assertEquals("PATCH", requests.last().method)
+        assertEquals("""{"label":"Renamed"}""", payload())
+        api.update("saved-id", status = "disabled")
+        assertEquals("""{"status":"disabled"}""", payload())
+        assertEquals("/teams/507f1f77bcf86cd799439011/agent-runtimes/saved-id", requests.last().url.encodedPath)
+        status = 202; response = """{"status":"deleting"}"""
+        assertTrue(api.remove("saved-id")); assertEquals("DELETE", requests.last().method)
+        for (invalid in listOf("{}", """{"status":"disconnected"}""")) {
+            response = invalid
+            try { api.remove("saved-id"); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
+        }
+        status = 204; response = ""; assertFalse(api.remove("saved-id"))
+        val count = requests.size
+        try { api.update("../other", label = "Name"); fail() } catch (_: IllegalArgumentException) { }
+        try { api.update("saved-id", status = "invented"); fail() } catch (_: IllegalArgumentException) { }
+        try { api.update("saved-id", label = " "); fail() } catch (_: IllegalArgumentException) { }
+        assertEquals(count, requests.size)
+    }
     @Test fun quotaSnapshotKeepsWindowsAndSkipsMalformedEntries() = runTest {
         response = """{"quotas":[{"runtimeId":"saved-id","available":true,"windows":[{"label":"5h","usedPercent":12.5,"resetsAt":"2030-01-01T00:00:00Z"},{"label":"7d","usedPercent":80}]},{"runtimeId":"offline","available":false,"reason":"Offline","windows":[]},{"runtimeId":"bad","available":true,"windows":[{"label":"bad","usedPercent":-1}]}]}"""
         val quotas = api.quotas()

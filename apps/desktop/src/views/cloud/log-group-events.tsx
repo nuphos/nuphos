@@ -183,7 +183,7 @@ export function LogGroupEventsView({
               value={patternInput}
               onChange={(e) => setPatternInput(e.target.value)}
               placeholder={'Filter pattern — e.g. ERROR, "timed out", { $.level = "error" }'}
-              className="w-full h-6 px-2 rounded bg-field border border-zGray-800 text-[11.5px] font-mono text-secondary placeholder:text-tertiary/70 focus:outline-none focus:border-zViolet-accent/60"
+              className="w-full h-6 px-2 rounded bg-surface border border-zGray-800 text-[11.5px] font-mono text-secondary placeholder:text-tertiary/70 focus:outline-none focus:border-zViolet-accent/60"
             />
           </form>
           {streams.length > 0 && (

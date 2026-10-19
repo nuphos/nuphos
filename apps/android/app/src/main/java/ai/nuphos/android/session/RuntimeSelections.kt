@@ -19,6 +19,8 @@ class RuntimeSelections {
             private set
         var valid by mutableStateOf(true)
             private set
+        val managementReview = mutableSetOf<String>()
+        val removalRequested = mutableSetOf<String>()
         var createReview by mutableStateOf(false)
         var loginReview by mutableStateOf(false)
         var loginRuntimeId: String? = null
@@ -27,11 +29,15 @@ class RuntimeSelections {
         val selected get() = catalog.firstOrNull { it.id == selectedId && it.selectable }
         val reselectionRequired get() = selectedId != null && selected == null
         val binding get() = selected?.let { RuntimeBinding(it.id, it.provider, it.label) }
-        fun saveCatalog(saved: List<AgentRuntime>) { if (valid) catalog = saved }
+        fun saveCatalog(saved: List<AgentRuntime>) {
+            if (!valid) return
+            removalRequested.retainAll(saved.map { it.id }.toSet())
+            catalog = saved.map { if (it.id in removalRequested) it.copy(deleting = true) else it }
+        }
         fun select(id: String): Boolean {
             if (!valid || catalog.none { it.id == id && it.selectable }) return false
             selectedId = id; return true
         }
-        fun invalidate() { valid = false; catalog = emptyList(); selectedId = null; loginRuntimeId = null; loginProvider = null; loginAttemptId = null; createReview = false; loginReview = false }
+        fun invalidate() { managementReview.clear(); removalRequested.clear(); valid = false; catalog = emptyList(); selectedId = null; loginRuntimeId = null; loginProvider = null; loginAttemptId = null; createReview = false; loginReview = false }
     }
 }

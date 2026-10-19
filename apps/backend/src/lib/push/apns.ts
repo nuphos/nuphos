@@ -20,6 +20,8 @@ export type ApnsRequest = {
   environment: ApnsEnvironment
   payload: Record<string, unknown>
   collapseId?: string
+  /** Live Activity updates go to the activity's own token under their own topic. */
+  pushType?: 'alert' | 'liveactivity'
 }
 
 export type ApnsResponse = { status: number; reason?: string }
@@ -145,11 +147,15 @@ export async function sendApns(
   request: ApnsRequest,
   nowMs = Date.now(),
 ): Promise<ApnsResponse> {
+  const pushType = request.pushType ?? 'alert'
   const headers: Record<string, string> = {
     [constants.HTTP2_HEADER_PATH]: `/3/device/${request.deviceToken}`,
     authorization: `bearer ${providerToken(credentials, nowMs)}`,
-    'apns-topic': credentials.bundleId,
-    'apns-push-type': 'alert',
+    'apns-topic':
+      pushType === 'liveactivity'
+        ? `${credentials.bundleId}.push-type.liveactivity`
+        : credentials.bundleId,
+    'apns-push-type': pushType,
     'apns-priority': '10',
     'content-type': 'application/json',
   }

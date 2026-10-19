@@ -24,6 +24,33 @@ class RuntimeSetupStoreTest {
         override suspend fun cancel(runtimeId: String, attemptId: String) { cancels++ }
     }
     private fun fixture() = Fixture(runtime, attempt)
+    @Test fun detailSigninFocusPreservesDefaultAndNeverFallsBackWhenTargetDisappears() = runTest {
+        val api = fixture(); val other = runtime.copy(id = "external", kind = "external")
+        api.catalog = listOf(runtime, other)
+        val selection = RuntimeSelections().bind("a", "t")
+        selection.saveCatalog(api.catalog); selection.select(runtime.id)
+        val store = RuntimeSetupStore(api, this, { true }, { true }, selection, {}, { 0 })
+        store.open(); advanceUntilIdle()
+        assertTrue(store.focusSignIn(other.id)); assertEquals(runtime.id, selection.selectedId)
+        assertEquals(other.id, store.signInRuntime?.id)
+        store.startLogin(); advanceUntilIdle(); assertEquals(other.id, selection.loginRuntimeId)
+        api.catalog = listOf(runtime); store.refresh(); advanceUntilIdle()
+        assertNull(store.signInRuntime); store.startLogin(); advanceUntilIdle(); assertEquals(1, api.starts)
+        store.clearSignInFocus(); assertEquals(runtime.id, store.signInRuntime?.id)
+        assertEquals(runtime.id, selection.selectedId)
+    }
+    @Test fun leavingDetailSigninFocusIgnoresPendingAttempt() = runTest {
+        val api = fixture(); val other = runtime.copy(id = "other")
+        api.catalog = listOf(runtime, other)
+        val selection = RuntimeSelections().bind("a", "t"); selection.saveCatalog(api.catalog); selection.select(runtime.id)
+        val store = RuntimeSetupStore(api, this, { true }, { true }, selection, {}, { 0 })
+        store.open(); advanceUntilIdle(); assertTrue(store.focusSignIn(other.id))
+        api.held = CompletableDeferred(); store.startLogin(); runCurrent()
+        store.clearSignInFocus(); api.held!!.complete(Unit); advanceUntilIdle()
+        assertNull(store.state.attempt); assertFalse(store.state.busy)
+        assertTrue(selection.loginReview); assertEquals(other.id, selection.loginRuntimeId)
+        assertEquals(runtime.id, selection.selectedId)
+    }
     @Test fun createOnceRequiresExactSavedId() = runTest {
         val api = fixture(); api.held = CompletableDeferred()
         val owner = RuntimeSelections(); val store = RuntimeSetupStore(api, this, { true }, { true }, owner.bind("a", "t"), {}, { 0 })

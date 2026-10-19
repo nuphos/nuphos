@@ -108,7 +108,7 @@ function RenameField({
         }
       }}
       className={clsx(
-        'h-7 min-w-0 flex-1 rounded-md border border-zGray-800 bg-field px-2 text-main outline-none focus:border-zViolet-500/70 placeholder:text-tertiary',
+        'h-7 min-w-0 flex-1 rounded-md border border-zGray-800 bg-surface px-2 text-main outline-none focus:border-zViolet-500/70 placeholder:text-tertiary',
         className,
       )}
     />

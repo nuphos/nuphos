@@ -252,7 +252,7 @@ export function Composer({
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
               {credentialSelector && (
-                <CredentialSelectorButton {...credentialSelector} hero={hero} />
+                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && <RuntimeSelector {...runtimeControl} />}

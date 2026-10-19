@@ -1,11 +1,11 @@
 import { PermissionGrantCard } from '../PermissionGrantCard'
 
 import { extractProposalIdFromOutput } from './applyEvent'
-import { ConnectToolPart } from './ConnectCard'
+import { DecisionToolPart } from './ConnectCard'
 import { ThreadBadge } from './ThreadBadge'
 import { isThreadBadgePart } from './threadBadges'
 import { ChartToolPart } from './toolParts'
-import { isConnectCardPart } from './toolRuns'
+import { isDecisionCardPart } from './toolRuns'
 import { TriggerCard } from './TriggerCard'
 import { isTriggerCardPart } from './triggerCards'
 
@@ -17,7 +17,7 @@ export type CardContext = {
   teamId: string | undefined
   onOpen: OpenLink | undefined
   now: number
-  /** The latest idle reply: connect cards can act. */
+  /** The latest idle reply: decision cards can act. */
   canAct: boolean
   /** Viewer may approve permission-grant proposals. */
   canApprove: boolean
@@ -36,8 +36,8 @@ export function renderCardToolPart(
     return <TriggerCard key={key} part={part} teamId={teamId} onOpen={onOpen} />
   }
   if (part.toolName === 'render_chart') return <ChartToolPart key={key} part={part} now={now} />
-  if (isConnectCardPart(part)) {
-    return <ConnectToolPart key={key} part={part} now={now} teamId={teamId} canAct={canAct} />
+  if (isDecisionCardPart(part)) {
+    return <DecisionToolPart key={key} part={part} now={now} teamId={teamId} canAct={canAct} />
   }
   if (part.toolName === 'propose_permission_grant') {
     const proposalId = extractProposalIdFromOutput(part.output)

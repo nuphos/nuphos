@@ -51,6 +51,7 @@ export {
   renameConversation,
   setConversationParent,
 } from './db/maintenance'
+export { clearPendingDecision, setPendingDecision } from './db/pending-decision'
 export {
   bumpConversationActivity,
   conversationReadState,

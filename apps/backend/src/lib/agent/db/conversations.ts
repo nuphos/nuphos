@@ -71,10 +71,7 @@ export async function upsertConversationShell(data: {
     ...(generalAccess ? { generalAccess } : {}),
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
-    // The opener is also the first parent. Only parentSessionId may change later.
-    ...(data.parentSessionId
-      ? { parentSessionId: data.parentSessionId, createdBySessionId: data.parentSessionId }
-      : {}),
+    ...(data.parentSessionId ? { parentSessionId: data.parentSessionId } : {}),
     metadata: {
       locale: data.locale,
       provider: data.provider,

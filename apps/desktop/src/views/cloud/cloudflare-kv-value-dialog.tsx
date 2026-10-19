@@ -53,7 +53,7 @@ export function KvValueDialog({
             value={key}
             onChange={(e) => setKey(e.target.value)}
             disabled={!isNew}
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px] disabled:opacity-60"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px] disabled:opacity-60"
           />
         </label>
         <label className="block">
@@ -63,7 +63,7 @@ export function KvValueDialog({
             onChange={(e) => setValue(e.target.value)}
             rows={8}
             spellCheck={false}
-            className="w-full px-2.5 py-2 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px] resize-y"
+            className="w-full px-2.5 py-2 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px] resize-y"
           />
         </label>
       </div>

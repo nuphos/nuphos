@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
-import { createPushDeviceRoutes } from '@/routes/push-devices'
+import { createLiveActivityRoutes, createPushDeviceRoutes } from '@/routes/push-devices'
 
 import type { PushDeviceRegistration, PushDeviceStore } from '@/lib/push/devices'
+import type { LiveActivityToken } from '@/lib/push/live-activities'
 import type { AuthVariables } from '@/middleware/auth'
 
 const TOKEN = 'AB'.repeat(32)
 let registered: { userId: string; device: PushDeviceRegistration }[]
 let unregistered: { userId: string; token: string }[]
+let activities: { sessionId: string; token: LiveActivityToken }[]
 
 const store: PushDeviceStore = {
   register: async (userId, device) => {
@@ -29,6 +31,16 @@ app.use('*', async (c, next) => {
   await next()
 })
 app.route('/push', createPushDeviceRoutes(store))
+app.route(
+  '/push',
+  createLiveActivityRoutes(
+    async (sessionId, token) => {
+      activities.push({ sessionId, token })
+    },
+    async (userId, teamId, sessionId) =>
+      userId === 'user-1' && teamId === 'team-1' && sessionId === 'readable',
+  ),
+)
 app.onError(errorHandler)
 
 function put(body: unknown) {
@@ -42,6 +54,7 @@ function put(body: unknown) {
 beforeEach(() => {
   registered = []
   unregistered = []
+  activities = []
 })
 
 describe('push device routes', () => {
@@ -123,5 +136,31 @@ describe('Android FCM device registration', () => {
         })
       ).status,
     ).toBe(400)
+  })
+})
+
+describe('Live Activity registration', () => {
+  function putActivity(body: Record<string, unknown>) {
+    return app.request('/push/live-activities', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: TOKEN, teamId: 'team-1', environment: 'production', ...body }),
+    })
+  }
+
+  test('stores the token for a conversation the user can read', async () => {
+    expect((await putActivity({ sessionId: 'readable' })).status).toBe(200)
+    expect(activities).toEqual([
+      {
+        sessionId: 'readable',
+        token: { token: TOKEN.toLowerCase(), userId: 'user-1', environment: 'production' },
+      },
+    ])
+  })
+
+  test('refuses a conversation the user cannot read', async () => {
+    expect((await putActivity({ sessionId: 'someone-elses' })).status).toBe(404)
+    expect((await putActivity({ sessionId: 'readable', teamId: 'team-2' })).status).toBe(404)
+    expect(activities).toEqual([])
   })
 })

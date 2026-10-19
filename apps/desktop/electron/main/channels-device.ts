@@ -21,6 +21,7 @@ import {
   refreshLocalRuntime,
   userEnv,
 } from './local-runtime/index.ts'
+import { installAgentCli } from './local-runtime/agent-cli-install.ts'
 import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
 
@@ -71,6 +72,11 @@ export const deviceChannels = {
   // Running agents keep their version; the next one started picks up the update.
   'localRuntime:updateAgent': async (_e: unknown, provider: LocalAgentProvider) => {
     await updateAgentCli(provider, await userEnv())
+
+    return refreshLocalRuntime()
+  },
+  'localRuntime:installAgent': async (_e: unknown, provider: LocalAgentProvider) => {
+    await installAgentCli(provider, await userEnv())
 
     return refreshLocalRuntime()
   },

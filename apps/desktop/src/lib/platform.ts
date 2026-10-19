@@ -4,6 +4,7 @@
  */
 
 export const isMac = typeof navigator !== 'undefined' && navigator.userAgent.includes('Macintosh')
+export const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows')
 
 const MAC_PARTS: Record<string, string> = {
   mod: '⌘',

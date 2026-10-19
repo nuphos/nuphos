@@ -1,9 +1,9 @@
+import { registryKey, reportedAgents, withReport } from '@/lib/agent/devices/agent-registry'
 import {
   deviceAccessDeps,
   listAccessibleDevices,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
-import { registryKey, reportedAgents, withReport } from '@/lib/agent/devices/agent-registry'
 import {
   localRuntimeId,
   localRuntimeUrl,
@@ -26,6 +26,7 @@ import type {
   LocalAgentStatus,
   LocalRuntimeStatus,
 } from '@/lib/agent/devices/local-runtime/protocol'
+import type { AgentDeviceBox } from '@/lib/agent/devices/store'
 
 export type LocalRuntimeSummary = {
   ownerUserId: string
@@ -44,7 +45,7 @@ export type LocalRuntimeSummary = {
   /** When that computer read the usage above. */
   usageAt?: string
   /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
-  box?: { provider: 'instabox' }
+  box?: Pick<AgentDeviceBox, 'provider'>
 }
 
 export type LocalRuntimeInstance = {

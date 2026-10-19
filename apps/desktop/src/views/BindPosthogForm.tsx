@@ -118,7 +118,7 @@ function LabelAndRegion({
           onChange={(event) => onLabelChange(event.target.value)}
           placeholder="production-analytics"
           autoFocus
-          className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
         />
       </label>
       <div>

@@ -123,7 +123,7 @@ export function CronBuilder({
 
               apply({ ...mode, minute: v })
             }}
-            className="w-14 h-7 px-2 rounded-md bg-field border border-zGray-800 text-main text-[12.5px] focus:outline-none focus:border-zViolet-500"
+            className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] focus:outline-none focus:border-zViolet-500"
           />
         </div>
       )}
@@ -142,7 +142,7 @@ export function CronBuilder({
 
                 apply({ ...mode, hour: v })
               }}
-              className="w-14 h-7 px-2 rounded-md bg-field border border-zGray-800 text-main text-[12.5px] text-center focus:outline-none focus:border-zViolet-500"
+              className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] text-center focus:outline-none focus:border-zViolet-500"
             />
             <span>:</span>
             <input
@@ -155,7 +155,7 @@ export function CronBuilder({
 
                 apply({ ...mode, minute: v })
               }}
-              className="w-14 h-7 px-2 rounded-md bg-field border border-zGray-800 text-main text-[12.5px] text-center focus:outline-none focus:border-zViolet-500"
+              className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] text-center focus:outline-none focus:border-zViolet-500"
             />
             <span className="text-tertiary text-[11.5px]">(24-hour, UTC)</span>
           </div>
@@ -212,7 +212,7 @@ export function CronBuilder({
           onChange={(e) => apply({ kind: 'custom', expr: e.target.value })}
           placeholder="0 9 * * 1-5"
           spellCheck={false}
-          className="w-full h-8 px-2.5 rounded-md bg-field border border-zGray-800 font-mono text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
+          className="w-full h-8 px-2.5 rounded-md bg-surface border border-zGray-800 font-mono text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
         />
       )}
 

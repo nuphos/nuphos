@@ -32,7 +32,7 @@ export function FeedbackCommentDialog({
           autoFocus
           rows={4}
           placeholder="What was inaccurate, unhelpful, or unexpected? (optional)"
-          className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent resize-none"
+          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent resize-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()

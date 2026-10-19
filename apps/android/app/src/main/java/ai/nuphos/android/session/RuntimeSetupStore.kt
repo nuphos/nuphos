@@ -27,15 +27,21 @@ class RuntimeSetupStore(
 ) {
     var state by mutableStateOf(RuntimeSetupState())
         private set
+    private var signInTargetId by mutableStateOf<String?>(null)
+    val signInRuntime get() = signInTargetId?.let { id -> selection.catalog.firstOrNull { it.id == id && it.status == "active" && !it.deleting } }
+        ?: if (signInTargetId == null) selection.selected else null
     private var active = true
     private var foreground = false
     private var generation = 0L
     private var job: Job? = null
     private var poll: Job? = null
     private fun current(ticket: Long) = active && selection.valid && generation == ticket && sourceCurrent()
-    private fun loginTargetCurrent() = selection.selected?.let {
-        it.kind == "managed" && it.id == selection.loginRuntimeId && it.provider == selection.loginProvider
+    private fun loginTargetCurrent() = signInRuntime?.let {
+        it.kind in setOf("managed", "external") && it.id == selection.loginRuntimeId && it.provider == selection.loginProvider
     } == true
+    fun detail(runtimeId: String): RuntimeDetailStore? = (api as? RuntimeManagementTransport)?.let {
+        RuntimeDetailStore(it, api, scope, { active && isSourceCurrent() }, { canAdminister }, selection, runtimeId, expired)
+    }
     fun isSourceCurrent() = selection.valid && sourceCurrent()
     val canAdminister get() = isSourceCurrent() && administrator()
     fun open() { active = true; refresh() }
@@ -74,9 +80,25 @@ class RuntimeSetupStore(
             if (canAdminister && selection.loginReview && loginTargetCurrent()) readLogin(ticket)
         }
     }
+    /** Focus provider setup without changing the default Agent for new conversations. */
+    fun focusSignIn(id: String): Boolean {
+        if (state.busy || !active || !canAdminister || !state.catalogLoaded ||
+            selection.catalog.none { it.id == id && it.status == "active" && !it.deleting && it.kind in setOf("managed", "external") }) return false
+        signInTargetId = id
+        generation++; poll?.cancel()
+        state = state.copy(attempt = null, loginReconciled = false, attemptMismatch = false, message = null)
+        if (selection.loginReview && selection.loginRuntimeId == id) refreshLogin()
+        return true
+    }
+    fun clearSignInFocus() {
+        if (signInTargetId == null) return
+        generation++; job?.cancel(); poll?.cancel(); signInTargetId = null
+        state = state.copy(busy = false, attempt = null, loginReconciled = false, attemptMismatch = false)
+    }
     fun select(id: String) {
         if (state.busy || !active || !isSourceCurrent() || !state.catalogLoaded) return
         if (selection.select(id)) {
+            signInTargetId = null
             generation++; poll?.cancel(); state = state.copy(attempt = null, loginReconciled = false, attemptMismatch = false,
                 message = "Agent selected for new chats. Registration does not confirm provider readiness.")
             if (selection.loginReview && selection.loginRuntimeId == id && canAdminister) refreshLogin()
@@ -114,7 +136,7 @@ class RuntimeSetupStore(
         if (active && canAdminister && !state.busy && state.catalogLoaded) selection.createReview = false
     }
     fun startLogin() {
-        val runtime = selection.selected?.takeIf { it.kind == "managed" } ?: return
+        val runtime = signInRuntime?.takeIf { it.kind in setOf("managed", "external") && it.status == "active" } ?: return
         if (selection.loginReview) return
         launch(admin = true) { ticket ->
             selection.loginReview = true; selection.loginRuntimeId = runtime.id; selection.loginProvider = runtime.provider; selection.loginAttemptId = null
@@ -126,7 +148,7 @@ class RuntimeSetupStore(
                 state = state.copy(message = "Sign-in may have started. Read its saved status before restarting.")
                 readLogin(ticket); return@launch
             }
-            if (!current(ticket) || !canAdminister || selection.selectedId != runtime.id) return@launch
+            if (!current(ticket) || !canAdminister || signInRuntime?.id != runtime.id) return@launch
             selection.loginAttemptId = result.attemptId
             adopt(result, ticket)
         }

@@ -155,7 +155,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       allowLocalExec: true,
     })
   },
-  createProcess: () => new OpenabProcess(),
+  createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
   probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
     const staged = bundle()
     const adapter = staged?.adapters[provider]

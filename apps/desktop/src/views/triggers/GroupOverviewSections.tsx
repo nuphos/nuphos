@@ -28,7 +28,7 @@ export function GroupFormFields({
           disabled={!canManage}
           onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
           maxLength={100}
-          className="h-8 w-full rounded-md border border-zGray-800 bg-field px-2.5 text-[13px] text-main focus:border-zViolet-500 focus:outline-none"
+          className="h-8 w-full rounded-md border border-zGray-800 bg-surface px-2.5 text-[13px] text-main focus:border-zViolet-500 focus:outline-none"
         />
       </Field>
 
@@ -60,7 +60,7 @@ export function GroupFormFields({
             }))
           }
           rows={14}
-          className="min-h-[220px] w-full resize-y rounded-md border border-zGray-800 bg-field px-2.5 py-2 text-[13px] leading-relaxed text-main focus:border-zViolet-500 focus:outline-none"
+          className="min-h-[220px] w-full resize-y rounded-md border border-zGray-800 bg-surface px-2.5 py-2 text-[13px] leading-relaxed text-main focus:border-zViolet-500 focus:outline-none"
         />
       </Field>
     </>

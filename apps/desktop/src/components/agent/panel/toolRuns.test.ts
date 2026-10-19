@@ -244,6 +244,19 @@ test('a fold that only held a plan has no work left to show', () => {
   assert.deepEqual(foldedTurnLayout(parts, 0, 2), { planIndices: [0], foldHasWork: false })
 })
 
+test('a user decision lifts out of the fold as its card, with or without providers', () => {
+  const decision = (input: Record<string, unknown>): Part =>
+    ({ ...tool('request_user_decision'), input }) as Part
+  const parts: Part[] = [
+    tool(),
+    decision({ category: 'approval', question: 'Start it?', options: ['Yes', 'No'] }),
+    decision({ category: 'integration', question: 'Need Linear', providers: ['linear'] }),
+    text('Waiting for you.'),
+  ]
+
+  assert.deepEqual(foldedTurnLayout(parts, 0, 3), { planIndices: [1, 2], foldHasWork: true })
+})
+
 test('an errored plan call stays in the fold as a tool row', () => {
   const failed: Part = { ...tool('plan_create'), state: 'output-error' } as Part
 

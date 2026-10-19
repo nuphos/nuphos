@@ -108,7 +108,7 @@ export function CreateNameDialog({
             onChange={(e) => setName(e.target.value)}
             placeholder={placeholder}
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </label>
       </div>

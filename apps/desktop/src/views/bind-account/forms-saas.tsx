@@ -203,7 +203,7 @@ export function ZeaburForm({ st }: { st: BindState }) {
         value={zeaburToken}
         onChange={(e) => setZeaburToken(e.target.value)}
         placeholder="Zeabur API token"
-        className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+        className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
       />
     </Field>
   )

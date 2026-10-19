@@ -64,7 +64,7 @@ export function PortForwardForm({
                   value={targetPort}
                   onChange={(e) => onTargetPortChange(e.target.value)}
                   placeholder="e.g. 8080"
-                  className="h-8 px-2 rounded-md bg-field border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
+                  className="h-8 px-2 rounded-md bg-surface border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
                 />
               </div>
             )}
@@ -80,7 +80,7 @@ export function PortForwardForm({
             value={localPort}
             onChange={(e) => onLocalPortChange(e.target.value)}
             placeholder="auto"
-            className="h-8 px-2 rounded-md bg-field border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
+            className="h-8 px-2 rounded-md bg-surface border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
           />
         </div>
       </div>

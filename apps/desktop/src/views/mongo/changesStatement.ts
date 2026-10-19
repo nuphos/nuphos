@@ -16,7 +16,7 @@ export const OPERATIONS: { value: Operation; label: string; kind: 'DML' | 'DDL' 
 ]
 
 export const inputClass =
-  'w-full rounded-md border border-zGray-800 bg-field px-2.5 py-1.5 text-[12px] text-main outline-none focus:border-zViolet-accent'
+  'w-full rounded-md border border-zGray-800 bg-surface px-2.5 py-1.5 text-[12px] text-main outline-none focus:border-zViolet-accent'
 export const textareaClass = `${inputClass} min-h-24 resize-y font-mono leading-5`
 
 function parseObject(label: string, source: string): Record<string, unknown> {

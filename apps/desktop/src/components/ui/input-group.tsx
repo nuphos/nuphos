@@ -7,6 +7,18 @@ import * as React from 'react'
 // focus for the chrome-less control inside it, following its own border-radius.
 export const inputGroupFocusClass = 'focus-within:ring-1 focus-within:ring-zViolet-500/60'
 export const inputGroupControlClass = 'bg-transparent outline-none'
+/**
+ * Trims a block of text to its cap height, so a container that centers it centers the letters
+ * themselves, whatever the font's ascent and descent. For text that may overflow its box (select
+ * values, button labels): an editable `<input>` clips to its box, so trimming it cuts descenders.
+ */
+export const capCenterClass = '[text-box:trim-both_cap_alphabetic]'
+/**
+ * A bordered form field: a secondary Button's surface and border, so inputs, selects and
+ * buttons read as one family. Height comes from the caller: h-9 in forms, h-8 beside small buttons.
+ */
+export const fieldClass =
+  'w-full rounded-md border border-main bg-surface px-2.5 text-[12.5px] text-main outline-none placeholder:text-tertiary focus:border-zViolet-500'
 
 export function InputGroup({ render, className, ...props }: useRender.ComponentProps<'div'>) {
   return useRender({

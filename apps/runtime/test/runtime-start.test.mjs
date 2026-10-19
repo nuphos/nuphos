@@ -69,6 +69,34 @@ function start(env, home) {
   }
 }
 
+test('a container handed a join token runs the CLI host instead, as a Box does', () => {
+  const home = mkdtempSync(join(tmpdir(), 'nuphos-home-'))
+  const bundle = mkdtempSync(join(tmpdir(), 'nuphos-agent-'))
+
+  writeFileSync(
+    join(bundle, 'host.mjs'),
+    'import { writeSync } from "node:fs"\n' +
+      'writeSync(3, JSON.stringify({ argv: process.argv.slice(2), env: process.env }))',
+  )
+  const { env, keyFile } = start(
+    { HOME: home, NUPHOS_JOIN_TOKEN: 'nbj_token', NUPHOS_LOCAL_RUNTIME_DIR: bundle },
+    home,
+  )
+
+  // The command it was given (openab) never runs, and no runtime password is made.
+  assert.deepEqual(env.argv, [])
+  assert.equal(env.env.NUPHOS_AGENT_HOME, join(home, '.local/share/nuphos/agent'))
+  assert.equal(env.env.NUPHOS_JOIN_TOKEN, 'nbj_token')
+  assert.equal(env.env.OPENAB_ACP_CONTROL_KEY, undefined)
+  assert.equal(existsSync(keyFile), false)
+})
+
+test('without a join token the runtime starts as before', () => {
+  const { env } = start({ NUPHOS_JOIN_TOKEN: '', NUPHOS_LOCAL_RUNTIME_DIR: '/nonexistent' })
+
+  assert.ok(env.OPENAB_ACP_CONTROL_KEY)
+})
+
 test('the operator key is derived from the password alone', () => {
   for (const [password, expected] of VECTORS) {
     const { env } = start({ OPENAB_ACP_AUTH_KEY: password })

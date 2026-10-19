@@ -165,14 +165,7 @@ export function RuntimeInstanceCard({
           {runtime?.online && runtime.latencyMs !== undefined && (
             <span className="text-tertiary">· {String(runtime.latencyMs)}ms</span>
           )}
-          {quota?.available && quota.windows.length > 0 && (
-            <RuntimeUsageBar
-              window={quota.windows.reduce(
-                (highest, window) => (window.usedPercent > highest.usedPercent ? window : highest),
-                quota.windows[0],
-              )}
-            />
-          )}
+          <RuntimeUsageBar quota={quota} />
         </span>
         <RuntimeActionsMenu
           instance={instance}

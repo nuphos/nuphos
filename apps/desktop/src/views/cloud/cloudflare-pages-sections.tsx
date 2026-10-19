@@ -65,7 +65,7 @@ export function PagesDomainsSection({
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
             placeholder="www.example.com"
-            className="px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-64"
+            className="px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-64"
           />
           <Button size="sm" onClick={() => void addDomain()}>
             Add

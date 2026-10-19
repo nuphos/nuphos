@@ -181,7 +181,6 @@ useAgentDb({
               ...source,
               sessionId: id,
               parentSessionId: shells.find((shell) => shell.sessionId === id)?.parentSessionId,
-              createdBySessionId: shells.find((shell) => shell.sessionId === id)?.parentSessionId,
             }
           : null,
   upsertConversationShell: async (data) => {
@@ -301,23 +300,27 @@ describe('conversation-scoped thread tools', () => {
     expect(await getSessionBypass(threadId, 'owner')).toBe(false)
   })
 
-  test('only a thread this conversation created can be switched', async () => {
+  test('only a thread nested under this conversation can be switched', async () => {
     await setSessionBypass('source', 'owner', true)
-    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow('created')
+    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow(
+      'nested under',
+    )
     await expect(updateThread(actor, 'source', { fullAccess: true })).rejects.toThrow()
     expect(await getSessionBypass('target', 'owner')).toBe(false)
     expect(events).toHaveLength(0)
   })
 
-  test("a conversation adopted as a child is not the caller's to change", async () => {
+  test('a conversation adopted as a child is managed like one created here', async () => {
     await setSessionBypass('source', 'owner', true)
+    selections.set('source', { deviceIds: ['mac-1'] })
+    selections.set('target', {})
     target = { ...target, parentSessionId: 'source' }
-    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow('created')
-    await expect(updateThread(actor, 'target', { runtimeId: 'runtime-2' })).rejects.toThrow(
-      'created',
-    )
-    expect(await getSessionBypass('target', 'owner')).toBe(false)
-    expect(moves).toHaveLength(0)
+    await updateThread(actor, 'target', {
+      fullAccess: true,
+      grant: [{ provider: 'device', id: 'mac-1' }],
+    })
+    expect(await getSessionBypass('target', 'owner')).toBe(true)
+    expect(selections.get('target')?.deviceIds).toEqual(['mac-1'])
   })
 
   test('a parent grants its thread what it has selected itself, and nothing else', async () => {
@@ -405,15 +408,15 @@ describe('conversation-scoped thread tools', () => {
     expect(selections.get(threadId)?.awsRoleIds).toEqual(['role-1', 'role-2'])
   })
 
-  test("only a thread this conversation created gets a grant, never another owner's", async () => {
+  test("only a thread nested here gets a grant, never another owner's", async () => {
     selections.set('source', { deviceIds: ['mac-1'] })
     const grant = [{ provider: 'device', id: 'mac-1' }]
 
-    // Another conversation's thread, even nested under this one.
-    target = { ...target, parentSessionId: 'source', createdBySessionId: 'elsewhere' }
-    await expect(updateThread(actor, 'target', { grant })).rejects.toThrow('created')
-    // Created here, but owned by someone else.
-    target = { ...target, createdBySessionId: 'source', userId: 'other' }
+    // Another conversation's thread, even one this conversation created before.
+    target = { ...target, parentSessionId: 'elsewhere' }
+    await expect(updateThread(actor, 'target', { grant })).rejects.toThrow('nested under')
+    // Nested here, but owned by someone else.
+    target = { ...target, parentSessionId: 'source', userId: 'other' }
     await expect(updateThread(actor, 'target', { grant })).rejects.toThrow('you own')
     expect(writes).toHaveLength(0)
   })
@@ -437,7 +440,7 @@ describe('conversation-scoped thread tools', () => {
     ])
     expect(result.runtime?.runtimeId).toBe('runtime-2')
     await expect(updateThread(actor, 'target', { runtimeId: 'runtime-2' })).rejects.toThrow(
-      'created',
+      'nested under',
     )
     expect(moves).toHaveLength(1)
   })

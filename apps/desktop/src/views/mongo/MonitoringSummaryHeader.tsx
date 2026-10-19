@@ -97,7 +97,7 @@ export function MonitoringSummaryHeader({
             value={String(rangeMinutes)}
             onValueChange={(value) => onRangeChange(Number(value))}
             ariaLabel="Time range"
-            triggerClassName="h-8 border-zGray-800 bg-field px-2.5 text-[12px]"
+            triggerClassName="h-8 border-zGray-800 bg-surface px-2.5 text-[12px]"
             options={RANGE_OPTIONS.map((option) => ({
               value: String(option.value),
               label: option.label,
@@ -108,7 +108,7 @@ export function MonitoringSummaryHeader({
             onValueChange={(value) => onIntervalChange(Number(value))}
             disabled={paused}
             ariaLabel="Sampling interval"
-            triggerClassName="h-8 border-zGray-800 bg-field px-2.5 text-[12px]"
+            triggerClassName="h-8 border-zGray-800 bg-surface px-2.5 text-[12px]"
             options={INTERVAL_OPTIONS.map((seconds) => ({
               value: String(seconds),
               label: `Every ${String(seconds)}s`,

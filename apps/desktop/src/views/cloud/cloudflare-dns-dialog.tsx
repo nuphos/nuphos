@@ -140,7 +140,7 @@ export function DnsRecordDialog({
               value={ttl}
               onChange={(e) => setTtl(e.target.value)}
               inputMode="numeric"
-              className="h-8 rounded-md border border-zGray-800 bg-field px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
               placeholder="1"
             />
           </label>
@@ -149,7 +149,7 @@ export function DnsRecordDialog({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-8 rounded-md border border-zGray-800 bg-field px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
               placeholder={`www.${zoneName}`}
             />
           </label>
@@ -158,7 +158,7 @@ export function DnsRecordDialog({
             <input
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="h-8 rounded-md border border-zGray-800 bg-field px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
               placeholder="192.0.2.1"
             />
           </label>
@@ -168,7 +168,7 @@ export function DnsRecordDialog({
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
               inputMode="numeric"
-              className="h-8 rounded-md border border-zGray-800 bg-field px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
               placeholder="MX/SRV only"
             />
           </label>
@@ -187,7 +187,7 @@ export function DnsRecordDialog({
             <input
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              className="h-8 rounded-md border border-zGray-800 bg-field px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
+              className="h-8 rounded-md border border-zGray-800 bg-surface px-2 text-[13px] text-main outline-none focus:border-zViolet-500"
               placeholder="Optional"
             />
           </label>

@@ -88,7 +88,7 @@ export function TriggerCronJobDialog({
             autoFocus
             value={jobName}
             onChange={(event) => setJobName(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-field px-2.5 font-mono text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 font-mono text-[13px] text-main outline-none focus:border-zViolet-500"
           />
         </label>
 

@@ -10,6 +10,7 @@ import type { PreviewChatTurnArgs } from './chat-preview-turn'
 
 let written: Record<string, unknown>[] = []
 let cleared: string[] = []
+let answered: string[] = []
 let writeFails = false
 let clearFails = false
 
@@ -22,12 +23,16 @@ useAgentDb({
     if (clearFails) throw new Error('still unavailable')
     cleared.push(sessionId)
   },
+  clearPendingDecision: async (sessionId) => {
+    answered.push(sessionId)
+  },
 })
 
 const { persistPreviewTurnContext } = await import('./chat-preview-prepare')
 
-const turn = (localToolsEnabled: boolean) =>
+const turn = (localToolsEnabled: boolean, humanTurn = false) =>
   ({
+    humanTurn,
     sessionId: 'conv-1',
     teamId: 'team-1',
     userId: 'u1',
@@ -39,6 +44,7 @@ const turn = (localToolsEnabled: boolean) =>
 beforeEach(() => {
   written = []
   cleared = []
+  answered = []
   writeFails = false
   clearFails = false
 })
@@ -74,4 +80,17 @@ test('a capable turn rides out a total write failure', async () => {
   // nothing to fail closed on.
   expect(await persistPreviewTurnContext(turn(true), 'req-4')).toBeUndefined()
   expect(cleared).toEqual([])
+})
+
+test('a human turn answers the decision the session was waiting on', async () => {
+  await persistPreviewTurnContext(turn(true, true), 'req-5')
+
+  expect(answered).toEqual(['conv-1'])
+})
+
+test('an agent-thread or resource turn leaves the decision waiting for the person', async () => {
+  // Only a person can answer: a manager's relay or a webhook is not the reply.
+  await persistPreviewTurnContext(turn(true, false), 'req-6')
+
+  expect(answered).toEqual([])
 })

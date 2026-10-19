@@ -49,7 +49,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         #endif
     }
 
-    private static var environment: String {
+    static var environment: String {
         #if DEBUG
         "sandbox"
         #else

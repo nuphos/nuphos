@@ -109,6 +109,13 @@ export async function stopStaleOpenab(
 
 /** One openab + adapter process tree on a fresh loopback port and a fresh key. */
 export class OpenabProcess {
+  private readonly machine: Pick<LocalRuntimeLaunch, 'ownsMachine'>
+
+  /** Whether it runs on a machine Nuphos made; see `runtimeJobs`. */
+  constructor(machine: Pick<LocalRuntimeLaunch, 'ownsMachine'> = {}) {
+    this.machine = machine
+  }
+
   private child: ChildProcess | undefined
   private exitListeners = new Set<(code: number | null) => void>()
 
@@ -122,7 +129,7 @@ export class OpenabProcess {
     await this.stop()
     const port = await freeLoopbackPort()
     const authKey = randomBytes(32).toString('hex')
-    const launch: LocalRuntimeLaunch = { ...options, port, authKey }
+    const launch: LocalRuntimeLaunch = { ...options, ...this.machine, port, authKey }
     const configPath = path.join(options.logDir, 'openab.toml')
 
     await stopStaleOpenab(configPath)
