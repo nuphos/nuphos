@@ -44,6 +44,7 @@ const base = {
   runtimeId: 'runtime',
 } as AgentConversation
 let archived = false
+let deleted = false
 let runtimeError: Error | null = null
 let boxResuming = false
 let claims = 0
@@ -63,11 +64,14 @@ useConversationChatRoute({
 useBoxWake({ wakeOfflineBox: async () => boxResuming })
 useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
-  getConversationBySessionId: async (id) => ({
-    ...base,
-    sessionId: id,
-    ...(archived && id === 'target' ? { archivedAt: new Date() } : {}),
-  }),
+  getConversationBySessionId: async (id) =>
+    deleted && id === 'target'
+      ? null
+      : {
+          ...base,
+          sessionId: id,
+          ...(archived && id === 'target' ? { archivedAt: new Date() } : {}),
+        },
   getConversationWithMessages: async (id) => ({
     conversation: { ...base, sessionId: id },
     messages: [],
@@ -99,6 +103,7 @@ function threadMessage(receivedAt = new Date().toISOString()) {
 
 beforeEach(() => {
   archived = false
+  deleted = false
   runtimeError = null
   boxResuming = false
   claims = 0
@@ -219,6 +224,23 @@ test('a message left in a queue that never runs is dropped before its TTL and re
   expect(runs.map((run) => run.sessionId)).toEqual(['source'])
   expect(noticeText()).toContain('was dropped after waiting an hour')
 })
+
+for (const [name, receivedAt] of [
+  ['fresh', () => new Date().toISOString()],
+  ['expired', () => new Date(Date.now() - 60 * 60 * 1000).toISOString()],
+] as const) {
+  test(`a ${name} message queued for a deleted thread tells its sender exactly once`, async () => {
+    deleted = true
+    await enqueuePendingUserMessage('owner', 'target', threadMessage(receivedAt()))
+
+    await startQueuedTurn('owner', 'target')
+    await startQueuedTurn('owner', 'target')
+    await settle()
+    expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+    expect(runs.map((run) => run.sessionId)).toEqual(['source'])
+    expect(runs[0]).toMatchObject({ teamId: 'team', userId: 'owner' })
+  })
+}
 
 test('a notice that does not run is not reported back', async () => {
   installTurnRunner({

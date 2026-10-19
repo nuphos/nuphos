@@ -61,12 +61,11 @@ async function dropStale(userId: string, sessionId: string, target: AgentConvers
       reason,
       attempts: message.attempts ?? 0,
     })
-    if (target?.teamId)
-      await reportUndelivered(
-        { userId, teamId: target.teamId, targetSessionId: sessionId },
-        [message],
-        DROPPED[reason],
-      )
+    await reportUndelivered(
+      { userId, teamId: target?.teamId, targetSessionId: sessionId },
+      [message],
+      DROPPED[reason],
+    )
   }
 }
 
@@ -126,6 +125,11 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
         session_id: sessionId,
         message_ids: head.map((message) => message.id),
       })
+      await reportUndelivered(
+        { userId, targetSessionId: sessionId },
+        head,
+        'did not run: the thread no longer exists.',
+      )
 
       return
     }

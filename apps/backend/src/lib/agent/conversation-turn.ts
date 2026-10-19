@@ -202,7 +202,8 @@ async function runtimeRestarted(data: DeliveredTo): Promise<boolean> {
  * or its sender is told, once, that it did not.
  */
 export async function reportUndelivered(
-  data: DeliveredTo,
+  // No team when the target conversation is gone: the sender's own is the one it sent from.
+  data: Omit<DeliveredTo, 'teamId'> & { teamId?: string },
   messages: readonly PendingUserMessage[],
   reason: string,
 ): Promise<void> {
@@ -211,18 +212,24 @@ export async function reportUndelivered(
 
     if (message.source !== 'agent.thread' || !senderId) continue
     if (message.renderedText.startsWith(UNDELIVERED_NOTICE)) continue
-    const failed = (error: unknown) =>
+    const failed = (error: unknown) => {
       logError('agent.thread.undelivered_report_failed', error, {
         session_id: data.targetSessionId,
         source_session_id: senderId,
         message_id: message.id,
       })
+    }
 
     try {
       const sender = await getConversationBySessionId(senderId)
 
       // The same owner and team the delivery was authorized for, and still open.
-      if (sender?.userId !== data.userId || sender.teamId !== data.teamId || sender.archivedAt)
+      if (
+        sender?.userId !== data.userId ||
+        !sender.teamId ||
+        (data.teamId && sender.teamId !== data.teamId) ||
+        sender.archivedAt
+      )
         continue
       const excerpt = message.renderedText.slice(0, 200)
       const notice = `${UNDELIVERED_NOTICE} Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_thread runtimeId) first.`
@@ -230,6 +237,7 @@ export async function reportUndelivered(
       const { run } = await startConversationTurn(
         {
           ...data,
+          teamId: sender.teamId,
           targetSessionId: senderId,
           messageId: randomUUID(),
           locale: data.locale ?? 'en',
