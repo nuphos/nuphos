@@ -22,7 +22,10 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
   const items = new Map<string, string>()
   const calls: string[] = []
   // When gated, keychain writes wait for release(), so a test can act mid-write.
-  const { promise: opened, resolve: release } = Promise.withResolvers<void>()
+  let release: () => void = () => undefined
+  const opened = new Promise<void>((resolve) => {
+    release = resolve
+  })
   const gate = gated ? opened : Promise.resolve()
   const store: TokenStore = {
     get: (account) => {
