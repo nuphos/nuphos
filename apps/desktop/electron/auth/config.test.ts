@@ -15,24 +15,26 @@ import type { TokenStore } from './token-store.ts'
 const USER: UserInfo = { id: 'u1', name: 'Bruce', email: 'bruce@example.com', username: 'bruce' }
 const ACCOUNT = 'u1@https://api.nuphos.ai'
 
-async function harness({ secure = true, failSet = false } = {}) {
+async function harness({ secure = true, failSet = false, gated = false } = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-config-'))
   const file = path.join(dir, 'desktop.yaml')
   const legacy = path.join(dir, 'cli.yaml')
   const items = new Map<string, string>()
   const calls: string[] = []
+  // When gated, keychain writes wait for release(), so a test can act mid-write.
+  const { promise: opened, resolve: release } = Promise.withResolvers<void>()
+  const gate = gated ? opened : Promise.resolve()
   const store: TokenStore = {
     get: (account) => {
       calls.push(`get ${account}`)
 
       return Promise.resolve(items.get(account) ?? null)
     },
-    set: (account, token) => {
+    set: async (account, token) => {
       calls.push(`set ${account}`)
-      if (failSet) return Promise.reject(new Error('locked'))
+      await gate
+      if (failSet) throw new Error('locked')
       items.set(account, token)
-
-      return Promise.resolve()
     },
     delete: (account) => {
       calls.push(`delete ${account}`)
@@ -53,7 +55,11 @@ async function harness({ secure = true, failSet = false } = {}) {
   const onDisk = async (at = file) =>
     yaml.load(await fs.readFile(at, 'utf8')) as Record<string, unknown>
 
-  return { config, file, legacy, items, calls, tokens, onDisk }
+  const keychainWriteStarted = async () => {
+    while (!calls.some((c) => c.startsWith('set'))) await new Promise(setImmediate)
+  }
+
+  return { config, file, legacy, items, calls, tokens, onDisk, release, keychainWriteStarted }
 }
 
 test('a sign-in keeps the token in the keychain and only names it in the file', async () => {
@@ -76,6 +82,60 @@ test('a plaintext token from an older client moves to the keychain', async () =>
   assert.equal((await h.config.read()).token, 'tok-old')
   assert.equal(h.items.get(ACCOUNT), 'tok-old')
   assert.deepEqual(await h.onDisk(), { keychainAccount: ACCOUNT, userInfo: USER })
+})
+
+test('signing out while a plaintext token moves to the keychain stays signed out', async () => {
+  const h = await harness({ gated: true })
+
+  await fs.writeFile(h.file, yaml.dump({ token: 'tok-old', userInfo: USER }))
+  const reading = h.config.read()
+
+  await h.keychainWriteStarted()
+  const signingOut = h.config.write({})
+
+  h.release()
+  await Promise.all([reading, signingOut])
+
+  assert.equal(h.items.size, 0)
+  assert.deepEqual(await h.onDisk(), {})
+  assert.equal(h.tokens.at(-1), null)
+  assert.equal((await h.config.read()).token, undefined)
+})
+
+test('a newer sign-in while a plaintext token moves to the keychain wins', async () => {
+  const h = await harness({ gated: true })
+  const other = { ...USER, id: 'u9' }
+
+  await fs.writeFile(h.file, yaml.dump({ token: 'tok-old', userInfo: USER }))
+  const reading = h.config.read()
+
+  await h.keychainWriteStarted()
+  const signingIn = h.config.write({ token: 'tok-9', userInfo: other })
+
+  h.release()
+  await Promise.all([reading, signingIn])
+
+  assert.deepEqual([...h.items], [['u9@https://api.nuphos.ai', 'tok-9']])
+  assert.equal(h.tokens.at(-1), 'tok-9')
+  assert.equal((await h.config.read()).token, 'tok-9')
+})
+
+test('signing out while the CLI sign-in is adopted stays signed out', async () => {
+  const h = await harness({ gated: true })
+
+  await fs.writeFile(h.legacy, yaml.dump({ token: 'tok-cli', userInfo: USER }))
+  const reading = h.config.read()
+
+  await h.keychainWriteStarted()
+  const signingOut = h.config.write({})
+
+  h.release()
+  await Promise.all([reading, signingOut])
+
+  assert.equal(h.items.size, 0)
+  assert.deepEqual(await h.onDisk(), {})
+  assert.equal(h.tokens.at(-1), null)
+  assert.equal((await h.config.read()).token, undefined)
 })
 
 test('signing out removes the keychain item and empties the file', async () => {

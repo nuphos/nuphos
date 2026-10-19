@@ -79,8 +79,20 @@ export function configFile(deps: ConfigFileDeps) {
     }
   }
 
-  async function write(cfg: Config): Promise<void> {
-    if (!cfg.token) deps.onToken(null)
+  // Every read and write of the file runs one at a time, each from the file as
+  // its turn finds it: a read that moves a plaintext token to the keychain can
+  // then never land after, and undo, a sign-out or a newer sign-in.
+  let queue: Promise<unknown> = Promise.resolve()
+
+  function inTurn<T>(task: () => Promise<T>): Promise<T> {
+    const run = queue.then(task)
+
+    queue = run.catch(() => null)
+
+    return run
+  }
+
+  async function save(cfg: Config): Promise<void> {
     const previous = (await readFile(deps.path)) ?? {}
     const stored: Config = { ...cfg, keychainAccount: undefined }
 
@@ -122,20 +134,20 @@ export function configFile(deps: ConfigFileDeps) {
       userInfo: legacy.userInfo,
     }
 
-    await write(cfg)
+    await save(cfg)
     if (deps.secure()) await writeFile(deps.legacyPath, { ...legacy, token: undefined })
 
     return cfg
   }
 
-  async function read(): Promise<Config> {
+  async function load(): Promise<Config> {
     const cfg = await readFile(deps.path)
 
     if (!cfg) return (await adopt().catch(() => null)) ?? {}
     if (cfg.token) {
       // Signed in before the keychain, or by a client without it: move it there.
       if (deps.secure())
-        await write(cfg).catch((e: unknown) => {
+        await save(cfg).catch((e: unknown) => {
           console.warn('auth: failed to move the session token to the keychain', e)
         })
 
@@ -152,7 +164,15 @@ export function configFile(deps: ConfigFileDeps) {
     return token ? { ...cfg, token } : cfg
   }
 
-  return { read, write }
+  return {
+    read: () => inTurn(load),
+    write: (cfg: Config) => {
+      // A sign-out takes effect in memory at once, before its turn.
+      if (!cfg.token) deps.onToken(null)
+
+      return inTurn(() => save(cfg))
+    },
+  }
 }
 
 const defaultConfigFile = configFile({
