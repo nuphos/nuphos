@@ -15,6 +15,8 @@ export type AgentDeviceBox = {
   provider: 'instabox' | 'k8s'
   /** Set once the machine is ordered; a row without one is still being created. */
   sandboxId?: string
+  /** The vCPUs it was ordered with; they count against the team's limit until the machine is listed. */
+  vcpus?: number
   /** Asset scope; independent of the host's transport owner. */
   teamId: string
   createdBy?: string
@@ -231,12 +233,20 @@ export async function setAgentDeviceBoxSandbox(
 }
 
 /** The team's Boxes still being ordered: instabox does not list their machines yet. */
-export async function countTeamBoxesOrdering(teamId: string): Promise<number> {
-  return agentDevices().countDocuments({
-    'box.teamId': teamId,
-    'box.provider': { $ne: 'k8s' },
-    'box.sandboxId': { $exists: false },
-  })
+/** vCPUs of the team's Boxes still being ordered: rows without their machine yet. */
+export async function teamOrderingVcpus(teamId: string): Promise<number> {
+  const rows = await agentDevices()
+    .find(
+      {
+        'box.teamId': teamId,
+        'box.provider': { $ne: 'k8s' },
+        'box.sandboxId': { $exists: false },
+      },
+      { projection: { 'box.vcpus': 1 } },
+    )
+    .toArray()
+
+  return rows.reduce((sum, row) => sum + (row.box?.vcpus ?? 0), 0)
 }
 
 export async function deleteAgentDevice(userId: string, deviceId: string): Promise<boolean> {

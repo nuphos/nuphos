@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import {
   seenFrom,
+  boxSizeLabel,
   accessHint,
   accessPayload,
   canShareBox,
@@ -178,6 +179,15 @@ test('no Box plan blocks a new Box and tells who can fix it', () => {
 test('a Box that fits the plan may start; one past it is blocked', () => {
   assert.equal(newBoxBlockedReason(usage(12, 8, 4), true), null)
   assert.match(newBoxBlockedReason(usage(12, 12, 4), true) ?? '', /12 of 12 vCPU/)
+})
+
+test('a bigger Box is checked at its own size', () => {
+  assert.equal(newBoxBlockedReason(usage(12, 4, 4), true, 8), null)
+  assert.match(newBoxBlockedReason(usage(12, 8, 4), true, 8) ?? '', /needs 8\./)
+})
+
+test('a size reads as vCPU and GiB', () => {
+  assert.equal(boxSizeLabel({ vcpus: 8, memMiB: 16384 }), '8 vCPU · 16 GiB')
 })
 
 test('unlimited or unknown usage never blocks', () => {

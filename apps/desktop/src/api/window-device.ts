@@ -36,7 +36,7 @@ export type WindowDeviceApi = {
   localRuntimeOpenWorkspace(): Promise<void>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
   boxListDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList>
-  boxCreate(label?: string, teamId?: string): Promise<AgentDevice>
+  boxCreate(label?: string, teamId?: string, vcpus?: number): Promise<AgentDevice>
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>

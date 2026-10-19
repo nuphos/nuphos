@@ -4,12 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
+import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
-import { boxAgents, boxPollMs, newBoxBlockedReason, vanishedBoxes } from './boxPresentation'
+import {
+  boxAgents,
+  boxPollMs,
+  boxSizeLabel,
+  newBoxBlockedReason,
+  vanishedBoxes,
+} from './boxPresentation'
 import { BoxRow } from './BoxRow'
 import { PanelHeading } from './RuntimePanel'
 import { useAgentDevices } from './useAgentDevices'
@@ -50,7 +57,11 @@ export function BoxSection({
   const [creating, setCreating] = useState(false)
   const previous = useRef<AgentDevice[]>([])
   const { usage, reload: reloadUsage } = useBoxUsage(teamId)
-  const blocked = newBoxBlockedReason(usage, canCreate)
+  const sizes = usage?.sizes ?? []
+  // The smallest until one is picked; a pick the backend no longer offers falls back too.
+  const [picked, setPicked] = useState<number>()
+  const vcpus = (sizes.find((size) => size.vcpus === picked) ?? sizes.at(0))?.vcpus
+  const blocked = newBoxBlockedReason(usage, canCreate, vcpus)
   const { isActive } = useWorkspaceTab()
   const {
     list,
@@ -84,7 +95,7 @@ export function BoxSection({
     }
     setCreating(true)
     try {
-      await api.boxCreate(undefined, teamId)
+      await api.boxCreate(undefined, teamId, vcpus)
       reload()
     } catch (error) {
       toast.apiError('Could not create Box', error)
@@ -108,6 +119,19 @@ export function BoxSection({
               void create()
             }}
           >
+            {list?.boxAvailable && canCreate && sizes.length > 1 && (
+              <AppSelect
+                ariaLabel="New Box size"
+                triggerClassName="!h-8"
+                value={String(vcpus)}
+                disabled={creating}
+                onValueChange={(value) => setPicked(Number(value))}
+                options={sizes.map((size) => ({
+                  value: String(size.vcpus),
+                  label: boxSizeLabel(size),
+                }))}
+              />
+            )}
             {list?.boxAvailable && canCreate && (
               <Button type="submit" size="sm" variant="secondary" disabled={creating}>
                 {creating ? (

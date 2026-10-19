@@ -25,6 +25,8 @@ const boxAccessSchema = z.object({
 const boxCreateSchema = z.object({
   label: z.string().trim().min(1).max(200).optional(),
   teamId: z.string().trim().min(1).max(64).optional(),
+  /** One of the sizes the Boxes section lists; the smallest when left out. */
+  vcpus: z.number().int().min(1).max(1024).optional(),
 })
 
 /** Unnamed Boxes count up: "Box 1", "Box 2", … after the highest the caller has. */
@@ -148,7 +150,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
   // A Box: a cloud machine made for this user, joined with its own one-time token.
   routes.post('/devices/boxes', zv('json', boxCreateSchema), async (c) => {
     const box = requireBoxes()
-    const { label, teamId: requestedTeamId } = c.req.valid('json')
+    const { label, teamId: requestedTeamId, vcpus } = c.req.valid('json')
     const teamId = readTeamIdCandidate(c, requestedTeamId)
 
     if (!teamId) throw new AppError(400, 'team_required', 'A Box is made inside one of your teams')
@@ -158,6 +160,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       c.get('userId'),
       teamId,
       label ?? nextBoxLabel((await deps.listDevices(c.get('userId'))).map((d) => d.label)),
+      vcpus,
     )
 
     return c.json(await viewOrGone(device), 201)

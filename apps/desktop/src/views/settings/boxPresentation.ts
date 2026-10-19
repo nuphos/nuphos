@@ -237,14 +237,23 @@ export const BOX_PLANS = [
   },
 ]
 
-/** Why the team's vCPU limit keeps a new Box from starting; null when one can start. */
-export function newBoxBlockedReason(usage: BoxUsage | null, isAdmin: boolean): string | null {
+/** Why the team's vCPU limit keeps a new Box of `vcpus` from starting; null when one can start. */
+export function newBoxBlockedReason(
+  usage: BoxUsage | null,
+  isAdmin: boolean,
+  vcpus: number | null | undefined = usage?.boxVcpus,
+): string | null {
   if (usage?.limitVcpus === 0)
     return isAdmin
       ? 'Your team has no Box plan yet. Choose a plan to start a Box.'
       : 'Ask a team administrator to add a Box plan.'
-  if (usage?.limitVcpus == null || usage.usedVcpus === null || usage.boxVcpus === null) return null
-  if (usage.usedVcpus + usage.boxVcpus <= usage.limitVcpus) return null
+  if (usage?.limitVcpus == null || usage.usedVcpus === null || vcpus == null) return null
+  if (usage.usedVcpus + vcpus <= usage.limitVcpus) return null
 
-  return `Your running Boxes use ${String(usage.usedVcpus)} of ${String(usage.limitVcpus)} vCPU, and a new Box needs ${String(usage.boxVcpus)}. Pause a Box or upgrade.`
+  return `Your running Boxes use ${String(usage.usedVcpus)} of ${String(usage.limitVcpus)} vCPU, and a new Box needs ${String(vcpus)}. Pause a Box or upgrade.`
+}
+
+/** How a Box size reads in a picker: "8 vCPU · 16 GiB". */
+export function boxSizeLabel({ vcpus, memMiB }: { vcpus: number; memMiB: number }): string {
+  return `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`
 }

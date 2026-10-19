@@ -27,11 +27,11 @@ import {
   killBoxMachine,
   unavailable,
 } from './box-instabox-client'
-import { startWithinLimit } from './box-instabox-limit'
+import { boxSize, startWithinLimit } from './box-instabox-limit'
 import { noteBoxUsage } from './box-usage-history'
 
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
-import { isDevicePresent } from './presence'
+import { isDevicePresent, waitForPresence } from './presence'
 import {
   deleteAgentDevice,
   getAgentDevice,
@@ -39,9 +39,10 @@ import {
   setAgentDeviceBoxSandbox,
 } from './store'
 
+import type { BoxSize } from './box-instabox-limit'
 import type { AgentDevice, AgentDeviceBox } from './store'
 
-export { BOX_TEMPLATE, boxBackendUrl, boxesAvailable, boxesEnabled } from './box-instabox-client'
+export { boxBackendUrl, boxesAvailable, boxesEnabled } from './box-instabox-client'
 export { boxState } from './box-instabox-state'
 export type { BoxState } from './box-instabox-state'
 
@@ -93,32 +94,33 @@ export async function createBox(
   userId: string,
   teamId: string,
   label: string,
+  vcpus?: number,
 ): Promise<AgentDevice> {
   const url = backendUrl()
+  const size = await boxSize(vcpus)
   const deviceId = randomUUID()
   const registration = {
     deviceId,
     label,
     platform: 'linux',
     allowLocalExec: true,
-    box: { provider: 'instabox' as const, teamId, createdBy: userId },
+    box: { provider: 'instabox' as const, teamId, createdBy: userId, vcpus: size.vcpus },
   }
 
-  const created = await startWithinLimit(teamId, undefined, () =>
+  const created = await startWithinLimit(teamId, { vcpus: size.vcpus }, () =>
     insertBoxAgentDevice(userId, registration),
   )
 
-  void order(userId, teamId, deviceId, label, url)
+  void order(userId, url, registration, size)
 
   return created
 }
 
 async function order(
   userId: string,
-  teamId: string,
-  deviceId: string,
-  label: string,
   url: string,
+  { deviceId, label, box: { teamId } }: Pick<BoxDevice, 'deviceId' | 'label' | 'box'>,
+  size: BoxSize,
 ): Promise<void> {
   let sandbox: Sandbox | undefined
 
@@ -129,6 +131,7 @@ async function order(
       metadata: { teamId, deviceId, createdBy: userId },
       vault: false,
       autoSuspendMs: 0, // stays on until paused; instabox's default pauses after 30 idle minutes
+      ...size,
     })
     // Deleted while it was being ordered: the machine must not outlive the row.
     if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
@@ -155,7 +158,7 @@ async function order(
       background: true,
     })
     // Setup is done when the machine is actually here, not when its commands returned.
-    if (!(await present(userId, deviceId, JOIN_TIMEOUT_MS)))
+    if (!(await waitForPresence(userId, deviceId, JOIN_TIMEOUT_MS)))
       throw new Error('The machine did not join within the time allowed')
     logEvent('info', 'agent.box.provisioned', { user_id: userId, device_id: deviceId })
   } catch (error) {
@@ -181,7 +184,7 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
   const sandboxId = requireMachine(device)
 
   try {
-    const sandbox = await startWithinLimit(device.box.teamId, sandboxId, () =>
+    const sandbox = await startWithinLimit(device.box.teamId, { sandboxId }, () =>
       Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
     )
 
@@ -236,7 +239,7 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
 
   try {
     // Resume, wake and heal all start a machine, so they count against the team's limit.
-    const sandbox = await startWithinLimit(device.box.teamId, sandboxId, () =>
+    const sandbox = await startWithinLimit(device.box.teamId, { sandboxId }, () =>
       Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
     )
 
@@ -284,17 +287,5 @@ export async function wakeBox(userId: string, deviceId: string): Promise<boolean
   if (!device?.box?.sandboxId) return false
   await resumeBox(userId, deviceId)
 
-  return present(userId, deviceId, WAKE_TIMEOUT_MS)
-}
-
-/** Polls the device's presence until it is here or the time is up. */
-async function present(userId: string, deviceId: string, timeoutMs: number): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs
-
-  while (Date.now() < deadline) {
-    if (await isDevicePresent(userId, deviceId)) return true
-    await new Promise((resolve) => setTimeout(resolve, 1_000))
-  }
-
-  return false
+  return waitForPresence(userId, deviceId, WAKE_TIMEOUT_MS)
 }

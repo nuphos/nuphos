@@ -16,13 +16,13 @@ const paused = {
   deviceId: 'd1',
   box: { provider: 'instabox', teamId, sandboxId: 'm_paused', createdBy: 'u1' },
 } as unknown as AgentDevice
-const checked: [string, string | undefined][] = []
+const checked: [string, unknown][] = []
 
 useAgentDeviceStore({ getAgentDevice: () => Promise.resolve(paused) })
 useAgentDevicePresence({ isDevicePresent: () => Promise.resolve(false) })
 useBoxInstaboxLimit({
-  startWithinLimit: (team: string, resumed: string | undefined) => {
-    checked.push([team, resumed])
+  startWithinLimit: (team: string, starting: unknown) => {
+    checked.push([team, starting])
 
     return Promise.reject(new AppError(402, 'box_vcpu_limit', 'Over the limit'))
   },
@@ -45,10 +45,10 @@ test('resuming a paused Box goes through the team limit, and a refusal is a 402'
     status: 402,
     code: 'box_vcpu_limit',
   })
-  expect(checked).toEqual([[teamId, 'm_paused']])
+  expect(checked).toEqual([[teamId, { sandboxId: 'm_paused' }]])
 })
 
 test('waking a paused Box goes through the same limit', async () => {
   await expect(wakeBox('u1', 'd1')).rejects.toMatchObject({ status: 402 })
-  expect(checked).toEqual([[teamId, 'm_paused']])
+  expect(checked).toEqual([[teamId, { sandboxId: 'm_paused' }]])
 })
