@@ -4,11 +4,11 @@
 
 import {
   clearConversationPreviewLocalTools,
+  clearPendingDecision,
   clearConversationPreviewTurn,
   openConversationPromptSuggestion,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
-import { clearPendingDecision } from '@/lib/agent/db/pending-decision'
 import { promptImages } from '@/lib/agent/image-parts'
 import {
   attributionHeader,
@@ -132,6 +132,8 @@ export async function persistPreviewTurnContext(
   args: PreviewChatTurnArgs,
   requestId: string,
 ): Promise<void> {
+  // A person speaking in the session answers whatever it was waiting on.
+  if (args.humanTurn) await clearPendingDecision(args.sessionId, args.userId)
   try {
     await setConversationPreviewContext(args.sessionId, args.teamId, {
       activeTurnKey: requestId,
@@ -177,8 +179,6 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
-  // A person speaking in the session answers whatever it was waiting on.
-  if (args.humanTurn) await clearPendingDecision(sessionId, userId)
   const [memory, systemPrompt, compactionSummary, drained] = await Promise.all([
     recallForPreviewTurn({
       sessionId,
