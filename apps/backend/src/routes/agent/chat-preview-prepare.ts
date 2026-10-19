@@ -8,6 +8,7 @@ import {
   openConversationPromptSuggestion,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
+import { clearPendingDecision } from '@/lib/agent/db/pending-decision'
 import { promptImages } from '@/lib/agent/image-parts'
 import {
   attributionHeader,
@@ -176,6 +177,8 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
+  // A person speaking in the session answers whatever it was waiting on.
+  if (args.humanTurn) await clearPendingDecision(sessionId, userId)
   const [memory, systemPrompt, compactionSummary, drained] = await Promise.all([
     recallForPreviewTurn({
       sessionId,

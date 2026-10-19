@@ -7,10 +7,11 @@
 // bounded wait: the turn never parks on an answer that is not coming.
 import { randomUUID } from 'node:crypto'
 
+import { setPendingDecision } from '@/lib/agent/db/pending-decision'
 import { createUserDecisionTools } from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
-import { logEvent } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import { registerPreviewWait } from '../decision-waiter'
 import { previewRunStreamId, publishPreviewFrame } from '../run-frame-bridge'
@@ -26,6 +27,7 @@ import type {
   PublishPreviewFrame,
 } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
+import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
 import type { ToolHandler } from '@/lib/mcp/protocol'
 
 type ClassicTools = Record<string, unknown>
@@ -160,6 +162,21 @@ function passthroughHandler(
     const { providers: _providers, ...plain } = args
     const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
     const outcome = await runClassicTool(name, tool, input, ctx, options)
+
+    if (name === 'request_user_decision' && !('error' in outcome)) {
+      const { category, question, options: choices } = outcome.output as ExplicitUserDecision
+
+      await setPendingDecision(ctx.sessionId, ctx.conversationOwnerUserId ?? ctx.userId, {
+        category,
+        question,
+        ...(choices ? { options: choices } : {}),
+        toolCallId: outcome.toolCallId,
+        askedAt: new Date(),
+      }).catch((err: unknown) => {
+        // The card is already in the transcript; only the Inbox misses it.
+        logError('agent.pending_decision.persist_failed', err, { session_id: ctx.sessionId })
+      })
+    }
 
     return 'error' in outcome ? toolError(outcome.error) : toolResult(outcome.output)
   }

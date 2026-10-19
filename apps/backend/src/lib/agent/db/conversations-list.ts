@@ -51,6 +51,8 @@ export async function getConversations(
      */
     triggerIds?: string[]
     parentSessionId?: string // Only threads nested under this conversation: its sub-agents.
+    /** The Inbox: only conversations waiting on a decision, trigger runs included. */
+    pendingDecision?: boolean
     /** Also return the rows' parents that another page would list. */
     withParents?: boolean
   },
@@ -88,9 +90,11 @@ export async function getConversations(
   // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
   if (options.parentSessionId) query.parentSessionId = options.parentSessionId
-  query['metadata.trigger.id'] = options.triggerIds
-    ? { $in: options.triggerIds }
-    : { $exists: false }
+  if (options.pendingDecision) query.pendingDecision = { $exists: true }
+  else
+    query['metadata.trigger.id'] = options.triggerIds
+      ? { $in: options.triggerIds }
+      : { $exists: false }
   if (options.archived === 'only' || options.sort === 'archived') {
     query.archivedAt = { $exists: true }
   } else if (options.archived === 'exclude') {
