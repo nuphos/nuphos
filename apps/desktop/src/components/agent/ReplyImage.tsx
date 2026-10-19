@@ -10,6 +10,49 @@ import type { FileTransferGroup } from '../../types'
 
 const FRAME = `block rounded-lg border border-zGray-800 bg-zGray-900 ${MEDIA_BOX}`
 
+/**
+ * Any other markdown or HTML image (GitHub bodies and comments included):
+ * clicking it opens the shared lightbox, even when the image sits inside a link.
+ */
+export function MarkdownImage({
+  src,
+  alt,
+  width,
+  height,
+}: {
+  src?: string
+  alt?: string
+  width?: number | string
+  height?: number | string
+}) {
+  const [preview, setPreview] = useState<number | null>(null)
+
+  if (!src) return null
+  const name = alt?.trim() ? alt : (src.split(/[?#]/)[0].split('/').pop() ?? 'Image')
+
+  return (
+    <>
+      <button
+        type="button"
+        className="max-w-full cursor-zoom-in align-middle"
+        aria-label={`Preview ${name}`}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          setPreview(0)
+        }}
+      >
+        <img src={src} alt={alt} width={width} height={height} className="max-w-full rounded-lg" />
+      </button>
+      <ImageLightbox
+        images={[{ url: src, fileName: name }]}
+        index={preview}
+        onIndexChange={setPreview}
+      />
+    </>
+  )
+}
+
 /** Resolve a persisted group reference with the viewer's own credentials. */
 export function ReplyImage({
   groupId,
