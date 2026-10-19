@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { useState } from 'react'
 
 import { runtimeAllows } from '../../../lib/runtimeExecution'
 
@@ -29,6 +30,7 @@ import type { ReactNode } from 'react'
 
 export function Composer({
   variant = 'compact',
+  newChat = false,
   onSend,
   onStop,
   runtimeState,
@@ -54,6 +56,7 @@ export function Composer({
   recall,
 }: {
   variant?: 'compact' | 'hero'
+  newChat?: boolean // a new chat fixes an unusable agent by picking another
   onSend: (text: string, filePaths: string[]) => void
   onStop: () => void
   /** Pending transport work; execution itself comes from the runtime snapshot. */
@@ -112,6 +115,7 @@ export function Composer({
   )
   const hero = variant === 'hero'
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
+  const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
   const sendBlocked = runtimeSendBlocked || modelControl.saving || Boolean(agentSendBlock)
   const state = useComposerState({
     hero,
@@ -155,7 +159,8 @@ export function Composer({
         // Docked, it takes the left sidebar's inset instead, and its bottom gap
         // matches the content card's own (`pb-2` on the main pane) so the two
         // columns end on the same line.
-        hero ? '' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
+        // The hero always keeps room for the agent-status banner above the greeting.
+        hero ? 'pt-5' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
       )}
     >
       <div
@@ -167,7 +172,13 @@ export function Composer({
           hero ? '' : 'max-w-[760px]',
         )}
       >
-        {!readOnly && runtimeControl && <AgentStatusBanner control={runtimeControl} />}
+        {!readOnly && runtimeControl && (
+          <AgentStatusBanner
+            control={runtimeControl}
+            hero={hero}
+            onSwitchAgent={newChat ? () => setAgentMenuOpen(true) : undefined}
+          />
+        )}
         <div
           className={clsx(
             'relative',
@@ -255,7 +266,13 @@ export function Composer({
                 <CredentialSelectorButton {...credentialSelector} hero={hero} />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
-              {runtimeControl && <RuntimeSelector {...runtimeControl} />}
+              {runtimeControl && (
+                <RuntimeSelector
+                  {...runtimeControl}
+                  menuOpen={agentMenuOpen}
+                  onMenuOpenChange={setAgentMenuOpen}
+                />
+              )}
             </div>
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />

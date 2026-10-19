@@ -113,6 +113,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
       {addAgent.dialog}
       <Welcome onPick={(prompt) => startChatWith(prompt)} />
       <Composer
+        newChat
         onSend={(text, filePaths) => void sendInActive(text, filePaths)}
         onStop={stopActive}
         streaming={false}

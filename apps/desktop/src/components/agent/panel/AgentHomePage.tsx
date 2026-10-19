@@ -156,6 +156,7 @@ export function AgentHomePage({
               >
                 <Composer
                   variant="hero"
+                  newChat
                   onSend={onSend}
                   onStop={onStop}
                   streaming={streaming}

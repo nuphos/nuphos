@@ -112,6 +112,8 @@ function runtimeOptionNote(instance: RuntimeInstance, quota?: RuntimeQuota): str
 }
 
 export function RuntimeSelector({
+  menuOpen,
+  onMenuOpenChange,
   teamId,
   canUpdateTeamAgents,
   value,
@@ -125,7 +127,11 @@ export function RuntimeSelector({
   onSettings,
   onAddAgent,
   confirm,
-}: RuntimeControl) {
+}: RuntimeControl & {
+  /** Lets the composer open the list, e.g. from the agent-status banner. */
+  menuOpen?: boolean
+  onMenuOpenChange?: (open: boolean) => void
+}) {
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
@@ -210,7 +216,7 @@ export function RuntimeSelector({
           onClose={confirm.onCancel}
         />
       )}
-      <Menu>
+      <Menu open={menuOpen} onOpenChange={onMenuOpenChange}>
         <MenuTrigger
           aria-label={`Conversation agent: ${label}`}
           className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}

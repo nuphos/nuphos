@@ -90,20 +90,24 @@ const BANNER = {
 function bannerCopy(
   reachability: 'signIn' | 'offline',
   { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings }: RuntimeControl,
+  onSwitchAgent?: () => void,
 ): { text: string; action: { label: string; run: () => void } | null } {
   const name = value?.label ?? 'The agent'
+  // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
+  const switchAgent = onSwitchAgent && { label: 'Switch agent', run: onSwitchAgent }
 
   if (reachability === 'offline') {
     const box = options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel
 
     return {
-      text: `${box ?? 'Its Box'} is offline, so ${name} cannot take messages.`,
-      action: {
+      text: `${box ?? 'Its Box'} is offline.`,
+      action: switchAgent ?? {
         label: 'Retry',
         run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
       },
     }
   }
+  if (switchAgent) return { text: `${name} is signed out.`, action: switchAgent }
   // Only an administrator can sign a team agent back in.
   if (isTeamAdmin && onSettings)
     return {
@@ -119,7 +123,17 @@ function bannerCopy(
  * top edge: positioned out of flow, so showing or hiding it never moves the input.
  * Agent reachability owns this edge; anything else about the turn sits below.
  */
-export function AgentStatusBanner({ control }: { control: RuntimeControl }) {
+export function AgentStatusBanner({
+  control,
+  hero = false,
+  onSwitchAgent,
+}: {
+  control: RuntimeControl
+  /** The new-chat card: wider corners to clear. */
+  hero?: boolean
+  /** Set for a new chat, whose fix is picking another agent. */
+  onSwitchAgent?: () => void
+}) {
   const reachability = selectedAgentReachability(control)
   const blocked = reachability === 'signIn' || reachability === 'offline' ? reachability : null
   // The words stay while the banner leaves, so it closes on what it said.
@@ -127,7 +141,9 @@ export function AgentStatusBanner({ control }: { control: RuntimeControl }) {
 
   if (blocked && blocked !== shown) setShown(blocked)
   const variant = shown ? BANNER[shown] : null
-  const { text, action } = shown ? bannerCopy(shown, control) : { text: '', action: null }
+  const { text, action } = shown
+    ? bannerCopy(shown, control, onSwitchAgent)
+    : { text: '', action: null }
 
   return (
     <div
@@ -136,7 +152,8 @@ export function AgentStatusBanner({ control }: { control: RuntimeControl }) {
       // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
       inert={!blocked}
       className={clsx(
-        't-toast absolute inset-x-4 bottom-full',
+        't-toast absolute bottom-full',
+        hero ? 'inset-x-6' : 'inset-x-4',
         blocked ? 'is-open' : 'pointer-events-none',
       )}
     >
