@@ -63,14 +63,14 @@ export function TimeRangePicker({
                 type="datetime-local"
                 value={fromInput}
                 onChange={(e) => setFromInput(e.target.value)}
-                className="w-full mb-2 px-2 py-1 rounded bg-field border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-full mb-2 px-2 py-1 rounded bg-surface border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
               />
               <label className="block text-[10.5px] text-tertiary mb-1">To</label>
               <input
                 type="datetime-local"
                 value={toInput}
                 onChange={(e) => setToInput(e.target.value)}
-                className="w-full mb-2.5 px-2 py-1 rounded bg-field border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-full mb-2.5 px-2 py-1 rounded bg-surface border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
               />
               <Button
                 size="sm"

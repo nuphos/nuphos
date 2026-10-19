@@ -165,6 +165,8 @@ export function hostedRuntimeSecretObject(args: {
   runtimeId: string
   namespace: string
   authKey: string
+  /** Set once the runtime joins as a device; see runtime-device-join. */
+  joinToken?: string
 }): KubeObject {
   return {
     apiVersion: 'v1',
@@ -175,7 +177,10 @@ export function hostedRuntimeSecretObject(args: {
       labels: { ...runtimeLabels(args.teamId), 'nuphos.io/runtime-id': args.runtimeId },
     },
     type: 'Opaque',
-    stringData: { OPENAB_ACP_AUTH_KEY: args.authKey },
+    stringData: {
+      OPENAB_ACP_AUTH_KEY: args.authKey,
+      ...(args.joinToken ? { NUPHOS_JOIN_TOKEN: args.joinToken } : {}),
+    },
   }
 }
 

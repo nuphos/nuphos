@@ -15,7 +15,7 @@ description: Fetch short-lived AWS, GCP, or Kubernetes credentials from Nuphos w
 
 Use this skill when you need temporary AWS STS credentials, a GCP access token, or a kubeconfig for a Nuphos-bound integration.
 
-The helper calls Nuphos with \`curl\` and the token from the local Nuphos login at \`~/.config/nuphos/cli.yaml\`. \`NUPHOS_TOKEN\` is only a fallback for non-desktop environments. It uses \`NUPHOS_BACKEND_URL\` or \`NUPHOS_API_URL\`, defaulting to \`https://api.nuphos.ai\`. If \`NUPHOS_SESSION_ID\` is set, it uses the agent-session scoped endpoints.
+The helper calls Nuphos with \`curl\` and the token of the local Nuphos sign-in: from \`~/.config/nuphos/cli.yaml\` or \`desktop.yaml\`. On macOS the sign-in is in the keychain, which the helper does not read, so set \`NUPHOS_TOKEN\` there. \`NUPHOS_TOKEN\` is only a fallback for non-desktop environments. It uses \`NUPHOS_BACKEND_URL\` or \`NUPHOS_API_URL\`, defaulting to \`https://api.nuphos.ai\`. If \`NUPHOS_SESSION_ID\` is set, it uses the agent-session scoped endpoints.
 
 ## Commands
 

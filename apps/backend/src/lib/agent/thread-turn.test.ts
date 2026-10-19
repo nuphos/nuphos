@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { executeConversationTurn } from './conversation-turn'
@@ -44,6 +45,9 @@ let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const claims: Parameters<TurnRunner['claimAgentRunOrEnqueue']>[0][] = []
 
+useConversationChatRoute({
+  resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
+})
 useIdentity({
   getTeamMembership: async () => ({ role: 'MEMBER' }),
   signNuphosToken: () => 'test-token',
@@ -231,7 +235,7 @@ test('redelivery already queued on a busy target does not enqueue twice', async 
   expect(runs).toHaveLength(0)
 })
 
-test('runner failure releases the claim and fails the durable job', async () => {
+test('runner failure releases the claim, fails the durable job and tells the sender', async () => {
   installTurnRunner({
     claimAgentRunOrEnqueue: async () => ({
       mode: 'run',
@@ -240,10 +244,17 @@ test('runner failure releases the claim and fails the durable job', async () => 
         released++
       },
     }),
-    runAgentForTrigger: async () => ({ status: 'failed' }),
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+
+      return { status: 'failed' }
+    },
   })
   await expect(startThreadTurn(data).then(({ run }) => run)).rejects.toThrow('Thread run failed')
-  expect(released).toBe(1)
+  await Bun.sleep(10)
+  // The target's turn, then the notice's own turn in the sender, which is not reported again.
+  expect(runs.map((run) => run.sessionId)).toEqual(['target', 'source'])
+  expect(released).toBe(2)
 })
 
 test('full pending queue is an error, not a delivery receipt', async () => {

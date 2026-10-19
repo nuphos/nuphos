@@ -131,7 +131,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                 value={hostUrl}
                 onChange={(e) => setHostUrl(e.target.value)}
                 placeholder="https://gitlab.com"
-                className="h-8 px-2.5 rounded-md bg-field border border-zGray-700 text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
+                className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
               />
             </label>
 
@@ -213,7 +213,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                     value={clientId}
                     onChange={(e) => setClientId(e.target.value)}
                     placeholder="abc123…"
-                    className="h-8 px-2.5 rounded-md bg-field border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
+                    className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
@@ -225,7 +225,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                     value={clientSecret}
                     onChange={(e) => setClientSecret(e.target.value)}
                     placeholder="gloas-…"
-                    className="h-8 px-2.5 rounded-md bg-field border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
+                    className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
                   />
                 </label>
               </div>

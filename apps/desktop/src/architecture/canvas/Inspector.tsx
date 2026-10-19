@@ -1,8 +1,11 @@
 import { faTrashCan } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
+import { fieldClass } from '../../components/ui/input-group'
+import { AppSelect } from '../../components/ui/select'
+
 import { COLOR_SWATCHES, KIND_OPTIONS, PRIMARY, kindFromUrl } from './helpers'
-import { btn, inp, lbl } from './styles'
+import { btn, lbl } from './styles'
 
 import type { Diagram, DiagramView } from '../schema'
 import type { RefObject } from 'react'
@@ -46,27 +49,23 @@ export function Inspector({
           inspectorDirtyRef.current = false
         }}
         onChange={(e) => updateNode(node.id, (n) => ({ ...n, label: e.target.value }))}
-        style={inp}
-        className="focus:!border-zViolet-500"
+        className={`${fieldClass} mb-2.5 h-9`}
       />
 
       <label style={lbl}>Kind</label>
-      <select
-        value={kindFromUrl(node.url) ?? node.kind ?? 'abstract'}
-        disabled={!!kindFromUrl(node.url)}
-        onFocus={() => {
-          inspectorDirtyRef.current = false
-        }}
-        onChange={(e) => updateNode(node.id, (n) => ({ ...n, kind: e.target.value }))}
-        style={{ ...inp, opacity: kindFromUrl(node.url) ? 0.6 : 1 }}
-        title={kindFromUrl(node.url) ? 'Determined by the link (concrete node)' : undefined}
-      >
-        {KIND_OPTIONS.map((k) => (
-          <option key={k} value={k}>
-            {k}
-          </option>
-        ))}
-      </select>
+      <div title={kindFromUrl(node.url) ? 'Determined by the link (concrete node)' : undefined}>
+        <AppSelect
+          value={kindFromUrl(node.url) ?? node.kind ?? 'abstract'}
+          disabled={!!kindFromUrl(node.url)}
+          onOpenChange={(open) => {
+            if (open) inspectorDirtyRef.current = false
+          }}
+          onValueChange={(kind) => updateNode(node.id, (n) => ({ ...n, kind }))}
+          options={KIND_OPTIONS.map((k) => ({ value: k, label: k }))}
+          ariaLabel="Kind"
+          className="mb-2.5"
+        />
+      </div>
 
       <label style={lbl}>Color (this view)</label>
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -101,8 +100,7 @@ export function Inspector({
           inspectorDirtyRef.current = false
         }}
         onChange={(e) => updateNode(node.id, (n) => ({ ...n, url: e.target.value || undefined }))}
-        style={inp}
-        className="focus:!border-zViolet-500"
+        className={`${fieldClass} mb-2.5 h-9`}
       />
 
       <button

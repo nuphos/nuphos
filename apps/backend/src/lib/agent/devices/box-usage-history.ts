@@ -78,7 +78,7 @@ export function noteBoxPresence(
 ): Promise<void> {
   return getDevice(userId, deviceId).then(
     (device) => {
-      if (device?.box) note(device.box.teamId)
+      if (device?.box?.provider === 'instabox') note(device.box.teamId)
     },
     () => undefined,
   )

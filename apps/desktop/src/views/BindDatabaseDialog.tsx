@@ -26,7 +26,7 @@ type Props = {
 }
 
 const fieldClass =
-  'w-full rounded-md border border-zGray-800 bg-field px-2.5 py-1.5 text-[12.5px] text-main outline-none focus:border-zViolet-accent disabled:opacity-50'
+  'w-full rounded-md border border-zGray-800 bg-surface px-2.5 py-1.5 text-[12.5px] text-main outline-none focus:border-zViolet-accent disabled:opacity-50'
 
 export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
   const [name, setName] = useState('')
@@ -224,7 +224,6 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
               value={agentPolicy}
               onValueChange={(value) => setAgentPolicy(value as DatabaseAgentPolicy)}
               ariaLabel="Agent access policy"
-              triggerClassName="h-8 w-full border-zGray-800 bg-field px-2.5 text-[12.5px]"
               options={AGENT_POLICY_OPTIONS}
             />
           </Field>

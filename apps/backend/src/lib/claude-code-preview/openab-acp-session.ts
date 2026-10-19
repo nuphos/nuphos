@@ -54,6 +54,8 @@ export type AcpHttpMcpServer = {
 
 export type OpenAbAcpClientOptions = {
   url: string
+  /** Dialled instead of `url`: the tunnel of a hosted runtime that joined as a device. */
+  tunnelUrl?: string
   authKey: string
   socketFactory?: SocketFactory
   connectTimeoutMs?: number

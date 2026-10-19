@@ -53,7 +53,8 @@ if '--mongo' in sys.argv:
         env = directory / 'mongo.env'
         env.write_text('MONGO_INITDB_ROOT_USERNAME=nuphos\n'
                        f'MONGO_INITDB_ROOT_PASSWORD={secrets.token_hex(32)}\n'
-                       f'NUPHOS_MONGO_HOST={name}\n')
+                       f'NUPHOS_MONGO_HOST={name}\n'
+                       f'GLIBC_TUNABLES={mongo["env"]["GLIBC_TUNABLES"]["default"]}\n')
         env.chmod(0o600)
         probe = '''
 const admin = db.getSiblingDB('admin');

@@ -112,6 +112,7 @@ agent.get('/conversations', async (c) => {
     archived,
     sort,
     ...(triggerIds ? { triggerIds } : {}),
+    ...(c.req.query('pendingDecision') === 'true' ? { pendingDecision: true } : {}),
     withParents: true,
   })
   const rows = await serializeConversationList(

@@ -50,7 +50,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             onChange={(e) => setName(e.target.value)}
             placeholder="prod"
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
           />
         </Field>
         <Field label="Grafana URL" hint="Base URL of your Grafana instance (no trailing path)">
@@ -58,7 +58,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             value={grafanaUrl}
             onChange={(e) => setGrafanaUrl(e.target.value)}
             placeholder="https://grafana.example.com"
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </Field>
         <Field
@@ -70,7 +70,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             onChange={(e) => setSaToken(e.target.value)}
             placeholder="glsa_..."
             type="password"
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </Field>
         {error && <div className="text-error text-[12px] whitespace-pre-wrap">{error}</div>}

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { config } from '@/config'
+import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
@@ -24,6 +25,7 @@ import type { KubeClient } from './kube-client'
 import type { RuntimePairing } from './runtime-pairing-client'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
+import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { EncryptedEnvelope } from '@/models'
 
 export type ClaudeCodeRuntimeStatus = 'active' | 'disabled'
@@ -49,6 +51,10 @@ export type ClaudeCodeRuntimeDoc = {
   controlKeyEnvelope?: EncryptedEnvelope
   /** Set when the runtime issued this row its own binding through a pairing code. */
   pairing?: RuntimePairing
+  /** The device its pod joined as: dialled through that tunnel; `url` still pins conversations. */
+  device?: LocalRuntimeRef
+  /** Envelope-encrypted join token that device's pod is started with. */
+  joinTokenEnvelope?: EncryptedEnvelope
   createdByUserId: string
   createdAt: Date
   updatedAt: Date
@@ -219,6 +225,24 @@ export async function renameTeamRuntime(teamId: string, id: string, label: strin
   await runtimes().updateOne({ _id: id, teamId }, { $set: { label, updatedAt: new Date() } })
 }
 
+/** Through a joined pod's tunnel the key names the purpose; the host holds the real keys. */
+function tunnelEndpoint(
+  doc: ClaudeCodeRuntimeDoc,
+  provider: OpenAbProvider,
+  purpose: 'transport' | 'control',
+): TeamRuntimeEndpoint | undefined {
+  if (!doc.hostedBy || !doc.device || (provider !== 'claude-code' && provider !== 'codex'))
+    return undefined
+
+  return {
+    url: doc.url,
+    authKey: purpose,
+    runtimeId: doc._id,
+    ...(provider === 'claude-code' ? {} : { provider }),
+    tunnelUrl: localRuntimeUrl({ ...doc.device, provider }, doc.teamId),
+  }
+}
+
 /** Eligible endpoints, oldest first. Callers select an explicit instance or the first endpoint. */
 export async function resolveTeamRuntimeEndpoints(
   teamId: string,
@@ -248,6 +272,12 @@ export async function resolveTeamRuntimeEndpoints(
       placementNamespace(doc.url) !== config.claudeCodeRuntimeProvisioner.namespace
     )
       continue
+    const tunnel = tunnelEndpoint(doc, provider, purpose)
+
+    if (tunnel) {
+      endpoints.push(tunnel)
+      continue
+    }
     const stored =
       purpose === 'transport'
         ? storedAuthKey(doc.authKeyEnvelope)

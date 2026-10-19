@@ -11,11 +11,12 @@ import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { teams } from '@/lib/identity/shared'
 
-import { BOX_TEMPLATE, QUICK_TIMEOUT_MS, connection, unavailable } from './box-instabox-client'
+import { QUICK_TIMEOUT_MS, connection, unavailable } from './box-instabox-client'
 import { assertWithinLimit, isRunning, runningVcpus } from './box-vcpu'
-import { countTeamBoxesOrdering } from './store'
+import { teamOrderingVcpus } from './store'
 
-import type { Template } from '@insforge/instabox-sdk'
+/** A size a Box can be started with. */
+export type BoxSize = { vcpus: number; memMiB: number }
 
 /** The team's limit and whether its own document sets it; undefined limit is unlimited. */
 export async function teamVcpuLimit(teamId: string) {
@@ -43,45 +44,50 @@ async function teamMachines(teamId: string) {
   }
 }
 
-/** The vCPUs a new Box gets: its snapshot's default size, else its template's. */
-async function newBoxVcpus(): Promise<number> {
-  const conn = connection(QUICK_TIMEOUT_MS)
-  const configured = config.box.template ?? BOX_TEMPLATE
-  const snapshot = configured.startsWith('sn_')
-    ? await Sandbox.getSnapshot(configured, conn).catch(() => null)
-    : null
+/** The sizes instabox lets this deployment's account start, smallest first: its `allowedSpecs`. */
+export async function boxSizes(): Promise<BoxSize[]> {
+  const { apiKey, apiUrl = DEFAULT_API_URL } = connection(QUICK_TIMEOUT_MS)
 
-  if (snapshot?.defaultSpec) return snapshot.defaultSpec.vcpus
-  const template = snapshot?.template.id ?? configured
-  const { apiKey, apiUrl = DEFAULT_API_URL } = conn
-  const templates = await fetch(`${apiUrl}/v1/templates`, {
-    headers: { 'X-API-Key': apiKey },
-    signal: AbortSignal.timeout(QUICK_TIMEOUT_MS),
-  }).then(
-    async (response) =>
-      response.ok ? ((await response.json()) as { templates: Template[] }).templates : [],
-    () => [],
-  )
-  const vcpus = templates.find((t) => t.id === template)?.defaultSpec.vcpus
+  try {
+    const response = await fetch(`${apiUrl}/v1/me`, {
+      headers: { 'X-API-Key': apiKey },
+      signal: AbortSignal.timeout(QUICK_TIMEOUT_MS),
+    })
 
-  if (!vcpus) throw unavailable('Could not read the Box size', `template ${template}`)
+    if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
+    const { allowedSpecs = [] } = (await response.json()) as { allowedSpecs?: BoxSize[] }
+    const sizes = allowedSpecs
+      .map(({ vcpus, memMiB }) => ({ vcpus, memMiB }))
+      .sort((a, b) => a.vcpus - b.vcpus)
 
-  return vcpus
+    if (sizes.length === 0) throw new Error('the account allows no size')
+
+    return sizes
+  } catch (error) {
+    throw unavailable('Could not read the Box sizes', error)
+  }
 }
 
-/**
- * vCPUs the team's running Boxes use, Boxes still being ordered included, and the
- * size of the Box about to start: the `resumed` machine's own, or a new one's.
- */
-export async function teamBoxUsage(teamId: string, resumed?: string) {
-  const [machines, ordering] = await Promise.all([
-    teamMachines(teamId),
-    countTeamBoxesOrdering(teamId),
-  ])
-  const self = machines.find((machine) => machine.sandboxId === resumed)
-  const boxVcpus = self?.vcpus ?? (await newBoxVcpus())
+/** The size of `vcpus`, the smallest when unset; one instabox does not offer is refused. */
+export async function boxSize(vcpus?: number): Promise<BoxSize> {
+  const sizes = await boxSizes()
+  const size = vcpus === undefined ? sizes[0] : sizes.find((s) => s.vcpus === vcpus)
 
-  return { machines, self, boxVcpus, usedVcpus: runningVcpus(machines) + ordering * boxVcpus }
+  if (!size)
+    throw new AppError(
+      400,
+      'box_size',
+      `A Box comes with ${sizes.map((s) => String(s.vcpus)).join(' or ')} vCPU`,
+    )
+
+  return size
+}
+
+/** vCPUs the team's running Boxes use, Boxes still being ordered included. */
+export async function teamBoxUsage(teamId: string) {
+  const [machines, ordering] = await Promise.all([teamMachines(teamId), teamOrderingVcpus(teamId)])
+
+  return { machines, usedVcpus: runningVcpus(machines) + ordering }
 }
 
 /** How long a start may hold the team's start lease if it never releases it. */
@@ -108,12 +114,13 @@ async function acquireStartLease(teamId: string): Promise<string | null> {
 }
 
 /**
- * Starts a Box, new or `resumed`, only within the team's limit. One start per team
- * at a time: the check and the start are not atomic, so two starts must not race.
+ * Starts a Box, a new one of `vcpus` or the existing `sandboxId`, only within the team's
+ * limit. One start per team at a time: the check and the start are not atomic, so two
+ * starts must not race.
  */
 export async function startWithinLimit<T>(
   teamId: string,
-  resumed: string | undefined,
+  starting: { vcpus: number } | { sandboxId: string },
   start: () => Promise<T>,
 ): Promise<T> {
   const { limit } = await teamVcpuLimit(teamId)
@@ -124,10 +131,14 @@ export async function startWithinLimit<T>(
   if (!token)
     throw new AppError(409, 'box_starting', 'Another Box in this team is starting; try again')
   try {
-    const { self, boxVcpus, usedVcpus } = await teamBoxUsage(teamId, resumed)
+    const { machines, usedVcpus } = await teamBoxUsage(teamId)
+    // A machine already running, or gone, starts nothing new.
+    const vcpus =
+      'vcpus' in starting
+        ? starting.vcpus
+        : machines.find((m) => m.sandboxId === starting.sandboxId && !isRunning(m.state))?.vcpus
 
-    // Already running: resuming starts nothing new.
-    if (!self || runningVcpus([self]) === 0) assertWithinLimit(limit, usedVcpus, boxVcpus)
+    if (vcpus !== undefined) assertWithinLimit(limit, usedVcpus, vcpus)
 
     return await start()
   } finally {
@@ -139,12 +150,16 @@ export async function startWithinLimit<T>(
   }
 }
 
-/** What the Boxes section shows: use against the limit, and where to upgrade. */
+/** What the Boxes section shows: use against the limit, the sizes to choose from, and where to upgrade. */
 export async function boxUsageView(teamId: string) {
   const { limit, own } = await teamVcpuLimit(teamId)
-  // An instabox outage leaves usage unknown rather than failing the read.
-  const usage =
-    limit !== undefined && config.box.instabox ? await teamBoxUsage(teamId).catch(() => null) : null
+  // An instabox outage leaves usage and sizes unknown rather than failing the read.
+  const [usage, sizes] = config.box.instabox
+    ? await Promise.all([
+        limit !== undefined ? teamBoxUsage(teamId).catch(() => null) : null,
+        boxSizes().catch(() => []),
+      ])
+    : [null, []]
 
   return {
     /** Null when unlimited. */
@@ -152,7 +167,10 @@ export async function boxUsageView(teamId: string) {
     /** Whether the limit comes from the team's own subscription. */
     subscribed: own,
     usedVcpus: usage?.usedVcpus ?? null,
-    boxVcpus: usage?.boxVcpus ?? null,
+    /** A new Box's default size: the smallest. Kept for Desktops that predate `sizes`. */
+    boxVcpus: sizes[0]?.vcpus ?? null,
+    /** The sizes a new Box can have, smallest first. */
+    sizes,
     /** Every Box of the team with its own size; `running` ones count against the limit. */
     boxes: (usage?.machines ?? [])
       .filter((machine) => machine.state !== 'deleted')

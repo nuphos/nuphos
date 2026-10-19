@@ -18,7 +18,7 @@ type Props = {
 }
 
 const inputClasses =
-  'w-full px-3 py-2 rounded-md bg-field border border-zGray-800 text-main text-[14px] ' +
+  'w-full px-3 py-2 rounded-md bg-surface border border-zGray-800 text-main text-[14px] ' +
   'outline-none focus:border-zViolet-accent placeholder:text-secondary titlebar-no-drag'
 
 export function LoginView({ onLogin }: Props) {

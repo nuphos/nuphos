@@ -10,12 +10,12 @@ import {
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
+import { deriveRuntimeControlKey } from './runtime-control-key'
 import {
   RUNTIME_AUTH_SECRET_KEY,
   readRuntimeAuthSecret,
   readRuntimeControlSecret,
 } from './runtime-credential-secret'
-import { deriveRuntimeControlKey } from './runtime-control-key'
 import { runtimeAuthSecretName } from './runtime-objects'
 
 import type { KubeClient } from './kube-client'
@@ -325,6 +325,47 @@ describe('runtime registry', () => {
       (await resolveTeamRuntimeEndpoints('team-1', undefined, 'claude-code', 'control'))[0]
         ?.authKey,
     ).toBe(deriveRuntimeControlKey('hosted-password'))
+  })
+
+  test('a hosted runtime that joined as a device is dialled through its tunnel', async () => {
+    const url = 'ws://openab-codex-abc.openab-runtimes.svc:8080/acp'
+    const runtime = await registerTeamRuntime({
+      teamId: 'team-1',
+      userId: 'user-1',
+      url,
+      provider: 'codex',
+      authKey: 'hosted-password',
+      hostedBy: 'nuphos',
+    })
+
+    docs[0]!.device = { userId: 'user-1', deviceId: 'pod-device' }
+    const tunnelUrl = 'nuphos-device://runtime/user-1/pod-device?team=team-1&provider=codex'
+
+    // `url` stays what conversations are pinned to; only the dial changes.
+    expect(await resolveTeamRuntimeEndpoints('team-1', undefined, 'codex')).toEqual([
+      { url, authKey: 'transport', runtimeId: runtime.id, provider: 'codex', tunnelUrl },
+    ])
+    expect(await resolveTeamRuntimeEndpoints('team-1', undefined, 'codex', 'control')).toEqual([
+      { url, authKey: 'control', runtimeId: runtime.id, provider: 'codex', tunnelUrl },
+    ])
+  })
+
+  test('a provider the device host cannot run keeps its direct endpoint', async () => {
+    const url = 'ws://openab-grok-abc.openab-runtimes.svc:8080/acp'
+    const runtime = await registerTeamRuntime({
+      teamId: 'team-1',
+      userId: 'user-1',
+      url,
+      provider: 'grok',
+      authKey: 'hosted-password',
+      hostedBy: 'nuphos',
+    })
+
+    docs[0]!.device = { userId: 'user-1', deviceId: 'pod-device' }
+
+    expect(await resolveTeamRuntimeEndpoints('team-1', undefined, 'grok')).toEqual([
+      { url, authKey: 'hosted-password', runtimeId: runtime.id, provider: 'grok' },
+    ])
   })
 
   test('a runtime another environment hosts does not resolve here', async () => {

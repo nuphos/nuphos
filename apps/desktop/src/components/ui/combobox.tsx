@@ -22,7 +22,7 @@ export const ComboboxTrigger = React.forwardRef<
       ref={ref}
       className={(state) =>
         clsx(
-          'inline-flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-zGray-700 bg-field px-2.5 text-left text-[13px] text-main outline-none transition-colors hover:border-zGray-600 focus:border-zGray-500 disabled:cursor-not-allowed disabled:opacity-50',
+          'inline-flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-zGray-700 bg-surface px-2.5 text-left text-[13px] text-main outline-none transition-colors hover:border-zGray-600 focus:border-zGray-500 disabled:cursor-not-allowed disabled:opacity-50',
           state.placeholder && 'text-tertiary',
           typeof className === 'function' ? className(state) : className,
         )
@@ -66,7 +66,7 @@ export const ComboboxInput = React.forwardRef<
         !hasExplicitHeight && 'h-8',
         variant === 'ghost'
           ? 'border-0 bg-transparent shadow-none'
-          : 'border border-zGray-800 bg-field focus-within:border-zGray-500',
+          : 'border border-zGray-800 bg-surface focus-within:border-zGray-500',
         disabled && 'cursor-not-allowed opacity-50',
         typeof className === 'string' && className,
       )}

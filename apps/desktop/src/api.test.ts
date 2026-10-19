@@ -27,6 +27,9 @@ const NETWORK_ERRORS = [
   'Connect Timeout Error (attempted addresses: 52.9.93.56:443, timeout: 10000ms)',
   'Headers Timeout Error',
   'Body Timeout Error',
+  // Chromium's network stack, which main-process fetch uses (net.fetch).
+  "Error invoking remote method 'fileTransfer:upload': Error: net::ERR_CONNECTION_REFUSED",
+  'net::ERR_INTERNET_DISCONNECTED',
   // The real-world shape from the report: an Electron IPC-wrapped connect timeout.
   "Error invoking remote method 'atlas:getMonitoringOverview': Error: Nuphos backend " +
     '/teams/abc/monitoring/overview Connect Timeout Error (attempted addresses: ' +

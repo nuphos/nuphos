@@ -138,10 +138,19 @@ the session id. New conversations use the mode last picked in `/full-access`
 (Full Access by default). In Full Access nothing asks for approval. In Auto Mode,
 a command that needs approval is denied unless `--approve` is given; the exit status is 0, 1 on error, or 2 when an approval was denied.
 
-Sign-in is shared with the desktop app: both read and write
-`~/.config/nuphos/cli.yaml` (`NUPHOS_CLI_CONFIG` overrides it), and the API
+The CLI keeps its own sign-in in `~/.config/nuphos/cli.yaml`
+(`NUPHOS_CLI_CONFIG` overrides it), next to the desktop app's `desktop.yaml`.
+`nuphos login` starts from the desktop app's sign-in when it has one, and opens
+the browser otherwise; `nuphos logout` signs out of the CLI only. The API
 endpoint saved on the desktop's sign-in screen (`cli.api-url`) applies here
-too. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
+too. On macOS the token itself is a login-keychain item that only the CLI
+reads (service `ai.nuphos.cli.session`; the desktop app keeps its own), so
+macOS asks for access just once, when `nuphos login` copies the desktop's
+sign-in. A token an older version left in `cli.yaml` moves to the keychain on
+the next run. Elsewhere the token stays in the file, readable only by you.
+A keychain that refuses the write (locked, in an SSH session) leaves the
+token in the file. `nuphos auth status` shows who is signed in
+and where the token is. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
 `NUPHOS_DEBUG_FRAMES=<file>` appends every stream event to a file.
 
 In the composer:

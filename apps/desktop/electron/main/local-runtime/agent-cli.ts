@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process'
-import { accessSync, constants, realpathSync } from 'node:fs'
+import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { appManagedCli, homeOf } from './agent-cli-apps.ts'
+import { locateAgentCli } from './agent-cli-find.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
 import { agentCliEnv } from './config.ts'
 
@@ -22,61 +24,15 @@ export type AgentCliStatus =
       /** The signed-in account as the CLI names it: an email, or e.g. "ChatGPT". */
       account?: string
       plan?: string
-      /** Lives inside an app bundle, which updates it, even when reached through a symlink. */
+      /** Kept by a desktop app (Claude, ChatGPT), which updates it, even when reached through a symlink. */
       bundled?: true
     }
 
 const PROBE_TIMEOUT_MS = 15_000
 const USAGE_TIMEOUT_MS = 10_000
 const MAX_USAGE_CHARS = 200_000
-const COMMAND: Record<LocalAgentProvider, string> = { 'claude-code': 'claude', codex: 'codex' }
 
-function fallbackDirs(home: string): string[] {
-  if (process.platform === 'win32') {
-    const appData = process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming')
-
-    return [path.join(home, '.local', 'bin'), path.join(appData, 'npm')]
-  }
-
-  return [
-    path.join(home, '.local', 'bin'),
-    path.join(home, '.claude', 'local'),
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    // The CLI bundled with the ChatGPT (Codex) desktop app, for users without a separate install.
-    '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin',
-  ]
-}
-
-function executable(file: string): boolean {
-  try {
-    accessSync(file, process.platform === 'win32' ? constants.F_OK : constants.X_OK)
-
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** The CLI a terminal would run, falling back to the installers' default locations. */
-export function findAgentCli(provider: LocalAgentProvider, env: NodeJS.ProcessEnv): string | null {
-  const home = env.HOME ?? env.USERPROFILE ?? os.homedir()
-  const dirs = [...(env.PATH ?? '').split(path.delimiter).filter(Boolean), ...fallbackDirs(home)]
-  const names =
-    process.platform === 'win32'
-      ? [`${COMMAND[provider]}.exe`, `${COMMAND[provider]}.cmd`]
-      : [COMMAND[provider]]
-
-  for (const dir of dirs) {
-    for (const name of names) {
-      const file = path.join(dir, name)
-
-      if (executable(file)) return file
-    }
-  }
-
-  return null
-}
+export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
 
 function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -208,7 +164,7 @@ function usageRequest(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
 ): Promise<UsageRequest | null> {
-  const home = env.HOME ?? env.USERPROFILE ?? os.homedir()
+  const home = homeOf(env)
 
   return provider === 'codex' ? codexUsageRequest(home, env) : claudeUsageRequest(home, env)
 }
@@ -242,12 +198,21 @@ export async function readAgentUsage(
   }
 }
 
+/** A Store app's command alias is a reparse point that realpath cannot always follow. */
+function realPath(file: string): string {
+  try {
+    return realpathSync(file)
+  } catch {
+    return file
+  }
+}
+
 export async function probeAgentCli(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
   agentHome: string | undefined,
 ): Promise<AgentCliStatus> {
-  const file = findAgentCli(provider, env)
+  const file = await locateAgentCli(provider, env)
 
   if (!file) return { installed: false }
   // Finding the executable uses the shell; checking its login uses the runtime's home.
@@ -266,7 +231,7 @@ export async function probeAgentCli(
 
   // Usage is sampled on its own timer, never here: this probe gates the agent's
   // startup, and a provider that hangs must not hold an agent back.
-  const bundled = realpathSync(file).includes('.app/Contents/')
+  const bundled = appManagedCli(realPath(file), env)
 
   return {
     installed: true,

@@ -1,9 +1,24 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { useDb } from '@/lib/test/doubles/db'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useFakeRuntimeRequests } from '@/lib/test/doubles/runtime-request-store'
 
+import type * as dbActual from '@/lib/db'
+
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
+
+const conversationUpdates: Record<string, unknown>[][] = []
+
+useDb({
+  db: (() => ({
+    collection: () => ({
+      updateOne: async (...args: Record<string, unknown>[]) => {
+        conversationUpdates.push(args)
+      },
+    }),
+  })) as unknown as typeof dbActual.db,
+})
 
 const {
   listPendingPreviewWaits,
@@ -78,6 +93,21 @@ describe('decision tool module', () => {
       'tool-output-available',
     ])
     expect(frames[0]).toMatchObject({ toolName: 'request_user_decision' })
+    // Kept on the conversation for the Inbox, under the card's own call id.
+    expect(conversationUpdates.at(-1)).toEqual([
+      { sessionId: 'conv-1', userId: 'u1' },
+      {
+        $set: {
+          pendingDecision: {
+            category: 'preference',
+            question: '要部署到哪個 region？',
+            options: ['us-east', 'ap-south'],
+            toolCallId: frames[0]!.toolCallId,
+            askedAt: expect.any(Date),
+          },
+        },
+      },
+    ])
     // The answer is the user's next message — nothing is parked on the waiter.
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })

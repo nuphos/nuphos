@@ -10,7 +10,7 @@ const HUAWEI_CREATE_AGENCY_URL = 'https://console.huaweicloud.com/iam5/#/agencie
 const HUAWEI_MY_CREDENTIAL_URL = 'https://console.huaweicloud.com/iam/#/myCredential'
 
 const inputClass =
-  'w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main'
+  'w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main'
 
 export function HuaweiBindWizard({
   step,

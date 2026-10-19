@@ -1,6 +1,8 @@
-//! Sign-in and preferences on disk. The sign-in file is the one the desktop app
-//! writes (`~/.config/nuphos/cli.yaml`), so signing in or out in either client
-//! applies to both.
+//! Sign-in and preferences on disk. The CLI's sign-in is `~/.config/nuphos/cli.yaml`
+//! and the desktop app's is `desktop.yaml` beside it; each signs in and out on
+//! its own, and `nuphos login` starts from the desktop's sign-in when there is
+//! one. The token itself is in the keychain where there is one (`secret.rs`);
+//! the file names the item.
 
 use std::collections::HashMap;
 use std::fs;
@@ -10,13 +12,20 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::secret;
+
 const DEFAULT_API_URL: &str = "https://api.nuphos.ai";
 
-/// The desktop's `Config` (`apps/desktop/electron/auth/config.ts`).
-#[derive(Debug, Default, Serialize, Deserialize)]
+/// As the desktop's `Config` (`apps/desktop/electron/auth/config.ts`).
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Session {
+    /// Filled from the keychain by `read_session`; written to the file only
+    /// when there is no keychain.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
+    /// The keychain item holding the token, when it is there.
+    #[serde(rename = "keychainAccount", skip_serializing_if = "Option::is_none")]
+    pub keychain_account: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -56,6 +65,44 @@ fn home() -> PathBuf {
 /// `NUPHOS_CLI_CONFIG` or `~/.config/nuphos/cli.yaml`, as on the desktop.
 pub fn session_path() -> PathBuf {
     std::env::var_os("NUPHOS_CLI_CONFIG").map(PathBuf::from).unwrap_or_else(|| home().join(".config/nuphos/cli.yaml"))
+}
+
+/// The desktop app's sign-in beside this one: `cli.yaml` → `desktop.yaml`,
+/// `cli.dev.yaml` → `desktop.dev.yaml` (`apps/desktop/electron/cli-config-path.ts`).
+pub fn desktop_session_path() -> PathBuf {
+    sibling(&session_path(), "desktop")
+}
+
+fn sibling(path: &std::path::Path, name: &str) -> PathBuf {
+    let base = path.file_name().and_then(|n| n.to_str()).unwrap_or("cli.yaml");
+    let file = match base.strip_prefix("cli") {
+        Some(rest) => format!("{name}{rest}"),
+        None => format!("{}.{name}.yaml", base.trim_end_matches(".yaml").trim_end_matches(".yml")),
+    };
+    path.with_file_name(file)
+}
+
+/// The desktop app's sign-in, to start the CLI's from. Reading its token from
+/// the keychain is what makes macOS ask once.
+pub fn read_desktop_session() -> Option<Session> {
+    let text = fs::read_to_string(desktop_session_path()).ok()?;
+    let mut session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
+    if session.token.is_none() {
+        session.token = secret::desktop_token(session.keychain_account.as_deref()?).ok().flatten();
+    }
+    session.keychain_account = None;
+    session.token.is_some().then_some(session)
+}
+
+/// Whether the desktop app is signed in, without reading its token.
+pub fn desktop_signed_in() -> Option<String> {
+    let text = fs::read_to_string(desktop_session_path()).ok()?;
+    let session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
+    if session.token.is_none() && session.keychain_account.is_none() {
+        return None;
+    }
+    let user = session.user_info.as_ref().and_then(|u| u["email"].as_str()).map(String::from);
+    Some(user.or(session.user).unwrap_or_else(|| "you".into()))
 }
 
 /// Paired with the sign-in file (`cli.yaml` → `cli.api-url`).
@@ -99,17 +146,88 @@ pub fn login_url() -> String {
     "https://nuphos.ai/login".to_string()
 }
 
-pub fn read_session() -> Session {
+fn read_session_file() -> Session {
     fs::read_to_string(session_path())
         .ok()
         .and_then(|s| serde_yaml::from_str::<Option<Session>>(&s).ok().flatten())
         .unwrap_or_default()
 }
 
+/// The sign-in with its token: from the keychain, or from the file, which
+/// moves it to the keychain where there is one.
+pub fn read_session() -> Session {
+    let mut session = read_session_file();
+    if session.token.is_some() {
+        if secret::enabled() {
+            match write_session(&session) {
+                Ok(()) => session.keychain_account = read_session_file().keychain_account,
+                Err(e) => eprintln!("nuphos: could not move the session token to the keychain: {e:#}"),
+            }
+        }
+        return session;
+    }
+    if let Some(account) = &session.keychain_account {
+        session.token = match secret::get(account) {
+            Ok(token) => token,
+            Err(e) => {
+                eprintln!("nuphos: {e:#}");
+                None
+            }
+        };
+    }
+    session
+}
+
+/// Saves the sign-in, with the token in the keychain where there is one. A
+/// session without a token signs out, removing the keychain item too.
 pub fn write_session(session: &Session) -> anyhow::Result<()> {
     let path = session_path();
-    let text = if session.token.is_none() { "{}\n".to_string() } else { serde_yaml::to_string(session)? };
-    write_private(&path, text.as_bytes())
+    let previous = read_session_file().keychain_account;
+    let Some(token) = &session.token else {
+        // Signed out either way; an item left behind is only reported.
+        if let Some(Err(e)) = previous.map(|account| secret::delete(&account)) {
+            eprintln!("nuphos: could not remove the session token from the keychain: {e:#}");
+        }
+        return write_private(&path, b"{}\n");
+    };
+    let mut stored = session.clone();
+    stored.keychain_account = None;
+    if secret::enabled() {
+        let account = keychain_account(session);
+        // Update in place only an item this client made: one that was already
+        // there could carry another app's access (a pre-created item, as in
+        // the XARA attacks), so it is replaced.
+        if previous.as_deref() != Some(account.as_str()) {
+            let _ = secret::delete(&account);
+        }
+        match secret::set(&account, token) {
+            Ok(()) => {
+                stored.token = None;
+                stored.keychain_account = Some(account);
+            }
+            // Still signed in, only less safely: say so rather than fail.
+            Err(e) => eprintln!("nuphos: keeping the session token in {} instead: {e:#}", path.display()),
+        }
+    }
+    if let Some(old) = previous.filter(|old| stored.keychain_account.as_ref() != Some(old)) {
+        let _ = secret::delete(&old);
+    }
+    write_private(&path, serde_yaml::to_string(&stored)?.as_bytes())
+}
+
+/// One item per user and backend, so a dev backend's sign-in never replaces
+/// Nuphos Cloud's.
+fn keychain_account(session: &Session) -> String {
+    let user = session.user_info.as_ref().and_then(|u| u["id"].as_str()).unwrap_or("default");
+    format!("{user}@{}", api_url())
+}
+
+/// Where `read_session` found the token, for `nuphos auth status`.
+pub fn token_storage(session: &Session) -> String {
+    match &session.keychain_account {
+        Some(_) => "macOS Keychain".to_string(),
+        None => format!("plaintext in {}", session_path().display()),
+    }
 }
 
 pub fn read_prefs() -> Prefs {
@@ -146,7 +264,38 @@ fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::Prefs;
+    use std::path::Path;
+
+    use super::{sibling, Prefs, Session};
+
+    #[test]
+    fn the_desktop_sign_in_sits_beside_the_cli_one() {
+        assert_eq!(
+            sibling(Path::new("/h/.config/nuphos/cli.yaml"), "desktop"),
+            Path::new("/h/.config/nuphos/desktop.yaml")
+        );
+        assert_eq!(sibling(Path::new("/d/cli.dev.yaml"), "desktop"), Path::new("/d/desktop.dev.yaml"));
+        assert_eq!(sibling(Path::new("/d/session.yaml"), "desktop"), Path::new("/d/session.desktop.yaml"));
+    }
+
+    #[test]
+    fn a_keychain_session_names_the_item_and_reads_the_desktop_file() {
+        let session = Session {
+            keychain_account: Some("u1@https://api.nuphos.ai".into()),
+            user: Some("Bruce".into()),
+            ..Session::default()
+        };
+        let text = serde_yaml::to_string(&session).unwrap();
+        assert!(text.contains("keychainAccount: u1@https://api.nuphos.ai"));
+        assert!(!text.contains("token:"));
+
+        // As the desktop app writes it, or an older version with the token.
+        let desktop: Session = serde_yaml::from_str("keychainAccount: u1@x\nuserInfo:\n  id: u1\n").unwrap();
+        assert_eq!(desktop.keychain_account.as_deref(), Some("u1@x"));
+        assert!(desktop.token.is_none());
+        let legacy: Session = serde_yaml::from_str("token: tok\n").unwrap();
+        assert_eq!(legacy.token.as_deref(), Some("tok"));
+    }
 
     #[test]
     fn full_access_defaults_on_but_keeps_an_explicit_auto_mode_choice() {

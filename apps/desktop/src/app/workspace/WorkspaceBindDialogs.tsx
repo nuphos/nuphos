@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { BindGithubDialog } from '../../views/BindGithubDialog'
 import { BindGitlabDialog } from '../../views/BindGitlabDialog'
 import { ConnectAgentDialog } from '../../views/settings/ConnectAgentDialog'
+import { announcePersonalCredential } from '../../views/settings/personalCredentials'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { ConnectAgentLink } from '../../lib/connectAgentLink'
@@ -23,6 +24,7 @@ export function WorkspaceBindDialogs({ ws }: { ws: WorkspaceController }) {
   const [connectAgent, setConnectAgent] = useState<ConnectAgentLink | null>(null)
 
   useEffect(() => api.onConnectAgentDeepLink(setConnectAgent), [])
+  useEffect(() => api.onPersonalCredentialDeepLink(announcePersonalCredential), [])
 
   return (
     <>

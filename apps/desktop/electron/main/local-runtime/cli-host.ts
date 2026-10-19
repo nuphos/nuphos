@@ -6,7 +6,7 @@ import path from 'node:path'
 
 import yaml from 'js-yaml'
 
-import { callJson } from '../../agent/http.ts'
+import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
 import { unverifiedTokenSubject } from '../../auth-status.ts'
 import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
@@ -83,16 +83,30 @@ const log = (message: string, data?: Record<string, unknown>) => {
 let lastSummary = ''
 let stopping = false
 
-/** The session in cli.yaml now: signing out here or in the app empties it. */
+// From `nuphos agent` (the keychain trusts the CLI, not node); kept from the agents.
+const launchToken = process.env.NUPHOS_SESSION_TOKEN || null
+
+delete process.env.NUPHOS_SESSION_TOKEN
+
+/** The CLI's session: in cli.yaml, or the launch token while cli.yaml names its user. */
 function currentToken(): string | null {
+  let cfg: { token?: string; keychainAccount?: string } | null
+
   try {
-    return (
-      (yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as { token?: string } | null)?.token ?? null
-    )
+    cfg = yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as typeof cfg
   } catch {
     return null
   }
+  if (cfg?.token) return cfg.token
+  if (!launchToken || !cfg?.keychainAccount) return null
+
+  return cfg.keychainAccount.startsWith(`${unverifiedTokenSubject(launchToken) ?? ''}@`)
+    ? launchToken
+    : null
 }
+
+// API calls go out with the session, read as above.
+setTokenSource(() => Promise.resolve(currentToken()))
 
 // A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
 const desktopPool = enableDesktopPool(bundleRoot, dataDir)
@@ -141,7 +155,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       allowLocalExec: true,
     })
   },
-  createProcess: () => new OpenabProcess(),
+  createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
   probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
     const staged = bundle()
     const adapter = staged?.adapters[provider]

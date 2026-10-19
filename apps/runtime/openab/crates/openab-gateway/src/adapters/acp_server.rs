@@ -624,6 +624,9 @@ fn refresh_session_passthrough(session: &mut AcpSession, params: Option<&Value>)
 
 const PERMISSION_POLICY_META_KEY: &str = "dev.openab/permissionPolicy";
 const PERMISSION_RELAY_TIMEOUT_SECS: u64 = 900;
+/// Covers a client noticing its lost connection and reattaching (Nuphos: up to ~10 s to detect a
+/// moved device tunnel, then resume retries at 0, 1, 2, 5 and 10 s).
+const PERMISSION_REATTACH_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
 
 fn permission_relay_requested(params: Option<&Value>) -> bool {
     params
@@ -1221,15 +1224,52 @@ pub fn permission_relay_required(
     Ok(sink.permission_relay.is_some())
 }
 
+/// A client connection that drops (a backend rollout moving the tunnel) leaves the agent's turn
+/// running while the client reattaches with `session/resume`. A permission request in that gap
+/// waits for the reattached sink instead of cancelling the tool call: the agent cannot ask twice.
 pub async fn request_permission(
     registry: &AcpReplyRegistry,
     channel_id: &str,
     relay_required: bool,
-    mut params: Value,
+    params: Value,
 ) -> Result<Option<Value>, String> {
     if !relay_required {
         return Ok(None);
     }
+    // The grace window opens when the connection is lost, not when the request is first sent:
+    // a prompt can wait on a human for minutes before a rollout drops it.
+    let mut deadline = None;
+    loop {
+        let error = match relay_permission(registry, channel_id, params.clone()).await {
+            Err(error)
+                if matches!(
+                    error.as_str(),
+                    "ACP session output sink is unavailable"
+                        | "connection closed"
+                        | "connection closed before response"
+                ) =>
+            {
+                error
+            }
+            result => return result,
+        };
+        let now = tokio::time::Instant::now();
+        if error == "connection closed before response" {
+            // The request reached a client before that connection dropped: a new loss.
+            deadline = None;
+        }
+        if now >= *deadline.get_or_insert(now + PERMISSION_REATTACH_GRACE) {
+            return Err(error);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+}
+
+async fn relay_permission(
+    registry: &AcpReplyRegistry,
+    channel_id: &str,
+    mut params: Value,
+) -> Result<Option<Value>, String> {
     let (session_id, handle) = {
         let reg = registry.lock().unwrap_or_else(|e| e.into_inner());
         let sink = reg
@@ -3994,9 +4034,16 @@ async fn handle_session_prompt(
                         let _ = out_tx.send(serde_json::to_string(&notification).unwrap());
                     }
                     Ok(Some(ReplyChunk::Update(update))) => {
-                        // Relay agent-side thought/tool updates verbatim under the
-                        // outer session id. Does not touch `sent_len` — the text
-                        // delta stream stays append-only and unaffected.
+                        // Relay agent-side updates verbatim under the outer session id.
+                        // Streamed text arrives here too; count it so the completion
+                        // snapshot (`ReplyChunk::Text`) yields no duplicate chunk.
+                        if update["sessionUpdate"] == "agent_message_chunk" {
+                            if let Some(text) =
+                                update.pointer("/content/text").and_then(Value::as_str)
+                            {
+                                sent_len += text.len();
+                            }
+                        }
                         let notification = JsonRpcNotification {
                             jsonrpc: "2.0",
                             method: "session/update".into(),
@@ -4963,6 +5010,147 @@ mod acp_requests {
 
         route_client_response(
             &pending,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": frame["id"],
+                "result": {"outcome": {"outcome": "selected", "optionId": "allow"}}
+            }),
+        )
+        .await;
+        assert_eq!(
+            relay.await.unwrap().unwrap(),
+            Some(json!({"outcome": {"outcome": "selected", "optionId": "allow"}}))
+        );
+    }
+
+    // The turn's connection dropped and no client holds the session yet: the request waits
+    // for the reattached sink instead of cancelling the tool call.
+    #[tokio::test]
+    async fn permission_request_waits_for_a_reattached_sink() {
+        let registry = new_reply_registry();
+        let registry2 = registry.clone();
+        let relay = tokio::spawn(async move {
+            request_permission(
+                &registry2,
+                "acp_channel",
+                true,
+                json!({
+                    "sessionId": "sess_inner",
+                    "toolCall": {"toolCallId": "tool-1", "title": "Run command"},
+                    "options": [{"optionId": "allow", "name": "Allow", "kind": "allow_once"}]
+                }),
+            )
+            .await
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        assert!(!relay.is_finished(), "no sink yet: the request must wait");
+
+        let pending = new_pending();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<String>();
+        assert!(super::install_reply_sink(
+            &registry,
+            "acp_channel",
+            ReplySink {
+                turn_id: None,
+                tx: None,
+                session_id: "sess_outer".into(),
+                out_tx: out_tx.clone(),
+                owner: "conn-reattached".into(),
+                generation: 1,
+                permission_relay: Some(ClientRequestHandle {
+                    out_tx,
+                    pending: pending.clone(),
+                    next_id: Arc::new(AtomicU64::new(1)),
+                }),
+            },
+        ));
+
+        let frame: serde_json::Value =
+            serde_json::from_str(&out_rx.recv().await.expect("permission request frame")).unwrap();
+        assert_eq!(frame["method"], json!("session/request_permission"));
+        assert_eq!(frame["params"]["sessionId"], json!("sess_outer"));
+        route_client_response(
+            &pending,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": frame["id"],
+                "result": {"outcome": {"outcome": "selected", "optionId": "allow"}}
+            }),
+        )
+        .await;
+        assert_eq!(
+            relay.await.unwrap().unwrap(),
+            Some(json!({"outcome": {"outcome": "selected", "optionId": "allow"}}))
+        );
+    }
+
+    fn permission_sink(owner: &str) -> (ReplySink, mpsc::UnboundedReceiver<String>) {
+        let (out_tx, out_rx) = mpsc::unbounded_channel::<String>();
+        let sink = ReplySink {
+            turn_id: None,
+            tx: None,
+            session_id: "sess_outer".into(),
+            out_tx: out_tx.clone(),
+            owner: owner.into(),
+            generation: 1,
+            permission_relay: Some(ClientRequestHandle {
+                out_tx,
+                pending: new_pending(),
+                next_id: Arc::new(AtomicU64::new(1)),
+            }),
+        };
+        (sink, out_rx)
+    }
+
+    // NUPS-1228: a prompt shown longer than the grace window is still re-sent to the reattached
+    // client when its connection drops. The window starts at the loss, not at the first send.
+    #[tokio::test(start_paused = true)]
+    async fn permission_request_open_past_the_grace_window_survives_a_dropped_connection() {
+        let registry = new_reply_registry();
+        let (sink, mut first_rx) = permission_sink("conn-dropped");
+        let first_pending = sink.permission_relay.as_ref().unwrap().pending.clone();
+        assert!(super::install_reply_sink(&registry, "acp_channel", sink));
+
+        let registry2 = registry.clone();
+        let relay = tokio::spawn(async move {
+            request_permission(
+                &registry2,
+                "acp_channel",
+                true,
+                json!({
+                    "sessionId": "sess_inner",
+                    "toolCall": {"toolCallId": "tool-1", "title": "Run command"},
+                    "options": [{"optionId": "allow", "name": "Allow", "kind": "allow_once"}]
+                }),
+            )
+            .await
+        });
+        first_rx
+            .recv()
+            .await
+            .expect("first permission request frame");
+        tokio::time::sleep(super::PERMISSION_REATTACH_GRACE + std::time::Duration::from_secs(30))
+            .await;
+        assert!(
+            !relay.is_finished(),
+            "the prompt is still waiting on a human"
+        );
+
+        // The connection drops the way the disconnect cleanup does it: its sink goes and its
+        // pending requests are drained.
+        registry.lock().unwrap().remove("acp_channel");
+        first_pending.lock().await.clear();
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        assert!(!relay.is_finished(), "no sink yet: the request must wait");
+
+        let (sink, mut second_rx) = permission_sink("conn-reattached");
+        let second_pending = sink.permission_relay.as_ref().unwrap().pending.clone();
+        assert!(super::install_reply_sink(&registry, "acp_channel", sink));
+        let frame: serde_json::Value =
+            serde_json::from_str(&second_rx.recv().await.expect("re-sent request")).unwrap();
+        assert_eq!(frame["method"], json!("session/request_permission"));
+        route_client_response(
+            &second_pending,
             &json!({
                 "jsonrpc": "2.0",
                 "id": frame["id"],
@@ -7345,6 +7533,112 @@ mod acp_review_fixes {
             Some("end_turn"),
             "turn must still complete via the prompt response"
         );
+    }
+
+    // Text relayed as `agent_update` chunks is counted, so the terminal reply that repeats
+    // the full text emits no duplicate chunk.
+    #[tokio::test]
+    async fn text_relayed_as_agent_updates_is_not_repeated_by_the_terminal_snapshot() {
+        let (event_tx, _event_rx) = tokio::sync::broadcast::channel::<String>(16);
+        let registry = new_reply_registry();
+        let mut st = crate::AppState::test_default(event_tx);
+        st.acp_reply_registry = Some(registry.clone());
+        let state = Arc::new(st);
+
+        let sessions = sessions_map();
+        let sid = format!("sess_{}", Uuid::new_v4());
+        let channel_id = format!("acp_{}", Uuid::new_v4());
+        let cancel = Arc::new(tokio::sync::Notify::new());
+        sessions.lock().await.insert(
+            sid.clone(),
+            AcpSession {
+                channel_id: channel_id.clone(),
+                busy: true,
+                cancel: Some(cancel.clone()),
+                mcp_servers: Vec::new(),
+                session_meta: None,
+                permission_relay: None,
+            },
+        );
+
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<String>();
+        let st2 = state.clone();
+        let sessions2 = sessions.clone();
+        let sid2 = sid.clone();
+        let handle = tokio::spawn(async move {
+            let params = json!({"sessionId": sid2, "prompt": [{"type": "text", "text": "hi"}]});
+            handle_session_prompt(
+                &st2,
+                &sessions2,
+                json!(13),
+                Some(&params),
+                &out_tx,
+                sid2.clone(),
+                cancel,
+                "conn-test",
+                0,
+            )
+            .await;
+        });
+
+        let mut turn_id = None;
+        for _ in 0..10_000 {
+            if let Some(t) = registry
+                .lock()
+                .unwrap()
+                .get(&channel_id)
+                .and_then(|s| s.turn_id.clone())
+            {
+                turn_id = Some(t);
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+        let turn_id = turn_id.expect("handler must register a reply sink");
+
+        for text in ["Linode C", "LI ok 🎉"] {
+            let chunk = json!({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": text}});
+            handle_reply(
+                &reply(
+                    &channel_id,
+                    &turn_id,
+                    &chunk.to_string(),
+                    Some("agent_update"),
+                ),
+                &registry,
+            )
+            .await;
+        }
+        handle_reply(
+            &reply(
+                &channel_id,
+                &turn_id,
+                "Linode CLI ok 🎉",
+                Some("send_message"),
+            ),
+            &registry,
+        )
+        .await;
+        handle.await.unwrap();
+
+        let mut chunks = Vec::new();
+        let mut final_stop = None;
+        while let Ok(s) = out_rx.try_recv() {
+            let v: serde_json::Value = serde_json::from_str(&s).unwrap();
+            if v["params"]["update"]["sessionUpdate"] == json!("agent_message_chunk") {
+                chunks.push(
+                    v["params"]["update"]["content"]["text"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_string(),
+                );
+            }
+            if v.get("id") == Some(&json!(13)) {
+                final_stop = v["result"]["stopReason"].as_str().map(str::to_string);
+            }
+        }
+        assert_eq!(chunks, vec!["Linode C", "LI ok 🎉"]);
+        assert_eq!(final_stop.as_deref(), Some("end_turn"));
     }
 
     // R17-F3c — a request-shaped `session/cancel` (id present) must NOT be acknowledged with

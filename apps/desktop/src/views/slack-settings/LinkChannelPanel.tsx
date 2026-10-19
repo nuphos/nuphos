@@ -12,7 +12,7 @@ import { Button } from '../../components/ui/button'
 import type { FormEvent } from 'react'
 
 const inputClasses =
-  'w-full h-9 rounded-md border border-zGray-800 bg-field px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary'
+  'w-full h-9 rounded-md border border-zGray-800 bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary'
 
 function InstallButton({
   oauthAvailable,

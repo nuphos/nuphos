@@ -171,7 +171,7 @@ export function VolcengineBindWizard({
                     value={label}
                     onChange={(e) => onLabelChange(e.target.value)}
                     placeholder="Acme Volcengine"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field label="Role TRN" hint="The TRN of the role you created in step 2.">
@@ -180,7 +180,7 @@ export function VolcengineBindWizard({
                     value={roleTrn}
                     onChange={(e) => onRoleTrnChange(e.target.value)}
                     placeholder="trn:iam::2100000000:role/Zeabur"
-                    className="w-full h-9 px-2.5 rounded-md bg-field border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <div className="text-[11.5px] text-tertiary">

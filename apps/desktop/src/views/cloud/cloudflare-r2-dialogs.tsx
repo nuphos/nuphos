@@ -89,7 +89,7 @@ function BindR2CredentialsDialog({
           <input
             value={accessKeyId}
             onChange={(e) => setAccessKeyId(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </label>
         <label className="block">
@@ -98,7 +98,7 @@ function BindR2CredentialsDialog({
             type="password"
             value={secretAccessKey}
             onChange={(e) => setSecretAccessKey(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-md bg-field border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
           />
         </label>
       </div>

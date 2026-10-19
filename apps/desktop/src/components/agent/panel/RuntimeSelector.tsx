@@ -4,13 +4,9 @@ import { useEffect, useState } from 'react'
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, groupAgentsByTier, listedAgents } from '../../../lib/agentName'
-import {
-  quotaDetailLines,
-  quotaSignedOut,
-  quotaSummary,
-  quotaTone,
-} from '../../../lib/runtimeQuota'
+import { quotaSignedOut } from '../../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../../types/runtime'
+import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import {
   Menu,
@@ -21,13 +17,11 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from '../../ui/menu'
-import { Tooltip } from '../../ui/tooltip'
 
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
 import { selectedAgentReachability } from './runtimeControlSignOut'
 
-import type { QuotaTone } from '../../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
@@ -64,37 +58,6 @@ export type RuntimeControl = {
     onConfirm: () => void
     onCancel: () => void
   }
-}
-
-const QUOTA_TONE_CLASS: Record<QuotaTone, string> = {
-  ok: 'text-tertiary',
-  warning: 'text-warning',
-  exhausted: 'text-error',
-}
-
-export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefix?: string }) {
-  const summary = quotaSummary(quota)
-
-  if (!summary) return null
-  const lines = quotaDetailLines(quota)
-
-  return (
-    <Tooltip
-      content={
-        <span className="flex flex-col gap-0.5">
-          {lines.map((line) => (
-            <span key={line}>{line}</span>
-          ))}
-        </span>
-      }
-    >
-      {/* `whitespace-pre` keeps the prefix's leading space inside the inline-flex trigger. */}
-      <span className={`shrink-0 whitespace-pre ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
-        {prefix}
-        {summary}
-      </span>
-    </Tooltip>
-  )
 }
 
 const AGENT_DOT = {
@@ -190,7 +153,7 @@ export function RuntimeSelector({
           className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
         />
       ) : (
-        <QuotaBadge quota={selectedQuota} prefix="· " />
+        <RuntimeUsageBar quota={selectedQuota} />
       )}
     </>
   )
@@ -254,10 +217,10 @@ export function RuntimeSelector({
                           <span className="truncate">{agentName(instance, owner)}</span>
                           {update && <AgentUpdateBadge update={update} actionable />}
                         </span>
-                        <span className="text-[11px] text-tertiary">
+                        <span className="flex items-center gap-1.5 text-[11px] text-tertiary">
                           {AGENT_PROVIDER[instance.provider].label}
                           {runtimeOptionNote(instance, quotas?.get(instance.id))}
-                          <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
+                          <RuntimeUsageBar quota={quotas?.get(instance.id)} />
                         </span>
                       </span>
                     </MenuItem>

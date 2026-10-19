@@ -9,7 +9,10 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { SessionHeaderMenu } from '../../components/agent/SessionHeaderMenu'
 import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
+import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
+import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
 import { teamCanUseAgent } from '../../lib/agentAccess'
+import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
@@ -59,6 +62,8 @@ export function WorkspaceAgentPane({
     stableOpenSessionResource,
   } = ws
   const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
+  const summaryOpen = useChatSummaryOpen()
+  const savedSessionId = currentHeading.saved !== false ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
@@ -238,42 +243,55 @@ export function WorkspaceAgentPane({
               canFork={!selectedSessionReadOnly}
             />
           )}
+          {savedSessionId && <ChatSummaryToggle active={paneActive && !ws.mainPageOpen} />}
         </div>
         <SessionFindBar
           key={selectedSessionId ?? 'home'}
           rootRef={transcriptRef}
           active={paneActive && !ws.mainPageOpen && !workspaceExpanded}
         />
-        <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
-          <AgentPanel
-            key={`agent-main-${teamId}`}
-            variant="page"
-            open={!workspaceExpanded}
-            userName={user.name}
-            runtimeUrlRef={runtimeUrlRef}
-            teamId={teamId}
-            paid={teamCanUseAgent(currentTeam)}
-            isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
-            runtimeKubeContextRef={runtimeKubeContextRef}
-            unbound={unbound}
-            connectedResources={connectedResources}
-            autoFocusComposer={paneActive && !dockOpen}
-            newChatRequest={ws.newChatRequest}
-            sessionId={selectedSessionId}
-            sessionReadOnly={selectedSessionReadOnly}
-            onSessionChange={handleSessionChange}
-            onOpenNuphosLink={stableOpenNuphosLinkFromChat}
-            onOpenAgentSettings={handleOpenAgentSettings}
-            pendingImport={agentSidebarPendingImport}
-            onImportConsumed={handleImportConsumed}
-            pendingForkSessionId={agentSidebarPendingFork}
-            onForkConsumed={clearAgentSidebarPendingFork}
-            pendingLocate={auditChatLocate}
-            onLocateConsumed={handleLocateConsumed}
-            pendingPrompt={pendingChatPrompt}
-            onPromptConsumed={consumeChatPrompt}
-            onTitleChange={handleTitleChange}
-          />
+        <div className="@container relative flex min-h-0 min-w-0 flex-1">
+          <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
+            <AgentPanel
+              key={`agent-main-${teamId}`}
+              variant="page"
+              open={!workspaceExpanded}
+              userName={user.name}
+              runtimeUrlRef={runtimeUrlRef}
+              teamId={teamId}
+              paid={teamCanUseAgent(currentTeam)}
+              isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
+              runtimeKubeContextRef={runtimeKubeContextRef}
+              unbound={unbound}
+              connectedResources={connectedResources}
+              autoFocusComposer={paneActive && !dockOpen}
+              newChatRequest={ws.newChatRequest}
+              sessionId={selectedSessionId}
+              sessionReadOnly={selectedSessionReadOnly}
+              onSessionChange={handleSessionChange}
+              onOpenNuphosLink={stableOpenNuphosLinkFromChat}
+              onOpenAgentSettings={handleOpenAgentSettings}
+              pendingImport={agentSidebarPendingImport}
+              onImportConsumed={handleImportConsumed}
+              pendingForkSessionId={agentSidebarPendingFork}
+              onForkConsumed={clearAgentSidebarPendingFork}
+              pendingLocate={auditChatLocate}
+              onLocateConsumed={handleLocateConsumed}
+              pendingPrompt={pendingChatPrompt}
+              onPromptConsumed={consumeChatPrompt}
+              onTitleChange={handleTitleChange}
+            />
+          </div>
+          {savedSessionId && (
+            <ChatSummaryPanel
+              key={savedSessionId}
+              open={summaryOpen}
+              sessionId={savedSessionId}
+              teamId={teamId}
+              onOpenLink={stableOpenSessionResource}
+              onOpenSession={handleSessionChange}
+            />
+          )}
         </div>
       </div>
     </main>

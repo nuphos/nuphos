@@ -1,11 +1,13 @@
 // Deploys the runtimes Nuphos hosts. Everything past the Kubernetes objects —
 // keys, sign-in, status, usage — is the same as for a self-hosted runtime.
 
+import { config } from '@/config'
 import { logError } from '@/lib/observability'
 
 import { placementNamespace, recordRuntimeController } from './runtime-controllers'
 import { reconcileRuntimeDeletions } from './runtime-deletion'
 import { hostedRuntimeDeploymentObject } from './runtime-deployment'
+import { hostedRuntimeJoinToken } from './runtime-device-join'
 import { managedRuntimeImage } from './runtime-image'
 import {
   PROVISIONER_FIELD_MANAGER,
@@ -96,11 +98,24 @@ async function applyHostedRuntime(runtime: ClaudeCodeRuntimeDoc, deps: Provision
   const selected = await runtimes().findOne({ _id: runtime._id, teamId: runtime.teamId })
   const image = selected?.deploymentImage
 
-  if (!image) throw new Error('Runtime image selection is unavailable')
+  if (!selected || !image) throw new Error('Runtime image selection is unavailable')
   const { teamId, _id: runtimeId } = runtime
+  const joinToken = await hostedRuntimeJoinToken(selected)
+  const apiUrl = config.agent.backendUrl
+
+  if (joinToken && !apiUrl)
+    throw new Error('A runtime that joins as a device needs NUPHOS_BACKEND_URL')
+  const join =
+    joinToken && apiUrl && selected.device ? { apiUrl, ownerId: selected.device.userId } : undefined
 
   await deps.kube.apply(
-    hostedRuntimeSecretObject({ teamId, runtimeId, namespace: deps.namespace, authKey }),
+    hostedRuntimeSecretObject({
+      teamId,
+      runtimeId,
+      namespace: deps.namespace,
+      authKey,
+      ...(joinToken ? { joinToken } : {}),
+    }),
     PROVISIONER_FIELD_MANAGER,
   )
   await ensureVolumes(name, runtime, deps)
@@ -115,6 +130,7 @@ async function applyHostedRuntime(runtime: ClaudeCodeRuntimeDoc, deps: Provision
       provider: deps.provider,
       running: runtime.status === 'active',
       ...(deps.scheduling ? { scheduling: deps.scheduling } : {}),
+      ...(join ? { join } : {}),
     }),
     teamId,
     runtimeId,

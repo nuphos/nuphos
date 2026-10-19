@@ -107,11 +107,17 @@ impl ChatAdapter for RecordingAdapter {
         Ok(())
     }
     async fn forward_agent_update(&self, _: &ChannelRef, update: serde_json::Value) -> Result<()> {
-        let kind = update
+        let mut kind = update
             .get("sessionUpdate")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
+        if kind == "agent_message_chunk" {
+            kind = format!(
+                "{kind}:{}",
+                update["content"]["text"].as_str().unwrap_or("")
+            );
+        }
         self.calls.lock().unwrap().push(Call::Update(kind));
         Ok(())
     }
@@ -389,9 +395,10 @@ async fn run_turn(fx: &Fixture, adapter: &Arc<dyn ChatAdapter>, thread_key: &str
         .expect("turn completes");
 }
 
-// ACP + streaming: text snapshots are relayed inline, so they interleave with
-// tool/thought updates in exact arrival order, and the terminal send repeats the
-// last snapshot verbatim (the gateway diffs it to nothing → no duplicate tail).
+// ACP + streaming: text chunks are relayed as agent updates, on the same path as
+// tool/thought updates and in exact arrival order, so a client that reattached
+// after the turn's own connection dropped still receives them. The terminal send
+// repeats the full text (the gateway has counted the chunks → no duplicate tail).
 #[tokio::test(flavor = "multi_thread")]
 async fn acp_streaming_relays_text_inline_in_arrival_order() {
     let _guard = env_lock();
@@ -402,21 +409,12 @@ async fn acp_streaming_relays_text_inline_in_arrival_order() {
 
     let calls = recorder.calls();
     let expected = vec![
-        Call::Edit {
-            message_id: "draft".into(),
-            content: "Linode C".into(),
-        },
+        Call::Update("agent_message_chunk:Linode C".into()),
         Call::Update("tool_call".into()),
         Call::Update("agent_thought_chunk".into()),
-        Call::Edit {
-            message_id: "draft".into(),
-            content: "Linode CLI ok".into(),
-        },
+        Call::Update("agent_message_chunk:LI ok".into()),
         Call::Update("tool_call_update".into()),
-        Call::Edit {
-            message_id: "draft".into(),
-            content: "Linode CLI ok done".into(),
-        },
+        Call::Update("agent_message_chunk: done".into()),
         Call::Terminal {
             content: "Linode CLI ok done".into(),
             stop_reason: Some("end_turn".into()),
@@ -425,7 +423,7 @@ async fn acp_streaming_relays_text_inline_in_arrival_order() {
     assert_eq!(
         calls, expected,
         "ACP streaming must relay text in arrival order and finish with a \
-         terminal send identical to the last snapshot"
+         terminal send carrying the full text"
     );
 }
 

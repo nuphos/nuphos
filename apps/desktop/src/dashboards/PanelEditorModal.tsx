@@ -7,11 +7,19 @@ import {
   countSelectedCredentials,
   countTotalCredentials,
 } from '../components/agent/panel/credentialSelectorButtonCounts'
+import { fieldClass } from '../components/ui/input-group'
+import { AppSelect } from '../components/ui/select'
 
 import { usePanelCredentials } from './usePanelCredentials'
 
 import type { DashboardPanel, DashboardPanelKind } from './schema'
 import type { AgentCredentialSelection } from '../api'
+
+const PANEL_KINDS = [
+  { value: 'chart', label: 'Chart' },
+  { value: 'scalar', label: 'Scalar' },
+  { value: 'table', label: 'Table' },
+]
 
 const STARTERS: Record<DashboardPanelKind, string> = {
   chart: `// Globals: params, nuphos (calls Nuphos APIs as you), emit(payload).
@@ -95,7 +103,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                     Title
                   </span>
                   <input
-                    className="w-full rounded-md border border-zGray-800 bg-zGray-900 px-2.5 py-1.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+                    className={`${fieldClass} h-9`}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Hetzner cost overview"
@@ -105,22 +113,20 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                   <span className="mb-1 block text-[11px] uppercase tracking-wide text-tertiary">
                     Kind
                   </span>
-                  <select
-                    className="w-full rounded-md border border-zGray-800 bg-zGray-900 px-2.5 py-1.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+                  <AppSelect
+                    positionerClassName="!z-[1100]"
+                    ariaLabel="Kind"
                     value={kind}
-                    onChange={(e) => {
-                      const next = e.target.value as DashboardPanelKind
+                    options={PANEL_KINDS}
+                    onValueChange={(value) => {
+                      const next = value as DashboardPanelKind
 
                       setKind(next)
                       // Swap the starter only if the code is still an untouched starter.
                       if (!editing && Object.values(STARTERS).includes(code))
                         setCode(STARTERS[next])
                     }}
-                  >
-                    <option value="chart">Chart</option>
-                    <option value="scalar">Scalar</option>
-                    <option value="table">Table</option>
-                  </select>
+                  />
                 </label>
               </div>
               <label className="flex flex-1 flex-col">

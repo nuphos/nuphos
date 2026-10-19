@@ -71,6 +71,17 @@ export async function issueDeviceJoinToken(
   return { token, expiresAt }
 }
 
+/** Whether the token can still be used: issued here, unused and unexpired. */
+export async function isDeviceJoinTokenLive(token: string): Promise<boolean> {
+  return Boolean(
+    await joinTokens().findOne({
+      _id: hashDeviceSecret(token),
+      usedAt: { $exists: false },
+      expiresAt: { $gt: new Date() },
+    }),
+  )
+}
+
 /**
  * Uses the token once and registers a new device for its issuer, or returns
  * null when the token is not usable. The device id is the server's, so a token

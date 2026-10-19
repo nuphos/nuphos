@@ -5,12 +5,14 @@ import * as agentChatDeepLink from '../agent-chat-deeplink'
 import { captureMain } from '../analytics'
 import * as appOpenDeepLink from '../app-open-deeplink'
 import * as asanaInstall from '../asana-install'
+import * as atlas from '../atlas'
 import * as cloudflareInstall from '../cloudflare-install'
 import * as discordInstall from '../discord-install'
 import * as githubInstall from '../github-install'
 import * as gitlabInstall from '../gitlab-install'
 import * as jiraInstall from '../jira-install'
 import * as linearInstall from '../linear-install'
+import * as personalCredentialDeepLink from '../personal-credential-deeplink'
 import * as plaudInstall from '../plaud-install'
 import * as posthogInstall from '../posthog-install'
 import * as sentryInstall from '../sentry-install'
@@ -59,6 +61,7 @@ export function findDeepLinkInArgv(argv: readonly string[]): string | null {
     if (discordInstall.isCallbackUrl(arg)) return arg
     if (agentChatDeepLink.isAgentChatUrl(arg)) return arg
     if (appOpenDeepLink.isAppOpenUrl(arg)) return arg
+    if (personalCredentialDeepLink.isPersonalCredentialUrl(arg)) return arg
     if (isConnectAgentLink(arg)) return arg
   }
 
@@ -191,6 +194,20 @@ export function handleDeepLink(url: string) {
       path: sanitizedPath,
     })
     queueDeepLink('deep-link:app-open', payload)
+
+    return
+  }
+  if (personalCredentialDeepLink.isPersonalCredentialUrl(url)) {
+    // Only kind and provider: state and code are one-time secrets.
+    captureMain('deep_link_opened', {
+      kind: 'personal_credential',
+      provider: personalCredentialDeepLink.personalCredentialProviderOf(url),
+    })
+    void personalCredentialDeepLink
+      .completePersonalCredentialUrl(url, atlas.completePersonalCredential)
+      .then((result) => {
+        if (result) queueDeepLink('deep-link:personal-credential', result)
+      })
 
     return
   }

@@ -115,7 +115,7 @@ export type AgentDeviceRouteDependencies = {
   publicUrl: () => string | undefined
   /** Null when this deployment has no Box provider. */
   box: {
-    create: (userId: string, teamId: string, label: string) => Promise<AgentDevice>
+    create: (userId: string, teamId: string, label: string, vcpus?: number) => Promise<AgentDevice>
     pause: (userId: string, deviceId: string) => Promise<AgentDevice>
     resume: (userId: string, deviceId: string) => Promise<AgentDevice>
     destroy: (userId: string, deviceId: string) => Promise<void>

@@ -30,13 +30,16 @@ export const deviceApi = {
   localRuntimeRefresh: () => ipcRenderer.invoke('localRuntime:refresh'),
   localRuntimeUpdateAgent: (provider: string) =>
     ipcRenderer.invoke('localRuntime:updateAgent', provider),
+  localRuntimeInstallAgent: (provider: string) =>
+    ipcRenderer.invoke('localRuntime:installAgent', provider),
   localRuntimeLatestAgentVersions: () => ipcRenderer.invoke('localRuntime:latestAgentVersions'),
   localRuntimeOpenWorkspace: () => ipcRenderer.invoke('localRuntime:openWorkspace'),
   localRuntimeListActivity: (before?: string) =>
     ipcRenderer.invoke('localRuntime:listActivity', before),
   boxListDevices: (options?: AgentDeviceListOptions) =>
     ipcRenderer.invoke('box:listDevices', options),
-  boxCreate: (label?: string, teamId?: string) => ipcRenderer.invoke('box:create', label, teamId),
+  boxCreate: (label?: string, teamId?: string, vcpus?: number) =>
+    ipcRenderer.invoke('box:create', label, teamId, vcpus),
   boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:resume', deviceId, teamId),

@@ -33,6 +33,12 @@ fun validRuntimeCode(value: String) = value.matches(Regex("^[A-Za-z0-9_.~-]{1,20
 class RuntimeLoginAbsent : Exception("No sign-in is in progress for this account.")
 class RuntimeHttpFailure(val status: Int, val errorCode: String?) : Exception("Agent request was rejected ($status).")
 
+interface RuntimeManagementTransport {
+    suspend fun update(runtimeId: String, label: String? = null, status: String? = null): AgentRuntime
+    /** True means asynchronous managed deletion was accepted. */
+    suspend fun remove(runtimeId: String): Boolean
+}
+
 interface RuntimeTransport {
     suspend fun catalog(): List<AgentRuntime>
     suspend fun create(provider: String, label: String?): AgentRuntime
@@ -41,7 +47,7 @@ interface RuntimeTransport {
     suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin
     suspend fun cancel(runtimeId: String, attemptId: String)
 }
-class AgentRuntimeApi internal constructor(private val token: String, teamId: String, private val client: OkHttpClient) : RuntimeTransport {
+class AgentRuntimeApi internal constructor(private val token: String, teamId: String, private val client: OkHttpClient) : RuntimeTransport, RuntimeManagementTransport {
     constructor(token: String, teamId: String) : this(token, teamId, Http.client)
     private val path = "teams/$teamId/agent-runtimes"
     init { require(teamId.matches(Regex("[a-fA-F0-9]{24}"))) }
@@ -57,6 +63,21 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
             put("provider", provider); trimmed?.let { put("label", it) }
         }.toString(), 201))
     }
+    override suspend fun update(runtimeId: String, label: String?, status: String?): AgentRuntime {
+        require(label != null || status != null)
+        require(label == null || label.trim().length in 1..120)
+        require(status == null || status in setOf("active", "disabled"))
+        return decodeRuntime(execute(runtimePath(runtimeId), "PATCH", buildJsonObject {
+            label?.let { put("label", it.trim()) }; status?.let { put("status", it) }
+        }.toString(), 200))
+    }
+    override suspend fun remove(runtimeId: String): Boolean {
+        val (status, result) = executeResponse(runtimePath(runtimeId), "DELETE", expected = 204, alternate = 202)
+        if (status == 204) return false
+        if (result["status"]?.jsonPrimitive?.contentOrNull != "deleting") throw NuphosApi.Failure.InvalidResponse
+        return true
+    }
+    private fun runtimePath(id: String): String { require(id.matches(Regex("[A-Za-z0-9_-]{1,200}"))); return "$path/$id" }
     private fun loginPath(id: String): String { require(id.matches(Regex("[A-Za-z0-9_-]{1,200}"))); return "$path/$id/login" }
     override suspend fun start(runtimeId: String) = decodeLogin(execute(loginPath(runtimeId), "POST", "", 202))
     override suspend fun login(runtimeId: String) = decodeLogin(execute(loginPath(runtimeId), "GET", expected = 200))
@@ -91,7 +112,9 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
             if (state == "awaiting_authorization") field("authorizationUrl") else null,
             state == "awaiting_authorization" && obj["codeSubmitted"]?.jsonPrimitive?.booleanOrNull == true)
     } catch (_: Exception) { throw NuphosApi.Failure.InvalidResponse }
-    private suspend fun execute(path: String, method: String, body: String? = null, expected: Int): JsonObject = withContext(Dispatchers.IO) {
+    private suspend fun execute(path: String, method: String, body: String? = null, expected: Int): JsonObject =
+        executeResponse(path, method, body, expected).second
+    private suspend fun executeResponse(path: String, method: String, body: String? = null, expected: Int, alternate: Int? = null): Pair<Int, JsonObject> = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("${NuphosApi.BASE_URL}/$path")
             .header("Authorization", "Bearer $token").header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader()).method(method, body?.toRequestBody(Http.jsonMedia)).build()
@@ -103,9 +126,10 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
                 if (response.code == 404 && code == "runtime_login_not_found") throw RuntimeLoginAbsent()
                 throw RuntimeHttpFailure(response.code, code)
             }
-            if (response.code != expected) throw NuphosApi.Failure.InvalidResponse
-            if (expected == 204) JsonObject(emptyMap()) else try { Http.json.parseToJsonElement(text).jsonObject }
+            if (response.code != expected && response.code != alternate) throw NuphosApi.Failure.InvalidResponse
+            val result = if (response.code == 204) JsonObject(emptyMap()) else try { Http.json.parseToJsonElement(text).jsonObject }
             catch (_: Exception) { throw NuphosApi.Failure.InvalidResponse }
+            response.code to result
         }
     }
 }

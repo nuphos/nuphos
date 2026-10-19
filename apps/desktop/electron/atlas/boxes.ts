@@ -54,11 +54,11 @@ export async function listAgentDevices(options?: AgentDeviceListOptions): Promis
     ),
   }
 }
-export function createBox(label?: string, teamId?: string): Promise<AgentDevice> {
+export function createBox(label?: string, teamId?: string, vcpus?: number): Promise<AgentDevice> {
   return call(
     'POST',
     '/agent/devices/boxes',
-    { ...(label ? { label } : {}), ...(teamId ? { teamId } : {}) },
+    { ...(label ? { label } : {}), ...(teamId ? { teamId } : {}), ...(vcpus ? { vcpus } : {}) },
     { retry: false },
   )
 }

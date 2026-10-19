@@ -74,7 +74,7 @@ export function DocumentsQueryBar({
         onChange={(event) =>
           onLimitChange(Math.max(1, Math.min(100, Number(event.target.value) || 1)))
         }
-        className="h-8 w-full rounded-md border border-zGray-700 bg-field px-2 text-[12px] text-main outline-none focus:border-zViolet-500"
+        className="h-8 w-full rounded-md border border-zGray-700 bg-surface px-2 text-[12px] text-main outline-none focus:border-zViolet-500"
       />
     </label>
   )

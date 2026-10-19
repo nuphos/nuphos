@@ -131,7 +131,7 @@ export function RemoveConnectionModal({
             value={removeName}
             onChange={(event) => onRemoveNameChange(event.target.value)}
             placeholder={connection.name}
-            className="mt-1 w-full rounded-md border border-zGray-800 bg-field px-2.5 py-2 font-mono text-[12.5px] text-main outline-none focus:border-error"
+            className="mt-1 w-full rounded-md border border-zGray-800 bg-surface px-2.5 py-2 font-mono text-[12.5px] text-main outline-none focus:border-error"
           />
         </label>
       </div>

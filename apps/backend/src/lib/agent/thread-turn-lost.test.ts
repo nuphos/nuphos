@@ -2,10 +2,12 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
+import { UNDELIVERED_NOTICE } from './conversation-turn'
 import { clearPendingUserMessages } from './pending-messages'
-import { LOST_THREAD_TURN_NOTICE, startThreadTurn } from './thread-bridge'
+import { startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
@@ -37,6 +39,9 @@ let finishReasons: (string | undefined)[] = []
 useIdentity({
   getTeamMembership: async () => ({ role: 'MEMBER' }),
   signNuphosToken: () => 'test-token',
+})
+useConversationChatRoute({
+  resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
 })
 useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
@@ -86,9 +91,9 @@ test('a thread turn lost to a runtime restart tells its sender, once', async () 
 
   expect(runs.map((run) => run.sessionId)).toEqual(['child', 'parent'])
   expect(runs[1]?.messages.at(-1)).toMatchObject({
-    metadata: { source: 'agent.thread', sourceSessionId: 'child', sender: { id: 'child' } },
-    parts: [{ type: 'text', text: LOST_THREAD_TURN_NOTICE }],
+    metadata: { source: 'agent.thread', sourceSessionId: 'child', sender: { type: 'system' } },
   })
+  expect(JSON.stringify(runs[1]?.messages.at(-1)?.parts)).toContain('was cut off')
 })
 
 test('a reattach that did not bring the session back reports nothing', async () => {
@@ -104,7 +109,7 @@ test('a reattach that did not bring the session back reports nothing', async () 
 test('a lost notice is not reported back', async () => {
   attach(true, 'dormant')
   await (
-    await startThreadTurn({ ...data, prompt: LOST_THREAD_TURN_NOTICE })
+    await startThreadTurn({ ...data, prompt: `${UNDELIVERED_NOTICE} earlier notice` })
   ).run
   await settle()
 

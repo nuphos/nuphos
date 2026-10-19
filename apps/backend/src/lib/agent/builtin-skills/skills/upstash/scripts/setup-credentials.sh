@@ -26,17 +26,18 @@ read_local_nuphos_token() {
   python3 <<'PY'
 from pathlib import Path
 import re
-path = Path.home() / ".config" / "nuphos" / "cli.yaml"
-try:
-    text = path.read_text()
-except FileNotFoundError:
-    raise SystemExit(0)
-match = re.search(r'(?m)^token:\s*(.+?)\s*$', text)
-if match:
-    token = match.group(1).strip()
-    if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
-        token = token[1:-1]
-    print(token)
+for name in ("cli.yaml", "desktop.yaml"):
+    try:
+        text = (Path.home() / ".config" / "nuphos" / name).read_text()
+    except FileNotFoundError:
+        continue
+    match = re.search(r'(?m)^token:\s*(.+?)\s*$', text)
+    if match:
+        token = match.group(1).strip()
+        if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
+            token = token[1:-1]
+        print(token)
+        break
 PY
 }
 
@@ -45,7 +46,7 @@ if [ -z "$auth_token" ]; then
   auth_token="$(read_local_nuphos_token || true)"
 fi
 if [ -z "$auth_token" ]; then
-  echo "NUPHOS_TOKEN is not set and ~/.config/nuphos/cli.yaml has no token" >&2
+  echo "NUPHOS_TOKEN is not set and no local Nuphos sign-in has a token in ~/.config/nuphos" >&2
   exit 1
 fi
 

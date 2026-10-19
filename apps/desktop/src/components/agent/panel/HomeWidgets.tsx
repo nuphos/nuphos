@@ -1,5 +1,6 @@
 import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
 
+import { useTeamMembers } from '../../../lib/bindingAccess'
 import {
   Menu,
   MenuCheckboxItem,
@@ -24,6 +25,7 @@ import type { HomeGithubCard, HomePanel } from './homeWidgetSettings'
  * The configurable cards under the home composer, picked in "Customize":
  * team activity on or off, any number of pull request and CI cards (each set
  * up from its own ⋯ menu), and every pinned dashboard panel as a card.
+ * Team activity is left out while the user is the team's only member.
  */
 export function HomeWidgets({
   teamId,
@@ -45,6 +47,7 @@ export function HomeWidgets({
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const home = useHomeLayout(teamId)
+  const hasTeammates = useTeamMembers(teamId).length > 1
 
   if (!home.layout) return null
   const settings = home.layout
@@ -56,7 +59,7 @@ export function HomeWidgets({
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
 
   const cards = [
-    settings.team && (
+    settings.team && hasTeammates && (
       <TeamActivityCard key="team" teamId={teamId} onOpenConversation={onOpenConversation} />
     ),
     ...settings.github.map((card) => (
@@ -103,12 +106,14 @@ export function HomeWidgets({
             Customize
           </MenuTrigger>
           <MenuContent align="center" className="w-[232px]">
-            <MenuCheckboxItem
-              checked={settings.team}
-              onCheckedChange={(team) => update({ ...settings, team })}
-            >
-              Team activity
-            </MenuCheckboxItem>
+            {hasTeammates && (
+              <MenuCheckboxItem
+                checked={settings.team}
+                onCheckedChange={(team) => update({ ...settings, team })}
+              >
+                Team activity
+              </MenuCheckboxItem>
+            )}
             <MenuItem
               icon={<GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />}
               onClick={() =>

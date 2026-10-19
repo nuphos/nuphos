@@ -82,7 +82,7 @@ export function SkillUploadSection({
         value={uploadKey}
         onChange={(event) => onUploadKeyChange(event.target.value)}
         spellCheck={false}
-        className="w-full h-8 px-2.5 rounded-md border border-zGray-800/60 bg-field text-[12px] font-mono text-main outline-none focus:border-zViolet-500"
+        className="w-full h-8 px-2.5 rounded-md border border-zGray-800/60 bg-surface text-[12px] font-mono text-main outline-none focus:border-zViolet-500"
         placeholder={`${prefix}SKILL.md`}
       />
       <p className="text-[11px] text-tertiary leading-relaxed">

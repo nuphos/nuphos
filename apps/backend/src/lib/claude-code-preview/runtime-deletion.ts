@@ -9,6 +9,7 @@ import { inspectClaim, removeClaim } from './runtime-deletion-volumes'
 import { runtimeHomeClaimName, runtimeWorkspaceClaimName } from './runtime-objects'
 import { withRuntimePlacementLease } from './runtime-placement-lease'
 import { runtimeDeletions } from './runtime-portability-store'
+import { forgetHostedRuntimeDevice } from './runtime-device-join'
 import { removeTeamRuntime, runtimes, setTeamRuntimeStatus } from './runtime-registry'
 import { clearRuntimeAuthKey } from './runtime-registry-credentials'
 import { runtimeServiceName } from './runtime-service-name'
@@ -189,6 +190,9 @@ export async function reconcileRuntimeDeletions(
       const latest = await runtimeDeletions().findOne({ _id: job._id, teamId: job.teamId })
 
       if (latest?.placements.every(placementSettled)) {
+        const device = (await runtimes().findOne({ _id: job._id, teamId: job.teamId }))?.device
+
+        if (device) await forgetHostedRuntimeDevice(device)
         await removeTeamRuntime(job.teamId, job._id, kube)
         await runtimeDeletions().updateOne(
           { _id: job._id, teamId: job.teamId },

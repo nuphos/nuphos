@@ -3,6 +3,26 @@
 # provisioner, then becomes the command it was given — openab, by default.
 set -eu
 
+# A container handed a join token runs as a device, the way a Box does: the Nuphos CLI
+# host joins with the token once, keeps the credential it gets on the home volume, dials
+# out to Nuphos and runs the agent itself, so nothing below applies. A saved credential
+# wins over the token on every later start. Without a token the runtime starts as before.
+agent_home=${NUPHOS_AGENT_HOME:-${HOME:-}/.local/share/nuphos/agent}
+if [ -n "${NUPHOS_JOIN_TOKEN:-}" ]; then
+  export NUPHOS_AGENT_HOME="$agent_home"
+  # The host keeps the Claude Code sign-in in the owner's own agent home. A runtime that
+  # signed in before it joined starts with that sign-in rather than signed out.
+  claude_home="$agent_home/users/${NUPHOS_AGENT_OWNER_ID:-}/claude-home"
+  if [ -n "${NUPHOS_AGENT_OWNER_ID:-}" ] && [ -f "${HOME:-}/.claude/.credentials.json" ] \
+    && [ ! -e "$claude_home/.credentials.json" ]; then
+    (umask 077 && mkdir -p "$claude_home" && cp "$HOME/.claude/.credentials.json" "$claude_home/") \
+      || printf 'runtime-start: could not carry the Claude Code sign-in over; sign in again.\n' >&2
+  fi
+  exec node "${NUPHOS_LOCAL_RUNTIME_DIR:-/opt/nuphos-agent}/host.mjs"
+fi
+# A credential an earlier join left names a device that is gone, so a later join starts afresh.
+rm -f "$agent_home/device-credential.json"
+
 min_password_length=32
 
 fail() {
