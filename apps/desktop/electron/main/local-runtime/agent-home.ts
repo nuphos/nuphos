@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -59,21 +60,27 @@ function linkFrom(ownerHome: string, home: string, file: string): boolean {
  * Windows links a file without administrator rights only as a hard link, since a junction
  * holds directories only. Codex rewrites auth.json in place, so the hard link keeps sharing
  * the login. As with the symlink elsewhere, the owner's login wins; a login made in this
- * home stays only while the owner has none.
+ * home stays while the owner has none, or while the owner's cannot be linked here.
  */
 export function hardLinkFrom(ownerHome: string, home: string, file: string): void {
   const link = path.join(home, file)
   const owner = statSync(path.join(ownerHome, file), { throwIfNoEntry: false })
   const existing = lstatSync(link, { throwIfNoEntry: false })
 
+  // Link beside the file first, so a link that cannot be made leaves the current login in place.
+  const next = `${link}.${String(process.pid)}.tmp`
+
   try {
     // Earlier builds left a junction here, which Codex cannot read.
     if (existing?.isSymbolicLink()) unlinkSync(link)
     else if (existing && (!owner || owner.ino === existing.ino)) return
-    else if (existing) unlinkSync(link)
-    if (owner) linkSync(path.join(ownerHome, file), link)
+    if (!owner) return
+    rmSync(next, { force: true })
+    linkSync(path.join(ownerHome, file), next)
+    renameSync(next, link)
   } catch {
-    // Another volume, or a file in use: Codex runs signed out and can be signed in from Nuphos.
+    // Another volume, or a file in use: the current login stays, or Codex runs signed out.
+    rmSync(next, { force: true })
   }
 }
 

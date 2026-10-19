@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
@@ -217,6 +218,21 @@ test('on Windows the login is a hard link that follows the owner’s login', (t)
   writeFileSync(link, '{"own":true}')
   hardLinkFrom(f.owner, home, 'auth.json')
   assert.equal(readFileSync(link, 'utf8'), '{"own":true}')
+})
+
+test('on Windows a login that cannot be linked leaves the current one in place', (t) => {
+  const f = codexFixture(t)
+  const home = path.join(f.dir, 'codex-home')
+  const link = path.join(home, 'auth.json')
+
+  mkdirSync(home)
+  writeFileSync(link, '{"own":true}')
+  // A directory cannot be hard-linked, so linkSync fails as it does across volumes.
+  rmSync(path.join(f.owner, 'auth.json'))
+  mkdirSync(path.join(f.owner, 'auth.json'))
+  hardLinkFrom(f.owner, home, 'auth.json')
+  assert.equal(readFileSync(link, 'utf8'), '{"own":true}')
+  assert.deepEqual(readdirSync(home), ['auth.json'])
 })
 
 test('on Windows without the owner’s login nothing is linked', (t) => {
