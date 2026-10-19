@@ -17,7 +17,7 @@ export function useNewConversationRuntime(teamId?: string) {
   // Model settings picked for the next new conversation, per agent.
   const [picks, setPicks] = useState<Record<string, SessionConfigPick>>({})
   const catalog = useRuntimeInstances(teamId)
-  const runtimeQuotas = useRuntimeQuotas(teamId, catalog.instances)
+  const runtimeQuotas = useRuntimeQuotas(teamId)
   const owner = useThisComputer()
   const localState = useLocalRuntimeState()
   const instances = teamId
