@@ -82,6 +82,7 @@ export function portabilityDb() {
       return { insertedId: doc._id }
     },
     findOne: async (query: Doc) => rows(name).find((doc) => matches(doc, query)) ?? null,
+    countDocuments: async (query: Doc) => rows(name).filter((doc) => matches(doc, query)).length,
     findOneAndUpdate: async (query: Doc, mutation: Doc, options?: Doc) => {
       let doc = rows(name).find((entry) => matches(entry, query))
 
