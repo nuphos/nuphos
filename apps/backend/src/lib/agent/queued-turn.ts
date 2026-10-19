@@ -4,7 +4,7 @@ import { conversationExecutionState } from '@/lib/claude-code-preview/session-ex
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
-import { runTurn } from './conversation-turn'
+import { reportUndelivered, runTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
 import { canReply, conversationAccess } from './db/access'
 import { PENDING_TTL_SEC } from './pending-messages'
@@ -16,34 +16,43 @@ import type { AgentConversation } from './db'
 import type { PendingUserMessage } from './pending-message-types'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
-/** A message that has waited this long, or failed this often, is dropped and logged. */
-const MAX_QUEUED_MS = PENDING_TTL_SEC * 1000
+/**
+ * A message that has waited this long, or failed this often, is dropped and its
+ * sender told. A minute inside the queue's TTL, so the sweep drops it before Redis does.
+ */
+const MAX_QUEUED_MS = (PENDING_TTL_SEC - 60) * 1000
 const MAX_ATTEMPTS = 5
 
 const runtimeAccepts = (state: SessionExecutionState) =>
   state.schemaVersion !== 2 || state.actions?.send === true
 
-function stale(message: PendingUserMessage, now: number): string | null {
+const DROPPED = {
+  expired: 'was dropped after waiting an hour in its queue without running.',
+  too_many_attempts: 'was dropped after its runtime refused it five times.',
+}
+
+function stale(message: PendingUserMessage, now: number): keyof typeof DROPPED | null {
   if ((message.attempts ?? 0) >= MAX_ATTEMPTS) return 'too_many_attempts'
 
   return now - Date.parse(message.receivedAt) > MAX_QUEUED_MS ? 'expired' : null
 }
 
-async function dropStale(userId: string, sessionId: string, queue: PendingUserMessage[]) {
+async function dropStale(userId: string, sessionId: string, target: AgentConversation | null) {
   const now = Date.now()
-  const dropped = queue.flatMap((message) => {
+  const dropped = (await listPendingUserMessages(userId, sessionId)).flatMap((message) => {
     const reason = stale(message, now)
 
     return reason ? [{ message, reason }] : []
   })
-
-  if (dropped.length === 0) return queue
-  await takePendingUserMessages(
+  const taken = await takePendingUserMessages(
     userId,
     sessionId,
     dropped.map((entry) => entry.message),
   )
-  for (const { message, reason } of dropped)
+
+  for (const { message, reason } of dropped) {
+    // Another replica's sweep took it first, and reports it.
+    if (!taken.includes(message)) continue
     logEvent('warn', 'agent.pending_messages.queued_dropped', {
       user_id: userId,
       session_id: sessionId,
@@ -52,8 +61,13 @@ async function dropStale(userId: string, sessionId: string, queue: PendingUserMe
       reason,
       attempts: message.attempts ?? 0,
     })
-
-  return queue.filter((message) => !dropped.some((entry) => entry.message === message))
+    if (target?.teamId)
+      await reportUndelivered(
+        { userId, teamId: target.teamId, targetSessionId: sessionId },
+        [message],
+        DROPPED[reason],
+      )
+  }
 }
 
 /** Whether this conversation may run its queue now; schedules a retry when it should wait. */
@@ -81,6 +95,8 @@ async function ready(userId: string, sessionId: string, target: AgentConversatio
 export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
+  // Ahead of the gate: a queue that never gets to run still answers its senders.
+  await dropStale(userId, sessionId, target)
   if (!(await ready(userId, sessionId, target))) return
   const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
 
@@ -88,11 +104,7 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
   let handedOff = false
 
   try {
-    const queue = await dropStale(
-      userId,
-      sessionId,
-      await listPendingUserMessages(userId, sessionId),
-    )
+    const queue = await listPendingUserMessages(userId, sessionId)
 
     // A send never waits for a Box: the queue does, while it resumes in the background.
     if (queue.length > 0 && (await wakeOfflineBox(target?.runtimeId))) {

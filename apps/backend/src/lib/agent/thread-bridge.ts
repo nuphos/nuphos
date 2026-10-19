@@ -5,9 +5,11 @@ import {
   initializeSessionBypass,
   setSessionBypass,
 } from '@/lib/agent/auto-mode/store'
-import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
+import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
+import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
+import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 
 import {
   getConversationBySessionId,
@@ -198,11 +200,36 @@ export async function updateThread(
   }
 }
 
+/**
+ * Answered before any receipt: a target whose agent cannot run, removed, signed
+ * out or offline, is the sender's error now rather than a "started" that never runs.
+ */
+async function assertTargetCanRun(target: AgentConversation): Promise<void> {
+  try {
+    await resolveConversationChatRuntime(target.teamId, target, { userId: target.userId })
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    const box =
+      error instanceof AppError &&
+      error.code === 'runtime_offline' &&
+      (await wakeOfflineBox(target.runtimeId))
+
+    throw new Error(
+      box
+        ? 'The target thread runs on a Box that is resuming now. Resend in about a minute.'
+        : `The target thread cannot run: ${reason} Move it to a running agent with update_thread runtimeId, then resend.`,
+      { cause: error },
+    )
+  }
+}
+
 // An idle target starts its turn in this process. A busy one queues the message,
-// which runs once that turn releases the session. Returns which happened; `run`
-// settles with a turn started here, whose failure is logged here.
+// which runs once that turn releases the session. Returns which happened; a
+// message that then does not run is reported to its sender by runTurn.
 export async function startThreadTurn(data: ThreadTurn) {
   const { source, target } = await authorizeThreadDelivery(data)
+
+  await assertTargetCanRun(target)
   // Lazy so importing the tools does not pull in the route graph.
   const { startConversationTurn } = await import('./conversation-turn')
   const { status, run } = await startConversationTurn(data, target, data.prompt, 'agent.thread', {
@@ -218,48 +245,15 @@ export async function startThreadTurn(data: ThreadTurn) {
     sentAt: new Date().toISOString(),
   })
 
-  run
-    .then((finish) => (finish === 'connection-lost' ? reportLostThreadTurn(data) : undefined))
-    .catch((error: unknown) => {
-      logError('agent.thread.turn_failed', error, {
-        session_id: data.targetSessionId,
-        source_session_id: data.sessionId,
-        message_id: data.messageId,
-      })
+  run.catch((error: unknown) => {
+    logError('agent.thread.turn_failed', error, {
+      session_id: data.targetSessionId,
+      source_session_id: data.sessionId,
+      message_id: data.messageId,
     })
+  })
 
   return { status, run }
-}
-
-export const LOST_THREAD_TURN_NOTICE =
-  '[Nuphos notice, not written by the agent] This thread lost its connection to the runtime during its last turn and came back with no agent process, for example because the runtime restarted. That turn may have stopped partway or may have finished just before; its result and any report may never arrive. Check this thread before repeating anything, since work may be partly done. If the restart came from heavy work such as builds or tests, avoid re-running several such tasks at once.'
-
-/**
- * A turn whose runtime connection dropped is left to the runtime, which keeps
- * running it through a network blip and reports back as usual. When the runtime
- * itself restarted (an OOMKill), the session reattaches with no agent process
- * (`dormant`) and the turn is gone; nothing would ever tell the sender. A live
- * runtime that finished the turn while disconnected stays `idle` and says nothing.
- */
-async function reportLostThreadTurn(data: ThreadTurn): Promise<void> {
-  // A lost notice is not reported back, so two threads on a crash-looping runtime cannot ping-pong.
-  if (data.prompt === LOST_THREAD_TURN_NOTICE) return
-  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
-
-  // False also means superseded or shutting down; only a session back on the air says anything.
-  if (!session?.reattached || !(await session.reattached)) return
-  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
-
-  if (state !== 'dormant') return
-  logEvent('info', 'agent.thread.lost_turn_reported', {
-    session_id: data.targetSessionId,
-    source_session_id: data.sessionId,
-  })
-  await sendAgentThreadMessage(
-    { ...data, sessionId: data.targetSessionId },
-    data.sessionId,
-    LOST_THREAD_TURN_NOTICE,
-  )
 }
 
 export async function setAgentThreadParent(

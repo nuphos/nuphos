@@ -5,6 +5,7 @@ import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared
 import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 
@@ -72,6 +73,9 @@ afterEach(async () => {
     await clearPendingUserMessages('owner', id)
 })
 
+useConversationChatRoute({
+  resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
+})
 useIdentity({
   getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
   signNuphosToken: () => 'test-token',

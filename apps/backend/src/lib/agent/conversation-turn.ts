@@ -1,8 +1,12 @@
+import { randomUUID } from 'node:crypto'
+
+import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { signNuphosToken } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { agentMessages, getConversationWithMessages } from './db'
+import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
@@ -85,65 +89,166 @@ export async function startConversationTurn(
   return { status: 'started', run: run() }
 }
 
-/** Runs a turn for messages delivered to a conversation, after its history. */
+type DeliveredTo = Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & {
+  locale?: string
+}
+
+/**
+ * Runs a turn for messages delivered to a conversation, after its history. A
+ * thread message it takes and cannot run is reported to its sender.
+ */
 export async function runTurn(
-  data: Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & { locale?: string },
+  data: DeliveredTo,
   target: AgentConversation,
   source: string,
   pending: PendingUserMessage[],
 ): Promise<string | undefined> {
-  // Read after taking the claim so a just-finished turn cannot be overwritten.
-  const history = await getConversationWithMessages(data.targetSessionId, data.userId, data.teamId)
+  let taken = pending
 
-  if (!history) throw new Error('Target conversation no longer exists.')
-  // BullMQ can redeliver a stalled job. An answered message must not run twice;
-  // one after the last reply was accepted by a refused turn and runs again.
-  const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
-  const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
-  const fresh = pending.filter((message) => !ran.has(message.id))
-  const [head, ...rest] = fresh
+  try {
+    // Read after taking the claim so a just-finished turn cannot be overwritten.
+    const history = await getConversationWithMessages(
+      data.targetSessionId,
+      data.userId,
+      data.teamId,
+    )
 
-  if (!head) return
-  const prior = history.messages
-    .filter((message) => !fresh.some((entry) => entry.id === message.messageId))
-    .map(persistedMessageToUiMessage)
-    .filter((message): message is UIMessage => message !== null)
-  const outcome = await turnRunner
-    .runAgentForTrigger({
-      userId: data.userId,
-      teamId: data.teamId,
-      sessionId: data.targetSessionId,
-      nuphosToken: signNuphosToken(data.userId, 8 * 60 * 60),
-      messages: [
-        ...prior,
-        ...fresh.map((message): UIMessage => ({
-          id: message.id,
-          role: 'user',
-          metadata: message.metadata,
-          parts: [{ type: 'text', text: message.renderedText }],
-        })),
-      ],
-      firstMessage: target.firstMessage,
-      source,
-      ...(data.locale ? { locale: data.locale } : {}),
-      // 'user' adds no Full Access default: a thread took its parent's mode at creation.
-      origin: source === 'agent.resource' ? 'trigger' : 'user',
-      // Not recorded as interrupted: the messages go back on the queue below.
-      clientResendsRefusal: true,
-    })
-    .catch(async (error: unknown) => {
-      // The runtime took another turn after the check. Back to the front, retried
-      // after a wait rather than on the release that follows.
-      if (!isRuntimeRefusal(error)) throw error
-      await requeueTurnQueue(data.userId, data.targetSessionId, rest, head)
+    if (!history) throw new Error('Target conversation no longer exists.')
+    // BullMQ can redeliver a stalled job. An answered message must not run twice;
+    // one after the last reply was accepted by a refused turn and runs again.
+    const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
+    const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
+    const fresh = pending.filter((message) => !ran.has(message.id))
+    const [head, ...rest] = fresh
 
-      return null
-    })
+    taken = fresh
+    if (!head) return
+    const prior = history.messages
+      .filter((message) => !fresh.some((entry) => entry.id === message.messageId))
+      .map(persistedMessageToUiMessage)
+      .filter((message): message is UIMessage => message !== null)
+    const outcome = await turnRunner
+      .runAgentForTrigger({
+        userId: data.userId,
+        teamId: data.teamId,
+        sessionId: data.targetSessionId,
+        nuphosToken: signNuphosToken(data.userId, 8 * 60 * 60),
+        messages: [
+          ...prior,
+          ...fresh.map((message): UIMessage => ({
+            id: message.id,
+            role: 'user',
+            metadata: message.metadata,
+            parts: [{ type: 'text', text: message.renderedText }],
+          })),
+        ],
+        firstMessage: target.firstMessage,
+        source,
+        ...(data.locale ? { locale: data.locale } : {}),
+        // 'user' adds no Full Access default: a thread took its parent's mode at creation.
+        origin: source === 'agent.resource' ? 'trigger' : 'user',
+        // Not recorded as interrupted: the messages go back on the queue below.
+        clientResendsRefusal: true,
+      })
+      .catch(async (error: unknown) => {
+        // The runtime took another turn after the check. Back to the front, retried
+        // after a wait rather than on the release that follows.
+        if (!isRuntimeRefusal(error)) throw error
+        taken = []
+        await requeueTurnQueue(data.userId, data.targetSessionId, rest, head)
 
-  if (!outcome) return
+        return null
+      })
 
-  if (outcome.status === 'failed')
-    throw new Error('Thread run failed; inspect the target conversation.')
+    if (!outcome) return
 
-  return outcome.finishReason
+    if (outcome.status === 'failed')
+      throw new Error('Thread run failed; inspect the target conversation.')
+    if (outcome.finishReason === 'connection-lost' && (await runtimeRestarted(data)))
+      await reportUndelivered(data, fresh, LOST_TURN)
+
+    return outcome.finishReason
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+
+    await reportUndelivered(data, taken, `did not run: ${reason}`)
+    throw error
+  }
+}
+
+/** Marks a notice so it is never reported back: two threads cannot ping-pong. */
+export const UNDELIVERED_NOTICE = '[Nuphos notice, not written by the agent]'
+const LOST_TURN =
+  'was cut off: the runtime restarted during that turn, which may have stopped partway or finished just before.'
+
+/**
+ * A turn whose runtime connection dropped is left to the runtime, which keeps
+ * running it through a network blip and reports back as usual. When the runtime
+ * itself restarted (an OOMKill), the session reattaches with no agent process
+ * (`dormant`) and the turn is gone.
+ */
+async function runtimeRestarted(data: DeliveredTo): Promise<boolean> {
+  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
+
+  // False also means superseded or shutting down; only a session back on the air says anything.
+  if (!session?.reattached || !(await session.reattached)) return false
+  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
+
+  return state === 'dormant'
+}
+
+/**
+ * The one rule for an accepted thread message: it runs as a turn of its target,
+ * or its sender is told, once, that it did not.
+ */
+export async function reportUndelivered(
+  data: DeliveredTo,
+  messages: readonly PendingUserMessage[],
+  reason: string,
+): Promise<void> {
+  for (const message of messages) {
+    const senderId = message.metadata?.sourceSessionId
+
+    if (message.source !== 'agent.thread' || !senderId) continue
+    if (message.renderedText.startsWith(UNDELIVERED_NOTICE)) continue
+    const failed = (error: unknown) =>
+      logError('agent.thread.undelivered_report_failed', error, {
+        session_id: data.targetSessionId,
+        source_session_id: senderId,
+        message_id: message.id,
+      })
+
+    try {
+      const sender = await getConversationBySessionId(senderId)
+
+      // The same owner and team the delivery was authorized for, and still open.
+      if (sender?.userId !== data.userId || sender.teamId !== data.teamId || sender.archivedAt)
+        continue
+      const excerpt = message.renderedText.slice(0, 200)
+      const notice = `${UNDELIVERED_NOTICE} Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_thread runtimeId) first.`
+      // Not awaited: this turn still holds its own target, and the sender may be busy.
+      const { run } = await startConversationTurn(
+        {
+          ...data,
+          targetSessionId: senderId,
+          messageId: randomUUID(),
+          locale: data.locale ?? 'en',
+        },
+        sender,
+        notice,
+        'agent.thread',
+        {
+          version: 1,
+          sender: { type: 'system', id: 'nuphos', displayName: 'Nuphos' },
+          source: 'agent.thread',
+          sourceSessionId: data.targetSessionId,
+          sentAt: new Date().toISOString(),
+        },
+      )
+
+      run.catch(failed)
+    } catch (error) {
+      failed(error)
+    }
+  }
 }
