@@ -11,7 +11,7 @@ useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 
 const {
   claimBoxAgentDevice,
-  countTeamBoxesOrdering,
+  teamOrderingVcpus,
   insertBoxAgentDevice,
   insertManagedRuntimeDevice,
   listTeamBoxes,
@@ -49,11 +49,11 @@ describe('the device a managed runtime joins as', () => {
       label: 'Box',
       platform: 'linux',
       allowLocalExec: true,
-      box: { provider: 'instabox', teamId: 'team-1' },
+      box: { provider: 'instabox', teamId: 'team-1', vcpus: 2 },
     })
 
     expect((await listTeamBoxes('team-1')).map((device) => device.deviceId)).toEqual(['box-device'])
-    expect(await countTeamBoxesOrdering('team-1')).toBe(1)
+    expect(await teamOrderingVcpus('team-1')).toBe(2)
   })
 
   test('is claimed once by the join token minted for it', async () => {

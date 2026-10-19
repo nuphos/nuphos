@@ -232,7 +232,6 @@ export async function setAgentDeviceBoxSandbox(
   return result.matchedCount > 0
 }
 
-/** The team's Boxes still being ordered: instabox does not list their machines yet. */
 /** vCPUs of the team's Boxes still being ordered: rows without their machine yet. */
 export async function teamOrderingVcpus(teamId: string): Promise<number> {
   const rows = await agentDevices()
