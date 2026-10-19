@@ -9,12 +9,30 @@ import type { RuntimeExecution } from './runtimeExecution.ts'
 // and every view reads from here, so no two copies can disagree.
 let snapshot: ReadonlyMap<string, RuntimeExecution> = new Map()
 const listeners = new Set<() => void>()
+// A runtime process never comes back: once a newer epoch has been seen, a late
+// reading from an older one (with its pending requests) must not become current.
+const epochs = new Map<string, { latest: string; retired: Set<string> }>()
+
+function fromRetiredEpoch(sessionId: string, state: RuntimeExecution): boolean {
+  if (!state.epoch) return false
+  const seen = epochs.get(sessionId)
+
+  if (seen?.retired.has(state.epoch)) return true
+  if (!seen) epochs.set(sessionId, { latest: state.epoch, retired: new Set() })
+  else if (seen.latest !== state.epoch) {
+    seen.retired.add(seen.latest)
+    seen.latest = state.epoch
+  }
+
+  return false
+}
 
 export function publishRuntimeStates(states: Iterable<readonly [string, RuntimeExecution]>) {
   const next = new Map(snapshot)
   let changed = false
 
   for (const [sessionId, state] of states) {
+    if (fromRetiredEpoch(sessionId, state)) continue
     const current = next.get(sessionId)
     const selected = acceptRuntimeSnapshot(current, state)
 
