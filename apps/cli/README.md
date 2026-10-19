@@ -150,7 +150,7 @@ sign-in. A token an older version left in `cli.yaml` moves to the keychain on
 the next run. Elsewhere the token stays in the file, readable only by you.
 A keychain that refuses the write (locked, in an SSH session) leaves the
 token in the file. `nuphos auth status` shows who is signed in
-and where the token is, and `nuphos auth token` prints it for scripts. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
+and where the token is. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint and the team, and
 `NUPHOS_DEBUG_FRAMES=<file>` appends every stream event to a file.
 
 In the composer:

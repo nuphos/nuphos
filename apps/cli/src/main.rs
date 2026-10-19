@@ -100,7 +100,7 @@ enum Command {
     Login,
     /// Sign out of the CLI (Nuphos Desktop stays signed in).
     Logout,
-    /// Show the sign-in, or print its token for scripts.
+    /// Show who is signed in and where the session token is kept.
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
@@ -113,8 +113,6 @@ enum Command {
 enum AuthCommand {
     /// Who is signed in, and where the session token is kept.
     Status,
-    /// Print the session token, for scripts that call the Nuphos API.
-    Token,
 }
 
 #[tokio::main]
@@ -218,16 +216,16 @@ async fn run(args: Args) -> Result<i32> {
     }
 }
 
-/// `nuphos auth status|token`: read locally, without checking the token
-/// with the backend.
+/// `nuphos auth status`: read locally, without checking the token with the
+/// backend. There is deliberately no command that prints the token: the
+/// keychain trusts this binary, so it would hand the token to any process.
 fn auth(command: &AuthCommand) -> Result<i32> {
     let session = config::read_session();
-    let Some(token) = &session.token else {
+    if session.token.is_none() {
         eprintln!("nuphos: not signed in; run `nuphos login`");
         return Ok(1);
-    };
+    }
     match command {
-        AuthCommand::Token => println!("{token}"),
         AuthCommand::Status => {
             let who = session.user_info.as_ref().and_then(|u| u["email"].as_str()).or(session.user.as_deref());
             println!("Signed in as {}", render::clean(who.unwrap_or("unknown")));

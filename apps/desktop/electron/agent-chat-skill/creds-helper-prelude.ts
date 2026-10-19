@@ -118,13 +118,9 @@ auth_token="\${NUPHOS_TOKEN:-}"
 if [ -z "$auth_token" ]; then
   auth_token="$(read_local_nuphos_token || true)"
 fi
-# On macOS each sign-in keeps its token in the keychain; the CLI reads its own.
-if [ -z "$auth_token" ] && command -v nuphos >/dev/null 2>&1; then
-  auth_token="$(nuphos auth token 2>/dev/null || true)"
-fi
 if [ -z "$auth_token" ]; then
   echo "Nuphos is not signed in. Open Nuphos and sign in, then retry." >&2
-  echo "On macOS the sign-in is in the keychain: install the Nuphos CLI from https://nuphos.ai and run \\\`nuphos login\\\` once (it can use the app's sign-in). NUPHOS_TOKEN can be used as a fallback." >&2
+  echo "On macOS the sign-in is kept in the keychain, which this helper cannot read; set NUPHOS_TOKEN." >&2
   exit 1
 fi
 

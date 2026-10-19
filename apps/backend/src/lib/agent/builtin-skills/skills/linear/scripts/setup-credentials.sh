@@ -47,12 +47,8 @@ auth_token="${NUPHOS_TOKEN:-}"
 if [ -z "$auth_token" ]; then
   auth_token="$(read_local_nuphos_token || true)"
 fi
-# On macOS the local sign-in keeps its token in the keychain; the CLI reads it.
-if [ -z "$auth_token" ] && command -v nuphos >/dev/null 2>&1; then
-  auth_token="$(nuphos auth token 2>/dev/null || true)"
-fi
 if [ -z "$auth_token" ]; then
-  echo "NUPHOS_TOKEN is not set and there is no local Nuphos sign-in (run \`nuphos login\`)" >&2
+  echo "NUPHOS_TOKEN is not set and no local Nuphos sign-in has a token in ~/.config/nuphos" >&2
   exit 1
 fi
 
