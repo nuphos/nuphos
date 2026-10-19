@@ -101,6 +101,11 @@ export function configFile(deps: ConfigFileDeps) {
         cached?.stamp === stamp && cached.account === account && cached.token === cfg.token
 
       try {
+        // Update in place only an item this app made: one that was already
+        // there could carry another app's access (a pre-created item, as in
+        // the XARA attacks), so it is replaced.
+        if (previous.keychainAccount !== account)
+          await deps.store.delete(account).catch(() => undefined)
         if (!unchanged) await deps.store.set(account, cfg.token)
         stored.token = undefined
         stored.keychainAccount = account

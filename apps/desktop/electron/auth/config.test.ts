@@ -180,3 +180,17 @@ test('signing out of the app does not pick the CLI sign-in up again', async () =
   assert.equal((await h.config.read()).token, undefined)
   assert.equal((await h.onDisk(h.legacy)).token, 'tok-cli')
 })
+
+test('an item this app did not make is replaced, not reused', async () => {
+  const h = await harness()
+
+  h.items.set(ACCOUNT, 'planted')
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  await h.config.write({ token: 'tok-2', userInfo: USER })
+
+  assert.deepEqual(
+    h.calls.filter((c) => c.startsWith('delete')),
+    [`delete ${ACCOUNT}`],
+  )
+  assert.equal(h.items.get(ACCOUNT), 'tok-2')
+})

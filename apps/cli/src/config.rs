@@ -194,6 +194,12 @@ pub fn write_session(session: &Session) -> anyhow::Result<()> {
     stored.keychain_account = None;
     if secret::enabled() {
         let account = keychain_account(session);
+        // Update in place only an item this client made: one that was already
+        // there could carry another app's access (a pre-created item, as in
+        // the XARA attacks), so it is replaced.
+        if previous.as_deref() != Some(account.as_str()) {
+            let _ = secret::delete(&account);
+        }
         match secret::set(&account, token) {
             Ok(()) => {
                 stored.token = None;
