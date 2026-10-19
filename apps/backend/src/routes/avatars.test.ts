@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { errorHandler } from '@/lib/errors'
+import { deleteUserAvatars } from '@/lib/identity/avatar-upload'
 import { trustedAvatarURL } from '@/lib/identity/avatar-url'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useDb } from '@/lib/test/doubles/db'
@@ -25,6 +26,11 @@ let gate: Promise<void> | null = null
 // When set, the next user_avatars prune waits on it, after it chose what to keep.
 let pruneGate: Promise<void> | null = null
 let pruneWaiting = false
+// The open account deletion request, if any.
+let deletionRequest: Doc | null = null
+// When set, the next user_avatars write waits on it, before storing the photo.
+let storeGate: Promise<void> | null = null
+let storeWaiting = false
 
 const pathOf = (url: string) => url.slice(config.auth.publicBaseUrl.length)
 const same = (a: unknown, b: unknown) => String(a) === String(b)
@@ -71,13 +77,20 @@ function collection(name: string) {
     return {
       findOne: (filter: Doc) =>
         Promise.resolve(avatars.find((doc) => matches(doc, filter)) ?? null),
-      updateOne: (filter: Doc, update: { $set: Doc }) => {
+      updateOne: async (filter: Doc, update: { $set: Doc }) => {
+        if (storeGate) {
+          const wait = storeGate
+
+          storeGate = null
+          storeWaiting = true
+          await wait
+        }
         const doc = avatars.find((d) => matches(d, filter))
 
         if (doc) Object.assign(doc, update.$set)
         else avatars.push({ ...filter, ...update.$set })
 
-        return Promise.resolve({})
+        return {}
       },
       deleteMany: async (filter: Doc) => {
         if (pruneGate) {
@@ -94,7 +107,16 @@ function collection(name: string) {
     }
   }
 
-  // No deletion request is open in these tests; the user directory write is a no-op.
+  if (name === 'account_deletion_requests') {
+    return {
+      findOne: (filter: Doc) =>
+        Promise.resolve(
+          deletionRequest && matches(deletionRequest, filter) ? deletionRequest : null,
+        ),
+    }
+  }
+
+  // The user directory write is a no-op.
   return { findOne: () => Promise.resolve(null), updateOne: () => Promise.resolve({}) }
 }
 
@@ -132,6 +154,9 @@ beforeEach(() => {
   gate = null
   pruneGate = null
   pruneWaiting = false
+  deletionRequest = null
+  storeGate = null
+  storeWaiting = false
 })
 
 function chunk(type: string, data: Buffer): Buffer {
@@ -346,4 +371,26 @@ test('a stale profile save cannot republish an old photo while an upload prunes 
   expect((await app.request(pathOf(urlB))).status).toBe(200)
   expect((await app.request(pathOf(urlA))).status).toBe(404)
   expect(avatars).toHaveLength(1)
+})
+
+test('an upload racing an account deletion request leaves no photo stored or served', async () => {
+  let release = () => {}
+
+  storeGate = new Promise((resolve) => {
+    release = resolve
+  })
+  // The upload passes its deletion check and parks before storing the photo.
+  const upload = put(png(64, 64))
+
+  await until(() => storeWaiting)
+  // A deletion request completes meanwhile, in the order requestAccountDeletion
+  // uses: record the request, then purge the stored photos once.
+  deletionRequest = { _id: userId.toHexString(), status: 'requested' }
+  await deleteUserAvatars(userId.toHexString())
+  release()
+  const res = await upload
+
+  expect(res.status).toBe(409)
+  expect(avatars).toHaveLength(0)
+  expect(current()).toBe('')
 })

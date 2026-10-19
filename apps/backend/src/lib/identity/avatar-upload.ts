@@ -66,14 +66,32 @@ export async function uploadAvatar(userId: string, input: Uint8Array) {
     { $set: { bytes: new Binary(bytes), updatedAt: new Date() } },
     { upsert: true },
   )
-  const user = await setAvatarURL(
-    _id,
-    `${config.auth.publicBaseUrl}${hostedAvatarPath(userId, hash)}`,
-  )
+  const avatarURL = `${config.auth.publicBaseUrl}${hostedAvatarPath(userId, hash)}`
+  const user = await setAvatarURL(_id, avatarURL)
 
+  // A deletion request is recorded before its one-time purge, and this photo
+  // was stored before this check. So either that purge ran after the photo
+  // was stored and removed it, or this check sees the request and takes the
+  // photo back down.
+  if (await deletionPending(userId)) {
+    await withdrawAvatar(_id, avatarURL)
+    throw new AppError(409, 'account_deletion_pending', 'This account is being deleted')
+  }
   await pruneAvatars(userId)
 
   return user
+}
+
+/** Unpublishes `avatarURL` if it is still current, then deletes every stored photo. */
+async function withdrawAvatar(_id: ObjectId, avatarURL: string) {
+  const user = await users().findOneAndUpdate(
+    { _id, avatarURL },
+    { $set: { avatarURL: '', updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  )
+
+  if (user) upsertCachedUser(mapUser(user))
+  await deleteUserAvatars(_id.toHexString())
 }
 
 export async function removeAvatar(userId: string) {
