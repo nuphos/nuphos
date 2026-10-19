@@ -52,7 +52,7 @@ function BoxSizePicker({
   return (
     <AppSelect
       ariaLabel="New Box size"
-      triggerClassName="!h-8"
+      size="sm"
       contentClassName="w-[360px]"
       value={String(value)}
       disabled={disabled}
@@ -62,7 +62,7 @@ function BoxSizePicker({
         label: (
           <span className="flex items-center gap-2">
             <span className="truncate">{choice.name}</span>
-            <span className="ml-auto shrink-0 rounded border border-zGray-700 px-1.5 text-[11px] leading-[18px] text-secondary">
+            <span className="ml-auto shrink-0 rounded-full bg-zGray-800 px-2 py-0.5 text-[11px] font-medium text-tertiary">
               {choice.spec}
             </span>
           </span>
