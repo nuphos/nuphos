@@ -56,8 +56,8 @@ jobs:
 
   build:
     needs: validate
-    # Reuse Desktop signing secrets and its required release approval.
-    environment: desktop-release
+    # Only macOS needs Desktop's signing secrets and its release approval.
+    environment: ${{ contains(matrix.target, 'apple-darwin') && 'desktop-release' || '' }}
     strategy:
       fail-fast: true
       matrix:

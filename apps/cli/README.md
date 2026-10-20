@@ -219,7 +219,7 @@ same Developer ID Application certificate and notarization credentials as Deskto
 Both macOS architectures are signed with identifier `ai.nuphos.cli`, Team ID
 `6T873K59LQ`, hardened runtime, and a secure timestamp before packaging and hashing.
 Signing or notarization failure blocks publication. Linux binaries remain unsigned.
-The build matrix requires the environment's release approval, including Linux jobs.
+Only macOS builds require the environment's release approval; Linux builds do not.
 
 The stable designated requirement lets Keychain recognize signed CLI updates.
 An upgrade from an older unsigned CLI can still require a one-time authorization.
