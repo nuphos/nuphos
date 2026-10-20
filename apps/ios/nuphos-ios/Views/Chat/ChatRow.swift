@@ -220,3 +220,14 @@ extension ChatRow {
         .hint(id: "event.\(event.at.timeIntervalSince1970).\(event.text)", text: event.text, isError: false)
     }
 }
+
+extension ChatRow {
+    /// Why the last turn failed, when the transcript itself says so.
+    static func shownFailure(in messages: [ChatMessage]) -> String? {
+        guard let last = messages.last, last.role == .assistant else { return nil }
+        for part in last.parts.reversed() {
+            if case .turnInterrupted(let p) = part, p.reason != .cancelled { return p.message }
+        }
+        return nil
+    }
+}

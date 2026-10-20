@@ -62,15 +62,6 @@ extension ChatRow {
         return rows
     }
 
-    /// Why the last turn failed, when the transcript itself says so.
-    static func shownFailure(in messages: [ChatMessage]) -> String? {
-        guard let last = messages.last, last.role == .assistant else { return nil }
-        for part in last.parts.reversed() {
-            if case .turnInterrupted(let p) = part, p.reason != .cancelled { return p.message }
-        }
-        return nil
-    }
-
     /// Only the newest pending approval gets buttons.
     private static func lastPendingApproval(in messages: [ChatMessage]) -> String? {
         for m in messages.reversed() where m.role == .assistant {
