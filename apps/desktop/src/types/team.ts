@@ -12,6 +12,13 @@ export type UserInfo = {
 
 export type AuthStatus = { loggedIn: false } | { loggedIn: true; user: UserInfo; token: string }
 
+/** Another account signed in on this device; `key` names it for `authSwitch`. */
+export type OtherAccount = { key: string; user?: UserInfo; apiUrl?: string }
+
+/** What the account menu asks of the workspace on its way out. */
+export type AccountChange =
+  { kind: 'switch'; key: string } | { kind: 'add' } | { kind: 'logoutAll' }
+
 export type PersonalCredentialProvider = 'github' | 'linear'
 
 export type PersonalCredential = {

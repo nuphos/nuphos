@@ -31,6 +31,7 @@ import type { WorkspaceTeamsResult } from './useWorkspaceTeams'
 import type { WorkspaceToolbarResult } from './useWorkspaceToolbar'
 import type { WorkspaceProps } from './workspaceProps'
 import type { PersistedWorkspaceTab } from '../../app/workspacePersistence'
+import type { AccountChange } from '../../types'
 import type { WorkspaceTabState } from '../../app/workspaceTabState'
 
 type Args = WorkspaceProps &
@@ -90,20 +91,23 @@ export function useWorkspaceTabLifecycle(a: Args) {
   // Logout unmounts the workspace instead of emptying the tab strips, so the
   // teardown observer never sees these tabs go — tear every session's
   // terminals down here.
-  const handleLogout = useCallback(() => {
-    const residentTabs = selectAllResidentTabs(workspaceStore.getState())
-    const plan = planSshTeardownForLogout(residentTabs)
+  const handleLogout = useCallback(
+    (change?: AccountChange) => {
+      const residentTabs = selectAllResidentTabs(workspaceStore.getState())
+      const plan = planSshTeardownForLogout(residentTabs)
 
-    for (const tabId of plan.closedTabIds) closedSshTabsRef.current.add(tabId)
-    for (const sessionId of plan.sessionIdsToClose) void api.sshTerminalClose(sessionId)
-    for (const tabId of collectLocalTerminalTabIds(residentTabs)) {
-      void api.localTerminalClose(tabId)
-    }
-    // Every tab is leaving, so nothing is in scope any more — this also deletes
-    // any node-shell pod still open.
-    for (const tab of residentTabs) void api.podExecCloseTabScope(tab.id, null)
-    void onLogout()
-  }, [closedSshTabsRef, onLogout, workspaceStore])
+      for (const tabId of plan.closedTabIds) closedSshTabsRef.current.add(tabId)
+      for (const sessionId of plan.sessionIdsToClose) void api.sshTerminalClose(sessionId)
+      for (const tabId of collectLocalTerminalTabIds(residentTabs)) {
+        void api.localTerminalClose(tabId)
+      }
+      // Every tab is leaving, so nothing is in scope any more — this also deletes
+      // any node-shell pod still open.
+      for (const tab of residentTabs) void api.podExecCloseTabScope(tab.id, null)
+      void onLogout(change)
+    },
+    [closedSshTabsRef, onLogout, workspaceStore],
+  )
 
   const closeTab = useCallback(
     (tabId: string) => {

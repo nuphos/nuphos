@@ -1,7 +1,6 @@
 import clsx from 'clsx'
-import { ChevronLeft, ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronsUpDown, Loader2 } from 'lucide-react'
 
-import { Avatar } from '../Avatar'
 import { SkeletonReveal } from '../SkeletonReveal'
 import { Kbd } from '../ui/kbd'
 import {
@@ -17,7 +16,6 @@ import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
 
 import { SidebarToggleButton } from './nav-stack'
 
-import type { UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 
 /**
@@ -222,58 +220,5 @@ function TeamSwitcherMenu({
         </MenuContent>
       </Menu>
     </div>
-  )
-}
-
-export function SidebarUserEntry({
-  user,
-  onOpenUserSettings,
-  onLogout,
-}: {
-  user: UserInfo
-  onOpenUserSettings?: () => void
-  onLogout: () => void
-}) {
-  const name = user.name || user.username || user.email
-
-  return (
-    <Menu>
-      <MenuTrigger className="titlebar-no-drag min-w-0 flex-1 h-9 flex items-center gap-2.5 px-2 rounded-lg text-[13.5px] text-main outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] focus-visible:bg-[var(--sidebar-overlay-focus)] data-[popup-open]:bg-[var(--sidebar-overlay-active)]">
-        <Avatar
-          src={user.avatarURL}
-          name={name}
-          size={22}
-          className="rounded-full !shadow-none flex-shrink-0"
-        />
-        <span className="truncate font-medium">{name}</span>
-      </MenuTrigger>
-      <MenuContent side="top" align="start" sideOffset={8} className="w-[260px] !rounded-xl !p-1.5">
-        <div className="flex items-center gap-2.5 px-2 pb-2.5 pt-1.5">
-          <Avatar
-            src={user.avatarURL}
-            name={name}
-            size={28}
-            className="rounded-full !shadow-none flex-shrink-0"
-          />
-          <div className="min-w-0">
-            <div className="truncate text-[13.5px] font-medium text-main">{name}</div>
-            {user.email && <div className="truncate text-[12px] text-tertiary">{user.email}</div>}
-          </div>
-        </div>
-        <MenuSeparator />
-        {onOpenUserSettings && (
-          <MenuItem
-            icon={<Settings className="h-3.5 w-3.5" />}
-            hint={<Kbd combo="mod+," />}
-            onClick={() => onOpenUserSettings()}
-          >
-            Settings
-          </MenuItem>
-        )}
-        <MenuItem icon={<LogOut className="h-3.5 w-3.5" />} onClick={() => onLogout()}>
-          Log out
-        </MenuItem>
-      </MenuContent>
-    </Menu>
   )
 }

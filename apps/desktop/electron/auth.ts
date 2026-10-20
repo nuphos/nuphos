@@ -6,18 +6,26 @@ import { shell } from 'electron'
 // is how auth-login.test.ts drives login().
 import { apiUrl } from './api-endpoint.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
-import { apiErrorMessage, writeConfig } from './auth/config.ts'
+import {
+  apiErrorMessage,
+  otherAccounts,
+  signOutAllConfig,
+  switchConfig,
+  writeConfig,
+} from './auth/config.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
+import { status } from './auth/me.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
 
+import type { OtherAccount } from './auth/config.ts'
 import type { AuthStatus, UserInfo } from './auth-status.ts'
 import type { Server } from 'node:http'
 
-export type { AuthStatus, UserInfo }
+export type { AuthStatus, OtherAccount, UserInfo }
 
-export { status } from './auth/me.ts'
+export { status }
 
 let pendingServer: Server | null = null
 
@@ -105,6 +113,27 @@ export async function logout() {
     pendingServer = null
   }
   await writeConfig({})
+}
+
+/** The other accounts signed in on this device, for the account menu. */
+export function accounts(): Promise<OtherAccount[]> {
+  return otherAccounts()
+}
+
+/**
+ * Makes another signed-in account the current one. Its token is checked like
+ * at startup: one the backend rejects leaves the list and signs out.
+ */
+export async function switchAccount(key: string): Promise<AuthStatus> {
+  cancelPendingLogin()
+  await switchConfig(key)
+
+  return status()
+}
+
+export async function logoutAll() {
+  cancelPendingLogin()
+  await signOutAllConfig()
 }
 
 export function cancelPendingLogin() {
