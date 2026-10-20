@@ -162,9 +162,7 @@ export function Composer({
       <div
         className={clsx(
           'relative mx-auto w-full',
-          // No clipping: the sketch guide lines whose ±9999px extensions this
-          // used to contain are gone, and the clip was slicing the composer's
-          // shadow off at both sides.
+          // No clipping: it would slice the composer's shadow off at both sides.
           hero ? '' : 'max-w-[760px]',
         )}
       >
