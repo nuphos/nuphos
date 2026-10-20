@@ -299,3 +299,31 @@ test('records the jobs a runtime advertises and runs one over the control socket
   })
   expect(sockets[0]?.sent.at(-1)).toMatchObject({ method: '_openab/runtime/job', params: request })
 })
+
+test('a runtime reached through another route gets its own connection', async () => {
+  const dialed: string[] = []
+  const registry = createTeamRuntimeRegistry((endpoint) => {
+    dialed.push(endpoint.tunnelUrl ?? endpoint.url)
+
+    return Promise.resolve({
+      initialize: () =>
+        Promise.resolve({
+          agentCapabilities: {
+            _meta: { 'dev.openab/permissionRelay': true, 'dev.openab/sessionAuthority': 2 },
+          },
+        }),
+      onClosed: () => {},
+      onRetired: () => {},
+      close: () => {},
+    } as unknown as TeamPreviewClient)
+  })
+  const direct = { url: 'ws://rt/acp', authKey: 'k' }
+  const joined = { ...direct, tunnelUrl: 'nuphos-device://runtime/owner/device-a?team=t' }
+
+  const first = await registry.acquire('t', direct)
+
+  expect(await registry.acquire('t', direct)).toBe(first)
+  expect(await registry.acquire('t', joined)).not.toBe(first)
+  expect(dialed).toEqual(['ws://rt/acp', joined.tunnelUrl])
+  expect(registry.connectionInfo('t', ['ws://rt/acp']).connected).toBe(true)
+})

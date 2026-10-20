@@ -3,6 +3,7 @@ import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { registry, sessionsByConversation, sessionCreations } from './agent-chat-registry'
 import { attachOpenAbSession } from './openab-session-attach'
 import { observeSession } from './session-reattach'
+import { runtimeRoute } from './team-openab-runtime'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
 import type { OpenAbSessionRuntime } from './openab-acp-session'
@@ -31,7 +32,7 @@ export async function openConversationSession(
     const attachment = await getConversationPreviewAttachment(conversationId, teamId)
 
     if (
-      existing.endpoint.url === endpoint.url &&
+      runtimeRoute(existing.endpoint) === runtimeRoute(endpoint) &&
       existing.openabSessionId === attachment?.openabSessionId
     )
       return existing

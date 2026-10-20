@@ -107,8 +107,16 @@ export class RuntimeCapabilityError extends Error {
   override name = 'RuntimeCapabilityError'
 }
 
+/**
+ * The route a runtime is dialled on: its url, and the tunnel when it joined as a device. A hosted
+ * runtime keeps its url when it joins or leaves, so the url alone cannot tell one route from the
+ * other; a connection or session made for one route is never reused for another.
+ */
+export const runtimeRoute = (endpoint: TeamRuntimeEndpoint) =>
+  `${endpoint.url}|${endpoint.tunnelUrl ?? ''}`
+
 const teamRuntimeKey = (teamId: string, endpoint: TeamRuntimeEndpoint) =>
-  `${teamId}|${endpoint.url}`
+  `${teamId}|${runtimeRoute(endpoint)}`
 
 export function cancelActiveTeamTurn(session: TeamSession) {
   const turn = session.activeTurn
@@ -208,7 +216,7 @@ export function createTeamRuntimeRegistry<Client extends TeamPreviewClient>(
     for (const [key, at] of connectedAt) {
       if (
         !key.startsWith(prefix) ||
-        (runtimeUrls && !runtimeUrls.includes(key.slice(prefix.length)))
+        (runtimeUrls && !runtimeUrls.includes(key.split('|')[1] ?? ''))
       )
         continue
       if (earliest === undefined || at < earliest) {
