@@ -237,6 +237,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         // Rows come into view at their estimated height and are measured by
         // the next layout pass. Measure them now, then go to the end again, so
         // the end is never committed for a frame at a size it will not keep.
+        // A shrink can start UIKit's own animated clamp; left running, it
+        // would pull the reader off the end after this returns.
+        collection.setContentOffset(collection.contentOffset, animated: false)
         for _ in 0..<3 {
             layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
             let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
@@ -335,6 +338,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
                 AnyView(HintRow(text: text, isError: isError).padding(.horizontal, 16).padding(.bottom, 18))
             case .activity(let text, let live):
                 AnyView(ActivityRow(text: text, live: live).padding(.horizontal, 16).padding(.bottom, 18))
+            case .event(_, let event):
+                AnyView(EventLine(event: event).padding(.horizontal, 16).padding(.bottom, 18))
             case .hint(let id, _, _) where id == "step-card":
                 AnyView(TranscriptDisclosureFixture(marker: stepMarker).padding(16))
             case .hint:
@@ -511,40 +516,50 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         await pause()
         check("incoming_keeps_reader", abs(y(of: "user.1") - readingY) < 1 && !nearBottom,
               "before=\(readingY) after=\(y(of: "user.1"))")
-        // At the end, a short event row arrives, then the turn starts and
+        // At the end, a short event row arrives — a join notice, or a message
+        // another session or GitHub delivered — then the turn starts and
         // streams. The rows already on screen may only move up, never back.
-        fixture = fixture0
-        apply()
-        showLatest()
-        await pause()
-        func screenY(_ id: String) -> CGFloat {
-            guard let index = rows.firstIndex(where: { $0.id == id }),
-                  let frame = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))?.frame else { return .nan }
-            return frame.minY - collection.contentOffset.y
-        }
-        var lastY = screenY("answer.39"), down: CGFloat = 0, frames = 0
-        let eventProbe = TranscriptFrameProbe {
-            let y = screenY("answer.39")
-            if y.isFinite, lastY.isFinite { down = max(down, y - lastY) }
-            lastY = y
-            frames += 1
-        }
-        fixture.append(.hint(id: "event.joined", text: "Yuanlin joined the session", isError: false))
-        apply()
-        try? await Task.sleep(for: .milliseconds(400))
-        fixture.append(.activity(text: "Thinking…", live: true))
-        apply()
-        try? await Task.sleep(for: .milliseconds(400))
-        fixture.insert(.assistantText(id: "answer.event", messageId: "event", text: "", streaming: true), at: fixture.count - 1)
-        for step in 1...8 {
-            fixture[fixture.count - 2] = .assistantText(id: "answer.event", messageId: "event",
-                text: String(repeating: "Streaming after an event row.\n\n", count: step), streaming: true)
+        // The second run starts by removing the first run's rows while the
+        // reader follows; that must leave the reader at the end too.
+        let arrivals: [(String, ChatRow)] = [
+            ("event_then_stream", .hint(id: "event.joined", text: "Yuanlin joined the session", isError: false)),
+            ("agent_event_then_stream", .event(id: "user.github", event: .init(name: "GitHub", logo: "logo-github",
+                text: "nuphos/nuphos#631 check_suite.completed\n\nAll checks passed."))),
+        ]
+        for (name, arrival) in arrivals {
+            fixture = fixture0
             apply()
-            try? await Task.sleep(for: .milliseconds(150))
+            showLatest()
+            await pause()
+            func screenY(_ id: String) -> CGFloat {
+                guard let index = rows.firstIndex(where: { $0.id == id }),
+                      let frame = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))?.frame else { return .nan }
+                return frame.minY - collection.contentOffset.y
+            }
+            var lastY = screenY("answer.39"), down: CGFloat = 0, frames = 0
+            let eventProbe = TranscriptFrameProbe {
+                let y = screenY("answer.39")
+                if y.isFinite, lastY.isFinite { down = max(down, y - lastY) }
+                lastY = y
+                frames += 1
+            }
+            fixture.append(arrival)
+            apply()
+            try? await Task.sleep(for: .milliseconds(400))
+            fixture.append(.activity(text: "Thinking…", live: true))
+            apply()
+            try? await Task.sleep(for: .milliseconds(400))
+            fixture.insert(.assistantText(id: "answer.event", messageId: "event", text: "", streaming: true), at: fixture.count - 1)
+            for step in 1...8 {
+                fixture[fixture.count - 2] = .assistantText(id: "answer.event", messageId: "event",
+                    text: String(repeating: "Streaming after an event row.\n\n", count: step), streaming: true)
+                apply()
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            await pause()
+            eventProbe.stop()
+            check(name, down < 1 && nearBottom, "maxDownward=\(down) frames=\(frames) nearBottom=\(nearBottom)")
         }
-        await pause()
-        eventProbe.stop()
-        check("event_then_stream", down < 1 && nearBottom, "maxDownward=\(down) frames=\(frames) nearBottom=\(nearBottom)")
         check("suite_complete", true, "")
     }
     #endif

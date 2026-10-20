@@ -351,7 +351,7 @@ struct ConversationView: View {
         case .user, .sending: 22
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
-        case .activity, .hint: 18
+        case .activity, .hint, .event: 18
         }
     }
 
@@ -394,6 +394,8 @@ struct ConversationView: View {
             }
         case .hint(_, let text, let isError):
             HintRow(text: text, isError: isError)
+        case .event(_, let event):
+            EventLine(event: event, onLink: open(link:))
         }
     }
 }
@@ -553,6 +555,58 @@ struct HintRow: View {
         }
         .foregroundStyle(isError ? Color.red : Theme.muted)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A message another session, a linked resource or a trigger delivered: one
+/// muted line — who sent it and its first line — that expands to the full text.
+struct EventLine: View {
+    let event: ChatMessage.Event
+    var onLink: ((URL) -> Void)?
+
+    @State private var expanded = false
+    @Environment(\.transcriptReadingInteraction) private var readingInteraction
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                readingInteraction()
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    if let logo = event.logo {
+                        BrandLogo(name: logo, size: 13).foregroundStyle(Theme.heading)
+                    } else {
+                        Text(event.name.prefix(1).uppercased())
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 14, height: 14)
+                            .background(Theme.muted, in: Circle())
+                    }
+                    Text(event.name).fontWeight(.medium).foregroundStyle(Theme.heading).layoutPriority(1)
+                    Text(event.text.prefix { $0 != "\n" })
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                }
+                .font(Theme.Text.caption)
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(event.name): \(event.text.prefix { $0 != "\n" })")
+            .accessibilityHint(expanded ? "Collapses the message" : "Shows the full message")
+            if expanded {
+                AssistantMarkdown(text: event.text, streaming: false, onLink: onLink)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.hairline))
+            }
+        }
     }
 }
 

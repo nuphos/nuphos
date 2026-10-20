@@ -44,6 +44,28 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         return Sender(name: name, avatarURL: metadata?["sender"]?["avatarURL"]?.stringValue ?? "")
     }
 
+    /// A message another session (`agent.thread`) or a linked resource or
+    /// trigger (`agent.resource`) delivered. It is written for the agent, so
+    /// like the desktop's AgentEventMessage it is one line, not the user's bubble.
+    struct Event: Equatable, Sendable {
+        let name: String
+        /// The runtime's or provider's mark; nil shows the name's initial.
+        let logo: String?
+        let text: String
+    }
+
+    var event: Event? {
+        let source = metadata?["source"]?.stringValue
+        let expected = source == "agent.thread" ? "agent" : source == "agent.resource" ? "system" : nil
+        guard let expected, metadata?["sender"]?["type"]?.stringValue == expected, let name = sender?.name else { return nil }
+        let runtime = metadata?["sender"]?["agentRuntime"]?.stringValue.flatMap(RuntimeInstance.Provider.init(rawValue:))
+        let id = metadata?["sender"]?["id"]?.stringValue?.lowercased() ?? ""
+        let logo = source == "agent.thread"
+            ? runtime.map { RuntimeInstance.Provider.logo($0.rawValue) }
+            : ["github", "linear"].contains(id) ? "logo-\(id)" : nil
+        return Event(name: name, logo: logo, text: text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     var text: String {
         parts.compactMap { if case .text(let p) = $0 { return p.text }; return nil }.joined()
     }

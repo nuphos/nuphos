@@ -6,6 +6,7 @@ enum ChatRowTests {
         preservesHistoricalImages()
         readsSentAndPersistedTransferUploads()
         preservesVerifiedSender()
+        foldsDeliveredMessagesIntoEventLines()
         decodesSharedConversationPermissions()
         groupsThinkingButNotNarration()
         streamsCodexThinkingIntoOneRun()
@@ -73,6 +74,25 @@ enum ChatRowTests {
         let failed = try! JSONDecoder().decode(ChatPart.self, from: JSONSerialization.data(withJSONObject: ["type": "transfer-upload", "groupId": "g2", "status": "error", "files": []]))
         precondition(TransferUpload(failed) == nil, "Failed uploads are not attachments")
         precondition(upload.instruction.contains("transfer group g1"))
+    }
+
+    /// As on the desktop, only server-attributed agent and resource messages
+    /// leave the user's bubble; a mismatched sender type stays a bubble.
+    private static func foldsDeliveredMessagesIntoEventLines() {
+        func message(_ source: String, _ type: String, _ id: String, _ name: String, runtime: String? = nil) -> ChatMessage {
+            var m = ChatMessage.user("First line\n\nDetails")
+            var sender: [String: JSONValue] = ["type": .string(type), "id": .string(id), "displayName": .string(name)]
+            if let runtime { sender["agentRuntime"] = .string(runtime) }
+            m.metadata = .object(["version": .number(1), "source": .string(source), "sender": .object(sender)])
+            return m
+        }
+        let agent = message("agent.thread", "agent", "s1", "Reviewer", runtime: "codex").event
+        precondition(agent == .init(name: "Reviewer", logo: "logo-openai", text: "First line\n\nDetails"))
+        precondition(message("agent.thread", "agent", "nuphos", "Nuphos").event?.logo == nil)
+        precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.logo == "logo-github")
+        precondition(message("agent.resource", "system", "trigger:1", "Hourly scan").event?.logo == nil)
+        precondition(message("agent.resource", "user", "github", "GitHub").event == nil)
+        precondition(message("slack", "user", "u1", "Teammate").event == nil)
     }
 
     private static func preservesVerifiedSender() {
