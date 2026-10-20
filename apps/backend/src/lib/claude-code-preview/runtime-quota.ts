@@ -211,7 +211,7 @@ async function fetchUncached(
   const quota = NORMALIZE[instance.provider as keyof typeof NORMALIZE](
     instance,
     reading.usage,
-    fetchedAt,
+    reading.readAt ?? fetchedAt,
   )
 
   record(quota, deps)

@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
+import { parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+
 import { controlRegistry } from './agent-chat-registry'
+import { reportedLocalAgent } from './local-runtime-catalog'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -123,7 +127,8 @@ const MAX_REASON_CHARS = 500
  *  not ask. `asked` marks a failure the provider itself answered, which is the
  *  only kind worth holding on to — the rest cost nothing to ask again. */
 export type RuntimeQuotaReading =
-  { usage?: unknown; plan?: string } | { error: string; asked?: boolean; offline?: true }
+  | { usage?: unknown; plan?: string; readAt?: string }
+  | { error: string; asked?: boolean; offline?: true }
 
 export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
   const index = stdout.lastIndexOf(RUNTIME_QUOTA_SENTINEL)
@@ -156,6 +161,25 @@ export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
   }
 }
 
+/**
+ * A runtime that joined as a device reports its agent's account with its presence, read
+ * with the agent's own environment, as a local runtime does; nothing is run on it to ask.
+ */
+export async function reportedQuota(
+  tunnelUrl: string,
+  getPresence = (userId: string, deviceId: string) => runtimePresenceStore().get(userId, deviceId),
+): Promise<RuntimeQuotaReading> {
+  const ref = parseLocalRuntimeUrl(tunnelUrl)
+  const agent =
+    ref && reportedLocalAgent((await getPresence(ref.userId, ref.deviceId))?.status, ref)
+
+  if (!agent) return { error: 'Agent is offline', offline: true }
+  if (agent.cli.loggedIn === false) return { error: 'Sign in required', asked: true }
+  if (agent.usage === undefined) return { error: 'The agent has not reported usage yet' }
+
+  return { usage: agent.usage, ...(agent.usageAt ? { readAt: agent.usageAt } : {}) }
+}
+
 /** Asks the agent that holds the credential; the same path for self-hosted and
  *  Nuphos-hosted agents, because they are the same runtime. */
 export async function probeRuntimeQuota(
@@ -171,6 +195,7 @@ export async function probeRuntimeQuota(
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === instance.id)
 
   if (!endpoint) return { error: 'Agent is offline', offline: true }
+  if (endpoint.tunnelUrl) return reportedQuota(endpoint.tunnelUrl)
   const client = await controlRegistry.acquire(teamId, endpoint)
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes(PROBE_JOB))

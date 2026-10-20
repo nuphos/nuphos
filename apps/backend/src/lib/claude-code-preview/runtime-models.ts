@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
+import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
 import { controlRegistry } from './agent-chat-registry'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
@@ -100,6 +101,10 @@ async function probeConnectedModels(
         )
 
   if (!endpoint) throw new Error('Runtime offline')
+  // A runtime that joined as a device reports its models with its presence, as a local one does.
+  const joined = endpoint.tunnelUrl && parseLocalRuntimeUrl(endpoint.tunnelUrl)
+
+  if (joined) return localRuntimeModels(localRuntimeId(joined), model)
   const client = await controlRegistry.acquire(teamId, endpoint)
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel'))
