@@ -17,16 +17,6 @@ struct NestedConversation: Identifiable, Equatable {
 /// The desktop sidebar's `nestItems`: agent-opened threads follow the
 /// conversation that opened them, one level deeper, siblings in list order.
 enum ConversationNesting {
-    /// `root` and every listed thread below it at any depth, whatever each
-    /// row's own state: the backend's unwatch cascade walks the same tree.
-    static func subtree(of root: String, in rows: [AgentConversation]) -> Set<String> {
-        var ids: Set<String> = [root]
-        while let next = rows.first(where: { !ids.contains($0.sessionId) && $0.parentSessionId.map(ids.contains) == true }) {
-            ids.insert(next.sessionId)
-        }
-        return ids
-    }
-
     /// A row is top-level when its parent is not listed, or when it is pinned
     /// and its parent is not (it stays with the pins). Rows under a folded
     /// parent are left out.

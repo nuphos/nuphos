@@ -96,20 +96,13 @@ final class AgentStore {
         }
     }
 
-    /// Unwatching also unwatches the threads below, as the backend does.
+    /// The backend also unwatches the threads below; reading the list back
+    /// shows what it did instead of repeating that cascade here.
     func setWatching(_ watching: Bool, conversation: AgentConversation) async {
         guard let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {
             try await AgentChatAPI.setWatching(token: token, teamId: teamId, sessionId: conversation.sessionId, watching: watching)
-            let changed: Set<String> = watching
-                ? [conversation.sessionId]
-                : ConversationNesting.subtree(of: conversation.sessionId, in: conversations + sharedConversations)
-            for index in conversations.indices where changed.contains(conversations[index].sessionId) && conversations[index].watching != nil {
-                conversations[index].watching = watching
-            }
-            for index in sharedConversations.indices where changed.contains(sharedConversations[index].sessionId) && sharedConversations[index].watching != nil {
-                sharedConversations[index].watching = watching
-            }
+            await refreshFirstPage()
         } catch {
             phase = .failed(error.localizedDescription)
         }
