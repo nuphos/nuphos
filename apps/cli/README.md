@@ -216,6 +216,8 @@ cargo test
 
 The CLI release build uses the protected `desktop-release` environment and the
 same Developer ID Application certificate and notarization credentials as Desktop.
+The pinned `apple-actions/import-codesign-certs` action manages the temporary signing
+keychain; the CLI script only signs, verifies, and submits the binary for notarization.
 Both macOS architectures are signed with identifier `ai.nuphos.cli`, Team ID
 `6T873K59LQ`, hardened runtime, and a secure timestamp before packaging and hashing.
 Signing or notarization failure blocks publication. Linux binaries remain unsigned.
