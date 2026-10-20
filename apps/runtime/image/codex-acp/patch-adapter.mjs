@@ -89,17 +89,40 @@ export function patchAdapter(source, helper) {
       ),
     )
 
+  const restoreHistory = readFileSync(
+    new URL('./restore-history.mjs', import.meta.url),
+    'utf8',
+  ).replaceAll('export function', 'function')
+  const readerStart = 'function createJSONRPCReader(readable) {\n  return {\n    listen(callback) {'
+  const readerEnd = '\n    onError: new import_node.Emitter().event,'
+  const start = resubscribing.indexOf(readerStart)
+  const end = resubscribing.indexOf(readerEnd, start)
+  const fallback = '    const record2 = parseJsonRecord(line);'
+  if (start < 0 || end < 0 || resubscribing.split(fallback).length !== 2)
+    throw new Error('Expected Codex JSON reader and history fallback handoffs')
+  const withRestore = (
+    resubscribing.slice(0, start) +
+    readerStart +
+    '\n      return nuphosListenJsonLines(readable, callback);\n    },' +
+    resubscribing.slice(end)
+  )
+    .replace(
+      '      thread: response.thread,',
+      '      thread: nuphosOmitRestoreImages(response.thread),',
+    )
+    .replace(fallback, '    const record2 = nuphosOmitRestoreImages(parseJsonRecord(line));')
+
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.
   return patchRuntimeDefaults(
-    resubscribing
+    withRestore
       .replace(
         'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
         'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',
       )
       .replace(
         '// src/index.ts',
-        `${sessionHome}\n${helper}\n${steering}\n${mcpBridge}\n// src/index.ts`,
+        `${restoreHistory}\n${sessionHome}\n${helper}\n${steering}\n${mcpBridge}\n// src/index.ts`,
       ),
   )
 }

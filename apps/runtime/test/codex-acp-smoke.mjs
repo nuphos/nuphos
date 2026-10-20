@@ -115,7 +115,7 @@ try {
       (u) =>
         u.sessionUpdate === 'user_message_chunk' &&
         u.content.type === 'text' &&
-        u.content.text === '[@image](data:image/png;base64,aGVsbG8=)',
+        u.content.text === '[@image]([Image omitted during restore])',
     ),
   )
   assert.ok(
