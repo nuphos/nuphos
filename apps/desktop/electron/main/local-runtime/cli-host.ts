@@ -133,11 +133,7 @@ if (!bundle()) {
   process.exit(1)
 }
 
-// The provisioner names the person a hosted runtime pod belongs to.
-const prepareAgentHome = podOwnerAgentHome(
-  process.env.NUPHOS_AGENT_OWNER_ID?.trim() === owner ? owner : undefined,
-  dataDir,
-)
+const prepareAgentHome = podOwnerAgentHome(owner, dataDir)
 const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle,
   ownsMachine: ownsMachine(deviceCredential),

@@ -252,7 +252,7 @@ test('a hosted pod’s owner uses the pod’s own Claude login; other members ke
   t.after(() => rmSync(dir, { recursive: true, force: true }))
   const data = path.join(dir, 'agent')
   const home = path.join(dir, 'home')
-  const prepare = podOwnerAgentHome('owner-1', data, home)
+  const prepare = podOwnerAgentHome('owner-1', data, { NUPHOS_AGENT_OWNER_ID: 'owner-1' }, home)
   const member = (id: string) => path.join(data, 'users', id)
 
   assert.equal(
@@ -266,7 +266,7 @@ test('a hosted pod’s owner uses the pod’s own Claude login; other members ke
   )
   // Without a named owner, as on a Box or a person's computer, nothing changes.
   assert.equal(
-    podOwnerAgentHome(undefined, data, home)(
+    podOwnerAgentHome('owner-1', data, {}, home)(
       'claude-code',
       member('owner-1'),
       path.join(member('owner-1'), 'workspace'),
