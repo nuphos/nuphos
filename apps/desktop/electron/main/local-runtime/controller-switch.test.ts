@@ -5,10 +5,19 @@ import { LocalRuntimeController } from './controller.ts'
 
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
+function deferred() {
+  let resolve!: () => void
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+
+  return { promise, resolve }
+}
+
 for (const next of ['bob', null]) {
   test(`a pending registration cannot open an obsolete tunnel after switching to ${String(next)}`, async () => {
-    const entered = Promise.withResolvers<void>()
-    const registration = Promise.withResolvers<void>()
+    const entered = deferred()
+    const registration = deferred()
     const tunnels: (string | null)[] = []
     let calls = 0
     const deps: LocalRuntimeControllerDeps = {
