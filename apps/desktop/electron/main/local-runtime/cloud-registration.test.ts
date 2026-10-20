@@ -90,6 +90,10 @@ const token = `test.${Buffer.from(JSON.stringify({ sub: 'alice' })).toString('ba
 const settle = async () => {
   for (let i = 0; i < 20; i++) await new Promise((resolve) => setTimeout(resolve, 5))
 }
+// The first registration reads the Mac model, which can take seconds on a CI runner.
+const until = async (done: () => boolean) => {
+  for (let i = 0; i < 1000 && !done(); i++) await new Promise((resolve) => setTimeout(resolve, 10))
+}
 
 after(async () => {
   await stopLocalRuntime()
@@ -109,7 +113,7 @@ test('Cloud sign-in stays usable without registering a dev device or opening its
 
 test('switching endpoints stops hosting on Cloud and resumes on the dev backend', async () => {
   setApiUrl(null)
-  await settle()
+  await until(() => sockets.length === 1)
   assert.equal(getLocalRuntimeState().userId, 'alice')
   assert.deepEqual(requests, ['/agent/devices'])
   assert.deepEqual(sockets, ['ws://127.0.0.1:3718/agent/devices/dev-device/runtime-tunnel'])
@@ -122,8 +126,20 @@ test('switching endpoints stops hosting on Cloud and resumes on the dev backend'
   assert.equal(sockets.length, 1)
   assert.equal(authSession.current(), token)
   setApiUrl(null)
-  await settle()
+  await until(() => sockets.length === 2)
   assert.equal(getLocalRuntimeState().userId, 'alice')
   assert.equal(requests.length, 2)
   assert.equal(sockets.length, 2)
+})
+
+test('switching between two allowed backends with the same account moves hosting to the new one', async () => {
+  const stops = stopped
+
+  setApiUrl('http://127.0.0.1:3719')
+  await until(() => sockets.length === 3)
+  assert.ok(stopped > stops)
+  assert.equal(getLocalRuntimeState().userId, 'alice')
+  assert.equal(requests.length, 3)
+  assert.equal(sockets[2], 'ws://127.0.0.1:3719/agent/devices/dev-device/runtime-tunnel')
+  assert.equal(authSession.current(), token)
 })

@@ -1,4 +1,5 @@
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { discoverModels } from './agent-models.ts'
 import {
   freshAgent,
   HEALTHY_AFTER_MS,
@@ -27,6 +28,8 @@ import type {
 export class LocalRuntimeController {
   private readonly instances?: InstanceControllers
   private userId: string | null = null
+  private endpoint: string | undefined
+  private switching: Promise<unknown> = Promise.resolve()
   private readonly agents: Record<LocalAgentProvider, Agent> = {
     'claude-code': freshAgent(),
     codex: freshAgent(),
@@ -74,22 +77,31 @@ export class LocalRuntimeController {
       this.instances?.states(this.online),
     )
   }
+  /** Follows the (backend, account) pair; switches run in order, so one session is down before the next registers. */
   async setUser(userId: string | null): Promise<void> {
-    if (userId === this.userId) return
+    const switched = this.switching.then(() => this.switchTo(userId))
+
+    this.switching = switched.catch(() => {})
+    await Promise.all(await switched)
+  }
+  private async switchTo(userId: string | null): Promise<Promise<unknown>[]> {
+    if (userId === this.userId && this.deps.backendUrl === this.endpoint) return []
     await this.shutdown()
     this.userId = userId
+    this.endpoint = this.deps.backendUrl
     const cached = userId ? this.deps.readCliCache(userId) : {}
 
     for (const provider of LOCAL_AGENT_PROVIDERS)
       this.agents[provider].cli = cached[provider] ?? null
     this.changed()
     await this.instances?.load(userId)
-    if (!userId) return
+    if (!userId) return []
     const launches = Promise.all(this.providers.map((provider) => this.launch(provider)))
 
     await this.deps.registerDevice().catch(() => {})
-    if (userId === this.userId) this.openTunnel()
-    await launches
+    this.openTunnel()
+
+    return [launches]
   }
   async refresh(
     restart = false,
@@ -266,27 +278,7 @@ export class LocalRuntimeController {
     this.tunnel?.sendStatus()
     this.changed()
     void this.usage.sample(run.provider)
-    void this.deps
-      .probeModels({
-        provider: run.provider,
-        workspace,
-        env: run.env,
-        cliPath: run.cliPath,
-        agentHome: run.agentHome,
-      })
-      .then(
-        (models) => {
-          if (!run.current()) return
-          agent.models = models
-          this.tunnel?.sendStatus()
-        },
-        (error: unknown) => {
-          this.deps.log?.('local agent: model discovery failed', {
-            provider: run.provider,
-            error: String(error),
-          })
-        },
-      )
+    discoverModels(this.deps, run, agent, workspace, () => this.tunnel?.sendStatus())
     process.onExit((code) => {
       if (!run.current() || agent.process !== process) return
       this.deps.log?.('local agent: openab exited', { provider: run.provider, code })
