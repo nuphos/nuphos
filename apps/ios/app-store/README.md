@@ -10,12 +10,12 @@ The approved light-appearance set uses the new Nuphos hero artwork, larger descr
 no top wordmark or eyebrow label, and a complete phone frame for the agent picker.
 All four images are 1320 × 2868, opaque RGB PNGs. The existing iPad set remains unchanged.
 
-| Image | Message |
-| --- | --- |
-| [01-workspace.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/01-workspace.png) | Your team. In your pocket. |
-| [02-keep-going.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/02-keep-going.png) | Away from your desk. Not from your work. |
-| [03-together.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/03-together.png) | Great work. Made together. |
-| [04-your-agents.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/04-your-agents.png) | Your agents. Your subscriptions. |
+| Image                                                                                                          | Message                                  |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| [01-workspace.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/01-workspace.png)     | Your team. In your pocket.               |
+| [02-keep-going.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/02-keep-going.png)   | Away from your desk. Not from your work. |
+| [03-together.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/03-together.png)       | Great work. Made together.               |
+| [04-your-agents.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/04-your-agents.png) | Your agents. Your subscriptions.         |
 
 [Contact sheet](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/preview-light-v3.png) · [Source archive](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/nuphos-ios-light-v3.zip)
 
