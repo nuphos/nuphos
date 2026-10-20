@@ -134,9 +134,26 @@ jobs:
       - name: Remove notarization key
         if: always() && matrix.platform == 'mac'
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
-      - name: Publish unsigned Windows installers
+      # Federated login right before packaging so the short-lived GitHub token is still valid.
+      - name: Log in to Azure Artifact Signing
         if: matrix.platform == 'win'
-        run: pnpm exec electron-builder --win --publish always
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign and publish Windows installers
+        if: matrix.platform == 'win'
+        env:
+          PUBLISHER_NAME: ${{ vars.AZURE_SIGNING_PUBLISHER_NAME }}
+        run: |
+          set -euo pipefail
+          test -n "$PUBLISHER_NAME"
+          pnpm exec electron-builder --win --publish always --config.forceCodeSigning=true \
+            --config.win.azureSignOptions.endpoint=https://eus.codesigning.azure.net/ \
+            --config.win.azureSignOptions.codeSigningAccountName=nuphos-signing \
+            --config.win.azureSignOptions.certificateProfileName=nuphos-desktop \
+            --config.win.azureSignOptions.publisherName="$PUBLISHER_NAME"
       - name: Publish Linux AppImage
         if: matrix.platform == 'linux'
         env:
@@ -158,7 +175,7 @@ jobs:
           TAG="v$VERSION"
           BASE='https://nuphos-releases.s3.amazonaws.com/desktop'
           cat > release-notes.md <<EOF
-          macOS builds are signed and notarized. Windows and Linux builds are unsigned.
+          macOS builds are signed and notarized. Windows builds are signed. Linux builds are unsigned.
 
           - [macOS Apple Silicon]($BASE/Nuphos-$VERSION-arm64.dmg)
           - [macOS Intel]($BASE/Nuphos-$VERSION-x64.dmg)
