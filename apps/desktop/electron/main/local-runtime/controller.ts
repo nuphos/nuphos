@@ -28,8 +28,6 @@ import type {
 export class LocalRuntimeController {
   private readonly instances?: InstanceControllers
   private userId: string | null = null
-  private endpoint: string | undefined
-  private switching: Promise<unknown> = Promise.resolve()
   private readonly agents = Object.fromEntries(
     LOCAL_AGENT_PROVIDERS.map((provider) => [provider, freshAgent()]),
   ) as Record<LocalAgentProvider, Agent>
@@ -39,6 +37,8 @@ export class LocalRuntimeController {
   private superseded = false
   private readonly deps: LocalRuntimeControllerDeps
   private readonly providers: readonly LocalAgentProvider[]
+  private endpoint: string | undefined
+  private switching: Promise<unknown> = Promise.resolve()
   constructor(
     deps: LocalRuntimeControllerDeps,
     providers: readonly LocalAgentProvider[] = LOCAL_AGENT_PROVIDERS,
