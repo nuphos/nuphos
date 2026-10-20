@@ -1,5 +1,4 @@
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
@@ -105,24 +104,8 @@ export function RuntimeSelector({
       ? 'Loading agents…'
       : 'Choose agent'
   const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
-  const selectedQuota = value?.id ? quotas?.get(value.id) : undefined
-  const [usageWaitExpired, setUsageWaitExpired] = useState<string | undefined>()
-
-  useEffect(() => {
-    if (!value?.id) return
-    const timer = setTimeout(() => setUsageWaitExpired(value.id), 15_000)
-
-    return () => clearTimeout(timer)
-  }, [value?.id])
   const reachability = selectedAgentReachability({ value, options })
   const dot = reachability ? AGENT_DOT[reachability] : null
-  const usageLoading = Boolean(
-    value?.id &&
-    usageWaitExpired !== value.id &&
-    selected?.status === 'active' &&
-    selected.local?.signedIn !== false &&
-    (!selectedQuota || selectedQuota.reason === 'That computer has not reported usage yet'),
-  )
   const content = (
     <>
       <AgentProviderIcon provider={value?.provider} className="h-3.5 w-3.5 shrink-0" />
@@ -144,15 +127,6 @@ export function RuntimeSelector({
         />
       )}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
-      {usageLoading ? (
-        <span
-          aria-label="Loading usage"
-          role="status"
-          className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
-        />
-      ) : (
-        <RuntimeUsageBar quota={selectedQuota} />
-      )}
     </>
   )
   const classes =
