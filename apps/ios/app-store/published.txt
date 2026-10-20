@@ -1,7 +1,7 @@
-IPHONE_67  57f23a6b17a3e8dfc9ddb995c5b5593b2d1ed4c65750dba2e07b8371dd063686  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/01-workspace.png
-IPHONE_67  8b85a75dd06d574266897386cef977bad7e55b2509447b1ef76dfd21e1f5f7e5  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/02-keep-going.png
-IPHONE_67  c3311f21a7440f57e3bd678f4d9b46091c94f121378862379c0bbca3a7cd46c3  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/03-room.png
-IPHONE_67  f31572ebafa21b05cec92dc355e3130820b914fb185d060bd3de9faf9c162e88  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/04-agents.png
+IPHONE_67  561877bee2fe933dff401a177073829a2fdc3504f8436c42486437aa472387b9  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/01-workspace.png
+IPHONE_67  926c5731431e97928b44e7774539716e920ee628b58ffb67ad89b67216359e1f  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/02-keep-going.png
+IPHONE_67  7221d7252327cd9590bf001af402718bb86856277e06553d5c68e011715d820b  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/03-together.png
+IPHONE_67  8180840532868f505016adf2df7e339e8bc80909b9e575a24ad57b50c8f49255  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/04-your-agents.png
 IPAD_PRO_3GEN_129  2d5c4c1e38e4ac7a445082c98780f402de60182092a19556ed7a314801f2fe80  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/ipad/01-workspace.png
 IPAD_PRO_3GEN_129  e3916937d2e112e5d4c3b8502e8e6f755e0a700d881714cac76b524c83aebd5c  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/ipad/02-keep-going.png
 IPAD_PRO_3GEN_129  63c27072bf1bc2b9709b4859271104573a54c25d480f8ade3b8ac91cd98c52c1  https://cdn.zeabur.com/nuphos/app-store/ios/en-US/ipad/03-room.png

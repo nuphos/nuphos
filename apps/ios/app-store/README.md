@@ -1,66 +1,46 @@
 # App Store screenshots
 
-The HTML that the App Store screenshots are rendered from: iPhone 6.9" (1320×2868) and iPad 13"
-(2064×2752), both without alpha. The finished images are not kept in git; the current iPhone set is
-on the CDN, and the iPad set is the same four under `ipad/`:
+`published.txt` is the release source of truth: `<display type> <sha256> <url>` in App Store order.
+The release workflow downloads and validates each image, replaces the screenshot sets, and
+compares their names, order and checksums before submitting the version for review.
 
-| Image                                         | Message                                      | What is lifted out of the screen                   |
-| --------------------------------------------- | -------------------------------------------- | -------------------------------------------------- |
-| [`01-workspace.png`](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/01-workspace.png)   | The whole team's sessions in one workspace   | Two running sessions, one per agent                |
-| [`02-keep-going.png`](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/02-keep-going.png) | Sessions keep running with the laptop closed | The "heading out" message and two status cards     |
-| [`03-room.png`](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/03-room.png)             | Several people steer one agent               | Each teammate's message, with their photo and name |
-| [`04-agents.png`](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/04-agents.png)         | Bring your own Claude or ChatGPT plan        | Two plan cards over the agent picker               |
+## Approved iPhone set — October 20, 2026
 
-## Rendering
+The approved light-appearance set uses the new Nuphos hero artwork, larger descriptions,
+no top wordmark or eyebrow label, and a complete phone frame for the agent picker.
+All four images are 1320 × 2868, opaque RGB PNGs. The existing iPad set remains unchanged.
 
-macOS only: the port relies on SF Pro, SF Symbols and Georgia, and renders with the installed
-Google Chrome.
+| Image | Message |
+| --- | --- |
+| [01-workspace.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/01-workspace.png) | Your team. In your pocket. |
+| [02-keep-going.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/02-keep-going.png) | Away from your desk. Not from your work. |
+| [03-together.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/03-together.png) | Great work. Made together. |
+| [04-your-agents.png](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/04-your-agents.png) | Your agents. Your subscriptions. |
+
+[Contact sheet](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/preview-light-v3.png) · [Source archive](https://cdn.zeabur.com/nuphos/app-store/ios/en-US/2026-10-20-light-v3/nuphos-ios-light-v3.zip)
+
+The source archive contains the renderer, HTML UI port, assets, finished PNGs and validation
+results. It requires Chromium, Node.js and Apple SF Pro Text (not redistributed; obtain from
+https://developer.apple.com/fonts/ and pass `SF_FONT_DIR`). This set was rendered on Linux with
+SF Pro Text and exported SF Symbols outlines. It has not received a new simulator pixel-diff
+check; font rasterization and symbol weights may differ from the native app. Marketing callouts
+sit outside the app UI. All conversation data is fictional.
+
+## Existing renderer and iPad set
+
+The `compose.mjs`, `ui.js`, `data.js`, `symbols.swift`, `hero.mjs` and `faces/` files in this
+directory remain the earlier dark-appearance renderer. They do not reproduce the new iPhone
+set; use the dated source archive above for that set. The existing iPad images remain under
+`https://cdn.zeabur.com/nuphos/app-store/ios/en-US/ipad/`.
+
+On macOS with Google Chrome:
 
 ```sh
-bash setup.sh          # once: playwright-core, SF Symbols, hero frames -> build/
-node compose.mjs        # iPhone: writes build/screenshots/*.png and build/html/*.html
-node compose.mjs ipad   # iPad: writes build/screenshots/ipad/*.png
+bash setup.sh
+node compose.mjs ipad
 ```
 
-The app has no iPad-specific layout, so the iPad set renders the same ported screens at the 13"
-iPad's 1032×1376 points: rows and controls stretch to the full width, the agent picker is a
-centered form sheet, and messages no longer wrap, so the transcript flows instead of using the
-iPhone capture's y positions.
-
-`setup.sh` captures the background from the live nuphos.ai hero shader, which animates, so a fresh
-`build/` gives slightly different backgrounds than the published images.
-
-After re-rendering, upload `build/screenshots/*.png` over the files in the `cdn` R2 bucket under
-`nuphos/app-store/ios/en-US/` (and `build/screenshots/ipad/*.png` under `.../en-US/ipad/`), which
-`cdn.zeabur.com` serves.
-
-[`published.txt`](published.txt) lists the published images in App Store order, one
-`<display type>  <sha256>  <url>` per line (`shasum -a 256 <file>`), where the display type is the
-`asc --device-type` of the set the image belongs to. A release fails if a download does not match
-its hash, so update the hash whenever an image is replaced. Every iOS release (`release-ios.yml`)
-downloads them, replaces each listed set on the version, and submits for review only if the
-version's screenshots then match this file exactly: no other set, and the same files in the same
-order in each. Add, remove or reorder a screenshot by editing that file; the next release picks it
-up.
-
-## Files
-
-- `ui.js` — the iOS screens as HTML, in native points on a 440×956 canvas (dark appearance).
-- `data.js` — the fictional conversations shown on the home screen.
-- `compose.mjs` — headline, background, phone frame, and the lifted elements for each screenshot.
-- `symbols.swift` — exports the SF Symbols the screens use, as PNG masks.
-- `hero.mjs` — screenshots the nuphos.ai hero background with the page content hidden.
-- `faces/` — sample profile photos from randomuser.me, keyed by initials.
-
-## Keeping the port honest
-
-`ui.js` is a hand port of SwiftUI, so it drifts when the app changes. Its metrics were measured
-against simulator captures of a Debug build driven by a `NUPHOS_PREVIEW_RESPONSES` fixture
-(`-preview-home`, plus `-open-first-chat` or `-new-chat "" -show-runtimes`) on iPhone 17 Pro Max,
-then compared pixel by pixel at 3x. At the time of writing 1.7–3.8% of pixels differed by more
-than 24 levels, mostly text anti-aliasing. Liquid Glass refraction is approximated, and the sender
-row with a profile photo was laid out from `UserBubble` in `ConversationView.swift` rather than
-captured. Re-measure the same way after changing the screens these port.
-
-Everything shown is sample data. The lifted status cards, name tags and plan cards are marketing
-elements that do not exist in the app.
+For future revisions, upload images to a new dated CDN path and update `published.txt` together
+with their SHA-256 hashes. Do not overwrite files referenced by an older release manifest.
+Changing this manifest stages screenshots for a subsequent iOS release; it does not change an
+already-live App Store version.
