@@ -78,8 +78,12 @@ export function readEditorText(el: HTMLDivElement | null): string {
   return serializeNode(el).replace(/^\n+/, '')
 }
 
-/** Rebuild the editor from serialized text, turning Nuphos links back into chips. */
-export function restoreEditorText(el: HTMLDivElement, text: string) {
+/**
+ * Rebuild the editor from serialized text, turning Nuphos links back into
+ * chips. `[Image #N]` becomes a chip only when the caller restores the same
+ * images (a draft); a recalled message has none, so it stays plain text.
+ */
+export function restoreEditorText(el: HTMLDivElement, text: string, images = 0) {
   const nodes: Node[] = []
 
   text.split('\n').forEach((line, index) => {
@@ -87,7 +91,11 @@ export function restoreEditorText(el: HTMLDivElement, text: string) {
     // split() with a capture group puts each reference's N at an odd index.
     line.split(IMAGE_REF).forEach((segment, i) => {
       if (i % 2) {
-        nodes.push(imageRefChip(Number(segment)))
+        const n = Number(segment)
+
+        nodes.push(
+          n >= 1 && n <= images ? imageRefChip(n) : document.createTextNode(`[Image #${segment}]`),
+        )
 
         return
       }

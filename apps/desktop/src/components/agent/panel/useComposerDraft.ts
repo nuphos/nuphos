@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
+import { isImageAttachmentPath } from './attachments'
 import { loadComposerDraft, saveComposerDraft } from './composerDrafts'
 import { restoreEditorText } from './composerSerialize'
 
@@ -62,7 +63,11 @@ export function useComposerDraft(state: ComposerState, draftKey: string | undefi
     loadedOnce.current = true
     activeKey.current = draftKey
     if (switched || draft) {
-      restoreEditorText(el, draft?.text ?? '')
+      restoreEditorText(
+        el,
+        draft?.text ?? '',
+        draft?.filePaths.filter(isImageAttachmentPath).length,
+      )
       restoredFiles.current = draft?.filePaths.length ? draft.filePaths : null
       setFilePaths(draft?.filePaths ?? [])
       setFolderPaths(new Set(draft?.folderPaths ?? []))
