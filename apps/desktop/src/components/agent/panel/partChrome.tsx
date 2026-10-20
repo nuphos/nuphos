@@ -1,7 +1,7 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import clsx from 'clsx'
 import { Brain, ChevronRight } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import { useTextSwap } from '../../../hooks/useTextSwap'
 
@@ -112,45 +112,6 @@ export function LoadingText({ children, className }: { children: string; classNa
   )
 }
 
-export function ElapsedSeconds({ seconds }: { seconds: number }) {
-  const [animating, setAnimating] = useState(false)
-  const previousSecondsRef = useRef(seconds)
-
-  useEffect(() => {
-    if (previousSecondsRef.current === seconds) return
-    previousSecondsRef.current = seconds
-    setAnimating(false)
-    const frame = requestAnimationFrame(() => setAnimating(true))
-    const timeout = window.setTimeout(() => setAnimating(false), 560)
-
-    return () => {
-      cancelAnimationFrame(frame)
-      window.clearTimeout(timeout)
-    }
-  }, [seconds])
-
-  const chars = String(seconds).split('')
-
-  return (
-    <span
-      className={clsx('t-digit-group', animating && 'is-animating')}
-      aria-label={`${String(seconds)}s`}
-    >
-      {chars.map((ch, i) => (
-        <span
-          key={`${String(i)}-${ch}`}
-          className="t-digit"
-          data-stagger={i === chars.length - 2 ? '1' : i === chars.length - 1 ? '2' : undefined}
-          aria-hidden="true"
-        >
-          {ch}
-        </span>
-      ))}
-      <span aria-hidden="true">s</span>
-    </span>
-  )
-}
-
 function toolElapsedSeconds(part: ToolPart, now: number): number | null {
   if (typeof part.startedAt !== 'number') return null
   // Waiting on the user's authorization isn't execution — no ticking timer
@@ -178,7 +139,7 @@ export function ToolElapsedBadge({ part, now }: { part: ToolPart; now: number })
       className="font-mono text-[11.5px] text-tertiary/80 tabular-nums flex-shrink-0"
       style={{ transform: 'translateY(0.5px)' }}
     >
-      <ElapsedSeconds seconds={seconds} />
+      {String(seconds)}s
     </span>
   )
 }
