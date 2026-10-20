@@ -36,8 +36,14 @@ export function renumberImageRefs(el: HTMLElement, removed: number) {
   for (const chip of el.querySelectorAll<HTMLElement>('[data-image-ref]')) {
     const n = Number(chip.dataset.imageRef)
 
-    if (n === removed) chip.remove()
-    else if (n > removed) chip.replaceWith(imageRefChip(n - 1))
+    if (n === removed) {
+      // Take the space the chip was inserted with, so no gap is left behind.
+      const next = chip.nextSibling
+
+      if (next?.nodeType === Node.TEXT_NODE)
+        next.textContent = next.textContent?.replace(/^ /, '') ?? ''
+      chip.remove()
+    } else if (n > removed) chip.replaceWith(imageRefChip(n - 1))
   }
 }
 
