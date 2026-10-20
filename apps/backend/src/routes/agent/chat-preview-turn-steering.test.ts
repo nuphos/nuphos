@@ -236,6 +236,7 @@ describe('runClaudeCodePreviewChatTurn steering', () => {
 
     const tools = (seen.finish[0] as { toolSteps: { toolCallId: string; errorText?: string }[] })
       .toolSteps
+
     expect(tools.map((step) => [step.toolCallId, step.errorText])).toEqual([
       ['cut', 'Interrupted before the tool finished.'],
       ['background', undefined],

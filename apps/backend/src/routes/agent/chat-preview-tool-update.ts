@@ -79,3 +79,26 @@ export function closeCallsCutOffBySteer(
     if (!state?.hidden) emit({ type: 'tool-output-error', toolCallId, errorText })
   }
 }
+
+/** Calls open when the latest steer arrived, closed by the agent's next output. */
+export function trackSteerCutOff(
+  emit: (frame: Record<string, unknown>) => void,
+  log: ReturnType<typeof createPreviewToolLog>,
+) {
+  let cutOff: string[] = []
+
+  return {
+    /** No update: streamed text. An update for a call open at the steer is not an answer. */
+    observe(update?: PreviewAgentUpdate) {
+      if (update?.kind === 'steering') {
+        cutOff = openToolCalls(log)
+
+        return
+      }
+      if (cutOff.length === 0) return
+      if (update?.kind === 'tool' && cutOff.includes(update.toolCallId)) return
+      closeCallsCutOffBySteer(emit, log, cutOff)
+      cutOff = []
+    },
+  }
+}
