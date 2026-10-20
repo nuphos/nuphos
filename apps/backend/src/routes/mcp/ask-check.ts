@@ -78,6 +78,9 @@ export async function nuphosAsk(
     : undefined
 
   const renderedText = `${prompt}${contextBlock}`
+  // The caller's own request, made through their MCP client: attributed to them.
+  // Resolved before the claim below, which nothing would release if this threw.
+  const attribution = await createMessageMetadata(ctx.userId, 'nuphos')
   // A prompt sent while this session is already running is handed to the turn
   // in flight instead of being refused: the agent sees it at its next step and
   // decides whether to ignore it, finish first, or change course.
@@ -120,8 +123,7 @@ export async function nuphosAsk(
     {
       id: randomUUID(),
       role: 'user',
-      // The caller's own request, made through their MCP client: attributed to them.
-      metadata: await createMessageMetadata(ctx.userId, 'nuphos'),
+      metadata: attribution,
       parts: [
         {
           type: 'text',
