@@ -108,7 +108,7 @@ export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStat
   )
     return null
   if (failedTurnExplainedInline(snapshot, lastMsg)) return null
-  // Running shells already show as the composer's shells chip; one place says so.
+  // Running background work already shows as the composer's chip; one place says so.
   if (snapshot.phase === 'background_tools' && shellsFromRuntimeState(snapshot).length > 0)
     return null
 

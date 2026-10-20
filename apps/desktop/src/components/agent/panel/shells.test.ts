@@ -56,3 +56,27 @@ test('only the owner of a conversation on a desktop Box is offered "Desktop"', (
   assert.equal(sessionDesktopsOf('t', { runtimeState: holding }).canOpen, true)
   assert.equal(sessionDesktopsOf('t', { runtimeState: holding, foreign: true }).canOpen, false)
 })
+
+test('adds unfinished background tasks after terminals, skipping one already listed', () => {
+  const snapshot = {
+    state: 'idle',
+    tools: [
+      { id: 't1', terminal: { terminalId: 'term-1', command: 'npm test', status: 'running' } },
+    ],
+    asyncTasks: {
+      a1: { id: 'a1', name: 'Explore repo', state: 'running' },
+      a2: { id: 'a2', name: 'done', state: 'completed' },
+      a3: { id: 'a3', name: 'npm test', state: 'running', toolCallId: 't1' },
+      a4: { id: 'a4', state: 'pending' },
+    },
+  } as RuntimeExecution
+
+  assert.deepEqual(
+    shellsFromRuntimeState(snapshot).map((entry) => [entry.id, entry.command, entry.task ?? false]),
+    [
+      ['t1', 'npm test', false],
+      ['a1', 'Explore repo', true],
+      ['a4', 'a4', true],
+    ],
+  )
+})

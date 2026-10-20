@@ -6,11 +6,16 @@ export type ShellEntry = {
   terminalId: string
   command: string
   output: string
+  /** A background task with no terminal: a name, nothing to expand. */
+  task?: boolean
 }
 
-/** Running terminals from the latest runtime snapshot, in wire order. */
+/**
+ * Work still running in the latest runtime snapshot: terminals, then background
+ * tasks that are not a terminal already listed, in wire order.
+ */
 export function shellsFromRuntimeState(snapshot: RuntimeExecution | undefined): ShellEntry[] {
-  return (snapshot?.tools ?? []).flatMap((tool) =>
+  const shells = (snapshot?.tools ?? []).flatMap((tool) =>
     tool.terminal?.status === 'running'
       ? [
           {
@@ -22,6 +27,15 @@ export function shellsFromRuntimeState(snapshot: RuntimeExecution | undefined): 
         ]
       : [],
   )
+  const listed = new Set(shells.map((shell) => shell.id))
+  const tasks = Object.values(snapshot?.asyncTasks ?? {}).flatMap((task) =>
+    ['completed', 'failed', 'stopped'].includes(task.state) ||
+    (task.toolCallId && listed.has(task.toolCallId))
+      ? []
+      : [{ id: task.id, terminalId: '', command: task.name ?? task.id, output: '', task: true }],
+  )
+
+  return [...shells, ...tasks]
 }
 
 /** This session's desktops, by display, machine and the title the backend gives them, in wire order. */

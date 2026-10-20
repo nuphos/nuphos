@@ -1,7 +1,7 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { ChevronRight, Terminal } from 'lucide-react'
+import { ChevronRight, Layers, Terminal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { disclosureControlClass, LoadingText } from './partChrome'
@@ -14,6 +14,15 @@ import type { RuntimeExecution } from '../../../lib/runtimeExecution'
 function ShellRow({ shell }: { shell: ShellEntry }) {
   const command = trimDisplayBlock(shell.command)
   const output = trimDisplayBlock(shell.output)
+
+  if (shell.task)
+    return (
+      <div className="flex w-full min-w-0 items-center gap-1.5 py-0.5 pl-5 text-tertiary">
+        <Layers className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
+        <span className="min-w-0 flex-1 truncate text-[12px] text-main">{command}</span>
+        <LoadingText className="flex-shrink-0 text-[11px]">running</LoadingText>
+      </div>
+    )
 
   return (
     <Collapsible.Root>
@@ -41,12 +50,11 @@ function ShellRow({ shell }: { shell: ShellEntry }) {
 }
 
 /**
- * Shells still running in the current runtime snapshot — openab's terminal
- * embeds (Zed `_meta["terminal_output"]` convention) surfaced per tool.
- * A chip in the composer's toolbar row. Its slot keeps a fixed width beside
- * the model picker whether or not shells run, so the controls to its left
- * wrap the same either way and the input never moves; the chip rises in while
- * shells run, fades out after the last one ends, and opens them in a popover.
+ * Shells and background tasks still running in the current runtime snapshot —
+ * openab's terminal embeds (Zed `_meta["terminal_output"]` convention) and its
+ * async tasks. The one place running background work shows.
+ * A chip in the composer's toolbar row that takes space only while something
+ * runs: it rises in, fades out after the last one ends, and opens them in a popover.
  */
 export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefined }) {
   const shells = shellsFromRuntimeState(snapshot)
@@ -71,7 +79,7 @@ export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefin
   }, [shown])
 
   const label = String(count)
-  const title = `${label} running ${count === 1 ? 'shell' : 'shells'}`
+  const title = `${label} running in the background`
 
   return (
     <div className="flex h-7 flex-shrink-0 justify-end empty:hidden">
