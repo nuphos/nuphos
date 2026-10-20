@@ -40,3 +40,22 @@ test('signed-out local Claude remains selectable for sign-in without duplicating
   assert.equal(pending[0].local?.signedIn, false)
   assert.deepEqual(pendingLocalAgents(local, pending), [])
 })
+
+test('a signed-in Grok Build or OpenCode is listed under the id the backend gives it', () => {
+  const agent = (cli: AgentCliStatus) => ({ available: true, online: false, cli })
+  const local = {
+    ...state(missing, missing),
+    agents: {
+      'claude-code': agent(missing),
+      codex: agent(missing),
+      grok: agent({ installed: true, path: '/bin/grok', loggedIn: true }),
+      opencode: agent({ installed: true, path: '/bin/opencode', loggedIn: false }),
+    },
+    deviceId: 'device',
+  }
+
+  assert.deepEqual(
+    pendingLocalAgents(local, []).map(({ id, label }) => [id, label]),
+    [['local_u1_device_grok', 'This computer · Grok Build']],
+  )
+})

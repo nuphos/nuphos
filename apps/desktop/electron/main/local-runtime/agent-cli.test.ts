@@ -138,3 +138,42 @@ test(
     assert.equal(kept.installed && kept.loggedIn, true)
   },
 )
+
+test(
+  'Grok Build and OpenCode are signed in once their credential file is in the agent home',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-credential-'))
+    const home = path.join(dir, 'home')
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    for (const command of ['grok', 'opencode'])
+      writeFileSync(path.join(dir, command), '#!/bin/sh\necho 1.0.46\n', { mode: 0o700 })
+    const env = { PATH: dir, HOME: dir }
+    const files = {
+      grok: path.join(home, '.grok', 'auth.json'),
+      opencode: path.join(home, '.local', 'share', 'opencode', 'auth.json'),
+    }
+
+    for (const provider of ['grok', 'opencode'] as const) {
+      const loggedIn = async (agentHome: string | undefined) => {
+        const cli = await probeAgentCli(provider, env, agentHome)
+
+        return cli.installed ? cli.loggedIn : undefined
+      }
+
+      assert.deepEqual(await probeAgentCli(provider, env, home), {
+        installed: true,
+        path: path.join(dir, provider),
+        version: '1.0.46',
+        loggedIn: false,
+      })
+      mkdirSync(path.dirname(files[provider]), { recursive: true })
+      writeFileSync(files[provider], '{}')
+      assert.equal(await loggedIn(home), false, 'an empty login is not a sign-in')
+      writeFileSync(files[provider], '{"xai":{"type":"oauth"}}')
+      assert.equal(await loggedIn(home), true)
+      assert.equal(await loggedIn(undefined), null)
+    }
+  },
+)

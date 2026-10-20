@@ -13,6 +13,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
 import { removeDeviceAgent, renameDeviceAgent } from '@/lib/agent/devices/agent-registry-store'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
+import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 import { isTeamIdShape } from '@/lib/team-id'
 import { zv } from '@/lib/validate'
@@ -98,7 +99,7 @@ export function createDeviceAgentRoutes(
     const instance = await deps.createInstance(target, {
       instanceId: body.instanceId ?? randomUUID(),
       provider: body.provider,
-      label: body.label ?? (body.provider === 'codex' ? 'Codex' : 'Claude Code'),
+      label: body.label ?? runtimeLabel(body.provider),
     })
 
     return c.json(

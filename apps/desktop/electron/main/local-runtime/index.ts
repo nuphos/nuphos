@@ -31,7 +31,6 @@ import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
 
-import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { LocalRuntimeState, LocalRuntimeViewState } from './controller-types.ts'
 
@@ -154,8 +153,11 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   log: logLocalTool,
 })
 
+/** This app's own sign-in, for the agents it can run a CLI login for; others sign in from Nuphos. */
+type CliLoginProvider = 'claude-code' | 'codex'
+
 const logins = Object.fromEntries(
-  LOCAL_AGENT_PROVIDERS.map((provider) => [
+  (['claude-code', 'codex'] as const).map((provider) => [
     provider,
     new LocalAgentLogin({
       provider,
@@ -168,11 +170,11 @@ const logins = Object.fromEntries(
       },
     }),
   ]),
-) as Record<LocalAgentProvider, LocalAgentLogin>
+) as Record<CliLoginProvider, LocalAgentLogin>
 
 let loginRequest = 0
 
-async function startLocalLogin(provider: LocalAgentProvider) {
+async function startLocalLogin(provider: CliLoginProvider) {
   const userId = controller.state().userId
 
   if (!userId) throw new Error('Sign in to Nuphos first.')

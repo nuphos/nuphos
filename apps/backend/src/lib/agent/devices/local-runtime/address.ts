@@ -1,3 +1,5 @@
+import { LOCAL_AGENT_PROVIDERS } from './protocol'
+
 import type { LocalAgentProvider, TunnelPurpose } from './protocol'
 
 export type LocalRuntimeRef = { userId: string; deviceId: string }
@@ -6,7 +8,8 @@ export type LocalRuntimeRef = { userId: string; deviceId: string }
 export type LocalAgentRef = LocalRuntimeRef & { provider: LocalAgentProvider; instanceId?: string }
 
 const RUNTIME_ID_PREFIX = 'local_'
-const CODEX_SUFFIX = 'codex'
+// Claude Code's ids predate the others and carry no provider.
+const DEFAULT_PROVIDER = 'claude-code'
 const INSTANCE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
 const URL_SCHEME = 'nuphos-device:'
 const SEGMENT = /^[A-Za-z0-9-]{1,128}$/u
@@ -21,7 +24,11 @@ export function localRuntimeId({ userId, deviceId, provider, instanceId }: Local
     return `${id}_${provider}_${instanceId}`
   }
 
-  return provider === 'codex' ? `${id}_${CODEX_SUFFIX}` : id
+  return provider === DEFAULT_PROVIDER ? id : `${id}_${provider}`
+}
+
+function localProvider(value: string | undefined): LocalAgentProvider | undefined {
+  return LOCAL_AGENT_PROVIDERS.find((provider) => provider === value)
 }
 
 export function parseLocalRuntimeId(runtimeId: string): LocalAgentRef | undefined {
@@ -33,14 +40,16 @@ export function parseLocalRuntimeId(runtimeId: string): LocalAgentRef | undefine
   if (rest.length || !userId || !deviceId || !SEGMENT.test(userId) || !SEGMENT.test(deviceId))
     return undefined
   if (instanceId !== undefined) {
-    if (!INSTANCE_ID.test(instanceId) || (suffix !== 'claude-code' && suffix !== 'codex'))
-      return undefined
+    const provider = localProvider(suffix)
 
-    return { userId, deviceId, provider: suffix, instanceId }
+    if (!INSTANCE_ID.test(instanceId) || !provider) return undefined
+
+    return { userId, deviceId, provider, instanceId }
   }
-  if (suffix !== undefined && suffix !== CODEX_SUFFIX) return undefined
+  if (suffix === undefined) return { userId, deviceId, provider: DEFAULT_PROVIDER }
+  const provider = localProvider(suffix)
 
-  return { userId, deviceId, provider: suffix === CODEX_SUFFIX ? 'codex' : 'claude-code' }
+  return provider && provider !== DEFAULT_PROVIDER ? { userId, deviceId, provider } : undefined
 }
 
 export function isLocalRuntimeId(runtimeId: string | undefined): boolean {
@@ -57,7 +66,7 @@ export function localRuntimeUrl(ref: LocalAgentRef, teamId: string, actorId = re
   // Only someone other than the owner (a Box's member) adds an actor; owners' URLs stay as they were.
   if (actorId !== ref.userId) query.set('actor', actorId)
 
-  if (ref.provider === 'codex') query.set('provider', 'codex')
+  if (ref.provider !== DEFAULT_PROVIDER) query.set('provider', ref.provider)
   if (ref.instanceId) query.set('instance', ref.instanceId)
 
   return `${URL_SCHEME}//runtime/${encodeURIComponent(ref.userId)}/${encodeURIComponent(ref.deviceId)}?${query.toString()}`
@@ -81,9 +90,9 @@ export function parseLocalRuntimeUrl(
     const actorId = parsed.searchParams.get('actor') ?? userId
     const rawProvider = parsed.searchParams.get('provider')
 
-    if (rawProvider !== null && rawProvider !== 'codex' && rawProvider !== 'claude-code')
-      return undefined
-    const provider = rawProvider === 'codex' ? 'codex' : 'claude-code'
+    const provider = rawProvider === null ? DEFAULT_PROVIDER : localProvider(rawProvider)
+
+    if (!provider) return undefined
     const instanceId = parsed.searchParams.get('instance')
 
     if (instanceId !== null && !INSTANCE_ID.test(instanceId)) return undefined

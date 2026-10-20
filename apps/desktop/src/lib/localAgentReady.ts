@@ -21,7 +21,7 @@ export function localAgentId(
 ): string {
   const id = `local_${userId}_${deviceId}`
 
-  return provider === 'codex' ? `${id}_codex` : id
+  return provider === 'claude-code' ? id : `${id}_${provider}`
 }
 
 /**

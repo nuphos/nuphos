@@ -8,7 +8,7 @@ import { localUpdateVersion } from '../lib/agentUpdate.ts'
 import { useLocalRuntimeState } from './useLocalRuntimeState.ts'
 import { useThisComputer } from './useThisComputer.ts'
 
-import type { AgentCliStatus, LocalAgentProvider } from '../api'
+import type { AgentCliStatus, CliLoginProvider, LocalAgentProvider } from '../api'
 import type { RuntimeInstance } from '../types/runtime'
 import type { RuntimeUpdateStatus } from '../types/team'
 
@@ -81,7 +81,7 @@ function remoteStatus(teamId: string, runtimeId: string): Promise<RemoteStatus |
   return entry.status
 }
 
-async function updateLocal(provider: LocalAgentProvider, before?: string) {
+async function updateLocal(provider: CliLoginProvider, before?: string) {
   const key = `local:${provider}`
   const { name, command } = CLI[provider]
 
@@ -150,7 +150,7 @@ function useLocalAgentLatest(): LatestVersions {
 }
 
 /** This computer's CLI: the version it can update to, and the one update all views share. */
-export function useLocalAgentUpdate(provider: LocalAgentProvider) {
+export function useLocalAgentUpdate(provider: CliLoginProvider) {
   const local = useLocalRuntimeState()
   const latest = useLocalAgentLatest()
   const busy = useStarting()
@@ -164,7 +164,7 @@ export function useLocalAgentUpdate(provider: LocalAgentProvider) {
 }
 
 function localAgentUpdate(
-  provider: LocalAgentProvider,
+  provider: CliLoginProvider,
   cli: AgentCliStatus | null | undefined,
   latest: string | undefined,
   busy: ReadonlySet<string>,

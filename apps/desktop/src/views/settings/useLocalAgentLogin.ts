@@ -4,7 +4,7 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 
-import type { LocalAgentLoginState, LocalAgentProvider } from '../../api'
+import type { CliLoginProvider, LocalAgentLoginState } from '../../api'
 
 function useFailureToast(name: string, login: LocalAgentLoginState | undefined, notify: boolean) {
   const previous = useRef(login?.state)
@@ -22,7 +22,7 @@ function useFailureToast(name: string, login: LocalAgentLoginState | undefined, 
  * Starting, following and cancelling this computer's sign-in for one local agent.
  * `notify` reports a failure that happens while the caller is showing the sign-in.
  */
-export function useLocalAgentLogin(provider: LocalAgentProvider, notify: boolean) {
+export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) {
   const state = useLocalRuntimeState()
   const [failed, setFailed] = useState(false)
   const [starting, setStarting] = useState(false)

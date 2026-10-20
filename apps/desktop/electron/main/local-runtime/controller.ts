@@ -27,10 +27,9 @@ import type {
 export class LocalRuntimeController {
   private readonly instances?: InstanceControllers
   private userId: string | null = null
-  private readonly agents: Record<LocalAgentProvider, Agent> = {
-    'claude-code': freshAgent(),
-    codex: freshAgent(),
-  }
+  private readonly agents = Object.fromEntries(
+    LOCAL_AGENT_PROVIDERS.map((provider) => [provider, freshAgent()]),
+  ) as Record<LocalAgentProvider, Agent>
   private tunnel: RuntimeTunnel | undefined
   private readonly usage: ReturnType<typeof createUsageSampler>
   private online = false

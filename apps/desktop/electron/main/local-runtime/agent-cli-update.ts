@@ -7,7 +7,8 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 const UPDATE_TIMEOUT_MS = 5 * 60_000
 const LATEST_TIMEOUT_MS = 10_000
 const LATEST_TTL_MS = 60 * 60_000
-const NPM_PACKAGE: Record<LocalAgentProvider, string> = {
+/** Grok Build and OpenCode update through their own installers, so Nuphos offers no update. */
+const NPM_PACKAGE: Partial<Record<LocalAgentProvider, string>> = {
   'claude-code': '@anthropic-ai/claude-code',
   codex: '@openai/codex',
 }
@@ -17,7 +18,7 @@ export function updateAgentCli(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
 ): Promise<void> {
-  const file = LOCAL_AGENT_PROVIDERS.includes(provider) ? findAgentCli(provider, env) : null
+  const file = NPM_PACKAGE[provider] ? findAgentCli(provider, env) : null
 
   if (!file) return Promise.reject(new Error('Install the agent on this computer first.'))
 
@@ -35,8 +36,11 @@ let latest: { at: number; versions: Promise<Partial<Record<LocalAgentProvider, s
   null
 
 async function npmLatest(provider: LocalAgentProvider): Promise<string | undefined> {
+  const name = NPM_PACKAGE[provider]
+
+  if (!name) return
   try {
-    const response = await fetch(`https://registry.npmjs.org/${NPM_PACKAGE[provider]}/latest`, {
+    const response = await fetch(`https://registry.npmjs.org/${name}/latest`, {
       signal: AbortSignal.timeout(LATEST_TIMEOUT_MS),
     })
     const body = response.ok ? ((await response.json()) as { version?: unknown }) : {}

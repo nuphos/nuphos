@@ -26,7 +26,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
-import { patchDesktopAdapter } from './adapter-patches.mjs'
+import { patchDesktopAdapter, patchDesktopBridge, patchDesktopShim } from './adapter-patches.mjs'
 import { findBrokenLinks } from './bundle-check.mjs'
 import {
   ATTACHMENT_JOB,
@@ -55,7 +55,21 @@ export const ADAPTERS = {
     entry: 'node_modules/@agentclientprotocol/codex-acp/dist/index.js',
     version: 'codex-acp@1.1.4',
   },
+  // Agents that speak ACP themselves run behind the image's ACP shim, on the
+  // computer's own CLI.
+  grok: { shim: true, entry: 'index.mjs', version: 'grok@acp-shim' },
+  opencode: { shim: true, entry: 'index.mjs', version: 'opencode@acp-shim' },
 }
+/** The shim and the modules it imports, as the image ships them. */
+const SHIM_SOURCES = [
+  'acp-shim.mjs',
+  'mcp-bridge-config.mjs',
+  'mcp-http-bridge.mjs',
+  'runtime-defaults.mjs',
+  'reply-images.mjs',
+  'reply-image-stream.mjs',
+  'session-home.mjs',
+]
 const RUST_TARGETS = {
   'darwin-arm64': 'aarch64-apple-darwin',
   'darwin-x64': 'x86_64-apple-darwin',
@@ -87,11 +101,30 @@ function hasCommand(command) {
   }
 }
 
+function buildShim(provider, out) {
+  rmSync(out, { recursive: true, force: true })
+  mkdirSync(out, { recursive: true })
+  for (const file of SHIM_SOURCES) cpSync(join(RUNTIME_DIR, file), join(out, file))
+  const patch = (file, transform) =>
+    writeFileSync(join(out, file), transform(readFileSync(join(out, file), 'utf8')))
+
+  patch('mcp-bridge-config.mjs', patchDesktopBridge)
+  patch('acp-shim.mjs', patchDesktopShim)
+  writeFileSync(
+    join(out, 'index.mjs'),
+    `import { runShim } from './acp-shim.mjs'\n\nrunShim({ provider: ${JSON.stringify(provider)} })\n`,
+  )
+  writeFileSync(join(out, '.complete'), '')
+
+  return out
+}
+
 async function buildAdapter(provider) {
   const adapter = ADAPTERS[provider]
   const out = join(cache, `adapter-${provider}-${bundleStamp()}`)
 
   if (existsSync(join(out, '.complete'))) return out
+  if (adapter.shim) return buildShim(provider, out)
   const work = join(cache, `adapter-work-${provider}`)
 
   rmSync(work, { recursive: true, force: true })
@@ -189,9 +222,11 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         filter: (path) => !path.endsWith('.complete'),
       })
     cpSync(join(RUNTIME_DIR, ATTACHMENT_JOB), join(out, 'attachment-job.mjs'))
-    // Claude's sign-in wrapper openab runs on request from Nuphos, the one the runtime image ships.
+    // Each agent's sign-in wrapper openab runs on request from Nuphos, the ones the runtime image ships.
     cpSync(join(RUNTIME_DIR, 'claude-login.mjs'), join(out, 'claude-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'codex-login.mjs'), join(out, 'codex-login.mjs'))
+    cpSync(join(RUNTIME_DIR, 'grok-login.mjs'), join(out, 'grok-login.mjs'))
+    cpSync(join(RUNTIME_DIR, 'opencode-login.mjs'), join(out, 'opencode-login.mjs'))
     // The `panel` job a machine Nuphos made offers, the one the runtime image runs.
     cpSync(join(RUNTIME_DIR, 'panel-job.mjs'), join(out, 'panel-job.mjs'))
     // A desktop per session on a Linux Box: the MCP wrapper Claude runs there.

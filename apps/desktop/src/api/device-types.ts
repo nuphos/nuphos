@@ -34,7 +34,10 @@ export type DeviceExecAuditPage = {
 }
 
 /** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
-export type LocalAgentProvider = 'claude-code' | 'codex'
+export type LocalAgentProvider = 'claude-code' | 'codex' | 'grok' | 'opencode'
+
+/** The agents this app signs in itself, through their own CLI login; the rest sign in from Nuphos. */
+export type CliLoginProvider = 'claude-code' | 'codex'
 
 /** One more agent of a provider on a device. `runtimeId` is the catalog's RuntimeInstance.id. */
 export type DeviceAgentInstance = {

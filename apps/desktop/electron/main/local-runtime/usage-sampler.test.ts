@@ -11,6 +11,8 @@ function sampler(read: () => Promise<unknown>, readTookMs = 0) {
   const agents: Record<LocalAgentProvider, Agent> = {
     'claude-code': freshAgent(),
     codex: freshAgent(),
+    grok: freshAgent(),
+    opencode: freshAgent(),
   }
 
   for (const agent of Object.values(agents))

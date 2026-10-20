@@ -7,11 +7,13 @@ import path from 'node:path'
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
+import { homeLogin } from './agent-home.ts'
 import { agentCliEnv } from './config.ts'
 
-export type LocalAgentProvider = 'claude-code' | 'codex'
+import type { LocalAgentProvider } from './providers.ts'
 
-export const LOCAL_AGENT_PROVIDERS: readonly LocalAgentProvider[] = ['claude-code', 'codex']
+export { LOCAL_AGENT_PROVIDERS } from './providers.ts'
+export type { LocalAgentProvider } from './providers.ts'
 
 export type AgentCliStatus =
   | { installed: false }
@@ -81,6 +83,32 @@ export function parseCodexLoginStatus(
   if (/not logged in/iu.test(text)) return { loggedIn: false }
 
   return { loggedIn: null }
+}
+
+/** The agent's login in its isolated home; never the shell's, so null without that home. */
+async function loginOf(
+  provider: LocalAgentProvider,
+  file: string,
+  runtimeEnv: NodeJS.ProcessEnv | undefined,
+  agentHome: string | undefined,
+): Promise<Partial<AgentCliStatus> & { loggedIn: boolean | null }> {
+  if (!runtimeEnv || !agentHome) return { loggedIn: null }
+  const fromHome = await homeLogin(provider, agentHome)
+
+  if (fromHome !== undefined) return { loggedIn: fromHome }
+  const codex = provider === 'codex'
+
+  return run(file, codex ? ['login', 'status'] : ['auth', 'status', '--json'], runtimeEnv).then(
+    async (output) => {
+      if (codex) return parseCodexLoginStatus(output)
+      const auth = parseClaudeAuthStatus(output)
+
+      return auth.loggedIn && (await claudeTokensGone(runtimeEnv))
+        ? { ...auth, loggedIn: false }
+        : auth
+    },
+    () => ({ loggedIn: null }),
+  )
 }
 
 function versionOf(output: string): string | undefined {
@@ -179,7 +207,10 @@ function usageRequest(
 ): Promise<UsageRequest | null> {
   const home = homeOf(env)
 
-  return provider === 'codex' ? codexUsageRequest(home, env) : claudeUsageRequest(home, env)
+  if (provider === 'codex') return codexUsageRequest(home, env)
+  if (provider === 'claude-code') return claudeUsageRequest(home, env)
+
+  return Promise.resolve(null)
 }
 
 /** Asks the provider what is left of this computer's own account. It runs here,
@@ -233,24 +264,9 @@ export async function probeAgentCli(
   const runtimeEnv = agentHome
     ? agentCliEnv({ provider, env, agentHome, cliPath: file })
     : undefined
-  const authArgs = provider === 'codex' ? ['login', 'status'] : ['auth', 'status', '--json']
-  const parseAuth = provider === 'codex' ? parseCodexLoginStatus : parseClaudeAuthStatus
   const [version, auth] = await Promise.all([
     run(file, ['--version'], env).then(versionOf, () => {}),
-    runtimeEnv
-      ? run(file, authArgs, runtimeEnv).then(
-          async (output) => {
-            const auth = parseAuth(output)
-
-            return provider === 'claude-code' &&
-              auth.loggedIn &&
-              (await claudeTokensGone(runtimeEnv))
-              ? { ...auth, loggedIn: false }
-              : auth
-          },
-          () => ({ loggedIn: null }),
-        )
-      : Promise.resolve({ loggedIn: null }),
+    loginOf(provider, file, runtimeEnv, agentHome),
   ])
 
   // Usage is sampled on its own timer, never here: this probe gates the agent's

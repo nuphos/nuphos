@@ -7,6 +7,8 @@ import { isMac } from '../../lib/platform'
 
 import { useLocalAgentLogin } from './useLocalAgentLogin'
 
+import type { CliLoginProvider } from '../../api'
+
 /** One sign-in dialog for settings, the agent selector and conversation recovery. */
 export function LocalAgentSignIn({
   provider = 'claude-code',
@@ -14,7 +16,7 @@ export function LocalAgentSignIn({
   initiallyOpen = false,
   onClosed,
 }: {
-  provider?: 'claude-code' | 'codex'
+  provider?: CliLoginProvider
   label?: string
   initiallyOpen?: boolean
   onClosed?: (connected: boolean) => void

@@ -105,7 +105,8 @@ function harness(
     },
   }
 
-  const controller = new LocalRuntimeController(deps)
+  // The two agents the mock bundle carries.
+  const controller = new LocalRuntimeController(deps, ['claude-code', 'codex'])
 
   return {
     controller,
@@ -452,6 +453,8 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
   const agents = {
     'claude-code': { runtime: null },
     codex: { runtime: null },
+    grok: { runtime: null },
+    opencode: { runtime: null },
   } as unknown as Parameters<typeof tunnelStatusOf>[0]
   const before = process.env.NUPHOS_CLI_VERSION
 

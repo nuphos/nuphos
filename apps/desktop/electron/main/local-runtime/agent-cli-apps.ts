@@ -109,7 +109,7 @@ const PACKAGE_TIMEOUT_MS = 10_000
 const PACKAGE_TTL_MS = 5 * 60_000
 const SEARCH_DEPTH = 4
 /** Microsoft Store packages that carry an agent CLI: the ChatGPT / Codex app ships codex.exe. */
-const STORE_PACKAGES: Record<LocalAgentProvider, RegExp> = {
+const STORE_PACKAGES: Partial<Record<LocalAgentProvider, RegExp>> = {
   'claude-code': /claude/iu,
   codex: /openai|chatgpt|codex/iu,
 }
@@ -167,13 +167,16 @@ export function findFile(dir: string, name: string, depth: number): string | nul
 
 /** The agent CLI inside an installed Microsoft Store app, such as codex.exe in the ChatGPT app. */
 export async function windowsStoreClis(provider: LocalAgentProvider): Promise<string[]> {
+  const pattern = STORE_PACKAGES[provider]
   const name = provider === 'codex' ? 'codex.exe' : 'claude.exe'
   const found: string[] = []
+
+  if (!pattern) return found
 
   for (const line of await windowsStorePackages()) {
     const [pkg = '', location = ''] = line.split('|')
 
-    if (!location || !STORE_PACKAGES[provider].test(pkg)) continue
+    if (!location || !pattern.test(pkg)) continue
     const file = findFile(location.trim(), name, SEARCH_DEPTH)
 
     if (file) found.push(file)

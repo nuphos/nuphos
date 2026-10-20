@@ -17,18 +17,38 @@ function replaceOnce(source, anchor, replacement) {
  * skills sync at fixed Linux paths; on a desktop both live beside the adapter,
  * and the bridge runs on Electron's own Node.
  */
-export function patchDesktopAdapter(source, provider) {
-  let patched = replaceOnce(
+/** The MCP bridge beside the adapter, run on Electron's own Node. */
+export function patchDesktopBridge(source) {
+  const patched = replaceOnce(
     source,
     "args: ['/opt/nuphos-runtime/mcp-http-bridge.mjs', server.url],",
     "args: [env.NUPHOS_MCP_BRIDGE ?? '/opt/nuphos-runtime/mcp-http-bridge.mjs', server.url],",
   )
 
-  patched = replaceOnce(
+  return replaceOnce(
     patched,
     "env: [{ name: 'OPENAB_CREDENTIALS_DIR', value: dir }],",
     "env: [{ name: 'OPENAB_CREDENTIALS_DIR', value: dir }, { name: 'ELECTRON_RUN_AS_NODE', value: '1' }],",
   )
+}
+
+/**
+ * The image's ACP shim, for Grok Build and OpenCode: the same bridge as the
+ * adapters (in its own module), and the desktop's skills sync.
+ */
+export function patchDesktopShim(source) {
+  const patched = replaceOnce(
+    source,
+    'await nuphosSyncRuntimeSkills(message.params)',
+    'await nuphosLocalSyncSkills(message.params)',
+  )
+
+  // Appended: a declaration hoists, and the shim's #! line has to stay first.
+  return `${patched}\n${nuphosLocalSyncSkills.toString()}\n`
+}
+
+export function patchDesktopAdapter(source, provider) {
+  let patched = patchDesktopBridge(source)
   if (!patched.includes('await nuphosSyncRuntimeSkills(params);'))
     throw new Error('Desktop adapter patch anchor moved: skills sync')
   patched = patched.replaceAll(

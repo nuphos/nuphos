@@ -2,7 +2,10 @@
 // no top-level imports and no references outside its own body.
 export async function nuphosLocalSyncSkills(params, options = {}) {
   const env =
-    params?._meta?.claudeCode?.options?.env ?? params?._meta?.['ai.nuphos/codex']?.env ?? {}
+    params?._meta?.claudeCode?.options?.env ??
+    params?._meta?.['ai.nuphos/codex']?.env ??
+    params?._meta?.['ai.nuphos/session']?.env ??
+    {}
   const url = env.NUPHOS_RUNTIME_SKILLS_URL
   const token = env.NUPHOS_RUNTIME_SKILLS_TOKEN
   const workspace = options.workspace ?? process.env.NUPHOS_RUNTIME_WORKSPACE

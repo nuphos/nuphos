@@ -10,12 +10,12 @@ import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
 import { LOCAL_AGENT_INFO, LOCAL_SETUP_PROVIDERS, localAgentStatus } from './agentSetup'
 import { SetupScreen, StatusPill } from './SetupChrome'
 
-import type { LocalAgentProvider } from '../../../api'
+import type { CliLoginProvider } from '../../../api'
 
 const ICON = { 'claude-code': ClaudeIcon, codex: CodexIcon } as const
 
 /** Sign-in inside the card: start it, then follow the browser step until the CLI reports back. */
-function InlineSignIn({ provider }: { provider: LocalAgentProvider }) {
+function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
   const { login, busy, retry, start, cancel } = useLocalAgentLogin(provider, true)
 
   if (!busy)
@@ -58,7 +58,7 @@ function InlineSignIn({ provider }: { provider: LocalAgentProvider }) {
   )
 }
 
-function LocalAgentSetupCard({ provider }: { provider: LocalAgentProvider }) {
+function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   const state = useLocalRuntimeState()
   const status = localAgentStatus(state?.agents[provider].cli)
   const { name, maker, installUrl } = LOCAL_AGENT_INFO[provider]

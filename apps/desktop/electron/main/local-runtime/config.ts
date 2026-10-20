@@ -3,8 +3,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { envValue } from './agent-cli-apps.ts'
+import { LOCAL_AGENT_PROVIDERS, shimEnv } from './providers.ts'
 
-import type { LocalAgentProvider } from './agent-cli.ts'
+import type { LocalAgentProvider } from './providers.ts'
 
 export type LocalAgentAdapter = {
   /** The adapter's ACP entry point, run on Electron's own Node. */
@@ -86,6 +87,8 @@ type AgentCliLaunch = Pick<LocalRuntimeLaunch, 'provider' | 'cliPath' | 'agentHo
 function providerEnv(launch: AgentCliLaunch): Record<string, string> {
   if (launch.provider === 'codex')
     return { CODEX_PATH: launch.cliPath, CODEX_HOME: launch.agentHome }
+  if (launch.provider === 'grok' || launch.provider === 'opencode')
+    return shimEnv(launch.cliPath, launch.agentHome)
 
   return {
     CLAUDE_CODE_EXECUTABLE: launch.cliPath,
@@ -151,10 +154,8 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
  * from its own UI.
  */
 export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string> {
-  const wrapper = path.join(
-    launch.bundle.root,
-    `${launch.provider === 'codex' ? 'codex' : 'claude'}-login.mjs`,
-  )
+  const name = launch.provider === 'claude-code' ? 'claude' : launch.provider
+  const wrapper = path.join(launch.bundle.root, `${name}-login.mjs`)
   const cliEnv = agentCliEnv(launch)
 
   if (!existsSync(wrapper) || /\s/u.test(launch.nodeExecPath + wrapper)) return {}
@@ -180,7 +181,7 @@ export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string
 }
 
 /** The agent's own sign-in command: Claude's browser flow, Codex's device flow. */
-export function agentSignInArgs(provider: LocalAgentProvider): string[] {
+export function agentSignInArgs(provider: 'claude-code' | 'codex'): string[] {
   return provider === 'codex'
     ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
     : ['auth', 'login', '--claudeai']
@@ -257,7 +258,7 @@ export function bundleFromManifest(root: string, manifest: Manifest): LocalRunti
   if (typeof manifest.openab !== 'string') return null
   const adapters: LocalRuntimeBundle['adapters'] = {}
 
-  for (const provider of ['claude-code', 'codex'] as const) {
+  for (const provider of LOCAL_AGENT_PROVIDERS) {
     const adapter = manifest.adapters?.[provider]
 
     if (typeof adapter?.entry !== 'string' || typeof adapter.version !== 'string') continue
@@ -285,7 +286,7 @@ export function readBundle(root: string): LocalRuntimeBundle | null {
     const bundle = bundleFromManifest(root, manifest)
 
     if (!bundle || !existsSync(bundle.openab)) return null
-    for (const provider of ['claude-code', 'codex'] as const) {
+    for (const provider of LOCAL_AGENT_PROVIDERS) {
       const adapter = bundle.adapters[provider]
 
       if (adapter && !existsSync(adapter.entry)) delete bundle.adapters[provider]

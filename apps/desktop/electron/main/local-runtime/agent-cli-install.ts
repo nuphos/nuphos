@@ -7,7 +7,6 @@ import {
   forgetWindowsStorePackages,
   powershellPath,
 } from './agent-cli-apps.ts'
-import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 
@@ -27,7 +26,7 @@ function onPath(name: string, env: NodeJS.ProcessEnv): string | null {
 
 /** Each vendor's own installer for this platform; none of them needs administrator rights. */
 export function installCommand(
-  provider: LocalAgentProvider,
+  provider: 'claude-code' | 'codex',
   env: NodeJS.ProcessEnv,
 ): Command | null {
   const windows = process.platform === 'win32'
@@ -80,7 +79,9 @@ export function installAgentCli(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
 ): Promise<void> {
-  const command = LOCAL_AGENT_PROVIDERS.includes(provider) ? installCommand(provider, env) : null
+  // Grok Build and OpenCode install from their own installers; Nuphos offers only these two.
+  const command =
+    provider === 'claude-code' || provider === 'codex' ? installCommand(provider, env) : null
 
   if (!command)
     return Promise.reject(

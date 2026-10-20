@@ -14,12 +14,12 @@ import { LocalAgentSignIn } from './LocalAgentSignIn'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { RuntimeStatusTone } from './runtimePresentation'
-import type { AgentCliStatus, DevBundleHint, LocalAgentProvider, LocalAgentState } from '../../api'
+import type { AgentCliStatus, CliLoginProvider, DevBundleHint, LocalAgentState } from '../../api'
 
 export const LOCAL_AGENT_CARD = 'rounded-lg border border-zGray-800/70 bg-surface'
 
 const AGENT: Record<
-  LocalAgentProvider,
+  CliLoginProvider,
   { name: string; install: string; app: string; connectors: string }
 > = {
   'claude-code': {
@@ -43,7 +43,7 @@ const AGENT: Record<
 }
 
 /** Runs the vendor's own installer here, so nobody has to find a terminal first. */
-function InstallButton({ provider }: { provider: LocalAgentProvider }) {
+function InstallButton({ provider }: { provider: CliLoginProvider }) {
   const [installing, setInstalling] = useState(false)
   const { name, install } = AGENT[provider]
 
@@ -95,7 +95,7 @@ function Code({ children }: { children: string }) {
 }
 
 /** Shown only when a newer release exists; the update itself is shared with every agent selector. */
-function UpdateButton({ provider }: { provider: LocalAgentProvider }) {
+function UpdateButton({ provider }: { provider: CliLoginProvider }) {
   const { version, updating, start } = useLocalAgentUpdate(provider)
 
   if (!version && !updating) return null
@@ -114,13 +114,7 @@ function UpdateButton({ provider }: { provider: LocalAgentProvider }) {
   )
 }
 
-function CliStatus({
-  provider,
-  cli,
-}: {
-  provider: LocalAgentProvider
-  cli: AgentCliStatus | null
-}) {
+function CliStatus({ provider, cli }: { provider: CliLoginProvider; cli: AgentCliStatus | null }) {
   const agent = AGENT[provider]
 
   if (!cli) return <p className="text-[12px] text-tertiary">Checking {agent.name}…</p>
@@ -166,7 +160,7 @@ export function LocalAgentCard({
   devBundle,
   onCheck,
 }: {
-  provider: LocalAgentProvider
+  provider: CliLoginProvider
   agent: LocalAgentState
   devBundle?: DevBundleHint
   onCheck: () => void

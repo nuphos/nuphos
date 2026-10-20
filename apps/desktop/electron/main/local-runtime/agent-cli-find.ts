@@ -10,8 +10,6 @@ import {
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 
-const COMMAND: Record<LocalAgentProvider, string> = { 'claude-code': 'claude', codex: 'codex' }
-
 function fallbackDirs(home: string, env: NodeJS.ProcessEnv): string[] {
   if (process.platform === 'win32') {
     const appData = envValue(env, 'APPDATA') ?? path.join(home, 'AppData', 'Roaming')
@@ -47,10 +45,8 @@ export function findAgentCli(provider: LocalAgentProvider, env: NodeJS.ProcessEn
     ...(envValue(env, 'PATH') ?? '').split(path.delimiter).filter(Boolean),
     ...fallbackDirs(home, env),
   ]
-  const names =
-    process.platform === 'win32'
-      ? [`${COMMAND[provider]}.exe`, `${COMMAND[provider]}.cmd`]
-      : [COMMAND[provider]]
+  const command = provider === 'claude-code' ? 'claude' : provider
+  const names = process.platform === 'win32' ? [`${command}.exe`, `${command}.cmd`] : [command]
 
   for (const dir of dirs) {
     for (const name of names) {

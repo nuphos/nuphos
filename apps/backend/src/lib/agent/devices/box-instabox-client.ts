@@ -26,7 +26,8 @@ export const BOX_INSTALL_COMMAND = [
   'if ! node -e "process.exit(+process.versions.node.split(\'.\')[0] >= 22 ? 0 : 1)" 2>/dev/null; then',
   '  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs',
   'fi',
-  'command -v claude >/dev/null && command -v codex >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @anthropic-ai/claude-code @openai/codex; }',
+  'command -v claude >/dev/null && command -v codex >/dev/null && command -v opencode >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @anthropic-ai/claude-code @openai/codex opencode-ai; }',
+  'command -v grok >/dev/null || curl -fsSL https://x.ai/cli/install.sh | GROK_BIN_DIR="$HOME/.local/bin" bash',
   // Always the newest CLI, so the same step installs a Box and updates one.
   'curl -fsSL https://nuphos.ai/install | sh',
   // So `nuphos` also works in the Box\'s own terminal, not only in the commands run here.

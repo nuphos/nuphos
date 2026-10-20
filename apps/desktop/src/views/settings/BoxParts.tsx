@@ -168,7 +168,7 @@ export function MachineLine({
   )
 }
 
-const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex']
+const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex', 'grok', 'opencode']
 
 /** Add an agent to a machine; an older host can only sign in the agents it already has. */
 export function NewAgentMenu({

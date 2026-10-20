@@ -186,6 +186,17 @@ test('tunnel sign-in uses bundled wrappers and each provider’s isolated creden
         assert.equal(env.NUPHOS_CODEX_AUTH_DIRECTORY, launch.agentHome)
       } else assert.equal(env.CLAUDE_CONFIG_DIR, launch.agentHome)
     }
+    // Grok Build and OpenCode run the image's wrappers, told the CLI and the agent's home.
+    for (const provider of ['grok', 'opencode'] as const) {
+      const wrapper = path.join(root, `${provider}-login.mjs`)
+
+      writeFileSync(wrapper, '')
+      const env = agentLoginEnv({ ...launch, provider, bundle: { ...launch.bundle, root } })
+
+      assert.equal(env.OPENAB_RUNTIME_LOGIN_COMMAND, `${prefix}${launch.nodeExecPath} ${wrapper}`)
+      assert.equal(env.NUPHOS_AGENT_EXECUTABLE, launch.cliPath)
+      assert.equal(env.NUPHOS_AGENT_HOME, launch.agentHome)
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

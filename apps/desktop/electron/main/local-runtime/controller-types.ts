@@ -144,11 +144,15 @@ export const HEALTHY_AFTER_MS = 60_000
 export const AGENT_HOME_UNAVAILABLE: Record<LocalAgentProvider, string> = {
   'claude-code': 'Nuphos could not prepare a separate Claude Code home on this computer.',
   codex: 'Sign in to Codex on this computer with `codex login`, then check again.',
+  grok: 'Nuphos could not prepare a separate Grok Build home on this computer.',
+  opencode: 'Nuphos could not prepare a separate OpenCode home on this computer.',
 }
 
 export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
   'claude-code': 'Install Claude Code on this computer to run it as a local agent.',
   codex: 'Install Codex on this computer to run it as a local agent.',
+  grok: 'Install Grok Build on this computer to run it as a local agent.',
+  opencode: 'Install OpenCode on this computer to run it as a local agent.',
 }
 
 export function freshAgent(): Agent {

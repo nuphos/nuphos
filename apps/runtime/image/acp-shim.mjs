@@ -187,7 +187,9 @@ export function runShim({
 
   const start = (env) => {
     agent?.kill('SIGTERM')
-    const child = spawnAgent(spec.command, env)
+    // A computer running the agent locally names its own CLI, which may be off PATH.
+    const [command, ...args] = spec.command
+    const child = spawnAgent([env.NUPHOS_AGENT_EXECUTABLE || command, ...args], env)
     agent = child
     // The agent is the session: when it ends, so does this process.
     child.on('exit', (code) => {

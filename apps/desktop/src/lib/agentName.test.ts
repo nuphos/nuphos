@@ -30,6 +30,9 @@ test('this computer is Local, my other computers are Remote, team agents are Clo
   assert.equal(agentTier(studio, me), 'remote')
   assert.equal(agentTier(managed, me), 'cloud')
   assert.equal(agentTier(here, null), 'remote')
+  // Known by id alone, before the catalog says whose computer it is.
+  for (const provider of ['codex', 'grok', 'opencode'])
+    assert.equal(agentTier({ id: `local_u1_mac_${provider}`, label: '' }, me), 'local')
 })
 
 test('every agent goes by its own label', () => {

@@ -40,7 +40,10 @@ const BEDROCK_METHODS = [
   { value: 'access-key', label: 'AWS access key' },
 ]
 const AWS_REGION = /^[a-z]{2}(?:-gov)?-[a-z]+-\d{1,2}$/u
-const CONFIG_FILE = join(process.env.HOME ?? '/home/node', '.config', 'opencode', 'opencode.json')
+// A computer running OpenCode as a local agent names its own CLI and the home it runs with.
+const HOME = process.env.NUPHOS_AGENT_HOME || process.env.HOME || '/home/node'
+const OPENCODE_EXECUTABLE = process.env.NUPHOS_AGENT_EXECUTABLE || 'opencode'
+const CONFIG_FILE = join(HOME, '.config', 'opencode', 'opencode.json')
 
 class LoginError extends Error {}
 
@@ -85,7 +88,7 @@ export function providerOptions({ all, connected }) {
 /** OpenCode's server, on loopback only and behind a password nobody else holds. */
 export function startServer({ home }) {
   const password = randomBytes(24).toString('hex')
-  const child = spawn('opencode', ['serve', '--hostname', '127.0.0.1', '--port', '0'], {
+  const child = spawn(OPENCODE_EXECUTABLE, ['serve', '--hostname', '127.0.0.1', '--port', '0'], {
     // Not the gateway's environment: no transport keys or session tokens.
     env: {
       HOME: home,
@@ -289,7 +292,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   process.stdout.on('error', fail)
   setTimeout(fail, 15 * 60_000).unref()
   try {
-    server = await startServer({ home: process.env.HOME ?? '/home/node' })
+    server = await startServer({ home: HOME })
     await runOpenCodeLogin({
       server,
       lines: createInterface({ input: process.stdin })[Symbol.asyncIterator](),

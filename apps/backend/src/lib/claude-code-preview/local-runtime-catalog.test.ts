@@ -71,6 +71,37 @@ describe('local runtime catalog', () => {
     expect(await listOwnLocalRuntimes('t2', 'owner', deps)).toEqual([])
   })
 
+  test('Grok Build and OpenCode are listed, and a signed-out one can still be signed in', async () => {
+    const signedOut = { cli: { installed: true, loggedIn: false } }
+
+    presence = {
+      conn: 'c1',
+      seenAt: Date.now(),
+      status: { agents: { grok: signedOut, opencode: signedOut } },
+    }
+    const listed = await listOwnLocalRuntimes('t1', 'owner', deps)
+
+    expect(listed.map(({ id, provider, label }) => ({ id, provider, label }))).toEqual([
+      { id: 'local_owner_mac-1_grok', provider: 'grok', label: 'Grok Build in Olivia’s MacBook' },
+      {
+        id: 'local_owner_mac-1_opencode',
+        provider: 'opencode',
+        label: 'OpenCode in Olivia’s MacBook',
+      },
+    ])
+    for (const provider of ['grok', 'opencode'] as const) {
+      const id = localRuntimeId({ ...ref, provider })
+      const endpoint = await resolveLocalRuntimeEndpoint('t1', id, 'owner', 'login', deps)
+
+      // The provider tells the backend to speak to the image's ACP shim.
+      expect(endpoint.provider).toBe(provider)
+      expect(parseLocalRuntimeUrl(endpoint.url)?.provider).toBe(provider)
+      await expect(
+        resolveLocalRuntimeEndpoint('t1', id, 'owner', 'transport', deps),
+      ).rejects.toMatchObject({ code: 'runtime_login_required' })
+    }
+  })
+
   test('an agent is listed under the name in its registry, not the one its computer reports', async () => {
     const work = '11111111-1111-4111-8111-111111111111'
     const named = {

@@ -65,12 +65,15 @@ function box(t: { after: (fn: () => void) => void }, ownsMachine: boolean) {
 
     return controller
   }
+  // Grok Build and OpenCode, never signed in here, stay out of the comparisons.
   const signedIn = (controller: LocalRuntimeController) =>
     Object.fromEntries(
-      Object.entries(controller.state().agents).map(([provider, agent]) => [
-        provider,
-        agent.cli?.installed === true && agent.cli.loggedIn,
-      ]),
+      Object.entries(controller.state().agents)
+        .filter(([provider]) => provider === 'claude-code' || provider === 'codex')
+        .map(([provider, agent]) => [
+          provider,
+          agent.cli?.installed === true && agent.cli.loggedIn,
+        ]),
     )
 
   return { start, signedIn, owner }

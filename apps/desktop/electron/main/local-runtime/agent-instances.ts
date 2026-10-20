@@ -1,6 +1,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { LOCAL_AGENT_PROVIDERS } from './providers.ts'
+
 import type { LocalAgentProvider } from './agent-cli.ts'
 
 export type AgentInstance = { instanceId: string; provider: LocalAgentProvider; label: string }
@@ -18,7 +20,7 @@ export function parseInstance(value: unknown): AgentInstance {
     !item ||
     typeof item.instanceId !== 'string' ||
     !UUID.test(item.instanceId) ||
-    !['claude-code', 'codex'].includes(item.provider ?? '') ||
+    !LOCAL_AGENT_PROVIDERS.includes(item.provider!) ||
     typeof item.label !== 'string' ||
     !item.label.trim() ||
     item.label.length > 100

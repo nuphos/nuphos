@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { patchDesktopAdapter } from './adapter-patches.mjs'
+import { patchDesktopAdapter, patchDesktopShim } from './adapter-patches.mjs'
 import { nuphosLocalSyncSkills } from './skills-sync.mjs'
 
 const params = {
@@ -205,4 +205,13 @@ test('personal skills follow the turn’s credential and never land in the works
   await nuphosLocalSyncSkills(reopened, { workspace, sessionHome, credentialsDir })
   assert.deepEqual(readdirSync(skills), [])
   delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('the staged ACP shim keeps its #! line first and syncs skills through the desktop', () => {
+  const source = readFileSync(new URL('../../runtime/image/acp-shim.mjs', import.meta.url), 'utf8')
+  const patched = patchDesktopShim(source)
+
+  assert.ok(patched.startsWith('#!/usr/bin/env node\n'))
+  assert.ok(patched.includes('await nuphosLocalSyncSkills(message.params)'))
+  assert.ok(patched.includes(nuphosLocalSyncSkills.toString()))
 })

@@ -81,8 +81,16 @@ describe('multiple instances of one provider', () => {
   test('stable ids and URLs round trip without changing legacy aliases', () => {
     expect(localRuntimeId(ref)).toBe('local_owner_box-1')
     expect(localRuntimeId({ ...ref, provider: 'codex' })).toBe('local_owner_box-1_codex')
-    for (const provider of ['claude-code', 'codex'] as LocalAgentProvider[]) {
+    for (const provider of ['claude-code', 'codex', 'grok', 'opencode'] as LocalAgentProvider[]) {
       const instance = { ...ref, provider, instanceId: a }
+      const agent = { ...ref, provider }
+
+      expect(parseLocalRuntimeId(localRuntimeId(agent))).toEqual(agent)
+      expect(parseLocalRuntimeUrl(localRuntimeUrl(agent, 'team'))).toEqual({
+        ...agent,
+        teamId: 'team',
+        actorId: agent.userId,
+      })
 
       expect(parseLocalRuntimeId(localRuntimeId(instance))).toEqual(instance)
       expect(parseLocalRuntimeUrl(localRuntimeUrl(instance, 'team'))).toEqual({
@@ -92,6 +100,8 @@ describe('multiple instances of one provider', () => {
       })
     }
     expect(parseLocalRuntimeId('local_owner_box-1_claude-code_not-a-uuid')).toBeUndefined()
+    // Claude Code's default agent keeps its suffix-free id; no second spelling of it parses.
+    expect(parseLocalRuntimeId('local_owner_box-1_claude-code')).toBeUndefined()
     expect(
       parseLocalRuntimeUrl('nuphos-device://runtime/owner/box-1?team=team&instance='),
     ).toBeUndefined()

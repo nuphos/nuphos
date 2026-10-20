@@ -24,6 +24,8 @@ export function AgentSetupRequiredCard({
   const personalAgent = runtimeId?.startsWith('local_') === true
   const localAgent =
     runtimeId && personalAgent && agentTier({ id: runtimeId, label: '' }, owner) === 'local'
+  // Grok Build and OpenCode sign in from Agent settings, not through their own CLI here.
+  const cliLogin = localAgent && !/_(grok|opencode)$/u.test(runtimeId)
 
   return (
     <div className="rounded-md border border-zViolet-500/30 bg-zViolet-500/[0.07] px-3.5 py-3 flex flex-col gap-2">
@@ -36,7 +38,7 @@ export function AgentSetupRequiredCard({
         </span>
       </div>
       <p className="text-[13px] leading-relaxed text-secondary">{message}</p>
-      {localAgent && (
+      {cliLogin && (
         <LocalAgentSignIn
           provider={runtimeId?.endsWith('_codex') ? 'codex' : 'claude-code'}
           label="Sign in again"

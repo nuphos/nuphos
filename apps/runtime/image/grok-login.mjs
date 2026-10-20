@@ -8,7 +8,12 @@ import { pathToFileURL } from 'node:url'
 import { stripVTControlCharacters } from 'node:util'
 
 export const VERIFICATION_URI = 'https://accounts.x.ai/oauth2/device'
-export const GROK_HOME = join(process.env.HOME ?? '/home/node', '.grok')
+// A computer running Grok Build as a local agent names its own CLI and home.
+export const GROK_HOME = join(
+  process.env.NUPHOS_AGENT_HOME || process.env.HOME || '/home/node',
+  '.grok',
+)
+const GROK_EXECUTABLE = process.env.NUPHOS_AGENT_EXECUTABLE || 'grok'
 
 export function deviceCodePrompt(output) {
   const userCode = new RegExp(
@@ -20,7 +25,7 @@ export function deviceCodePrompt(output) {
 }
 
 export async function runGrokLogin({
-  executable = 'grok',
+  executable = GROK_EXECUTABLE,
   home = GROK_HOME,
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   signal,

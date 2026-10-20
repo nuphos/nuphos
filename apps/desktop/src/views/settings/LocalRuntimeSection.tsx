@@ -12,10 +12,10 @@ import { LocalRuntimeActivity } from './LocalRuntimeActivity'
 import { SectionHeader } from './shared'
 import { SleepPreventionSettings } from './SleepPreventionSettings'
 
-import type { LocalAgentProvider, LocalRuntimeState } from '../../api'
+import type { CliLoginProvider, LocalRuntimeState } from '../../api'
 
 const STATE_POLL_MS = 3_000
-const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex']
+const PROVIDERS: CliLoginProvider[] = ['claude-code', 'codex']
 
 function Bar({ className }: { className: string }) {
   return <div className={clsx('h-3 rounded bg-zGray-800/60', className)} />

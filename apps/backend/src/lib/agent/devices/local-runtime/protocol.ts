@@ -5,7 +5,7 @@ import { boxMetricsSchema } from '../metrics-schema'
 export type TunnelPurpose =
   'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'browser' | 'vnc' | 'instances'
 
-export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex'] as const
+export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'opencode'] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
@@ -132,6 +132,8 @@ export const localRuntimeStatusSchema = z.object({
   agents: z.object({
     'claude-code': localAgentStatusSchema.optional(),
     codex: localAgentStatusSchema.optional(),
+    grok: localAgentStatusSchema.optional(),
+    opencode: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),
 })
