@@ -168,13 +168,14 @@ gh_api -X POST /repos/myorg/myrepo/issues/42/comments \
 Use GitHub's `createCommitOnBranch` GraphQL mutation with the token from the setup script for new commits. GitHub supplies the author (the App, or the member's own account for a Personal Credential), uses its signing committer (`web-flow`), and signs the commit. A local `git commit` followed by `git push` does **not** gain a signature from the push credentials, even when its email links to the bot. Do not create commits with the REST Git Database API (`POST /repos/OWNER/REPO/git/commits`): with a Personal Credential those commits are unsigned. To bring a branch up to date with its base, use `POST /repos/OWNER/REPO/merges` (GitHub signs that merge commit) instead of building a merge commit yourself.
 
 1. Run the selected installation's setup command with `--for-commit` appended. It prints the current authenticated Nuphos participant's `Co-authored-by` trailer. Refresh this on every committing turn; never infer the participant from the runtime/provider account, installation owner, or durable conversation owner. If the participant identity is unavailable, stop before committing.
+   If the repository uses the Developer Certificate of Origin (a `DCO` file at its root, a contributing guide that asks for `Signed-off-by`, or a DCO check on its PRs), also run `bash skills/github/scripts/commit-signoff.sh OWNER/REPO` against the repository the commit goes to (the fork, for a fork PR). It prints `Signed-off-by: NAME <EMAIL>` for the author GitHub records for the current identity; a DCO check compares that line with the author exactly, and no read-only API reports the commit email, so do not build the line yourself. It briefly creates and deletes a `nuphos/signoff-probe-*` branch. Run it again whenever the setup identity changes.
 2. Work from the target branch's current SHA. For a new PR, create a new branch at the base branch SHA using `gh api repos/OWNER/REPO/git/refs -f ref=refs/heads/BRANCH -f sha=BASE_SHA`.
-3. Prepare a JSON payload file for the mutation below. Include the complete new contents of each changed file as base64 in `fileChanges.additions`; include removed paths in `fileChanges.deletions`. Omit unchanged files. Add the participant and runtime trailers to `message.body`, after a blank line.
+3. Prepare a JSON payload file for the mutation below. Include the complete new contents of each changed file as base64 in `fileChanges.additions`; include removed paths in `fileChanges.deletions`. Omit unchanged files. Add the participant and runtime trailers to `message.body`, after a blank line, followed by the `Signed-off-by` line when the repository uses the DCO.
 4. Submit with `gh api graphql --input /path/to/commit.json`. Use `expectedHeadOid` to prevent overwriting concurrent changes; on a mismatch, fetch and reconcile before retrying.
-5. Verify the returned commit through `gh api repos/OWNER/REPO/commits/SHA`: require `.commit.verification.verified == true`, check the resolved author, and inspect co-authors. If verification fails, stop and report it; never bypass branch protection.
+5. Verify the returned commit through `gh api repos/OWNER/REPO/commits/SHA`: require `.commit.verification.verified == true`, check the resolved author (it must match any `Signed-off-by` line), and inspect co-authors. If verification fails, stop and report it; never bypass branch protection.
 6. Fetch the branch to align the local checkout before further edits, then open the PR ready for review.
 
-Example payload structure (replace placeholders and omit empty additions/deletions):
+Example payload structure (replace placeholders, omit empty additions/deletions, and drop the `Signed-off-by` line for repositories without the DCO):
 
 ```json
 {
@@ -185,7 +186,7 @@ Example payload structure (replace placeholders and omit empty additions/deletio
       "expectedHeadOid": "CURRENT_BRANCH_SHA",
       "message": {
         "headline": "fix: describe the change",
-        "body": "Context.\n\nCo-authored-by: PARTICIPANT_NAME <PARTICIPANT_EMAIL>\nCo-authored-by: codex <codex@openai.com>"
+        "body": "Context.\n\nCo-authored-by: PARTICIPANT_NAME <PARTICIPANT_EMAIL>\nCo-authored-by: codex <codex@openai.com>\nSigned-off-by: AUTHOR_NAME <AUTHOR_EMAIL>"
       },
       "fileChanges": {
         "additions": [{ "path": "path/to/file", "contents": "BASE64_COMPLETE_FILE" }]
@@ -210,6 +211,7 @@ A few rules:
   - Claude Code: `Co-authored-by: claude <noreply@anthropic.com>`
   - Codex: `Co-authored-by: codex <codex@openai.com>`
 - Avoid duplicate trailers and preserve legitimate existing co-authors when carrying work forward. A participant email links to a GitHub profile only if registered there; report an unlinked co-author without substituting a different email.
+- A `Signed-off-by` line certifies the DCO for the commit's author only. Never sign off for the participant, a co-author or anyone else; when carrying other people's commits forward, keep their existing `Signed-off-by` lines and add yours below them. Merge commits from `POST /repos/OWNER/REPO/merges` need no sign-off.
 - If the repo has CODEOWNERS or required reviews, mention that the PR will need a human reviewer — `gh` will not bypass branch protection.
 
 ## Safety

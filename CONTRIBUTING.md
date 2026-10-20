@@ -53,6 +53,43 @@ Pull requests get an automated review in addition to a human one. It will
 sometimes be wrong; say so and explain why rather than changing code you believe
 is correct.
 
+## Developer Certificate of Origin
+
+This project uses the [Developer Certificate of Origin 1.1](DCO), not a CLA.
+Sign off every commit to certify that you wrote it or otherwise have the right
+to submit it under the project licence:
+
+```sh
+git commit -s
+```
+
+That appends a `Signed-off-by: Your Name <you@example.com>` trailer built from
+your Git `user.name` and `user.email`. CI's `dco` check rejects a pull request
+when any non-merge commit lacks a `Signed-off-by` line that matches the
+commit's author exactly, so the name and email must be the ones the commit is
+authored with.
+
+If you forgot, add the sign-off to the commits already on your branch and
+force-push it:
+
+```sh
+git rebase --signoff origin/main
+```
+
+A few rules that follow from what the sign-off certifies:
+
+- **Only sign off for yourself.** Never add a `Signed-off-by` line for someone
+  else, even with their permission; they add their own.
+- **Keep other people's attribution.** When you squash, rebase or otherwise
+  carry someone else's commits forward, keep their `Signed-off-by` (and
+  `Co-authored-by`) lines and add yours below them; do not drop or rewrite
+  them.
+- **Commits made through GitHub** (the web editor, the API, automation) record
+  the GitHub account as author. Sign off with exactly that name and email, as
+  `git log --format='%an <%ae>'` shows it. Bots sign off as themselves, for
+  example
+  `github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>`.
+
 ## Commit messages
 
 Imperative subject, under about 72 characters, optionally prefixed with a scope

@@ -86,3 +86,47 @@ else:
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('commit sign-off reports the author GitHub records and deletes its probe branch', () => {
+  const root = mkdtempSync(join(tmpdir(), 'github-signoff-'))
+  const bin = join(root, 'bin')
+  const calls = join(root, 'calls')
+  const signoff = join(import.meta.dir, 'skills/github/scripts/commit-signoff.sh')
+  const run = (author: string) =>
+    execFileSync('bash', [signoff, 'octo/repo'], {
+      env: { PATH: `${bin}:${process.env.PATH ?? ''}`, HOME: root, CALLS: calls, AUTHOR: author },
+      encoding: 'utf8',
+      stdio: 'pipe',
+    })
+
+  try {
+    mkdirSync(bin)
+    writeFileSync(
+      join(bin, 'gh'),
+      `#!/usr/bin/env bash
+echo "$*" >> "$CALLS"
+case "$*" in
+  "api repos/octo/repo --jq .default_branch") echo main ;;
+  "api repos/octo/repo/git/ref/heads/main --jq .object.sha") echo abc123 ;;
+  "api graphql"*) grep -q '"expectedHeadOid": "abc123"' && printf '%s\\n' "$AUTHOR" ;;
+esac
+`,
+      { mode: 0o755 },
+    )
+
+    expect(run('Octo Cat\tocto@example.invalid')).toBe(
+      'Signed-off-by: Octo Cat <octo@example.invalid>\n',
+    )
+    const log = readFileSync(calls, 'utf8').trim().split('\n')
+    const probe = /refs\/heads\/(nuphos\/signoff-probe-\S+)/.exec(log[2] ?? '')?.[1]
+    expect(probe).toBeDefined()
+    expect(log.at(-1)).toBe(`api -X DELETE repos/octo/repo/git/refs/heads/${probe}`)
+
+    writeFileSync(calls, '')
+    expect(() => run('Octo Cat\t')).toThrow()
+    expect(readFileSync(calls, 'utf8').trim().split('\n').at(-1)).toStartWith('api -X DELETE')
+    expect(() => run('Octo <Cat>\tocto@example.invalid')).toThrow()
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

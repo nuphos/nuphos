@@ -6,7 +6,8 @@
 # Paths are relative to the repository root. main only takes signed commits
 # through a pull request, so the commit is created with the GraphQL API, which
 # signs it, on a branch reset to the tested commit. Merging the pull request
-# releases it: runtime-release.yml tags the new package.json version.
+# releases it: runtime-release.yml tags the new package.json version. GH_TOKEN
+# is github.token, so github-actions[bot] authors the commit and signs it off.
 set -euo pipefail
 
 branch="$1"
@@ -35,10 +36,14 @@ if ! gh api -X PATCH "repos/$repo/git/refs/heads/$branch" -f sha="$base" -F forc
   gh api "repos/$repo/git/refs" -f ref="refs/heads/$branch" -f sha="$base" >/dev/null
 fi
 
+bot="github-actions[bot]"
+bot_id="$(gh api "users/$bot" --jq .id)"
+signoff="Signed-off-by: $bot <$bot_id+$bot@users.noreply.github.com>"
+
 # Node reads the files itself: a lockfile's base64 is too long for an argument.
-node - "$repo" "$branch" "$base" "$title" "$root" "$@" <<'JS' | gh api graphql --input - >/dev/null
+node - "$repo" "$branch" "$base" "$title" "$signoff" "$root" "$@" <<'JS' | gh api graphql --input - >/dev/null
 const fs = require('node:fs')
-const [repo, branch, base, title, root, ...paths] = process.argv.slice(2)
+const [repo, branch, base, title, signoff, root, ...paths] = process.argv.slice(2)
 const additions = paths.map((path) => ({
   path,
   contents: fs.readFileSync(`${root}/${path}`).toString('base64'),
@@ -51,7 +56,7 @@ process.stdout.write(
       input: {
         branch: { repositoryNameWithOwner: repo, branchName: branch },
         expectedHeadOid: base,
-        message: { headline: title },
+        message: { headline: title, body: signoff },
         fileChanges: { additions },
       },
     },

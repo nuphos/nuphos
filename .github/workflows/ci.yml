@@ -30,6 +30,28 @@ jobs:
       - name: Check formatting
         run: bun run format:check
 
+  # Keep the job name stable: it is meant to become a required check. A merge
+  # group only holds PRs whose commits already passed this on pull_request, so
+  # it reports success there instead of blocking the queue.
+  dco:
+    name: dco
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Skip in the merge queue
+        if: github.event_name == 'merge_group'
+        run: echo "Sign-offs were checked on the pull request."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check DCO sign-offs
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/check-dco.sh "$BASE" "$HEAD"
+
   changes:
     name: Detect changed apps
     runs-on: ubuntu-24.04-arm

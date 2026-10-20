@@ -9,6 +9,7 @@ const script = new URL('../scripts/open-update-pr.sh', import.meta.url).pathname
 
 // Runs the script with gh stubbed on PATH: it records each call, reports
 // openPr for `pr list` (what gh prints after --jq), and a URL for `pr create`.
+// The GraphQL request is kept in `graphql` for the commit-message assertions.
 function run(openPr, title) {
   const bin = mkdtempSync(join(tmpdir(), 'nuphos-update-pr-'))
   const calls = join(bin, 'calls')
@@ -20,7 +21,8 @@ echo "$*" >> ${calls}
 case "$*" in
   "pr list"*) cat ${bin}/open-pr ;;
   "pr create"*) echo https://github.com/nuphos/nuphos/pull/410 ;;
-  *graphql*) cat > /dev/null ;;
+  "api users/github-actions[bot]"*) echo 41898282 ;;
+  *graphql*) cat > ${bin}/graphql ;;
 esac
 `,
   )
@@ -37,7 +39,11 @@ esac
     encoding: 'utf8',
   })
   assert.equal(result.status, 0, result.stderr)
-  return existsSync(calls) ? readFileSync(calls, 'utf8').trim().split('\n') : []
+  const log = existsSync(calls) ? readFileSync(calls, 'utf8').trim().split('\n') : []
+  const graphql = join(bin, 'graphql')
+  return Object.assign(log, {
+    commit: existsSync(graphql) ? JSON.parse(readFileSync(graphql, 'utf8')).variables.input : null,
+  })
 }
 
 test('a stale update pull request is closed before its branch is reset to main', () => {
@@ -58,4 +64,12 @@ test('an open pull request that already carries the update is left alone', () =>
     log.filter((call) => !call.startsWith('pr list')),
     [],
   )
+})
+
+test('the update commit is signed off by github-actions[bot], its author', () => {
+  const { commit } = run('', 'fix(runtime): update to 1.0.1')
+  assert.deepEqual(commit.message, {
+    headline: 'fix(runtime): update to 1.0.1',
+    body: 'Signed-off-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>',
+  })
 })
