@@ -18,6 +18,7 @@ import { asanaAppRoutes } from '@/routes/asana-app'
 import { auth } from '@/routes/auth'
 import { avatarsRoutes } from '@/routes/avatars'
 import { claudeCodeRuntimeSkills } from '@/routes/claude-code-runtime-skills'
+import { cliRoutes } from '@/routes/cli'
 import { cloudflareAppRoutes } from '@/routes/cloudflare-app'
 import { desktopRoutes } from '@/routes/desktop'
 import { discordRoutes } from '@/routes/discord'
@@ -90,6 +91,7 @@ app.route('/avatars', avatarsRoutes)
 // authenticates its caller and fails closed when shared Redis is unavailable.
 app.route('/internal/download-handoff-rate-limit', downloadHandoffRateLimitRoutes)
 app.route('/internal/claude-code-runtime-skills', claudeCodeRuntimeSkills)
+app.route('/cli', cliRoutes)
 app.route('/desktop', desktopRoutes)
 app.route('/feedback', feedbackRoutes)
 app.route('/push', pushRoutes)

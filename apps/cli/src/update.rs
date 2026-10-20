@@ -5,26 +5,27 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
-use serde_json::Value;
 
-const RELEASES: &str = "https://api.github.com/repos/nuphos/nuphos/releases?per_page=50";
+/// Nuphos Cloud's answer whichever backend this CLI uses: releases are global,
+/// and the GitHub API this used to ask rate-limits shared IPs.
+const LATEST: &str = "https://api.nuphos.ai/cli/latest";
 
-/// The newest published CLI version; other components share the repository.
+/// The newest published CLI version.
 pub async fn latest() -> Option<String> {
-    let releases: Vec<Value> = reqwest::Client::new()
-        .get(RELEASES)
+    let text = reqwest::Client::new()
+        .get(LATEST)
         .header("user-agent", concat!("nuphos-cli/", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(5))
         .send()
         .await
         .ok()?
-        .json()
+        .error_for_status()
+        .ok()?
+        .text()
         .await
         .ok()?;
-    releases
-        .iter()
-        .filter(|r| r["draft"] != true && r["prerelease"] != true)
-        .find_map(|r| r["tag_name"].as_str()?.strip_prefix("cli-v").map(String::from))
+    let version = text.trim();
+    parse(version).map(|_| version.to_string())
 }
 
 fn parse(version: &str) -> Option<(u64, u64, u64)> {
@@ -47,7 +48,7 @@ pub fn check_enabled() -> bool {
 /// `nuphos update`: installs the newest release over this binary.
 pub async fn update() -> Result<i32> {
     let current = env!("CARGO_PKG_VERSION");
-    let latest = latest().await.ok_or_else(|| anyhow!("could not find the newest release on GitHub"))?;
+    let latest = latest().await.ok_or_else(|| anyhow!("could not look up the newest release at {LATEST}"))?;
     if !is_newer(&latest) {
         println!("nuphos {current} is up to date.");
         return Ok(0);

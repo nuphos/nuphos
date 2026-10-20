@@ -195,6 +195,13 @@ export function latestCliRelease(): Promise<RuntimeRelease | null> {
         )
         .catch(() => null),
     }
+  const entry = cliCached
 
-  return cliCached.result
+  // A failed read is retried after a minute rather than served for ten:
+  // `/cli/latest` answers installs with it.
+  void entry.result.then((release) => {
+    if (!release) entry.expires = Math.min(entry.expires, Date.now() + 60_000)
+  })
+
+  return entry.result
 }
