@@ -138,8 +138,6 @@ export class OpenabProcess {
     writeFileSync(configPath, openabConfigToml(launch), { mode: 0o600 })
     const log = createWriteStream(path.join(options.logDir, 'openab.log'), { flags: 'a' })
 
-    // A full disk loses the log, not the host: an unhandled stream error would exit it.
-    log.on('error', () => undefined)
     log.write(`\n=== ${new Date().toISOString()} openab on 127.0.0.1:${String(port)} ===\n`)
     const child = spawn(options.bundle.openab, ['run', '-c', configPath], {
       env: openabEnv(launch),
@@ -149,9 +147,14 @@ export class OpenabProcess {
     })
 
     this.child = child
-    // Not piped: a failed log would pause openab's output, and openab with it.
-    for (const output of [child.stdout, child.stderr])
-      output.on('data', (chunk) => log.write(chunk))
+    child.stdout.pipe(log, { end: false })
+    child.stderr.pipe(log, { end: false })
+    // A failed log (a full disk) unpipes openab's output and leaves it paused, which would
+    // stall openab; it is discarded instead. Unhandled, the error would exit the host.
+    log.on('error', () => {
+      child.stdout.resume()
+      child.stderr.resume()
+    })
     child.once('exit', (code, signal) => {
       log.end(`=== openab exited code=${String(code)} signal=${String(signal)} ===\n`)
       if (this.child !== child) return
