@@ -51,6 +51,7 @@ export const RUNTIME_SOURCES = [
     'patch-adapter.mjs',
     'session-config.mjs',
     'steering.mjs',
+    'restore-history.mjs',
   ].map((file) => `codex-acp/${file}`),
 ]
 
