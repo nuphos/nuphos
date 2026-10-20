@@ -124,10 +124,10 @@ test(
     const runtime = new OpenabProcess()
 
     try {
-      // Listens where the host asks, like openab's gateway.
+      // Writes more than a pipe holds, then listens where the host asks, like openab's gateway.
       writeFileSync(
         openab,
-        `#!${process.execPath}\nconst [host, port] = process.env.GATEWAY_LISTEN.split(':')\nrequire('node:http').createServer((_, res) => res.end()).listen(Number(port), host)\n`,
+        `#!${process.execPath}\nconst [host, port] = process.env.GATEWAY_LISTEN.split(':')\nprocess.stdout.write('x'.repeat(4 << 20), () => require('node:http').createServer((_, res) => res.end()).listen(Number(port), host))\n`,
       )
       chmodSync(openab, 0o755)
       // A directory where the log file goes fails every write, as a full disk does.
@@ -147,8 +147,8 @@ test(
 
       const running = await runtime.start(options)
 
-      assert.ok(running.port > 0)
       assert.ok(runtime.running())
+      assert.equal((await fetch(`http://127.0.0.1:${String(running.port)}/`)).status, 200)
     } finally {
       await runtime.stop()
       rmSync(root, { recursive: true, force: true })

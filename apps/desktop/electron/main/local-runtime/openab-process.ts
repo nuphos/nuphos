@@ -149,8 +149,9 @@ export class OpenabProcess {
     })
 
     this.child = child
-    child.stdout.pipe(log, { end: false })
-    child.stderr.pipe(log, { end: false })
+    // Not piped: a failed log would pause openab's output, and openab with it.
+    for (const output of [child.stdout, child.stderr])
+      output.on('data', (chunk) => log.write(chunk))
     child.once('exit', (code, signal) => {
       log.end(`=== openab exited code=${String(code)} signal=${String(signal)} ===\n`)
       if (this.child !== child) return
