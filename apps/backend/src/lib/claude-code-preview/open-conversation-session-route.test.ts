@@ -80,3 +80,32 @@ test('a conversation follows its runtime when it leaves its device', async () =>
   expect(dialed).toEqual([tunnel('device-b'), url])
   expect(released).toContain(tunnel('device-b'))
 })
+
+test('an opening still in flight on the old route is not handed to the new one', async () => {
+  let release = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+
+  acquire.mockImplementation(async (_team: string, endpoint: TeamRuntimeEndpoint) => {
+    const route = endpoint.tunnelUrl ?? endpoint.url
+
+    dialed.push(route)
+    // The first route's connection is still being made when the runtime moves.
+    if (route === tunnel('device-a')) await held
+
+    return client(route)
+  })
+  const onOld = open(viaDevice('device-a'))
+  const onRejoined = open(viaDevice('device-b'))
+  const onDetached = open(direct)
+
+  release()
+  const [old, rejoined, detached] = await Promise.all([onOld, onRejoined, onDetached])
+
+  expect(old.endpoint.tunnelUrl).toBe(tunnel('device-a'))
+  expect(rejoined.endpoint.tunnelUrl).toBe(tunnel('device-b'))
+  expect(detached.endpoint.tunnelUrl).toBeUndefined()
+  expect(sessionsByConversation.get('team:conversation')?.endpoint.tunnelUrl).toBeUndefined()
+  expect(released).toEqual(expect.arrayContaining([tunnel('device-a'), tunnel('device-b')]))
+})
