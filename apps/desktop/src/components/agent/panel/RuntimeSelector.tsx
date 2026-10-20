@@ -130,7 +130,7 @@ export function RuntimeSelector({
     </>
   )
   const classes =
-    'hidden h-7 min-w-0 max-w-fit grow basis-24 items-center gap-1.5 overflow-hidden rounded-full px-2 text-[12px] text-secondary @[230px]:flex'
+    'hidden h-7 min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full px-2 text-[12px] text-secondary @[230px]:flex'
 
   if (!onSelect)
     return (
