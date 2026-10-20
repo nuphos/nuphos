@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { agentApi } from '../../api/agent-api'
 import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
+import { ResourcePreview } from '../ui/resource-preview'
 import { toast } from '../ui/toast'
 
 import { resourceStyle } from './sessionResourceStyle'
@@ -81,7 +82,26 @@ export function SessionResources({
         if (resource.provider === 'github') label = `#${String(resource.number)}`
         else if (thread) label = resource.title
 
-        return (
+        const unlinkButton =
+          titlebar && canManage ? (
+            <button
+              type="button"
+              aria-label={`Unlink ${label}`}
+              title="Unlink resource"
+              disabled={removing.includes(resource.id)}
+              className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                void unlink(resource.id)
+              }}
+            >
+              <X className="size-3" />
+              {resource.provider === 'github' && <span>Unlink</span>}
+            </button>
+          ) : null
+
+        const badge = (
           <span
             key={resource.id}
             className={`inline-flex items-center ${titlebar ? 'session-resource-tag shrink-0 rounded border' : thread ? 'min-w-0' : 'shrink-0'} ${color}`}
@@ -101,29 +121,32 @@ export function SessionResources({
                   ? 'inline-flex min-w-0 max-w-24 items-center gap-1 rounded-l px-1.5 py-0.5 transition-colors hover:bg-[var(--sidebar-overlay-hover)] active:bg-[var(--sidebar-overlay-active)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
                   : 'inline-flex min-w-0 max-w-40 items-center gap-1'
               }
-              title={`${resource.repository ?? ''} ${resource.title} · ${resource.state}`}
+              title={
+                resource.provider === 'github' ? undefined : `${resource.title} · ${resource.state}`
+              }
               aria-label={`${label} · ${resource.state}`}
             >
               <span className="inline-flex shrink-0">{icon}</span>
               <span className="truncate">{label}</span>
             </ResourceLabel>
-            {titlebar && canManage && (
-              <button
-                type="button"
-                aria-label={`Unlink ${label}`}
-                title="Unlink resource"
-                disabled={removing.includes(resource.id)}
-                className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  void unlink(resource.id)
-                }}
-              >
-                <X className="size-3" />
-              </button>
-            )}
+            {resource.provider !== 'github' && unlinkButton}
           </span>
+        )
+
+        return resource.provider === 'github' ? (
+          <ResourcePreview
+            key={resource.id}
+            actionable={titlebar}
+            actions={unlinkButton}
+            repository={resource.repository ?? 'GitHub'}
+            identifier={label}
+            title={resource.title}
+            state={resource.state}
+          >
+            {badge}
+          </ResourcePreview>
+        ) : (
+          badge
         )
       })}
       {processes.map(({ tabId, name }) => (
