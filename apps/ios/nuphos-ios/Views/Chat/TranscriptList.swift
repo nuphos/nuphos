@@ -38,6 +38,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var submittedID: String?
     private var extendedID: String?
     private var pendingSentAnimationID: String?
+    /// Whether the reader was at the end the last time they or the transcript
+    /// moved. Read from the position itself, so no event can leave it stale.
     private var following = true
     private var positioned = false
     private var applying = false
@@ -138,6 +140,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let sent = submittedRowID != nil && submittedRowID != submittedID
         guard rows != incoming || sent else { return }
         let anchor = readingAnchor()
+        // Decided before the change: applying it moves the offset itself.
+        let follow = !positioned || following
         let old = byID
         let updated = Dictionary(uniqueKeysWithValues: incoming.map { ($0.id, $0) })
         var snapshot = NSDiffableDataSourceSnapshot<Int, String>()
@@ -148,9 +152,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             submittedID = submittedRowID
             pendingSentAnimationID = submittedRowID
             extendedID = incoming.first { $0.id == submittedRowID }?.id
-            following = false
         }
-        layout.keepContentOffsetAtBottomOnBatchUpdates = positioned && following
+        layout.keepContentOffsetAtBottomOnBatchUpdates = positioned && follow
         applying = true
         dataSource.apply(snapshot, animatingDifferences: false, commitAlongsideUpdates: {
             self.rows = incoming
@@ -168,7 +171,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         // which would show new rows at their estimated size for that frame.
         // Commit the position in the same turn as the change.
         collection.layoutIfNeeded()
-        if sent || !positioned || following {
+        if sent || follow {
             UIView.performWithoutAnimation { positionAtEnd() }
         } else if let anchor {
             restore(id: anchor.id, edge: .top, offset: anchor.offset)
@@ -234,6 +237,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
         if collection.contentOffset.y < end { collection.contentOffset.y = end }
         positioned = true
+        following = atEnd
     }
 
     private func restore(id: String, edge: ChatLayoutPositionSnapshot.Edge, offset: CGFloat) {
@@ -259,7 +263,6 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     }
 
     @objc private func showLatest() {
-        following = true
         positionAtEnd()
         updateLatestButton()
     }
@@ -268,28 +271,33 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         layout.collectionViewContentSize.height - collection.bounds.maxY + collection.adjustedContentInset.bottom < 48
     }
 
+    /// At the end, and not holding a just-sent message at the top: the room
+    /// reserved for its reply keeps that message still while the reply grows.
+    private var atEnd: Bool {
+        guard nearBottom, let last = rows.indices.last,
+              let frame = layout.layoutAttributesForItem(at: IndexPath(item: last, section: 0))?.frame else { return nearBottom }
+        return layout.collectionViewContentSize.height - frame.maxY - layout.settings.additionalInsets.bottom < 1
+    }
+
     private func updateLatestButton() { latestButton.isHidden = nearBottom }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        following = false
         layout.keepContentOffsetAtBottomOnBatchUpdates = false
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         UIEventLog.chatScroll(sessionId: sessionID, contentOffset: scrollView.contentOffset)
         updateLatestButton()
+        // Drags, flings, a status-bar tap and VoiceOver all land here. The
+        // transcript's own moves during an update are not the reader's.
+        if !applying { following = atEnd }
     }
 
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate { finishGesture() }
+        if !decelerate { flushPending() }
     }
 
-    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { finishGesture() }
-
-    private func finishGesture() {
-        following = nearBottom
-        flushPending()
-    }
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { flushPending() }
 
     private func flushPending() {
         let next = pending
@@ -450,8 +458,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             }
             await pause()
             probe.stop()
-            check("pinned_stream_\(name)", abs(pinned - 12) < 1 && backward < 1 && nearBottom,
-                  "pinnedY=\(pinned) maxBackward=\(backward) nearBottom=\(nearBottom)")
+            check("pinned_stream_\(name)", abs(pinned - 12) < 1 && backward < 1 && abs(y(of: question) - pinned) < 1,
+                  "pinnedY=\(pinned) maxBackward=\(backward) afterY=\(y(of: question))")
         }
         fixture = fixture0
         apply()
@@ -462,6 +470,28 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         touch()
         await pause()
         await sendAndStream("up")
+        // Messages that arrive from elsewhere (a teammate, the next turn)
+        // follow a reader at the end, however they got there, and never move
+        // one who is not, however they left it.
+        func arrive(_ name: String) {
+            fixture.append(.user(id: "user.\(name)", messageId: name, text: "A message from a teammate", images: []))
+            fixture.append(.assistantText(id: "answer.\(name)", messageId: "r\(name)",
+                text: String(repeating: "An incoming reply that is longer than the screen.\n\n", count: 30), streaming: false))
+            apply()
+        }
+        // A fling or a status-bar tap reaches the end without a drag ending there.
+        collection.setContentOffset(CGPoint(x: 0, y: layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom), animated: true)
+        await pause()
+        arrive("at_end")
+        await pause()
+        check("incoming_at_end", nearBottom, "offset=\(collection.contentOffset.y) nearBottom=\(nearBottom)")
+        collection.setContentOffset(CGPoint(x: 0, y: -collection.adjustedContentInset.top), animated: true)
+        await pause()
+        let readingY = y(of: "user.1")
+        arrive("scrolled_up")
+        await pause()
+        check("incoming_keeps_reader", abs(y(of: "user.1") - readingY) < 1 && !nearBottom,
+              "before=\(readingY) after=\(y(of: "user.1"))")
         check("suite_complete", true, "")
     }
     #endif
