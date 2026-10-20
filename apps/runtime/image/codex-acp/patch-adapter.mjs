@@ -61,7 +61,21 @@ export function patchAdapter(source, helper) {
     withSteering.split(startAnchor).length !== 2
   )
     throw new Error('Expected Codex start, load and resume thread handoffs')
+  // thread/resume already returns populated turns. Reading the same history
+  // again can exhaust the load deadline for image-heavy conversations.
+  const historyRead = `    const historyResponse = await this.codexClient.threadRead({
+      threadId: response.thread.id,
+      includeTurns: true
+    });`
+  const historyResult = '      thread: historyResponse.thread,'
+  if (
+    withSteering.split(historyRead).length !== 2 ||
+    withSteering.split(historyResult).length !== 2
+  )
+    throw new Error('Expected one Codex load history read and result handoff')
   const resubscribing = withSteering
+    .replace(historyRead, '')
+    .replace(historyResult, '      thread: response.thread,')
     .replaceAll(
       resumeCall,
       '    await nuphosReleaseMovedThread(this.codexClient, request.sessionId, request._meta);\n' +
