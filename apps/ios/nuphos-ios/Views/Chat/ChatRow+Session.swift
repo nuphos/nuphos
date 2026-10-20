@@ -41,27 +41,34 @@ extension ChatRow {
         rows.append(contentsOf: timeline.trailing.map(timelineRow))
 
         // The transcript already says why the last turn failed; the runtime
-        // status and the stream error would only repeat it below.
-        let failureShown = messages.last?.role == .assistant && messages.last?.parts.contains { part in
-            if case .turnInterrupted(let p) = part { return p.reason != .cancelled }; return false
-        } == true
+        // status and that turn's stream error would only repeat it below.
+        let failure = shownFailure(in: messages)
         if session.sending != nil {
             rows.append(.sending)
         } else if session.isNativeRuntime {
             if let status = session.runtimeStatus {
                 if session.isStreaming {
                     rows.append(.activity(text: status))
-                } else if !failureShown {
+                } else if failure == nil {
                     rows.append(.hint(id: "runtime-status", text: status, isError: false))
                 }
             }
         } else if session.isStreaming {
             rows.append(.activity(text: session.phaseLabel ?? "Thinking…"))
         }
-        if let error = session.error, !session.stoppedByUser, !failureShown {
+        if let error = session.error, !session.stoppedByUser, error != failure {
             rows.append(.hint(id: "error", text: error, isError: true))
         }
         return rows
+    }
+
+    /// Why the last turn failed, when the transcript itself says so.
+    static func shownFailure(in messages: [ChatMessage]) -> String? {
+        guard let last = messages.last, last.role == .assistant else { return nil }
+        for part in last.parts.reversed() {
+            if case .turnInterrupted(let p) = part, p.reason != .cancelled { return p.message }
+        }
+        return nil
     }
 
     /// Only the newest pending approval gets buttons.

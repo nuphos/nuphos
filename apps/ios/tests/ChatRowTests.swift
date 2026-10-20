@@ -17,6 +17,7 @@ enum ChatRowTests {
         foldsTurnsThatWereCutShort()
         placesTimelineEventsBetweenMessages()
         anchorsAgentDownloadsToTheirTurn()
+        repeatsNoFailureTheTranscriptShows()
         print("Chat row grouping, reasoning text, run following and tool timing passed")
     }
 
@@ -104,6 +105,18 @@ enum ChatRowTests {
         precondition(owner.canManage)
         let missing = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
         precondition(missing.isOwner == nil)
+    }
+
+    private static func repeatsNoFailureTheTranscriptShows() {
+        let signIn = "This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message."
+        let failed = ChatMessage(id: "m", role: .assistant, parts: [interrupted(.error, signIn)])
+        // The turn's own stream error repeats the interruption, so it is hidden…
+        precondition(ChatRow.shownFailure(in: [failed]) == signIn)
+        // …but a later upload failure is a different error and stays visible.
+        precondition(ChatRow.shownFailure(in: [failed]) != "Upload failed: The network connection was lost.")
+        let stopped = ChatMessage(id: "s", role: .assistant, parts: [interrupted(.cancelled, "The turn was stopped before the agent finished.")])
+        precondition(ChatRow.shownFailure(in: [stopped]) == nil)
+        precondition(ChatRow.shownFailure(in: [failed, .user("retry")]) == nil)
     }
 
     private static func tool(_ id: String, state: ChatPart.ToolPart.State = .outputAvailable) -> ChatPart {
