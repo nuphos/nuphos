@@ -1,7 +1,7 @@
 import { faFolder, faPaperclip } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ChevronDown, ChevronRight, FileSearch, Loader2, Lock, LockOpen, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileSearch, Loader2, Lock, Plus, Unlock } from 'lucide-react'
 
 import {
   Menu,
@@ -210,21 +210,26 @@ export function BypassControlMenu({
       <MenuTrigger
         aria-label="Authorization mode"
         className={clsx(
-          'flex items-center gap-1.5 flex-shrink-0 rounded-full transition-colors',
-          hero ? 'h-8 px-2 @[560px]:px-3' : 'h-7 px-1.5 @[560px]:px-2.5',
+          'hidden @[210px]:flex items-center gap-1.5 flex-shrink-0 rounded-full transition-colors',
+          hero ? 'h-8 px-1.5 @[400px]:px-3' : 'h-7 px-1.5 @[400px]:px-2.5',
           'text-secondary hover:text-main hover:bg-zGray-800/60',
         )}
         title="Choose how commands in this conversation are authorized"
       >
-        {bypassControl.active ? (
-          <LockOpen className="h-3.5 w-3.5 @[560px]:hidden" strokeWidth={2} />
-        ) : (
-          <Lock className="h-3.5 w-3.5 @[560px]:hidden" strokeWidth={2} />
-        )}
-        <span className="hidden text-[12.5px] font-medium @[560px]:inline">
-          {bypassControl.active ? 'Full Access' : 'Auto Mode'}
+        <span className="text-[12.5px] font-medium flex items-center">
+          {bypassControl.active ? (
+            <Unlock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
+          ) : (
+            <Lock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
+          )}
+          <span className="hidden @[400px]:inline @[520px]:hidden">
+            {bypassControl.active ? 'Full' : 'Auto'}
+          </span>
+          <span className="hidden @[520px]:inline">
+            {bypassControl.active ? 'Full Access' : 'Auto Mode'}
+          </span>
         </span>
-        <ChevronDown className="hidden w-3 h-3 opacity-60 @[440px]:block" strokeWidth={2} />
+        <ChevronDown className="w-3 h-3 opacity-60 hidden @[400px]:block" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent side="top" align="start" className="w-64">
         <MenuItem selected={!bypassControl.active} onClick={() => bypassControl.onSelect(false)}>
