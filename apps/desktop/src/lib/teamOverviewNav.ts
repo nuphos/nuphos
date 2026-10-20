@@ -10,6 +10,7 @@ import {
   Cloud,
   HeartPulse,
   Globe,
+  Inbox,
   Monitor,
   Terminal,
   Network,
@@ -37,6 +38,7 @@ const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
 
 /** Team-wide pages that replace the chat surface when opened from the sidebar. */
 export const TEAM_MANAGEMENT_NAV_ITEMS: TeamOverviewNavItem[] = [
+  { key: 'team.inbox', label: 'Inbox', icon: Inbox },
   { key: 'team.agents', label: 'Agents', icon: Bot },
   { key: 'team.agent-skills', label: 'Skills', icon: Sparkles },
   { key: 'team.agent-memories', label: 'Memories', icon: Brain },

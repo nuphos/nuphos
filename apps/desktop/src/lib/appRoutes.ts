@@ -116,6 +116,8 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
       return emptyNavigation(teamScope, 'team.plans', rest[1] ? { filter: rest[1] } : {})
     case 'triggers':
       return emptyNavigation(teamScope, 'team.triggers')
+    case 'inbox':
+      return emptyNavigation(teamScope, 'team.inbox')
     // Legacy: the Chats page merged into Agent, which now carries the
     // conversation list beside the chat. Links out there — shared URLs, older
     // clients — still resolve; nothing produces this path any more.

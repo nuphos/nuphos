@@ -39,6 +39,7 @@ export function AgentHistoryPage({
   historyScope,
   ownerId = null,
   triggerIds = null,
+  pendingDecision = false,
   onListLoaded,
   keyboardNavigation = false,
 }: {
@@ -66,6 +67,8 @@ export function AgentHistoryPage({
    * disjoint: Chats excludes trigger runs, and this shows only them.
    */
   triggerIds?: string[] | null
+  /** The Inbox: only conversations waiting on the viewer's decision. */
+  pendingDecision?: boolean
   /**
    * The first page of a list-replacing fetch, so a reader beside this list can
    * open something without waiting to be told. Not fired for load-more: those
@@ -109,12 +112,24 @@ export function AgentHistoryPage({
   // Every new query starts in the loading state; adjusting during render keeps
   // the previous query's rows from lingering as if they answered this one.
   const triggerKey = triggerIds ? triggerIds.join(',') : ''
-  const listKey = `${teamId}|${historyScope}|${ownerId ?? ''}|${triggerKey}|${debouncedQuery}`
+  const listKey = `${teamId}|${historyScope}|${ownerId ?? ''}|${triggerKey}|${String(pendingDecision)}|${debouncedQuery}`
   const [loadingListKey, setLoadingListKey] = useState(listKey)
 
   if (listKey !== loadingListKey) {
     setLoadingListKey(listKey)
     setLoading(true)
+  }
+  // The Inbox fits in one page (the backend's most), so a reader beside it always
+  // sees whether its open conversation still waits.
+  const pageSize = pendingDecision ? 100 : HISTORY_PAGE_SIZE
+  // Everything here is also in listKey, which stands in for it in the effects below.
+  const listOptions = {
+    scope: historyScope,
+    archived: triggerIds ? undefined : ('exclude' as const),
+    ownerId: ownerId ?? undefined,
+    triggerIds: triggerIds ?? undefined,
+    pendingDecision: pendingDecision || undefined,
+    search: debouncedQuery || undefined,
   }
 
   // A Trigger's run list is history and keeps every run; only Chats hides
@@ -124,12 +139,8 @@ export function AgentHistoryPage({
 
     void api
       .agentListConversations(teamId, {
-        limit: HISTORY_PAGE_SIZE,
-        scope: historyScope,
-        archived: triggerIds ? undefined : 'exclude',
-        ownerId: ownerId ?? undefined,
-        triggerIds: triggerIds ?? undefined,
-        search: debouncedQuery || undefined,
+        limit: pageSize,
+        ...listOptions,
       })
       .then((page) => {
         if (requestIdRef.current !== requestId) return
@@ -144,10 +155,8 @@ export function AgentHistoryPage({
       .finally(() => {
         if (requestIdRef.current === requestId) setLoading(false)
       })
-    // triggerKey stands in for the triggerIds array, whose identity changes on
-    // every render of the caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId, historyScope, ownerId, triggerKey, debouncedQuery, refreshKey, titleRevision])
+  }, [listKey, refreshKey, titleRevision])
 
   const loadMore = useCallback(async () => {
     // A requestId mismatch means a replacing fetch started after this cursor
@@ -161,12 +170,8 @@ export function AgentHistoryPage({
     try {
       const page = await api.agentListConversations(teamId, {
         cursor: nextPage.cursor,
-        limit: HISTORY_PAGE_SIZE,
-        scope: historyScope,
-        archived: triggerIds ? undefined : 'exclude',
-        ownerId: ownerId ?? undefined,
-        triggerIds: triggerIds ?? undefined,
-        search: debouncedQuery || undefined,
+        limit: pageSize,
+        ...listOptions,
       })
 
       if (requestIdRef.current !== requestId) return
@@ -186,9 +191,8 @@ export function AgentHistoryPage({
       loadMoreInFlightRef.current = false
       setLoadingMore(false)
     }
-    // See the listing effect above: triggerKey stands in for triggerIds.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nextPage, teamId, historyScope, ownerId, triggerKey, debouncedQuery])
+  }, [nextPage, teamId, listKey])
 
   // Archive is owner-only on the backend, so the list only offers it on the
   // caller's own rows (see HistoryPageList). The list excludes archived

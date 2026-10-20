@@ -82,6 +82,7 @@ export const agentApi = {
       search?: string
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
+      pendingDecision?: boolean
     },
   ) => {
     const page = await window.api.agentListConversations(teamId, options)

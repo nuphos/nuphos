@@ -149,6 +149,9 @@ export function teamPageLocation(
   if (active === 'team.triggers') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/triggers`)
   }
+  if (active === 'team.inbox') {
+    return pageLocation(`/teams/${pathSegment(scope.teamId)}/inbox`)
+  }
   if (active === 'team.audit') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/audit`)
   }

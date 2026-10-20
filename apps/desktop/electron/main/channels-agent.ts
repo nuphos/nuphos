@@ -69,6 +69,7 @@ export const agentChannels = {
       search?: string
       archived?: agent.ConversationsArchivedFilter
       sort?: agent.ConversationsSort
+      pendingDecision?: boolean
     },
   ) => agent.listConversations(teamId, options),
   'agent:moveConversationRuntime': (

@@ -120,6 +120,7 @@ export type WindowAgentApi = {
       search?: string
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
+      pendingDecision?: boolean
     },
   ): Promise<AgentConversationsPage>
   agentRenameConversation(

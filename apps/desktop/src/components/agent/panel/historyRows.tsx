@@ -154,9 +154,12 @@ export function HistoryConversationRow({
           >
             {conversation.title || conversation.firstMessage || 'Untitled chat'}
           </div>
-          <div className={clsx('text-[11.5px] text-tertiary', timeClassName)}>
-            {formatHistoryTime(conversation.lastActiveAt)}
-            {conversation.messageCount > 0
+          <div className={clsx('truncate text-[11.5px] text-tertiary', timeClassName)}>
+            {/* Waiting on a decision, the question is what the row is about. */}
+            {conversation.pendingDecision
+              ? `${formatHistoryTime(conversation.pendingDecision.askedAt)} · ${conversation.pendingDecision.question}`
+              : formatHistoryTime(conversation.lastActiveAt)}
+            {!conversation.pendingDecision && conversation.messageCount > 0
               ? ` · ${String(conversation.messageCount)} messages`
               : ''}
             {triggerBadge && (

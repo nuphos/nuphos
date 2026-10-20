@@ -59,6 +59,7 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
     nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.plans', { filter: '42' }),
   },
   { name: 'triggers', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.triggers') },
+  { name: 'inbox', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.inbox') },
   { name: 'audit', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.audit') },
   {
     name: 'browser bookmark',

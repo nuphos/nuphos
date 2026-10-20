@@ -106,6 +106,8 @@ type Props = {
   /** Focus the blank composer when this page-mode panel becomes active. */
   newChatRequest?: number
   autoFocusComposer?: boolean
+  /** An opened conversation focuses its composer; the Inbox keeps focus on its list instead. */
+  focusComposerOnOpen?: boolean
   /**
    * The workspace tab's currently-bound kubeconfig context, if any. Forwarded
    * to `agentStart` as `kubeContext` so the backend can tell the agent which
@@ -164,6 +166,7 @@ export const AgentPanel = memo(function AgentPanel({
   onOpenAgentSettings,
   newChatRequest = 0,
   autoFocusComposer = false,
+  focusComposerOnOpen = true,
   kubeContext,
   runtimeKubeContextRef,
   isTeamAdmin = false,
@@ -197,6 +200,7 @@ export const AgentPanel = memo(function AgentPanel({
     onOpenAgentSettings,
     newChatRequest,
     autoFocusComposer,
+    focusComposerOnOpen,
     kubeContext,
     runtimeKubeContextRef,
     connectedResources,

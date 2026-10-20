@@ -4,7 +4,7 @@ import { useWorkspacePane } from '../../../app/workspace/WorkspacePaneContext'
 
 import type { AgentConversation } from '../../../api'
 
-// Up/Down walks the list the way a mail reader does. Bound to the window
+// Up/Down (or j/k) walks the list the way a mail reader does. Bound to the window
 // rather than the list, so it works without clicking into the rail first —
 // and it preventDefaults, because the browser's own meaning for these keys
 // here is to scroll the rail, which fights the selection it should follow.
@@ -31,7 +31,9 @@ export function useHistoryKeyboardNavigation({
   useEffect(() => {
     if (!paneActive || !keyboardNavigation || items.length === 0) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+      const down = event.key === 'ArrowDown' || event.key === 'j'
+
+      if (!down && event.key !== 'ArrowUp' && event.key !== 'k') return
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
       // Never steal the arrows from somewhere text is being entered — the
       // reader's own composer sits beside this list.
@@ -48,10 +50,10 @@ export function useHistoryKeyboardNavigation({
       // Nothing selected yet: either arrow enters the list at the near end.
       const nextIndex =
         current === -1
-          ? event.key === 'ArrowDown'
+          ? down
             ? 0
             : items.length - 1
-          : Math.min(items.length - 1, Math.max(0, current + (event.key === 'ArrowDown' ? 1 : -1)))
+          : Math.min(items.length - 1, Math.max(0, current + (down ? 1 : -1)))
       const next = items[nextIndex]
 
       if (!next || next.sessionId === selectedSessionId) return

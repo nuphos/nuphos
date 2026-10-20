@@ -35,6 +35,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     bypassBySession,
     conversationDropRef,
     dockCurrentSession,
+    focusComposerOnOpen,
     forkConversation,
     onDockToSidebar,
     handleMessageFeedback,
@@ -212,7 +213,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       ? null
                       : activeTab.promptSuggestion
                   }
-                  autoFocus
+                  autoFocus={focusComposerOnOpen}
                   runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                   executing={runtimeIsExecuting(activeTab.runtimeState)}
                   readOnly={activeTab.readOnly}

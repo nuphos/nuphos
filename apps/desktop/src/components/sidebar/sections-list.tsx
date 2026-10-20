@@ -18,6 +18,7 @@ import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
 import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
+import { useInboxBadge } from './use-inbox-badge'
 
 import type { Item, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
@@ -62,9 +63,12 @@ export function SidebarSectionList({
   onSelect,
   onOpenKey,
 }: SectionListProps) {
+  // The Inbox row carries how many conversations wait on the viewer.
+  const shown = useInboxBadge(scope.teamId, sections)
+
   return (
     <>
-      {sections.map((section, idx) => (
+      {shown.map((section, idx) => (
         <div
           key={idx}
           className={clsx(

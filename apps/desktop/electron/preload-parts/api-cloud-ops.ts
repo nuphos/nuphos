@@ -1,3 +1,4 @@
+import type { ListConversationsOptions } from '../agent/conversations-list'
 import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
 
@@ -262,19 +263,8 @@ export const cloudOpsApi = {
     toolName: string
     input: unknown
   }) => ipcRenderer.invoke('agent:executeClientTool', args),
-  agentListConversations: (
-    teamId: string,
-    options?: {
-      cursor?: string
-      limit?: number
-      scope?: 'mine' | 'team' | 'shared'
-      ownerId?: string
-      triggerIds?: string[]
-      search?: string
-      archived?: 'exclude' | 'only'
-      sort?: 'activity' | 'created' | 'archived'
-    },
-  ) => ipcRenderer.invoke('agent:listConversations', teamId, options),
+  agentListConversations: (teamId: string, options?: ListConversationsOptions) =>
+    ipcRenderer.invoke('agent:listConversations', teamId, options),
   agentRenameConversation: (sessionId: string, title: string, teamId?: string) =>
     ipcRenderer.invoke('agent:renameConversation', sessionId, title, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>

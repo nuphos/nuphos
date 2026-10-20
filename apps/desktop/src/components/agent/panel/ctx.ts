@@ -66,6 +66,7 @@ export type PanelCtx = {
   onOpenAgentSettings?: () => void
   newChatRequest: number
   autoFocusComposer: boolean
+  focusComposerOnOpen: boolean
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
   connectedResources?: string[]
