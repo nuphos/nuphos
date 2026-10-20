@@ -10,6 +10,10 @@ import { CLI_CONFIG_PATH } from './cli-config-path.ts'
 
 const DEFAULT_API_URL = 'https://api.nuphos.ai'
 
+// What this process was launched with; resetting the switch returns here, so a
+// `bun run dev` build never falls through to Nuphos Cloud.
+const LAUNCH_API_URL = process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || ''
+
 // Paired with the sign-in file (cli.yaml → cli.api-url), so `bun run dev`'s
 // cli.dev.yaml never shares an endpoint with the installed app.
 const SAVED_PATH = `${CLI_CONFIG_PATH.replace(/\.ya?ml$/, '')}.api-url`
@@ -28,12 +32,13 @@ export function apiUrl(): string {
   return process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || DEFAULT_API_URL
 }
 
-/** Saves the endpoint (`null` restores Nuphos Cloud) and returns the new one. */
+/** Saves the endpoint (`null` restores the launch-time one, else Nuphos Cloud) and returns the new one. */
 export function setApiUrl(raw: string | null): string {
   delete process.env.ATLAS_API_URL
   if (raw === null) {
     fs.rmSync(SAVED_PATH, { force: true })
-    delete process.env.NUPHOS_API_URL
+    if (LAUNCH_API_URL) process.env.NUPHOS_API_URL = LAUNCH_API_URL
+    else delete process.env.NUPHOS_API_URL
   } else {
     const url = new URL(raw.trim())
 
