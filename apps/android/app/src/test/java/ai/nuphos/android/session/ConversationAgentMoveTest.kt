@@ -37,8 +37,8 @@ class ConversationAgentMoveTest {
     @Test fun activeRunBlocksMovesEvenWithoutLocalStreaming() = runTest {
         val session = ChatSession("fixture", "team", aiAllowed = { true }, readDetail = { _, _, _ -> detail() })
         session.load()
-        ChatSession::class.java.getDeclaredMethod("refreshMetadata", AgentConversationDetail::class.java, Double::class.javaPrimitiveType)
-            .also { it.isAccessible = true }.invoke(session, detail(busy = true), RuntimeObservation.now())
+        ChatSession::class.java.getDeclaredMethod("refreshMetadata", AgentConversationDetail::class.java, Double::class.javaPrimitiveType, Long::class.javaPrimitiveType)
+            .also { it.isAccessible = true }.invoke(session, detail(busy = true), RuntimeObservation.now(), 0L)
         assertFalse(session.canMoveAgent)
         session.disposeForConsent()
     }

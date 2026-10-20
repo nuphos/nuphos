@@ -179,6 +179,69 @@ class AgentStore(
         reload()
     }
 
+    var watchingSessionId: String? by mutableStateOf(null)
+        private set
+    var watchError: String? by mutableStateOf(null)
+        private set
+    fun clearWatchError() { watchError = null }
+    fun canWatch(row: AgentConversation) = !disposed && hasAiAccess() && selectedTeam != null &&
+        (row.teamId == null || row.teamId == selectedTeam?.id) && row.watching != null
+
+    suspend fun setWatching(row: AgentConversation) {
+        val team = selectedTeam?.id ?: return
+        val current = conversations.firstOrNull { it.sessionId == row.sessionId && (it.teamId ?: team) == team } ?: return
+        if (!canWatch(current) || current.watching != row.watching) return
+        changeWatching(team, current.sessionId, !requireNotNull(current.watching))
+    }
+    suspend fun setWatching(session: ChatSession) {
+        if (!session.canWatch || selectedTeam?.id != session.teamId) return
+        changeWatching(session.teamId, session.sessionId, !requireNotNull(session.watching))
+    }
+    suspend fun refreshWatchState() {
+        val team = selectedTeam?.id ?: return
+        val revision = workspaceRevision
+        reload()
+        for (session in sessions.values.filter { it.teamId == team }.toList()) {
+            if (disposed || !hasAiAccess() || selectedTeam?.id != team || workspaceRevision != revision) return
+            try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (_: Exception) {
+                if (!disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision)
+                    watchError = "Could not refresh watch status. Try again."
+            }
+        }
+    }
+    private suspend fun changeWatching(team: String, id: String, watching: Boolean) {
+        if (disposed || !hasAiAccess() || watchingSessionId != null) return
+        val revision = workspaceRevision
+        fun current() = !disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision
+        watchingSessionId = id
+        watchError = null
+        try {
+            ConversationActions.watch(token, team, id, watching)
+            if (!current()) return
+            // DELETE cascades to unloaded descendants. Invalidate instead of guessing
+            // ancestry from a partial page; only subsequent server reads restore it.
+            loadGeneration++
+            isLoadingMore = false
+            conversations = conversations.map { it.copy(watching = null) }
+            val affected = sessions.values.filter { it.teamId == team }.toList()
+            affected.forEach { it.invalidateWatching() }
+            reload()
+            var refreshFailed = phaseError != null
+            for (session in affected.filter { it.loaded && !it.browsingOnly }) {
+                if (!current()) return
+                try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
+                } catch (_: Exception) { refreshFailed = true }
+            }
+            if (current() && refreshFailed) watchError = "Watch change saved, but status could not refresh. Refresh and try again."
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e
+        } catch (e: Exception) {
+            if (current()) watchError = "Could not update watch status. Refresh and try again."
+        } finally {
+            if (current()) watchingSessionId = null
+        }
+    }
+
     var unlinkingSessionId: String? by mutableStateOf(null)
         private set
     var unlinkError: String? by mutableStateOf(null)
@@ -310,6 +373,8 @@ class AgentStore(
             val pick = loaded.firstOrNull { it.id == remembered } ?: loaded.firstOrNull()
             if (pick != selectedTeam) {
                 workspaceRevision++
+                watchingSessionId = null
+                watchError = null
                 unlinkingSessionId = null
                 unlinkError = null
                 selectedTeam = pick
@@ -341,6 +406,8 @@ class AgentStore(
             val refreshed = saved.firstOrNull { it.id == old.id }
             if (refreshed == null) {
                 workspaceRevision++
+                watchingSessionId = null
+                watchError = null
                 unlinkingSessionId = null
                 unlinkError = null
                 selectedTeam = null
@@ -351,6 +418,8 @@ class AgentStore(
                 if (refreshed != old) {
                     credentials = credentials.reset()
                     workspaceRevision++
+                    watchingSessionId = null
+                    watchError = null
                     unlinkingSessionId = null
                     unlinkError = null
                 }
@@ -366,6 +435,8 @@ class AgentStore(
         val verified = teams.firstOrNull { it.id == team.id } ?: return
         if (verified == selectedTeam) return
         workspaceRevision++
+        watchingSessionId = null
+        watchError = null
         unlinkingSessionId = null
         unlinkError = null
         membershipRequest++
@@ -518,6 +589,8 @@ class AgentStore(
         credentials = credentials.reset()
         membershipRequest++
         workspaceRevision++
+        watchingSessionId = null
+        watchError = null
         unlinkingSessionId = null
         unlinkError = null
         resetHistory()

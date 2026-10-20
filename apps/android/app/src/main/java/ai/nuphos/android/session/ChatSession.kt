@@ -149,6 +149,19 @@ class ChatSession(
     private var hasActiveRun by mutableStateOf(false)
     var movingAgent by mutableStateOf(false)
         private set
+    private var watchRevision = 0L
+    var watching: Boolean? by mutableStateOf(null)
+        private set
+    val canWatch get() = hasAiAccess && loaded && loadError == null && !browsingOnly && watching != null
+    fun invalidateWatching() {
+        watchRevision++
+        watching = null
+    }
+    suspend fun refreshWatching() {
+        val revision = watchRevision
+        val detail = readDetail(token, teamId, sessionId)
+        if (hasAiAccess && revision == watchRevision) watching = detail.watching
+    }
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
     fun sharingState() = SharingState(ai.nuphos.android.data.SessionSharingApi(token, teamId, sessionId, runtimeId)) {
         canManage && isOwner && !browsingOnly
@@ -228,9 +241,10 @@ class ChatSession(
         val detailGeneration = ++detailLoadGeneration
         try {
             val observedAt = RuntimeObservation.now()
+            val watchReadRevision = watchRevision
             val detail = readDetail(token, teamId, sessionId)
             if (!hasAiAccess || detailGeneration != detailLoadGeneration) return
-            refreshMetadata(detail, observedAt)
+            refreshMetadata(detail, observedAt, watchReadRevision)
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?: 0
             isArchived = detail.archivedAt != null
@@ -669,7 +683,8 @@ class ChatSession(
         return true
     }
 
-    private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double) {
+    private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
+        if (watchReadRevision == watchRevision) watching = detail.watching
         isArchived = detail.archivedAt != null
         readOnly = browsingOnly || (detail.readOnly ?: false)
         isOwner = detail.isOwner ?: false
@@ -845,10 +860,11 @@ class ChatSession(
         if (!hasAiAccess || (isStreaming && !isNative)) return
         val generation = transportGeneration
         val observedAt = RuntimeObservation.now()
+        val watchReadRevision = watchRevision
         val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
         if (generation != transportGeneration || movingAgent || !hasAiAccess) return
         if (detail == null) { recallRows = emptySet(); return }
-        refreshMetadata(detail, observedAt)
+        refreshMetadata(detail, observedAt, watchReadRevision)
         reconcileAdmission(detail)
         if (isStreaming) { recallRows = emptySet(); readTranscript = null; return }
         val serverTotal = (detail.messagesFirstIndex ?: 0) + detail.messages.size
@@ -866,10 +882,11 @@ class ChatSession(
             if (!loaded || loadError != null || movingAgent || (!isNative && isStreaming)) continue
             val generation = transportGeneration
             val observedAt = RuntimeObservation.now()
+            val watchReadRevision = watchRevision
             val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
             if (generation != transportGeneration || movingAgent || !hasAiAccess) continue
             if (detail == null) { recallRows = emptySet(); continue }
-            refreshMetadata(detail, observedAt)
+            refreshMetadata(detail, observedAt, watchReadRevision)
             reconcileAdmission(detail)
             val run = detail.activeRun
             val follow = followOptions(run?.streamId)

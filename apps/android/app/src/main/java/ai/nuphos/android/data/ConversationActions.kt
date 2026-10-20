@@ -67,6 +67,17 @@ object ConversationActions {
             "Unlink was not confirmed."
         }
     }
+    /** Read access is sufficient; notification permission remains independent. */
+    suspend fun watch(token: String, team: String, session: String, watching: Boolean,
+        request: suspend (String, String, String, List<Pair<String, String>>, JsonValue?) -> String = AgentChatApi::send,
+    ): Boolean {
+        val response = JsonValue.parse(request(if (watching) "PUT" else "DELETE",
+            "agent/conversations/${segment(session)}/watch", token, listOf("teamId" to team), null))
+        require(response?.get("ok")?.boolValue == true && response["watching"]?.boolValue == watching) {
+            "Watch change was not confirmed. Try again."
+        }
+        return watching
+    }
     suspend fun archive(token: String, team: String, session: String, archived: Boolean) {
         val json = JsonValue.parse(AgentChatApi.send("PATCH", "agent/conversations/${segment(session)}/archive", token,
             listOf("teamId" to team), JsonValue.obj("teamId" to JsonValue.Str(team), "archived" to JsonValue.Bool(archived))))

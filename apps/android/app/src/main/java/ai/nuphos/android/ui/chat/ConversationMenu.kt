@@ -13,12 +13,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var open by remember { mutableStateOf(false) }
-    var share by remember(session.sessionId) { mutableStateOf(false) }
-    var rename by remember { mutableStateOf(false) }
-    var archive by remember { mutableStateOf(false) }
-    var title by remember(session.sessionId) { mutableStateOf(session.title) }
-    var busy by remember { mutableStateOf(false) }
+    var open by remember(session, store.workspaceRevision) { mutableStateOf(false) }
+    var share by remember(session, store.workspaceRevision) { mutableStateOf(false) }
+    var rename by remember(session, store.workspaceRevision) { mutableStateOf(false) }
+    var archive by remember(session, store.workspaceRevision) { mutableStateOf(false) }
+    var title by remember(session, store.workspaceRevision) { mutableStateOf(session.title) }
+    var busy by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(session.teamId) { store.loadFavorites() }
     fun perform(block: suspend () -> Unit) {
@@ -41,6 +41,11 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             open = false; perform { store.pin(session, !pinned) }
         })
         if (store.favorites == null) DropdownMenuItem(text = { Text("Retry favorites") }, onClick = { perform { store.loadFavorites(); error = store.favoritesError } })
+        if (session.canWatch) DropdownMenuItem(
+            text = { Text(if (session.watching == true) "Unwatch" else "Watch") },
+            enabled = !busy && store.watchingSessionId == null,
+            onClick = { open = false; perform { store.setWatching(session); error = store.watchError } },
+        )
         if (session.canManage) {
             DropdownMenuItem(text = { Text("Rename") }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
             DropdownMenuItem(text = { Text(if (session.isArchived) "Restore" else "Archive") }, enabled = !busy, onClick = { open = false; archive = true })

@@ -107,6 +107,9 @@ fun AgentPage(
     if (setupVisible && setup != null && setup.isSourceCurrent()) RuntimeSetupSheet(setup, { setupVisible = false }, quotas = quotas)
 
     var unlinkTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
+    if (store.watchError != null) AlertDialog(onDismissRequest = { store.clearWatchError() },
+        title = { Text("Watch update failed") }, text = { Text(store.watchError.orEmpty()) },
+        confirmButton = { TextButton(onClick = { store.clearWatchError(); scope.launch { store.refreshWatchState() } }) { Text("Refresh") } })
     val target = unlinkTarget
     if (target != null && store.canUnlink(target)) {
         UnlinkConfirmation(target, store.unlinkingSessionId == target.sessionId, store.unlinkError,
@@ -234,6 +237,8 @@ fun AgentPage(
                             items(rows, key = { "history:${it.conversation.sessionId}" }) { row ->
                                 ConversationTreeRow(row, store.favorites?.contains(row.conversation.sessionId) == true,
                                     ConversationNesting.status(row) { store.historyObservation(it)?.label(maxOf(statusClock, RuntimeObservation.now())) },
+                                    onWatch = if (store.canWatch(row.conversation)) ({ scope.launch { store.setWatching(row.conversation) } }) else null,
+                                    watchBusy = store.watchingSessionId != null,
                                     onUnlink = if (store.canUnlink(row.conversation)) ({ store.clearUnlinkError(); unlinkTarget = row.conversation }) else null,
                                     unlinking = store.unlinkingSessionId == row.conversation.sessionId,
                                     onToggle = {
@@ -312,7 +317,7 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 
 /** Cap visual indentation so malformed/deep trees cannot squeeze the title off-screen. */
 @Composable
-internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false) {
+internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false) {
     val depth = row.depth.coerceAtMost(4)
     val line = MaterialTheme.colorScheme.outlineVariant
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
@@ -322,13 +327,13 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, 
             drawLine(line, Offset(x, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
         }
         Box(Modifier.weight(1f).semantics { stateDescription = "Thread level ${row.depth}" }) {
-            ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking)
+            ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy)
         }
     }
 }
 
 @Composable
-private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false) {
+private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -362,6 +367,9 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
                     Icon(if (folded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
                         contentDescription = "${if (folded) "Show" else "Hide"} $threads threads")
                 }
+            }
+            if (onWatch != null) TextButton(onClick = onWatch, enabled = !watchBusy) {
+                Text(if (conversation.watching == true) "Unwatch" else "Watch")
             }
             if (onUnlink != null) TextButton(onClick = onUnlink, enabled = !unlinking) {
                 Text(if (unlinking) "Unlinking…" else "Unlink")

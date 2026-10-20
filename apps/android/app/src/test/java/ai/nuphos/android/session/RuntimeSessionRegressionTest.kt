@@ -31,7 +31,7 @@ class RuntimeSessionRegressionTest {
         (field.get(session) as MutableState<Any?>).value = value
     }
     private fun metadata(session: ChatSession, detail: AgentConversationDetail, time: Double = RuntimeObservation.now()) {
-        ChatSession::class.java.getDeclaredMethod("refreshMetadata", AgentConversationDetail::class.java, Double::class.javaPrimitiveType).apply { isAccessible = true }.invoke(session, detail, time)
+        ChatSession::class.java.getDeclaredMethod("refreshMetadata", AgentConversationDetail::class.java, Double::class.javaPrimitiveType, Long::class.javaPrimitiveType).apply { isAccessible = true }.invoke(session, detail, time, 0L)
     }
     @Test fun directActionsExpireEvenWithoutPollTick() {
         val session = ChatSession.fresh("fixture", "team")

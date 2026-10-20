@@ -302,3 +302,20 @@ late workspace responses. It refuses any application ID that does not end in
 `.refreshfixture`. Build a separate local fixture variant with that application
 ID suffix and run only this test class; do not install a debug build over the
 Play application or clear its data. Keep `FLAG_SECURE` enabled.
+
+### Conversation watching
+
+On servers that return `watching`, readable conversations offer Watch/Unwatch in
+history and the conversation menu, including shared read-only conversations.
+Servers without that optional field hide the control. Unwatch also affects
+nested threads: Android reloads server state rather than inferring descendants
+from a partial history page. This preference does not grant notification
+permission, accept AI consent, or bypass active-chat suppression.
+
+`ConversationWatchFixtureDeviceTest` intercepts every HTTP request and uses
+synthetic identities. It requires both `isolatedWatch=true` and a separately
+built `ai.nuphos.android.watchfixture` installation; it refuses the production
+package. Never replace, uninstall or clear a Play installation to run it.
+Its API/UI/cascade checks and screenshots do not establish real subscription
+changes or FCM delivery. JVM tests cover optional model decoding, scoped
+PUT/DELETE confirmation, retry, shared-reader access and stale detail reads.
