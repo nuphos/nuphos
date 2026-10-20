@@ -114,7 +114,7 @@ esac
       { mode: 0o755 },
     )
 
-    expect(run('Octo Cat\tocto@example.invalid')).toBe(
+    expect(run('Octo Cat <octo@example.invalid>')).toBe(
       'Signed-off-by: Octo Cat <octo@example.invalid>\n',
     )
     const log = readFileSync(calls, 'utf8').trim().split('\n')
@@ -123,9 +123,9 @@ esac
     expect(log.at(-1)).toBe(`api -X DELETE repos/octo/repo/git/refs/heads/${probe}`)
 
     writeFileSync(calls, '')
-    expect(() => run('Octo Cat\t')).toThrow()
+    expect(() => run('Octo Cat <>')).toThrow()
     expect(readFileSync(calls, 'utf8').trim().split('\n').at(-1)).toStartWith('api -X DELETE')
-    expect(() => run('Octo <Cat>\tocto@example.invalid')).toThrow()
+    expect(() => run('Octo <Cat> <octo@example.invalid>')).toThrow()
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

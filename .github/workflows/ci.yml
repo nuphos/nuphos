@@ -34,8 +34,8 @@ jobs:
   # group only holds PRs whose commits already passed this on pull_request, so
   # it reports success there instead of blocking the queue.
   dco:
-    name: dco
-    runs-on: ubuntu-24.04-arm
+    name: DCO
+    runs-on: ubuntu-slim
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'

@@ -55,16 +55,16 @@ is correct.
 
 ## Developer Certificate of Origin
 
-This project uses the [Developer Certificate of Origin 1.1](DCO), not a CLA.
-Sign off every commit to certify that you wrote it or otherwise have the right
-to submit it under the project licence:
+This project uses the [Developer Certificate of Origin 1.1](DCO). Sign off
+every commit to certify that you wrote it or otherwise have the right to submit
+it under the project licence:
 
 ```sh
 git commit -s
 ```
 
 That appends a `Signed-off-by: Your Name <you@example.com>` trailer built from
-your Git `user.name` and `user.email`. CI's `dco` check rejects a pull request
+your Git `user.name` and `user.email`. CI's `DCO` check rejects a pull request
 when any non-merge commit lacks a `Signed-off-by` line that matches the
 commit's author exactly, so the name and email must be the ones the commit is
 authored with.
