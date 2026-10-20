@@ -386,8 +386,8 @@ struct ConversationView: View {
         case .downloads(_, let groupId):
             TransferCard(groupId: groupId, fromUser: false, session: session)
                 .frame(maxWidth: .infinity, alignment: .leading)
-        case .activity(let text):
-            ActivityRow(text: text)
+        case .activity(let text, let live):
+            ActivityRow(text: text, live: live)
         case .sending:
             if let sending = session.sending {
                 SendingBubble(submission: sending.submission, progress: sending.progress, onCancel: session.cancelSending)

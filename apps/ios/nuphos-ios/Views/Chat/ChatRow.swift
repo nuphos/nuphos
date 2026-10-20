@@ -38,7 +38,9 @@ enum ChatRow: Identifiable, Equatable {
         let label: String
         let scope: String
     }
-    case activity(text: String)
+    /// The runtime's status line under the transcript, as on the desktop:
+    /// one row whether or not the turn is running, shimmering while it is.
+    case activity(text: String, live: Bool)
     /// The message being uploaded, before the server has it.
     case sending
     case hint(id: String, text: String, isError: Bool)
@@ -74,6 +76,8 @@ extension ChatRow {
                 body.append(.assistantText(id: "text.\(message.id).\(pi)", messageId: message.id, text: p.text, streaming: live && p.state == .streaming))
             case .reasoning(let p):
                 guard !p.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                // While it is still being written the status line stands for it.
+                guard !(live && pi == message.parts.count - 1) else { continue }
                 body.append(.reasoning(id: "reasoning.\(message.id).\(pi)", part: p))
             case .tool(let t):
                 guard !ToolRuns.hiddenTools.contains(t.toolName) else { continue }
@@ -98,11 +102,9 @@ extension ChatRow {
             case .turnInterrupted(let p):
                 body.append(.hint(id: "interrupted.\(message.id).\(p.id)", text: p.reason == .cancelled ? "Stopped." : p.message, isError: p.reason != .cancelled))
             case .other(let v) where v["type"]?.stringValue == "memory-ingest":
-                body.append(.memory(
-                    id: "memory.\(v["eventId"]?.stringValue ?? String(pi))",
-                    created: Int(v["memoriesCreated"]?.numberValue ?? 0),
-                    updated: Int(v["memoriesUpdated"]?.numberValue ?? 0)
-                ))
+                let created = Int(v["memoriesCreated"]?.numberValue ?? 0), updated = Int(v["memoriesUpdated"]?.numberValue ?? 0)
+                guard created + updated > 0 else { continue }
+                body.append(.memory(id: "memory.\(v["eventId"]?.stringValue ?? String(pi))", created: created, updated: updated))
             default:
                 continue
             }
@@ -198,16 +200,17 @@ extension ChatRow {
 
     /// Where the session's timeline events sit among the loaded messages, as on
     /// the desktop: before the first message newer than the event, or after the
-    /// last one. An event older than the first loaded message waits while
-    /// earlier history is unloaded — it may belong further back.
+    /// last one. A message without a time yet is still being written and is not
+    /// compared, so an event does not move once that message gets its time. An
+    /// event older than the first loaded message waits while earlier history
+    /// is unloaded — it may belong further back.
     static func placeTimeline(
         _ events: [TimelineEvent], messageDates: [Date?], hasEarlier: Bool
     ) -> (before: [Int: [TimelineEvent]], trailing: [TimelineEvent]) {
         var before: [Int: [TimelineEvent]] = [:]
         var trailing: [TimelineEvent] = []
         for event in events {
-            // A message without a time yet is still streaming: the newest.
-            guard let index = messageDates.firstIndex(where: { ($0 ?? .distantFuture) > event.at }) else {
+            guard let index = messageDates.firstIndex(where: { $0.map { $0 > event.at } ?? false }) else {
                 trailing.append(event)
                 continue
             }

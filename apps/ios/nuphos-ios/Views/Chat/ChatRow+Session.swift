@@ -46,15 +46,11 @@ extension ChatRow {
         if session.sending != nil {
             rows.append(.sending)
         } else if session.isNativeRuntime {
-            if let status = session.runtimeStatus {
-                if session.isStreaming {
-                    rows.append(.activity(text: status))
-                } else if failure == nil {
-                    rows.append(.hint(id: "runtime-status", text: status, isError: false))
-                }
+            if let status = session.runtimeStatus, session.isStreaming || failure == nil {
+                rows.append(.activity(text: status, live: session.isStreaming))
             }
         } else if session.isStreaming {
-            rows.append(.activity(text: session.phaseLabel ?? "Thinking…"))
+            rows.append(.activity(text: session.phaseLabel ?? "Thinking…", live: true))
         }
         if let error = session.error, !session.stoppedByUser, error != failure {
             rows.append(.hint(id: "error", text: error, isError: true))

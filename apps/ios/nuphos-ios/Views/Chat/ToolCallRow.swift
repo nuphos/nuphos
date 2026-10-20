@@ -370,13 +370,14 @@ struct WorkGroup: View {
 /// desktop's `LoadingText`.
 struct ActivityRow: View {
     let text: String
+    var live = true
 
     var body: some View {
         Text(text)
             .font(Theme.Text.label)
-            .foregroundStyle(Theme.body)
+            .foregroundStyle(live ? Theme.body : Theme.muted)
             .contentTransition(.numericText())
-            .shimmer(active: true)
+            .shimmer(active: live)
             .animation(.snappy, value: text)
             .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -11,7 +11,7 @@ for attempt in {1..60}; do
     --predicate "processID == $pid AND eventMessage CONTAINS \"scroll_regression\"" 2>/dev/null)
   if [[ "$logs" == *"name=suite_complete"* ]]; then
     printf '%s\n' "$logs"
-    for name in open_every_frame open_stable sent_transition send_every_frame send_stable stream_preserves_question unchanged_refresh latest_button async_card_layout step_anchor pinned_stream_bottom pinned_stream_up incoming_at_end incoming_keeps_reader; do
+    for name in open_every_frame open_stable sent_transition send_every_frame send_stable stream_preserves_question unchanged_refresh latest_button async_card_layout step_anchor pinned_stream_bottom pinned_stream_up incoming_at_end incoming_keeps_reader event_then_stream; do
       if ! printf '%s\n' "$logs" | grep -q "name=$name passed=true"; then
         echo "FAIL: $name" >&2
         exit 1

@@ -38,8 +38,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var submittedID: String?
     private var extendedID: String?
     private var pendingSentAnimationID: String?
-    /// Whether the reader was at the end the last time they or the transcript
-    /// moved. Read from the position itself, so no event can leave it stale.
+    /// Whether the reader was at the end where they or the transcript last
+    /// came to rest. Read from the position itself, so no event can leave it
+    /// stale; layout settling under the reader does not count as moving.
     private var following = true
     private var positioned = false
     private var applying = false
@@ -233,9 +234,17 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     /// message, the room reserved for it puts that message at the top.
     private func positionAtEnd() {
         guard collection.bounds.height > 0, let last = rows.indices.last else { return }
-        layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
-        let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
-        if collection.contentOffset.y < end { collection.contentOffset.y = end }
+        // Rows come into view at their estimated height and are measured by
+        // the next layout pass. Measure them now, then go to the end again, so
+        // the end is never committed for a frame at a size it will not keep.
+        for _ in 0..<3 {
+            layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
+            let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
+            if collection.contentOffset.y < end { collection.contentOffset.y = end }
+            let before = layout.collectionViewContentSize.height
+            collection.layoutIfNeeded()
+            if layout.collectionViewContentSize.height == before { break }
+        }
         positioned = true
         following = atEnd
     }
@@ -288,16 +297,22 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         UIEventLog.chatScroll(sessionId: sessionID, contentOffset: scrollView.contentOffset)
         updateLatestButton()
-        // Drags, flings, a status-bar tap and VoiceOver all land here. The
-        // transcript's own moves during an update are not the reader's.
-        if !applying { following = atEnd }
     }
 
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate { flushPending() }
+        if !decelerate { settle() }
     }
 
-    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { flushPending() }
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { settle() }
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) { settle() }
+    func scrollViewDidScrollToTop(_ scrollView: UIScrollView) { settle() }
+
+    /// Every way the reader moves the transcript comes to rest here: a drag, a
+    /// fling, a status-bar tap, VoiceOver's animated scroll.
+    private func settle() {
+        following = atEnd
+        flushPending()
+    }
 
     private func flushPending() {
         let next = pending
@@ -316,6 +331,10 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
                 AnyView(UserBubble(text: text).padding(16))
             case .assistantText(_, _, let text, let streaming):
                 AnyView(AssistantMarkdown(text: text, streaming: streaming).padding(16))
+            case .hint(let id, let text, let isError) where id.hasPrefix("event."):
+                AnyView(HintRow(text: text, isError: isError).padding(.horizontal, 16).padding(.bottom, 18))
+            case .activity(let text, let live):
+                AnyView(ActivityRow(text: text, live: live).padding(.horizontal, 16).padding(.bottom, 18))
             case .hint(let id, _, _) where id == "step-card":
                 AnyView(TranscriptDisclosureFixture(marker: stepMarker).padding(16))
             case .hint:
@@ -492,6 +511,40 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         await pause()
         check("incoming_keeps_reader", abs(y(of: "user.1") - readingY) < 1 && !nearBottom,
               "before=\(readingY) after=\(y(of: "user.1"))")
+        // At the end, a short event row arrives, then the turn starts and
+        // streams. The rows already on screen may only move up, never back.
+        fixture = fixture0
+        apply()
+        showLatest()
+        await pause()
+        func screenY(_ id: String) -> CGFloat {
+            guard let index = rows.firstIndex(where: { $0.id == id }),
+                  let frame = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))?.frame else { return .nan }
+            return frame.minY - collection.contentOffset.y
+        }
+        var lastY = screenY("answer.39"), down: CGFloat = 0, frames = 0
+        let eventProbe = TranscriptFrameProbe {
+            let y = screenY("answer.39")
+            if y.isFinite, lastY.isFinite { down = max(down, y - lastY) }
+            lastY = y
+            frames += 1
+        }
+        fixture.append(.hint(id: "event.joined", text: "Yuanlin joined the session", isError: false))
+        apply()
+        try? await Task.sleep(for: .milliseconds(400))
+        fixture.append(.activity(text: "Thinking…", live: true))
+        apply()
+        try? await Task.sleep(for: .milliseconds(400))
+        fixture.insert(.assistantText(id: "answer.event", messageId: "event", text: "", streaming: true), at: fixture.count - 1)
+        for step in 1...8 {
+            fixture[fixture.count - 2] = .assistantText(id: "answer.event", messageId: "event",
+                text: String(repeating: "Streaming after an event row.\n\n", count: step), streaming: true)
+            apply()
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+        await pause()
+        eventProbe.stop()
+        check("event_then_stream", down < 1 && nearBottom, "maxDownward=\(down) frames=\(frames) nearBottom=\(nearBottom)")
         check("suite_complete", true, "")
     }
     #endif

@@ -847,6 +847,10 @@ final class ChatSession {
         guard let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) else { return }
         guard !transportStreaming, !submitting, signature() == previousSignature else { return }
         receiveRuntime(detail.runtimeState, observedAt: observedAt)
+        adoptTranscript(from: detail)
+    }
+
+    private func adoptTranscript(from detail: AgentConversationDetail) {
         let serverTotal = (detail.messagesFirstIndex ?? 0) + detail.messages.count
         let localTotal = baseIndex + messages.count
         guard serverTotal >= localTotal, !detail.messages.isEmpty else { return }
@@ -915,7 +919,10 @@ final class ChatSession {
                 continue
             }
             guard attached == nil, signature() == previousSignature else { continue }
-            await reloadFromServer()
+            // The runtime state above and the messages it goes with land in
+            // one update: a turn that starts never shows the last reply as
+            // live (and unfolded) before the message that started it.
+            adoptTranscript(from: detail)
         }
     }
 
