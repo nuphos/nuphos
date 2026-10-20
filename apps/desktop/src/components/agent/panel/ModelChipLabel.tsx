@@ -41,7 +41,7 @@ export function ModelChipLabel({
         >
           {fastIcon}
           <span className="min-w-0 truncate">{name}</span>
-          <span className="shrink-0">{choice}</span>
+          <span className="hidden shrink-0 @[400px]:inline">{choice}</span>
         </span>
       ))}
       <span
@@ -53,7 +53,11 @@ export function ModelChipLabel({
       >
         {fastIcon}
         <span className="min-w-0 truncate">{name}</span>
-        {level && <span className="shrink-0 whitespace-nowrap text-tertiary">{level}</span>}
+        {level && (
+          <span className="hidden shrink-0 whitespace-nowrap text-tertiary @[400px]:inline">
+            {level}
+          </span>
+        )}
       </span>
       {/* Without effort levels there is no effort to select, and no width to hold for it. */}
       {levels.length > 0 && (

@@ -43,10 +43,9 @@ function ShellRow({ shell }: { shell: ShellEntry }) {
 /**
  * Shells still running in the current runtime snapshot — openab's terminal
  * embeds (Zed `_meta["terminal_output"]` convention) surfaced per tool.
- * A chip in the composer's toolbar row. Its slot keeps a fixed width beside
- * the model picker whether or not shells run, so the controls to its left
- * wrap the same either way and the input never moves; the chip rises in while
- * shells run, fades out after the last one ends, and opens them in a popover.
+ * A chip in the composer's single-row toolbar, so it adds no height and the
+ * input never moves; it rises in while shells run, fades out after the last
+ * one ends, and opens them in a popover.
  */
 export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefined }) {
   const shells = shellsFromRuntimeState(snapshot)
@@ -73,46 +72,44 @@ export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefin
   const label = String(count)
   const title = `${label} running ${count === 1 ? 'shell' : 'shells'}`
 
+  if (!mounted) return null
+
   return (
-    <div className="flex h-7 w-11 flex-shrink-0 justify-end">
-      {mounted && (
-        <Popover.Root open={open} onOpenChange={setOpen}>
-          <Popover.Trigger
-            inert={!shown}
-            title={title}
-            aria-label={title}
-            className={clsx(
-              't-toast flex h-7 flex-shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] tabular-nums text-secondary [--toast-distance:var(--distance-micro)] [--toast-scale:var(--scale-small)] hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main',
-              shown && 'is-open',
-            )}
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        inert={!shown}
+        title={title}
+        aria-label={title}
+        className={clsx(
+          't-toast flex h-7 flex-shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] tabular-nums text-secondary [--toast-distance:var(--distance-micro)] [--toast-scale:var(--scale-small)] hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main',
+          shown && 'is-open',
+        )}
+      >
+        <Terminal className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
+        <span className="t-shimmer" data-text={label}>
+          {label}
+        </span>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="top" align="end" sideOffset={8} className="z-[1000]">
+          <Popover.Popup
+            data-origin="bottom-right"
+            className={(state) =>
+              clsx(
+                't-dropdown w-[min(560px,calc(100vw-48px))] rounded-xl border border-zGray-800/60 bg-main p-2 text-[12.5px] shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+                state.open && 'is-open',
+                state.transitionStatus === 'ending' && 'is-closing',
+              )
+            }
           >
-            <Terminal className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
-            <span className="t-shimmer" data-text={label}>
-              {label}
-            </span>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Positioner side="top" align="end" sideOffset={8} className="z-[1000]">
-              <Popover.Popup
-                data-origin="bottom-right"
-                className={(state) =>
-                  clsx(
-                    't-dropdown w-[min(560px,calc(100vw-48px))] rounded-xl border border-zGray-800/60 bg-main p-2 text-[12.5px] shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
-                    state.open && 'is-open',
-                    state.transitionStatus === 'ending' && 'is-closing',
-                  )
-                }
-              >
-                <div className="max-h-72 space-y-1 overflow-auto scrollbar-thin">
-                  {shells.map((shell) => (
-                    <ShellRow key={shell.id} shell={shell} />
-                  ))}
-                </div>
-              </Popover.Popup>
-            </Popover.Positioner>
-          </Popover.Portal>
-        </Popover.Root>
-      )}
-    </div>
+            <div className="max-h-72 space-y-1 overflow-auto scrollbar-thin">
+              {shells.map((shell) => (
+                <ShellRow key={shell.id} shell={shell} />
+              ))}
+            </div>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }

@@ -134,17 +134,24 @@ export function RuntimeSelector({
           className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
         />
       ) : (
-        <span className="max-w-40 truncate">{label}</span>
+        <span className="hidden max-w-40 truncate @[440px]:inline">{label}</span>
       )}
       {dot && (
         <span
           role="img"
           aria-label={dot.label}
           title={dot.label}
-          className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot.color}`}
+          className={`hidden h-1.5 w-1.5 shrink-0 rounded-full @[400px]:block ${dot.color}`}
         />
       )}
-      {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
+      {selectedUpdate && (
+        <span
+          role="img"
+          aria-label="Update available"
+          title="Update available"
+          className="hidden h-1.5 w-1.5 shrink-0 rounded-full bg-zViolet-accent @[400px]:block"
+        />
+      )}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
       {usageLoading ? (
         <span
@@ -153,12 +160,14 @@ export function RuntimeSelector({
           className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
         />
       ) : (
-        <RuntimeUsageBar quota={selectedQuota} />
+        <span className="hidden @[400px]:contents">
+          <RuntimeUsageBar quota={selectedQuota} />
+        </span>
       )}
     </>
   )
   const classes =
-    'flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2 text-[12px] text-secondary'
+    'flex h-7 min-w-0 max-w-full items-center gap-1.5 overflow-hidden rounded-full px-1.5 text-[12px] text-secondary @[440px]:px-2'
 
   if (!onSelect)
     return (
@@ -185,7 +194,7 @@ export function RuntimeSelector({
           className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
         >
           {content}
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+          <ChevronDown className="hidden h-3 w-3 shrink-0 opacity-60 @[440px]:block" />
         </MenuTrigger>
         <MenuContent side="top" align="end" className="w-72">
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}

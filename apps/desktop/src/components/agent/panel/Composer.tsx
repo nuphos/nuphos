@@ -245,8 +245,8 @@ export function Composer({
               }}
             />
           )}
-          <div className="flex items-end gap-2 mt-1 min-w-0">
-            <div className="flex flex-1 flex-wrap items-center gap-1 min-w-0">
+          <div className="@container mt-1 flex min-w-0 items-end gap-1 @[440px]:gap-2">
+            <div className="flex min-w-0 flex-[1_0_auto] items-center gap-0.5 @[400px]:flex-1 @[400px]:gap-1">
               <ComposerAttachmentMenu
                 open={state.attachmentMenuOpen}
                 onOpenChange={state.setAttachmentMenuOpen}

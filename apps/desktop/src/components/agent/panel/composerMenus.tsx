@@ -1,7 +1,7 @@
 import { faFolder, faPaperclip } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ChevronDown, ChevronRight, FileSearch, Loader2, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileSearch, Loader2, Lock, LockOpen, Plus } from 'lucide-react'
 
 import {
   Menu,
@@ -211,15 +211,20 @@ export function BypassControlMenu({
         aria-label="Authorization mode"
         className={clsx(
           'flex items-center gap-1.5 flex-shrink-0 rounded-full transition-colors',
-          hero ? 'h-8 px-3' : 'h-7 px-2.5',
+          hero ? 'h-8 px-2 @[560px]:px-3' : 'h-7 px-1.5 @[560px]:px-2.5',
           'text-secondary hover:text-main hover:bg-zGray-800/60',
         )}
         title="Choose how commands in this conversation are authorized"
       >
-        <span className="text-[12.5px] font-medium">
+        {bypassControl.active ? (
+          <LockOpen className="h-3.5 w-3.5 @[560px]:hidden" strokeWidth={2} />
+        ) : (
+          <Lock className="h-3.5 w-3.5 @[560px]:hidden" strokeWidth={2} />
+        )}
+        <span className="hidden text-[12.5px] font-medium @[560px]:inline">
           {bypassControl.active ? 'Full Access' : 'Auto Mode'}
         </span>
-        <ChevronDown className="w-3 h-3 opacity-60" strokeWidth={2} />
+        <ChevronDown className="hidden w-3 h-3 opacity-60 @[440px]:block" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent side="top" align="start" className="w-64">
         <MenuItem selected={!bypassControl.active} onClick={() => bypassControl.onSelect(false)}>
