@@ -96,13 +96,14 @@ final class AgentStore {
         }
     }
 
-    /// The backend also unwatches the threads below; reading the list back
-    /// shows what it did instead of repeating that cascade here.
+    /// The backend also unwatches the threads below, on any page. Reloading
+    /// replaces every row with what it did, as rename and runtime moves do,
+    /// instead of repeating that cascade here.
     func setWatching(_ watching: Bool, conversation: AgentConversation) async {
         guard let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {
             try await AgentChatAPI.setWatching(token: token, teamId: teamId, sessionId: conversation.sessionId, watching: watching)
-            await refreshFirstPage()
+            await reload()
         } catch {
             phase = .failed(error.localizedDescription)
         }

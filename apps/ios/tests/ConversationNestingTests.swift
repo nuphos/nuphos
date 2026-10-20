@@ -7,7 +7,6 @@ enum ConversationNestingTests {
         anUnlistedOrPinnedParentLeavesTheRowTopLevel()
         aRefreshKeepsLaterRowsInPlace()
         aThreadNestsUnderAParentFromALaterPage()
-        aRefreshTakesTheServersWatchState()
         print("Conversation nesting passed")
     }
 
@@ -27,19 +26,6 @@ enum ConversationNestingTests {
         precondition(rows.map(\.id) == ["parent", "child-b", "child-a", "grandchild", "other"])
         precondition(rows.map(\.trail) == [[], [true], [false], [false, false], []])
         precondition(rows.map(\.threads) == [3, 0, 1, 0, 0])
-    }
-
-    /// Unwatching A: the server unwatched A, B and C, though B already was.
-    /// Reading the list back replaces every stale local flag with its answer.
-    private static func aRefreshTakesTheServersWatchState() {
-        func watched(_ id: String, parent: String? = nil, _ value: Bool) -> AgentConversation {
-            var conversation = row(id, parent: parent)
-            conversation.watching = value
-            return conversation
-        }
-        let local = [watched("a", true), watched("b", parent: "a", false), watched("c", parent: "b", true)]
-        let server = [watched("a", false), watched("b", parent: "a", false), watched("c", parent: "b", false)]
-        precondition(local.refreshed(firstPage: server).map(\.watching) == [false, false, false])
     }
 
     private static func foldingHidesTheSubtree() {
