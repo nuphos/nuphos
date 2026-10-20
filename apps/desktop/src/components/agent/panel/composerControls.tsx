@@ -1,11 +1,17 @@
 import clsx from 'clsx'
 import { ArrowUp, Square } from 'lucide-react'
+import { useLayoutEffect, useRef } from 'react'
 
 import { AGENT_QUEUE_PLACEHOLDER } from './constants'
 import { OpenSlackThreadButton } from './ReadOnlyNotice'
 
 import type { AgentSlackThread } from '../../../api'
-import type { ClipboardEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
+import type {
+  ClipboardEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactNode,
+  RefObject,
+} from 'react'
 
 export function ComposerEditor({
   hero,
@@ -163,5 +169,59 @@ export function ComposerSendControls({
         <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
       </button>
     </span>
+  )
+}
+
+/**
+ * The toolbar's left controls on one row. A control that does not fit wraps
+ * whole onto a second line the row never shows, and is made inert there so
+ * keyboard focus cannot land on it or scroll it into view; a menu it had open closes.
+ */
+export function ComposerTools({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const row = ref.current
+
+    if (!row) return
+    const update = () => {
+      // An open menu adds focus guards and a portal anchor to the row; only the controls count.
+      const controls = [...row.children].filter(
+        (child): child is HTMLElement =>
+          child instanceof HTMLElement && !child.matches('[data-base-ui-focus-guard], [aria-owns]'),
+      )
+      const first = controls[0]
+
+      if (!first) return
+      // Controls on the first line differ in height by a few pixels; the hidden line starts a full row lower.
+      const nextLine = first.offsetTop + first.offsetHeight
+
+      for (const control of controls) control.inert = control.offsetTop >= nextLine
+      // A menu whose trigger just dropped out has nothing to anchor to or return focus to.
+      if (
+        controls.some(
+          (control) =>
+            (control.inert || !control.offsetParent) &&
+            (control.matches('[data-popup-open]') || control.querySelector('[data-popup-open]')),
+        )
+      )
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    }
+    const observer = new ResizeObserver(update)
+
+    observer.observe(row)
+    for (const child of row.children) observer.observe(child)
+    update()
+
+    return () => observer.disconnect()
+  })
+
+  return (
+    <div
+      ref={ref}
+      className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
+    >
+      {children}
+    </div>
   )
 }
