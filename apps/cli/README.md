@@ -211,3 +211,29 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 ```
+
+### macOS release signing
+
+The CLI release build uses the protected `desktop-release` environment and the
+same Developer ID Application certificate and notarization credentials as Desktop.
+Both macOS architectures are signed with identifier `ai.nuphos.cli`, Team ID
+`6T873K59LQ`, hardened runtime, and a secure timestamp before packaging and hashing.
+Signing or notarization failure blocks publication. Linux binaries remain unsigned.
+The build matrix requires the environment's release approval, including Linux jobs.
+
+The stable designated requirement lets Keychain recognize signed CLI updates.
+An upgrade from an older unsigned CLI can still require a one-time authorization.
+To verify a release on macOS, extract its archive and run:
+
+```sh
+codesign --verify --strict --verbose=2 ./nuphos
+codesign --display --verbose=4 --requirements - ./nuphos
+```
+
+Check `Identifier=ai.nuphos.cli`, `TeamIdentifier=6T873K59LQ`, and a Developer ID
+Application authority. For the end-to-end upgrade check, sign in with one signed
+release, read the session, install a second signed release at the same path with
+`nuphos update`, and read the session again. The second read must not prompt for
+Keychain authorization. This requires two signed releases and a macOS login session;
+a Linux CI run cannot establish that behavior. Raw binaries cannot carry a stapled
+notarization ticket; macOS retrieves the ticket online.

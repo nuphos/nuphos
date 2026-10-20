@@ -56,6 +56,8 @@ jobs:
 
   build:
     needs: validate
+    # Reuse Desktop signing secrets and its required release approval.
+    environment: desktop-release
     strategy:
       fail-fast: true
       matrix:
@@ -90,6 +92,17 @@ jobs:
           set -euo pipefail
           rustup target add "$TARGET"
           cargo build --release --locked --target "$TARGET"
+      - name: Sign and notarize macOS CLI
+        if: contains(matrix.target, 'apple-darwin')
+        env:
+          TARGET: ${{ matrix.target }}
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash scripts/sign-macos.sh "target/$TARGET/release/nuphos"
       - name: Upload to the release
         env:
           GH_TOKEN: ${{ github.token }}
