@@ -21,6 +21,7 @@ export function AttachmentChips({
 }) {
   const [preview, setPreview] = useState<number | null>(null)
   const previewable = filePaths.filter((p) => isImageAttachmentPath(p) && imageThumbs[p])
+  const images = filePaths.filter(isImageAttachmentPath)
 
   return (
     // Attachments sit on their own row above the input so they
@@ -37,6 +38,7 @@ export function AttachmentChips({
               key={filePath}
               url={imageThumbs[filePath]}
               fileName={fileNameFromPath(filePath)}
+              badge={`#${String(images.indexOf(filePath) + 1)}`}
               onRemove={removeAttachment}
               onOpen={() => setPreview(previewable.indexOf(filePath))}
             />

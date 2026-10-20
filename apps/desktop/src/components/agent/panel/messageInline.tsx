@@ -58,9 +58,12 @@ export function ImageAttachmentThumb({
   onOpen,
   size = 'sm',
   onError,
+  badge,
 }: {
   url?: string
   fileName: string
+  /** Corner label, e.g. the composer's `#2` for an inline image reference. */
+  badge?: string
   onRemove?: () => void
   onOpen?: () => void
   /** `md` is the shared media preview box. */
@@ -90,6 +93,11 @@ export function ImageAttachmentThumb({
           </div>
         )}
       </div>
+      {badge && (
+        <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-zGray-900/80 px-1 text-[10px] font-medium leading-4 text-main tabular-nums">
+          {badge}
+        </span>
+      )}
       {onRemove && (
         <button
           type="button"

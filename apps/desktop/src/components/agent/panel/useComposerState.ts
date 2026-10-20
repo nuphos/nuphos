@@ -5,7 +5,7 @@ import { composerTextState } from '../../../lib/composerTextState'
 import { cssDurationMs } from '../../../lib/motion'
 
 import { isImageAttachmentPath } from './attachments'
-import { readEditorText } from './composerSerialize'
+import { readEditorText, renumberImageRefs } from './composerSerialize'
 import { AGENT_COMPACT_PLACEHOLDER, AGENT_PLACEHOLDER_PROMPTS } from './constants'
 
 import type { LocalAgentSessionInfo, LocalSessionSource } from '../../../api'
@@ -123,6 +123,12 @@ export function useComposerState({
   }
 
   function removeAttachment(filePath: string) {
+    const image = filePaths.filter(isImageAttachmentPath).indexOf(filePath) + 1
+
+    if (image > 0 && ref.current) {
+      renumberImageRefs(ref.current, image)
+      syncEmpty()
+    }
     setFilePaths((prev) => prev.filter((path) => path !== filePath))
     setFolderPaths((prev) => {
       if (!prev.has(filePath)) return prev

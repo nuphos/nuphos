@@ -1,10 +1,12 @@
 import { useCallback, useEffect } from 'react'
 
 import { api } from '../../../api'
+import { useStableCallback } from '../../../hooks/useStableCallback'
 import { toast } from '../../ui/toast'
 
 import {
   handleComposerPasteText,
+  insertImageRefs,
   insertMentionIntoEditor,
   insertTextIntoEditor,
   saveClipboardAttachments,
@@ -48,6 +50,15 @@ export function useComposerActions(
     insertMentionIntoEditor(el, url, opts)
     state.syncEmpty()
   }
+
+  // Stable, so the drop handler registered once still numbers new images
+  // against the latest attachment list.
+  const addFiles = useStableCallback((paths: string[]) => {
+    const el = state.ref.current
+
+    state.setFilePaths((prev) => Array.from(new Set([...prev, ...paths])))
+    if (el && insertImageRefs(el, state.filePaths, paths)) state.syncEmpty()
+  })
 
   function insertText(text: string, opts?: { appendToEnd?: boolean }) {
     const el = state.ref.current
@@ -112,8 +123,7 @@ export function useComposerActions(
     try {
       const nextPaths = await api.selectLocalFile()
 
-      if (nextPaths.length === 0) return
-      state.setFilePaths((prev) => Array.from(new Set([...prev, ...nextPaths])))
+      addFiles(nextPaths)
     } catch {
       toast.error('Could not open file picker')
     }
@@ -211,7 +221,7 @@ export function useComposerActions(
   // the main process to stat them.
   function attachPaths(paths: string[]) {
     if (paths.length === 0) return
-    state.setFilePaths((prev) => Array.from(new Set([...prev, ...paths])))
+    addFiles(paths)
     void api
       .attachmentDirectoryPaths(paths)
       .then((dirs) => {
