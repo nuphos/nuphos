@@ -37,6 +37,7 @@ export class LocalRuntimeController {
   private superseded = false
   private readonly deps: LocalRuntimeControllerDeps
   private readonly providers: readonly LocalAgentProvider[]
+  private revision = 0
   private endpoint: string | undefined
   private switching: Promise<unknown> = Promise.resolve()
   constructor(
@@ -78,14 +79,17 @@ export class LocalRuntimeController {
   }
   /** Follows the (backend, account) pair; switches run in order, so one session is down before the next registers. */
   async setUser(userId: string | null): Promise<void> {
-    const switched = this.switching.then(() => this.switchTo(userId))
+    const revision = ++this.revision
+    const switched = this.switching.then(() => this.switchTo(userId, revision))
 
     this.switching = switched.catch(() => {})
     await Promise.all(await switched)
   }
-  private async switchTo(userId: string | null): Promise<Promise<unknown>[]> {
+  private async switchTo(userId: string | null, revision: number): Promise<Promise<unknown>[]> {
+    if (revision !== this.revision) return []
     if (userId === this.userId && this.deps.backendUrl === this.endpoint) return []
     await this.shutdown()
+    if (revision !== this.revision) return []
     this.userId = userId
     this.endpoint = this.deps.backendUrl
     const cached = userId ? this.deps.readCliCache(userId) : {}
@@ -94,11 +98,11 @@ export class LocalRuntimeController {
       this.agents[provider].cli = cached[provider] ?? null
     this.changed()
     await this.instances?.load(userId)
-    if (!userId) return []
+    if (!userId || revision !== this.revision) return []
     const launches = Promise.all(this.providers.map((provider) => this.launch(provider)))
 
     await this.deps.registerDevice().catch(() => {})
-    this.openTunnel()
+    if (revision === this.revision) this.openTunnel()
 
     return [launches]
   }
