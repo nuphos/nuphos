@@ -2,6 +2,7 @@ import { faFolder, faPaperclip } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 import { ChevronDown, ChevronRight, FileSearch, Loader2, Lock, Plus, Unlock } from 'lucide-react'
+import { useLayoutEffect, useRef } from 'react'
 
 import {
   Menu,
@@ -246,5 +247,46 @@ export function BypassControlMenu({
         </MenuItem>
       </MenuContent>
     </Menu>
+  )
+}
+
+/**
+ * The toolbar's left controls on one row. A control that does not fit wraps
+ * whole onto a second line the row never shows, and is made inert there so
+ * keyboard focus cannot land on it or scroll it into view.
+ */
+export function ComposerTools({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const row = ref.current
+
+    if (!row) return
+    // Controls on the first line differ in height by a few pixels; the hidden line starts a full row lower.
+    const update = () => {
+      const first = row.firstElementChild
+
+      if (!(first instanceof HTMLElement)) return
+      const nextLine = first.offsetTop + first.offsetHeight
+
+      for (const child of row.children)
+        if (child instanceof HTMLElement) child.inert = child.offsetTop >= nextLine
+    }
+    const observer = new ResizeObserver(update)
+
+    observer.observe(row)
+    for (const child of row.children) observer.observe(child)
+    update()
+
+    return () => observer.disconnect()
+  })
+
+  return (
+    <div
+      ref={ref}
+      className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-3 overflow-hidden py-3 @[320px]:gap-x-1"
+    >
+      {children}
+    </div>
   )
 }

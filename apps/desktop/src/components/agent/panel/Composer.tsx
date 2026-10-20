@@ -5,7 +5,7 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls } from './composerControls'
-import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
+import { BypassControlMenu, ComposerAttachmentMenu, ComposerTools } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeMayAcceptLater } from './queuedAutoSend'
@@ -246,7 +246,7 @@ export function Composer({
             />
           )}
           <div className="@container flex items-end gap-1 mt-1 min-w-0 @[320px]:gap-2">
-            <div className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-3 overflow-hidden py-3 @[320px]:gap-x-1">
+            <ComposerTools>
               <ComposerAttachmentMenu
                 open={state.attachmentMenuOpen}
                 onOpenChange={state.setAttachmentMenuOpen}
@@ -272,7 +272,7 @@ export function Composer({
                   onMenuOpenChange={setAgentMenuOpen}
                 />
               )}
-            </div>
+            </ComposerTools>
             {!hero && <ShellsPanel snapshot={runtimeState} />}
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} streaming={streaming} />
