@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import { handlePreviewToolUpdate } from './chat-preview-tool-update'
+import {
+  closeCallsCutOffBySteer,
+  handlePreviewToolUpdate,
+  openToolCalls,
+} from './chat-preview-tool-update'
+import { INTERRUPTED_TOOL_ERROR } from '@/lib/claude-code-preview/preview-transcript'
 
 import type { createPreviewToolLog } from './chat-preview-run'
 
@@ -89,5 +94,65 @@ describe('handlePreviewToolUpdate', () => {
       toolCallId: 'toolu_1',
       output: { ok: true },
     })
+  })
+})
+
+describe('closeCallsCutOffBySteer', () => {
+  function steppedLog(steps: { id: string; input: unknown; output?: unknown }[]): ToolLog {
+    const log = toolLog()
+    const failed = new Map<string, string>()
+
+    for (const step of steps) {
+      log.states.set(step.id, {
+        name: 'Terminal',
+        toolName: 'Terminal',
+        input: step.input,
+        hidden: false,
+      })
+    }
+    log.fail = (id, error) => {
+      failed.set(id, error)
+
+      return error
+    }
+    log.list = () =>
+      steps.map((step) => ({
+        toolCallId: step.id,
+        toolName: 'Terminal',
+        input: step.input,
+        ...(step.output === undefined ? {} : { output: step.output }),
+        ...(failed.has(step.id) ? { errorText: failed.get(step.id) } : {}),
+      }))
+
+    return log
+  }
+
+  test('closes a call the steer cut off before its input arrived', () => {
+    const frames: Record<string, unknown>[] = []
+    const log = steppedLog([{ id: 'cut', input: {} }])
+
+    closeCallsCutOffBySteer((frame) => frames.push(frame), log, openToolCalls(log))
+    expect(frames).toEqual([
+      { type: 'tool-output-error', toolCallId: 'cut', errorText: INTERRUPTED_TOOL_ERROR },
+    ])
+    expect(openToolCalls(log)).toEqual([])
+  })
+  test('leaves calls that have input or already finished', () => {
+    const frames: Record<string, unknown>[] = []
+    const log = steppedLog([
+      { id: 'background', input: { command: 'sleep 600' } },
+      { id: 'done', input: {}, output: 'ok' },
+    ])
+
+    closeCallsCutOffBySteer((frame) => frames.push(frame), log, ['background', 'done'])
+    expect(frames).toEqual([])
+    expect(openToolCalls(log)).toEqual(['background'])
+  })
+  test('ignores calls opened after the steer', () => {
+    const frames: Record<string, unknown>[] = []
+    const log = steppedLog([{ id: 'new', input: {} }])
+
+    closeCallsCutOffBySteer((frame) => frames.push(frame), log, [])
+    expect(frames).toEqual([])
   })
 })

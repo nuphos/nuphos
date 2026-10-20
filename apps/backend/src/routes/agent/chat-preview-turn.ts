@@ -42,7 +42,11 @@ import {
 } from './chat-preview-handoff'
 import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
-import { handlePreviewToolUpdate } from './chat-preview-tool-update'
+import {
+  closeCallsCutOffBySteer,
+  handlePreviewToolUpdate,
+  openToolCalls,
+} from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
 import type { PreviewChatTurnArgs, TurnEnd } from './chat-preview-run'
 import type { PreviewDecision } from '@/lib/claude-code-preview/decision-waiter'
@@ -79,6 +83,14 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   // Mid-turn assistant/user segments persisted before the final assistant.
   const steered: UIMessage[] = []
   const segmentStepStart = 0
+  // Calls open when the latest steer arrived; settled by the agent's next output.
+  let cutOffBySteer: string[] = []
+  const answerSteer = (toolCallId?: string) => {
+    if (cutOffBySteer.length === 0) return
+    if (toolCallId !== undefined && cutOffBySteer.includes(toolCallId)) return
+    closeCallsCutOffBySteer(state.emit, toolLog, cutOffBySteer)
+    cutOffBySteer = []
+  }
 
   appendAgentRunPhase(run, 'connecting-model')
   const [prepared, desktops] = await Promise.all([preparePreviewTurn(args, requestId), tracking])
@@ -154,6 +166,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       signal: state.signal,
       onTextDelta: (delta) => {
         diagnostic.progress()
+        answerSteer()
         acc.text += delta
         orderedParts.appendText(delta)
         state.emit({ type: 'text-delta', delta })
@@ -170,10 +183,12 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
           orderedParts.appendSteering(receipt)
           state.emit({ type: 'data-steering', data: receipt })
+          cutOffBySteer = openToolCalls(toolLog)
 
           return
         }
         diagnostic.progress()
+        answerSteer(update.kind === 'tool' ? update.toolCallId : undefined)
         if (update.kind === 'thought') {
           acc.reasoning += update.text
           orderedParts.appendReasoning(update.text)

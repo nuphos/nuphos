@@ -2,6 +2,7 @@ import type { createPreviewToolLog } from './chat-preview-run'
 import type { PreviewAgentUpdate } from '@/lib/claude-code-preview/preview-agent-update'
 
 import { isToolSearchTitle, nuphosToolName } from '@/lib/claude-code-preview/preview-agent-update'
+import { INTERRUPTED_TOOL_ERROR } from '@/lib/claude-code-preview/preview-transcript'
 
 export function handlePreviewToolUpdate(
   emit: (frame: Record<string, unknown>) => void,
@@ -39,4 +40,43 @@ export function handlePreviewToolUpdate(
     if (!hidden)
       emit({ type: 'tool-output-error', toolCallId: update.toolCallId, errorText: cause })
   }
+}
+
+/** Calls still waiting on a result: the ones a steer arriving now could cut off. */
+export function openToolCalls(log: ReturnType<typeof createPreviewToolLog>): string[] {
+  return log
+    .list()
+    .filter((step) => step.output === undefined && step.errorText === undefined)
+    .map((step) => step.toolCallId)
+}
+
+/**
+ * A steer aborts the running cycle. A call it cut off while the model was
+ * still writing its input never runs, so no result ever arrives and its timer
+ * would tick until the turn ends. Once the agent answers the steer, close the
+ * calls that were open at the steer and never got their input. A call with
+ * input may be a background command that is still running, so it stays open.
+ */
+export function closeCallsCutOffBySteer(
+  emit: (frame: Record<string, unknown>) => void,
+  log: ReturnType<typeof createPreviewToolLog>,
+  cutOff: readonly string[],
+): void {
+  const open = new Set(openToolCalls(log))
+
+  for (const toolCallId of cutOff) {
+    const state = log.states.get(toolCallId)
+
+    if (!open.has(toolCallId) || !isEmptyInput(state?.input)) continue
+    const errorText = log.fail(toolCallId, INTERRUPTED_TOOL_ERROR)
+
+    if (!state?.hidden) emit({ type: 'tool-output-error', toolCallId, errorText })
+  }
+}
+
+function isEmptyInput(input: unknown): boolean {
+  return (
+    input == null ||
+    (typeof input === 'object' && !Array.isArray(input) && Object.keys(input).length === 0)
+  )
 }

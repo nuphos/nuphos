@@ -8,6 +8,7 @@ import '@/routes/agent'
 
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import type { runClaudeCodePreviewPrompt } from '@/lib/claude-code-preview/agent-chat-runtime'
 import type { UIMessage } from 'ai'
 
 import {
@@ -29,6 +30,7 @@ const seen = {
   finish: [] as Record<string, unknown>[],
 }
 let onPrompt: (message: string) => Promise<void> = (_message) => Promise.resolve()
+let prompting: Parameters<typeof runClaudeCodePreviewPrompt>[0]
 
 useChatPreviewPrepare({
   preparePreviewTurn: () =>
@@ -49,6 +51,7 @@ useClaudeCodePreviewRuntime({
     seen.actors.push(args.userId)
     const emitDelta = args.onTextDelta
 
+    prompting = args
     emitDelta(`answer ${String(seen.prompts.length)}`)
     await onPrompt(args.message)
 
@@ -191,5 +194,37 @@ describe('runClaudeCodePreviewChatTurn steering', () => {
     const kept = await drainPendingUserMessages(USER, SESSION)
 
     expect(kept.map((entry) => entry.renderedText)).toEqual(['too late'])
+  })
+
+  test('a steer closes the call it cut off before the call got its input', async () => {
+    onPrompt = () => {
+      prompting.onAgentUpdate({
+        kind: 'tool',
+        toolCallId: 'cut',
+        title: 'Terminal',
+        status: 'pending',
+      })
+      prompting.onAgentUpdate({
+        kind: 'tool',
+        toolCallId: 'background',
+        title: 'Terminal',
+        status: 'in_progress',
+        rawInput: { command: 'sleep 600' },
+      })
+      prompting.onAgentUpdate({ kind: 'steering', id: 'steer-1', text: 'stop that' })
+      prompting.onTextDelta('ok')
+
+      return Promise.resolve()
+    }
+    const run = createAgentRun(USER, SESSION, 'stream-steer-cut')
+
+    await runClaudeCodePreviewChatTurn(turnArgs(run))
+
+    const tools = (seen.finish[0] as { toolSteps: { toolCallId: string; errorText?: string }[] })
+      .toolSteps
+    expect(tools.map((step) => [step.toolCallId, step.errorText])).toEqual([
+      ['cut', 'Interrupted before the tool finished.'],
+      ['background', undefined],
+    ])
   })
 })
