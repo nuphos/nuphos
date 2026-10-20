@@ -19,7 +19,7 @@ To retry, run the corresponding workflow manually with the existing release
 **tag** selected. A manual run on a branch will skip publication. Forks also
 skip publication. Do not move an existing release tag; publish a new version
 when the source changes. Maintainers must restrict creation and deletion of
-`v*`, `backend-v*` and `ios-v*` tags with repository rulesets.
+`v*`, `cli-v*`, `backend-v*` and `ios-v*` tags with repository rulesets.
 
 ## Desktop
 
@@ -35,7 +35,10 @@ Before the first release, a repository administrator must configure the
 `desktop-release` GitHub Environment:
 
 - Require maintainer approval, prevent self-review, and disable administrator
-  bypass. Allow deployments only from the protected `v*` release tags.
+  bypass. Allow deployments from the protected `v*` and `cli-v*` release tags.
+  CLI builds reuse this environment for Developer ID signing; add `cli-v*` to
+  both the environment tag policy and the repository tag ruleset before enabling
+  CLI signing, or the environment gate will block every CLI build job.
 - Store `MAC_CERTS` (base64 Developer ID certificate), `MAC_CERTS_PASSWORD`,
   `APPLE_API_KEY_BASE64` (base64 App Store Connect `.p8` key), `APPLE_API_KEY_ID`,
   `APPLE_API_ISSUER`, and `APPLE_TEAM_ID` as Environment secrets.
