@@ -1,13 +1,16 @@
 import { faGoogle } from '@fortawesome/free-brands-svg-icons'
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { NuphosLogo } from '../components/NuphosLogo'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { useErrorShake } from '../hooks/useErrorShake'
+import { useTextSwap } from '../hooks/useTextSwap'
 import { signInEmailError } from '../lib/emailDomain'
+import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
 import { LoginApiEndpoint } from './LoginApiEndpoint'
 
@@ -19,13 +22,43 @@ type Props = {
 
 const inputClasses =
   'w-full px-3 py-2 rounded-md bg-surface border border-zGray-800 text-main text-[14px] ' +
-  'outline-none focus:border-zViolet-accent placeholder:text-secondary titlebar-no-drag'
+  'outline-none focus:border-zViolet-accent placeholder:text-secondary titlebar-no-drag t-input'
 
 export function LoginView({ onLogin }: Props) {
   const [step, setStep] = useState<'start' | 'code'>('start')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'send' | 'verify' | null>(null)
+  const { ref: emailRef, shake: shakeEmail } = useErrorShake<HTMLInputElement>()
+  const {
+    ref: codeRef,
+    shake: shakeCode,
+    clear: clearCodeError,
+  } = useErrorShake<HTMLInputElement>()
+  const { ref: sendLabelRef, text: sendLabelText } = useTextSwap<HTMLSpanElement>(
+    busy === 'send' && step === 'start' ? 'Sending code…' : 'Continue with email',
+  )
+  const { ref: verifyLabelRef, text: verifyLabelText } = useTextSwap<HTMLSpanElement>(
+    busy === 'verify' ? 'Verifying…' : 'Verify code',
+  )
+  const { ref: resendLabelRef, text: resendLabelText } = useTextSwap<HTMLSpanElement>(
+    busy === 'send' && step === 'code' ? 'Sending…' : 'Resend code',
+  )
+  const shownStep = useRef(step)
+
+  // Both steps stay mounted for the slide, so focus the step's field once the
+  // slide has settled instead of relying on autoFocus at mount.
+  useEffect(() => {
+    if (shownStep.current === step) return
+    shownStep.current = step
+    const field = step === 'code' ? codeRef : emailRef
+    const t = window.setTimeout(
+      () => field.current?.focus(),
+      prefersReducedMotion() ? 0 : cssDurationMs('--page-slide-dur', 250),
+    )
+
+    return () => window.clearTimeout(t)
+  }, [step, codeRef, emailRef])
 
   // No in-flight guard: each click re-launches the auth flow so the user can
   // retry freely (e.g. after closing the browser window without finishing).
@@ -46,27 +79,29 @@ export function LoginView({ onLogin }: Props) {
     const emailError = signInEmailError(email.trim())
 
     if (emailError) {
+      shakeEmail()
       toast.error('Invalid email', emailError)
 
       return
     }
-    setBusy(true)
+    setBusy('send')
     try {
       await api.authEmailRequestCode(email.trim())
       setCode('')
+      clearCodeError()
       setStep('code')
     } catch (e) {
       toast.apiError('Failed to send code', e, {
         fallback: 'Check your internet connection and try again.',
       })
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
   async function handleVerifyCode() {
     if (code.length !== 6 || busy) return
-    setBusy(true)
+    setBusy('verify')
     try {
       const user = await api.authEmailVerifyCode(email.trim(), code)
 
@@ -75,7 +110,9 @@ export function LoginView({ onLogin }: Props) {
       toast.apiError('Sign-in failed', e, {
         fallback: 'Check your internet connection and try again.',
       })
-      setBusy(false)
+      setBusy(null)
+      shakeCode()
+      codeRef.current?.select()
     }
   }
 
@@ -92,8 +129,8 @@ export function LoginView({ onLogin }: Props) {
             The agent workspace for your team
           </p>
 
-          {step === 'start' ? (
-            <>
+          <div className="t-page-slide t-wizard-slide w-full" data-page={step === 'start' ? 1 : 2}>
+            <section className="t-page" data-page-id="1" inert={step !== 'start'}>
               <Button
                 onClick={() => void handleGoogleLogin()}
                 size="lg"
@@ -128,6 +165,7 @@ export function LoginView({ onLogin }: Props) {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   autoComplete="email"
+                  ref={emailRef}
                   className={inputClasses}
                 />
                 <p className="text-[12px] leading-relaxed text-tertiary">
@@ -137,66 +175,76 @@ export function LoginView({ onLogin }: Props) {
                   type="submit"
                   variant="secondary"
                   size="lg"
-                  disabled={!email.trim() || busy}
+                  disabled={!email.trim() || busy !== null}
                   className="w-full titlebar-no-drag"
                 >
-                  {busy ? 'Sending code…' : 'Continue with email'}
+                  <span ref={sendLabelRef} className="t-text-swap">
+                    {sendLabelText}
+                  </span>
                 </Button>
               </form>
               <LoginApiEndpoint inputClassName={inputClasses} />
-            </>
-          ) : (
-            <form
-              className="w-full flex flex-col gap-2.5"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void handleVerifyCode()
-              }}
-            >
-              <p className="text-[13.5px] text-secondary leading-relaxed">
-                Enter the 6-digit code sent to{' '}
-                <span className="text-main font-medium">{email.trim()}</span>
-              </p>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                autoFocus
-                className={`${inputClasses} text-center text-[18px] tracking-[8px] font-mono`}
-              />
-              <Button
-                type="submit"
-                size="lg"
-                disabled={code.length !== 6 || busy}
-                className="w-full titlebar-no-drag"
+            </section>
+            <section className="t-page" data-page-id="2" inert={step !== 'code'}>
+              <form
+                className="w-full flex flex-col gap-2.5"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void handleVerifyCode()
+                }}
               >
-                {busy ? 'Verifying…' : 'Verify code'}
-              </Button>
-              <div className="flex items-center justify-between mt-1">
+                <p className="text-[13.5px] text-secondary leading-relaxed">
+                  Enter the 6-digit code sent to{' '}
+                  <span className="text-main font-medium">{email.trim()}</span>
+                </p>
+                <input
+                  value={code}
+                  ref={codeRef}
+                  onChange={(e) => {
+                    clearCodeError()
+                    setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  }}
+                  placeholder="000000"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  className={`${inputClasses} text-center text-[18px] tracking-[8px] font-mono`}
+                />
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setStep('start')}
-                  className="titlebar-no-drag"
+                  type="submit"
+                  size="lg"
+                  disabled={code.length !== 6 || busy !== null}
+                  className="w-full titlebar-no-drag"
                 >
-                  Use a different email
+                  <span ref={verifyLabelRef} className="t-text-swap">
+                    {verifyLabelText}
+                  </span>
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void handleSendCode()}
-                  className="titlebar-no-drag"
-                >
-                  Resend code
-                </Button>
-              </div>
-            </form>
-          )}
+                <div className="flex items-center justify-between mt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStep('start')}
+                    className="titlebar-no-drag"
+                  >
+                    Use a different email
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy !== null}
+                    onClick={() => void handleSendCode()}
+                    className="titlebar-no-drag"
+                  >
+                    <span ref={resendLabelRef} className="t-text-swap">
+                      {resendLabelText}
+                    </span>
+                  </Button>
+                </div>
+              </form>
+            </section>
+          </div>
         </div>
       </div>
     </div>

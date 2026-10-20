@@ -3,14 +3,9 @@ import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import type { ReactNode } from 'react'
+import { cssDurationMs } from '../lib/motion'
 
-// Duration of the open/close transition (ms). Kept in one place so the JS
-// unmount timer and the CSS `duration-*` classes stay in lockstep. NOTE:
-// Tailwind's JIT can't read a JS constant, so the `duration-150` class strings
-// below are hardcoded — if you change ANIM_MS, update those to match (search
-// `duration-` in this file).
-const ANIM_MS = 150
+import type { ReactNode } from 'react'
 
 type Props = {
   open: boolean
@@ -76,7 +71,7 @@ export function Modal({
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
 
-  // Opening mounts immediately; closing keeps the portal alive for ANIM_MS so
+  // Opening mounts immediately; closing keeps the portal alive for --modal-close-dur so
   // the exit transition can play.
   if (open && !mounted) setMounted(true)
   if (!open && shown) setShown(false)
@@ -97,7 +92,8 @@ export function Modal({
         cancelAnimationFrame(raf2)
       }
     }
-    const t = setTimeout(() => setMounted(false), ANIM_MS)
+    // The panel's `.t-modal` close transition runs on --modal-close-dur.
+    const t = setTimeout(() => setMounted(false), cssDurationMs('--modal-close-dur', 150))
 
     return () => clearTimeout(t)
   }, [open])
@@ -136,8 +132,8 @@ export function Modal({
         aria-hidden
         onMouseDown={closeOnBackdrop ? onClose : undefined}
         className={clsx(
-          // duration-150 must match ANIM_MS (see note at top of file).
-          'titlebar-no-drag absolute inset-0 transition-opacity duration-150 ease-out',
+          'titlebar-no-drag absolute inset-0 transition-opacity ease-[var(--modal-ease)] motion-reduce:transition-none',
+          shown ? 'duration-[var(--modal-open-dur)]' : 'duration-[var(--modal-close-dur)]',
           isLight ? 'bg-black/30' : 'bg-black/50',
           shown ? 'opacity-100' : 'opacity-0',
         )}
@@ -148,9 +144,8 @@ export function Modal({
           'titlebar-no-drag relative isolate z-10 flex flex-col overflow-hidden border shadow-2xl',
           isPrompt ? 'rounded-[20px]' : 'rounded-xl',
           fillHeight ? 'h-[80vh]' : 'max-h-[80vh]',
-          // duration-150 must match ANIM_MS (see note at top of file).
-          'transition-[opacity,transform] duration-150 ease-out',
-          shown ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-1',
+          't-modal',
+          shown ? 'is-open' : !open && 'is-closing',
           isLight
             ? 'border-[rgb(208,206,212)] bg-white shadow-black/20'
             : 'border-zGray-800 bg-zGray-900 shadow-black/50',

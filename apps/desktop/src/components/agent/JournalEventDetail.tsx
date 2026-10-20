@@ -172,8 +172,10 @@ export function ReasoningText({ text, label = 'Reasoning' }: { text: string; lab
         <Brain className="h-2.5 w-2.5" strokeWidth={2} />
         {label}
       </Collapsible.Trigger>
-      <Collapsible.Panel className="mt-1 border-l-2 border-zGray-800 pl-2 text-main/70 italic">
-        <ClampedText text={text} limit={600} />
+      <Collapsible.Panel className="t-acc-collapsible">
+        <div className="mt-1 border-l-2 border-zGray-800 pl-2 text-main/70 italic">
+          <ClampedText text={text} limit={600} />
+        </div>
       </Collapsible.Panel>
     </Collapsible.Root>
   )
@@ -223,7 +225,9 @@ export function Disclosure({ summary, children }: { summary: string; children: R
         />
         {summary}
       </Collapsible.Trigger>
-      <Collapsible.Panel className="mt-1">{children}</Collapsible.Panel>
+      <Collapsible.Panel className="t-acc-collapsible">
+        <div className="mt-1">{children}</div>
+      </Collapsible.Panel>
     </Collapsible.Root>
   )
 }

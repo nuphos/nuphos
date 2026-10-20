@@ -7,12 +7,7 @@ import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
 import { sharedChatSection, withChatSections } from './chat-sections'
-import {
-  SidebarHeaderBar,
-  SidebarTeamSwitcher,
-  SidebarTeamSwitcherSkeleton,
-  SidebarUserEntry,
-} from './header'
+import { SidebarHeaderBar, SidebarTeamSwitcher, SidebarUserEntry } from './header'
 import { SidebarHelpMenu } from './help-menu'
 import { SidebarItemContextMenu } from './item-context-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
@@ -204,16 +199,13 @@ export function Sidebar({
           onForward={onForward}
         />
 
-        {!teamSegment && teamSkeleton && <SidebarTeamSwitcherSkeleton />}
-
-        {teamSegment && (
-          <SidebarTeamSwitcher
-            teamSegment={teamSegment}
-            onOpenSettings={onOpenSettings}
-            onOpenMyPreferences={onOpenMyPreferences}
-            onCreateTeam={onCreateTeam}
-          />
-        )}
+        <SidebarTeamSwitcher
+          teamSegment={teamSegment}
+          loading={teamSkeleton}
+          onOpenSettings={onOpenSettings}
+          onOpenMyPreferences={onOpenMyPreferences}
+          onCreateTeam={onCreateTeam}
+        />
 
         <SidebarSearchButton onSearch={onSearch} />
         <nav

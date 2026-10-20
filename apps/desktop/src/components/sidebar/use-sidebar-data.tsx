@@ -8,18 +8,14 @@ import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
 import { customResourceNavigationKey } from '../../lib/customResourceNavigation'
+import { cssDurationMs } from '../../lib/motion'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { toast } from '../ui/toast'
 
 import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
 import { ARCHIVE_IN_FLIGHT, visibleSidebarChats } from './local-archive-guard'
-import {
-  AGENT_SESSIONS_POLL_MS,
-  agentSessionsCacheKey,
-  crdCacheKey,
-  resizeDurationMs,
-} from './state'
+import { AGENT_SESSIONS_POLL_MS, agentSessionsCacheKey, crdCacheKey } from './state'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
 import type { Item, Section } from './types'
@@ -210,7 +206,9 @@ export function useSidebarChats({
       // again — a clear "archive failed" instead of a silent reappear.
       locallyArchivedRef.current.set(sessionId, ARCHIVE_IN_FLIGHT)
       setArchivingIds((prev) => new Set(prev).add(sessionId))
-      const collapseDone = new Promise((resolve) => setTimeout(resolve, resizeDurationMs()))
+      const collapseDone = new Promise((resolve) =>
+        setTimeout(resolve, cssDurationMs('--resize-dur', 300)),
+      )
       let ok = false
 
       try {

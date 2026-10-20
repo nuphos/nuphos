@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { composerTextState } from '../../../lib/composerTextState'
+import { cssDurationMs } from '../../../lib/motion'
 
 import { isImageAttachmentPath } from './attachments'
 import { readEditorText } from './composerSerialize'
@@ -174,9 +175,7 @@ export function useComposerState({
       return
     }
 
-    const dur =
-      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-swap-dur')) ||
-      150
+    const dur = cssDurationMs('--text-swap-dur', 150)
 
     el.classList.add('is-exit')
     placeholderSwapTimerRef.current = window.setTimeout(() => {

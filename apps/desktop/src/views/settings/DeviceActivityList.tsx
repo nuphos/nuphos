@@ -80,7 +80,7 @@ function ActivityRow({
               Full command
             </span>
           </Collapsible.Trigger>
-          <Collapsible.Panel>
+          <Collapsible.Panel className="t-acc-collapsible">
             <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface px-2.5 py-2 font-mono text-[12px] text-main">
               {entry.command}
             </pre>

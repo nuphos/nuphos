@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings } from 'lucide-react'
 
 import { Avatar } from '../Avatar'
+import { SkeletonReveal } from '../SkeletonReveal'
 import { Kbd } from '../ui/kbd'
 import {
   Menu,
@@ -117,29 +118,45 @@ export function SidebarHistoryButtons({
   )
 }
 
-/** Pulse placeholder shown while the team segment is still loading. */
-export function SidebarTeamSwitcherSkeleton() {
+/** Placeholder shown while the team segment is still loading; SkeletonReveal pulses it. */
+function SidebarTeamSwitcherSkeleton() {
   return (
     <div className="px-2.5 pb-1.5">
       <div className="h-9 flex items-center gap-2.5 px-2">
-        <div className="h-5 w-5 flex-shrink-0 rounded-md bg-zGray-800/80 animate-pulse" />
-        <div className="h-3.5 w-28 rounded bg-zGray-800/65 animate-pulse" />
+        <div className="h-5 w-5 flex-shrink-0 rounded-md bg-zGray-800/80" />
+        <div className="h-3.5 w-28 rounded bg-zGray-800/65" />
       </div>
     </div>
   )
 }
 
+type TeamSwitcherActions = {
+  onOpenSettings?: () => void
+  onOpenMyPreferences?: () => void
+  onCreateTeam?: () => void
+}
+
+/** The team switcher, revealed from its skeleton once the team segment loads. */
 export function SidebarTeamSwitcher({
+  teamSegment,
+  loading,
+  ...actions
+}: TeamSwitcherActions & { teamSegment?: BreadcrumbSegment; loading: boolean }) {
+  if (!teamSegment && !loading) return null
+
+  return (
+    <SkeletonReveal ready={Boolean(teamSegment)} skeleton={<SidebarTeamSwitcherSkeleton />}>
+      {teamSegment && <TeamSwitcherMenu teamSegment={teamSegment} {...actions} />}
+    </SkeletonReveal>
+  )
+}
+
+function TeamSwitcherMenu({
   teamSegment,
   onOpenSettings,
   onOpenMyPreferences,
   onCreateTeam,
-}: {
-  teamSegment: BreadcrumbSegment
-  onOpenSettings?: () => void
-  onOpenMyPreferences?: () => void
-  onCreateTeam?: () => void
-}) {
+}: TeamSwitcherActions & { teamSegment: BreadcrumbSegment }) {
   return (
     <div className="px-2.5 pb-1.5 titlebar-no-drag">
       <Menu

@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { cssDurationMs } from '../lib/motion'
+
 // A labeled, bordered screenshot for the right column of a WizardStep. Click to
 // enlarge it in an in-app lightbox (screenshots shrink a lot in the narrow
 // column, so the annotations stay legible on demand) — no browser round-trip.
@@ -29,10 +31,7 @@ export function WizardExampleImage({
   }
   function closeLightbox() {
     // Read the close duration from the CSS var so JS unmount + CSS stay in sync.
-    const closeMs =
-      parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur'),
-      ) || 150
+    const closeMs = cssDurationMs('--modal-close-dur', 150)
 
     setPhase('closing')
     window.setTimeout(() => setMounted(false), closeMs)

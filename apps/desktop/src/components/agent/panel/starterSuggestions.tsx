@@ -1,6 +1,8 @@
 import { Button as BaseButton } from '@base-ui/react/button'
 import { ChevronRight, Sparkles } from 'lucide-react'
 
+import { SkeletonReveal } from '../../SkeletonReveal'
+
 import type { AgentStarterSuggestion } from '../../../api'
 
 // "Suggested for your setup" — the LLM-generated starter cards shown on the
@@ -21,13 +23,16 @@ export function StarterSuggestionsBlock({
         <Sparkles className="w-3 h-3 text-zViolet-accent" strokeWidth={2} />
         <span>Suggested for your setup</span>
       </div>
-      {loading && suggestions.length === 0 ? (
-        <div className="space-y-1.5 px-1">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[52px] rounded-lg bg-zGray-800/40 animate-pulse" />
-          ))}
-        </div>
-      ) : (
+      <SkeletonReveal
+        ready={!loading || suggestions.length > 0}
+        skeleton={
+          <div aria-busy="true" className="space-y-1.5 px-1">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-[52px] rounded-lg bg-zGray-800/40" />
+            ))}
+          </div>
+        }
+      >
         <div className="space-y-0.5">
           {suggestions.map((s, i) => (
             <BaseButton
@@ -49,7 +54,7 @@ export function StarterSuggestionsBlock({
             </BaseButton>
           ))}
         </div>
-      )}
+      </SkeletonReveal>
     </div>
   )
 }

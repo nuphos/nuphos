@@ -25,9 +25,9 @@ export function QueryError({ message }: { message: string }) {
             />
             Details
           </Collapsible.Trigger>
-          <Collapsible.Panel className="mt-1">
+          <Collapsible.Panel className="t-acc-collapsible">
             <pre
-              className="max-h-40 overflow-auto whitespace-pre-wrap break-all border-l border-zGray-800 pl-2 font-mono text-[11px] leading-4 text-tertiary scrollbar-thin"
+              className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all border-l border-zGray-800 pl-2 font-mono text-[11px] leading-4 text-tertiary scrollbar-thin"
               data-ph-mask
             >
               {detail}

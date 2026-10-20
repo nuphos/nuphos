@@ -39,9 +39,7 @@ function ToastList() {
               // Top-align with the first line when there's a description, otherwise
               // center the single line so the title doesn't sit visually high.
               hasDescription ? 'items-start' : 'items-center',
-              'transition-all duration-200 ease-out',
-              'data-[starting-style]:translate-y-full data-[starting-style]:opacity-0',
-              'data-[ending-style]:translate-y-full data-[ending-style]:opacity-0',
+              't-toast is-open',
             )}
           >
             <FontAwesomeIcon

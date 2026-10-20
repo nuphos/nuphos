@@ -7,7 +7,10 @@ import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { useAutoHeight } from '../../hooks/useAutoHeight'
+import { useDialogPresence } from '../../hooks/useDialogPresence'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { useTextSwap } from '../../hooks/useTextSwap'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { nextAddAgentStep } from './addAgentFlow'
@@ -23,7 +26,7 @@ import { useBoxUsage } from './useBoxUsage'
 import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
 import type { BoxJoin } from './BoxParts'
 import type { RuntimeInstance } from '../../types/runtime'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 const TITLE: Record<AddAgentStep, string> = {
   choose: 'Add agent',
@@ -145,7 +148,17 @@ export function AddAgentDialog({
   const noPlan = useBoxUsage(teamId).usage?.limitVcpus === 0
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
   const [join, setJoin] = useState<BoxJoin | null>(null)
-  const go = (action: AddAgentAction) => setStep((current) => nextAddAgentStep(current, action))
+  // Slide direction of the step that just entered: deeper from the right, back
+  // from the left, the pairing ↔ password swap in place. null until the first
+  // move, so opening the dialog only plays the dialog's own transition.
+  const [dir, setDir] = useState<number | null>(null)
+  const go = (action: AddAgentAction) => {
+    setDir(action === 'back' ? -1 : action === 'self-hosted' || action === 'box' ? 1 : 0)
+    setStep((current) => nextAddAgentStep(current, action))
+  }
+  const presence = useDialogPresence(onClose)
+  const autoHeight = useAutoHeight<HTMLDivElement>()
+  const { ref: titleRef, text: title } = useTextSwap<HTMLSpanElement>(TITLE[step])
   const added = (runtimeId: string) => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     onAdded?.(runtimeId)
@@ -163,13 +176,15 @@ export function AddAgentDialog({
     )
 
   return (
-    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+    <Dialog.Root {...presence}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[480px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0">
+        <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm transition-opacity duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:opacity-0 motion-reduce:transition-none" />
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[480px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none">
           <div className="flex items-center justify-between border-b border-zGray-800 px-5 py-4">
             <Dialog.Title className="text-[14px] font-semibold text-main">
-              {TITLE[step]}
+              <span ref={titleRef} className="t-text-swap">
+                {title}
+              </span>
             </Dialog.Title>
             <Dialog.Close
               aria-label="Close"
@@ -178,82 +193,94 @@ export function AddAgentDialog({
               <X className="h-3.5 w-3.5" />
             </Dialog.Close>
           </div>
-          <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
-            {step === 'choose' && (
-              <div className="space-y-2">
-                {boxAvailable && (
-                  <Choice
-                    icon={<Box className="h-4 w-4" />}
-                    title="New Box"
-                    description={
-                      noPlan
-                        ? 'Needs a Box plan → Billing'
-                        : 'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.'
-                    }
-                    disabled={noPlan && !onOpenBilling}
-                    onClick={() => {
-                      if (!noPlan) return go('box')
-                      onClose()
-                      onOpenBilling?.()
-                    }}
-                  />
-                )}
-                {boxAvailable && (
-                  <Choice
-                    icon={<Laptop className="h-4 w-4" />}
-                    title="Connect your own machine"
-                    description="Make a computer or server you run into a Box, with a one-time join command."
-                    onClick={() =>
-                      void api
-                        .boxJoinToken()
-                        .then(setJoin, (error: unknown) =>
-                          toast.apiError('Could not make a join command', error),
-                        )
-                    }
-                  />
-                )}
-                <Choice
-                  icon={<Server className="h-4 w-4" />}
-                  title="Self-hosted Cloud Agent"
-                  description="Connect an agent you run on your own server, with a pairing code from its console."
-                  onClick={() => go('self-hosted')}
-                />
+          <div className="max-h-[70vh] overflow-y-auto">
+            <div className="t-resize overflow-hidden">
+              <div ref={autoHeight} className="px-5 py-4">
+                <div
+                  key={step}
+                  className="t-nav-stack__layer"
+                  data-anim={dir === null ? undefined : 'enter'}
+                  style={{ '--nav-dir': dir ?? 0 } as CSSProperties}
+                >
+                  {step === 'choose' && (
+                    <div className="space-y-2">
+                      {boxAvailable && (
+                        <Choice
+                          icon={<Box className="h-4 w-4" />}
+                          title="New Box"
+                          description={
+                            noPlan
+                              ? 'Needs a Box plan → Billing'
+                              : 'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.'
+                          }
+                          disabled={noPlan && !onOpenBilling}
+                          onClick={() => {
+                            if (!noPlan) return go('box')
+                            onClose()
+                            onOpenBilling?.()
+                          }}
+                        />
+                      )}
+                      {boxAvailable && (
+                        <Choice
+                          icon={<Laptop className="h-4 w-4" />}
+                          title="Connect your own machine"
+                          description="Make a computer or server you run into a Box, with a one-time join command."
+                          onClick={() =>
+                            void api
+                              .boxJoinToken()
+                              .then(setJoin, (error: unknown) =>
+                                toast.apiError('Could not make a join command', error),
+                              )
+                          }
+                        />
+                      )}
+                      <Choice
+                        icon={<Server className="h-4 w-4" />}
+                        title="Self-hosted Cloud Agent"
+                        description="Connect an agent you run on your own server, with a pairing code from its console."
+                        onClick={() => go('self-hosted')}
+                      />
+                    </div>
+                  )}
+                  {step === 'self-hosted' && (
+                    <ExternalRuntimeForm
+                      onCancel={() => go('back')}
+                      onUsePassword={() => go('use-password')}
+                      onPair={(input) => api.atlasPairExternalRuntime(teamId, input)}
+                      onConnected={(runtime) => added(runtime.id)}
+                    />
+                  )}
+                  {step === 'self-hosted-password' && (
+                    <ExternalRuntimePasswordForm
+                      onCancel={() => go('back')}
+                      onUsePairingCode={() => go('use-pairing')}
+                      onDetectProvider={async (url, password) =>
+                        (await api.atlasProbeExternalRuntimeProvider(teamId, url, password))
+                          .provider
+                      }
+                      onRegister={async (input) => {
+                        added((await api.atlasRegisterExternalRuntime(teamId, input)).id)
+                      }}
+                    />
+                  )}
+                  {step === 'box' && (
+                    <BoxAgentForm
+                      teamId={teamId}
+                      onBack={() => go('back')}
+                      onChosen={setSigningIn}
+                      onOpenBilling={
+                        onOpenBilling &&
+                        (() => {
+                          onClose()
+                          onOpenBilling()
+                        })
+                      }
+                    />
+                  )}
+                </div>
               </div>
-            )}
-            {step === 'self-hosted' && (
-              <ExternalRuntimeForm
-                onCancel={() => go('back')}
-                onUsePassword={() => go('use-password')}
-                onPair={(input) => api.atlasPairExternalRuntime(teamId, input)}
-                onConnected={(runtime) => added(runtime.id)}
-              />
-            )}
-            {step === 'self-hosted-password' && (
-              <ExternalRuntimePasswordForm
-                onCancel={() => go('back')}
-                onUsePairingCode={() => go('use-pairing')}
-                onDetectProvider={async (url, password) =>
-                  (await api.atlasProbeExternalRuntimeProvider(teamId, url, password)).provider
-                }
-                onRegister={async (input) => {
-                  added((await api.atlasRegisterExternalRuntime(teamId, input)).id)
-                }}
-              />
-            )}
-            {step === 'box' && (
-              <BoxAgentForm
-                teamId={teamId}
-                onBack={() => go('back')}
-                onChosen={setSigningIn}
-                onOpenBilling={
-                  onOpenBilling &&
-                  (() => {
-                    onClose()
-                    onOpenBilling()
-                  })
-                }
-              />
-            )}
+            </div>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

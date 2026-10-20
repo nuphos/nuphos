@@ -97,7 +97,7 @@ function ChecksRow({ checks, summary }: { checks: GithubPRCheck[]; summary: Stat
           strokeWidth={2}
         />
       </Collapsible.Trigger>
-      <Collapsible.Panel className="border-t border-zGray-800/70 bg-zGray-900/40">
+      <Collapsible.Panel className="t-acc-collapsible border-t border-zGray-800/70 bg-zGray-900/40">
         <div className="max-h-72 divide-y divide-zGray-800/50 overflow-y-auto scrollbar-thin">
           {sortChecks(checks).map((check) => (
             <CheckRow key={check.id} check={check} />

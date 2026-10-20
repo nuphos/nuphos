@@ -106,18 +106,6 @@ export function writeGroupFold(teamId: string, title: string, value: 'open' | 'c
 
 export const AGENT_SESSIONS_POLL_MS = 4_000
 
-// Archive rows collapse via `.t-collapse`, which reads --resize-dur; read the
-// same token so the removal timing stays in sync with the CSS.
-export function resizeDurationMs(): number {
-  if (typeof window === 'undefined') return 300
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--resize-dur').trim()
-  const parsed = parseFloat(raw)
-
-  if (!Number.isFinite(parsed)) return 300
-
-  return raw.endsWith('ms') ? parsed : parsed * 1000
-}
-
 export function agentSessionsCacheKey(teamId: string): string {
   return `sidebar-agent-sessions:${teamId}`
 }

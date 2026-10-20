@@ -4,6 +4,7 @@ import { MessageSquare, Search, UserRound, Users, X } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { useDialogPresence } from '../../hooks/useDialogPresence'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { useDebouncedValue } from '../agent/panel/historyPageHooks'
 import { InputGroup, InputGroupInput } from '../ui/input-group'
@@ -37,6 +38,7 @@ export function SessionSearchDialog({
   const debouncedQuery = useDebouncedValue(query, 200)
   const searchQuery = query.trim() ? debouncedQuery : ''
   const inputRef = useRef<HTMLInputElement>(null)
+  const presence = useDialogPresence(onClose)
   const members = useRef<Promise<TeamMember[]> | null>(null)
   const loadPeople = useCallback(() => {
     members.current ??= api.atlasListTeamMembers(teamId).catch((error: unknown) => {
@@ -57,18 +59,13 @@ export function SessionSearchDialog({
   }
 
   return (
-    <Dialog.Root
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
+    <Dialog.Root {...presence}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/50" />
+        <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/50 transition-opacity duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:opacity-0 motion-reduce:transition-none" />
         <Dialog.Viewport className="titlebar-no-drag fixed inset-0 z-[1001] flex items-start justify-center px-4 pt-[min(15vh,138px)] pb-6">
           <Dialog.Popup
             initialFocus={inputRef}
-            className="flex max-h-full w-full max-w-[640px] flex-col overflow-hidden rounded-xl border border-main bg-elevated text-main shadow-[0_18px_50px_#00000066] outline-none"
+            className="flex max-h-full w-full max-w-[640px] flex-col overflow-hidden rounded-xl border border-main bg-elevated text-main shadow-[0_18px_50px_#00000066] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
             onKeyDownCapture={(event) => {
               if (event.key === 'Escape' && mode === 'people' && !event.nativeEvent.isComposing) {
                 event.preventDefault()

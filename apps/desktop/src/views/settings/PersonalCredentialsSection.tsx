@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { parseAtlasError } from '../../api/errors'
 import { CloudLogo } from '../../components/CloudLogo'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
@@ -101,58 +102,66 @@ export function PersonalCredentialsSection() {
           </Button>
         </p>
       )}
-      {!credentials ? (
-        !loadFailed && (
-          <div aria-busy="true" className="space-y-3">
-            <div className="h-[72px] animate-pulse rounded-lg bg-zGray-800/40" />
-            <div className="h-[72px] animate-pulse rounded-lg bg-zGray-800/40" />
-          </div>
-        )
-      ) : (
-        <div className="space-y-3">
-          {PROVIDERS.map(({ provider, name, description }) => {
-            const credential = credentials.find((c) => c.provider === provider)
+      {(credentials || !loadFailed) && (
+        <SkeletonReveal
+          ready={Boolean(credentials)}
+          skeleton={
+            <div aria-busy="true" className="space-y-3">
+              <div className="h-[72px] rounded-lg bg-zGray-800/40" />
+              <div className="h-[72px] rounded-lg bg-zGray-800/40" />
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            {PROVIDERS.map(({ provider, name, description }) => {
+              const credential = credentials?.find((c) => c.provider === provider)
 
-            return (
-              <div
-                key={provider}
-                className="flex items-center gap-4 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5"
-              >
-                <CloudLogo provider={provider} size={22} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13.5px] font-medium text-main">{name}</div>
-                  <p className="mt-0.5 text-[12.5px] text-tertiary">{description}</p>
-                  {credential && (
-                    <p className="mt-1.5 text-[12.5px] text-secondary">
-                      Connected as <span className="font-medium text-main">{credential.login}</span>
-                      {credential.workspaceName && ` · ${credential.workspaceName}`}
-                    </p>
+              return (
+                <div
+                  key={provider}
+                  className="flex items-center gap-4 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5"
+                >
+                  <CloudLogo provider={provider} size={22} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-medium text-main">{name}</div>
+                    <p className="mt-0.5 text-[12.5px] text-tertiary">{description}</p>
+                    <div className="t-collapse" data-open={Boolean(credential)}>
+                      <div className="t-collapse-inner">
+                        {credential && (
+                          <p className="mt-1.5 text-[12.5px] text-secondary">
+                            Connected as{' '}
+                            <span className="font-medium text-main">{credential.login}</span>
+                            {credential.workspaceName && ` · ${credential.workspaceName}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {credential ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy === provider}
+                      onClick={() => setDisconnecting(provider)}
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={busy === provider}
+                      onClick={() => void connect(provider)}
+                    >
+                      Connect
+                    </Button>
                   )}
                 </div>
-                {credential ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={busy === provider}
-                    onClick={() => setDisconnecting(provider)}
-                  >
-                    Disconnect
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={busy === provider}
-                    onClick={() => void connect(provider)}
-                  >
-                    Connect
-                  </Button>
-                )}
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </SkeletonReveal>
       )}
       <p className="mt-4 text-[12px] text-tertiary">
         Used when you send a message, and for automated runs in sessions you own.

@@ -31,8 +31,10 @@ function ShellRow({ shell }: { shell: ShellEntry }) {
         </span>
         <LoadingText className="flex-shrink-0 text-[11px]">running</LoadingText>
       </Collapsible.Trigger>
-      <Collapsible.Panel className="ml-1.5 mt-1.5 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-3 font-mono text-[12px] leading-[1.55] text-secondary">
-        {output || 'No output yet.'}
+      <Collapsible.Panel className="t-acc-collapsible">
+        <div className="ml-1.5 mt-1.5 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-3 font-mono text-[12px] leading-[1.55] text-secondary">
+          {output || 'No output yet.'}
+        </div>
       </Collapsible.Panel>
     </Collapsible.Root>
   )

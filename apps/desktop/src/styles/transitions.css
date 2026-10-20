@@ -149,3 +149,92 @@
     transition: none !important;
   }
 }
+
+/* Accordion expand for a Base UI Collapsible.Panel. Base UI measures the
+   panel into --collapsible-panel-height and keeps it mounted until the
+   closing transition ends, so closed content still unmounts. */
+.t-acc-collapsible {
+  height: var(--collapsible-panel-height);
+  overflow: hidden;
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    height var(--acc-expand) var(--acc-ease),
+    opacity var(--acc-expand) var(--acc-ease),
+    filter var(--acc-expand) var(--acc-ease);
+}
+.t-acc-collapsible[data-starting-style],
+.t-acc-collapsible[data-ending-style] {
+  height: 0;
+  opacity: 0;
+  filter: blur(2px);
+}
+.t-acc-collapsible[data-ending-style] {
+  transition-duration: var(--acc-collapse);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-acc-collapsible {
+    transition: none !important;
+  }
+}
+
+/* Error state shake — the field's own classes own its default / focus
+   border; this only tweens the colour and replays the shake. No inline
+   message: errors are announced through the toast. */
+.t-input {
+  transition: border-color 150ms ease-out;
+  will-change: transform;
+}
+.t-input.is-error,
+.t-input.is-error:focus {
+  border-color: rgb(var(--color-error));
+  transition: border-color var(--revert-dur, 280ms) ease-out;
+}
+.t-input.is-shaking {
+  animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+}
+@keyframes t-input-shake {
+  0% {
+    transform: translateX(0);
+    animation-timing-function: var(--shake-ease);
+  }
+  28.57% {
+    transform: translateX(var(--shake-distance));
+    animation-timing-function: var(--shake-ease);
+  }
+  57.14% {
+    transform: translateX(calc(var(--shake-distance) * -1));
+    animation-timing-function: var(--shake-ease);
+  }
+  78.57% {
+    transform: translateX(var(--shake-overshoot));
+    animation-timing-function: var(--shake-ease);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-input {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* The app toasts (Base UI Toast.Root) carry `.t-toast.is-open`; Base UI's
+   starting / ending style attributes hold them in the closed state for the
+   enter and exit, with the exit on the close timing. */
+.t-toast[data-starting-style],
+.t-toast[data-ending-style] {
+  opacity: 0;
+  transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+  filter: blur(var(--toast-blur));
+}
+.t-toast[data-ending-style] {
+  transition:
+    opacity var(--toast-close) var(--toast-ease),
+    transform var(--toast-close) var(--toast-ease),
+    filter var(--toast-close) var(--toast-ease);
+}

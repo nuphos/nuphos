@@ -33,11 +33,14 @@ export function CopyMessageButton({ text, label }: { text: string; label: string
       title={copied ? 'Copied' : 'Copy'}
       aria-label={copied ? 'Copied' : label}
     >
-      {copied ? (
-        <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
-      ) : (
-        <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
-      )}
+      <span className="t-icon-swap" data-state={copied ? 'b' : 'a'}>
+        <span className="t-icon" data-icon="a">
+          <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
+        </span>
+        <span className="t-icon" data-icon="b">
+          <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
+        </span>
+      </span>
     </button>
   )
 }

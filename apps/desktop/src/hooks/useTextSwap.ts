@@ -1,6 +1,8 @@
 import { useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 
+import { cssDurationMs } from '../lib/motion'
+
 /** transitions.dev "Text states swap" for a `.t-text-swap` element: returns its ref and the text to render. */
 export function useTextSwap<T extends HTMLElement>(text: string) {
   const ref = useRef<T>(null)
@@ -20,9 +22,7 @@ export function useTextSwap<T extends HTMLElement>(text: string) {
     // leaving the ref behind means turning motion back on picks the swap up.
     if (shouldReduceMotion) return
 
-    const dur =
-      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-swap-dur')) ||
-      150
+    const dur = cssDurationMs('--text-swap-dur', 150)
 
     el.classList.add('is-exit')
     timeoutRef.current = window.setTimeout(() => {

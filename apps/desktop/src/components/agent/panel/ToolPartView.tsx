@@ -1,3 +1,4 @@
+import { Collapsible } from '@base-ui/react/collapsible'
 import clsx from 'clsx'
 import { ChevronRight, ShieldCheck, Terminal } from 'lucide-react'
 import { useState } from 'react'
@@ -93,44 +94,43 @@ export function ToolPartView({
         />
       </button>
       {/* Do not merely CSS-hide this subtree. CodeSection formats arbitrary
-          output eagerly, and historical log results can be several MB. */}
-      {open && (
-        <div className="grid grid-rows-[1fr] opacity-100 transition-[grid-template-rows,opacity] duration-200 ease-out">
-          <div className="overflow-hidden">
-            <div className="pt-2.5 space-y-1.5">
-              {part.authorization?.decision === 'allow' && part.authorization.triggeredBy && (
-                <div className="flex items-start gap-1.5 rounded-md border border-zGray-800/70 bg-zGray-950/40 px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
-                  <span className="flex h-4 flex-shrink-0 items-center">
-                    <ShieldCheck className="h-3 w-3" strokeWidth={2} />
-                  </span>
-                  <span>{describeAutoAuthorization(part.authorization.triggeredBy)}</span>
-                </div>
-              )}
-              {(part.approval?.approved !== undefined || part.authorization?.resolved) && (
-                <div className="flex items-start gap-1.5 rounded-md border border-zGray-800/70 bg-zGray-950/40 px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
-                  <span className="flex h-4 flex-shrink-0 items-center">
-                    <ShieldCheck className="h-3 w-3" strokeWidth={2} />
-                  </span>
-                  <span>
-                    {(part.approval?.approved ?? part.authorization?.resolved === 'approved')
-                      ? 'You approved this command.'
-                      : 'You declined this command.'}
-                  </span>
-                </div>
-              )}
-              {commandTool ? (
-                <CommandTerminalView part={part} />
-              ) : (
-                <>
-                  {part.input !== undefined && <CodeSection label="Input" value={part.input} />}
-                  {part.output !== undefined && <CodeSection label="Output" value={part.output} />}
-                  {part.errorText && <CodeSection label="Error" value={part.errorText} />}
-                </>
-              )}
-            </div>
+          output eagerly, and historical log results can be several MB; the
+          Collapsible panel unmounts once its closing transition ends. */}
+      <Collapsible.Root open={open}>
+        <Collapsible.Panel className="t-acc-collapsible">
+          <div className="pt-2.5 space-y-1.5">
+            {part.authorization?.decision === 'allow' && part.authorization.triggeredBy && (
+              <div className="flex items-start gap-1.5 rounded-md border border-zGray-800/70 bg-zGray-950/40 px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
+                <span className="flex h-4 flex-shrink-0 items-center">
+                  <ShieldCheck className="h-3 w-3" strokeWidth={2} />
+                </span>
+                <span>{describeAutoAuthorization(part.authorization.triggeredBy)}</span>
+              </div>
+            )}
+            {(part.approval?.approved !== undefined || part.authorization?.resolved) && (
+              <div className="flex items-start gap-1.5 rounded-md border border-zGray-800/70 bg-zGray-950/40 px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
+                <span className="flex h-4 flex-shrink-0 items-center">
+                  <ShieldCheck className="h-3 w-3" strokeWidth={2} />
+                </span>
+                <span>
+                  {(part.approval?.approved ?? part.authorization?.resolved === 'approved')
+                    ? 'You approved this command.'
+                    : 'You declined this command.'}
+                </span>
+              </div>
+            )}
+            {commandTool ? (
+              <CommandTerminalView part={part} />
+            ) : (
+              <>
+                {part.input !== undefined && <CodeSection label="Input" value={part.input} />}
+                {part.output !== undefined && <CodeSection label="Output" value={part.output} />}
+                {part.errorText && <CodeSection label="Error" value={part.errorText} />}
+              </>
+            )}
           </div>
-        </div>
-      )}
+        </Collapsible.Panel>
+      </Collapsible.Root>
       {part.state === 'approval-requested' && (
         <AuthorizationApprovalActions
           toolCallId={part.toolCallId}

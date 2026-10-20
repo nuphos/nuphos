@@ -41,8 +41,10 @@ export function ThinkingPartView({ text, live }: { text: string; live: boolean }
         <Brain className="h-3 w-3" strokeWidth={2} />
         Thinking
       </Collapsible.Trigger>
-      <Collapsible.Panel className="mt-1 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-2.5 text-[12px] italic leading-5 text-main/60">
-        {text}
+      <Collapsible.Panel className="t-acc-collapsible">
+        <div className="mt-1 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-2.5 text-[12px] italic leading-5 text-main/60">
+          {text}
+        </div>
       </Collapsible.Panel>
     </Collapsible.Root>
   )

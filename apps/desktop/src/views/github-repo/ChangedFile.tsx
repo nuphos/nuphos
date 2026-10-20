@@ -53,7 +53,7 @@ export function ChangedFile({ file }: { file: GithubPRFile }) {
           <span className="text-[11px] font-medium text-error">−{file.deletions}</span>
         </span>
       </Collapsible.Trigger>
-      <Collapsible.Panel className="border-t border-zGray-800/70">
+      <Collapsible.Panel className="t-acc-collapsible border-t border-zGray-800/70">
         {file.previousFilename && (
           <div className="border-b border-zGray-800/60 px-3 py-1.5 text-[11px] text-tertiary">
             renamed from <span className="break-all font-mono">{file.previousFilename}</span>
