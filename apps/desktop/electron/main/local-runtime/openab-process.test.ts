@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { stopStaleOpenab } from './openab-process.ts'
+import { OpenabProcess, stopStaleOpenab } from './openab-process.ts'
+
+import type { OpenabProcessOptions } from './openab-process.ts'
 
 // Stands in for openab (`node <root>/openab run -c <config>`): like openab it starts
 // its agent in a process group of its own and reaps that agent on SIGTERM.
@@ -108,6 +110,47 @@ test(
           // Already gone.
         }
       }
+      rmSync(root, { recursive: true, force: true })
+    }
+  },
+)
+
+test(
+  'openab starts, and the host keeps running, when its log cannot be written',
+  { skip: process.platform === 'win32', timeout: 30_000 },
+  async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'openab-log-'))
+    const openab = path.join(root, 'openab')
+    const runtime = new OpenabProcess()
+
+    try {
+      // Listens where the host asks, like openab's gateway.
+      writeFileSync(
+        openab,
+        `#!${process.execPath}\nconst [host, port] = process.env.GATEWAY_LISTEN.split(':')\nrequire('node:http').createServer((_, res) => res.end()).listen(Number(port), host)\n`,
+      )
+      chmodSync(openab, 0o755)
+      // A directory where the log file goes fails every write, as a full disk does.
+      mkdirSync(path.join(root, 'log', 'openab.log'), { recursive: true })
+      const options = {
+        provider: 'codex',
+        bundle: { root, openab },
+        adapter: { entry: path.join(root, 'adapter.js'), version: 'test' },
+        nodeExecPath: process.execPath,
+        cliPath: process.execPath,
+        agentHome: path.join(root, 'agent-home'),
+        workspace: path.join(root, 'workspace'),
+        openabHome: path.join(root, 'openab-home'),
+        env: { PATH: process.env.PATH },
+        logDir: path.join(root, 'log'),
+      } as unknown as OpenabProcessOptions
+
+      const running = await runtime.start(options)
+
+      assert.ok(running.port > 0)
+      assert.ok(runtime.running())
+    } finally {
+      await runtime.stop()
       rmSync(root, { recursive: true, force: true })
     }
   },

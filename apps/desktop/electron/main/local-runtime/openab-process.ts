@@ -138,6 +138,8 @@ export class OpenabProcess {
     writeFileSync(configPath, openabConfigToml(launch), { mode: 0o600 })
     const log = createWriteStream(path.join(options.logDir, 'openab.log'), { flags: 'a' })
 
+    // A full disk loses the log, not the host: an unhandled stream error would exit it.
+    log.on('error', () => undefined)
     log.write(`\n=== ${new Date().toISOString()} openab on 127.0.0.1:${String(port)} ===\n`)
     const child = spawn(options.bundle.openab, ['run', '-c', configPath], {
       env: openabEnv(launch),
