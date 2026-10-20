@@ -20,6 +20,7 @@ import { runtimeServiceName } from './runtime-service-name'
 import { parseSessionConfigOptions } from './session-config-options'
 
 import type { RuntimeInstance } from './runtime-instances'
+import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 
 export const runtimeModelsSchema = z
   .array(
@@ -88,23 +89,22 @@ async function probeManagedModels(
   return runtimeModelCatalogSchema.parse(JSON.parse(output))
 }
 
+/** The control endpoint the agent answers on, or none while it is offline. */
+async function controlEndpoint(teamId: string, instance: RuntimeInstance) {
+  return instance.kind === 'development'
+    ? developmentRuntimeEndpoint(instance.provider, 'control')
+    : (await resolveTeamRuntimeEndpoints(teamId, undefined, instance.provider, 'control')).find(
+        (candidate) => candidate.runtimeId === instance.id,
+      )
+}
+
 async function probeConnectedModels(
   teamId: string,
   instance: RuntimeInstance,
+  endpoint: TeamRuntimeEndpoint | undefined,
   model?: string,
 ): Promise<RuntimeModelCatalog> {
-  const endpoint =
-    instance.kind === 'development'
-      ? developmentRuntimeEndpoint(instance.provider, 'control')
-      : (await resolveTeamRuntimeEndpoints(teamId, undefined, instance.provider, 'control')).find(
-          (candidate) => candidate.runtimeId === instance.id,
-        )
-
   if (!endpoint) throw new Error('Runtime offline')
-  // A runtime that joined as a device reports its models with its presence, as a local one does.
-  const joined = endpoint.tunnelUrl && parseLocalRuntimeUrl(endpoint.tunnelUrl)
-
-  if (joined) return localRuntimeModels(localRuntimeId(joined), model)
   const client = await controlRegistry.acquire(teamId, endpoint)
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel'))
@@ -218,14 +218,20 @@ async function observedModels(
   }
 }
 
-async function discoverModels(
+export async function discoverModels(
   teamId: string,
   instance: RuntimeInstance,
   model?: string,
 ): Promise<RuntimeModelCatalog> {
   if (instance.kind === 'local') return localRuntimeModels(instance.id, model)
+  const endpoint = await controlEndpoint(teamId, instance)
+  // A runtime that joined as a device reports its models with its presence, as a local one
+  // does. That answer stands, empty or not: nothing is run on its pod to ask again.
+  const joined = endpoint?.tunnelUrl && parseLocalRuntimeUrl(endpoint.tunnelUrl)
+
+  if (joined) return localRuntimeModels(localRuntimeId(joined), model)
   try {
-    const catalog = await probeConnectedModels(teamId, instance, model)
+    const catalog = await probeConnectedModels(teamId, instance, endpoint, model)
 
     if (catalog.models.length) return catalog
   } catch {
